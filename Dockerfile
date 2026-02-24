@@ -34,6 +34,9 @@ COPY --chown=user . /app
 # Make scripts executable
 RUN chmod +x scripts/*.sh 2>/dev/null || true
 
+# Ensure vsix directory exists for publish workflow
+RUN mkdir -p vsix
+
 # Expose port 7860 (HF Spaces default)
 EXPOSE 7860
 

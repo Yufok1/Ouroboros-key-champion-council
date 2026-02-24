@@ -201,8 +201,9 @@ async def proxy_sse(request: Request):
 @app.post("/api/webhook/publish")
 async def webhook_publish(request: Request):
     """
-    Triggered by HuggingFace webhook on push.
-    Builds vsix and publishes to VS Code Marketplace.
+    Triggered by HuggingFace webhook on push, or manually.
+    Publishes a pre-built .vsix from the vsix/ directory to VS Code Marketplace.
+    The developer builds the vsix locally and places it in vsix/ before pushing.
     Requires VSCE_PAT secret in Space settings.
     """
     webhook_secret = os.environ.get("WEBHOOK_SECRET")
@@ -213,7 +214,16 @@ async def webhook_publish(request: Request):
 
     vsce_pat = os.environ.get("VSCE_PAT")
     if not vsce_pat:
-        return JSONResponse(status_code=500, content={"error": "VSCE_PAT not configured"})
+        return JSONResponse(status_code=500, content={"error": "VSCE_PAT not configured — add it as a Space Secret"})
+
+    # Check if there's a vsix to publish
+    vsix_dir = Path("vsix")
+    vsix_files = sorted(vsix_dir.glob("*.vsix"), key=lambda p: p.stat().st_mtime, reverse=True) if vsix_dir.exists() else []
+    if not vsix_files:
+        return JSONResponse(status_code=400, content={
+            "error": "No .vsix file found in vsix/ directory",
+            "hint": "Build the vsix locally and place it in the vsix/ folder before pushing."
+        })
 
     try:
         result = subprocess.run(
@@ -224,6 +234,7 @@ async def webhook_publish(request: Request):
         return {
             "status": "ok" if result.returncode == 0 else "error",
             "returncode": result.returncode,
+            "vsix": vsix_files[0].name,
             "stdout": result.stdout[-2000:],
             "stderr": result.stderr[-2000:],
         }
