@@ -104,6 +104,11 @@ capsule_log_lines = []
 _activity_log = []       # list of activity event dicts
 _activity_subscribers = []  # list of asyncio.Queue for SSE clients
 
+# Pending external tool calls — maps JSON-RPC id → {tool, args, start}
+# Populated by mcp_message_proxy, resolved by mcp_sse_proxy when the
+# capsule sends the result back on the SSE stream.
+_pending_external_calls: dict[str | int, dict] = {}
+
 # MCP client session (managed by lifespan)
 _mcp_session: ClientSession | None = None
 _mcp_lock = asyncio.Lock()
@@ -462,11 +467,17 @@ async def mcp_sse_proxy(request: Request):
             async with httpx.AsyncClient() as client:
                 async with client.stream("GET", f"{MCP_BASE}/sse", timeout=None) as resp:
                     buffer = ""
+                    _current_event_type = ""
                     async for chunk in resp.aiter_text():
                         buffer += chunk
                         # Process complete lines
                         while "\n" in buffer:
                             line, buffer = buffer.split("\n", 1)
+
+                            # Track SSE event type for parsing
+                            if line.startswith("event:"):
+                                _current_event_type = line.split(":", 1)[1].strip()
+
                             if not endpoint_rewritten and line.startswith("data:") and "/messages" in line:
                                 raw = line.split("data:", 1)[1].strip()
                                 if raw.startswith("http://") or raw.startswith("https://"):
@@ -484,15 +495,39 @@ async def mcp_sse_proxy(request: Request):
                                 endpoint_rewritten = True
                                 yield rewritten + "\n"
                             else:
-                                # Log non-empty lines to debug SSE event flow
-                                if line.strip():
-                                    print(f"[MCP-PROXY] SSE>> {line[:120]}")
+                                # ── Intercept JSON-RPC responses to capture tool results ──
+                                if line.startswith("data:") and _current_event_type == "message":
+                                    try:
+                                        payload = json.loads(line.split("data:", 1)[1].strip())
+                                        rpc_id = payload.get("id")
+                                        if rpc_id is not None and rpc_id in _pending_external_calls:
+                                            pending = _pending_external_calls.pop(rpc_id)
+                                            duration_ms = int((time.time() - pending["start"]) * 1000)
+                                            rpc_result = payload.get("result")
+                                            rpc_error = payload.get("error")
+                                            error_str = None
+                                            if rpc_error:
+                                                error_str = rpc_error.get("message", str(rpc_error)) if isinstance(rpc_error, dict) else str(rpc_error)
+                                            _broadcast_activity(
+                                                pending["tool"], pending["args"],
+                                                rpc_result, duration_ms, error_str,
+                                                source="external"
+                                            )
+                                    except (json.JSONDecodeError, AttributeError):
+                                        pass
+
                                 yield line + "\n"
         except httpx.RemoteProtocolError:
             pass
         except Exception as e:
             print(f"[MCP-PROXY] SSE stream error: {e}")
             yield f"event: error\ndata: {e}\n\n"
+        finally:
+            # Clean up any pending calls for this SSE session (stale after disconnect)
+            stale_ids = [k for k, v in _pending_external_calls.items()
+                         if time.time() - v["start"] > 300]
+            for k in stale_ids:
+                _pending_external_calls.pop(k, None)
 
     return StreamingResponse(
         _stream(),
@@ -543,18 +578,35 @@ async def mcp_message_proxy(request: Request):
             print(f"[MCP-PROXY] Capsule responded {resp.status_code}")
 
             # Track tool calls in activity feed
-            # External MCP uses SSE protocol (202 response, result on stream)
-            # so we can't capture the result here — but args + timing are valuable
             if rpc_tool:
-                # Try to get result from JSON response if available
-                resp_result = None
-                if resp.status_code == 200:
+                if resp.status_code in (202, 204):
+                    # SSE protocol: result comes on the SSE stream, not here.
+                    # Store as pending — mcp_sse_proxy will resolve it with real data.
+                    rpc_id = None
+                    try:
+                        rpc_id = json.loads(body).get("id")
+                    except Exception:
+                        pass
+                    if rpc_id is not None:
+                        _pending_external_calls[rpc_id] = {
+                            "tool": rpc_tool,
+                            "args": rpc_args,
+                            "start": start,
+                        }
+                    else:
+                        # No id to match — broadcast now with null result
+                        _broadcast_activity(rpc_tool, rpc_args, None, duration_ms, None, source="external")
+                elif resp.status_code == 200:
+                    # Got inline JSON response — broadcast with result
+                    resp_result = None
                     try:
                         resp_json = resp.json()
                         resp_result = resp_json.get("result")
                     except Exception:
                         pass
-                _broadcast_activity(rpc_tool, rpc_args, resp_result, duration_ms, None, source="external")
+                    _broadcast_activity(rpc_tool, rpc_args, resp_result, duration_ms, None, source="external")
+                else:
+                    _broadcast_activity(rpc_tool, rpc_args, None, duration_ms, f"HTTP {resp.status_code}", source="external")
 
             # Forward the response as-is
             if resp.status_code in (202, 204):
