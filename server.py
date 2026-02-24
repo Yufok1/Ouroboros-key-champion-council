@@ -335,11 +335,14 @@ async def mcp_sse_proxy(request: Request):
     http://127.0.0.1:8765/message?session_id=xxx — we rewrite it
     to point at our public /mcp/message route instead.
     """
+    import re
+
     # Build the public base URL from the incoming request
     # Prefer X-Forwarded headers (set by HF Space reverse proxy)
     proto = request.headers.get("x-forwarded-proto", request.url.scheme)
     host = request.headers.get("x-forwarded-host") or request.headers.get("host", request.url.netloc)
     public_base = f"{proto}://{host}"
+    print(f"[MCP-PROXY] SSE connect — public_base={public_base}")
 
     async def _stream():
         try:
@@ -350,16 +353,20 @@ async def mcp_sse_proxy(request: Request):
                             # Rewrite internal URL to full public proxy URL
                             # e.g. "data: http://127.0.0.1:8765/message?session_id=abc"
                             # becomes "data: https://tostido-champion-council.hf.space/mcp/message?session_id=abc"
-                            import re
                             rewritten = re.sub(
                                 r'data:\s*http://[^/]+(/message\S*)',
                                 f'data: {public_base}/mcp\\1',
                                 line,
                             )
+                            print(f"[MCP-PROXY] Rewrote endpoint: {line.strip()} -> {rewritten.strip()}")
                             yield rewritten + "\n"
                         else:
                             yield line + "\n"
+        except httpx.RemoteProtocolError:
+            # Client disconnected — normal for SSE
+            pass
         except Exception as e:
+            print(f"[MCP-PROXY] SSE stream error: {e}")
             yield f"event: error\ndata: {e}\n\n"
 
     return StreamingResponse(
@@ -379,6 +386,7 @@ async def mcp_message_proxy(request: Request):
     session_id = request.query_params.get("session_id", "")
     body = await request.body()
     content_type = request.headers.get("content-type", "application/json")
+    print(f"[MCP-PROXY] POST /mcp/message session_id={session_id} len={len(body)}")
 
     try:
         async with httpx.AsyncClient() as client:
@@ -389,18 +397,25 @@ async def mcp_message_proxy(request: Request):
                 headers={"Content-Type": content_type},
                 timeout=120,
             )
+            print(f"[MCP-PROXY] Capsule responded {resp.status_code}")
             # Forward the response as-is
-            return JSONResponse(
-                content=resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {"raw": resp.text},
-                status_code=resp.status_code,
-            )
+            if resp.headers.get("content-type", "").startswith("application/json"):
+                return JSONResponse(content=resp.json(), status_code=resp.status_code)
+            else:
+                # Some MCP responses are empty (202 Accepted)
+                return JSONResponse(
+                    content={"raw": resp.text} if resp.text else {},
+                    status_code=resp.status_code,
+                )
     except httpx.ReadTimeout:
         return JSONResponse(status_code=504, content={"error": "Capsule timeout"})
     except Exception as e:
+        print(f"[MCP-PROXY] POST error: {e}")
         return JSONResponse(status_code=502, content={"error": str(e)})
 
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/media", StaticFiles(directory="."), name="media")
 
 
 if __name__ == "__main__":

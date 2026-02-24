@@ -14,13 +14,21 @@
         }
         .hero {
             text-align: center;
-            padding: 80px 20px 40px;
+            padding: 60px 20px 40px;
             background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+        }
+        .logo {
+            width: 120px;
+            height: 120px;
+            border-radius: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 32px rgba(99,102,241,0.3);
         }
         .hero h1 {
             font-size: 3rem;
             background: linear-gradient(90deg, #a855f7, #6366f1, #3b82f6);
             -webkit-background-clip: text;
+            background-clip: text;
             -webkit-text-fill-color: transparent;
             margin-bottom: 16px;
         }
@@ -29,8 +37,8 @@
             color: #94a3b8;
             max-width: 600px;
             margin: 0 auto 32px;
+            line-height: 1.6;
         }
-        .hero .emoji { font-size: 4rem; margin-bottom: 20px; display: block; }
         .cta-row {
             display: flex;
             gap: 16px;
@@ -57,6 +65,49 @@
             border: 1px solid rgba(255,255,255,0.15);
         }
         .btn-secondary:hover { background: rgba(255,255,255,0.12); }
+
+        .media-section {
+            max-width: 1200px;
+            margin: 60px auto 0;
+            padding: 0 20px;
+            text-align: center;
+        }
+        .media-section h2 {
+            font-size: 1.8rem;
+            color: #c4b5fd;
+            margin-bottom: 32px;
+        }
+        .media-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 32px;
+        }
+        .media-card {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            padding: 24px;
+            text-align: left;
+        }
+        .media-card h3 {
+            color: #a78bfa;
+            margin-bottom: 16px;
+            font-size: 1.1rem;
+        }
+        .media-card video {
+            width: 100%;
+            border-radius: 8px;
+            background: #000;
+        }
+        .media-card audio {
+            width: 100%;
+            margin-bottom: 12px;
+        }
+        .media-desc {
+            color: #94a3b8;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
         .features {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -77,6 +128,31 @@
             font-size: 1.1rem;
         }
         .feature-card p { color: #94a3b8; line-height: 1.6; }
+        .mcp-connect {
+            max-width: 700px;
+            margin: 0 auto 40px;
+            padding: 32px 20px;
+            text-align: center;
+        }
+        .mcp-connect h2 {
+            font-size: 1.4rem;
+            color: #c4b5fd;
+            margin-bottom: 12px;
+        }
+        .mcp-connect p {
+            color: #94a3b8;
+            margin-bottom: 16px;
+        }
+        .mcp-connect pre {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            padding: 16px 20px;
+            text-align: left;
+            overflow-x: auto;
+            font-size: 0.9rem;
+            color: #a5b4fc;
+        }
         .status-bar {
             text-align: center;
             padding: 20px;
@@ -102,11 +178,16 @@
             border-top: 1px solid rgba(255,255,255,0.06);
         }
         footer a { color: #818cf8; text-decoration: none; }
-    </style>
+        @media (max-width: 500px) {
+            .hero h1 { font-size: 2rem; }
+            .logo { width: 80px; height: 80px; }
+            .media-grid { grid-template-columns: 1fr; }
+        }
+</style>
 </head>
 <body>
     <div class="hero">
-        <span class="emoji">🐍</span>
+        <img src="/static/logo.png" alt="Champion Council logo" class="logo" />
         <h1>Champion Council</h1>
         <p class="subtitle">
             Local-first AI model orchestrator. Multi-model council with 140+ MCP tools,
@@ -120,6 +201,27 @@
                class="btn btn-secondary" target="_blank">GitHub</a>
         </div>
     </div>
+
+    <section class="media-section">
+        <h2>See It In Action</h2>
+        <div class="media-grid">
+            <div class="media-card">
+                <h3>🎬 Demo Video</h3>
+                <video controls preload="metadata" poster="/static/logo.png">
+                    <source src="/media/Champion_Council.mp4" type="video/mp4" />
+                    Your browser does not support the video element.
+                </video>
+            </div>
+            <div class="media-card">
+                <h3>🎙️ Deep Dive — Orchestrating Local AI</h3>
+                <audio controls preload="metadata">
+                    <source src="/media/Orchestrating_Local_AI_With_Champion_Council.m4a" type="audio/mp4" />
+                    Your browser does not support the audio element.
+                </audio>
+                <p class="media-desc">A walkthrough of the architecture, council mechanics, and how Champion Council orchestrates local models.</p>
+            </div>
+        </div>
+    </section>
 
     <div class="features">
         <div class="feature-card">
@@ -148,6 +250,18 @@
                Persistent across sessions.</p>
         </div>
     </div>
+
+    <section class="mcp-connect">
+        <h2>Connect via MCP</h2>
+        <p>Add this to your MCP client config to connect directly to this Space:</p>
+        <pre><code>{
+  "mcpServers": {
+    "champion-council": {
+      "url": "https://tostido-champion-council.hf.space/mcp/sse"
+    }
+  }
+}</code></pre>
+    </section>
 
     <div class="status-bar" id="status">
         <span class="dot"></span> Checking capsule status...
