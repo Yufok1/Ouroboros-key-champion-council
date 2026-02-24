@@ -162,18 +162,37 @@
             await handleBagGitCommand(msg);
         }
 
-        // ── Dreamer config ───────────────────────────────────
+        // ── Dreamer config (persisted in FelixBag) ─────────
         else if (command === 'loadDreamerConfigFile') {
-            const cfg = loadLocal('dreamerConfig', null);
-            fireEvent({ type: 'dreamerConfig', data: cfg });
+            try {
+                const result = await mcpToolCall('bag_get', { key: 'dreamer_config' });
+                let cfg = null;
+                if (result && result.value) {
+                    try { cfg = typeof result.value === 'string' ? JSON.parse(result.value) : result.value; }
+                    catch { cfg = result.value; }
+                }
+                fireEvent({ type: 'dreamerConfigLoaded', config: cfg });
+            } catch {
+                fireEvent({ type: 'dreamerConfigLoaded', config: null });
+            }
         }
         else if (command === 'saveDreamerConfig') {
-            saveLocal('dreamerConfig', msg.config || msg.data);
-            fireEvent({ type: 'dreamerConfigSaved', success: true });
+            try {
+                const cfg = msg.config || msg.data;
+                await mcpToolCall('bag_put', {
+                    key: 'dreamer_config',
+                    value: typeof cfg === 'string' ? cfg : JSON.stringify(cfg)
+                });
+                fireEvent({ type: 'dreamerConfigSaved', success: true });
+            } catch (err) {
+                fireEvent({ type: 'dreamerConfigSaved', success: false, error: err.message });
+            }
         }
         else if (command === 'resetDreamerConfig') {
-            localStorage.removeItem('cc_dreamerConfig');
-            fireEvent({ type: 'dreamerConfig', data: null });
+            try {
+                await mcpToolCall('bag_forget', { key: 'dreamer_config' });
+            } catch {}
+            fireEvent({ type: 'dreamerConfigLoaded', config: null });
         }
 
         // ── UX Settings ──────────────────────────────────────
