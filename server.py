@@ -80,12 +80,13 @@ def stop_capsule():
 
 
 async def _wait_for_capsule_sse(timeout=90):
-    """Wait for capsule SSE endpoint to be reachable."""
+    """Wait for capsule SSE endpoint to be reachable (HEAD to avoid orphaned SSE streams)."""
     for i in range(timeout):
         try:
             async with httpx.AsyncClient() as c:
-                r = await c.get(f"{MCP_BASE}/sse", timeout=2)
-                if r.status_code == 200:
+                r = await c.head(f"{MCP_BASE}/sse", timeout=2)
+                if r.status_code in (200, 405):
+                    # 200 = HEAD supported, 405 = method not allowed but server is up
                     print(f"[OK] Capsule SSE responding after {i+1}s")
                     return True
         except Exception:

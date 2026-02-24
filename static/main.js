@@ -821,23 +821,45 @@
 
     // ── MCP CONFIG BLOCK ──
     var _serverPort = 8765;
-    var _serverEntry = {
-        disabled: false,
-        disabledTools: [],
-        url: 'http://127.0.0.1:8765/sse'
-    };
+    var _isRemoteSpace = (window.location.hostname !== 'localhost' &&
+                          window.location.hostname !== '127.0.0.1' &&
+                          window.location.hostname !== '0.0.0.0');
+    var _spaceOrigin = window.location.origin; // e.g. https://tostido-champion-council.hf.space
+    var _autoApprove = [
+        "get_onboarding","get_cached","get_status","bag_catalog","get_capabilities",
+        "bag_search","plug_model","list_slots","workflow_test","bag_get","workflow_list",
+        "list_models","embed_text","bag_put","hub_search","hub_search_datasets","compare",
+        "invoke_slot","rerank","deliberate","batch_embed","workflow_create","workflow_execute",
+        "cascade_graph","cascade_chain","cascade_record","cascade_system","cascade_data",
+        "cascade_instrument","cascade_proxy"
+    ];
+    function _buildEntry(url) {
+        return { disabled: false, disabledTools: [], url: url, autoApprove: _autoApprove };
+    }
     function updateMcpConfigBlock(port) {
         _serverPort = port || _serverPort;
-        _serverEntry.url = 'http://127.0.0.1:' + _serverPort + '/sse';
-        // Full config (for new files)
         var fullEl = document.getElementById('mcp-config-block');
-        if (fullEl) {
-            fullEl.textContent = JSON.stringify({ mcpServers: { 'champion-ouroboros': _serverEntry } }, null, 2);
-        }
-        // Entry snippet (for existing files)
         var entryEl = document.getElementById('mcp-entry-block');
-        if (entryEl) {
-            entryEl.textContent = '"champion-ouroboros": ' + JSON.stringify(_serverEntry, null, 2);
+        if (_isRemoteSpace) {
+            // Running on HF Space — show the Space's SSE proxy URL
+            var spaceUrl = _spaceOrigin + '/mcp/sse';
+            var spaceEntry = _buildEntry(spaceUrl);
+            if (fullEl) {
+                fullEl.textContent = JSON.stringify({ mcpServers: { 'champion-ouroboros-space': spaceEntry } }, null, 2);
+            }
+            if (entryEl) {
+                entryEl.textContent = '"champion-ouroboros-space": ' + JSON.stringify(spaceEntry, null, 2);
+            }
+        } else {
+            // Running locally — show localhost URL
+            var localUrl = 'http://127.0.0.1:' + _serverPort + '/sse';
+            var localEntry = _buildEntry(localUrl);
+            if (fullEl) {
+                fullEl.textContent = JSON.stringify({ mcpServers: { 'champion-ouroboros': localEntry } }, null, 2);
+            }
+            if (entryEl) {
+                entryEl.textContent = '"champion-ouroboros": ' + JSON.stringify(localEntry, null, 2);
+            }
         }
     }
     function _copyEl(elId, toastId) {
