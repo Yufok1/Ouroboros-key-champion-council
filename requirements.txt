@@ -9,3 +9,4 @@ transformers
 sentence-transformers
 huggingface_hub
 mcp[cli]
+textual
