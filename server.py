@@ -1,12 +1,11 @@
 """
 Champion Council — HuggingFace Space Server
-Runs the capsule MCP backend + web control panel + publish webhook.
+Runs the capsule MCP backend + web control panel.
 
 Architecture:
   1. Capsule (champion_gen8.py) runs as MCP/SSE server on port 8765
   2. FastAPI serves the web control panel on port 7860
   3. FastAPI proxies tool calls from the browser to the capsule MCP server
-  4. Webhook endpoint triggers vsix build + marketplace publish
 """
 import os
 import sys
@@ -42,6 +41,16 @@ app.add_middleware(
 
 capsule_process = None
 capsule_log_lines = []
+# MCP SSE session endpoint — discovered at startup
+_mcp_message_url = None
+_mcp_jsonrpc_id = 0
+_mcp_id_lock = threading.Lock()
+
+def _next_id():
+    global _mcp_jsonrpc_id
+    with _mcp_id_lock:
+        _mcp_jsonrpc_id += 1
+        return _mcp_jsonrpc_id
 
 
 # --- Capsule Process Management ---
@@ -67,7 +76,6 @@ def start_capsule():
         for line in iter(capsule_process.stdout.readline, b''):
             decoded = line.decode('utf-8', errors='replace').rstrip()
             capsule_log_lines.append(decoded)
-            # Keep last 200 lines
             if len(capsule_log_lines) > 200:
                 capsule_log_lines.pop(0)
             print(f"[CAPSULE] {decoded}")
@@ -87,6 +95,33 @@ def stop_capsule():
         capsule_process = None
 
 
+async def _discover_mcp_session():
+    """Connect to capsule SSE, read the endpoint event to get the message URL."""
+    global _mcp_message_url
+    for attempt in range(60):
+        try:
+            async with httpx.AsyncClient() as client:
+                async with client.stream("GET", f"{MCP_BASE}/sse", timeout=5) as r:
+                    async for line in r.aiter_lines():
+                        line = line.strip()
+                        if line.startswith("data: "):
+                            data = line[6:]
+                            # The endpoint event sends the message URL
+                            if "/messages" in data or "message" in data.lower():
+                                # Could be relative or absolute
+                                if data.startswith("/"):
+                                    _mcp_message_url = f"{MCP_BASE}{data}"
+                                elif data.startswith("http"):
+                                    _mcp_message_url = data
+                                else:
+                                    _mcp_message_url = f"{MCP_BASE}/{data}"
+                                print(f"[OK] MCP session endpoint: {_mcp_message_url}")
+                                return True
+        except Exception:
+            await asyncio.sleep(1)
+    return False
+
+
 # --- Startup / Shutdown ---
 
 @app.on_event("startup")
@@ -104,18 +139,27 @@ async def on_startup():
     # Start capsule
     if CAPSULE_PATH.exists():
         start_capsule()
-        # Wait for MCP server to be ready
-        for i in range(30):
+        # Wait for capsule uvicorn to be listening, then discover session
+        print("[INIT] Waiting for capsule MCP server...")
+        for i in range(45):
             try:
                 async with httpx.AsyncClient() as client:
                     r = await client.get(f"{MCP_BASE}/sse", timeout=2)
-                    if r.status_code in (200, 307):
-                        print(f"[OK] MCP server ready after {i+1}s")
+                    if r.status_code == 200:
+                        print(f"[OK] Capsule SSE responding after {i+1}s")
                         break
             except Exception:
                 await asyncio.sleep(1)
         else:
-            print("[WARN] MCP server did not respond within 30s")
+            print("[WARN] Capsule SSE not responding after 45s")
+            return
+
+        # Discover the MCP message endpoint
+        found = await _discover_mcp_session()
+        if found:
+            print(f"[OK] MCP proxy ready")
+        else:
+            print("[WARN] Could not discover MCP session endpoint")
 
 
 @app.on_event("shutdown")
@@ -124,7 +168,82 @@ async def on_shutdown():
 
 
 # --- MCP Tool Proxy ---
-# The browser calls our API, we forward to the capsule's MCP server
+
+async def _mcp_call(method: str, params: dict) -> dict:
+    """Send a JSON-RPC call to the capsule MCP server via its session endpoint."""
+    global _mcp_message_url
+
+    if not _mcp_message_url:
+        # Try to discover on the fly
+        await _discover_mcp_session()
+
+    if not _mcp_message_url:
+        return {"error": "MCP session not established"}
+
+    payload = {
+        "jsonrpc": "2.0",
+        "id": _next_id(),
+        "method": method,
+        "params": params
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=120) as client:
+            r = await client.post(_mcp_message_url, json=payload)
+            if r.status_code == 202:
+                # 202 Accepted — SSE transport acknowledges but result comes via SSE
+                # For tool calls we need to read the result from SSE stream
+                # Use a fresh SSE connection to get the response
+                return await _mcp_call_with_sse(payload)
+            elif r.status_code == 200:
+                return r.json()
+            else:
+                return {"error": f"MCP returned {r.status_code}: {r.text}"}
+    except httpx.ConnectError:
+        _mcp_message_url = None  # Reset so next call re-discovers
+        return {"error": "Capsule MCP server not reachable"}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+async def _mcp_call_with_sse(payload: dict) -> dict:
+    """Full SSE-based MCP call: connect, get session, send request, read response."""
+    request_id = payload["id"]
+    try:
+        async with httpx.AsyncClient(timeout=120) as client:
+            # Open SSE stream
+            async with client.stream("GET", f"{MCP_BASE}/sse", timeout=120) as sse:
+                session_url = None
+                async for line in sse.aiter_lines():
+                    line = line.strip()
+                    # Parse SSE events
+                    if line.startswith("event:"):
+                        event_type = line[6:].strip()
+                    elif line.startswith("data:"):
+                        data = line[5:].strip()
+                        if session_url is None and "/messages" in data:
+                            # Got the endpoint event
+                            if data.startswith("/"):
+                                session_url = f"{MCP_BASE}{data}"
+                            elif data.startswith("http"):
+                                session_url = data
+                            else:
+                                session_url = f"{MCP_BASE}/{data}"
+                            # Now send our request
+                            r = await client.post(session_url, json=payload)
+                            # Continue reading SSE for the response
+                        else:
+                            # Try to parse as JSON-RPC response
+                            try:
+                                msg = json.loads(data)
+                                if isinstance(msg, dict) and msg.get("id") == request_id:
+                                    return msg
+                            except (json.JSONDecodeError, ValueError):
+                                pass
+    except Exception as e:
+        return {"error": f"SSE call failed: {str(e)}"}
+    return {"error": "No response received from MCP"}
+
 
 @app.post("/api/tool/{tool_name}")
 async def proxy_tool_call(tool_name: str, request: Request):
@@ -134,47 +253,20 @@ async def proxy_tool_call(tool_name: str, request: Request):
     except Exception:
         body = {}
 
-    try:
-        async with httpx.AsyncClient(timeout=120) as client:
-            # MCP tool call via JSON-RPC
-            payload = {
-                "jsonrpc": "2.0",
-                "id": 1,
-                "method": "tools/call",
-                "params": {
-                    "name": tool_name,
-                    "arguments": body
-                }
-            }
-            r = await client.post(f"{MCP_BASE}/mcp", json=payload)
-            return r.json()
-    except httpx.ConnectError:
-        return JSONResponse(
-            status_code=503,
-            content={"error": "Capsule MCP server not running"}
-        )
-    except Exception as e:
-        return JSONResponse(
-            status_code=500,
-            content={"error": str(e)}
-        )
+    result = await _mcp_call("tools/call", {"name": tool_name, "arguments": body})
+
+    if "error" in result and isinstance(result["error"], str):
+        return JSONResponse(status_code=503, content=result)
+    return result
 
 
 @app.get("/api/tools")
 async def list_tools():
     """List all available MCP tools from the capsule."""
-    try:
-        async with httpx.AsyncClient(timeout=30) as client:
-            payload = {
-                "jsonrpc": "2.0",
-                "id": 1,
-                "method": "tools/list",
-                "params": {}
-            }
-            r = await client.post(f"{MCP_BASE}/mcp", json=payload)
-            return r.json()
-    except Exception as e:
-        return JSONResponse(status_code=503, content={"error": str(e)})
+    result = await _mcp_call("tools/list", {})
+    if "error" in result and isinstance(result["error"], str):
+        return JSONResponse(status_code=503, content=result)
+    return result
 
 
 @app.get("/api/health")
@@ -187,6 +279,7 @@ async def health():
         "capsule_pid": capsule_process.pid if capsule_alive else None,
         "capsule_exit_code": capsule_process.poll() if capsule_process else None,
         "mcp_port": MCP_PORT,
+        "mcp_session": _mcp_message_url is not None,
         "timestamp": datetime.utcnow().isoformat(),
     }
 
@@ -216,7 +309,6 @@ async def proxy_sse(request: Request):
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
-
 
 
 # --- Landing Page ---
