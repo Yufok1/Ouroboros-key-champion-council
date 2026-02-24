@@ -414,6 +414,134 @@ async def mcp_message_proxy(request: Request):
         return JSONResponse(status_code=502, content={"error": str(e)})
 
 
+# --- Streamable HTTP MCP Endpoint ---
+# Kiro and modern MCP clients use Streamable HTTP: they POST JSON-RPC to a
+# single URL and expect either a JSON response or an SSE stream back.
+# This handler sits at the same /mcp/sse path so the existing config URL works.
+
+# Persistent httpx client for SSE session management (Streamable HTTP needs
+# to hold an SSE connection open per logical session for server-initiated msgs)
+_streamable_sessions: dict[str, dict] = {}  # session_id -> {sse_task, queue, ...}
+
+
+@app.post("/mcp/sse")
+async def mcp_streamable_http(request: Request):
+    """Streamable HTTP MCP endpoint.
+
+    Modern MCP clients (Kiro, VS Code) POST JSON-RPC here.
+    We forward to the capsule's internal SSE MCP server and return the result.
+
+    Flow:
+      1. If no SSE session exists, open one to the capsule (GET /sse)
+      2. Parse the endpoint event to get the capsule's /message?session_id=...
+      3. Forward the JSON-RPC POST to that endpoint
+      4. Return the capsule's response (JSON or SSE stream)
+    """
+    body = await request.body()
+    content_type = request.headers.get("content-type", "application/json")
+
+    # Parse the JSON-RPC request to log it
+    try:
+        rpc = json.loads(body)
+        method = rpc.get("method", "?")
+        rpc_id = rpc.get("id", "?")
+    except Exception:
+        method, rpc_id = "?", "?"
+    print(f"[MCP-STREAM] POST /mcp/sse method={method} id={rpc_id} len={len(body)}")
+
+    # We need a session with the capsule's SSE server.
+    # The capsule's SSE endpoint sends an "endpoint" event with the POST URL.
+    # We cache this per-process since there's only one capsule.
+    session_key = "_default"
+
+    if session_key not in _streamable_sessions or not _streamable_sessions[session_key].get("message_url"):
+        # Open SSE connection to capsule and grab the message endpoint
+        print("[MCP-STREAM] Opening new SSE session to capsule...")
+        try:
+            message_url = await _discover_capsule_message_url(timeout=15)
+            if message_url:
+                _streamable_sessions[session_key] = {"message_url": message_url}
+                print(f"[MCP-STREAM] Capsule message URL: {message_url}")
+            else:
+                print("[MCP-STREAM] Failed to discover capsule message URL")
+                return JSONResponse(
+                    status_code=502,
+                    content={"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32000, "message": "Capsule SSE not available"}},
+                )
+        except Exception as e:
+            print(f"[MCP-STREAM] SSE discovery error: {e}")
+            return JSONResponse(
+                status_code=502,
+                content={"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32000, "message": f"Capsule connect failed: {e}"}},
+            )
+
+    message_url = _streamable_sessions[session_key]["message_url"]
+
+    # Forward the JSON-RPC request to the capsule
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                message_url,
+                content=body,
+                headers={"Content-Type": content_type},
+                timeout=120,
+            )
+        print(f"[MCP-STREAM] Capsule responded {resp.status_code} ct={resp.headers.get('content-type', '?')}")
+
+        resp_ct = resp.headers.get("content-type", "")
+
+        if "text/event-stream" in resp_ct:
+            # Capsule wants to stream back — relay as SSE
+            async def _relay():
+                for line in resp.text.splitlines(keepends=True):
+                    yield line
+            return StreamingResponse(
+                _relay(),
+                media_type="text/event-stream",
+                status_code=resp.status_code,
+                headers={"Cache-Control": "no-cache"},
+            )
+        elif resp.status_code == 202 or resp.status_code == 204:
+            # Accepted / No Content — notification acknowledged
+            from fastapi.responses import Response
+            return Response(status_code=202)
+        else:
+            # JSON response — return as-is
+            try:
+                return JSONResponse(content=resp.json(), status_code=resp.status_code)
+            except Exception:
+                return JSONResponse(
+                    content={"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32000, "message": resp.text[:500]}},
+                    status_code=resp.status_code,
+                )
+    except httpx.ReadTimeout:
+        return JSONResponse(status_code=504, content={"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32000, "message": "Capsule timeout"}})
+    except Exception as e:
+        # Session might be stale — clear it so next request rediscovers
+        _streamable_sessions.pop(session_key, None)
+        print(f"[MCP-STREAM] Forward error: {e}")
+        return JSONResponse(
+            status_code=502,
+            content={"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32000, "message": str(e)}},
+        )
+
+
+async def _discover_capsule_message_url(timeout: int = 15) -> str | None:
+    """Connect to capsule SSE, read the 'endpoint' event, return the message URL."""
+    import re
+    try:
+        async with httpx.AsyncClient() as client:
+            async with client.stream("GET", f"{MCP_BASE}/sse", timeout=timeout) as resp:
+                async for line in resp.aiter_lines():
+                    # The MCP SSE server sends: event: endpoint\ndata: http://127.0.0.1:8765/message?session_id=xxx
+                    if line.startswith("data:") and "/message" in line:
+                        url = line.split("data:", 1)[1].strip()
+                        return url
+    except Exception as e:
+        print(f"[MCP-STREAM] Discovery error: {e}")
+    return None
+
+
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/media", StaticFiles(directory="."), name="media")
 
