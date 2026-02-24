@@ -989,11 +989,18 @@
             }
             slotsArr = d.slots || [];
             // Handle compact summary format from MCP (has all_ids + total but no slots array)
+            // all_ids is a FLAT array of slot names: ["sentiment","slot_1","slot_2",...]
+            // NOT paired like bag_catalog's [hash, name, hash, name, ...]
             if (slotsArr.length === 0 && d.all_ids && d.total) {
                 var total = d.total;
+                var pluggedCount = (d.stats && d.stats.plugged) ? (d.stats.plugged.sum || 0) : 0;
                 for (var si = 0; si < total; si++) {
-                    var name = d.all_ids[si * 2 + 1] || d.all_ids[si] || ('slot_' + si);
-                    slotsArr.push({ index: si, name: name, plugged: false, model_source: null });
+                    var name = d.all_ids[si] || ('slot_' + si);
+                    // Infer plugged status: if the name differs from the default
+                    // pattern "slot_N", it was renamed when a model was plugged
+                    var defaultName = 'slot_' + si;
+                    var isPlugged = (name !== defaultName);
+                    slotsArr.push({ index: si, name: name, plugged: isPlugged, model_source: isPlugged ? name : null });
                 }
             }
             // Handle plain array

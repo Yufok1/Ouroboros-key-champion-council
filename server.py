@@ -362,12 +362,52 @@ app.add_middleware(NoCacheStaticMiddleware)
 
 # --- API Routes ---
 
+def _normalize_workflow_nodes(definition: str) -> str:
+    """Ensure workflow node definitions have both 'tool' and 'tool_name' fields.
+
+    The capsule executor expects 'tool_name' on tool nodes, but the capsule's
+    storage layer normalises 'tool_name' → 'tool'.  By injecting both fields
+    before the definition reaches the capsule we guarantee the executor can
+    find what it needs regardless of which field survives storage.
+
+    Also normalises node type 'tool_call' → 'tool' (the executor only knows 'tool').
+    """
+    try:
+        defn = json.loads(definition) if isinstance(definition, str) else definition
+        nodes = defn.get("nodes", [])
+        changed = False
+        for node in nodes:
+            # Normalise type
+            if node.get("type") == "tool_call":
+                node["type"] = "tool"
+                changed = True
+            # Ensure both tool and tool_name exist
+            t = node.get("tool_name") or node.get("tool")
+            if t:
+                if "tool_name" not in node:
+                    node["tool_name"] = t
+                    changed = True
+                if "tool" not in node:
+                    node["tool"] = t
+                    changed = True
+        if changed:
+            return json.dumps(defn)
+        return definition if isinstance(definition, str) else json.dumps(definition)
+    except Exception:
+        return definition if isinstance(definition, str) else json.dumps(definition)
+
+
 @app.post("/api/tool/{tool_name}")
 async def proxy_tool_call(tool_name: str, request: Request):
     try:
         body = await request.json()
     except Exception:
         body = {}
+
+    # Normalise workflow definitions before they reach the capsule
+    if tool_name in ("workflow_create", "workflow_update") and "definition" in body:
+        body["definition"] = _normalize_workflow_nodes(body["definition"])
+
     source = request.headers.get("x-source", "webui")
     start = time.time()
     result = await _call_tool(tool_name, body)
@@ -612,6 +652,19 @@ async def mcp_message_proxy(request: Request):
 
     start = time.time()
     try:
+        # Normalise workflow definitions in MCP JSON-RPC calls before forwarding
+        if rpc_tool in ("workflow_create", "workflow_update"):
+            try:
+                rpc_body = json.loads(body)
+                params = rpc_body.get("params", {})
+                args = params.get("arguments", {})
+                if "definition" in args:
+                    args["definition"] = _normalize_workflow_nodes(args["definition"])
+                    rpc_body["params"]["arguments"] = args
+                    body = json.dumps(rpc_body).encode()
+            except Exception as e:
+                print(f"[MCP-PROXY] workflow normalisation skipped: {e}")
+
         async with httpx.AsyncClient() as client:
             resp = await client.post(
                 f"{MCP_BASE}/messages/",
