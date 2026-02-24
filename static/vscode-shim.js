@@ -516,6 +516,7 @@
     // ═══════════════════════════════════════════════════════════
 
     // Tools that are internal plumbing — suppress from activity feed
+    // (Also filtered server-side, this is a safety net)
     const _HYDRATION_TOOLS = [
         'get_status', 'list_slots', 'bag_catalog', 'workflow_list',
         'verify_integrity', 'get_cached', 'get_identity', 'feed',
@@ -530,8 +531,9 @@
                 try {
                     const event = JSON.parse(e.data);
                     if (!event.tool) return;
-                    // Skip internal hydration/polling noise
+                    // Double-check: skip hydration noise (server should already filter)
                     if (event.source === 'hydration') return;
+                    if (_HYDRATION_TOOLS.indexOf(event.tool) >= 0 && event.source !== 'external') return;
                     // Fire to main.js activity feed
                     fireEvent({ type: 'activity', event: event });
                 } catch {}

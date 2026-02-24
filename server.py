@@ -29,15 +29,47 @@ from mcp.client.sse import sse_client
 
 import time
 
+# Tools that are internal plumbing — don't broadcast to activity feed
+_SILENT_TOOLS = frozenset([
+    'get_status', 'list_slots', 'bag_catalog', 'workflow_list',
+    'verify_integrity', 'get_cached', 'get_identity', 'feed',
+    'get_capabilities', 'get_help', 'get_onboarding', 'get_quickstart',
+    'hub_tasks', 'list_tools', 'heartbeat',
+])
+
+
+def _parse_mcp_result(result: dict | None) -> dict | None:
+    """Extract the actual JSON data from an MCP tool result envelope."""
+    if not result:
+        return None
+    # MCP envelope: { content: [{ type: "text", text: "..." }] }
+    content = result.get("content")
+    if isinstance(content, list) and len(content) > 0:
+        text = content[0].get("text") if isinstance(content[0], dict) else None
+        if text:
+            try:
+                return json.loads(text)
+            except (json.JSONDecodeError, TypeError):
+                return {"text": text}
+    return result
+
 
 def _broadcast_activity(tool: str, args: dict, result: dict | None, duration_ms: int, error: str | None, source: str = "external"):
     """Record and broadcast a tool call to all SSE activity subscribers."""
+    # Suppress internal plumbing and hydration calls
+    if tool in _SILENT_TOOLS:
+        return
+    if source == "hydration":
+        return
+
     cat = tool.split("_")[0] if tool else "other"
+    # Parse the MCP envelope so the frontend gets real data
+    parsed_result = _parse_mcp_result(result)
     entry = {
         "tool": tool,
         "category": cat,
         "args": args or {},
-        "result": result,
+        "result": parsed_result,
         "error": error,
         "durationMs": duration_ms,
         "timestamp": int(time.time() * 1000),
@@ -511,8 +543,18 @@ async def mcp_message_proxy(request: Request):
             print(f"[MCP-PROXY] Capsule responded {resp.status_code}")
 
             # Track tool calls in activity feed
+            # External MCP uses SSE protocol (202 response, result on stream)
+            # so we can't capture the result here — but args + timing are valuable
             if rpc_tool:
-                _broadcast_activity(rpc_tool, rpc_args, None, duration_ms, None, source="external")
+                # Try to get result from JSON response if available
+                resp_result = None
+                if resp.status_code == 200:
+                    try:
+                        resp_json = resp.json()
+                        resp_result = resp_json.get("result")
+                    except Exception:
+                        pass
+                _broadcast_activity(rpc_tool, rpc_args, resp_result, duration_ms, None, source="external")
 
             # Forward the response as-is
             if resp.status_code in (202, 204):
