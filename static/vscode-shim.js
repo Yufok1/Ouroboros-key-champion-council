@@ -655,7 +655,9 @@
 
             // 5. Workflows: workflow_list
             const workflows = await _silentToolCall('workflow_list', {});
-            fireEvent({ type: 'toolResult', id: '__wf_init__', data: workflows });
+            // Route through the same path as a manual callTool('workflow_list')
+            // so handleWorkflowToolResult picks it up
+            fireEvent({ type: 'toolResult', id: '__wf_hydrate__', data: workflows, _toolName: 'workflow_list' });
 
             // 6. Diagnostics: verify_integrity
             const integrity = await _silentToolCall('verify_integrity', {});

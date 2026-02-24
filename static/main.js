@@ -987,7 +987,19 @@
             } else if (typeof d === 'string') {
                 d = JSON.parse(d);
             }
-            slotsArr = d.slots || d || [];
+            slotsArr = d.slots || [];
+            // Handle compact summary format from MCP (has all_ids + total but no slots array)
+            if (slotsArr.length === 0 && d.all_ids && d.total) {
+                var total = d.total;
+                for (var si = 0; si < total; si++) {
+                    var name = d.all_ids[si * 2 + 1] || d.all_ids[si] || ('slot_' + si);
+                    slotsArr.push({ index: si, name: name, plugged: false, model_source: null });
+                }
+            }
+            // Handle plain array
+            if (slotsArr.length === 0 && Array.isArray(d)) {
+                slotsArr = d;
+            }
         } catch (err) { slotsArr = []; }
 
         // Clear unplugging state for slots that are now confirmed empty
@@ -1346,7 +1358,9 @@
                 var mParts = [];
                 var mKeys = Object.keys(e.result.metrics);
                 for (var mi = 0; mi < mKeys.length; mi++) {
-                    mParts.push(_actEsc(mKeys[mi]) + '=' + _actEsc(String(e.result.metrics[mKeys[mi]])));
+                    var mv = e.result.metrics[mKeys[mi]];
+                    var mvStr = (typeof mv === 'object' && mv !== null) ? JSON.stringify(mv) : String(mv);
+                    mParts.push(_actEsc(mKeys[mi]) + '=' + _actEsc(mvStr));
                 }
                 if (mParts.length > 0) metaParts.push('Metrics: ' + mParts.join(', '));
             }
@@ -1629,7 +1643,6 @@
                 if (configResolved && configResolved.dreamer && configResolved.dreamer.config) {
                     renderDreamerConfig(configResolved.dreamer.config);
                 } else {
-                    // Fallback: try to load from the raw data (pre-enrichment, show_rssm won't have dreamer yet)
                     vscode.postMessage({ command: 'loadDreamerConfigFile' });
                 }
                 return;
@@ -1641,13 +1654,14 @@
                 healthy: normalized.healthy,
                 fallback_used: normalized.fallback_used,
                 timestamp: normalized.timestamp,
-                resolved: normalized.resolved,
+                resolved: normalized.resolved || normalized,
                 probes: normalized.probes
             };
 
             diagOut.innerHTML = _renderDiagnostic(output, diagKey);
         } catch (err) {
-            diagOut.innerHTML = '<div class="diag-shell error"><div class="diag-note">Failed to render diagnostic output. Raw payload:</div><pre style="white-space:pre-wrap;word-break:break-word;color:var(--text);font-size:11px;">' + _diagPretty(payload, 50000) + '</pre></div>';
+            console.error('[Diag] Render error:', err, 'payload=', payload);
+            diagOut.innerHTML = '<div class="diag-shell error"><div class="diag-note">Failed to render diagnostic output: ' + _esc(String(err.message || err)) + '</div><pre style="white-space:pre-wrap;word-break:break-word;color:var(--text);font-size:11px;">' + _diagPretty(payload, 50000) + '</pre></div>';
         }
     }
     // Expose globally for onclick handlers
@@ -3167,7 +3181,7 @@
     }
 
     function handleToolResult(msg) {
-        var toolName = _pendingTools[msg.id] || '';
+        var toolName = _pendingTools[msg.id] || msg._toolName || '';
         delete _pendingTools[msg.id];
 
         // Hub info enrichment for slot metadata cards — silent, no output
