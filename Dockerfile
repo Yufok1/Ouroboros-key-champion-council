@@ -3,13 +3,10 @@
 
 FROM python:3.10-slim
 
-# Install Node.js 18 + system deps
+# Install system deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     git \
-    build-essential \
-    && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
-    && apt-get install -y nodejs \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -25,17 +22,8 @@ WORKDIR /app
 COPY --chown=user ./requirements.txt requirements.txt
 RUN pip install --no-cache-dir --upgrade -r requirements.txt
 
-# Install vsce for marketplace publishing
-RUN npm install -g @vscode/vsce
-
 # Copy application files
 COPY --chown=user . /app
-
-# Make scripts executable
-RUN chmod +x scripts/*.sh 2>/dev/null || true
-
-# Ensure vsix directory exists for publish workflow
-RUN mkdir -p vsix
 
 # Expose port 7860 (HF Spaces default)
 EXPOSE 7860

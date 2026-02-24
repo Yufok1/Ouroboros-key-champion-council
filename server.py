@@ -21,8 +21,8 @@ from datetime import datetime
 
 import uvicorn
 import httpx
-from fastapi import FastAPI, Request, HTTPException, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -195,53 +195,6 @@ async def proxy_sse(request: Request):
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
-
-# --- Webhook: Auto-publish to VS Code Marketplace ---
-
-@app.post("/api/webhook/publish")
-async def webhook_publish(request: Request):
-    """
-    Triggered by HuggingFace webhook on push, or manually.
-    Publishes a pre-built .vsix from the vsix/ directory to VS Code Marketplace.
-    The developer builds the vsix locally and places it in vsix/ before pushing.
-    Requires VSCE_PAT secret in Space settings.
-    """
-    webhook_secret = os.environ.get("WEBHOOK_SECRET")
-    if webhook_secret:
-        signature = request.headers.get("X-Webhook-Secret")
-        if signature != webhook_secret:
-            raise HTTPException(status_code=403, detail="Invalid webhook secret")
-
-    vsce_pat = os.environ.get("VSCE_PAT")
-    if not vsce_pat:
-        return JSONResponse(status_code=500, content={"error": "VSCE_PAT not configured — add it as a Space Secret"})
-
-    # Check if there's a vsix to publish
-    vsix_dir = Path("vsix")
-    vsix_files = sorted(vsix_dir.glob("*.vsix"), key=lambda p: p.stat().st_mtime, reverse=True) if vsix_dir.exists() else []
-    if not vsix_files:
-        return JSONResponse(status_code=400, content={
-            "error": "No .vsix file found in vsix/ directory",
-            "hint": "Build the vsix locally and place it in the vsix/ folder before pushing."
-        })
-
-    try:
-        result = subprocess.run(
-            ["bash", "scripts/publish.sh"],
-            capture_output=True, text=True, timeout=300,
-            env={**os.environ, "VSCE_PAT": vsce_pat}
-        )
-        return {
-            "status": "ok" if result.returncode == 0 else "error",
-            "returncode": result.returncode,
-            "vsix": vsix_files[0].name,
-            "stdout": result.stdout[-2000:],
-            "stderr": result.stderr[-2000:],
-        }
-    except subprocess.TimeoutExpired:
-        return JSONResponse(status_code=504, content={"error": "Publish timed out"})
-    except Exception as e:
-        return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 # --- Landing Page ---
