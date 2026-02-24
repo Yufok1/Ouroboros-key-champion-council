@@ -335,19 +335,25 @@ async def mcp_sse_proxy(request: Request):
     http://127.0.0.1:8765/message?session_id=xxx — we rewrite it
     to point at our public /mcp/message route instead.
     """
+    # Build the public base URL from the incoming request
+    # Prefer X-Forwarded headers (set by HF Space reverse proxy)
+    proto = request.headers.get("x-forwarded-proto", request.url.scheme)
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host", request.url.netloc)
+    public_base = f"{proto}://{host}"
+
     async def _stream():
         try:
             async with httpx.AsyncClient() as client:
                 async with client.stream("GET", f"{MCP_BASE}/sse", timeout=None) as resp:
                     async for line in resp.aiter_lines():
                         if line.startswith("data:") and "/message" in line:
-                            # Rewrite internal URL to public proxy path
+                            # Rewrite internal URL to full public proxy URL
                             # e.g. "data: http://127.0.0.1:8765/message?session_id=abc"
-                            # becomes "data: /mcp/message?session_id=abc"
+                            # becomes "data: https://tostido-champion-council.hf.space/mcp/message?session_id=abc"
                             import re
                             rewritten = re.sub(
                                 r'data:\s*http://[^/]+(/message\S*)',
-                                r'data: /mcp\1',
+                                f'data: {public_base}/mcp\\1',
                                 line,
                             )
                             yield rewritten + "\n"
