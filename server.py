@@ -128,7 +128,21 @@ async def _connect_mcp():
 
             # Initialize the session (sends initialize + notifications/initialized)
             result = await _mcp_session.initialize()
-            print(f"[OK] MCP session initialized — server: {result.server_info.name if result.server_info else 'unknown'}")
+            # Extract server name safely — attribute varies across mcp SDK versions
+            # (server_info, serverInfo, or nested in capabilities)
+            _sinfo = getattr(result, 'server_info', None) or getattr(result, 'serverInfo', None)
+            _sname = getattr(_sinfo, 'name', None) if _sinfo else None
+            if _sname is None and hasattr(result, '__dict__'):
+                # Last resort: dig through the raw result dict
+                for _k in ('server_info', 'serverInfo'):
+                    _v = result.__dict__.get(_k) or (result.model_dump() if hasattr(result, 'model_dump') else {}).get(_k)
+                    if isinstance(_v, dict):
+                        _sname = _v.get('name')
+                    elif _v and hasattr(_v, 'name'):
+                        _sname = _v.name
+                    if _sname:
+                        break
+            print(f"[OK] MCP session initialized — server: {_sname or 'unknown'}")
             return True
 
         except Exception as e:
@@ -182,7 +196,7 @@ async def _call_tool(name: str, arguments: dict) -> dict:
                     {"type": c.type, "text": c.text if hasattr(c, 'text') else str(c)}
                     for c in (result.content or [])
                 ],
-                "isError": result.isError if hasattr(result, 'isError') else False,
+                "isError": getattr(result, 'isError', None) or getattr(result, 'is_error', False),
             }
         }
     except Exception as e:
@@ -204,7 +218,7 @@ async def _list_tools() -> dict:
                     {
                         "name": t.name,
                         "description": t.description or "",
-                        "inputSchema": t.inputSchema if hasattr(t, 'inputSchema') else {},
+                        "inputSchema": getattr(t, 'inputSchema', None) or getattr(t, 'input_schema', {}),
                     }
                     for t in (result.tools or [])
                 ]

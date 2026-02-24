@@ -8,5 +8,5 @@ torch
 transformers
 sentence-transformers
 huggingface_hub
-mcp[cli]
+mcp[cli]>=1.2.0,<2.0.0
 textual
