@@ -20,7 +20,7 @@ from contextlib import asynccontextmanager
 import uvicorn
 import httpx
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -318,6 +318,79 @@ async def landing():
 @app.get("/panel", response_class=HTMLResponse)
 async def control_panel():
     return Path("static/panel.html").read_text()
+
+
+# --- MCP SSE Reverse Proxy ---
+# Exposes the internal capsule MCP server (port 8765) to external MCP clients.
+# External clients connect to /mcp/sse and POST to /mcp/message, which get
+# proxied to the capsule's /sse and /message endpoints inside the container.
+# This lets Kiro / VS Code / Claude Desktop connect directly to the Space.
+
+@app.get("/mcp/sse")
+async def mcp_sse_proxy(request: Request):
+    """Proxy SSE stream from capsule MCP server to external client.
+
+    The capsule sends an 'endpoint' event with a local URL like
+    http://127.0.0.1:8765/message?session_id=xxx — we rewrite it
+    to point at our public /mcp/message route instead.
+    """
+    async def _stream():
+        try:
+            async with httpx.AsyncClient() as client:
+                async with client.stream("GET", f"{MCP_BASE}/sse", timeout=None) as resp:
+                    async for line in resp.aiter_lines():
+                        if line.startswith("data:") and "/message" in line:
+                            # Rewrite internal URL to public proxy path
+                            # e.g. "data: http://127.0.0.1:8765/message?session_id=abc"
+                            # becomes "data: /mcp/message?session_id=abc"
+                            import re
+                            rewritten = re.sub(
+                                r'data:\s*http://[^/]+(/message\S*)',
+                                r'data: /mcp\1',
+                                line,
+                            )
+                            yield rewritten + "\n"
+                        else:
+                            yield line + "\n"
+        except Exception as e:
+            yield f"event: error\ndata: {e}\n\n"
+
+    return StreamingResponse(
+        _stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@app.post("/mcp/message")
+async def mcp_message_proxy(request: Request):
+    """Proxy JSON-RPC messages from external client to capsule MCP server."""
+    session_id = request.query_params.get("session_id", "")
+    body = await request.body()
+    content_type = request.headers.get("content-type", "application/json")
+
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                f"{MCP_BASE}/message",
+                params={"session_id": session_id},
+                content=body,
+                headers={"Content-Type": content_type},
+                timeout=120,
+            )
+            # Forward the response as-is
+            return JSONResponse(
+                content=resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {"raw": resp.text},
+                status_code=resp.status_code,
+            )
+    except httpx.ReadTimeout:
+        return JSONResponse(status_code=504, content={"error": "Capsule timeout"})
+    except Exception as e:
+        return JSONResponse(status_code=502, content={"error": str(e)})
 
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
