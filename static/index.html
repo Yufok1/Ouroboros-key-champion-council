@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Champion Council — AI Model Orchestrator</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a1a;
+            color: #e0e0e0;
+            min-height: 100vh;
+        }
+        .hero {
+            text-align: center;
+            padding: 80px 20px 40px;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+        }
+        .hero h1 {
+            font-size: 3rem;
+            background: linear-gradient(90deg, #a855f7, #6366f1, #3b82f6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 16px;
+        }
+        .hero .subtitle {
+            font-size: 1.2rem;
+            color: #94a3b8;
+            max-width: 600px;
+            margin: 0 auto 32px;
+        }
+        .hero .emoji { font-size: 4rem; margin-bottom: 20px; display: block; }
+        .cta-row {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .btn {
+            display: inline-block;
+            padding: 14px 32px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #7c3aed, #4f46e5);
+            color: white;
+        }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(99,102,241,0.3); }
+        .btn-secondary {
+            background: rgba(255,255,255,0.08);
+            color: #e0e0e0;
+            border: 1px solid rgba(255,255,255,0.15);
+        }
+        .btn-secondary:hover { background: rgba(255,255,255,0.12); }
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+            max-width: 1200px;
+            margin: 60px auto;
+            padding: 0 20px;
+        }
+        .feature-card {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            padding: 28px;
+        }
+        .feature-card h3 {
+            color: #a78bfa;
+            margin-bottom: 8px;
+            font-size: 1.1rem;
+        }
+        .feature-card p { color: #94a3b8; line-height: 1.6; }
+        .status-bar {
+            text-align: center;
+            padding: 20px;
+            color: #64748b;
+            font-size: 0.9rem;
+        }
+        .status-bar .dot {
+            display: inline-block;
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: #22c55e;
+            margin-right: 6px;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+        footer {
+            text-align: center;
+            padding: 40px 20px;
+            color: #475569;
+            border-top: 1px solid rgba(255,255,255,0.06);
+        }
+        footer a { color: #818cf8; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="hero">
+        <span class="emoji">🐍</span>
+        <h1>Champion Council</h1>
+        <p class="subtitle">
+            Local-first AI model orchestrator. Multi-model council with 140+ MCP tools,
+            semantic memory, workflows, and decentralized collaboration.
+        </p>
+        <div class="cta-row">
+            <a href="/panel" class="btn btn-primary">Open Control Panel</a>
+            <a href="https://marketplace.visualstudio.com/items?itemName=Ouroboros.champion-council"
+               class="btn btn-secondary" target="_blank">VS Code Extension</a>
+            <a href="https://github.com/Yufok1/Ouroboros_extension"
+               class="btn btn-secondary" target="_blank">GitHub</a>
+        </div>
+    </div>
+
+    <div class="features">
+        <div class="feature-card">
+            <h3>🧠 Multi-Model Council</h3>
+            <p>Plug up to 32 HuggingFace models into council slots. Run inference, debate,
+               consensus, and chaining across LLMs, embedders, classifiers, and rerankers.</p>
+        </div>
+        <div class="feature-card">
+            <h3>🔧 140+ MCP Tools</h3>
+            <p>Full Model Context Protocol surface. Works with any MCP client — Claude Code,
+               Cursor, Windsurf, Kiro, and more.</p>
+        </div>
+        <div class="feature-card">
+            <h3>⚡ Workflow Engine</h3>
+            <p>10 node types: tool, agent, input, output, fan_out, http, if, set, merge,
+               web_search. Build DAGs with conditional branching and live tracing.</p>
+        </div>
+        <div class="feature-card">
+            <h3>🧬 Self-Verifying Quine</h3>
+            <p>Every capsule carries its own source, weights, merkle hash, and provenance chain.
+               Tamper-evident, portable, sovereign.</p>
+        </div>
+        <div class="feature-card">
+            <h3>💾 Semantic Memory</h3>
+            <p>FelixBag — local embedding store with search, catalog, induction, and export.
+               Persistent across sessions.</p>
+        </div>
+        <div class="feature-card">
+            <h3>🌐 Decentralized Community</h3>
+            <p>Nostr-based marketplace, live chat, encrypted DMs, P2P voice rooms, zaps,
+               badges, polls, and data vending machines.</p>
+        </div>
+    </div>
+
+    <div class="status-bar" id="status">
+        <span class="dot"></span> Checking capsule status...
+    </div>
+
+    <footer>
+        <p>Built by <a href="https://huggingface.co/tostido">tostido</a> · MIT License ·
+           Ouroboros Architecture</p>
+    </footer>
+
+    <script>
+        fetch('/api/health')
+            .then(r => r.json())
+            .then(d => {
+                const el = document.getElementById('status');
+                if (d.capsule_running) {
+                    el.innerHTML = '<span class="dot"></span> Capsule running (PID ' + d.capsule_pid + ') · MCP on port ' + d.mcp_port + ' · v' + d.version;
+                } else {
+                    el.innerHTML = '<span class="dot" style="background:#ef4444"></span> Capsule not running · v' + d.version;
+                }
+            })
+            .catch(() => {
+                document.getElementById('status').innerHTML = '<span class="dot" style="background:#eab308"></span> Connecting...';
+            });
+    </script>
+</body>
+</html>
