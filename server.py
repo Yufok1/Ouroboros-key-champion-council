@@ -54,7 +54,7 @@ def start_capsule():
 
     env = {**os.environ, "MCP_PORT": str(MCP_PORT)}
     capsule_process = subprocess.Popen(
-        [sys.executable, str(CAPSULE_PATH), "--mcp", "--port", str(MCP_PORT)],
+        [sys.executable, str(CAPSULE_PATH), "--mcp", "--host", "0.0.0.0", "--port", str(MCP_PORT)],
         env=env,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
