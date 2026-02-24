@@ -346,6 +346,7 @@ async def mcp_sse_proxy(request: Request):
     print(f"[MCP-PROXY] SSE connect — public_base={public_base}")
 
     async def _stream():
+        endpoint_rewritten = False
         try:
             async with httpx.AsyncClient() as client:
                 async with client.stream("GET", f"{MCP_BASE}/sse", timeout=None) as resp:
@@ -355,12 +356,8 @@ async def mcp_sse_proxy(request: Request):
                         # Process complete lines
                         while "\n" in buffer:
                             line, buffer = buffer.split("\n", 1)
-                            if line.startswith("data:") and "message" in line:
-                                # Extract the path portion from either format:
-                                #   "data: /messages/?session_id=xxx"
-                                #   "data: http://127.0.0.1:8765/messages/?session_id=xxx"
+                            if not endpoint_rewritten and line.startswith("data:") and "/messages" in line:
                                 raw = line.split("data:", 1)[1].strip()
-                                # Strip absolute host prefix if present
                                 if raw.startswith("http://") or raw.startswith("https://"):
                                     from urllib.parse import urlparse
                                     parsed = urlparse(raw)
@@ -369,13 +366,16 @@ async def mcp_sse_proxy(request: Request):
                                         path_and_query += "?" + parsed.query
                                 else:
                                     path_and_query = raw
-                                # Ensure it starts with /
                                 if not path_and_query.startswith("/"):
                                     path_and_query = "/" + path_and_query
                                 rewritten = f"data: {public_base}/mcp{path_and_query}"
                                 print(f"[MCP-PROXY] Rewrote endpoint: {line.strip()} -> {rewritten.strip()}")
+                                endpoint_rewritten = True
                                 yield rewritten + "\n"
                             else:
+                                # Log non-empty lines to debug SSE event flow
+                                if line.strip():
+                                    print(f"[MCP-PROXY] SSE>> {line[:120]}")
                                 yield line + "\n"
         except httpx.RemoteProtocolError:
             pass
