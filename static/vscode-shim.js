@@ -99,10 +99,8 @@
             }
         }
         else if (command === 'refresh' || command === 'ready') {
-            try {
-                const result = await mcpToolCall('get_status', {});
-                fireEvent({ type: 'state', data: result });
-            } catch {}
+            // Trigger a full health poll which dispatches a proper flat state message
+            pollHealthAndDispatchState();
         }
         else if (command === 'refreshMemoryCatalog') {
             try {
@@ -439,6 +437,74 @@
         window.__CATEGORIES__ = {};
     }
 
+    // ═══════════════════════════════════════════════════════════
+    // HEALTH POLLING — drives the header status in standalone mode
+    // ═══════════════════════════════════════════════════════════
+
+    var _startTime = Date.now();
+    var _lastToolCount = 0;
+
+    async function pollHealthAndDispatchState() {
+        try {
+            // Fetch health + tools in parallel
+            var [healthResp, toolsResp] = await Promise.all([
+                fetch(API_BASE + '/api/health').then(function(r) { return r.json(); }),
+                fetch(API_BASE + '/api/tools').then(function(r) { return r.json(); }).catch(function() { return null; })
+            ]);
+
+            var capsuleUp = healthResp.capsule_running && healthResp.mcp_session;
+            var serverStatus = capsuleUp ? 'running' : (healthResp.capsule_running ? 'starting' : 'stopped');
+
+            // Count tools from the /api/tools response
+            var tools = [];
+            if (toolsResp) {
+                tools = toolsResp.result?.tools || toolsResp.tools || [];
+            }
+            var totalTools = tools.length || _lastToolCount || 134;
+            if (tools.length > 0) _lastToolCount = tools.length;
+
+            // Build tool categories for the category bars
+            var categories = {};
+            tools.forEach(function(t) {
+                var cat = (t.name || '').split('_')[0] || 'other';
+                if (!categories[cat]) categories[cat] = { total: 0, enabled: 0 };
+                categories[cat].total++;
+                categories[cat].enabled++;
+            });
+
+            // Calculate uptime in ms since page load (or since capsule started)
+            var uptimeMs = capsuleUp ? (Date.now() - _startTime) : 0;
+
+            // Dispatch a flat state message matching what main.js updateHeader expects
+            fireEvent({
+                type: 'state',
+                serverStatus: serverStatus,
+                toolCounts: { enabled: totalTools, total: totalTools },
+                port: healthResp.mcp_port || 8765,
+                uptime: uptimeMs,
+                categories: categories,
+                version: healthResp.version || '0.8.9'
+            });
+        } catch (err) {
+            // Server unreachable — dispatch offline state
+            fireEvent({
+                type: 'state',
+                serverStatus: 'stopped',
+                toolCounts: { enabled: 0, total: _lastToolCount || 134 },
+                port: 8765,
+                uptime: 0,
+                categories: {}
+            });
+        }
+    }
+
+    // Initial poll on page load (slight delay to let DOM render)
+    setTimeout(pollHealthAndDispatchState, 500);
+
+    // Periodic poll every 5 seconds
+    setInterval(pollHealthAndDispatchState, 5000);
+
     console.log('[Champion Council] VS Code shim loaded — running in standalone web mode');
     console.log('[Champion Council] 72 command types handled (tool proxy, nostr, github, web3, audio, git, settings)');
+    console.log('[Champion Council] Health polling active — header status will update automatically');
 })();
