@@ -349,29 +349,34 @@ async def mcp_sse_proxy(request: Request):
         try:
             async with httpx.AsyncClient() as client:
                 async with client.stream("GET", f"{MCP_BASE}/sse", timeout=None) as resp:
-                    async for line in resp.aiter_lines():
-                        if line.startswith("data:") and "message" in line:
-                            # Extract the path portion from either format:
-                            #   "data: /messages/?session_id=xxx"
-                            #   "data: http://127.0.0.1:8765/messages/?session_id=xxx"
-                            raw = line.split("data:", 1)[1].strip()
-                            # Strip absolute host prefix if present
-                            if raw.startswith("http://") or raw.startswith("https://"):
-                                from urllib.parse import urlparse
-                                parsed = urlparse(raw)
-                                path_and_query = parsed.path
-                                if parsed.query:
-                                    path_and_query += "?" + parsed.query
+                    buffer = ""
+                    async for chunk in resp.aiter_text():
+                        buffer += chunk
+                        # Process complete lines
+                        while "\n" in buffer:
+                            line, buffer = buffer.split("\n", 1)
+                            if line.startswith("data:") and "message" in line:
+                                # Extract the path portion from either format:
+                                #   "data: /messages/?session_id=xxx"
+                                #   "data: http://127.0.0.1:8765/messages/?session_id=xxx"
+                                raw = line.split("data:", 1)[1].strip()
+                                # Strip absolute host prefix if present
+                                if raw.startswith("http://") or raw.startswith("https://"):
+                                    from urllib.parse import urlparse
+                                    parsed = urlparse(raw)
+                                    path_and_query = parsed.path
+                                    if parsed.query:
+                                        path_and_query += "?" + parsed.query
+                                else:
+                                    path_and_query = raw
+                                # Ensure it starts with /
+                                if not path_and_query.startswith("/"):
+                                    path_and_query = "/" + path_and_query
+                                rewritten = f"data: {public_base}/mcp{path_and_query}"
+                                print(f"[MCP-PROXY] Rewrote endpoint: {line.strip()} -> {rewritten.strip()}")
+                                yield rewritten + "\n"
                             else:
-                                path_and_query = raw
-                            # Ensure it starts with /
-                            if not path_and_query.startswith("/"):
-                                path_and_query = "/" + path_and_query
-                            rewritten = f"data: {public_base}/mcp{path_and_query}"
-                            print(f"[MCP-PROXY] Rewrote endpoint: {line.strip()} -> {rewritten.strip()}")
-                            yield rewritten + "\n"
-                        else:
-                            yield line + "\n"
+                                yield line + "\n"
         except httpx.RemoteProtocolError:
             pass
         except Exception as e:
@@ -410,10 +415,13 @@ async def mcp_message_proxy(request: Request):
             )
             print(f"[MCP-PROXY] Capsule responded {resp.status_code}")
             # Forward the response as-is
-            if resp.headers.get("content-type", "").startswith("application/json"):
+            if resp.status_code in (202, 204):
+                # MCP SSE protocol: POST returns bare 202, response comes on SSE stream
+                from starlette.responses import Response
+                return Response(status_code=resp.status_code)
+            elif resp.headers.get("content-type", "").startswith("application/json"):
                 return JSONResponse(content=resp.json(), status_code=resp.status_code)
             else:
-                # Some MCP responses are empty (202 Accepted)
                 return JSONResponse(
                     content={"raw": resp.text} if resp.text else {},
                     status_code=resp.status_code,
