@@ -27,6 +27,38 @@ from fastapi.middleware.cors import CORSMiddleware
 from mcp import ClientSession
 from mcp.client.sse import sse_client
 
+import time
+
+
+def _broadcast_activity(tool: str, args: dict, result: dict | None, duration_ms: int, error: str | None, source: str = "external"):
+    """Record and broadcast a tool call to all SSE activity subscribers."""
+    cat = tool.split("_")[0] if tool else "other"
+    entry = {
+        "tool": tool,
+        "category": cat,
+        "args": args or {},
+        "result": result,
+        "error": error,
+        "durationMs": duration_ms,
+        "timestamp": int(time.time() * 1000),
+        "source": source,
+    }
+    _activity_log.append(entry)
+    if len(_activity_log) > 500:
+        _activity_log.pop(0)
+    # Push to all SSE subscribers
+    dead = []
+    for q in _activity_subscribers:
+        try:
+            q.put_nowait(entry)
+        except Exception:
+            dead.append(q)
+    for q in dead:
+        try:
+            _activity_subscribers.remove(q)
+        except ValueError:
+            pass
+
 # --- Configuration ---
 MCP_PORT = int(os.environ.get("MCP_PORT", "8765"))
 WEB_PORT = 7860
@@ -35,6 +67,10 @@ MCP_BASE = f"http://127.0.0.1:{MCP_PORT}"
 
 capsule_process = None
 capsule_log_lines = []
+
+# Activity tracking for SSE broadcast to web UI
+_activity_log = []       # list of activity event dicts
+_activity_subscribers = []  # list of asyncio.Queue for SSE clients
 
 # MCP client session (managed by lifespan)
 _mcp_session: ClientSession | None = None
@@ -278,8 +314,12 @@ async def proxy_tool_call(tool_name: str, request: Request):
         body = await request.json()
     except Exception:
         body = {}
+    start = time.time()
     result = await _call_tool(tool_name, body)
-    if "error" in result and isinstance(result["error"], str):
+    duration_ms = int((time.time() - start) * 1000)
+    error_str = result.get("error") if isinstance(result.get("error"), str) else None
+    _broadcast_activity(tool_name, body, result.get("result"), duration_ms, error_str, source="proxy")
+    if error_str:
         return JSONResponse(status_code=503, content=result)
     return result
 
@@ -309,6 +349,46 @@ async def health():
 @app.get("/api/capsule-log")
 async def capsule_log():
     return {"lines": capsule_log_lines[-100:]}
+
+
+@app.get("/api/activity-stream")
+async def activity_stream():
+    """SSE stream of tool call activity for the web UI Activity tab."""
+    q = asyncio.Queue(maxsize=100)
+    _activity_subscribers.append(q)
+
+    async def _stream():
+        try:
+            # Send recent history first so the UI hydrates immediately
+            for entry in _activity_log[-50:]:
+                yield f"data: {json.dumps(entry)}\n\n"
+            # Then stream live events
+            while True:
+                entry = await q.get()
+                yield f"data: {json.dumps(entry)}\n\n"
+        except asyncio.CancelledError:
+            pass
+        finally:
+            try:
+                _activity_subscribers.remove(q)
+            except ValueError:
+                pass
+
+    return StreamingResponse(
+        _stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@app.get("/api/activity-log")
+async def activity_log_route():
+    """Return recent activity log as JSON (for initial hydration)."""
+    return {"entries": _activity_log[-100:]}
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -404,6 +484,21 @@ async def mcp_message_proxy(request: Request):
     content_type = request.headers.get("content-type", "application/json")
     print(f"[MCP-PROXY] POST /mcp/message(s) session_id={session_id} len={len(body)}")
 
+    # Try to extract tool name from JSON-RPC body for activity tracking
+    rpc_method = None
+    rpc_tool = None
+    rpc_args = {}
+    try:
+        rpc_body = json.loads(body)
+        rpc_method = rpc_body.get("method", "")
+        if rpc_method == "tools/call":
+            params = rpc_body.get("params", {})
+            rpc_tool = params.get("name", "unknown")
+            rpc_args = params.get("arguments", {})
+    except Exception:
+        pass
+
+    start = time.time()
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.post(
@@ -413,7 +508,13 @@ async def mcp_message_proxy(request: Request):
                 headers={"Content-Type": content_type},
                 timeout=120,
             )
+            duration_ms = int((time.time() - start) * 1000)
             print(f"[MCP-PROXY] Capsule responded {resp.status_code}")
+
+            # Track tool calls in activity feed
+            if rpc_tool:
+                _broadcast_activity(rpc_tool, rpc_args, None, duration_ms, None, source="external")
+
             # Forward the response as-is
             if resp.status_code in (202, 204):
                 # MCP SSE protocol: POST returns bare 202, response comes on SSE stream
@@ -427,8 +528,14 @@ async def mcp_message_proxy(request: Request):
                     status_code=resp.status_code,
                 )
     except httpx.ReadTimeout:
+        duration_ms = int((time.time() - start) * 1000)
+        if rpc_tool:
+            _broadcast_activity(rpc_tool, rpc_args, None, duration_ms, "Capsule timeout", source="external")
         return JSONResponse(status_code=504, content={"error": "Capsule timeout"})
     except Exception as e:
+        duration_ms = int((time.time() - start) * 1000)
+        if rpc_tool:
+            _broadcast_activity(rpc_tool, rpc_args, None, duration_ms, str(e), source="external")
         print(f"[MCP-PROXY] POST error: {e}")
         return JSONResponse(status_code=502, content={"error": str(e)})
 

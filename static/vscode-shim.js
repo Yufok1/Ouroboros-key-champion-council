@@ -30,6 +30,7 @@
 
     const API_BASE = window.location.origin;
     let _state = {};
+    let _activityLog = [];  // Track tool calls for Activity tab
 
     // --- Local storage helpers for settings ---
     function loadLocal(key, fallback) {
@@ -51,20 +52,45 @@
 
     // --- MCP tool call helper ---
     async function mcpToolCall(toolName, args) {
+        const start = Date.now();
         const resp = await fetch(`${API_BASE}/api/tool/${toolName}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(args || {})
         });
         const data = await resp.json();
+        const durationMs = Date.now() - start;
         // Extract result from JSON-RPC envelope
+        let parsed;
         if (data.result && data.result.content) {
             try {
                 const text = data.result.content[0]?.text;
-                return text ? JSON.parse(text) : data.result;
-            } catch { return data.result; }
+                parsed = text ? JSON.parse(text) : data.result;
+            } catch { parsed = data.result; }
+        } else {
+            parsed = data;
         }
-        return data;
+        // Fire activity event for the Activity tab
+        _trackActivity(toolName, args, parsed, durationMs, data.error ? String(data.error) : null, 'webui');
+        return parsed;
+    }
+
+    // --- Activity tracking ---
+    function _trackActivity(tool, args, result, durationMs, error, source) {
+        const cat = (tool || '').split('_')[0] || 'other';
+        const entry = {
+            tool: tool,
+            category: cat,
+            args: args || {},
+            result: result || null,
+            error: error || null,
+            durationMs: durationMs || 0,
+            timestamp: Date.now(),
+            source: source || 'webui'
+        };
+        _activityLog.push(entry);
+        if (_activityLog.length > 500) _activityLog = _activityLog.slice(-500);
+        fireEvent({ type: 'activity', event: entry });
     }
 
     // --- Web-mode unavailable message helper ---
@@ -483,7 +509,8 @@
                 port: healthResp.mcp_port || 8765,
                 uptime: uptimeMs,
                 categories: categories,
-                version: healthResp.version || '0.8.9'
+                version: healthResp.version || '0.8.9',
+                activityLog: _activityLog
             });
         } catch (err) {
             // Server unreachable — dispatch offline state
@@ -504,7 +531,77 @@
     // Periodic poll every 5 seconds
     setInterval(pollHealthAndDispatchState, 5000);
 
+    // ═══════════════════════════════════════════════════════════
+    // SSE ACTIVITY STREAM — listen for external MCP tool calls
+    // (from Kiro, Claude Desktop, etc.) and push to Activity tab
+    // ═══════════════════════════════════════════════════════════
+
+    function connectActivitySSE() {
+        try {
+            const es = new EventSource(API_BASE + '/api/activity-stream');
+            es.onmessage = function(e) {
+                try {
+                    const event = JSON.parse(e.data);
+                    if (event.tool) {
+                        _activityLog.push(event);
+                        if (_activityLog.length > 500) _activityLog = _activityLog.slice(-500);
+                        fireEvent({ type: 'activity', event: event });
+                    }
+                } catch {}
+            };
+            es.onerror = function() {
+                es.close();
+                // Reconnect after 5s
+                setTimeout(connectActivitySSE, 5000);
+            };
+        } catch {}
+    }
+    // Start SSE listener after a brief delay
+    setTimeout(connectActivitySSE, 1500);
+
+    // ═══════════════════════════════════════════════════════════
+    // PROACTIVE DATA FETCH — populate all tabs on startup
+    // ═══════════════════════════════════════════════════════════
+
+    async function hydrateAllTabs() {
+        try {
+            // 1. Overview: get_status for meta cards
+            const status = await mcpToolCall('get_status', {});
+            fireEvent({ type: 'capsuleStatus', data: status });
+
+            // 2. Council: list_slots
+            const slots = await mcpToolCall('list_slots', {});
+            fireEvent({ type: 'slots', data: slots });
+
+            // 3. Memory: bag_catalog
+            const catalog = await mcpToolCall('bag_catalog', {});
+            fireEvent({ type: 'memoryCatalog', data: catalog });
+
+            // 4. Tools: fetch schemas
+            const toolsResp = await fetch(API_BASE + '/api/tools').then(r => r.json()).catch(() => null);
+            if (toolsResp) {
+                const tools = toolsResp.result?.tools || toolsResp.tools || [];
+                fireEvent({ type: 'toolSchemas', tools });
+            }
+
+            // 5. Workflows: workflow_list
+            const workflows = await mcpToolCall('workflow_list', {});
+            fireEvent({ type: 'toolResult', id: '__wf_init__', data: workflows });
+
+            // 6. Diagnostics: verify_integrity
+            const integrity = await mcpToolCall('verify_integrity', {});
+            fireEvent({ type: 'diagResult', diagKey: 'integrity', data: integrity });
+
+        } catch (err) {
+            console.log('[shim] Hydration partial failure:', err.message);
+        }
+    }
+
+    // Hydrate after capsule has had time to start
+    setTimeout(hydrateAllTabs, 3000);
+
     console.log('[Champion Council] VS Code shim loaded — running in standalone web mode');
     console.log('[Champion Council] 72 command types handled (tool proxy, nostr, github, web3, audio, git, settings)');
     console.log('[Champion Council] Health polling active — header status will update automatically');
+    console.log('[Champion Council] Activity tracking + SSE stream active');
 })();
