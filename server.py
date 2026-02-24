@@ -41,6 +41,7 @@ app.add_middleware(
 )
 
 capsule_process = None
+capsule_log_lines = []
 
 
 # --- Capsule Process Management ---
@@ -54,12 +55,26 @@ def start_capsule():
 
     env = {**os.environ, "MCP_PORT": str(MCP_PORT)}
     capsule_process = subprocess.Popen(
-        [sys.executable, str(CAPSULE_PATH), "--mcp", "--host", "0.0.0.0", "--port", str(MCP_PORT)],
+        [sys.executable, "-u", str(CAPSULE_PATH), "--mcp-remote", "--port", str(MCP_PORT)],
         env=env,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
     )
     print(f"[OK] Capsule started (PID {capsule_process.pid}) on port {MCP_PORT}")
+
+    # Background thread to read capsule output
+    def _read_capsule_output():
+        for line in iter(capsule_process.stdout.readline, b''):
+            decoded = line.decode('utf-8', errors='replace').rstrip()
+            capsule_log_lines.append(decoded)
+            # Keep last 200 lines
+            if len(capsule_log_lines) > 200:
+                capsule_log_lines.pop(0)
+            print(f"[CAPSULE] {decoded}")
+        print("[CAPSULE] Process output stream ended")
+
+    t = threading.Thread(target=_read_capsule_output, daemon=True)
+    t.start()
     return True
 
 
@@ -170,9 +185,16 @@ async def health():
         "version": "0.8.9",
         "capsule_running": capsule_alive,
         "capsule_pid": capsule_process.pid if capsule_alive else None,
+        "capsule_exit_code": capsule_process.poll() if capsule_process else None,
         "mcp_port": MCP_PORT,
         "timestamp": datetime.utcnow().isoformat(),
     }
+
+
+@app.get("/api/capsule-log")
+async def capsule_log():
+    """Return recent capsule output for debugging."""
+    return {"lines": capsule_log_lines[-100:]}
 
 
 # --- SSE Proxy (pass through capsule's SSE stream) ---
