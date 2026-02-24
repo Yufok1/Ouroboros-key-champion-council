@@ -496,23 +496,39 @@ async def mcp_sse_proxy(request: Request):
                                 yield rewritten + "\n"
                             else:
                                 # ── Intercept JSON-RPC responses to capture tool results ──
-                                if line.startswith("data:") and _current_event_type == "message":
+                                # MCP SSE transport sends bare data: lines (no event: prefix),
+                                # so we check ANY data line when we have pending calls.
+                                if line.startswith("data:") and _pending_external_calls:
+                                    raw_data = line.split("data:", 1)[1].strip()
+                                    print(f"[MCP-PROXY] SSE data line, event_type='{_current_event_type}', pending={len(_pending_external_calls)}, data={raw_data[:120]}")
                                     try:
-                                        payload = json.loads(line.split("data:", 1)[1].strip())
+                                        payload = json.loads(raw_data)
                                         rpc_id = payload.get("id")
-                                        if rpc_id is not None and rpc_id in _pending_external_calls:
-                                            pending = _pending_external_calls.pop(rpc_id)
+                                        # Try exact match first, then coerced match (int vs str)
+                                        matched_key = None
+                                        if rpc_id is not None:
+                                            if rpc_id in _pending_external_calls:
+                                                matched_key = rpc_id
+                                            elif str(rpc_id) in _pending_external_calls:
+                                                matched_key = str(rpc_id)
+                                            elif isinstance(rpc_id, str) and rpc_id.isdigit() and int(rpc_id) in _pending_external_calls:
+                                                matched_key = int(rpc_id)
+                                        if matched_key is not None:
+                                            pending = _pending_external_calls.pop(matched_key)
                                             duration_ms = int((time.time() - pending["start"]) * 1000)
                                             rpc_result = payload.get("result")
                                             rpc_error = payload.get("error")
                                             error_str = None
                                             if rpc_error:
                                                 error_str = rpc_error.get("message", str(rpc_error)) if isinstance(rpc_error, dict) else str(rpc_error)
+                                            print(f"[MCP-PROXY] ✓ Matched pending call id={rpc_id} tool={pending['tool']} duration={duration_ms}ms has_result={rpc_result is not None}")
                                             _broadcast_activity(
                                                 pending["tool"], pending["args"],
                                                 rpc_result, duration_ms, error_str,
                                                 source="external"
                                             )
+                                        elif rpc_id is not None:
+                                            print(f"[MCP-PROXY] SSE response id={rpc_id} (type={type(rpc_id).__name__}) not in pending keys={list(_pending_external_calls.keys())}")
                                     except (json.JSONDecodeError, AttributeError):
                                         pass
 
@@ -593,6 +609,7 @@ async def mcp_message_proxy(request: Request):
                             "args": rpc_args,
                             "start": start,
                         }
+                        print(f"[MCP-PROXY] Stored pending call id={rpc_id} (type={type(rpc_id).__name__}) tool={rpc_tool}")
                     else:
                         # No id to match — broadcast now with null result
                         _broadcast_activity(rpc_tool, rpc_args, None, duration_ms, None, source="external")
