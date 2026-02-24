@@ -56,15 +56,20 @@ def _parse_mcp_result(result: dict | None) -> dict | None:
 
 def _broadcast_activity(tool: str, args: dict, result: dict | None, duration_ms: int, error: str | None, source: str = "external"):
     """Record and broadcast a tool call to all SSE activity subscribers."""
-    # Suppress internal plumbing and hydration calls
-    if tool in _SILENT_TOOLS:
-        return
+    # Suppress hydration calls entirely
     if source == "hydration":
+        return
+    # Only suppress silent tools for internal/webui calls — external MCP
+    # clients (Kiro, Claude, etc.) should always see their results.
+    if tool in _SILENT_TOOLS and source != "external":
         return
 
     cat = tool.split("_")[0] if tool else "other"
     # Parse the MCP envelope so the frontend gets real data
     parsed_result = _parse_mcp_result(result)
+    # Debug: log what we're broadcasting so we can trace blank-data issues
+    result_preview = str(parsed_result)[:200] if parsed_result else "None"
+    print(f"[ACTIVITY] Broadcasting: tool={tool} source={source} has_result={parsed_result is not None} result_type={type(parsed_result).__name__} subs={len(_activity_subscribers)} preview={result_preview}")
     entry = {
         "tool": tool,
         "category": cat,
@@ -342,6 +347,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Prevent HF Spaces CDN from caching static JS/HTML files
+from starlette.middleware.base import BaseHTTPMiddleware
+class NoCacheStaticMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        if request.url.path.startswith("/static/") and not request.url.path.endswith(".min.js"):
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+        return response
+app.add_middleware(NoCacheStaticMiddleware)
+
 
 # --- API Routes ---
 
@@ -401,7 +418,15 @@ async def activity_stream():
         try:
             while True:
                 entry = await q.get()
-                yield f"data: {json.dumps(entry)}\n\n"
+                try:
+                    payload = json.dumps(entry)
+                except (TypeError, ValueError) as e:
+                    # Fallback: strip non-serializable result and log
+                    print(f"[ACTIVITY-SSE] JSON serialize error for {entry.get('tool', '?')}: {e}")
+                    entry_safe = {k: v for k, v in entry.items() if k != 'result'}
+                    entry_safe['result'] = {'_serialization_error': str(e)}
+                    payload = json.dumps(entry_safe)
+                yield f"data: {payload}\n\n"
         except asyncio.CancelledError:
             pass
         finally:
@@ -434,7 +459,12 @@ async def landing():
 
 @app.get("/panel", response_class=HTMLResponse)
 async def control_panel():
-    return Path("static/panel.html").read_text()
+    content = Path("static/panel.html").read_text()
+    return HTMLResponse(content=content, headers={
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0",
+    })
 
 
 # --- MCP SSE Reverse Proxy ---

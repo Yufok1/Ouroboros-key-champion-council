@@ -500,34 +500,38 @@
 
     var _startTime = Date.now();
     var _lastToolCount = 0;
+    var _cachedCategories = {};
+    var _toolsFetchedOnce = false;
 
     async function pollHealthAndDispatchState() {
         try {
-            // Fetch health + tools in parallel
-            var [healthResp, toolsResp] = await Promise.all([
-                fetch(API_BASE + '/api/health').then(function(r) { return r.json(); }),
-                fetch(API_BASE + '/api/tools').then(function(r) { return r.json(); }).catch(function() { return null; })
-            ]);
+            // Only fetch /api/tools once (or when we don't have data yet).
+            // After that, just poll /api/health which is lightweight.
+            var healthResp = await fetch(API_BASE + '/api/health').then(function(r) { return r.json(); });
 
             var capsuleUp = healthResp.capsule_running && healthResp.mcp_session;
             var serverStatus = capsuleUp ? 'running' : (healthResp.capsule_running ? 'starting' : 'stopped');
 
-            // Count tools from the /api/tools response
-            var tools = [];
-            if (toolsResp) {
-                tools = toolsResp.result?.tools || toolsResp.tools || [];
+            // Fetch tools list only once, or if capsule just came up and we have no data
+            if (!_toolsFetchedOnce && capsuleUp) {
+                try {
+                    var toolsResp = await fetch(API_BASE + '/api/tools').then(function(r) { return r.json(); });
+                    var tools = toolsResp?.result?.tools || toolsResp?.tools || [];
+                    if (tools.length > 0) {
+                        _lastToolCount = tools.length;
+                        _cachedCategories = {};
+                        tools.forEach(function(t) {
+                            var cat = (t.name || '').split('_')[0] || 'other';
+                            if (!_cachedCategories[cat]) _cachedCategories[cat] = { total: 0, enabled: 0 };
+                            _cachedCategories[cat].total++;
+                            _cachedCategories[cat].enabled++;
+                        });
+                        _toolsFetchedOnce = true;
+                    }
+                } catch (e) { /* tools fetch failed, will retry next poll */ }
             }
-            var totalTools = tools.length || _lastToolCount || 134;
-            if (tools.length > 0) _lastToolCount = tools.length;
 
-            // Build tool categories for the category bars
-            var categories = {};
-            tools.forEach(function(t) {
-                var cat = (t.name || '').split('_')[0] || 'other';
-                if (!categories[cat]) categories[cat] = { total: 0, enabled: 0 };
-                categories[cat].total++;
-                categories[cat].enabled++;
-            });
+            var totalTools = _lastToolCount || 134;
 
             // Calculate uptime in ms since page load (or since capsule started)
             var uptimeMs = capsuleUp ? (Date.now() - _startTime) : 0;
@@ -539,7 +543,7 @@
                 toolCounts: { enabled: totalTools, total: totalTools },
                 port: healthResp.mcp_port || 8765,
                 uptime: uptimeMs,
-                categories: categories,
+                categories: _cachedCategories,
                 version: healthResp.version || '0.8.9'
             });
         } catch (err) {
@@ -558,8 +562,8 @@
     // Initial poll on page load (slight delay to let DOM render)
     setTimeout(pollHealthAndDispatchState, 500);
 
-    // Periodic poll every 5 seconds
-    setInterval(pollHealthAndDispatchState, 5000);
+    // Periodic poll every 30 seconds (lightweight — only /api/health after first tools fetch)
+    setInterval(pollHealthAndDispatchState, 30000);
 
     // ═══════════════════════════════════════════════════════════
     // SSE ACTIVITY STREAM — listen for tool calls from ALL sources
@@ -583,12 +587,15 @@
                 try {
                     const event = JSON.parse(e.data);
                     if (!event.tool) return;
+                    console.log('[SSE-Activity]', event.tool, 'source=' + event.source, 'hasResult=' + !!event.result, 'resultType=' + typeof event.result, 'resultKeys=' + (event.result && typeof event.result === 'object' ? Object.keys(event.result).join(',') : 'N/A'), 'rawLen=' + e.data.length);
                     // Double-check: skip hydration noise (server should already filter)
                     if (event.source === 'hydration') return;
                     if (_HYDRATION_TOOLS.indexOf(event.tool) >= 0 && event.source !== 'external') return;
                     // Fire to main.js activity feed
                     fireEvent({ type: 'activity', event: event });
-                } catch {}
+                } catch (ex) {
+                    console.warn('[SSE-Activity] Parse error:', ex, e.data);
+                }
             };
             es.onerror = function() {
                 es.close();

@@ -1288,6 +1288,7 @@
     function _actEsc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
     function _buildActivityNode(e) {
+        console.log('[ActivityNode] Building:', e.tool, 'hasResult=' + !!e.result, 'resultType=' + typeof e.result, 'result=', e.result);
         var ts = new Date(e.timestamp).toLocaleTimeString();
         var fullTs = new Date(e.timestamp).toISOString();
         var hasError = !!e.error;
