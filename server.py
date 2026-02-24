@@ -331,14 +331,15 @@ async def control_panel():
 async def mcp_sse_proxy(request: Request):
     """Proxy SSE stream from capsule MCP server to external client.
 
-    The capsule sends an 'endpoint' event with a local URL like
-    http://127.0.0.1:8765/message?session_id=xxx — we rewrite it
-    to point at our public /mcp/message route instead.
+    The capsule sends an 'endpoint' event with a URL like:
+      - Relative: /messages/?session_id=xxx
+      - Absolute: http://127.0.0.1:8765/messages/?session_id=xxx
+    We rewrite it to our public /mcp/messages/ route so the external
+    client POSTs back through us.
     """
     import re
 
     # Build the public base URL from the incoming request
-    # Prefer X-Forwarded headers (set by HF Space reverse proxy)
     proto = request.headers.get("x-forwarded-proto", request.url.scheme)
     host = request.headers.get("x-forwarded-host") or request.headers.get("host", request.url.netloc)
     public_base = f"{proto}://{host}"
@@ -349,21 +350,29 @@ async def mcp_sse_proxy(request: Request):
             async with httpx.AsyncClient() as client:
                 async with client.stream("GET", f"{MCP_BASE}/sse", timeout=None) as resp:
                     async for line in resp.aiter_lines():
-                        if line.startswith("data:") and "/message" in line:
-                            # Rewrite internal URL to full public proxy URL
-                            # e.g. "data: http://127.0.0.1:8765/message?session_id=abc"
-                            # becomes "data: https://tostido-champion-council.hf.space/mcp/message?session_id=abc"
-                            rewritten = re.sub(
-                                r'data:\s*http://[^/]+(/message\S*)',
-                                f'data: {public_base}/mcp\\1',
-                                line,
-                            )
+                        if line.startswith("data:") and "message" in line:
+                            # Extract the path portion from either format:
+                            #   "data: /messages/?session_id=xxx"
+                            #   "data: http://127.0.0.1:8765/messages/?session_id=xxx"
+                            raw = line.split("data:", 1)[1].strip()
+                            # Strip absolute host prefix if present
+                            if raw.startswith("http://") or raw.startswith("https://"):
+                                from urllib.parse import urlparse
+                                parsed = urlparse(raw)
+                                path_and_query = parsed.path
+                                if parsed.query:
+                                    path_and_query += "?" + parsed.query
+                            else:
+                                path_and_query = raw
+                            # Ensure it starts with /
+                            if not path_and_query.startswith("/"):
+                                path_and_query = "/" + path_and_query
+                            rewritten = f"data: {public_base}/mcp{path_and_query}"
                             print(f"[MCP-PROXY] Rewrote endpoint: {line.strip()} -> {rewritten.strip()}")
                             yield rewritten + "\n"
                         else:
                             yield line + "\n"
         except httpx.RemoteProtocolError:
-            # Client disconnected — normal for SSE
             pass
         except Exception as e:
             print(f"[MCP-PROXY] SSE stream error: {e}")
@@ -381,17 +390,19 @@ async def mcp_sse_proxy(request: Request):
 
 
 @app.post("/mcp/message")
+@app.post("/mcp/messages/")
+@app.post("/mcp/messages")
 async def mcp_message_proxy(request: Request):
     """Proxy JSON-RPC messages from external client to capsule MCP server."""
     session_id = request.query_params.get("session_id", "")
     body = await request.body()
     content_type = request.headers.get("content-type", "application/json")
-    print(f"[MCP-PROXY] POST /mcp/message session_id={session_id} len={len(body)}")
+    print(f"[MCP-PROXY] POST /mcp/message(s) session_id={session_id} len={len(body)}")
 
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.post(
-                f"{MCP_BASE}/message",
+                f"{MCP_BASE}/messages/",
                 params={"session_id": session_id},
                 content=body,
                 headers={"Content-Type": content_type},
@@ -414,142 +425,20 @@ async def mcp_message_proxy(request: Request):
         return JSONResponse(status_code=502, content={"error": str(e)})
 
 
-# --- Streamable HTTP MCP Endpoint ---
-# Kiro and modern MCP clients use Streamable HTTP: they POST JSON-RPC to a
-# single URL and expect either a JSON response or an SSE stream back.
-# This handler sits at the same /mcp/sse path so the existing config URL works.
-
-# Persistent httpx client for SSE session management (Streamable HTTP needs
-# to hold an SSE connection open per logical session for server-initiated msgs)
-_streamable_sessions: dict[str, dict] = {}  # session_id -> {sse_task, queue, ...}
-
-
-@app.post("/mcp/sse")
-async def mcp_streamable_http(request: Request):
-    """Streamable HTTP MCP endpoint.
-
-    Modern MCP clients (Kiro, VS Code) POST JSON-RPC here.
-    We forward to the capsule's internal SSE MCP server and return the result.
-
-    Flow:
-      1. If no SSE session exists, open one to the capsule (GET /sse)
-      2. Parse the endpoint event to get the capsule's /message?session_id=...
-      3. Forward the JSON-RPC POST to that endpoint
-      4. Return the capsule's response (JSON or SSE stream)
-    """
-    body = await request.body()
-    content_type = request.headers.get("content-type", "application/json")
-
-    # Parse the JSON-RPC request to log it
-    try:
-        rpc = json.loads(body)
-        method = rpc.get("method", "?")
-        rpc_id = rpc.get("id", "?")
-    except Exception:
-        method, rpc_id = "?", "?"
-    print(f"[MCP-STREAM] POST /mcp/sse method={method} id={rpc_id} len={len(body)}")
-
-    # We need a session with the capsule's SSE server.
-    # The capsule's SSE endpoint sends an "endpoint" event with the POST URL.
-    # We cache this per-process since there's only one capsule.
-    session_key = "_default"
-
-    if session_key not in _streamable_sessions or not _streamable_sessions[session_key].get("message_url"):
-        # Open SSE connection to capsule and grab the message endpoint
-        print("[MCP-STREAM] Opening new SSE session to capsule...")
-        try:
-            message_url = await _discover_capsule_message_url(timeout=15)
-            if message_url:
-                _streamable_sessions[session_key] = {"message_url": message_url}
-                print(f"[MCP-STREAM] Capsule message URL: {message_url}")
-            else:
-                print("[MCP-STREAM] Failed to discover capsule message URL")
-                return JSONResponse(
-                    status_code=502,
-                    content={"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32000, "message": "Capsule SSE not available"}},
-                )
-        except Exception as e:
-            print(f"[MCP-STREAM] SSE discovery error: {e}")
-            return JSONResponse(
-                status_code=502,
-                content={"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32000, "message": f"Capsule connect failed: {e}"}},
-            )
-
-    message_url = _streamable_sessions[session_key]["message_url"]
-
-    # Forward the JSON-RPC request to the capsule
-    try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(
-                message_url,
-                content=body,
-                headers={"Content-Type": content_type},
-                timeout=120,
-            )
-        print(f"[MCP-STREAM] Capsule responded {resp.status_code} ct={resp.headers.get('content-type', '?')}")
-
-        resp_ct = resp.headers.get("content-type", "")
-
-        if "text/event-stream" in resp_ct:
-            # Capsule wants to stream back — relay as SSE
-            async def _relay():
-                for line in resp.text.splitlines(keepends=True):
-                    yield line
-            return StreamingResponse(
-                _relay(),
-                media_type="text/event-stream",
-                status_code=resp.status_code,
-                headers={"Cache-Control": "no-cache"},
-            )
-        elif resp.status_code == 202 or resp.status_code == 204:
-            # Accepted / No Content — notification acknowledged
-            from fastapi.responses import Response
-            return Response(status_code=202)
-        else:
-            # JSON response — return as-is
-            try:
-                return JSONResponse(content=resp.json(), status_code=resp.status_code)
-            except Exception:
-                return JSONResponse(
-                    content={"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32000, "message": resp.text[:500]}},
-                    status_code=resp.status_code,
-                )
-    except httpx.ReadTimeout:
-        return JSONResponse(status_code=504, content={"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32000, "message": "Capsule timeout"}})
-    except Exception as e:
-        # Session might be stale — clear it so next request rediscovers
-        _streamable_sessions.pop(session_key, None)
-        print(f"[MCP-STREAM] Forward error: {e}")
-        return JSONResponse(
-            status_code=502,
-            content={"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32000, "message": str(e)}},
-        )
-
-
-async def _discover_capsule_message_url(timeout: int = 15) -> str | None:
-    """Connect to capsule SSE, read the 'endpoint' event, return the message URL."""
-    try:
-        async with httpx.AsyncClient() as client:
-            async with client.stream("GET", f"{MCP_BASE}/sse", timeout=timeout) as resp:
-                async for line in resp.aiter_lines():
-                    # The MCP SSE server sends: event: endpoint\ndata: /message?session_id=xxx
-                    # or: data: http://127.0.0.1:8765/message?session_id=xxx
-                    if line.startswith("data:") and "message" in line:
-                        url = line.split("data:", 1)[1].strip()
-                        # Handle relative URLs — prepend capsule base
-                        if url.startswith("/"):
-                            url = f"{MCP_BASE}{url}"
-                        elif not url.startswith("http"):
-                            url = f"{MCP_BASE}/{url}"
-                        print(f"[MCP-STREAM] Discovered message URL: {url}")
-                        return url
-    except Exception as e:
-        print(f"[MCP-STREAM] Discovery error: {e}")
-    return None
-
-
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/media", StaticFiles(directory="."), name="media")
+
+
+# Kiro tries Streamable HTTP (POST) first before falling back to SSE.
+# Return 405 to signal that SSE transport should be used instead.
+@app.post("/mcp/sse")
+async def mcp_sse_post_fallback(request: Request):
+    """Return 405 so MCP clients fall back to SSE transport."""
+    return JSONResponse(
+        status_code=405,
+        content={"error": "Use GET for SSE transport"},
+        headers={"Allow": "GET"},
+    )
 
 
 if __name__ == "__main__":
