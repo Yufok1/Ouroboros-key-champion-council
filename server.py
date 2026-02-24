@@ -28,6 +28,7 @@ from mcp import ClientSession
 from mcp.client.sse import sse_client
 
 import time
+import persistence
 
 # Tools that are internal plumbing — don't broadcast to activity feed
 _SILENT_TOOLS = frozenset([
@@ -329,12 +330,25 @@ async def lifespan(app: FastAPI):
             ok = await _connect_mcp()
             if ok:
                 print("[OK] MCP proxy ready")
+
+                # Restore persisted state from HF dataset repo
+                if persistence.is_available():
+                    print("[INIT] Restoring persisted state...")
+                    await persistence.restore_state(_call_tool)
+                    persistence.start_autosave(_call_tool, interval=300)
+                else:
+                    print("[INIT] Persistence not available (no HF_TOKEN or username)")
             else:
                 print("[WARN] MCP connect failed (will retry on first request)")
 
     yield
 
-    # Shutdown
+    # Shutdown — save state before stopping
+    if persistence.is_available():
+        print("[SHUTDOWN] Saving state...")
+        await persistence.save_state(_call_tool)
+        persistence.stop_autosave()
+
     await _disconnect_mcp()
     stop_capsule()
 
@@ -438,7 +452,37 @@ async def health():
         "capsule_pid": capsule_process.pid if capsule_alive else None,
         "mcp_port": MCP_PORT,
         "mcp_session": _mcp_session is not None,
+        "persistence": persistence.is_available(),
         "timestamp": datetime.utcnow().isoformat(),
+    }
+
+
+@app.post("/api/persist/save")
+async def persist_save():
+    """Manually trigger a state save to the HF dataset repo."""
+    if not persistence.is_available():
+        return JSONResponse(status_code=503, content={"error": "Persistence not available — set HF_TOKEN as a Space secret"})
+    ok = await persistence.save_state(_call_tool)
+    return {"status": "saved" if ok else "failed"}
+
+
+@app.post("/api/persist/restore")
+async def persist_restore():
+    """Manually trigger a state restore from the HF dataset repo."""
+    if not persistence.is_available():
+        return JSONResponse(status_code=503, content={"error": "Persistence not available — set HF_TOKEN as a Space secret"})
+    ok = await persistence.restore_state(_call_tool)
+    return {"status": "restored" if ok else "failed"}
+
+
+@app.get("/api/persist/status")
+async def persist_status():
+    """Check persistence configuration status."""
+    return {
+        "available": persistence.is_available(),
+        "repo_id": persistence._get_repo_id(),
+        "has_token": bool(os.environ.get("HF_TOKEN", "")),
+        "has_username": bool(os.environ.get("SPACE_AUTHOR_NAME", "") or os.environ.get("SPACE_ID", "")),
     }
 
 
