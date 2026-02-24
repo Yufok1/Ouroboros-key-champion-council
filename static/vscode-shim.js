@@ -30,7 +30,6 @@
 
     const API_BASE = window.location.origin;
     let _state = {};
-    let _activityLog = [];  // Track tool calls for Activity tab
 
     // --- Local storage helpers for settings ---
     function loadLocal(key, fallback) {
@@ -50,48 +49,28 @@
         };
     };
 
-    // --- MCP tool call helper ---
+    // --- MCP tool call helper (silent — no activity tracking) ---
     async function mcpToolCall(toolName, args) {
-        const start = Date.now();
         const resp = await fetch(`${API_BASE}/api/tool/${toolName}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(args || {})
         });
         const data = await resp.json();
-        const durationMs = Date.now() - start;
         // Extract result from JSON-RPC envelope
-        let parsed;
         if (data.result && data.result.content) {
             try {
                 const text = data.result.content[0]?.text;
-                parsed = text ? JSON.parse(text) : data.result;
-            } catch { parsed = data.result; }
-        } else {
-            parsed = data;
+                return text ? JSON.parse(text) : data.result;
+            } catch { return data.result; }
         }
-        // Fire activity event for the Activity tab
-        _trackActivity(toolName, args, parsed, durationMs, data.error ? String(data.error) : null, 'webui');
-        return parsed;
+        return data;
     }
 
-    // --- Activity tracking ---
-    function _trackActivity(tool, args, result, durationMs, error, source) {
-        const cat = (tool || '').split('_')[0] || 'other';
-        const entry = {
-            tool: tool,
-            category: cat,
-            args: args || {},
-            result: result || null,
-            error: error || null,
-            durationMs: durationMs || 0,
-            timestamp: Date.now(),
-            source: source || 'webui'
-        };
-        _activityLog.push(entry);
-        if (_activityLog.length > 500) _activityLog = _activityLog.slice(-500);
-        fireEvent({ type: 'activity', event: entry });
-    }
+    // Activity is tracked ONLY via the SSE stream from the server.
+    // The server's proxy_tool_call endpoint broadcasts every call
+    // (both from the web UI and from external MCP clients like Kiro).
+    // This avoids double-counting.
 
     // --- Web-mode unavailable message helper ---
     function webModeUnavailable(feature) {
@@ -509,8 +488,7 @@
                 port: healthResp.mcp_port || 8765,
                 uptime: uptimeMs,
                 categories: categories,
-                version: healthResp.version || '0.8.9',
-                activityLog: _activityLog
+                version: healthResp.version || '0.8.9'
             });
         } catch (err) {
             // Server unreachable — dispatch offline state
@@ -532,9 +510,18 @@
     setInterval(pollHealthAndDispatchState, 5000);
 
     // ═══════════════════════════════════════════════════════════
-    // SSE ACTIVITY STREAM — listen for external MCP tool calls
-    // (from Kiro, Claude Desktop, etc.) and push to Activity tab
+    // SSE ACTIVITY STREAM — listen for tool calls from ALL sources
+    // (web UI proxy calls, external MCP from Kiro/Claude, etc.)
+    // This is the SINGLE source of truth for the Activity tab.
     // ═══════════════════════════════════════════════════════════
+
+    // Tools that are internal plumbing — suppress from activity feed
+    const _HYDRATION_TOOLS = [
+        'get_status', 'list_slots', 'bag_catalog', 'workflow_list',
+        'verify_integrity', 'get_cached', 'get_identity', 'feed',
+        'get_capabilities', 'get_help', 'get_onboarding', 'get_quickstart',
+        'hub_tasks'
+    ];
 
     function connectActivitySSE() {
         try {
@@ -542,11 +529,11 @@
             es.onmessage = function(e) {
                 try {
                     const event = JSON.parse(e.data);
-                    if (event.tool) {
-                        _activityLog.push(event);
-                        if (_activityLog.length > 500) _activityLog = _activityLog.slice(-500);
-                        fireEvent({ type: 'activity', event: event });
-                    }
+                    if (!event.tool) return;
+                    // Skip internal hydration/polling noise
+                    if (event.source === 'hydration') return;
+                    // Fire to main.js activity feed
+                    fireEvent({ type: 'activity', event: event });
                 } catch {}
             };
             es.onerror = function() {
@@ -561,20 +548,41 @@
 
     // ═══════════════════════════════════════════════════════════
     // PROACTIVE DATA FETCH — populate all tabs on startup
+    // Uses /api/tool with X-Source: hydration header so the server
+    // tags these calls and the SSE listener can filter them out.
     // ═══════════════════════════════════════════════════════════
+
+    async function _silentToolCall(toolName, args) {
+        const resp = await fetch(`${API_BASE}/api/tool/${toolName}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Source': 'hydration'
+            },
+            body: JSON.stringify(args || {})
+        });
+        const data = await resp.json();
+        if (data.result && data.result.content) {
+            try {
+                const text = data.result.content[0]?.text;
+                return text ? JSON.parse(text) : data.result;
+            } catch { return data.result; }
+        }
+        return data;
+    }
 
     async function hydrateAllTabs() {
         try {
             // 1. Overview: get_status for meta cards
-            const status = await mcpToolCall('get_status', {});
+            const status = await _silentToolCall('get_status', {});
             fireEvent({ type: 'capsuleStatus', data: status });
 
             // 2. Council: list_slots
-            const slots = await mcpToolCall('list_slots', {});
+            const slots = await _silentToolCall('list_slots', {});
             fireEvent({ type: 'slots', data: slots });
 
             // 3. Memory: bag_catalog
-            const catalog = await mcpToolCall('bag_catalog', {});
+            const catalog = await _silentToolCall('bag_catalog', {});
             fireEvent({ type: 'memoryCatalog', data: catalog });
 
             // 4. Tools: fetch schemas
@@ -585,11 +593,11 @@
             }
 
             // 5. Workflows: workflow_list
-            const workflows = await mcpToolCall('workflow_list', {});
+            const workflows = await _silentToolCall('workflow_list', {});
             fireEvent({ type: 'toolResult', id: '__wf_init__', data: workflows });
 
             // 6. Diagnostics: verify_integrity
-            const integrity = await mcpToolCall('verify_integrity', {});
+            const integrity = await _silentToolCall('verify_integrity', {});
             fireEvent({ type: 'diagResult', diagKey: 'integrity', data: integrity });
 
         } catch (err) {

@@ -314,11 +314,13 @@ async def proxy_tool_call(tool_name: str, request: Request):
         body = await request.json()
     except Exception:
         body = {}
+    source = request.headers.get("x-source", "webui")
     start = time.time()
     result = await _call_tool(tool_name, body)
     duration_ms = int((time.time() - start) * 1000)
     error_str = result.get("error") if isinstance(result.get("error"), str) else None
-    _broadcast_activity(tool_name, body, result.get("result"), duration_ms, error_str, source="proxy")
+    # Tag hydration calls so the frontend SSE listener can filter them
+    _broadcast_activity(tool_name, body, result.get("result"), duration_ms, error_str, source=source)
     if error_str:
         return JSONResponse(status_code=503, content=result)
     return result
@@ -353,16 +355,13 @@ async def capsule_log():
 
 @app.get("/api/activity-stream")
 async def activity_stream():
-    """SSE stream of tool call activity for the web UI Activity tab."""
+    """SSE stream of tool call activity for the web UI Activity tab.
+    Only streams LIVE events — no history replay to avoid spam on connect."""
     q = asyncio.Queue(maxsize=100)
     _activity_subscribers.append(q)
 
     async def _stream():
         try:
-            # Send recent history first so the UI hydrates immediately
-            for entry in _activity_log[-50:]:
-                yield f"data: {json.dumps(entry)}\n\n"
-            # Then stream live events
             while True:
                 entry = await q.get()
                 yield f"data: {json.dumps(entry)}\n\n"
