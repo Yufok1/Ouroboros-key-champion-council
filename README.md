@@ -6,7 +6,7 @@ colorTo: blue
 sdk: docker
 pinned: false
 license: mit
-short_description: 'Local-first AI model orchestrator. Multi-model council with 140+ MCP tools, semantic memory, workflows, and decentralized collaboration.'
+short_description: 'AI model orchestrator with 140+ MCP tools'
 app_port: 7860
 ---
 
