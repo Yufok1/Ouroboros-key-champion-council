@@ -118,18 +118,70 @@
         else if (command === 'exportMemory') {
             try {
                 const result = await mcpToolCall('bag_export', msg.args || {});
-                fireEvent({ type: 'toolResult', id: msg.id, data: result });
+                // In web mode, offer the export as a downloadable JSON blob
+                const exportData = JSON.stringify(result, null, 2);
+                const blob = new Blob([exportData], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'felixbag_export_' + new Date().toISOString().slice(0,10) + '.json';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                fireEvent({ type: 'memoryExported', fileType: 'JSON', path: a.download });
             } catch (err) {
-                fireEvent({ type: 'toolResult', id: msg.id, error: err.message });
+                fireEvent({ type: 'memoryExportError', error: err.message });
             }
         }
 
-        // ── Diagnostics ──────────────────────────────────────
+        // ── Diagnostics → route to actual MCP tools ──────
         else if (command === 'runDiagnostic') {
-            fireEvent({
-                type: 'diagResult', id: msg.id, diagKey: msg.diagKey,
-                error: 'Diagnostics not available in web mode'
-            });
+            const diagKey = msg.diagKey || '';
+            // Map diagnostic keys to MCP tool calls
+            const DIAG_TOOL_MAP = {
+                'verify_integrity': ['verify_integrity', {}],
+                'verify_hash': ['verify_hash', {}],
+                'get_provenance': ['get_provenance', {}],
+                'tree': ['tree', {}],
+                'show_weights': ['show_weights', {}],
+                'show_dims': ['show_dims', {}],
+                'show_rssm': ['show_rssm', {}],
+                'show_lora': ['show_lora', {}],
+                'export_pt': ['export_pt', {}],
+                'export_onnx': ['export_onnx', {}],
+                'export_docs': ['export_docs', {}],
+                'save_state': ['save_state', {}],
+                'demo': ['demo', {}],
+                'heartbeat': ['heartbeat', {}],
+                'get_about': ['get_about', {}],
+                'cascade_graph_stats': ['cascade_graph', {operation: 'stats'}],
+                'cascade_genesis': ['get_genesis', {}],
+                'cascade_identity': ['get_identity', {}],
+                'cascade_session_stats': ['cascade_record', {operation: 'session_stats'}],
+                'cascade_proxy_status': ['cascade_proxy', {operation: 'status'}],
+            };
+            const mapping = DIAG_TOOL_MAP[diagKey];
+            if (mapping) {
+                try {
+                    const result = await mcpToolCall(mapping[0], mapping[1]);
+                    // Wrap in the format handleDiagResult expects
+                    fireEvent({
+                        type: 'diagResult', id: msg.id, diagKey: diagKey,
+                        data: { resolved: result, key: diagKey, label: diagKey, healthy: !result.error }
+                    });
+                } catch (err) {
+                    fireEvent({
+                        type: 'diagResult', id: msg.id, diagKey: diagKey,
+                        error: err.message
+                    });
+                }
+            } else {
+                fireEvent({
+                    type: 'diagResult', id: msg.id, diagKey: diagKey,
+                    error: 'Unknown diagnostic: ' + diagKey
+                });
+            }
         }
 
         // ── Nostr commands → route through capsule MCP tools ─

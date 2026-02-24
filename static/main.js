@@ -3568,7 +3568,8 @@
     }
 
     function startMemoryExport() {
-        setMemoryExportStatus('Choose export format from the VS Code picker…', false);
+        var isWebMode = !!window.__vsCodeShimInstalled;
+        setMemoryExportStatus(isWebMode ? 'Exporting FelixBag…' : 'Choose export format from the VS Code picker…', false);
         vscode.postMessage({ command: 'exportMemory' });
     }
     window.startMemoryExport = startMemoryExport;
