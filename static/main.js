@@ -1288,31 +1288,30 @@
     function _actEsc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
     function _buildActivityNode(e) {
-        console.log('[ActivityNode] Building:', e.tool, 'hasResult=' + !!e.result, 'resultType=' + typeof e.result, 'result=', e.result);
         var ts = new Date(e.timestamp).toLocaleTimeString();
         var fullTs = new Date(e.timestamp).toISOString();
         var hasError = !!e.error;
         var source = e.source || 'extension';
 
-        var detail = '';
-        detail += '<div class="ad-section"><span class="ad-label">Timestamp</span>\n' + fullTs + '</div>';
-        detail += '<div class="ad-section"><span class="ad-label">Source</span>\n' + _actEsc(source) + '</div>';
-        detail += '<div class="ad-section"><span class="ad-label">Category</span>\n' + _actEsc(e.category || 'unknown') + '</div>';
-        detail += '<div class="ad-section"><span class="ad-label">Duration</span>\n' + (e.durationMs || 0) + 'ms</div>';
+        // Build detail sections as plain escaped text lines (no HTML tags inside <pre>)
+        var lines = [];
+        lines.push('TIMESTAMP  ' + fullTs);
+        lines.push('SOURCE     ' + (source || 'extension'));
+        lines.push('CATEGORY   ' + (e.category || 'unknown'));
+        lines.push('DURATION   ' + (e.durationMs || 0) + 'ms');
         if (hasError) {
-            detail += '<div class="ad-section" style="color:var(--red)"><span class="ad-label">Error</span>\n' + _actEsc(e.error) + '</div>';
+            lines.push('');
+            lines.push('ERROR      ' + (e.error || ''));
         }
         if (e.args && Object.keys(e.args).length > 0) {
-            detail += '<div class="ad-section"><span class="ad-label">Arguments</span>\n' + _actEsc(JSON.stringify(e.args, null, 2)) + '</div>';
-        } else {
-            detail += '<div class="ad-section"><span class="ad-label">Arguments</span>\nNone</div>';
+            lines.push('');
+            lines.push('ARGUMENTS');
+            lines.push(_actEsc(JSON.stringify(e.args, null, 2)));
         }
         if (e.result) {
             var resultObj = e.result;
             // ── Unwrap MCP protocol envelope for extension-source calls ──
-            // callTool returns { content: [{ type: "text", text: "..." }], structuredContent: {...} }
             if (typeof resultObj === 'object' && resultObj !== null && resultObj.content && Array.isArray(resultObj.content)) {
-                // Try structuredContent.result first (parsed), then content[0].text (raw)
                 var innerText = null;
                 if (resultObj.structuredContent && resultObj.structuredContent.result) {
                     innerText = resultObj.structuredContent.result;
@@ -1320,55 +1319,51 @@
                     innerText = resultObj.content[0].text;
                 }
                 if (innerText) {
-                    // Try to parse as JSON for structured rendering
-                    try {
-                        resultObj = JSON.parse(innerText);
-                    } catch (ex) {
-                        resultObj = innerText;
-                    }
+                    try { resultObj = JSON.parse(innerText); } catch (ex) { resultObj = innerText; }
                 }
             }
-            // Render structured results with per-key formatting
+            lines.push('');
+            lines.push('RESULT');
             if (typeof resultObj === 'object' && resultObj !== null && !Array.isArray(resultObj)) {
-                var resultLines = [];
-                for (var rk in resultObj) {
-                    if (!resultObj.hasOwnProperty(rk)) continue;
-                    if (rk.startsWith('_')) continue; // skip internal keys like _cached, _size
+                var keys = Object.keys(resultObj);
+                for (var ki = 0; ki < keys.length; ki++) {
+                    var rk = keys[ki];
+                    if (rk.charAt(0) === '_') continue;
                     var rv = resultObj[rk];
                     var rvStr = (rv === null || rv === undefined) ? 'null' : (typeof rv === 'object' ? JSON.stringify(rv, null, 2) : String(rv));
-                    resultLines.push(_actEsc(rk) + ': ' + _actEsc(rvStr));
+                    lines.push('  ' + _actEsc(rk) + ': ' + _actEsc(rvStr));
                 }
-                detail += '<div class="ad-section"><span class="ad-label">Result</span>\n' + resultLines.join('\n') + '</div>';
             } else {
                 var resultStr = typeof resultObj === 'string' ? resultObj : JSON.stringify(resultObj, null, 2);
-                detail += '<div class="ad-section"><span class="ad-label">Result</span>\n' + _actEsc(resultStr.substring(0, 4000)) + '</div>';
+                lines.push(_actEsc(resultStr.substring(0, 4000)));
             }
         }
 
         // ── CASCADE enrichment for external structured calls ──
-        if (source === 'external') {
-            var metaLines = [];
-            // Metrics extracted from result
-            if (e.result && typeof e.result === 'object' && e.result.metrics && typeof e.result.metrics === 'object') {
+        if (source === 'external' && e.result && typeof e.result === 'object') {
+            var metaParts = [];
+            if (e.result.metrics && typeof e.result.metrics === 'object') {
                 var mParts = [];
-                for (var mk in e.result.metrics) {
-                    if (e.result.metrics.hasOwnProperty(mk)) mParts.push(_actEsc(mk) + '=' + _actEsc(String(e.result.metrics[mk])));
+                var mKeys = Object.keys(e.result.metrics);
+                for (var mi = 0; mi < mKeys.length; mi++) {
+                    mParts.push(_actEsc(mKeys[mi]) + '=' + _actEsc(String(e.result.metrics[mKeys[mi]])));
                 }
-                if (mParts.length > 0) metaLines.push('Metrics: ' + mParts.join(', '));
+                if (mParts.length > 0) metaParts.push('Metrics: ' + mParts.join(', '));
             }
-            // Cascade step
-            if (e.result && typeof e.result === 'object' && e.result.cascade_step) {
-                metaLines.push('CASCADE Step: #' + _actEsc(String(e.result.cascade_step)));
-            }
-            // Result size + cached
-            if (e.result && typeof e.result === 'object' && e.result.result_size) {
+            if (e.result.cascade_step) metaParts.push('CASCADE Step: #' + _actEsc(String(e.result.cascade_step)));
+            if (e.result.result_size) {
                 var sizeStr = e.result.result_size > 1024 ? (e.result.result_size / 1024).toFixed(1) + 'KB' : e.result.result_size + 'B';
-                metaLines.push('Result Size: ' + sizeStr + (e.result.cached ? ' (cached)' : ''));
+                metaParts.push('Result Size: ' + sizeStr + (e.result.cached ? ' (cached)' : ''));
             }
-            if (metaLines.length > 0) {
-                detail += '<div class="ad-section" style="opacity:0.7"><span class="ad-label">CASCADE</span>\n' + metaLines.join('\n') + '</div>';
+            if (metaParts.length > 0) {
+                lines.push('');
+                lines.push('CASCADE');
+                for (var ci = 0; ci < metaParts.length; ci++) lines.push('  ' + metaParts[ci]);
             }
         }
+
+        var detailText = lines.join('\n');
+        console.log('[ActivityNode]', e.tool, 'detailLen=' + detailText.length, 'resultKeys=' + (e.result ? Object.keys(e.result).join(',') : 'none'));
 
         var sourceBadge = source === 'external'
             ? '<span class="activity-cat" style="border-color:var(--blue);color:var(--blue);">EXTERNAL</span>'
@@ -1377,7 +1372,7 @@
         div.className = 'activity-entry';
         div.onclick = function () {
             var sel = window.getSelection();
-            if (sel && sel.toString().length > 0) return; // don't toggle when selecting text
+            if (sel && sel.toString().length > 0) return;
             div.classList.toggle('expanded');
         };
         div.innerHTML =
@@ -1388,7 +1383,7 @@
             '<span class="activity-duration">' + (e.durationMs || 0) + 'ms</span>' +
             (hasError ? ' <span style="color:var(--red);">ERR</span>' : '') +
             '<span class="activity-expand-hint">click to expand</span>' +
-            '<pre class="activity-detail">' + detail + '</pre>';
+            '<pre class="activity-detail">' + detailText + '</pre>';
         return div;
     }
 
