@@ -528,14 +528,20 @@ async def mcp_streamable_http(request: Request):
 
 async def _discover_capsule_message_url(timeout: int = 15) -> str | None:
     """Connect to capsule SSE, read the 'endpoint' event, return the message URL."""
-    import re
     try:
         async with httpx.AsyncClient() as client:
             async with client.stream("GET", f"{MCP_BASE}/sse", timeout=timeout) as resp:
                 async for line in resp.aiter_lines():
-                    # The MCP SSE server sends: event: endpoint\ndata: http://127.0.0.1:8765/message?session_id=xxx
-                    if line.startswith("data:") and "/message" in line:
+                    # The MCP SSE server sends: event: endpoint\ndata: /message?session_id=xxx
+                    # or: data: http://127.0.0.1:8765/message?session_id=xxx
+                    if line.startswith("data:") and "message" in line:
                         url = line.split("data:", 1)[1].strip()
+                        # Handle relative URLs — prepend capsule base
+                        if url.startswith("/"):
+                            url = f"{MCP_BASE}{url}"
+                        elif not url.startswith("http"):
+                            url = f"{MCP_BASE}/{url}"
+                        print(f"[MCP-STREAM] Discovered message URL: {url}")
                         return url
     except Exception as e:
         print(f"[MCP-STREAM] Discovery error: {e}")
