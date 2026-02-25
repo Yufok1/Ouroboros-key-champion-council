@@ -219,6 +219,29 @@
 
         // ── Dreamer config (persisted in FelixBag) ─────────
         else if (command === 'loadDreamerConfigFile') {
+            const _defaultDreamerCfg = {
+                rewards: {
+                    hold_accept: 1.0, hold_override: -0.5, bag_induct: 0.8,
+                    bag_forget: -0.3, workflow_save: 1.0, workflow_success: 0.5,
+                    workflow_failure: -0.5, tool_success: 0.1, tool_error: -0.2,
+                    mutation_kept: 0.3, mutation_reverted: -0.1, normalize: true
+                },
+                training: {
+                    enabled: true, auto_train: true, world_model_frequency: 32,
+                    critic_frequency: 32, full_cycle_frequency: 64, batch_size: 32,
+                    noise_scale: 0.005, gamma: 0.99, lambda: 0.95,
+                    critic_target_tau: 0.02, timeout_budget_seconds: 30
+                },
+                imagination: { horizon: 15, n_actions: 8, auto_imagine_on_train: true },
+                buffers: {
+                    reward_buffer_max: 5000, obs_buffer_max: 1000,
+                    value_history_max: 200, reward_rate_window: 100
+                },
+                architecture: {
+                    critic_hidden_dim: 256, reward_head_hidden_dim: 128,
+                    continue_head_hidden_dim: 64, latent_dim: 5120
+                }
+            };
             try {
                 const result = await mcpToolCall('bag_get', { key: 'dreamer_config' });
                 let cfg = null;
@@ -226,9 +249,9 @@
                     try { cfg = typeof result.value === 'string' ? JSON.parse(result.value) : result.value; }
                     catch { cfg = result.value; }
                 }
-                fireEvent({ type: 'dreamerConfigLoaded', config: cfg });
+                fireEvent({ type: 'dreamerConfigLoaded', config: cfg || _defaultDreamerCfg });
             } catch {
-                fireEvent({ type: 'dreamerConfigLoaded', config: null });
+                fireEvent({ type: 'dreamerConfigLoaded', config: _defaultDreamerCfg });
             }
         }
         else if (command === 'saveDreamerConfig') {
