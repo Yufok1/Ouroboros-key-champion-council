@@ -559,6 +559,183 @@ async def capsule_log():
     return {"lines": capsule_log_lines[-100:]}
 
 
+# --- Dreamer & Vast Fleet Aggregation Routes ---
+# These aggregate multiple MCP tool calls into single API responses
+# for the Dreamer and GPU Fleet dashboard tabs.
+
+# Dreamer state cache (avoid hammering capsule)
+_dreamer_cache = {"data": None, "ts": 0}
+_dreamer_config_defaults = {
+    "rewards": {
+        "hold_accept": 1.0, "hold_override": -0.5, "bag_induct": 0.8,
+        "bag_forget": -0.3, "workflow_save": 1.0, "workflow_success": 0.5,
+        "workflow_failure": -0.5, "tool_success": 0.1, "tool_error": -0.2,
+        "mutation_kept": 0.3, "mutation_reverted": -0.1, "normalize": True
+    },
+    "training": {
+        "enabled": True, "auto_train": True, "world_model_frequency": 32,
+        "critic_frequency": 32, "full_cycle_frequency": 64, "batch_size": 32,
+        "noise_scale": 0.005, "gamma": 0.99, "lambda": 0.95,
+        "critic_target_tau": 0.02, "timeout_budget_seconds": 30
+    },
+    "imagination": {"horizon": 15, "n_actions": 8, "auto_imagine_on_train": True},
+    "buffers": {
+        "reward_buffer_max": 5000, "obs_buffer_max": 1000,
+        "value_history_max": 200, "reward_rate_window": 100
+    },
+    "architecture": {
+        "critic_hidden_dim": 256, "reward_head_hidden_dim": 128,
+        "continue_head_hidden_dim": 64, "latent_dim": 5120
+    }
+}
+
+# Dreamer training history (kept server-side for charting)
+_dreamer_history = {
+    "critic_loss": [],      # list of {ts, baseline, perturbed, accepted}
+    "reward_counts": [],    # list of {ts, count}
+    "fitness": [],          # list of {ts, value}
+}
+_dreamer_last_cycle = 0
+
+
+@app.get("/api/dreamer/state")
+async def dreamer_state():
+    """Aggregated dreamer state: get_status + show_rssm + show_weights in one call.
+    Caches for 3 seconds to avoid hammering the capsule on rapid polls."""
+    global _dreamer_last_cycle
+    now = time.time()
+
+    # Return cache if fresh (< 3s)
+    if _dreamer_cache["data"] and now - _dreamer_cache["ts"] < 3:
+        return _dreamer_cache["data"]
+
+    # Fetch all three in parallel-ish (sequential but fast internal calls)
+    status_raw = await _call_tool("get_status", {})
+    rssm_raw = await _call_tool("show_rssm", {})
+    weights_raw = await _call_tool("show_weights", {})
+    lora_raw = await _call_tool("show_lora", {})
+
+    status = _parse_mcp_result(status_raw.get("result")) or {}
+    rssm = _parse_mcp_result(rssm_raw.get("result")) or {}
+    weights = _parse_mcp_result(weights_raw.get("result")) or {}
+    lora = _parse_mcp_result(lora_raw.get("result")) or {}
+
+    dreamer = status.get("dreamer", {}) if isinstance(status, dict) else {}
+
+    # Track training history for charts
+    cycles = dreamer.get("training_cycles", 0)
+    if cycles > _dreamer_last_cycle and dreamer.get("last_train"):
+        lt = dreamer["last_train"]
+        _dreamer_history["critic_loss"].append({
+            "ts": now, "cycle": cycles,
+            "baseline": lt.get("critic_baseline_loss"),
+            "perturbed": lt.get("critic_perturbed_loss"),
+            "accepted": lt.get("accepted"),
+        })
+        # Cap history at 200 entries
+        if len(_dreamer_history["critic_loss"]) > 200:
+            _dreamer_history["critic_loss"] = _dreamer_history["critic_loss"][-200:]
+        _dreamer_last_cycle = cycles
+
+    _dreamer_history["reward_counts"].append({"ts": now, "count": dreamer.get("reward_count", 0)})
+    _dreamer_history["fitness"].append({"ts": now, "value": dreamer.get("fitness", 0)})
+    # Cap
+    for k in ("reward_counts", "fitness"):
+        if len(_dreamer_history[k]) > 200:
+            _dreamer_history[k] = _dreamer_history[k][-200:]
+
+    result = {
+        "dreamer": dreamer,
+        "rssm": rssm.get("metrics", {}).get("other", {}) if isinstance(rssm, dict) else {},
+        "weights": weights,
+        "lora": lora,
+        "history": _dreamer_history,
+        "generation": status.get("generation") if isinstance(status, dict) else None,
+        "fitness": status.get("fitness") if isinstance(status, dict) else None,
+    }
+    _dreamer_cache["data"] = result
+    _dreamer_cache["ts"] = now
+    return result
+
+
+@app.get("/api/dreamer/config")
+async def dreamer_config_get():
+    """Load dreamer config from FelixBag, falling back to defaults."""
+    result = await _call_tool("bag_get", {"key": "dreamer_config"})
+    parsed = _parse_mcp_result(result.get("result"))
+    if parsed and isinstance(parsed, dict) and "value" in parsed:
+        try:
+            return {"config": json.loads(parsed["value"]), "source": "bag"}
+        except (json.JSONDecodeError, TypeError):
+            pass
+    return {"config": _dreamer_config_defaults, "source": "defaults"}
+
+
+@app.post("/api/dreamer/config")
+async def dreamer_config_save(request: Request):
+    """Save dreamer config to FelixBag."""
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "Invalid JSON"})
+    config = body.get("config", body)
+    result = await _call_tool("bag_induct", {
+        "key": "dreamer_config",
+        "content": json.dumps(config),
+        "item_type": "config"
+    })
+    parsed = _parse_mcp_result(result.get("result"))
+    return {"status": "saved", "result": parsed}
+
+
+@app.post("/api/dreamer/config/reset")
+async def dreamer_config_reset():
+    """Reset dreamer config to defaults (remove from bag, return defaults)."""
+    await _call_tool("bag_forget", {"key": "dreamer_config"})
+    return {"status": "reset", "config": _dreamer_config_defaults}
+
+
+# Vast fleet state cache
+_vast_fleet_cache = {"data": None, "ts": 0}
+
+
+@app.get("/api/vast/state")
+async def vast_fleet_state():
+    """Aggregated vast fleet state from vast_instances.
+    Caches for 5 seconds to avoid hammering the capsule."""
+    now = time.time()
+    if _vast_fleet_cache["data"] and now - _vast_fleet_cache["ts"] < 5:
+        return _vast_fleet_cache["data"]
+
+    result = await _call_tool("vast_instances", {})
+    parsed = _parse_mcp_result(result.get("result"))
+
+    # Also get capsule status for vast-related state
+    status_raw = await _call_tool("get_status", {})
+    status = _parse_mcp_result(status_raw.get("result")) or {}
+
+    # Extract vast activity from recent activity log
+    vast_activity = [
+        {
+            "tool": e.get("tool", ""),
+            "status": "error" if e.get("error") else "ok",
+            "duration": e.get("durationMs", 0),
+            "timestamp": e.get("timestamp", 0),
+        }
+        for e in _activity_log
+        if e.get("tool", "").startswith("vast_")
+    ][-10:]
+
+    fleet = {
+        "instances": parsed if isinstance(parsed, (list, dict)) else [],
+        "activity": vast_activity,
+        "slots_filled": status.get("slots_filled", 0) if isinstance(status, dict) else 0,
+    }
+    _vast_fleet_cache["data"] = fleet
+    _vast_fleet_cache["ts"] = now
+    return fleet
+
+
 @app.get("/api/activity-stream")
 async def activity_stream():
     """SSE stream of tool call activity for the web UI Activity tab.

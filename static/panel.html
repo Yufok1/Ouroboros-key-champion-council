@@ -1431,6 +1431,8 @@ input:focus, select:focus { border-color: var(--accent); outline: none; }
     <button class="tab" data-tab="tools">Tools</button>
     <button class="tab" data-tab="diagnostics">Diagnostics</button>
     <button class="tab" data-tab="workflows">Workflows</button>
+    <button class="tab" data-tab="dreamer">Dreamer</button>
+    <button class="tab" data-tab="gpufleet">GPU Fleet</button>
     
 </div>
 
@@ -1814,6 +1816,188 @@ input:focus, select:focus { border-color: var(--accent); outline: none; }
     </div>
 </div>
 
+<!-- ═══════════════ DREAMER TAB ═══════════════ -->
+<div class="content" id="tab-dreamer">
+    <div class="section-head">DREAMER WORLD MODEL</div>
+
+    <!-- Vital Stats Row -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px;">
+        <div class="diag-section" style="text-align:center;padding:12px;">
+            <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;">Fitness</div>
+            <div id="dr-fitness" style="font-size:28px;font-weight:bold;color:#a78bfa;">0.000</div>
+        </div>
+        <div class="diag-section" style="text-align:center;padding:12px;">
+            <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;">Critic Value</div>
+            <div id="dr-critic" style="font-size:28px;font-weight:bold;color:#60a5fa;">0.000</div>
+        </div>
+        <div class="diag-section" style="text-align:center;padding:12px;">
+            <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;">Rewards</div>
+            <div id="dr-rewards" style="font-size:28px;font-weight:bold;color:#34d399;">0</div>
+            <div id="dr-reward-rate" style="font-size:10px;color:var(--text-dim);">0/min</div>
+        </div>
+        <div class="diag-section" style="text-align:center;padding:12px;">
+            <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;">Training Cycles</div>
+            <div id="dr-cycles" style="font-size:28px;font-weight:bold;color:#f59e0b;">0</div>
+        </div>
+        <div class="diag-section" style="text-align:center;padding:12px;">
+            <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;">Status</div>
+            <div id="dr-status-badge" style="font-size:14px;font-weight:bold;padding:4px 12px;border-radius:4px;background:#22c55e30;color:#22c55e;margin-top:4px;">ACTIVE</div>
+        </div>
+    </div>
+
+    <!-- Training Metrics + RSSM Architecture side by side -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+        <!-- Critic Loss Chart -->
+        <div class="diag-section" style="padding:16px;">
+            <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">CRITIC LOSS HISTORY</div>
+            <canvas id="dr-loss-chart" width="400" height="160" style="width:100%;height:160px;background:rgba(0,0,0,0.2);border-radius:4px;"></canvas>
+            <div id="dr-last-train" style="font-size:10px;color:var(--text-dim);margin-top:6px;">No training data yet</div>
+        </div>
+        <!-- RSSM Architecture -->
+        <div class="diag-section" style="padding:16px;">
+            <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">RSSM ARCHITECTURE</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:11px;">
+                <div><span style="color:var(--text-dim);">Deter dim:</span> <span id="dr-deter" style="color:#a78bfa;font-weight:bold;">—</span></div>
+                <div><span style="color:var(--text-dim);">Stoch dim:</span> <span id="dr-stoch" style="color:#60a5fa;font-weight:bold;">—</span></div>
+                <div><span style="color:var(--text-dim);">Stoch classes:</span> <span id="dr-stoch-cls" style="color:#60a5fa;font-weight:bold;">—</span></div>
+                <div><span style="color:var(--text-dim);">Total latent:</span> <span id="dr-latent" style="color:#f59e0b;font-weight:bold;">—</span></div>
+                <div><span style="color:var(--text-dim);">Action dim:</span> <span id="dr-action" style="color:#34d399;font-weight:bold;">—</span></div>
+                <div><span style="color:var(--text-dim);">Horizon:</span> <span id="dr-horizon" style="color:#34d399;font-weight:bold;">—</span></div>
+            </div>
+            <div style="margin-top:12px;font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">WEIGHT HEALTH</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:11px;">
+                <div><span style="color:var(--text-dim);">Params:</span> <span id="dr-params" style="font-weight:bold;">—</span></div>
+                <div><span style="color:var(--text-dim);">NaN/Inf:</span> <span id="dr-nan" style="font-weight:bold;color:#22c55e;">CLEAN</span></div>
+                <div><span style="color:var(--text-dim);">LoRA rank:</span> <span id="dr-lora-rank" style="font-weight:bold;">—</span></div>
+                <div><span style="color:var(--text-dim);">LoRA alpha:</span> <span id="dr-lora-alpha" style="font-weight:bold;">—</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Buffer Fill Bars -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+        <div class="diag-section" style="padding:12px;">
+            <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">REWARD BUFFER</div>
+            <div style="background:rgba(255,255,255,0.06);border-radius:4px;height:20px;overflow:hidden;position:relative;">
+                <div id="dr-reward-bar" style="height:100%;background:linear-gradient(90deg,#34d399,#22c55e);width:0%;transition:width 0.5s;border-radius:4px;"></div>
+                <span id="dr-reward-bar-label" style="position:absolute;top:2px;left:8px;font-size:10px;color:white;text-shadow:0 0 4px #000;">0 / 5000</span>
+            </div>
+        </div>
+        <div class="diag-section" style="padding:12px;">
+            <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">OBSERVATION BUFFER</div>
+            <div style="background:rgba(255,255,255,0.06);border-radius:4px;height:20px;overflow:hidden;position:relative;">
+                <div id="dr-obs-bar" style="height:100%;background:linear-gradient(90deg,#60a5fa,#3b82f6);width:0%;transition:width 0.5s;border-radius:4px;"></div>
+                <span id="dr-obs-bar-label" style="position:absolute;top:2px;left:8px;font-size:10px;color:white;text-shadow:0 0 4px #000;">0 / 1000</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- HOLD Protocol + Imagination Controls -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+        <div class="diag-section" style="padding:16px;">
+            <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">HOLD PROTOCOL</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:11px;">
+                <div><span style="color:var(--text-dim);">Confidence:</span> <span id="dr-hold-conf" style="font-weight:bold;">0.85</span></div>
+                <div><span style="color:var(--text-dim);">Active:</span> <span id="dr-hold-active" style="font-weight:bold;color:#22c55e;">NO</span></div>
+                <div><span style="color:var(--text-dim);">Steps:</span> <span id="dr-hold-steps" style="font-weight:bold;">0</span></div>
+                <div><span style="color:var(--text-dim);">Timeout:</span> <span id="dr-hold-timeout" style="font-weight:bold;">30s</span></div>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:12px;">
+                <button onclick="dreamerAction('hold_yield')" style="flex:1;font-size:10px;">YIELD</button>
+                <button onclick="dreamerAction('hold_resolve')" style="flex:1;font-size:10px;">RESOLVE</button>
+            </div>
+        </div>
+        <div class="diag-section" style="padding:16px;">
+            <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">IMAGINATION</div>
+            <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+                <label style="font-size:10px;color:var(--text-dim);">Horizon:</label>
+                <input type="range" id="dr-imagine-horizon" min="1" max="30" value="15" style="flex:1;" oninput="document.getElementById('dr-imagine-val').textContent=this.value">
+                <span id="dr-imagine-val" style="font-size:11px;font-weight:bold;min-width:20px;">15</span>
+            </div>
+            <button onclick="runDreamerImagination()" style="width:100%;font-size:10px;">RUN IMAGINATION</button>
+            <div id="dr-imagine-result" style="font-size:10px;color:var(--text-dim);margin-top:8px;max-height:100px;overflow-y:auto;"></div>
+        </div>
+    </div>
+
+    <!-- Dreamer Config Editor (collapsible) -->
+    <div class="section-head" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border:1px solid var(--border);border-radius:4px;background:rgba(255,255,255,0.03);" onclick="toggleDreamerCfg()">
+        <span>DREAMER CONFIG</span>
+        <span id="dr-cfg-arrow" style="font-size:13px;">&#x25BC;</span>
+    </div>
+    <div id="dr-cfg-panel" style="display:none;padding:16px;border:1px solid var(--border);border-top:none;border-radius:0 0 4px 4px;">
+        <div id="dr-cfg-fields"></div>
+        <div style="display:flex;gap:8px;margin-top:12px;">
+            <button onclick="saveDreamerCfg()" style="flex:1;">Save Config</button>
+            <button onclick="resetDreamerCfg()" style="flex:1;opacity:0.7;">Reset Defaults</button>
+        </div>
+        <div id="dr-cfg-status" style="font-size:10px;color:var(--text-dim);margin-top:4px;"></div>
+    </div>
+</div>
+
+<!-- ═══════════════ GPU FLEET TAB ═══════════════ -->
+<div class="content" id="tab-gpufleet">
+    <div class="section-head">GPU FLEET</div>
+
+    <!-- Fleet Header -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px;">
+        <div class="diag-section" style="text-align:center;padding:12px;">
+            <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;">Instances</div>
+            <div id="gf-instance-count" style="font-size:28px;font-weight:bold;color:#a78bfa;">0</div>
+        </div>
+        <div class="diag-section" style="text-align:center;padding:12px;">
+            <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;">Rate</div>
+            <div id="gf-total-rate" style="font-size:28px;font-weight:bold;color:#f59e0b;">$0.00/hr</div>
+        </div>
+        <div class="diag-section" style="text-align:center;padding:12px;">
+            <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;">Spent (est.)</div>
+            <div id="gf-total-spent" style="font-size:28px;font-weight:bold;color:#ef4444;">$0.00</div>
+        </div>
+        <div class="diag-section" style="text-align:center;padding:12px;">
+            <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;">Council Slots</div>
+            <div id="gf-slots" style="font-size:28px;font-weight:bold;color:#34d399;">0</div>
+        </div>
+    </div>
+
+    <!-- Instance Cards Container -->
+    <div id="gf-instances" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px;margin-bottom:20px;">
+        <div class="diag-section" style="padding:20px;text-align:center;color:var(--text-dim);">
+            <div style="font-size:24px;margin-bottom:8px;">🖥️</div>
+            <div>No active GPU instances</div>
+            <div style="font-size:10px;margin-top:8px;">Use <code>vast_search</code> and <code>vast_rent</code> to get started</div>
+        </div>
+    </div>
+
+    <!-- Search Panel (collapsible) -->
+    <div class="section-head" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border:1px solid var(--border);border-radius:4px;background:rgba(255,255,255,0.03);" onclick="toggleVastSearch()">
+        <span>SEARCH GPU OFFERS</span>
+        <span id="gf-search-arrow" style="font-size:13px;">&#x25BC;</span>
+    </div>
+    <div id="gf-search-panel" style="display:none;padding:16px;border:1px solid var(--border);border-top:none;border-radius:0 0 4px 4px;">
+        <div style="display:flex;gap:8px;margin-bottom:12px;">
+            <input id="gf-search-query" placeholder="gpu_ram>=48 reliability>0.95 dph<0.50" style="flex:1;font-size:11px;" />
+            <button onclick="vastSearchOffers()">SEARCH</button>
+        </div>
+        <div id="gf-search-results" style="font-size:10px;max-height:300px;overflow-y:auto;">
+            <div style="color:var(--text-dim);">Enter a query and click SEARCH</div>
+        </div>
+    </div>
+
+    <!-- Activity Stream -->
+    <div style="margin-top:16px;">
+        <div class="section-head">RECENT VAST ACTIVITY</div>
+        <div id="gf-activity" style="font-size:10px;max-height:200px;overflow-y:auto;">
+            <div style="color:var(--text-dim);">No recent Vast.ai activity</div>
+        </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;">
+        <button onclick="vastRefreshInstances()">REFRESH INSTANCES</button>
+        <button class="btn-dim" onclick="vastStopAll()">STOP ALL</button>
+    </div>
+</div>
+
+
 </div><!-- end content-wrapper -->
 <div class="mp-toast" id="mp-toast"></div>
 
@@ -1827,5 +2011,496 @@ window.__CATEGORIES__ = {"Core Inference":{"setting":"coreInference","tools":["f
 <script src="/static/svg-pan-zoom.min.js"></script>
 <script src="/static/peerjs.min.js"></script>
 <script src="/static/main.js?v=7"></script>
+
+<!-- ═══════════════ DREAMER + GPU FLEET TAB JS ═══════════════ -->
+<script>
+(function() {
+    // ── Dreamer Tab ──────────────────────────────────────────
+    let _dreamerPollId = null;
+    let _dreamerState = null;
+
+    async function fetchDreamerState() {
+        try {
+            const r = await fetch('/api/dreamer/state');
+            if (!r.ok) return;
+            _dreamerState = await r.json();
+            renderDreamerDashboard(_dreamerState);
+        } catch(e) { console.warn('Dreamer poll error:', e); }
+    }
+
+    function renderDreamerDashboard(s) {
+        const d = s.dreamer || {};
+        const rssm = s.rssm || {};
+        const w = s.weights || {};
+        const lo = s.lora || {};
+        const hold = d.hold_config || {};
+
+        // Vital stats
+        setText('dr-fitness', (d.fitness || 0).toFixed(6));
+        setText('dr-critic', (d.critic_value || 0).toFixed(4));
+        setText('dr-rewards', d.reward_count || 0);
+        setText('dr-reward-rate', (d.reward_rate || 0) + '/min');
+        setText('dr-cycles', d.training_cycles || 0);
+
+        const badge = document.getElementById('dr-status-badge');
+        if (badge) {
+            if (d.active) {
+                badge.textContent = d.causation_hold_active ? 'HOLD' : 'ACTIVE';
+                badge.style.background = d.causation_hold_active ? '#f59e0b30' : '#22c55e30';
+                badge.style.color = d.causation_hold_active ? '#f59e0b' : '#22c55e';
+            } else {
+                badge.textContent = 'INACTIVE';
+                badge.style.background = '#ef444430';
+                badge.style.color = '#ef4444';
+            }
+        }
+
+        // RSSM
+        setText('dr-deter', rssm.deter_dim || '—');
+        setText('dr-stoch', rssm.stoch_dim || '—');
+        setText('dr-stoch-cls', rssm.stoch_classes || '—');
+        setText('dr-latent', rssm.total_latent || '—');
+        setText('dr-action', rssm.action_dim || '—');
+        setText('dr-horizon', rssm.imagine_horizon || '—');
+
+        // Weights
+        const p = w.params || {};
+        setText('dr-params', p.count ? p.count.toLocaleString() : '—');
+        const nanEl = document.getElementById('dr-nan');
+        if (nanEl) {
+            const clean = !p.has_nan && !p.has_inf;
+            nanEl.textContent = clean ? 'CLEAN' : 'WARNING';
+            nanEl.style.color = clean ? '#22c55e' : '#ef4444';
+        }
+        setText('dr-lora-rank', lo.lora_rank || '—');
+        setText('dr-lora-alpha', lo.lora_alpha || '—');
+
+        // Buffer bars
+        const rwMax = 5000, obsMax = 1000;
+        setBar('dr-reward-bar', 'dr-reward-bar-label', d.reward_buffer_size || 0, rwMax);
+        setBar('dr-obs-bar', 'dr-obs-bar-label', d.obs_buffer_size || 0, obsMax);
+
+        // HOLD protocol
+        setText('dr-hold-conf', hold.confidence_threshold || 0.85);
+        const holdActive = document.getElementById('dr-hold-active');
+        if (holdActive) {
+            holdActive.textContent = d.causation_hold_active ? 'YES' : 'NO';
+            holdActive.style.color = d.causation_hold_active ? '#ef4444' : '#22c55e';
+        }
+        setText('dr-hold-steps', d.causation_hold_steps || 0);
+        setText('dr-hold-timeout', (hold.auto_resolve_timeout || 30) + 's');
+
+        // Last train info
+        const lt = d.last_train || {};
+        if (lt.critic_baseline_loss != null) {
+            setText('dr-last-train',
+                `Cycle ${lt.training_count || '?'}: baseline=${(lt.critic_baseline_loss||0).toFixed(6)} perturbed=${(lt.critic_perturbed_loss||0).toFixed(6)} ${lt.accepted ? '✓ accepted' : '✗ rejected'}`);
+        }
+
+        // Draw loss chart
+        drawLossChart(s.history || {});
+    }
+
+    function drawLossChart(history) {
+        const canvas = document.getElementById('dr-loss-chart');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const W = canvas.width, H = canvas.height;
+        ctx.clearRect(0, 0, W, H);
+
+        const data = history.critic_loss || [];
+        if (data.length < 2) {
+            ctx.fillStyle = 'rgba(255,255,255,0.2)';
+            ctx.font = '12px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('Waiting for training data...', W/2, H/2);
+            return;
+        }
+
+        // Find range
+        let minV = Infinity, maxV = -Infinity;
+        data.forEach(d => {
+            if (d.baseline != null) { minV = Math.min(minV, d.baseline); maxV = Math.max(maxV, d.baseline); }
+            if (d.perturbed != null) { minV = Math.min(minV, d.perturbed); maxV = Math.max(maxV, d.perturbed); }
+        });
+        const pad = (maxV - minV) * 0.1 || 0.001;
+        minV -= pad; maxV += pad;
+
+        const xStep = (W - 40) / (data.length - 1);
+
+        // Grid lines
+        ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+        ctx.lineWidth = 1;
+        for (let i = 0; i < 4; i++) {
+            const y = 10 + (H - 20) * i / 3;
+            ctx.beginPath(); ctx.moveTo(30, y); ctx.lineTo(W, y); ctx.stroke();
+        }
+
+        // Baseline line (blue)
+        ctx.strokeStyle = '#60a5fa';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        data.forEach((d, i) => {
+            if (d.baseline == null) return;
+            const x = 30 + i * xStep;
+            const y = 10 + (H - 20) * (1 - (d.baseline - minV) / (maxV - minV));
+            i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+
+        // Perturbed line (green/red based on accepted)
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        data.forEach((d, i) => {
+            if (d.perturbed == null) return;
+            ctx.strokeStyle = d.accepted ? '#22c55e' : '#ef4444';
+            const x = 30 + i * xStep;
+            const y = 10 + (H - 20) * (1 - (d.perturbed - minV) / (maxV - minV));
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+
+        // Accept/reject dots
+        data.forEach((d, i) => {
+            if (d.perturbed == null) return;
+            const x = 30 + i * xStep;
+            const y = 10 + (H - 20) * (1 - (d.perturbed - minV) / (maxV - minV));
+            ctx.fillStyle = d.accepted ? '#22c55e' : '#ef4444';
+            ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill();
+        });
+
+        // Y-axis labels
+        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        ctx.font = '9px monospace';
+        ctx.textAlign = 'right';
+        ctx.fillText(maxV.toFixed(4), 28, 14);
+        ctx.fillText(minV.toFixed(4), 28, H - 4);
+    }
+
+    function setText(id, val) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = val;
+    }
+
+    function setBar(barId, labelId, current, max) {
+        const bar = document.getElementById(barId);
+        const label = document.getElementById(labelId);
+        const pct = Math.min(100, (current / max) * 100);
+        if (bar) bar.style.width = pct + '%';
+        if (label) label.textContent = current + ' / ' + max;
+    }
+
+    // Dreamer actions
+    window.dreamerAction = async function(tool) {
+        try {
+            const r = await fetch('/api/tool/' + tool, { method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}' });
+            const d = await r.json();
+            console.log(tool, d);
+            fetchDreamerState();
+        } catch(e) { console.error(tool, e); }
+    };
+
+    window.runDreamerImagination = async function() {
+        const horizon = parseInt(document.getElementById('dr-imagine-horizon')?.value || '15');
+        const out = document.getElementById('dr-imagine-result');
+        if (out) out.innerHTML = '<span style="color:#f59e0b;">Running imagination (horizon=' + horizon + ')...</span>';
+        try {
+            const r = await fetch('/api/tool/imagine', {
+                method: 'POST', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({ scenario: 'interactive', steps: horizon })
+            });
+            const d = await r.json();
+            const parsed = d?.result?.content?.[0]?.text;
+            if (out) {
+                try {
+                    const obj = JSON.parse(parsed);
+                    if (obj.error) out.innerHTML = '<span style="color:#ef4444;">' + obj.error + '</span>';
+                    else out.innerHTML = '<pre style="white-space:pre-wrap;color:#34d399;">' + JSON.stringify(obj, null, 2).substring(0, 500) + '</pre>';
+                } catch { out.textContent = parsed || 'No result'; }
+            }
+        } catch(e) { if (out) out.innerHTML = '<span style="color:#ef4444;">Error: ' + e.message + '</span>'; }
+    };
+
+    // Dreamer config
+    window.toggleDreamerCfg = function() {
+        const panel = document.getElementById('dr-cfg-panel');
+        const arrow = document.getElementById('dr-cfg-arrow');
+        if (!panel) return;
+        const vis = panel.style.display === 'none';
+        panel.style.display = vis ? 'block' : 'none';
+        if (arrow) arrow.innerHTML = vis ? '&#x25B2;' : '&#x25BC;';
+        if (vis) loadDreamerCfg();
+    };
+
+    let _dreamerCfg = null;
+    async function loadDreamerCfg() {
+        try {
+            const r = await fetch('/api/dreamer/config');
+            const d = await r.json();
+            _dreamerCfg = d.config;
+            renderCfgFields(d.config);
+            setText('dr-cfg-status', 'Loaded from ' + d.source);
+        } catch(e) { setText('dr-cfg-status', 'Error loading config'); }
+    }
+
+    function renderCfgFields(cfg) {
+        const container = document.getElementById('dr-cfg-fields');
+        if (!container) return;
+        let html = '';
+        const colors = { rewards: '#60a5fa', training: '#22c55e', imagination: '#f59e0b', buffers: '#f97316', architecture: '#a78bfa' };
+        for (const [section, values] of Object.entries(cfg)) {
+            const readOnly = section === 'architecture';
+            html += '<div style="margin-bottom:12px;"><div style="font-weight:bold;margin-bottom:4px;padding:4px 8px;background:rgba(255,255,255,0.04);border-left:2px solid ' + (colors[section]||'#888') + ';font-size:10px;text-transform:uppercase;letter-spacing:1px;">' + section + (readOnly ? ' (read-only)' : '') + '</div>';
+            html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;padding:4px 8px;">';
+            for (const [key, val] of Object.entries(values)) {
+                const inputId = 'cfg-' + section + '-' + key;
+                if (typeof val === 'boolean') {
+                    html += '<label style="font-size:10px;display:flex;align-items:center;gap:4px;grid-column:span 1;"><input type="checkbox" id="' + inputId + '" ' + (val ? 'checked' : '') + (readOnly ? ' disabled' : '') + '> ' + key + '</label>';
+                } else {
+                    html += '<div style="font-size:10px;display:flex;align-items:center;gap:4px;"><span style="color:var(--text-dim);min-width:120px;">' + key + ':</span><input type="number" id="' + inputId + '" value="' + val + '" step="any" style="width:80px;font-size:10px;" ' + (readOnly ? 'disabled' : '') + '></div>';
+                }
+            }
+            html += '</div></div>';
+        }
+        container.innerHTML = html;
+    }
+
+    window.saveDreamerCfg = async function() {
+        if (!_dreamerCfg) return;
+        const cfg = JSON.parse(JSON.stringify(_dreamerCfg));
+        for (const [section, values] of Object.entries(cfg)) {
+            for (const [key, val] of Object.entries(values)) {
+                const el = document.getElementById('cfg-' + section + '-' + key);
+                if (!el) continue;
+                if (typeof val === 'boolean') cfg[section][key] = el.checked;
+                else cfg[section][key] = parseFloat(el.value) || 0;
+            }
+        }
+        try {
+            await fetch('/api/dreamer/config', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ config: cfg }) });
+            setText('dr-cfg-status', 'Saved to FelixBag');
+            _dreamerCfg = cfg;
+        } catch(e) { setText('dr-cfg-status', 'Save failed: ' + e.message); }
+    };
+
+    window.resetDreamerCfg = async function() {
+        if (!confirm('Reset Dreamer config to defaults?')) return;
+        try {
+            const r = await fetch('/api/dreamer/config/reset', { method: 'POST' });
+            const d = await r.json();
+            _dreamerCfg = d.config;
+            renderCfgFields(d.config);
+            setText('dr-cfg-status', 'Reset to defaults');
+        } catch(e) { setText('dr-cfg-status', 'Reset failed'); }
+    };
+
+    // ── GPU Fleet Tab ────────────────────────────────────────
+    let _vastPollId = null;
+    const GPU_COLORS = ['#a78bfa','#22d3ee','#facc15','#34d399','#f9fafb','#60a5fa','#f87171','#e879f9'];
+
+    async function fetchVastState() {
+        try {
+            const r = await fetch('/api/vast/state');
+            if (!r.ok) return;
+            const data = await r.json();
+            renderVastFleet(data);
+        } catch(e) { console.warn('Vast poll error:', e); }
+    }
+
+    function renderVastFleet(data) {
+        const instances = Array.isArray(data.instances) ? data.instances : [];
+        const activity = data.activity || [];
+
+        // Header stats
+        setText('gf-instance-count', instances.length);
+        setText('gf-slots', data.slots_filled || 0);
+
+        let totalRate = 0;
+        let totalSpent = 0;
+        const now = Date.now() / 1000;
+        instances.forEach(inst => {
+            const cost = inst.dph_total || inst.cost_per_hr || 0;
+            totalRate += cost;
+            const start = inst.start_time || inst.start_date || 0;
+            if (start > 0) totalSpent += cost * ((now - start) / 3600);
+        });
+        setText('gf-total-rate', '$' + totalRate.toFixed(3) + '/hr');
+        setText('gf-total-spent', '$' + totalSpent.toFixed(2));
+
+        // Instance cards
+        const container = document.getElementById('gf-instances');
+        if (!container) return;
+
+        if (instances.length === 0) {
+            container.innerHTML = '<div class="diag-section" style="padding:20px;text-align:center;color:var(--text-dim);"><div style="font-size:24px;margin-bottom:8px;">🖥️</div><div>No active GPU instances</div><div style="font-size:10px;margin-top:8px;">Use <code>vast_search</code> and <code>vast_rent</code> to get started</div></div>';
+            return;
+        }
+
+        let html = '';
+        instances.forEach((inst, idx) => {
+            const color = GPU_COLORS[idx % GPU_COLORS.length];
+            const id = inst.id || '?';
+            const status = inst.actual_status || inst.status || 'unknown';
+            const gpu = (inst.gpu_name || 'GPU').replace(/_/g, ' ');
+            const ssh = inst.ssh_host || '';
+            const port = inst.ssh_port || '';
+            const cost = inst.dph_total || inst.cost_per_hr || 0;
+            const vram = inst.gpu_ram || inst.vram_total || 0;
+
+            const statusIcon = status === 'running' ? '🟢' : status.includes('load') ? '🟡' : '🔴';
+            const gpuUtil = inst.gpu_util || 0;
+            const vramUsed = inst.vram_used || 0;
+
+            html += '<div class="diag-section" style="padding:16px;border-left:3px solid ' + color + ';">';
+            html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
+            html += '<span style="font-weight:bold;color:' + color + ';">' + statusIcon + ' Instance ' + id + '</span>';
+            html += '<span style="font-size:10px;padding:2px 8px;border-radius:3px;background:rgba(255,255,255,0.06);">' + status.toUpperCase() + '</span>';
+            html += '</div>';
+            html += '<div style="font-size:12px;font-weight:bold;margin-bottom:8px;">' + gpu + '</div>';
+
+            // GPU util bar
+            html += '<div style="margin-bottom:4px;font-size:9px;color:var(--text-dim);">GPU ' + gpuUtil + '%</div>';
+            html += '<div style="background:rgba(255,255,255,0.06);border-radius:3px;height:12px;overflow:hidden;margin-bottom:6px;">';
+            html += '<div style="height:100%;width:' + Math.min(100, gpuUtil) + '%;background:' + (gpuUtil < 50 ? '#22c55e' : gpuUtil < 80 ? '#f59e0b' : '#ef4444') + ';transition:width 0.5s;border-radius:3px;"></div></div>';
+
+            // VRAM bar
+            if (vram > 0) {
+                const vramPct = vramUsed > 0 ? Math.min(100, (vramUsed / vram) * 100) : 0;
+                html += '<div style="margin-bottom:4px;font-size:9px;color:var(--text-dim);">VRAM ' + vramUsed.toFixed(1) + '/' + vram.toFixed(0) + ' GB</div>';
+                html += '<div style="background:rgba(255,255,255,0.06);border-radius:3px;height:12px;overflow:hidden;margin-bottom:6px;">';
+                html += '<div style="height:100%;width:' + vramPct + '%;background:#60a5fa;transition:width 0.5s;border-radius:3px;"></div></div>';
+            }
+
+            html += '<div style="font-size:10px;display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:8px;">';
+            html += '<div><span style="color:var(--text-dim);">Cost:</span> $' + cost.toFixed(3) + '/hr</div>';
+            if (ssh) html += '<div><span style="color:var(--text-dim);">SSH:</span> ' + ssh + ':' + port + '</div>';
+            html += '</div>';
+
+            html += '<div style="display:flex;gap:6px;">';
+            html += '<button onclick="vastAction(\'vast_connect\',{instance_id:\'' + id + '\'})" style="font-size:9px;flex:1;">CONNECT</button>';
+            html += '<button onclick="vastAction(\'vast_stop\',{instance_id:\'' + id + '\'})" style="font-size:9px;flex:1;opacity:0.7;">STOP</button>';
+            html += '</div>';
+            html += '</div>';
+        });
+        container.innerHTML = html;
+
+        // Activity stream
+        const actEl = document.getElementById('gf-activity');
+        if (actEl && activity.length > 0) {
+            let aHtml = '';
+            activity.forEach(a => {
+                const icon = a.status === 'ok' ? '✓' : '✗';
+                const col = a.status === 'ok' ? '#22c55e' : '#ef4444';
+                const ts = a.timestamp ? new Date(a.timestamp).toLocaleTimeString() : '--';
+                aHtml += '<div style="padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.04);display:flex;gap:8px;">';
+                aHtml += '<span style="color:' + col + ';">' + icon + '</span>';
+                aHtml += '<span style="color:var(--text-dim);">' + ts + '</span>';
+                aHtml += '<span>' + a.tool + '</span>';
+                aHtml += '<span style="color:var(--text-dim);margin-left:auto;">' + a.duration + 'ms</span>';
+                aHtml += '</div>';
+            });
+            actEl.innerHTML = aHtml;
+        }
+    }
+
+    // Vast actions
+    window.vastAction = async function(tool, args) {
+        try {
+            await fetch('/api/tool/' + tool, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(args || {}) });
+            setTimeout(fetchVastState, 1000);
+        } catch(e) { console.error(tool, e); }
+    };
+
+    window.vastRefreshInstances = function() { fetchVastState(); };
+
+    window.vastStopAll = async function() {
+        if (!confirm('Stop ALL GPU instances?')) return;
+        try {
+            await fetch('/api/tool/vast_stop', { method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}' });
+            setTimeout(fetchVastState, 2000);
+        } catch(e) { console.error(e); }
+    };
+
+    window.toggleVastSearch = function() {
+        const panel = document.getElementById('gf-search-panel');
+        const arrow = document.getElementById('gf-search-arrow');
+        if (!panel) return;
+        const vis = panel.style.display === 'none';
+        panel.style.display = vis ? 'block' : 'none';
+        if (arrow) arrow.innerHTML = vis ? '&#x25B2;' : '&#x25BC;';
+    };
+
+    window.vastSearchOffers = async function() {
+        const query = document.getElementById('gf-search-query')?.value || 'rentable=true';
+        const out = document.getElementById('gf-search-results');
+        if (out) out.innerHTML = '<div style="color:#f59e0b;">Searching...</div>';
+        try {
+            const r = await fetch('/api/tool/vast_search', {
+                method: 'POST', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({ query: query })
+            });
+            const d = await r.json();
+            const parsed = d?.result?.content?.[0]?.text;
+            if (!parsed) { if (out) out.innerHTML = '<div style="color:#ef4444;">No results</div>'; return; }
+            const obj = JSON.parse(parsed);
+            const offers = obj.offers || [];
+            if (offers.length === 0) { if (out) out.innerHTML = '<div style="color:var(--text-dim);">No offers found</div>'; return; }
+
+            let html = '<table style="width:100%;border-collapse:collapse;font-size:10px;">';
+            html += '<tr style="border-bottom:1px solid var(--border);"><th style="text-align:left;padding:4px;">#</th><th>GPU</th><th>VRAM</th><th>$/hr</th><th>Rel%</th><th></th></tr>';
+            offers.forEach(o => {
+                html += '<tr style="border-bottom:1px solid rgba(255,255,255,0.04);">';
+                html += '<td style="padding:4px;">' + o.index + '</td>';
+                html += '<td>' + (o.gpu || '?') + '</td>';
+                html += '<td>' + (o.vram_gb || 0).toFixed(0) + 'GB</td>';
+                html += '<td>$' + (o.price_hr || 0).toFixed(3) + '</td>';
+                html += '<td>' + (o.reliability || 0).toFixed(1) + '%</td>';
+                html += '<td><button onclick="vastAction(\'vast_rent\',{offer_id:\'' + o.id + '\'})" style="font-size:9px;padding:2px 8px;">RENT</button></td>';
+                html += '</tr>';
+            });
+            html += '</table>';
+            html += '<div style="margin-top:6px;color:var(--text-dim);">' + obj.total + ' total offers (page ' + obj.page + ')</div>';
+            if (out) out.innerHTML = html;
+        } catch(e) { if (out) out.innerHTML = '<div style="color:#ef4444;">Search failed: ' + e.message + '</div>'; }
+    };
+
+    // ── Tab-aware polling ────────────────────────────────────
+    // Only poll when the relevant tab is active
+    const observer = new MutationObserver(() => {
+        const dreamerTab = document.getElementById('tab-dreamer');
+        const gpuTab = document.getElementById('tab-gpufleet');
+
+        if (dreamerTab && dreamerTab.classList.contains('active')) {
+            if (!_dreamerPollId) {
+                fetchDreamerState();
+                _dreamerPollId = setInterval(fetchDreamerState, 5000);
+            }
+        } else {
+            if (_dreamerPollId) { clearInterval(_dreamerPollId); _dreamerPollId = null; }
+        }
+
+        if (gpuTab && gpuTab.classList.contains('active')) {
+            if (!_vastPollId) {
+                fetchVastState();
+                _vastPollId = setInterval(fetchVastState, 10000);
+            }
+        } else {
+            if (_vastPollId) { clearInterval(_vastPollId); _vastPollId = null; }
+        }
+    });
+
+    // Watch for tab switches (class changes on content divs)
+    const wrapper = document.querySelector('.content-wrapper');
+    if (wrapper) observer.observe(wrapper, { attributes: true, subtree: true, attributeFilter: ['class'] });
+
+    // Also listen for tab button clicks to trigger immediate fetch
+    document.querySelectorAll('.tab[data-tab="dreamer"]').forEach(btn => {
+        btn.addEventListener('click', () => { setTimeout(fetchDreamerState, 100); });
+    });
+    document.querySelectorAll('.tab[data-tab="gpufleet"]').forEach(btn => {
+        btn.addEventListener('click', () => { setTimeout(fetchVastState, 100); });
+    });
+})();
+</script>
 </body>
 </html>
