@@ -1,0 +1,7 @@
+fastapi
+uvicorn[standard]
+httpx
+mcp[cli]>=1.2.0,<2.0.0
+python-multipart
+jinja2
+huggingface_hub

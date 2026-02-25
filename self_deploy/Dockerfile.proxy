@@ -1,0 +1,33 @@
+# Champion Council self_deploy - Proxy-only image
+# Use with MANAGE_LOCAL_CAPSULE=0 + MCP_BASE_URL=<remote or sibling capsule>
+
+FROM python:3.10-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+WORKDIR /app
+
+COPY requirements-server.txt ./
+RUN pip install --upgrade pip && pip install -r requirements-server.txt
+
+COPY backend/ backend/
+COPY frontend/ frontend/
+COPY config/ config/
+
+# Non-root user for security
+RUN useradd --create-home --uid 1000 council \
+    && mkdir -p /app/data/brain /app/data/bag /app/data/workflows /app/data/slots /app/data/config \
+    && chown -R council:council /app/data
+
+EXPOSE 7866
+
+ENV APP_ENV=production \
+    APP_PORT=7866 \
+    MANAGE_LOCAL_CAPSULE=0 \
+    PERSISTENCE_MODE=local \
+    DATA_DIR=/app/data
+
+USER council
+CMD ["python", "backend/server.py"]

@@ -1,0 +1,24 @@
+# VCS
+.git/
+.github/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Local runtime state
+config/.env
+data/
+*.log
+
+# Docs and editor artifacts
+docs/
+.vscode/
+.idea/
+
+# OS junk
+.DS_Store
+Thumbs.db

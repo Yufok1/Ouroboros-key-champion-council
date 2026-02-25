@@ -271,7 +271,9 @@
             const snippetEl = document.getElementById('mcp-connect-snippet');
             if (!snippetEl) return;
             const isRemote = /\.hf\.space$/i.test(window.location.hostname || '');
-            const serverName = isRemote ? 'champion-ouroboros-space' : 'champion-ouroboros-space-local';
+            const serverName = isRemote
+                ? 'champion-ouroboros-self-deploy-space'
+                : 'champion-ouroboros-self-deploy';
             const payload = {
                 mcpServers: {
                     [serverName]: {

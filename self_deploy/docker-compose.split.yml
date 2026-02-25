@@ -1,0 +1,47 @@
+services:
+  proxy:
+    build:
+      context: .
+      dockerfile: Dockerfile.proxy
+    container_name: champion-council-proxy
+    ports:
+      - "7866:7866"
+    volumes:
+      - ./data:/app/data
+      # - ./config/.env:/app/config/.env:ro
+    environment:
+      APP_ENV: production
+      APP_PORT: 7866
+      MANAGE_LOCAL_CAPSULE: "0"
+      MCP_BASE_URL: http://capsule:8766
+      PERSISTENCE_MODE: local
+      DATA_DIR: /app/data
+    depends_on:
+      capsule:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:7866/api/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  capsule:
+    build:
+      context: .
+      dockerfile: Dockerfile.capsule
+    container_name: champion-council-capsule
+    volumes:
+      - ../capsule:/app/capsule:ro
+    environment:
+      MCP_PORT: 8766
+    expose:
+      - "8766"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,urllib.error,sys; req=urllib.request.Request('http://127.0.0.1:8766/sse', method='HEAD');\ntry:\n r=urllib.request.urlopen(req, timeout=5); sys.exit(0 if r.status in (200,405) else 1)\nexcept urllib.error.HTTPError as e:\n sys.exit(0 if e.code==405 else 1)\nexcept Exception:\n sys.exit(1)"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 120s

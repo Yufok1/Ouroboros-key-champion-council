@@ -450,6 +450,12 @@
                         vscode.postMessage({ command: 'refreshMemoryCatalog' });
                     }
                     break;
+                case 'activityHistory':
+                    if (Array.isArray(msg.entries)) {
+                        _activityLog = msg.entries.slice(-500);
+                        renderActivityFeed();
+                    }
+                    break;
                 case 'memoryCatalog':
                     _pendingTools.__memoryCatalog__ = 'bag_catalog';
                     handleToolResult({ id: '__memoryCatalog__', data: msg.data, error: msg.error });
@@ -808,8 +814,9 @@
                 ' / ' + (st.toolCounts ? st.toolCounts.total || 134 : 134) + ' TOOLS';
         }
         var portEl = document.getElementById('hd-port');
-        if (portEl) portEl.textContent = ':' + (st.port || '----');
-        updateMcpConfigBlock(st.port);
+        var displayPort = window.location.port || st.port || '----';
+        if (portEl) portEl.textContent = ':' + displayPort;
+        updateMcpConfigBlock(displayPort);
 
         if (st.uptime > 0) {
             var s = Math.floor(st.uptime / 1000);
@@ -825,7 +832,7 @@
     }
 
     // ── MCP CONFIG BLOCK ──
-    var _serverPort = window.location.port || 7860;
+    var _serverPort = window.location.port || 7866;
     var _isRemoteSpace = /\.hf\.space$/i.test(window.location.hostname || '');
     var _spaceOrigin = window.location.origin; // e.g. https://tostido-champion-council.hf.space
     var _autoApprove = [
@@ -844,10 +851,12 @@
         var fullEl = document.getElementById('mcp-config-block');
         var entryEl = document.getElementById('mcp-entry-block');
 
-        // Always route MCP clients through this panel's proxy endpoint.
+        // Always route through the panel backend MCP proxy so activity,
+        // diagnostics, and instrumentation stay unified.
         var proxyUrl = _spaceOrigin + '/mcp/sse';
-        var serverName = _isRemoteSpace ? 'champion-ouroboros-space' : 'champion-ouroboros-space-local';
+        var serverName = _isRemoteSpace ? 'champion-ouroboros-self-deploy-space' : 'champion-ouroboros-self-deploy';
         var entry = _buildEntry(proxyUrl);
+
         if (fullEl) {
             var wrapper = { mcpServers: {} };
             wrapper.mcpServers[serverName] = entry;
@@ -1331,6 +1340,20 @@
 
     function _actEsc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
+    function _actStringify(value) {
+        try {
+            return JSON.stringify(value, null, 2);
+        } catch (err) {
+            return '[unserializable: ' + (err && err.message ? err.message : 'unknown') + ']';
+        }
+    }
+
+    function _actClip(text, maxChars) {
+        var str = String(text || '');
+        if (!maxChars || str.length <= maxChars) return str;
+        return str.substring(0, maxChars) + '\n... [truncated ' + (str.length - maxChars) + ' chars]';
+    }
+
     function _buildActivityNode(e) {
         var ts = new Date(e.timestamp).toLocaleTimeString();
         var fullTs = new Date(e.timestamp).toISOString();
@@ -1341,6 +1364,7 @@
         var lines = [];
         lines.push('TIMESTAMP  ' + fullTs);
         lines.push('SOURCE     ' + (source || 'extension'));
+        if (e.sessionId) lines.push('SESSION    ' + String(e.sessionId));
         lines.push('CATEGORY   ' + (e.category || 'unknown'));
         lines.push('DURATION   ' + (e.durationMs || 0) + 'ms');
         if (hasError) {
@@ -1350,9 +1374,9 @@
         if (e.args && Object.keys(e.args).length > 0) {
             lines.push('');
             lines.push('ARGUMENTS');
-            lines.push(_actEsc(JSON.stringify(e.args, null, 2)));
+            lines.push(_actEsc(_actClip(_actStringify(e.args), 6000)));
         }
-        if (e.result) {
+        if (e.result !== undefined && e.result !== null) {
             var resultObj = e.result;
             // ── Unwrap MCP protocol envelope for extension-source calls ──
             if (typeof resultObj === 'object' && resultObj !== null && resultObj.content && Array.isArray(resultObj.content)) {
@@ -1370,16 +1394,22 @@
             lines.push('RESULT');
             if (typeof resultObj === 'object' && resultObj !== null && !Array.isArray(resultObj)) {
                 var keys = Object.keys(resultObj);
+                var visibleKeys = 0;
                 for (var ki = 0; ki < keys.length; ki++) {
                     var rk = keys[ki];
                     if (rk.charAt(0) === '_') continue;
+                    visibleKeys++;
                     var rv = resultObj[rk];
-                    var rvStr = (rv === null || rv === undefined) ? 'null' : (typeof rv === 'object' ? JSON.stringify(rv, null, 2) : String(rv));
+                    var rvStr = (rv === null || rv === undefined) ? 'null' : (typeof rv === 'object' ? _actStringify(rv) : String(rv));
+                    rvStr = _actClip(rvStr, 2500);
                     lines.push('  ' + _actEsc(rk) + ': ' + _actEsc(rvStr));
                 }
+                if (visibleKeys === 0) {
+                    lines.push(_actEsc(_actClip(_actStringify(resultObj), 8000)));
+                }
             } else {
-                var resultStr = typeof resultObj === 'string' ? resultObj : JSON.stringify(resultObj, null, 2);
-                lines.push(_actEsc(resultStr.substring(0, 4000)));
+                var resultStr = typeof resultObj === 'string' ? resultObj : _actStringify(resultObj);
+                lines.push(_actEsc(_actClip(resultStr, 8000)));
             }
         }
 

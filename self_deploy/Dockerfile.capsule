@@ -1,0 +1,35 @@
+# Champion Council self_deploy - Capsule-only image
+# Runs champion_gen8.py MCP/SSE server.
+# Expects capsule files to be mounted at /app/capsule.
+
+FROM python:3.10-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+WORKDIR /app
+
+# System deps — git required for huggingface_hub model downloads via git-lfs
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    git \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements-capsule.txt ./
+RUN pip install --upgrade pip \
+    && pip install -r requirements-capsule.txt \
+    && pip install "mcp[cli]>=1.2.0,<2.0.0"
+
+# Non-root user for security
+RUN useradd --create-home --uid 1000 council \
+    && mkdir -p /app/capsule \
+    && chown -R council:council /app/capsule
+
+EXPOSE 8766
+
+ENV MCP_PORT=8766
+
+USER council
+CMD ["python", "-u", "/app/capsule/champion_gen8.py", "--mcp-remote", "--port", "8766"]

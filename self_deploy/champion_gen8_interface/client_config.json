@@ -1,0 +1,14 @@
+{
+  "model_name": "champion_gen8",
+  "server_url": "http://127.0.0.1:8766",
+  "poll_interval_ms": 100,
+  "endpoints": {
+    "manifest": "/manifest",
+    "info": "/info",
+    "forward": "/forward",
+    "hold": "/hold",
+    "hold_toggle": "/hold/toggle",
+    "hold_accept": "/hold/accept",
+    "hold_override": "/hold/override"
+  }
+}

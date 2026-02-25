@@ -1,0 +1,144 @@
+{
+  "model_name": "champion_gen8",
+  "model_path": "F:\\End-Game\\vscode-extension\\Champion_Council\\capsule\\champion_gen8.py",
+  "generation": 8,
+  "fitness": 0.6065363885543469,
+  "brain_type": "ouroboros",
+  "param_count": 0,
+  "capabilities": [
+    {
+      "id": "inference",
+      "label": "Run Inference",
+      "icon": "\ud83d\udd2e",
+      "description": "Process inputs through the evolved brain"
+    },
+    {
+      "id": "clone",
+      "label": "Clone Agent",
+      "icon": "\ud83e\uddec",
+      "description": "Create an exact copy with updated generation"
+    },
+    {
+      "id": "export_pt",
+      "label": "Export PyTorch",
+      "icon": "\ud83d\udce6",
+      "description": "Export model to PyTorch .pt format"
+    },
+    {
+      "id": "export_onnx",
+      "label": "Export ONNX",
+      "icon": "\ud83d\udce4",
+      "description": "Export model to ONNX format"
+    },
+    {
+      "id": "inspect",
+      "label": "Inspect Model",
+      "icon": "\ud83d\udd0d",
+      "description": "View model architecture and parameters"
+    },
+    {
+      "id": "view_readme",
+      "label": "View Documentation",
+      "icon": "\ud83d\udcd6",
+      "description": "Display embedded README"
+    },
+    {
+      "id": "export_docs",
+      "label": "Export All Docs",
+      "icon": "\ud83d\udcda",
+      "description": "Export all documentation artifacts"
+    },
+    {
+      "id": "bridge",
+      "label": "Data Bridge",
+      "icon": "\ud83c\udf09",
+      "description": "Bridge datasets using Kleene fixed-point matching"
+    },
+    {
+      "id": "export_interface",
+      "label": "Spawn Interface",
+      "icon": "\ud83c\udfae",
+      "description": "Generate game engine interface (HTTP server + client config)"
+    },
+    {
+      "id": "spawn_swarm",
+      "label": "Spawn Swarm",
+      "icon": "\ud83d\udc1d",
+      "description": "Create n clones for parallel orchestration"
+    },
+    {
+      "id": "fork",
+      "label": "Fork Agent",
+      "icon": "\ud83c\udf74",
+      "description": "Create mutated child (quine replication)"
+    },
+    {
+      "id": "replicate",
+      "label": "Replicate",
+      "icon": "\ud83e\uddec",
+      "description": "Create exact clone (no mutation)"
+    },
+    {
+      "id": "orchestrate",
+      "label": "Orchestrate",
+      "icon": "\ud83c\udfbc",
+      "description": "Wrap multiple models with cloned adapters"
+    },
+    {
+      "id": "broadcast",
+      "label": "Broadcast",
+      "icon": "\ud83d\udce1",
+      "description": "Forward through all agents in parallel"
+    },
+    {
+      "id": "merge",
+      "label": "Merge Agents",
+      "icon": "\ud83d\udd00",
+      "description": "Blend two agents' weights"
+    },
+    {
+      "id": "get_merkle_hash",
+      "label": "Get Hash",
+      "icon": "\ud83d\udd10",
+      "description": "Compute cryptographic hash of current weights"
+    },
+    {
+      "id": "join_lattice",
+      "label": "Join Lattice",
+      "icon": "\ud83c\udf10",
+      "description": "Connect to a hyperlattice swarm for collective navigation"
+    },
+    {
+      "id": "invoke",
+      "label": "Invoke Model",
+      "icon": "\ud83d\ude80",
+      "description": "Universal model invocation with text input (auto-detects type)"
+    },
+    {
+      "id": "embed",
+      "label": "Embed Text",
+      "icon": "\ud83d\udcd0",
+      "description": "Get embedding vector for text"
+    },
+    {
+      "id": "generate",
+      "label": "Generate Text",
+      "icon": "\u2728",
+      "description": "Generate text from LLM"
+    },
+    {
+      "id": "classify",
+      "label": "Classify Text",
+      "icon": "\ud83c\udff7\ufe0f",
+      "description": "Classify text (sentiment, emotion, etc)"
+    },
+    {
+      "id": "rerank",
+      "label": "Rerank Documents",
+      "icon": "\ud83d\udcca",
+      "description": "Rank documents by relevance to query"
+    }
+  ],
+  "server_url": "http://127.0.0.1:8766",
+  "created": "2026-02-25T13:09:15.436930"
+}
