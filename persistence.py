@@ -107,12 +107,16 @@ async def _call_capsule_tool(call_tool_fn, name: str, args: dict) -> dict | None
             if content and isinstance(content[0], dict):
                 text = content[0].get("text", "")
                 try:
-                    return json.loads(text)
+                    parsed = json.loads(text)
+                    print(f"[PERSIST] Tool {name} OK: {str(parsed)[:120]}")
+                    return parsed
                 except (json.JSONDecodeError, TypeError):
+                    print(f"[PERSIST] Tool {name} returned non-JSON text: {text[:120]}")
                     return {"text": text}
+        print(f"[PERSIST] Tool {name} unexpected format: {str(result)[:200]}")
         return result
     except Exception as e:
-        print(f"[PERSIST] Tool {name} failed: {e}")
+        print(f"[PERSIST] Tool {name} exception: {e}")
         return None
 
 
@@ -142,17 +146,23 @@ async def save_state(call_tool_fn) -> bool:
         try:
             # 1. Brain state
             brain_path = tmpdir / BRAIN_FILE
+            print(f"[PERSIST] Saving brain to {brain_path}")
             result = await _call_capsule_tool(call_tool_fn, "save_state", {"path": str(brain_path)})
             if result and brain_path.exists():
                 saved_files.append((brain_path, BRAIN_FILE))
                 print(f"[PERSIST] Brain state saved ({brain_path.stat().st_size:,} bytes)")
+            else:
+                print(f"[PERSIST] Brain save issue: result={result is not None}, exists={brain_path.exists()}")
 
             # 2. FelixBag
             bag_path = tmpdir / BAG_FILE
+            print(f"[PERSIST] Saving bag to {bag_path}")
             result = await _call_capsule_tool(call_tool_fn, "save_bag", {"file_path": str(bag_path)})
             if result and bag_path.exists():
                 saved_files.append((bag_path, BAG_FILE))
                 print(f"[PERSIST] Bag saved ({bag_path.stat().st_size:,} bytes)")
+            else:
+                print(f"[PERSIST] Bag save issue: result={result is not None}, exists={bag_path.exists()}")
 
             # 3. Workflows — export all definitions
             wf_list = await _call_capsule_tool(call_tool_fn, "workflow_list", {})
@@ -199,7 +209,9 @@ async def save_state(call_tool_fn) -> bool:
             print(f"[PERSIST] {len(slot_manifest)} plugged slots saved")
 
             # 5. Upload all files to dataset repo
+            print(f"[PERSIST] Uploading {len(saved_files)} files to {repo_id}")
             for local_path, repo_path in saved_files:
+                print(f"[PERSIST] Uploading {repo_path} ({local_path.stat().st_size:,} bytes)")
                 api.upload_file(
                     path_or_fileobj=str(local_path),
                     path_in_repo=repo_path,
@@ -207,6 +219,7 @@ async def save_state(call_tool_fn) -> bool:
                     repo_type="dataset",
                     commit_message=f"Auto-save {repo_path} at {datetime.now(timezone.utc).isoformat()}",
                 )
+                print(f"[PERSIST] Uploaded {repo_path}")
 
             _last_save_ts = _time.time()
             print(f"[PERSIST] ✓ State saved to {repo_id} ({len(saved_files)} files)")
