@@ -67,6 +67,7 @@ capsule_manager = CapsuleManager(
     capsule_path=settings.capsule_path,
     capsule_gz_path=settings.capsule_gz_path,
     mcp_port=settings.mcp_port,
+    capsule_download_url=settings.capsule_download_url,
 )
 mcp_client = MCPClient(settings.mcp_base_url)
 activity_hub = ActivityHub(max_entries=settings.activity_log_max)

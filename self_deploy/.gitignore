@@ -9,6 +9,8 @@ __pycache__/
 config/.env
 data/
 *.log
+capsule/*
+!capsule/.gitkeep
 
 # OS/editor
 .DS_Store

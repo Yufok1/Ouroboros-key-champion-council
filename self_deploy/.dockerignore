@@ -12,6 +12,7 @@ __pycache__/
 # Local runtime state
 config/.env
 data/
+capsule/
 *.log
 
 # Docs and editor artifacts

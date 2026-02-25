@@ -6,6 +6,7 @@ import os
 import signal
 import subprocess
 import sys
+import time
 import threading
 from collections import deque
 from pathlib import Path
@@ -14,10 +15,18 @@ import httpx
 
 
 class CapsuleManager:
-    def __init__(self, capsule_path: Path, capsule_gz_path: Path, mcp_port: int, log_max_lines: int = 2000):
+    def __init__(
+        self,
+        capsule_path: Path,
+        capsule_gz_path: Path,
+        mcp_port: int,
+        capsule_download_url: str = "",
+        log_max_lines: int = 2000,
+    ):
         self.capsule_path = capsule_path
         self.capsule_gz_path = capsule_gz_path
         self.mcp_port = mcp_port
+        self.capsule_download_url = capsule_download_url
         self.process: subprocess.Popen | None = None
         self.log_lines: deque[str] = deque(maxlen=log_max_lines)
 
@@ -36,14 +45,69 @@ class CapsuleManager:
     def ensure_capsule_file(self) -> bool:
         if self.capsule_path.exists():
             return True
+        return self._rebuild_capsule_file()
 
+    def _ensure_capsule_gz(self) -> bool:
         if self.capsule_gz_path.exists():
-            self.capsule_path.parent.mkdir(parents=True, exist_ok=True)
-            with gzip.open(self.capsule_gz_path, "rb") as src:
-                self.capsule_path.write_bytes(src.read())
-            return self.capsule_path.exists()
-
+            return True
+        if self.capsule_download_url and self._download_capsule_gz():
+            self.log_lines.append(f"[download] capsule fetched: {self.capsule_gz_path}")
+            return True
         return False
+
+    def _extract_capsule_from_gz(self) -> bool:
+        target = self.capsule_path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        tmp = target.with_suffix(target.suffix + ".tmp")
+        try:
+            with gzip.open(self.capsule_gz_path, "rb") as src, tmp.open("wb") as dst:
+                while True:
+                    chunk = src.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    dst.write(chunk)
+            tmp.replace(target)
+            return target.exists() and target.stat().st_size > 0
+        except Exception as exc:
+            self.log_lines.append(f"[error] capsule extract failed: {exc}")
+            try:
+                if tmp.exists():
+                    tmp.unlink()
+            except Exception:
+                pass
+            return False
+
+    def _rebuild_capsule_file(self) -> bool:
+        if not self._ensure_capsule_gz():
+            return False
+        return self._extract_capsule_from_gz()
+
+    def _download_capsule_gz(self) -> bool:
+        target = self.capsule_gz_path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        tmp = target.with_suffix(target.suffix + ".tmp")
+        try:
+            with httpx.stream(
+                "GET",
+                self.capsule_download_url,
+                timeout=180,
+                follow_redirects=True,
+            ) as resp:
+                resp.raise_for_status()
+                with tmp.open("wb") as f:
+                    for chunk in resp.iter_bytes():
+                        if chunk:
+                            f.write(chunk)
+            tmp.replace(target)
+            return target.exists() and target.stat().st_size > 0
+        except Exception as exc:
+            self.log_lines.append(f"[error] capsule download failed: {exc}")
+            try:
+                if tmp.exists():
+                    tmp.unlink()
+            except Exception:
+                pass
+            return False
 
     def _start_log_reader(self) -> None:
         assert self.process and self.process.stdout
@@ -80,9 +144,47 @@ class CapsuleManager:
         else:
             popen_kwargs["preexec_fn"] = os.setsid
 
-        self.process = subprocess.Popen(cmd, **popen_kwargs)
-        self.log_lines.append(f"[start] capsule pid={self.process.pid} mcp_port={self.mcp_port}")
-        self._start_log_reader()
+        def _spawn() -> subprocess.Popen:
+            proc = subprocess.Popen(cmd, **popen_kwargs)
+            self.log_lines.append(f"[start] capsule pid={proc.pid} mcp_port={self.mcp_port}")
+            self.process = proc
+            self._start_log_reader()
+            return proc
+
+        def _exited_quickly(seconds: float = 3.0) -> bool:
+            deadline = time.time() + seconds
+            while time.time() < deadline:
+                if self.process is None:
+                    return True
+                if self.process.poll() is not None:
+                    return True
+                time.sleep(0.1)
+            return False
+
+        _spawn()
+        if not _exited_quickly():
+            return True
+
+        code = self.process.poll() if self.process else None
+        self.log_lines.append(f"[warn] capsule exited early (code={code}); attempting rebuild")
+        self.process = None
+
+        # Rebuild from gzip to recover from partial/corrupt extracted file.
+        try:
+            if self.capsule_path.exists():
+                self.capsule_path.unlink()
+        except Exception:
+            pass
+        if not self._rebuild_capsule_file():
+            self.log_lines.append("[error] capsule rebuild failed")
+            return False
+
+        _spawn()
+        if _exited_quickly():
+            code = self.process.poll() if self.process else None
+            self.log_lines.append(f"[error] capsule exited after rebuild (code={code})")
+            self.process = None
+            return False
         return True
 
     def stop(self, timeout: int = 10) -> None:

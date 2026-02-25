@@ -2,7 +2,7 @@
 
 This folder is a local standalone runtime for Champion Council/Ouroboros that mirrors the Hugging Face Space behavior while running on your own machine.
 
-Note: default capsule paths reference the repo-level `../capsule` folder.
+Default capsule paths are local to this folder (`./capsule`). If capsule files are missing, self_deploy will auto-download `capsule.gz` on first run.
 
 ## What is implemented now
 
@@ -35,6 +35,12 @@ cd Champion_Council/self_deploy
 ./scripts/setup.ps1          # server deps only
 ./scripts/run.ps1
 ```
+
+## One-Click Docker (Windows)
+
+- Double-click `START_DOCKER.bat`
+- It builds/starts the stack and opens the panel automatically.
+- First run may take longer while images build and capsule artifact downloads.
 
 Open:
 - Panel: `http://localhost:7866/panel`
@@ -107,8 +113,8 @@ MCP_BASE_URL=http://your-remote-capsule:8766 docker compose -f docker-compose.re
 
 ### Capsule artifact mounting
 
-By default, self_deploy compose files mount `../capsule` to `/app/capsule`.
-This keeps capsule updates independent from image rebuilds.
+By default, self_deploy compose files mount `./capsule` to `/app/capsule`.
+This keeps the package self-contained and capsule updates independent from image rebuilds.
 
 ---
 
