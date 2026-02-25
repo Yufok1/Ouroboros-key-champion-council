@@ -411,6 +411,72 @@ def _normalize_workflow_nodes(definition: str) -> str:
         return definition if isinstance(definition, str) else json.dumps(definition)
 
 
+async def _postprocess_tool_result(tool_name: str, args: dict, result: dict) -> dict:
+    """Intercept and fix known capsule issues at the proxy layer.
+
+    This lets us patch bugs without modifying the capsule backend.
+    """
+    parsed = _parse_mcp_result(result.get("result"))
+
+    # --- Fix get_genesis NoneType crash ---
+    if tool_name == "get_genesis":
+        error_str = result.get("error", "") or ""
+        parsed_str = str(parsed) if parsed else ""
+        if "NoneType" in error_str or "NoneType" in parsed_str:
+            safe = {"genesis_hash": None, "lineage": [], "note": "Genesis data not initialized for this capsule instance"}
+            return {"result": {"content": [{"type": "text", "text": json.dumps(safe)}]}}
+
+    # --- Fix compare/debate: retry slots that fail with "System role not supported" ---
+    if tool_name in ("compare", "debate") and isinstance(parsed, dict):
+        comparisons = parsed.get("comparisons", [])  # compare
+        transcript = parsed.get("transcript", [])     # debate
+        patched = False
+
+        # Patch compare results
+        for entry in comparisons:
+            if entry.get("error") == "System role not supported" or (entry.get("status") == "error" and "System role" in str(entry.get("error", ""))):
+                slot_idx = entry.get("slot")
+                if slot_idx is not None:
+                    retry = await _call_tool("invoke_slot", {
+                        "slot": slot_idx,
+                        "text": args.get("input_text", ""),
+                        "mode": "forward",
+                        "max_tokens": 200,
+                    })
+                    retry_parsed = _parse_mcp_result(retry.get("result"))
+                    if retry_parsed and isinstance(retry_parsed, dict) and "output" in retry_parsed:
+                        entry["type"] = "generation"
+                        entry["output"] = retry_parsed["output"]
+                        entry.pop("error", None)
+                        entry.pop("status", None)
+                        entry["note"] = "retried via forward mode (no system role)"
+                        patched = True
+
+        # Patch debate transcript rounds
+        for rnd in transcript:
+            for entry in rnd.get("entries", []):
+                if entry.get("error") == "System role not supported":
+                    # For debate, we can't easily retry per-round, so annotate
+                    entry["response"] = "[Skipped: model does not support system role in chat template]"
+                    entry["type"] = "skipped"
+                    entry.pop("error", None)
+                    patched = True
+
+        if patched:
+            return {"result": {"content": [{"type": "text", "text": json.dumps(parsed)}]}}
+
+    # --- Fix orchestra: clean up when consensus averaging fails ---
+    if tool_name == "orchestra" and isinstance(parsed, dict):
+        outputs = parsed.get("outputs", [])
+        if any(o.get("status") == "error" and "unsupported operand" in str(o.get("error", "")) for o in outputs):
+            parsed["consensus_mean"] = None
+            parsed["divergence"] = None
+            parsed["note"] = "Consensus averaging failed — clone outputs are structured dicts, not numeric. Individual clone outputs preserved above."
+            return {"result": {"content": [{"type": "text", "text": json.dumps(parsed)}]}}
+
+    return result
+
+
 @app.post("/api/tool/{tool_name}")
 async def proxy_tool_call(tool_name: str, request: Request):
     try:
@@ -425,6 +491,8 @@ async def proxy_tool_call(tool_name: str, request: Request):
     source = request.headers.get("x-source", "webui")
     start = time.time()
     result = await _call_tool(tool_name, body)
+    # Post-process to fix known capsule bugs at proxy layer
+    result = await _postprocess_tool_result(tool_name, body, result)
     duration_ms = int((time.time() - start) * 1000)
     error_str = result.get("error") if isinstance(result.get("error"), str) else None
     # Tag hydration calls so the frontend SSE listener can filter them
