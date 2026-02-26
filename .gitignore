@@ -1,0 +1,22 @@
+# Python/runtime
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.env
+.env.*
+
+# Root runtime artifacts
+capsule/.bag_state.json
+capsule/.mcp_server.log
+capsule/.relay_center.cmd
+capsule/champion_gen8.py
+capsule/champion_gen8_bag_of_tricks/
+capsule/quine_*.py
+
+# Self-deploy runtime artifacts
+self_deploy/START_DOCKER.bat
+self_deploy/capsule/*
+!self_deploy/capsule/.gitkeep
+self_deploy/capsule_state_*.pt
+self_deploy/data/
