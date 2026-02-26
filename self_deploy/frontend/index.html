@@ -153,6 +153,55 @@
             font-size: 0.9rem;
             color: #a5b4fc;
         }
+        .fork-guide {
+            max-width: 900px;
+            margin: 0 auto 40px;
+            padding: 0 20px;
+        }
+        .fork-card {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            padding: 24px;
+        }
+        .fork-card h2 {
+            font-size: 1.4rem;
+            color: #c4b5fd;
+            margin-bottom: 10px;
+        }
+        .fork-card h3 {
+            font-size: 1rem;
+            color: #a78bfa;
+            margin: 16px 0 10px;
+        }
+        .fork-card p {
+            color: #94a3b8;
+            line-height: 1.6;
+            margin-bottom: 10px;
+        }
+        .fork-card a {
+            color: #a5b4fc;
+            text-decoration: none;
+        }
+        .fork-steps {
+            margin: 0 0 12px 18px;
+            color: #cbd5e1;
+            line-height: 1.6;
+        }
+        .fork-note {
+            color: #cbd5e1;
+            font-size: 0.92rem;
+        }
+        .fork-card pre {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            padding: 12px 14px;
+            overflow-x: auto;
+            font-size: 0.85rem;
+            color: #a5b4fc;
+            margin-top: 8px;
+        }
         .status-bar {
             text-align: center;
             padding: 20px;
@@ -252,6 +301,28 @@
     </div>
 
     <section class="mcp-connect">
+        <div class="fork-guide">
+            <div class="fork-card">
+                <h2>Fork This Space in Minutes</h2>
+                <p>Want your own copy without setup pain? Duplicate the template Space and add one secret.</p>
+                <ol class="fork-steps">
+                    <li>Open <a href="https://huggingface.co/spaces/tostido/Champion_Council" target="_blank">tostido/Champion_Council</a>.</li>
+                    <li>Click the top-right menu (three dots) and choose <strong>Duplicate this Space</strong>.</li>
+                    <li>Choose your owner/name/hardware, then create the duplicate.</li>
+                    <li>In your new Space: Settings -> Secrets, add <code>HF_TOKEN</code>, then Factory Rebuild.</li>
+                </ol>
+                <p class="fork-note"><strong>Important:</strong> Hugging Face copies public variables when duplicating, but private secrets are not copied.</p>
+                <h3>Required secret and recommended variables</h3>
+                <pre><code>HF_TOKEN=hf_xxx
+SPACE_AUTHOR_NAME=your_hf_username
+SPACE_ID=your_space_name</code></pre>
+                <h3>Optional: keep your fork synced with upstream</h3>
+                <pre><code>git remote add upstream https://huggingface.co/spaces/tostido/Champion_Council
+git fetch upstream
+git merge upstream/main
+git push origin main</code></pre>
+            </div>
+        </div>
         <h2>Connect via MCP</h2>
         <p>Add this to your MCP client config to connect to this runtime:</p>
         <pre><code id="mcp-connect-snippet">Loading...</code></pre>
