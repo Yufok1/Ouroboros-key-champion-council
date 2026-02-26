@@ -411,6 +411,134 @@ def _normalize_workflow_nodes(definition: str) -> str:
         return definition if isinstance(definition, str) else json.dumps(definition)
 
 
+def _coerce_tool_arguments(args) -> dict:
+    """Coerce MCP tools/call arguments into a JSON object."""
+    if isinstance(args, dict):
+        return args
+    if args is None:
+        return {}
+    if isinstance(args, str):
+        text = args.strip()
+        if not text:
+            return {}
+        try:
+            parsed = json.loads(text)
+            return parsed if isinstance(parsed, dict) else {}
+        except Exception:
+            return {}
+    if isinstance(args, list):
+        # Accept [["k","v"], ...] form and convert to an object.
+        out = {}
+        for item in args:
+            if isinstance(item, (list, tuple)) and len(item) == 2 and isinstance(item[0], str):
+                out[item[0]] = item[1]
+            else:
+                return {}
+        return out
+    return {}
+
+
+def _normalize_rpc_tool_call_obj(obj: dict) -> bool:
+    """Normalize one JSON-RPC tools/call object in-place."""
+    if not isinstance(obj, dict) or obj.get("method") != "tools/call":
+        return False
+
+    changed = False
+    params = obj.get("params", {})
+    if isinstance(params, str):
+        try:
+            parsed = json.loads(params)
+            params = parsed if isinstance(parsed, dict) else {}
+        except Exception:
+            params = {}
+        changed = True
+    elif not isinstance(params, dict):
+        params = {}
+        changed = True
+
+    if not params.get("name"):
+        alias = params.get("tool") or params.get("tool_name")
+        if isinstance(alias, str) and alias:
+            params["name"] = alias
+            changed = True
+
+    if "arguments" not in params:
+        if isinstance(params.get("input"), dict):
+            params["arguments"] = params.pop("input")
+            changed = True
+        elif isinstance(params.get("args"), dict):
+            params["arguments"] = params.pop("args")
+            changed = True
+        else:
+            params["arguments"] = {}
+            changed = True
+    else:
+        coerced = _coerce_tool_arguments(params.get("arguments"))
+        if coerced != params.get("arguments"):
+            params["arguments"] = coerced
+            changed = True
+
+    tool = params.get("name")
+    args = params.get("arguments", {})
+    if tool in ("workflow_create", "workflow_update") and isinstance(args, dict) and "definition" in args:
+        normalized = _normalize_workflow_nodes(args["definition"])
+        if normalized != args["definition"]:
+            args = dict(args)
+            args["definition"] = normalized
+            params["arguments"] = args
+            changed = True
+
+    obj["params"] = params
+    return changed
+
+
+def _normalize_mcp_jsonrpc_payload(payload_bytes: bytes) -> bytes:
+    """Normalize incoming JSON-RPC payloads for compatibility across clients."""
+    try:
+        payload = json.loads(payload_bytes)
+    except Exception:
+        return payload_bytes
+
+    changed = False
+    if isinstance(payload, dict):
+        changed = _normalize_rpc_tool_call_obj(payload)
+    elif isinstance(payload, list):
+        for item in payload:
+            if isinstance(item, dict) and _normalize_rpc_tool_call_obj(item):
+                changed = True
+    else:
+        return payload_bytes
+
+    if not changed:
+        return payload_bytes
+    return json.dumps(payload).encode("utf-8")
+
+
+def _extract_first_rpc_tool_call(payload_bytes: bytes) -> tuple[str | None, dict, str | int | None]:
+    """Extract first tools/call tuple for activity tracking."""
+    try:
+        payload = json.loads(payload_bytes)
+    except Exception:
+        return None, {}, None
+
+    objs = payload if isinstance(payload, list) else [payload]
+    for obj in objs:
+        if not isinstance(obj, dict) or obj.get("method") != "tools/call":
+            continue
+        params = obj.get("params", {})
+        if not isinstance(params, dict):
+            continue
+        tool = params.get("name", "unknown")
+        if not isinstance(tool, str) or not tool:
+            tool = "unknown"
+        args = params.get("arguments", {})
+        if not isinstance(args, dict):
+            args = {}
+        return tool, args, obj.get("id")
+
+    return None, {}, None
+
+
 def _is_default_slot_name(name: str) -> bool:
     v = str(name or "").strip().lower()
     if v in ("empty", "vacant"):
@@ -1004,38 +1132,18 @@ async def mcp_message_proxy(request: Request):
     """Proxy JSON-RPC messages from external client to capsule MCP server."""
     session_id = request.query_params.get("session_id", "")
     body = await request.body()
+    body = _normalize_mcp_jsonrpc_payload(body)
     content_type = request.headers.get("content-type", "application/json")
     print(f"[MCP-PROXY] POST /mcp/message(s) session_id={session_id} len={len(body)}")
 
     # Try to extract tool name from JSON-RPC body for activity tracking
-    rpc_method = None
     rpc_tool = None
     rpc_args = {}
-    try:
-        rpc_body = json.loads(body)
-        rpc_method = rpc_body.get("method", "")
-        if rpc_method == "tools/call":
-            params = rpc_body.get("params", {})
-            rpc_tool = params.get("name", "unknown")
-            rpc_args = params.get("arguments", {})
-    except Exception:
-        pass
+    rpc_id = None
+    rpc_tool, rpc_args, rpc_id = _extract_first_rpc_tool_call(body)
 
     start = time.time()
     try:
-        # Normalise workflow definitions in MCP JSON-RPC calls before forwarding
-        if rpc_tool in ("workflow_create", "workflow_update"):
-            try:
-                rpc_body = json.loads(body)
-                params = rpc_body.get("params", {})
-                args = params.get("arguments", {})
-                if "definition" in args:
-                    args["definition"] = _normalize_workflow_nodes(args["definition"])
-                    rpc_body["params"]["arguments"] = args
-                    body = json.dumps(rpc_body).encode()
-            except Exception as e:
-                print(f"[MCP-PROXY] workflow normalisation skipped: {e}")
-
         async with httpx.AsyncClient() as client:
             resp = await client.post(
                 f"{MCP_BASE}/messages/",
@@ -1051,12 +1159,7 @@ async def mcp_message_proxy(request: Request):
             if rpc_tool:
                 if resp.status_code in (202, 204):
                     # SSE protocol: result comes on the SSE stream, not here.
-                    # Store as pending — mcp_sse_proxy will resolve it with real data.
-                    rpc_id = None
-                    try:
-                        rpc_id = json.loads(body).get("id")
-                    except Exception:
-                        pass
+                    # Store as pending - mcp_sse_proxy will resolve it with real data.
                     if rpc_id is not None:
                         _pending_external_calls[rpc_id] = {
                             "tool": rpc_tool,
