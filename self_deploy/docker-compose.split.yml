@@ -33,7 +33,7 @@ services:
       dockerfile: Dockerfile.capsule
     container_name: champion-council-capsule
     volumes:
-      - ../capsule:/app/capsule:ro
+      - ./capsule:/app/capsule
     environment:
       MCP_PORT: 8766
     expose:

@@ -10,7 +10,7 @@ services:
       - "8766:8766"
     volumes:
       - ./data:/app/data
-      - ../capsule:/app/capsule:ro
+      - ./capsule:/app/capsule
       # Optional local env override file
       # - ./config/.env:/app/config/.env:ro
     environment:
