@@ -450,6 +450,12 @@ async def landing():
     return (settings.frontend_dir / "index.html").read_text(encoding="utf-8")
 
 
+@app.get("/privacy", response_class=HTMLResponse)
+@app.get("/privacy-policy", response_class=HTMLResponse)
+async def privacy_policy():
+    return (settings.frontend_dir / "privacy.html").read_text(encoding="utf-8")
+
+
 @app.get("/panel", response_class=HTMLResponse)
 async def panel():
     content = (settings.frontend_dir / "panel.html").read_text(encoding="utf-8")

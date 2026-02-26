@@ -1059,6 +1059,12 @@ async def landing():
     return Path("static/index.html").read_text()
 
 
+@app.get("/privacy", response_class=HTMLResponse)
+@app.get("/privacy-policy", response_class=HTMLResponse)
+async def privacy_policy():
+    return Path("static/privacy.html").read_text()
+
+
 @app.get("/panel", response_class=HTMLResponse)
 async def control_panel():
     content = Path("static/panel.html").read_text()
