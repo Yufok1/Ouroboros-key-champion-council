@@ -411,6 +411,19 @@ def _normalize_workflow_nodes(definition: str) -> str:
         return definition if isinstance(definition, str) else json.dumps(definition)
 
 
+def _is_default_slot_name(name: str) -> bool:
+    v = str(name or "").strip().lower()
+    if v in ("empty", "vacant"):
+        return True
+    if v.startswith("slot_") and v[5:].isdigit():
+        return True
+    if v.startswith("slot-") and v[5:].isdigit():
+        return True
+    if v.startswith("slot ") and v[5:].isdigit():
+        return True
+    return False
+
+
 async def _postprocess_tool_result(tool_name: str, args: dict, result: dict) -> dict:
     """Intercept and fix known capsule issues at the proxy layer.
 
@@ -425,6 +438,75 @@ async def _postprocess_tool_result(tool_name: str, args: dict, result: dict) -> 
         if "NoneType" in error_str or "NoneType" in parsed_str:
             safe = {"genesis_hash": None, "lineage": [], "note": "Genesis data not initialized for this capsule instance"}
             return {"result": {"content": [{"type": "text", "text": json.dumps(safe)}]}}
+
+    # --- Normalize compact slot summaries into explicit per-slot status ---
+    if tool_name in ("list_slots", "council_status") and isinstance(parsed, dict):
+        slots = parsed.get("slots")
+        all_ids = parsed.get("all_ids")
+        total = parsed.get("total")
+        if (not isinstance(slots, list) or len(slots) == 0) and isinstance(all_ids, list) and isinstance(total, int) and total > 0:
+            enriched_slots = []
+            for i in range(total):
+                name = all_ids[i] if i < len(all_ids) else f"slot_{i}"
+                enriched_slots.append({
+                    "index": i,
+                    "name": name,
+                    "plugged": False,
+                    "model_source": None,
+                })
+
+            plugged_sum = None
+            try:
+                plugged_sum = int((((parsed.get("stats") or {}).get("plugged") or {}).get("sum")))
+            except Exception:
+                plugged_sum = None
+
+            candidate_indices = [i for i, s in enumerate(enriched_slots) if not _is_default_slot_name(s.get("name", ""))]
+            if plugged_sum is not None:
+                if plugged_sum <= 0:
+                    parsed["slots"] = enriched_slots
+                    return {"result": {"content": [{"type": "text", "text": json.dumps(parsed)}]}}
+                if plugged_sum > len(candidate_indices):
+                    candidate_indices = list(range(total))
+            elif len(candidate_indices) == 0:
+                candidate_indices = list(range(total))
+
+            if candidate_indices:
+                async def _fetch_slot_info(idx: int):
+                    info_raw = await _call_tool("slot_info", {"slot": idx})
+                    info = _parse_mcp_result(info_raw.get("result")) if isinstance(info_raw, dict) else None
+                    return idx, info
+
+                seen = set()
+                calls = []
+                for idx in candidate_indices:
+                    if idx in seen or idx < 0 or idx >= total:
+                        continue
+                    seen.add(idx)
+                    calls.append(_fetch_slot_info(idx))
+
+                infos = await asyncio.gather(*calls, return_exceptions=True) if calls else []
+                for item in infos:
+                    if isinstance(item, Exception):
+                        continue
+                    idx, info = item
+                    if not isinstance(info, dict):
+                        continue
+
+                    slot = enriched_slots[idx]
+                    if info.get("name"):
+                        slot["name"] = info["name"]
+                    is_plugged = bool(info.get("plugged"))
+                    slot["plugged"] = is_plugged
+                    src = info.get("source") or info.get("model_source")
+                    if not src and is_plugged and not _is_default_slot_name(slot.get("name", "")):
+                        src = slot.get("name")
+                    slot["model_source"] = src if is_plugged else None
+                    if info.get("model_type"):
+                        slot["model_type"] = info["model_type"]
+
+            parsed["slots"] = enriched_slots
+            return {"result": {"content": [{"type": "text", "text": json.dumps(parsed)}]}}
 
     # --- Fix compare/debate: retry slots that fail with "System role not supported" ---
     if tool_name in ("compare", "debate") and isinstance(parsed, dict):

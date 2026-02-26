@@ -998,13 +998,23 @@
             if (slotsArr.length === 0 && d.all_ids && d.total) {
                 var total = d.total;
                 var pluggedCount = (d.stats && d.stats.plugged) ? (d.stats.plugged.sum || 0) : 0;
+                var renamedIndices = [];
                 for (var si = 0; si < total; si++) {
                     var name = d.all_ids[si] || ('slot_' + si);
-                    // Infer plugged status: if the name differs from the default
-                    // pattern "slot_N", it was renamed when a model was plugged
                     var defaultName = 'slot_' + si;
-                    var isPlugged = (name !== defaultName);
-                    slotsArr.push({ index: si, name: name, plugged: isPlugged, model_source: isPlugged ? name : null });
+                    var renamed = (name !== defaultName);
+                    if (renamed) renamedIndices.push(si);
+                    slotsArr.push({ index: si, name: name, plugged: false, model_source: null });
+                }
+                // Only infer plugged from renamed slots when counts align.
+                // This avoids false "PLUGGED" cards after unplug when slot names stay custom.
+                if (pluggedCount > 0 && renamedIndices.length === pluggedCount) {
+                    for (var rj = 0; rj < renamedIndices.length; rj++) {
+                        var ridx = renamedIndices[rj];
+                        var rs = slotsArr[ridx];
+                        rs.plugged = true;
+                        rs.model_source = rs.name;
+                    }
                 }
             }
             // Handle plain array
