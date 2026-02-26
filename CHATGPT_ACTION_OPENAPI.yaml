@@ -1,0 +1,222 @@
+openapi: 3.1.0
+info:
+  title: Champion Council Action API
+  version: 1.0.2
+  description: Use Champion Council tools from ChatGPT Actions.
+
+servers:
+  - url: https://tostido-champion-council.hf.space
+    description: Champion Council Hugging Face Space
+
+paths:
+  /api/health:
+    get:
+      operationId: getHealth
+      summary: Health check
+      x-openai-isConsequential: false
+      responses:
+        "200":
+          description: Health response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  /api/tools:
+    get:
+      operationId: listTools
+      summary: List available tools
+      x-openai-isConsequential: false
+      parameters:
+        - name: source
+          in: query
+          required: false
+          description: Activity source label override.
+          schema:
+            type: string
+            enum: [external, webui, action, api]
+            default: external
+      responses:
+        "200":
+          description: Tools list response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ToolsListResponse"
+        "503":
+          description: MCP unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/tool/{tool_name}:
+    post:
+      operationId: callTool
+      summary: Call a tool by name
+      x-openai-isConsequential: false
+      parameters:
+        - name: tool_name
+          in: path
+          required: true
+          description: Exact tool name to execute.
+          schema:
+            type: string
+        - name: source
+          in: query
+          required: false
+          description: Activity source label override.
+          schema:
+            type: string
+            enum: [external, webui, action, api]
+            default: external
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ToolCallArgs"
+            examples:
+              empty:
+                value: {}
+              get_status:
+                value: {}
+              embed_text:
+                value:
+                  text: hello world
+              invoke_slot:
+                value:
+                  slot: 0
+                  mode: generate
+                  text: hello
+      responses:
+        "200":
+          description: Tool call response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ToolCallResponse"
+        "503":
+          description: Tool call error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      additionalProperties: true
+      properties:
+        status:
+          type: string
+        version:
+          type: string
+        capsule_running:
+          type: boolean
+        capsule_pid:
+          anyOf:
+            - type: integer
+            - type: "null"
+        mcp_port:
+          type: integer
+        mcp_session:
+          type: boolean
+        persistence:
+          type: boolean
+        timestamp:
+          type: string
+
+    ToolCallArgs:
+      type: object
+      additionalProperties: true
+      properties:
+        text:
+          type: string
+        query:
+          type: string
+        slot:
+          type: integer
+        mode:
+          type: string
+        max_tokens:
+          type: integer
+        workflow_id:
+          type: string
+
+    ToolDescriptor:
+      type: object
+      additionalProperties: true
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        inputSchema:
+          type: object
+          additionalProperties: true
+          properties:
+            type:
+              type: string
+            properties:
+              type: object
+              additionalProperties: true
+            required:
+              type: array
+              items:
+                type: string
+
+    ToolsListInner:
+      type: object
+      additionalProperties: true
+      properties:
+        tools:
+          type: array
+          items:
+            $ref: "#/components/schemas/ToolDescriptor"
+
+    ToolsListResponse:
+      type: object
+      additionalProperties: true
+      properties:
+        result:
+          $ref: "#/components/schemas/ToolsListInner"
+        error:
+          type: string
+
+    ToolContentItem:
+      type: object
+      additionalProperties: true
+      properties:
+        type:
+          type: string
+        text:
+          type: string
+
+    ToolResult:
+      type: object
+      additionalProperties: true
+      properties:
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/ToolContentItem"
+        isError:
+          type: boolean
+
+    ToolCallResponse:
+      type: object
+      additionalProperties: true
+      properties:
+        result:
+          $ref: "#/components/schemas/ToolResult"
+        error:
+          type: string
+
+    ErrorResponse:
+      type: object
+      additionalProperties: true
+      properties:
+        error:
+          type: string

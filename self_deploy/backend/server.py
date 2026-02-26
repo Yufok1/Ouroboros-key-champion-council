@@ -90,6 +90,34 @@ persistence = PersistenceManager(
 )
 
 
+def _normalize_activity_source(value: str | None) -> str | None:
+    if not value:
+        return None
+    v = str(value).strip().lower()
+    if v in ("external", "webui", "hydration", "extension", "action", "api"):
+        return v
+    return None
+
+
+def _infer_activity_source(request: Request, fallback: str = "webui") -> str:
+    explicit = _normalize_activity_source(
+        request.headers.get("x-source") or request.query_params.get("source")
+    )
+    if explicit:
+        return explicit
+
+    ua = (request.headers.get("user-agent") or "").lower()
+    if "chatgpt" in ua or "openai" in ua:
+        return "external"
+
+    origin = request.headers.get("origin") or ""
+    referer = request.headers.get("referer") or ""
+    if not origin and not referer:
+        return "external"
+
+    return fallback
+
+
 async def _call_tool(name: str, arguments: dict) -> dict:
     return await mcp_client.call_tool(name, arguments)
 
@@ -169,7 +197,8 @@ async def proxy_tool_call(tool_name: str, request: Request):
     if tool_name in ("workflow_create", "workflow_update") and "definition" in body:
         body["definition"] = normalize_workflow_nodes(body["definition"])
 
-    source = request.headers.get("x-source", "webui")
+    body_source = _normalize_activity_source(body.pop("__source", None) if isinstance(body, dict) else None)
+    source = body_source or _infer_activity_source(request, fallback="webui")
     start = time.time()
 
     result = await _call_tool(tool_name, body)
@@ -192,8 +221,20 @@ async def proxy_tool_call(tool_name: str, request: Request):
 
 
 @app.get("/api/tools")
-async def list_tools_route():
+async def list_tools_route(request: Request):
+    source = _infer_activity_source(request, fallback="webui")
+    start = time.time()
     result = await _list_tools()
+    duration_ms = int((time.time() - start) * 1000)
+    error_str = result.get("error") if isinstance(result.get("error"), str) else None
+    activity_hub.add_entry(
+        tool="list_tools",
+        args={},
+        result=result.get("result"),
+        duration_ms=duration_ms,
+        error=error_str,
+        source=source,
+    )
     if "error" in result and isinstance(result.get("error"), str):
         return JSONResponse(status_code=503, content=result)
     return result
