@@ -6,7 +6,7 @@ colorTo: blue
 sdk: docker
 pinned: false
 license: mit
-short_description: 'Local-first AI orchestration with 140+ MCP tools, workflows, and semantic memory'
+short_description: 'Local-first AI orchestration with 140+ MCP tools'
 tags:
   - mcp
   - model-orchestration
