@@ -39,6 +39,7 @@ if __package__ in (None, ""):
     from backend.mcp_client import MCPClient
     from backend.mcp_proxy import (
         PendingCallRegistry,
+        normalize_rpc_payload,
         normalize_rpc_workflow,
         parse_rpc_tool_calls,
     )
@@ -51,7 +52,12 @@ else:
     from .capsule_manager import CapsuleManager
     from .dreamer_routes import create_dreamer_router
     from .mcp_client import MCPClient
-    from .mcp_proxy import PendingCallRegistry, normalize_rpc_workflow, parse_rpc_tool_calls
+    from .mcp_proxy import (
+        PendingCallRegistry,
+        normalize_rpc_payload,
+        normalize_rpc_workflow,
+        parse_rpc_tool_calls,
+    )
     from .persistence import PersistenceManager
     from .postprocessing import normalize_workflow_nodes, postprocess_tool_result
     from .settings import load_settings
@@ -505,6 +511,7 @@ async def mcp_sse_proxy(request: Request):
 async def mcp_message_proxy(request: Request):
     session_id = request.query_params.get("session_id", "")
     body = await request.body()
+    body = normalize_rpc_payload(body)
     content_type = request.headers.get("content-type", "application/json")
 
     _, rpc_calls_raw = parse_rpc_tool_calls(body)
