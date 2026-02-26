@@ -4,4 +4,5 @@ huggingface_hub
 jinja2
 mcp[cli]>=1.2.0,<2.0.0
 python-multipart
+starlette
 uvicorn[standard]
