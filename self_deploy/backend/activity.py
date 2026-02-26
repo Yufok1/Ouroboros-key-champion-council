@@ -24,6 +24,7 @@ SILENT_TOOLS = frozenset([
     "hub_tasks",
     "list_tools",
     "heartbeat",
+    "api_health",
 ])
 
 

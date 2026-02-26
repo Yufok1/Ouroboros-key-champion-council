@@ -16,6 +16,7 @@ import threading
 from pathlib import Path
 from datetime import datetime
 from contextlib import asynccontextmanager
+from urllib.parse import urlparse
 
 import uvicorn
 import httpx
@@ -35,7 +36,7 @@ _SILENT_TOOLS = frozenset([
     'get_status', 'list_slots', 'bag_catalog', 'workflow_list',
     'verify_integrity', 'get_cached', 'get_identity', 'feed',
     'get_capabilities', 'get_help', 'get_onboarding', 'get_quickstart',
-    'hub_tasks', 'list_tools', 'heartbeat',
+    'hub_tasks', 'list_tools', 'heartbeat', 'api_health',
 ])
 
 
@@ -46,6 +47,18 @@ def _normalize_activity_source(value: str | None) -> str | None:
     if v in ("external", "webui", "hydration", "extension", "action", "api"):
         return v
     return None
+
+
+def _is_same_origin_request(url_value: str, request: Request) -> bool:
+    try:
+        parsed = urlparse(url_value)
+        if not parsed.netloc:
+            return False
+        req_host = (request.headers.get("host") or "").strip().lower()
+        url_host = parsed.netloc.strip().lower()
+        return bool(req_host) and req_host == url_host
+    except Exception:
+        return False
 
 
 def _infer_activity_source(request: Request, fallback: str = "webui") -> str:
@@ -60,9 +73,13 @@ def _infer_activity_source(request: Request, fallback: str = "webui") -> str:
     if "chatgpt" in ua or "openai" in ua:
         return "external"
 
-    # Browser panel calls typically include origin/referer.
+    # Cross-origin traffic (e.g., ChatGPT Actions) should be external.
     origin = request.headers.get("origin") or ""
     referer = request.headers.get("referer") or ""
+    if origin and not _is_same_origin_request(origin, request):
+        return "external"
+    if referer and not _is_same_origin_request(referer, request):
+        return "external"
     if not origin and not referer:
         return "external"
 
@@ -762,9 +779,11 @@ async def list_tools_route(request: Request):
 
 
 @app.get("/api/health")
-async def health():
+async def health(request: Request):
+    source = _infer_activity_source(request, fallback="webui")
+    start = time.time()
     capsule_alive = capsule_process is not None and capsule_process.poll() is None
-    return {
+    payload = {
         "status": "ok",
         "version": "0.8.9",
         "capsule_running": capsule_alive,
@@ -774,6 +793,9 @@ async def health():
         "persistence": persistence.is_available(),
         "timestamp": datetime.utcnow().isoformat(),
     }
+    duration_ms = int((time.time() - start) * 1000)
+    _broadcast_activity("api_health", {}, {"content": [{"type": "text", "text": json.dumps(payload)}]}, duration_ms, None, source=source)
+    return payload
 
 
 @app.post("/api/persist/save")

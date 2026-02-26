@@ -14,6 +14,15 @@ paths:
       operationId: getHealth
       summary: Health check
       x-openai-isConsequential: false
+      parameters:
+        - name: source
+          in: query
+          required: false
+          description: Activity source label override.
+          schema:
+            type: string
+            enum: [external, webui, action, api]
+            default: external
       responses:
         "200":
           description: Health response

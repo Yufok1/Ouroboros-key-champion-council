@@ -99,6 +99,18 @@ def _normalize_activity_source(value: str | None) -> str | None:
     return None
 
 
+def _is_same_origin_request(url_value: str, request: Request) -> bool:
+    try:
+        parsed = urlparse(url_value)
+        if not parsed.netloc:
+            return False
+        req_host = (request.headers.get("host") or "").strip().lower()
+        url_host = parsed.netloc.strip().lower()
+        return bool(req_host) and req_host == url_host
+    except Exception:
+        return False
+
+
 def _infer_activity_source(request: Request, fallback: str = "webui") -> str:
     explicit = _normalize_activity_source(
         request.headers.get("x-source") or request.query_params.get("source")
@@ -112,6 +124,10 @@ def _infer_activity_source(request: Request, fallback: str = "webui") -> str:
 
     origin = request.headers.get("origin") or ""
     referer = request.headers.get("referer") or ""
+    if origin and not _is_same_origin_request(origin, request):
+        return "external"
+    if referer and not _is_same_origin_request(referer, request):
+        return "external"
     if not origin and not referer:
         return "external"
 
@@ -241,9 +257,11 @@ async def list_tools_route(request: Request):
 
 
 @app.get("/api/health")
-async def health():
+async def health(request: Request):
+    source = _infer_activity_source(request, fallback="webui")
+    start = time.time()
     latest_event_id = activity_hub.log[-1].get("eventId") if activity_hub.log else None
-    return {
+    payload = {
         "status": "ok",
         "version": "0.1.0",
         "env": settings.app_env,
@@ -259,6 +277,16 @@ async def health():
         "activity_session_id": activity_hub.session_id,
         "activity_latest_event_id": latest_event_id,
     }
+    duration_ms = int((time.time() - start) * 1000)
+    activity_hub.add_entry(
+        tool="api_health",
+        args={},
+        result={"content": [{"type": "text", "text": json.dumps(payload)}]},
+        duration_ms=duration_ms,
+        error=None,
+        source=source,
+    )
+    return payload
 
 
 @app.get("/api/capsule-log")
