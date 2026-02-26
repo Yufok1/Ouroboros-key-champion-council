@@ -6,7 +6,18 @@ colorTo: blue
 sdk: docker
 pinned: false
 license: mit
-short_description: 'AI model orchestrator with 140+ MCP tools'
+short_description: 'Local-first AI orchestration with 140+ MCP tools, workflows, and semantic memory'
+tags:
+  - mcp
+  - model-orchestration
+  - ai-agent
+  - workflow
+  - local-ai
+  - llm
+  - multi-model
+  - semantic-search
+  - observability
+  - vscode
 app_port: 7860
 ---
 
