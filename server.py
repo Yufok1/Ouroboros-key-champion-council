@@ -514,14 +514,18 @@ def _normalize_mcp_jsonrpc_payload(payload_bytes: bytes) -> bytes:
     return json.dumps(payload).encode("utf-8")
 
 
-def _extract_first_rpc_tool_call(payload_bytes: bytes) -> tuple[str | None, dict, str | int | None]:
-    """Extract first tools/call tuple for activity tracking."""
+def _parse_rpc_tool_calls(payload_bytes: bytes) -> list[tuple[str, dict, str | int | None]]:
+    """Extract tools/call tuples for activity tracking.
+
+    Supports single JSON-RPC objects and batch arrays.
+    """
     try:
         payload = json.loads(payload_bytes)
     except Exception:
-        return None, {}, None
+        return []
 
     objs = payload if isinstance(payload, list) else [payload]
+    calls: list[tuple[str, dict, str | int | None]] = []
     for obj in objs:
         if not isinstance(obj, dict) or obj.get("method") != "tools/call":
             continue
@@ -534,9 +538,9 @@ def _extract_first_rpc_tool_call(payload_bytes: bytes) -> tuple[str | None, dict
         args = params.get("arguments", {})
         if not isinstance(args, dict):
             args = {}
-        return tool, args, obj.get("id")
+        calls.append((tool, args, obj.get("id")))
 
-    return None, {}, None
+    return calls
 
 
 def _is_default_slot_name(name: str) -> bool:
@@ -1152,11 +1156,11 @@ async def mcp_message_proxy(request: Request):
     content_type = request.headers.get("content-type", "application/json")
     print(f"[MCP-PROXY] POST /mcp/message(s) session_id={session_id} len={len(body)}")
 
-    # Try to extract tool name from JSON-RPC body for activity tracking
-    rpc_tool = None
-    rpc_args = {}
-    rpc_id = None
-    rpc_tool, rpc_args, rpc_id = _extract_first_rpc_tool_call(body)
+    # Extract tools/call payload(s) for activity tracking (single or batch).
+    rpc_calls = [
+        {"tool": tool, "args": args, "rpc_id": rpc_id}
+        for tool, args, rpc_id in _parse_rpc_tool_calls(body)
+    ]
 
     start = time.time()
     try:
@@ -1172,31 +1176,95 @@ async def mcp_message_proxy(request: Request):
             print(f"[MCP-PROXY] Capsule responded {resp.status_code}")
 
             # Track tool calls in activity feed
-            if rpc_tool:
+            if rpc_calls:
                 if resp.status_code in (202, 204):
                     # SSE protocol: result comes on the SSE stream, not here.
                     # Store as pending - mcp_sse_proxy will resolve it with real data.
-                    if rpc_id is not None:
-                        _pending_external_calls[rpc_id] = {
-                            "tool": rpc_tool,
-                            "args": rpc_args,
-                            "start": start,
-                        }
-                        print(f"[MCP-PROXY] Stored pending call id={rpc_id} (type={type(rpc_id).__name__}) tool={rpc_tool}")
-                    else:
-                        # No id to match — broadcast now with null result
-                        _broadcast_activity(rpc_tool, rpc_args, None, duration_ms, None, source="external")
+                    for call in rpc_calls:
+                        rpc_id = call["rpc_id"]
+                        if rpc_id is not None:
+                            _pending_external_calls[rpc_id] = {
+                                "tool": call["tool"],
+                                "args": call["args"],
+                                "start": start,
+                            }
+                            print(
+                                f"[MCP-PROXY] Stored pending call id={rpc_id} "
+                                f"(type={type(rpc_id).__name__}) tool={call['tool']}"
+                            )
+                        else:
+                            # Notifications (no id) cannot be matched on SSE response.
+                            _broadcast_activity(call["tool"], call["args"], None, duration_ms, None, source="external")
                 elif resp.status_code == 200:
-                    # Got inline JSON response — broadcast with result
-                    resp_result = None
+                    # Got inline JSON response(s) - map by id when present.
+                    response_items: list[dict] = []
                     try:
                         resp_json = resp.json()
-                        resp_result = resp_json.get("result")
+                        if isinstance(resp_json, dict):
+                            response_items = [resp_json]
+                        elif isinstance(resp_json, list):
+                            response_items = [item for item in resp_json if isinstance(item, dict)]
                     except Exception:
-                        pass
-                    _broadcast_activity(rpc_tool, rpc_args, resp_result, duration_ms, None, source="external")
+                        response_items = []
+
+                    unmatched_calls = list(rpc_calls)
+
+                    def _pop_call_for_id(rpc_id):
+                        if rpc_id is None:
+                            return None
+                        for i, call in enumerate(unmatched_calls):
+                            cid = call.get("rpc_id")
+                            if cid == rpc_id or str(cid) == str(rpc_id):
+                                return unmatched_calls.pop(i)
+                        return None
+
+                    for item in response_items:
+                        call = _pop_call_for_id(item.get("id"))
+                        if call is None and len(unmatched_calls) == 1:
+                            # Some servers omit JSON-RPC id on single-call inline responses.
+                            call = unmatched_calls.pop(0)
+                        if call is None:
+                            continue
+
+                        rpc_error = item.get("error")
+                        error_str = None
+                        if rpc_error is not None:
+                            if isinstance(rpc_error, dict):
+                                error_str = rpc_error.get("message", str(rpc_error))
+                            else:
+                                error_str = str(rpc_error)
+
+                        _broadcast_activity(
+                            call["tool"],
+                            call["args"],
+                            item.get("result"),
+                            duration_ms,
+                            error_str,
+                            source="external",
+                        )
+
+                    for call in unmatched_calls:
+                        error_str = "Missing JSON-RPC result"
+                        if call.get("rpc_id") is None:
+                            error_str = None
+                        _broadcast_activity(
+                            call["tool"],
+                            call["args"],
+                            None,
+                            duration_ms,
+                            error_str,
+                            source="external",
+                        )
                 else:
-                    _broadcast_activity(rpc_tool, rpc_args, None, duration_ms, f"HTTP {resp.status_code}", source="external")
+                    for call in rpc_calls:
+                        _broadcast_activity(
+                            call["tool"],
+                            call["args"],
+                            None,
+                            duration_ms,
+                            f"HTTP {resp.status_code}",
+                            source="external",
+                        )
 
             # Forward the response as-is
             if resp.status_code in (202, 204):
@@ -1212,13 +1280,13 @@ async def mcp_message_proxy(request: Request):
                 )
     except httpx.ReadTimeout:
         duration_ms = int((time.time() - start) * 1000)
-        if rpc_tool:
-            _broadcast_activity(rpc_tool, rpc_args, None, duration_ms, "Capsule timeout", source="external")
+        for call in rpc_calls:
+            _broadcast_activity(call["tool"], call["args"], None, duration_ms, "Capsule timeout", source="external")
         return JSONResponse(status_code=504, content={"error": "Capsule timeout"})
     except Exception as e:
         duration_ms = int((time.time() - start) * 1000)
-        if rpc_tool:
-            _broadcast_activity(rpc_tool, rpc_args, None, duration_ms, str(e), source="external")
+        for call in rpc_calls:
+            _broadcast_activity(call["tool"], call["args"], None, duration_ms, str(e), source="external")
         print(f"[MCP-PROXY] POST error: {e}")
         return JSONResponse(status_code=502, content={"error": str(e)})
 

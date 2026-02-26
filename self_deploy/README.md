@@ -2,7 +2,7 @@
 
 This folder is a local standalone runtime for Champion Council/Ouroboros that mirrors the Hugging Face Space behavior while running on your own machine.
 
-Default capsule paths are local to this folder (`./capsule`). If capsule files are missing, self_deploy will auto-download `capsule.gz` on first run.
+Default capsule paths are local to this folder (`./capsule`). If capsule files are missing, self_deploy first tries `../capsule/capsule.gz` as a local fallback, then auto-downloads `capsule.gz`.
 
 ## What is implemented now
 
@@ -115,6 +115,7 @@ MCP_BASE_URL=http://your-remote-capsule:8766 docker compose -f docker-compose.re
 
 By default, self_deploy compose files mount `./capsule` to `/app/capsule`.
 This keeps the package self-contained and capsule updates independent from image rebuilds.
+Compose also mounts `../capsule` read-only as `/app/bootstrap` so fresh clones can bootstrap without network access.
 
 ---
 

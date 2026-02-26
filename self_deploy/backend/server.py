@@ -72,6 +72,7 @@ _local_default_mcp = f"http://127.0.0.1:{settings.mcp_port}"
 capsule_manager = CapsuleManager(
     capsule_path=settings.capsule_path,
     capsule_gz_path=settings.capsule_gz_path,
+    capsule_bootstrap_gz_path=settings.capsule_bootstrap_gz_path,
     mcp_port=settings.mcp_port,
     capsule_download_url=settings.capsule_download_url,
 )

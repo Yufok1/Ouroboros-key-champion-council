@@ -19,8 +19,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY requirements-capsule.txt ./
 RUN pip install --upgrade pip \
-    && pip install -r requirements-capsule.txt \
-    && pip install "mcp[cli]>=1.2.0,<2.0.0"
+    && pip install -r requirements-capsule.txt
+
+COPY backend/capsule_bootstrap.py /app/backend/capsule_bootstrap.py
 
 # Non-root user for security
 RUN useradd --create-home --uid 1000 council \
@@ -29,7 +30,10 @@ RUN useradd --create-home --uid 1000 council \
 
 EXPOSE 8766
 
-ENV MCP_PORT=8766
+ENV MCP_PORT=8766 \
+    CAPSULE_PATH=/app/capsule/champion_gen8.py \
+    CAPSULE_GZ_PATH=/app/capsule/capsule.gz \
+    CAPSULE_BOOTSTRAP_GZ_PATH=/app/bootstrap/capsule.gz
 
 USER council
-CMD ["python", "-u", "/app/capsule/champion_gen8.py", "--mcp-remote", "--port", "8766"]
+CMD ["python", "-u", "/app/backend/capsule_bootstrap.py"]

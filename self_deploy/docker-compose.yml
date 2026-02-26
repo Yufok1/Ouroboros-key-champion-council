@@ -11,6 +11,7 @@ services:
     volumes:
       - ./data:/app/data
       - ./capsule:/app/capsule
+      - ../capsule:/app/bootstrap:ro
       # Optional local env override file
       # - ./config/.env:/app/config/.env:ro
     environment:
@@ -22,6 +23,7 @@ services:
       DATA_DIR: /app/data
       CAPSULE_PATH: /app/capsule/champion_gen8.py
       CAPSULE_GZ_PATH: /app/capsule/capsule.gz
+      CAPSULE_BOOTSTRAP_GZ_PATH: /app/bootstrap/capsule.gz
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:7866/api/health', timeout=5)"]

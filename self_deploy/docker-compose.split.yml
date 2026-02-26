@@ -34,8 +34,10 @@ services:
     container_name: champion-council-capsule
     volumes:
       - ./capsule:/app/capsule
+      - ../capsule:/app/bootstrap:ro
     environment:
       MCP_PORT: 8766
+      CAPSULE_BOOTSTRAP_GZ_PATH: /app/bootstrap/capsule.gz
     expose:
       - "8766"
     restart: unless-stopped

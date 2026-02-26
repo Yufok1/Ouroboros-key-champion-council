@@ -32,6 +32,7 @@ class Settings:
     mcp_base_url: str
     capsule_path: Path
     capsule_gz_path: Path
+    capsule_bootstrap_gz_path: Path
     capsule_download_url: str
     frontend_dir: Path
     data_dir: Path
@@ -61,6 +62,8 @@ def load_settings() -> Settings:
 
     gz_raw = os.environ.get("CAPSULE_GZ_PATH", "./capsule/capsule.gz")
     capsule_gz_path = (base_dir / gz_raw).resolve() if not Path(gz_raw).is_absolute() else Path(gz_raw)
+    bootstrap_raw = os.environ.get("CAPSULE_BOOTSTRAP_GZ_PATH", "../capsule/capsule.gz")
+    capsule_bootstrap_gz_path = (base_dir / bootstrap_raw).resolve() if not Path(bootstrap_raw).is_absolute() else Path(bootstrap_raw)
     capsule_download_url = os.environ.get(
         "CAPSULE_DOWNLOAD_URL",
         "https://huggingface.co/spaces/tostido/Champion_Council/resolve/main/capsule/capsule.gz",
@@ -84,6 +87,7 @@ def load_settings() -> Settings:
         mcp_base_url=mcp_base,
         capsule_path=capsule_path,
         capsule_gz_path=capsule_gz_path,
+        capsule_bootstrap_gz_path=capsule_bootstrap_gz_path,
         capsule_download_url=capsule_download_url,
         frontend_dir=frontend_dir,
         data_dir=data_dir,
