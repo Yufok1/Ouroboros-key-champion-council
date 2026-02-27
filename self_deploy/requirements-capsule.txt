@@ -7,6 +7,9 @@ jax[cpu]
 jaxlib
 einops
 ninjax
+portal>=0.2.0
+chex>=0.1.0
+cloudpickle>=2.0.0
 mcp[cli]>=1.2.0,<2.0.0
 numpy
 onnx
