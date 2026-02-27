@@ -1,6 +1,6 @@
 ---
 title: Champion Council
-emoji: 🐍
+emoji: "🐍"
 colorFrom: purple
 colorTo: blue
 sdk: docker
@@ -50,3 +50,4 @@ Champion Council is an AI model orchestration system built on the Ouroboros quin
 ## License
 
 MIT
+
