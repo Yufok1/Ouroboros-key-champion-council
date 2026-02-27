@@ -17,6 +17,8 @@ Default capsule paths are local to this folder (`./capsule`). If capsule files a
 - Workflow normalization middleware (`tool_call` + `tool_name` compatibility)
 - Dual-mode persistence manager (`local`, `hf`, `both`)
 - Dreamer + Vast aggregation routes
+- Vast instance normalization (`/api/vast/state`) with SSH bootstrap status in state payload
+- GPU Fleet parity UI behavior (instance-aware rent/connect/stop actions and direct Vast Console links)
 - Frontend baseline copied from Space (`frontend/`)
 
 ## Folder layout
@@ -74,6 +76,8 @@ Important settings:
 - `PERSISTENCE_MODE=local|hf|both`
 - `MANAGE_LOCAL_CAPSULE=1|0`
 - `MCP_BASE_URL` (optional, for remote capsule)
+- `VAST_API_KEY` (required for Vast tools)
+- `SSH_PRIVATE_KEY` / `SSH_PUBLIC_KEY` (optional; if unset, runtime attempts to auto-generate `~/.ssh/id_rsa`)
 
 ---
 

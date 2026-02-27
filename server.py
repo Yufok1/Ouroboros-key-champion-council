@@ -12,6 +12,7 @@ import sys
 import json
 import asyncio
 import subprocess
+import shutil
 import threading
 import mimetypes
 from pathlib import Path
@@ -104,6 +105,114 @@ def _parse_mcp_result(result: dict | None) -> dict | None:
             except (json.JSONDecodeError, TypeError):
                 return {"text": text}
     return result
+
+
+def _normalize_vast_instances(payload) -> list[dict]:
+    """Normalize vast_instances payloads to a list of instance dicts."""
+    if isinstance(payload, list):
+        return [item for item in payload if isinstance(item, dict)]
+    if isinstance(payload, dict):
+        for key in ("instances", "data", "results", "items"):
+            candidate = payload.get(key)
+            if isinstance(candidate, list):
+                return [item for item in candidate if isinstance(item, dict)]
+        if any(k in payload for k in ("id", "instance_id", "ssh_host", "ssh_port", "gpu", "gpu_name", "public_ip")):
+            return [payload]
+    return []
+
+
+def _ssh_key_paths() -> tuple[Path, Path, Path]:
+    ssh_dir = Path.home() / ".ssh"
+    return ssh_dir, ssh_dir / "id_rsa", ssh_dir / "id_rsa.pub"
+
+
+def _ssh_bootstrap_status() -> dict:
+    ssh_dir, private_key, public_key = _ssh_key_paths()
+    return {
+        "dir": str(ssh_dir),
+        "private_key": private_key.exists(),
+        "public_key": public_key.exists(),
+    }
+
+
+def _write_ssh_file(path: Path, value: str, mode: int) -> bool:
+    content = (value or "").strip()
+    if not content:
+        return False
+    if not content.endswith("\n"):
+        content += "\n"
+    path.write_text(content, encoding="utf-8")
+    os.chmod(path, mode)
+    return True
+
+
+def _ensure_vast_ssh_keys() -> None:
+    """Ensure ~/.ssh/id_rsa exists for Vast tools that require SSH identity."""
+    ssh_dir, private_key, public_key = _ssh_key_paths()
+    try:
+        ssh_dir.mkdir(parents=True, exist_ok=True)
+    except Exception as e:
+        print(f"[WARN] Failed to create SSH directory {ssh_dir}: {e}")
+        return
+    try:
+        os.chmod(ssh_dir, 0o700)
+    except OSError:
+        pass
+
+    private_secret = os.environ.get("SSH_PRIVATE_KEY", "")
+    public_secret = os.environ.get("SSH_PUBLIC_KEY", "")
+
+    secret_loaded = False
+    if private_secret:
+        secret_loaded = _write_ssh_file(private_key, private_secret, 0o600)
+        if public_secret:
+            _write_ssh_file(public_key, public_secret, 0o644)
+        if secret_loaded:
+            print("[INIT] Loaded SSH private key from SSH_PRIVATE_KEY")
+
+    if not private_key.exists():
+        ssh_keygen = shutil.which("ssh-keygen")
+        if ssh_keygen:
+            try:
+                subprocess.run(
+                    [ssh_keygen, "-t", "rsa", "-b", "4096", "-N", "", "-f", str(private_key)],
+                    check=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                )
+                print("[INIT] Generated ~/.ssh/id_rsa for Vast remote tools")
+            except Exception as e:
+                print(f"[WARN] Failed to generate ~/.ssh/id_rsa: {e}")
+        elif not secret_loaded:
+            print("[WARN] ssh-keygen not found and SSH_PRIVATE_KEY is not set; Vast SSH tools may fail")
+
+    if private_key.exists():
+        try:
+            os.chmod(private_key, 0o600)
+        except OSError:
+            pass
+
+    # Derive public key from private key when possible.
+    if private_key.exists() and not public_key.exists():
+        ssh_keygen = shutil.which("ssh-keygen")
+        if ssh_keygen:
+            try:
+                derived = subprocess.run(
+                    [ssh_keygen, "-y", "-f", str(private_key)],
+                    check=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                )
+                _write_ssh_file(public_key, derived.stdout, 0o644)
+            except Exception:
+                pass
+    if public_key.exists():
+        try:
+            os.chmod(public_key, 0o644)
+        except OSError:
+            pass
 
 
 def _broadcast_activity(tool: str, args: dict, result: dict | None, duration_ms: int, error: str | None, source: str = "external"):
@@ -365,6 +474,8 @@ async def _list_tools() -> dict:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
+    _ensure_vast_ssh_keys()
+
     gz_path = Path("capsule/capsule.gz")
     if gz_path.exists() and not CAPSULE_PATH.exists():
         import gzip
@@ -992,6 +1103,7 @@ async def vast_fleet_state():
 
     result = await _call_tool("vast_instances", {})
     parsed = _parse_mcp_result(result.get("result"))
+    instances = _normalize_vast_instances(parsed)
 
     # Also get capsule status for vast-related state
     status_raw = await _call_tool("get_status", {})
@@ -1004,15 +1116,17 @@ async def vast_fleet_state():
             "status": "error" if e.get("error") else "ok",
             "duration": e.get("durationMs", 0),
             "timestamp": e.get("timestamp", 0),
+            "error": e.get("error"),
         }
         for e in _activity_log
         if e.get("tool", "").startswith("vast_")
     ][-10:]
 
     fleet = {
-        "instances": parsed if isinstance(parsed, (list, dict)) else [],
+        "instances": instances,
         "activity": vast_activity,
         "slots_filled": status.get("slots_filled", 0) if isinstance(status, dict) else 0,
+        "ssh": _ssh_bootstrap_status(),
     }
     _vast_fleet_cache["data"] = fleet
     _vast_fleet_cache["ts"] = now

@@ -2298,7 +2298,41 @@ window.__CATEGORIES__ = {"Core Inference":{"setting":"coreInference","tools":["f
 
     // ── GPU Fleet Tab ────────────────────────────────────────
     let _vastPollId = null;
+    let _vastLastInstances = [];
     const GPU_COLORS = ['#a78bfa','#22d3ee','#facc15','#34d399','#f9fafb','#60a5fa','#f87171','#e879f9'];
+
+    function normalizeVastInstances(payload) {
+        if (Array.isArray(payload)) return payload;
+        if (payload && typeof payload === 'object') {
+            if (Array.isArray(payload.instances)) return payload.instances;
+            if (Array.isArray(payload.data)) return payload.data;
+            if (Array.isArray(payload.results)) return payload.results;
+            if (payload.id || payload.instance_id) return [payload];
+        }
+        return [];
+    }
+
+    function parseToolEnvelope(raw) {
+        if (!raw) return raw;
+        if (raw.result && raw.result.content && Array.isArray(raw.result.content) && raw.result.content[0] && raw.result.content[0].text) {
+            try { return JSON.parse(raw.result.content[0].text); } catch(e) { return raw.result.content[0].text; }
+        }
+        return raw;
+    }
+
+    function getInstanceId(inst) {
+        return String(inst?.id ?? inst?.instance_id ?? inst?.contract_id ?? '').trim();
+    }
+
+    function renderSshStatus(data) {
+        const el = document.getElementById('gf-activity');
+        if (!el || !data || !data.ssh) return;
+        const ssh = data.ssh;
+        if (ssh.private_key) return;
+        const where = ssh.dir || '~/.ssh';
+        const msg = 'SSH bootstrap missing at ' + where + ' (expected id_rsa). Vast ready/connect may fail until key is created.';
+        el.innerHTML = '<div style="color:#ef4444;padding:6px 0;">' + msg + '</div>' + el.innerHTML;
+    }
 
     async function fetchVastState() {
         try {
@@ -2306,11 +2340,13 @@ window.__CATEGORIES__ = {"Core Inference":{"setting":"coreInference","tools":["f
             if (!r.ok) return;
             const data = await r.json();
             renderVastFleet(data);
+            renderSshStatus(data);
         } catch(e) { console.warn('Vast poll error:', e); }
     }
 
     function renderVastFleet(data) {
-        const instances = Array.isArray(data.instances) ? data.instances : [];
+        const instances = normalizeVastInstances(data.instances);
+        _vastLastInstances = instances;
         const activity = data.activity || [];
 
         // Header stats
@@ -2341,9 +2377,9 @@ window.__CATEGORIES__ = {"Core Inference":{"setting":"coreInference","tools":["f
         let html = '';
         instances.forEach((inst, idx) => {
             const color = GPU_COLORS[idx % GPU_COLORS.length];
-            const id = inst.id || '?';
+            const id = getInstanceId(inst) || '?';
             const status = inst.actual_status || inst.status || 'unknown';
-            const gpu = (inst.gpu_name || 'GPU').replace(/_/g, ' ');
+            const gpu = String(inst.gpu_name || inst.gpu || 'GPU').replace(/_/g, ' ');
             const ssh = inst.ssh_host || '';
             const port = inst.ssh_port || '';
             const cost = inst.dph_total || inst.cost_per_hr || 0;
@@ -2377,9 +2413,14 @@ window.__CATEGORIES__ = {"Core Inference":{"setting":"coreInference","tools":["f
             html += '<div><span style="color:var(--text-dim);">Cost:</span> $' + cost.toFixed(3) + '/hr</div>';
             if (ssh) html += '<div><span style="color:var(--text-dim);">SSH:</span> ' + ssh + ':' + port + '</div>';
             html += '</div>';
+            html += '<div style="font-size:9px;margin-bottom:8px;">';
+            html += '<a href="https://cloud.vast.ai/instances/?instance_id=' + encodeURIComponent(id) + '" target="_blank" rel="noopener" style="color:#60a5fa;">Open in Vast Console</a>';
+            if (id && id !== '?') html += ' <span style="color:var(--text-dim);">ID ' + id + '</span>';
+            html += '</div>';
 
             html += '<div style="display:flex;gap:6px;">';
             html += '<button onclick="vastAction(\'vast_connect\',{instance_id:\'' + id + '\'})" style="font-size:9px;flex:1;">CONNECT</button>';
+            html += '<button onclick="vastAction(\'vast_ready\',{instance_id:\'' + id + '\'})" style="font-size:9px;flex:1;">READY</button>';
             html += '<button onclick="vastAction(\'vast_stop\',{instance_id:\'' + id + '\'})" style="font-size:9px;flex:1;opacity:0.7;">STOP</button>';
             html += '</div>';
             html += '</div>';
@@ -2408,7 +2449,16 @@ window.__CATEGORIES__ = {"Core Inference":{"setting":"coreInference","tools":["f
     // Vast actions
     window.vastAction = async function(tool, args) {
         try {
-            await fetch('/api/tool/' + tool, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(args || {}) });
+            const r = await fetch('/api/tool/' + tool, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(args || {}) });
+            const payload = await r.json().catch(() => null);
+            const parsed = parseToolEnvelope(payload);
+            if (!r.ok || (parsed && parsed.error)) {
+                const actEl = document.getElementById('gf-activity');
+                const msg = (parsed && parsed.error) ? parsed.error : ('HTTP ' + r.status);
+                if (actEl) {
+                    actEl.innerHTML = '<div style="color:#ef4444;padding:6px 0;">' + tool + ' failed: ' + msg + '</div>' + actEl.innerHTML;
+                }
+            }
             setTimeout(fetchVastState, 1000);
         } catch(e) { console.error(tool, e); }
     };
@@ -2416,9 +2466,18 @@ window.__CATEGORIES__ = {"Core Inference":{"setting":"coreInference","tools":["f
     window.vastRefreshInstances = function() { fetchVastState(); };
 
     window.vastStopAll = async function() {
+        if (!_vastLastInstances.length) return;
         if (!confirm('Stop ALL GPU instances?')) return;
         try {
-            await fetch('/api/tool/vast_stop', { method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}' });
+            const stops = _vastLastInstances
+                .map(inst => getInstanceId(inst))
+                .filter(Boolean)
+                .map(id => fetch('/api/tool/vast_stop', {
+                    method: 'POST',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({ instance_id: id })
+                }));
+            await Promise.all(stops);
             setTimeout(fetchVastState, 2000);
         } catch(e) { console.error(e); }
     };
@@ -2442,26 +2501,25 @@ window.__CATEGORIES__ = {"Core Inference":{"setting":"coreInference","tools":["f
                 body: JSON.stringify({ query: query })
             });
             const d = await r.json();
-            const parsed = d?.result?.content?.[0]?.text;
-            if (!parsed) { if (out) out.innerHTML = '<div style="color:#ef4444;">No results</div>'; return; }
-            const obj = JSON.parse(parsed);
-            const offers = obj.offers || [];
+            const obj = parseToolEnvelope(d) || {};
+            const offers = Array.isArray(obj.offers) ? obj.offers : (Array.isArray(obj) ? obj : []);
             if (offers.length === 0) { if (out) out.innerHTML = '<div style="color:var(--text-dim);">No offers found</div>'; return; }
 
             let html = '<table style="width:100%;border-collapse:collapse;font-size:10px;">';
             html += '<tr style="border-bottom:1px solid var(--border);"><th style="text-align:left;padding:4px;">#</th><th>GPU</th><th>VRAM</th><th>$/hr</th><th>Rel%</th><th></th></tr>';
             offers.forEach(o => {
+                const offerId = o.id ?? o.instance_id ?? o.offer_id ?? o.index;
                 html += '<tr style="border-bottom:1px solid rgba(255,255,255,0.04);">';
                 html += '<td style="padding:4px;">' + o.index + '</td>';
                 html += '<td>' + (o.gpu || '?') + '</td>';
                 html += '<td>' + (o.vram_gb || 0).toFixed(0) + 'GB</td>';
                 html += '<td>$' + (o.price_hr || 0).toFixed(3) + '</td>';
                 html += '<td>' + (o.reliability || 0).toFixed(1) + '%</td>';
-                html += '<td><button onclick="vastAction(\'vast_rent\',{offer_id:\'' + o.id + '\'})" style="font-size:9px;padding:2px 8px;">RENT</button></td>';
+                html += '<td><button onclick="vastAction(\'vast_rent\',{instance_id:\'' + String(offerId) + '\'})" style="font-size:9px;padding:2px 8px;">RENT</button></td>';
                 html += '</tr>';
             });
             html += '</table>';
-            html += '<div style="margin-top:6px;color:var(--text-dim);">' + obj.total + ' total offers (page ' + obj.page + ')</div>';
+            html += '<div style="margin-top:6px;color:var(--text-dim);">' + (obj.total || offers.length) + ' total offers (page ' + (obj.page || 1) + ')</div>';
             if (out) out.innerHTML = html;
         } catch(e) { if (out) out.innerHTML = '<div style="color:#ef4444;">Search failed: ' + e.message + '</div>'; }
     };

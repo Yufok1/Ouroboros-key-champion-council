@@ -11,6 +11,8 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import shutil
+import subprocess
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -142,11 +144,93 @@ async def _list_tools() -> dict:
     return await mcp_client.list_tools()
 
 
+def _ssh_key_paths() -> tuple[Path, Path, Path]:
+    ssh_dir = Path.home() / ".ssh"
+    return ssh_dir, ssh_dir / "id_rsa", ssh_dir / "id_rsa.pub"
+
+
+def _write_ssh_file(path: Path, value: str, mode: int) -> bool:
+    content = (value or "").strip()
+    if not content:
+        return False
+    if not content.endswith("\n"):
+        content += "\n"
+    path.write_text(content, encoding="utf-8")
+    os.chmod(path, mode)
+    return True
+
+
+def _ensure_vast_ssh_keys() -> None:
+    """Ensure ~/.ssh/id_rsa exists for Vast tools."""
+    ssh_dir, private_key, public_key = _ssh_key_paths()
+    try:
+        ssh_dir.mkdir(parents=True, exist_ok=True)
+    except Exception as e:
+        print(f"[WARN] Failed to create SSH directory {ssh_dir}: {e}")
+        return
+    try:
+        os.chmod(ssh_dir, 0o700)
+    except OSError:
+        pass
+
+    private_secret = os.environ.get("SSH_PRIVATE_KEY", "")
+    public_secret = os.environ.get("SSH_PUBLIC_KEY", "")
+    if private_secret:
+        if _write_ssh_file(private_key, private_secret, 0o600):
+            print("[INIT] Loaded SSH private key from SSH_PRIVATE_KEY")
+        if public_secret:
+            _write_ssh_file(public_key, public_secret, 0o644)
+
+    if not private_key.exists():
+        ssh_keygen = shutil.which("ssh-keygen")
+        if ssh_keygen:
+            try:
+                subprocess.run(
+                    [ssh_keygen, "-t", "rsa", "-b", "4096", "-N", "", "-f", str(private_key)],
+                    check=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                )
+                print("[INIT] Generated ~/.ssh/id_rsa for Vast remote tools")
+            except Exception as e:
+                print(f"[WARN] Failed to generate ~/.ssh/id_rsa: {e}")
+        else:
+            print("[WARN] ssh-keygen not found and SSH_PRIVATE_KEY is not set; Vast SSH tools may fail")
+
+    if private_key.exists():
+        try:
+            os.chmod(private_key, 0o600)
+        except OSError:
+            pass
+    if private_key.exists() and not public_key.exists():
+        ssh_keygen = shutil.which("ssh-keygen")
+        if ssh_keygen:
+            try:
+                derived = subprocess.run(
+                    [ssh_keygen, "-y", "-f", str(private_key)],
+                    check=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                )
+                _write_ssh_file(public_key, derived.stdout, 0o644)
+            except Exception:
+                pass
+    if public_key.exists():
+        try:
+            os.chmod(public_key, 0o644)
+        except OSError:
+            pass
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     started_capsule = False
 
     # Startup
+    _ensure_vast_ssh_keys()
+
     if _manage_local_capsule and settings.mcp_base_url == _local_default_mcp:
         if capsule_manager.start():
             started_capsule = True
