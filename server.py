@@ -13,6 +13,7 @@ import json
 import asyncio
 import subprocess
 import threading
+import mimetypes
 from pathlib import Path
 from datetime import datetime
 from contextlib import asynccontextmanager
@@ -30,6 +31,9 @@ from mcp.client.sse import sse_client
 
 import time
 import persistence
+
+# Ensure Starlette static serving emits correct MIME for audio container files.
+mimetypes.add_type("audio/mp4", ".m4a")
 
 # Tools that are internal plumbing — don't broadcast to activity feed
 _SILENT_TOOLS = frozenset([
