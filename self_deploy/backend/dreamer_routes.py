@@ -109,9 +109,15 @@ class DreamerService:
             if len(self.history[key]) > 200:
                 self.history[key] = self.history[key][-200:]
 
+        if isinstance(rssm, dict):
+            # New champion show_rssm returns RSSM dims at top-level; keep legacy fallback.
+            rssm_view = rssm.get("metrics", {}).get("other", rssm)
+        else:
+            rssm_view = {}
+
         result = {
             "dreamer": dreamer,
-            "rssm": rssm.get("metrics", {}).get("other", {}) if isinstance(rssm, dict) else {},
+            "rssm": rssm_view,
             "weights": weights,
             "lora": lora,
             "history": self.history,

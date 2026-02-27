@@ -5,6 +5,8 @@ huggingface_hub
 ipfshttpclient
 jax[cpu]
 jaxlib
+einops
+ninjax
 mcp[cli]>=1.2.0,<2.0.0
 numpy
 onnx
