@@ -21,7 +21,7 @@ from urllib.parse import parse_qs, urlparse
 
 import httpx
 import uvicorn
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -1124,6 +1124,177 @@ async def mcp_sse_post_fallback(_: Request):
         content={"error": "Use GET for SSE transport"},
         headers={"Allow": "GET"},
     )
+
+
+# --- WebSocket Terminal Bridge ---
+# Interactive terminal sessions for slot drill-in on the web panel.
+
+_ws_terminals: dict[int, subprocess.Popen] = {}
+
+
+def _detect_pi_cli() -> str:
+    """Detect Pi CLI availability. Returns command string or empty."""
+    try:
+        subprocess.run(["which", "pi"], capture_output=True, check=True)
+        return "pi"
+    except Exception:
+        pass
+    try:
+        subprocess.run(
+            ["npx", "--yes", "@mariozechner/pi-coding-agent", "--version"],
+            capture_output=True, check=True, timeout=15,
+        )
+        return "npx @mariozechner/pi-coding-agent"
+    except Exception:
+        pass
+    return ""
+
+
+def _build_pi_config(slot_index: int, slot_info: dict | None) -> tuple[str, list[str], dict]:
+    """Build Pi CLI launch config for a slot. Returns (cmd, args, env)."""
+    import tempfile
+
+    pi_cmd = _detect_pi_cli()
+    model_source = ""
+    if slot_info:
+        model_source = slot_info.get("model_source", "") or slot_info.get("model_id", "") or slot_info.get("name", "")
+    is_remote = model_source.startswith("http://") or model_source.startswith("https://")
+
+    env = {**os.environ, "TERM": "xterm-256color"}
+
+    if not pi_cmd:
+        shell = os.environ.get("SHELL", "/bin/bash")
+        return shell, ["-i"], env
+
+    tmp_dir = tempfile.mkdtemp(prefix=f"champion-pi-slot-{slot_index}-")
+    env["PI_CONFIG_DIR"] = tmp_dir
+
+    models_config: dict = {"providers": {}}
+
+    if is_remote:
+        from urllib.parse import parse_qs
+        base = model_source.split("?")[0]
+        params = parse_qs(model_source.split("?")[1]) if "?" in model_source else {}
+        remote_model = params.get("model", ["default"])[0]
+        remote_key = params.get("key", ["none"])[0]
+        provider_name = f"slot-{slot_index}-remote"
+        models_config["providers"][provider_name] = {
+            "baseUrl": base,
+            "api": "openai-completions",
+            "apiKey": remote_key,
+            "models": [{"id": remote_model, "name": model_source[:60]}],
+        }
+        config_path = Path(tmp_dir) / "models.json"
+        config_path.write_text(json.dumps(models_config, indent=2))
+        args = ["--provider", provider_name, "--model", remote_model]
+    else:
+        slot_model = model_source or f"slot-{slot_index}"
+        provider_name = f"capsule-slot-{slot_index}"
+        models_config["providers"][provider_name] = {
+            "baseUrl": "http://127.0.0.1:8420/v1",
+            "api": "openai-completions",
+            "apiKey": "local",
+            "models": [{"id": f"slot-{slot_index}", "name": slot_model}],
+        }
+        config_path = Path(tmp_dir) / "models.json"
+        config_path.write_text(json.dumps(models_config, indent=2))
+        args = ["--provider", provider_name, "--model", f"slot-{slot_index}"]
+
+    if pi_cmd == "pi":
+        return "pi", args, env
+    else:
+        return "npx", ["@mariozechner/pi-coding-agent"] + args, env
+
+
+@app.websocket("/ws/terminal/{slot_index}")
+async def ws_terminal(websocket: WebSocket, slot_index: int):
+    """WebSocket terminal bridge for slot drill-in."""
+    await websocket.accept()
+
+    slot_info = None
+    try:
+        result = await _call_tool("slot_info", {"slot": slot_index})
+        if result and "content" in result:
+            for item in result.get("content", []):
+                if isinstance(item, dict) and "text" in item:
+                    slot_info = json.loads(item["text"])
+                    break
+    except Exception:
+        pass
+
+    cmd, args, env = _build_pi_config(slot_index, slot_info)
+
+    old = _ws_terminals.pop(slot_index, None)
+    if old and old.poll() is None:
+        old.kill()
+
+    try:
+        proc = subprocess.Popen(
+            [cmd] + args,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            env=env,
+            cwd=os.getcwd(),
+        )
+        _ws_terminals[slot_index] = proc
+    except Exception as e:
+        await websocket.send_json({"type": "output", "data": f"\x1b[31mFailed to spawn terminal: {e}\x1b[0m\r\n"})
+        await websocket.send_json({"type": "exited", "code": 1})
+        await websocket.close()
+        return
+
+    await websocket.send_json({"type": "ready"})
+
+    if cmd != "pi" and "npx" not in cmd:
+        hint = (
+            "\x1b[33mPi CLI not found. Install for interactive model access:\x1b[0m\r\n"
+            "  npm install -g @mariozechner/pi-coding-agent\r\n\r\n"
+            f"\x1b[90mFalling back to shell. Run Pi manually:\x1b[0m\r\n"
+            f"  pi --provider openai-compatible --baseUrl http://localhost:8420/v1 --model slot-{slot_index}\r\n\r\n"
+        )
+        await websocket.send_json({"type": "output", "data": hint})
+
+    loop = asyncio.get_event_loop()
+
+    async def _read_output():
+        try:
+            while proc.poll() is None:
+                data = await loop.run_in_executor(None, proc.stdout.readline)
+                if not data:
+                    break
+                await websocket.send_json({"type": "output", "data": data.decode("utf-8", errors="replace")})
+        except (WebSocketDisconnect, Exception):
+            pass
+        finally:
+            code = proc.poll() or 0
+            try:
+                await websocket.send_json({"type": "exited", "code": code})
+            except Exception:
+                pass
+
+    read_task = asyncio.create_task(_read_output())
+
+    try:
+        while True:
+            raw = await websocket.receive_text()
+            try:
+                msg = json.loads(raw)
+                data = msg.get("data", raw) if isinstance(msg, dict) else raw
+            except (json.JSONDecodeError, TypeError):
+                data = raw
+            if proc.stdin and proc.poll() is None:
+                proc.stdin.write(data.encode("utf-8"))
+                proc.stdin.flush()
+    except WebSocketDisconnect:
+        pass
+    except Exception:
+        pass
+    finally:
+        read_task.cancel()
+        if proc.poll() is None:
+            proc.kill()
+        _ws_terminals.pop(slot_index, None)
 
 
 # Mount after explicit routes.

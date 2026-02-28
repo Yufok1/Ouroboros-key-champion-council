@@ -1408,6 +1408,10 @@ input:focus, select:focus { border-color: var(--accent); outline: none; }
 .community-subtab { display: none; }
 .community-subtab.active { display: block; }
 </style>
+<link rel="stylesheet" href="xterm.css" />
+<script src="xterm.js"></script>
+<script src="xterm-addon-fit.js"></script>
+<script src="xterm-addon-web-links.js"></script>
 </head>
 <body>
 
@@ -1519,6 +1523,8 @@ input:focus, select:focus { border-color: var(--accent); outline: none; }
         <pre id="mcp-entry-block">Loading...</pre>
         <div class="config-paths">
             <strong>Config file locations:</strong><br>
+            <strong>Antigravity:</strong> <code>~/.gemini/settings/mcp.json</code><br>
+            <strong>Gemini CLI:</strong> <code>~/.gemini/settings/mcp.json</code><br>
             <strong>Kiro:</strong> <code>~/.kiro/settings/mcp.json</code><br>
             <strong>Windsurf:</strong> <code>~/.codeium/windsurf/mcp_config.json</code><br>
             <strong>Cursor:</strong> <code>~/.cursor/mcp.json</code><br>
@@ -1532,22 +1538,53 @@ input:focus, select:focus { border-color: var(--accent); outline: none; }
 
 <!-- ═══════════════ COUNCIL TAB ═══════════════ -->
 <div class="content" id="tab-council">
-    <div class="section-head" id="council-grid-title">COUNCIL GRID</div>
-    <div class="council-state-legend">
-        <span class="legend-item"><span class="dot green"></span>Plugged</span>
-        <span class="legend-item"><span class="dot amber pulse"></span>Plugging</span>
-        <span class="legend-item"><span class="dot off"></span>Empty</span>
+    <!-- GRID VIEW (default) -->
+    <div id="council-grid-view">
+        <div class="section-head" id="council-grid-title">COUNCIL GRID</div>
+        <div class="council-state-legend">
+            <span class="legend-item"><span class="dot green"></span>Plugged</span>
+            <span class="legend-item"><span class="dot amber pulse"></span>Plugging</span>
+            <span class="legend-item"><span class="dot off"></span>Empty</span>
+        </div>
+        <div class="slots-grid" id="slots-grid"></div>
+        <div class="council-controls">
+            <button onclick="openPlugModal()">PLUG MODEL</button>
+            <button onclick="openPlugProviderModal()">PLUG PROVIDER</button>
+            <button onclick="callTool('list_slots',{})">REFRESH SLOTS</button>
+            <button onclick="callTool('council_status',{})">CONSENSUS STATUS</button>
+            <button class="btn-dim" onclick="callTool('all_slots',{})">INVOKE ALL</button>
+        </div>
+        <div class="diag-section" style="margin-top:16px;">
+            <div class="diag-title">COUNCIL OUTPUT</div>
+            <div class="diag-output" id="council-output" style="min-height:60px;">Run a council command above.</div>
+        </div>
     </div>
-    <div class="slots-grid" id="slots-grid"></div>
-    <div class="council-controls">
-        <button onclick="openPlugModal()">PLUG MODEL</button>
-        <button onclick="callTool('list_slots',{})">REFRESH SLOTS</button>
-        <button onclick="callTool('council_status',{})">CONSENSUS STATUS</button>
-        <button class="btn-dim" onclick="callTool('all_slots',{})">INVOKE ALL</button>
-    </div>
-    <div class="diag-section" style="margin-top:16px;">
-        <div class="diag-title">COUNCIL OUTPUT</div>
-        <div class="diag-output" id="council-output" style="min-height:60px;">Run a council command above.</div>
+    <!-- DRILL-IN VIEW (shown when a slot card is clicked) -->
+    <div class="slot-drill" id="slot-drill-view">
+        <div class="slot-drill-header">
+            <button class="slot-drill-back" id="slot-drill-back">← GRID</button>
+            <div class="slot-drill-identity">
+                <div class="slot-drill-model" id="slot-drill-model">—</div>
+                <div class="slot-drill-meta" id="slot-drill-meta"></div>
+            </div>
+            <div id="slot-drill-badges"></div>
+        </div>
+        <div class="slot-drill-metrics" id="slot-drill-metrics"></div>
+        <div class="slot-drill-actions" id="slot-drill-actions"></div>
+        <div class="slot-drill-activity" id="slot-drill-activity">
+            <div class="slot-drill-activity-head">
+                <span>ACTIVITY FEED</span>
+                <span id="slot-drill-activity-count">0 events</span>
+            </div>
+            <div id="slot-drill-activity-list"></div>
+        </div>
+        <div class="slot-drill-terminal-wrap" id="slot-drill-terminal-wrap">
+            <div class="slot-drill-terminal-head">
+                <span>INTERACTIVE TERMINAL</span>
+                <span id="slot-drill-terminal-status">disconnected</span>
+            </div>
+            <div class="slot-drill-terminal" id="slot-drill-terminal"></div>
+        </div>
     </div>
 </div>
 
@@ -2007,10 +2044,10 @@ window.__CATEGORIES__ = {"Core Inference":{"setting":"coreInference","tools":["f
 </script>
 
 <!-- Load shim BEFORE main.js so acquireVsCodeApi is available -->
-<script src="/static/vscode-shim.js?v=10"></script>
+<script src="/static/vscode-shim.js?v=11"></script>
 <script src="/static/svg-pan-zoom.min.js"></script>
 <script src="/static/peerjs.min.js"></script>
-<script src="/static/main.js?v=10"></script>
+<script src="/static/main.js?v=11"></script>
 
 <!-- ═══════════════ DREAMER + GPU FLEET TAB JS ═══════════════ -->
 <script>
