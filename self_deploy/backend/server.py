@@ -1169,36 +1169,22 @@ def _build_pi_config(slot_index: int, slot_info: dict | None) -> tuple[str, list
     tmp_dir = tempfile.mkdtemp(prefix=f"champion-pi-slot-{slot_index}-")
     env["PI_CONFIG_DIR"] = tmp_dir
 
+    # ALL slots route through the capsule API bridge — local AND remote providers.
+    # Remote providers are plugged as slots via RemoteProviderProxy, so invoke_slot
+    # handles them identically. This ensures Dreamer rewards, evaluator metrics,
+    # CASCADE logging, and MCP tool control all work for every slot.
+    slot_label = model_source or f"slot-{slot_index}"
+    provider_name = f"capsule-slot-{slot_index}"
     models_config: dict = {"providers": {}}
-
-    if is_remote:
-        from urllib.parse import parse_qs
-        base = model_source.split("?")[0]
-        params = parse_qs(model_source.split("?")[1]) if "?" in model_source else {}
-        remote_model = params.get("model", ["default"])[0]
-        remote_key = params.get("key", ["none"])[0]
-        provider_name = f"slot-{slot_index}-remote"
-        models_config["providers"][provider_name] = {
-            "baseUrl": base,
-            "api": "openai-completions",
-            "apiKey": remote_key,
-            "models": [{"id": remote_model, "name": model_source[:60]}],
-        }
-        config_path = Path(tmp_dir) / "models.json"
-        config_path.write_text(json.dumps(models_config, indent=2))
-        args = ["--provider", provider_name, "--model", remote_model]
-    else:
-        slot_model = model_source or f"slot-{slot_index}"
-        provider_name = f"capsule-slot-{slot_index}"
-        models_config["providers"][provider_name] = {
-            "baseUrl": "http://127.0.0.1:8420/v1",
-            "api": "openai-completions",
-            "apiKey": "local",
-            "models": [{"id": f"slot-{slot_index}", "name": slot_model}],
-        }
-        config_path = Path(tmp_dir) / "models.json"
-        config_path.write_text(json.dumps(models_config, indent=2))
-        args = ["--provider", provider_name, "--model", f"slot-{slot_index}"]
+    models_config["providers"][provider_name] = {
+        "baseUrl": "http://127.0.0.1:8420/v1",
+        "api": "openai-completions",
+        "apiKey": "local",
+        "models": [{"id": f"slot-{slot_index}", "name": slot_label}],
+    }
+    config_path = Path(tmp_dir) / "models.json"
+    config_path.write_text(json.dumps(models_config, indent=2))
+    args = ["--provider", provider_name, "--model", f"slot-{slot_index}"]
 
     if pi_cmd == "pi":
         return "pi", args, env
@@ -1210,6 +1196,12 @@ def _build_pi_config(slot_index: int, slot_info: dict | None) -> tuple[str, list
 async def ws_terminal(websocket: WebSocket, slot_index: int):
     """WebSocket terminal bridge for slot drill-in."""
     await websocket.accept()
+
+    # Ensure the OpenAI-compatible API bridge is running on port 8420
+    try:
+        await _call_tool("start_api_server", {"port": 8420})
+    except Exception:
+        pass  # may already be running
 
     slot_info = None
     try:
