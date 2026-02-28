@@ -1,12 +1,15 @@
 openapi: 3.1.0
 info:
   title: Champion Council Action API
-  version: 1.0.2
-  description: Use Champion Council tools from ChatGPT Actions.
+  version: 1.2.2
+  description: ChatGPT Actions wrapper for Champion Council Space endpoints.
 
 servers:
-  - url: https://tostido-champion-council.hf.space
-    description: Champion Council Hugging Face Space
+  - url: https://tostido-champion-council-private.hf.space
+    description: Champion Council Private Hugging Face Space
+
+security:
+  - hfAuth: []
 
 paths:
   /api/health:
@@ -18,7 +21,6 @@ paths:
         - name: source
           in: query
           required: false
-          description: Activity source label override.
           schema:
             type: string
             enum: [external, webui, action, api]
@@ -30,6 +32,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthResponse"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
 
   /api/tools:
     get:
@@ -40,41 +46,67 @@ paths:
         - name: source
           in: query
           required: false
-          description: Activity source label override.
           schema:
             type: string
             enum: [external, webui, action, api]
             default: external
       responses:
         "200":
-          description: Tools list response
+          description: Tools response
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ToolsListResponse"
         "503":
-          description: MCP unavailable
+          description: Error response
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+
+  /api/runtime/capacity:
+    get:
+      operationId: getRuntimeCapacity
+      summary: Get live host runtime capacity snapshot
+      x-openai-isConsequential: false
+      parameters:
+        - name: source
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [external, webui, action, api]
+            default: external
+      responses:
+        "200":
+          description: Runtime capacity response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuntimeCapacityResponse"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
 
   /api/tool/{tool_name}:
     post:
       operationId: callTool
-      summary: Call a tool by name
+      summary: Call a tool by exact name
       x-openai-isConsequential: false
       parameters:
         - name: tool_name
           in: path
           required: true
-          description: Exact tool name to execute.
           schema:
             type: string
         - name: source
           in: query
           required: false
-          description: Activity source label override.
           schema:
             type: string
             enum: [external, webui, action, api]
@@ -86,146 +118,239 @@ paths:
             schema:
               $ref: "#/components/schemas/ToolCallArgs"
             examples:
-              empty:
+              heartbeat:
                 value: {}
-              get_status:
-                value: {}
-              embed_text:
+              hub_search:
                 value:
-                  text: hello world
-              invoke_slot:
+                  query: "Qwen2.5-7B-Instruct"
+                  limit: 5
+                  page: 1
+              generate:
                 value:
-                  slot: 0
-                  mode: generate
-                  text: hello
+                  prompt: "Say hi in one sentence."
+                  max_tokens: 80
+                  temperature: 0.2
+              plug_model:
+                value:
+                  model_id: "BAAI/bge-small-en-v1.5"
+                  slot_name: "slot_0"
+              workflow_execute_with_input:
+                value:
+                  workflow_id: "health_check_pipeline"
+                  input_data:
+                    probe: true
       responses:
         "200":
-          description: Tool call response
+          description: Tool response
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ToolCallResponse"
         "503":
-          description: Tool call error
+          description: Tool failed
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
 
 components:
+  securitySchemes:
+    hfAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: "Use format: Bearer hf_xxxxxxxxx"
+
   schemas:
     HealthResponse:
       type: object
       additionalProperties: true
       properties:
-        status:
-          type: string
-        version:
-          type: string
-        capsule_running:
-          type: boolean
+        status: { type: string }
+        version: { type: string }
+        capsule_running: { type: boolean }
         capsule_pid:
           anyOf:
             - type: integer
             - type: "null"
-        mcp_port:
-          type: integer
-        mcp_session:
-          type: boolean
-        persistence:
-          type: boolean
-        timestamp:
-          type: string
+        mcp_port: { type: integer }
+        mcp_session: { type: boolean }
+        persistence: { type: boolean }
+        timestamp: { type: string }
+
+    RuntimeCapacityResponse:
+      type: object
+      additionalProperties: true
+      properties:
+        timestamp: { type: string }
+        runtime: { type: string }
+        memory:
+          type: object
+          additionalProperties: true
+        gpu:
+          type: object
+          additionalProperties: true
+        cpu:
+          type: object
+          additionalProperties: true
+        disk:
+          type: object
+          additionalProperties: true
+        guard:
+          type: object
+          additionalProperties: true
 
     ToolCallArgs:
       type: object
       additionalProperties: true
+      description: Arbitrary JSON object forwarded to the selected tool as arguments.
       properties:
-        text:
-          type: string
-        query:
-          type: string
-        slot:
-          type: integer
-        mode:
-          type: string
-        max_tokens:
-          type: integer
-        workflow_id:
-          type: string
-
-    ToolDescriptor:
-      type: object
-      additionalProperties: true
-      properties:
-        name:
-          type: string
-        description:
-          type: string
-        inputSchema:
+        text: { type: string }
+        query: { type: string }
+        message: { type: string }
+        prompt: { type: string }
+        question: { type: string }
+        context: { type: string }
+        scenario: { type: string }
+        model_id: { type: string }
+        slot_name: { type: string }
+        workflow_id: { type: string }
+        execution_id: { type: string }
+        cache_id: { type: string }
+        key: { type: string }
+        value: { type: string }
+        content: { type: string }
+        system_prompt: { type: string }
+        input_data:
+          anyOf:
+            - type: string
+            - type: object
+              additionalProperties: true
+        definition:
+          anyOf:
+            - type: string
+            - type: object
+              additionalProperties: true
+        args:
           type: object
           additionalProperties: true
-          properties:
-            type:
-              type: string
-            properties:
-              type: object
-              additionalProperties: true
-            required:
-              type: array
-              items:
-                type: string
-
-    ToolsListInner:
-      type: object
-      additionalProperties: true
-      properties:
-        tools:
+        kwargs:
+          type: object
+          additionalProperties: true
+        params: { type: string }
+        operation: { type: string }
+        command: { type: string }
+        event_description: { type: string }
+        signal: { type: string }
+        metric_name: { type: string }
+        item_type: { type: string }
+        instance_id: { type: string }
+        image: { type: string }
+        quantization: { type: string }
+        reason: { type: string }
+        hold_id: { type: string }
+        action: { type: string }
+        new_name: { type: string }
+        input_text: { type: string }
+        test_input: { type: string }
+        output_path: { type: string }
+        file_path: { type: string }
+        dir_path: { type: string }
+        path: { type: string }
+        directory: { type: string }
+        output_dir: { type: string }
+        entity_path: { type: string }
+        data_type: { type: string }
+        recording_name: { type: string }
+        authorization_key: { type: string }
+        mode: { type: string }
+        slot: { type: integer }
+        slot_a: { type: integer }
+        slot_b: { type: integer }
+        max_tokens: { type: integer }
+        rounds: { type: integer }
+        count: { type: integer }
+        steps: { type: integer }
+        horizon: { type: integer }
+        page: { type: integer }
+        limit: { type: integer }
+        page_size: { type: integer }
+        step: { type: integer }
+        port: { type: integer }
+        disk: { type: integer }
+        duration: { type: integer }
+        observation_seconds: { type: integer }
+        temperature: { type: number }
+        rate: { type: number }
+        scale: { type: number }
+        severity: { type: number }
+        detached: { type: boolean }
+        texts:
+          type: array
+          items: { type: string }
+        inputs:
+          type: array
+          items: {}
+        documents:
+          type: array
+          items: { type: string }
+        values:
+          type: array
+          items: {}
+        pipeline:
           type: array
           items:
-            $ref: "#/components/schemas/ToolDescriptor"
+            anyOf:
+              - type: integer
+              - type: string
+        slot_sequence:
+          type: array
+          items:
+            anyOf:
+              - type: integer
+              - type: string
+        slots:
+          type: array
+          items:
+            anyOf:
+              - type: integer
+              - type: string
+        messages:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+            properties:
+              role: { type: string }
+              content: { type: string }
+        tasks:
+          type: object
+          additionalProperties: true
 
     ToolsListResponse:
       type: object
       additionalProperties: true
       properties:
         result:
-          $ref: "#/components/schemas/ToolsListInner"
-        error:
-          type: string
-
-    ToolContentItem:
-      type: object
-      additionalProperties: true
-      properties:
-        type:
-          type: string
-        text:
-          type: string
-
-    ToolResult:
-      type: object
-      additionalProperties: true
-      properties:
-        content:
-          type: array
-          items:
-            $ref: "#/components/schemas/ToolContentItem"
-        isError:
-          type: boolean
+          type: object
+          additionalProperties: true
+        error: { type: string }
 
     ToolCallResponse:
       type: object
       additionalProperties: true
       properties:
         result:
-          $ref: "#/components/schemas/ToolResult"
-        error:
-          type: string
+          type: object
+          additionalProperties: true
+        error: { type: string }
 
     ErrorResponse:
       type: object
       additionalProperties: true
       properties:
-        error:
-          type: string
+        error: { type: string }

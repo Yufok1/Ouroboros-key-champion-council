@@ -224,6 +224,258 @@ def _ensure_vast_ssh_keys() -> None:
             pass
 
 
+_capacity_cache = {"data": None, "ts": 0.0}
+_CAPACITY_CACHE_TTL_SECONDS = 3.0
+_CAPACITY_GUARD_TOOLS = frozenset({"plug_model", "hub_plug"})
+_CAPACITY_GUARD_ENABLED = os.environ.get("CAPACITY_GUARD_ENABLED", "1").strip().lower() not in ("0", "false", "no")
+_CAPACITY_GUARD_MODE = os.environ.get("CAPACITY_GUARD_MODE", "enforce").strip().lower()  # enforce|warn
+_CAPACITY_RAM_BLOCK_PCT = float(os.environ.get("CAPACITY_RAM_BLOCK_PCT", "92"))
+_CAPACITY_GPU_FREE_MIN_GB = float(os.environ.get("CAPACITY_GPU_FREE_MIN_GB", "2"))
+
+
+def _bytes_to_gb(value: int | None) -> float | None:
+    if value is None:
+        return None
+    return round(float(value) / (1024.0 ** 3), 3)
+
+
+def _read_int_file(path: str) -> int | None:
+    try:
+        raw = Path(path).read_text(encoding="utf-8").strip()
+    except Exception:
+        return None
+    if not raw or raw == "max":
+        return None
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return None
+
+
+def _host_memory_snapshot() -> dict:
+    total_bytes = None
+    avail_bytes = None
+    try:
+        page_size = os.sysconf("SC_PAGE_SIZE")
+        phys_pages = os.sysconf("SC_PHYS_PAGES")
+        avail_pages = os.sysconf("SC_AVPHYS_PAGES")
+        total_bytes = int(page_size * phys_pages)
+        avail_bytes = int(page_size * avail_pages)
+    except Exception:
+        meminfo = {}
+        try:
+            for line in Path("/proc/meminfo").read_text(encoding="utf-8").splitlines():
+                parts = line.split(":", 1)
+                if len(parts) != 2:
+                    continue
+                key, rest = parts[0].strip(), parts[1].strip().split()
+                if not rest:
+                    continue
+                meminfo[key] = int(rest[0]) * 1024
+        except Exception:
+            meminfo = {}
+        total_bytes = meminfo.get("MemTotal")
+        avail_bytes = meminfo.get("MemAvailable") or meminfo.get("MemFree")
+
+    cgroup_limit = _read_int_file("/sys/fs/cgroup/memory.max") or _read_int_file("/sys/fs/cgroup/memory/memory.limit_in_bytes")
+    cgroup_used = _read_int_file("/sys/fs/cgroup/memory.current") or _read_int_file("/sys/fs/cgroup/memory/memory.usage_in_bytes")
+    if cgroup_limit and cgroup_limit >= (1 << 60):
+        cgroup_limit = None
+
+    effective_total = total_bytes
+    if cgroup_limit and cgroup_limit > 0:
+        effective_total = min(total_bytes, cgroup_limit) if total_bytes else cgroup_limit
+
+    if effective_total is None:
+        return {
+            "total_bytes": None,
+            "used_bytes": None,
+            "free_bytes": None,
+            "used_percent": None,
+            "cgroup_limit_bytes": cgroup_limit,
+        }
+
+    if cgroup_used is not None:
+        used_bytes = max(0, min(int(cgroup_used), int(effective_total)))
+        free_bytes = max(int(effective_total) - used_bytes, 0)
+    elif total_bytes and avail_bytes is not None:
+        host_used = max(int(total_bytes) - int(avail_bytes), 0)
+        used_bytes = max(0, min(host_used, int(effective_total)))
+        free_bytes = max(int(effective_total) - used_bytes, 0)
+    else:
+        used_bytes = None
+        free_bytes = None
+
+    used_pct = round((used_bytes / effective_total) * 100.0, 2) if used_bytes is not None and effective_total else None
+    return {
+        "total_bytes": int(effective_total),
+        "used_bytes": int(used_bytes) if used_bytes is not None else None,
+        "free_bytes": int(free_bytes) if free_bytes is not None else None,
+        "used_percent": used_pct,
+        "cgroup_limit_bytes": cgroup_limit,
+    }
+
+
+def _gpu_snapshot() -> dict:
+    nvidia_smi = shutil.which("nvidia-smi")
+    if not nvidia_smi:
+        return {
+            "available": False,
+            "provider": "none",
+            "count": 0,
+            "total_gb": None,
+            "used_gb": None,
+            "free_gb": None,
+            "utilization_pct": None,
+        }
+    try:
+        proc = subprocess.run(
+            [
+                nvidia_smi,
+                "--query-gpu=name,memory.total,memory.used,memory.free,utilization.gpu",
+                "--format=csv,noheader,nounits",
+            ],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=2.0,
+        )
+    except Exception:
+        return {
+            "available": False,
+            "provider": "nvidia-smi",
+            "count": 0,
+            "total_gb": None,
+            "used_gb": None,
+            "free_gb": None,
+            "utilization_pct": None,
+        }
+
+    total_mb = 0.0
+    used_mb = 0.0
+    free_mb = 0.0
+    util_values = []
+    gpu_names = []
+    for line in (proc.stdout or "").splitlines():
+        parts = [p.strip() for p in line.split(",")]
+        if len(parts) < 5:
+            continue
+        gpu_names.append(parts[0])
+        try:
+            total_mb += float(parts[1])
+            used_mb += float(parts[2])
+            free_mb += float(parts[3])
+            util_values.append(float(parts[4]))
+        except (TypeError, ValueError):
+            continue
+
+    if total_mb <= 0:
+        return {
+            "available": False,
+            "provider": "nvidia-smi",
+            "count": 0,
+            "total_gb": None,
+            "used_gb": None,
+            "free_gb": None,
+            "utilization_pct": None,
+        }
+
+    util_avg = round(sum(util_values) / len(util_values), 2) if util_values else None
+    return {
+        "available": True,
+        "provider": "nvidia-smi",
+        "count": len(gpu_names),
+        "names": gpu_names,
+        "total_gb": round(total_mb / 1024.0, 3),
+        "used_gb": round(used_mb / 1024.0, 3),
+        "free_gb": round(free_mb / 1024.0, 3),
+        "utilization_pct": util_avg,
+    }
+
+
+def _runtime_capacity_snapshot(force: bool = False) -> dict:
+    now = time.time()
+    if not force and _capacity_cache["data"] and (now - _capacity_cache["ts"]) < _CAPACITY_CACHE_TTL_SECONDS:
+        return _capacity_cache["data"]
+
+    mem = _host_memory_snapshot()
+    gpu = _gpu_snapshot()
+    disk = shutil.disk_usage("/")
+    try:
+        load1 = round(os.getloadavg()[0], 3)
+    except Exception:
+        load1 = None
+
+    payload = {
+        "timestamp": datetime.utcnow().isoformat(),
+        "runtime": "self_deploy",
+        "memory": {
+            **mem,
+            "total_gb": _bytes_to_gb(mem.get("total_bytes")),
+            "used_gb": _bytes_to_gb(mem.get("used_bytes")),
+            "free_gb": _bytes_to_gb(mem.get("free_bytes")),
+        },
+        "gpu": gpu,
+        "cpu": {
+            "cores": os.cpu_count(),
+            "load1": load1,
+        },
+        "disk": {
+            "total_gb": _bytes_to_gb(disk.total),
+            "used_gb": _bytes_to_gb(disk.used),
+            "free_gb": _bytes_to_gb(disk.free),
+        },
+        "guard": {
+            "enabled": _CAPACITY_GUARD_ENABLED,
+            "mode": _CAPACITY_GUARD_MODE,
+            "tools": sorted(_CAPACITY_GUARD_TOOLS),
+            "ram_block_pct": _CAPACITY_RAM_BLOCK_PCT,
+            "gpu_free_min_gb": _CAPACITY_GPU_FREE_MIN_GB,
+        },
+    }
+
+    _capacity_cache["data"] = payload
+    _capacity_cache["ts"] = now
+    return payload
+
+
+def _capacity_guard_decision(tool_name: str, args: dict, snapshot: dict) -> dict:
+    decision = {
+        "tool": tool_name,
+        "enabled": _CAPACITY_GUARD_ENABLED,
+        "mode": _CAPACITY_GUARD_MODE,
+        "action": "allow",
+        "reasons": [],
+        "bypassed": False,
+    }
+    if tool_name not in _CAPACITY_GUARD_TOOLS or not _CAPACITY_GUARD_ENABLED:
+        return decision
+    if isinstance(args, dict) and bool(args.get("allow_oom_risk")):
+        decision["bypassed"] = True
+        return decision
+
+    mem = snapshot.get("memory", {}) if isinstance(snapshot, dict) else {}
+    gpu = snapshot.get("gpu", {}) if isinstance(snapshot, dict) else {}
+
+    used_pct = mem.get("used_percent")
+    if isinstance(used_pct, (int, float)) and used_pct >= _CAPACITY_RAM_BLOCK_PCT:
+        decision["reasons"].append(
+            f"RAM pressure {used_pct:.2f}% >= {_CAPACITY_RAM_BLOCK_PCT:.2f}%"
+        )
+
+    gpu_available = bool(gpu.get("available"))
+    gpu_free_gb = gpu.get("free_gb")
+    if gpu_available and isinstance(gpu_free_gb, (int, float)) and gpu_free_gb < _CAPACITY_GPU_FREE_MIN_GB:
+        decision["reasons"].append(
+            f"GPU free VRAM {gpu_free_gb:.3f}GB < {_CAPACITY_GPU_FREE_MIN_GB:.3f}GB"
+        )
+
+    if decision["reasons"]:
+        decision["action"] = "block" if _CAPACITY_GUARD_MODE == "enforce" else "warn"
+    return decision
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     started_capsule = False
@@ -299,6 +551,29 @@ async def proxy_tool_call(tool_name: str, request: Request):
 
     body_source = _normalize_activity_source(body.pop("__source", None) if isinstance(body, dict) else None)
     source = body_source or _infer_activity_source(request, fallback="webui")
+
+    runtime_capacity = None
+    capacity_guard = None
+    if tool_name in _CAPACITY_GUARD_TOOLS:
+        runtime_capacity = _runtime_capacity_snapshot()
+        capacity_guard = _capacity_guard_decision(tool_name, body if isinstance(body, dict) else {}, runtime_capacity)
+        if capacity_guard.get("action") == "block":
+            error_msg = f"Capacity guard blocked {tool_name}"
+            payload = {
+                "error": error_msg,
+                "capacity_guard": capacity_guard,
+                "runtime_capacity": runtime_capacity,
+            }
+            activity_hub.add_entry(
+                tool=tool_name,
+                args=body if isinstance(body, dict) else {},
+                result=payload,
+                duration_ms=0,
+                error=error_msg,
+                source=source,
+            )
+            return JSONResponse(status_code=429, content=payload)
+
     start = time.time()
 
     result = await _call_tool(tool_name, body)
@@ -317,6 +592,8 @@ async def proxy_tool_call(tool_name: str, request: Request):
 
     if error_str:
         return JSONResponse(status_code=503, content=result)
+    if capacity_guard and isinstance(result, dict):
+        result["capacity_guard"] = capacity_guard
     return result
 
 
@@ -361,9 +638,33 @@ async def health(request: Request):
         "activity_session_id": activity_hub.session_id,
         "activity_latest_event_id": latest_event_id,
     }
+    cap = _runtime_capacity_snapshot()
+    payload["runtime_capacity"] = {
+        "memory_used_percent": ((cap.get("memory") or {}).get("used_percent")),
+        "memory_free_gb": ((cap.get("memory") or {}).get("free_gb")),
+        "gpu_available": ((cap.get("gpu") or {}).get("available")),
+        "gpu_free_gb": ((cap.get("gpu") or {}).get("free_gb")),
+    }
     duration_ms = int((time.time() - start) * 1000)
     activity_hub.add_entry(
         tool="api_health",
+        args={},
+        result={"content": [{"type": "text", "text": json.dumps(payload)}]},
+        duration_ms=duration_ms,
+        error=None,
+        source=source,
+    )
+    return payload
+
+
+@app.get("/api/runtime/capacity")
+async def runtime_capacity(request: Request):
+    source = _infer_activity_source(request, fallback="webui")
+    start = time.time()
+    payload = _runtime_capacity_snapshot(force=True)
+    duration_ms = int((time.time() - start) * 1000)
+    activity_hub.add_entry(
+        tool="api_runtime_capacity",
         args={},
         result={"content": [{"type": "text", "text": json.dumps(payload)}]},
         duration_ms=duration_ms,
