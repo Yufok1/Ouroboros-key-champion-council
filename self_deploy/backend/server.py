@@ -112,6 +112,50 @@ def _is_same_origin_request(url_value: str, request: Request) -> bool:
         return False
 
 
+def _extract_client_id(request: Request) -> str | None:
+    # Explicit header wins
+    client_id = request.headers.get("x-client-id") or request.headers.get("x-mcp-client")
+    if client_id:
+        return client_id.strip()[:64]
+
+    path = (request.url.path or "").lower()
+    is_mcp_path = path.startswith("/mcp/")
+
+    ua = (request.headers.get("user-agent") or "").strip()
+    ua_lower = ua.lower()
+
+    if "pi-mcp" in ua_lower or "pi-coding-agent" in ua_lower:
+        return "pi-agent"
+    if "claude" in ua_lower:
+        return "claude-code"
+    if "kiro" in ua_lower:
+        return "kiro"
+    if "cursor" in ua_lower:
+        return "cursor"
+    if "windsurf" in ua_lower:
+        return "windsurf"
+    if "copilot" in ua_lower:
+        return "copilot"
+    if "chatgpt" in ua_lower or "openai" in ua_lower:
+        return "chatgpt-action"
+    if "modelcontextprotocol" in ua_lower or "mcp" in ua_lower:
+        return "pi-agent" if is_mcp_path else "mcp-client"
+
+    if ua and "/" in ua:
+        agent_name = ua.split("/")[0].strip().lower()[:24]
+        if agent_name and agent_name not in ("mozilla", "python-requests", "python"):
+            return agent_name
+
+    if "python" in ua_lower or "httpx" in ua_lower or "aiohttp" in ua_lower:
+        return "python-client"
+
+    auth = request.headers.get("authorization") or ""
+    if auth.startswith("Bearer ") and len(auth) > 20:
+        return "pi-agent" if is_mcp_path else "hf-authenticated"
+
+    return None
+
+
 def _infer_activity_source(request: Request, fallback: str = "webui") -> str:
     explicit = _normalize_activity_source(
         request.headers.get("x-source") or request.query_params.get("source")
@@ -550,6 +594,7 @@ async def proxy_tool_call(tool_name: str, request: Request):
 
     body_source = _normalize_activity_source(body.pop("__source", None) if isinstance(body, dict) else None)
     source = body_source or _infer_activity_source(request, fallback="webui")
+    client_id = _extract_client_id(request)
 
     runtime_capacity = None
     capacity_guard = None
@@ -570,6 +615,7 @@ async def proxy_tool_call(tool_name: str, request: Request):
                 duration_ms=0,
                 error=error_msg,
                 source=source,
+                client_id=client_id,
             )
             return JSONResponse(status_code=429, content=payload)
 
@@ -587,6 +633,7 @@ async def proxy_tool_call(tool_name: str, request: Request):
         duration_ms=duration_ms,
         error=error_str,
         source=source,
+        client_id=client_id,
     )
 
     if error_str:
@@ -599,6 +646,7 @@ async def proxy_tool_call(tool_name: str, request: Request):
 @app.get("/api/tools")
 async def list_tools_route(request: Request):
     source = _infer_activity_source(request, fallback="webui")
+    client_id = _extract_client_id(request)
     start = time.time()
     result = await _list_tools()
     duration_ms = int((time.time() - start) * 1000)
@@ -610,6 +658,7 @@ async def list_tools_route(request: Request):
         duration_ms=duration_ms,
         error=error_str,
         source=source,
+        client_id=client_id,
     )
     if "error" in result and isinstance(result.get("error"), str):
         return JSONResponse(status_code=503, content=result)
@@ -619,6 +668,7 @@ async def list_tools_route(request: Request):
 @app.get("/api/health")
 async def health(request: Request):
     source = _infer_activity_source(request, fallback="webui")
+    client_id = _extract_client_id(request)
     start = time.time()
     latest_event_id = activity_hub.log[-1].get("eventId") if activity_hub.log else None
     payload = {
@@ -652,6 +702,7 @@ async def health(request: Request):
         duration_ms=duration_ms,
         error=None,
         source=source,
+        client_id=client_id,
     )
     return payload
 
@@ -659,6 +710,7 @@ async def health(request: Request):
 @app.get("/api/runtime/capacity")
 async def runtime_capacity(request: Request):
     source = _infer_activity_source(request, fallback="webui")
+    client_id = _extract_client_id(request)
     start = time.time()
     payload = _runtime_capacity_snapshot(force=True)
     duration_ms = int((time.time() - start) * 1000)
@@ -669,6 +721,7 @@ async def runtime_capacity(request: Request):
         duration_ms=duration_ms,
         error=None,
         source=source,
+        client_id=client_id,
     )
     return payload
 
@@ -941,6 +994,7 @@ async def mcp_sse_proxy(request: Request):
                                                 duration_ms=duration_ms,
                                                 error=error_str,
                                                 source="external",
+                                                client_id=pending.client_id,
                                             )
                                     except (json.JSONDecodeError, AttributeError, TypeError):
                                         pass
@@ -973,6 +1027,7 @@ async def mcp_message_proxy(request: Request):
     body = await request.body()
     body = normalize_rpc_payload(body)
     content_type = request.headers.get("content-type", "application/json")
+    _mcp_client_id = _extract_client_id(request)
 
     _, rpc_calls_raw = parse_rpc_tool_calls(body)
     rpc_calls = [
@@ -1000,7 +1055,7 @@ async def mcp_message_proxy(request: Request):
                 for call in rpc_calls:
                     rpc_id = call["rpc_id"]
                     if rpc_id is not None:
-                        pending_calls.store(session_id, rpc_id, call["tool"], call["args"], start)
+                        pending_calls.store(session_id, rpc_id, call["tool"], call["args"], start, client_id=_mcp_client_id)
                     else:
                         # Notifications (no JSON-RPC id) cannot be matched on SSE response.
                         activity_hub.add_entry(
@@ -1010,6 +1065,7 @@ async def mcp_message_proxy(request: Request):
                             duration_ms,
                             None,
                             source="external",
+                            client_id=_mcp_client_id,
                         )
             elif resp.status_code == 200:
                 response_items: list[dict] = []
@@ -1057,6 +1113,7 @@ async def mcp_message_proxy(request: Request):
                         duration_ms,
                         error_str,
                         source="external",
+                        client_id=_mcp_client_id,
                     )
 
                 for call in unmatched_calls:
@@ -1070,6 +1127,7 @@ async def mcp_message_proxy(request: Request):
                         duration_ms,
                         error_str,
                         source="external",
+                        client_id=_mcp_client_id,
                     )
             else:
                 for call in rpc_calls:
@@ -1080,6 +1138,7 @@ async def mcp_message_proxy(request: Request):
                         duration_ms,
                         f"HTTP {resp.status_code}",
                         source="external",
+                        client_id=_mcp_client_id,
                     )
 
         if resp.status_code in (202, 204):
@@ -1100,6 +1159,7 @@ async def mcp_message_proxy(request: Request):
                 duration_ms,
                 "Capsule timeout",
                 source="external",
+                client_id=_mcp_client_id,
             )
         return JSONResponse(status_code=504, content={"error": "Capsule timeout"})
     except Exception as exc:
@@ -1112,6 +1172,7 @@ async def mcp_message_proxy(request: Request):
                 duration_ms,
                 str(exc),
                 source="external",
+                client_id=_mcp_client_id,
             )
         return JSONResponse(status_code=502, content={"error": str(exc)})
 

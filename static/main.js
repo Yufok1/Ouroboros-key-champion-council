@@ -1706,8 +1706,14 @@
         detailLines.push('Timestamp');
         detailLines.push(fullTs);
         detailLines.push('');
+        var clientIdRaw = e.clientId || '';
+        var clientId = clientIdRaw;
+        if (source === 'external' && (clientIdRaw === 'hf-authenticated' || clientIdRaw === 'mcp-client')) {
+            clientId = 'pi-agent';
+        }
+
         detailLines.push('Source');
-        detailLines.push(String(source) + (e.clientId ? ' (' + e.clientId + ')' : ''));
+        detailLines.push(String(source) + (clientId ? ' (' + clientId + ')' : ''));
         detailLines.push('');
         detailLines.push('Category');
         detailLines.push(String(e.category || 'unknown'));
@@ -1777,7 +1783,6 @@
         detailLines.push(String(resultText).substring(0, 4000));
         var detailText = detailLines.join('\n');
 
-        var clientId = e.clientId || '';
         var sourceBadge = '';
         if (source === 'external') {
             var clientLabel = clientId ? clientId.toUpperCase() : 'EXTERNAL';

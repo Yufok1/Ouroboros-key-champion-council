@@ -68,17 +68,20 @@ def _is_same_origin_request(url_value: str, request: Request) -> bool:
 
 def _extract_client_id(request: Request) -> str | None:
     """Extract a granular client identifier from request headers.
-    Returns a human-readable string like 'pi-mcp-adapter', 'claude-code',
-    'curl/8.4.0', 'hf-user:tostido', etc. Returns None for webui."""
-    # Explicit client-id header (preferred — clients can self-identify)
+    Prefers explicit client headers, then UA signatures, then auth/path fallback.
+    """
+    # Explicit client-id header (preferred — callers can self-identify)
     client_id = request.headers.get("x-client-id") or request.headers.get("x-mcp-client")
     if client_id:
         return client_id.strip()[:64]
 
+    path = (request.url.path or "").lower()
+    is_mcp_path = path.startswith("/mcp/")
+
     ua = (request.headers.get("user-agent") or "").strip()
     ua_lower = ua.lower()
 
-    # Known MCP client signatures
+    # Known client signatures
     if "pi-mcp" in ua_lower or "pi-coding-agent" in ua_lower:
         return "pi-agent"
     if "claude" in ua_lower:
@@ -94,11 +97,9 @@ def _extract_client_id(request: Request) -> str | None:
     if "chatgpt" in ua_lower or "openai" in ua_lower:
         return "chatgpt-action"
 
-    # Extract HF user from bearer token if present
-    auth = request.headers.get("authorization") or ""
-    if auth.startswith("Bearer ") and len(auth) > 20:
-        # Don't expose the token, just mark as authenticated
-        return "hf-authenticated"
+    # Generic MCP SDK signatures (normalize to pi-agent for consistency)
+    if "modelcontextprotocol" in ua_lower or "mcp" in ua_lower:
+        return "pi-agent" if is_mcp_path else "mcp-client"
 
     # Generic user-agent extraction (first segment)
     if ua and "/" in ua:
@@ -109,6 +110,12 @@ def _extract_client_id(request: Request) -> str | None:
     # Python clients (requests, httpx, aiohttp)
     if "python" in ua_lower or "httpx" in ua_lower or "aiohttp" in ua_lower:
         return "python-client"
+
+    # Auth fallback: if this is an authenticated MCP call but no better signal,
+    # align labeling to pi-agent (requested by operator).
+    auth = request.headers.get("authorization") or ""
+    if auth.startswith("Bearer ") and len(auth) > 20:
+        return "pi-agent" if is_mcp_path else "hf-authenticated"
 
     return None
 

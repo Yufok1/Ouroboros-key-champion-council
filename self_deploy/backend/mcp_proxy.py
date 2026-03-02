@@ -11,6 +11,7 @@ class PendingCall:
     tool: str
     args: dict[str, Any]
     start: float
+    client_id: str | None = None
 
 
 class PendingCallRegistry:
@@ -68,10 +69,11 @@ class PendingCallRegistry:
         tool: str,
         args: dict[str, Any],
         start: float,
+        client_id: str | None = None,
     ) -> None:
         skey = self._session_key(session_id)
         bucket = self._pending.setdefault(skey, {})
-        bucket[rpc_id] = PendingCall(tool=tool, args=args or {}, start=start)
+        bucket[rpc_id] = PendingCall(tool=tool, args=args or {}, start=start, client_id=client_id)
 
     def pop(self, session_id: str | None, rpc_id: str | int | None) -> PendingCall | None:
         if rpc_id is None:

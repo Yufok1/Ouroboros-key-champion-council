@@ -96,6 +96,7 @@ class ActivityHub:
         duration_ms: int,
         error: str | None,
         source: str = "external",
+        client_id: str | None = None,
     ) -> None:
         # Suppress hydration activity entirely.
         if source == "hydration":
@@ -116,6 +117,7 @@ class ActivityHub:
             "durationMs": duration_ms,
             "timestamp": int(time.time() * 1000),
             "source": source,
+            "clientId": client_id,
             "eventId": self._next_event_id,
             "sessionId": self.session_id,
         }
