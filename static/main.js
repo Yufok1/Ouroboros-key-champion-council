@@ -1034,6 +1034,41 @@
         return true;
     }
 
+    function _normalizeSlotsArrayPayload(raw) {
+        var d = raw;
+        // Prefer explicit slots array (postprocessed shape)
+        if (d && Array.isArray(d.slots)) return d.slots;
+        // Already array
+        if (Array.isArray(d)) return d;
+
+        // Compact list_slots shape from external MCP calls:
+        // { total, all_ids:[slot_0,...], ... }
+        if (d && typeof d === 'object' && !Array.isArray(d)) {
+            var total = parseInt(d.total, 10);
+            var ids = Array.isArray(d.all_ids) ? d.all_ids : [];
+            if (!(total >= 0) && ids.length) total = ids.length;
+            if (total >= 0) {
+                var out = [];
+                for (var i = 0; i < total; i++) {
+                    var name = ids[i] || ('slot_' + i);
+                    var isDefault = _isDefaultSlotName(name);
+                    out.push({
+                        slot: i,
+                        name: name,
+                        plugged: !isDefault,
+                        status: isDefault ? 'empty' : 'plugged',
+                        model_source: isDefault ? null : name,
+                        model_type: null,
+                        type: null
+                    });
+                }
+                return out;
+            }
+        }
+
+        return [];
+    }
+
 
     // ── SLOTS RENDER ──
     function renderSlots(data) {
@@ -1049,7 +1084,7 @@
             } else if (typeof d === 'string') {
                 d = JSON.parse(d);
             }
-            slotsArr = d.slots || d || [];
+            slotsArr = _normalizeSlotsArrayPayload(d);
         } catch (err) { slotsArr = []; }
 
         // Clear unplugging state for slots that are now confirmed empty
@@ -1360,7 +1395,7 @@
             } else if (typeof d === 'string') {
                 d = JSON.parse(d);
             }
-            slotsArr = d.slots || d || [];
+            slotsArr = _normalizeSlotsArrayPayload(d);
         } catch (e) { return null; }
         return slotsArr[index] || null;
     }
@@ -1591,7 +1626,18 @@
 
     // ── ACTIVITY FEED ──
     var PLUG_TOOLS = ['plug_model', 'hub_plug'];
+    var EXTERNAL_SLOT_MUTATION_TOOLS = ['plug_model', 'hub_plug', 'unplug_slot', 'clone_slot', 'rename_slot', 'swap_slots', 'cull_slot', 'restore_slot'];
     var ACTIVITY_SILENT_TOOLS = ['get_status', 'list_slots', 'bag_catalog', 'workflow_list', 'verify_integrity', 'get_cached', 'get_identity', 'feed', 'get_capabilities', 'get_help', 'get_onboarding', 'get_quickstart', 'hub_tasks', 'list_tools', 'heartbeat', 'api_health'];
+    var _externalSlotRefreshTimer = null;
+
+    function _scheduleExternalSlotRefresh(reason) {
+        if (_externalSlotRefreshTimer) return;
+        _externalSlotRefreshTimer = setTimeout(function () {
+            _externalSlotRefreshTimer = null;
+            callTool('list_slots', {}, '__external_slot_sync__');
+        }, 220);
+    }
+
     function addActivityEntry(event) {
         if (!event) return;
 
@@ -1628,7 +1674,11 @@
         if (PLUG_TOOLS.indexOf(event.tool) >= 0 && event.durationMs >= 0) {
             var completedModelId = (event.args && (event.args.model_id || event.args.summary)) || null;
             _clearPluggingEntry(completedModelId);
-            // list_slots refresh is handled by the toolResult handler — no duplicate call here
+            // For external MCP calls there is no local toolResult callback,
+            // so force a list_slots refresh to keep grid/drill/chat parity.
+            if (event.source === 'external' && !event.error) {
+                _scheduleExternalSlotRefresh('external-plug-complete');
+            }
         }
 
         _activityLog.push(event);
@@ -1636,6 +1686,17 @@
         if (event.tool === 'workflow_execute' || event.tool === 'workflow_status') {
             handleWorkflowActivity(event);
         }
+
+        // External slot mutations must force council-grid re-hydration.
+        if (event.source === 'external' && !event.error && EXTERNAL_SLOT_MUTATION_TOOLS.indexOf(event.tool) >= 0 && event.durationMs >= 0) {
+            _scheduleExternalSlotRefresh('external-slot-mutation');
+        }
+
+        // If an external caller asks for list_slots, hydrate grid from that event too.
+        if (event.source === 'external' && event.tool === 'list_slots' && event.result) {
+            renderSlots(event.result);
+        }
+
         // Echo to slot drill-in activity feed if open
         if (_slotDrill.active) {
             var targetSlot = event.args && (event.args.slot !== undefined ? event.args.slot : -1);
@@ -1652,8 +1713,8 @@
             var extSlot = event.args && event.args.slot !== undefined ? event.args.slot : -1;
             var slotTools = ['invoke_slot', 'agent_chat', 'chat', 'generate', 'classify'];
             if (extSlot >= 0 && slotTools.indexOf(event.tool) >= 0) {
-                var tabKey = 'slot_' + extSlot;
-                var slotTab = _achatTabs[tabKey];
+                // Ensure tab exists; tab keys are slot:<index>
+                var slotTab = _ensureAchatTab(extSlot);
                 if (slotTab) {
                     // Add the request
                     var argPreview = event.args ? JSON.stringify(event.args) : '';
