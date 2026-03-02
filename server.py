@@ -23,7 +23,7 @@ from urllib.parse import urlparse
 import uvicorn
 import httpx
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -1939,16 +1939,195 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/media", StaticFiles(directory="."), name="media")
 
 
-# Kiro tries Streamable HTTP (POST) first before falling back to SSE.
-# Return 405 to signal that SSE transport should be used instead.
+# ── Streamable HTTP transport ──────────────────────────────────────────
+# Pi / Claude Desktop / Kiro try StreamableHTTP (POST) before SSE.
+# Instead of rejecting with 405, we handle JSON-RPC here using the
+# persistent _mcp_session.  This avoids the fragile SSE-per-client
+# proxy where HF infrastructure can close long-lived SSE connections.
+
 @app.post("/mcp/sse")
-async def mcp_sse_post_fallback(request: Request):
-    """Return 405 so MCP clients fall back to SSE transport."""
-    return JSONResponse(
-        status_code=405,
-        content={"error": "Use GET for SSE transport"},
-        headers={"Allow": "GET"},
-    )
+async def mcp_streamable_http(request: Request):
+    """Handle MCP Streamable HTTP transport.
+
+    Accepts JSON-RPC requests and responds synchronously using the
+    persistent internal MCP session (same one /api/tool uses).
+    """
+    body_bytes = await request.body()
+    if not body_bytes:
+        return JSONResponse(status_code=400, content={"error": "Empty body"})
+
+    try:
+        payload = json.loads(body_bytes)
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "Invalid JSON"})
+
+    client_id = _extract_client_id(request)
+
+    # ── Handle single JSON-RPC object ──
+    if isinstance(payload, dict):
+        result = await _handle_streamable_rpc(payload, client_id)
+        if result is None:
+            return Response(status_code=202)
+        return JSONResponse(content=result)
+
+    # ── Handle batch JSON-RPC array ──
+    if isinstance(payload, list):
+        results = []
+        for item in payload:
+            if isinstance(item, dict):
+                r = await _handle_streamable_rpc(item, client_id)
+                if r is not None:
+                    results.append(r)
+        if not results:
+            return Response(status_code=202)
+        return JSONResponse(content=results)
+
+    return JSONResponse(status_code=400, content={"error": "Invalid payload"})
+
+
+async def _handle_streamable_rpc(obj: dict, client_id: str) -> dict | None:
+    """Process one JSON-RPC message via the persistent MCP session."""
+    method = obj.get("method", "")
+    rpc_id = obj.get("id")
+    params = obj.get("params", {})
+    if isinstance(params, str):
+        try:
+            params = json.loads(params)
+        except Exception:
+            params = {}
+    if not isinstance(params, dict):
+        params = {}
+
+    # ── initialize ──
+    if method == "initialize":
+        session = await _ensure_session()
+        if not session:
+            return _rpc_error(rpc_id, -32603, "Failed to connect to capsule MCP")
+        # Return server capabilities (mirror what capsule reported)
+        return {
+            "jsonrpc": "2.0",
+            "id": rpc_id,
+            "result": {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {
+                    "tools": {"listChanged": False},
+                    "resources": {"subscribe": False, "listChanged": False},
+                    "prompts": {"listChanged": False},
+                },
+                "serverInfo": {"name": "champion-council", "version": "0.8.9"},
+            },
+        }
+
+    # ── notifications (initialized, etc.) — no response needed ──
+    if method.startswith("notifications/"):
+        return None
+
+    # ── tools/list ──
+    if method == "tools/list":
+        session = await _ensure_session()
+        if not session:
+            return _rpc_error(rpc_id, -32603, "MCP session unavailable")
+        try:
+            result = await session.list_tools()
+            tools_list = []
+            for t in (result.tools or []):
+                td = {"name": t.name, "description": getattr(t, "description", "") or ""}
+                schema = getattr(t, "inputSchema", None) or getattr(t, "input_schema", None)
+                if schema:
+                    td["inputSchema"] = schema if isinstance(schema, dict) else (schema.model_dump() if hasattr(schema, "model_dump") else {})
+                tools_list.append(td)
+            return {"jsonrpc": "2.0", "id": rpc_id, "result": {"tools": tools_list}}
+        except Exception as e:
+            await _disconnect_mcp()
+            return _rpc_error(rpc_id, -32603, f"tools/list failed: {e}")
+
+    # ── tools/call ──
+    if method == "tools/call":
+        tool_name = params.get("name", "")
+        if not isinstance(tool_name, str) or not tool_name:
+            return _rpc_error(rpc_id, -32602, "Invalid request parameters", "Missing tool name")
+
+        args = params.get("arguments", {})
+        if not isinstance(args, dict):
+            args = _coerce_tool_arguments(args)
+
+        if tool_name in ("workflow_create", "workflow_update") and "definition" in args:
+            args = dict(args)
+            args["definition"] = _normalize_workflow_nodes(args["definition"])
+
+        # Slot readiness guard
+        sg = await _slot_ready_guard(tool_name, args)
+        if sg:
+            err_msg = sg.get("error", "Slot not ready")
+            _broadcast_activity(tool_name, args, {"slot_guard": sg}, 0, err_msg, source="external", client_id=client_id)
+            return _rpc_error(rpc_id, -32010, err_msg, {"slot_guard": sg})
+
+        start = time.time()
+        result = await _call_tool(tool_name, args)
+        result = await _postprocess_tool_result(tool_name, args, result)
+        duration_ms = int((time.time() - start) * 1000)
+
+        error_str = result.get("error") if isinstance(result, dict) else None
+        _broadcast_activity(tool_name, args, result, duration_ms, error_str, source="external", client_id=client_id)
+
+        if error_str:
+            return _rpc_error(rpc_id, -32603, error_str)
+        return {"jsonrpc": "2.0", "id": rpc_id, "result": result.get("result", result)}
+
+    # ── resources/list, prompts/list, etc. — pass through ──
+    if method in ("resources/list", "resources/read", "prompts/list", "prompts/get"):
+        session = await _ensure_session()
+        if not session:
+            return _rpc_error(rpc_id, -32603, "MCP session unavailable")
+        try:
+            if method == "resources/list":
+                result = await session.list_resources()
+                resources = []
+                for r in (result.resources or []):
+                    rd = {"uri": str(r.uri), "name": getattr(r, "name", "") or ""}
+                    if getattr(r, "description", None):
+                        rd["description"] = r.description
+                    if getattr(r, "mimeType", None) or getattr(r, "mime_type", None):
+                        rd["mimeType"] = getattr(r, "mimeType", None) or getattr(r, "mime_type", None)
+                    resources.append(rd)
+                return {"jsonrpc": "2.0", "id": rpc_id, "result": {"resources": resources}}
+            elif method == "resources/read":
+                uri = params.get("uri", "")
+                result = await session.read_resource(uri)
+                contents = []
+                for c in (result.contents or []):
+                    cd = {"uri": str(c.uri)}
+                    if hasattr(c, "text") and c.text is not None:
+                        cd["text"] = c.text
+                    if hasattr(c, "mimeType") and c.mimeType:
+                        cd["mimeType"] = c.mimeType
+                    contents.append(cd)
+                return {"jsonrpc": "2.0", "id": rpc_id, "result": {"contents": contents}}
+            elif method == "prompts/list":
+                result = await session.list_prompts()
+                prompts = [{"name": p.name, "description": getattr(p, "description", "") or ""} for p in (result.prompts or [])]
+                return {"jsonrpc": "2.0", "id": rpc_id, "result": {"prompts": prompts}}
+            elif method == "prompts/get":
+                result = await session.get_prompt(params.get("name", ""), params.get("arguments", {}))
+                msgs = []
+                for m in (result.messages or []):
+                    md = {"role": m.role}
+                    if hasattr(m.content, "text"):
+                        md["content"] = {"type": "text", "text": m.content.text}
+                    msgs.append(md)
+                return {"jsonrpc": "2.0", "id": rpc_id, "result": {"messages": msgs}}
+        except Exception as e:
+            return _rpc_error(rpc_id, -32603, str(e))
+
+    # ── Unknown method ──
+    return _rpc_error(rpc_id, -32601, f"Method not found: {method}")
+
+
+def _rpc_error(rpc_id, code: int, message: str, data=None) -> dict:
+    err = {"code": code, "message": message}
+    if data is not None:
+        err["data"] = data
+    return {"jsonrpc": "2.0", "id": rpc_id, "error": err}
 
 
 

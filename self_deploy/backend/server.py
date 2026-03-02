@@ -1288,13 +1288,171 @@ async def mcp_message_proxy(request: Request):
 
 
 @app.post("/mcp/sse")
-async def mcp_sse_post_fallback(_: Request):
-    return JSONResponse(
-        status_code=405,
-        content={"error": "Use GET for SSE transport"},
-        headers={"Allow": "GET"},
-    )
+async def mcp_streamable_http(request: Request):
+    """Handle MCP Streamable HTTP transport without requiring long-lived SSE."""
+    body_bytes = await request.body()
+    if not body_bytes:
+        return JSONResponse(status_code=400, content={"error": "Empty body"})
 
+    try:
+        payload = json.loads(body_bytes)
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "Invalid JSON"})
+
+    client_id = _extract_client_id(request)
+
+    if isinstance(payload, dict):
+        result = await _handle_streamable_rpc(payload, client_id)
+        if result is None:
+            return Response(status_code=202)
+        return JSONResponse(content=result)
+
+    if isinstance(payload, list):
+        results = []
+        for item in payload:
+            if isinstance(item, dict):
+                r = await _handle_streamable_rpc(item, client_id)
+                if r is not None:
+                    results.append(r)
+        if not results:
+            return Response(status_code=202)
+        return JSONResponse(content=results)
+
+    return JSONResponse(status_code=400, content={"error": "Invalid payload"})
+
+
+async def _handle_streamable_rpc(obj: dict, client_id: str | None) -> dict | None:
+    method = obj.get("method", "")
+    rpc_id = obj.get("id")
+    params = obj.get("params", {})
+    if isinstance(params, str):
+        try:
+            params = json.loads(params)
+        except Exception:
+            params = {}
+    if not isinstance(params, dict):
+        params = {}
+
+    if method == "initialize":
+        session = await mcp_client.ensure_session()
+        if not session:
+            return _rpc_error(rpc_id, -32603, "Failed to connect to capsule MCP")
+        return {
+            "jsonrpc": "2.0",
+            "id": rpc_id,
+            "result": {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {
+                    "tools": {"listChanged": False},
+                    "resources": {"subscribe": False, "listChanged": False},
+                    "prompts": {"listChanged": False},
+                },
+                "serverInfo": {"name": "champion-council", "version": "0.8.9"},
+            },
+        }
+
+    if isinstance(method, str) and method.startswith("notifications/"):
+        return None
+
+    if method == "tools/list":
+        tools = await _list_tools()
+        if isinstance(tools, dict) and tools.get("error"):
+            return _rpc_error(rpc_id, -32603, str(tools.get("error")))
+        return {
+            "jsonrpc": "2.0",
+            "id": rpc_id,
+            "result": (tools or {}).get("result", {}),
+        }
+
+    if method == "tools/call":
+        tool_name = params.get("name", "")
+        if not isinstance(tool_name, str) or not tool_name:
+            return _rpc_error(rpc_id, -32602, "Invalid request parameters", "Missing tool name")
+
+        args = params.get("arguments", {})
+        if not isinstance(args, dict):
+            if isinstance(args, str):
+                try:
+                    parsed = json.loads(args)
+                    args = parsed if isinstance(parsed, dict) else {}
+                except Exception:
+                    args = {}
+            else:
+                args = {}
+
+        if tool_name in ("workflow_create", "workflow_update") and "definition" in args:
+            args = dict(args)
+            args["definition"] = normalize_workflow_nodes(args["definition"])
+
+        capacity_guard = None
+        if tool_name in _CAPACITY_GUARD_TOOLS:
+            runtime_capacity = _runtime_capacity_snapshot()
+            capacity_guard = _capacity_guard_decision(tool_name, args, runtime_capacity)
+            if capacity_guard.get("action") == "block":
+                err_msg = f"Capacity guard blocked {tool_name}"
+                payload = {
+                    "capacity_guard": capacity_guard,
+                    "runtime_capacity": runtime_capacity,
+                }
+                activity_hub.add_entry(
+                    tool=tool_name,
+                    args=args,
+                    result=payload,
+                    duration_ms=0,
+                    error=err_msg,
+                    source="external",
+                    client_id=client_id,
+                )
+                return _rpc_error(rpc_id, -32011, err_msg, payload)
+
+        slot_guard = await _slot_ready_guard(tool_name, args)
+        if slot_guard:
+            err_msg = slot_guard.get("error") or f"Slot readiness guard blocked {tool_name}"
+            payload = {"slot_guard": slot_guard}
+            activity_hub.add_entry(
+                tool=tool_name,
+                args=args,
+                result=payload,
+                duration_ms=0,
+                error=err_msg,
+                source="external",
+                client_id=client_id,
+            )
+            return _rpc_error(rpc_id, -32010, err_msg, payload)
+
+        start = time.time()
+        result = await _call_tool(tool_name, args)
+        result = await postprocess_tool_result(tool_name, args, result, _call_tool)
+        duration_ms = int((time.time() - start) * 1000)
+
+        error_str = result.get("error") if isinstance(result.get("error"), str) else None
+        activity_hub.add_entry(
+            tool=tool_name,
+            args=args,
+            result=result.get("result") if isinstance(result, dict) else result,
+            duration_ms=duration_ms,
+            error=error_str,
+            source="external",
+            client_id=client_id,
+        )
+
+        if error_str:
+            return _rpc_error(rpc_id, -32603, error_str)
+
+        out = result.get("result", result) if isinstance(result, dict) else result
+        if capacity_guard and isinstance(out, dict):
+            out = dict(out)
+            out["capacity_guard"] = capacity_guard
+        return {"jsonrpc": "2.0", "id": rpc_id, "result": out}
+
+    return _rpc_error(rpc_id, -32601, f"Method not found: {method}")
+
+
+def _rpc_error(rpc_id, code: int, message: str, data=None) -> dict:
+    err = {"code": code, "message": message}
+    if data is not None:
+        err["data"] = data
+    return {"jsonrpc": "2.0", "id": rpc_id, "error": err}
 
 
 # Mount after explicit routes.
