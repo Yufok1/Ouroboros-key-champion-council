@@ -1669,6 +1669,67 @@
         _scheduleSlotRefresh(reason || 'external-mutation', 220);
     }
 
+    function _unwrapMcpEnvelope(raw) {
+        var node = raw;
+        if (typeof node === 'string') {
+            var parsedNode = _safeJsonParse(node);
+            if (parsedNode !== null) node = parsedNode;
+        }
+        if (node && typeof node === 'object' && node.result && typeof node.result === 'object') {
+            node = node.result;
+        }
+
+        var isError = !!(node && (node.isError || node.is_error));
+        var payload = node;
+
+        if (node && typeof node === 'object' && Array.isArray(node.content)) {
+            var inner = null;
+            if (node.structuredContent && node.structuredContent.result !== undefined) {
+                inner = node.structuredContent.result;
+            } else if (node.content[0] && typeof node.content[0].text === 'string') {
+                inner = node.content[0].text;
+            }
+            if (inner !== null && inner !== undefined) {
+                if (typeof inner === 'string') {
+                    var parsedInner = _safeJsonParse(inner);
+                    payload = parsedInner !== null ? parsedInner : inner;
+                } else {
+                    payload = inner;
+                }
+            }
+        }
+
+        return { payload: payload, isError: isError };
+    }
+
+    function _formatExternalResultForChat(toolName, rawResult) {
+        var unwrapped = _unwrapMcpEnvelope(rawResult);
+        var payload = unwrapped.payload;
+        var isError = !!unwrapped.isError;
+
+        if (toolName === 'invoke_slot' && payload && typeof payload === 'object' && payload.output !== undefined) {
+            var out = payload.output;
+            if (typeof out === 'string') {
+                var parsedOut = _safeJsonParse(out);
+                if (parsedOut !== null) out = parsedOut;
+            }
+            return { role: isError ? 'error' : 'assistant', text: _prettyTruncate(out, 4000), payload: payload, isError: isError };
+        }
+
+        if (toolName === 'agent_chat' && payload && typeof payload === 'object') {
+            var r = (payload.result && typeof payload.result === 'object') ? payload.result : payload;
+            var lines = [];
+            if (r.final_answer) lines.push(String(r.final_answer));
+            if (r.iterations !== undefined) lines.push('\n\nIterations: ' + String(r.iterations));
+            if (Array.isArray(r.tool_calls) && r.tool_calls.length) lines.push('\nTool calls: ' + String(r.tool_calls.length));
+            if (lines.length) {
+                return { role: isError ? 'error' : 'assistant', text: lines.join(''), payload: payload, isError: isError };
+            }
+        }
+
+        return { role: isError ? 'error' : 'assistant', text: _prettyTruncate(payload, 4000), payload: payload, isError: isError };
+    }
+
     function addActivityEntry(event) {
         if (!event) return;
 
@@ -1748,23 +1809,31 @@
                 var slotTab = _ensureAchatTab(extSlot);
                 if (slotTab) {
                     // Add the request
-                    var argPreview = event.args ? JSON.stringify(event.args) : '';
-                    if (argPreview.length > 200) argPreview = argPreview.substring(0, 200) + '...';
-                    _appendAchatMsg('system-info', '⟵ EXTERNAL ' + event.tool + (argPreview ? ': ' + argPreview : ''), event.timestamp ? new Date(event.timestamp).getTime() : Date.now(), slotTab);
-                    // Add the result
-                    if (event.result && !event.error) {
-                        var extResult = '';
-                        try { extResult = typeof event.result === 'string' ? event.result : JSON.stringify(event.result, null, 2); }
-                        catch (e2) { extResult = String(event.result); }
-                        if (extResult.length > 3000) extResult = extResult.substring(0, 3000) + '\n…[truncated]';
-                        _appendAchatMsg('assistant', extResult, Date.now(), slotTab);
-                    } else if (event.error) {
+                    var argPreview = event.args ? _prettyTruncate(event.args, 600) : '';
+                    _appendAchatMsg(
+                        'system-info',
+                        '⟵ EXTERNAL ' + event.tool + (argPreview ? ':\n' + argPreview : ''),
+                        event.timestamp ? new Date(event.timestamp).getTime() : Date.now(),
+                        slotTab
+                    );
+
+                    // Add the result / error (unwrap MCP envelopes for readability)
+                    if (event.error) {
                         _appendAchatMsg('error', 'EXTERNAL error: ' + String(event.error), Date.now(), slotTab);
+                    } else if (event.result !== undefined) {
+                        var formatted = _formatExternalResultForChat(event.tool, event.result);
+                        if (formatted && formatted.text) {
+                            _appendAchatMsg(formatted.role || 'assistant', formatted.text, Date.now(), slotTab);
+                        }
+
+                        // Add tool trace if agent_chat returned tool_calls
+                        var payload = formatted ? formatted.payload : null;
+                        var tc = null;
+                        if (payload && payload.tool_calls && Array.isArray(payload.tool_calls)) tc = payload.tool_calls;
+                        else if (payload && payload.result && payload.result.tool_calls && Array.isArray(payload.result.tool_calls)) tc = payload.result.tool_calls;
+                        if (tc && tc.length) _appendAchatToolTrace(tc, slotTab);
                     }
-                    // Add tool trace if agent_chat returned tool_calls
-                    if (event.result && event.result.tool_calls && Array.isArray(event.result.tool_calls)) {
-                        _appendAchatToolTrace(event.result.tool_calls, slotTab);
-                    }
+
                     var dur = event.durationMs >= 0 ? ' (' + event.durationMs + 'ms)' : '';
                     _appendAchatMsg('system-info', '⟵ EXTERNAL ' + event.tool + ' complete' + dur, Date.now(), slotTab);
                 }
@@ -8805,7 +8874,14 @@
 
     function _prettyTruncate(value, maxLen) {
         var out = '';
-        try { out = typeof value === 'string' ? value : JSON.stringify(value, null, 2); }
+        try {
+            if (typeof value === 'string') {
+                var parsed = _safeJsonParse(value);
+                out = parsed !== null ? JSON.stringify(parsed, null, 2) : value;
+            } else {
+                out = JSON.stringify(value, null, 2);
+            }
+        }
         catch (e) { out = String(value); }
         var lim = maxLen || 3000;
         if (out.length > lim) out = out.substring(0, lim) + '\n…[truncated]';
