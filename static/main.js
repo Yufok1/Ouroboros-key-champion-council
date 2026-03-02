@@ -1706,11 +1706,7 @@
         detailLines.push('Timestamp');
         detailLines.push(fullTs);
         detailLines.push('');
-        var clientIdRaw = e.clientId || '';
-        var clientId = clientIdRaw;
-        if (source === 'external' && (clientIdRaw === 'hf-authenticated' || clientIdRaw === 'mcp-client')) {
-            clientId = 'pi-agent';
-        }
+        var clientId = e.clientId || '';
 
         detailLines.push('Source');
         detailLines.push(String(source) + (clientId ? ' (' + clientId + ')' : ''));
@@ -1790,7 +1786,12 @@
                 : clientId === 'claude-code' ? '#f59e0b'
                 : clientId === 'kiro' ? '#10b981'
                 : clientId === 'cursor' ? '#3b82f6'
+                : clientId === 'windsurf' ? '#06b6d4'
+                : clientId === 'copilot' ? '#38bdf8'
                 : clientId === 'chatgpt-action' ? '#6366f1'
+                : clientId === 'mcp-client' ? '#14b8a6'
+                : clientId === 'hf-authenticated' ? '#94a3b8'
+                : clientId === 'python-client' ? '#f97316'
                 : 'var(--blue)';
             sourceBadge = '<span class="activity-cat" style="border-color:' + clientColor + ';color:' + clientColor + ';">' + escHtml(clientLabel) + '</span>';
         }

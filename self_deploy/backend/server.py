@@ -118,9 +118,6 @@ def _extract_client_id(request: Request) -> str | None:
     if client_id:
         return client_id.strip()[:64]
 
-    path = (request.url.path or "").lower()
-    is_mcp_path = path.startswith("/mcp/")
-
     ua = (request.headers.get("user-agent") or "").strip()
     ua_lower = ua.lower()
 
@@ -139,7 +136,7 @@ def _extract_client_id(request: Request) -> str | None:
     if "chatgpt" in ua_lower or "openai" in ua_lower:
         return "chatgpt-action"
     if "modelcontextprotocol" in ua_lower or "mcp" in ua_lower:
-        return "pi-agent" if is_mcp_path else "mcp-client"
+        return "mcp-client"
 
     if ua and "/" in ua:
         agent_name = ua.split("/")[0].strip().lower()[:24]
@@ -151,7 +148,7 @@ def _extract_client_id(request: Request) -> str | None:
 
     auth = request.headers.get("authorization") or ""
     if auth.startswith("Bearer ") and len(auth) > 20:
-        return "pi-agent" if is_mcp_path else "hf-authenticated"
+        return "hf-authenticated"
 
     return None
 

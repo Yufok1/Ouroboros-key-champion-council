@@ -68,15 +68,12 @@ def _is_same_origin_request(url_value: str, request: Request) -> bool:
 
 def _extract_client_id(request: Request) -> str | None:
     """Extract a granular client identifier from request headers.
-    Prefers explicit client headers, then UA signatures, then auth/path fallback.
+    Prefers explicit client headers, then UA signatures, then auth fallback.
     """
-    # Explicit client-id header (preferred — callers can self-identify)
+    # Explicit client-id header (preferred — callers self-identify)
     client_id = request.headers.get("x-client-id") or request.headers.get("x-mcp-client")
     if client_id:
         return client_id.strip()[:64]
-
-    path = (request.url.path or "").lower()
-    is_mcp_path = path.startswith("/mcp/")
 
     ua = (request.headers.get("user-agent") or "").strip()
     ua_lower = ua.lower()
@@ -97,9 +94,9 @@ def _extract_client_id(request: Request) -> str | None:
     if "chatgpt" in ua_lower or "openai" in ua_lower:
         return "chatgpt-action"
 
-    # Generic MCP SDK signatures (normalize to pi-agent for consistency)
+    # Generic MCP SDK signatures
     if "modelcontextprotocol" in ua_lower or "mcp" in ua_lower:
-        return "pi-agent" if is_mcp_path else "mcp-client"
+        return "mcp-client"
 
     # Generic user-agent extraction (first segment)
     if ua and "/" in ua:
@@ -111,11 +108,10 @@ def _extract_client_id(request: Request) -> str | None:
     if "python" in ua_lower or "httpx" in ua_lower or "aiohttp" in ua_lower:
         return "python-client"
 
-    # Auth fallback: if this is an authenticated MCP call but no better signal,
-    # align labeling to pi-agent (requested by operator).
+    # Auth fallback (can't identify exact client from token alone)
     auth = request.headers.get("authorization") or ""
     if auth.startswith("Bearer ") and len(auth) > 20:
-        return "pi-agent" if is_mcp_path else "hf-authenticated"
+        return "hf-authenticated"
 
     return None
 
