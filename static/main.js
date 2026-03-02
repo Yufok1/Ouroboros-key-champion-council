@@ -1707,7 +1707,7 @@
         detailLines.push(fullTs);
         detailLines.push('');
         detailLines.push('Source');
-        detailLines.push(String(source) + (event.clientId ? ' (' + event.clientId + ')' : ''));
+        detailLines.push(String(source) + (e.clientId ? ' (' + e.clientId + ')' : ''));
         detailLines.push('');
         detailLines.push('Category');
         detailLines.push(String(e.category || 'unknown'));
@@ -1777,7 +1777,7 @@
         detailLines.push(String(resultText).substring(0, 4000));
         var detailText = detailLines.join('\n');
 
-        var clientId = event.clientId || '';
+        var clientId = e.clientId || '';
         var sourceBadge = '';
         if (source === 'external') {
             var clientLabel = clientId ? clientId.toUpperCase() : 'EXTERNAL';
