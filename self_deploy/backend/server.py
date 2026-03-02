@@ -176,6 +176,57 @@ def _infer_activity_source(request: Request, fallback: str = "webui") -> str:
     return fallback
 
 
+def _parse_mcp_result_payload(result: dict | None) -> dict | None:
+    if not result or not isinstance(result, dict):
+        return None
+    content = result.get("content")
+    if isinstance(content, list) and content:
+        text = content[0].get("text") if isinstance(content[0], dict) else None
+        if text:
+            try:
+                return json.loads(text)
+            except (json.JSONDecodeError, TypeError):
+                return {"text": text}
+    return result
+
+
+async def _slot_ready_guard(tool_name: str, args: dict | None) -> dict | None:
+    if tool_name not in _SLOT_READY_TOOLS:
+        return None
+    if not isinstance(args, dict) or args.get("slot") is None:
+        return None
+
+    try:
+        slot_idx = int(args.get("slot"))
+    except Exception:
+        return {
+            "guard": "slot_ready",
+            "tool": tool_name,
+            "error": f"Invalid slot index for {tool_name}",
+        }
+
+    info_raw = await _call_tool("slot_info", {"slot": slot_idx})
+    info = _parse_mcp_result_payload((info_raw or {}).get("result") if isinstance(info_raw, dict) else None) or {}
+    if not isinstance(info, dict):
+        info = {}
+
+    plugged = bool(info.get("plugged"))
+    if not plugged:
+        src = info.get("source") or info.get("model_source") or info.get("model")
+        if src:
+            plugged = True
+
+    if plugged:
+        return None
+
+    return {
+        "guard": "slot_ready",
+        "tool": tool_name,
+        "slot": slot_idx,
+        "error": f"Slot {slot_idx} is not plugged yet. Wait for plug_model/hub_plug to complete before calling {tool_name}.",
+    }
+
+
 async def _call_tool(name: str, arguments: dict) -> dict:
     return await mcp_client.call_tool(name, arguments)
 
@@ -271,6 +322,9 @@ _CAPACITY_GUARD_ENABLED = os.environ.get("CAPACITY_GUARD_ENABLED", "1").strip().
 _CAPACITY_GUARD_MODE = os.environ.get("CAPACITY_GUARD_MODE", "enforce").strip().lower()  # enforce|warn
 _CAPACITY_RAM_BLOCK_PCT = float(os.environ.get("CAPACITY_RAM_BLOCK_PCT", "92"))
 _CAPACITY_GPU_FREE_MIN_GB = float(os.environ.get("CAPACITY_GPU_FREE_MIN_GB", "2"))
+
+# Guard slot-targeted generation/chat tools so they don't run before plug completes.
+_SLOT_READY_TOOLS = frozenset({"invoke_slot", "chat", "agent_chat", "generate", "classify"})
 
 
 def _bytes_to_gb(value: int | None) -> float | None:
@@ -592,6 +646,21 @@ async def proxy_tool_call(tool_name: str, request: Request):
     body_source = _normalize_activity_source(body.pop("__source", None) if isinstance(body, dict) else None)
     source = body_source or _infer_activity_source(request, fallback="webui")
     client_id = _extract_client_id(request)
+
+    slot_guard = await _slot_ready_guard(tool_name, body if isinstance(body, dict) else {})
+    if slot_guard:
+        error_msg = slot_guard.get("error") or f"Slot readiness guard blocked {tool_name}"
+        payload = {"error": error_msg, "slot_guard": slot_guard}
+        activity_hub.add_entry(
+            tool=tool_name,
+            args=body if isinstance(body, dict) else {},
+            result=payload,
+            duration_ms=0,
+            error=error_msg,
+            source=source,
+            client_id=client_id,
+        )
+        return JSONResponse(status_code=409, content=payload)
 
     runtime_capacity = None
     capacity_guard = None
@@ -1032,6 +1101,50 @@ async def mcp_message_proxy(request: Request):
         for tool, args, rpc_id in rpc_calls_raw
     ]
     body = normalize_rpc_workflow(body, normalize_workflow_nodes)
+
+    # Slot readiness guard for external MCP calls.
+    blocked_calls = []
+    for call in rpc_calls:
+        sg = await _slot_ready_guard(call.get("tool") or "", call.get("args") if isinstance(call, dict) else {})
+        if sg:
+            blocked_calls.append((call, sg))
+
+    if blocked_calls:
+        for call, sg in blocked_calls:
+            err = sg.get("error") or "Slot readiness guard blocked request"
+            activity_hub.add_entry(
+                tool=call.get("tool") or "",
+                args=call.get("args") or {},
+                result={"slot_guard": sg},
+                duration_ms=0,
+                error=err,
+                source="external",
+                client_id=_mcp_client_id,
+            )
+
+        if len(rpc_calls) == 1 and rpc_calls[0].get("rpc_id") is not None:
+            rid = rpc_calls[0].get("rpc_id")
+            err_msg = blocked_calls[0][1].get("error") or "Slot not ready"
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "jsonrpc": "2.0",
+                    "id": rid,
+                    "error": {
+                        "code": -32010,
+                        "message": err_msg,
+                        "data": {"slot_guard": blocked_calls[0][1]},
+                    },
+                },
+            )
+
+        return JSONResponse(
+            status_code=409,
+            content={
+                "error": blocked_calls[0][1].get("error") or "Slot readiness guard blocked request",
+                "blocked": [sg for _, sg in blocked_calls],
+            },
+        )
 
     start = time.time()
 
