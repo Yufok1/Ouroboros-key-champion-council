@@ -1212,11 +1212,12 @@ async def proxy_tool_call(tool_name: str, request: Request):
 @app.get("/api/tools")
 async def list_tools_route(request: Request):
     source = _infer_activity_source(request, fallback="webui")
+    client_id = _extract_client_id(request)
     start = time.time()
     result = await _list_tools()
     duration_ms = int((time.time() - start) * 1000)
     error_str = result.get("error") if isinstance(result.get("error"), str) else None
-    _broadcast_activity("list_tools", {}, result.get("result"), duration_ms, error_str, source=source)
+    _broadcast_activity("list_tools", {}, result.get("result"), duration_ms, error_str, source=source, client_id=client_id)
     if "error" in result and isinstance(result["error"], str):
         return JSONResponse(status_code=503, content=result)
     return result
@@ -1225,6 +1226,7 @@ async def list_tools_route(request: Request):
 @app.get("/api/health")
 async def health(request: Request):
     source = _infer_activity_source(request, fallback="webui")
+    client_id = _extract_client_id(request)
     start = time.time()
     capsule_alive = capsule_process is not None and capsule_process.poll() is None
     payload = {
@@ -1245,13 +1247,14 @@ async def health(request: Request):
         "gpu_free_gb": ((cap.get("gpu") or {}).get("free_gb")),
     }
     duration_ms = int((time.time() - start) * 1000)
-    _broadcast_activity("api_health", {}, {"content": [{"type": "text", "text": json.dumps(payload)}]}, duration_ms, None, source=source)
+    _broadcast_activity("api_health", {}, {"content": [{"type": "text", "text": json.dumps(payload)}]}, duration_ms, None, source=source, client_id=client_id)
     return payload
 
 
 @app.get("/api/runtime/capacity")
 async def runtime_capacity(request: Request):
     source = _infer_activity_source(request, fallback="webui")
+    client_id = _extract_client_id(request)
     start = time.time()
     payload = _runtime_capacity_snapshot(force=True)
     duration_ms = int((time.time() - start) * 1000)
@@ -1262,6 +1265,7 @@ async def runtime_capacity(request: Request):
         duration_ms,
         None,
         source=source,
+        client_id=client_id,
     )
     return payload
 
