@@ -33,12 +33,33 @@
     let _slotDrill = { active: false, slotIndex: -1 };
     let _slotDrillActivity = []; // per-slot activity entries
 
-    // ── AGENT CHAT DRILL-DOWN STATE ──
+    // ── AGENT MCP CONSOLE STATE ──
     var _achatSlot = null;
-    var _achatSessionId = '';
     var _achatBusy = false;
     var _achatSendTime = 0;
     var _achatElapsedTimer = null;
+    var _achatTabs = {};               // key -> tab state
+    var _achatActiveTabKey = '';
+    var _achatToolConfigOpen = false;
+    var _achatComposerBound = false;
+    var _achatToolPolicyStoreKey = 'cc_achat_tool_policies_v1';
+    var _achatToolPolicies = {};
+    var _achatDefaultGrantedTools = [
+        "get_status", "list_slots", "slot_info", "get_capabilities", "embed_text",
+        "bag_get", "bag_put", "bag_search", "bag_catalog", "bag_induct",
+        "bag_read_doc", "bag_list_docs", "bag_search_docs", "bag_tree",
+        "bag_versions", "bag_diff", "bag_checkpoint", "bag_restore",
+        "workflow_list", "workflow_get", "workflow_status",
+        "cascade_graph", "cascade_chain", "cascade_data", "cascade_system",
+        "cascade_record", "cascade_instrument", "cascade_proxy",
+        "diagnose_file", "diagnose_directory", "symbiotic_interpret",
+        "trace_root_causes", "forensics_analyze", "metrics_analyze"
+    ];
+    var _achatBlockedTools = {
+        "workflow_execute": 1, "start_api_server": 1, "implode": 1, "defrost": 1,
+        "spawn_quine": 1, "spawn_swarm": 1, "replicate": 1, "export_quine": 1,
+        "plug_model": 1, "unplug_slot": 1
+    };
 
     // ── NIP-88: POLL STATE ──
     var _polls = {}; // pollId -> { question, options, votes, voted, expired }
@@ -635,6 +656,13 @@
                             if (t && t.name) _toolSchemas[t.name] = t;
                         });
                         buildToolsRegistry();
+                        var activeAchat = _getActiveAchatTab ? _getActiveAchatTab() : null;
+                        if (activeAchat) {
+                            _renderAchatRunMode(activeAchat);
+                            _renderAchatToolSelect(activeAchat);
+                            _renderAchatToolConfig(activeAchat);
+                            _renderAchatPolicyPanel(activeAchat);
+                        }
                     }
                     break;
                 case 'nostrDocumentPublished':
@@ -1173,11 +1201,7 @@
 
             if (occupied) {
                 html += '<div class="slot-actions">';
-                if (_slotSupportsAgentChat(slot)) {
-                    html += '<button class="btn-dim btn-chat" data-action="chat" data-slot="' + i + '">CHAT</button>';
-                } else {
-                    html += '<button class="btn-dim" disabled title="This slot type is not chat-capable">EMBED-ONLY</button>';
-                }
+                html += '<button class="btn-dim btn-chat" data-action="chat" data-slot="' + i + '">' + (_slotSupportsAgentChat(slot) ? 'AGENT' : 'CONSOLE') + '</button>';
                 html += '<button class="btn-dim" data-action="unplug" data-slot="' + i + '">UNPLUG</button>';
                 html += '<button class="btn-dim" data-action="invoke" data-slot="' + i + '">INVOKE</button>';
                 html += '<button class="btn-dim" data-action="clone" data-slot="' + i + '">CLONE</button>';
@@ -1374,6 +1398,7 @@
         var actionsEl = document.getElementById('slot-drill-actions');
         if (actionsEl) {
             actionsEl.innerHTML =
+                '<button onclick="openAgentChat(' + idx + ')">AGENT</button>' +
                 '<button onclick="callTool(\'invoke_slot\',{slot:' + idx + ',text:\'test\'})">INVOKE</button>' +
                 '<button onclick="_slotDrillCompare(' + idx + ')">COMPARE</button>' +
                 '<button onclick="_slotDrillBenchmark(' + idx + ')">BENCHMARK</button>' +
@@ -1771,16 +1796,78 @@
 
     // ── TOOL CALL ──
     var _pendingTools = {}; // id -> tool name
+    var _pendingToolTabs = {}; // id -> agent chat tab key
+    var _pendingToolMeta = {}; // id -> meta options (promises, suppression)
     var _pendingDiagnostics = {}; // id -> diagnostic key
-    function callTool(name, args, routeAs) {
+    function callTool(name, args, routeAs, meta) {
         var id = ++_requestId;
         _pendingTools[id] = routeAs || name;
+        if (meta) _pendingToolMeta[id] = meta;
+        if (meta && meta.tabKey) _pendingToolTabs[id] = String(meta.tabKey);
         // Clear council output panel on new council operations for clean visual transitions
         if (COUNCIL_TOOLS.indexOf(name) >= 0 && name !== 'list_slots' && name !== 'agent_chat') {
             var councilOut = document.getElementById('council-output');
             if (councilOut) councilOut.innerHTML = '<pre style="white-space:pre-wrap;color:var(--text-dim);font-size:11px;">Running ' + name + '...</pre>';
         }
         vscode.postMessage({ command: 'callTool', tool: name, args: args || {}, id: id });
+        return id;
+    }
+
+    var TOOL_AWAIT_TIMEOUT_MS = 60000; // 60s default timeout for awaited tool calls
+    function callToolAwait(name, args, routeAs, meta) {
+        return new Promise(function (resolve, reject) {
+            var m = {};
+            if (meta && typeof meta === 'object') {
+                for (var k in meta) {
+                    if (Object.prototype.hasOwnProperty.call(meta, k)) m[k] = meta[k];
+                }
+            }
+            var settled = false;
+            var timeoutMs = (m.timeout && typeof m.timeout === 'number') ? m.timeout : TOOL_AWAIT_TIMEOUT_MS;
+            var timer = setTimeout(function () {
+                if (settled) return;
+                settled = true;
+                // Clean up pending maps to prevent leak
+                for (var pid in _pendingToolMeta) {
+                    if (_pendingToolMeta[pid] && _pendingToolMeta[pid] === m) {
+                        delete _pendingTools[pid];
+                        delete _pendingToolTabs[pid];
+                        delete _pendingToolMeta[pid];
+                        break;
+                    }
+                }
+                reject(new Error('Tool call "' + name + '" timed out after ' + (timeoutMs / 1000) + 's'));
+            }, timeoutMs);
+            m.resolve = function (v) { if (!settled) { settled = true; clearTimeout(timer); resolve(v); } };
+            m.reject = function (e) { if (!settled) { settled = true; clearTimeout(timer); reject(e); } };
+            m.suppressDefault = true;
+            callTool(name, args, routeAs, m);
+        });
+    }
+
+    function _normalizeToolPayload(data) {
+        if (data == null) return null;
+        if (typeof data === 'string') {
+            var parsed = _safeJsonParse(data);
+            return parsed === null ? data : parsed;
+        }
+        if (data && data.content && Array.isArray(data.content) && data.content[0] && typeof data.content[0].text === 'string') {
+            var inner = _safeJsonParse(data.content[0].text);
+            return inner === null ? data.content[0].text : inner;
+        }
+        return data;
+    }
+
+    async function callToolAwaitParsed(name, args, routeAs, meta) {
+        var msg = await callToolAwait(name, args, routeAs, meta);
+        if (msg && msg.error) throw new Error(String(msg.error));
+        var payload = _normalizeToolPayload(parseToolData(msg ? msg.data : null));
+        if (payload && payload._cached) {
+            var cached = await callToolAwait('get_cached', { cache_id: payload._cached }, routeAs || '__internal_agent_loop__', meta);
+            if (cached && cached.error) throw new Error(String(cached.error));
+            payload = _normalizeToolPayload(parseToolData(cached ? cached.data : null));
+        }
+        return payload;
     }
     function runDiagnostic(diagKey) {
         var id = ++_requestId;
@@ -3528,7 +3615,21 @@
 
     function handleToolResult(msg) {
         var toolName = _pendingTools[msg.id] || '';
+        var pendingTabKey = _pendingToolTabs[msg.id] || '';
+        var pendingMeta = _pendingToolMeta[msg.id] || null;
         delete _pendingTools[msg.id];
+        delete _pendingToolTabs[msg.id];
+        delete _pendingToolMeta[msg.id];
+
+        if (pendingMeta && pendingMeta.suppressDefault) {
+            if (msg && msg.error) {
+                if (typeof pendingMeta.reject === 'function') pendingMeta.reject(new Error(String(msg.error)));
+                else if (typeof pendingMeta.resolve === 'function') pendingMeta.resolve(msg);
+                return;
+            }
+            if (typeof pendingMeta.resolve === 'function') pendingMeta.resolve(msg);
+            return;
+        }
 
         // Hub info enrichment for slot metadata cards — silent, no output
         if (toolName === 'hub_info_enrich' && !msg.error) {
@@ -3545,67 +3646,74 @@
             return;
         }
 
-        // Agent chat drill-down responses — route to chat overlay
-        if (toolName === 'agent_chat' || toolName === '__agent_chat__') {
+        // Agent MCP console responses — route to slot tab timeline
+        if (toolName === 'agent_chat' || toolName === '__agent_chat__' || toolName === '__achat_tool__') {
             _setAchatBusy(false);
+            var activeTab = pendingTabKey ? _achatTabs[pendingTabKey] : _getActiveAchatTab();
             if (msg.error) {
-                _clearEmptyState();
-                var errDiv = document.createElement('div');
-                errDiv.className = 'achat-msg error';
-                errDiv.textContent = msg.error;
-                var mc = document.getElementById('achat-messages');
-                if (mc) { mc.appendChild(errDiv); mc.scrollTop = mc.scrollHeight; }
+                _appendAchatMsg('error', String(msg.error || 'Unknown error'), Date.now(), activeTab);
                 return;
             }
             try {
                 var raw = parseToolData(msg.data);
-                var resp = typeof raw === 'string' ? JSON.parse(raw) : raw;
+                var payload = raw;
+                if (typeof payload === 'string') {
+                    try { payload = JSON.parse(payload); } catch (e) { }
+                }
 
-                if (resp && resp._cached) {
-                    callTool('get_cached', { cache_id: resp._cached }, '__agent_chat__');
+                if (payload && payload._cached) {
+                    callTool('get_cached', { cache_id: payload._cached }, toolName);
                     return;
                 }
 
-                if (resp && resp.error) {
-                    _appendAchatMsg('error', String(resp.error), Date.now());
-                    return;
-                }
-
-                if (resp && resp.session_id) {
-                    _achatSessionId = resp.session_id;
-                    var sidEl = document.getElementById('achat-session-id');
-                    if (sidEl) sidEl.textContent = resp.session_id;
-                }
-                if (resp && resp.blocked_tools) {
-                    var blockedEl = document.getElementById('achat-blocked-count');
-                    if (blockedEl) blockedEl.textContent = resp.blocked_tools.length;
-                }
-                if (resp && resp.granted_tools) {
-                    var grantedEl = document.getElementById('achat-tool-count');
-                    if (grantedEl) grantedEl.textContent = String(resp.granted_tools.length);
-                }
-                if (resp && resp.turn_count !== undefined) {
-                    var sessionLabel = document.getElementById('achat-session-id');
-                    if (sessionLabel && resp.session_id) {
-                        sessionLabel.textContent = resp.session_id + ' (' + resp.turn_count + ' turns)';
+                if (toolName === '__achat_tool__') {
+                    if (payload && payload.error) {
+                        _appendAchatMsg('error', String(payload.error), Date.now(), activeTab);
+                        return;
                     }
+                    var pretty = '';
+                    try { pretty = typeof payload === 'string' ? payload : JSON.stringify(payload, null, 2); }
+                    catch (e2) { pretty = String(payload); }
+                    if (pretty.length > 6000) pretty = pretty.substring(0, 6000) + '\n…[truncated]';
+                    _appendAchatMsg('assistant', pretty, Date.now(), activeTab);
+                    return;
                 }
+
+                var resp = payload;
+                if (resp && resp.error) {
+                    _appendAchatMsg('error', String(resp.error), Date.now(), activeTab);
+                    return;
+                }
+
+                var tabSlot = (resp && resp.slot !== undefined) ? parseInt(resp.slot, 10) : (activeTab ? activeTab.slot : _achatSlot);
+                var tab = _ensureAchatTab(tabSlot);
+                if (tab && (!_achatActiveTabKey || _achatActiveTabKey === tab.key)) {
+                    _activateAchatTab(tab.key, false);
+                }
+
+                if (resp && resp.session_id && tab) {
+                    tab.sessionId = resp.session_id;
+                }
+                _refreshAchatMeta();
 
                 var elapsed = _achatSendTime ? Math.round((Date.now() - _achatSendTime) / 1000) : 0;
                 var resultObj = (resp && resp.result) ? resp.result : (resp || {});
                 if (resultObj.error) {
-                    _appendAchatMsg('error', resultObj.error, Date.now());
+                    _appendAchatMsg('error', String(resultObj.error), Date.now(), tab);
                     return;
                 }
 
                 var toolCalls = resultObj.tool_calls || [];
-                if (toolCalls.length) _appendAchatToolTrace(toolCalls);
+                if (toolCalls.length) {
+                    _appendAchatToolTrace(toolCalls, tab);
+                    _logAchatSyntheticActivity(toolCalls, tab ? tab.slot : tabSlot);
+                }
 
                 var answer = resultObj.final_answer || resultObj.answer || '';
                 if (answer) {
-                    _appendAchatMsg('assistant', answer, Date.now());
+                    _appendAchatMsg('assistant', answer, Date.now(), tab);
                 } else if (!toolCalls.length) {
-                    _appendAchatMsg('error', 'No response received. Make sure this slot has a text-generation model plugged in.', Date.now());
+                    _appendAchatMsg('error', 'No response received. Check slot/model and selected tool configuration.', Date.now(), tab);
                 }
 
                 var iterations = resultObj.iterations || 0;
@@ -3614,11 +3722,12 @@
                         iterations + ' iteration' + (iterations !== 1 ? 's' : '') +
                         ' · ' + elapsed + 's · ' +
                         toolCalls.length + ' tool call' + (toolCalls.length !== 1 ? 's' : ''),
-                        null
+                        null,
+                        tab
                     );
                 }
-            } catch (e) {
-                _appendAchatMsg('assistant', parseToolData(msg.data), Date.now());
+            } catch (e3) {
+                _appendAchatMsg('assistant', parseToolData(msg.data), Date.now(), activeTab);
             }
             return;
         }
@@ -7237,84 +7346,657 @@
         }
     }
 
-    // ═══════════════ AGENT CHAT DRILL-DOWN ═══════════════
-    function openAgentChat(slot) {
-        _achatSlot = slot;
-        _achatSessionId = '';
+    // ═══════════════ AGENT MCP CONSOLE ═══════════════
+    function _safeJsonParse(value) {
+        if (value == null) return null;
+        if (typeof value !== 'string') return value;
+        try { return JSON.parse(value); } catch (e) { return null; }
+    }
 
-        if (_slotDrill && _slotDrill.active) {
-            closeSlotDrill();
+    function _getAchatToolSchema(toolName) {
+        if (!toolName) return null;
+        var schema = _toolSchemas[toolName] || null;
+        if (!schema) return null;
+        return schema.inputSchema || schema.parameters || null;
+    }
+
+    function _allToolNames() {
+        var names = [];
+        var seen = {};
+        var fromSchema = Object.keys(_toolSchemas || {});
+        for (var i = 0; i < fromSchema.length; i++) {
+            var n = fromSchema[i];
+            if (!seen[n]) { seen[n] = true; names.push(n); }
         }
+        var cats = Object.keys(CATEGORIES || {});
+        for (var c = 0; c < cats.length; c++) {
+            var tools = (CATEGORIES[cats[c]] && CATEGORIES[cats[c]].tools) || [];
+            for (var j = 0; j < tools.length; j++) {
+                var t = tools[j];
+                if (!seen[t]) { seen[t] = true; names.push(t); }
+            }
+        }
+        names.sort();
+        return names;
+    }
 
-        var tab = document.getElementById('tab-council');
-        if (!tab) return;
-        tab.classList.add('chat-active');
+    function _loadAchatToolPolicies() {
+        try {
+            var raw = localStorage.getItem(_achatToolPolicyStoreKey);
+            _achatToolPolicies = raw ? (JSON.parse(raw) || {}) : {};
+        } catch (e) {
+            _achatToolPolicies = {};
+        }
+    }
 
-        var slotInfo = _getSlotData ? _getSlotData(slot) : null;
-        var isPlugged = !!(slotInfo && _getSlotVisualState(slotInfo) === 'plugged');
-        var modelRaw = slotInfo ? (slotInfo.model_source || slotInfo.model_id || slotInfo.name || ('SLOT ' + slot)) : ('SLOT ' + slot);
+    function _saveAchatToolPolicies() {
+        try { localStorage.setItem(_achatToolPolicyStoreKey, JSON.stringify(_achatToolPolicies || {})); }
+        catch (e) { }
+    }
+
+    function _policyKeyForSlot(slot, modelSource) {
+        return String(modelSource || ('slot:' + slot));
+    }
+
+    function _sanitizeGrantedTools(list) {
+        var all = _allToolNames();
+        var allowed = {};
+        for (var i = 0; i < all.length; i++) allowed[all[i]] = 1;
+        var out = [];
+        var seen = {};
+        var src = Array.isArray(list) ? list : [];
+        for (var j = 0; j < src.length; j++) {
+            var t = String(src[j] || '').trim();
+            if (!t || _achatBlockedTools[t]) continue;
+            if (allowed[t] || all.length === 0) {
+                if (!seen[t]) { seen[t] = true; out.push(t); }
+            }
+        }
+        return out;
+    }
+
+    function _defaultGrantedToolsForTab(tab) {
+        if (!tab || !tab.canChat) return [];
+        var base = _sanitizeGrantedTools(_achatDefaultGrantedTools);
+        if (!base.length) {
+            var fallback = _allToolNames().filter(function (t) { return !_achatBlockedTools[t]; });
+            return fallback.slice(0, 40);
+        }
+        return base;
+    }
+
+    function _ensureAchatTab(slot) {
+        var slotIndex = parseInt(slot, 10);
+        if (!(slotIndex >= 0)) return null;
+        var key = 'slot:' + slotIndex;
+        var existing = _achatTabs[key];
+        var slotInfo = _getSlotData ? _getSlotData(slotIndex) : null;
+        var modelSource = slotInfo ? (slotInfo.model_source || slotInfo.model_id || slotInfo.name || ('slot_' + slotIndex)) : ('slot_' + slotIndex);
         var modelType = String((slotInfo && (slotInfo.model_type || slotInfo.type)) || 'unknown').toUpperCase();
+        var isPlugged = !!(slotInfo && _getSlotVisualState(slotInfo) === 'plugged');
         var canChat = _slotSupportsAgentChat(slotInfo || {});
 
-        var titleEl = document.getElementById('achat-title');
-        if (titleEl) titleEl.textContent = 'SLOT ' + slot + ' — ' + (isPlugged ? modelRaw : 'EMPTY');
+        if (!existing) {
+            var policyKey = _policyKeyForSlot(slotIndex, modelSource);
+            var savedTools = _sanitizeGrantedTools((_achatToolPolicies && _achatToolPolicies[policyKey]) || []);
+            var tab = {
+                key: key,
+                slot: slotIndex,
+                modelSource: modelSource,
+                modelType: modelType,
+                isPlugged: isPlugged,
+                canChat: canChat,
+                messages: [],
+                selectedTool: canChat ? 'invoke_slot' : 'invoke_slot',
+                runMode: canChat ? 'loop' : 'direct',
+                toolArgs: {},
+                sessionId: '',
+                loopMessages: [],
+                grantedTools: savedTools.length ? savedTools : _defaultGrantedToolsForTab({ canChat: canChat })
+            };
+            _achatTabs[key] = tab;
+            return tab;
+        }
 
-        var sidEl = document.getElementById('achat-session-id');
-        if (sidEl) sidEl.textContent = '';
+        existing.modelSource = modelSource;
+        existing.modelType = modelType;
+        existing.isPlugged = isPlugged;
+        existing.canChat = canChat;
+        if (!existing.canChat && existing.selectedTool === 'agent_chat') {
+            existing.selectedTool = 'invoke_slot';
+        }
+        if (!existing.canChat && existing.runMode === 'loop') {
+            existing.runMode = 'direct';
+        }
+        if (!existing.runMode) existing.runMode = existing.canChat ? 'loop' : 'direct';
+        if (!Array.isArray(existing.loopMessages)) existing.loopMessages = [];
+        if (!Array.isArray(existing.grantedTools) || !existing.grantedTools.length) {
+            existing.grantedTools = _defaultGrantedToolsForTab(existing);
+        }
+        return existing;
+    }
 
-        var nameEl = document.getElementById('achat-model-name');
-        if (nameEl) nameEl.textContent = isPlugged ? modelRaw : 'No model plugged';
+    function _getActiveAchatTab() {
+        return _achatTabs[_achatActiveTabKey] || null;
+    }
 
-        var metaEl = document.getElementById('achat-model-meta');
-        if (metaEl) {
-            var typeClass = 'type-llm';
-            if (modelType.indexOf('EMBED') >= 0) typeClass = 'type-embed';
-            else if (modelType.indexOf('CLASS') >= 0) typeClass = 'type-class';
-            else if (modelType.indexOf('RERANK') >= 0) typeClass = 'type-rerank';
+    function _renderAchatTabs() {
+        var wrap = document.getElementById('achat-tabs');
+        if (!wrap) return;
+        var keys = Object.keys(_achatTabs).sort(function (a, b) {
+            var sa = _achatTabs[a] ? _achatTabs[a].slot : 0;
+            var sb = _achatTabs[b] ? _achatTabs[b].slot : 0;
+            return sa - sb;
+        });
+        if (!keys.length) {
+            wrap.innerHTML = '<div class="achat-tab-empty">Open a slot to start a model console tab.</div>';
+            return;
+        }
+        var html = '';
+        for (var i = 0; i < keys.length; i++) {
+            var k = keys[i];
+            var t = _achatTabs[k];
+            if (!t) continue;
+            var active = k === _achatActiveTabKey;
+            var stateCls = t.isPlugged ? 'ready' : 'empty';
+            html += '<button class="achat-tab ' + (active ? 'active' : '') + ' ' + stateCls + '" data-achat-tab="' + escHtml(k) + '">' +
+                '<span class="tab-slot">S' + (t.slot + 1) + '</span>' +
+                '<span class="tab-name">' + escHtml(String(t.modelSource || ('slot_' + t.slot))) + '</span>' +
+                '</button>';
+        }
+        wrap.innerHTML = html;
+        if (!wrap.dataset.bound) {
+            wrap.addEventListener('click', function (ev) {
+                var btn = ev.target.closest('[data-achat-tab]');
+                if (!btn) return;
+                var key = btn.getAttribute('data-achat-tab') || '';
+                if (key) _activateAchatTab(key, true);
+            });
+            wrap.dataset.bound = '1';
+        }
+    }
 
-            if (isPlugged) {
-                metaEl.innerHTML = '<span class="achat-tag ' + typeClass + '">' + escHtml(modelType || 'MODEL') + '</span>' +
-                    '<span class="achat-tag">SLOT ' + slot + '</span>';
-                if (!canChat) {
-                    metaEl.innerHTML += '<span class="achat-tag" style="color:#f59e0b;border-color:#f59e0b;background:rgba(245,158,11,0.12);">EMBED/UTILITY ONLY</span>';
+    function _renderAchatMessages(tab) {
+        var container = document.getElementById('achat-messages');
+        if (!container) return;
+        container.innerHTML = '';
+        if (!tab || !tab.messages || !tab.messages.length) {
+            container.innerHTML =
+                '<div class="achat-empty">Select a tool and configure args.<br/>' +
+                'Use <b>agent_chat</b> for autonomous multi-tool loops, or any MCP tool directly for one-shot operations.</div>';
+            return;
+        }
+
+        for (var i = 0; i < tab.messages.length; i++) {
+            var m = tab.messages[i] || {};
+            if (m.role === 'tool-trace') {
+                var tDiv = document.createElement('div');
+                tDiv.className = 'achat-msg tool-trace';
+                var calls = Array.isArray(m.toolCalls) ? m.toolCalls : [];
+                var hdr = '<div class="trace-header">Tool calls (' + calls.length + ')</div>';
+                var lines = calls.map(function (tc) {
+                    var name = tc.tool || tc.name || '?';
+                    var err = !!tc.error;
+                    var argsPreview = tc.args ? JSON.stringify(tc.args) : '';
+                    if (argsPreview.length > 120) argsPreview = argsPreview.substring(0, 120) + '...';
+                    var resultPreview = '';
+                    if (tc.result) {
+                        resultPreview = typeof tc.result === 'string' ? tc.result : JSON.stringify(tc.result);
+                        if (resultPreview.length > 160) resultPreview = resultPreview.substring(0, 160) + '...';
+                    }
+                    if (tc.error) resultPreview = String(tc.error);
+                    return '<div class="trace-line">' +
+                        '<span class="trace-tool-name">' + escHtml(name) + '</span> ' +
+                        '<span class="' + (err ? 'trace-status-err' : 'trace-status-ok') + '">' + (err ? 'ERR' : 'OK') + '</span>' +
+                        (argsPreview ? ' <span class="trace-preview">args: ' + escHtml(argsPreview) + '</span>' : '') +
+                        (resultPreview ? ' <span class="trace-preview">→ ' + escHtml(resultPreview) + '</span>' : '') +
+                        '</div>';
+                }).join('');
+                tDiv.innerHTML = hdr + lines;
+                container.appendChild(tDiv);
+                continue;
+            }
+            var div = document.createElement('div');
+            div.className = 'achat-msg ' + (m.role || 'assistant');
+            var tsStr = m.ts ? new Date(m.ts).toLocaleTimeString() : '';
+            div.innerHTML = escHtml(String(m.content || '')) + (tsStr ? '<span class="achat-ts">' + tsStr + '</span>' : '');
+            container.appendChild(div);
+        }
+        container.scrollTop = container.scrollHeight;
+    }
+
+    function _appendAchatMsg(role, content, ts, tabRef) {
+        var tab = tabRef || _getActiveAchatTab();
+        if (!tab) return;
+        if (!Array.isArray(tab.messages)) tab.messages = [];
+        tab.messages.push({ role: role, content: String(content || ''), ts: ts || Date.now() });
+        if (tab.key === _achatActiveTabKey) _renderAchatMessages(tab);
+    }
+
+    function _appendAchatToolTrace(toolCalls, tabRef) {
+        var tab = tabRef || _getActiveAchatTab();
+        if (!tab) return;
+        if (!Array.isArray(tab.messages)) tab.messages = [];
+        tab.messages.push({ role: 'tool-trace', toolCalls: Array.isArray(toolCalls) ? toolCalls : [], ts: Date.now() });
+        if (tab.key === _achatActiveTabKey) _renderAchatMessages(tab);
+    }
+
+    function _logAchatSyntheticActivity(toolCalls, slotIndex) {
+        if (!Array.isArray(toolCalls) || !toolCalls.length) return;
+        for (var i = 0; i < toolCalls.length; i++) {
+            var tc = toolCalls[i] || {};
+            var entry = {
+                timestamp: Date.now(),
+                tool: tc.tool || tc.name || 'agent_tool',
+                category: 'agent',
+                args: tc.args || {},
+                result: tc.result || null,
+                error: tc.error ? String(tc.error) : null,
+                durationMs: 0,
+                source: 'agent-inner'
+            };
+            if (slotIndex >= 0) entry.args.slot = slotIndex;
+            _activityLog.push(entry);
+            if (_activityLog.length > 500) _activityLog = _activityLog.slice(-500);
+        }
+        renderActivityFeed();
+    }
+
+    function _renderAchatToolSelect(tab) {
+        var sel = document.getElementById('achat-run-tool');
+        if (!sel || !tab) return;
+        var filter = String((document.getElementById('achat-tool-filter') || {}).value || '').trim().toLowerCase();
+        var all = _allToolNames();
+
+        var options = [];
+        if (tab.canChat && tab.isPlugged) options.push('agent_chat');
+        options.push('invoke_slot');
+        for (var i = 0; i < all.length; i++) {
+            if (all[i] === 'agent_chat' || all[i] === 'invoke_slot') continue;
+            options.push(all[i]);
+        }
+        var seen = {};
+        var filtered = [];
+        for (var j = 0; j < options.length; j++) {
+            var name = options[j];
+            if (seen[name]) continue;
+            seen[name] = true;
+            if (filter && name.toLowerCase().indexOf(filter) < 0) continue;
+            filtered.push(name);
+        }
+
+        sel.innerHTML = filtered.map(function (n) {
+            return '<option value="' + escHtml(n) + '">' + escHtml(n) + '</option>';
+        }).join('');
+
+        if (filtered.indexOf(tab.selectedTool) >= 0) {
+            sel.value = tab.selectedTool;
+        } else if (filtered.length > 0) {
+            tab.selectedTool = filtered[0];
+            sel.value = filtered[0];
+        }
+    }
+
+    function _renderAchatRunMode(tab) {
+        var modeEl = document.getElementById('achat-run-mode');
+        var toolSel = document.getElementById('achat-run-tool');
+        var toolFilter = document.getElementById('achat-tool-filter');
+        var maxIter = document.getElementById('achat-max-iter');
+        if (!modeEl || !tab) return;
+
+        if (!tab.canChat && tab.runMode === 'loop') tab.runMode = 'direct';
+        if (!tab.runMode) tab.runMode = tab.canChat ? 'loop' : 'direct';
+        modeEl.value = tab.runMode;
+
+        var loopMode = tab.runMode === 'loop';
+        if (toolSel) toolSel.disabled = loopMode;
+        if (toolFilter) toolFilter.disabled = loopMode;
+        if (maxIter) maxIter.disabled = !loopMode;
+    }
+
+    function _setFieldValue(el, pType, value) {
+        if (!el) return;
+        if (pType === 'boolean') {
+            el.checked = !!value;
+            return;
+        }
+        if (value === undefined || value === null) {
+            el.value = '';
+            return;
+        }
+        if (pType === 'object' || pType === 'array') {
+            try { el.value = typeof value === 'string' ? value : JSON.stringify(value, null, 2); }
+            catch (e) { el.value = String(value); }
+            return;
+        }
+        el.value = String(value);
+    }
+
+    function _renderAchatToolConfig(tab) {
+        var noteEl = document.getElementById('achat-config-note');
+        var fieldsEl = document.getElementById('achat-config-fields');
+        var panel = document.getElementById('achat-tool-config');
+        if (!fieldsEl || !noteEl || !panel || !tab) return;
+
+        panel.classList.toggle('open', !!_achatToolConfigOpen);
+        if (!_achatToolConfigOpen) return;
+
+        var toolName = tab.selectedTool || 'invoke_slot';
+        if (tab.runMode === 'loop') {
+            noteEl.innerHTML =
+                'Deterministic loop mode runs <b>invoke_slot</b> iteratively and executes only your granted tool policy (<b>' +
+                (tab.grantedTools ? tab.grantedTools.length : 0) + '</b> tools).';
+            fieldsEl.innerHTML = '';
+            return;
+        }
+        var schema = _getAchatToolSchema(toolName);
+        var props = (schema && schema.properties) ? schema.properties : {};
+        var required = (schema && schema.required) ? schema.required : [];
+        var pNames = Object.keys(props || {});
+        var cache = tab.toolArgs[toolName] || {};
+
+        if (toolName === 'agent_chat') {
+            noteEl.innerHTML =
+                'Autonomous mode. The model can call only <b>' + (tab.grantedTools ? tab.grantedTools.length : 0) +
+                '</b> granted tools. Use <b>TOOL ACCESS</b> to adjust policy for this model.';
+            fieldsEl.innerHTML = '';
+            return;
+        }
+
+        if (!schema || !pNames.length) {
+            noteEl.textContent = 'No input schema available for this tool. You can still run with defaults.';
+            fieldsEl.innerHTML = '';
+            return;
+        }
+
+        noteEl.textContent = 'Configure arguments for ' + toolName + '. Required fields are marked.';
+        var html = '';
+        for (var i = 0; i < pNames.length; i++) {
+            var name = pNames[i];
+            var def = props[name] || {};
+            var pType = def.type || (Array.isArray(def.enum) ? 'string' : 'string');
+            var isReq = required.indexOf(name) >= 0;
+            var current = cache[name];
+            if (current === undefined && def.default !== undefined) current = def.default;
+
+            html += '<div class="achat-field-row">';
+            html += '<label>' + escHtml(name) + (isReq ? ' <span class="req">*</span>' : '') +
+                '<span class="type">' + escHtml(pType) + '</span></label>';
+
+            if (Array.isArray(def.enum)) {
+                html += '<select data-achat-field="' + escHtml(name) + '" data-type="string">';
+                html += '<option value=""></option>';
+                for (var e = 0; e < def.enum.length; e++) {
+                    var opt = def.enum[e];
+                    var sel = String(current) === String(opt) ? ' selected' : '';
+                    html += '<option value="' + escHtml(String(opt)) + '"' + sel + '>' + escHtml(String(opt)) + '</option>';
                 }
+                html += '</select>';
+            } else if (pType === 'boolean') {
+                html += '<input type="checkbox" data-achat-field="' + escHtml(name) + '" data-type="boolean"' + (current ? ' checked' : '') + ' />';
+            } else if (pType === 'number' || pType === 'integer') {
+                var step = pType === 'integer' ? '1' : 'any';
+                html += '<input type="number" step="' + step + '" data-achat-field="' + escHtml(name) + '" data-type="' + escHtml(pType) + '" />';
+            } else if (pType === 'object' || pType === 'array') {
+                html += '<textarea data-achat-field="' + escHtml(name) + '" data-type="' + escHtml(pType) + '" placeholder="JSON value"></textarea>';
             } else {
-                metaEl.innerHTML = '<span class="achat-tag" style="background:#7f1d1d;color:#fca5a5;">EMPTY SLOT</span>' +
-                    '<span class="achat-tag">SLOT ' + slot + '</span>';
+                html += '<input type="text" data-achat-field="' + escHtml(name) + '" data-type="string" />';
+            }
+
+            if (def.description) {
+                html += '<div class="hint">' + escHtml(def.description) + '</div>';
+            }
+            if (def.default !== undefined) {
+                html += '<div class="hint">Default: <code>' + escHtml(JSON.stringify(def.default)) + '</code></div>';
+            }
+            html += '</div>';
+        }
+        fieldsEl.innerHTML = html;
+
+        var rows = fieldsEl.querySelectorAll('[data-achat-field]');
+        for (var r = 0; r < rows.length; r++) {
+            var el = rows[r];
+            var fName = el.getAttribute('data-achat-field');
+            var t = el.getAttribute('data-type') || 'string';
+            _setFieldValue(el, t, cache[fName]);
+            (function (fieldEl, fieldName, fieldType) {
+                var save = function () {
+                    if (!tab.toolArgs[toolName]) tab.toolArgs[toolName] = {};
+                    if (fieldType === 'boolean') tab.toolArgs[toolName][fieldName] = !!fieldEl.checked;
+                    else tab.toolArgs[toolName][fieldName] = fieldEl.value;
+                };
+                fieldEl.addEventListener('change', save);
+                fieldEl.addEventListener('input', save);
+            })(el, fName, t);
+        }
+    }
+
+    function _renderAchatPolicyPanel(tab) {
+        var panel = document.getElementById('achat-tool-policy');
+        if (!panel || !tab) return;
+
+        var all = _allToolNames().filter(function (t) { return t !== 'agent_chat'; });
+        var filter = String((document.getElementById('achat-policy-filter') || {}).value || '').trim().toLowerCase();
+        var filtered = all.filter(function (n) {
+            if (_achatBlockedTools[n]) return false;
+            return !filter || n.toLowerCase().indexOf(filter) >= 0;
+        });
+
+        var selected = {};
+        var granted = Array.isArray(tab.grantedTools) ? tab.grantedTools : [];
+        for (var i = 0; i < granted.length; i++) selected[granted[i]] = true;
+
+        var html = '';
+        html += '<div class="achat-policy-head">';
+        html += '<input id="achat-policy-filter" placeholder="Filter tools..." value="' + escHtml(filter) + '" />';
+        html += '<button class="btn-dim" onclick="achatPolicyDefault()">DEFAULT</button>';
+        html += '<button class="btn-dim" onclick="achatPolicySelectAll()">ALL SAFE</button>';
+        html += '<button class="btn-dim" onclick="achatPolicyClear()">CLEAR</button>';
+        html += '</div>';
+        html += '<div class="achat-policy-list">';
+        if (!filtered.length) {
+            html += '<div class="achat-policy-empty">No tools match this filter.</div>';
+        } else {
+            for (var j = 0; j < filtered.length; j++) {
+                var tool = filtered[j];
+                var checked = selected[tool] ? ' checked' : '';
+                html += '<label class="achat-policy-item"><input type="checkbox" data-achat-policy="' + escHtml(tool) + '"' + checked + ' /> ' + escHtml(tool) + '</label>';
             }
         }
+        html += '</div>';
+        panel.innerHTML = html;
 
-        var toolCountEl = document.getElementById('achat-tool-count');
-        if (toolCountEl) toolCountEl.textContent = 'default set (~30)';
-        var blockedEl = document.getElementById('achat-blocked-count');
-        if (blockedEl) blockedEl.textContent = '10';
-
-        var messagesEl = document.getElementById('achat-messages');
-        if (messagesEl) {
-            if (!isPlugged) {
-                messagesEl.innerHTML =
-                    '<div class="achat-msg error" style="padding:16px;text-align:center;">' +
-                    'This slot is empty. Plug a model first.' +
-                    '<br/><br/><span style="color:var(--text-dim);font-size:11px;">Example: plug_model(model_id="Qwen/Qwen2.5-1.5B-Instruct")</span></div>';
-                _setAchatBusy(true);
-            } else if (!canChat) {
-                messagesEl.innerHTML =
-                    '<div class="achat-msg error" style="padding:16px;text-align:center;">' +
-                    'This slot type is not chat-capable (embedding/classifier/reranker).' +
-                    '<br/><br/><span style="color:var(--text-dim);font-size:11px;">Use INVOKE or slot actions for this model.</span></div>';
-                _setAchatBusy(true);
-            } else {
-                messagesEl.innerHTML =
-                    '<div class="achat-empty">Send a message to start a conversation.<br/>The agent can use tools autonomously.' +
-                    '<br/><span style="color:var(--text-dim);font-size:11px;margin-top:6px;display:inline-block;">CPU inference may take 1-5 minutes per iteration for >1B models.</span></div>';
-                _setAchatBusy(false);
-            }
+        var filterEl = document.getElementById('achat-policy-filter');
+        if (filterEl && !filterEl.dataset.bound) {
+            filterEl.addEventListener('input', function () { _renderAchatPolicyPanel(tab); });
+            filterEl.dataset.bound = '1';
         }
+
+        var boxes = panel.querySelectorAll('[data-achat-policy]');
+        for (var b = 0; b < boxes.length; b++) {
+            boxes[b].addEventListener('change', function () {
+                var list = [];
+                var cbs = panel.querySelectorAll('[data-achat-policy]');
+                for (var k = 0; k < cbs.length; k++) {
+                    if (cbs[k].checked) list.push(cbs[k].getAttribute('data-achat-policy'));
+                }
+                var hiddenKept = (tab.grantedTools || []).filter(function (t) {
+                    return list.indexOf(t) < 0 && filtered.indexOf(t) < 0;
+                });
+                tab.grantedTools = _sanitizeGrantedTools(list.concat(hiddenKept));
+                var policyKey = _policyKeyForSlot(tab.slot, tab.modelSource);
+                _achatToolPolicies[policyKey] = tab.grantedTools.slice();
+                _saveAchatToolPolicies();
+                _refreshAchatMeta();
+            });
+        }
+    }
+
+    function achatPolicyDefault() {
+        var tab = _getActiveAchatTab();
+        if (!tab) return;
+        tab.grantedTools = _defaultGrantedToolsForTab(tab);
+        _achatToolPolicies[_policyKeyForSlot(tab.slot, tab.modelSource)] = tab.grantedTools.slice();
+        _saveAchatToolPolicies();
+        _renderAchatPolicyPanel(tab);
+        _refreshAchatMeta();
+    }
+    window.achatPolicyDefault = achatPolicyDefault;
+
+    function achatPolicySelectAll() {
+        var tab = _getActiveAchatTab();
+        if (!tab) return;
+        tab.grantedTools = _allToolNames().filter(function (t) { return !_achatBlockedTools[t] && t !== 'agent_chat'; });
+        _achatToolPolicies[_policyKeyForSlot(tab.slot, tab.modelSource)] = tab.grantedTools.slice();
+        _saveAchatToolPolicies();
+        _renderAchatPolicyPanel(tab);
+        _refreshAchatMeta();
+    }
+    window.achatPolicySelectAll = achatPolicySelectAll;
+
+    function achatPolicyClear() {
+        var tab = _getActiveAchatTab();
+        if (!tab) return;
+        tab.grantedTools = [];
+        _achatToolPolicies[_policyKeyForSlot(tab.slot, tab.modelSource)] = [];
+        _saveAchatToolPolicies();
+        _renderAchatPolicyPanel(tab);
+        _refreshAchatMeta();
+    }
+    window.achatPolicyClear = achatPolicyClear;
+
+    function _activateAchatTab(key, focusInput) {
+        if (!_achatTabs[key]) return;
+        _achatActiveTabKey = key;
+        var tab = _achatTabs[key];
+        _achatSlot = tab.slot;
+        _renderAchatTabs();
+        _refreshAchatMeta();
+        _renderAchatRunMode(tab);
+        _renderAchatToolSelect(tab);
+        _renderAchatToolConfig(tab);
+        _renderAchatMessages(tab);
+        _renderAchatPolicyPanel(tab);
 
         var inputEl = document.getElementById('achat-input');
-        if (inputEl) {
-            inputEl.value = '';
-            setTimeout(function () { inputEl.focus(); }, 100);
+        if (focusInput && inputEl) setTimeout(function () { inputEl.focus(); }, 30);
+    }
+
+    function _refreshAchatMeta() {
+        var tab = _getActiveAchatTab();
+        var titleEl = document.getElementById('achat-title');
+        var sidEl = document.getElementById('achat-session-id');
+        var nameEl = document.getElementById('achat-model-name');
+        var metaEl = document.getElementById('achat-model-meta');
+        var toolCountEl = document.getElementById('achat-tool-count');
+        var blockedEl = document.getElementById('achat-blocked-count');
+        var modeEl = document.getElementById('achat-run-mode');
+        if (!tab) {
+            if (titleEl) titleEl.textContent = 'AGENT MCP CONSOLE';
+            if (sidEl) sidEl.textContent = '';
+            if (nameEl) nameEl.textContent = '—';
+            if (metaEl) metaEl.innerHTML = '';
+            if (toolCountEl) toolCountEl.textContent = '0';
+            if (blockedEl) blockedEl.textContent = String(Object.keys(_achatBlockedTools).length);
+            if (modeEl) modeEl.value = 'direct';
+            return;
+        }
+
+        if (titleEl) titleEl.textContent = 'SLOT ' + tab.slot + ' — MCP ORCHESTRATION';
+        if (sidEl) sidEl.textContent = tab.sessionId ? ('session: ' + tab.sessionId) : '';
+        if (nameEl) nameEl.textContent = tab.modelSource || ('slot_' + tab.slot);
+
+        if (metaEl) {
+            var typeClass = 'type-llm';
+            if (tab.modelType.indexOf('EMBED') >= 0) typeClass = 'type-embed';
+            else if (tab.modelType.indexOf('CLASS') >= 0) typeClass = 'type-class';
+            else if (tab.modelType.indexOf('RERANK') >= 0) typeClass = 'type-rerank';
+            metaEl.innerHTML =
+                '<span class="achat-tag ' + typeClass + '">' + escHtml(tab.modelType || 'MODEL') + '</span>' +
+                '<span class="achat-tag">SLOT ' + tab.slot + '</span>' +
+                '<span class="achat-tag">' + (tab.isPlugged ? 'PLUGGED' : 'EMPTY') + '</span>' +
+                '<span class="achat-tag">' + escHtml(String((tab.runMode || 'direct').toUpperCase())) + '</span>';
+            if (!tab.canChat) {
+                metaEl.innerHTML += '<span class="achat-tag" style="color:#f59e0b;border-color:#f59e0b;background:rgba(245,158,11,0.12);">NO AGENT LOOP</span>';
+            }
+        }
+
+        if (toolCountEl) toolCountEl.textContent = String((tab.grantedTools || []).length);
+        if (blockedEl) blockedEl.textContent = String(Object.keys(_achatBlockedTools).length);
+        if (modeEl) modeEl.value = tab.runMode || (tab.canChat ? 'loop' : 'direct');
+    }
+
+    function _bindAchatComposerEvents() {
+        if (_achatComposerBound) return;
+        _achatComposerBound = true;
+
+        var toolFilter = document.getElementById('achat-tool-filter');
+        if (toolFilter) {
+            toolFilter.addEventListener('input', function () {
+                var tab = _getActiveAchatTab();
+                if (!tab) return;
+                _renderAchatToolSelect(tab);
+                _renderAchatToolConfig(tab);
+            });
+        }
+
+        var toolSelect = document.getElementById('achat-run-tool');
+        if (toolSelect) {
+            toolSelect.addEventListener('change', function () {
+                var tab = _getActiveAchatTab();
+                if (!tab) return;
+                tab.selectedTool = this.value || 'invoke_slot';
+                _renderAchatToolConfig(tab);
+            });
+        }
+
+        var modeSelect = document.getElementById('achat-run-mode');
+        if (modeSelect) {
+            modeSelect.addEventListener('change', function () {
+                var tab = _getActiveAchatTab();
+                if (!tab) return;
+                var mode = String(this.value || 'direct');
+                if (mode !== 'loop' && mode !== 'direct') mode = 'direct';
+                if (mode === 'loop' && !tab.canChat) mode = 'direct';
+                tab.runMode = mode;
+                _renderAchatRunMode(tab);
+                _renderAchatToolConfig(tab);
+                _refreshAchatMeta();
+            });
+        }
+    }
+
+    function openAgentChat(slot) {
+        _loadAchatToolPolicies();
+        var tab = _ensureAchatTab(slot);
+        if (!tab) return;
+
+        if (_slotDrill && _slotDrill.active) closeSlotDrill();
+
+        var councilTab = document.getElementById('tab-council');
+        if (!councilTab) return;
+        councilTab.classList.add('chat-active');
+
+        _bindAchatComposerEvents();
+        _renderAchatTabs();
+        _activateAchatTab(tab.key, true);
+
+        if (Object.keys(_toolSchemas || {}).length === 0) {
+            vscode.postMessage({ command: 'fetchToolSchemas' });
+        }
+
+        if (!tab.isPlugged) {
+            _appendAchatMsg('error',
+                'This slot is empty. Plug a model first.\n\nExample: plug_model(model_id="Qwen/Qwen2.5-1.5B-Instruct")',
+                Date.now(),
+                tab
+            );
+        } else if (!tab.canChat) {
+            _appendAchatMsg('system-info',
+                'This slot type is not chat-loop capable. Use direct tool invocations (invoke_slot, embed_text, classify, rerank, etc.).',
+                Date.now(),
+                tab
+            );
         }
     }
     window.openAgentChat = openAgentChat;
@@ -7322,28 +8004,46 @@
     function closeAgentChat() {
         var tab = document.getElementById('tab-council');
         if (tab) tab.classList.remove('chat-active');
-        _achatSlot = null;
         _stopElapsedTimer();
     }
     window.closeAgentChat = closeAgentChat;
 
     function resetAgentChat() {
-        if (_achatSlot === null) return;
-        if (_achatSessionId) {
-            callTool('agent_chat', { slot: _achatSlot, message: '(reset)', session_id: _achatSessionId, reset: true }, '__agent_chat__');
-        }
-        _achatSessionId = '';
-        var sidEl = document.getElementById('achat-session-id');
-        if (sidEl) sidEl.textContent = '';
-        var messagesEl = document.getElementById('achat-messages');
-        if (messagesEl) {
-            messagesEl.innerHTML =
-                '<div class="achat-msg system-info">Session reset. Start a new conversation.</div>' +
-                '<div class="achat-empty">Send a message to start a conversation.<br/>The agent can use tools autonomously.</div>';
-        }
+        var tab = _getActiveAchatTab();
+        if (!tab) return;
+        tab.sessionId = '';
+        tab.messages = [];
+        _renderAchatMessages(tab);
+        _refreshAchatMeta();
         _setAchatBusy(false);
     }
     window.resetAgentChat = resetAgentChat;
+
+    function toggleAchatToolConfig() {
+        _achatToolConfigOpen = !_achatToolConfigOpen;
+        var tab = _getActiveAchatTab();
+        var policyPanel = document.getElementById('achat-tool-policy');
+        if (policyPanel) policyPanel.style.display = 'none';
+        var cfg = document.getElementById('achat-tool-config');
+        if (cfg) cfg.style.display = _achatToolConfigOpen ? 'block' : 'none';
+        if (!tab) return;
+        _renderAchatToolConfig(tab);
+    }
+    window.toggleAchatToolConfig = toggleAchatToolConfig;
+
+    function toggleAchatPolicy() {
+        _achatToolConfigOpen = true;
+        var tab = _getActiveAchatTab();
+        var panel = document.getElementById('achat-tool-policy');
+        var cfg = document.getElementById('achat-tool-config');
+        if (panel) panel.style.display = (panel.style.display === 'block') ? 'none' : 'block';
+        if (cfg) cfg.style.display = (panel && panel.style.display === 'block') ? 'none' : 'block';
+        if (tab) {
+            _renderAchatPolicyPanel(tab);
+            _renderAchatToolConfig(tab);
+        }
+    }
+    window.toggleAchatPolicy = toggleAchatPolicy;
 
     function _setAchatBusy(busy) {
         _achatBusy = busy;
@@ -7379,75 +8079,343 @@
         }
     }
 
-    function _clearEmptyState() {
-        var container = document.getElementById('achat-messages');
-        if (!container) return;
-        var empty = container.querySelector('.achat-empty');
-        if (empty) empty.remove();
+    function _coerceFieldValue(raw, pType) {
+        if (raw === '' || raw === null || raw === undefined) return undefined;
+        if (pType === 'integer') {
+            var iv = parseInt(raw, 10);
+            return isNaN(iv) ? undefined : iv;
+        }
+        if (pType === 'number') {
+            var nv = parseFloat(raw);
+            return isNaN(nv) ? undefined : nv;
+        }
+        if (pType === 'boolean') {
+            return !!raw;
+        }
+        if (pType === 'object' || pType === 'array') {
+            if (typeof raw !== 'string') return raw;
+            var parsed = _safeJsonParse(raw);
+            if (parsed === null && raw.trim()) throw new Error('Invalid JSON for ' + pType + ' field');
+            return parsed;
+        }
+        return String(raw);
     }
 
-    function _appendAchatMsg(role, content, ts) {
-        _clearEmptyState();
-        var container = document.getElementById('achat-messages');
-        if (!container) return;
-        var div = document.createElement('div');
-        div.className = 'achat-msg ' + role;
-        var tsStr = ts ? new Date(ts).toLocaleTimeString() : '';
-        div.innerHTML = escHtml(content) + (tsStr ? '<span class="achat-ts">' + tsStr + '</span>' : '');
-        container.appendChild(div);
-        container.scrollTop = container.scrollHeight;
-    }
+    function _collectSelectedToolArgs(tab, toolName, userMsg) {
+        var args = {};
+        if (toolName === 'agent_chat') {
+            args.slot = tab.slot;
+            args.message = String(userMsg || '').trim() || 'Proceed with the configured objective.';
+            args.max_iterations = parseInt((document.getElementById('achat-max-iter') || {}).value || '5', 10) || 5;
+            args.max_tokens = parseInt((document.getElementById('achat-max-tokens') || {}).value || '256', 10) || 256;
+            args.granted_tools = Array.isArray(tab.grantedTools) ? tab.grantedTools.slice() : [];
+            if (tab.sessionId) args.session_id = tab.sessionId;
+            return args;
+        }
 
-    function _appendAchatToolTrace(toolCalls) {
-        if (!toolCalls || !toolCalls.length) return;
-        _clearEmptyState();
-        var container = document.getElementById('achat-messages');
-        if (!container) return;
-        var div = document.createElement('div');
-        div.className = 'achat-msg tool-trace';
-        var headerHtml = '<div class="trace-header">Tool calls (' + toolCalls.length + ')</div>';
-        var linesHtml = toolCalls.map(function (tc) {
-            var name = tc.tool || tc.name || '?';
-            var isErr = !!tc.error;
-            var argsPreview = tc.args ? JSON.stringify(tc.args) : '';
-            if (argsPreview.length > 120) argsPreview = argsPreview.substring(0, 120) + '...';
-            var resultPreview = '';
-            if (tc.result) {
-                resultPreview = typeof tc.result === 'string' ? tc.result : JSON.stringify(tc.result);
-                if (resultPreview.length > 160) resultPreview = resultPreview.substring(0, 160) + '...';
+        var schema = _getAchatToolSchema(toolName);
+        var props = (schema && schema.properties) ? schema.properties : {};
+        var required = (schema && schema.required) ? schema.required : [];
+        var elements = document.querySelectorAll('#achat-config-fields [data-achat-field]');
+        for (var i = 0; i < elements.length; i++) {
+            var el = elements[i];
+            var name = el.getAttribute('data-achat-field');
+            var pType = el.getAttribute('data-type') || 'string';
+            var raw;
+            if (pType === 'boolean') raw = !!el.checked;
+            else raw = el.value;
+            var value = _coerceFieldValue(raw, pType);
+            if (value !== undefined) args[name] = value;
+        }
+
+        var pNames = Object.keys(props || {});
+        for (var j = 0; j < pNames.length; j++) {
+            var p = pNames[j];
+            var def = props[p] || {};
+            if (args[p] === undefined && def.default !== undefined) {
+                args[p] = def.default;
             }
-            if (tc.error) resultPreview = String(tc.error);
-            return '<div class="trace-line">' +
-                '<span class="trace-tool-name">' + escHtml(name) + '</span> ' +
-                '<span class="' + (isErr ? 'trace-status-err' : 'trace-status-ok') + '">' + (isErr ? 'ERR' : 'OK') + '</span>' +
-                (argsPreview ? ' <span class="trace-preview">args: ' + escHtml(argsPreview) + '</span>' : '') +
-                (resultPreview ? ' <span class="trace-preview">→ ' + escHtml(resultPreview) + '</span>' : '') +
-                '</div>';
-        }).join('');
-        div.innerHTML = headerHtml + linesHtml;
-        container.appendChild(div);
-        container.scrollTop = container.scrollHeight;
+        }
+
+        var msg = String(userMsg || '').trim();
+        if (msg) {
+            var textKeys = ['message', 'prompt', 'text', 'input_text', 'query'];
+            for (var k = 0; k < textKeys.length; k++) {
+                var tk = textKeys[k];
+                if (props[tk] && (args[tk] === undefined || args[tk] === '')) {
+                    args[tk] = msg;
+                    break;
+                }
+            }
+            if (toolName === 'invoke_slot' && (!args.text || args.text === '')) {
+                args.text = msg;
+            }
+        }
+
+        if (toolName === 'invoke_slot') {
+            if (args.slot === undefined || args.slot === null || args.slot === '') args.slot = tab.slot;
+            if (!args.mode) {
+                if (tab.modelType.indexOf('EMBED') >= 0) args.mode = 'embed';
+                else if (tab.modelType.indexOf('CLASS') >= 0) args.mode = 'classify';
+                else if (tab.modelType.indexOf('RERANK') >= 0) args.mode = 'forward';
+                else args.mode = 'generate';
+            }
+            if (args.max_tokens === undefined || args.max_tokens === null || args.max_tokens === '') {
+                args.max_tokens = parseInt((document.getElementById('achat-max-tokens') || {}).value || '256', 10) || 256;
+            }
+        }
+
+        if (props.slot && (args.slot === undefined || args.slot === null || args.slot === '')) {
+            args.slot = tab.slot;
+        }
+
+        for (var r = 0; r < required.length; r++) {
+            var req = required[r];
+            if (args[req] === undefined || args[req] === null || args[req] === '') {
+                throw new Error('Missing required field: ' + req);
+            }
+        }
+
+        return args;
+    }
+
+    function _extractInvokeOutput(payload) {
+        if (payload == null) return '';
+        if (typeof payload === 'string') return payload;
+        if (typeof payload.output === 'string') return payload.output;
+        if (payload.output && typeof payload.output !== 'string') {
+            try { return JSON.stringify(payload.output); } catch (e) { return String(payload.output); }
+        }
+        if (payload.result && typeof payload.result.output === 'string') return payload.result.output;
+        if (payload.generated && typeof payload.generated === 'string') return payload.generated;
+        try { return JSON.stringify(payload); } catch (e2) { return String(payload); }
+    }
+
+    function _findFirstJsonObject(text) {
+        if (typeof text !== 'string') return null;
+        var s = text;
+        var inStr = false, esc = false, depth = 0, start = -1;
+        for (var i = 0; i < s.length; i++) {
+            var ch = s.charAt(i);
+            if (esc) { esc = false; continue; }
+            if (ch === '\\') { if (inStr) esc = true; continue; }
+            if (ch === '"') { inStr = !inStr; continue; }
+            if (inStr) continue;
+            if (ch === '{') {
+                if (depth === 0) start = i;
+                depth++;
+            } else if (ch === '}') {
+                if (depth > 0) depth--;
+                if (depth === 0 && start >= 0) {
+                    var candidate = s.substring(start, i + 1);
+                    var parsed = _safeJsonParse(candidate);
+                    if (parsed && typeof parsed === 'object') return parsed;
+                    start = -1;
+                }
+            }
+        }
+        return null;
+    }
+
+    function _parseAgentDirective(outputText) {
+        if (typeof outputText !== 'string') return null;
+        var parsed = _safeJsonParse(outputText.trim());
+        if (!parsed) parsed = _findFirstJsonObject(outputText);
+        if (!parsed || typeof parsed !== 'object') return null;
+        if (parsed.final_answer !== undefined) return { kind: 'final', final_answer: parsed.final_answer };
+        if (parsed.tool) return { kind: 'tool', tool: String(parsed.tool), args: parsed.args && typeof parsed.args === 'object' ? parsed.args : {} };
+        return null;
+    }
+
+    function _buildLoopSystemPrompt(tab) {
+        var granted = Array.isArray(tab.grantedTools) ? tab.grantedTools : [];
+        return [
+            'You are an MCP orchestration agent for a plugged model slot.',
+            'You MUST respond with EXACTLY ONE JSON object per turn.',
+            'Allowed formats:',
+            '{"tool": "tool_name", "args": {"param": "value"}}',
+            '{"final_answer": "complete answer"}',
+            'Rules:',
+            '- Use ONLY one tool per turn.',
+            '- Use ONLY granted tools listed below.',
+            '- If task is complete, return final_answer.',
+            '- Do not include markdown code fences.',
+            'GRANTED TOOLS: ' + granted.join(', ')
+        ].join('\n');
+    }
+
+    function _prettyTruncate(value, maxLen) {
+        var out = '';
+        try { out = typeof value === 'string' ? value : JSON.stringify(value, null, 2); }
+        catch (e) { out = String(value); }
+        var lim = maxLen || 3000;
+        if (out.length > lim) out = out.substring(0, lim) + '\n…[truncated]';
+        return out;
+    }
+
+    async function _persistAchatReport(tab, mission, finalAnswer, trace, iterations, mode) {
+        var key = 'agent_console_report:' + tab.slot + ':' + Date.now();
+        var payload = {
+            slot: tab.slot,
+            model: tab.modelSource,
+            mode: mode || (tab.runMode || 'direct'),
+            mission: mission,
+            final_answer: finalAnswer,
+            iterations: iterations,
+            tool_calls: trace || [],
+            ts: Date.now()
+        };
+        try {
+            await callToolAwaitParsed('bag_induct', {
+                key: key,
+                content: JSON.stringify(payload),
+                item_type: 'agent_report'
+            }, '__internal_agent_loop__', { tabKey: tab.key });
+            _appendAchatMsg('system-info', 'Report saved to FelixBag: ' + key, Date.now(), tab);
+        } catch (e) {
+            _appendAchatMsg('system-info', 'Report save skipped: ' + String(e && e.message ? e.message : e), Date.now(), tab);
+        }
+    }
+
+    async function _runDeterministicAgentLoop(tab, missionText) {
+        var maxIter = parseInt((document.getElementById('achat-max-iter') || {}).value || '5', 10) || 5;
+        var maxTok = parseInt((document.getElementById('achat-max-tokens') || {}).value || '256', 10) || 256;
+        var granted = _sanitizeGrantedTools(tab.grantedTools || []);
+        if (!granted.length) throw new Error('No granted tools configured. Open TOOL ACCESS and select at least one tool.');
+
+        var trace = [];
+        var sys = _buildLoopSystemPrompt(tab);
+        var loopMsgs = [{ role: 'system', content: sys }];
+        tab.loopMessages = loopMsgs;
+        var mission = String(missionText || '').trim() || 'Complete the configured objective.';
+        loopMsgs.push({ role: 'user', content: mission });
+
+        for (var i = 0; i < maxIter; i++) {
+            _appendAchatMsg('system-info', 'Loop step ' + (i + 1) + '/' + maxIter + ' · reasoning', Date.now(), tab);
+
+            var invokePayload = await callToolAwaitParsed('invoke_slot', {
+                slot: tab.slot,
+                text: mission,
+                mode: 'generate',
+                max_tokens: maxTok,
+                messages: loopMsgs
+            }, '__internal_agent_loop__', { tabKey: tab.key });
+
+            var modelOut = _extractInvokeOutput(invokePayload);
+            loopMsgs.push({ role: 'assistant', content: String(modelOut || '') });
+
+            var directive = _parseAgentDirective(String(modelOut || ''));
+            if (!directive) {
+                var fallback = String(modelOut || '').trim() || 'No output returned.';
+                _appendAchatMsg('assistant', fallback, Date.now(), tab);
+                await _persistAchatReport(tab, mission, fallback, trace, i + 1, 'loop');
+                return;
+            }
+
+            if (directive.kind === 'final') {
+                var finalText = String(directive.final_answer || '').trim() || 'Task complete.';
+                _appendAchatMsg('assistant', finalText, Date.now(), tab);
+                _appendAchatMsg('system-info', 'Loop completed in ' + (i + 1) + ' step' + ((i + 1) !== 1 ? 's' : '') + '.', Date.now(), tab);
+                await _persistAchatReport(tab, mission, finalText, trace, i + 1, 'loop');
+                return;
+            }
+
+            var calledTool = String(directive.tool || '').trim();
+            var calledArgs = directive.args && typeof directive.args === 'object' ? directive.args : {};
+            if (!calledTool) {
+                loopMsgs.push({ role: 'user', content: 'Invalid tool directive. Provide either a valid tool call or final_answer.' });
+                continue;
+            }
+            if (_achatBlockedTools[calledTool] || granted.indexOf(calledTool) < 0) {
+                var deny = "Tool '" + calledTool + "' is not granted. Allowed: " + granted.join(', ');
+                var deniedEntry = { tool: calledTool, args: calledArgs, result: 'DENIED - not granted', error: deny, iteration: i };
+                trace.push(deniedEntry);
+                _appendAchatToolTrace([deniedEntry], tab);
+                _logAchatSyntheticActivity([deniedEntry], tab.slot);
+                loopMsgs.push({ role: 'user', content: deny + '. Try another tool or final_answer.' });
+                continue;
+            }
+
+            _appendAchatMsg('system-info', 'Loop step ' + (i + 1) + '/' + maxIter + ' · tool: ' + calledTool, Date.now(), tab);
+            var toolPayload;
+            try {
+                toolPayload = await callToolAwaitParsed(calledTool, calledArgs, '__internal_agent_loop__', { tabKey: tab.key });
+            } catch (toolErr) {
+                var errText = String(toolErr && toolErr.message ? toolErr.message : toolErr);
+                var errEntry = { tool: calledTool, args: calledArgs, result: 'ERROR: ' + errText, error: errText, iteration: i };
+                trace.push(errEntry);
+                _appendAchatToolTrace([errEntry], tab);
+                _logAchatSyntheticActivity([errEntry], tab.slot);
+                loopMsgs.push({ role: 'user', content: 'Tool error for ' + calledTool + ': ' + errText + '. Continue with another tool or final_answer.' });
+                continue;
+            }
+
+            var resultStr = _prettyTruncate(toolPayload, 5000);
+            var traceEntry = { tool: calledTool, args: calledArgs, result: resultStr, iteration: i };
+            trace.push(traceEntry);
+            _appendAchatToolTrace([traceEntry], tab);
+            _logAchatSyntheticActivity([traceEntry], tab.slot);
+            loopMsgs.push({ role: 'user', content: 'Tool result for ' + calledTool + '(' + JSON.stringify(calledArgs) + '):\n' + resultStr + '\n\nContinue with next tool or final_answer.' });
+        }
+
+        var maxMsg = 'Loop reached max iterations (' + maxIter + ') without final_answer.';
+        _appendAchatMsg('error', maxMsg, Date.now(), tab);
+        await _persistAchatReport(tab, missionText, maxMsg, trace, maxIter, 'loop');
     }
 
     function sendAgentChat() {
-        if (_achatBusy || _achatSlot === null) return;
+        if (_achatBusy) return;
+        var tab = _getActiveAchatTab();
+        if (!tab) return;
+
         var input = document.getElementById('achat-input');
-        if (!input) return;
-        var msg = (input.value || '').trim();
-        if (!msg) return;
-        input.value = '';
-        _appendAchatMsg('user', msg, Date.now());
-        _setAchatBusy(true);
-        _achatSendTime = Date.now();
+        var msg = input ? String(input.value || '').trim() : '';
+        if (input) input.value = '';
 
-        var maxIter = parseInt((document.getElementById('achat-max-iter') || {}).value || '5', 10) || 5;
-        var maxTok = parseInt((document.getElementById('achat-max-tokens') || {}).value || '256', 10) || 256;
-        var args = { slot: _achatSlot, message: msg, max_iterations: maxIter, max_tokens: maxTok };
-        if (_achatSessionId) args.session_id = _achatSessionId;
+        if (!tab.isPlugged) {
+            _appendAchatMsg('error', 'Slot is empty. Plug a model before invoking tools.', Date.now(), tab);
+            return;
+        }
 
-        callTool('agent_chat', args, '__agent_chat__');
+        if ((tab.runMode || 'direct') === 'loop') {
+            if (!tab.canChat) {
+                _appendAchatMsg('error', 'This slot type cannot run loop mode. Switch mode to DIRECT.', Date.now(), tab);
+                return;
+            }
+            var mission = msg || 'Proceed with the configured objective.';
+            _appendAchatMsg('user', 'MISSION: ' + mission, Date.now(), tab);
+            _setAchatBusy(true);
+            _runDeterministicAgentLoop(tab, mission)
+                .catch(function (errLoop) {
+                    _appendAchatMsg('error', String(errLoop && errLoop.message ? errLoop.message : errLoop), Date.now(), tab);
+                })
+                .finally(function () {
+                    _setAchatBusy(false);
+                });
+            return;
+        }
+
+        var toolSel = document.getElementById('achat-run-tool');
+        var toolName = (toolSel && toolSel.value) ? toolSel.value : (tab.selectedTool || 'invoke_slot');
+        tab.selectedTool = toolName;
+
+        try {
+            var args = _collectSelectedToolArgs(tab, toolName, msg);
+            var argsLine;
+            try { argsLine = JSON.stringify(args); } catch (e0) { argsLine = String(args); }
+            if (argsLine.length > 420) argsLine = argsLine.slice(0, 420) + '…';
+            var userLine = toolName + '(' + argsLine + ')';
+            _appendAchatMsg('user', userLine, Date.now(), tab);
+            _setAchatBusy(true);
+
+            var route = (toolName === 'agent_chat') ? '__agent_chat__' : '__achat_tool__';
+            callTool(toolName, args, route, { tabKey: tab.key });
+        } catch (err) {
+            _appendAchatMsg('error', String(err && err.message ? err.message : err), Date.now(), tab);
+        }
     }
     window.sendAgentChat = sendAgentChat;
+
 
     // ── INIT ──
     buildToolsRegistry();

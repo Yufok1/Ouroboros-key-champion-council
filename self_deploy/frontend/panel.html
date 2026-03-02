@@ -1994,14 +1994,97 @@
 .achat-toolbar { display: flex; align-items: center; gap: 8px; border: 1px solid var(--border); background: var(--surface); padding: 6px 10px; font-size: 9px; color: var(--text-dim); flex-wrap: wrap; }
 .achat-tool-count { color: var(--accent); font-weight: 600; }
 .achat-iter-label { margin-left: auto; }
-.achat-toolbar input[type="number"] {
-    width: 58px;
+.achat-toolbar input[type="number"],
+.achat-toolbar input[type="text"],
+.achat-toolbar select {
     padding: 3px 5px;
     font-size: 9px;
     background: var(--surface2);
     border: 1px solid var(--border);
     color: var(--text);
 }
+.achat-toolbar input[type="number"] { width: 58px; }
+.achat-toolbar input[type="text"] { min-width: 130px; }
+.achat-toolbar select { min-width: 190px; max-width: 260px; }
+.achat-tabs {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding: 2px 0 4px;
+}
+.achat-tab {
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-dim);
+    padding: 5px 8px;
+    min-width: 140px;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    cursor: pointer;
+}
+.achat-tab .tab-slot { font-size: 8px; color: var(--accent); letter-spacing: 0.8px; }
+.achat-tab .tab-name { font-size: 10px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.achat-tab.active { border-color: var(--accent); box-shadow: 0 0 0 1px #00ffaa33 inset; }
+.achat-tab.empty { opacity: 0.7; }
+.achat-tab-empty { color: var(--text-dim); font-size: 10px; border: 1px dashed var(--border); padding: 8px; width: 100%; text-align: center; }
+
+.achat-tool-config,
+.achat-tool-policy {
+    border: 1px dashed var(--border);
+    background: var(--surface);
+    padding: 8px;
+    display: none;
+}
+.achat-tool-config.open { display: block; }
+.achat-config-note { font-size: 10px; color: var(--text-dim); margin-bottom: 6px; }
+.achat-config-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; }
+.achat-field-row {
+    border: 1px solid rgba(255,255,255,0.05);
+    background: rgba(255,255,255,0.02);
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.achat-field-row label { font-size: 10px; color: var(--text); display: flex; gap: 6px; align-items: center; }
+.achat-field-row .req { color: #f59e0b; }
+.achat-field-row .type { margin-left: auto; font-size: 8px; color: var(--text-dim); text-transform: uppercase; }
+.achat-field-row input,
+.achat-field-row select,
+.achat-field-row textarea {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 5px 6px;
+    font-size: 10px;
+}
+.achat-field-row textarea { min-height: 72px; resize: vertical; font-family: var(--mono, monospace); }
+.achat-field-row .hint { font-size: 9px; color: var(--text-dim); line-height: 1.35; }
+
+.achat-policy-head { display: flex; gap: 6px; margin-bottom: 8px; }
+.achat-policy-head input {
+    flex: 1;
+    min-width: 120px;
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 4px 6px;
+    font-size: 10px;
+}
+.achat-policy-list {
+    max-height: 180px;
+    overflow-y: auto;
+    border: 1px solid rgba(255,255,255,0.05);
+    padding: 6px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 4px 10px;
+}
+.achat-policy-item { font-size: 10px; color: var(--text); display: flex; gap: 6px; align-items: center; }
+.achat-policy-empty { color: var(--text-dim); font-size: 10px; }
+
 .achat-messages { flex: 1; min-height: 260px; max-height: 470px; overflow-y: auto; border: 1px solid var(--border); background: var(--surface); padding: 10px; display: flex; flex-direction: column; gap: 8px; }
 .achat-empty { text-align: center; color: var(--text-dim); font-size: 10px; line-height: 1.5; padding: 14px; border: 1px dashed var(--border); }
 .achat-msg { font-size: 11px; line-height: 1.45; white-space: pre-wrap; word-break: break-word; border: 1px solid var(--border); padding: 7px 9px; position: relative; }
@@ -3477,6 +3560,7 @@
         <button class="tab" data-tab="workflows">Workflows</button>
         <button class="tab" data-tab="dreamer">Dreamer</button>
         <button class="tab" data-tab="gpufleet">GPU Fleet</button>
+        <button class="tab" data-tab="community">Community</button>
 
     </div>
 
@@ -3604,39 +3688,62 @@
                     </div>
                 </div>
             </div>
-            <!-- AGENT CHAT VIEW (hidden until CHAT clicked) -->
+            <!-- AGENT MCP CONSOLE VIEW (hidden until opened from a slot) -->
     <div id="agent-chat-view" class="achat-view">
         <div class="achat-header">
             <button class="achat-back" onclick="closeAgentChat()">&#8592; Grid</button>
-            <span class="achat-title" id="achat-title">AGENT CHAT</span>
+            <span class="achat-title" id="achat-title">AGENT MCP CONSOLE</span>
             <span class="achat-session" id="achat-session-id"></span>
-            <button class="btn-dim" onclick="resetAgentChat()" style="font-size:9px;padding:3px 10px;">NEW SESSION</button>
+            <button class="btn-dim" onclick="resetAgentChat()" style="font-size:9px;padding:3px 10px;">RESET TAB</button>
         </div>
+
+        <div class="achat-tabs" id="achat-tabs"></div>
+
         <div class="achat-model-card" id="achat-model-card">
             <span class="achat-model-dot"></span>
             <span class="achat-model-name" id="achat-model-name">&mdash;</span>
             <span class="achat-model-meta" id="achat-model-meta"></span>
         </div>
+
         <div class="achat-toolbar">
-            <span>Granted tools:</span>
-            <span class="achat-tool-count" id="achat-tool-count">&mdash;</span>
+            <span>Tool:</span>
+            <input id="achat-tool-filter" type="text" placeholder="Filter tools..." />
+            <select id="achat-run-tool" title="Select MCP tool"></select>
+            <button class="btn-dim" onclick="toggleAchatToolConfig()">ARGS</button>
+            <button class="btn-dim" onclick="toggleAchatPolicy()">TOOL ACCESS</button>
+            <span>Mode:</span>
+            <select id="achat-run-mode" title="Execution mode">
+                <option value="loop">AGENT LOOP</option>
+                <option value="direct">DIRECT TOOL</option>
+            </select>
+
+            <span>Granted:</span>
+            <span class="achat-tool-count" id="achat-tool-count">0</span>
             <span>Blocked: <span id="achat-blocked-count">10</span></span>
             <span class="achat-iter-label">Iterations:</span>
-            <input type="number" id="achat-max-iter" value="2" min="1" max="20" title="Max agentic iterations" />
+            <input type="number" id="achat-max-iter" value="2" min="1" max="20" title="Max autonomous iterations" />
             <span>Tokens:</span>
-            <input type="number" id="achat-max-tokens" value="256" min="32" max="4096" step="32" title="Max generation tokens per turn" />
+            <input type="number" id="achat-max-tokens" value="256" min="32" max="4096" step="32" title="Max generation tokens per step" />
         </div>
+
+        <div id="achat-tool-config" class="achat-tool-config">
+            <div id="achat-config-note" class="achat-config-note">Select a tool to configure arguments.</div>
+            <div id="achat-config-fields" class="achat-config-fields"></div>
+        </div>
+
+        <div id="achat-tool-policy" class="achat-tool-policy"></div>
+
         <div class="achat-messages" id="achat-messages">
-            <div class="achat-empty">Send a message to start a conversation.<br/>The agent can use tools autonomously.</div>
+            <div class="achat-empty">Open a slot tab, choose an MCP tool, and run operations from this unified console.</div>
         </div>
         <div class="achat-thinking-bar" id="achat-thinking">
             <div class="achat-spinner"></div>
-            <span>Agent is thinking <span style="color:var(--text-dim);">(CPU inference may take a while)</span></span>
+            <span>Invocation running <span style="color:var(--text-dim);">(long agent runs can take time)</span></span>
             <span class="achat-elapsed" id="achat-elapsed">0s</span>
         </div>
         <div class="achat-input-bar">
-            <input id="achat-input" placeholder="Message the agent..." onkeydown="if(event.key==='Enter'&&!event.shiftKey)sendAgentChat()" />
-            <button class="achat-send" id="achat-send-btn" onclick="sendAgentChat()">Send</button>
+            <input id="achat-input" placeholder="Mission prompt / text input (auto-mapped to tool args where possible)" onkeydown="if(event.key==='Enter'&&!event.shiftKey)sendAgentChat()" />
+            <button class="achat-send" id="achat-send-btn" onclick="sendAgentChat()">Run</button>
         </div>
     </div>
 
@@ -4012,13 +4119,17 @@
                 </div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
                     <div class="field">
+                        <label>API Key <span style="color:var(--text-dim);">(optional)</span></label>
+                        <input id="plug-provider-key" type="password" placeholder="sk-..." />
+                    </div>
+                    <div class="field">
                         <label>Model Name <span style="color:var(--text-dim);">(auto-detect if blank)</span></label>
                         <input id="plug-provider-model" placeholder="gpt-4o, claude-sonnet-4-20250514, etc." />
                     </div>
-                    <div class="field">
-                        <label>Slot Name <span style="color:var(--text-dim);">(optional)</span></label>
-                        <input id="plug-provider-slot-name" placeholder="my-provider" />
-                    </div>
+                </div>
+                <div class="field">
+                    <label>Slot Name <span style="color:var(--text-dim);">(optional)</span></label>
+                    <input id="plug-provider-slot-name" placeholder="my-provider" />
                 </div>
                 <div class="modal-actions">
                     <button onclick="doPlugProvider()">CONNECT</button>
@@ -4289,6 +4400,495 @@
         </div>
 
 
+        <!-- ═══════════════ COMMUNITY TAB ═══════════════ -->
+        <div class="content" id="tab-community">
+            <div class="section-head">OUROBOROS COMMUNITY</div>
+            <div class="nostr-identity" id="nostr-identity">
+                <span class="dot off" id="nostr-dot"></span>
+                <span>IDENTITY:</span>
+                <span class="npub" id="nostr-npub">Initializing...</span>
+                <span class="relay-count" id="nostr-relays">0 relays</span>
+                <button class="btn-dim" id="nostr-profile-btn" style="font-size:9px;padding:2px 6px;margin-left:8px;">PROFILE</button>
+            </div>
+            <div class="nostr-identity" id="github-identity" style="margin-bottom:8px;">
+                <span class="dot off" id="gh-dot"></span>
+                <span>GITHUB:</span>
+                <span class="npub" id="gh-username">Not connected</span>
+                <button class="btn-dim" id="gh-auth-btn" style="font-size:9px;padding:2px 6px;margin-left:auto;">CONNECT</button>
+            </div>
+            <div class="online-bar" id="online-bar">
+                <span class="online-dot"></span> <span id="online-count">0</span> online
+                <span id="relay-auth-status" style="font-size:8px;color:var(--text-dim);margin-left:auto;" title="NIP-42 relay authentication"></span>
+            </div>
+            <!-- SUB-TAB NAVIGATION -->
+            <div class="community-toolbar" id="community-tabs">
+                <button class="active" data-ctab="chat">CHAT</button>
+                <button data-ctab="dms">DMs</button>
+                <button data-ctab="marketplace">MARKETPLACE</button>
+                <button data-ctab="voice">VOICE</button>
+                <button data-ctab="badges">BADGES</button>
+                <button data-ctab="jobs">AI JOBS</button>
+                <button data-ctab="privacy">PRIVACY</button>
+                <button data-ctab="appearance">UX</button>
+            </div>
+
+            <!-- ── CHAT SUB-TAB ── -->
+            <div class="community-subtab active" id="ctab-chat">
+                <div class="community-panel" style="min-height:350px;">
+                    <div class="community-panel-header">
+                        <span>LIVE CHAT</span>
+                        <button class="btn-dim" id="nostr-fetch-chat">REFRESH</button>
+                    </div>
+                    <div class="community-feed" id="nostr-chat-feed">
+                        <div class="community-msg" style="color:var(--text-dim);text-align:center;padding:20px;">
+                            Connect to relays to join chat...
+                        </div>
+                    </div>
+                    <div class="redact-warn" id="chat-redact-warn">Sensitive data detected and will be auto-redacted before sending.</div>
+                    <div class="chat-input-row">
+                        <input id="nostr-chat-input" placeholder="Type a message..." />
+                        <button class="btn-dim" id="poll-toggle-btn" title="Create Poll" style="font-size:12px;">&#128202;</button>
+                        <button class="btn-dim" id="voice-note-btn" title="Record Voice Note" style="font-size:12px;">&#127908;</button>
+                        <button id="nostr-chat-send">SEND</button>
+                    </div>
+                    <!-- Poll creation form -->
+                    <div id="poll-create-form" style="display:none;border:1px solid var(--border);padding:10px;margin:6px 8px;">
+                        <div class="section-head" style="margin-top:0;">CREATE POLL</div>
+                        <input id="poll-question" class="chat-input" placeholder="Poll question..." style="margin-bottom:6px;" />
+                        <div id="poll-options-list">
+                            <input class="chat-input poll-option-input" placeholder="Option 1" style="margin-bottom:4px;" />
+                            <input class="chat-input poll-option-input" placeholder="Option 2" style="margin-bottom:4px;" />
+                        </div>
+                        <div style="display:flex;gap:6px;align-items:center;margin-top:6px;">
+                            <button class="btn-dim" id="poll-add-option">+ OPTION</button>
+                            <select id="poll-expiry" style="font-size:9px;width:auto;">
+                                <option value="0">No expiry</option>
+                                <option value="3600">1 hour</option>
+                                <option value="86400">24 hours</option>
+                                <option value="604800">1 week</option>
+                            </select>
+                            <div style="flex:1;"></div>
+                            <button class="btn-dim" id="poll-cancel">CANCEL</button>
+                            <button id="poll-submit">POST POLL</button>
+                        </div>
+                    </div>
+                    <!-- Voice recording indicator -->
+                    <div id="voice-note-recorder" style="display:none;border:1px solid var(--accent);padding:8px;margin:6px 8px;align-items:center;gap:8px;">
+                        <span class="recording-dot" id="voice-rec-dot"></span>
+                        <span id="voice-rec-time" style="font-size:10px;font-family:var(--mono);">0:00</span>
+                        <div style="flex:1;"></div>
+                        <button class="btn-dim" id="voice-note-cancel">CANCEL</button>
+                        <button id="voice-note-send">SEND NOTE</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── DMs SUB-TAB ── -->
+            <div class="community-subtab" id="ctab-dms" style="display:none;">
+                <div class="community-panel" style="min-height:350px;">
+                    <div class="community-panel-header">
+                        <span>DIRECT MESSAGES</span>
+                        <div style="display:flex;gap:4px;">
+                            <button class="btn-dim" id="nostr-fetch-dms">REFRESH</button>
+                            <button id="nostr-new-dm">NEW DM</button>
+                        </div>
+                    </div>
+                    <div class="dm-conversations" id="dm-conv-list">
+                        <div style="color:var(--text-dim);text-align:center;padding:12px;font-size:10px;">No conversations yet</div>
+                    </div>
+                    <div class="community-feed" id="dm-thread-feed" style="min-height:160px;">
+                        <div style="color:var(--text-dim);text-align:center;padding:20px;font-size:10px;">Select a conversation or start a new DM</div>
+                    </div>
+                    <div class="redact-warn" id="dm-redact-warn">Sensitive data detected and will be auto-redacted before sending.</div>
+                    <div class="chat-input-row">
+                        <input id="dm-input" placeholder="Type a private message..." disabled />
+                        <button id="dm-send" disabled>SEND</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── MARKETPLACE SUB-TAB ── -->
+            <div class="community-subtab" id="ctab-marketplace" style="display:none;">
+                <div class="mp-stats" id="mp-stats">
+                    <div class="mp-stat"><div class="mp-stat-val" id="mp-wf-count">0</div><div class="mp-stat-label">Workflows</div></div>
+                    <div class="mp-stat"><div class="mp-stat-val" id="mp-pub-count">0</div><div class="mp-stat-label">Publishers</div></div>
+                    <div class="mp-stat"><div class="mp-stat-val" id="mp-cat-count">0</div><div class="mp-stat-label">Categories</div></div>
+                    <div class="mp-stat"><div class="mp-stat-val" id="mp-node-count">0</div><div class="mp-stat-label">Total Nodes</div></div>
+                </div>
+                <div class="mp-controls">
+                    <input id="mp-search" placeholder="Search workflows, roles, tags, authors..." />
+                    <select id="mp-sort">
+                        <option value="newest">Newest</option>
+                        <option value="oldest">Oldest</option>
+                        <option value="name-az">Name A-Z</option>
+                        <option value="name-za">Name Z-A</option>
+                        <option value="nodes">Most Nodes</option>
+                        <option value="safety">Safety Score</option>
+                    </select>
+                    <select id="mp-source-filter">
+                        <option value="all">All Sources</option>
+                        <option value="nostr">Nostr Only</option>
+                        <option value="gist">GitHub Gists</option>
+                    </select>
+                    <button class="btn-dim" id="nostr-fetch-wf">REFRESH</button>
+                    <button class="btn-dim" id="mp-import-gist-btn">FROM GIST</button>
+                    <button id="nostr-publish-wf">PUBLISH</button>
+                </div>
+                <div class="mp-categories" id="mp-doctype-pills" style="margin-bottom:2px;">
+                    <button class="mp-cat-pill active" data-mp-dtype="all">ALL</button>
+                </div>
+                <div class="mp-categories" id="mp-categories">
+                    <button class="mp-cat-pill active" data-mp-cat="all">ALL</button>
+                </div>
+                <div style="position:relative;">
+                    <div class="community-feed" id="nostr-wf-feed">
+                        <div class="mp-empty">Connect to relays to browse workflows...</div>
+                    </div>
+                    <div class="wf-detail-overlay" id="wf-detail-overlay"></div>
+                </div>
+            </div>
+
+            <!-- ── VOICE ROOMS SUB-TAB ── -->
+            <div class="community-subtab" id="ctab-voice" style="display:none;">
+                <div class="voice-discord-bar" id="voice-identity-bar">
+                    <span style="font-size:9px;color:var(--text-dim);flex:1;" id="voice-identity-label">Nostr identity loading...</span>
+                    <span style="font-size:8px;color:var(--accent);" id="voice-relay-status">0 relays</span>
+                </div>
+                <div class="community-panel" style="min-height:350px;">
+                    <div class="community-panel-header">
+                        <span>VOICE ROOMS</span>
+                        <div style="display:flex;gap:4px;">
+                            <button class="btn-dim" id="voice-refresh-btn" title="Refresh rooms">&#8635;</button>
+                            <button class="btn-dim" id="voice-create-btn">+ NEW ROOM</button>
+                        </div>
+                    </div>
+                    <div id="voice-onboarding" class="voice-onboarding">
+                        <div style="font-size:24px;margin-bottom:8px;">&#127908;</div>
+                        <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:6px;">Voice &amp; Text Rooms</div>
+                        <div style="font-size:10px;color:var(--text-dim);line-height:1.6;max-width:280px;margin:0 auto 12px;">
+                            Create or join rooms to voice chat and text chat with other developers in real-time.
+                            Rooms are signaled through Nostr relays using NIP-53.
+                        </div>
+                        <button class="voice-big-btn" id="voice-create-btn-hero">+ CREATE A ROOM</button>
+                    </div>
+                    <div id="voice-room-list" class="voice-room-list" style="display:none;"></div>
+                    <div id="voice-create-form" class="voice-create-form" style="display:none;">
+                        <div class="section-head" style="margin-top:0;">CREATE ROOM</div>
+                        <input type="text" id="voice-room-name" class="chat-input" placeholder="Room name" style="margin-bottom:6px;" />
+                        <input type="text" id="voice-room-summary" class="chat-input" placeholder="Summary (optional)" style="margin-bottom:6px;" />
+                        <div style="display:flex;gap:6px;">
+                            <button class="btn-dim" id="voice-create-submit">CREATE &amp; JOIN</button>
+                            <button class="btn-dim" id="voice-create-cancel">CANCEL</button>
+                        </div>
+                    </div>
+                    <div id="voice-active-room" class="voice-active-room" style="display:none;">
+                        <div class="voice-room-header">
+                            <div><strong id="voice-room-title"></strong> <span class="voice-room-status" id="voice-room-status-badge">OPEN</span></div>
+                            <span id="voice-room-timer" style="font-size:8px;color:var(--text-dim);font-family:var(--mono);">00:00</span>
+                        </div>
+                        <div class="voice-audio-controls">
+                            <button class="voice-mic-btn" id="voice-mic-toggle" title="Toggle Microphone">
+                                <span id="voice-mic-icon">&#127908;</span> <span id="voice-mic-label">MIC OFF</span>
+                            </button>
+                            <div class="voice-mic-level" id="voice-mic-level"><div class="voice-mic-level-bar" id="voice-mic-level-bar"></div></div>
+                            <button class="btn-dim" id="voice-deafen-btn" title="Deafen" style="font-size:12px;">&#128266;</button>
+                            <button class="btn-dim" id="voice-raise-hand" title="Raise Hand" style="font-size:12px;">&#9995;</button>
+                            <button class="btn-dim" id="voice-settings-btn" title="Audio Settings" style="font-size:12px;">&#9881;</button>
+                            <div style="flex:1;"></div>
+                            <button class="btn-dim btn-danger" id="voice-leave-btn">LEAVE ROOM</button>
+                        </div>
+                        <!-- Voice Settings Panel (toggled by ⚙ button) -->
+                        <div id="voice-settings-panel" style="display:none;padding:10px 12px;background:var(--surface2);border-bottom:1px solid var(--border);">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                                <span style="font-size:10px;font-weight:bold;color:var(--accent);letter-spacing:1px;">AUDIO SETTINGS</span>
+                                <button class="btn-dim" id="voice-settings-close" style="font-size:9px;padding:2px 6px;">&#10005;</button>
+                            </div>
+                            <div style="margin-bottom:10px;">
+                                <label style="font-size:9px;color:var(--text-dim);display:block;margin-bottom:3px;">INPUT DEVICE</label>
+                                <select id="voice-input-device" style="width:100%;background:var(--surface);color:var(--text);border:1px solid var(--border);padding:4px 6px;font-size:10px;font-family:var(--mono);border-radius:3px;">
+                                    <option value="">Default Microphone</option>
+                                </select>
+                            </div>
+                            <div style="margin-bottom:10px;">
+                                <label style="font-size:9px;color:var(--text-dim);display:block;margin-bottom:3px;">MIC MODE</label>
+                                <div style="display:flex;gap:4px;">
+                                    <button class="btn-dim" id="voice-mode-open" style="flex:1;font-size:9px;padding:4px;background:var(--accent);color:#000;font-weight:bold;">OPEN MIC</button>
+                                    <button class="btn-dim" id="voice-mode-ptt" style="flex:1;font-size:9px;padding:4px;">PUSH TO TALK</button>
+                                </div>
+                                <div id="voice-ptt-key-row" style="display:none;margin-top:4px;gap:4px;align-items:center;">
+                                    <span style="font-size:8px;color:var(--text-dim);">PTT Key:</span>
+                                    <button class="btn-dim" id="voice-ptt-key-btn" style="font-size:9px;padding:2px 8px;font-family:var(--mono);">Space</button>
+                                    <span style="font-size:7px;color:var(--text-dim);">(click to rebind)</span>
+                                </div>
+                            </div>
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+                                <div>
+                                    <label style="font-size:9px;color:var(--text-dim);display:block;margin-bottom:2px;">SENSITIVITY</label>
+                                    <input type="range" id="voice-sensitivity" min="0.5" max="4" step="0.1" value="1.5" style="width:100%;accent-color:var(--accent);" />
+                                    <div style="display:flex;justify-content:space-between;font-size:7px;color:var(--text-dim);"><span>Low</span><span id="voice-sensitivity-val" style="color:var(--text);">1.5x</span><span>High</span></div>
+                                </div>
+                                <div>
+                                    <label style="font-size:9px;color:var(--text-dim);display:block;margin-bottom:2px;">NOISE GATE</label>
+                                    <input type="range" id="voice-noisegate" min="0" max="30" step="1" value="5" style="width:100%;accent-color:var(--accent);" />
+                                    <div style="display:flex;justify-content:space-between;font-size:7px;color:var(--text-dim);"><span>Off</span><span id="voice-noisegate-val" style="color:var(--text);">5</span><span>Aggressive</span></div>
+                                </div>
+                            </div>
+                            <div style="margin-bottom:10px;">
+                                <label style="font-size:9px;color:var(--text-dim);display:block;margin-bottom:2px;">MASTER VOLUME</label>
+                                <div style="display:flex;gap:6px;align-items:center;">
+                                    <span style="font-size:10px;">&#128264;</span>
+                                    <input type="range" id="voice-master-volume" min="0" max="100" step="1" value="100" style="flex:1;accent-color:var(--accent);" />
+                                    <span id="voice-master-volume-val" style="font-size:9px;color:var(--text);min-width:28px;text-align:right;">100%</span>
+                                </div>
+                            </div>
+                            <div style="margin-bottom:10px;padding:8px;border:1px dashed var(--border);border-radius:4px;background:rgba(255,255,255,0.02);">
+                                <label style="font-size:9px;color:var(--text-dim);display:block;margin-bottom:6px;">HEADPHONES-ONLY MIC MONITOR</label>
+                                <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;flex-wrap:wrap;">
+                                    <label style="font-size:8px;color:var(--text);display:flex;gap:4px;align-items:center;"><input type="checkbox" id="voice-monitor-headphones" /> I am using headphones</label>
+                                    <button class="btn-dim" id="voice-monitor-toggle" style="font-size:9px;padding:2px 8px;">MONITOR OFF</button>
+                                </div>
+                            </div>
+                            <div>
+                                <label style="font-size:9px;color:var(--text-dim);display:block;margin-bottom:2px;">MIC LEVEL</label>
+                                <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden;"><div id="voice-test-bar" style="height:100%;width:0%;background:#4caf50;border-radius:3px;transition:width 0.05s;"></div></div>
+                            </div>
+                        </div>
+                        <div class="voice-participants-grid" id="voice-participants"></div>
+                        <div class="voice-live-chat" id="voice-live-chat">
+                            <div style="color:var(--text-dim);font-size:9px;text-align:center;padding:12px;">Room chat will appear here</div>
+                        </div>
+                        <div class="voice-chat-input-row">
+                            <input type="text" id="voice-chat-input" class="chat-input" placeholder="Type a message..." />
+                            <button class="btn-dim" id="voice-chat-send">SEND</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── BADGES SUB-TAB ── -->
+            <div class="community-subtab" id="ctab-badges" style="display:none;">
+                <div class="community-panel" style="min-height:350px;">
+                    <div class="community-panel-header">
+                        <span>BADGE GALLERY</span>
+                        <button class="btn-dim" id="badge-create-toggle">+ CREATE BADGE</button>
+                    </div>
+                    <div id="badge-create-form" style="display:none;padding:12px;border-bottom:1px solid var(--border);">
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                            <div class="field"><label style="font-size:9px;">Badge ID</label><input id="badge-id" class="chat-input" placeholder="e.g. code-wizard" /></div>
+                            <div class="field"><label style="font-size:9px;">Badge Name</label><input id="badge-name" class="chat-input" placeholder="Code Wizard" /></div>
+                        </div>
+                        <div class="field"><label style="font-size:9px;">Description</label><input id="badge-description" class="chat-input" placeholder="Awarded for exceptional contributions" /></div>
+                        <div class="field"><label style="font-size:9px;">Image URL (optional)</label><input id="badge-image" class="chat-input" placeholder="https://..." /></div>
+                        <div style="display:flex;gap:6px;"><button id="badge-create-submit">CREATE BADGE</button><button class="btn-dim" id="badge-create-cancel">CANCEL</button></div>
+                    </div>
+                    <div id="badge-award-form" style="display:none;padding:12px;border-bottom:1px solid var(--border);">
+                        <div class="section-head" style="margin-top:0;">AWARD BADGE</div>
+                        <div class="field"><label style="font-size:9px;">Badge</label><select id="badge-award-select" style="font-size:9px;"></select></div>
+                        <div class="field"><label style="font-size:9px;">Recipient pubkeys (one per line)</label><textarea id="badge-award-pubkeys" rows="3" style="font-size:9px;font-family:var(--mono);width:100%;resize:vertical;"></textarea></div>
+                        <div style="display:flex;gap:6px;"><button id="badge-award-submit">AWARD</button><button class="btn-dim" id="badge-award-cancel">CANCEL</button></div>
+                    </div>
+                    <div class="badge-gallery" id="badge-gallery">
+                        <div style="color:var(--text-dim);text-align:center;padding:20px;font-size:10px;">No badges found.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── AI JOBS SUB-TAB ── -->
+            <div class="community-subtab" id="ctab-jobs" style="display:none;">
+                <div class="community-panel" style="min-height:350px;">
+                    <div class="community-panel-header"><span>AI JOBS (NIP-90 DVM)</span></div>
+                    <div style="padding:12px;border-bottom:1px solid var(--border);">
+                        <div class="section-head" style="margin-top:0;">SUBMIT JOB</div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                            <div class="field"><label style="font-size:9px;">Job Type</label>
+                                <select id="dvm-job-kind" style="font-size:9px;">
+                                    <option value="100">Text Generation</option><option value="200">Code Generation</option>
+                                    <option value="300">Translation</option><option value="400">Summarization</option>
+                                    <option value="500">Image Generation</option>
+                                </select>
+                            </div>
+                            <div class="field"><label style="font-size:9px;">Bid (sats, optional)</label><input id="dvm-bid" class="chat-input" type="number" placeholder="0" /></div>
+                        </div>
+                        <div class="field"><label style="font-size:9px;">Input</label><textarea id="dvm-input" rows="4" style="font-size:10px;width:100%;resize:vertical;font-family:var(--mono);" placeholder="Enter your prompt or text..."></textarea></div>
+                        <div class="field"><label style="font-size:9px;">Parameters (optional)</label><textarea id="dvm-params" rows="2" style="font-size:9px;width:100%;resize:vertical;font-family:var(--mono);" placeholder="model=gpt-4&#10;language=en"></textarea></div>
+                        <button id="dvm-submit">SUBMIT JOB</button>
+                    </div>
+                    <div class="section-head" style="margin-top:8px;padding:0 12px;">ACTIVE JOBS</div>
+                    <div class="dvm-job-list" id="dvm-job-list">
+                        <div style="color:var(--text-dim);text-align:center;padding:20px;font-size:10px;">No jobs submitted yet.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── PRIVACY SUB-TAB ── -->
+            <div class="community-subtab" id="ctab-privacy" style="display:none;">
+                <div class="section-head" style="margin-top:0;">PRIVACY &amp; SECURITY SETTINGS</div>
+                <div class="privacy-panel" id="privacy-panel">
+                    <div class="privacy-row"><label>Public Chat</label><button class="toggle-switch on" data-privacy="chatEnabled" id="priv-chat"></button></div>
+                    <div class="privacy-row"><label>Direct Messages (Encrypted)</label><button class="toggle-switch on" data-privacy="dmsEnabled" id="priv-dms"></button></div>
+                    <div class="privacy-row"><label>Workflow Marketplace</label><button class="toggle-switch on" data-privacy="marketplaceEnabled" id="priv-marketplace"></button></div>
+                    <div class="privacy-row"><label>Auto-Redact Sensitive Data</label><button class="toggle-switch on" data-privacy="autoRedact" id="priv-redact"></button></div>
+                    <div class="privacy-row"><label>Share Online Presence</label><button class="toggle-switch on" data-privacy="presenceEnabled" id="priv-presence"></button></div>
+                    <div class="privacy-row"><label>Voice Rooms (NIP-53)</label><button class="toggle-switch on" data-privacy="voiceEnabled" id="priv-voice"></button></div>
+                </div>
+                <div class="section-head" style="margin-top:16px;">THEME IMPORT</div>
+                <div style="border:1px solid var(--border);padding:12px;margin-bottom:8px;">
+                    <div style="font-size:9px;color:var(--text-dim);margin-bottom:8px;">Paste an accent color hex code to personalize the UI.</div>
+                    <div style="display:flex;gap:6px;align-items:center;">
+                        <input id="theme-accent-input" class="chat-input" placeholder="#7289da" style="width:90px;font-family:var(--mono);" maxlength="7" />
+                        <button class="btn-dim" id="theme-accent-apply">APPLY</button>
+                        <button class="btn-dim" id="theme-accent-reset">RESET</button>
+                        <div id="theme-accent-preview" style="width:18px;height:18px;border-radius:4px;border:1px solid var(--border);background:var(--accent);"></div>
+                    </div>
+                </div>
+                <div class="section-head" style="margin-top:16px;">BLOCKED USERS</div>
+                <div class="block-list" id="block-list">
+                    <div style="color:var(--text-dim);text-align:center;padding:8px;font-size:10px;">No blocked users</div>
+                </div>
+                <div class="section-head" style="margin-top:16px;">EXTERNAL IDENTITY CLAIMS (NIP-39)</div>
+                <div style="border:1px solid var(--border);padding:12px;">
+                    <div style="font-size:9px;color:var(--text-dim);margin-bottom:8px;">Link external accounts to your Nostr identity.</div>
+                    <div id="identity-claims-list" style="margin-bottom:12px;"></div>
+                    <div style="display:flex;gap:6px;align-items:center;">
+                        <select id="identity-platform" style="font-size:9px;width:auto;">
+                            <option value="github">GitHub</option><option value="twitter">Twitter/X</option>
+                            <option value="mastodon">Mastodon</option><option value="discord">Discord</option>
+                            <option value="telegram">Telegram</option>
+                        </select>
+                        <input id="identity-username" class="chat-input" placeholder="username" style="flex:1;" />
+                        <input id="identity-proof" class="chat-input" placeholder="proof URL" style="flex:1;" />
+                        <button class="btn-dim" id="identity-add-claim">ADD</button>
+                    </div>
+                    <div style="margin-top:8px;display:flex;align-items:center;gap:8px;">
+                        <button id="identity-publish" class="btn-dim">PUBLISH CLAIMS</button>
+                        <span id="identity-status" style="font-size:8px;color:var(--text-dim);"></span>
+                    </div>
+                </div>
+                <div class="section-head" style="margin-top:16px;">LIGHTNING ADDRESS (RECEIVE ZAPS)</div>
+                <div style="border:1px solid var(--border);padding:12px;">
+                    <div class="field" style="margin:0;">
+                        <label style="font-size:9px;">Your Lightning Address (lud16)</label>
+                        <div style="display:flex;gap:6px;">
+                            <input id="lud16-input" placeholder="you@getalby.com" style="flex:1;" />
+                            <button class="btn-dim" id="lud16-save">SAVE</button>
+                            <button class="btn-dim" id="lud16-test">TEST</button>
+                            <button class="btn-dim" id="lud16-check">RUN ZAP CHECK</button>
+                        </div>
+                        <div id="lud16-status" style="font-size:8px;color:var(--text-dim);margin-top:4px;"></div>
+                        <div id="zap-readiness" style="margin-top:8px;border:1px solid var(--border);padding:8px;font-size:9px;line-height:1.6;color:var(--text-dim);font-family:monospace;"></div>
+                    </div>
+                </div>
+                <div class="section-head" style="margin-top:16px;">AUTO-REDACTION INFO</div>
+                <div style="border:1px solid var(--border);padding:12px;font-size:10px;color:var(--text-dim);line-height:1.5;">
+                    When enabled, the following are automatically scrubbed before any message leaves your machine:<br>
+                    API keys &middot; AWS credentials &middot; GitHub/GitLab tokens &middot; Private keys &middot;
+                    Bearer tokens &middot; Passwords &middot; Email addresses &middot; IP addresses &middot; SSNs &middot;
+                    Credit card numbers &middot; File paths with usernames &middot; Connection strings &middot; Phone numbers
+                </div>
+            </div>
+
+            <!-- ── UX APPEARANCE SUB-TAB ── -->
+            <div class="community-subtab" id="ctab-appearance" style="display:none;">
+                <div class="section-head" style="margin-top:0;">UX PROFILE</div>
+                <div class="ux-presets" id="ux-presets">
+                    <div class="ux-preset-card active" data-ux-preset="commander"><div class="ux-preset-icon">&#9878;</div><div class="ux-preset-name">Commander</div><div class="ux-preset-desc">Balanced clarity.</div><span class="ux-security-badge medium">MED SEC</span></div>
+                    <div class="ux-preset-card" data-ux-preset="operator"><div class="ux-preset-icon">&#9881;</div><div class="ux-preset-name">Operator</div><div class="ux-preset-desc">Dense, compact.</div><span class="ux-security-badge medium">MED SEC</span></div>
+                    <div class="ux-preset-card" data-ux-preset="observer"><div class="ux-preset-icon">&#9737;</div><div class="ux-preset-name">Observer</div><div class="ux-preset-desc">Read-focused, relaxed.</div><span class="ux-security-badge medium">MED SEC</span></div>
+                    <div class="ux-preset-card" data-ux-preset="stealth"><div class="ux-preset-icon">&#128373;</div><div class="ux-preset-name">Stealth</div><div class="ux-preset-desc">Max privacy.</div><span class="ux-security-badge high">HIGH SEC</span></div>
+                    <div class="ux-preset-card" data-ux-preset="accessible"><div class="ux-preset-icon">&#9855;</div><div class="ux-preset-name">Accessible</div><div class="ux-preset-desc">High contrast, large text.</div><span class="ux-security-badge high">HIGH SEC</span></div>
+                </div>
+                <div class="section-head">FINE-TUNE</div>
+                <!-- 1. LAYOUT & DENSITY -->
+                <div class="ux-category" data-ux-cat="layout">
+                    <div class="ux-category-header"><div><span class="ux-category-arrow">&#9654;</span><span class="ux-category-title">Layout &amp; Density</span></div><span class="ux-category-value" id="ux-val-layout">Standard</span></div>
+                    <div class="ux-category-body">
+                        <div class="ux-control"><label>Density</label><select data-ux="density"><option value="compact">Compact</option><option value="standard" selected>Standard</option><option value="spacious">Spacious</option></select></div>
+                        <div class="ux-control"><label>Spacing</label><input type="range" min="4" max="24" value="12" data-ux="spacing" /><span class="ux-range-val">12px</span></div>
+                        <div class="ux-control"><label>Border Radius</label><input type="range" min="0" max="12" value="0" data-ux="borderRadius" /><span class="ux-range-val">0px</span></div>
+                        <div class="ux-control"><label>Card Padding</label><input type="range" min="4" max="20" value="12" data-ux="cardPadding" /><span class="ux-range-val">12px</span></div>
+                    </div>
+                </div>
+                <!-- 2. TYPOGRAPHY -->
+                <div class="ux-category" data-ux-cat="typography">
+                    <div class="ux-category-header"><div><span class="ux-category-arrow">&#9654;</span><span class="ux-category-title">Typography</span></div><span class="ux-category-value" id="ux-val-typography">12px</span></div>
+                    <div class="ux-category-body">
+                        <div class="ux-control"><label>Base Size</label><input type="range" min="8" max="18" value="12" data-ux="fontSize" /><span class="ux-range-val">12px</span></div>
+                        <div class="ux-control"><label>Line Height</label><input type="range" min="10" max="24" value="15" data-ux="lineHeight" /><span class="ux-range-val">1.5</span></div>
+                        <div class="ux-control"><label>Header Size</label><input type="range" min="10" max="20" value="14" data-ux="headerSize" /><span class="ux-range-val">14px</span></div>
+                        <div class="ux-control"><label>Font</label><select data-ux="fontFamily"><option value="mono" selected>Monospace</option><option value="sans">Sans-Serif</option><option value="system">System UI</option></select></div>
+                    </div>
+                </div>
+                <!-- 3. COLORS & THEME -->
+                <div class="ux-category" data-ux-cat="colors">
+                    <div class="ux-category-header"><div><span class="ux-category-arrow">&#9654;</span><span class="ux-category-title">Colors &amp; Theme</span></div><span class="ux-category-value" id="ux-val-colors">Default</span></div>
+                    <div class="ux-category-body">
+                        <div class="ux-control"><label>Accent</label><input type="color" value="#00ff88" data-ux="accentColor" /></div>
+                        <div class="ux-control"><label>Surface</label><input type="color" value="#1a1a2e" data-ux="surfaceColor" /></div>
+                        <div class="ux-control"><label>Border</label><input type="color" value="#2a2a4a" data-ux="borderColor" /></div>
+                        <div class="ux-control"><label>Dim Opacity</label><input type="range" min="20" max="80" value="55" data-ux="dimOpacity" /><span class="ux-range-val">55%</span></div>
+                        <div class="ux-control"><label>Contrast</label><select data-ux="contrast"><option value="normal" selected>Normal</option><option value="high">High</option><option value="ultra">Ultra</option></select></div>
+                    </div>
+                </div>
+                <!-- 4. ANIMATION & MOTION -->
+                <div class="ux-category" data-ux-cat="motion">
+                    <div class="ux-category-header"><div><span class="ux-category-arrow">&#9654;</span><span class="ux-category-title">Animation &amp; Motion</span></div><span class="ux-category-value" id="ux-val-motion">Enabled</span></div>
+                    <div class="ux-category-body">
+                        <div class="ux-control"><label>Transitions</label><button class="toggle-switch on" data-ux-toggle="transitions"></button></div>
+                        <div class="ux-control"><label>Pulse Effects</label><button class="toggle-switch on" data-ux-toggle="pulseEffects"></button></div>
+                        <div class="ux-control"><label>Speed</label><input type="range" min="0" max="500" value="150" step="50" data-ux="transitionSpeed" /><span class="ux-range-val">150ms</span></div>
+                        <div class="ux-control"><label>Smooth Scroll</label><button class="toggle-switch on" data-ux-toggle="smoothScroll"></button></div>
+                    </div>
+                </div>
+                <!-- 5. INFORMATION DENSITY -->
+                <div class="ux-category" data-ux-cat="info">
+                    <div class="ux-category-header"><div><span class="ux-category-arrow">&#9654;</span><span class="ux-category-title">Information Density</span></div><span class="ux-category-value" id="ux-val-info">Standard</span></div>
+                    <div class="ux-category-body">
+                        <div class="ux-control"><label>Card Detail</label><select data-ux="cardDetail"><option value="minimal">Minimal</option><option value="standard" selected>Standard</option><option value="full">Full</option></select></div>
+                        <div class="ux-control"><label>Desc Truncate</label><input type="range" min="40" max="300" value="120" step="20" data-ux="truncateLength" /><span class="ux-range-val">120</span></div>
+                        <div class="ux-control"><label>Timestamp</label><select data-ux="timestampFormat"><option value="relative">Relative</option><option value="time" selected>Time Only</option><option value="full">Full DateTime</option></select></div>
+                        <div class="ux-control"><label>Show Stats Bar</label><button class="toggle-switch on" data-ux-toggle="showStats"></button></div>
+                        <div class="ux-control"><label>Compact Messages</label><button class="toggle-switch" data-ux-toggle="compactMessages"></button></div>
+                    </div>
+                </div>
+                <!-- 6. PRIVACY APPEARANCE -->
+                <div class="ux-category" data-ux-cat="privappear">
+                    <div class="ux-category-header"><div><span class="ux-category-arrow">&#9654;</span><span class="ux-category-title">Privacy Appearance</span></div><span class="ux-category-value" id="ux-val-privappear">Standard</span></div>
+                    <div class="ux-category-body">
+                        <div class="ux-control"><label>Pubkey Display</label><select data-ux="pubkeyDisplay"><option value="full">Full</option><option value="short" selected>Short</option><option value="hidden">Hidden</option></select></div>
+                        <div class="ux-control"><label>Online Bar</label><button class="toggle-switch on" data-ux-toggle="showOnlineBar"></button></div>
+                        <div class="ux-control"><label>Identity Bar</label><button class="toggle-switch on" data-ux-toggle="showIdentityBar"></button></div>
+                        <div class="ux-control"><label>Reaction Buttons</label><button class="toggle-switch on" data-ux-toggle="showReactions"></button></div>
+                    </div>
+                </div>
+                <!-- 7. NOTIFICATIONS -->
+                <div class="ux-category" data-ux-cat="notif">
+                    <div class="ux-category-header"><div><span class="ux-category-arrow">&#9654;</span><span class="ux-category-title">Notifications</span></div><span class="ux-category-value" id="ux-val-notif">All</span></div>
+                    <div class="ux-category-body">
+                        <div class="ux-control"><label>Redaction Warnings</label><button class="toggle-switch on" data-ux-toggle="showRedactWarn"></button></div>
+                        <div class="ux-control"><label>Error Display</label><select data-ux="errorDisplay"><option value="inline" selected>Inline</option><option value="toast">Toast Only</option><option value="silent">Silent</option></select></div>
+                        <div class="ux-control"><label>Success Feedback</label><button class="toggle-switch on" data-ux-toggle="showSuccess"></button></div>
+                    </div>
+                </div>
+                <!-- 8. ACCESSIBILITY -->
+                <div class="ux-category" data-ux-cat="a11y">
+                    <div class="ux-category-header"><div><span class="ux-category-arrow">&#9654;</span><span class="ux-category-title">Accessibility</span></div><span class="ux-category-value" id="ux-val-a11y">Default</span></div>
+                    <div class="ux-category-body">
+                        <div class="ux-control"><label>Reduced Motion</label><button class="toggle-switch" data-ux-toggle="reducedMotion"></button></div>
+                        <div class="ux-control"><label>High Contrast</label><button class="toggle-switch" data-ux-toggle="highContrast"></button></div>
+                        <div class="ux-control"><label>Focus Indicators</label><button class="toggle-switch on" data-ux-toggle="focusIndicators"></button></div>
+                        <div class="ux-control"><label>Screen Reader Hints</label><button class="toggle-switch" data-ux-toggle="ariaHints"></button></div>
+                    </div>
+                </div>
+                <div class="ux-reset-row">
+                    <button class="btn-dim" id="ux-export-btn">EXPORT</button>
+                    <button class="btn-dim" id="ux-import-btn">IMPORT</button>
+                    <button class="btn-dim" id="ux-reset-btn">RESET TO DEFAULT</button>
+                </div>
+            </div>
+        </div>
+        <!-- Context menu (dynamically positioned) -->
+        <div class="ctx-menu" id="ctx-menu" style="display:none;"></div>
+
     </div><!-- end content-wrapper -->
     <div class="mp-toast" id="mp-toast"></div>
 
@@ -4298,10 +4898,10 @@
     </script>
 
     <!-- Load shim BEFORE main.js so acquireVsCodeApi is available -->
-    <script src="/static/vscode-shim.js?v=14"></script>
+    <script src="/static/vscode-shim.js?v=18"></script>
     <script src="/static/svg-pan-zoom.min.js"></script>
     <script src="/static/peerjs.min.js"></script>
-    <script src="/static/main.js?v=14"></script>
+    <script src="/static/main.js?v=18"></script>
 
     <!-- ═══════════════ DREAMER + GPU FLEET TAB JS ═══════════════ -->
     <script>

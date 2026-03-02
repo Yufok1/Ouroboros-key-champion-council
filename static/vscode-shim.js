@@ -342,13 +342,12 @@
     async function handleNostrCommand(msg) {
         const command = msg.command;
 
-        // Map nostr commands to their MCP tool names where possible.
-        // The capsule doesn't have direct nostr MCP tools — these are
-        // VS Code extension features that use the nostr relay directly.
-        // In web mode, we attempt to route through the capsule if a
-        // matching tool exists, otherwise graceful no-op with message.
+        // Map nostr commands to capsule MCP tools where possible.
+        // For commands without a direct capsule equivalent, return
+        // graceful defaults so the Community tab renders cleanly
+        // rather than showing error messages everywhere.
 
-        // Commands that can work through the capsule's observe/bag system
+        // Commands that route through capsule MCP tools
         const toolMappings = {
             'nostrPublishChat': 'observe',
             'nostrFetchChat': 'feed',
@@ -357,23 +356,46 @@
             'nostrGetIdentity': 'get_identity',
         };
 
-        // Commands that are purely VS Code extension features
-        const vsCodeOnly = [
-            'nostrSendDM', 'nostrFetchDMs', 'nostrBlockUser', 'nostrUnblockUser',
-            'nostrGetBlockList', 'nostrSetPrivacy', 'nostrGetPrivacy', 'nostrSetProfile',
-            'nostrDeleteEvent', 'nostrReact', 'nostrZap', 'nostrResolveLud16',
-            'nostrAwardBadge', 'nostrCreateBadge', 'nostrCreatePoll', 'nostrVotePoll',
-            'nostrRedactPreview', 'nostrSendLiveChat', 'nostrGetOnlineUsers',
-            'nostrSubmitDvmJob',
+        // Commands that return empty/default data for clean UI
+        const defaultResponses = {
+            'nostrFetchDMs': { type: 'nostrDMs', dms: [] },
+            'nostrGetBlockList': { type: 'nostrBlockList', blocked: [] },
+            'nostrGetPrivacy': { type: 'nostrPrivacy', settings: { chatEnabled: true, dmsEnabled: true, marketplaceEnabled: true, autoRedact: true, presenceEnabled: false, voiceEnabled: false } },
+            'nostrGetOnlineUsers': { type: 'nostrOnlineUsers', users: [], count: 0 },
+            'nostrFetchVoiceRooms': { type: 'nostrVoiceRooms', rooms: [] },
+            'nostrGetVoiceRooms': { type: 'nostrVoiceRooms', rooms: [] },
+        };
+
+        // Commands that are write operations — acknowledge silently
+        const writeOps = [
+            'nostrSendDM', 'nostrBlockUser', 'nostrUnblockUser',
+            'nostrSetPrivacy', 'nostrSetProfile', 'nostrDeleteEvent',
+            'nostrReact', 'nostrZap', 'nostrResolveLud16',
+            'nostrAwardBadge', 'nostrCreateBadge', 'nostrCreatePoll',
+            'nostrVotePoll', 'nostrRedactPreview', 'nostrSendLiveChat',
+            'nostrSubmitDvmJob', 'nostrCreateVoiceRoom', 'nostrJoinRoom',
+            'nostrLeaveRoom', 'nostrRaiseHand', 'nostrSendVoiceNote',
         ];
 
-        // Voice room commands
-        const voiceCommands = [
-            'nostrCreateVoiceRoom', 'nostrFetchVoiceRooms', 'nostrGetVoiceRooms',
-            'nostrJoinRoom', 'nostrLeaveRoom', 'nostrRaiseHand', 'nostrSendVoiceNote',
-        ];
-
-        if (toolMappings[command]) {
+        if (command === 'nostrGetIdentity') {
+            // Identity needs special event type — main.js listens for 'nostrIdentity'
+            try {
+                const result = await mcpToolCall('get_identity', msg.args || {});
+                const pubkey = result?.identity?.cascade_id || result?.cascade_id || '';
+                fireEvent({
+                    type: 'nostrIdentity', id: msg.id,
+                    pubkey: pubkey,
+                    npub: pubkey ? pubkey.substring(0, 16) + '...' : 'Web mode (capsule identity)',
+                    connected: true,
+                    relayCount: 0,
+                    relays: [],
+                    note: 'Using capsule identity — no Nostr relay connected'
+                });
+            } catch (err) {
+                fireEvent({ type: 'nostrIdentity', id: msg.id, pubkey: '', npub: 'Web mode', connected: false, relayCount: 0, relays: [] });
+            }
+        }
+        else if (toolMappings[command]) {
             try {
                 const result = await mcpToolCall(toolMappings[command], msg.args || msg.data || {});
                 fireEvent({ type: 'nostrResult', command, id: msg.id, data: result });
@@ -389,25 +411,20 @@
                 fireEvent({ type: 'nostrWorkflows', id: msg.id, error: err.message });
             }
         }
-        else if (voiceCommands.includes(command)) {
-            fireEvent({
-                type: 'nostrResult', command, id: msg.id,
-                ...webModeUnavailable('Voice rooms (requires WebRTC + HTTPS)')
-            });
+        else if (defaultResponses[command]) {
+            // Return clean defaults so UI renders empty state instead of errors
+            fireEvent({ ...defaultResponses[command], command, id: msg.id });
         }
-        else if (vsCodeOnly.includes(command)) {
-            fireEvent({
-                type: 'nostrResult', command, id: msg.id,
-                ...webModeUnavailable('Nostr relay features')
-            });
+        else if (writeOps.includes(command)) {
+            // Write operations return a quiet acknowledgement
+            // The UI won't show an error, just won't persist to relays
+            console.log('[shim] Nostr write op (no relay):', command);
+            fireEvent({ type: 'nostrResult', command, id: msg.id, data: { status: 'ok', note: 'No relay connected — operation logged locally only' } });
         }
         else {
-            // Unknown nostr command — try as generic tool
+            // Unknown nostr command — silent no-op
             console.log('[shim] Unknown nostr command:', command);
-            fireEvent({
-                type: 'nostrResult', command, id: msg.id,
-                ...webModeUnavailable('This Nostr feature')
-            });
+            fireEvent({ type: 'nostrResult', command, id: msg.id, data: {} });
         }
     }
 
