@@ -66,6 +66,53 @@ def _is_same_origin_request(url_value: str, request: Request) -> bool:
         return False
 
 
+def _extract_client_id(request: Request) -> str | None:
+    """Extract a granular client identifier from request headers.
+    Returns a human-readable string like 'pi-mcp-adapter', 'claude-code',
+    'curl/8.4.0', 'hf-user:tostido', etc. Returns None for webui."""
+    # Explicit client-id header (preferred — clients can self-identify)
+    client_id = request.headers.get("x-client-id") or request.headers.get("x-mcp-client")
+    if client_id:
+        return client_id.strip()[:64]
+
+    ua = (request.headers.get("user-agent") or "").strip()
+    ua_lower = ua.lower()
+
+    # Known MCP client signatures
+    if "pi-mcp" in ua_lower or "pi-coding-agent" in ua_lower:
+        return "pi-agent"
+    if "claude" in ua_lower:
+        return "claude-code"
+    if "kiro" in ua_lower:
+        return "kiro"
+    if "cursor" in ua_lower:
+        return "cursor"
+    if "windsurf" in ua_lower:
+        return "windsurf"
+    if "copilot" in ua_lower:
+        return "copilot"
+    if "chatgpt" in ua_lower or "openai" in ua_lower:
+        return "chatgpt-action"
+
+    # Extract HF user from bearer token if present
+    auth = request.headers.get("authorization") or ""
+    if auth.startswith("Bearer ") and len(auth) > 20:
+        # Don't expose the token, just mark as authenticated
+        return "hf-authenticated"
+
+    # Generic user-agent extraction (first segment)
+    if ua and "/" in ua:
+        agent_name = ua.split("/")[0].strip().lower()[:24]
+        if agent_name and agent_name not in ("mozilla", "python-requests", "python"):
+            return agent_name
+
+    # Python clients (requests, httpx, aiohttp)
+    if "python" in ua_lower or "httpx" in ua_lower or "aiohttp" in ua_lower:
+        return "python-client"
+
+    return None
+
+
 def _infer_activity_source(request: Request, fallback: str = "webui") -> str:
     # Explicit override from header/query wins.
     explicit = _normalize_activity_source(
@@ -474,7 +521,7 @@ def _capacity_guard_decision(tool_name: str, args: dict, snapshot: dict) -> dict
     return decision
 
 
-def _broadcast_activity(tool: str, args: dict, result: dict | None, duration_ms: int, error: str | None, source: str = "external"):
+def _broadcast_activity(tool: str, args: dict, result: dict | None, duration_ms: int, error: str | None, source: str = "external", client_id: str | None = None):
     """Record and broadcast a tool call to all SSE activity subscribers."""
     # Suppress hydration calls entirely
     if source == "hydration":
@@ -489,7 +536,7 @@ def _broadcast_activity(tool: str, args: dict, result: dict | None, duration_ms:
     parsed_result = _parse_mcp_result(result)
     # Debug: log what we're broadcasting so we can trace blank-data issues
     result_preview = str(parsed_result)[:200] if parsed_result else "None"
-    print(f"[ACTIVITY] Broadcasting: tool={tool} source={source} has_result={parsed_result is not None} result_type={type(parsed_result).__name__} subs={len(_activity_subscribers)} preview={result_preview}")
+    print(f"[ACTIVITY] Broadcasting: tool={tool} source={source} client={client_id} has_result={parsed_result is not None} result_type={type(parsed_result).__name__} subs={len(_activity_subscribers)} preview={result_preview}")
     entry = {
         "tool": tool,
         "category": cat,
@@ -499,6 +546,7 @@ def _broadcast_activity(tool: str, args: dict, result: dict | None, duration_ms:
         "durationMs": duration_ms,
         "timestamp": int(time.time() * 1000),
         "source": source,
+        "clientId": client_id,  # granular client identification
     }
     _activity_log.append(entry)
     if len(_activity_log) > 500:
@@ -1126,6 +1174,7 @@ async def proxy_tool_call(tool_name: str, request: Request):
     # Optional reserved body key for callers that can't set headers/query.
     body_source = _normalize_activity_source(body.pop("__source", None) if isinstance(body, dict) else None)
     source = body_source or _infer_activity_source(request, fallback="webui")
+    client_id = _extract_client_id(request)
 
     runtime_capacity = None
     capacity_guard = None
@@ -1139,7 +1188,7 @@ async def proxy_tool_call(tool_name: str, request: Request):
                 "capacity_guard": capacity_guard,
                 "runtime_capacity": runtime_capacity,
             }
-            _broadcast_activity(tool_name, body if isinstance(body, dict) else {}, payload, 0, error_msg, source=source)
+            _broadcast_activity(tool_name, body if isinstance(body, dict) else {}, payload, 0, error_msg, source=source, client_id=client_id)
             return JSONResponse(status_code=429, content=payload)
 
     start = time.time()
@@ -1149,7 +1198,7 @@ async def proxy_tool_call(tool_name: str, request: Request):
     duration_ms = int((time.time() - start) * 1000)
     error_str = result.get("error") if isinstance(result.get("error"), str) else None
     # Tag hydration calls so the frontend SSE listener can filter them
-    _broadcast_activity(tool_name, body, result.get("result"), duration_ms, error_str, source=source)
+    _broadcast_activity(tool_name, body, result.get("result"), duration_ms, error_str, source=source, client_id=client_id)
     if error_str:
         return JSONResponse(status_code=503, content=result)
     if capacity_guard and isinstance(result, dict):
@@ -1602,7 +1651,7 @@ async def mcp_sse_proxy(request: Request):
                                             _broadcast_activity(
                                                 pending["tool"], pending["args"],
                                                 rpc_result, duration_ms, error_str,
-                                                source="external"
+                                                source="external", client_id=pending.get("client_id")
                                             )
                                         elif rpc_id is not None:
                                             print(f"[MCP-PROXY] SSE response id={rpc_id} (type={type(rpc_id).__name__}) not in pending keys={list(_pending_external_calls.keys())}")
@@ -1642,7 +1691,8 @@ async def mcp_message_proxy(request: Request):
     body = await request.body()
     body = _normalize_mcp_jsonrpc_payload(body)
     content_type = request.headers.get("content-type", "application/json")
-    print(f"[MCP-PROXY] POST /mcp/message(s) session_id={session_id} len={len(body)}")
+    _mcp_client_id = _extract_client_id(request)
+    print(f"[MCP-PROXY] POST /mcp/message(s) session_id={session_id} client={_mcp_client_id} len={len(body)}")
 
     # Extract tools/call payload(s) for activity tracking (single or batch).
     rpc_calls = [
@@ -1675,6 +1725,7 @@ async def mcp_message_proxy(request: Request):
                                 "tool": call["tool"],
                                 "args": call["args"],
                                 "start": start,
+                                "client_id": _mcp_client_id,
                             }
                             print(
                                 f"[MCP-PROXY] Stored pending call id={rpc_id} "
@@ -1682,7 +1733,7 @@ async def mcp_message_proxy(request: Request):
                             )
                         else:
                             # Notifications (no id) cannot be matched on SSE response.
-                            _broadcast_activity(call["tool"], call["args"], None, duration_ms, None, source="external")
+                            _broadcast_activity(call["tool"], call["args"], None, duration_ms, None, source="external", client_id=_mcp_client_id)
                 elif resp.status_code == 200:
                     # Got inline JSON response(s) - map by id when present.
                     response_items: list[dict] = []
@@ -1728,7 +1779,7 @@ async def mcp_message_proxy(request: Request):
                             item.get("result"),
                             duration_ms,
                             error_str,
-                            source="external",
+                            source="external", client_id=_mcp_client_id,
                         )
 
                     for call in unmatched_calls:
@@ -1741,7 +1792,7 @@ async def mcp_message_proxy(request: Request):
                             None,
                             duration_ms,
                             error_str,
-                            source="external",
+                            source="external", client_id=_mcp_client_id,
                         )
                 else:
                     for call in rpc_calls:
@@ -1751,7 +1802,7 @@ async def mcp_message_proxy(request: Request):
                             None,
                             duration_ms,
                             f"HTTP {resp.status_code}",
-                            source="external",
+                            source="external", client_id=_mcp_client_id,
                         )
 
             # Forward the response as-is
@@ -1769,12 +1820,12 @@ async def mcp_message_proxy(request: Request):
     except httpx.ReadTimeout:
         duration_ms = int((time.time() - start) * 1000)
         for call in rpc_calls:
-            _broadcast_activity(call["tool"], call["args"], None, duration_ms, "Capsule timeout", source="external")
+            _broadcast_activity(call["tool"], call["args"], None, duration_ms, "Capsule timeout", source="external", client_id=_mcp_client_id)
         return JSONResponse(status_code=504, content={"error": "Capsule timeout"})
     except Exception as e:
         duration_ms = int((time.time() - start) * 1000)
         for call in rpc_calls:
-            _broadcast_activity(call["tool"], call["args"], None, duration_ms, str(e), source="external")
+            _broadcast_activity(call["tool"], call["args"], None, duration_ms, str(e), source="external", client_id=_mcp_client_id)
         print(f"[MCP-PROXY] POST error: {e}")
         return JSONResponse(status_code=502, content={"error": str(e)})
 

@@ -1707,7 +1707,7 @@
         detailLines.push(fullTs);
         detailLines.push('');
         detailLines.push('Source');
-        detailLines.push(String(source));
+        detailLines.push(String(source) + (event.clientId ? ' (' + event.clientId + ')' : ''));
         detailLines.push('');
         detailLines.push('Category');
         detailLines.push(String(e.category || 'unknown'));
@@ -1777,9 +1777,18 @@
         detailLines.push(String(resultText).substring(0, 4000));
         var detailText = detailLines.join('\n');
 
-        var sourceBadge = source === 'external'
-            ? '<span class="activity-cat" style="border-color:var(--blue);color:var(--blue);">EXTERNAL</span>'
-            : '';
+        var clientId = event.clientId || '';
+        var sourceBadge = '';
+        if (source === 'external') {
+            var clientLabel = clientId ? clientId.toUpperCase() : 'EXTERNAL';
+            var clientColor = clientId === 'pi-agent' ? '#a78bfa'
+                : clientId === 'claude-code' ? '#f59e0b'
+                : clientId === 'kiro' ? '#10b981'
+                : clientId === 'cursor' ? '#3b82f6'
+                : clientId === 'chatgpt-action' ? '#6366f1'
+                : 'var(--blue)';
+            sourceBadge = '<span class="activity-cat" style="border-color:' + clientColor + ';color:' + clientColor + ';">' + escHtml(clientLabel) + '</span>';
+        }
 
         var div = document.createElement('div');
         div.className = 'activity-entry';
@@ -7459,6 +7468,269 @@
         return base;
     }
 
+    // ═══════════════════════════════════════════════════════════
+    // AGENT CONFIG — per-slot configurable agent behavior
+    // Modeled after OpenAI Custom GPTs: persona, system prompt,
+    // generation params, tool policy, memory, safety rails.
+    // Persisted to localStorage; can be saved/loaded from FelixBag.
+    // ═══════════════════════════════════════════════════════════
+
+    function _defaultAgentConfig() {
+        return {
+            // Identity & Persona
+            agentName: '',
+            agentDescription: '',
+            systemPrompt: '',  // empty = use default loop prompt
+            persona: '',       // freeform persona description
+
+            // Generation Parameters
+            temperature: 0.7,
+            maxTokens: 256,
+            maxIterations: 5,
+            topP: 0.9,
+            repetitionPenalty: 1.1,
+
+            // Memory & Context
+            contextStrategy: 'full',       // 'full' | 'sliding-window' | 'summarize'
+            contextWindowSize: 20,         // max messages before strategy kicks in
+            persistMemory: false,          // auto-save to FelixBag after session
+            memoryKey: '',                 // custom FelixBag key for this agent's memory
+
+            // Behavior
+            reappropriationEnabled: true,
+            haltOnError: false,            // stop loop on first error
+            requireConfirmation: false,    // HOLD before tool execution
+
+            // Output
+            outputFormat: 'text'           // 'text' | 'json' | 'markdown'
+        };
+    }
+
+    function _agentConfigStorageKey(slotIndex, modelSource) {
+        return 'cc_agent_cfg_' + slotIndex + '_' + (modelSource || '').replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 40);
+    }
+
+    function _loadAgentConfig(slotIndex, modelSource) {
+        var key = _agentConfigStorageKey(slotIndex, modelSource);
+        try {
+            var raw = localStorage.getItem(key);
+            if (raw) {
+                var parsed = JSON.parse(raw);
+                // Merge with defaults to pick up any new fields
+                var cfg = _defaultAgentConfig();
+                for (var k in parsed) { if (parsed.hasOwnProperty(k) && cfg.hasOwnProperty(k)) cfg[k] = parsed[k]; }
+                return cfg;
+            }
+        } catch (e) { /* ignore */ }
+        return _defaultAgentConfig();
+    }
+
+    function _saveAgentConfig(tab) {
+        if (!tab || !tab.agentConfig) return;
+        var key = _agentConfigStorageKey(tab.slot, tab.modelSource);
+        try { localStorage.setItem(key, JSON.stringify(tab.agentConfig)); } catch (e) { /* quota */ }
+    }
+
+    // Save agent config to FelixBag for cross-session persistence
+    function _persistAgentConfigToBag(tab) {
+        if (!tab || !tab.agentConfig) return;
+        var bagKey = 'agent_config:slot_' + tab.slot;
+        var content = JSON.stringify(tab.agentConfig, null, 2);
+        callTool('bag_induct', { key: bagKey, content: content, item_type: 'config' }, '__internal_agent_config__');
+    }
+
+    // Load agent config from FelixBag
+    async function _loadAgentConfigFromBag(tab) {
+        if (!tab) return null;
+        var bagKey = 'agent_config:slot_' + tab.slot;
+        try {
+            var result = await callToolAwaitParsed('bag_get', { key: bagKey }, '__internal_agent_config__', { tabKey: tab.key });
+            if (result && result.value) {
+                var parsed = JSON.parse(result.value);
+                var cfg = _defaultAgentConfig();
+                for (var k in parsed) { if (parsed.hasOwnProperty(k) && cfg.hasOwnProperty(k)) cfg[k] = parsed[k]; }
+                tab.agentConfig = cfg;
+                _saveAgentConfig(tab);  // sync to localStorage
+                return cfg;
+            }
+        } catch (e) { /* not found or parse error */ }
+        return null;
+    }
+
+    // Build the config UI panel HTML
+    function _renderAgentConfigPanel(tab) {
+        if (!tab || !tab.agentConfig) return '';
+        var c = tab.agentConfig;
+        var esc = escHtml;
+        return '<div class="achat-config-panel" id="achat-agent-config">' +
+            '<div class="section-head" style="margin:0 0 8px;">AGENT CONFIGURATION</div>' +
+
+            // Identity
+            '<div class="achat-cfg-group">' +
+            '<label class="achat-cfg-label">Agent Name</label>' +
+            '<input class="chat-input achat-cfg-input" data-cfg="agentName" value="' + esc(c.agentName) + '" placeholder="e.g. Code Analyst" />' +
+            '</div>' +
+            '<div class="achat-cfg-group">' +
+            '<label class="achat-cfg-label">Description</label>' +
+            '<input class="chat-input achat-cfg-input" data-cfg="agentDescription" value="' + esc(c.agentDescription) + '" placeholder="What this agent specializes in" />' +
+            '</div>' +
+            '<div class="achat-cfg-group">' +
+            '<label class="achat-cfg-label">Persona</label>' +
+            '<input class="chat-input achat-cfg-input" data-cfg="persona" value="' + esc(c.persona) + '" placeholder="e.g. You are a meticulous code reviewer..." />' +
+            '</div>' +
+            '<div class="achat-cfg-group">' +
+            '<label class="achat-cfg-label">System Prompt <span style="color:var(--text-dim);font-size:8px;">(overrides default)</span></label>' +
+            '<textarea class="chat-input achat-cfg-input" data-cfg="systemPrompt" rows="4" placeholder="Leave empty for default orchestration prompt">' + esc(c.systemPrompt) + '</textarea>' +
+            '</div>' +
+
+            // Generation
+            '<div class="section-head" style="margin:8px 0 4px;font-size:9px;">GENERATION</div>' +
+            '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">' +
+            '<div class="achat-cfg-group"><label class="achat-cfg-label">Temperature</label><input type="number" class="chat-input achat-cfg-input" data-cfg="temperature" value="' + c.temperature + '" min="0" max="2" step="0.1" /></div>' +
+            '<div class="achat-cfg-group"><label class="achat-cfg-label">Top-P</label><input type="number" class="chat-input achat-cfg-input" data-cfg="topP" value="' + c.topP + '" min="0" max="1" step="0.05" /></div>' +
+            '<div class="achat-cfg-group"><label class="achat-cfg-label">Rep. Penalty</label><input type="number" class="chat-input achat-cfg-input" data-cfg="repetitionPenalty" value="' + c.repetitionPenalty + '" min="1" max="2" step="0.05" /></div>' +
+            '</div>' +
+
+            // Context & Memory
+            '<div class="section-head" style="margin:8px 0 4px;font-size:9px;">MEMORY &amp; CONTEXT</div>' +
+            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">' +
+            '<div class="achat-cfg-group"><label class="achat-cfg-label">Context Strategy</label>' +
+            '<select class="chat-input achat-cfg-input" data-cfg="contextStrategy">' +
+            '<option value="full"' + (c.contextStrategy === 'full' ? ' selected' : '') + '>Full History</option>' +
+            '<option value="sliding-window"' + (c.contextStrategy === 'sliding-window' ? ' selected' : '') + '>Sliding Window</option>' +
+            '<option value="summarize"' + (c.contextStrategy === 'summarize' ? ' selected' : '') + '>Auto-Summarize</option>' +
+            '</select></div>' +
+            '<div class="achat-cfg-group"><label class="achat-cfg-label">Window Size</label><input type="number" class="chat-input achat-cfg-input" data-cfg="contextWindowSize" value="' + c.contextWindowSize + '" min="5" max="100" /></div>' +
+            '</div>' +
+            '<div style="display:flex;gap:12px;margin:4px 0;">' +
+            '<label style="font-size:9px;display:flex;gap:4px;align-items:center;"><input type="checkbox" class="achat-cfg-check" data-cfg="persistMemory"' + (c.persistMemory ? ' checked' : '') + ' /> Auto-save to FelixBag</label>' +
+            '<label style="font-size:9px;display:flex;gap:4px;align-items:center;"><input type="checkbox" class="achat-cfg-check" data-cfg="reappropriationEnabled"' + (c.reappropriationEnabled ? ' checked' : '') + ' /> Dynamic Reappropriation</label>' +
+            '<label style="font-size:9px;display:flex;gap:4px;align-items:center;"><input type="checkbox" class="achat-cfg-check" data-cfg="haltOnError"' + (c.haltOnError ? ' checked' : '') + ' /> Halt on Error</label>' +
+            '</div>' +
+
+            // Output
+            '<div style="display:flex;gap:6px;margin:4px 0;align-items:center;">' +
+            '<label class="achat-cfg-label" style="margin:0;">Output Format</label>' +
+            '<select class="chat-input achat-cfg-input" data-cfg="outputFormat" style="width:auto;">' +
+            '<option value="text"' + (c.outputFormat === 'text' ? ' selected' : '') + '>Text</option>' +
+            '<option value="json"' + (c.outputFormat === 'json' ? ' selected' : '') + '>JSON</option>' +
+            '<option value="markdown"' + (c.outputFormat === 'markdown' ? ' selected' : '') + '>Markdown</option>' +
+            '</select></div>' +
+
+            // Actions row 1: persistence
+            '<div style="display:flex;gap:6px;margin:8px 0 4px;flex-wrap:wrap;">' +
+            '<button class="btn-dim" onclick="_saveAgentConfigFromUI()">💾 SAVE CONFIG</button>' +
+            '<button class="btn-dim" onclick="_persistAgentConfigToBag(_getActiveAchatTab())">☁ SAVE TO BAG</button>' +
+            '<button class="btn-dim" onclick="_loadAgentConfigFromBagUI()">⬇ LOAD FROM BAG</button>' +
+            '</div>' +
+            // Actions row 2: reset + view
+            '<div style="display:flex;gap:6px;margin:0 0 4px;flex-wrap:wrap;">' +
+            '<button class="btn-dim" onclick="_resetAgentPrompt()" title="Clear system prompt, persona, name, description back to empty (uses auto-generated default)">🔄 RESET PROMPT</button>' +
+            '<button class="btn-dim" onclick="_resetAgentGeneration()" title="Reset temperature, tokens, iterations, top-p, repetition penalty to defaults">🔄 RESET GENERATION</button>' +
+            '<button class="btn-dim" onclick="_resetAgentConfig()" title="Reset ALL config fields to factory defaults">⚠ RESET ALL</button>' +
+            '<button class="btn-dim" onclick="_viewDefaultPrompt()" title="Preview the auto-generated system prompt that is used when the system prompt field is empty">👁 VIEW DEFAULT PROMPT</button>' +
+            '</div>' +
+            '</div>';
+    }
+    window._persistAgentConfigToBag = _persistAgentConfigToBag;
+
+    function _saveAgentConfigFromUI() {
+        var tab = _getActiveAchatTab();
+        if (!tab || !tab.agentConfig) return;
+        var panel = document.getElementById('achat-agent-config');
+        if (!panel) return;
+        // Read all inputs
+        var inputs = panel.querySelectorAll('.achat-cfg-input');
+        for (var i = 0; i < inputs.length; i++) {
+            var field = inputs[i].getAttribute('data-cfg');
+            if (!field) continue;
+            var val = inputs[i].tagName === 'TEXTAREA' ? inputs[i].value : inputs[i].value;
+            if (inputs[i].type === 'number') val = parseFloat(val) || 0;
+            tab.agentConfig[field] = val;
+        }
+        // Checkboxes
+        var checks = panel.querySelectorAll('.achat-cfg-check');
+        for (var j = 0; j < checks.length; j++) {
+            var cf = checks[j].getAttribute('data-cfg');
+            if (cf) tab.agentConfig[cf] = checks[j].checked;
+        }
+        _saveAgentConfig(tab);
+        mpToast('Agent config saved', 'ok', 2000);
+    }
+    window._saveAgentConfigFromUI = _saveAgentConfigFromUI;
+
+    async function _loadAgentConfigFromBagUI() {
+        var tab = _getActiveAchatTab();
+        if (!tab) return;
+        var result = await _loadAgentConfigFromBag(tab);
+        if (result) {
+            var configEl = document.getElementById('achat-agent-config');
+            if (configEl) configEl.outerHTML = _renderAgentConfigPanel(tab);
+            mpToast('Config loaded from FelixBag', 'ok', 2000);
+        } else {
+            mpToast('No saved config found in FelixBag for slot ' + tab.slot, 'warn', 2000);
+        }
+    }
+    window._loadAgentConfigFromBagUI = _loadAgentConfigFromBagUI;
+
+    function _resetAgentConfig() {
+        var tab = _getActiveAchatTab();
+        if (!tab) return;
+        tab.agentConfig = _defaultAgentConfig();
+        _saveAgentConfig(tab);
+        var configEl = document.getElementById('achat-agent-config');
+        if (configEl) configEl.outerHTML = _renderAgentConfigPanel(tab);
+        mpToast('All config reset to defaults', 'ok', 2000);
+    }
+    window._resetAgentConfig = _resetAgentConfig;
+
+    function _resetAgentPrompt() {
+        var tab = _getActiveAchatTab();
+        if (!tab || !tab.agentConfig) return;
+        tab.agentConfig.agentName = '';
+        tab.agentConfig.agentDescription = '';
+        tab.agentConfig.persona = '';
+        tab.agentConfig.systemPrompt = '';
+        _saveAgentConfig(tab);
+        var configEl = document.getElementById('achat-agent-config');
+        if (configEl) configEl.outerHTML = _renderAgentConfigPanel(tab);
+        mpToast('Prompt fields reset — will use auto-generated default', 'ok', 2000);
+    }
+    window._resetAgentPrompt = _resetAgentPrompt;
+
+    function _resetAgentGeneration() {
+        var tab = _getActiveAchatTab();
+        if (!tab || !tab.agentConfig) return;
+        var d = _defaultAgentConfig();
+        tab.agentConfig.temperature = d.temperature;
+        tab.agentConfig.maxTokens = d.maxTokens;
+        tab.agentConfig.maxIterations = d.maxIterations;
+        tab.agentConfig.topP = d.topP;
+        tab.agentConfig.repetitionPenalty = d.repetitionPenalty;
+        _saveAgentConfig(tab);
+        var configEl = document.getElementById('achat-agent-config');
+        if (configEl) configEl.outerHTML = _renderAgentConfigPanel(tab);
+        mpToast('Generation params reset to defaults (temp=0.7, tokens=256, iter=5)', 'ok', 2000);
+    }
+    window._resetAgentGeneration = _resetAgentGeneration;
+
+    function _viewDefaultPrompt() {
+        var tab = _getActiveAchatTab();
+        if (!tab) return;
+        var sys = _buildLoopSystemPrompt(tab);
+        var pre = document.createElement('div');
+        pre.style.cssText = 'position:fixed;top:10%;left:10%;right:10%;bottom:10%;z-index:9999;background:var(--bg,#111);border:2px solid var(--accent,#0f8);border-radius:8px;padding:16px;overflow:auto;font-family:var(--mono,monospace);font-size:11px;white-space:pre-wrap;color:var(--text,#eee);';
+        pre.innerHTML = '<div style="display:flex;justify-content:space-between;margin-bottom:12px;">' +
+            '<b style="color:var(--accent);">DEFAULT SYSTEM PROMPT (auto-generated)</b>' +
+            '<button onclick="this.parentElement.parentElement.remove()" style="cursor:pointer;background:none;border:1px solid var(--border,#333);color:var(--text,#eee);padding:2px 8px;border-radius:4px;">✕ CLOSE</button>' +
+            '</div>' +
+            '<div style="padding:8px;background:rgba(0,255,136,0.05);border:1px solid var(--border,#333);border-radius:4px;line-height:1.6;">' + escHtml(sys) + '</div>' +
+            '<div style="margin-top:12px;font-size:9px;color:var(--text-dim,#888);">This prompt is used when the System Prompt field is empty. ' +
+            'To customize, paste this into the System Prompt field and modify it.</div>';
+        document.body.appendChild(pre);
+    }
+    window._viewDefaultPrompt = _viewDefaultPrompt;
+
     function _ensureAchatTab(slot) {
         var slotIndex = parseInt(slot, 10);
         if (!(slotIndex >= 0)) return null;
@@ -7486,7 +7758,9 @@
                 toolArgs: {},
                 sessionId: '',
                 loopMessages: [],
-                grantedTools: savedTools.length ? savedTools : _defaultGrantedToolsForTab({ canChat: canChat })
+                grantedTools: savedTools.length ? savedTools : _defaultGrantedToolsForTab({ canChat: canChat }),
+                // ── AGENT CONFIG (user-editable per-slot) ──
+                agentConfig: _loadAgentConfig(slotIndex, modelSource)
             };
             _achatTabs[key] = tab;
             return tab;
@@ -8266,31 +8540,66 @@
     }
 
     function _buildLoopSystemPrompt(tab) {
+        var cfg = (tab && tab.agentConfig) || _defaultAgentConfig();
+
+        // If user provided a custom system prompt, use it directly
+        if (cfg.systemPrompt && cfg.systemPrompt.trim()) {
+            var custom = cfg.systemPrompt.trim();
+            // Append granted tools list so the model always knows what's available
+            var granted = Array.isArray(tab.grantedTools) ? tab.grantedTools : [];
+            return custom + '\n\nGRANTED TOOLS (' + granted.length + '): ' + granted.join(', ');
+        }
+
+        // Auto-generated default prompt
         var granted = Array.isArray(tab.grantedTools) ? tab.grantedTools : [];
-        var maxIter = parseInt((document.getElementById('achat-max-iter') || {}).value || '5', 10) || 5;
-        var maxTok = parseInt((document.getElementById('achat-max-tokens') || {}).value || '256', 10) || 256;
-        return [
-            'You are an MCP orchestration agent operating inside a Glass Box AI Capsule (Champion Council).',
-            'You have ' + granted.length + ' granted tools. Current budget: ' + maxIter + ' iterations, ' + maxTok + ' tokens/step.',
-            '',
-            'RESPONSE FORMAT: Respond with EXACTLY ONE JSON object per turn.',
-            '{"tool": "tool_name", "args": {"param": "value"}}   — call a tool',
-            '{"final_answer": "complete answer"}                  — task complete',
-            '',
-            'DYNAMIC REAPPROPRIATION: If you need more resources, add request_more to any response:',
-            '{"tool": "get_status", "args": {}, "request_more": {"iterations": 3, "tokens": 512}}',
-            '{"request_more": {"iterations": 5}}                  — request only (no tool call)',
-            'The loop will extend by the requested amount (capped at +10 iterations, +2048 tokens).',
-            '',
-            'RULES:',
-            '- Use ONLY granted tools. Do NOT invent tools that are not in the list below.',
-            '- One tool per turn. Observe the result, then decide next action.',
-            '- Be proactive: use get_status, get_about, list_slots, get_capabilities to orient yourself.',
-            '- If a tool errors or is denied, try a different approach.',
-            '- When you have enough information, return final_answer with a clear summary.',
-            '',
-            'GRANTED TOOLS (' + granted.length + '): ' + granted.join(', ')
-        ].join('\n');
+        var maxIter = cfg.maxIterations || parseInt((document.getElementById('achat-max-iter') || {}).value || '5', 10) || 5;
+        var maxTok = cfg.maxTokens || parseInt((document.getElementById('achat-max-tokens') || {}).value || '256', 10) || 256;
+
+        var lines = [];
+
+        // Identity block
+        if (cfg.agentName) {
+            lines.push('You are ' + cfg.agentName + ', an AI agent operating inside a Glass Box AI Capsule (Champion Council).');
+        } else {
+            lines.push('You are an MCP orchestration agent operating inside a Glass Box AI Capsule (Champion Council).');
+        }
+        if (cfg.agentDescription) lines.push('Purpose: ' + cfg.agentDescription);
+        if (cfg.persona) lines.push('Persona: ' + cfg.persona);
+        lines.push('You have ' + granted.length + ' granted tools. Current budget: ' + maxIter + ' iterations, ' + maxTok + ' tokens/step.');
+        lines.push('');
+
+        // Response format
+        lines.push('RESPONSE FORMAT: Respond with EXACTLY ONE JSON object per turn.');
+        lines.push('{"tool": "tool_name", "args": {"param": "value"}}   — call a tool');
+        lines.push('{"final_answer": "complete answer"}                  — task complete');
+        lines.push('');
+
+        // Dynamic reappropriation
+        if (cfg.reappropriationEnabled) {
+            lines.push('DYNAMIC REAPPROPRIATION: If you need more resources, add request_more to any response:');
+            lines.push('{"tool": "get_status", "args": {}, "request_more": {"iterations": 3, "tokens": 512}}');
+            lines.push('{"request_more": {"iterations": 5}}                  — request only (no tool call)');
+            lines.push('The loop will extend by the requested amount (capped at +10 iterations, +2048 tokens).');
+            lines.push('');
+        }
+
+        // Output format
+        if (cfg.outputFormat && cfg.outputFormat !== 'text') {
+            lines.push('OUTPUT FORMAT: Return final_answer content as ' + cfg.outputFormat.toUpperCase() + '.');
+            lines.push('');
+        }
+
+        // Rules
+        lines.push('RULES:');
+        lines.push('- Use ONLY granted tools. Do NOT invent tools that are not in the list below.');
+        lines.push('- One tool per turn. Observe the result, then decide next action.');
+        lines.push('- Be proactive: use get_status, get_about, list_slots, get_capabilities to orient yourself.');
+        lines.push('- If a tool errors or is denied, try a different approach.');
+        lines.push('- When you have enough information, return final_answer with a clear summary.');
+        lines.push('');
+        lines.push('GRANTED TOOLS (' + granted.length + '): ' + granted.join(', '));
+
+        return lines.join('\n');
     }
 
     function _prettyTruncate(value, maxLen) {
