@@ -95,10 +95,17 @@
         }
         else if (command === 'fetchToolSchemas') {
             try {
-                const resp = await fetch(`${API_BASE}/api/tools`);
-                const data = await resp.json();
-                let tools = data.result?.tools || data.tools || [];
-                fireEvent({ type: 'toolSchemas', tools });
+                const tools = await syncToolInventory(true);
+                if (Array.isArray(tools) && tools.length > 0) {
+                    fireEvent({ type: 'toolSchemas', tools: tools });
+                } else {
+                    const resp = await fetch(`${API_BASE}/api/tools`);
+                    const data = await resp.json();
+                    const freshTools = data.result?.tools || data.tools || [];
+                    if (freshTools.length > 0) {
+                        fireEvent({ type: 'toolSchemas', tools: freshTools });
+                    }
+                }
             } catch (err) {
                 fireEvent({ type: 'toolSchemas', tools: [], error: err.message });
             }
@@ -299,7 +306,6 @@
             }
         }
         else if (command === 'requestSlotMetrics') {
-            // Route through MCP tool call to get evaluator data
             try {
                 var evalResult = await mcpToolCall('slot_info', { slot: msg.slotIndex });
                 fireEvent({ type: 'slotEvalMetrics', slotIndex: msg.slotIndex, metrics: evalResult });
@@ -533,50 +539,146 @@
     var _startTime = Date.now();
     var _lastToolCount = 0;
     var _cachedCategories = {};
-    var _toolsFetchedOnce = false;
+    var _toolRefreshInFlight = false;
+    var _lastToolSyncTs = 0;
+    var _lastToolSignature = '';
+    var _toolSyncIntervalMs = 10000;
+    var _activityLastEventId = null;
+    var _activitySessionId = null;
+    var _activityHydrated = false;
+    var _activitySeenIds = {};
+    var _activitySeenOrder = [];
+    var _lastSseActivityTs = 0;
+    var _activityFallbackCursor = '';
+
+    function _normalizeActivitySessionId(sessionId) {
+        if (sessionId === null || sessionId === undefined) return '';
+        return String(sessionId).trim();
+    }
+
+    function _activityDedupKey(eventId, sessionId) {
+        if (eventId === null || eventId === undefined || eventId === '') return '';
+        var sid = _normalizeActivitySessionId(sessionId) || _activitySessionId || 'legacy';
+        return sid + ':' + String(eventId);
+    }
+
+    function _resetActivityDedupState() {
+        _activitySeenIds = {};
+        _activitySeenOrder = [];
+        _activityLastEventId = null;
+        _activityFallbackCursor = '';
+    }
+
+    function _adoptActivitySession(sessionId, reason) {
+        var sid = _normalizeActivitySessionId(sessionId);
+        if (!sid) return;
+        if (_activitySessionId === sid) return;
+
+        var hadSession = !!_activitySessionId;
+        _activitySessionId = sid;
+        _resetActivityDedupState();
+
+        if (hadSession) {
+            console.log('[SSE-Activity] Session changed (' + reason + '), resetting activity timeline');
+            fireEvent({ type: 'activityHistory', entries: [] });
+            _activityHydrated = false;
+            setTimeout(hydrateActivityHistory, 0);
+        }
+    }
+
+    function rememberActivityEventId(eventId, sessionId) {
+        if (eventId === null || eventId === undefined || eventId === '') return;
+        var key = _activityDedupKey(eventId, sessionId);
+        if (!key) return;
+        if (_activitySeenIds[key]) return;
+        _activitySeenIds[key] = true;
+        _activitySeenOrder.push(key);
+        if (_activitySeenOrder.length > 4000) {
+            var drop = _activitySeenOrder.shift();
+            if (drop) delete _activitySeenIds[drop];
+        }
+    }
+
+    function isDuplicateActivityEventId(eventId, sessionId) {
+        var key = _activityDedupKey(eventId, sessionId);
+        if (!key) return false;
+        return !!_activitySeenIds[key];
+    }
+
+    function rebuildCategoryCache(tools) {
+        var categories = {};
+        (tools || []).forEach(function(t) {
+            var cat = (t && t.name ? t.name : '').split('_')[0] || 'other';
+            if (!categories[cat]) categories[cat] = { total: 0, enabled: 0 };
+            categories[cat].total++;
+            categories[cat].enabled++;
+        });
+        _cachedCategories = categories;
+    }
+
+    function buildToolSignature(tools) {
+        var names = (tools || [])
+            .map(function(t) { return (t && t.name) ? String(t.name) : ''; })
+            .filter(function(n) { return n.length > 0; })
+            .sort();
+        return names.join('|');
+    }
+
+    async function syncToolInventory(force) {
+        var now = Date.now();
+        if (_toolRefreshInFlight) return null;
+        if (!force && (now - _lastToolSyncTs) < _toolSyncIntervalMs) return null;
+        _toolRefreshInFlight = true;
+        try {
+            var toolsResp = await fetch(API_BASE + '/api/tools');
+            var toolsData = await toolsResp.json();
+            var tools = toolsData?.result?.tools || toolsData?.tools || [];
+            if (tools.length > 0) {
+                _lastToolCount = tools.length;
+                rebuildCategoryCache(tools);
+                var signature = buildToolSignature(tools);
+                if (signature !== _lastToolSignature) {
+                    _lastToolSignature = signature;
+                    fireEvent({ type: 'toolSchemas', tools: tools });
+                }
+            }
+            _lastToolSyncTs = now;
+            return tools;
+        } catch (e) {
+            _lastToolSyncTs = now;
+            return null;
+        } finally {
+            _toolRefreshInFlight = false;
+        }
+    }
 
     async function pollHealthAndDispatchState() {
         try {
-            // Only fetch /api/tools once (or when we don't have data yet).
-            // After that, just poll /api/health which is lightweight.
+            // Poll /api/health, and periodically re-sync /api/tools so the
+            // header and registry recover automatically after MCP restarts.
             var healthResp = await fetch(API_BASE + '/api/health').then(function(r) { return r.json(); });
 
-            var capsuleUp = healthResp.capsule_running && healthResp.mcp_session;
-            var serverStatus = capsuleUp ? 'running' : (healthResp.capsule_running ? 'starting' : 'stopped');
+            var mcpUp = !!healthResp.mcp_session;
+            var serverStatus = mcpUp ? 'running' : (healthResp.capsule_running ? 'starting' : 'stopped');
 
-            // Fetch tools list only once, or if capsule just came up and we have no data
-            if (!_toolsFetchedOnce && capsuleUp) {
-                try {
-                    var toolsResp = await fetch(API_BASE + '/api/tools').then(function(r) { return r.json(); });
-                    var tools = toolsResp?.result?.tools || toolsResp?.tools || [];
-                    if (tools.length > 0) {
-                        _lastToolCount = tools.length;
-                        _cachedCategories = {};
-                        tools.forEach(function(t) {
-                            var cat = (t.name || '').split('_')[0] || 'other';
-                            if (!_cachedCategories[cat]) _cachedCategories[cat] = { total: 0, enabled: 0 };
-                            _cachedCategories[cat].total++;
-                            _cachedCategories[cat].enabled++;
-                        });
-                        _toolsFetchedOnce = true;
-                    }
-                } catch (e) { /* tools fetch failed, will retry next poll */ }
+            if (mcpUp) {
+                await syncToolInventory(false);
             }
 
             var totalTools = _lastToolCount || 134;
 
             // Calculate uptime in ms since page load (or since capsule started)
-            var uptimeMs = capsuleUp ? (Date.now() - _startTime) : 0;
+            var uptimeMs = mcpUp ? (Date.now() - _startTime) : 0;
 
             // Dispatch a flat state message matching what main.js updateHeader expects.
-            // Show panel proxy port, not internal capsule port.
+            // Show the backend proxy port (panel origin), not capsule MCP port.
             var originPort = window.location.port || (window.location.protocol === 'https:' ? '443' : '80');
             fireEvent({
                 type: 'state',
                 serverStatus: serverStatus,
                 toolCounts: { enabled: totalTools, total: totalTools },
                 port: originPort,
-                mcpPort: healthResp.mcp_port || 8765,
+                mcpPort: healthResp.mcp_port || 8766,
                 uptime: uptimeMs,
                 categories: _cachedCategories,
                 version: healthResp.version || '0.8.9'
@@ -598,8 +700,8 @@
     // Initial poll on page load (slight delay to let DOM render)
     setTimeout(pollHealthAndDispatchState, 500);
 
-    // Periodic poll every 30 seconds (lightweight — only /api/health after first tools fetch)
-    setInterval(pollHealthAndDispatchState, 30000);
+    // Periodic poll every 10 seconds.
+    setInterval(pollHealthAndDispatchState, 10000);
 
     // ═══════════════════════════════════════════════════════════
     // SSE ACTIVITY STREAM — listen for tool calls from ALL sources
@@ -607,26 +709,58 @@
     // This is the SINGLE source of truth for the Activity tab.
     // ═══════════════════════════════════════════════════════════
 
-    // Tools that are internal plumbing — suppress from activity feed
-    // (Also filtered server-side, this is a safety net)
-    const _HYDRATION_TOOLS = [
-        'get_status', 'list_slots', 'bag_catalog', 'workflow_list',
-        'verify_integrity', 'get_cached', 'get_identity', 'feed',
-        'get_capabilities', 'get_help', 'get_onboarding', 'get_quickstart',
-        'hub_tasks'
-    ];
+    async function hydrateActivityHistory() {
+        if (_activityHydrated) return;
+        _activityHydrated = true;
+        try {
+            const resp = await fetch(API_BASE + '/api/activity-log?limit=500');
+            if (!resp.ok) return;
+            const data = await resp.json();
+            const responseSessionId = data && data.sessionId ? String(data.sessionId) : _normalizeActivitySessionId(resp.headers.get('x-activity-session-id'));
+            _adoptActivitySession(responseSessionId, 'hydrate');
+            const entries = Array.isArray(data.entries) ? data.entries : [];
+            if (entries.length === 0) return;
+            entries.forEach(function(entry) {
+                if (entry && entry.eventId !== undefined) {
+                    rememberActivityEventId(entry.eventId, entry.sessionId || responseSessionId || _activitySessionId);
+                }
+            });
+            var tail = entries[entries.length - 1];
+            if (tail && tail.eventId !== undefined) _activityLastEventId = String(tail.eventId);
+            var cursorSession = (tail && tail.sessionId) || responseSessionId || _activitySessionId || 'legacy';
+            _activityFallbackCursor = String((tail && tail.eventId !== undefined)
+                ? (cursorSession + ':id:' + tail.eventId)
+                : (cursorSession + ':ts:' + (tail ? tail.timestamp : 0) + ':n=' + entries.length));
+            fireEvent({ type: 'activityHistory', entries: entries });
+        } catch (err) {
+            console.log('[SSE-Activity] History hydrate failed:', err && err.message ? err.message : err);
+        }
+    }
 
     function connectActivitySSE() {
         try {
-            const es = new EventSource(API_BASE + '/api/activity-stream');
+            const url = _activityLastEventId
+                ? (API_BASE + '/api/activity-stream?since=' + encodeURIComponent(_activityLastEventId))
+                : (API_BASE + '/api/activity-stream');
+            const es = new EventSource(url);
             es.onmessage = function(e) {
                 try {
                     const event = JSON.parse(e.data);
                     if (!event.tool) return;
+                    _lastSseActivityTs = Date.now();
+                    const eventSessionId = (event && event.sessionId !== undefined && event.sessionId !== null)
+                        ? String(event.sessionId)
+                        : _activitySessionId;
+                    _adoptActivitySession(eventSessionId, 'sse');
+                    const eventId = event.eventId !== undefined ? event.eventId : (e.lastEventId || null);
+                    if (isDuplicateActivityEventId(eventId, eventSessionId)) return;
+                    rememberActivityEventId(eventId, eventSessionId);
+                    if (eventId !== null && eventId !== undefined && eventId !== '') {
+                        _activityLastEventId = String(eventId);
+                    }
                     console.log('[SSE-Activity]', event.tool, 'source=' + event.source, 'hasResult=' + !!event.result, 'resultType=' + typeof event.result, 'resultKeys=' + (event.result && typeof event.result === 'object' ? Object.keys(event.result).join(',') : 'N/A'), 'rawLen=' + e.data.length);
-                    // Double-check: skip hydration noise (server should already filter)
+                    // Hydration noise is intentionally hidden from the user activity feed.
                     if (event.source === 'hydration') return;
-                    if (_HYDRATION_TOOLS.indexOf(event.tool) >= 0 && event.source !== 'external') return;
                     // Fire to main.js activity feed
                     fireEvent({ type: 'activity', event: event });
                 } catch (ex) {
@@ -640,8 +774,46 @@
             };
         } catch {}
     }
+
+    async function pollActivityFallback() {
+        // If SSE is active and recent, don't duplicate work.
+        if (_lastSseActivityTs > 0 && (Date.now() - _lastSseActivityTs) < 12000) return;
+        try {
+            const resp = await fetch(API_BASE + '/api/activity-log?limit=500');
+            if (!resp.ok) return;
+            const data = await resp.json();
+            const responseSessionId = data && data.sessionId ? String(data.sessionId) : _normalizeActivitySessionId(resp.headers.get('x-activity-session-id'));
+            _adoptActivitySession(responseSessionId, 'fallback');
+            const entries = Array.isArray(data.entries) ? data.entries : [];
+            if (entries.length === 0) return;
+
+            const tail = entries[entries.length - 1];
+            const cursorSession = (tail && tail.sessionId) || responseSessionId || _activitySessionId || 'legacy';
+            const cursor = String((tail && tail.eventId !== undefined)
+                ? (cursorSession + ':id:' + tail.eventId)
+                : (cursorSession + ':ts:' + (tail ? tail.timestamp : 0) + ':n=' + entries.length));
+            if (cursor === _activityFallbackCursor) return;
+            _activityFallbackCursor = cursor;
+
+            entries.forEach(function(entry) {
+                if (entry && entry.eventId !== undefined) {
+                    rememberActivityEventId(entry.eventId, entry.sessionId || responseSessionId || _activitySessionId);
+                }
+            });
+            if (tail && tail.eventId !== undefined) _activityLastEventId = String(tail.eventId);
+            fireEvent({ type: 'activityHistory', entries: entries });
+        } catch (err) {
+            console.log('[SSE-Activity] Fallback sync failed:', err && err.message ? err.message : err);
+        }
+    }
+
     // Start SSE listener after a brief delay
-    setTimeout(connectActivitySSE, 1500);
+    setTimeout(function() {
+        hydrateActivityHistory();
+        connectActivitySSE();
+    }, 1500);
+    // Failsafe: periodic pull sync if SSE is stalled.
+    setInterval(pollActivityFallback, 5000);
 
     // ═══════════════════════════════════════════════════════════
     // PROACTIVE DATA FETCH — populate all tabs on startup
@@ -683,11 +855,7 @@
             fireEvent({ type: 'memoryCatalog', data: catalog });
 
             // 4. Tools: fetch schemas
-            const toolsResp = await fetch(API_BASE + '/api/tools').then(r => r.json()).catch(() => null);
-            if (toolsResp) {
-                const tools = toolsResp.result?.tools || toolsResp.tools || [];
-                fireEvent({ type: 'toolSchemas', tools });
-            }
+            await syncToolInventory(true);
 
             // 5. Workflows: workflow_list
             const workflows = await _silentToolCall('workflow_list', {});

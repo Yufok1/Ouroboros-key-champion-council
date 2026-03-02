@@ -33,7 +33,6 @@
     let _slotDrill = { active: false, slotIndex: -1 };
     let _slotDrillActivity = []; // per-slot activity entries
 
-
     // ── AGENT CHAT DRILL-DOWN STATE ──
     var _achatSlot = null;
     var _achatSessionId = '';
@@ -462,6 +461,12 @@
                         vscode.postMessage({ command: 'refreshMemoryCatalog' });
                     }
                     break;
+                case 'activityHistory':
+                    if (Array.isArray(msg.entries)) {
+                        _activityLog = msg.entries.slice(-500);
+                        renderActivityFeed();
+                    }
+                    break;
                 case 'memoryCatalog':
                     _pendingTools.__memoryCatalog__ = 'bag_catalog';
                     handleToolResult({ id: '__memoryCatalog__', data: msg.data, error: msg.error });
@@ -820,8 +825,9 @@
                 ' / ' + (st.toolCounts ? st.toolCounts.total || 134 : 134) + ' TOOLS';
         }
         var portEl = document.getElementById('hd-port');
-        if (portEl) portEl.textContent = ':' + (st.port || '----');
-        updateMcpConfigBlock(st.port);
+        var displayPort = window.location.port || st.port || '----';
+        if (portEl) portEl.textContent = ':' + displayPort;
+        updateMcpConfigBlock(displayPort);
 
         if (st.uptime > 0) {
             var s = Math.floor(st.uptime / 1000);
@@ -837,7 +843,7 @@
     }
 
     // ── MCP CONFIG BLOCK ──
-    var _serverPort = window.location.port || 7860;
+    var _serverPort = window.location.port || 7866;
     var _isRemoteSpace = /\.hf\.space$/i.test(window.location.hostname || '');
     var _spaceOrigin = window.location.origin; // e.g. https://tostido-champion-council.hf.space
     var _autoApprove = [
@@ -859,7 +865,7 @@
         // Always route through the panel backend MCP proxy so activity,
         // diagnostics, and instrumentation stay unified.
         var proxyUrl = _spaceOrigin + '/mcp/sse';
-        var serverName = _isRemoteSpace ? 'champion-ouroboros-space' : 'champion-ouroboros-space-local';
+        var serverName = _isRemoteSpace ? 'champion-ouroboros-self-deploy-space' : 'champion-ouroboros-self-deploy';
         var entry = _buildEntry(proxyUrl);
 
         if (fullEl) {
@@ -1129,16 +1135,6 @@
                 '<span class="dot ' + dotClass + '"></span> ' +
                 '<span class="slot-status-badge ' + state + '">' + statusText + '</span>' +
                 '</div>';
-
-            // Provider badge for remote/known providers
-            if (occupied) {
-                var provider = _detectProvider(slot);
-                if (provider !== 'local' && provider !== 'huggingface') {
-                    var pLabel = _providerLabel(provider);
-                    var pIcon = provider === 'remote' ? '🌐 ' : '';
-                    html += '<div style="margin:2px 0;"><span class="slot-drill-badge ' + provider + '" style="font-size:7px;padding:1px 6px;">' + pIcon + pLabel + '</span></div>';
-                }
-            }
 
             if (isActivelyPlugging) {
                 var pInfo = pluggingBySlot[i];
@@ -2020,12 +2016,12 @@
         var horizon = (trajectories[0] && trajectories[0].length) || 0;
         var html = '<div class="diag-shell"><h3 style="margin:0 0 8px;">IMAGINATION &mdash; ' + numTrajs + ' branches &times; ' + horizon + ' steps</h3>';
 
-        var branchValues = trajectories.map(function (traj, i) {
+        var branchValues = trajectories.map(function(traj, i) {
             var totalValue = 0;
             for (var j = 0; j < traj.length; j++) { totalValue += (traj[j].critic_value || 0); }
             return { action: i, value: totalValue, traj: traj };
         });
-        branchValues.sort(function (a, b) { return b.value - a.value; });
+        branchValues.sort(function(a, b) { return b.value - a.value; });
 
         var bestAction = branchValues[0] ? branchValues[0].action : 0;
         html += '<div style="margin-bottom:12px;">';
@@ -2051,11 +2047,11 @@
             html += '<td style="padding:4px;font-variant-numeric:tabular-nums;">' + branch.value.toFixed(3) + '</td>';
             html += '<td style="padding:4px;width:40%;"><div style="height:8px;background:var(--vscode-progressBar-background);border-radius:3px;">';
             html += '<div style="width:' + pct + '%;height:100%;background:' + color + ';border-radius:3px;"></div></div></td>';
-            var norms = branch.traj.map(function (s) { return s.latent_norm || 0; });
+            var norms = branch.traj.map(function(s) { return s.latent_norm || 0; });
             var maxNorm = 0.01;
             for (var m = 0; m < norms.length; m++) { if (norms[m] > maxNorm) maxNorm = norms[m]; }
-            var blocks = ['\u2581', '\u2582', '\u2583', '\u2584', '\u2585', '\u2586', '\u2587', '\u2588'];
-            var sparkline = norms.map(function (n) { var h = Math.round((n / maxNorm) * 7); return blocks[Math.min(h, 7)]; }).join('');
+            var blocks = ['\u2581','\u2582','\u2583','\u2584','\u2585','\u2586','\u2587','\u2588'];
+            var sparkline = norms.map(function(n) { var h = Math.round((n / maxNorm) * 7); return blocks[Math.min(h, 7)]; }).join('');
             html += '<td style="padding:4px;font-size:10px;letter-spacing:-1px;">' + sparkline + '</td>';
             html += '</tr>';
         }
@@ -2083,7 +2079,7 @@
 
     function renderConfigSection(values, section, schema) {
         var keys = Object.keys(schema);
-        return keys.map(function (key) {
+        return keys.map(function(key) {
             var opts = schema[key];
             var val = values ? values[key] : '';
             if (val === undefined || val === null) val = '';
@@ -2149,7 +2145,7 @@
         });
         el = document.getElementById('arch-config-fields');
         if (el && config.architecture) {
-            el.innerHTML = Object.keys(config.architecture).map(function (k) {
+            el.innerHTML = Object.keys(config.architecture).map(function(k) {
                 return '<div style="display:flex;justify-content:space-between;padding:2px 0;"><span style="opacity:0.7;">' + k + '</span><span style="font-variant-numeric:tabular-nums;">' + config.architecture[k] + '</span></div>';
             }).join('');
         }
@@ -2165,13 +2161,13 @@
         if (!_dreamerConfig) return;
         vscode.postMessage({ command: 'saveDreamerConfig', config: _dreamerConfig });
         var status = document.getElementById('config-save-status');
-        if (status) { status.textContent = 'Saved \u2713'; setTimeout(function () { status.textContent = ''; }, 2000); }
+        if (status) { status.textContent = 'Saved \u2713'; setTimeout(function() { status.textContent = ''; }, 2000); }
     }
 
     function resetDreamerConfig() {
         vscode.postMessage({ command: 'resetDreamerConfig' });
         var status = document.getElementById('config-save-status');
-        if (status) { status.textContent = 'Reset to defaults \u2713'; setTimeout(function () { status.textContent = ''; loadDreamerConfig(); }, 1000); }
+        if (status) { status.textContent = 'Reset to defaults \u2713'; setTimeout(function() { status.textContent = ''; loadDreamerConfig(); }, 1000); }
     }
 
     window.runImagination = runImagination;
@@ -2225,7 +2221,7 @@
         if (s === 'success') s = 'completed';
         if (s === 'error') s = 'failed';
         if (s === 'in_progress') s = 'running';
-        if (s !== 'completed' && s !== 'running' && s !== 'failed' && s !== 'skipped' && s !== 'partial_failure') s = 'pending';
+        if (s !== 'completed' && s !== 'running' && s !== 'failed' && s !== 'skipped') s = 'pending';
         return s;
     }
 
@@ -2269,10 +2265,10 @@
             return;
         }
         var s = _wfNormalizeStatus(status);
-        if (s === 'running' || s === 'completed' || s === 'failed' || s === 'partial_failure') {
-            badge.classList.add(s === 'partial_failure' ? 'failed' : s);
+        if (s === 'running' || s === 'completed' || s === 'failed') {
+            badge.classList.add(s);
         }
-        badge.textContent = label || (s === 'partial_failure' ? 'PARTIAL FAILURE' : s.toUpperCase());
+        badge.textContent = label || s.toUpperCase();
     }
 
     function _wfStopPolling() {
@@ -3995,7 +3991,8 @@
     }
 
     function startMemoryExport() {
-        setMemoryExportStatus('Choose export format from the VS Code picker…', false);
+        var isWebMode = !!window.__vsCodeShimInstalled;
+        setMemoryExportStatus(isWebMode ? 'Exporting FelixBag…' : 'Choose export format from the VS Code picker…', false);
         vscode.postMessage({ command: 'exportMemory' });
     }
     window.startMemoryExport = startMemoryExport;
