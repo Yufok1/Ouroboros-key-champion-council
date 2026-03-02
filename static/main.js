@@ -30,8 +30,16 @@
     let _wfColorIndex = 0;
 
     // ── SLOT DRILL-IN STATE ──
-    let _slotDrill = { active: false, slotIndex: -1, term: null, termFit: null };
+    let _slotDrill = { active: false, slotIndex: -1 };
     let _slotDrillActivity = []; // per-slot activity entries
+
+
+    // ── AGENT CHAT DRILL-DOWN STATE ──
+    var _achatSlot = null;
+    var _achatSessionId = '';
+    var _achatBusy = false;
+    var _achatSendTime = 0;
+    var _achatElapsedTimer = null;
 
     // ── NIP-88: POLL STATE ──
     var _polls = {}; // pollId -> { question, options, votes, voted, expired }
@@ -710,31 +718,6 @@
                 case 'uxSettings':
                     handleUXSettings(msg.settings || {});
                     break;
-                case 'slotTerminalOutput':
-                    if (_slotDrill.active && _slotDrill.term && msg.slotIndex === _slotDrill.slotIndex) {
-                        _slotDrill.term.write(msg.data);
-                    }
-                    break;
-                case 'slotTerminalReady':
-                    if (_slotDrill.active && msg.slotIndex === _slotDrill.slotIndex) {
-                        var stEl = document.getElementById('slot-drill-terminal-status');
-                        if (stEl) stEl.textContent = 'connected';
-                        if (_slotDrill.term) {
-                            _slotDrill.term.writeln('\x1b[32m● Terminal connected\x1b[0m');
-                            _slotDrill.term.writeln('');
-                        }
-                    }
-                    break;
-                case 'slotTerminalExited':
-                    if (_slotDrill.active && msg.slotIndex === _slotDrill.slotIndex) {
-                        var stEl2 = document.getElementById('slot-drill-terminal-status');
-                        if (stEl2) stEl2.textContent = 'disconnected';
-                        if (_slotDrill.term) {
-                            _slotDrill.term.writeln('');
-                            _slotDrill.term.writeln('\x1b[31m● Terminal process exited (code: ' + (msg.code || 0) + ')\x1b[0m');
-                        }
-                    }
-                    break;
                 case 'slotEvalMetrics':
                     if (_slotDrill.active && msg.slotIndex === _slotDrill.slotIndex && msg.metrics) {
                         _updateSlotMetricsFromEval(msg.metrics);
@@ -873,10 +856,12 @@
         var fullEl = document.getElementById('mcp-config-block');
         var entryEl = document.getElementById('mcp-entry-block');
 
-        // Always route MCP clients through this panel's proxy endpoint.
+        // Always route through the panel backend MCP proxy so activity,
+        // diagnostics, and instrumentation stay unified.
         var proxyUrl = _spaceOrigin + '/mcp/sse';
         var serverName = _isRemoteSpace ? 'champion-ouroboros-space' : 'champion-ouroboros-space-local';
         var entry = _buildEntry(proxyUrl);
+
         if (fullEl) {
             var wrapper = { mcpServers: {} };
             wrapper.mcpServers[serverName] = entry;
@@ -996,6 +981,17 @@
         }
         return 'empty';
     }
+
+    function _slotSupportsAgentChat(slot) {
+        if (!slot || _getSlotVisualState(slot) !== 'plugged') return false;
+        var mt = String(slot.model_type || slot.type || '').toLowerCase();
+        if (!mt) return true;
+        if (mt.indexOf('embed') >= 0) return false;
+        if (mt.indexOf('class') >= 0) return false;
+        if (mt.indexOf('rerank') >= 0) return false;
+        return true;
+    }
+
 
     // ── SLOTS RENDER ──
     function renderSlots(data) {
@@ -1134,6 +1130,16 @@
                 '<span class="slot-status-badge ' + state + '">' + statusText + '</span>' +
                 '</div>';
 
+            // Provider badge for remote/known providers
+            if (occupied) {
+                var provider = _detectProvider(slot);
+                if (provider !== 'local' && provider !== 'huggingface') {
+                    var pLabel = _providerLabel(provider);
+                    var pIcon = provider === 'remote' ? '🌐 ' : '';
+                    html += '<div style="margin:2px 0;"><span class="slot-drill-badge ' + provider + '" style="font-size:7px;padding:1px 6px;">' + pIcon + pLabel + '</span></div>';
+                }
+            }
+
             if (isActivelyPlugging) {
                 var pInfo = pluggingBySlot[i];
                 var elapsed = Math.round((Date.now() - pInfo.startTime) / 1000);
@@ -1163,6 +1169,11 @@
 
             if (occupied) {
                 html += '<div class="slot-actions">';
+                if (_slotSupportsAgentChat(slot)) {
+                    html += '<button class="btn-dim btn-chat" data-action="chat" data-slot="' + i + '">CHAT</button>';
+                } else {
+                    html += '<button class="btn-dim" disabled title="This slot type is not chat-capable">EMBED-ONLY</button>';
+                }
                 html += '<button class="btn-dim" data-action="unplug" data-slot="' + i + '">UNPLUG</button>';
                 html += '<button class="btn-dim" data-action="invoke" data-slot="' + i + '">INVOKE</button>';
                 html += '<button class="btn-dim" data-action="clone" data-slot="' + i + '">CLONE</button>';
@@ -1192,7 +1203,10 @@
                     e.stopPropagation();
                     var action = btn.dataset.action;
                     var slot = parseInt(btn.dataset.slot);
-                    if (action === 'unplug') {
+                    if (action === 'chat') {
+                        openAgentChat(slot);
+                    }
+                    else if (action === 'unplug') {
                         _unpluggingSlots[slot] = { startTime: Date.now() };
                         if (_lastSlotsData) renderSlots(_lastSlotsData);
                         callTool('unplug_slot', { slot: slot });
@@ -1295,7 +1309,6 @@
         if (gridView) gridView.style.display = 'none';
         if (drillView) drillView.classList.add('active');
         renderSlotDrillDetail();
-        _initSlotTerminal();
         // Populate activity from global log
         _populateSlotActivity(slotIndex);
     }
@@ -1303,7 +1316,6 @@
     function closeSlotDrill() {
         _slotDrill.active = false;
         _slotDrill.slotIndex = -1;
-        _disposeSlotTerminal();
         var gridView = document.getElementById('council-grid-view');
         var drillView = document.getElementById('slot-drill-view');
         if (gridView) gridView.style.display = '';
@@ -1457,7 +1469,7 @@
             var e = items[i];
             var ts = new Date(e.timestamp).toLocaleTimeString();
             var source = e.source || 'mcp';
-            var srcCls = source === 'terminal' ? 'terminal' : (source === 'workflow' ? 'workflow' : 'mcp');
+            var srcCls = source === 'workflow' ? 'workflow' : 'mcp';
             var preview = '';
             if (e.args) {
                 preview = e.args.text || e.args.prompt || e.args.input_text || '';
@@ -1478,136 +1490,6 @@
         }
         listEl.innerHTML = html;
     }
-
-    function _echoToSlotTerminal(event) {
-        if (!_slotDrill.active || !_slotDrill.term) return;
-        var idx = _slotDrill.slotIndex;
-        var targetSlot = event.args && (event.args.slot !== undefined ? event.args.slot : -1);
-        if (targetSlot !== idx && targetSlot !== -1) return;
-
-        var ts = new Date(event.timestamp).toLocaleTimeString();
-        var source = event.source || 'mcp';
-        var status = event.error ? '\x1b[31m✗ FAIL\x1b[0m' : '\x1b[32m✓ OK\x1b[0m';
-        var latency = event.durationMs >= 0 ? (event.durationMs + 'ms') : '';
-
-        _slotDrill.term.writeln('');
-        _slotDrill.term.writeln('\x1b[90m── ' + source.toUpperCase() + ' ── \x1b[36m' + (event.tool || '') + '\x1b[90m │ ' + ts + ' │ ' + latency + ' │ ' + status + '\x1b[0m');
-
-        if (event.args && (event.args.text || event.args.prompt || event.args.input_text)) {
-            var input = event.args.text || event.args.prompt || event.args.input_text || '';
-            if (input.length > 200) input = input.substring(0, 200) + '...';
-            _slotDrill.term.writeln('\x1b[90minput: \x1b[0m' + input);
-        }
-
-        // Show output preview if available
-        var result = event.result;
-        if (result) {
-            var output = '';
-            if (typeof result === 'string') output = result;
-            else if (result.content && Array.isArray(result.content) && result.content[0]) {
-                output = result.content[0].text || '';
-            }
-            if (output.length > 300) output = output.substring(0, 300) + '...';
-            if (output) {
-                _slotDrill.term.writeln('\x1b[90m' + '─'.repeat(50) + '\x1b[0m');
-                var lines = output.split('\n');
-                for (var li = 0; li < Math.min(lines.length, 10); li++) {
-                    _slotDrill.term.writeln(lines[li]);
-                }
-                if (lines.length > 10) _slotDrill.term.writeln('\x1b[90m... (' + (lines.length - 10) + ' more lines)\x1b[0m');
-                _slotDrill.term.writeln('\x1b[90m' + '─'.repeat(50) + '\x1b[0m');
-            }
-        }
-    }
-
-    function _initSlotTerminal() {
-        var container = document.getElementById('slot-drill-terminal');
-        if (!container) return;
-        if (_slotDrill.term) { _disposeSlotTerminal(); }
-
-        if (typeof Terminal === 'undefined' && typeof window.Terminal === 'undefined') {
-            container.innerHTML = '<div style="padding:12px;color:var(--text-dim);font-size:10px;">xterm.js not loaded. Terminal unavailable.</div>';
-            return;
-        }
-
-        var TermClass = typeof Terminal !== 'undefined' ? Terminal : window.Terminal;
-        _slotDrill.term = new TermClass({
-            theme: {
-                background: '#0a0a1a',
-                foreground: '#e0e0e0',
-                cursor: '#00ff88',
-                cursorAccent: '#0a0a1a',
-                selectionBackground: '#00ff8833',
-                black: '#0a0a1a',
-                red: '#ff4444',
-                green: '#00ff88',
-                yellow: '#ffaa00',
-                blue: '#4488ff',
-                magenta: '#cc88ff',
-                cyan: '#00cccc',
-                white: '#e0e0e0'
-            },
-            fontFamily: "'Cascadia Code', 'Fira Code', 'Consolas', monospace",
-            fontSize: 12,
-            cursorBlink: true,
-            scrollback: 5000,
-            convertEol: true
-        });
-
-        _slotDrill.term.open(container);
-
-        // Fit addon
-        if (typeof FitAddon !== 'undefined' || (window.FitAddon && window.FitAddon.FitAddon)) {
-            var FitClass = typeof FitAddon !== 'undefined' ? FitAddon : window.FitAddon.FitAddon;
-            _slotDrill.termFit = new FitClass();
-            _slotDrill.term.loadAddon(_slotDrill.termFit);
-            try { _slotDrill.termFit.fit(); } catch (e) { /* ignore */ }
-        }
-
-        // Web links addon
-        if (typeof WebLinksAddon !== 'undefined' || (window.WebLinksAddon && window.WebLinksAddon.WebLinksAddon)) {
-            var WLClass = typeof WebLinksAddon !== 'undefined' ? WebLinksAddon : window.WebLinksAddon.WebLinksAddon;
-            _slotDrill.term.loadAddon(new WLClass());
-        }
-
-        var slot = _getSlotData(_slotDrill.slotIndex);
-        var modelLabel = slot ? (slot.model_source || slot.model_id || slot.name || 'unknown') : 'unknown';
-        var provider = slot ? _detectProvider(slot) : 'local';
-
-        _slotDrill.term.writeln('\x1b[36m╔══════════════════════════════════════════════════╗\x1b[0m');
-        _slotDrill.term.writeln('\x1b[36m║\x1b[0m  SLOT ' + (_slotDrill.slotIndex + 1) + ' — ' + modelLabel.substring(0, 38));
-        _slotDrill.term.writeln('\x1b[36m║\x1b[0m  Provider: ' + _providerLabel(provider) + '  │  Type: ' + (slot ? (slot.model_type || 'auto') : '?'));
-        _slotDrill.term.writeln('\x1b[36m╚══════════════════════════════════════════════════╝\x1b[0m');
-        _slotDrill.term.writeln('');
-        _slotDrill.term.writeln('\x1b[90mMCP invocations, workflow executions, and terminal');
-        _slotDrill.term.writeln('interactions for this slot appear here in real-time.\x1b[0m');
-        _slotDrill.term.writeln('');
-
-        // Request terminal spawn from extension
-        vscode.postMessage({ command: 'spawnSlotTerminal', slotIndex: _slotDrill.slotIndex });
-
-        // Pipe keystrokes to extension for forwarding to Pi process
-        _slotDrill.term.onData(function (data) {
-            vscode.postMessage({ command: 'slotTerminalInput', slotIndex: _slotDrill.slotIndex, data: data });
-        });
-
-        // Update status
-        var statusEl = document.getElementById('slot-drill-terminal-status');
-        if (statusEl) statusEl.textContent = 'initializing...';
-    }
-
-    function _disposeSlotTerminal() {
-        if (_slotDrill.term) {
-            _slotDrill.term.dispose();
-            _slotDrill.term = null;
-            _slotDrill.termFit = null;
-        }
-        // Tell extension to kill the Pi process
-        if (_slotDrill.slotIndex >= 0) {
-            vscode.postMessage({ command: 'killSlotTerminal', slotIndex: _slotDrill.slotIndex });
-        }
-    }
-
     function _slotDrillCompare(slotIndex) {
         // Find another plugged slot to compare against
         var slotsArr = [];
@@ -1680,8 +1562,14 @@
 
     // ── ACTIVITY FEED ──
     var PLUG_TOOLS = ['plug_model', 'hub_plug'];
+    var ACTIVITY_SILENT_TOOLS = ['get_status', 'list_slots', 'bag_catalog', 'workflow_list', 'verify_integrity', 'get_cached', 'get_identity', 'feed', 'get_capabilities', 'get_help', 'get_onboarding', 'get_quickstart', 'hub_tasks', 'list_tools', 'heartbeat', 'api_health'];
     function addActivityEntry(event) {
         if (!event) return;
+
+        // Reduce feed noise from background orchestration and polling.
+        if (ACTIVITY_SILENT_TOOLS.indexOf(event.tool) >= 0 && event.source !== 'external') {
+            return;
+        }
 
         // Detect plug operations starting (durationMs === -1 sentinel)
         if (PLUG_TOOLS.indexOf(event.tool) >= 0 && event.durationMs === -1) {
@@ -1719,9 +1607,8 @@
         if (event.tool === 'workflow_execute' || event.tool === 'workflow_status') {
             handleWorkflowActivity(event);
         }
-        // Echo to slot drill-in terminal and activity feed if open
+        // Echo to slot drill-in activity feed if open
         if (_slotDrill.active) {
-            _echoToSlotTerminal(event);
             var targetSlot = event.args && (event.args.slot !== undefined ? event.args.slot : -1);
             if (targetSlot === _slotDrill.slotIndex || targetSlot === -1) {
                 _slotDrillActivity.push(event);
@@ -1882,7 +1769,7 @@
         var id = ++_requestId;
         _pendingTools[id] = routeAs || name;
         // Clear council output panel on new council operations for clean visual transitions
-        if (COUNCIL_TOOLS.indexOf(name) >= 0 && name !== 'list_slots') {
+        if (COUNCIL_TOOLS.indexOf(name) >= 0 && name !== 'list_slots' && name !== 'agent_chat') {
             var councilOut = document.getElementById('council-output');
             if (councilOut) councilOut.innerHTML = '<pre style="white-space:pre-wrap;color:var(--text-dim);font-size:11px;">Running ' + name + '...</pre>';
         }
@@ -2133,12 +2020,12 @@
         var horizon = (trajectories[0] && trajectories[0].length) || 0;
         var html = '<div class="diag-shell"><h3 style="margin:0 0 8px;">IMAGINATION &mdash; ' + numTrajs + ' branches &times; ' + horizon + ' steps</h3>';
 
-        var branchValues = trajectories.map(function(traj, i) {
+        var branchValues = trajectories.map(function (traj, i) {
             var totalValue = 0;
             for (var j = 0; j < traj.length; j++) { totalValue += (traj[j].critic_value || 0); }
             return { action: i, value: totalValue, traj: traj };
         });
-        branchValues.sort(function(a, b) { return b.value - a.value; });
+        branchValues.sort(function (a, b) { return b.value - a.value; });
 
         var bestAction = branchValues[0] ? branchValues[0].action : 0;
         html += '<div style="margin-bottom:12px;">';
@@ -2164,11 +2051,11 @@
             html += '<td style="padding:4px;font-variant-numeric:tabular-nums;">' + branch.value.toFixed(3) + '</td>';
             html += '<td style="padding:4px;width:40%;"><div style="height:8px;background:var(--vscode-progressBar-background);border-radius:3px;">';
             html += '<div style="width:' + pct + '%;height:100%;background:' + color + ';border-radius:3px;"></div></div></td>';
-            var norms = branch.traj.map(function(s) { return s.latent_norm || 0; });
+            var norms = branch.traj.map(function (s) { return s.latent_norm || 0; });
             var maxNorm = 0.01;
             for (var m = 0; m < norms.length; m++) { if (norms[m] > maxNorm) maxNorm = norms[m]; }
-            var blocks = ['\u2581','\u2582','\u2583','\u2584','\u2585','\u2586','\u2587','\u2588'];
-            var sparkline = norms.map(function(n) { var h = Math.round((n / maxNorm) * 7); return blocks[Math.min(h, 7)]; }).join('');
+            var blocks = ['\u2581', '\u2582', '\u2583', '\u2584', '\u2585', '\u2586', '\u2587', '\u2588'];
+            var sparkline = norms.map(function (n) { var h = Math.round((n / maxNorm) * 7); return blocks[Math.min(h, 7)]; }).join('');
             html += '<td style="padding:4px;font-size:10px;letter-spacing:-1px;">' + sparkline + '</td>';
             html += '</tr>';
         }
@@ -2196,7 +2083,7 @@
 
     function renderConfigSection(values, section, schema) {
         var keys = Object.keys(schema);
-        return keys.map(function(key) {
+        return keys.map(function (key) {
             var opts = schema[key];
             var val = values ? values[key] : '';
             if (val === undefined || val === null) val = '';
@@ -2262,7 +2149,7 @@
         });
         el = document.getElementById('arch-config-fields');
         if (el && config.architecture) {
-            el.innerHTML = Object.keys(config.architecture).map(function(k) {
+            el.innerHTML = Object.keys(config.architecture).map(function (k) {
                 return '<div style="display:flex;justify-content:space-between;padding:2px 0;"><span style="opacity:0.7;">' + k + '</span><span style="font-variant-numeric:tabular-nums;">' + config.architecture[k] + '</span></div>';
             }).join('');
         }
@@ -2278,13 +2165,13 @@
         if (!_dreamerConfig) return;
         vscode.postMessage({ command: 'saveDreamerConfig', config: _dreamerConfig });
         var status = document.getElementById('config-save-status');
-        if (status) { status.textContent = 'Saved \u2713'; setTimeout(function() { status.textContent = ''; }, 2000); }
+        if (status) { status.textContent = 'Saved \u2713'; setTimeout(function () { status.textContent = ''; }, 2000); }
     }
 
     function resetDreamerConfig() {
         vscode.postMessage({ command: 'resetDreamerConfig' });
         var status = document.getElementById('config-save-status');
-        if (status) { status.textContent = 'Reset to defaults \u2713'; setTimeout(function() { status.textContent = ''; loadDreamerConfig(); }, 1000); }
+        if (status) { status.textContent = 'Reset to defaults \u2713'; setTimeout(function () { status.textContent = ''; loadDreamerConfig(); }, 1000); }
     }
 
     window.runImagination = runImagination;
@@ -2295,8 +2182,8 @@
 
     // ═══════════════ END DREAMER UI ═══════════════
 
-    var MEMORY_TOOLS = ['bag_catalog', 'bag_search', 'bag_get', 'bag_export', 'bag_induct', 'bag_forget', 'bag_put', 'pocket', 'summon', 'materialize', 'get_cached'];
-    var COUNCIL_TOOLS = ['council_status', 'all_slots', 'broadcast', 'council_broadcast', 'set_consensus', 'debate', 'chain', 'slot_info', 'get_slot_params', 'invoke_slot', 'plug_model', 'unplug_slot', 'clone_slot', 'mu' + 'tate_slot', 'rename_slot', 'swap_slots', 'hub_plug', 'cu' + 'll_slot'];
+    var MEMORY_TOOLS = ['bag_catalog', 'bag_search', 'bag_get', 'bag_export', 'bag_induct', 'bag_forget', 'bag_put', 'pocket', 'summon', 'materialize', 'bag_read_doc', 'bag_list_docs', 'bag_search_docs', 'bag_tree', 'bag_checkpoint', 'bag_versions', 'bag_diff', 'bag_restore', 'get_cached'];
+    var COUNCIL_TOOLS = ['council_status', 'all_slots', 'broadcast', 'council_broadcast', 'set_consensus', 'debate', 'chain', 'slot_info', 'get_slot_params', 'invoke_slot', 'plug_model', 'unplug_slot', 'clone_slot', 'mu' + 'tate_slot', 'rename_slot', 'swap_slots', 'hub_plug', 'cu' + 'll_slot', 'agent_chat'];
     var WORKFLOW_TOOLS = ['workflow_list', 'workflow_get', 'workflow_execute', 'workflow_status'];
 
     function parseToolData(data) {
@@ -2338,7 +2225,7 @@
         if (s === 'success') s = 'completed';
         if (s === 'error') s = 'failed';
         if (s === 'in_progress') s = 'running';
-        if (s !== 'completed' && s !== 'running' && s !== 'failed' && s !== 'skipped') s = 'pending';
+        if (s !== 'completed' && s !== 'running' && s !== 'failed' && s !== 'skipped' && s !== 'partial_failure') s = 'pending';
         return s;
     }
 
@@ -2382,10 +2269,10 @@
             return;
         }
         var s = _wfNormalizeStatus(status);
-        if (s === 'running' || s === 'completed' || s === 'failed') {
-            badge.classList.add(s);
+        if (s === 'running' || s === 'completed' || s === 'failed' || s === 'partial_failure') {
+            badge.classList.add(s === 'partial_failure' ? 'failed' : s);
         }
-        badge.textContent = label || s.toUpperCase();
+        badge.textContent = label || (s === 'partial_failure' ? 'PARTIAL FAILURE' : s.toUpperCase());
     }
 
     function _wfStopPolling() {
@@ -3164,6 +3051,12 @@
     }
     window.drillMemItem = drillMemItem;
 
+    function closeMemDetail() {
+        var detail = document.getElementById('mem-detail');
+        if (detail) detail.style.display = 'none';
+    }
+    window.closeMemDetail = closeMemDetail;
+
     var _commitConfirmTimer = null;
     function commitBagVersion(btn) {
         var key = btn.getAttribute('data-bag-key');
@@ -3645,6 +3538,84 @@
             return;
         }
 
+        // Agent chat drill-down responses — route to chat overlay
+        if (toolName === 'agent_chat' || toolName === '__agent_chat__') {
+            _setAchatBusy(false);
+            if (msg.error) {
+                _clearEmptyState();
+                var errDiv = document.createElement('div');
+                errDiv.className = 'achat-msg error';
+                errDiv.textContent = msg.error;
+                var mc = document.getElementById('achat-messages');
+                if (mc) { mc.appendChild(errDiv); mc.scrollTop = mc.scrollHeight; }
+                return;
+            }
+            try {
+                var raw = parseToolData(msg.data);
+                var resp = typeof raw === 'string' ? JSON.parse(raw) : raw;
+
+                if (resp && resp._cached) {
+                    callTool('get_cached', { cache_id: resp._cached }, '__agent_chat__');
+                    return;
+                }
+
+                if (resp && resp.error) {
+                    _appendAchatMsg('error', String(resp.error), Date.now());
+                    return;
+                }
+
+                if (resp && resp.session_id) {
+                    _achatSessionId = resp.session_id;
+                    var sidEl = document.getElementById('achat-session-id');
+                    if (sidEl) sidEl.textContent = resp.session_id;
+                }
+                if (resp && resp.blocked_tools) {
+                    var blockedEl = document.getElementById('achat-blocked-count');
+                    if (blockedEl) blockedEl.textContent = resp.blocked_tools.length;
+                }
+                if (resp && resp.granted_tools) {
+                    var grantedEl = document.getElementById('achat-tool-count');
+                    if (grantedEl) grantedEl.textContent = String(resp.granted_tools.length);
+                }
+                if (resp && resp.turn_count !== undefined) {
+                    var sessionLabel = document.getElementById('achat-session-id');
+                    if (sessionLabel && resp.session_id) {
+                        sessionLabel.textContent = resp.session_id + ' (' + resp.turn_count + ' turns)';
+                    }
+                }
+
+                var elapsed = _achatSendTime ? Math.round((Date.now() - _achatSendTime) / 1000) : 0;
+                var resultObj = (resp && resp.result) ? resp.result : (resp || {});
+                if (resultObj.error) {
+                    _appendAchatMsg('error', resultObj.error, Date.now());
+                    return;
+                }
+
+                var toolCalls = resultObj.tool_calls || [];
+                if (toolCalls.length) _appendAchatToolTrace(toolCalls);
+
+                var answer = resultObj.final_answer || resultObj.answer || '';
+                if (answer) {
+                    _appendAchatMsg('assistant', answer, Date.now());
+                } else if (!toolCalls.length) {
+                    _appendAchatMsg('error', 'No response received. Make sure this slot has a text-generation model plugged in.', Date.now());
+                }
+
+                var iterations = resultObj.iterations || 0;
+                if (elapsed > 0 || iterations > 0 || toolCalls.length > 0) {
+                    _appendAchatMsg('system-info',
+                        iterations + ' iteration' + (iterations !== 1 ? 's' : '') +
+                        ' · ' + elapsed + 's · ' +
+                        toolCalls.length + ' tool call' + (toolCalls.length !== 1 ? 's' : ''),
+                        null
+                    );
+                }
+            } catch (e) {
+                _appendAchatMsg('assistant', parseToolData(msg.data), Date.now());
+            }
+            return;
+        }
+
         var text = msg.error ? 'ERROR: ' + msg.error : parseToolData(msg.data);
 
         if (WORKFLOW_TOOLS.indexOf(toolName) >= 0) {
@@ -3672,7 +3643,7 @@
             if (!memList) return;
 
             // Refresh catalog after successful memory mutations.
-            if (!msg.error && ['bag_put', 'bag_induct', 'bag_forget', 'pocket', 'load_bag'].indexOf(toolName) >= 0) {
+            if (!msg.error && ['bag_put', 'bag_induct', 'bag_forget', 'pocket', 'load_bag', 'bag_checkpoint', 'bag_restore'].indexOf(toolName) >= 0) {
                 callTool('bag_catalog', {});
             }
 
@@ -4024,8 +3995,7 @@
     }
 
     function startMemoryExport() {
-        var isWebMode = !!window.__vsCodeShimInstalled;
-        setMemoryExportStatus(isWebMode ? 'Exporting FelixBag…' : 'Choose export format from the VS Code picker…', false);
+        setMemoryExportStatus('Choose export format from the VS Code picker…', false);
         vscode.postMessage({ command: 'exportMemory' });
     }
     window.startMemoryExport = startMemoryExport;
@@ -7258,6 +7228,218 @@
             if (weblnBadge) { weblnBadge.textContent = '\u26A1 WebLN'; weblnBadge.style.display = 'inline'; }
         }
     }
+
+    // ═══════════════ AGENT CHAT DRILL-DOWN ═══════════════
+    function openAgentChat(slot) {
+        _achatSlot = slot;
+        _achatSessionId = '';
+
+        if (_slotDrill && _slotDrill.active) {
+            closeSlotDrill();
+        }
+
+        var tab = document.getElementById('tab-council');
+        if (!tab) return;
+        tab.classList.add('chat-active');
+
+        var slotInfo = _getSlotData ? _getSlotData(slot) : null;
+        var isPlugged = !!(slotInfo && _getSlotVisualState(slotInfo) === 'plugged');
+        var modelRaw = slotInfo ? (slotInfo.model_source || slotInfo.model_id || slotInfo.name || ('SLOT ' + slot)) : ('SLOT ' + slot);
+        var modelType = String((slotInfo && (slotInfo.model_type || slotInfo.type)) || 'unknown').toUpperCase();
+        var canChat = _slotSupportsAgentChat(slotInfo || {});
+
+        var titleEl = document.getElementById('achat-title');
+        if (titleEl) titleEl.textContent = 'SLOT ' + slot + ' — ' + (isPlugged ? modelRaw : 'EMPTY');
+
+        var sidEl = document.getElementById('achat-session-id');
+        if (sidEl) sidEl.textContent = '';
+
+        var nameEl = document.getElementById('achat-model-name');
+        if (nameEl) nameEl.textContent = isPlugged ? modelRaw : 'No model plugged';
+
+        var metaEl = document.getElementById('achat-model-meta');
+        if (metaEl) {
+            var typeClass = 'type-llm';
+            if (modelType.indexOf('EMBED') >= 0) typeClass = 'type-embed';
+            else if (modelType.indexOf('CLASS') >= 0) typeClass = 'type-class';
+            else if (modelType.indexOf('RERANK') >= 0) typeClass = 'type-rerank';
+
+            if (isPlugged) {
+                metaEl.innerHTML = '<span class="achat-tag ' + typeClass + '">' + escHtml(modelType || 'MODEL') + '</span>' +
+                    '<span class="achat-tag">SLOT ' + slot + '</span>';
+                if (!canChat) {
+                    metaEl.innerHTML += '<span class="achat-tag" style="color:#f59e0b;border-color:#f59e0b;background:rgba(245,158,11,0.12);">EMBED/UTILITY ONLY</span>';
+                }
+            } else {
+                metaEl.innerHTML = '<span class="achat-tag" style="background:#7f1d1d;color:#fca5a5;">EMPTY SLOT</span>' +
+                    '<span class="achat-tag">SLOT ' + slot + '</span>';
+            }
+        }
+
+        var toolCountEl = document.getElementById('achat-tool-count');
+        if (toolCountEl) toolCountEl.textContent = 'default set (~30)';
+        var blockedEl = document.getElementById('achat-blocked-count');
+        if (blockedEl) blockedEl.textContent = '10';
+
+        var messagesEl = document.getElementById('achat-messages');
+        if (messagesEl) {
+            if (!isPlugged) {
+                messagesEl.innerHTML =
+                    '<div class="achat-msg error" style="padding:16px;text-align:center;">' +
+                    'This slot is empty. Plug a model first.' +
+                    '<br/><br/><span style="color:var(--text-dim);font-size:11px;">Example: plug_model(model_id="Qwen/Qwen2.5-1.5B-Instruct")</span></div>';
+                _setAchatBusy(true);
+            } else if (!canChat) {
+                messagesEl.innerHTML =
+                    '<div class="achat-msg error" style="padding:16px;text-align:center;">' +
+                    'This slot type is not chat-capable (embedding/classifier/reranker).' +
+                    '<br/><br/><span style="color:var(--text-dim);font-size:11px;">Use INVOKE or slot actions for this model.</span></div>';
+                _setAchatBusy(true);
+            } else {
+                messagesEl.innerHTML =
+                    '<div class="achat-empty">Send a message to start a conversation.<br/>The agent can use tools autonomously.' +
+                    '<br/><span style="color:var(--text-dim);font-size:11px;margin-top:6px;display:inline-block;">CPU inference may take 1-5 minutes per iteration for >1B models.</span></div>';
+                _setAchatBusy(false);
+            }
+        }
+
+        var inputEl = document.getElementById('achat-input');
+        if (inputEl) {
+            inputEl.value = '';
+            setTimeout(function () { inputEl.focus(); }, 100);
+        }
+    }
+    window.openAgentChat = openAgentChat;
+
+    function closeAgentChat() {
+        var tab = document.getElementById('tab-council');
+        if (tab) tab.classList.remove('chat-active');
+        _achatSlot = null;
+        _stopElapsedTimer();
+    }
+    window.closeAgentChat = closeAgentChat;
+
+    function resetAgentChat() {
+        if (_achatSlot === null) return;
+        if (_achatSessionId) {
+            callTool('agent_chat', { slot: _achatSlot, message: '(reset)', session_id: _achatSessionId, reset: true }, '__agent_chat__');
+        }
+        _achatSessionId = '';
+        var sidEl = document.getElementById('achat-session-id');
+        if (sidEl) sidEl.textContent = '';
+        var messagesEl = document.getElementById('achat-messages');
+        if (messagesEl) {
+            messagesEl.innerHTML =
+                '<div class="achat-msg system-info">Session reset. Start a new conversation.</div>' +
+                '<div class="achat-empty">Send a message to start a conversation.<br/>The agent can use tools autonomously.</div>';
+        }
+        _setAchatBusy(false);
+    }
+    window.resetAgentChat = resetAgentChat;
+
+    function _setAchatBusy(busy) {
+        _achatBusy = busy;
+        var btn = document.getElementById('achat-send-btn');
+        var thinking = document.getElementById('achat-thinking');
+        var input = document.getElementById('achat-input');
+        if (btn) btn.disabled = busy;
+        if (input) input.disabled = busy;
+        if (thinking) thinking.classList.toggle('active', busy);
+        if (busy) {
+            _achatSendTime = Date.now();
+            _startElapsedTimer();
+        } else {
+            _stopElapsedTimer();
+        }
+    }
+
+    function _startElapsedTimer() {
+        _stopElapsedTimer();
+        var el = document.getElementById('achat-elapsed');
+        _achatElapsedTimer = setInterval(function () {
+            if (el) {
+                var secs = Math.round((Date.now() - _achatSendTime) / 1000);
+                el.textContent = secs + 's';
+            }
+        }, 500);
+    }
+
+    function _stopElapsedTimer() {
+        if (_achatElapsedTimer) {
+            clearInterval(_achatElapsedTimer);
+            _achatElapsedTimer = null;
+        }
+    }
+
+    function _clearEmptyState() {
+        var container = document.getElementById('achat-messages');
+        if (!container) return;
+        var empty = container.querySelector('.achat-empty');
+        if (empty) empty.remove();
+    }
+
+    function _appendAchatMsg(role, content, ts) {
+        _clearEmptyState();
+        var container = document.getElementById('achat-messages');
+        if (!container) return;
+        var div = document.createElement('div');
+        div.className = 'achat-msg ' + role;
+        var tsStr = ts ? new Date(ts).toLocaleTimeString() : '';
+        div.innerHTML = escHtml(content) + (tsStr ? '<span class="achat-ts">' + tsStr + '</span>' : '');
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+    }
+
+    function _appendAchatToolTrace(toolCalls) {
+        if (!toolCalls || !toolCalls.length) return;
+        _clearEmptyState();
+        var container = document.getElementById('achat-messages');
+        if (!container) return;
+        var div = document.createElement('div');
+        div.className = 'achat-msg tool-trace';
+        var headerHtml = '<div class="trace-header">Tool calls (' + toolCalls.length + ')</div>';
+        var linesHtml = toolCalls.map(function (tc) {
+            var name = tc.tool || tc.name || '?';
+            var isErr = !!tc.error;
+            var argsPreview = tc.args ? JSON.stringify(tc.args) : '';
+            if (argsPreview.length > 120) argsPreview = argsPreview.substring(0, 120) + '...';
+            var resultPreview = '';
+            if (tc.result) {
+                resultPreview = typeof tc.result === 'string' ? tc.result : JSON.stringify(tc.result);
+                if (resultPreview.length > 160) resultPreview = resultPreview.substring(0, 160) + '...';
+            }
+            if (tc.error) resultPreview = String(tc.error);
+            return '<div class="trace-line">' +
+                '<span class="trace-tool-name">' + escHtml(name) + '</span> ' +
+                '<span class="' + (isErr ? 'trace-status-err' : 'trace-status-ok') + '">' + (isErr ? 'ERR' : 'OK') + '</span>' +
+                (argsPreview ? ' <span class="trace-preview">args: ' + escHtml(argsPreview) + '</span>' : '') +
+                (resultPreview ? ' <span class="trace-preview">→ ' + escHtml(resultPreview) + '</span>' : '') +
+                '</div>';
+        }).join('');
+        div.innerHTML = headerHtml + linesHtml;
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+    }
+
+    function sendAgentChat() {
+        if (_achatBusy || _achatSlot === null) return;
+        var input = document.getElementById('achat-input');
+        if (!input) return;
+        var msg = (input.value || '').trim();
+        if (!msg) return;
+        input.value = '';
+        _appendAchatMsg('user', msg, Date.now());
+        _setAchatBusy(true);
+        _achatSendTime = Date.now();
+
+        var maxIter = parseInt((document.getElementById('achat-max-iter') || {}).value || '5', 10) || 5;
+        var maxTok = parseInt((document.getElementById('achat-max-tokens') || {}).value || '256', 10) || 256;
+        var args = { slot: _achatSlot, message: msg, max_iterations: maxIter, max_tokens: maxTok };
+        if (_achatSessionId) args.session_id = _achatSessionId;
+
+        callTool('agent_chat', args, '__agent_chat__');
+    }
+    window.sendAgentChat = sendAgentChat;
 
     // ── INIT ──
     buildToolsRegistry();

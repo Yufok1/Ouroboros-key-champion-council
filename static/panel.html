@@ -1063,6 +1063,200 @@ input:focus, select:focus { border-color: var(--accent); outline: none; }
     font-weight: 600;
 }
 
+/* ── SLOT DRILL-IN VIEW ── */
+.slot-drill { display: none; }
+.slot-drill.active { display: block; }
+.slot-drill-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 16px;
+}
+.slot-drill-back {
+    font-size: 10px;
+    padding: 4px 12px;
+    letter-spacing: 1px;
+}
+.slot-drill-identity { flex: 1; }
+.slot-drill-model {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--accent);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.slot-drill-meta {
+    display: flex;
+    gap: 12px;
+    font-size: 9px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 4px;
+}
+.slot-drill-badge {
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 2px 8px;
+    border: 1px solid;
+    text-transform: uppercase;
+}
+.slot-drill-badge.remote { color: #f59e0b; border-color: #f59e0b; background: rgba(245,158,11,0.1); }
+.slot-drill-badge.anthropic { color: #d97706; border-color: #d97706; background: rgba(217,119,6,0.1); }
+.slot-drill-badge.openai { color: #10b981; border-color: #10b981; background: rgba(16,185,129,0.1); }
+.slot-drill-badge.google { color: #3b82f6; border-color: #3b82f6; background: rgba(59,130,246,0.1); }
+.slot-drill-badge.huggingface { color: #fbbf24; border-color: #fbbf24; background: rgba(251,191,36,0.1); }
+.slot-drill-badge.local { color: var(--text-dim); border-color: var(--border); }
+.slot-drill-metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 8px;
+    margin-bottom: 16px;
+}
+.slot-metric-card {
+    border: 1px solid var(--border);
+    padding: 8px 10px;
+    background: var(--surface);
+    text-align: center;
+}
+.slot-metric-label {
+    font-size: 8px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+}
+.slot-metric-value {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--accent);
+}
+.slot-metric-value.warn { color: #f59e0b; }
+.slot-metric-value.bad { color: #ef4444; }
+.slot-drill-actions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+.slot-drill-activity {
+    border: 1px solid var(--border);
+    margin-bottom: 16px;
+}
+.slot-drill-activity-head {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    font-weight: 600;
+    display: flex;
+    justify-content: space-between;
+}
+.slot-activity-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    font-size: 10px;
+}
+.slot-activity-source {
+    font-size: 8px;
+    padding: 1px 5px;
+    border: 1px solid var(--border);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-dim);
+}
+.slot-activity-source.workflow { border-color: #a78bfa; color: #a78bfa; }
+.slot-activity-tool { color: var(--accent); font-weight: 600; }
+.slot-activity-preview { color: var(--text-dim); font-style: italic; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.slot-activity-latency { color: var(--text-dim); font-size: 9px; }
+.slot-activity-status { font-size: 10px; }
+.slot-activity-status.ok { color: #22c55e; }
+.slot-activity-status.fail { color: #ef4444; }
+
+#council-grid-view { display: block; }
+#tab-council.chat-active #council-grid-view { display: none; }
+#tab-council.chat-active #slot-drill-view { display: none !important; }
+
+.achat-view {
+    display: none;
+    flex-direction: column;
+    height: 100%;
+    min-height: 620px;
+    gap: 10px;
+}
+#tab-council.chat-active .achat-view { display: flex; }
+.achat-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+}
+.achat-back { font-size: 9px; padding: 3px 10px; }
+.achat-title { font-size: 12px; font-weight: 700; color: var(--accent); letter-spacing: 1px; }
+.achat-session { margin-left: auto; font-size: 9px; color: var(--text-dim); max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.achat-model-card { border: 1px solid var(--border); background: var(--surface); padding: 8px 10px; display: flex; align-items: center; gap: 8px; }
+.achat-model-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); }
+.achat-model-name { font-size: 11px; font-weight: 600; color: var(--text); max-width: 380px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.achat-model-meta { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.achat-tag { font-size: 8px; text-transform: uppercase; letter-spacing: 1px; padding: 2px 6px; border: 1px solid var(--border); color: var(--text-dim); background: var(--surface2); }
+.achat-tag.type-llm { color: var(--green); }
+.achat-tag.type-embed { color: var(--accent); }
+.achat-tag.type-class { color: var(--amber); }
+.achat-tag.type-rerank { color: #c084fc; }
+.achat-toolbar { display: flex; align-items: center; gap: 8px; border: 1px solid var(--border); background: var(--surface); padding: 6px 10px; font-size: 9px; color: var(--text-dim); flex-wrap: wrap; }
+.achat-tool-count { color: var(--accent); font-weight: 600; }
+.achat-iter-label { margin-left: auto; }
+.achat-toolbar input[type="number"] {
+    width: 58px;
+    padding: 3px 5px;
+    font-size: 9px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+}
+.achat-messages { flex: 1; min-height: 260px; max-height: 470px; overflow-y: auto; border: 1px solid var(--border); background: var(--surface); padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.achat-empty { text-align: center; color: var(--text-dim); font-size: 10px; line-height: 1.5; padding: 14px; border: 1px dashed var(--border); }
+.achat-msg { font-size: 11px; line-height: 1.45; white-space: pre-wrap; word-break: break-word; border: 1px solid var(--border); padding: 7px 9px; position: relative; }
+.achat-msg.user { background: rgba(68,136,255,0.12); border-color: #4488ff55; margin-left: 18%; }
+.achat-msg.assistant { background: rgba(0,255,136,0.08); border-color: #00ff8855; margin-right: 8%; }
+.achat-msg.system-info { background: rgba(255,255,255,0.04); color: var(--text-dim); font-size: 9px; border-style: dashed; text-align: center; }
+.achat-msg.tool-trace { background: rgba(168,85,247,0.09); border-color: #a855f755; margin-right: 4%; }
+.achat-msg.tool-trace .trace-header { font-size: 9px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+.achat-msg.tool-trace .trace-line { font-size: 10px; margin-bottom: 3px; }
+.achat-msg.tool-trace .trace-tool-name { color: var(--text); font-weight: 600; }
+.achat-msg.tool-trace .trace-status-ok { color: var(--green); }
+.achat-msg.tool-trace .trace-status-err { color: #ef4444; }
+.achat-msg.tool-trace .trace-preview { color: var(--text-dim); font-size: 9px; margin-left: 4px; }
+.achat-msg.error { background: rgba(239,68,68,0.12); border-color: #ef444477; color: #fecaca; }
+.achat-msg .achat-ts { display: block; margin-top: 4px; font-size: 8px; color: var(--text-dim); text-align: right; }
+.achat-thinking-bar { display: none; align-items: center; gap: 8px; border: 1px dashed var(--border); padding: 7px 10px; font-size: 10px; color: var(--text-dim); }
+.achat-thinking-bar.active { display: flex; }
+.achat-thinking-bar .achat-spinner { width: 10px; height: 10px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: achat-spin 0.8s linear infinite; }
+@keyframes achat-spin { to { transform: rotate(360deg); } }
+.achat-thinking-bar .achat-elapsed { margin-left: auto; font-family: monospace; font-size: 10px; color: var(--text-dim); }
+.achat-input-bar { display: flex; gap: 8px; }
+.achat-input-bar input {
+    flex: 1;
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 8px 10px;
+    font-size: 11px;
+}
+.achat-input-bar input:focus { border-color: var(--accent); outline: none; }
+.achat-input-bar .achat-send { min-width: 84px; }
+
+
 /* ── COMMUNITY TAB ── */
 .nostr-identity {
     display: flex;
@@ -1408,10 +1602,6 @@ input:focus, select:focus { border-color: var(--accent); outline: none; }
 .community-subtab { display: none; }
 .community-subtab.active { display: block; }
 </style>
-<link rel="stylesheet" href="xterm.css" />
-<script src="xterm.js"></script>
-<script src="xterm-addon-fit.js"></script>
-<script src="xterm-addon-web-links.js"></script>
 </head>
 <body>
 
@@ -1559,6 +1749,42 @@ input:focus, select:focus { border-color: var(--accent); outline: none; }
             <div class="diag-output" id="council-output" style="min-height:60px;">Run a council command above.</div>
         </div>
     </div>
+    <!-- AGENT CHAT VIEW (hidden until CHAT clicked) -->
+    <div id="agent-chat-view" class="achat-view">
+        <div class="achat-header">
+            <button class="achat-back" onclick="closeAgentChat()">&#8592; Grid</button>
+            <span class="achat-title" id="achat-title">AGENT CHAT</span>
+            <span class="achat-session" id="achat-session-id"></span>
+            <button class="btn-dim" onclick="resetAgentChat()" style="font-size:9px;padding:3px 10px;">NEW SESSION</button>
+        </div>
+        <div class="achat-model-card" id="achat-model-card">
+            <span class="achat-model-dot"></span>
+            <span class="achat-model-name" id="achat-model-name">&mdash;</span>
+            <span class="achat-model-meta" id="achat-model-meta"></span>
+        </div>
+        <div class="achat-toolbar">
+            <span>Granted tools:</span>
+            <span class="achat-tool-count" id="achat-tool-count">&mdash;</span>
+            <span>Blocked: <span id="achat-blocked-count">10</span></span>
+            <span class="achat-iter-label">Iterations:</span>
+            <input type="number" id="achat-max-iter" value="2" min="1" max="20" title="Max agentic iterations" />
+            <span>Tokens:</span>
+            <input type="number" id="achat-max-tokens" value="256" min="32" max="4096" step="32" title="Max generation tokens per turn" />
+        </div>
+        <div class="achat-messages" id="achat-messages">
+            <div class="achat-empty">Send a message to start a conversation.<br/>The agent can use tools autonomously.</div>
+        </div>
+        <div class="achat-thinking-bar" id="achat-thinking">
+            <div class="achat-spinner"></div>
+            <span>Agent is thinking <span style="color:var(--text-dim);">(CPU inference may take a while)</span></span>
+            <span class="achat-elapsed" id="achat-elapsed">0s</span>
+        </div>
+        <div class="achat-input-bar">
+            <input id="achat-input" placeholder="Message the agent..." onkeydown="if(event.key==='Enter'&&!event.shiftKey)sendAgentChat()" />
+            <button class="achat-send" id="achat-send-btn" onclick="sendAgentChat()">Send</button>
+        </div>
+    </div>
+
     <!-- DRILL-IN VIEW (shown when a slot card is clicked) -->
     <div class="slot-drill" id="slot-drill-view">
         <div class="slot-drill-header">
@@ -1577,13 +1803,6 @@ input:focus, select:focus { border-color: var(--accent); outline: none; }
                 <span id="slot-drill-activity-count">0 events</span>
             </div>
             <div id="slot-drill-activity-list"></div>
-        </div>
-        <div class="slot-drill-terminal-wrap" id="slot-drill-terminal-wrap">
-            <div class="slot-drill-terminal-head">
-                <span>INTERACTIVE TERMINAL</span>
-                <span id="slot-drill-terminal-status">disconnected</span>
-            </div>
-            <div class="slot-drill-terminal" id="slot-drill-terminal"></div>
         </div>
     </div>
 </div>
@@ -1631,7 +1850,7 @@ input:focus, select:focus { border-color: var(--accent); outline: none; }
 
 <!-- ═══════════════ TOOLS TAB ═══════════════ -->
 <div class="content" id="tab-tools">
-    <div class="section-head">TOOL REGISTRY (146 TOOLS / 21 CATEGORIES)</div>
+    <div class="section-head">TOOL REGISTRY (156 TOOLS / 21 CATEGORIES)</div>
     <div style="margin-bottom:12px;display:flex;gap:8px;">
         <button onclick="vscode.postMessage({command:'openSettings'})">OPEN SETTINGS</button>
         <button class="btn-dim" onclick="callTool('get_capabilities',{})">QUERY CAPABILITIES</button>
@@ -1840,6 +2059,39 @@ input:focus, select:focus { border-color: var(--accent); outline: none; }
     </div>
 </div>
 
+<!-- ═══════════════ PLUG PROVIDER MODAL ═══════════════ -->
+<div class="modal-overlay" id="plug-provider-modal">
+    <div class="modal" style="width:540px;">
+        <div class="modal-title">PLUG REMOTE PROVIDER</div>
+        <div style="font-size:10px;color:var(--text-dim);margin-bottom:12px;line-height:1.5;">
+            Connect any OpenAI-compatible API endpoint as a council slot.
+            Supports <strong>OpenAI</strong>, <strong>Anthropic</strong>, <strong>Ollama</strong>, <strong>vLLM</strong>, <strong>LM Studio</strong>, or any server exposing <code>/v1/chat/completions</code>.
+        </div>
+        <div class="field">
+            <label>Provider URL <span style="color:var(--red);">*</span></label>
+            <input id="plug-provider-url" placeholder="http://localhost:11434/v1  or  https://api.openai.com/v1" />
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div class="field">
+                <label>API Key <span style="color:var(--text-dim);">(optional)</span></label>
+                <input id="plug-provider-key" type="password" placeholder="sk-..." />
+            </div>
+            <div class="field">
+                <label>Model Name <span style="color:var(--text-dim);">(auto-detect if blank)</span></label>
+                <input id="plug-provider-model" placeholder="gpt-4o, claude-3-opus, etc." />
+            </div>
+        </div>
+        <div class="field">
+            <label>Slot Name <span style="color:var(--text-dim);">(optional)</span></label>
+            <input id="plug-provider-slot-name" placeholder="my-provider" />
+        </div>
+        <div class="modal-actions">
+            <button onclick="doPlugProvider()">CONNECT</button>
+            <button class="btn-dim" onclick="closeModals()">CANCEL</button>
+        </div>
+    </div>
+</div>
+
 <!-- ═══════════════ INDUCT MODAL ═══════════════ -->
 <div class="modal-overlay" id="induct-modal">
     <div class="modal">
@@ -2040,7 +2292,7 @@ input:focus, select:focus { border-color: var(--accent); outline: none; }
 
 <!-- TOOL CATEGORIES (same JSON that buildHTML() injects) -->
 <script>
-window.__CATEGORIES__ = {"Core Inference":{"setting":"coreInference","tools":["forward","infer","embed_text","deliberate","imagine"]},"Chat & Conversation":{"setting":"chat","tools":["chat","chat_reset","chat_history"]},"Batch Operations":{"setting":"batch","tools":["batch_forward","batch_embed","pipe","compare","invoke_slot"]},"Council/Slot Management":{"setting":"councilSlots","tools":["plug_model","unplug_slot","list_slots","clone_slot","mutate_slot","rename_slot","swap_slots","slot_info","get_slot_params","hub_plug","cull_slot","load_manifest"]},"Council Operations":{"setting":"council","tools":["broadcast","council_broadcast","council_status","set_consensus","debate","chain","all_slots"]},"FelixBag Memory":{"setting":"felixbag","tools":["bag_get","bag_put","bag_search","bag_catalog","bag_induct","bag_forget","bag_export","pocket","summon","materialize","load_bag","save_bag"]},"HuggingFace Hub":{"setting":"huggingface","tools":["hub_search","hub_search_datasets","hub_top","hub_info","hub_download","hub_tasks","hub_count","capture_model"]},"LLM Operations":{"setting":"llm","tools":["generate","classify","rerank"]},"Vast.AI GPU Rental":{"setting":"vastai","tools":["vast_search","vast_details","vast_rent","vast_instances","vast_stop","vast_connect","vast_ready","vast_run","vast_load_model","vast_generate","vast_embed","vast_broadcast","vast_distribute"]},"Snapshots & Variants":{"setting":"replication","tools":["replicate","spawn_swarm","spawn_quine","export_quine","import_brain"]},"Export & Documentation":{"setting":"export","tools":["export_config","export_docs","export_interface","export_pt","export_onnx","get_readme","get_artifacts","save_state"]},"Visualization":{"setting":"visualization","tools":["start_rerun_viewer","log_to_rerun","rerun_log_inference","rerun_log_evolution","spawn_tui"]},"Status & Introspection":{"setting":"status","tools":["get_status","get_capabilities","get_identity","get_genesis","get_provenance","verify_integrity","verify_hash","tree","show_weights","show_dims","show_rssm","show_lora","demo","get_help","get_about","get_onboarding","get_quickstart","list_models","heartbeat","get_embedder_info"]},"Diagnostics":{"setting":"diagnostics","tools":["diagnose_file","diagnose_directory","symbiotic_interpret","trace_root_causes","forensics_analyze","metrics_analyze"]},"API & Server":{"setting":"apiServer","tools":["start_api_server","orchestra","relay_status","relay_send","spawn_tui","toggle_relay"]},"HOLD Protocol":{"setting":"hold","tools":["hold_yield","hold_resolve"]},"Safety":{"setting":"security","tools":["crystallize","resume_agent","is_frozen"]},"Workflow Automation":{"setting":"workflows","tools":["workflow_test","workflow_execute","workflow_list","workflow_create","workflow_get","workflow_update","workflow_delete","workflow_history","workflow_status"]},"Advanced":{"setting":"advanced","tools":["call","observe","feed","grab_slot","restore_slot"]},"Cache Management":{"setting":"cache","tools":["get_cached","clear_cache"]},"CASCADE Observability":{"setting":"cascade","tools":["cascade_graph","cascade_chain","cascade_data","cascade_system","cascade_instrument","cascade_record","cascade_proxy"]}};
+window.__CATEGORIES__ = {"Core Inference":{"setting":"coreInference","tools":["forward","infer","embed_text","deliberate","imagine"]},"Chat & Conversation":{"setting":"chat","tools":["chat","chat_reset","chat_history","agent_chat"]},"Batch Operations":{"setting":"batch","tools":["batch_forward","batch_embed","pipe","compare","invoke_slot"]},"Council/Slot Management":{"setting":"councilSlots","tools":["plug_model","unplug_slot","list_slots","clone_slot","mutate_slot","rename_slot","swap_slots","slot_info","get_slot_params","hub_plug","cull_slot","load_manifest"]},"Council Operations":{"setting":"council","tools":["broadcast","council_broadcast","council_status","set_consensus","debate","chain","all_slots"]},"FelixBag Memory":{"setting":"felixbag","tools":["bag_get","bag_put","bag_search","bag_catalog","bag_induct","bag_forget","bag_export","pocket","summon","materialize","load_bag","save_bag","bag_read_doc","bag_list_docs","bag_search_docs","bag_tree","bag_checkpoint","bag_versions","bag_diff","bag_restore"]},"HuggingFace Hub":{"setting":"huggingface","tools":["hub_search","hub_search_datasets","hub_top","hub_info","hub_download","hub_tasks","hub_count","capture_model"]},"LLM Operations":{"setting":"llm","tools":["generate","classify","rerank"]},"Vast.AI GPU Rental":{"setting":"vastai","tools":["vast_search","vast_details","vast_rent","vast_instances","vast_stop","vast_connect","vast_ready","vast_run","vast_load_model","vast_generate","vast_embed","vast_broadcast","vast_distribute"]},"Snapshots & Variants":{"setting":"replication","tools":["replicate","spawn_swarm","spawn_quine","export_quine","import_brain"]},"Export & Documentation":{"setting":"export","tools":["export_config","export_docs","export_interface","export_pt","export_onnx","get_readme","get_artifacts","save_state"]},"Visualization":{"setting":"visualization","tools":["start_rerun_viewer","log_to_rerun","rerun_log_inference","rerun_log_evolution","spawn_tui"]},"Status & Introspection":{"setting":"status","tools":["get_status","get_capabilities","get_identity","get_genesis","get_provenance","verify_integrity","verify_hash","tree","show_weights","show_dims","show_rssm","show_lora","demo","get_help","get_about","get_onboarding","get_quickstart","list_models","heartbeat","get_embedder_info"]},"Diagnostics":{"setting":"diagnostics","tools":["diagnose_file","diagnose_directory","symbiotic_interpret","trace_root_causes","forensics_analyze","metrics_analyze"]},"API & Server":{"setting":"apiServer","tools":["start_api_server","orchestra","relay_status","relay_send","spawn_tui","toggle_relay","web_search"]},"HOLD Protocol":{"setting":"hold","tools":["hold_yield","hold_resolve"]},"Safety":{"setting":"security","tools":["implode","defrost","is_frozen"]},"Workflow Automation":{"setting":"workflows","tools":["workflow_test","workflow_execute","workflow_list","workflow_create","workflow_get","workflow_update","workflow_delete","workflow_history","workflow_status"]},"Advanced":{"setting":"advanced","tools":["call","observe","feed","grab_slot","restore_slot"]},"Cache Management":{"setting":"cache","tools":["get_cached","clear_cache"]},"CASCADE Observability":{"setting":"cascade","tools":["cascade_graph","cascade_chain","cascade_data","cascade_system","cascade_instrument","cascade_record","cascade_proxy"]}};
 </script>
 
 <!-- Load shim BEFORE main.js so acquireVsCodeApi is available -->

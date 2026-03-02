@@ -298,49 +298,6 @@
                 console.log('[shim] VS Code-specific command ignored:', command);
             }
         }
-
-        // ── Slot Drill-In Terminal (WebSocket bridge) ────────
-        else if (command === 'spawnSlotTerminal') {
-            var si = msg.slotIndex;
-            // Close existing WebSocket for this slot
-            if (window._slotWs && window._slotWs[si]) {
-                try { window._slotWs[si].close(); } catch (e) {}
-            }
-            if (!window._slotWs) window._slotWs = {};
-            var wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-            var ws = new WebSocket(wsProto + '//' + location.host + '/ws/terminal/' + si);
-            window._slotWs[si] = ws;
-            ws.onmessage = function(ev) {
-                try {
-                    var d = JSON.parse(ev.data);
-                    if (d.type === 'output') {
-                        fireEvent({ type: 'slotTerminalOutput', slotIndex: si, data: d.data });
-                    } else if (d.type === 'ready') {
-                        fireEvent({ type: 'slotTerminalReady', slotIndex: si });
-                    } else if (d.type === 'exited') {
-                        fireEvent({ type: 'slotTerminalExited', slotIndex: si, code: d.code || 0 });
-                    }
-                } catch (e) {}
-            };
-            ws.onerror = function() {
-                fireEvent({ type: 'slotTerminalOutput', slotIndex: si, data: '\x1b[31mWebSocket connection failed\x1b[0m\r\n' });
-            };
-            ws.onclose = function() {
-                fireEvent({ type: 'slotTerminalExited', slotIndex: si, code: 0 });
-                delete window._slotWs[si];
-            };
-        }
-        else if (command === 'slotTerminalInput') {
-            if (window._slotWs && window._slotWs[msg.slotIndex]) {
-                try { window._slotWs[msg.slotIndex].send(JSON.stringify({ type: 'input', data: msg.data })); } catch (e) {}
-            }
-        }
-        else if (command === 'killSlotTerminal') {
-            if (window._slotWs && window._slotWs[msg.slotIndex]) {
-                try { window._slotWs[msg.slotIndex].close(); } catch (e) {}
-                delete window._slotWs[msg.slotIndex];
-            }
-        }
         else if (command === 'requestSlotMetrics') {
             // Route through MCP tool call to get evaluator data
             try {

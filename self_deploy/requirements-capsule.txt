@@ -23,8 +23,12 @@ reportlab
 requests
 rerun-sdk
 rich
+safetensors
 sentence-transformers
 textual
 torch
 transformers
+accelerate>=0.20.0
+bitsandbytes>=0.41.0
+peft>=0.6.0
 vastai
