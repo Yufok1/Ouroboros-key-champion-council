@@ -1072,7 +1072,6 @@
 
     // ── SLOTS RENDER ──
     function renderSlots(data) {
-        _lastSlotsData = data;
         var grid = document.getElementById('slots-grid');
         if (!grid) return;
         grid.innerHTML = '';
@@ -1144,8 +1143,17 @@
         var slotCount = slotsArr.length;
         var gridTitle = document.getElementById('council-grid-title');
         if (slotCount > 0) {
+            _lastSlotsData = data;
+            _lastGoodSlotsData = data;
+            _lastGoodSlotsTs = Date.now();
             gridTitle && (gridTitle.textContent = slotCount + '-SLOT COUNCIL GRID');
         } else {
+            // Transient errors/disconnects can yield empty payloads.
+            // Keep the last good council grid instead of wiping all slots.
+            if (_lastGoodSlotsData) {
+                _scheduleSlotRefresh('empty-payload', 1200);
+                return;
+            }
             gridTitle && (gridTitle.textContent = 'COUNCIL GRID — awaiting capsule...');
             return; // Don't render empty placeholder slots
         }
@@ -1294,7 +1302,33 @@
 
     // ── PLUG LOADING UI ──
     var _plugTimer = null;
-    var _lastSlotsData = null; // cache last slots data for re-render during plug
+    var _lastSlotsData = null; // latest slots payload (usually last good)
+    var _lastGoodSlotsData = null; // sticky good payload to survive transient disconnects
+    var _lastGoodSlotsTs = 0;
+    var _slotRefreshTimer = null;
+    var _slotWatchdogTimer = null;
+
+    function _scheduleSlotRefresh(reason, delayMs) {
+        if (_slotRefreshTimer) return;
+        var ms = (typeof delayMs === 'number' && delayMs >= 0) ? delayMs : 220;
+        _slotRefreshTimer = setTimeout(function () {
+            _slotRefreshTimer = null;
+            callTool('list_slots', {}, '__slot_watchdog__');
+        }, ms);
+    }
+
+    function _startSlotWatchdog() {
+        if (_slotWatchdogTimer) return;
+        _slotWatchdogTimer = setInterval(function () {
+            if (document.visibilityState === 'hidden') return;
+            var titleEl = document.getElementById('council-grid-title');
+            var awaiting = titleEl && String(titleEl.textContent || '').toLowerCase().indexOf('awaiting capsule') >= 0;
+            var stale = !_lastGoodSlotsTs || (Date.now() - _lastGoodSlotsTs) > 20000;
+            if (awaiting || stale) {
+                _scheduleSlotRefresh(awaiting ? 'awaiting' : 'stale', awaiting ? 300 : 0);
+            }
+        }, 8000);
+    }
 
     function _updatePluggingUI() {
         var keys = Object.keys(_pluggingSlots);
@@ -1628,14 +1662,9 @@
     var PLUG_TOOLS = ['plug_model', 'hub_plug'];
     var EXTERNAL_SLOT_MUTATION_TOOLS = ['plug_model', 'hub_plug', 'unplug_slot', 'clone_slot', 'rename_slot', 'swap_slots', 'cull_slot', 'restore_slot'];
     var ACTIVITY_SILENT_TOOLS = ['get_status', 'list_slots', 'bag_catalog', 'workflow_list', 'verify_integrity', 'get_cached', 'get_identity', 'feed', 'get_capabilities', 'get_help', 'get_onboarding', 'get_quickstart', 'hub_tasks', 'list_tools', 'heartbeat', 'api_health'];
-    var _externalSlotRefreshTimer = null;
 
     function _scheduleExternalSlotRefresh(reason) {
-        if (_externalSlotRefreshTimer) return;
-        _externalSlotRefreshTimer = setTimeout(function () {
-            _externalSlotRefreshTimer = null;
-            callTool('list_slots', {}, '__external_slot_sync__');
-        }, 220);
+        _scheduleSlotRefresh(reason || 'external-mutation', 220);
     }
 
     function addActivityEntry(event) {
@@ -4003,9 +4032,13 @@
             return;
         }
 
-        // list_slots button → re-render the slots grid
-        if (toolName === 'list_slots') {
-            renderSlots(msg.data);
+        // list_slots refreshes → update council grid (with disconnect recovery)
+        if (toolName === 'list_slots' || toolName === '__external_slot_sync__' || toolName === '__slot_watchdog__') {
+            if (msg && msg.error) {
+                _scheduleSlotRefresh('list-slots-error', 1500);
+                return;
+            }
+            renderSlots(msg ? msg.data : null);
             return;
         }
 
@@ -8895,6 +8928,14 @@
 
     // Tell extension we're ready
     vscode.postMessage({ command: 'ready' });
+
+    // Auto-recover slot grid after transient disconnects / tab sleep.
+    _startSlotWatchdog();
+    window.addEventListener('focus', function () { _scheduleSlotRefresh('window-focus', 120); });
+    window.addEventListener('online', function () { _scheduleSlotRefresh('network-online', 120); });
+    document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible') _scheduleSlotRefresh('tab-visible', 120);
+    });
 
     // ── NIP-88: POLL HANDLERS ──
     (function () {

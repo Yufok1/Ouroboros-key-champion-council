@@ -567,6 +567,10 @@
     var _activitySeenOrder = [];
     var _lastSseActivityTs = 0;
     var _activityFallbackCursor = '';
+    var _lastServerStatus = '';
+    var _slotSyncInFlight = false;
+    var _lastSlotSyncTs = 0;
+    var _slotSyncIntervalMs = 5000;
 
     function _normalizeActivitySessionId(sessionId) {
         if (sessionId === null || sessionId === undefined) return '';
@@ -669,6 +673,26 @@
         }
     }
 
+    async function syncSlotsSnapshot(force) {
+        var now = Date.now();
+        if (_slotSyncInFlight) return null;
+        if (!force && (now - _lastSlotSyncTs) < _slotSyncIntervalMs) return null;
+        _slotSyncInFlight = true;
+        try {
+            var slots = await _silentToolCall('list_slots', {});
+            if (slots && !slots.error) {
+                fireEvent({ type: 'slots', data: slots });
+            }
+            _lastSlotSyncTs = Date.now();
+            return slots;
+        } catch (err) {
+            _lastSlotSyncTs = Date.now();
+            return null;
+        } finally {
+            _slotSyncInFlight = false;
+        }
+    }
+
     async function pollHealthAndDispatchState() {
         try {
             // Poll /api/health, and periodically re-sync /api/tools so the
@@ -680,6 +704,10 @@
 
             if (mcpUp) {
                 await syncToolInventory(false);
+                if (serverStatus === 'running' && _lastServerStatus !== 'running') {
+                    // Recover council grid immediately after backend/session recovery.
+                    await syncSlotsSnapshot(true);
+                }
             }
 
             var totalTools = _lastToolCount || 134;
@@ -700,6 +728,7 @@
                 categories: _cachedCategories,
                 version: healthResp.version || '0.8.9'
             });
+            _lastServerStatus = serverStatus;
         } catch (err) {
             // Server unreachable — dispatch offline state
             var offlinePort = window.location.port || (window.location.protocol === 'https:' ? '443' : '80');
@@ -711,6 +740,7 @@
                 uptime: 0,
                 categories: {}
             });
+            _lastServerStatus = 'stopped';
         }
     }
 
@@ -760,6 +790,10 @@
                 ? (API_BASE + '/api/activity-stream?since=' + encodeURIComponent(_activityLastEventId))
                 : (API_BASE + '/api/activity-stream');
             const es = new EventSource(url);
+            es.onopen = function() {
+                _lastSseActivityTs = Date.now();
+                syncSlotsSnapshot(false);
+            };
             es.onmessage = function(e) {
                 try {
                     const event = JSON.parse(e.data);
@@ -796,6 +830,7 @@
         // If SSE is active and recent, don't duplicate work.
         if (_lastSseActivityTs > 0 && (Date.now() - _lastSseActivityTs) < 12000) return;
         try {
+            await syncSlotsSnapshot(false);
             const resp = await fetch(API_BASE + '/api/activity-log?limit=500');
             if (!resp.ok) return;
             const data = await resp.json();
