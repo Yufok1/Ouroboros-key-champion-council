@@ -41,8 +41,10 @@
     var _achatTabs = {};               // key -> tab state
     var _achatActiveTabKey = '';
     var _achatToolConfigOpen = false;
+    var _achatAgentConfigOpen = false;
     var _achatComposerBound = false;
     var _achatToolPolicyStoreKey = 'cc_achat_tool_policies_v1';
+    if (window.__achatKillRequested === undefined) window.__achatKillRequested = false;
     var _achatToolPolicies = {};
     var _achatDefaultGrantedTools = [
         "get_status", "list_slots", "slot_info", "get_capabilities", "embed_text",
@@ -7598,8 +7600,16 @@
 
             // Behavior
             reappropriationEnabled: true,
-            haltOnError: false,            // stop loop on first error
-            requireConfirmation: false,    // HOLD before tool execution
+            resourceApprovalMode: 'capped', // 'manual' | 'capped' | 'auto_all'
+            haltOnError: false,             // stop loop on first error
+            requireConfirmation: false,     // HOLD before tool execution
+
+            // Non-disableable hard floor brakes (safety rails)
+            guardMaxWallClockSec: 1800,      // 30 minutes
+            guardMaxToolCalls: 400,
+            guardMaxConsecutiveFailures: 8,
+            guardMaxNoProgressCycles: 10,
+            emitBudgetEveryStep: true,
 
             // Output
             outputFormat: 'text'           // 'text' | 'json' | 'markdown'
@@ -7702,11 +7712,33 @@
             '</select></div>' +
             '<div class="achat-cfg-group"><label class="achat-cfg-label">Window Size</label><input type="number" class="chat-input achat-cfg-input" data-cfg="contextWindowSize" value="' + c.contextWindowSize + '" min="5" max="100" /></div>' +
             '</div>' +
-            '<div style="display:flex;gap:12px;margin:4px 0;">' +
+            '<div style="display:flex;gap:12px;margin:4px 0;flex-wrap:wrap;">' +
             '<label style="font-size:9px;display:flex;gap:4px;align-items:center;"><input type="checkbox" class="achat-cfg-check" data-cfg="persistMemory"' + (c.persistMemory ? ' checked' : '') + ' /> Auto-save to FelixBag</label>' +
+            '<label style="font-size:9px;display:flex;gap:4px;align-items:center;"><input type="checkbox" class="achat-cfg-check" data-cfg="emitBudgetEveryStep"' + (c.emitBudgetEveryStep ? ' checked' : '') + ' /> Emit budget telemetry each step</label>' +
+            '</div>' +
+
+            // Autonomy & Safety
+            '<div class="section-head" style="margin:8px 0 4px;font-size:9px;">AUTONOMY &amp; SAFETY</div>' +
+            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">' +
+            '<div class="achat-cfg-group"><label class="achat-cfg-label">Resource Request Mode</label>' +
+            '<select class="chat-input achat-cfg-input" data-cfg="resourceApprovalMode">' +
+            '<option value="manual"' + (c.resourceApprovalMode === 'manual' ? ' selected' : '') + '>Manual Approve</option>' +
+            '<option value="capped"' + ((c.resourceApprovalMode || 'capped') === 'capped' ? ' selected' : '') + '>Auto-Approve (Capped)</option>' +
+            '<option value="auto_all"' + (c.resourceApprovalMode === 'auto_all' ? ' selected' : '') + '>Auto-Approve ALL</option>' +
+            '</select></div>' +
+            '<div class="achat-cfg-group"><label class="achat-cfg-label">Max Runtime (sec)</label><input type="number" class="chat-input achat-cfg-input" data-cfg="guardMaxWallClockSec" value="' + c.guardMaxWallClockSec + '" min="60" max="86400" step="30" /></div>' +
+            '</div>' +
+            '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">' +
+            '<div class="achat-cfg-group"><label class="achat-cfg-label">Max Tool Calls</label><input type="number" class="chat-input achat-cfg-input" data-cfg="guardMaxToolCalls" value="' + c.guardMaxToolCalls + '" min="10" max="10000" step="10" /></div>' +
+            '<div class="achat-cfg-group"><label class="achat-cfg-label">Max Consecutive Failures</label><input type="number" class="chat-input achat-cfg-input" data-cfg="guardMaxConsecutiveFailures" value="' + c.guardMaxConsecutiveFailures + '" min="1" max="100" /></div>' +
+            '<div class="achat-cfg-group"><label class="achat-cfg-label">Max No-Progress Cycles</label><input type="number" class="chat-input achat-cfg-input" data-cfg="guardMaxNoProgressCycles" value="' + c.guardMaxNoProgressCycles + '" min="1" max="200" /></div>' +
+            '</div>' +
+            '<div style="display:flex;gap:12px;margin:4px 0;flex-wrap:wrap;">' +
             '<label style="font-size:9px;display:flex;gap:4px;align-items:center;"><input type="checkbox" class="achat-cfg-check" data-cfg="reappropriationEnabled"' + (c.reappropriationEnabled ? ' checked' : '') + ' /> Dynamic Reappropriation</label>' +
             '<label style="font-size:9px;display:flex;gap:4px;align-items:center;"><input type="checkbox" class="achat-cfg-check" data-cfg="haltOnError"' + (c.haltOnError ? ' checked' : '') + ' /> Halt on Error</label>' +
+            '<label style="font-size:9px;display:flex;gap:4px;align-items:center;"><input type="checkbox" class="achat-cfg-check" data-cfg="requireConfirmation"' + (c.requireConfirmation ? ' checked' : '') + ' /> Require confirmation for tool execution</label>' +
             '</div>' +
+            '<div class="hint" style="font-size:9px;color:var(--text-dim);margin:0 0 2px;">Auto-Approve ALL still enforces non-disableable hard brakes (runtime, calls, failures, no-progress, kill switch).</div>' +
 
             // Output
             '<div style="display:flex;gap:6px;margin:4px 0;align-items:center;">' +
@@ -8179,6 +8211,19 @@
         }
     }
 
+    function _renderAchatAgentConfig(tab) {
+        var wrap = document.getElementById('achat-agent-config-wrap');
+        if (!wrap) return;
+        if (!tab) {
+            wrap.style.display = 'none';
+            wrap.innerHTML = '';
+            return;
+        }
+        wrap.style.display = _achatAgentConfigOpen ? 'block' : 'none';
+        if (!_achatAgentConfigOpen) return;
+        wrap.innerHTML = _renderAgentConfigPanel(tab);
+    }
+
     function _renderAchatPolicyPanel(tab) {
         var panel = document.getElementById('achat-tool-policy');
         if (!panel || !tab) return;
@@ -8283,6 +8328,7 @@
         _renderAchatRunMode(tab);
         _renderAchatToolSelect(tab);
         _renderAchatToolConfig(tab);
+        _renderAchatAgentConfig(tab);
         _renderAchatMessages(tab);
         _renderAchatPolicyPanel(tab);
 
@@ -8421,37 +8467,70 @@
         if (!tab) return;
         tab.sessionId = '';
         tab.messages = [];
+        window.__achatKillRequested = false;
         _renderAchatMessages(tab);
         _refreshAchatMeta();
         _setAchatBusy(false);
     }
     window.resetAgentChat = resetAgentChat;
 
+    function requestAchatKillSwitch() {
+        window.__achatKillRequested = true;
+        var tab = _getActiveAchatTab();
+        if (tab) {
+            _appendAchatMsg('system-info', '🛑 Kill switch requested. Loop will stop at the next safety checkpoint.', Date.now(), tab);
+        }
+    }
+    window.requestAchatKillSwitch = requestAchatKillSwitch;
+
     function toggleAchatToolConfig() {
         _achatToolConfigOpen = !_achatToolConfigOpen;
+        _achatAgentConfigOpen = false;
         var tab = _getActiveAchatTab();
         var policyPanel = document.getElementById('achat-tool-policy');
         if (policyPanel) policyPanel.style.display = 'none';
+        var agentCfg = document.getElementById('achat-agent-config-wrap');
+        if (agentCfg) agentCfg.style.display = 'none';
         var cfg = document.getElementById('achat-tool-config');
         if (cfg) cfg.style.display = _achatToolConfigOpen ? 'block' : 'none';
         if (!tab) return;
         _renderAchatToolConfig(tab);
+        _renderAchatAgentConfig(tab);
     }
     window.toggleAchatToolConfig = toggleAchatToolConfig;
 
     function toggleAchatPolicy() {
         _achatToolConfigOpen = true;
+        _achatAgentConfigOpen = false;
         var tab = _getActiveAchatTab();
         var panel = document.getElementById('achat-tool-policy');
         var cfg = document.getElementById('achat-tool-config');
+        var agentCfg = document.getElementById('achat-agent-config-wrap');
+        if (agentCfg) agentCfg.style.display = 'none';
         if (panel) panel.style.display = (panel.style.display === 'block') ? 'none' : 'block';
         if (cfg) cfg.style.display = (panel && panel.style.display === 'block') ? 'none' : 'block';
         if (tab) {
             _renderAchatPolicyPanel(tab);
             _renderAchatToolConfig(tab);
+            _renderAchatAgentConfig(tab);
         }
     }
     window.toggleAchatPolicy = toggleAchatPolicy;
+
+    function toggleAchatAgentConfig() {
+        _achatAgentConfigOpen = !_achatAgentConfigOpen;
+        _achatToolConfigOpen = true;
+        var tab = _getActiveAchatTab();
+        var policyPanel = document.getElementById('achat-tool-policy');
+        if (policyPanel) policyPanel.style.display = 'none';
+        var cfg = document.getElementById('achat-tool-config');
+        if (cfg) cfg.style.display = !_achatAgentConfigOpen ? 'block' : 'none';
+        if (!tab) return;
+        _renderAchatToolConfig(tab);
+        _renderAchatPolicyPanel(tab);
+        _renderAchatAgentConfig(tab);
+    }
+    window.toggleAchatAgentConfig = toggleAchatAgentConfig;
 
     function _setAchatBusy(busy) {
         _achatBusy = busy;
@@ -8540,7 +8619,7 @@
         for (var j = 0; j < pNames.length; j++) {
             var p = pNames[j];
             var def = props[p] || {};
-            if (args[p] === undefined && def.default !== undefined) {
+            if (args[p] === undefined && def.default !== undefined && def.default !== null) {
                 args[p] = def.default;
             }
         }
@@ -8575,6 +8654,16 @@
 
         if (props.slot && (args.slot === undefined || args.slot === null || args.slot === '')) {
             args.slot = tab.slot;
+        }
+
+        // Guard against strict validators that reject explicit nulls for optional arrays/objects.
+        if (toolName === 'invoke_slot' && args.messages === null) {
+            delete args.messages;
+        }
+        var argKeys = Object.keys(args);
+        for (var ak = 0; ak < argKeys.length; ak++) {
+            var av = args[argKeys[ak]];
+            if (av === null || av === undefined) delete args[argKeys[ak]];
         }
 
         for (var r = 0; r < required.length; r++) {
@@ -8683,6 +8772,18 @@
             lines.push('');
         }
 
+        var reqMode = String(cfg.resourceApprovalMode || 'capped').toLowerCase();
+        if (reqMode !== 'manual' && reqMode !== 'auto_all' && reqMode !== 'capped') reqMode = 'capped';
+        var guardRuntime = parseInt(cfg.guardMaxWallClockSec || 1800, 10) || 1800;
+        var guardCalls = parseInt(cfg.guardMaxToolCalls || 400, 10) || 400;
+        var guardFails = parseInt(cfg.guardMaxConsecutiveFailures || 8, 10) || 8;
+        var guardNoProgress = parseInt(cfg.guardMaxNoProgressCycles || 10, 10) || 10;
+        lines.push('RESOURCE REQUEST POLICY: ' + reqMode.toUpperCase() + '.');
+        lines.push('HARD BRAKES (non-disableable): runtime=' + guardRuntime + 's, max_tool_calls=' + guardCalls + ', max_consecutive_failures=' + guardFails + ', max_no_progress_cycles=' + guardNoProgress + '.');
+        lines.push('You will receive runtime_budget telemetry JSON while running.');
+        lines.push('When runtime_budget.overall.severity is WARN/CRITICAL/IMMINENT, prioritize checkpointing and final_answer.');
+        lines.push('');
+
         // Output format
         if (cfg.outputFormat && cfg.outputFormat !== 'text') {
             lines.push('OUTPUT FORMAT: Return final_answer content as ' + cfg.outputFormat.toUpperCase() + '.');
@@ -8736,12 +8837,28 @@
     }
 
     async function _runDeterministicAgentLoop(tab, missionText) {
-        var maxIter = parseInt((document.getElementById('achat-max-iter') || {}).value || '5', 10) || 5;
-        var maxTok = parseInt((document.getElementById('achat-max-tokens') || {}).value || '256', 10) || 256;
+        var cfg = (tab && tab.agentConfig) || _defaultAgentConfig();
+        var maxIter = parseInt((document.getElementById('achat-max-iter') || {}).value || String(cfg.maxIterations || 5), 10) || 5;
+        var maxTok = parseInt((document.getElementById('achat-max-tokens') || {}).value || String(cfg.maxTokens || 256), 10) || 256;
         var granted = _sanitizeGrantedTools(tab.grantedTools || []);
         if (!granted.length) throw new Error('No granted tools configured. Open TOOL ACCESS and select at least one tool.');
 
-        // Dynamic reappropriation caps
+        var approvalMode = String(cfg.resourceApprovalMode || 'capped').toLowerCase();
+        if (approvalMode !== 'manual' && approvalMode !== 'auto_all' && approvalMode !== 'capped') approvalMode = 'capped';
+
+        function _clampInt(v, min, max, fallback) {
+            var n = parseInt(v, 10);
+            if (!(n >= min && n <= max)) return fallback;
+            return n;
+        }
+
+        // Non-disableable hard floor brakes
+        var HARD_MAX_WALL_MS = _clampInt(cfg.guardMaxWallClockSec, 60, 86400, 1800) * 1000;
+        var HARD_MAX_TOOL_CALLS = _clampInt(cfg.guardMaxToolCalls, 10, 10000, 400);
+        var HARD_MAX_FAIL_STREAK = _clampInt(cfg.guardMaxConsecutiveFailures, 1, 100, 8);
+        var HARD_MAX_NOPROGRESS = _clampInt(cfg.guardMaxNoProgressCycles, 1, 200, 10);
+
+        // Dynamic reappropriation caps for capped mode
         var REAPPROP_MAX_ITER_BUMP = 10;
         var REAPPROP_MAX_TOK_BUMP = 2048;
         var REAPPROP_ITER_CEILING = 20;
@@ -8754,23 +8871,220 @@
         var mission = String(missionText || '').trim() || 'Complete the configured objective.';
         loopMsgs.push({ role: 'user', content: mission });
 
-        for (var i = 0; i < maxIter; i++) {
-            _appendAchatMsg('system-info', 'Loop step ' + (i + 1) + '/' + maxIter + ' · reasoning', Date.now(), tab);
+        var loopStartTs = Date.now();
+        var totalToolCalls = 0;            // includes invoke_slot + tool executions
+        var consecutiveFailures = 0;
+        var noProgressCycles = 0;
+        var budgetLastSeverity = '';
+        var preStopNoticeSent = false;
 
+        function _budgetSnapshot(stage) {
+            var elapsedMs = Math.max(0, Date.now() - loopStartTs);
+            var wallLimitS = Math.round(HARD_MAX_WALL_MS / 1000);
+            var wallUsedS = Math.round(elapsedMs / 1000);
+            var wallRemS = Math.max(0, wallLimitS - wallUsedS);
+            var wallPct = wallLimitS > 0 ? (wallUsedS / wallLimitS) : 1;
+
+            var callUsed = totalToolCalls;
+            var callRem = Math.max(0, HARD_MAX_TOOL_CALLS - callUsed);
+            var callPct = HARD_MAX_TOOL_CALLS > 0 ? (callUsed / HARD_MAX_TOOL_CALLS) : 1;
+
+            var failCur = consecutiveFailures;
+            var failRem = Math.max(0, HARD_MAX_FAIL_STREAK - failCur);
+            var failPct = HARD_MAX_FAIL_STREAK > 0 ? (failCur / HARD_MAX_FAIL_STREAK) : 1;
+
+            var noProgCur = noProgressCycles;
+            var noProgRem = Math.max(0, HARD_MAX_NOPROGRESS - noProgCur);
+            var noProgPct = HARD_MAX_NOPROGRESS > 0 ? (noProgCur / HARD_MAX_NOPROGRESS) : 1;
+
+            var maxPct = Math.max(wallPct, callPct, failPct, noProgPct);
+            var severity = 'info';
+            if (maxPct >= 0.97 || wallRemS <= 15 || callRem <= 2 || failRem <= 1 || noProgRem <= 1) severity = 'imminent';
+            else if (maxPct >= 0.90) severity = 'critical';
+            else if (maxPct >= 0.75) severity = 'warn';
+
+            var tripped = [];
+            if (wallUsedS >= wallLimitS) tripped.push('wall_clock_runtime_limit');
+            if (callUsed >= HARD_MAX_TOOL_CALLS) tripped.push('max_total_tool_calls');
+            if (failCur >= HARD_MAX_FAIL_STREAK) tripped.push('max_consecutive_failures');
+            if (noProgCur >= HARD_MAX_NOPROGRESS) tripped.push('max_no_progress_cycles');
+
+            return {
+                stage: stage || 'loop',
+                wall_clock: {
+                    used_s: wallUsedS,
+                    limit_s: wallLimitS,
+                    remaining_s: wallRemS,
+                    pct: Math.round(wallPct * 1000) / 1000,
+                    eta_steps: maxTok > 0 ? Math.max(1, Math.floor(wallRemS / Math.max(8, Math.round(maxTok / 8)))) : null
+                },
+                tool_calls: {
+                    used: callUsed,
+                    limit: HARD_MAX_TOOL_CALLS,
+                    remaining: callRem,
+                    pct: Math.round(callPct * 1000) / 1000
+                },
+                consecutive_failures: {
+                    current: failCur,
+                    limit: HARD_MAX_FAIL_STREAK,
+                    remaining: failRem
+                },
+                no_progress_cycles: {
+                    current: noProgCur,
+                    limit: HARD_MAX_NOPROGRESS,
+                    remaining: noProgRem
+                },
+                kill_switch: {
+                    armed: true,
+                    operator_abort: !!window.__achatKillRequested
+                },
+                overall: {
+                    severity: severity,
+                    max_pressure_pct: Math.round(maxPct * 1000) / 1000
+                },
+                tripped: tripped
+            };
+        }
+
+        function _emitBudgetTelemetry(snapshot, force, reason) {
+            if (!snapshot) return;
+            var severity = (snapshot.overall && snapshot.overall.severity) || 'info';
+            var shouldEmit = !!force || !!cfg.emitBudgetEveryStep || severity === 'critical' || severity === 'imminent' || budgetLastSeverity !== severity;
+            if (!shouldEmit) return;
+
+            var summary = 'Budget[' + severity.toUpperCase() + '] wall ' + snapshot.wall_clock.used_s + '/' + snapshot.wall_clock.limit_s +
+                's · calls ' + snapshot.tool_calls.used + '/' + snapshot.tool_calls.limit +
+                ' · fail ' + snapshot.consecutive_failures.current + '/' + snapshot.consecutive_failures.limit +
+                ' · no-progress ' + snapshot.no_progress_cycles.current + '/' + snapshot.no_progress_cycles.limit;
+            _appendAchatMsg('system-info', summary, Date.now(), tab);
+
+            var budgetJson;
+            try { budgetJson = JSON.stringify(snapshot); } catch (e) { budgetJson = String(snapshot); }
+            loopMsgs.push({
+                role: 'user',
+                content: 'runtime_budget telemetry (' + String(reason || snapshot.stage || 'loop') + '):\n' + budgetJson +
+                    '\nPlan with this metadata. If severity is WARN/CRITICAL/IMMINENT, reduce scope, checkpoint progress, or return final_answer.'
+            });
+            budgetLastSeverity = severity;
+        }
+
+        function _applyContextStrategy() {
+            var strategy = String(cfg.contextStrategy || 'full').toLowerCase();
+            if (strategy !== 'sliding-window' && strategy !== 'summarize') return;
+
+            var windowSize = _clampInt(cfg.contextWindowSize, 5, 200, 20);
+            if (loopMsgs.length <= windowSize + 1) return;
+
+            var systemMsg = loopMsgs[0];
+            var tail = loopMsgs.slice(-windowSize);
+            if (strategy === 'sliding-window') {
+                loopMsgs = [systemMsg].concat(tail);
+                tab.loopMessages = loopMsgs;
+                return;
+            }
+
+            var start = Math.max(0, trace.length - 10);
+            var lines = [];
+            for (var ti = start; ti < trace.length; ti++) {
+                var t = trace[ti] || {};
+                var status = t.error ? 'ERR' : 'OK';
+                lines.push((ti + 1) + '. ' + String(t.tool || 'unknown') + ' [' + status + ']');
+            }
+            var summary = 'Context summary: ' + (trace.length ? ('Recent tool trace:\n' + lines.join('\n')) : 'No tools executed yet.') +
+                '\nCurrent mission: ' + mission +
+                '\nCurrent budget: iterations=' + maxIter + ', tokens=' + maxTok + '.';
+            loopMsgs = [systemMsg, { role: 'user', content: summary }].concat(tail);
+            tab.loopMessages = loopMsgs;
+        }
+
+        async function _attemptForcedFinalization(stopReasons) {
+            var reasonsText = (stopReasons && stopReasons.length) ? stopReasons.join(', ') : 'hard safety brakes';
+            _appendAchatMsg('system-info', '⚠ Hard stop reached (' + reasonsText + '). Requesting immediate final answer.', Date.now(), tab);
+            loopMsgs.push({ role: 'user', content: 'HARD STOP TRIGGERED: ' + reasonsText + '. Return ONLY {"final_answer":"..."} now. Do not call tools.' });
+            _applyContextStrategy();
+
+            try {
+                totalToolCalls += 1;
+                var finalTimeoutMs = 25000;
+                var finalPayload = await callToolAwaitParsed('invoke_slot', {
+                    slot: tab.slot,
+                    text: mission,
+                    mode: 'generate',
+                    max_tokens: Math.min(256, maxTok),
+                    messages: loopMsgs
+                }, '__internal_agent_loop__', { tabKey: tab.key, timeout: finalTimeoutMs });
+                var finalOut = _extractInvokeOutput(finalPayload);
+                var finalDirective = _parseAgentDirective(String(finalOut || ''));
+                if (finalDirective && finalDirective.kind === 'final') {
+                    var f = String(finalDirective.final_answer || '').trim() || ('Stopped by safety brakes: ' + reasonsText);
+                    _appendAchatMsg('assistant', f, Date.now(), tab);
+                    await _persistAchatReport(tab, mission, f, trace, trace.length, 'loop');
+                    return true;
+                }
+                if (String(finalOut || '').trim()) {
+                    _appendAchatMsg('assistant', String(finalOut), Date.now(), tab);
+                }
+            } catch (e) {
+                _appendAchatMsg('error', 'Finalization attempt failed: ' + String(e && e.message ? e.message : e), Date.now(), tab);
+            }
+            return false;
+        }
+
+        for (var i = 0; i < maxIter; i++) {
+            var preBudget = _budgetSnapshot('step-start');
+            _emitBudgetTelemetry(preBudget, false, 'step-start');
+
+            if (window.__achatKillRequested) {
+                var killMsg = 'Loop aborted by operator kill switch.';
+                _appendAchatMsg('error', killMsg, Date.now(), tab);
+                await _persistAchatReport(tab, mission, killMsg, trace, i, 'loop');
+                return;
+            }
+
+            if (preBudget.tripped && preBudget.tripped.length) {
+                var forced = await _attemptForcedFinalization(preBudget.tripped);
+                if (!forced) {
+                    var trippedMsg = 'Loop halted by hard safety brakes: ' + preBudget.tripped.join(', ');
+                    _appendAchatMsg('error', trippedMsg, Date.now(), tab);
+                    await _persistAchatReport(tab, mission, trippedMsg, trace, i, 'loop');
+                }
+                return;
+            }
+
+            if (!preStopNoticeSent && preBudget.overall && preBudget.overall.severity === 'imminent') {
+                preStopNoticeSent = true;
+                var preStopMsg = '⚠ Hard stop is imminent. Remaining: ' + preBudget.wall_clock.remaining_s + 's, ' + preBudget.tool_calls.remaining + ' calls. Finalize or checkpoint now.';
+                _appendAchatMsg('system-info', preStopMsg, Date.now(), tab);
+                loopMsgs.push({ role: 'user', content: preStopMsg + ' Prefer final_answer soon unless a critical missing step remains.' });
+            }
+
+            _appendAchatMsg('system-info', 'Loop step ' + (i + 1) + '/' + maxIter + ' · reasoning', Date.now(), tab);
+            _applyContextStrategy();
+
+            var invokeTimeoutMs = Math.max(90000, Math.min(300000, Math.round(60000 + (maxTok * 180) + (loopMsgs.length * 120))));
             var invokePayload;
             try {
+                totalToolCalls += 1;
                 invokePayload = await callToolAwaitParsed('invoke_slot', {
                     slot: tab.slot,
                     text: mission,
                     mode: 'generate',
                     max_tokens: maxTok,
                     messages: loopMsgs
-                }, '__internal_agent_loop__', { tabKey: tab.key });
+                }, '__internal_agent_loop__', { tabKey: tab.key, timeout: invokeTimeoutMs });
             } catch (invokeErr) {
-                // Graceful timeout/error handling — don't kill the whole loop
                 var invokeErrText = String(invokeErr && invokeErr.message ? invokeErr.message : invokeErr);
+                consecutiveFailures += 1;
+                noProgressCycles += 1;
                 _appendAchatMsg('error', 'Step ' + (i + 1) + ' invoke error: ' + invokeErrText, Date.now(), tab);
                 loopMsgs.push({ role: 'user', content: 'Previous step failed (' + invokeErrText + '). Try a simpler approach or return final_answer with what you know so far.' });
+                _emitBudgetTelemetry(_budgetSnapshot('invoke-error'), true, 'invoke-error');
+                if (cfg.haltOnError) {
+                    var haltMsg = 'Loop halted (haltOnError=true) after invoke error.';
+                    _appendAchatMsg('error', haltMsg, Date.now(), tab);
+                    await _persistAchatReport(tab, mission, haltMsg, trace, i + 1, 'loop');
+                    return;
+                }
                 continue;
             }
 
@@ -8781,24 +9095,54 @@
 
             // ── DYNAMIC REAPPROPRIATION ──
             if (directive && directive.request_more) {
-                var req = directive.request_more;
-                var iterBump = Math.min(parseInt(req.iterations || 0, 10) || 0, REAPPROP_MAX_ITER_BUMP);
-                var tokBump = Math.min(parseInt(req.tokens || 0, 10) || 0, REAPPROP_MAX_TOK_BUMP);
+                var req = directive.request_more || {};
+                var reqIter = parseInt(req.iterations || 0, 10) || 0;
+                var reqTok = parseInt(req.tokens || 0, 10) || 0;
+                var iterBump = 0;
+                var tokBump = 0;
                 var changed = [];
-                if (iterBump > 0 && maxIter + iterBump <= REAPPROP_ITER_CEILING) {
+
+                if (approvalMode === 'manual') {
+                    var q = 'Agent requested more resources:\n' +
+                        'iterations: +' + reqIter + '\n' +
+                        'tokens: +' + reqTok + '\n\nApprove?';
+                    var ok = false;
+                    try { ok = window.confirm(q); } catch (e) { ok = false; }
+                    if (ok) {
+                        iterBump = Math.max(0, reqIter);
+                        tokBump = Math.max(0, reqTok);
+                    } else {
+                        loopMsgs.push({ role: 'user', content: 'Resource request denied by operator. Continue within current budget.' });
+                    }
+                } else if (approvalMode === 'auto_all') {
+                    iterBump = Math.max(0, reqIter);
+                    tokBump = Math.max(0, reqTok);
+                } else {
+                    // capped default
+                    iterBump = Math.min(Math.max(0, reqIter), REAPPROP_MAX_ITER_BUMP);
+                    tokBump = Math.min(Math.max(0, reqTok), REAPPROP_MAX_TOK_BUMP);
+                    if (iterBump > 0 && maxIter + iterBump > REAPPROP_ITER_CEILING) iterBump = Math.max(0, REAPPROP_ITER_CEILING - maxIter);
+                    if (tokBump > 0 && maxTok + tokBump > REAPPROP_TOK_CEILING) tokBump = Math.max(0, REAPPROP_TOK_CEILING - maxTok);
+                }
+
+                if (iterBump > 0) {
                     maxIter += iterBump;
                     changed.push('+' + iterBump + ' iterations (now ' + maxIter + ')');
                 }
-                if (tokBump > 0 && maxTok + tokBump <= REAPPROP_TOK_CEILING) {
+                if (tokBump > 0) {
                     maxTok += tokBump;
                     changed.push('+' + tokBump + ' tokens (now ' + maxTok + ')');
                 }
                 if (changed.length) {
-                    _appendAchatMsg('system-info', '⚡ Dynamic reappropriation granted: ' + changed.join(', '), Date.now(), tab);
-                    loopMsgs.push({ role: 'user', content: 'Resource request granted: ' + changed.join(', ') + '. Budget is now ' + maxIter + ' iterations, ' + maxTok + ' tokens/step. Continue.' });
+                    _appendAchatMsg('system-info', '⚡ Resource request granted (' + approvalMode + '): ' + changed.join(', '), Date.now(), tab);
+                    loopMsgs.push({ role: 'user', content: 'Resource request granted: ' + changed.join(', ') + '. Updated budget active.' });
+                    noProgressCycles = Math.max(0, noProgressCycles - 1);
                 }
                 // If this was a standalone reappropriation (no tool call), continue loop
-                if (directive.kind === 'reappropriate') continue;
+                if (directive.kind === 'reappropriate') {
+                    _emitBudgetTelemetry(_budgetSnapshot('request-more'), true, 'request-more');
+                    continue;
+                }
             }
 
             if (!directive) {
@@ -8819,32 +9163,58 @@
             var calledTool = String(directive.tool || '').trim();
             var calledArgs = directive.args && typeof directive.args === 'object' ? directive.args : {};
             if (!calledTool) {
+                noProgressCycles += 1;
                 loopMsgs.push({ role: 'user', content: 'Invalid tool directive. Provide either a valid tool call or final_answer.' });
+                _emitBudgetTelemetry(_budgetSnapshot('invalid-directive'), true, 'invalid-directive');
                 continue;
             }
             if (_achatBlockedTools[calledTool] || granted.indexOf(calledTool) < 0) {
+                consecutiveFailures += 1;
+                noProgressCycles += 1;
                 var deny = "Tool '" + calledTool + "' is not granted. Allowed: " + granted.join(', ');
                 var deniedEntry = { tool: calledTool, args: calledArgs, result: 'DENIED - not granted', error: deny, iteration: i };
                 trace.push(deniedEntry);
                 _appendAchatToolTrace([deniedEntry], tab);
                 _logAchatSyntheticActivity([deniedEntry], tab.slot);
                 loopMsgs.push({ role: 'user', content: deny + '. Try another tool or final_answer.' });
+                _emitBudgetTelemetry(_budgetSnapshot('tool-denied'), true, 'tool-denied');
+                if (cfg.haltOnError) {
+                    var denyStop = 'Loop halted (haltOnError=true) after denied tool call.';
+                    _appendAchatMsg('error', denyStop, Date.now(), tab);
+                    await _persistAchatReport(tab, mission, denyStop, trace, i + 1, 'loop');
+                    return;
+                }
                 continue;
             }
 
             _appendAchatMsg('system-info', 'Loop step ' + (i + 1) + '/' + maxIter + ' · tool: ' + calledTool, Date.now(), tab);
             var toolPayload;
             try {
-                toolPayload = await callToolAwaitParsed(calledTool, calledArgs, '__internal_agent_loop__', { tabKey: tab.key });
+                totalToolCalls += 1;
+                var toolTimeoutMs = Math.max(60000, Math.min(180000, Math.round(45000 + (maxTok * 80))));
+                toolPayload = await callToolAwaitParsed(calledTool, calledArgs, '__internal_agent_loop__', { tabKey: tab.key, timeout: toolTimeoutMs });
             } catch (toolErr) {
+                consecutiveFailures += 1;
+                noProgressCycles += 1;
                 var errText = String(toolErr && toolErr.message ? toolErr.message : toolErr);
                 var errEntry = { tool: calledTool, args: calledArgs, result: 'ERROR: ' + errText, error: errText, iteration: i };
                 trace.push(errEntry);
                 _appendAchatToolTrace([errEntry], tab);
                 _logAchatSyntheticActivity([errEntry], tab.slot);
                 loopMsgs.push({ role: 'user', content: 'Tool error for ' + calledTool + ': ' + errText + '. Continue with another tool or final_answer.' });
+                _emitBudgetTelemetry(_budgetSnapshot('tool-error'), true, 'tool-error');
+                if (cfg.haltOnError) {
+                    var errStop = 'Loop halted (haltOnError=true) after tool error.';
+                    _appendAchatMsg('error', errStop, Date.now(), tab);
+                    await _persistAchatReport(tab, mission, errStop, trace, i + 1, 'loop');
+                    return;
+                }
                 continue;
             }
+
+            // Successful tool step resets failure / no-progress streaks
+            consecutiveFailures = 0;
+            noProgressCycles = 0;
 
             var resultStr = _prettyTruncate(toolPayload, 5000);
             var traceEntry = { tool: calledTool, args: calledArgs, result: resultStr, iteration: i };
@@ -8852,6 +9222,7 @@
             _appendAchatToolTrace([traceEntry], tab);
             _logAchatSyntheticActivity([traceEntry], tab.slot);
             loopMsgs.push({ role: 'user', content: 'Tool result for ' + calledTool + '(' + JSON.stringify(calledArgs) + '):\n' + resultStr + '\n\nContinue with next tool or final_answer.' });
+            _emitBudgetTelemetry(_budgetSnapshot('tool-success'), false, 'tool-success');
         }
 
         var maxMsg = 'Loop reached max iterations (' + maxIter + ') without final_answer.';
@@ -8880,6 +9251,7 @@
             }
             var mission = msg || 'Proceed with the configured objective.';
             _appendAchatMsg('user', 'MISSION: ' + mission, Date.now(), tab);
+            window.__achatKillRequested = false;
             _setAchatBusy(true);
             _runDeterministicAgentLoop(tab, mission)
                 .catch(function (errLoop) {

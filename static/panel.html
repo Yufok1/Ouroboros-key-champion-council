@@ -1285,6 +1285,11 @@ input:focus, select:focus { border-color: var(--accent); outline: none; }
 .achat-field-row textarea { min-height: 72px; resize: vertical; font-family: var(--mono, monospace); }
 .achat-field-row .hint { font-size: 9px; color: var(--text-dim); line-height: 1.35; }
 
+.achat-config-panel { border: 1px solid var(--border); background: var(--surface); padding: 10px; }
+.achat-cfg-group { display: flex; flex-direction: column; gap: 4px; margin-bottom: 6px; }
+.achat-cfg-label { font-size: 10px; color: var(--text-dim); }
+.achat-cfg-input { width: 100%; min-width: 0; }
+
 .achat-policy-head { display: flex; gap: 6px; margin-bottom: 8px; }
 .achat-policy-head input {
     flex: 1;
@@ -1512,6 +1517,8 @@ input:focus, select:focus { border-color: var(--accent); outline: none; }
             <select id="achat-run-tool" title="Select MCP tool"></select>
             <button class="btn-dim" onclick="toggleAchatToolConfig()">ARGS</button>
             <button class="btn-dim" onclick="toggleAchatPolicy()">TOOL ACCESS</button>
+            <button class="btn-dim" onclick="toggleAchatAgentConfig()">CONFIG</button>
+            <button class="btn-dim" style="color:#fca5a5;border-color:#7f1d1d;background:rgba(127,29,29,0.22);" onclick="requestAchatKillSwitch()">KILL</button>
             <span>Mode:</span>
             <select id="achat-run-mode" title="Execution mode">
                 <option value="loop">AGENT LOOP</option>
@@ -1533,6 +1540,7 @@ input:focus, select:focus { border-color: var(--accent); outline: none; }
         </div>
 
         <div id="achat-tool-policy" class="achat-tool-policy"></div>
+        <div id="achat-agent-config-wrap" class="achat-tool-config" style="display:none;"></div>
 
         <div class="achat-messages" id="achat-messages">
             <div class="achat-empty">Open a slot tab, choose an MCP tool, and run operations from this unified console.</div>
@@ -2062,7 +2070,7 @@ window.__CATEGORIES__ = {"Core Inference":{"setting":"coreInference","tools":["f
 <script src="/static/vscode-shim.js?v=25"></script>
 <script src="/static/svg-pan-zoom.min.js"></script>
 <script src="/static/peerjs.min.js"></script>
-<script src="/static/main.js?v=25"></script>
+<script src="/static/main.js?v=26"></script>
 
 <!-- ═══════════════ DREAMER + GPU FLEET TAB JS ═══════════════ -->
 <script>
