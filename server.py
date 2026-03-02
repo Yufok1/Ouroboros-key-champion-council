@@ -982,14 +982,17 @@ def _normalize_rpc_tool_call_obj(obj: dict) -> bool:
         elif isinstance(params.get("args"), dict):
             params["arguments"] = params.pop("args")
             changed = True
-        else:
-            params["arguments"] = {}
-            changed = True
     else:
-        coerced = _coerce_tool_arguments(params.get("arguments"))
-        if coerced != params.get("arguments"):
+        raw_args = params.get("arguments")
+        coerced = _coerce_tool_arguments(raw_args)
+        if coerced != raw_args:
             params["arguments"] = coerced
             changed = True
+
+    # For strict no-arg tools, omit empty arguments object.
+    if "arguments" in params and isinstance(params.get("arguments"), dict) and not params.get("arguments"):
+        params.pop("arguments", None)
+        changed = True
 
     tool = params.get("name")
     args = params.get("arguments", {})
