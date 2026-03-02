@@ -1522,7 +1522,7 @@ input:focus, select:focus { border-color: var(--accent); outline: none; }
             <span class="achat-tool-count" id="achat-tool-count">0</span>
             <span>Blocked: <span id="achat-blocked-count">10</span></span>
             <span class="achat-iter-label">Iterations:</span>
-            <input type="number" id="achat-max-iter" value="2" min="1" max="20" title="Max autonomous iterations" />
+            <input type="number" id="achat-max-iter" value="5" min="1" max="20" title="Max autonomous iterations (model can request more via dynamic reappropriation)" />
             <span>Tokens:</span>
             <input type="number" id="achat-max-tokens" value="256" min="32" max="4096" step="32" title="Max generation tokens per step" />
         </div>
@@ -2059,10 +2059,10 @@ window.__CATEGORIES__ = {"Core Inference":{"setting":"coreInference","tools":["f
 </script>
 
 <!-- Load shim BEFORE main.js so acquireVsCodeApi is available -->
-<script src="/static/vscode-shim.js?v=18"></script>
+<script src="/static/vscode-shim.js?v=19"></script>
 <script src="/static/svg-pan-zoom.min.js"></script>
 <script src="/static/peerjs.min.js"></script>
-<script src="/static/main.js?v=18"></script>
+<script src="/static/main.js?v=19"></script>
 
 <!-- ═══════════════ DREAMER + GPU FLEET TAB JS ═══════════════ -->
 <script>

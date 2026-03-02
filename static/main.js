@@ -1644,6 +1644,40 @@
                 _renderSlotActivityFeed();
             }
         }
+        // ── EXTERNAL → SLOT CHAT TIMELINE BRIDGE ──
+        // When external MCP clients (like Claude/Pi) call tools targeting a
+        // specific slot, inject those into the slot's chat timeline so the
+        // operator sees full parity between manual and external operations.
+        if (event.source === 'external') {
+            var extSlot = event.args && event.args.slot !== undefined ? event.args.slot : -1;
+            var slotTools = ['invoke_slot', 'agent_chat', 'chat', 'generate', 'classify'];
+            if (extSlot >= 0 && slotTools.indexOf(event.tool) >= 0) {
+                var tabKey = 'slot_' + extSlot;
+                var slotTab = _achatTabs[tabKey];
+                if (slotTab) {
+                    // Add the request
+                    var argPreview = event.args ? JSON.stringify(event.args) : '';
+                    if (argPreview.length > 200) argPreview = argPreview.substring(0, 200) + '...';
+                    _appendAchatMsg('system-info', '⟵ EXTERNAL ' + event.tool + (argPreview ? ': ' + argPreview : ''), event.timestamp ? new Date(event.timestamp).getTime() : Date.now(), slotTab);
+                    // Add the result
+                    if (event.result && !event.error) {
+                        var extResult = '';
+                        try { extResult = typeof event.result === 'string' ? event.result : JSON.stringify(event.result, null, 2); }
+                        catch (e2) { extResult = String(event.result); }
+                        if (extResult.length > 3000) extResult = extResult.substring(0, 3000) + '\n…[truncated]';
+                        _appendAchatMsg('assistant', extResult, Date.now(), slotTab);
+                    } else if (event.error) {
+                        _appendAchatMsg('error', 'EXTERNAL error: ' + String(event.error), Date.now(), slotTab);
+                    }
+                    // Add tool trace if agent_chat returned tool_calls
+                    if (event.result && event.result.tool_calls && Array.isArray(event.result.tool_calls)) {
+                        _appendAchatToolTrace(event.result.tool_calls, slotTab);
+                    }
+                    var dur = event.durationMs >= 0 ? ' (' + event.durationMs + 'ms)' : '';
+                    _appendAchatMsg('system-info', '⟵ EXTERNAL ' + event.tool + ' complete' + dur, Date.now(), slotTab);
+                }
+            }
+        }
         // Append new entry to DOM without destroying expanded entries
         var feed = document.getElementById('activity-feed');
         if (feed) {
@@ -8223,24 +8257,39 @@
         if (!parsed) parsed = _findFirstJsonObject(outputText);
         if (!parsed || typeof parsed !== 'object') return null;
         if (parsed.final_answer !== undefined) return { kind: 'final', final_answer: parsed.final_answer };
-        if (parsed.tool) return { kind: 'tool', tool: String(parsed.tool), args: parsed.args && typeof parsed.args === 'object' ? parsed.args : {} };
+        // Dynamic reappropriation: model can request more resources
+        var reapprop = parsed.request_more || null;
+        if (parsed.tool) return { kind: 'tool', tool: String(parsed.tool), args: parsed.args && typeof parsed.args === 'object' ? parsed.args : {}, request_more: reapprop };
+        // Standalone reappropriation request (no tool call)
+        if (reapprop) return { kind: 'reappropriate', request_more: reapprop };
         return null;
     }
 
     function _buildLoopSystemPrompt(tab) {
         var granted = Array.isArray(tab.grantedTools) ? tab.grantedTools : [];
+        var maxIter = parseInt((document.getElementById('achat-max-iter') || {}).value || '5', 10) || 5;
+        var maxTok = parseInt((document.getElementById('achat-max-tokens') || {}).value || '256', 10) || 256;
         return [
-            'You are an MCP orchestration agent for a plugged model slot.',
-            'You MUST respond with EXACTLY ONE JSON object per turn.',
-            'Allowed formats:',
-            '{"tool": "tool_name", "args": {"param": "value"}}',
-            '{"final_answer": "complete answer"}',
-            'Rules:',
-            '- Use ONLY one tool per turn.',
-            '- Use ONLY granted tools listed below.',
-            '- If task is complete, return final_answer.',
-            '- Do not include markdown code fences.',
-            'GRANTED TOOLS: ' + granted.join(', ')
+            'You are an MCP orchestration agent operating inside a Glass Box AI Capsule (Champion Council).',
+            'You have ' + granted.length + ' granted tools. Current budget: ' + maxIter + ' iterations, ' + maxTok + ' tokens/step.',
+            '',
+            'RESPONSE FORMAT: Respond with EXACTLY ONE JSON object per turn.',
+            '{"tool": "tool_name", "args": {"param": "value"}}   — call a tool',
+            '{"final_answer": "complete answer"}                  — task complete',
+            '',
+            'DYNAMIC REAPPROPRIATION: If you need more resources, add request_more to any response:',
+            '{"tool": "get_status", "args": {}, "request_more": {"iterations": 3, "tokens": 512}}',
+            '{"request_more": {"iterations": 5}}                  — request only (no tool call)',
+            'The loop will extend by the requested amount (capped at +10 iterations, +2048 tokens).',
+            '',
+            'RULES:',
+            '- Use ONLY granted tools. Do NOT invent tools that are not in the list below.',
+            '- One tool per turn. Observe the result, then decide next action.',
+            '- Be proactive: use get_status, get_about, list_slots, get_capabilities to orient yourself.',
+            '- If a tool errors or is denied, try a different approach.',
+            '- When you have enough information, return final_answer with a clear summary.',
+            '',
+            'GRANTED TOOLS (' + granted.length + '): ' + granted.join(', ')
         ].join('\n');
     }
 
@@ -8283,6 +8332,12 @@
         var granted = _sanitizeGrantedTools(tab.grantedTools || []);
         if (!granted.length) throw new Error('No granted tools configured. Open TOOL ACCESS and select at least one tool.');
 
+        // Dynamic reappropriation caps
+        var REAPPROP_MAX_ITER_BUMP = 10;
+        var REAPPROP_MAX_TOK_BUMP = 2048;
+        var REAPPROP_ITER_CEILING = 20;
+        var REAPPROP_TOK_CEILING = 4096;
+
         var trace = [];
         var sys = _buildLoopSystemPrompt(tab);
         var loopMsgs = [{ role: 'system', content: sys }];
@@ -8293,18 +8348,50 @@
         for (var i = 0; i < maxIter; i++) {
             _appendAchatMsg('system-info', 'Loop step ' + (i + 1) + '/' + maxIter + ' · reasoning', Date.now(), tab);
 
-            var invokePayload = await callToolAwaitParsed('invoke_slot', {
-                slot: tab.slot,
-                text: mission,
-                mode: 'generate',
-                max_tokens: maxTok,
-                messages: loopMsgs
-            }, '__internal_agent_loop__', { tabKey: tab.key });
+            var invokePayload;
+            try {
+                invokePayload = await callToolAwaitParsed('invoke_slot', {
+                    slot: tab.slot,
+                    text: mission,
+                    mode: 'generate',
+                    max_tokens: maxTok,
+                    messages: loopMsgs
+                }, '__internal_agent_loop__', { tabKey: tab.key });
+            } catch (invokeErr) {
+                // Graceful timeout/error handling — don't kill the whole loop
+                var invokeErrText = String(invokeErr && invokeErr.message ? invokeErr.message : invokeErr);
+                _appendAchatMsg('error', 'Step ' + (i + 1) + ' invoke error: ' + invokeErrText, Date.now(), tab);
+                loopMsgs.push({ role: 'user', content: 'Previous step failed (' + invokeErrText + '). Try a simpler approach or return final_answer with what you know so far.' });
+                continue;
+            }
 
             var modelOut = _extractInvokeOutput(invokePayload);
             loopMsgs.push({ role: 'assistant', content: String(modelOut || '') });
 
             var directive = _parseAgentDirective(String(modelOut || ''));
+
+            // ── DYNAMIC REAPPROPRIATION ──
+            if (directive && directive.request_more) {
+                var req = directive.request_more;
+                var iterBump = Math.min(parseInt(req.iterations || 0, 10) || 0, REAPPROP_MAX_ITER_BUMP);
+                var tokBump = Math.min(parseInt(req.tokens || 0, 10) || 0, REAPPROP_MAX_TOK_BUMP);
+                var changed = [];
+                if (iterBump > 0 && maxIter + iterBump <= REAPPROP_ITER_CEILING) {
+                    maxIter += iterBump;
+                    changed.push('+' + iterBump + ' iterations (now ' + maxIter + ')');
+                }
+                if (tokBump > 0 && maxTok + tokBump <= REAPPROP_TOK_CEILING) {
+                    maxTok += tokBump;
+                    changed.push('+' + tokBump + ' tokens (now ' + maxTok + ')');
+                }
+                if (changed.length) {
+                    _appendAchatMsg('system-info', '⚡ Dynamic reappropriation granted: ' + changed.join(', '), Date.now(), tab);
+                    loopMsgs.push({ role: 'user', content: 'Resource request granted: ' + changed.join(', ') + '. Budget is now ' + maxIter + ' iterations, ' + maxTok + ' tokens/step. Continue.' });
+                }
+                // If this was a standalone reappropriation (no tool call), continue loop
+                if (directive.kind === 'reappropriate') continue;
+            }
+
             if (!directive) {
                 var fallback = String(modelOut || '').trim() || 'No output returned.';
                 _appendAchatMsg('assistant', fallback, Date.now(), tab);
