@@ -1636,94 +1636,97 @@
 
     function _buildActivityNode(e) {
         var ts = new Date(e.timestamp).toLocaleTimeString();
-        var fullTs = new Date(e.timestamp).toISOString();
+        var fullTs;
+        try { fullTs = new Date(e.timestamp).toISOString(); }
+        catch (err) { fullTs = String(e.timestamp || 'unknown'); }
+
         var hasError = !!e.error;
         var source = e.source || 'extension';
 
-        var detail = '';
-        detail += '<div class="ad-section"><span class="ad-label">Timestamp</span>\n' + fullTs + '</div>';
-        detail += '<div class="ad-section"><span class="ad-label">Source</span>\n' + _actEsc(source) + '</div>';
-        detail += '<div class="ad-section"><span class="ad-label">Category</span>\n' + _actEsc(e.category || 'unknown') + '</div>';
-        detail += '<div class="ad-section"><span class="ad-label">Duration</span>\n' + (e.durationMs || 0) + 'ms</div>';
+        var detailLines = [];
+        detailLines.push('Timestamp');
+        detailLines.push(fullTs);
+        detailLines.push('');
+        detailLines.push('Source');
+        detailLines.push(String(source));
+        detailLines.push('');
+        detailLines.push('Category');
+        detailLines.push(String(e.category || 'unknown'));
+        detailLines.push('');
+        detailLines.push('Duration');
+        detailLines.push(String(e.durationMs || 0) + 'ms');
+        detailLines.push('');
+
         if (hasError) {
-            detail += '<div class="ad-section" style="color:var(--red)"><span class="ad-label">Error</span>\n' + _actEsc(e.error) + '</div>';
+            detailLines.push('Error');
+            detailLines.push(String(e.error));
+            detailLines.push('');
         }
+
+        detailLines.push('Arguments');
         if (e.args && Object.keys(e.args).length > 0) {
-            detail += '<div class="ad-section"><span class="ad-label">Arguments</span>\n' + _actEsc(JSON.stringify(e.args, null, 2)) + '</div>';
+            try { detailLines.push(JSON.stringify(e.args, null, 2)); }
+            catch (err) { detailLines.push(String(e.args)); }
         } else {
-            detail += '<div class="ad-section"><span class="ad-label">Arguments</span>\nNone</div>';
+            detailLines.push('None');
         }
-        if (e.result) {
-            var resultObj = e.result;
-            // ── Unwrap MCP protocol envelope for extension-source calls ──
-            // callTool returns { content: [{ type: "text", text: "..." }], structuredContent: {...} }
-            if (typeof resultObj === 'object' && resultObj !== null && resultObj.content && Array.isArray(resultObj.content)) {
-                // Try structuredContent.result first (parsed), then content[0].text (raw)
-                var innerText = null;
-                if (resultObj.structuredContent && resultObj.structuredContent.result) {
-                    innerText = resultObj.structuredContent.result;
-                } else if (resultObj.content[0] && resultObj.content[0].text) {
-                    innerText = resultObj.content[0].text;
-                }
-                if (innerText) {
-                    // Try to parse as JSON for structured rendering
-                    try {
-                        resultObj = JSON.parse(innerText);
-                    } catch (ex) {
-                        resultObj = innerText;
-                    }
-                }
+        detailLines.push('');
+
+        var resultObj = (e.result === undefined ? null : e.result);
+        if (resultObj && typeof resultObj === 'object' && resultObj.content && Array.isArray(resultObj.content)) {
+            var innerText = null;
+            if (resultObj.structuredContent && resultObj.structuredContent.result) {
+                innerText = resultObj.structuredContent.result;
+            } else if (resultObj.content[0] && resultObj.content[0].text) {
+                innerText = resultObj.content[0].text;
             }
-            // Render structured results with per-key formatting
-            if (typeof resultObj === 'object' && resultObj !== null && !Array.isArray(resultObj)) {
-                var resultLines = [];
-                for (var rk in resultObj) {
-                    if (!resultObj.hasOwnProperty(rk)) continue;
-                    if (rk.startsWith('_')) continue; // skip internal keys like _cached, _size
-                    var rv = resultObj[rk];
-                    var rvStr = (rv === null || rv === undefined) ? 'null' : (typeof rv === 'object' ? JSON.stringify(rv, null, 2) : String(rv));
-                    resultLines.push(_actEsc(rk) + ': ' + _actEsc(rvStr));
-                }
-                detail += '<div class="ad-section"><span class="ad-label">Result</span>\n' + resultLines.join('\n') + '</div>';
-            } else {
-                var resultStr = typeof resultObj === 'string' ? resultObj : JSON.stringify(resultObj, null, 2);
-                detail += '<div class="ad-section"><span class="ad-label">Result</span>\n' + _actEsc(resultStr.substring(0, 4000)) + '</div>';
+            if (innerText) {
+                try { resultObj = JSON.parse(innerText); }
+                catch (err) { resultObj = innerText; }
             }
         }
 
-        // ── CASCADE enrichment for external structured calls ──
-        if (source === 'external') {
-            var metaLines = [];
-            // Metrics extracted from result
-            if (e.result && typeof e.result === 'object' && e.result.metrics && typeof e.result.metrics === 'object') {
-                var mParts = [];
-                for (var mk in e.result.metrics) {
-                    if (e.result.metrics.hasOwnProperty(mk)) mParts.push(_actEsc(mk) + '=' + _actEsc(String(e.result.metrics[mk])));
+        var resultText = 'None';
+        if (resultObj !== null && resultObj !== undefined) {
+            if (typeof resultObj === 'object' && !Array.isArray(resultObj)) {
+                var resultLines = [];
+                for (var rk in resultObj) {
+                    if (!Object.prototype.hasOwnProperty.call(resultObj, rk)) continue;
+                    if (String(rk).startsWith('_')) continue;
+                    var rv = resultObj[rk];
+                    var rvStr = (rv === null || rv === undefined)
+                        ? 'null'
+                        : (typeof rv === 'object' ? JSON.stringify(rv, null, 2) : String(rv));
+                    resultLines.push(String(rk) + ': ' + rvStr);
                 }
-                if (mParts.length > 0) metaLines.push('Metrics: ' + mParts.join(', '));
-            }
-            // Cascade step
-            if (e.result && typeof e.result === 'object' && e.result.cascade_step) {
-                metaLines.push('CASCADE Step: #' + _actEsc(String(e.result.cascade_step)));
-            }
-            // Result size + cached
-            if (e.result && typeof e.result === 'object' && e.result.result_size) {
-                var sizeStr = e.result.result_size > 1024 ? (e.result.result_size / 1024).toFixed(1) + 'KB' : e.result.result_size + 'B';
-                metaLines.push('Result Size: ' + sizeStr + (e.result.cached ? ' (cached)' : ''));
-            }
-            if (metaLines.length > 0) {
-                detail += '<div class="ad-section" style="opacity:0.7"><span class="ad-label">CASCADE</span>\n' + metaLines.join('\n') + '</div>';
+                if (resultLines.length > 0) {
+                    resultText = resultLines.join('\n');
+                } else {
+                    try { resultText = JSON.stringify(resultObj, null, 2); }
+                    catch (err) { resultText = String(resultObj); }
+                }
+            } else {
+                if (typeof resultObj === 'string') resultText = resultObj;
+                else {
+                    try { resultText = JSON.stringify(resultObj, null, 2); }
+                    catch (err) { resultText = String(resultObj); }
+                }
             }
         }
+
+        detailLines.push('Result');
+        detailLines.push(String(resultText).substring(0, 4000));
+        var detailText = detailLines.join('\n');
 
         var sourceBadge = source === 'external'
             ? '<span class="activity-cat" style="border-color:var(--blue);color:var(--blue);">EXTERNAL</span>'
             : '';
+
         var div = document.createElement('div');
         div.className = 'activity-entry';
         div.onclick = function () {
             var sel = window.getSelection();
-            if (sel && sel.toString().length > 0) return; // don't toggle when selecting text
+            if (sel && sel.toString().length > 0) return;
             div.classList.toggle('expanded');
         };
         div.innerHTML =
@@ -1734,7 +1737,7 @@
             '<span class="activity-duration">' + (e.durationMs || 0) + 'ms</span>' +
             (hasError ? ' <span style="color:var(--red);">ERR</span>' : '') +
             '<span class="activity-expand-hint">click to expand</span>' +
-            '<div class="activity-detail">' + detail + '</div>';
+            '<pre class="activity-detail">' + _actEsc(detailText) + '</pre>';
         return div;
     }
 
