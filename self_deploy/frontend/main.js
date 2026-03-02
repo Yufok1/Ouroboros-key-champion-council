@@ -855,7 +855,15 @@
         "cascade_instrument","cascade_proxy"
     ];
     function _buildEntry(url) {
-        return { disabled: false, disabledTools: [], url: url, autoApprove: _autoApprove };
+        return {
+            disabled: false,
+            disabledTools: [],
+            url: url,
+            auth: 'bearer',
+            bearerTokenEnv: 'HF_TOKEN',
+            exposeResources: false,
+            autoApprove: _autoApprove
+        };
     }
     function updateMcpConfigBlock(port) {
         _serverPort = port || _serverPort;
@@ -865,7 +873,7 @@
         // Always route through the panel backend MCP proxy so activity,
         // diagnostics, and instrumentation stay unified.
         var proxyUrl = _spaceOrigin + '/mcp/sse';
-        var serverName = _isRemoteSpace ? 'champion-ouroboros-self-deploy-space' : 'champion-ouroboros-self-deploy';
+        var serverName = _isRemoteSpace ? 'champion-ouroboros-space' : 'champion-ouroboros-self-deploy';
         var entry = _buildEntry(proxyUrl);
 
         if (fullEl) {
@@ -1726,7 +1734,7 @@
             '<span class="activity-duration">' + (e.durationMs || 0) + 'ms</span>' +
             (hasError ? ' <span style="color:var(--red);">ERR</span>' : '') +
             '<span class="activity-expand-hint">click to expand</span>' +
-            '<pre class="activity-detail">' + detail + '</pre>';
+            '<div class="activity-detail">' + detail + '</div>';
         return div;
     }
 

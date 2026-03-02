@@ -399,7 +399,10 @@ SPACE_ID=your_space_name</div>
             const payload = {
                 mcpServers: {
                     [serverName]: {
-                        url: window.location.origin + '/mcp/sse'
+                        url: window.location.origin + '/mcp/sse',
+                        auth: 'bearer',
+                        bearerTokenEnv: 'HF_TOKEN',
+                        exposeResources: false
                     }
                 }
             };
