@@ -4976,7 +4976,6 @@
 
             var taskLabel = task ? ('task=' + task + ', ') : '';
             _setHubStatus('Found ' + out.length + ' model' + (out.length === 1 ? '' : 's') + ' ' + taskLabel + 'via hub tools.', out.length ? 'ok' : 'info');
-            _queueHubModelMetaRefresh(120);
         } catch (e) {
             if (seq !== _hubBrowseSeq) return;
             _renderHubModelOptions([]);
@@ -4988,8 +4987,7 @@
         if (_hubBrowseTimer) clearTimeout(_hubBrowseTimer);
         _hubBrowseTimer = setTimeout(function () {
             _refreshHubModels();
-        }, 300);
-        _queueHubModelMetaRefresh(220);
+        }, 600);
     }
     window.onHubModelInput = onHubModelInput;
 
@@ -5002,7 +5000,7 @@
     window.onHubModelPick = onHubModelPick;
 
     function onHubModelIdInput() {
-        _queueHubModelMetaRefresh(300);
+        _queueHubModelMetaRefresh(800);
     }
     window.onHubModelIdInput = onHubModelIdInput;
 
