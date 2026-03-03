@@ -1870,11 +1870,15 @@
         _renderHfModelOptions(models);
 
         var sel = document.getElementById('plug-provider-hf-models');
-        if (sel && sel.options && sel.options.length > 0 && sel.options[0].value) {
-            var current = String((modelEl && modelEl.value) || '').trim();
-            if (!current && modelEl) {
-                modelEl.value = sel.options[0].value;
-                sel.selectedIndex = 0;
+        if (sel && modelEl) {
+            var current = String((modelEl.value || '')).trim();
+            if (current) {
+                for (var idx = 0; idx < sel.options.length; idx++) {
+                    if (String(sel.options[idx].value || '') === current) {
+                        sel.selectedIndex = idx;
+                        break;
+                    }
+                }
             }
         }
 
@@ -5086,11 +5090,15 @@
             _renderHubModelOptions(out);
 
             var sel = document.getElementById('plug-hub-models');
-            if (sel && sel.options && sel.options.length > 0 && sel.options[0].value) {
-                var current = String((modelEl && modelEl.value) || '').trim();
-                if (!current && modelEl) {
-                    modelEl.value = sel.options[0].value;
-                    sel.selectedIndex = 0;
+            if (sel && modelEl) {
+                var current = String((modelEl.value || '')).trim();
+                if (current) {
+                    for (var idx = 0; idx < sel.options.length; idx++) {
+                        if (String(sel.options[idx].value || '') === current) {
+                            sel.selectedIndex = idx;
+                            break;
+                        }
+                    }
                 }
             }
 
@@ -10229,15 +10237,5 @@
     vscode.postMessage({ command: 'web3GetDID' });
     vscode.postMessage({ command: 'web3GetCategories' });
     vscode.postMessage({ command: 'web3GetDocTypes' });
-    // Auto-fetch community content
-    setTimeout(function () {
-        vscode.postMessage({ command: 'nostrFetchWorkflows' });
-        vscode.postMessage({ command: 'nostrFetchChat' });
-        vscode.postMessage({ command: 'nostrFetchDMs' });
-        vscode.postMessage({ command: 'nostrGetOnlineUsers' });
-    }, 2000);
-    // Periodic presence polling
-    setInterval(function () {
-        vscode.postMessage({ command: 'nostrGetOnlineUsers' });
-    }, 60000);
+    // Community is intentionally disabled in Space build.
 })();
