@@ -2097,12 +2097,19 @@
 .achat-msg.assistant { background: rgba(0,255,136,0.08); border-color: #00ff8855; margin-right: 8%; }
 .achat-msg.system-info { background: rgba(255,255,255,0.04); color: var(--text-dim); font-size: 9px; border-style: dashed; text-align: center; }
 .achat-msg.tool-trace { background: rgba(168,85,247,0.09); border-color: #a855f755; margin-right: 4%; }
-.achat-msg.tool-trace .trace-header { font-size: 9px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
-.achat-msg.tool-trace .trace-line { font-size: 10px; margin-bottom: 3px; }
-.achat-msg.tool-trace .trace-tool-name { color: var(--text); font-weight: 600; }
-.achat-msg.tool-trace .trace-status-ok { color: var(--green); }
-.achat-msg.tool-trace .trace-status-err { color: #ef4444; }
-.achat-msg.tool-trace .trace-preview { color: var(--text-dim); font-size: 9px; margin-left: 4px; }
+.achat-msg.trace-status { background: rgba(255,255,255,0.03); border-color: var(--border); color: var(--text-dim); font-size: 9px; font-style: italic; text-align: center; padding: 4px 8px; }
+.achat-msg.tool-call-card { background: rgba(168,85,247,0.07); border: 1px solid #a855f733; border-left: 3px solid #a855f7; margin-right: 4%; padding: 8px 10px; }
+.achat-msg.tool-call-card .tc-header { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.achat-msg.tool-call-card .tc-icon { font-size: 12px; opacity: 0.7; }
+.achat-msg.tool-call-card .tc-name { font-weight: 700; color: #c084fc; font-size: 11px; }
+.achat-msg.tool-call-card .tc-badge { font-size: 8px; padding: 1px 5px; border-radius: 3px; font-weight: 700; letter-spacing: 0.5px; }
+.achat-msg.tool-call-card .tc-badge-ok { background: rgba(0,255,136,0.15); color: var(--green); }
+.achat-msg.tool-call-card .tc-badge-err { background: rgba(239,68,68,0.15); color: #ef4444; }
+.achat-msg.tool-call-card .tc-iter { font-size: 9px; color: var(--text-dim); font-style: italic; }
+.achat-msg.tool-call-card .tc-details { margin-top: 4px; }
+.achat-msg.tool-call-card .tc-details summary { font-size: 9px; color: var(--text-dim); cursor: pointer; user-select: none; }
+.achat-msg.tool-call-card .tc-details summary:hover { color: var(--text); }
+.achat-msg.tool-call-card .tc-pre { font-size: 9px; line-height: 1.35; margin: 4px 0 0 0; padding: 6px 8px; background: rgba(0,0,0,0.25); border-radius: 3px; max-height: 200px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; }
 .achat-msg.error { background: rgba(239,68,68,0.12); border-color: #ef444477; color: #fecaca; }
 .achat-msg .achat-ts { display: block; margin-top: 4px; font-size: 8px; color: var(--text-dim); text-align: right; }
 .achat-thinking-bar { display: none; align-items: center; gap: 8px; border: 1px dashed var(--border); padding: 7px 10px; font-size: 10px; color: var(--text-dim); }

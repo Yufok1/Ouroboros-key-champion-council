@@ -4283,11 +4283,16 @@
                 }
 
                 var iterations = resultObj.iterations || 0;
-                if (elapsed > 0 || iterations > 0 || toolCalls.length > 0) {
-                    _appendAchatMsg('system-info',
-                        iterations + ' iteration' + (iterations !== 1 ? 's' : '') +
-                        ' · ' + elapsed + 's · ' +
-                        toolCalls.length + ' tool call' + (toolCalls.length !== 1 ? 's' : ''),
+                var slotName = resultObj.name || ('slot ' + tabSlot);
+                var sessionId = (resp && resp.session_id) ? resp.session_id : '';
+                var metaParts = [];
+                if (iterations > 0) metaParts.push(iterations + ' iteration' + (iterations !== 1 ? 's' : ''));
+                if (elapsed > 0) metaParts.push(elapsed + 's');
+                if (toolCalls.length > 0) metaParts.push(toolCalls.length + ' tool call' + (toolCalls.length !== 1 ? 's' : ''));
+                if (slotName) metaParts.push(slotName);
+                if (sessionId) metaParts.push(sessionId.substring(0, 24));
+                if (metaParts.length > 0) {
+                    _appendAchatMsg('system-info', metaParts.join(' · '),
                         null,
                         tab
                     );
@@ -8470,30 +8475,49 @@
         for (var i = 0; i < tab.messages.length; i++) {
             var m = tab.messages[i] || {};
             if (m.role === 'tool-trace') {
-                var tDiv = document.createElement('div');
-                tDiv.className = 'achat-msg tool-trace';
                 var calls = Array.isArray(m.toolCalls) ? m.toolCalls : [];
-                var hdr = '<div class="trace-header">Tool calls (' + calls.length + ')</div>';
-                var lines = calls.map(function (tc) {
+                // Skip completely empty tool traces (no calls, no text)
+                if (calls.length === 0 && !m.content) continue;
+                // If it's just a text status line (external bridge), render as status
+                if (calls.length === 0 && m.content) {
+                    var sDiv = document.createElement('div');
+                    sDiv.className = 'achat-msg trace-status';
+                    sDiv.innerHTML = escHtml(String(m.content)) + (m.ts ? '<span class="achat-ts">' + new Date(m.ts).toLocaleTimeString() + '</span>' : '');
+                    container.appendChild(sDiv);
+                    continue;
+                }
+                // Render each tool call as an individual card
+                for (var ci = 0; ci < calls.length; ci++) {
+                    var tc = calls[ci];
+                    var tDiv = document.createElement('div');
+                    tDiv.className = 'achat-msg tool-call-card';
                     var name = tc.tool || tc.name || '?';
                     var err = !!tc.error;
-                    var argsPreview = tc.args ? JSON.stringify(tc.args) : '';
-                    if (argsPreview.length > 120) argsPreview = argsPreview.substring(0, 120) + '...';
-                    var resultPreview = '';
-                    if (tc.result) {
-                        resultPreview = typeof tc.result === 'string' ? tc.result : JSON.stringify(tc.result);
-                        if (resultPreview.length > 160) resultPreview = resultPreview.substring(0, 160) + '...';
+                    var iterLabel = tc.iteration !== undefined ? 'Iteration ' + tc.iteration : '';
+                    var statusBadge = '<span class="tc-badge ' + (err ? 'tc-badge-err' : 'tc-badge-ok') + '">' + (err ? 'ERROR' : 'OK') + '</span>';
+                    var argsStr = tc.args ? JSON.stringify(tc.args, null, 2) : '{}';
+                    var resultStr = '';
+                    if (tc.error) {
+                        resultStr = String(tc.error);
+                    } else if (tc.result) {
+                        resultStr = typeof tc.result === 'string' ? tc.result : JSON.stringify(tc.result, null, 2);
                     }
-                    if (tc.error) resultPreview = String(tc.error);
-                    return '<div class="trace-line">' +
-                        '<span class="trace-tool-name">' + escHtml(name) + '</span> ' +
-                        '<span class="' + (err ? 'trace-status-err' : 'trace-status-ok') + '">' + (err ? 'ERR' : 'OK') + '</span>' +
-                        (argsPreview ? ' <span class="trace-preview">args: ' + escHtml(argsPreview) + '</span>' : '') +
-                        (resultPreview ? ' <span class="trace-preview">→ ' + escHtml(resultPreview) + '</span>' : '') +
+                    if (resultStr.length > 800) resultStr = resultStr.substring(0, 800) + '\n…[truncated]';
+                    var html = '<div class="tc-header">' +
+                        '<span class="tc-icon">⚙</span> ' +
+                        '<span class="tc-name">' + escHtml(name) + '</span> ' +
+                        statusBadge +
+                        (iterLabel ? ' <span class="tc-iter">' + escHtml(iterLabel) + '</span>' : '') +
                         '</div>';
-                }).join('');
-                tDiv.innerHTML = hdr + lines;
-                container.appendChild(tDiv);
+                    if (argsStr !== '{}') {
+                        html += '<details class="tc-details"><summary>Arguments</summary><pre class="tc-pre">' + escHtml(argsStr) + '</pre></details>';
+                    }
+                    if (resultStr) {
+                        html += '<details class="tc-details" open><summary>Result</summary><pre class="tc-pre">' + escHtml(resultStr) + '</pre></details>';
+                    }
+                    tDiv.innerHTML = html;
+                    container.appendChild(tDiv);
+                }
                 continue;
             }
             var tsStr = m.ts ? new Date(m.ts).toLocaleTimeString() : '';
