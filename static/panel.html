@@ -4092,14 +4092,65 @@
 
         <!-- ═══════════════ PLUG MODEL MODAL ═══════════════ -->
         <div class="modal-overlay" id="plug-modal">
-            <div class="modal">
-                <div class="modal-title">PLUG MODEL INTO SLOT</div>
-                <div class="field"><label>HuggingFace Model ID</label><input id="plug-model-id"
-                        placeholder="BAAI/bge-small-en" /></div>
-                <div class="field"><label>Slot Name (optional)</label><input id="plug-slot-name"
-                        placeholder="my-embedder" /></div>
+            <div class="modal" style="width:540px;max-width:min(92vw,980px);max-height:82vh;resize:both;overflow:auto;">
+                <div class="modal-title">PLUG MODEL FROM HUGGINGFACE HUB</div>
+                <div style="font-size:10px;color:var(--text-dim);margin-bottom:12px;line-height:1.5;">
+                    Browse and download models directly from the <strong>HuggingFace Hub</strong>.
+                    Models are downloaded to the runtime host and loaded locally into a council slot.
+                    Uses <code>hub_plug</code> (download + plug in one step).
+                </div>
+
+                <div style="border:1px solid var(--border);padding:10px;margin-bottom:12px;background:rgba(0,255,136,0.03);">
+                    <div style="font-size:9px;letter-spacing:1px;color:var(--accent);margin-bottom:6px;font-weight:600;">HUGGINGFACE HUB BROWSER</div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                        <div class="field">
+                            <label>Task Filter</label>
+                            <select id="plug-hub-task" onchange="onHubModelInput()">
+                                <option value="" selected>All tasks</option>
+                                <option value="text-generation">Text Generation (LLM)</option>
+                                <option value="text2text-generation">Text-to-Text (Seq2Seq)</option>
+                                <option value="feature-extraction">Feature Extraction (Embeddings)</option>
+                                <option value="text-classification">Text Classification</option>
+                                <option value="token-classification">Token Classification (NER)</option>
+                                <option value="question-answering">Question Answering</option>
+                                <option value="summarization">Summarization</option>
+                                <option value="translation">Translation</option>
+                                <option value="fill-mask">Fill-Mask (MLM)</option>
+                                <option value="sentence-similarity">Sentence Similarity</option>
+                                <option value="zero-shot-classification">Zero-Shot Classification</option>
+                                <option value="image-classification">Image Classification</option>
+                                <option value="image-to-text">Image-to-Text</option>
+                                <option value="text-to-image">Text-to-Image</option>
+                                <option value="automatic-speech-recognition">Speech Recognition</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label>Search</label>
+                            <input id="plug-hub-query" placeholder="bge, llama, qwen, mistral…" oninput="onHubModelInput()" />
+                        </div>
+                    </div>
+                    <div class="field" style="margin-top:6px;">
+                        <label>Available Models</label>
+                        <select id="plug-hub-models" size="8" style="font-family:ui-monospace,Consolas,monospace;font-size:11px;" onchange="onHubModelPick()"></select>
+                    </div>
+                    <div id="plug-hub-status" style="font-size:10px;color:var(--text-dim);margin-top:4px;">Type to search models…</div>
+                </div>
+
+                <div class="field">
+                    <label>Model ID</label>
+                    <input id="plug-model-id" placeholder="BAAI/bge-small-en-v1.5" oninput="onHubModelIdInput()" />
+                </div>
+                <div id="plug-hub-model-meta" style="font-size:10px;color:var(--text-dim);margin-top:-4px;margin-bottom:8px;line-height:1.5;">
+                    Select a model to see metadata and size estimate.
+                </div>
+                <div id="plug-hub-size-warning" style="font-size:10px;color:#fbbf24;margin-bottom:8px;line-height:1.5;display:none;">
+                </div>
+                <div class="field">
+                    <label>Slot Name <span style="color:var(--text-dim);">(optional)</span></label>
+                    <input id="plug-slot-name" placeholder="my-embedder" />
+                </div>
                 <div class="modal-actions">
-                    <button onclick="doPlug()">PLUG</button>
+                    <button onclick="doPlug()">DOWNLOAD &amp; PLUG</button>
                     <button class="btn-dim" onclick="closeModals()">CANCEL</button>
                 </div>
             </div>

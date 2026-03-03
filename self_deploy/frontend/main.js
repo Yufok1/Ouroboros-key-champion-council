@@ -4759,6 +4759,9 @@
     function openPlugModal() {
         var el = document.getElementById('plug-modal');
         if (el) el.classList.add('active');
+        _setHubModelMeta('Select a model to see metadata and size estimate.', 'info');
+        _queueHubModelMetaRefresh(120);
+        onHubModelInput();
     }
     window.openPlugModal = openPlugModal;
 
@@ -4773,18 +4776,252 @@
     }
     window.closeModals = closeModals;
 
+    // ── PLUG MODEL HUB BROWSER ──
+    var _hubBrowseTimer = null;
+    var _hubBrowseSeq = 0;
+    var _hubMetaTimer = null;
+    var _hubMetaSeq = 0;
+
+    function _setHubStatus(text, tone) {
+        var el = document.getElementById('plug-hub-status');
+        if (!el) return;
+        el.textContent = String(text || '');
+        el.style.color = (tone === 'error') ? '#f87171' : (tone === 'ok' ? '#34d399' : 'var(--text-dim)');
+    }
+
+    function _setHubModelMeta(text, tone) {
+        var el = document.getElementById('plug-hub-model-meta');
+        if (!el) return;
+        el.textContent = String(text || '');
+        el.style.color = (tone === 'error') ? '#f87171' : (tone === 'ok' ? '#34d399' : 'var(--text-dim)');
+    }
+
+    function _setHubSizeWarning(text) {
+        var el = document.getElementById('plug-hub-size-warning');
+        if (!el) return;
+        if (text) {
+            el.textContent = String(text);
+            el.style.display = '';
+        } else {
+            el.textContent = '';
+            el.style.display = 'none';
+        }
+    }
+
+    function _hubInferParamHint(modelId) {
+        var s = String(modelId || '');
+        var m = s.match(/(?:^|[^0-9])(\d+(?:\.\d+)?)\s*([bmk])(?:[^a-z0-9]|$)/i);
+        if (!m) return '';
+        return (m[1] + m[2]).toUpperCase();
+    }
+
+    function _hubFormatSize(sizeMb) {
+        var mb = Number(sizeMb || 0);
+        if (!(mb > 0)) return '';
+        if (mb >= 1024) return (mb / 1024).toFixed(1).replace(/\.0$/, '') + ' GB';
+        return Math.round(mb) + ' MB';
+    }
+
+    async function _refreshHubModelMeta() {
+        var model = String(((document.getElementById('plug-model-id') || {}).value || '')).trim();
+        if (!model || model.indexOf('/') < 1) {
+            var hint = _hubInferParamHint(model);
+            if (hint) _setHubModelMeta('Parameter hint: ' + hint, 'info');
+            else _setHubModelMeta('Select a model to see metadata and size estimate.', 'info');
+            _setHubSizeWarning('');
+            return;
+        }
+
+        var seq = ++_hubMetaSeq;
+        _setHubModelMeta('Loading model metadata\u2026', 'info');
+
+        try {
+            var info = await callToolAwaitParsed('hub_info', { model_id: model }, '__hub_model_meta__', { timeout: 45000 });
+            if (seq !== _hubMetaSeq) return;
+
+            if (!info || info.error) {
+                _setHubModelMeta('Metadata unavailable for ' + model, 'error');
+                _setHubSizeWarning('');
+                return;
+            }
+
+            var task = String(info.task || 'unknown');
+            var downloads = Number(info.downloads || 0);
+            var likes = Number(info.likes || 0);
+            var sizeMb = Number(info.size_mb || 0);
+            var size = _hubFormatSize(sizeMb);
+            var param = _hubInferParamHint(model);
+
+            var bits = [];
+            bits.push('Task: ' + task);
+            if (param) bits.push('Params: ~' + param);
+            if (size) bits.push('Size: ' + size);
+            if (downloads > 0) bits.push('Downloads: ' + _formatCount(downloads));
+            if (likes > 0) bits.push('Likes: ' + _formatCount(likes));
+
+            _setHubModelMeta(bits.join(' \u00b7 '), 'ok');
+
+            if (sizeMb > 10000) {
+                _setHubSizeWarning('\u26a0 This model is ' + size + ' \u2014 it will likely exceed available RAM/disk on most HF Spaces. Consider using PLUG PROVIDER for inference-only access instead.');
+            } else if (sizeMb > 4000) {
+                _setHubSizeWarning('\u26a0 This model is ' + size + ' \u2014 it may be too large for free-tier HF Spaces (16 GB RAM). Ensure your runtime has sufficient resources.');
+            } else if (sizeMb > 1500) {
+                _setHubSizeWarning('This model is ' + size + ' \u2014 download may take a few minutes. Ensure sufficient disk space.');
+            } else {
+                _setHubSizeWarning('');
+            }
+        } catch (e) {
+            if (seq !== _hubMetaSeq) return;
+            _setHubModelMeta('Metadata lookup failed: ' + String((e && e.message) || e), 'error');
+            _setHubSizeWarning('');
+        }
+    }
+
+    function _queueHubModelMetaRefresh(delayMs) {
+        if (_hubMetaTimer) clearTimeout(_hubMetaTimer);
+        _hubMetaTimer = setTimeout(function () {
+            _refreshHubModelMeta();
+        }, (typeof delayMs === 'number' ? delayMs : 260));
+    }
+
+    function _renderHubModelOptions(models) {
+        var sel = document.getElementById('plug-hub-models');
+        if (!sel) return;
+        sel.innerHTML = '';
+
+        if (!Array.isArray(models) || models.length === 0) {
+            var empty = document.createElement('option');
+            empty.value = '';
+            empty.textContent = 'No models found';
+            sel.appendChild(empty);
+            return;
+        }
+
+        for (var i = 0; i < models.length; i++) {
+            var m = models[i] || {};
+            var opt = document.createElement('option');
+            opt.value = String(m.id || '');
+            var badges = [];
+            var paramHint = _hubInferParamHint(opt.value);
+            if (m.task) badges.push(m.task);
+            if (paramHint) badges.push('~' + paramHint);
+            if (m.size) badges.push(m.size);
+            if (m.downloads > 0) badges.push(_formatCount(m.downloads) + ' dl');
+            if (m.likes > 0) badges.push(_formatCount(m.likes) + ' \u2764');
+            opt.textContent = badges.length ? (opt.value + '   \u00b7   ' + badges.join(' \u00b7 ')) : opt.value;
+            sel.appendChild(opt);
+        }
+    }
+
+    async function _refreshHubModels() {
+        var taskEl = document.getElementById('plug-hub-task');
+        var queryEl = document.getElementById('plug-hub-query');
+        var modelEl = document.getElementById('plug-model-id');
+
+        var task = String((taskEl && taskEl.value) || '').trim();
+        var query = String((queryEl && queryEl.value) || '').trim();
+        if (!query) query = String((modelEl && modelEl.value) || '').trim();
+        var seq = ++_hubBrowseSeq;
+
+        _setHubStatus('Loading models\u2026', 'info');
+
+        try {
+            var payload = null;
+            if (query || task) {
+                var searchQ = query;
+                if (task && !query) searchQ = task;
+                else if (task && query) searchQ = query;
+                payload = await callToolAwaitParsed('hub_search', { query: searchQ || '', limit: 40, page: 1 }, '__hub_model_lookup__', { timeout: 45000 });
+            } else {
+                payload = await callToolAwaitParsed('hub_top', { limit: 40, page: 1 }, '__hub_model_lookup__', { timeout: 45000 });
+            }
+
+            if (seq !== _hubBrowseSeq) return;
+
+            var models = (payload && Array.isArray(payload.models)) ? payload.models : [];
+
+            if (task && models.length > 0) {
+                var filtered = [];
+                for (var i = 0; i < models.length; i++) {
+                    var mTask = String((models[i] || {}).task || '').toLowerCase();
+                    if (mTask === task.toLowerCase() || !mTask) filtered.push(models[i]);
+                }
+                if (filtered.length > 0) models = filtered;
+            }
+
+            var out = [];
+            for (var j = 0; j < models.length; j++) {
+                var m = models[j] || {};
+                var id = String(m.id || '').trim();
+                if (!id) continue;
+                out.push({
+                    id: id,
+                    downloads: Number(m.downloads || 0),
+                    likes: Number(m.likes || 0),
+                    task: String(m.task || ''),
+                    size: m.size_mb ? _hubFormatSize(m.size_mb) : ''
+                });
+            }
+
+            _renderHubModelOptions(out);
+
+            var sel = document.getElementById('plug-hub-models');
+            if (sel && sel.options && sel.options.length > 0 && sel.options[0].value) {
+                var current = String((modelEl && modelEl.value) || '').trim();
+                if (!current && modelEl) {
+                    modelEl.value = sel.options[0].value;
+                    sel.selectedIndex = 0;
+                }
+            }
+
+            var taskLabel = task ? ('task=' + task + ', ') : '';
+            _setHubStatus('Found ' + out.length + ' model' + (out.length === 1 ? '' : 's') + ' ' + taskLabel + 'via hub tools.', out.length ? 'ok' : 'info');
+            _queueHubModelMetaRefresh(120);
+        } catch (e) {
+            if (seq !== _hubBrowseSeq) return;
+            _renderHubModelOptions([]);
+            _setHubStatus('Model lookup failed: ' + String((e && e.message) || e), 'error');
+        }
+    }
+
+    function onHubModelInput() {
+        if (_hubBrowseTimer) clearTimeout(_hubBrowseTimer);
+        _hubBrowseTimer = setTimeout(function () {
+            _refreshHubModels();
+        }, 300);
+        _queueHubModelMetaRefresh(220);
+    }
+    window.onHubModelInput = onHubModelInput;
+
+    function onHubModelPick() {
+        var sel = document.getElementById('plug-hub-models');
+        var modelEl = document.getElementById('plug-model-id');
+        if (sel && modelEl && sel.value) modelEl.value = sel.value;
+        _queueHubModelMetaRefresh(60);
+    }
+    window.onHubModelPick = onHubModelPick;
+
+    function onHubModelIdInput() {
+        _queueHubModelMetaRefresh(300);
+    }
+    window.onHubModelIdInput = onHubModelIdInput;
+
     function doPlug() {
-        var modelId = document.getElementById('plug-model-id').value;
-        var slotName = document.getElementById('plug-slot-name').value;
-        if (!modelId) return;
-        // Clear any existing plugging entry for same modelId to prevent duplicates
-        // (addActivityEntry will also create one when the sentinel event arrives)
+        var modelId = (document.getElementById('plug-model-id').value || '').trim();
+        var slotName = (document.getElementById('plug-slot-name').value || '').trim();
+        if (!modelId) {
+            mpToast('Enter or select a HuggingFace model ID first', 'error', 2600);
+            return;
+        }
         _clearPluggingEntry(modelId);
         var slotKey = slotName || 'plug_' + Date.now();
         _pluggingSlots[slotKey] = { modelId: modelId, startTime: Date.now(), slotName: slotName || null };
         _updatePluggingUI();
-        callTool('plug_model', { model_id: modelId, slot_name: slotName || undefined });
+        var plugArgs = { model_id: modelId };
+        if (slotName) plugArgs.slot_name = slotName;
+        callTool('hub_plug', plugArgs);
         closeModals();
+        mpToast('Downloading & plugging ' + modelId + ' from HuggingFace Hub\u2026', 'info', 3500);
     }
     window.doPlug = doPlug;
 
