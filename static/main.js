@@ -4417,15 +4417,17 @@
         // Format tool output for readability (extract error guidance)
         if (!msg.error) text = formatToolOutput(text);
 
-        // Auto-resolve cached memory responses so Memory tab can render full data.
-        if (!msg.error && MEMORY_TOOLS.indexOf(toolName) >= 0) {
+        // ── UNIVERSAL CACHED-RESPONSE AUTO-RESOLUTION ──
+        // If ANY tool returns a _cached stub (>2KB response), auto-fetch
+        // the full result and re-route it through the same handler.
+        if (!msg.error && toolName !== 'get_cached') {
             try {
-                var cachedProbe = typeof text === 'string' ? JSON.parse(text) : text;
-                if (cachedProbe && cachedProbe._cached && toolName !== 'get_cached') {
-                    callTool('get_cached', { cache_id: cachedProbe._cached }, toolName);
+                var _cachedProbeU = typeof text === 'string' ? JSON.parse(text) : text;
+                if (_cachedProbeU && _cachedProbeU._cached) {
+                    callTool('get_cached', { cache_id: _cachedProbeU._cached }, toolName);
                     return;
                 }
-            } catch (e) { /* not cached summary */ }
+            } catch (_eCache) { /* not a cached stub — continue normal routing */ }
         }
 
         // Route to Memory tab if it's a memory tool
@@ -8662,13 +8664,15 @@
             lines.push('These tools are blocked and must NOT be called: ' + blocked.join(', '));
         }
 
-        // Sequential execution
-        lines.push('\n## EXECUTION RULES');
-        lines.push('1. Call exactly ONE tool per turn. Never batch multiple tool calls.');
-        lines.push('2. Wait for the tool result before deciding your next action.');
-        lines.push('3. Use real tool outputs only. Never fabricate or hallucinate tool results.');
-        lines.push('4. Do not provide final_answer until you have gathered sufficient evidence from tools.');
-        lines.push('5. If a tool returns an error, adapt your approach — try a different tool or different arguments.');
+        // Sequential execution — strictly enforced
+        lines.push('\n## EXECUTION RULES (STRICT SEQUENTIAL — NO PARALLEL)');
+        lines.push('1. Call exactly ONE tool per turn. Never batch, group, or parallelize multiple tool calls in a single response.');
+        lines.push('2. Your response must contain ONLY ONE JSON object — either a single tool call OR a final_answer. Never both. Never multiple.');
+        lines.push('3. Wait for the tool result before deciding your next action. Do not assume, predict, or pre-plan tool results.');
+        lines.push('4. Use real tool outputs only. Never fabricate, hallucinate, or simulate tool results.');
+        lines.push('5. Do not provide final_answer until you have gathered sufficient evidence from tools.');
+        lines.push('6. If a tool returns an error, adapt your approach — try a different tool or different arguments.');
+        lines.push('7. NEVER output multiple JSON objects or an array of tool calls. One tool, one turn, every time.');
 
         // Reappropriation protocol
         if (reapEnabled) {

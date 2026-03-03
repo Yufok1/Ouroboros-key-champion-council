@@ -4417,15 +4417,17 @@
         // Format tool output for readability (extract error guidance)
         if (!msg.error) text = formatToolOutput(text);
 
-        // Auto-resolve cached memory responses so Memory tab can render full data.
-        if (!msg.error && MEMORY_TOOLS.indexOf(toolName) >= 0) {
+        // ── UNIVERSAL CACHED-RESPONSE AUTO-RESOLUTION ──
+        // If ANY tool returns a _cached stub (>2KB response), auto-fetch
+        // the full result and re-route it through the same handler.
+        if (!msg.error && toolName !== 'get_cached') {
             try {
-                var cachedProbe = typeof text === 'string' ? JSON.parse(text) : text;
-                if (cachedProbe && cachedProbe._cached && toolName !== 'get_cached') {
-                    callTool('get_cached', { cache_id: cachedProbe._cached }, toolName);
+                var _cachedProbeU = typeof text === 'string' ? JSON.parse(text) : text;
+                if (_cachedProbeU && _cachedProbeU._cached) {
+                    callTool('get_cached', { cache_id: _cachedProbeU._cached }, toolName);
                     return;
                 }
-            } catch (e) { /* not cached summary */ }
+            } catch (_eCache) { /* not a cached stub — continue normal routing */ }
         }
 
         // Route to Memory tab if it's a memory tool
@@ -4902,6 +4904,7 @@
 
             _setHubModelMeta(bits.join(' \u00b7 '), 'ok');
 
+            // Size warnings for local download
             if (sizeMb > 10000) {
                 _setHubSizeWarning('\u26a0 This model is ' + size + ' \u2014 it will likely exceed available RAM/disk on most HF Spaces. Consider using PLUG PROVIDER for inference-only access instead.');
             } else if (sizeMb > 4000) {
@@ -4981,6 +4984,7 @@
 
             var models = (payload && Array.isArray(payload.models)) ? payload.models : [];
 
+            // Client-side task filter
             if (task && models.length > 0) {
                 var filtered = [];
                 for (var i = 0; i < models.length; i++) {
@@ -8619,10 +8623,12 @@
         if (!tab) return '';
         var cfg = tab.agentConfig || _defaultAgentConfig();
 
+        // If the user set an explicit system prompt, use it directly.
         if (cfg.systemPrompt && String(cfg.systemPrompt).trim()) {
             return String(cfg.systemPrompt).trim();
         }
 
+        // Build the auto-generated orchestration prompt.
         var granted = Array.isArray(tab.grantedTools) ? tab.grantedTools : [];
         var blocked = Array.isArray(tab.blockedTools) ? tab.blockedTools : [];
         var slotName = tab.slotName || ('Slot ' + tab.slot);
@@ -8634,10 +8640,12 @@
 
         var lines = [];
 
+        // Identity
         lines.push('You are ' + (agentName || slotName) + ', an autonomous AI agent operating inside an Ouroboros capsule council.' +
             (agentDesc ? ' ' + agentDesc : ''));
         if (persona) lines.push('\nPersona: ' + persona);
 
+        // Core protocol
         lines.push('\n## TOOL CALLING PROTOCOL');
         lines.push('You have access to tools via the Ouroboros MCP interface. Each turn, you MUST respond with EXACTLY ONE valid JSON object. No markdown, no commentary outside the JSON.');
         lines.push('\nTo call a tool, respond with:');
@@ -8645,6 +8653,7 @@
         lines.push('\nTo provide your final answer when the task is complete:');
         lines.push('{"final_answer": "<your complete response>"}');
 
+        // Granted tools
         if (granted.length > 0) {
             lines.push('\n## GRANTED TOOLS (' + granted.length + ')');
             lines.push('You may ONLY call these tools: ' + granted.join(', '));
@@ -8655,13 +8664,17 @@
             lines.push('These tools are blocked and must NOT be called: ' + blocked.join(', '));
         }
 
-        lines.push('\n## EXECUTION RULES');
-        lines.push('1. Call exactly ONE tool per turn. Never batch multiple tool calls.');
-        lines.push('2. Wait for the tool result before deciding your next action.');
-        lines.push('3. Use real tool outputs only. Never fabricate or hallucinate tool results.');
-        lines.push('4. Do not provide final_answer until you have gathered sufficient evidence from tools.');
-        lines.push('5. If a tool returns an error, adapt your approach — try a different tool or different arguments.');
+        // Sequential execution — strictly enforced
+        lines.push('\n## EXECUTION RULES (STRICT SEQUENTIAL — NO PARALLEL)');
+        lines.push('1. Call exactly ONE tool per turn. Never batch, group, or parallelize multiple tool calls in a single response.');
+        lines.push('2. Your response must contain ONLY ONE JSON object — either a single tool call OR a final_answer. Never both. Never multiple.');
+        lines.push('3. Wait for the tool result before deciding your next action. Do not assume, predict, or pre-plan tool results.');
+        lines.push('4. Use real tool outputs only. Never fabricate, hallucinate, or simulate tool results.');
+        lines.push('5. Do not provide final_answer until you have gathered sufficient evidence from tools.');
+        lines.push('6. If a tool returns an error, adapt your approach — try a different tool or different arguments.');
+        lines.push('7. NEVER output multiple JSON objects or an array of tool calls. One tool, one turn, every time.');
 
+        // Reappropriation protocol
         if (reapEnabled) {
             lines.push('\n## DYNAMIC REAPPROPRIATION');
             lines.push('You have ' + maxIter + ' iterations allocated. If you need more iterations to complete your task, you may request additional allotment by responding with:');
@@ -8674,6 +8687,7 @@
             lines.push('Do NOT be shy about requesting more iterations. It is better to request more and do thorough work than to give a shallow final_answer.');
         }
 
+        // Output format
         var outputFmt = String(cfg.outputFormat || 'text').toLowerCase();
         if (outputFmt === 'json') {
             lines.push('\n## OUTPUT FORMAT');
@@ -9758,6 +9772,8 @@
                 'Current progress: ' + (ls.totalToolCalls || 0) + '/' + _minCalls + ' tool calls (remaining ' + _remaining + ').\n\n' +
                 nextMsg;
         }
+        // Embed orchestration prompt into the first message only (capsule has no system_prompt param).
+        // The capsule builds a thin system prompt internally, so we inject ours as a message preamble.
         if (ls.iteration === 0) {
             var sysPrompt = _buildLoopSystemPrompt(tab);
             if (sysPrompt) {
