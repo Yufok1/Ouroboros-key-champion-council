@@ -102,7 +102,7 @@ class ActivityHub:
         if source == "hydration":
             return
         # Optional noise suppression for internal/webui tools.
-        if self.suppress_silent_tools and tool in SILENT_TOOLS and source != "external":
+        if self.suppress_silent_tools and tool in SILENT_TOOLS and source not in ("external", "agent-inner"):
             return
 
         category = tool.split("_")[0] if tool else "other"

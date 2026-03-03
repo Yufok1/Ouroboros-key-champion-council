@@ -572,7 +572,7 @@ def _broadcast_activity(tool: str, args: dict, result: dict | None, duration_ms:
         return
     # Only suppress silent tools for internal/webui calls — external MCP
     # clients (Kiro, Claude, etc.) should always see their results.
-    if tool in _SILENT_TOOLS and source != "external":
+    if tool in _SILENT_TOOLS and source not in ("external", "agent-inner"):
         return
 
     cat = tool.split("_")[0] if tool else "other"

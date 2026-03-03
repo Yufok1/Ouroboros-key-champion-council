@@ -8807,17 +8807,33 @@
         var parsed = _safeJsonParse(outputText.trim());
         if (!parsed) parsed = _findFirstJsonObject(outputText);
         if (!parsed || typeof parsed !== 'object') return null;
-        if (parsed.final_answer !== undefined) return { kind: 'final', final_answer: parsed.final_answer, reasoning: parsed.reasoning || null };
+
         // Dynamic reappropriation: model can request more resources
         var reapprop = parsed.request_more || null;
 
+        function _coerceArgs(v) {
+            if (v && typeof v === 'object') return v;
+            if (typeof v === 'string') {
+                var pv = _safeJsonParse(v);
+                if (pv && typeof pv === 'object') return pv;
+            }
+            return {};
+        }
+
         // ── MULTI-CALL BATCH: {"calls":[{tool,args},...], "reasoning":"..."} ──
+        // Also tolerate compact/loose forms from weaker models:
+        //   {"calls":["get_status","list_slots"]}
+        //   {"calls":[{"tool":"get_status","args":"{}"}]}
         if (Array.isArray(parsed.calls) && parsed.calls.length > 0) {
             var validCalls = [];
             for (var ci = 0; ci < parsed.calls.length; ci++) {
                 var c = parsed.calls[ci];
+                if (typeof c === 'string' && c.trim()) {
+                    validCalls.push({ tool: c.trim(), args: {} });
+                    continue;
+                }
                 if (c && typeof c === 'object' && c.tool) {
-                    validCalls.push({ tool: String(c.tool), args: (c.args && typeof c.args === 'object') ? c.args : {} });
+                    validCalls.push({ tool: String(c.tool), args: _coerceArgs(c.args) });
                 }
             }
             if (validCalls.length > 0) {
@@ -8826,7 +8842,21 @@
         }
 
         // ── SINGLE TOOL: {"tool":"name","args":{}} ──
-        if (parsed.tool) return { kind: 'tool', tool: String(parsed.tool), args: parsed.args && typeof parsed.args === 'object' ? parsed.args : {}, reasoning: parsed.reasoning || null, request_more: reapprop };
+        if (parsed.tool) {
+            return {
+                kind: 'tool',
+                tool: String(parsed.tool),
+                args: _coerceArgs(parsed.args),
+                reasoning: parsed.reasoning || null,
+                request_more: reapprop
+            };
+        }
+
+        // Final answer (only when no calls/tool present)
+        if (parsed.final_answer !== undefined) {
+            return { kind: 'final', final_answer: parsed.final_answer, reasoning: parsed.reasoning || null };
+        }
+
         // Standalone reappropriation request (no tool call)
         if (reapprop) return { kind: 'reappropriate', request_more: reapprop };
         return null;
@@ -9135,7 +9165,8 @@
                     text: mission,
                     mode: 'generate',
                     max_tokens: Math.min(256, maxTok),
-                    messages: loopMsgs
+                    messages: loopMsgs,
+                    __source: 'agent-inner'
                 }, '__internal_agent_loop__', { tabKey: tab.key, timeout: finalTimeoutMs });
                 var finalOut = _extractInvokeOutput(finalPayload);
                 var finalDirective = _parseAgentDirective(String(finalOut || ''));
@@ -9196,7 +9227,8 @@
                     text: mission,
                     mode: 'generate',
                     max_tokens: maxTok,
-                    messages: loopMsgs
+                    messages: loopMsgs,
+                    __source: 'agent-inner'
                 }, '__internal_agent_loop__', { tabKey: tab.key, timeout: invokeTimeoutMs });
             } catch (invokeErr) {
                 var invokeErrText = String(invokeErr && invokeErr.message ? invokeErr.message : invokeErr);
@@ -9369,7 +9401,9 @@
                 try {
                     totalToolCalls += 1;
                     var cTimeout = Math.max(60000, Math.min(180000, Math.round(45000 + (maxTok * 80))));
-                    cPayload = await callToolAwaitParsed(cTool, cArgs, '__internal_agent_loop__', { tabKey: tab.key, timeout: cTimeout });
+                    // Tag with __source so backend broadcasts to Activity (not silenced)
+                    var cArgsTagged = Object.assign({}, cArgs, { __source: 'agent-inner' });
+                    cPayload = await callToolAwaitParsed(cTool, cArgsTagged, '__internal_agent_loop__', { tabKey: tab.key, timeout: cTimeout });
                 } catch (cErr) {
                     consecutiveFailures += 1;
                     var cErrText = String(cErr && cErr.message ? cErr.message : cErr);
@@ -9377,8 +9411,6 @@
                     trace.push(errEntry);
                     batchTraces.push(errEntry);
                     batchResults.push({ tool: cTool, status: 'ERROR', result: cErrText });
-                    // Log to Activity tab in real-time
-                    _logAchatSingleActivity(errEntry, tab.slot);
                     _appendAchatToolTrace([errEntry], tab);
                     if (cfg.haltOnError) break;
                     continue;
@@ -9393,8 +9425,6 @@
                 trace.push(cTrace);
                 batchTraces.push(cTrace);
                 batchResults.push({ tool: cTool, status: 'OK', result: cResultStr.length > 1200 ? cResultStr.substring(0, 1200) + '\n…[truncated]' : cResultStr });
-                // Real-time activity logging — appears in Activity tab as each call completes
-                _logAchatSingleActivity(cTrace, tab.slot);
                 _appendAchatToolTrace([cTrace], tab);
             }
 
