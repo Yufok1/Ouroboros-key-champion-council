@@ -110,6 +110,17 @@ async def postprocess_tool_result(
         except Exception:
             return checkpoint_key
 
+    def _decode_doc_in_text(value: str) -> str:
+        import re as _re_doc
+        if not isinstance(value, str) or "__docv2__" not in value:
+            return value
+
+        def _repl(m):
+            token = m.group(0)
+            return _doc_decode_key(token)
+
+        return _re_doc.sub(r"__docv2__[^\s\",'}]+(?:__k)?", _repl, value)
+
     def _decode_doc_fields(obj):
         if isinstance(obj, dict):
             for key_field in ("key", "source_key", "restored_key", "pattern", "removed"):
@@ -120,6 +131,8 @@ async def postprocess_tool_result(
                     obj[ck_field] = _doc_decode_checkpoint_key(obj[ck_field])
             if isinstance(obj.get("available"), list):
                 obj["available"] = [(_doc_decode_key(v) if isinstance(v, str) else v) for v in obj["available"]]
+            if isinstance(obj.get("error"), str):
+                obj["error"] = _decode_doc_in_text(obj["error"])
             for v in list(obj.values()):
                 _decode_doc_fields(v)
         elif isinstance(obj, list):
