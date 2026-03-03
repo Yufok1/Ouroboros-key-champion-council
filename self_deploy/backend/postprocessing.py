@@ -128,6 +128,7 @@ async def postprocess_tool_result(
 
     if tool_name.startswith("bag_") and isinstance(parsed, (dict, list)):
         _decode_doc_fields(parsed)
+        result = {"result": {"content": [{"type": "text", "text": json.dumps(parsed)}]}}
 
     if tool_name == "bag_tree" and isinstance(parsed, dict):
         tree = parsed.get("tree")

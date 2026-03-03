@@ -1489,6 +1489,7 @@ async def _postprocess_tool_result(tool_name: str, args: dict, result: dict) -> 
     # Decode virtualized doc keys back to logical slash-path keys.
     if tool_name.startswith("bag_") and isinstance(parsed, (dict, list)):
         _decode_doc_fields(parsed)
+        result = {"result": {"content": [{"type": "text", "text": json.dumps(parsed)}]}}
 
     # bag_tree root fallback: synthesize from bag_list_docs when capsule returns empty root.
     if tool_name == "bag_tree" and isinstance(parsed, dict):
