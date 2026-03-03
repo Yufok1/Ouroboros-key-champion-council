@@ -2152,6 +2152,19 @@
                 if (slotTab) {
                     var isStartPhase = !!(event.result && typeof event.result === 'object' && event.result._phase === 'start');
 
+                    // Dedupe occasional duplicate external events from mirrored channels.
+                    var _extSig = [
+                        String(event.tool || ''),
+                        isStartPhase ? 'start' : 'end',
+                        String(event.timestamp || ''),
+                        String(event.durationMs || ''),
+                        event.args ? JSON.stringify(event.args) : ''
+                    ].join('|');
+                    if (slotTab._lastExternalSig === _extSig) {
+                        return;
+                    }
+                    slotTab._lastExternalSig = _extSig;
+
                     if (isStartPhase) {
                         // Add request args once when call starts.
                         var argPreview = event.args ? _prettyTruncate(event.args, 600) : '';
@@ -2172,12 +2185,29 @@
                                 _appendAchatMsg(formatted.role || 'assistant', formatted.text, Date.now(), slotTab);
                             }
 
-                            // Add tool trace if agent_chat returned tool_calls
+                            // For agent_chat, preserve strict chronological order:
+                            // tool cards are rendered live from agent-inner events.
+                            // Keep end-of-call blob only as fallback when no live steps arrived.
                             var payload = formatted ? formatted.payload : null;
                             var tc = null;
                             if (payload && payload.tool_calls && Array.isArray(payload.tool_calls)) tc = payload.tool_calls;
                             else if (payload && payload.result && payload.result.tool_calls && Array.isArray(payload.result.tool_calls)) tc = payload.result.tool_calls;
-                            if (tc && tc.length) _appendAchatToolTrace(tc, slotTab);
+
+                            var _sessionId = '';
+                            if (payload && payload.session_id) _sessionId = String(payload.session_id);
+                            else if (payload && payload.result && payload.result.session_id) _sessionId = String(payload.result.session_id);
+
+                            var _liveCount = 0;
+                            if (_sessionId && slotTab._sseBySession && slotTab._sseBySession[_sessionId]) {
+                                _liveCount = parseInt(slotTab._sseBySession[_sessionId], 10) || 0;
+                            } else {
+                                _liveCount = parseInt(slotTab._sseToolCount || 0, 10) || 0;
+                            }
+                            var _hasLiveOrderedTrace = (event.tool === 'agent_chat' && _liveCount > 0);
+
+                            if (tc && tc.length && !_hasLiveOrderedTrace) {
+                                _appendAchatToolTrace(tc, slotTab);
+                            }
                         }
 
                         var dur = event.durationMs >= 0 ? ' (' + event.durationMs + 'ms)' : '';
@@ -2229,22 +2259,40 @@
                     _appendAchatMsg('tool-trace', '🔧 ' + event.tool + ' ' + argStr, Date.now(), innerTab);
                 } else if (!isStart && event.tool !== 'agent_chat') {
                     innerTab._sseToolCount = (innerTab._sseToolCount || 0) + 1;
+                    var _sess = (event.args && event.args._agent_session) || '';
+                    if (_sess) {
+                        if (!innerTab._sseBySession) innerTab._sseBySession = {};
+                        innerTab._sseBySession[_sess] = (innerTab._sseBySession[_sess] || 0) + 1;
+                    }
+
+                    // Render a full tool card NOW (in-order), not as an end-of-run blob.
+                    var tcLive = {
+                        tool: event.tool,
+                        args: _cleanArgs(event.args) || {},
+                        iteration: (event.args && event.args._agent_iteration !== undefined)
+                            ? event.args._agent_iteration
+                            : ((event.args && event.args.iteration !== undefined) ? event.args.iteration : undefined),
+                        durationMs: event.durationMs || 0
+                    };
+
                     if (event.error) {
-                        _appendAchatMsg('error', '❌ ' + event.tool + dur + ': ' + String(event.error), Date.now(), innerTab);
+                        tcLive.error = String(event.error);
                     } else {
-                        var rPreview = '';
                         try {
                             var rr = event.result;
                             if (rr && rr.content && Array.isArray(rr.content) && rr.content[0]) {
-                                rPreview = String(rr.content[0].text || '').substring(0, 300);
-                            } else if (typeof rr === 'string') {
-                                rPreview = rr.substring(0, 300);
+                                var txt = String(rr.content[0].text || '');
+                                var parsed = _safeJsonParse(txt);
+                                tcLive.result = parsed !== null ? parsed : txt;
                             } else {
-                                rPreview = JSON.stringify(rr || {}).substring(0, 300);
+                                tcLive.result = rr;
                             }
-                        } catch (e4) { rPreview = '(ok)'; }
-                        _appendAchatMsg('tool-trace', '✅ ' + event.tool + dur + ': ' + rPreview, Date.now(), innerTab);
+                        } catch (e4) {
+                            tcLive.result = '(ok)';
+                        }
                     }
+
+                    _appendAchatToolTrace([tcLive], innerTab);
                 }
             }
         }
@@ -4387,12 +4435,23 @@
                 }
 
                 var toolCalls = resultObj.tool_calls || [];
-                var sseAlreadyShowed = tab && tab._sseToolCount && tab._sseToolCount >= toolCalls.length;
+                // Only use end-of-run tool dump as fallback when live ordered cards were not rendered.
+                var _respSession = (resp && resp.session_id) ? String(resp.session_id) : '';
+                var _liveCount = 0;
+                if (tab && _respSession && tab._sseBySession && tab._sseBySession[_respSession]) {
+                    _liveCount = parseInt(tab._sseBySession[_respSession], 10) || 0;
+                } else if (tab && tab._sseToolCount) {
+                    _liveCount = parseInt(tab._sseToolCount, 10) || 0;
+                }
+                var sseAlreadyShowed = toolCalls.length > 0 && _liveCount >= toolCalls.length;
                 if (toolCalls.length && !sseAlreadyShowed) {
                     _appendAchatToolTrace(toolCalls, tab);
                     _logAchatSyntheticActivity(toolCalls, tab ? tab.slot : tabSlot);
                 }
-                if (tab) tab._sseToolCount = 0;
+                if (tab) {
+                    if (_respSession && tab._sseBySession) delete tab._sseBySession[_respSession];
+                    tab._sseToolCount = 0;
+                }
 
                 var answer = resultObj.final_answer || resultObj.answer || '';
                 if (answer && typeof answer === 'object') {
