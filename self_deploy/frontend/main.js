@@ -8423,7 +8423,7 @@
 
             // Generation Parameters
             temperature: 0.7,
-            maxTokens: 256,
+            maxTokens: 512,
             maxIterations: 5,
             topP: 0.9,
             repetitionPenalty: 1.1,
@@ -8760,8 +8760,21 @@
             lines.push('When providing final_answer, format it as well-structured Markdown with headers, lists, and code blocks as appropriate.');
         }
 
-        lines.push('\n## IMPORTANT');
-        lines.push('Think step by step. Plan before acting. Explore thoroughly. Use every relevant tool available to you. The operator values thoroughness over speed.');
+        // Systematic methodology
+        lines.push('\n## METHODOLOGY');
+        lines.push('Apply a systematic, scientific approach to every task:');
+        lines.push('1. OBSERVE: Gather data using available tools before drawing conclusions.');
+        lines.push('2. HYPOTHESIZE: Form specific expectations based on observations.');
+        lines.push('3. TEST: Use tools to validate or refute your hypotheses.');
+        lines.push('4. RECORD: Note each finding — successful or failed — for your final report.');
+        lines.push('5. ITERATE: If a tool reveals something unexpected, investigate further. Do NOT skip anomalies.');
+        lines.push('Work through ALL granted tools systematically. If you have 10 granted tools, plan to call all 10. Breadth first, then depth on anomalies.');
+
+        lines.push('\n## CONTINUATION');
+        lines.push('You will receive results after each tool call. Use those results to inform your next action.');
+        lines.push('Do NOT rush to final_answer. Your operator values thoroughness over speed.');
+        lines.push('If you run low on iterations, request more via the REAPPROPRIATE protocol above.');
+        lines.push('You are expected to be self-directed: plan your own investigation, call tools in logical order, and produce a comprehensive final report.');
 
         return lines.join('\n');
     }
@@ -9630,7 +9643,7 @@
             args.slot = tab.slot;
             args.message = String(userMsg || '').trim() || 'Proceed with the configured objective.';
             args.max_iterations = parseInt((document.getElementById('achat-max-iter') || {}).value || '5', 10) || 5;
-            args.max_tokens = parseInt((document.getElementById('achat-max-tokens') || {}).value || '256', 10) || 256;
+            args.max_tokens = parseInt((document.getElementById('achat-max-tokens') || {}).value || '512', 10) || 512;
             args.granted_tools = Array.isArray(tab.grantedTools) ? tab.grantedTools.slice() : [];
             if (tab.sessionId) args.session_id = tab.sessionId;
             return args;
@@ -9684,7 +9697,7 @@
                 else args.mode = 'generate';
             }
             if (args.max_tokens === undefined || args.max_tokens === null || args.max_tokens === '') {
-                args.max_tokens = parseInt((document.getElementById('achat-max-tokens') || {}).value || '256', 10) || 256;
+                args.max_tokens = parseInt((document.getElementById('achat-max-tokens') || {}).value || '512', 10) || 512;
             }
         }
 
@@ -9787,7 +9800,7 @@
                 iteration: 0,
                 maxIterations: _maxIter,
                 minToolCalls: _minCalls > 0 ? _minCalls : 1,
-                maxTokens: parseInt((document.getElementById('achat-max-tokens') || {}).value || '256', 10) || 256,
+                maxTokens: parseInt((document.getElementById('achat-max-tokens') || {}).value || '512', 10) || 512,
                 totalToolCalls: 0,
                 calledTools: {},
                 startTime: Date.now()
