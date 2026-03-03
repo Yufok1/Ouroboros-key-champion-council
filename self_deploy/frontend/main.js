@@ -9782,16 +9782,22 @@
         }
         tab.selectedTool = toolName;
 
-        // For loop mode with agent_chat: iterate with max_iterations=1 per call
-        // so each tool call shows up LIVE in the chat + Activity feed.
+        // For loop mode with agent_chat: iterate with max_iterations=2 per call
+        // (1 for tool call + 1 for synthesis) so each tool call shows up LIVE.
         if ((tab.runMode || 'direct') === 'loop' && toolName === 'agent_chat') {
             var mission = msg || 'Proceed with the configured objective.';
             _appendAchatMsg('user', 'MISSION: ' + mission, Date.now(), tab);
             _setAchatBusy(true);
             var _maxIter = parseInt((document.getElementById('achat-max-iter') || {}).value || '5', 10) || 5;
             var _minCalls = _extractRequiredToolCalls(mission);
+            // If no explicit tool-call count in the mission, default to the number
+            // of granted tools — the agent should call each granted tool at least once.
+            var grantedCount = Array.isArray(tab.grantedTools) ? tab.grantedTools.length : 0;
+            if (_minCalls <= 0 && grantedCount > 1) {
+                _minCalls = grantedCount;
+            }
             if (_minCalls > _maxIter) {
-                _appendAchatMsg('system-info', 'Auto-expanding max iterations from ' + _maxIter + ' to ' + _minCalls + ' to satisfy required tool-call target.', Date.now(), tab);
+                _appendAchatMsg('system-info', 'Auto-expanding max iterations from ' + _maxIter + ' to ' + _minCalls + ' to satisfy required tool-call target (' + _minCalls + ' granted tools).', Date.now(), tab);
                 _maxIter = _minCalls;
             }
             tab._loopState = {
@@ -9826,8 +9832,10 @@
     }
     window.sendAgentChat = sendAgentChat;
 
-    // Fire a single agent_chat iteration with max_iterations=1.
-    // The response handler checks tab._loopState and auto-fires next iteration.
+    // Fire a single agent_chat step with max_iterations=2 (tool call + synthesis).
+    // The capsule refuses tool calls on the final iteration, so we always give +1
+    // to guarantee the model can call a tool AND produce a final answer.
+    // The response handler checks tab._loopState and auto-fires next step.
     function _fireAgentIteration(tab) {
         if (!tab || !tab._loopState) return;
         var ls = tab._loopState;
@@ -9856,10 +9864,15 @@
                 nextMsg = '[SYSTEM INSTRUCTIONS]\n' + sysPrompt + '\n\n[USER MISSION]\n' + nextMsg;
             }
         }
+        // Use max_iterations=2 per step: the capsule's internal prompt tells
+        // the model "this is your last iteration" on the final one, causing it
+        // to refuse tool calls with max_iterations=1. With 2, the model calls
+        // a tool in iteration 1 and synthesizes a response in iteration 2.
+        // The frontend loop handler then decides whether to continue.
         var args = {
             slot: tab.slot,
             message: nextMsg,
-            max_iterations: 1,
+            max_iterations: 2,
             max_tokens: ls.maxTokens,
             granted_tools: Array.isArray(tab.grantedTools) ? tab.grantedTools.slice() : []
         };
