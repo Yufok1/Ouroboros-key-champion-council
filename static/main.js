@@ -4269,6 +4269,47 @@
                     return;
                 }
 
+                // Dynamic reappropriation: detect REAPPROPRIATE:<N>:<reason> in final_answer
+                var _reapAnswer = String(resultObj.final_answer || resultObj.answer || '').trim();
+                var _reapMatch = _reapAnswer.match(/^REAPPROPRIATE:(\d+):(.+)$/i);
+                if (isLoopIter && tab && tab._loopState && _reapMatch) {
+                    var reqIter = parseInt(_reapMatch[1], 10) || 0;
+                    var reqReason = String(_reapMatch[2] || 'no reason given').trim();
+                    var ls = tab._loopState;
+                    var approvalMode = (tab.agentConfig || {}).resourceApprovalMode || 'capped';
+                    var guardMax = parseInt(((tab.agentConfig || {}).guardMaxToolCalls) || 400, 10);
+                    var approved = false;
+                    var grantedAmt = 0;
+
+                    if (approvalMode === 'auto_all') {
+                        grantedAmt = Math.min(reqIter, 50);
+                        approved = true;
+                    } else if (approvalMode === 'capped') {
+                        grantedAmt = Math.min(reqIter, 20);
+                        approved = (ls.maxIterations + grantedAmt) <= guardMax;
+                    }
+
+                    if (approved && grantedAmt > 0) {
+                        ls.maxIterations += grantedAmt;
+                        _appendAchatMsg('system-info',
+                            'REAPPROPRIATION GRANTED: +' + grantedAmt + ' iterations (now ' + ls.maxIterations + ' max). Reason: ' + reqReason,
+                            Date.now(), tab);
+                        ls.iteration += 1;
+                        ls.nextMessage = 'Your request for ' + grantedAmt + ' additional iterations was approved. You now have ' +
+                            (ls.maxIterations - ls.iteration) + ' iterations remaining. Continue your task.';
+                        _fireAgentIteration(tab);
+                    } else {
+                        _appendAchatMsg('system-info',
+                            'REAPPROPRIATION DENIED: requested +' + reqIter + ' iterations (mode=' + approvalMode + '). Reason: ' + reqReason,
+                            Date.now(), tab);
+                        ls.iteration += 1;
+                        ls.nextMessage = 'Your iteration request was denied. You have ' +
+                            Math.max(0, ls.maxIterations - ls.iteration) + ' iterations remaining. Wrap up with final_answer.';
+                        _fireAgentIteration(tab);
+                    }
+                    return;
+                }
+
                 var toolCalls = resultObj.tool_calls || [];
                 if (toolCalls.length) {
                     _appendAchatToolTrace(toolCalls, tab);
@@ -8576,6 +8617,88 @@
     }
     window._resetAgentGeneration = _resetAgentGeneration;
 
+    function _buildLoopSystemPrompt(tab) {
+        if (!tab) return '';
+        var cfg = tab.agentConfig || _defaultAgentConfig();
+
+        // If the user set an explicit system prompt, use it directly.
+        if (cfg.systemPrompt && String(cfg.systemPrompt).trim()) {
+            return String(cfg.systemPrompt).trim();
+        }
+
+        // Build the auto-generated orchestration prompt.
+        var granted = Array.isArray(tab.grantedTools) ? tab.grantedTools : [];
+        var blocked = Array.isArray(tab.blockedTools) ? tab.blockedTools : [];
+        var slotName = tab.slotName || ('Slot ' + tab.slot);
+        var persona = String(cfg.persona || '').trim();
+        var agentName = String(cfg.agentName || '').trim();
+        var agentDesc = String(cfg.agentDescription || '').trim();
+        var maxIter = parseInt(cfg.maxIterations, 10) || 5;
+        var reapEnabled = cfg.reappropriationEnabled !== false;
+
+        var lines = [];
+
+        // Identity
+        lines.push('You are ' + (agentName || slotName) + ', an autonomous AI agent operating inside an Ouroboros capsule council.' +
+            (agentDesc ? ' ' + agentDesc : ''));
+        if (persona) lines.push('\nPersona: ' + persona);
+
+        // Core protocol
+        lines.push('\n## TOOL CALLING PROTOCOL');
+        lines.push('You have access to tools via the Ouroboros MCP interface. Each turn, you MUST respond with EXACTLY ONE valid JSON object. No markdown, no commentary outside the JSON.');
+        lines.push('\nTo call a tool, respond with:');
+        lines.push('{"tool": "<tool_name>", "args": {<argument_key>: <value>, ...}}');
+        lines.push('\nTo provide your final answer when the task is complete:');
+        lines.push('{"final_answer": "<your complete response>"}');
+
+        // Granted tools
+        if (granted.length > 0) {
+            lines.push('\n## GRANTED TOOLS (' + granted.length + ')');
+            lines.push('You may ONLY call these tools: ' + granted.join(', '));
+            lines.push('Any tool not in this list will be rejected.');
+        }
+        if (blocked.length > 0) {
+            lines.push('\n## BLOCKED TOOLS (safety)');
+            lines.push('These tools are blocked and must NOT be called: ' + blocked.join(', '));
+        }
+
+        // Sequential execution
+        lines.push('\n## EXECUTION RULES');
+        lines.push('1. Call exactly ONE tool per turn. Never batch multiple tool calls.');
+        lines.push('2. Wait for the tool result before deciding your next action.');
+        lines.push('3. Use real tool outputs only. Never fabricate or hallucinate tool results.');
+        lines.push('4. Do not provide final_answer until you have gathered sufficient evidence from tools.');
+        lines.push('5. If a tool returns an error, adapt your approach — try a different tool or different arguments.');
+
+        // Reappropriation protocol
+        if (reapEnabled) {
+            lines.push('\n## DYNAMIC REAPPROPRIATION');
+            lines.push('You have ' + maxIter + ' iterations allocated. If you need more iterations to complete your task, you may request additional allotment by responding with:');
+            lines.push('{"final_answer": "REAPPROPRIATE:<number>:<reason>"}');
+            lines.push('Example: {"final_answer": "REAPPROPRIATE:10:I discovered 5 subsystems that each need diagnostic checks"}');
+            lines.push('This request will be evaluated and may be auto-approved. Use this when:');
+            lines.push('- You have a multi-step plan that requires more tools than allocated');
+            lines.push('- You discovered new subtasks during exploration');
+            lines.push('- You need to retry failed operations');
+            lines.push('Do NOT be shy about requesting more iterations. It is better to request more and do thorough work than to give a shallow final_answer.');
+        }
+
+        // Output format
+        var outputFmt = String(cfg.outputFormat || 'text').toLowerCase();
+        if (outputFmt === 'json') {
+            lines.push('\n## OUTPUT FORMAT');
+            lines.push('When providing final_answer, format it as structured JSON.');
+        } else if (outputFmt === 'markdown') {
+            lines.push('\n## OUTPUT FORMAT');
+            lines.push('When providing final_answer, format it as well-structured Markdown with headers, lists, and code blocks as appropriate.');
+        }
+
+        lines.push('\n## IMPORTANT');
+        lines.push('Think step by step. Plan before acting. Explore thoroughly. Use every relevant tool available to you. The operator values thoroughness over speed.');
+
+        return lines.join('\n');
+    }
+
     function _viewDefaultPrompt() {
         var tab = _getActiveAchatTab();
         if (!tab) return;
@@ -9644,6 +9767,14 @@
                 'Do not execute multiple tool calls in a single step. ' +
                 'Current progress: ' + (ls.totalToolCalls || 0) + '/' + _minCalls + ' tool calls (remaining ' + _remaining + ').\n\n' +
                 nextMsg;
+        }
+        // Embed orchestration prompt into the first message only (capsule has no system_prompt param).
+        // The capsule builds a thin system prompt internally, so we inject ours as a message preamble.
+        if (ls.iteration === 0) {
+            var sysPrompt = _buildLoopSystemPrompt(tab);
+            if (sysPrompt) {
+                nextMsg = '[SYSTEM INSTRUCTIONS]\n' + sysPrompt + '\n\n[USER MISSION]\n' + nextMsg;
+            }
         }
         var args = {
             slot: tab.slot,
