@@ -48,9 +48,13 @@
     var _achatToolPolicies = {};
     var _achatDefaultGrantedTools = [
         "get_status", "list_slots", "slot_info", "get_capabilities", "embed_text",
+        "invoke_slot", "call",
         "bag_get", "bag_put", "bag_search", "bag_catalog", "bag_induct",
         "bag_read_doc", "bag_list_docs", "bag_search_docs", "bag_tree",
         "bag_versions", "bag_diff", "bag_checkpoint", "bag_restore",
+        "file_read", "file_write", "file_edit", "file_append", "file_prepend",
+        "file_delete", "file_rename", "file_copy", "file_list", "file_tree",
+        "file_search", "file_info", "file_checkpoint", "file_versions", "file_diff", "file_restore",
         "workflow_list", "workflow_get", "workflow_status",
         "cascade_graph", "cascade_chain", "cascade_data", "cascade_system",
         "cascade_record", "cascade_instrument", "cascade_proxy",
@@ -60,7 +64,7 @@
     var _achatBlockedTools = {
         "workflow_execute": 1, "start_api_server": 1, "implode": 1, "defrost": 1,
         "spawn_quine": 1, "spawn_swarm": 1, "replicate": 1, "export_quine": 1,
-        "plug_model": 1, "unplug_slot": 1, "call": 1
+        "plug_model": 1, "unplug_slot": 1
     };
 
     // ── NIP-88: POLL STATE ──
@@ -880,6 +884,7 @@
         "get_onboarding","get_cached","get_status","bag_catalog","get_capabilities",
         "bag_search","plug_model","list_slots","workflow_test","bag_get","workflow_list",
         "list_models","embed_text","bag_put","hub_search","hub_search_datasets","compare",
+        "file_read","file_write","file_edit","file_append","file_prepend","file_delete","file_rename","file_copy","file_list","file_tree","file_search","file_info","file_checkpoint","file_versions","file_diff","file_restore",
         "invoke_slot","rerank","deliberate","batch_embed","workflow_create","workflow_execute",
         "cascade_graph","cascade_chain","cascade_record","cascade_system","cascade_data",
         "cascade_instrument","cascade_proxy"
@@ -2824,7 +2829,7 @@
 
     // ═══════════════ END DREAMER UI ═══════════════
 
-    var MEMORY_TOOLS = ['bag_catalog', 'bag_search', 'bag_get', 'bag_export', 'bag_induct', 'bag_forget', 'bag_put', 'pocket', 'summon', 'materialize', 'bag_read_doc', 'bag_list_docs', 'bag_search_docs', 'bag_tree', 'bag_checkpoint', 'bag_versions', 'bag_diff', 'bag_restore', 'get_cached'];
+    var MEMORY_TOOLS = ['bag_catalog', 'bag_search', 'bag_get', 'bag_export', 'bag_induct', 'bag_forget', 'bag_put', 'pocket', 'summon', 'materialize', 'bag_read_doc', 'bag_list_docs', 'bag_search_docs', 'bag_tree', 'bag_checkpoint', 'bag_versions', 'bag_diff', 'bag_restore', 'file_read', 'file_write', 'file_edit', 'file_append', 'file_prepend', 'file_delete', 'file_rename', 'file_copy', 'file_list', 'file_tree', 'file_search', 'file_info', 'file_checkpoint', 'file_versions', 'file_diff', 'file_restore', 'get_cached'];
     var COUNCIL_TOOLS = ['council_status', 'all_slots', 'broadcast', 'council_broadcast', 'set_consensus', 'debate', 'chain', 'slot_info', 'get_slot_params', 'invoke_slot', 'plug_model', 'unplug_slot', 'clone_slot', 'mu' + 'tate_slot', 'rename_slot', 'swap_slots', 'hub_plug', 'cu' + 'll_slot', 'agent_chat'];
     var WORKFLOW_TOOLS = ['workflow_list', 'workflow_get', 'workflow_execute', 'workflow_status'];
 
@@ -4419,8 +4424,7 @@
                             // Don't increment iteration — just extend and continue
                             ls.nextMessage =
                                 'You have been granted ' + _reapGrant + ' additional iterations (' + (ls.maxIterations - ls.iteration) + ' remaining). ' +
-                                'Continue working through your granted tools systematically. ' +
-                                'Call exactly one tool this turn.';
+                                'Continue working on the mission. Call one tool this turn, or provide final_answer if done.';
                             _fireAgentIteration(tab);
                         } else {
                             _appendAchatMsg('error',
@@ -4504,12 +4508,12 @@
             if (!memList) return;
 
             // Refresh catalog after successful memory mutations.
-            if (!msg.error && ['bag_put', 'bag_induct', 'bag_forget', 'pocket', 'load_bag', 'bag_checkpoint', 'bag_restore'].indexOf(toolName) >= 0) {
+            if (!msg.error && ['bag_put', 'bag_induct', 'bag_forget', 'pocket', 'load_bag', 'bag_checkpoint', 'bag_restore', 'file_write', 'file_edit', 'file_append', 'file_prepend', 'file_delete', 'file_rename', 'file_copy', 'file_checkpoint', 'file_restore'].indexOf(toolName) >= 0) {
                 callTool('bag_catalog', {});
             }
 
-            // bag_get / get_cached → inline drill content
-            if ((toolName === 'bag_get' || toolName === 'get_cached') && !msg.error && _openDrillKey) {
+            // bag_get / file_read / get_cached → inline drill content
+            if ((toolName === 'bag_get' || toolName === 'file_read' || toolName === 'get_cached') && !msg.error && _openDrillKey) {
                 var drillDiv = document.getElementById('drill-' + _openDrillKey);
                 if (drillDiv) {
                     try {
@@ -4524,13 +4528,16 @@
                             drillDiv.innerHTML = '<div style="padding:8px 12px;color:#e11d48;">' + _esc(got.error) + '</div>';
                             return;
                         }
-                        var val = got.value;
-                        // get_cached returns the raw bag_get JSON string, parse it
+                        var val = (typeof got.value !== 'undefined') ? got.value : got.content;
+                        // get_cached returns the raw bag_get/file_read JSON string, parse it
                         if (typeof val === 'undefined' && typeof got.key !== 'undefined') {
                             val = got;
                         } else if (typeof val === 'undefined') {
-                            // get_cached returns the original bag_get result as a string
-                            try { var inner = typeof got === 'string' ? JSON.parse(got) : got; val = inner.value; } catch (e2) { val = text; }
+                            // get_cached returns the original bag_get/file_read result as a string
+                            try {
+                                var inner = typeof got === 'string' ? JSON.parse(got) : got;
+                                val = (typeof inner.value !== 'undefined') ? inner.value : inner.content;
+                            } catch (e2) { val = text; }
                         }
                         var contentStr = typeof val === 'object' ? JSON.stringify(val, null, 2) : String(val || '');
                         var lineCount = contentStr.split('\n').length;
@@ -8742,6 +8749,14 @@
         lines.push('6. If a tool returns an error, adapt your approach — try a different tool or different arguments.');
         lines.push('7. NEVER output multiple JSON objects or an array of tool calls. One tool, one turn, every time.');
 
+        var selfSlot = parseInt(tab.slot, 10);
+        var hasInterSlotTools = granted.indexOf('invoke_slot') >= 0 || granted.indexOf('call') >= 0 || granted.indexOf('agent_chat') >= 0 || granted.indexOf('chat') >= 0;
+        if (hasInterSlotTools) {
+            lines.push('\n## INTER-SLOT SAFETY (ANTI-RECURSION)');
+            lines.push('Never target your own slot (' + (isNaN(selfSlot) ? 'current slot' : String(selfSlot)) + ') when using invoke_slot/call/chat/agent_chat.');
+            lines.push('Delegate only to OTHER slots to prevent recursive paradox loops.');
+        }
+
         // Reappropriation protocol
         if (reapEnabled) {
             lines.push('\n## DYNAMIC REAPPROPRIATION');
@@ -8782,7 +8797,7 @@
         lines.push('You are expected to be self-directed: plan your own investigation, call tools in logical order, and produce a comprehensive final report.');
 
         // FelixBag doc/file workflow guidance
-        var hasDocTools = granted.indexOf('bag_read_doc') >= 0 || granted.indexOf('bag_checkpoint') >= 0 || granted.indexOf('bag_versions') >= 0 || granted.indexOf('bag_diff') >= 0;
+        var hasDocTools = granted.indexOf('bag_read_doc') >= 0 || granted.indexOf('bag_checkpoint') >= 0 || granted.indexOf('bag_versions') >= 0 || granted.indexOf('bag_diff') >= 0 || granted.indexOf('file_read') >= 0 || granted.indexOf('file_edit') >= 0 || granted.indexOf('file_checkpoint') >= 0 || granted.indexOf('file_diff') >= 0;
         if (hasDocTools) {
             lines.push('\n## FELIXBAG DOCUMENT WORKFLOW (IMPORTANT)');
             lines.push('For document editing/versioning tasks, use this exact sequence:');
@@ -8793,6 +8808,8 @@
             lines.push('5) If needed, restore with bag_restore using checkpoint_key.');
             lines.push('Avoid bag_put for document editing when bag_induct is available.');
             lines.push('For deletes, prefer bag_forget with explicit pattern for deterministic cleanup.');
+            lines.push('If file_* tools are granted, prefer file_read/file_checkpoint/file_edit/file_diff/file_restore for file-style workflows.');
+            lines.push('Never use file_* to access host filesystem paths — they are FelixBag workspace paths only.');
         }
 
         return lines.join('\n');

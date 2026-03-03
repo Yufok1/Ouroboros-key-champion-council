@@ -123,10 +123,10 @@ async def postprocess_tool_result(
 
     def _decode_doc_fields(obj):
         if isinstance(obj, dict):
-            for key_field in ("key", "source_key", "restored_key", "pattern", "removed"):
+            for key_field in ("key", "source_key", "restored_key", "pattern", "removed", "path", "old_path", "new_path", "source_path", "dest_path", "restored_path"):
                 if isinstance(obj.get(key_field), str):
                     obj[key_field] = _doc_decode_key(obj[key_field])
-            for ck_field in ("checkpoint_key", "from_checkpoint", "backup_checkpoint"):
+            for ck_field in ("checkpoint_key", "from_checkpoint", "to_checkpoint", "to_target", "backup_checkpoint"):
                 if isinstance(obj.get(ck_field), str):
                     obj[ck_field] = _doc_decode_checkpoint_key(obj[ck_field])
             if isinstance(obj.get("available"), list):
@@ -139,14 +139,14 @@ async def postprocess_tool_result(
             for item in obj:
                 _decode_doc_fields(item)
 
-    if tool_name.startswith("bag_") and isinstance(parsed, (dict, list)):
+    if (tool_name.startswith("bag_") or tool_name.startswith("file_")) and isinstance(parsed, (dict, list)):
         _decode_doc_fields(parsed)
         result = {"result": {"content": [{"type": "text", "text": json.dumps(parsed)}]}}
 
-    if tool_name == "bag_tree" and isinstance(parsed, dict):
+    if tool_name in ("bag_tree", "file_tree") and isinstance(parsed, dict):
         tree = parsed.get("tree")
         doc_count = int(parsed.get("document_count", 0) or 0)
-        req_prefix = str(args.get("prefix", "") or "")
+        req_prefix = str(args.get("prefix", args.get("path", "")) or "")
         if (not isinstance(tree, dict) or not tree) and doc_count == 0 and req_prefix == "":
             try:
                 ls_args = {

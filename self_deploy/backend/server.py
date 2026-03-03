@@ -440,6 +440,16 @@ def _normalize_proxy_tool_args(tool_name: str, args: dict | None) -> dict:
 
     patched = dict(args)
 
+    if isinstance(tool_name, str) and tool_name.startswith("file_"):
+        if "path" not in patched and isinstance(patched.get("key"), str):
+            patched["path"] = patched.get("key")
+        if "source_path" not in patched and isinstance(patched.get("source"), str):
+            patched["source_path"] = patched.get("source")
+        if "dest_path" not in patched and isinstance(patched.get("destination"), str):
+            patched["dest_path"] = patched.get("destination")
+        if tool_name == "file_write" and "content" not in patched and "value" in patched:
+            patched["content"] = patched.get("value")
+
     if tool_name == "plug_model" and isinstance(patched.get("model_id"), str):
         normalized, changed = _normalize_remote_provider_model_id(patched.get("model_id"))
         if changed:
@@ -455,6 +465,22 @@ def _normalize_proxy_tool_args(tool_name: str, args: dict | None) -> dict:
         if isinstance(pfx, str) and pfx and _doc_should_virtualize_key(pfx):
             patched["prefix"] = _doc_encode_prefix(_doc_decode_key(pfx) if _doc_is_encoded_key(pfx) else pfx)
 
+    if tool_name in (
+        "file_read", "file_write", "file_edit", "file_append", "file_prepend", "file_delete",
+        "file_rename", "file_copy", "file_info", "file_checkpoint", "file_versions", "file_diff", "file_restore"
+    ):
+        for kf in ("key", "path", "old_path", "new_path", "source_path", "dest_path", "source", "destination"):
+            kv = patched.get(kf)
+            if isinstance(kv, str) and kv and _doc_should_virtualize_key(kv):
+                patched[kf] = _doc_encode_exact_key(_doc_decode_key(kv) if _doc_is_encoded_key(kv) else kv)
+
+    if tool_name in ("file_list", "file_tree", "file_search"):
+        pfx = patched.get("path")
+        if not isinstance(pfx, str) or not pfx:
+            pfx = patched.get("prefix")
+        if isinstance(pfx, str) and pfx and _doc_should_virtualize_key(pfx):
+            patched["path"] = _doc_encode_prefix(_doc_decode_key(pfx) if _doc_is_encoded_key(pfx) else pfx)
+
     if tool_name == "bag_forget":
         k = patched.get("key")
         pat = patched.get("pattern")
@@ -465,6 +491,15 @@ def _normalize_proxy_tool_args(tool_name: str, args: dict | None) -> dict:
 
     if tool_name == "bag_restore" and isinstance(patched.get("checkpoint_key"), str):
         patched["checkpoint_key"] = _doc_encode_checkpoint_key(patched["checkpoint_key"])
+
+    if tool_name == "file_restore" and isinstance(patched.get("checkpoint_key"), str):
+        patched["checkpoint_key"] = _doc_encode_checkpoint_key(patched["checkpoint_key"])
+
+    if tool_name in ("file_diff",):
+        if isinstance(patched.get("from_checkpoint"), str) and patched.get("from_checkpoint"):
+            patched["from_checkpoint"] = _doc_encode_checkpoint_key(patched["from_checkpoint"])
+        if isinstance(patched.get("to_checkpoint"), str) and patched.get("to_checkpoint") not in ("", "current"):
+            patched["to_checkpoint"] = _doc_encode_checkpoint_key(patched["to_checkpoint"])
 
     if tool_name == "materialize":
         _ensure_parent_dir_for_path(patched.get("output_path"))
@@ -1088,15 +1123,23 @@ async def proxy_tool_call(tool_name: str, request: Request):
         result = await _call_tool(tool_name_effective, call_args)
 
         # Fallback for legacy/raw slash keys when virtualized key is missing.
-        if tool_name in ("bag_get", "bag_read_doc"):
+        if tool_name in ("bag_get", "bag_read_doc", "file_read", "file_info"):
             raw_key = raw_body.get("key") if isinstance(raw_body, dict) else None
+            if not isinstance(raw_key, str) or not raw_key:
+                raw_key = raw_body.get("path") if isinstance(raw_body, dict) else None
             enc_key = call_args.get("key") if isinstance(call_args, dict) else None
+            if not isinstance(enc_key, str) or not enc_key:
+                enc_key = call_args.get("path") if isinstance(call_args, dict) else None
             if isinstance(raw_key, str) and isinstance(enc_key, str) and _doc_is_encoded_key(enc_key):
                 probe = _parse_mcp_result_payload(result.get("result"))
                 probe_err = str(result.get("error") or (probe.get("error") if isinstance(probe, dict) else "") or "")
                 if "not found" in probe_err.lower():
                     retry_args = dict(call_args)
-                    retry_args["key"] = raw_key
+                    if tool_name in ("file_read", "file_info"):
+                        retry_args.pop("key", None)
+                        retry_args["path"] = raw_key
+                    else:
+                        retry_args["key"] = raw_key
                     retry = await _call_tool(tool_name_effective, retry_args)
                     retry_probe = _parse_mcp_result_payload(retry.get("result"))
                     retry_err = str(retry.get("error") or (retry_probe.get("error") if isinstance(retry_probe, dict) else "") or "")

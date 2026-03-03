@@ -213,18 +213,152 @@ def _normalize_remote_provider_model_id(model_id: str) -> tuple[str, bool]:
     return rebuilt, changed
 
 
+_DOC_KEY_PREFIX = "__docv2__"
+_DOC_KEY_SUFFIX = "__k"
+
+
+def _doc_escape_key(value: str) -> str:
+    return str(value).replace("~", "~~").replace("/", "~s")
+
+
+def _doc_unescape_key(value: str) -> str:
+    s = str(value)
+    out = []
+    i = 0
+    n = len(s)
+    while i < n:
+        ch = s[i]
+        if ch == "~" and i + 1 < n:
+            nxt = s[i + 1]
+            if nxt == "~":
+                out.append("~")
+                i += 2
+                continue
+            if nxt == "s":
+                out.append("/")
+                i += 2
+                continue
+        out.append(ch)
+        i += 1
+    return "".join(out)
+
+
+def _doc_is_encoded_key(key: str) -> bool:
+    return isinstance(key, str) and key.startswith(_DOC_KEY_PREFIX)
+
+
+def _doc_should_virtualize_key(key: str) -> bool:
+    if not isinstance(key, str) or not key:
+        return False
+    if key.startswith("bag_checkpoint:"):
+        return False
+    if _doc_is_encoded_key(key):
+        return True
+    return "/" in key
+
+
+def _doc_encode_exact_key(key: str) -> str:
+    if _doc_is_encoded_key(key):
+        return key
+    return f"{_DOC_KEY_PREFIX}{_doc_escape_key(key)}{_DOC_KEY_SUFFIX}"
+
+
+def _doc_encode_prefix(prefix: str) -> str:
+    if _doc_is_encoded_key(prefix):
+        return prefix
+    return f"{_DOC_KEY_PREFIX}{_doc_escape_key(prefix)}"
+
+
+def _doc_decode_key(key: str) -> str:
+    if not _doc_is_encoded_key(key):
+        return key
+    body = key[len(_DOC_KEY_PREFIX):]
+    if body.endswith(_DOC_KEY_SUFFIX):
+        body = body[:-len(_DOC_KEY_SUFFIX)]
+    return _doc_unescape_key(body)
+
+
+def _doc_encode_checkpoint_key(checkpoint_key: str) -> str:
+    if not isinstance(checkpoint_key, str) or not checkpoint_key.startswith("bag_checkpoint:"):
+        return checkpoint_key
+    try:
+        left, ts = checkpoint_key.rsplit(":", 1)
+        src = left[len("bag_checkpoint:"):]
+        if _doc_should_virtualize_key(src):
+            src = _doc_encode_exact_key(_doc_decode_key(src) if _doc_is_encoded_key(src) else src)
+        return f"bag_checkpoint:{src}:{ts}"
+    except Exception:
+        return checkpoint_key
+
+
 def _normalize_tool_arguments_for_proxy(tool_name: str | None, args: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(args, dict):
         return {}
 
-    if tool_name == "plug_model" and isinstance(args.get("model_id"), str):
-        normalized, changed = _normalize_remote_provider_model_id(args.get("model_id"))
-        if changed:
-            patched = dict(args)
-            patched["model_id"] = normalized
-            return patched
+    patched = dict(args)
 
-    return args
+    if isinstance(tool_name, str) and tool_name.startswith("file_"):
+        if "path" not in patched and isinstance(patched.get("key"), str):
+            patched["path"] = patched.get("key")
+        if "source_path" not in patched and isinstance(patched.get("source"), str):
+            patched["source_path"] = patched.get("source")
+        if "dest_path" not in patched and isinstance(patched.get("destination"), str):
+            patched["dest_path"] = patched.get("destination")
+        if tool_name == "file_write" and "content" not in patched and "value" in patched:
+            patched["content"] = patched.get("value")
+
+    if tool_name == "plug_model" and isinstance(patched.get("model_id"), str):
+        normalized, changed = _normalize_remote_provider_model_id(patched.get("model_id"))
+        if changed:
+            patched["model_id"] = normalized
+
+    if tool_name in ("bag_get", "bag_put", "bag_read_doc", "bag_checkpoint", "bag_versions", "bag_restore", "bag_diff", "bag_induct"):
+        k = patched.get("key")
+        if _doc_should_virtualize_key(k):
+            patched["key"] = _doc_encode_exact_key(_doc_decode_key(k) if _doc_is_encoded_key(k) else k)
+
+    if tool_name in ("bag_list_docs", "bag_search_docs", "bag_tree"):
+        pfx = patched.get("prefix")
+        if isinstance(pfx, str) and pfx and _doc_should_virtualize_key(pfx):
+            patched["prefix"] = _doc_encode_prefix(_doc_decode_key(pfx) if _doc_is_encoded_key(pfx) else pfx)
+
+    if tool_name in (
+        "file_read", "file_write", "file_edit", "file_append", "file_prepend", "file_delete",
+        "file_rename", "file_copy", "file_info", "file_checkpoint", "file_versions", "file_diff", "file_restore"
+    ):
+        for kf in ("key", "path", "old_path", "new_path", "source_path", "dest_path", "source", "destination"):
+            kv = patched.get(kf)
+            if isinstance(kv, str) and kv and _doc_should_virtualize_key(kv):
+                patched[kf] = _doc_encode_exact_key(_doc_decode_key(kv) if _doc_is_encoded_key(kv) else kv)
+
+    if tool_name in ("file_list", "file_tree", "file_search"):
+        pfx = patched.get("path")
+        if not isinstance(pfx, str) or not pfx:
+            pfx = patched.get("prefix")
+        if isinstance(pfx, str) and pfx and _doc_should_virtualize_key(pfx):
+            patched["path"] = _doc_encode_prefix(_doc_decode_key(pfx) if _doc_is_encoded_key(pfx) else pfx)
+
+    if tool_name == "bag_forget":
+        k = patched.get("key")
+        pat = patched.get("pattern")
+        if isinstance(k, str) and k and not pat and _doc_should_virtualize_key(k):
+            patched["key"] = _doc_encode_exact_key(_doc_decode_key(k) if _doc_is_encoded_key(k) else k)
+        if isinstance(pat, str) and pat and _doc_should_virtualize_key(pat):
+            patched["pattern"] = _doc_encode_prefix(_doc_decode_key(pat) if _doc_is_encoded_key(pat) else pat)
+
+    if tool_name == "bag_restore" and isinstance(patched.get("checkpoint_key"), str):
+        patched["checkpoint_key"] = _doc_encode_checkpoint_key(patched["checkpoint_key"])
+
+    if tool_name == "file_restore" and isinstance(patched.get("checkpoint_key"), str):
+        patched["checkpoint_key"] = _doc_encode_checkpoint_key(patched["checkpoint_key"])
+
+    if tool_name in ("file_diff",):
+        if isinstance(patched.get("from_checkpoint"), str) and patched.get("from_checkpoint"):
+            patched["from_checkpoint"] = _doc_encode_checkpoint_key(patched["from_checkpoint"])
+        if isinstance(patched.get("to_checkpoint"), str) and patched.get("to_checkpoint") not in ("", "current"):
+            patched["to_checkpoint"] = _doc_encode_checkpoint_key(patched["to_checkpoint"])
+
+    return patched
 
 
 def _normalize_tool_call_obj(obj: dict[str, Any]) -> bool:
