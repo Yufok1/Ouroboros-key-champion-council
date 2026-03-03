@@ -8788,10 +8788,26 @@
         var parsed = _safeJsonParse(outputText.trim());
         if (!parsed) parsed = _findFirstJsonObject(outputText);
         if (!parsed || typeof parsed !== 'object') return null;
-        if (parsed.final_answer !== undefined) return { kind: 'final', final_answer: parsed.final_answer };
+        if (parsed.final_answer !== undefined) return { kind: 'final', final_answer: parsed.final_answer, reasoning: parsed.reasoning || null };
         // Dynamic reappropriation: model can request more resources
         var reapprop = parsed.request_more || null;
-        if (parsed.tool) return { kind: 'tool', tool: String(parsed.tool), args: parsed.args && typeof parsed.args === 'object' ? parsed.args : {}, request_more: reapprop };
+
+        // ── MULTI-CALL BATCH: {"calls":[{tool,args},...], "reasoning":"..."} ──
+        if (Array.isArray(parsed.calls) && parsed.calls.length > 0) {
+            var validCalls = [];
+            for (var ci = 0; ci < parsed.calls.length; ci++) {
+                var c = parsed.calls[ci];
+                if (c && typeof c === 'object' && c.tool) {
+                    validCalls.push({ tool: String(c.tool), args: (c.args && typeof c.args === 'object') ? c.args : {} });
+                }
+            }
+            if (validCalls.length > 0) {
+                return { kind: 'batch', calls: validCalls, reasoning: parsed.reasoning || null, request_more: reapprop };
+            }
+        }
+
+        // ── SINGLE TOOL: {"tool":"name","args":{}} ──
+        if (parsed.tool) return { kind: 'tool', tool: String(parsed.tool), args: parsed.args && typeof parsed.args === 'object' ? parsed.args : {}, reasoning: parsed.reasoning || null, request_more: reapprop };
         // Standalone reappropriation request (no tool call)
         if (reapprop) return { kind: 'reappropriate', request_more: reapprop };
         return null;
@@ -8822,7 +8838,7 @@
             return custom + '\n\nAVAILABLE TOOLS (' + granted.length + '): ' + granted.join(', ');
         }
 
-        // Auto-generated compact prompt (optimised for small models)
+        // Auto-generated prompt — supports batch tool calls per iteration
         var maxIter = cfg.maxIterations || parseInt((document.getElementById('achat-max-iter') || {}).value || '5', 10) || 5;
         var maxTok = cfg.maxTokens || parseInt((document.getElementById('achat-max-tokens') || {}).value || '256', 10) || 256;
 
@@ -8835,17 +8851,27 @@
         }
         if (cfg.persona) lines.push(cfg.persona);
 
+        // Response format — batch-first
         lines.push('');
-        lines.push('CRITICAL: Output EXACTLY ONE JSON object. Nothing else. No extra text.');
-        lines.push('To call a tool:  {"tool":"TOOL_NAME","args":{"key":"value"}}');
-        lines.push('To finish:       {"final_answer":"your complete answer"}');
+        lines.push('OUTPUT: Respond with EXACTLY ONE JSON object. No extra text.');
+        lines.push('');
+        lines.push('TOOL CALLS — list one or more tools to run in sequence (one at a time, in order):');
+        lines.push('{"reasoning":"why I need these","calls":[{"tool":"A","args":{}},{"tool":"B","args":{}}]}');
+        lines.push('Each tool runs, then the next. You receive all results together before your next turn.');
+        lines.push('');
+        lines.push('SINGLE CALL shorthand:');
+        lines.push('{"tool":"A","args":{}}');
+        lines.push('');
+        lines.push('FINISH — when you have enough information:');
+        lines.push('{"reasoning":"what I learned","final_answer":"your complete answer"}');
         lines.push('');
 
-        lines.push('Budget: ' + maxIter + ' steps, ' + maxTok + ' tokens/step. Hard limit: ' +
-            (parseInt(cfg.guardMaxWallClockSec || 1800, 10) || 1800) + 's runtime.');
+        // Budget
+        lines.push('Budget: ' + maxIter + ' iterations, ' + maxTok + ' tokens/step, ' +
+            (parseInt(cfg.guardMaxWallClockSec || 1800, 10) || 1800) + 's max runtime.');
 
         if (cfg.reappropriationEnabled) {
-            lines.push('Need more steps? Add "request_more":{"iterations":N} to your JSON.');
+            lines.push('Need more iterations? Add "request_more":{"iterations":N} to your JSON.');
         }
 
         if (cfg.outputFormat && cfg.outputFormat !== 'text') {
@@ -8854,11 +8880,12 @@
 
         lines.push('');
         lines.push('RULES:');
-        lines.push('1. ONE tool per response. Wait for the result before calling the next.');
-        lines.push('2. Start with get_status to orient yourself.');
-        lines.push('3. Use get_capabilities to discover all available tools.');
-        lines.push('4. If a tool fails, try a different one.');
-        lines.push('5. When done, return final_answer with a clear summary.');
+        lines.push('1. Group related calls into one "calls" array. They run sequentially, one at a time.');
+        lines.push('2. Include "reasoning" explaining your plan and what you expect to learn.');
+        lines.push('3. After results arrive, reason about what you learned and reorient your next plan.');
+        lines.push('4. Start by calling get_status and get_capabilities to orient yourself.');
+        lines.push('5. If a tool fails, the rest still run. Adapt based on what succeeded.');
+        lines.push('6. When done, return final_answer with a clear summary.');
         lines.push('');
 
         var starters = [];
@@ -8866,7 +8893,7 @@
             if (granted.indexOf(_STARTER_TOOLS[si]) >= 0) starters.push(_STARTER_TOOLS[si]);
         }
         lines.push('KEY TOOLS: ' + starters.join(', '));
-        lines.push('(' + granted.length + ' total available. Use get_capabilities for the full list.)');
+        lines.push('(' + granted.length + ' total available — call get_capabilities for the full list.)');
 
         return lines.join('\n');
     }
@@ -9172,14 +9199,20 @@
             var directive = _parseAgentDirective(String(modelOut || ''));
 
             // Store only the parsed directive in history (not the full raw output).
-            // This prevents small models that dump multiple JSON objects from
-            // bloating context with 500+ tokens of garbage per turn.
             var trimmedAssistant;
             if (directive) {
-                try { trimmedAssistant = JSON.stringify(directive.kind === 'final' ? { final_answer: directive.final_answer } : directive.kind === 'tool' ? { tool: directive.tool, args: directive.args } : directive); }
-                catch (e) { trimmedAssistant = String(modelOut || ''); }
+                try {
+                    if (directive.kind === 'final') {
+                        trimmedAssistant = JSON.stringify({ reasoning: directive.reasoning || undefined, final_answer: directive.final_answer });
+                    } else if (directive.kind === 'batch') {
+                        trimmedAssistant = JSON.stringify({ reasoning: directive.reasoning || undefined, calls: directive.calls });
+                    } else if (directive.kind === 'tool') {
+                        trimmedAssistant = JSON.stringify({ reasoning: directive.reasoning || undefined, calls: [{ tool: directive.tool, args: directive.args }] });
+                    } else {
+                        trimmedAssistant = JSON.stringify(directive);
+                    }
+                } catch (e) { trimmedAssistant = String(modelOut || ''); }
             } else {
-                // No valid directive — keep raw but truncate hard
                 trimmedAssistant = String(modelOut || '').substring(0, 400);
             }
             loopMsgs.push({ role: 'assistant', content: trimmedAssistant });
@@ -9236,6 +9269,11 @@
                 }
             }
 
+            // Show reasoning if model provided it
+            if (directive && directive.reasoning) {
+                _appendAchatMsg('system-info', 'Reasoning: ' + String(directive.reasoning).substring(0, 500), Date.now(), tab);
+            }
+
             if (!directive) {
                 var fallback = String(modelOut || '').trim() || 'No output returned.';
                 _appendAchatMsg('assistant', fallback, Date.now(), tab);
@@ -9251,71 +9289,107 @@
                 return;
             }
 
-            var calledTool = String(directive.tool || '').trim();
-            var calledArgs = directive.args && typeof directive.args === 'object' ? directive.args : {};
-            if (!calledTool) {
+            // ── Normalize single tool call into a batch of 1 ──
+            var callQueue = [];
+            if (directive.kind === 'batch' && Array.isArray(directive.calls)) {
+                callQueue = directive.calls;
+            } else if (directive.kind === 'tool' && directive.tool) {
+                callQueue = [{ tool: directive.tool, args: directive.args || {} }];
+            }
+
+            if (!callQueue.length) {
                 noProgressCycles += 1;
-                loopMsgs.push({ role: 'user', content: 'Invalid tool directive. Provide either a valid tool call or final_answer.' });
+                loopMsgs.push({ role: 'user', content: 'Invalid directive. Use {"calls":[...]} or {"final_answer":"..."}.' });
                 _emitBudgetTelemetry(_budgetSnapshot('invalid-directive'), true, 'invalid-directive');
                 continue;
             }
-            if (_achatBlockedTools[calledTool] || granted.indexOf(calledTool) < 0) {
-                consecutiveFailures += 1;
-                noProgressCycles += 1;
-                var deny = "Tool '" + calledTool + "' is not granted. Allowed: " + granted.join(', ');
-                var deniedEntry = { tool: calledTool, args: calledArgs, result: 'DENIED - not granted', error: deny, iteration: i };
-                trace.push(deniedEntry);
-                _appendAchatToolTrace([deniedEntry], tab);
-                _logAchatSyntheticActivity([deniedEntry], tab.slot);
-                loopMsgs.push({ role: 'user', content: deny + '. Try another tool or final_answer.' });
-                _emitBudgetTelemetry(_budgetSnapshot('tool-denied'), true, 'tool-denied');
-                if (cfg.haltOnError) {
-                    var denyStop = 'Loop halted (haltOnError=true) after denied tool call.';
-                    _appendAchatMsg('error', denyStop, Date.now(), tab);
-                    await _persistAchatReport(tab, mission, denyStop, trace, i + 1, 'loop');
-                    return;
-                }
-                continue;
+
+            // Cap batch size to prevent runaway (max 8 per iteration)
+            var MAX_BATCH = 8;
+            if (callQueue.length > MAX_BATCH) {
+                _appendAchatMsg('system-info', 'Batch trimmed from ' + callQueue.length + ' to ' + MAX_BATCH + ' calls.', Date.now(), tab);
+                callQueue = callQueue.slice(0, MAX_BATCH);
             }
 
-            _appendAchatMsg('system-info', 'Loop step ' + (i + 1) + '/' + maxIter + ' · tool: ' + calledTool, Date.now(), tab);
-            var toolPayload;
-            try {
-                totalToolCalls += 1;
-                var toolTimeoutMs = Math.max(60000, Math.min(180000, Math.round(45000 + (maxTok * 80))));
-                toolPayload = await callToolAwaitParsed(calledTool, calledArgs, '__internal_agent_loop__', { tabKey: tab.key, timeout: toolTimeoutMs });
-            } catch (toolErr) {
-                consecutiveFailures += 1;
-                noProgressCycles += 1;
-                var errText = String(toolErr && toolErr.message ? toolErr.message : toolErr);
-                var errEntry = { tool: calledTool, args: calledArgs, result: 'ERROR: ' + errText, error: errText, iteration: i };
-                trace.push(errEntry);
-                _appendAchatToolTrace([errEntry], tab);
-                _logAchatSyntheticActivity([errEntry], tab.slot);
-                loopMsgs.push({ role: 'user', content: 'Tool error for ' + calledTool + ': ' + errText + '. Continue with another tool or final_answer.' });
-                _emitBudgetTelemetry(_budgetSnapshot('tool-error'), true, 'tool-error');
-                if (cfg.haltOnError) {
-                    var errStop = 'Loop halted (haltOnError=true) after tool error.';
-                    _appendAchatMsg('error', errStop, Date.now(), tab);
-                    await _persistAchatReport(tab, mission, errStop, trace, i + 1, 'loop');
-                    return;
+            _appendAchatMsg('system-info', 'Loop step ' + (i + 1) + '/' + maxIter + ' · ' + callQueue.length + ' tool' + (callQueue.length > 1 ? 's' : '') + ' queued', Date.now(), tab);
+
+            // ── Execute calls sequentially, one at a time ──
+            var batchResults = [];
+            var batchTraces = [];
+            var batchHadSuccess = false;
+
+            for (var ci = 0; ci < callQueue.length; ci++) {
+                var call = callQueue[ci];
+                var cTool = String(call.tool || '').trim();
+                var cArgs = (call.args && typeof call.args === 'object') ? call.args : {};
+
+                // Check kill switch between calls
+                if (window.__achatKillRequested) break;
+
+                // Validate tool name
+                if (!cTool) {
+                    batchResults.push({ tool: '(empty)', status: 'SKIP', result: 'Empty tool name' });
+                    continue;
                 }
-                continue;
+
+                // Check blocked/granted
+                if (_achatBlockedTools[cTool] || granted.indexOf(cTool) < 0) {
+                    consecutiveFailures += 1;
+                    var denyMsg = "'" + cTool + "' is not granted";
+                    var dEntry = { tool: cTool, args: cArgs, result: 'DENIED', error: denyMsg, iteration: i };
+                    trace.push(dEntry);
+                    batchTraces.push(dEntry);
+                    batchResults.push({ tool: cTool, status: 'DENIED', result: denyMsg });
+                    continue;
+                }
+
+                _appendAchatMsg('system-info', '  → [' + (ci + 1) + '/' + callQueue.length + '] ' + cTool, Date.now(), tab);
+
+                var cPayload;
+                try {
+                    totalToolCalls += 1;
+                    var cTimeout = Math.max(60000, Math.min(180000, Math.round(45000 + (maxTok * 80))));
+                    cPayload = await callToolAwaitParsed(cTool, cArgs, '__internal_agent_loop__', { tabKey: tab.key, timeout: cTimeout });
+                } catch (cErr) {
+                    consecutiveFailures += 1;
+                    var cErrText = String(cErr && cErr.message ? cErr.message : cErr);
+                    var errEntry = { tool: cTool, args: cArgs, result: 'ERROR: ' + cErrText, error: cErrText, iteration: i };
+                    trace.push(errEntry);
+                    batchTraces.push(errEntry);
+                    batchResults.push({ tool: cTool, status: 'ERROR', result: cErrText });
+                    if (cfg.haltOnError) break;
+                    continue;
+                }
+
+                // Success
+                consecutiveFailures = 0;
+                batchHadSuccess = true;
+                var cResultStr = _prettyTruncate(cPayload, 2000);
+                var cTrace = { tool: cTool, args: cArgs, result: cResultStr, iteration: i };
+                trace.push(cTrace);
+                batchTraces.push(cTrace);
+                batchResults.push({ tool: cTool, status: 'OK', result: cResultStr.length > 1200 ? cResultStr.substring(0, 1200) + '\n…[truncated]' : cResultStr });
             }
 
-            // Successful tool step resets failure / no-progress streaks
-            consecutiveFailures = 0;
-            noProgressCycles = 0;
+            // Show batch trace in UI
+            if (batchTraces.length) {
+                _appendAchatToolTrace(batchTraces, tab);
+                _logAchatSyntheticActivity(batchTraces, tab.slot);
+            }
 
-            var resultStr = _prettyTruncate(toolPayload, 3000);
-            var traceEntry = { tool: calledTool, args: calledArgs, result: resultStr, iteration: i };
-            trace.push(traceEntry);
-            _appendAchatToolTrace([traceEntry], tab);
-            _logAchatSyntheticActivity([traceEntry], tab.slot);
-            // Compact result for context: keep under 1500 chars to avoid ballooning
-            var contextResult = resultStr.length > 1500 ? resultStr.substring(0, 1500) + '\n…[truncated]' : resultStr;
-            loopMsgs.push({ role: 'user', content: 'Tool result for ' + calledTool + ':\n' + contextResult + '\n\nRespond with ONE JSON object: next tool call or final_answer.' });
-            _emitBudgetTelemetry(_budgetSnapshot('tool-success'), false, 'tool-success');
+            // Reset no-progress if we had at least one success
+            if (batchHadSuccess) {
+                noProgressCycles = 0;
+            } else {
+                noProgressCycles += 1;
+            }
+
+            // Build aggregated results message for model context
+            var resultsBlock = batchResults.map(function (r, ri) {
+                return (ri + 1) + '. ' + r.tool + ' [' + r.status + ']:\n' + (r.result || 'no output');
+            }).join('\n\n');
+            loopMsgs.push({ role: 'user', content: 'Results (' + batchResults.length + ' calls):\n' + resultsBlock + '\n\nReason about these results. Then respond with your next {"calls":[...]} or {"final_answer":"..."} JSON.' });
+            _emitBudgetTelemetry(_budgetSnapshot('batch-complete'), false, 'batch-complete');
         }
 
         var maxMsg = 'Loop reached max iterations (' + maxIter + ') without final_answer.';
