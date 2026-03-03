@@ -1734,7 +1734,7 @@
         if (!event) return;
 
         // Reduce feed noise from background orchestration and polling.
-        if (ACTIVITY_SILENT_TOOLS.indexOf(event.tool) >= 0 && event.source !== 'external') {
+        if (ACTIVITY_SILENT_TOOLS.indexOf(event.tool) >= 0 && event.source !== 'external' && event.source !== 'agent-inner') {
             return;
         }
 
@@ -8102,25 +8102,32 @@
         if (tab.key === _achatActiveTabKey) _renderAchatMessages(tab);
     }
 
+    // Log a single agent-inner tool call through the real activity pipeline
+    // so it appears in Activity tab, slot drill-in, and chat timeline in real-time.
+    function _logAchatSingleActivity(tc, slotIndex) {
+        if (!tc || !tc.tool) return;
+        var entry = {
+            timestamp: tc.ts || Date.now(),
+            tool: tc.tool || 'agent_tool',
+            category: 'agent',
+            args: Object.assign({}, tc.args || {}),
+            result: tc.result || null,
+            error: tc.error ? String(tc.error) : null,
+            durationMs: tc.durationMs || 0,
+            source: 'agent-inner'
+        };
+        if (slotIndex >= 0) entry.args.slot = slotIndex;
+        // Use the full addActivityEntry pipeline so it flows to
+        // Activity feed, slot drill-in, and external bridge.
+        addActivityEntry(entry);
+    }
+
+    // Batch compat — log multiple at once (used by tool-trace after-the-fact)
     function _logAchatSyntheticActivity(toolCalls, slotIndex) {
         if (!Array.isArray(toolCalls) || !toolCalls.length) return;
         for (var i = 0; i < toolCalls.length; i++) {
-            var tc = toolCalls[i] || {};
-            var entry = {
-                timestamp: Date.now(),
-                tool: tc.tool || tc.name || 'agent_tool',
-                category: 'agent',
-                args: tc.args || {},
-                result: tc.result || null,
-                error: tc.error ? String(tc.error) : null,
-                durationMs: 0,
-                source: 'agent-inner'
-            };
-            if (slotIndex >= 0) entry.args.slot = slotIndex;
-            _activityLog.push(entry);
-            if (_activityLog.length > 500) _activityLog = _activityLog.slice(-500);
+            _logAchatSingleActivity(toolCalls[i], slotIndex);
         }
-        renderActivityFeed();
     }
 
     function _renderAchatToolSelect(tab) {
@@ -9358,6 +9365,7 @@
                 _appendAchatMsg('system-info', '  → [' + (ci + 1) + '/' + callQueue.length + '] ' + cTool, Date.now(), tab);
 
                 var cPayload;
+                var cStartMs = Date.now();
                 try {
                     totalToolCalls += 1;
                     var cTimeout = Math.max(60000, Math.min(180000, Math.round(45000 + (maxTok * 80))));
@@ -9365,28 +9373,29 @@
                 } catch (cErr) {
                     consecutiveFailures += 1;
                     var cErrText = String(cErr && cErr.message ? cErr.message : cErr);
-                    var errEntry = { tool: cTool, args: cArgs, result: 'ERROR: ' + cErrText, error: cErrText, iteration: i };
+                    var errEntry = { tool: cTool, args: cArgs, result: 'ERROR: ' + cErrText, error: cErrText, iteration: i, durationMs: Date.now() - cStartMs, ts: cStartMs };
                     trace.push(errEntry);
                     batchTraces.push(errEntry);
                     batchResults.push({ tool: cTool, status: 'ERROR', result: cErrText });
+                    // Log to Activity tab in real-time
+                    _logAchatSingleActivity(errEntry, tab.slot);
+                    _appendAchatToolTrace([errEntry], tab);
                     if (cfg.haltOnError) break;
                     continue;
                 }
 
-                // Success
+                // Success — log immediately so Activity + drill-in update in real-time
+                var cDuration = Date.now() - cStartMs;
                 consecutiveFailures = 0;
                 batchHadSuccess = true;
                 var cResultStr = _prettyTruncate(cPayload, 2000);
-                var cTrace = { tool: cTool, args: cArgs, result: cResultStr, iteration: i };
+                var cTrace = { tool: cTool, args: cArgs, result: cResultStr, iteration: i, durationMs: cDuration, ts: cStartMs };
                 trace.push(cTrace);
                 batchTraces.push(cTrace);
                 batchResults.push({ tool: cTool, status: 'OK', result: cResultStr.length > 1200 ? cResultStr.substring(0, 1200) + '\n…[truncated]' : cResultStr });
-            }
-
-            // Show batch trace in UI
-            if (batchTraces.length) {
-                _appendAchatToolTrace(batchTraces, tab);
-                _logAchatSyntheticActivity(batchTraces, tab.slot);
+                // Real-time activity logging — appears in Activity tab as each call completes
+                _logAchatSingleActivity(cTrace, tab.slot);
+                _appendAchatToolTrace([cTrace], tab);
             }
 
             // Reset no-progress if we had at least one success
