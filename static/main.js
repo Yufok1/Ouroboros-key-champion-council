@@ -60,7 +60,7 @@
     var _achatBlockedTools = {
         "workflow_execute": 1, "start_api_server": 1, "implode": 1, "defrost": 1,
         "spawn_quine": 1, "spawn_swarm": 1, "replicate": 1, "export_quine": 1,
-        "plug_model": 1, "unplug_slot": 1
+        "plug_model": 1, "unplug_slot": 1, "call": 1
     };
 
     // ── NIP-88: POLL STATE ──
@@ -4198,6 +4198,10 @@
                 var resp = payload;
                 if (resp && resp.error) {
                     _appendAchatMsg('error', String(resp.error), Date.now(), activeTab);
+                    if (isLoopIter && activeTab && activeTab._loopState) {
+                        _setAchatBusy(false);
+                        activeTab._loopState = null;
+                    }
                     return;
                 }
 
@@ -4216,6 +4220,10 @@
                 var resultObj = (resp && resp.result) ? resp.result : (resp || {});
                 if (resultObj.error) {
                     _appendAchatMsg('error', String(resultObj.error), Date.now(), tab);
+                    if (isLoopIter && tab && tab._loopState) {
+                        _setAchatBusy(false);
+                        tab._loopState = null;
+                    }
                     return;
                 }
 
@@ -4293,6 +4301,10 @@
                 }
             } catch (e3) {
                 _appendAchatMsg('assistant', parseToolData(msg.data), Date.now(), activeTab);
+                if (isLoopIter && activeTab && activeTab._loopState) {
+                    _setAchatBusy(false);
+                    activeTab._loopState = null;
+                }
             }
             return;
         }
