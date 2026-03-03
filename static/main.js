@@ -9782,8 +9782,8 @@
         }
         tab.selectedTool = toolName;
 
-        // For loop mode with agent_chat: iterate with max_iterations=2 per call
-        // (1 for tool call + 1 for synthesis) so each tool call shows up LIVE.
+        // For loop mode with agent_chat: fire one tool call per step (max_iterations=1),
+        // with a +1 synthesis pass appended at the end of the chain for final answer.
         if ((tab.runMode || 'direct') === 'loop' && toolName === 'agent_chat') {
             var mission = msg || 'Proceed with the configured objective.';
             _appendAchatMsg('user', 'MISSION: ' + mission, Date.now(), tab);
@@ -9800,6 +9800,10 @@
                 _appendAchatMsg('system-info', 'Auto-expanding max iterations from ' + _maxIter + ' to ' + _minCalls + ' to satisfy required tool-call target (' + _minCalls + ' granted tools).', Date.now(), tab);
                 _maxIter = _minCalls;
             }
+            // Always +1: reserve a final iteration for synthesis/final_answer.
+            // User sets N iterations for tool calls; the system adds 1 on top
+            // so the model always gets a dedicated synthesis pass at the end.
+            _maxIter += 1;
             tab._loopState = {
                 mission: mission,
                 nextMessage: mission,
@@ -9832,10 +9836,11 @@
     }
     window.sendAgentChat = sendAgentChat;
 
-    // Fire a single agent_chat step with max_iterations=2 (tool call + synthesis).
-    // The capsule refuses tool calls on the final iteration, so we always give +1
-    // to guarantee the model can call a tool AND produce a final answer.
-    // The response handler checks tab._loopState and auto-fires next step.
+    // Fire a single agent_chat step.
+    // Normal iterations: max_iterations=1 (call one tool).
+    // Final iteration (+1 synthesis pass): max_iterations=1 with a synthesis
+    // prompt — the model sees "this is your last iteration" and produces a
+    // comprehensive final answer instead of calling a tool.
     function _fireAgentIteration(tab) {
         if (!tab || !tab._loopState) return;
         var ls = tab._loopState;
@@ -9845,34 +9850,47 @@
             tab._loopState = null;
             return;
         }
-        _appendAchatMsg('system-info', 'Iteration ' + (ls.iteration + 1) + '/' + ls.maxIterations + ' — thinking…', Date.now(), tab);
+
+        var isSynthesisPass = (ls.iteration === ls.maxIterations - 1);
+        var iterLabel = isSynthesisPass
+            ? 'Iteration ' + (ls.iteration + 1) + '/' + ls.maxIterations + ' — final synthesis…'
+            : 'Iteration ' + (ls.iteration + 1) + '/' + ls.maxIterations + ' — thinking…';
+        _appendAchatMsg('system-info', iterLabel, Date.now(), tab);
+
         var nextMsg = String(ls.nextMessage || ls.mission || '').trim() || 'Continue the task with granted tools.';
-        var _minCalls = parseInt(ls.minToolCalls, 10) || 1;
-        if (_minCalls > 1) {
-            var _remaining = Math.max(0, _minCalls - (parseInt(ls.totalToolCalls, 10) || 0));
+
+        if (isSynthesisPass) {
+            // Final +1 pass: tell the model to synthesize everything into a final report.
+            var used = Object.keys(ls.calledTools || {});
             nextMsg =
-                'SEQUENTIAL EXECUTION ONLY. Call exactly one granted tool this turn. ' +
-                'Do not execute multiple tool calls in a single step. ' +
-                'Current progress: ' + (ls.totalToolCalls || 0) + '/' + _minCalls + ' tool calls (remaining ' + _remaining + ').\n\n' +
-                nextMsg;
+                'This is your FINAL iteration. Do NOT call any more tools. ' +
+                'Produce a comprehensive final_answer summarizing ALL findings from your ' +
+                ls.totalToolCalls + ' tool calls (' + used.join(', ') + '). ' +
+                'Be thorough — include key data points, anomalies, and conclusions.\n\n' +
+                'Original mission: ' + (ls.mission || 'N/A');
+        } else {
+            var _minCalls = parseInt(ls.minToolCalls, 10) || 1;
+            if (_minCalls > 1) {
+                var _remaining = Math.max(0, _minCalls - (parseInt(ls.totalToolCalls, 10) || 0));
+                nextMsg =
+                    'SEQUENTIAL EXECUTION ONLY. Call exactly one granted tool this turn. ' +
+                    'Do not execute multiple tool calls in a single step. ' +
+                    'Current progress: ' + (ls.totalToolCalls || 0) + '/' + _minCalls + ' tool calls (remaining ' + _remaining + ').\n\n' +
+                    nextMsg;
+            }
         }
+
         // Embed orchestration prompt into the first message only (capsule has no system_prompt param).
-        // The capsule builds a thin system prompt internally, so we inject ours as a message preamble.
         if (ls.iteration === 0) {
             var sysPrompt = _buildLoopSystemPrompt(tab);
             if (sysPrompt) {
                 nextMsg = '[SYSTEM INSTRUCTIONS]\n' + sysPrompt + '\n\n[USER MISSION]\n' + nextMsg;
             }
         }
-        // Use max_iterations=2 per step: the capsule's internal prompt tells
-        // the model "this is your last iteration" on the final one, causing it
-        // to refuse tool calls with max_iterations=1. With 2, the model calls
-        // a tool in iteration 1 and synthesizes a response in iteration 2.
-        // The frontend loop handler then decides whether to continue.
         var args = {
             slot: tab.slot,
             message: nextMsg,
-            max_iterations: 2,
+            max_iterations: 1,
             max_tokens: ls.maxTokens,
             granted_tools: Array.isArray(tab.grantedTools) ? tab.grantedTools.slice() : []
         };
