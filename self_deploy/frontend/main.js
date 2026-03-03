@@ -8965,6 +8965,8 @@
     }
 
     async function _persistAchatReport(tab, mission, finalAnswer, trace, iterations, mode) {
+        var cfg = (tab && tab.agentConfig) || _defaultAgentConfig();
+        if (!cfg.persistMemory) return;
         var key = 'agent_console_report:' + tab.slot + ':' + Date.now();
         var payload = {
             slot: tab.slot,
@@ -9395,6 +9397,23 @@
                 }
 
                 _appendAchatMsg('system-info', '  → [' + (ci + 1) + '/' + callQueue.length + '] ' + cTool, Date.now(), tab);
+
+                if (cfg.requireConfirmation) {
+                    var confirmPreview = '';
+                    try { confirmPreview = JSON.stringify(cArgs); } catch (e) { confirmPreview = String(cArgs); }
+                    if (confirmPreview.length > 220) confirmPreview = confirmPreview.substring(0, 220) + '...';
+                    var approved = false;
+                    try { approved = window.confirm('Approve tool call?\n\n' + cTool + '(' + confirmPreview + ')'); }
+                    catch (eConfirm) { approved = false; }
+                    if (!approved) {
+                        var skipEntry = { tool: cTool, args: cArgs, result: 'SKIPPED - operator denied', error: 'operator_denied', iteration: i, durationMs: 0, ts: Date.now() };
+                        trace.push(skipEntry);
+                        batchTraces.push(skipEntry);
+                        batchResults.push({ tool: cTool, status: 'SKIP', result: 'operator denied' });
+                        _appendAchatToolTrace([skipEntry], tab);
+                        continue;
+                    }
+                }
 
                 var cPayload;
                 var cStartMs = Date.now();
