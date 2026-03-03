@@ -4217,6 +4217,10 @@
                 if (payload && payload._cached) {
                     var _cacheId = String(payload._cached || '').trim();
                     var _cacheSize = parseInt(payload._size, 10) || 0;
+                    // Preserve session_id from cached stub before following through
+                    if (payload.session_id && activeTab) {
+                        activeTab.sessionId = payload.session_id;
+                    }
                     _appendAchatCacheHint(_cacheId, _cacheSize, activeTab, toolName);
                     var _cachedMeta = {};
                     if (activeTab && activeTab.key) _cachedMeta.tabKey = activeTab.key;
@@ -4353,9 +4357,17 @@
                     }
 
                     var hasRealAnswer = !!(answer && !/agent reached max iterations/i.test(String(answer)));
+                    var isSynthesized = !!(resultObj._synthesized);
                     var minCalls = parseInt(ls.minToolCalls, 10) || 1;
                     var hasMinToolEvidence = ls.totalToolCalls >= minCalls;
                     var remainingCalls = Math.max(0, minCalls - ls.totalToolCalls);
+
+                    // CRITICAL: Synthesized answers are postprocessor-generated summaries
+                    // of tool results — NOT the model's own decision to stop. The model
+                    // returned empty, so it never chose to finalize. Always continue the loop.
+                    if (isSynthesized && ls.iteration < ls.maxIterations) {
+                        hasRealAnswer = false;
+                    }
 
                     // Don't accept hallucinated completion before required tool evidence is met.
                     if (hasRealAnswer && !hasMinToolEvidence && ls.iteration < ls.maxIterations) {
@@ -4374,25 +4386,76 @@
                         _setAchatBusy(false);
                         tab._loopState = null;
                     } else if (ls.iteration >= ls.maxIterations) {
-                        _appendAchatMsg('error',
-                            'Loop reached max iterations (' + ls.maxIterations + ') with ' + ls.totalToolCalls +
-                            ' tool calls (target: ' + minCalls + ').',
-                            Date.now(), tab);
-                        _setAchatBusy(false);
-                        tab._loopState = null;
+                        // ── AUTO-REAPPROPRIATION: extend the loop if approval mode allows ──
+                        var _reapCfg = tab.agentConfig || _defaultAgentConfig();
+                        var _reapMode = _reapCfg.resourceApprovalMode || 'capped';
+                        var _reapGuard = parseInt(_reapCfg.guardMaxToolCalls || 400, 10);
+                        var _reapGrant = 0;
+                        var _reapApproved = false;
+
+                        if (!hasRealAnswer && (_reapMode === 'auto_all' || _reapMode === 'capped')) {
+                            // Agent hasn't produced a real answer — auto-extend
+                            var _reapRequest = Math.max(5, Math.min(20, minCalls - ls.totalToolCalls + 5));
+                            if (_reapMode === 'auto_all') {
+                                _reapGrant = Math.min(_reapRequest, 50);
+                                _reapApproved = true;
+                            } else if (_reapMode === 'capped') {
+                                _reapGrant = Math.min(_reapRequest, 20);
+                                _reapApproved = (ls.maxIterations + _reapGrant) <= _reapGuard;
+                            }
+                        }
+
+                        if (_reapApproved && _reapGrant > 0) {
+                            ls.maxIterations += _reapGrant;
+                            _appendAchatMsg('system-info',
+                                'AUTO-REAPPROPRIATION: +' + _reapGrant + ' iterations granted (now ' + ls.maxIterations + ' max). ' +
+                                'Progress: ' + ls.totalToolCalls + '/' + minCalls + ' tool calls. Mode: ' + _reapMode + '.',
+                                Date.now(), tab);
+                            // Don't increment iteration — just extend and continue
+                            ls.nextMessage =
+                                'You have been granted ' + _reapGrant + ' additional iterations (' + (ls.maxIterations - ls.iteration) + ' remaining). ' +
+                                'Continue working through your granted tools systematically. ' +
+                                'Call exactly one tool this turn.';
+                            _fireAgentIteration(tab);
+                        } else {
+                            _appendAchatMsg('error',
+                                'Loop reached max iterations (' + ls.maxIterations + ') with ' + ls.totalToolCalls +
+                                ' tool calls (target: ' + minCalls + ').' +
+                                (_reapMode === 'manual' ? ' Reappropriation mode is manual — set to "Auto-Approve" in agent config to enable auto-continuation.' : ''),
+                                Date.now(), tab);
+                            _setAchatBusy(false);
+                            tab._loopState = null;
+                        }
                     } else {
                         var used = Object.keys(ls.calledTools || {});
                         var usedPreview = used.slice(0, 8).join(', ');
+                        var granted = Array.isArray(tab.grantedTools) ? tab.grantedTools : [];
+                        var notYetCalled = granted.filter(function (t) { return !ls.calledTools[t]; });
+                        var notYetPreview = notYetCalled.slice(0, 10).join(', ');
+
+                        // Build a brief summary of last tool result for context
+                        var lastToolCtx = '';
+                        if (toolCalls.length > 0) {
+                            var lastTc = toolCalls[toolCalls.length - 1];
+                            var lastResult = String(lastTc.result || lastTc.error || '').substring(0, 400);
+                            if (lastResult) {
+                                lastToolCtx = '\n\nLast tool result (' + (lastTc.tool || '?') + '): ' + lastResult;
+                                if (String(lastTc.result || '').length > 400) lastToolCtx += '…[truncated]';
+                            }
+                        }
+
                         if (ls.totalToolCalls <= 0) {
                             ls.nextMessage =
                                 'SEQUENTIAL EXECUTION ONLY. You have not executed any tools yet. ' +
-                                'Call exactly one granted tool now. Do not return final_answer yet.';
+                                'Call exactly one granted tool now. Do not return final_answer yet.' +
+                                (notYetPreview ? '\n\nAvailable tools to try: ' + notYetPreview : '');
                         } else {
                             ls.nextMessage =
                                 'SEQUENTIAL EXECUTION ONLY. Continue with exactly one granted tool call this turn. ' +
                                 'Do not finalize until required tool-call target is met (' + ls.totalToolCalls + '/' + minCalls + ', remaining ' + remainingCalls + '). ' +
-                                (usedPreview ? ('Tools already used: ' + usedPreview + '. ') : '') +
-                                'Use real tool outputs only.';
+                                (usedPreview ? 'Tools already used: ' + usedPreview + '. ' : '') +
+                                (notYetPreview ? 'Tools NOT yet called: ' + notYetPreview + '. ' : '') +
+                                'Use real tool outputs only.' + lastToolCtx;
                         }
                         _fireAgentIteration(tab);
                     }
