@@ -153,47 +153,133 @@ async def postprocess_tool_result(
             }
             return {"result": {"content": [{"type": "text", "text": json.dumps(safe)}]}}
 
-    # compare / debate may fail for chat templates that reject system role.
-    if tool_name in ("compare", "debate") and isinstance(parsed, dict):
+    # --- Helper: detect retryable slot errors ---
+    def _is_retryable_slot_error(err_str: str) -> bool:
+        if not err_str:
+            return False
+        markers = ("Remote embedding failed", "HTTP Error 404", "System role not supported",
+                    "not callable", "is not callable", "embedding failed")
+        return any(m.lower() in err_str.lower() for m in markers)
+
+    async def _retry_slot_generate(slot_idx: int, text: str, max_tokens: int = 300):
+        try:
+            retry = await call_tool_fn("invoke_slot", {
+                "slot": int(slot_idx), "text": text, "mode": "generate", "max_tokens": max_tokens,
+            })
+            retry_parsed = parse_mcp_result(retry.get("result"))
+            if isinstance(retry_parsed, dict):
+                out = retry_parsed.get("output", "")
+                if out:
+                    return str(out)
+        except Exception:
+            pass
+        return None
+
+    # --- Fix compare: retry slots that fail ---
+    if tool_name == "compare" and isinstance(parsed, dict):
         comparisons = parsed.get("comparisons", [])
+        patched = False
+        for entry in comparisons:
+            err = str(entry.get("error", ""))
+            if entry.get("status") == "error" and _is_retryable_slot_error(err):
+                slot_idx = entry.get("slot")
+                if slot_idx is not None:
+                    out = await _retry_slot_generate(slot_idx, args.get("input_text", ""))
+                    if out:
+                        entry["type"] = "generation"
+                        entry["output"] = out
+                        entry.pop("error", None)
+                        entry["status"] = "ok"
+                        entry["note"] = "retried via generate mode"
+                        patched = True
+        if patched:
+            return {"result": {"content": [{"type": "text", "text": json.dumps(parsed)}]}}
+
+    # --- Fix debate: retry slots that fail ---
+    if tool_name == "debate" and isinstance(parsed, dict):
         transcript = parsed.get("transcript", [])
         patched = False
-
-        for entry in comparisons:
-            err = entry.get("error")
-            if err == "System role not supported" or (
-                entry.get("status") == "error" and "System role" in str(err)
-            ):
-                slot_idx = entry.get("slot")
-                if slot_idx is None:
-                    continue
-                retry = await call_tool_fn(
-                    "invoke_slot",
-                    {
-                        "slot": slot_idx,
-                        "text": args.get("input_text", ""),
-                        "mode": "forward",
-                        "max_tokens": 200,
-                    },
-                )
-                retry_parsed = parse_mcp_result(retry.get("result"))
-                if isinstance(retry_parsed, dict) and "output" in retry_parsed:
-                    entry["type"] = "generation"
-                    entry["output"] = retry_parsed["output"]
-                    entry.pop("error", None)
-                    entry.pop("status", None)
-                    entry["note"] = "retried via forward mode (no system role)"
-                    patched = True
-
-        for round_entry in transcript:
-            for entry in round_entry.get("entries", []):
-                if entry.get("error") == "System role not supported":
-                    entry["response"] = "[Skipped: model does not support system role in chat template]"
-                    entry["type"] = "skipped"
-                    entry.pop("error", None)
-                    patched = True
-
+        for rnd in transcript:
+            for entry in rnd.get("entries", []):
+                err = str(entry.get("error", ""))
+                if _is_retryable_slot_error(err):
+                    slot_idx = None
+                    councilor = entry.get("councilor", "")
+                    try:
+                        slots_result = await call_tool_fn("list_slots", {})
+                        slots_parsed = parse_mcp_result(slots_result.get("result"))
+                        if isinstance(slots_parsed, dict):
+                            for s in slots_parsed.get("slots", []):
+                                if s.get("name") == councilor and s.get("plugged"):
+                                    slot_idx = s.get("index")
+                                    break
+                    except Exception:
+                        pass
+                    if slot_idx is not None:
+                        topic = args.get("text", "")
+                        prompt = f"Debate topic: {topic}\nProvide your position in a clear paragraph."
+                        out = await _retry_slot_generate(slot_idx, prompt, 400)
+                        if out:
+                            entry["response"] = out
+                            entry.pop("error", None)
+                            entry["note"] = "retried via generate mode"
+                            patched = True
+                    else:
+                        entry["response"] = f"[Skipped: {err}]"
+                        entry.pop("error", None)
+                        entry["type"] = "skipped"
+                        patched = True
         if patched:
+            return {"result": {"content": [{"type": "text", "text": json.dumps(parsed)}]}}
+
+    # --- Fix broadcast/all_slots: retry slots that fail ---
+    if tool_name in ("broadcast", "all_slots") and isinstance(parsed, dict):
+        responses = parsed.get("responses", [])
+        patched = False
+        for entry in responses:
+            err = str(entry.get("error", ""))
+            if _is_retryable_slot_error(err):
+                slot_idx = entry.get("slot")
+                if slot_idx is not None:
+                    text = args.get("message", "") or args.get("text", "")
+                    out = await _retry_slot_generate(slot_idx, text)
+                    if out:
+                        entry["response"] = out
+                        entry.pop("error", None)
+                        entry.pop("status", None)
+                        entry["note"] = "retried via generate mode"
+                        patched = True
+        if patched:
+            return {"result": {"content": [{"type": "text", "text": json.dumps(parsed)}]}}
+
+    # --- Fix pipe/chain: retry slots that fail ---
+    if tool_name in ("pipe", "chain") and isinstance(parsed, dict):
+        trace = parsed.get("trace", [])
+        patched = False
+        prev_output = args.get("input_text", "") or args.get("text", "")
+        for entry in trace:
+            if entry.get("slot") == "input":
+                prev_output = entry.get("output", "") or entry.get("value", "") or prev_output
+                continue
+            err = str(entry.get("error", ""))
+            if _is_retryable_slot_error(err):
+                slot_idx = entry.get("slot")
+                if slot_idx is not None:
+                    out = await _retry_slot_generate(slot_idx, prev_output)
+                    if out:
+                        entry["output"] = out
+                        entry.pop("error", None)
+                        entry.pop("status", None)
+                        entry["note"] = "retried via generate mode"
+                        prev_output = out
+                        patched = True
+            elif entry.get("output"):
+                prev_output = entry["output"]
+        if patched:
+            if "final_output" in parsed and trace:
+                last_ok = [e for e in trace if e.get("output") and e.get("slot") != "input"]
+                if last_ok:
+                    parsed["final_output"] = last_ok[-1]["output"]
             return {"result": {"content": [{"type": "text", "text": json.dumps(parsed)}]}}
 
     # agent_chat: resolve cached responses for inner tool call broadcasting.
@@ -230,6 +316,35 @@ async def postprocess_tool_result(
         _result = _full_parsed.get("result") if isinstance(_full_parsed.get("result"), dict) else _full_parsed
         _fa = str(_result.get("final_answer", "")).strip() if isinstance(_result, dict) else ""
         _tc = _result.get("tool_calls", []) if isinstance(_result, dict) else []
+
+        # --- Strip <think>...</think> reasoning blocks from final_answer ---
+        import re as _re
+        if _fa and "<think>" in _fa:
+            _stripped = _re.sub(r"<think>[\s\S]*?</think>\s*", "", _fa).strip()
+            if not _stripped and "<think>" in _fa:
+                _after_think = _re.split(r"</think>\s*", _fa, maxsplit=1)
+                if len(_after_think) > 1:
+                    _stripped = _after_think[-1].strip()
+            if _stripped:
+                _fa = _stripped
+                _result["final_answer"] = _fa
+                _result["_think_stripped"] = True
+            else:
+                _fa = ""
+                _result["final_answer"] = ""
+                _result["_think_stripped"] = True
+
+        # --- Unwrap double-nested JSON in final_answer ---
+        if _fa and _fa.startswith("{"):
+            try:
+                _inner = json.loads(_fa)
+                if isinstance(_inner, dict) and "final_answer" in _inner:
+                    _fa = str(_inner["final_answer"]).strip()
+                    _result["final_answer"] = _fa
+                    _result["_unwrapped"] = True
+            except (json.JSONDecodeError, ValueError):
+                pass
+
         _empty_markers = (
             "", "model returned an empty response.", "model returned an empty response",
             "no response received", "no response received.",
@@ -321,5 +436,50 @@ async def postprocess_tool_result(
                 "original_error": err,
             }
             return _return_parsed(normalized)
+
+    # --- Fix invoke_slot/generate: strip <think> blocks ---
+    if tool_name in ("invoke_slot", "generate") and isinstance(parsed, dict):
+        import re as _re_gen
+        _out = str(parsed.get("output", "")).strip()
+        if _out and "<think>" in _out:
+            _clean = _re_gen.sub(r"<think>[\s\S]*?</think>\s*", "", _out).strip()
+            if not _clean:
+                _after = _re_gen.split(r"</think>\s*", _out, maxsplit=1)
+                _clean = _after[-1].strip() if len(_after) > 1 else ""
+            if _clean:
+                parsed["output"] = _clean
+                parsed["_think_stripped"] = True
+                return _return_parsed(parsed)
+
+    # --- Fix chat: strip <think> blocks, retry empty ---
+    if tool_name == "chat" and isinstance(parsed, dict):
+        _response = str(parsed.get("response", "")).strip()
+        if _response and "<think>" in _response:
+            import re as _re_chat
+            _clean = _re_chat.sub(r"<think>[\s\S]*?</think>\s*", "", _response).strip()
+            if not _clean:
+                _after = _re_chat.split(r"</think>\s*", _response, maxsplit=1)
+                _clean = _after[-1].strip() if len(_after) > 1 else ""
+            if _clean:
+                parsed["response"] = _clean
+                return _return_parsed(parsed)
+            else:
+                _response = ""
+        if not _response and args.get("message"):
+            _slot = args.get("slot", 0)
+            try:
+                retry = await call_tool_fn("invoke_slot", {
+                    "slot": int(_slot), "text": str(args["message"]),
+                    "mode": "generate", "max_tokens": 512,
+                })
+                retry_parsed = parse_mcp_result(retry.get("result"))
+                if isinstance(retry_parsed, dict):
+                    _out = retry_parsed.get("output", "")
+                    if _out:
+                        parsed["response"] = _out
+                        parsed["_fallback"] = "invoke_slot_generate"
+                        return _return_parsed(parsed)
+            except Exception:
+                pass
 
     return result

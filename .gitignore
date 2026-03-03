@@ -20,3 +20,4 @@ self_deploy/capsule/*
 !self_deploy/capsule/.gitkeep
 self_deploy/capsule_state_*.pt
 self_deploy/data/
+AGENT_ONBOARDING.md
