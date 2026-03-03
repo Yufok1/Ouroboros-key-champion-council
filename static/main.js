@@ -8797,80 +8797,80 @@
         return null;
     }
 
+    // Short list of useful orientation tools for system prompt
+    var _STARTER_TOOLS = [
+        'get_status', 'get_about', 'get_capabilities', 'list_slots', 'slot_info',
+        'heartbeat', 'get_help', 'get_readme', 'list_models',
+        'bag_search', 'bag_list_docs', 'bag_get',
+        'council_status', 'workflow_list'
+    ];
+
+    // Tools the agent loop must NEVER let the model call (recursive / destructive)
+    var _LOOP_FORCE_BLOCKED = [
+        'invoke_slot', 'agent_chat', 'plug_model', 'unplug_slot',
+        'implode', 'replicate', 'spawn_quine', 'spawn_swarm',
+        'export_quine', 'defrost', 'start_api_server', 'workflow_execute'
+    ];
+
     function _buildLoopSystemPrompt(tab) {
         var cfg = (tab && tab.agentConfig) || _defaultAgentConfig();
+        var granted = Array.isArray(tab.grantedTools) ? tab.grantedTools : [];
 
         // If user provided a custom system prompt, use it directly
         if (cfg.systemPrompt && cfg.systemPrompt.trim()) {
             var custom = cfg.systemPrompt.trim();
-            // Append granted tools list so the model always knows what's available
-            var granted = Array.isArray(tab.grantedTools) ? tab.grantedTools : [];
-            return custom + '\n\nGRANTED TOOLS (' + granted.length + '): ' + granted.join(', ');
+            return custom + '\n\nAVAILABLE TOOLS (' + granted.length + '): ' + granted.join(', ');
         }
 
-        // Auto-generated default prompt
-        var granted = Array.isArray(tab.grantedTools) ? tab.grantedTools : [];
+        // Auto-generated compact prompt (optimised for small models)
         var maxIter = cfg.maxIterations || parseInt((document.getElementById('achat-max-iter') || {}).value || '5', 10) || 5;
         var maxTok = cfg.maxTokens || parseInt((document.getElementById('achat-max-tokens') || {}).value || '256', 10) || 256;
 
         var lines = [];
 
-        // Identity block
         if (cfg.agentName) {
-            lines.push('You are ' + cfg.agentName + ', an AI agent operating inside a Glass Box AI Capsule (Champion Council).');
+            lines.push('You are ' + cfg.agentName + ', an AI agent inside a Glass Box AI Capsule.');
         } else {
-            lines.push('You are an MCP orchestration agent operating inside a Glass Box AI Capsule (Champion Council).');
+            lines.push('You are an AI agent inside a Glass Box AI Capsule.');
         }
-        if (cfg.agentDescription) lines.push('Purpose: ' + cfg.agentDescription);
-        if (cfg.persona) lines.push('Persona: ' + cfg.persona);
-        lines.push('You have ' + granted.length + ' granted tools. Current budget: ' + maxIter + ' iterations, ' + maxTok + ' tokens/step.');
+        if (cfg.persona) lines.push(cfg.persona);
+
+        lines.push('');
+        lines.push('CRITICAL: Output EXACTLY ONE JSON object. Nothing else. No extra text.');
+        lines.push('To call a tool:  {"tool":"TOOL_NAME","args":{"key":"value"}}');
+        lines.push('To finish:       {"final_answer":"your complete answer"}');
         lines.push('');
 
-        // Response format
-        lines.push('RESPONSE FORMAT: Respond with EXACTLY ONE JSON object per turn.');
-        lines.push('{"tool": "tool_name", "args": {"param": "value"}}   — call a tool');
-        lines.push('{"final_answer": "complete answer"}                  — task complete');
-        lines.push('');
+        lines.push('Budget: ' + maxIter + ' steps, ' + maxTok + ' tokens/step. Hard limit: ' +
+            (parseInt(cfg.guardMaxWallClockSec || 1800, 10) || 1800) + 's runtime.');
 
-        // Dynamic reappropriation
         if (cfg.reappropriationEnabled) {
-            lines.push('DYNAMIC REAPPROPRIATION: If you need more resources, add request_more to any response:');
-            lines.push('{"tool": "get_status", "args": {}, "request_more": {"iterations": 3, "tokens": 512}}');
-            lines.push('{"request_more": {"iterations": 5}}                  — request only (no tool call)');
-            lines.push('The loop will extend by the requested amount (capped at +10 iterations, +2048 tokens).');
-            lines.push('');
+            lines.push('Need more steps? Add "request_more":{"iterations":N} to your JSON.');
         }
 
-        var reqMode = String(cfg.resourceApprovalMode || 'capped').toLowerCase();
-        if (reqMode !== 'manual' && reqMode !== 'auto_all' && reqMode !== 'capped') reqMode = 'capped';
-        var guardRuntime = parseInt(cfg.guardMaxWallClockSec || 1800, 10) || 1800;
-        var guardCalls = parseInt(cfg.guardMaxToolCalls || 400, 10) || 400;
-        var guardFails = parseInt(cfg.guardMaxConsecutiveFailures || 8, 10) || 8;
-        var guardNoProgress = parseInt(cfg.guardMaxNoProgressCycles || 10, 10) || 10;
-        lines.push('RESOURCE REQUEST POLICY: ' + reqMode.toUpperCase() + '.');
-        lines.push('HARD BRAKES (non-disableable): runtime=' + guardRuntime + 's, max_tool_calls=' + guardCalls + ', max_consecutive_failures=' + guardFails + ', max_no_progress_cycles=' + guardNoProgress + '.');
-        lines.push('You will receive runtime_budget telemetry JSON while running.');
-        lines.push('When runtime_budget.overall.severity is WARN/CRITICAL/IMMINENT, prioritize checkpointing and final_answer.');
-        lines.push('');
-
-        // Output format
         if (cfg.outputFormat && cfg.outputFormat !== 'text') {
-            lines.push('OUTPUT FORMAT: Return final_answer content as ' + cfg.outputFormat.toUpperCase() + '.');
-            lines.push('');
+            lines.push('Output final_answer as ' + cfg.outputFormat.toUpperCase() + '.');
         }
 
-        // Rules
-        lines.push('RULES:');
-        lines.push('- Use ONLY granted tools. Do NOT invent tools that are not in the list below.');
-        lines.push('- One tool per turn. Observe the result, then decide next action.');
-        lines.push('- Be proactive: use get_status, get_about, list_slots, get_capabilities to orient yourself.');
-        lines.push('- If a tool errors or is denied, try a different approach.');
-        lines.push('- When you have enough information, return final_answer with a clear summary.');
         lines.push('');
-        lines.push('GRANTED TOOLS (' + granted.length + '): ' + granted.join(', '));
+        lines.push('RULES:');
+        lines.push('1. ONE tool per response. Wait for the result before calling the next.');
+        lines.push('2. Start with get_status to orient yourself.');
+        lines.push('3. Use get_capabilities to discover all available tools.');
+        lines.push('4. If a tool fails, try a different one.');
+        lines.push('5. When done, return final_answer with a clear summary.');
+        lines.push('');
+
+        var starters = [];
+        for (var si = 0; si < _STARTER_TOOLS.length; si++) {
+            if (granted.indexOf(_STARTER_TOOLS[si]) >= 0) starters.push(_STARTER_TOOLS[si]);
+        }
+        lines.push('KEY TOOLS: ' + starters.join(', '));
+        lines.push('(' + granted.length + ' total available. Use get_capabilities for the full list.)');
 
         return lines.join('\n');
     }
+
 
     function _prettyTruncate(value, maxLen) {
         var out = '';
@@ -8917,6 +8917,8 @@
         var maxIter = parseInt((document.getElementById('achat-max-iter') || {}).value || String(cfg.maxIterations || 5), 10) || 5;
         var maxTok = parseInt((document.getElementById('achat-max-tokens') || {}).value || String(cfg.maxTokens || 256), 10) || 256;
         var granted = _sanitizeGrantedTools(tab.grantedTools || []);
+        // Enforce force-blocked tools: remove recursive/destructive tools from granted
+        granted = granted.filter(function (t) { return _LOOP_FORCE_BLOCKED.indexOf(t) < 0; });
         if (!granted.length) throw new Error('No granted tools configured. Open TOOL ACCESS and select at least one tool.');
 
         var approvalMode = String(cfg.resourceApprovalMode || 'capped').toLowerCase();
@@ -9108,7 +9110,9 @@
 
         for (var i = 0; i < maxIter; i++) {
             var preBudget = _budgetSnapshot('step-start');
-            _emitBudgetTelemetry(preBudget, false, 'step-start');
+            // Only emit step-start telemetry on the FIRST step (subsequent steps
+            // already got telemetry from tool-success/error at end of previous step).
+            if (i === 0) _emitBudgetTelemetry(preBudget, true, 'step-start');
 
             if (window.__achatKillRequested) {
                 var killMsg = 'Loop aborted by operator kill switch.';
@@ -9165,9 +9169,20 @@
             }
 
             var modelOut = _extractInvokeOutput(invokePayload);
-            loopMsgs.push({ role: 'assistant', content: String(modelOut || '') });
-
             var directive = _parseAgentDirective(String(modelOut || ''));
+
+            // Store only the parsed directive in history (not the full raw output).
+            // This prevents small models that dump multiple JSON objects from
+            // bloating context with 500+ tokens of garbage per turn.
+            var trimmedAssistant;
+            if (directive) {
+                try { trimmedAssistant = JSON.stringify(directive.kind === 'final' ? { final_answer: directive.final_answer } : directive.kind === 'tool' ? { tool: directive.tool, args: directive.args } : directive); }
+                catch (e) { trimmedAssistant = String(modelOut || ''); }
+            } else {
+                // No valid directive — keep raw but truncate hard
+                trimmedAssistant = String(modelOut || '').substring(0, 400);
+            }
+            loopMsgs.push({ role: 'assistant', content: trimmedAssistant });
 
             // ── DYNAMIC REAPPROPRIATION ──
             if (directive && directive.request_more) {
@@ -9292,12 +9307,14 @@
             consecutiveFailures = 0;
             noProgressCycles = 0;
 
-            var resultStr = _prettyTruncate(toolPayload, 5000);
+            var resultStr = _prettyTruncate(toolPayload, 3000);
             var traceEntry = { tool: calledTool, args: calledArgs, result: resultStr, iteration: i };
             trace.push(traceEntry);
             _appendAchatToolTrace([traceEntry], tab);
             _logAchatSyntheticActivity([traceEntry], tab.slot);
-            loopMsgs.push({ role: 'user', content: 'Tool result for ' + calledTool + '(' + JSON.stringify(calledArgs) + '):\n' + resultStr + '\n\nContinue with next tool or final_answer.' });
+            // Compact result for context: keep under 1500 chars to avoid ballooning
+            var contextResult = resultStr.length > 1500 ? resultStr.substring(0, 1500) + '\n…[truncated]' : resultStr;
+            loopMsgs.push({ role: 'user', content: 'Tool result for ' + calledTool + ':\n' + contextResult + '\n\nRespond with ONE JSON object: next tool call or final_answer.' });
             _emitBudgetTelemetry(_budgetSnapshot('tool-success'), false, 'tool-success');
         }
 
