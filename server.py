@@ -1436,9 +1436,45 @@ async def _postprocess_tool_result(tool_name: str, args: dict, result: dict) -> 
         if patched:
             return {"result": {"content": [{"type": "text", "text": json.dumps(parsed)}]}}
 
-    # --- Fix agent_chat: synthesize final_answer when model returns empty after tool calls ---
+    # --- Fix agent_chat: resolve cached responses for inner tool call broadcasting ---
     if tool_name == "agent_chat" and isinstance(parsed, dict):
-        _result = parsed.get("result") if isinstance(parsed.get("result"), dict) else parsed
+        _cache_id = parsed.get("_cached")
+        _full_parsed = parsed  # May be replaced with the resolved cache content below
+        if _cache_id:
+            try:
+                _cache_resp = await _call_tool("get_cached", {"cache_id": str(_cache_id)})
+                _cache_data = _parse_mcp_result((_cache_resp or {}).get("result"))
+                if isinstance(_cache_data, dict) and ("result" in _cache_data or "tool_calls" in _cache_data):
+                    _full_parsed = _cache_data
+                    print(f"[AGENT-INNER] Resolved cache {_cache_id}: keys={list(_full_parsed.keys())[:8]}")
+            except Exception as _ce:
+                print(f"[AGENT-INNER] Cache resolve failed for {_cache_id}: {_ce}")
+
+        # Extract inner tool_calls and broadcast each one to activity feed
+        _inner = _full_parsed.get("result") if isinstance(_full_parsed.get("result"), dict) else _full_parsed
+        _inner_tc = _inner.get("tool_calls", []) if isinstance(_inner, dict) else []
+        if isinstance(_inner_tc, list) and len(_inner_tc) > 0:
+            _slot_idx = _inner.get("slot") if isinstance(_inner, dict) else None
+            _slot_name = _inner.get("name", "") if isinstance(_inner, dict) else ""
+            print(f"[AGENT-INNER] Broadcasting {len(_inner_tc)} inner tool calls from agent_chat (slot={_slot_idx}/{_slot_name}, cached={bool(_cache_id)})")
+            for _i, _tc_entry in enumerate(_inner_tc):
+                if not isinstance(_tc_entry, dict):
+                    continue
+                _tc_tool = _tc_entry.get("tool", "unknown")
+                _tc_args = _tc_entry.get("args", {})
+                _tc_result_str = _tc_entry.get("result", "")
+                _tc_error = _tc_entry.get("error")
+                _tc_iter = _tc_entry.get("iteration", _i)
+                _tc_content = {"content": [{"type": "text", "text": _tc_result_str if isinstance(_tc_result_str, str) else json.dumps(_tc_result_str)}]}
+                _broadcast_activity(
+                    _tc_tool, _tc_args, _tc_content, 0,
+                    str(_tc_error) if _tc_error else None,
+                    source="agent-inner",
+                    client_id=None,
+                )
+                print(f"[AGENT-INNER] Broadcast {_i+1}/{len(_inner_tc)}: {_tc_tool} (iter={_tc_iter})")
+
+        _result = _full_parsed.get("result") if isinstance(_full_parsed.get("result"), dict) else _full_parsed
         _fa = str(_result.get("final_answer", "")).strip() if isinstance(_result, dict) else ""
         _tc = _result.get("tool_calls", []) if isinstance(_result, dict) else []
         _empty_markers = (
@@ -2115,7 +2151,34 @@ async def mcp_sse_proxy(request: Request):
                                                 rpc_result, duration_ms, error_str,
                                                 source="external", client_id=pending.get("client_id")
                                             )
-                                            _broadcast_agent_inner_calls(pending["tool"], rpc_result, duration_ms, source="external", client_id=pending.get("client_id"))
+                                            # Cache-aware inner tool call broadcasting for agent_chat
+                                            if pending["tool"] == "agent_chat" and rpc_result:
+                                                _ac_parsed = _parse_mcp_result(rpc_result)
+                                                _ac_full = _ac_parsed
+                                                if isinstance(_ac_parsed, dict) and _ac_parsed.get("_cached"):
+                                                    try:
+                                                        _ac_cache = await _call_tool("get_cached", {"cache_id": str(_ac_parsed["_cached"])})
+                                                        _ac_resolved = _parse_mcp_result((_ac_cache or {}).get("result"))
+                                                        if isinstance(_ac_resolved, dict) and ("result" in _ac_resolved or "tool_calls" in _ac_resolved):
+                                                            _ac_full = _ac_resolved
+                                                            print(f"[AGENT-INNER/SSE] Resolved cache {_ac_parsed['_cached']}")
+                                                    except Exception:
+                                                        pass
+                                                _ac_inner = _ac_full.get("result") if isinstance(_ac_full, dict) and isinstance(_ac_full.get("result"), dict) else _ac_full
+                                                _ac_tc = _ac_inner.get("tool_calls", []) if isinstance(_ac_inner, dict) else []
+                                                for _aci, _ac_entry in enumerate(_ac_tc):
+                                                    if not isinstance(_ac_entry, dict):
+                                                        continue
+                                                    _broadcast_activity(
+                                                        _ac_entry.get("tool", "unknown"),
+                                                        _ac_entry.get("args", {}),
+                                                        {"content": [{"type": "text", "text": str(_ac_entry.get("result", ""))}]},
+                                                        0, str(_ac_entry.get("error")) if _ac_entry.get("error") else None,
+                                                        source="agent-inner", client_id=pending.get("client_id"),
+                                                    )
+                                                    print(f"[AGENT-INNER/SSE] Broadcast {_aci+1}/{len(_ac_tc)}: {_ac_entry.get('tool')}")
+                                            else:
+                                                _broadcast_agent_inner_calls(pending["tool"], rpc_result, duration_ms, source="external", client_id=pending.get("client_id"))
                                             await _release_slot_execution(pending.get("claim"))
                                         elif rpc_id is not None:
                                             print(f"[MCP-PROXY] SSE response id={rpc_id} (type={type(rpc_id).__name__}) not in pending keys={list(_pending_external_calls.keys())}")
@@ -2365,7 +2428,31 @@ async def mcp_message_proxy(request: Request):
                             error_str,
                             source="external", client_id=_mcp_client_id,
                         )
-                        _broadcast_agent_inner_calls(call["tool"], item.get("result"), duration_ms, source="external", client_id=_mcp_client_id)
+                        # Cache-aware inner tool call broadcasting for agent_chat
+                        if call["tool"] == "agent_chat" and item.get("result"):
+                            _bac_parsed = _parse_mcp_result(item.get("result"))
+                            _bac_full = _bac_parsed
+                            if isinstance(_bac_parsed, dict) and _bac_parsed.get("_cached"):
+                                try:
+                                    _bac_cache = await _call_tool("get_cached", {"cache_id": str(_bac_parsed["_cached"])})
+                                    _bac_resolved = _parse_mcp_result((_bac_cache or {}).get("result"))
+                                    if isinstance(_bac_resolved, dict) and ("result" in _bac_resolved or "tool_calls" in _bac_resolved):
+                                        _bac_full = _bac_resolved
+                                except Exception:
+                                    pass
+                            _bac_inner = _bac_full.get("result") if isinstance(_bac_full, dict) and isinstance(_bac_full.get("result"), dict) else _bac_full
+                            _bac_tc = _bac_inner.get("tool_calls", []) if isinstance(_bac_inner, dict) else []
+                            for _baci, _bac_entry in enumerate(_bac_tc):
+                                if not isinstance(_bac_entry, dict):
+                                    continue
+                                _broadcast_activity(
+                                    _bac_entry.get("tool", "unknown"), _bac_entry.get("args", {}),
+                                    {"content": [{"type": "text", "text": str(_bac_entry.get("result", ""))}]},
+                                    0, str(_bac_entry.get("error")) if _bac_entry.get("error") else None,
+                                    source="agent-inner", client_id=_mcp_client_id,
+                                )
+                        else:
+                            _broadcast_agent_inner_calls(call["tool"], item.get("result"), duration_ms, source="external", client_id=_mcp_client_id)
                         await _release_slot_execution(call.get("_claim"))
 
                     for call in unmatched_calls:

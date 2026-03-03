@@ -939,7 +939,7 @@ async def proxy_tool_call(tool_name: str, request: Request):
     start = time.time()
     try:
         result = await _call_tool(tool_name, call_args)
-        result = await postprocess_tool_result(tool_name, call_args, result, _call_tool)
+        result = await postprocess_tool_result(tool_name, call_args, result, _call_tool, activity_hub=activity_hub)
 
         duration_ms = int((time.time() - start) * 1000)
         error_str = result.get("error") if isinstance(result.get("error"), str) else None
@@ -1788,7 +1788,7 @@ async def _handle_streamable_rpc(obj: dict, client_id: str | None) -> dict | Non
         start = time.time()
         try:
             result = await _call_tool(tool_name, args)
-            result = await postprocess_tool_result(tool_name, args, result, _call_tool)
+            result = await postprocess_tool_result(tool_name, args, result, _call_tool, activity_hub=activity_hub)
             duration_ms = int((time.time() - start) * 1000)
 
             error_str = result.get("error") if isinstance(result.get("error"), str) else None

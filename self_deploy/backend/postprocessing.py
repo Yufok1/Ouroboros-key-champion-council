@@ -56,6 +56,7 @@ async def postprocess_tool_result(
     args: dict,
     result: dict,
     call_tool_fn: Callable[[str, dict], Awaitable[dict]],
+    activity_hub=None,
 ) -> dict:
     """Apply compatibility patches for known capsule/tool edge cases."""
     parsed = parse_mcp_result(result.get("result"))
@@ -195,9 +196,38 @@ async def postprocess_tool_result(
         if patched:
             return {"result": {"content": [{"type": "text", "text": json.dumps(parsed)}]}}
 
-    # agent_chat: synthesize final_answer when model returns empty after tool calls.
+    # agent_chat: resolve cached responses for inner tool call broadcasting.
     if tool_name == "agent_chat" and isinstance(parsed, dict):
-        _result = parsed.get("result") if isinstance(parsed.get("result"), dict) else parsed
+        _cache_id = parsed.get("_cached")
+        _full_parsed = parsed
+        if _cache_id and call_tool_fn:
+            try:
+                _cache_resp = await call_tool_fn("get_cached", {"cache_id": str(_cache_id)})
+                _cache_data = parse_mcp_result((_cache_resp or {}).get("result"))
+                if isinstance(_cache_data, dict) and ("result" in _cache_data or "tool_calls" in _cache_data):
+                    _full_parsed = _cache_data
+                    print(f"[AGENT-INNER] Resolved cache {_cache_id}")
+            except Exception as _ce:
+                print(f"[AGENT-INNER] Cache resolve failed for {_cache_id}: {_ce}")
+
+        _inner = _full_parsed.get("result") if isinstance(_full_parsed.get("result"), dict) else _full_parsed
+        _inner_tc = _inner.get("tool_calls", []) if isinstance(_inner, dict) else []
+        if isinstance(_inner_tc, list) and len(_inner_tc) > 0 and activity_hub:
+            for _i, _tc_entry in enumerate(_inner_tc):
+                if not isinstance(_tc_entry, dict):
+                    continue
+                activity_hub.add_entry(
+                    tool=_tc_entry.get("tool", "unknown"),
+                    args=_tc_entry.get("args", {}),
+                    result={"content": [{"type": "text", "text": str(_tc_entry.get("result", ""))}]},
+                    duration_ms=0,
+                    error=str(_tc_entry.get("error")) if _tc_entry.get("error") else None,
+                    source="agent-inner",
+                    client_id=None,
+                )
+                print(f"[AGENT-INNER] Broadcast {_i+1}/{len(_inner_tc)}: {_tc_entry.get('tool')}")
+
+        _result = _full_parsed.get("result") if isinstance(_full_parsed.get("result"), dict) else _full_parsed
         _fa = str(_result.get("final_answer", "")).strip() if isinstance(_result, dict) else ""
         _tc = _result.get("tool_calls", []) if isinstance(_result, dict) else []
         _empty_markers = (
