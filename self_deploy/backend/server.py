@@ -344,18 +344,136 @@ def _normalize_remote_provider_model_id(model_id: str) -> tuple[str, bool]:
     return rebuilt, changed
 
 
+_DOC_KEY_PREFIX = "__docv2__"
+_DOC_KEY_SUFFIX = "__k"
+
+
+def _doc_escape_key(value: str) -> str:
+    return str(value).replace("~", "~~").replace("/", "~s")
+
+
+def _doc_unescape_key(value: str) -> str:
+    s = str(value)
+    out = []
+    i = 0
+    n = len(s)
+    while i < n:
+        ch = s[i]
+        if ch == "~" and i + 1 < n:
+            nxt = s[i + 1]
+            if nxt == "~":
+                out.append("~")
+                i += 2
+                continue
+            if nxt == "s":
+                out.append("/")
+                i += 2
+                continue
+        out.append(ch)
+        i += 1
+    return "".join(out)
+
+
+def _doc_is_encoded_key(key: str) -> bool:
+    return isinstance(key, str) and key.startswith(_DOC_KEY_PREFIX)
+
+
+def _doc_should_virtualize_key(key: str) -> bool:
+    if not isinstance(key, str) or not key:
+        return False
+    if key.startswith("bag_checkpoint:"):
+        return False
+    if _doc_is_encoded_key(key):
+        return True
+    return "/" in key
+
+
+def _doc_encode_exact_key(key: str) -> str:
+    if _doc_is_encoded_key(key):
+        return key
+    return f"{_DOC_KEY_PREFIX}{_doc_escape_key(key)}{_DOC_KEY_SUFFIX}"
+
+
+def _doc_encode_prefix(prefix: str) -> str:
+    if _doc_is_encoded_key(prefix):
+        return prefix
+    return f"{_DOC_KEY_PREFIX}{_doc_escape_key(prefix)}"
+
+
+def _doc_decode_key(key: str) -> str:
+    if not _doc_is_encoded_key(key):
+        return key
+    body = key[len(_DOC_KEY_PREFIX):]
+    if body.endswith(_DOC_KEY_SUFFIX):
+        body = body[:-len(_DOC_KEY_SUFFIX)]
+    return _doc_unescape_key(body)
+
+
+def _doc_encode_checkpoint_key(checkpoint_key: str) -> str:
+    if not isinstance(checkpoint_key, str) or not checkpoint_key.startswith("bag_checkpoint:"):
+        return checkpoint_key
+    try:
+        left, ts = checkpoint_key.rsplit(":", 1)
+        src = left[len("bag_checkpoint:"):]
+        if _doc_should_virtualize_key(src):
+            src = _doc_encode_exact_key(_doc_decode_key(src) if _doc_is_encoded_key(src) else src)
+        return f"bag_checkpoint:{src}:{ts}"
+    except Exception:
+        return checkpoint_key
+
+
+def _ensure_parent_dir_for_path(path_value: str | None) -> None:
+    if not isinstance(path_value, str) or not path_value.strip():
+        return
+    try:
+        p = Path(path_value.strip())
+        parent = p.parent
+        if str(parent) and str(parent) != ".":
+            parent.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        pass
+
+
 def _normalize_proxy_tool_args(tool_name: str, args: dict | None) -> dict:
     if not isinstance(args, dict):
         return args or {}
 
-    if tool_name == "plug_model" and isinstance(args.get("model_id"), str):
-        normalized, changed = _normalize_remote_provider_model_id(args.get("model_id"))
-        if changed:
-            patched = dict(args)
-            patched["model_id"] = normalized
-            return patched
+    patched = dict(args)
 
-    return args
+    if tool_name == "plug_model" and isinstance(patched.get("model_id"), str):
+        normalized, changed = _normalize_remote_provider_model_id(patched.get("model_id"))
+        if changed:
+            patched["model_id"] = normalized
+
+    if tool_name in ("bag_get", "bag_put", "bag_read_doc", "bag_checkpoint", "bag_versions", "bag_restore", "bag_diff", "bag_induct"):
+        k = patched.get("key")
+        if _doc_should_virtualize_key(k):
+            patched["key"] = _doc_encode_exact_key(_doc_decode_key(k) if _doc_is_encoded_key(k) else k)
+
+    if tool_name in ("bag_list_docs", "bag_search_docs", "bag_tree"):
+        pfx = patched.get("prefix")
+        if isinstance(pfx, str) and pfx and _doc_should_virtualize_key(pfx):
+            patched["prefix"] = _doc_encode_prefix(_doc_decode_key(pfx) if _doc_is_encoded_key(pfx) else pfx)
+
+    if tool_name == "bag_forget":
+        k = patched.get("key")
+        pat = patched.get("pattern")
+        if isinstance(k, str) and k and not pat and _doc_should_virtualize_key(k):
+            patched["key"] = _doc_encode_exact_key(_doc_decode_key(k) if _doc_is_encoded_key(k) else k)
+        if isinstance(pat, str) and pat and _doc_should_virtualize_key(pat):
+            patched["pattern"] = _doc_encode_prefix(_doc_decode_key(pat) if _doc_is_encoded_key(pat) else pat)
+
+    if tool_name == "bag_restore" and isinstance(patched.get("checkpoint_key"), str):
+        patched["checkpoint_key"] = _doc_encode_checkpoint_key(patched["checkpoint_key"])
+
+    if tool_name == "materialize":
+        _ensure_parent_dir_for_path(patched.get("output_path"))
+    elif tool_name == "save_bag":
+        _ensure_parent_dir_for_path(patched.get("file_path"))
+    elif tool_name == "bag_export":
+        _ensure_parent_dir_for_path(patched.get("output_path"))
+
+    return patched
 
 
 async def _call_tool(name: str, arguments: dict) -> dict:
@@ -463,6 +581,9 @@ _SLOT_SERIAL_TOOLS = frozenset({"invoke_slot", "chat", "agent_chat", "generate",
 
 # Emit immediate activity "start" entries for long-running calls so UI isn't blank.
 _LIVE_START_TOOLS = frozenset({"agent_chat", "invoke_slot", "chat", "generate", "classify", "plug_model", "hub_plug"})
+
+# Track last chat slot to avoid cross-slot shared-history bleed.
+_last_chat_slot: int | None = None
 
 _slot_exec_gate = asyncio.Lock()
 _slot_exec_locks: dict[int, asyncio.Lock] = {}
@@ -860,6 +981,8 @@ async def proxy_tool_call(tool_name: str, request: Request):
     except Exception:
         body = {}
 
+    raw_body = dict(body) if isinstance(body, dict) else {}
+
     if tool_name in ("workflow_create", "workflow_update") and "definition" in body:
         body["definition"] = normalize_workflow_nodes(body["definition"])
 
@@ -908,6 +1031,20 @@ async def proxy_tool_call(tool_name: str, request: Request):
             return JSONResponse(status_code=429, content=payload)
 
     call_args = body if isinstance(body, dict) else {}
+    tool_name_effective = tool_name
+
+    # FelixBag doc-ops shim: treat bag_put on virtualized doc keys as document write.
+    if tool_name == "bag_put" and isinstance(call_args.get("key"), str) and _doc_is_encoded_key(call_args.get("key", "")):
+        tool_name_effective = "bag_induct"
+        call_args = {
+            "key": call_args.get("key"),
+            "content": str(call_args.get("value", "")),
+            "item_type": "document",
+        }
+
+    # FelixBag delete shim: key-delete on virtualized keys should remove exact key family.
+    if tool_name == "bag_forget" and isinstance(call_args.get("key"), str) and _doc_is_encoded_key(call_args.get("key", "")) and not call_args.get("pattern"):
+        call_args = {"pattern": str(call_args.get("key", ""))}
 
     # Slot execution guard: reject overlapping heavy calls on same slot.
     claim, busy_guard = await _claim_slot_execution(tool_name, call_args, source, client_id)
@@ -936,9 +1073,36 @@ async def proxy_tool_call(tool_name: str, request: Request):
             client_id=client_id,
         )
 
+    global _last_chat_slot
+    if tool_name == "chat":
+        _chat_slot = int(call_args.get("slot", 0))
+        if _last_chat_slot is not None and _last_chat_slot != _chat_slot:
+            try:
+                await _call_tool("chat_reset", {})
+            except Exception:
+                pass
+        _last_chat_slot = _chat_slot
+
     start = time.time()
     try:
-        result = await _call_tool(tool_name, call_args)
+        result = await _call_tool(tool_name_effective, call_args)
+
+        # Fallback for legacy/raw slash keys when virtualized key is missing.
+        if tool_name in ("bag_get", "bag_read_doc"):
+            raw_key = raw_body.get("key") if isinstance(raw_body, dict) else None
+            enc_key = call_args.get("key") if isinstance(call_args, dict) else None
+            if isinstance(raw_key, str) and isinstance(enc_key, str) and _doc_is_encoded_key(enc_key):
+                probe = _parse_mcp_result_payload(result.get("result"))
+                probe_err = str(result.get("error") or (probe.get("error") if isinstance(probe, dict) else "") or "")
+                if "not found" in probe_err.lower():
+                    retry_args = dict(call_args)
+                    retry_args["key"] = raw_key
+                    retry = await _call_tool(tool_name_effective, retry_args)
+                    retry_probe = _parse_mcp_result_payload(retry.get("result"))
+                    retry_err = str(retry.get("error") or (retry_probe.get("error") if isinstance(retry_probe, dict) else "") or "")
+                    if not retry_err:
+                        result = retry
+
         result = await postprocess_tool_result(tool_name, call_args, result, _call_tool, activity_hub=activity_hub)
 
         duration_ms = int((time.time() - start) * 1000)

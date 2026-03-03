@@ -61,6 +61,118 @@ async def postprocess_tool_result(
     """Apply compatibility patches for known capsule/tool edge cases."""
     parsed = parse_mcp_result(result.get("result"))
 
+    # Resolve cached stubs for multi-slot tools before retry patching.
+    _CACHE_RESOLVE_TOOLS = ("broadcast", "all_slots", "debate", "compare", "pipe", "chain")
+    if tool_name in _CACHE_RESOLVE_TOOLS and isinstance(parsed, dict) and parsed.get("_cached"):
+        try:
+            _cr = await call_tool_fn("get_cached", {"cache_id": str(parsed["_cached"])})
+            _cr_parsed = parse_mcp_result((_cr or {}).get("result"))
+            if isinstance(_cr_parsed, dict):
+                parsed = _cr_parsed
+                result = {"result": {"content": [{"type": "text", "text": json.dumps(parsed)}]}}
+        except Exception:
+            pass
+
+    def _doc_decode_key(key: str) -> str:
+        prefix = "__docv2__"
+        suffix = "__k"
+        if not isinstance(key, str) or not key.startswith(prefix):
+            return key
+        body = key[len(prefix):]
+        if body.endswith(suffix):
+            body = body[:-len(suffix)]
+        out = []
+        i = 0
+        n = len(body)
+        while i < n:
+            ch = body[i]
+            if ch == "~" and i + 1 < n:
+                nxt = body[i + 1]
+                if nxt == "~":
+                    out.append("~")
+                    i += 2
+                    continue
+                if nxt == "s":
+                    out.append("/")
+                    i += 2
+                    continue
+            out.append(ch)
+            i += 1
+        return "".join(out)
+
+    def _doc_decode_checkpoint_key(checkpoint_key: str) -> str:
+        if not isinstance(checkpoint_key, str) or not checkpoint_key.startswith("bag_checkpoint:"):
+            return checkpoint_key
+        try:
+            left, ts = checkpoint_key.rsplit(":", 1)
+            src = left[len("bag_checkpoint:"):]
+            return f"bag_checkpoint:{_doc_decode_key(src)}:{ts}"
+        except Exception:
+            return checkpoint_key
+
+    def _decode_doc_fields(obj):
+        if isinstance(obj, dict):
+            for key_field in ("key", "source_key", "restored_key"):
+                if isinstance(obj.get(key_field), str):
+                    obj[key_field] = _doc_decode_key(obj[key_field])
+            for ck_field in ("checkpoint_key", "from_checkpoint", "backup_checkpoint"):
+                if isinstance(obj.get(ck_field), str):
+                    obj[ck_field] = _doc_decode_checkpoint_key(obj[ck_field])
+            if isinstance(obj.get("available"), list):
+                obj["available"] = [(_doc_decode_key(v) if isinstance(v, str) else v) for v in obj["available"]]
+            for v in list(obj.values()):
+                _decode_doc_fields(v)
+        elif isinstance(obj, list):
+            for item in obj:
+                _decode_doc_fields(item)
+
+    if tool_name.startswith("bag_") and isinstance(parsed, (dict, list)):
+        _decode_doc_fields(parsed)
+
+    if tool_name == "bag_tree" and isinstance(parsed, dict):
+        tree = parsed.get("tree")
+        doc_count = int(parsed.get("document_count", 0) or 0)
+        req_prefix = str(args.get("prefix", "") or "")
+        if (not isinstance(tree, dict) or not tree) and doc_count == 0 and req_prefix == "":
+            try:
+                ls_args = {
+                    "prefix": "",
+                    "include_checkpoints": bool(args.get("include_checkpoints", False)),
+                    "limit": 500,
+                }
+                ls_raw = await call_tool_fn("bag_list_docs", ls_args)
+                ls_parsed = parse_mcp_result((ls_raw or {}).get("result"))
+                if isinstance(ls_parsed, dict) and ls_parsed.get("_cached"):
+                    _ls_cache = await call_tool_fn("get_cached", {"cache_id": str(ls_parsed.get("_cached"))})
+                    _ls_cache_parsed = parse_mcp_result((_ls_cache or {}).get("result"))
+                    if isinstance(_ls_cache_parsed, dict):
+                        ls_parsed = _ls_cache_parsed
+                items = ls_parsed.get("items", []) if isinstance(ls_parsed, dict) else []
+                built = {}
+                for it in items:
+                    if not isinstance(it, dict):
+                        continue
+                    k = _doc_decode_key(str(it.get("key", "") or ""))
+                    if not k:
+                        continue
+                    parts = [p for p in k.split("/") if p]
+                    if not parts:
+                        continue
+                    cur = built
+                    for idx, part in enumerate(parts):
+                        if part not in cur:
+                            cur[part] = {}
+                        node = cur[part]
+                        if idx == len(parts) - 1:
+                            node.setdefault("_items", [])
+                            node["_items"].append(k)
+                        cur = node
+                parsed["tree"] = built
+                parsed["document_count"] = sum(1 for _ in items)
+                return {"result": {"content": [{"type": "text", "text": json.dumps(parsed)}]}}
+            except Exception:
+                pass
+
     # Normalize compact list_slots/council_status summaries to explicit per-slot state.
     if tool_name in ("list_slots", "council_status") and isinstance(parsed, dict):
         slots = parsed.get("slots")
@@ -242,6 +354,9 @@ async def postprocess_tool_result(
                     try:
                         slots_result = await call_tool_fn("list_slots", {})
                         slots_parsed = parse_mcp_result(slots_result.get("result"))
+                        if isinstance(slots_parsed, dict) and slots_parsed.get("_cached"):
+                            _ls_cr = await call_tool_fn("get_cached", {"cache_id": str(slots_parsed["_cached"])})
+                            slots_parsed = parse_mcp_result((_ls_cr or {}).get("result")) or slots_parsed
                         if isinstance(slots_parsed, dict):
                             for s in slots_parsed.get("slots", []):
                                 if s.get("name") == councilor and s.get("plugged"):

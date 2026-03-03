@@ -8776,6 +8776,20 @@
         lines.push('If you run low on iterations, request more via the REAPPROPRIATE protocol above.');
         lines.push('You are expected to be self-directed: plan your own investigation, call tools in logical order, and produce a comprehensive final report.');
 
+        // FelixBag doc/file workflow guidance
+        var hasDocTools = granted.indexOf('bag_read_doc') >= 0 || granted.indexOf('bag_checkpoint') >= 0 || granted.indexOf('bag_versions') >= 0 || granted.indexOf('bag_diff') >= 0;
+        if (hasDocTools) {
+            lines.push('\n## FELIXBAG DOCUMENT WORKFLOW (IMPORTANT)');
+            lines.push('For document editing/versioning tasks, use this exact sequence:');
+            lines.push('1) READ current doc with bag_read_doc (or bag_get if needed).');
+            lines.push('2) CREATE checkpoint with bag_checkpoint before any write.');
+            lines.push('3) WRITE updates with bag_induct(item_type="document", same key).');
+            lines.push('4) VERIFY with bag_read_doc and bag_diff against checkpoint.');
+            lines.push('5) If needed, restore with bag_restore using checkpoint_key.');
+            lines.push('Avoid bag_put for document editing when bag_induct is available.');
+            lines.push('For deletes, prefer bag_forget with explicit pattern for deterministic cleanup.');
+        }
+
         return lines.join('\n');
     }
 
