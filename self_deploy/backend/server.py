@@ -734,7 +734,11 @@ async def _server_side_agent_chat(
         f"AVAILABLE TOOLS:\n{tool_descriptions}\n\n"
         "To call a tool: {\"tool\": \"name\", \"args\": {\"param\": \"value\"}}\n"
         "When done: {\"final_answer\": \"your answer\"}\n\n"
-        "Rules: ONE tool at a time. Wait for results. Always end with final_answer.\n"
+        "Rules:\n"
+        "- ONE tool at a time — never batch multiple calls\n"
+        "- After EVERY tool result, evaluate: did it succeed? what did you learn? what next?\n"
+        "- If a tool failed, decide whether to retry, skip, or adjust\n"
+        "- Always end with final_answer summarizing outcomes\n"
     )
 
     chat_messages = session.get("chat_messages", [])
@@ -882,7 +886,14 @@ async def _server_side_agent_chat(
                 "duration_ms": tool_ms, "iteration": iteration,
             })
 
-            feedback = f"Tool result for {called_tool}({json.dumps(called_args, default=str)}):\n{tool_result_str}\n\nContinue with your next tool call or provide your final_answer."
+            _err_flag = f" ⚠ The tool returned an error." if tool_error else ""
+            feedback = (
+                f"TOOL RESULT [{called_tool}]:{_err_flag}\n"
+                f"{tool_result_str}\n\n"
+                f"EVALUATE: What did this result tell you? Did it succeed? "
+                f"What is the next step toward completing the original task? "
+                f"Respond with exactly one JSON: either a tool call or final_answer."
+            )
             chat_messages.append({"role": "user", "content": feedback})
         else:
             final_answer = json.dumps(parsed, default=str)

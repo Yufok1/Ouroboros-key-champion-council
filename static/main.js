@@ -2186,6 +2186,80 @@
                 }
             }
         }
+        // ── AGENT-INNER → LIVE CHAT TIMELINE BRIDGE ──
+        // Progressive rendering: as the server-side orchestrator executes each
+        // tool call, it broadcasts agent-inner events in real time.  Inject
+        // them into the active chat tab so the operator sees every step live —
+        // not just a dump at the end when the HTTP response arrives.
+        if (event.source === 'agent-inner' && event.tool) {
+            var innerSession = (event.args && event.args._agent_session) || (event.args && event.args.session_id) || '';
+            var innerSlot = -1;
+            // Extract slot from session_id pattern "agent_chat:<slot>:<uuid>"
+            if (innerSession) {
+                var parts = innerSession.split(':');
+                if (parts.length >= 2 && !isNaN(parseInt(parts[1], 10))) innerSlot = parseInt(parts[1], 10);
+            }
+            // Also check direct args.slot
+            if (innerSlot < 0 && event.args && event.args.slot !== undefined) {
+                innerSlot = parseInt(event.args.slot, 10);
+            }
+            // Try to find active agent-chat tab for this slot
+            var innerTab = null;
+            if (innerSlot >= 0) innerTab = _ensureAchatTab(innerSlot);
+            if (!innerTab) innerTab = _getActiveAchatTab();
+
+            if (innerTab) {
+                var isStart = !!(event.result && typeof event.result === 'object' && event.result._phase === 'start');
+                var isReasoning = !!(event.args && event.args._phase === 'reasoning');
+                var dur = event.durationMs > 0 ? ' (' + event.durationMs + 'ms)' : '';
+
+                if (isReasoning) {
+                    // Model reasoning step — show iteration progress
+                    var iterInfo = '';
+                    try {
+                        var rText = (event.result && event.result.content && event.result.content[0])
+                            ? event.result.content[0].text : '';
+                        var rObj = rText ? JSON.parse(rText) : {};
+                        iterInfo = ' [iter ' + (rObj.iteration || '?') + ']' + (rObj.step_ms ? ' ' + rObj.step_ms + 'ms' : '');
+                        // Show a preview of the model's thinking
+                        if (rObj.model_output_preview) {
+                            var preview = String(rObj.model_output_preview).substring(0, 200);
+                            if (preview.length > 0) {
+                                _appendAchatMsg('system-info', '🧠 Thinking' + iterInfo + ':\n' + preview, Date.now(), innerTab);
+                            }
+                        } else {
+                            _appendAchatMsg('system-info', '🧠 Thinking' + iterInfo + '…', Date.now(), innerTab);
+                        }
+                    } catch (e2) {
+                        _appendAchatMsg('system-info', '🧠 Thinking…', Date.now(), innerTab);
+                    }
+                } else if (isStart && event.tool !== 'agent_chat') {
+                    // Tool call starting
+                    var argPreview = '';
+                    try { argPreview = JSON.stringify(event.args || {}).substring(0, 300); } catch (e3) {}
+                    _appendAchatMsg('tool-trace', '🔧 ' + event.tool + '(' + argPreview + ')…', Date.now(), innerTab);
+                } else if (!isStart && event.tool !== 'agent_chat') {
+                    // Tool call completed — show result
+                    if (event.error) {
+                        _appendAchatMsg('error', '❌ ' + event.tool + dur + ': ' + String(event.error), Date.now(), innerTab);
+                    } else {
+                        var resultPreview = '';
+                        try {
+                            var rr = event.result;
+                            if (rr && rr.content && Array.isArray(rr.content) && rr.content[0]) {
+                                resultPreview = String(rr.content[0].text || '').substring(0, 400);
+                            } else if (typeof rr === 'string') {
+                                resultPreview = rr.substring(0, 400);
+                            } else {
+                                resultPreview = JSON.stringify(rr || {}).substring(0, 400);
+                            }
+                        } catch (e4) { resultPreview = '(result)'; }
+                        _appendAchatMsg('tool-trace', '✅ ' + event.tool + dur + ':\n' + resultPreview, Date.now(), innerTab);
+                    }
+                }
+            }
+        }
+
         // Append new entry to DOM without destroying expanded entries
         var feed = document.getElementById('activity-feed');
         if (feed) {

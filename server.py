@@ -1607,11 +1607,12 @@ async def _server_side_agent_chat(args: dict, source: str = "webui", client_id: 
         "When you have completed the task, respond with:\n"
         '{"final_answer": "your complete answer here"}\n\n'
         "Rules:\n"
-        "- Call ONE tool at a time\n"
-        "- Wait for the result before calling another\n"
+        "- Call ONE tool at a time — never batch multiple calls\n"
+        "- After EVERY tool result, evaluate: did it succeed? what did you learn? what should you do next?\n"
+        "- If a tool failed, decide whether to retry, skip, or adjust approach\n"
         "- Use ONLY the tools listed above\n"
         "- Never invoke your own slot for delegation\n"
-        "- Always end with a final_answer\n"
+        "- Always end with a final_answer that summarizes outcomes\n"
     )
 
     # ── Build/extend chat messages ──
@@ -1798,7 +1799,15 @@ async def _server_side_agent_chat(args: dict, source: str = "webui", client_id: 
             })
 
             # Feed result back to model
-            feedback = f"Tool result for {called_tool}({json.dumps(called_args, default=str)}):\n{tool_result_str}\n\nContinue with your next tool call or provide your final_answer."
+            # Reorientation prompt: force the model to evaluate before proceeding
+            _err_flag = f" ⚠ The tool returned an error." if tool_error else ""
+            feedback = (
+                f"TOOL RESULT [{called_tool}]:{_err_flag}\n"
+                f"{tool_result_str}\n\n"
+                f"EVALUATE: What did this result tell you? Did it succeed? "
+                f"What is the next step toward completing the original task? "
+                f"Respond with exactly one JSON: either a tool call or final_answer."
+            )
             chat_messages.append({"role": "user", "content": feedback})
         else:
             # JSON but no tool or final_answer key
