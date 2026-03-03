@@ -112,7 +112,7 @@ async def postprocess_tool_result(
 
     def _decode_doc_fields(obj):
         if isinstance(obj, dict):
-            for key_field in ("key", "source_key", "restored_key"):
+            for key_field in ("key", "source_key", "restored_key", "pattern", "removed"):
                 if isinstance(obj.get(key_field), str):
                     obj[key_field] = _doc_decode_key(obj[key_field])
             for ck_field in ("checkpoint_key", "from_checkpoint", "backup_checkpoint"):
