@@ -108,6 +108,39 @@ def _hf_router_token(explicit: str | None = None) -> str | None:
     return None
 
 
+def _broadcast_agent_inner_calls(tool_name: str, result, duration_ms: int, source: str = "external", client_id: str | None = None):
+    """Extract inner tool_calls from agent_chat results and broadcast each as a separate activity entry."""
+    if tool_name != "agent_chat":
+        return
+    parsed = _parse_mcp_result_payload(result) if isinstance(result, dict) else None
+    if not isinstance(parsed, dict):
+        return
+    inner_result = parsed.get("result") if "result" in parsed else parsed
+    tool_calls = inner_result.get("tool_calls") if isinstance(inner_result, dict) else None
+    if not isinstance(tool_calls, list) or len(tool_calls) == 0:
+        return
+    slot_idx = inner_result.get("slot")
+    slot_name = inner_result.get("name", "")
+    for tc in tool_calls:
+        if not isinstance(tc, dict):
+            continue
+        tc_tool = tc.get("tool", "unknown")
+        tc_args = tc.get("args", {})
+        tc_result_str = tc.get("result", "")
+        tc_iteration = tc.get("iteration", 0)
+        tc_result_content = {"content": [{"type": "text", "text": tc_result_str if isinstance(tc_result_str, str) else json.dumps(tc_result_str)}]}
+        activity_hub.add_entry(
+            tool=tc_tool,
+            args=tc_args,
+            result=tc_result_content,
+            duration_ms=duration_ms,
+            error=None,
+            source="agent-inner",
+            client_id=client_id,
+        )
+        print(f"[AGENT-INNER] Broadcast inner tool call: {tc_tool} (iteration={tc_iteration}, slot={slot_idx}/{slot_name})")
+
+
 def _normalize_activity_source(value: str | None) -> str | None:
     if not value:
         return None
@@ -915,6 +948,7 @@ async def proxy_tool_call(tool_name: str, request: Request):
             source=source,
             client_id=client_id,
         )
+        _broadcast_agent_inner_calls(tool_name, result.get("result"), duration_ms, source=source, client_id=client_id)
 
         if error_str:
             return JSONResponse(status_code=503, content=result)
@@ -1763,6 +1797,7 @@ async def _handle_streamable_rpc(obj: dict, client_id: str | None) -> dict | Non
                 source="external",
                 client_id=client_id,
             )
+            _broadcast_agent_inner_calls(tool_name, result.get("result") if isinstance(result, dict) else result, duration_ms, source="external", client_id=client_id)
 
             if error_str:
                 return _rpc_error(rpc_id, -32603, error_str)

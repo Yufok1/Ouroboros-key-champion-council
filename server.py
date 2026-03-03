@@ -704,6 +704,39 @@ def _broadcast_activity(tool: str, args: dict, result: dict | None, duration_ms:
         except ValueError:
             pass
 
+def _broadcast_agent_inner_calls(tool_name: str, result, duration_ms: int, source: str = "external", client_id: str | None = None):
+    """Extract inner tool_calls from agent_chat results and broadcast each as a separate activity entry."""
+    if tool_name != "agent_chat":
+        return
+    parsed = _parse_mcp_result(result)
+    if not isinstance(parsed, dict):
+        return
+    inner_result = parsed.get("result") if "result" in parsed else parsed
+    tool_calls = inner_result.get("tool_calls") if isinstance(inner_result, dict) else None
+    if not isinstance(tool_calls, list) or len(tool_calls) == 0:
+        return
+    slot_idx = inner_result.get("slot")
+    slot_name = inner_result.get("name", "")
+    for tc in tool_calls:
+        if not isinstance(tc, dict):
+            continue
+        tc_tool = tc.get("tool", "unknown")
+        tc_args = tc.get("args", {})
+        tc_result_str = tc.get("result", "")
+        tc_iteration = tc.get("iteration", 0)
+        tc_result_content = {"content": [{"type": "text", "text": tc_result_str if isinstance(tc_result_str, str) else json.dumps(tc_result_str)}]}
+        _broadcast_activity(
+            tc_tool,
+            tc_args,
+            tc_result_content,
+            duration_ms,
+            None,
+            source="agent-inner",
+            client_id=client_id,
+        )
+        print(f"[AGENT-INNER] Broadcast inner tool call: {tc_tool} (iteration={tc_iteration}, slot={slot_idx}/{slot_name})")
+
+
 # --- Configuration ---
 MCP_PORT = int(os.environ.get("MCP_PORT", "8765"))
 WEB_PORT = 7860
@@ -1481,6 +1514,7 @@ async def proxy_tool_call(tool_name: str, request: Request):
         error_str = result.get("error") if isinstance(result.get("error"), str) else None
         # Tag hydration calls so the frontend SSE listener can filter them
         _broadcast_activity(tool_name, call_args, result.get("result"), duration_ms, error_str, source=source, client_id=client_id)
+        _broadcast_agent_inner_calls(tool_name, result.get("result"), duration_ms, source=source, client_id=client_id)
         if error_str:
             return JSONResponse(status_code=503, content=result)
         if capacity_guard and isinstance(result, dict):
@@ -2020,6 +2054,7 @@ async def mcp_sse_proxy(request: Request):
                                                 rpc_result, duration_ms, error_str,
                                                 source="external", client_id=pending.get("client_id")
                                             )
+                                            _broadcast_agent_inner_calls(pending["tool"], rpc_result, duration_ms, source="external", client_id=pending.get("client_id"))
                                             await _release_slot_execution(pending.get("claim"))
                                         elif rpc_id is not None:
                                             print(f"[MCP-PROXY] SSE response id={rpc_id} (type={type(rpc_id).__name__}) not in pending keys={list(_pending_external_calls.keys())}")
@@ -2269,6 +2304,7 @@ async def mcp_message_proxy(request: Request):
                             error_str,
                             source="external", client_id=_mcp_client_id,
                         )
+                        _broadcast_agent_inner_calls(call["tool"], item.get("result"), duration_ms, source="external", client_id=_mcp_client_id)
                         await _release_slot_execution(call.get("_claim"))
 
                     for call in unmatched_calls:
@@ -2481,6 +2517,7 @@ async def _handle_streamable_rpc(obj: dict, client_id: str) -> dict | None:
 
             error_str = result.get("error") if isinstance(result, dict) else None
             _broadcast_activity(tool_name, args, result, duration_ms, error_str, source="external", client_id=client_id)
+            _broadcast_agent_inner_calls(tool_name, result, duration_ms, source="external", client_id=client_id)
 
             if error_str:
                 return _rpc_error(rpc_id, -32603, error_str)
