@@ -180,7 +180,17 @@ async def postprocess_tool_result(
                     if isinstance(retry_parsed, dict):
                         out = str(retry_parsed.get("output", "") or "").strip()
                         if out:
-                            return out
+                            if out.lower().startswith("[remote provider error"):
+                                continue
+                            if "<think>" in out:
+                                import re as _re_try
+                                cleaned = _re_try.sub(r"<think>[\s\S]*?</think>\s*", "", out).strip()
+                                if cleaned:
+                                    out = cleaned
+                                else:
+                                    continue
+                            if out:
+                                return out
                 except Exception:
                     pass
 
@@ -191,6 +201,8 @@ async def postprocess_tool_result(
             if isinstance(ch_parsed, dict):
                 out = str(ch_parsed.get("response", "") or "").strip()
                 if out:
+                    if out.lower().startswith("[remote provider error"):
+                        return None
                     return out
         except Exception:
             pass
@@ -468,10 +480,23 @@ async def postprocess_tool_result(
             if not _clean:
                 _after = _re_gen.split(r"</think>\s*", _out, maxsplit=1)
                 _clean = _after[-1].strip() if len(_after) > 1 else ""
-            if _clean:
+            if _clean and not _clean.lower().startswith("[remote provider error"):
                 parsed["output"] = _clean
                 parsed["_think_stripped"] = True
                 return _return_parsed(parsed)
+            else:
+                if tool_name == "invoke_slot" and args.get("slot") is not None and args.get("text"):
+                    try:
+                        _cf = await call_tool_fn("chat", {"slot": int(args.get("slot", 0)), "message": str(args.get("text", ""))})
+                        _cfp = parse_mcp_result(_cf.get("result"))
+                        if isinstance(_cfp, dict):
+                            _resp = str(_cfp.get("response", "")).strip()
+                            if _resp and not _resp.lower().startswith("[remote provider error"):
+                                parsed["output"] = _resp
+                                parsed["_fallback"] = "chat_after_think_only"
+                                return _return_parsed(parsed)
+                    except Exception:
+                        pass
 
     # --- Fix chat: strip <think> blocks, retry empty ---
     if tool_name == "chat" and isinstance(parsed, dict):
