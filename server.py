@@ -49,7 +49,7 @@ def _normalize_activity_source(value: str | None) -> str | None:
     if not value:
         return None
     v = str(value).strip().lower()
-    if v in ("external", "webui", "hydration", "extension", "action", "api"):
+    if v in ("external", "webui", "hydration", "extension", "action", "api", "agent-inner"):
         return v
     return None
 
