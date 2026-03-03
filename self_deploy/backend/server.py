@@ -326,6 +326,95 @@ _CAPACITY_GPU_FREE_MIN_GB = float(os.environ.get("CAPACITY_GPU_FREE_MIN_GB", "2"
 # Guard slot-targeted generation/chat tools so they don't run before plug completes.
 _SLOT_READY_TOOLS = frozenset({"invoke_slot", "chat", "agent_chat", "generate", "classify"})
 
+# Serialize heavy slot-bound generation/chat calls to prevent overlap storms
+# when clients timeout locally and retry while first call is still running.
+_SLOT_SERIAL_TOOLS = frozenset({"invoke_slot", "chat", "agent_chat", "generate", "classify"})
+
+# Emit immediate activity "start" entries for long-running calls so UI isn't blank.
+_LIVE_START_TOOLS = frozenset({"agent_chat", "invoke_slot", "chat", "generate", "classify", "plug_model", "hub_plug"})
+
+_slot_exec_gate = asyncio.Lock()
+_slot_exec_locks: dict[int, asyncio.Lock] = {}
+_slot_exec_active: dict[int, dict] = {}
+
+
+def _slot_serial_index(tool_name: str, args: dict | None) -> int | None:
+    if tool_name not in _SLOT_SERIAL_TOOLS:
+        return None
+    if not isinstance(args, dict):
+        return None
+    if args.get("slot") is None:
+        return None
+    try:
+        return int(args.get("slot"))
+    except Exception:
+        return None
+
+
+async def _claim_slot_execution(tool_name: str, args: dict | None, source: str, client_id: str | None) -> tuple[dict | None, dict | None]:
+    slot_idx = _slot_serial_index(tool_name, args)
+    if slot_idx is None:
+        return None, None
+
+    now_ms = int(time.time() * 1000)
+    async with _slot_exec_gate:
+        lock = _slot_exec_locks.get(slot_idx)
+        if lock is None:
+            lock = asyncio.Lock()
+            _slot_exec_locks[slot_idx] = lock
+
+        active = _slot_exec_active.get(slot_idx)
+        if lock.locked() or active:
+            active = active or {}
+            started_ms = active.get("started_ms")
+            running_for_ms = None
+            try:
+                if started_ms is not None:
+                    running_for_ms = max(0, now_ms - int(started_ms))
+            except Exception:
+                running_for_ms = None
+            active_tool = active.get("tool") or "unknown"
+            busy = {
+                "guard": "slot_busy",
+                "tool": tool_name,
+                "slot": slot_idx,
+                "active": {
+                    "tool": active_tool,
+                    "source": active.get("source"),
+                    "client_id": active.get("client_id"),
+                    "started_ms": started_ms,
+                    "running_for_ms": running_for_ms,
+                },
+                "error": f"Slot {slot_idx} is busy running {active_tool}. Wait for completion before calling {tool_name}."
+            }
+            return None, busy
+
+        await lock.acquire()
+        _slot_exec_active[slot_idx] = {
+            "tool": tool_name,
+            "source": source,
+            "client_id": client_id,
+            "started_ms": now_ms,
+        }
+        return {"slot": slot_idx, "lock": lock}, None
+
+
+async def _release_slot_execution(claim: dict | None) -> None:
+    if not isinstance(claim, dict):
+        return
+    slot_idx = claim.get("slot")
+    lock = claim.get("lock")
+    if slot_idx is None or lock is None:
+        return
+
+    async with _slot_exec_gate:
+        _slot_exec_active.pop(int(slot_idx), None)
+        try:
+            if lock.locked():
+                lock.release()
+        except Exception:
+            pass
+
 
 def _bytes_to_gb(value: int | None) -> float | None:
     if value is None:
@@ -685,28 +774,59 @@ async def proxy_tool_call(tool_name: str, request: Request):
             )
             return JSONResponse(status_code=429, content=payload)
 
+    call_args = body if isinstance(body, dict) else {}
+
+    # Slot execution guard: reject overlapping heavy calls on same slot.
+    claim, busy_guard = await _claim_slot_execution(tool_name, call_args, source, client_id)
+    if busy_guard:
+        error_msg = busy_guard.get("error") or f"Slot busy while calling {tool_name}"
+        payload = {"error": error_msg, "slot_busy": busy_guard}
+        activity_hub.add_entry(
+            tool=tool_name,
+            args=call_args,
+            result=payload,
+            duration_ms=0,
+            error=error_msg,
+            source=source,
+            client_id=client_id,
+        )
+        return JSONResponse(status_code=409, content=payload)
+
+    if tool_name in _LIVE_START_TOOLS:
+        activity_hub.add_entry(
+            tool=tool_name,
+            args=call_args,
+            result={"_phase": "start", "state": "running"},
+            duration_ms=0,
+            error=None,
+            source=source,
+            client_id=client_id,
+        )
+
     start = time.time()
+    try:
+        result = await _call_tool(tool_name, call_args)
+        result = await postprocess_tool_result(tool_name, call_args, result, _call_tool)
 
-    result = await _call_tool(tool_name, body)
-    result = await postprocess_tool_result(tool_name, body, result, _call_tool)
+        duration_ms = int((time.time() - start) * 1000)
+        error_str = result.get("error") if isinstance(result.get("error"), str) else None
+        activity_hub.add_entry(
+            tool=tool_name,
+            args=call_args,
+            result=result.get("result"),
+            duration_ms=duration_ms,
+            error=error_str,
+            source=source,
+            client_id=client_id,
+        )
 
-    duration_ms = int((time.time() - start) * 1000)
-    error_str = result.get("error") if isinstance(result.get("error"), str) else None
-    activity_hub.add_entry(
-        tool=tool_name,
-        args=body,
-        result=result.get("result"),
-        duration_ms=duration_ms,
-        error=error_str,
-        source=source,
-        client_id=client_id,
-    )
-
-    if error_str:
-        return JSONResponse(status_code=503, content=result)
-    if capacity_guard and isinstance(result, dict):
-        result["capacity_guard"] = capacity_guard
-    return result
+        if error_str:
+            return JSONResponse(status_code=503, content=result)
+        if capacity_guard and isinstance(result, dict):
+            result["capacity_guard"] = capacity_guard
+        return result
+    finally:
+        await _release_slot_execution(claim)
 
 
 @app.get("/api/tools")
@@ -1421,30 +1541,59 @@ async def _handle_streamable_rpc(obj: dict, client_id: str | None) -> dict | Non
             )
             return _rpc_error(rpc_id, -32010, err_msg, payload)
 
+        claim, busy_guard = await _claim_slot_execution(tool_name, args, "external", client_id)
+        if busy_guard:
+            err_msg = busy_guard.get("error") or f"Slot busy while calling {tool_name}"
+            payload = {"slot_busy": busy_guard}
+            activity_hub.add_entry(
+                tool=tool_name,
+                args=args,
+                result=payload,
+                duration_ms=0,
+                error=err_msg,
+                source="external",
+                client_id=client_id,
+            )
+            return _rpc_error(rpc_id, -32011, err_msg, payload)
+
+        if tool_name in _LIVE_START_TOOLS:
+            activity_hub.add_entry(
+                tool=tool_name,
+                args=args,
+                result={"_phase": "start", "state": "running"},
+                duration_ms=0,
+                error=None,
+                source="external",
+                client_id=client_id,
+            )
+
         start = time.time()
-        result = await _call_tool(tool_name, args)
-        result = await postprocess_tool_result(tool_name, args, result, _call_tool)
-        duration_ms = int((time.time() - start) * 1000)
+        try:
+            result = await _call_tool(tool_name, args)
+            result = await postprocess_tool_result(tool_name, args, result, _call_tool)
+            duration_ms = int((time.time() - start) * 1000)
 
-        error_str = result.get("error") if isinstance(result.get("error"), str) else None
-        activity_hub.add_entry(
-            tool=tool_name,
-            args=args,
-            result=result.get("result") if isinstance(result, dict) else result,
-            duration_ms=duration_ms,
-            error=error_str,
-            source="external",
-            client_id=client_id,
-        )
+            error_str = result.get("error") if isinstance(result.get("error"), str) else None
+            activity_hub.add_entry(
+                tool=tool_name,
+                args=args,
+                result=result.get("result") if isinstance(result, dict) else result,
+                duration_ms=duration_ms,
+                error=error_str,
+                source="external",
+                client_id=client_id,
+            )
 
-        if error_str:
-            return _rpc_error(rpc_id, -32603, error_str)
+            if error_str:
+                return _rpc_error(rpc_id, -32603, error_str)
 
-        out = result.get("result", result) if isinstance(result, dict) else result
-        if capacity_guard and isinstance(out, dict):
-            out = dict(out)
-            out["capacity_guard"] = capacity_guard
-        return {"jsonrpc": "2.0", "id": rpc_id, "result": out}
+            out = result.get("result", result) if isinstance(result, dict) else result
+            if capacity_guard and isinstance(out, dict):
+                out = dict(out)
+                out["capacity_guard"] = capacity_guard
+            return {"jsonrpc": "2.0", "id": rpc_id, "result": out}
+        finally:
+            await _release_slot_execution(claim)
 
     return _rpc_error(rpc_id, -32601, f"Method not found: {method}")
 

@@ -314,6 +314,102 @@ _CAPACITY_GPU_FREE_MIN_GB = float(os.environ.get("CAPACITY_GPU_FREE_MIN_GB", "2"
 # Guard slot-targeted generation/chat tools so they don't run before plug completes.
 _SLOT_READY_TOOLS = frozenset({"invoke_slot", "chat", "agent_chat", "generate", "classify"})
 
+# Serialize heavy slot-bound generation/chat calls to prevent overlap storms
+# when external clients time out locally and retry while the first call is
+# still running on the backend.
+_SLOT_SERIAL_TOOLS = frozenset({"invoke_slot", "chat", "agent_chat", "generate", "classify"})
+
+# Emit immediate activity "start" entries for long-running calls so UI isn't blank.
+_LIVE_START_TOOLS = frozenset({"agent_chat", "invoke_slot", "chat", "generate", "classify", "plug_model", "hub_plug"})
+
+_slot_exec_gate = asyncio.Lock()
+_slot_exec_locks: dict[int, asyncio.Lock] = {}
+_slot_exec_active: dict[int, dict] = {}
+
+
+def _slot_serial_index(tool_name: str, args: dict | None) -> int | None:
+    if tool_name not in _SLOT_SERIAL_TOOLS:
+        return None
+    if not isinstance(args, dict):
+        return None
+    if args.get("slot") is None:
+        return None
+    try:
+        return int(args.get("slot"))
+    except Exception:
+        return None
+
+
+async def _claim_slot_execution(tool_name: str, args: dict | None, source: str, client_id: str | None) -> tuple[dict | None, dict | None]:
+    """Try to claim exclusive execution for slot-bound heavy tools.
+
+    Returns: (claim, busy_payload)
+      - claim: internal token to release in finally
+      - busy_payload: guard payload when slot already running another call
+    """
+    slot_idx = _slot_serial_index(tool_name, args)
+    if slot_idx is None:
+        return None, None
+
+    now_ms = int(time.time() * 1000)
+    async with _slot_exec_gate:
+        lock = _slot_exec_locks.get(slot_idx)
+        if lock is None:
+            lock = asyncio.Lock()
+            _slot_exec_locks[slot_idx] = lock
+
+        active = _slot_exec_active.get(slot_idx)
+        if lock.locked() or active:
+            active = active or {}
+            started_ms = active.get("started_ms")
+            running_for_ms = None
+            try:
+                if started_ms is not None:
+                    running_for_ms = max(0, now_ms - int(started_ms))
+            except Exception:
+                running_for_ms = None
+            active_tool = active.get("tool") or "unknown"
+            busy = {
+                "guard": "slot_busy",
+                "tool": tool_name,
+                "slot": slot_idx,
+                "active": {
+                    "tool": active_tool,
+                    "source": active.get("source"),
+                    "client_id": active.get("client_id"),
+                    "started_ms": started_ms,
+                    "running_for_ms": running_for_ms,
+                },
+                "error": f"Slot {slot_idx} is busy running {active_tool}. Wait for completion before calling {tool_name}."
+            }
+            return None, busy
+
+        await lock.acquire()
+        _slot_exec_active[slot_idx] = {
+            "tool": tool_name,
+            "source": source,
+            "client_id": client_id,
+            "started_ms": now_ms,
+        }
+        return {"slot": slot_idx, "lock": lock}, None
+
+
+async def _release_slot_execution(claim: dict | None) -> None:
+    if not isinstance(claim, dict):
+        return
+    slot_idx = claim.get("slot")
+    lock = claim.get("lock")
+    if slot_idx is None or lock is None:
+        return
+
+    async with _slot_exec_gate:
+        _slot_exec_active.pop(int(slot_idx), None)
+        try:
+            if lock.locked():
+                lock.release()
+        except Exception:
+            pass
+
 
 def _bytes_to_gb(value: int | None) -> float | None:
     if value is None:
@@ -1245,19 +1341,43 @@ async def proxy_tool_call(tool_name: str, request: Request):
             _broadcast_activity(tool_name, body if isinstance(body, dict) else {}, payload, 0, error_msg, source=source, client_id=client_id)
             return JSONResponse(status_code=429, content=payload)
 
+    call_args = body if isinstance(body, dict) else {}
+
+    # Slot execution guard: reject overlapping heavy calls on same slot.
+    claim, busy_guard = await _claim_slot_execution(tool_name, call_args, source, client_id)
+    if busy_guard:
+        error_msg = busy_guard.get("error") or f"Slot busy while calling {tool_name}"
+        payload = {"error": error_msg, "slot_busy": busy_guard}
+        _broadcast_activity(tool_name, call_args, payload, 0, error_msg, source=source, client_id=client_id)
+        return JSONResponse(status_code=409, content=payload)
+
+    if tool_name in _LIVE_START_TOOLS:
+        _broadcast_activity(
+            tool_name,
+            call_args,
+            {"_phase": "start", "state": "running"},
+            0,
+            None,
+            source=source,
+            client_id=client_id,
+        )
+
     start = time.time()
-    result = await _call_tool(tool_name, body)
-    # Post-process to fix known capsule bugs at proxy layer
-    result = await _postprocess_tool_result(tool_name, body, result)
-    duration_ms = int((time.time() - start) * 1000)
-    error_str = result.get("error") if isinstance(result.get("error"), str) else None
-    # Tag hydration calls so the frontend SSE listener can filter them
-    _broadcast_activity(tool_name, body, result.get("result"), duration_ms, error_str, source=source, client_id=client_id)
-    if error_str:
-        return JSONResponse(status_code=503, content=result)
-    if capacity_guard and isinstance(result, dict):
-        result["capacity_guard"] = capacity_guard
-    return result
+    try:
+        result = await _call_tool(tool_name, call_args)
+        # Post-process to fix known capsule bugs at proxy layer
+        result = await _postprocess_tool_result(tool_name, call_args, result)
+        duration_ms = int((time.time() - start) * 1000)
+        error_str = result.get("error") if isinstance(result.get("error"), str) else None
+        # Tag hydration calls so the frontend SSE listener can filter them
+        _broadcast_activity(tool_name, call_args, result.get("result"), duration_ms, error_str, source=source, client_id=client_id)
+        if error_str:
+            return JSONResponse(status_code=503, content=result)
+        if capacity_guard and isinstance(result, dict):
+            result["capacity_guard"] = capacity_guard
+        return result
+    finally:
+        await _release_slot_execution(claim)
 
 
 @app.get("/api/tools")
@@ -1712,6 +1832,7 @@ async def mcp_sse_proxy(request: Request):
                                                 rpc_result, duration_ms, error_str,
                                                 source="external", client_id=pending.get("client_id")
                                             )
+                                            await _release_slot_execution(pending.get("claim"))
                                         elif rpc_id is not None:
                                             print(f"[MCP-PROXY] SSE response id={rpc_id} (type={type(rpc_id).__name__}) not in pending keys={list(_pending_external_calls.keys())}")
                                     except (json.JSONDecodeError, AttributeError):
@@ -1728,7 +1849,9 @@ async def mcp_sse_proxy(request: Request):
             stale_ids = [k for k, v in _pending_external_calls.items()
                          if time.time() - v["start"] > 300]
             for k in stale_ids:
-                _pending_external_calls.pop(k, None)
+                stale = _pending_external_calls.pop(k, None)
+                if isinstance(stale, dict):
+                    await _release_slot_execution(stale.get("claim"))
 
     return StreamingResponse(
         _stream(),
@@ -1806,6 +1929,74 @@ async def mcp_message_proxy(request: Request):
             },
         )
 
+    # Slot execution guard (reject overlap; don't queue hidden retries).
+    busy_calls = []
+    for call in rpc_calls:
+        claim, busy = await _claim_slot_execution(
+            call.get("tool") or "",
+            call.get("args") if isinstance(call, dict) else {},
+            "external",
+            _mcp_client_id,
+        )
+        call["_claim"] = claim
+        if busy:
+            busy_calls.append((call, busy))
+
+    if busy_calls:
+        # Release any claims acquired in this batch before returning busy.
+        for call in rpc_calls:
+            await _release_slot_execution(call.get("_claim") if isinstance(call, dict) else None)
+
+        for call, bg in busy_calls:
+            err = bg.get("error") or "Slot busy"
+            _broadcast_activity(
+                call.get("tool") or "",
+                call.get("args") or {},
+                {"slot_busy": bg},
+                0,
+                err,
+                source="external",
+                client_id=_mcp_client_id,
+            )
+
+        if len(rpc_calls) == 1 and rpc_calls[0].get("rpc_id") is not None:
+            rid = rpc_calls[0].get("rpc_id")
+            err_msg = busy_calls[0][1].get("error") or "Slot busy"
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "jsonrpc": "2.0",
+                    "id": rid,
+                    "error": {
+                        "code": -32011,
+                        "message": err_msg,
+                        "data": {"slot_busy": busy_calls[0][1]},
+                    },
+                },
+            )
+
+        return JSONResponse(
+            status_code=409,
+            content={
+                "error": busy_calls[0][1].get("error") or "Slot busy",
+                "blocked": [bg for _, bg in busy_calls],
+            },
+        )
+
+    # Emit immediate "running" entries so UI shows in-flight work.
+    for call in rpc_calls:
+        tname = call.get("tool") if isinstance(call, dict) else None
+        if tname in _LIVE_START_TOOLS:
+            _broadcast_activity(
+                tname,
+                call.get("args") or {},
+                {"_phase": "start", "state": "running"},
+                0,
+                None,
+                source="external",
+                client_id=_mcp_client_id,
+            )
+
     start = time.time()
     try:
         async with httpx.AsyncClient() as client:
@@ -1826,12 +2017,14 @@ async def mcp_message_proxy(request: Request):
                     # Store as pending - mcp_sse_proxy will resolve it with real data.
                     for call in rpc_calls:
                         rpc_id = call["rpc_id"]
+                        claim = call.get("_claim")
                         if rpc_id is not None:
                             _pending_external_calls[rpc_id] = {
                                 "tool": call["tool"],
                                 "args": call["args"],
                                 "start": start,
                                 "client_id": _mcp_client_id,
+                                "claim": claim,
                             }
                             print(
                                 f"[MCP-PROXY] Stored pending call id={rpc_id} "
@@ -1840,6 +2033,7 @@ async def mcp_message_proxy(request: Request):
                         else:
                             # Notifications (no id) cannot be matched on SSE response.
                             _broadcast_activity(call["tool"], call["args"], None, duration_ms, None, source="external", client_id=_mcp_client_id)
+                            await _release_slot_execution(claim)
                 elif resp.status_code == 200:
                     # Got inline JSON response(s) - map by id when present.
                     response_items: list[dict] = []
@@ -1887,6 +2081,7 @@ async def mcp_message_proxy(request: Request):
                             error_str,
                             source="external", client_id=_mcp_client_id,
                         )
+                        await _release_slot_execution(call.get("_claim"))
 
                     for call in unmatched_calls:
                         error_str = "Missing JSON-RPC result"
@@ -1900,6 +2095,7 @@ async def mcp_message_proxy(request: Request):
                             error_str,
                             source="external", client_id=_mcp_client_id,
                         )
+                        await _release_slot_execution(call.get("_claim"))
                 else:
                     for call in rpc_calls:
                         _broadcast_activity(
@@ -1910,6 +2106,7 @@ async def mcp_message_proxy(request: Request):
                             f"HTTP {resp.status_code}",
                             source="external", client_id=_mcp_client_id,
                         )
+                        await _release_slot_execution(call.get("_claim"))
 
             # Forward the response as-is
             if resp.status_code in (202, 204):
@@ -1927,11 +2124,13 @@ async def mcp_message_proxy(request: Request):
         duration_ms = int((time.time() - start) * 1000)
         for call in rpc_calls:
             _broadcast_activity(call["tool"], call["args"], None, duration_ms, "Capsule timeout", source="external", client_id=_mcp_client_id)
+            await _release_slot_execution(call.get("_claim"))
         return JSONResponse(status_code=504, content={"error": "Capsule timeout"})
     except Exception as e:
         duration_ms = int((time.time() - start) * 1000)
         for call in rpc_calls:
             _broadcast_activity(call["tool"], call["args"], None, duration_ms, str(e), source="external", client_id=_mcp_client_id)
+            await _release_slot_execution(call.get("_claim"))
         print(f"[MCP-PROXY] POST error: {e}")
         return JSONResponse(status_code=502, content={"error": str(e)})
 
@@ -2063,17 +2262,37 @@ async def _handle_streamable_rpc(obj: dict, client_id: str) -> dict | None:
             _broadcast_activity(tool_name, args, {"slot_guard": sg}, 0, err_msg, source="external", client_id=client_id)
             return _rpc_error(rpc_id, -32010, err_msg, {"slot_guard": sg})
 
+        claim, busy_guard = await _claim_slot_execution(tool_name, args, "external", client_id)
+        if busy_guard:
+            err_msg = busy_guard.get("error") or f"Slot busy while calling {tool_name}"
+            _broadcast_activity(tool_name, args, {"slot_busy": busy_guard}, 0, err_msg, source="external", client_id=client_id)
+            return _rpc_error(rpc_id, -32011, err_msg, {"slot_busy": busy_guard})
+
+        if tool_name in _LIVE_START_TOOLS:
+            _broadcast_activity(
+                tool_name,
+                args,
+                {"_phase": "start", "state": "running"},
+                0,
+                None,
+                source="external",
+                client_id=client_id,
+            )
+
         start = time.time()
-        result = await _call_tool(tool_name, args)
-        result = await _postprocess_tool_result(tool_name, args, result)
-        duration_ms = int((time.time() - start) * 1000)
+        try:
+            result = await _call_tool(tool_name, args)
+            result = await _postprocess_tool_result(tool_name, args, result)
+            duration_ms = int((time.time() - start) * 1000)
 
-        error_str = result.get("error") if isinstance(result, dict) else None
-        _broadcast_activity(tool_name, args, result, duration_ms, error_str, source="external", client_id=client_id)
+            error_str = result.get("error") if isinstance(result, dict) else None
+            _broadcast_activity(tool_name, args, result, duration_ms, error_str, source="external", client_id=client_id)
 
-        if error_str:
-            return _rpc_error(rpc_id, -32603, error_str)
-        return {"jsonrpc": "2.0", "id": rpc_id, "result": result.get("result", result)}
+            if error_str:
+                return _rpc_error(rpc_id, -32603, error_str)
+            return {"jsonrpc": "2.0", "id": rpc_id, "result": result.get("result", result)}
+        finally:
+            await _release_slot_execution(claim)
 
     # ── resources/list, prompts/list, etc. — pass through ──
     if method in ("resources/list", "resources/read", "prompts/list", "prompts/get"):

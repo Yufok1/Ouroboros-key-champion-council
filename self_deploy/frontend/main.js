@@ -1808,34 +1808,39 @@
                 // Ensure tab exists; tab keys are slot:<index>
                 var slotTab = _ensureAchatTab(extSlot);
                 if (slotTab) {
-                    // Add the request
-                    var argPreview = event.args ? _prettyTruncate(event.args, 600) : '';
-                    _appendAchatMsg(
-                        'system-info',
-                        '⟵ EXTERNAL ' + event.tool + (argPreview ? ':\n' + argPreview : ''),
-                        event.timestamp ? new Date(event.timestamp).getTime() : Date.now(),
-                        slotTab
-                    );
+                    var isStartPhase = !!(event.result && typeof event.result === 'object' && event.result._phase === 'start');
 
-                    // Add the result / error (unwrap MCP envelopes for readability)
-                    if (event.error) {
-                        _appendAchatMsg('error', 'EXTERNAL error: ' + String(event.error), Date.now(), slotTab);
-                    } else if (event.result !== undefined) {
-                        var formatted = _formatExternalResultForChat(event.tool, event.result);
-                        if (formatted && formatted.text) {
-                            _appendAchatMsg(formatted.role || 'assistant', formatted.text, Date.now(), slotTab);
+                    if (isStartPhase) {
+                        // Add request args once when call starts.
+                        var argPreview = event.args ? _prettyTruncate(event.args, 600) : '';
+                        _appendAchatMsg(
+                            'tool-trace',
+                            '⟵ EXTERNAL ' + event.tool + (argPreview ? ':\n' + argPreview : ''),
+                            event.timestamp ? new Date(event.timestamp).getTime() : Date.now(),
+                            slotTab
+                        );
+                        _appendAchatMsg('tool-trace', '⟵ EXTERNAL ' + event.tool + ' started…', Date.now(), slotTab);
+                    } else {
+                        // Add the result / error (unwrap MCP envelopes for readability)
+                        if (event.error) {
+                            _appendAchatMsg('error', 'EXTERNAL error: ' + String(event.error), Date.now(), slotTab);
+                        } else if (event.result !== undefined) {
+                            var formatted = _formatExternalResultForChat(event.tool, event.result);
+                            if (formatted && formatted.text) {
+                                _appendAchatMsg(formatted.role || 'assistant', formatted.text, Date.now(), slotTab);
+                            }
+
+                            // Add tool trace if agent_chat returned tool_calls
+                            var payload = formatted ? formatted.payload : null;
+                            var tc = null;
+                            if (payload && payload.tool_calls && Array.isArray(payload.tool_calls)) tc = payload.tool_calls;
+                            else if (payload && payload.result && payload.result.tool_calls && Array.isArray(payload.result.tool_calls)) tc = payload.result.tool_calls;
+                            if (tc && tc.length) _appendAchatToolTrace(tc, slotTab);
                         }
 
-                        // Add tool trace if agent_chat returned tool_calls
-                        var payload = formatted ? formatted.payload : null;
-                        var tc = null;
-                        if (payload && payload.tool_calls && Array.isArray(payload.tool_calls)) tc = payload.tool_calls;
-                        else if (payload && payload.result && payload.result.tool_calls && Array.isArray(payload.result.tool_calls)) tc = payload.result.tool_calls;
-                        if (tc && tc.length) _appendAchatToolTrace(tc, slotTab);
+                        var dur = event.durationMs >= 0 ? ' (' + event.durationMs + 'ms)' : '';
+                        _appendAchatMsg('tool-trace', '⟵ EXTERNAL ' + event.tool + ' complete' + dur, Date.now(), slotTab);
                     }
-
-                    var dur = event.durationMs >= 0 ? ' (' + event.durationMs + 'ms)' : '';
-                    _appendAchatMsg('system-info', '⟵ EXTERNAL ' + event.tool + ' complete' + dur, Date.now(), slotTab);
                 }
             }
         }
@@ -3942,14 +3947,29 @@
                     );
                 }
 
-                // Auto-continue loop: if this was a loop iteration and no final_answer,
-                // fire the next iteration immediately so results stream LIVE.
+                // Auto-continue loop: run one agent_chat step at a time so
+                // each step lands live in chat/activity.
                 if (isLoopIter && tab && tab._loopState) {
                     var ls = tab._loopState;
                     ls.iteration += 1;
                     ls.totalToolCalls += toolCalls.length;
-                    if (answer) {
-                        // Got final answer — loop is done
+
+                    // Track tools already used (for continuation guidance).
+                    for (var tci = 0; tci < toolCalls.length; tci++) {
+                        var tcn = String((toolCalls[tci] || {}).tool || '').trim();
+                        if (tcn) ls.calledTools[tcn] = (ls.calledTools[tcn] || 0) + 1;
+                    }
+
+                    var hasRealAnswer = !!(answer && !/agent reached max iterations/i.test(String(answer)));
+                    var hasAnyToolSoFar = ls.totalToolCalls > 0;
+
+                    // Don't accept hallucinated "final" answers with zero tool evidence.
+                    if (hasRealAnswer && !hasAnyToolSoFar && ls.iteration < ls.maxIterations) {
+                        _appendAchatMsg('system-info', 'Answer arrived without any tool calls; requesting grounded tool use first.', Date.now(), tab);
+                        hasRealAnswer = false;
+                    }
+
+                    if (hasRealAnswer) {
                         var totalElapsed = Math.round((Date.now() - ls.startTime) / 1000);
                         _appendAchatMsg('system-info',
                             'Loop complete: ' + ls.iteration + ' iterations · ' +
@@ -3957,8 +3977,21 @@
                             Date.now(), tab);
                         _setAchatBusy(false);
                         tab._loopState = null;
+                    } else if (ls.iteration >= ls.maxIterations) {
+                        _appendAchatMsg('error', 'Loop reached max iterations (' + ls.maxIterations + ') without final grounded answer.', Date.now(), tab);
+                        _setAchatBusy(false);
+                        tab._loopState = null;
                     } else {
-                        // No final answer yet — fire next iteration
+                        var used = Object.keys(ls.calledTools || {});
+                        if (!hasAnyToolSoFar) {
+                            ls.nextMessage = 'You have not executed any tools yet. You MUST call at least one granted tool now and use only real returned values. Start with get_status or get_capabilities if unsure.';
+                        } else {
+                            var usedPreview = used.slice(0, 8).join(', ');
+                            ls.nextMessage =
+                                'Continue from prior tool results. Avoid repeating tools unless needed. ' +
+                                (usedPreview ? ('Tools already used: ' + usedPreview + '. ') : '') +
+                                'If enough evidence is collected, return final_answer. Otherwise call the next granted tool.';
+                        }
                         _fireAgentIteration(tab);
                     }
                 }
@@ -8838,10 +8871,12 @@
             _setAchatBusy(true);
             tab._loopState = {
                 mission: mission,
+                nextMessage: mission,
                 iteration: 0,
                 maxIterations: parseInt((document.getElementById('achat-max-iter') || {}).value || '5', 10) || 5,
                 maxTokens: parseInt((document.getElementById('achat-max-tokens') || {}).value || '256', 10) || 256,
                 totalToolCalls: 0,
+                calledTools: {},
                 startTime: Date.now()
             };
             _fireAgentIteration(tab);
@@ -8877,9 +8912,10 @@
             return;
         }
         _appendAchatMsg('system-info', 'Iteration ' + (ls.iteration + 1) + '/' + ls.maxIterations + ' — thinking…', Date.now(), tab);
+        var nextMsg = String(ls.nextMessage || ls.mission || '').trim() || 'Continue the task with granted tools.';
         var args = {
             slot: tab.slot,
-            message: ls.mission,
+            message: nextMsg,
             max_iterations: 1,
             max_tokens: ls.maxTokens,
             granted_tools: Array.isArray(tab.grantedTools) ? tab.grantedTools.slice() : []
