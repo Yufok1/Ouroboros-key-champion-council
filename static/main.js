@@ -1903,6 +1903,41 @@
         _setProviderModeUI(_providerKind());
     }
 
+    function _capsuleLoopbackBase() {
+        var host = String((window.location && window.location.hostname) || '').toLowerCase();
+        var portRaw = String((window.location && window.location.port) || '').trim();
+
+        // On HF Spaces, capsule runs behind local FastAPI on 7860.
+        if (_isRemoteSpace || /\.hf\.space$/i.test(host)) {
+            return 'http://127.0.0.1:7860';
+        }
+
+        // Self-deploy/local panel: reuse current bound app port when available.
+        var p = parseInt(portRaw, 10);
+        if (p >= 1 && p <= 65535) {
+            return 'http://127.0.0.1:' + p;
+        }
+
+        // Conservative self-deploy default.
+        return 'http://127.0.0.1:7866';
+    }
+
+    function _rewriteHfRouterToLoopback(urlLike) {
+        var raw = String(urlLike || '').trim();
+        if (!raw) return raw;
+        try {
+            var parsed = new URL(raw, window.location.origin || undefined);
+            var path = String(parsed.pathname || '');
+            if (/^\/hf-router(\/|$)/.test(path)) {
+                return _capsuleLoopbackBase() + path + (parsed.search || '');
+            }
+            if (/\.hf\.space$/i.test(String(parsed.hostname || '')) && /^\/hf-router(\/|$)/.test(path)) {
+                return _capsuleLoopbackBase() + path + (parsed.search || '');
+            }
+        } catch (e) { }
+        return raw;
+    }
+
     async function doPlugProvider() {
         var kind = _providerKind();
         var model = String(((document.getElementById('plug-provider-model') || {}).value || '')).trim();
@@ -1915,15 +1950,14 @@
             }
 
             var provider = String(((document.getElementById('plug-provider-hf-provider') || {}).value || 'auto')).trim().toLowerCase();
-            var origin = window.location.origin || '';
             var providerPath = provider && provider !== 'auto' ? ('/hf-router/' + encodeURIComponent(provider) + '/v1') : '/hf-router/v1';
-            var routerUrl = origin + providerPath + '?model=' + encodeURIComponent(model);
+            var routerUrl = _capsuleLoopbackBase() + providerPath + '?model=' + encodeURIComponent(model);
 
             var hfArgs = { model_id: routerUrl };
             if (slotName) hfArgs.slot_name = slotName;
             callTool('plug_model', hfArgs);
             closeModals();
-            mpToast('Plugging HuggingFace inference provider route...', 'info', 2600);
+            mpToast('Plugging HuggingFace inference provider route (loopback)...', 'info', 2800);
             return;
         }
 
@@ -1937,6 +1971,9 @@
         if (model) params.push('model=' + encodeURIComponent(model));
         if (key) params.push('key=' + encodeURIComponent(key));
         if (params.length > 0) fullUrl += (fullUrl.indexOf('?') >= 0 ? '&' : '?') + params.join('&');
+
+        // If user pasted an hf.space /hf-router URL, rewrite to capsule-reachable loopback.
+        fullUrl = _rewriteHfRouterToLoopback(fullUrl);
 
         var args = { model_id: fullUrl };
         if (slotName) args.slot_name = slotName;
@@ -4178,7 +4215,12 @@
                 }
 
                 if (payload && payload._cached) {
-                    callTool('get_cached', { cache_id: payload._cached }, toolName);
+                    var _cacheId = String(payload._cached || '').trim();
+                    var _cacheSize = parseInt(payload._size, 10) || 0;
+                    _appendAchatCacheHint(_cacheId, _cacheSize, activeTab, toolName);
+                    var _cachedMeta = {};
+                    if (activeTab && activeTab.key) _cachedMeta.tabKey = activeTab.key;
+                    callTool('get_cached', { cache_id: _cacheId }, toolName, _cachedMeta);
                     return;
                 }
 
@@ -8444,9 +8486,25 @@
                 container.appendChild(tDiv);
                 continue;
             }
+            var tsStr = m.ts ? new Date(m.ts).toLocaleTimeString() : '';
+            if (m.role === 'cache-hint') {
+                var cDiv = document.createElement('div');
+                cDiv.className = 'achat-msg system-info';
+                var cid = String(m.cacheId || m.content || '').trim();
+                var csz = parseInt(m.cacheSize, 10) || 0;
+                var routeAs = String(m.routeAs || '__agent_chat__');
+                var sizeInfo = csz > 0 ? (' · ' + csz + ' bytes') : '';
+                var btnHtml = '<button class="btn btn-dim" style="margin-left:8px;padding:2px 8px;font-size:9px;" ' +
+                    'onclick=\'_achatLoadCached(' + JSON.stringify(cid) + ',' + JSON.stringify(tab.key || '') + ',' + JSON.stringify(routeAs) + ')\'>Load cached result</button>';
+                cDiv.innerHTML =
+                    'Large response cached as <code>' + escHtml(cid) + '</code>' + escHtml(sizeInfo) + btnHtml +
+                    (tsStr ? '<span class="achat-ts">' + tsStr + '</span>' : '');
+                container.appendChild(cDiv);
+                continue;
+            }
+
             var div = document.createElement('div');
             div.className = 'achat-msg ' + (m.role || 'assistant');
-            var tsStr = m.ts ? new Date(m.ts).toLocaleTimeString() : '';
             div.innerHTML = escHtml(String(m.content || '')) + (tsStr ? '<span class="achat-ts">' + tsStr + '</span>' : '');
             container.appendChild(div);
         }
@@ -8468,6 +8526,34 @@
         tab.messages.push({ role: 'tool-trace', toolCalls: Array.isArray(toolCalls) ? toolCalls : [], ts: Date.now() });
         if (tab.key === _achatActiveTabKey) _renderAchatMessages(tab);
     }
+
+    function _appendAchatCacheHint(cacheId, cacheSize, tabRef, routeAs) {
+        var tab = tabRef || _getActiveAchatTab();
+        var cid = String(cacheId || '').trim();
+        if (!tab || !cid) return;
+        if (!Array.isArray(tab.messages)) tab.messages = [];
+        var last = tab.messages.length ? tab.messages[tab.messages.length - 1] : null;
+        if (last && last.role === 'cache-hint' && String(last.cacheId || '') === cid) return;
+        tab.messages.push({
+            role: 'cache-hint',
+            cacheId: cid,
+            cacheSize: parseInt(cacheSize, 10) || 0,
+            routeAs: String(routeAs || '__agent_chat__'),
+            ts: Date.now()
+        });
+        if (tab.key === _achatActiveTabKey) _renderAchatMessages(tab);
+    }
+
+    function _achatLoadCached(cacheId, tabKey, routeAs) {
+        var cid = String(cacheId || '').trim();
+        if (!cid) return;
+        var tab = (tabKey && _achatTabs[tabKey]) ? _achatTabs[tabKey] : _getActiveAchatTab();
+        if (tab) _appendAchatMsg('system-info', 'Loading cached result ' + cid + '…', Date.now(), tab);
+        var meta = {};
+        if (tab && tab.key) meta.tabKey = tab.key;
+        callTool('get_cached', { cache_id: cid }, routeAs || '__agent_chat__', meta);
+    }
+    window._achatLoadCached = _achatLoadCached;
 
     // Log a single agent-inner tool call through the real activity pipeline
     // so it appears in Activity tab, slot drill-in, and chat timeline in real-time.
