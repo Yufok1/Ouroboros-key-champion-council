@@ -4369,12 +4369,17 @@
                         hasRealAnswer = false;
                     }
 
-                    // Don't accept hallucinated completion before required tool evidence is met.
-                    if (hasRealAnswer && !hasMinToolEvidence && ls.iteration < ls.maxIterations) {
-                        _appendAchatMsg('system-info',
-                            'Final answer arrived early; enforcing sequential tool-call target (' + ls.totalToolCalls + '/' + minCalls + '). Continuing.',
-                            Date.now(), tab);
-                        hasRealAnswer = false;
+                    // Don't accept hallucinated completion before required tool evidence is met,
+                    // BUT always respect kill switch and accept a real answer if the model gave one.
+                    if (hasRealAnswer && !hasMinToolEvidence && ls.iteration < ls.maxIterations && !window.__achatKillRequested) {
+                        // Only enforce if the mission explicitly requested a tool-call count.
+                        // Otherwise accept the model's decision to stop.
+                        if (minCalls > 1 && ls.minToolCalls > 1) {
+                            _appendAchatMsg('system-info',
+                                'Final answer arrived early; enforcing explicit tool-call target (' + ls.totalToolCalls + '/' + minCalls + '). Continuing.',
+                                Date.now(), tab);
+                            hasRealAnswer = false;
+                        }
                     }
 
                     if (hasRealAnswer && hasMinToolEvidence) {
@@ -8768,7 +8773,7 @@
         lines.push('3. TEST: Use tools to validate or refute your hypotheses.');
         lines.push('4. RECORD: Note each finding — successful or failed — for your final report.');
         lines.push('5. ITERATE: If a tool reveals something unexpected, investigate further. Do NOT skip anomalies.');
-        lines.push('Work through ALL granted tools systematically. If you have 10 granted tools, plan to call all 10. Breadth first, then depth on anomalies.');
+        lines.push('Use tools as needed to accomplish the mission. Do NOT call every granted tool — only call tools relevant to the task.');
 
         lines.push('\n## CONTINUATION');
         lines.push('You will receive results after each tool call. Use those results to inform your next action.');
@@ -9804,14 +9809,11 @@
             _setAchatBusy(true);
             var _maxIter = parseInt((document.getElementById('achat-max-iter') || {}).value || '5', 10) || 5;
             var _minCalls = _extractRequiredToolCalls(mission);
-            // If no explicit tool-call count in the mission, default to the number
-            // of granted tools — the agent should call each granted tool at least once.
-            var grantedCount = Array.isArray(tab.grantedTools) ? tab.grantedTools.length : 0;
-            if (_minCalls <= 0 && grantedCount > 1) {
-                _minCalls = grantedCount;
-            }
+            // Only expand iterations if the user explicitly requested N tool calls
+            // in their mission text (e.g. "call 10 tools"). Never auto-expand to
+            // the granted tool count — that forces 143 iterations just to say hello.
             if (_minCalls > _maxIter) {
-                _appendAchatMsg('system-info', 'Auto-expanding max iterations from ' + _maxIter + ' to ' + _minCalls + ' to satisfy required tool-call target (' + _minCalls + ' granted tools).', Date.now(), tab);
+                _appendAchatMsg('system-info', 'Auto-expanding max iterations from ' + _maxIter + ' to ' + _minCalls + ' to satisfy explicit tool-call target in mission.', Date.now(), tab);
                 _maxIter = _minCalls;
             }
             // Always +1: reserve a final iteration for synthesis/final_answer.
@@ -9857,6 +9859,13 @@
     // comprehensive final answer instead of calling a tool.
     function _fireAgentIteration(tab) {
         if (!tab || !tab._loopState) return;
+        if (window.__achatKillRequested) {
+            _appendAchatMsg('system-info', '🛑 Kill switch activated. Loop terminated.', Date.now(), tab);
+            _setAchatBusy(false);
+            tab._loopState = null;
+            window.__achatKillRequested = false;
+            return;
+        }
         var ls = tab._loopState;
         if (ls.iteration >= ls.maxIterations) {
             _appendAchatMsg('system-info', 'Loop reached max iterations (' + ls.maxIterations + ').', Date.now(), tab);
