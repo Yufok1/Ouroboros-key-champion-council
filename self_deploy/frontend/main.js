@@ -3857,11 +3857,16 @@
         }
 
         // Agent MCP console responses — route to slot tab timeline
-        if (toolName === 'agent_chat' || toolName === '__agent_chat__' || toolName === '__achat_tool__') {
-            _setAchatBusy(false);
+        if (toolName === 'agent_chat' || toolName === '__agent_chat__' || toolName === '__achat_tool__' || toolName === '__agent_chat_loop__') {
+            var isLoopIter = (toolName === '__agent_chat_loop__');
+            if (!isLoopIter) _setAchatBusy(false);
             var activeTab = pendingTabKey ? _achatTabs[pendingTabKey] : _getActiveAchatTab();
             if (msg.error) {
                 _appendAchatMsg('error', String(msg.error || 'Unknown error'), Date.now(), activeTab);
+                if (isLoopIter && activeTab && activeTab._loopState) {
+                    _setAchatBusy(false);
+                    activeTab._loopState = null;
+                }
                 return;
             }
             try {
@@ -3935,6 +3940,27 @@
                         null,
                         tab
                     );
+                }
+
+                // Auto-continue loop: if this was a loop iteration and no final_answer,
+                // fire the next iteration immediately so results stream LIVE.
+                if (isLoopIter && tab && tab._loopState) {
+                    var ls = tab._loopState;
+                    ls.iteration += 1;
+                    ls.totalToolCalls += toolCalls.length;
+                    if (answer) {
+                        // Got final answer — loop is done
+                        var totalElapsed = Math.round((Date.now() - ls.startTime) / 1000);
+                        _appendAchatMsg('system-info',
+                            'Loop complete: ' + ls.iteration + ' iterations · ' +
+                            ls.totalToolCalls + ' tool calls · ' + totalElapsed + 's total',
+                            Date.now(), tab);
+                        _setAchatBusy(false);
+                        tab._loopState = null;
+                    } else {
+                        // No final answer yet — fire next iteration
+                        _fireAgentIteration(tab);
+                    }
                 }
             } catch (e3) {
                 _appendAchatMsg('assistant', parseToolData(msg.data), Date.now(), activeTab);
@@ -8795,9 +8821,6 @@
             return;
         }
 
-        // Both loop and direct mode for chat-capable models use agent_chat.
-        // The capsule handles the full agent loop natively — tool calling,
-        // iteration, results aggregation — no client-side reimplementation needed.
         var toolSel = document.getElementById('achat-run-tool');
         var toolName;
         if ((tab.runMode || 'direct') === 'loop' || !toolSel || !toolSel.value) {
@@ -8806,6 +8829,24 @@
             toolName = toolSel.value;
         }
         tab.selectedTool = toolName;
+
+        // For loop mode with agent_chat: iterate with max_iterations=1 per call
+        // so each tool call shows up LIVE in the chat + Activity feed.
+        if ((tab.runMode || 'direct') === 'loop' && toolName === 'agent_chat') {
+            var mission = msg || 'Proceed with the configured objective.';
+            _appendAchatMsg('user', 'MISSION: ' + mission, Date.now(), tab);
+            _setAchatBusy(true);
+            tab._loopState = {
+                mission: mission,
+                iteration: 0,
+                maxIterations: parseInt((document.getElementById('achat-max-iter') || {}).value || '5', 10) || 5,
+                maxTokens: parseInt((document.getElementById('achat-max-tokens') || {}).value || '256', 10) || 256,
+                totalToolCalls: 0,
+                startTime: Date.now()
+            };
+            _fireAgentIteration(tab);
+            return;
+        }
 
         try {
             var args = _collectSelectedToolArgs(tab, toolName, msg);
@@ -8823,6 +8864,29 @@
         }
     }
     window.sendAgentChat = sendAgentChat;
+
+    // Fire a single agent_chat iteration with max_iterations=1.
+    // The response handler checks tab._loopState and auto-fires next iteration.
+    function _fireAgentIteration(tab) {
+        if (!tab || !tab._loopState) return;
+        var ls = tab._loopState;
+        if (ls.iteration >= ls.maxIterations) {
+            _appendAchatMsg('system-info', 'Loop reached max iterations (' + ls.maxIterations + ').', Date.now(), tab);
+            _setAchatBusy(false);
+            tab._loopState = null;
+            return;
+        }
+        _appendAchatMsg('system-info', 'Iteration ' + (ls.iteration + 1) + '/' + ls.maxIterations + ' — thinking…', Date.now(), tab);
+        var args = {
+            slot: tab.slot,
+            message: ls.mission,
+            max_iterations: 1,
+            max_tokens: ls.maxTokens,
+            granted_tools: Array.isArray(tab.grantedTools) ? tab.grantedTools.slice() : []
+        };
+        if (tab.sessionId) args.session_id = tab.sessionId;
+        callTool('agent_chat', args, '__agent_chat_loop__', { tabKey: tab.key });
+    }
 
 
     // ── INIT ──
