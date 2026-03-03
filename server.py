@@ -710,31 +710,35 @@ def _broadcast_agent_inner_calls(tool_name: str, result, duration_ms: int, sourc
         return
     parsed = _parse_mcp_result(result)
     if not isinstance(parsed, dict):
+        print(f"[AGENT-INNER] Skip: parsed is {type(parsed).__name__}, not dict")
         return
     inner_result = parsed.get("result") if "result" in parsed else parsed
     tool_calls = inner_result.get("tool_calls") if isinstance(inner_result, dict) else None
     if not isinstance(tool_calls, list) or len(tool_calls) == 0:
+        print(f"[AGENT-INNER] Skip: tool_calls={type(tool_calls).__name__} len={len(tool_calls) if isinstance(tool_calls, list) else 'N/A'} keys={list(inner_result.keys()) if isinstance(inner_result, dict) else 'N/A'}")
         return
     slot_idx = inner_result.get("slot")
     slot_name = inner_result.get("name", "")
-    for tc in tool_calls:
+    print(f"[AGENT-INNER] Extracting {len(tool_calls)} inner tool calls from agent_chat (slot={slot_idx}/{slot_name})")
+    for i, tc in enumerate(tool_calls):
         if not isinstance(tc, dict):
             continue
         tc_tool = tc.get("tool", "unknown")
         tc_args = tc.get("args", {})
         tc_result_str = tc.get("result", "")
-        tc_iteration = tc.get("iteration", 0)
+        tc_error = tc.get("error")
+        tc_iteration = tc.get("iteration", i)
         tc_result_content = {"content": [{"type": "text", "text": tc_result_str if isinstance(tc_result_str, str) else json.dumps(tc_result_str)}]}
         _broadcast_activity(
             tc_tool,
             tc_args,
             tc_result_content,
             duration_ms,
-            None,
+            str(tc_error) if tc_error else None,
             source="agent-inner",
             client_id=client_id,
         )
-        print(f"[AGENT-INNER] Broadcast inner tool call: {tc_tool} (iteration={tc_iteration}, slot={slot_idx}/{slot_name})")
+        print(f"[AGENT-INNER] Broadcast {i+1}/{len(tool_calls)}: {tc_tool} (iter={tc_iteration}, slot={slot_idx}/{slot_name})")
 
 
 # --- Configuration ---
@@ -2573,8 +2577,9 @@ async def _handle_streamable_rpc(obj: dict, client_id: str) -> dict | None:
             duration_ms = int((time.time() - start) * 1000)
 
             error_str = result.get("error") if isinstance(result, dict) else None
-            _broadcast_activity(tool_name, args, result, duration_ms, error_str, source="external", client_id=client_id)
-            _broadcast_agent_inner_calls(tool_name, result, duration_ms, source="external", client_id=client_id)
+            _result_payload = result.get("result", result) if isinstance(result, dict) else result
+            _broadcast_activity(tool_name, args, _result_payload, duration_ms, error_str, source="external", client_id=client_id)
+            _broadcast_agent_inner_calls(tool_name, _result_payload, duration_ms, source="external", client_id=client_id)
 
             if error_str:
                 return _rpc_error(rpc_id, -32603, error_str)
