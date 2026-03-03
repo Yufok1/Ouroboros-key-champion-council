@@ -1241,6 +1241,17 @@ def _doc_decode_key(key: str) -> str:
     return _doc_unescape_key(body)
 
 
+def _doc_decode_result_text(text: str) -> str:
+    """Decode all encoded __docv2__ keys in a result string for human display."""
+    import re as _dre
+    def _replacer(m):
+        try:
+            return _doc_decode_key(m.group(0))
+        except Exception:
+            return m.group(0)
+    return _dre.sub(r'__docv2__[^"}\s,\]]+', _replacer, text)
+
+
 def _doc_encode_checkpoint_key(checkpoint_key: str) -> str:
     if not isinstance(checkpoint_key, str) or not checkpoint_key.startswith("bag_checkpoint:"):
         return checkpoint_key
@@ -1679,7 +1690,7 @@ async def _server_side_agent_chat(args: dict, source: str = "webui", client_id: 
             "agent_chat", {"_phase": "reasoning", "iteration": iterations_used, "session_id": session_id},
             {"content": [{"type": "text", "text": json.dumps({
                 "iteration": iterations_used,
-                "model_output_preview": model_output[:300],
+                "model_output_preview": _doc_decode_result_text(model_output[:300]) if "__docv2__" in model_output[:300] else model_output[:300],
                 "step_ms": step_ms,
             })}]},
             step_ms, None, source="agent-inner", client_id=client_id,
@@ -1755,18 +1766,22 @@ async def _server_side_agent_chat(args: dict, source: str = "webui", client_id: 
                 })
                 continue
 
-            # Normalize args through proxy layer
+            # Normalize args for capsule execution (encoded keys)
             normalized_args = _normalize_proxy_tool_args(called_tool, called_args)
+            # Keep human-readable args for display in broadcasts
+            display_args = dict(called_args)
+            display_args["_agent_session"] = session_id
+            display_args["_agent_iteration"] = iterations_used
 
-            # ── Broadcast tool-call-start ──
+            # ── Broadcast tool-call-start (human-readable args) ──
             _broadcast_activity(
-                called_tool, normalized_args,
+                called_tool, display_args,
                 {"_phase": "start", "state": "running",
                  "_agent_session": session_id, "_agent_iteration": iterations_used},
                 0, None, source="agent-inner", client_id=client_id,
             )
 
-            # ── Execute the tool ──
+            # ── Execute the tool (encoded args) ──
             tool_start = time.time()
             try:
                 tool_raw = await _call_tool(called_tool, normalized_args)
@@ -1779,10 +1794,15 @@ async def _server_side_agent_chat(args: dict, source: str = "webui", client_id: 
                 tool_result_str = f"ERROR: {e}"
             tool_ms = int((time.time() - tool_start) * 1000)
 
-            # ── Broadcast tool-call-end with result ──
+            # Decode encoded keys in result for display
+            _display_result_str = tool_result_str
+            if "__docv2__" in _display_result_str:
+                _display_result_str = _doc_decode_result_text(_display_result_str)
+
+            # ── Broadcast tool-call-end (decoded result) ──
             _broadcast_activity(
-                called_tool, normalized_args,
-                {"content": [{"type": "text", "text": tool_result_str[:2000]}]} if tool_result_str else None,
+                called_tool, display_args,
+                {"content": [{"type": "text", "text": _display_result_str[:2000]}]} if _display_result_str else None,
                 tool_ms,
                 str(tool_error) if tool_error else None,
                 source="agent-inner", client_id=client_id,

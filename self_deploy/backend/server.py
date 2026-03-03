@@ -655,6 +655,18 @@ _AGENT_DEFAULT_GRANTED = [
 _agent_sessions: dict[str, dict] = {}
 
 
+def _agent_decode_keys(text: str) -> str:
+    """Decode __docv2__ encoded keys to human-readable /slash/paths for display."""
+    import re
+    def _rep(m):
+        raw = m.group(0)
+        body = raw[len("__docv2__"):]
+        if body.endswith("__k"):
+            body = body[:-3]
+        return "/" + body.replace("~s", "/")
+    return re.sub(r'__docv2__[^"}\s,\]]+', _rep, text)
+
+
 async def _server_side_agent_chat(
     args: dict, source: str = "webui", client_id: str | None = None,
     call_tool_fn=None, list_tools_fn=None, parse_result_fn=None,
@@ -792,7 +804,7 @@ async def _server_side_agent_chat(
             tool="agent_chat",
             args={"_phase": "reasoning", "iteration": iterations_used, "session_id": session_id},
             result={"content": [{"type": "text", "text": json.dumps({
-                "iteration": iterations_used, "model_output_preview": model_output[:300], "step_ms": step_ms,
+                "iteration": iterations_used, "model_output_preview": _agent_decode_keys(model_output[:300]) if "__docv2__" in model_output[:300] else model_output[:300], "step_ms": step_ms,
             })}]},
             duration_ms=step_ms, error=None, source="agent-inner", client_id=client_id,
         )
@@ -853,9 +865,12 @@ async def _server_side_agent_chat(
                 continue
 
             normalized_args = _norm(called_tool, called_args)
+            display_args = dict(called_args)
+            display_args["_agent_session"] = session_id
+            display_args["_agent_iteration"] = iterations_used
 
             _bcast(
-                tool=called_tool, args=normalized_args,
+                tool=called_tool, args=display_args,
                 result={"_phase": "start", "state": "running", "_agent_session": session_id, "_agent_iteration": iterations_used},
                 duration_ms=0, error=None, source="agent-inner", client_id=client_id,
             )
@@ -872,9 +887,11 @@ async def _server_side_agent_chat(
                 tool_result_str = f"ERROR: {e}"
             tool_ms = int((time.time() - tool_start) * 1000)
 
+            _display_result_str = _agent_decode_keys(tool_result_str) if "__docv2__" in tool_result_str else tool_result_str
+
             _bcast(
-                tool=called_tool, args=normalized_args,
-                result={"content": [{"type": "text", "text": tool_result_str[:2000]}]} if tool_result_str else None,
+                tool=called_tool, args=display_args,
+                result={"content": [{"type": "text", "text": _display_result_str[:2000]}]} if _display_result_str else None,
                 duration_ms=tool_ms, error=str(tool_error) if tool_error else None,
                 source="agent-inner", client_id=client_id,
             )

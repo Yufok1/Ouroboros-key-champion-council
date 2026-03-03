@@ -2187,74 +2187,74 @@
             }
         }
         // ── AGENT-INNER → LIVE CHAT TIMELINE BRIDGE ──
-        // Progressive rendering: as the server-side orchestrator executes each
-        // tool call, it broadcasts agent-inner events in real time.  Inject
-        // them into the active chat tab so the operator sees every step live —
-        // not just a dump at the end when the HTTP response arrives.
+        // Progressive rendering: server-side orchestrator broadcasts each step
+        // in real time via SSE.  Inject into the chat tab as it happens.
         if (event.source === 'agent-inner' && event.tool) {
             var innerSession = (event.args && event.args._agent_session) || (event.args && event.args.session_id) || '';
             var innerSlot = -1;
-            // Extract slot from session_id pattern "agent_chat:<slot>:<uuid>"
             if (innerSession) {
                 var parts = innerSession.split(':');
                 if (parts.length >= 2 && !isNaN(parseInt(parts[1], 10))) innerSlot = parseInt(parts[1], 10);
             }
-            // Also check direct args.slot
-            if (innerSlot < 0 && event.args && event.args.slot !== undefined) {
-                innerSlot = parseInt(event.args.slot, 10);
-            }
-            // Try to find active agent-chat tab for this slot
-            var innerTab = null;
-            if (innerSlot >= 0) innerTab = _ensureAchatTab(innerSlot);
-            if (!innerTab) innerTab = _getActiveAchatTab();
+            if (innerSlot < 0 && event.args && event.args.slot !== undefined) innerSlot = parseInt(event.args.slot, 10);
+            var innerTab = (innerSlot >= 0) ? _ensureAchatTab(innerSlot) : _getActiveAchatTab();
 
             if (innerTab) {
+                // Track that SSE already showed these steps so HTTP response doesn't dump duplicates
+                if (!innerTab._sseToolCount) innerTab._sseToolCount = 0;
+
                 var isStart = !!(event.result && typeof event.result === 'object' && event.result._phase === 'start');
                 var isReasoning = !!(event.args && event.args._phase === 'reasoning');
                 var dur = event.durationMs > 0 ? ' (' + event.durationMs + 'ms)' : '';
+                // Clean args for display: strip internal tracking fields
+                var _cleanArgs = function(a) {
+                    if (!a || typeof a !== 'object') return a;
+                    var c = {};
+                    for (var k in a) { if (k.charAt(0) !== '_') c[k] = a[k]; }
+                    return c;
+                };
 
                 if (isReasoning) {
-                    // Model reasoning step — show iteration progress
-                    var iterInfo = '';
-                    try {
-                        var rText = (event.result && event.result.content && event.result.content[0])
-                            ? event.result.content[0].text : '';
-                        var rObj = rText ? JSON.parse(rText) : {};
-                        iterInfo = ' [iter ' + (rObj.iteration || '?') + ']' + (rObj.step_ms ? ' ' + rObj.step_ms + 'ms' : '');
-                        // Show a preview of the model's thinking
-                        if (rObj.model_output_preview) {
-                            var preview = String(rObj.model_output_preview).substring(0, 200);
-                            if (preview.length > 0) {
-                                _appendAchatMsg('system-info', '🧠 Thinking' + iterInfo + ':\n' + preview, Date.now(), innerTab);
-                            }
-                        } else {
-                            _appendAchatMsg('system-info', '🧠 Thinking' + iterInfo + '…', Date.now(), innerTab);
-                        }
-                    } catch (e2) {
-                        _appendAchatMsg('system-info', '🧠 Thinking…', Date.now(), innerTab);
+                    var iterNum = (event.args && event.args.iteration) || '?';
+                    // The result is already parsed by activity broadcast (not MCP-wrapped)
+                    var rObj = (typeof event.result === 'object' && event.result !== null && !event.result.content)
+                        ? event.result : {};
+                    // Fallback: try extracting from MCP envelope
+                    if (!rObj.iteration && event.result && event.result.content) {
+                        try {
+                            var t = event.result.content[0].text;
+                            rObj = JSON.parse(t);
+                        } catch (e2) {}
+                    }
+                    if (rObj.iteration) iterNum = rObj.iteration;
+                    var stepMs = rObj.step_ms ? ' ' + rObj.step_ms + 'ms' : '';
+                    var preview = String(rObj.model_output_preview || '').substring(0, 200);
+                    if (preview) {
+                        _appendAchatMsg('system-info', '🧠 Step ' + iterNum + stepMs + ' — ' + preview, Date.now(), innerTab);
+                    } else {
+                        _appendAchatMsg('system-info', '🧠 Step ' + iterNum + stepMs + ' — thinking…', Date.now(), innerTab);
                     }
                 } else if (isStart && event.tool !== 'agent_chat') {
-                    // Tool call starting
-                    var argPreview = '';
-                    try { argPreview = JSON.stringify(event.args || {}).substring(0, 300); } catch (e3) {}
-                    _appendAchatMsg('tool-trace', '🔧 ' + event.tool + '(' + argPreview + ')…', Date.now(), innerTab);
+                    var argStr = '';
+                    try { argStr = JSON.stringify(_cleanArgs(event.args) || {}).substring(0, 250); } catch (e3) {}
+                    _appendAchatMsg('tool-trace', '🔧 ' + event.tool + ' ' + argStr, Date.now(), innerTab);
                 } else if (!isStart && event.tool !== 'agent_chat') {
-                    // Tool call completed — show result
+                    innerTab._sseToolCount = (innerTab._sseToolCount || 0) + 1;
                     if (event.error) {
                         _appendAchatMsg('error', '❌ ' + event.tool + dur + ': ' + String(event.error), Date.now(), innerTab);
                     } else {
-                        var resultPreview = '';
+                        var rPreview = '';
                         try {
                             var rr = event.result;
                             if (rr && rr.content && Array.isArray(rr.content) && rr.content[0]) {
-                                resultPreview = String(rr.content[0].text || '').substring(0, 400);
+                                rPreview = String(rr.content[0].text || '').substring(0, 300);
                             } else if (typeof rr === 'string') {
-                                resultPreview = rr.substring(0, 400);
+                                rPreview = rr.substring(0, 300);
                             } else {
-                                resultPreview = JSON.stringify(rr || {}).substring(0, 400);
+                                rPreview = JSON.stringify(rr || {}).substring(0, 300);
                             }
-                        } catch (e4) { resultPreview = '(result)'; }
-                        _appendAchatMsg('tool-trace', '✅ ' + event.tool + dur + ':\n' + resultPreview, Date.now(), innerTab);
+                        } catch (e4) { rPreview = '(ok)'; }
+                        _appendAchatMsg('tool-trace', '✅ ' + event.tool + dur + ': ' + rPreview, Date.now(), innerTab);
                     }
                 }
             }
@@ -4398,14 +4398,22 @@
                 }
 
                 var toolCalls = resultObj.tool_calls || [];
-                if (toolCalls.length) {
+                // Only dump tool trace if SSE didn't already show them live
+                var sseAlreadyShowed = tab && tab._sseToolCount && tab._sseToolCount >= toolCalls.length;
+                if (toolCalls.length && !sseAlreadyShowed) {
                     _appendAchatToolTrace(toolCalls, tab);
                     _logAchatSyntheticActivity(toolCalls, tab ? tab.slot : tabSlot);
                 }
+                // Reset SSE counter for next run
+                if (tab) tab._sseToolCount = 0;
 
                 var answer = resultObj.final_answer || resultObj.answer || '';
+                // Handle dict/object final_answer — stringify for display
+                if (answer && typeof answer === 'object') {
+                    try { answer = JSON.stringify(answer, null, 2); } catch (e9) { answer = String(answer); }
+                }
                 if (answer) {
-                    _appendAchatMsg('assistant', answer, Date.now(), tab);
+                    _appendAchatMsg('assistant', String(answer), Date.now(), tab);
                 } else if (!toolCalls.length) {
                     _appendAchatMsg('error', 'No response received. Check slot/model and selected tool configuration.', Date.now(), tab);
                 }

@@ -2194,53 +2194,56 @@
                 var parts = innerSession.split(':');
                 if (parts.length >= 2 && !isNaN(parseInt(parts[1], 10))) innerSlot = parseInt(parts[1], 10);
             }
-            if (innerSlot < 0 && event.args && event.args.slot !== undefined) {
-                innerSlot = parseInt(event.args.slot, 10);
-            }
-            var innerTab = null;
-            if (innerSlot >= 0) innerTab = _ensureAchatTab(innerSlot);
-            if (!innerTab) innerTab = _getActiveAchatTab();
+            if (innerSlot < 0 && event.args && event.args.slot !== undefined) innerSlot = parseInt(event.args.slot, 10);
+            var innerTab = (innerSlot >= 0) ? _ensureAchatTab(innerSlot) : _getActiveAchatTab();
 
             if (innerTab) {
+                if (!innerTab._sseToolCount) innerTab._sseToolCount = 0;
                 var isStart = !!(event.result && typeof event.result === 'object' && event.result._phase === 'start');
                 var isReasoning = !!(event.args && event.args._phase === 'reasoning');
                 var dur = event.durationMs > 0 ? ' (' + event.durationMs + 'ms)' : '';
+                var _cleanArgs = function(a) {
+                    if (!a || typeof a !== 'object') return a;
+                    var c = {};
+                    for (var k in a) { if (k.charAt(0) !== '_') c[k] = a[k]; }
+                    return c;
+                };
 
                 if (isReasoning) {
-                    var iterInfo = '';
-                    try {
-                        var rText = (event.result && event.result.content && event.result.content[0])
-                            ? event.result.content[0].text : '';
-                        var rObj = rText ? JSON.parse(rText) : {};
-                        iterInfo = ' [iter ' + (rObj.iteration || '?') + ']' + (rObj.step_ms ? ' ' + rObj.step_ms + 'ms' : '');
-                        if (rObj.model_output_preview) {
-                            _appendAchatMsg('system-info', '🧠 Thinking' + iterInfo + ':\n' + String(rObj.model_output_preview).substring(0, 200), Date.now(), innerTab);
-                        } else {
-                            _appendAchatMsg('system-info', '🧠 Thinking' + iterInfo + '…', Date.now(), innerTab);
-                        }
-                    } catch (e2) {
-                        _appendAchatMsg('system-info', '🧠 Thinking…', Date.now(), innerTab);
+                    var iterNum = (event.args && event.args.iteration) || '?';
+                    var rObj = (typeof event.result === 'object' && event.result !== null && !event.result.content)
+                        ? event.result : {};
+                    if (!rObj.iteration && event.result && event.result.content) {
+                        try { rObj = JSON.parse(event.result.content[0].text); } catch (e2) {}
                     }
+                    if (rObj.iteration) iterNum = rObj.iteration;
+                    var stepMs = rObj.step_ms ? ' ' + rObj.step_ms + 'ms' : '';
+                    var preview = String(rObj.model_output_preview || '').substring(0, 200);
+                    _appendAchatMsg('system-info', preview
+                        ? ('🧠 Step ' + iterNum + stepMs + ' — ' + preview)
+                        : ('🧠 Step ' + iterNum + stepMs + ' — thinking…'),
+                        Date.now(), innerTab);
                 } else if (isStart && event.tool !== 'agent_chat') {
-                    var argPreview = '';
-                    try { argPreview = JSON.stringify(event.args || {}).substring(0, 300); } catch (e3) {}
-                    _appendAchatMsg('tool-trace', '🔧 ' + event.tool + '(' + argPreview + ')…', Date.now(), innerTab);
+                    var argStr = '';
+                    try { argStr = JSON.stringify(_cleanArgs(event.args) || {}).substring(0, 250); } catch (e3) {}
+                    _appendAchatMsg('tool-trace', '🔧 ' + event.tool + ' ' + argStr, Date.now(), innerTab);
                 } else if (!isStart && event.tool !== 'agent_chat') {
+                    innerTab._sseToolCount = (innerTab._sseToolCount || 0) + 1;
                     if (event.error) {
                         _appendAchatMsg('error', '❌ ' + event.tool + dur + ': ' + String(event.error), Date.now(), innerTab);
                     } else {
-                        var resultPreview = '';
+                        var rPreview = '';
                         try {
                             var rr = event.result;
                             if (rr && rr.content && Array.isArray(rr.content) && rr.content[0]) {
-                                resultPreview = String(rr.content[0].text || '').substring(0, 400);
+                                rPreview = String(rr.content[0].text || '').substring(0, 300);
                             } else if (typeof rr === 'string') {
-                                resultPreview = rr.substring(0, 400);
+                                rPreview = rr.substring(0, 300);
                             } else {
-                                resultPreview = JSON.stringify(rr || {}).substring(0, 400);
+                                rPreview = JSON.stringify(rr || {}).substring(0, 300);
                             }
-                        } catch (e4) { resultPreview = '(result)'; }
-                        _appendAchatMsg('tool-trace', '✅ ' + event.tool + dur + ':\n' + resultPreview, Date.now(), innerTab);
+                        } catch (e4) { rPreview = '(ok)'; }
+                        _appendAchatMsg('tool-trace', '✅ ' + event.tool + dur + ': ' + rPreview, Date.now(), innerTab);
                     }
                 }
             }
@@ -4384,14 +4387,19 @@
                 }
 
                 var toolCalls = resultObj.tool_calls || [];
-                if (toolCalls.length) {
+                var sseAlreadyShowed = tab && tab._sseToolCount && tab._sseToolCount >= toolCalls.length;
+                if (toolCalls.length && !sseAlreadyShowed) {
                     _appendAchatToolTrace(toolCalls, tab);
                     _logAchatSyntheticActivity(toolCalls, tab ? tab.slot : tabSlot);
                 }
+                if (tab) tab._sseToolCount = 0;
 
                 var answer = resultObj.final_answer || resultObj.answer || '';
+                if (answer && typeof answer === 'object') {
+                    try { answer = JSON.stringify(answer, null, 2); } catch (e9) { answer = String(answer); }
+                }
                 if (answer) {
-                    _appendAchatMsg('assistant', answer, Date.now(), tab);
+                    _appendAchatMsg('assistant', String(answer), Date.now(), tab);
                 } else if (!toolCalls.length) {
                     _appendAchatMsg('error', 'No response received. Check slot/model and selected tool configuration.', Date.now(), tab);
                 }
