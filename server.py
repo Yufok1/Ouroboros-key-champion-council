@@ -1426,17 +1426,43 @@ async def _postprocess_tool_result(tool_name: str, args: dict, result: dict) -> 
 
     # --- Helper: retry a slot via generate mode ---
     async def _retry_slot_generate(slot_idx: int, text: str, max_tokens: int = 300) -> str | None:
+        """Robust generation retry for flaky providers.
+
+        Some inference providers intermittently return empty output with no error.
+        Try multiple generation prompts/tokens, then fallback through `chat`.
+        """
+        prompts = [
+            text,
+            (text + "\n\nRespond with a concise direct answer."),
+            ("Answer briefly and directly:\n" + text),
+        ]
+        token_budgets = [max_tokens, max(max_tokens, 512), max(max_tokens, 768)]
+
+        for p in prompts:
+            for mt in token_budgets:
+                try:
+                    retry = await _call_tool("invoke_slot", {
+                        "slot": int(slot_idx), "text": p, "mode": "generate", "max_tokens": int(mt),
+                    })
+                    retry_parsed = _parse_mcp_result(retry.get("result"))
+                    if retry_parsed and isinstance(retry_parsed, dict):
+                        out = str(retry_parsed.get("output", "") or "").strip()
+                        if out:
+                            return out
+                except Exception:
+                    pass
+
+        # Fallback through chat path (server has empty-response retry there)
         try:
-            retry = await _call_tool("invoke_slot", {
-                "slot": int(slot_idx), "text": text, "mode": "generate", "max_tokens": max_tokens,
-            })
-            retry_parsed = _parse_mcp_result(retry.get("result"))
-            if retry_parsed and isinstance(retry_parsed, dict):
-                out = retry_parsed.get("output", "")
+            ch = await _call_tool("chat", {"slot": int(slot_idx), "message": text})
+            ch_parsed = _parse_mcp_result(ch.get("result"))
+            if isinstance(ch_parsed, dict):
+                out = str(ch_parsed.get("response", "") or "").strip()
                 if out:
-                    return str(out)
+                    return out
         except Exception:
             pass
+
         return None
 
     # --- Fix compare: retry slots that fail with embedding/system-role errors ---

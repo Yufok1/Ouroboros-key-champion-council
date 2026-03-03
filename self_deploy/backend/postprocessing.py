@@ -162,17 +162,39 @@ async def postprocess_tool_result(
         return any(m.lower() in err_str.lower() for m in markers)
 
     async def _retry_slot_generate(slot_idx: int, text: str, max_tokens: int = 300):
+        """Robust generation retry for flaky providers."""
+        prompts = [
+            text,
+            (text + "\n\nRespond with a concise direct answer."),
+            ("Answer briefly and directly:\n" + text),
+        ]
+        token_budgets = [max_tokens, max(max_tokens, 512), max(max_tokens, 768)]
+
+        for p in prompts:
+            for mt in token_budgets:
+                try:
+                    retry = await call_tool_fn("invoke_slot", {
+                        "slot": int(slot_idx), "text": p, "mode": "generate", "max_tokens": int(mt),
+                    })
+                    retry_parsed = parse_mcp_result(retry.get("result"))
+                    if isinstance(retry_parsed, dict):
+                        out = str(retry_parsed.get("output", "") or "").strip()
+                        if out:
+                            return out
+                except Exception:
+                    pass
+
+        # Fallback through chat path
         try:
-            retry = await call_tool_fn("invoke_slot", {
-                "slot": int(slot_idx), "text": text, "mode": "generate", "max_tokens": max_tokens,
-            })
-            retry_parsed = parse_mcp_result(retry.get("result"))
-            if isinstance(retry_parsed, dict):
-                out = retry_parsed.get("output", "")
+            ch = await call_tool_fn("chat", {"slot": int(slot_idx), "message": text})
+            ch_parsed = parse_mcp_result(ch.get("result"))
+            if isinstance(ch_parsed, dict):
+                out = str(ch_parsed.get("response", "") or "").strip()
                 if out:
-                    return str(out)
+                    return out
         except Exception:
             pass
+
         return None
 
     # --- Fix compare: retry slots that fail ---
