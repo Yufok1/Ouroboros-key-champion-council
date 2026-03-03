@@ -1482,6 +1482,370 @@ def _is_default_slot_name(name: str) -> bool:
     return False
 
 
+# ═══════════════════════════════════════════════════════════════════════
+# SERVER-SIDE AGENT ORCHESTRATOR
+# Runs the agent tool-call loop at the proxy layer so every step is
+# individually visible, timeout-resilient, and streamed via SSE.
+# The capsule's monolithic agent_chat is bypassed entirely.
+# ═══════════════════════════════════════════════════════════════════════
+
+_AGENT_BLOCKED_TOOLS = frozenset({
+    "workflow_execute", "start_api_server", "implode", "defrost",
+    "spawn_quine", "spawn_swarm", "replicate", "export_quine",
+    "plug_model", "unplug_slot", "agent_chat",  # prevent self-recursion
+})
+
+_AGENT_DEFAULT_GRANTED = [
+    "get_status", "list_slots", "slot_info", "get_capabilities", "embed_text",
+    "invoke_slot", "call",
+    "bag_get", "bag_put", "bag_search", "bag_catalog", "bag_induct",
+    "bag_read_doc", "bag_list_docs", "bag_search_docs", "bag_tree",
+    "bag_versions", "bag_diff", "bag_checkpoint", "bag_restore",
+    "file_read", "file_write", "file_edit", "file_append", "file_prepend",
+    "file_delete", "file_rename", "file_copy", "file_list", "file_tree",
+    "file_search", "file_info", "file_checkpoint", "file_versions",
+    "file_diff", "file_restore",
+    "web_search", "generate", "classify", "rerank",
+    "cascade_graph", "cascade_chain", "cascade_data", "cascade_system",
+    "cascade_record", "diagnose_file", "diagnose_directory",
+    "symbiotic_interpret", "trace_root_causes", "forensics_analyze",
+    "metrics_analyze", "workflow_list", "workflow_get", "workflow_status",
+]
+
+# Server-side session store (survives across HTTP requests)
+_agent_sessions: dict[str, dict] = {}
+
+
+async def _get_tool_descriptions(granted_tools: list[str]) -> str:
+    """Build tool description block from capsule's tool list."""
+    tools_raw = await _list_tools()
+    all_tools = (tools_raw.get("result", {}).get("tools") or []) if isinstance(tools_raw, dict) else []
+    granted_set = set(granted_tools)
+    lines = []
+    for t in all_tools:
+        name = t.get("name", "")
+        if name not in granted_set:
+            continue
+        desc = (t.get("description") or "").strip().split("\n")[0][:120]
+        schema = t.get("inputSchema", {})
+        props = schema.get("properties", {}) if isinstance(schema, dict) else {}
+        required = set(schema.get("required", [])) if isinstance(schema, dict) else set()
+        params = []
+        for pname, pinfo in props.items():
+            ptype = pinfo.get("type", "any") if isinstance(pinfo, dict) else "any"
+            marker = " (required)" if pname in required else ""
+            params.append(f"{pname}: {ptype}{marker}")
+        sig = ", ".join(params)
+        lines.append(f"- {name}({sig}): {desc}")
+    return "\n".join(lines) if lines else "(no tool descriptions available)"
+
+
+async def _server_side_agent_chat(args: dict, source: str = "webui", client_id: str | None = None) -> dict:
+    """Run the agent tool-call loop at the proxy layer.
+
+    Instead of forwarding to the capsule's monolithic agent_chat,
+    this function:
+    1. Calls invoke_slot with messages to get ONE model response
+    2. Parses the tool call JSON
+    3. Executes the tool individually (with full activity broadcasting)
+    4. Feeds the result back to the model
+    5. Repeats until final_answer or max_iterations
+
+    Every step is broadcast to activity-stream SSE in real time.
+    """
+    import uuid as _uuid
+
+    slot = int(args.get("slot", 0))
+    message = str(args.get("message", "")).strip()
+    max_iterations = int(args.get("max_iterations", 5))
+    max_tokens = int(args.get("max_tokens", 0)) or 2048
+    reset = bool(args.get("reset", False))
+    session_id = str(args.get("session_id", "")).strip()
+    granted_tools = args.get("granted_tools")
+
+    if not message:
+        return {"error": "message is required"}
+
+    # ── Session management ──
+    if not session_id:
+        session_id = f"agent_chat:{slot}:{_uuid.uuid4().hex[:10]}"
+    if reset and session_id in _agent_sessions:
+        del _agent_sessions[session_id]
+    session = _agent_sessions.get(session_id)
+    if not session:
+        session = {
+            "id": session_id,
+            "slot": slot,
+            "turns": [],
+            "granted_tools": list(_AGENT_DEFAULT_GRANTED),
+            "chat_messages": [],  # structured messages for the model
+        }
+        _agent_sessions[session_id] = session
+    if isinstance(granted_tools, list) and granted_tools:
+        session["granted_tools"] = [str(t) for t in granted_tools if str(t).strip()]
+    granted = [t for t in session["granted_tools"] if t not in _AGENT_BLOCKED_TOOLS]
+    if not granted:
+        granted = list(_AGENT_DEFAULT_GRANTED)
+
+    # ── Get slot info ──
+    slot_info_raw = await _call_tool("slot_info", {"slot": slot})
+    slot_info = _parse_mcp_result(slot_info_raw.get("result")) or {}
+    slot_name = slot_info.get("name", f"slot_{slot}") if isinstance(slot_info, dict) else f"slot_{slot}"
+    plugged = bool(slot_info.get("plugged")) if isinstance(slot_info, dict) else False
+    if not plugged:
+        return {"error": f"Slot {slot} is not plugged. Plug a model first."}
+
+    # ── Build system prompt ──
+    tool_descriptions = await _get_tool_descriptions(granted)
+    system_prompt = (
+        f"You are {slot_name}, an AI agent in council slot {slot} of an Ouroboros capsule.\n"
+        "You have access to ONLY the tools listed below.\n"
+        "Respond with EXACTLY ONE JSON object per turn.\n\n"
+        f"AVAILABLE TOOLS:\n{tool_descriptions}\n\n"
+        "To call a tool, respond with:\n"
+        '{"tool": "tool_name", "args": {"param": "value"}}\n\n'
+        "When you have completed the task, respond with:\n"
+        '{"final_answer": "your complete answer here"}\n\n'
+        "Rules:\n"
+        "- Call ONE tool at a time\n"
+        "- Wait for the result before calling another\n"
+        "- Use ONLY the tools listed above\n"
+        "- Never invoke your own slot for delegation\n"
+        "- Always end with a final_answer\n"
+    )
+
+    # ── Build/extend chat messages ──
+    chat_messages = session.get("chat_messages", [])
+    if not chat_messages:
+        chat_messages = [{"role": "system", "content": system_prompt}]
+
+    # Append user message
+    session["turns"].append({"role": "user", "content": message, "ts": int(time.time() * 1000)})
+    chat_messages.append({"role": "user", "content": message})
+
+    # ── Agent loop ──
+    tool_calls_log = []
+    final_answer = None
+    iterations_used = 0
+    loop_start = time.time()
+
+    _broadcast_activity(
+        "agent_chat", args,
+        {"_phase": "start", "state": "running", "session_id": session_id,
+         "slot": slot, "name": slot_name, "max_iterations": max_iterations,
+         "granted_tools_count": len(granted)},
+        0, None, source=source, client_id=client_id,
+    )
+
+    for iteration in range(max_iterations):
+        iterations_used = iteration + 1
+        step_start = time.time()
+
+        # Nudge on last iteration
+        if iteration == max_iterations - 1:
+            chat_messages.append({
+                "role": "user",
+                "content": 'This is your LAST iteration. You MUST respond with {"final_answer": "your answer"} now.'
+            })
+
+        # ── Step 1: Call model via invoke_slot ──
+        invoke_args = {
+            "slot": slot,
+            "text": message,
+            "mode": "generate",
+            "messages": chat_messages,
+            "max_tokens": max_tokens,
+        }
+        try:
+            model_raw = await _call_tool("invoke_slot", invoke_args)
+            model_parsed = _parse_mcp_result(model_raw.get("result"))
+        except Exception as e:
+            final_answer = f"Model invocation failed at iteration {iterations_used}: {e}"
+            break
+
+        if not isinstance(model_parsed, dict):
+            final_answer = f"Model returned non-dict at iteration {iterations_used}"
+            break
+        if model_parsed.get("error"):
+            final_answer = f"Model error at iteration {iterations_used}: {model_parsed['error']}"
+            break
+
+        model_output = str(model_parsed.get("output", ""))
+        step_ms = int((time.time() - step_start) * 1000)
+
+        # Broadcast model reasoning step
+        _broadcast_activity(
+            "agent_chat", {"_phase": "reasoning", "iteration": iterations_used, "session_id": session_id},
+            {"content": [{"type": "text", "text": json.dumps({
+                "iteration": iterations_used,
+                "model_output_preview": model_output[:300],
+                "step_ms": step_ms,
+            })}]},
+            step_ms, None, source="agent-inner", client_id=client_id,
+        )
+
+        chat_messages.append({"role": "assistant", "content": model_output})
+
+        # ── Step 2: Parse model output ──
+        parsed = None
+        if isinstance(model_output, str):
+            stripped = model_output.strip()
+            # Strip <think>...</think> reasoning blocks
+            import re as _re_agent
+            if "<think>" in stripped:
+                stripped = _re_agent.sub(r"<think>[\s\S]*?</think>\s*", "", stripped).strip()
+            try:
+                parsed = json.loads(stripped)
+            except (json.JSONDecodeError, ValueError):
+                # Scan for first valid JSON object with tool/final_answer key
+                decoder = json.JSONDecoder()
+                scan = 0
+                while scan < len(stripped):
+                    pos = stripped.find("{", scan)
+                    if pos == -1:
+                        break
+                    try:
+                        obj, _ = decoder.raw_decode(stripped, pos)
+                        if isinstance(obj, dict) and ("tool" in obj or "final_answer" in obj):
+                            parsed = obj
+                            break
+                    except (json.JSONDecodeError, ValueError):
+                        pass
+                    scan = pos + 1
+
+        # No valid JSON → treat raw output as final answer
+        if parsed is None:
+            final_answer = model_output.strip() if model_output.strip() else "Model returned empty response."
+            break
+
+        # ── Check for final_answer ──
+        if "final_answer" in parsed:
+            final_answer = parsed["final_answer"]
+            break
+
+        # ── Step 3: Execute tool call ──
+        if "tool" in parsed:
+            called_tool = str(parsed["tool"]).strip()
+            called_args = parsed.get("args", {})
+            if not isinstance(called_args, dict):
+                try:
+                    called_args = json.loads(str(called_args)) if isinstance(called_args, str) else {}
+                except Exception:
+                    called_args = {}
+
+            # Validate tool is granted
+            if called_tool not in granted:
+                denial = f"Tool '{called_tool}' is NOT in your granted tools. Available: {', '.join(granted[:20])}"
+                chat_messages.append({"role": "user", "content": denial})
+                tool_calls_log.append({
+                    "tool": called_tool, "args": called_args,
+                    "result": "DENIED - not in granted_tools",
+                    "iteration": iteration,
+                })
+                continue
+
+            # Self-invocation guard
+            if called_tool == "invoke_slot" and int(called_args.get("slot", -1)) == slot:
+                guard_msg = f"Self-invocation blocked: invoke_slot(slot={slot}). Choose a different slot."
+                chat_messages.append({"role": "user", "content": guard_msg})
+                tool_calls_log.append({
+                    "tool": called_tool, "args": called_args,
+                    "result": "DENIED - " + guard_msg, "iteration": iteration,
+                })
+                continue
+
+            # Normalize args through proxy layer
+            normalized_args = _normalize_proxy_tool_args(called_tool, called_args)
+
+            # ── Broadcast tool-call-start ──
+            _broadcast_activity(
+                called_tool, normalized_args,
+                {"_phase": "start", "state": "running",
+                 "_agent_session": session_id, "_agent_iteration": iterations_used},
+                0, None, source="agent-inner", client_id=client_id,
+            )
+
+            # ── Execute the tool ──
+            tool_start = time.time()
+            try:
+                tool_raw = await _call_tool(called_tool, normalized_args)
+                tool_result = _parse_mcp_result(tool_raw.get("result"))
+                tool_error = tool_raw.get("error") or (tool_result.get("error") if isinstance(tool_result, dict) else None)
+                tool_result_str = json.dumps(tool_result, indent=2, default=str) if tool_result else ""
+            except Exception as e:
+                tool_result = None
+                tool_error = str(e)
+                tool_result_str = f"ERROR: {e}"
+            tool_ms = int((time.time() - tool_start) * 1000)
+
+            # ── Broadcast tool-call-end with result ──
+            _broadcast_activity(
+                called_tool, normalized_args,
+                {"content": [{"type": "text", "text": tool_result_str[:2000]}]} if tool_result_str else None,
+                tool_ms,
+                str(tool_error) if tool_error else None,
+                source="agent-inner", client_id=client_id,
+            )
+
+            # Log
+            tool_calls_log.append({
+                "tool": called_tool,
+                "args": called_args,
+                "result": tool_result_str[:500] if tool_result_str else "",
+                "error": str(tool_error) if tool_error else None,
+                "duration_ms": tool_ms,
+                "iteration": iteration,
+            })
+
+            # Feed result back to model
+            feedback = f"Tool result for {called_tool}({json.dumps(called_args, default=str)}):\n{tool_result_str}\n\nContinue with your next tool call or provide your final_answer."
+            chat_messages.append({"role": "user", "content": feedback})
+        else:
+            # JSON but no tool or final_answer key
+            final_answer = json.dumps(parsed, default=str)
+            break
+
+    if final_answer is None:
+        final_answer = f"Agent reached max iterations ({max_iterations}) without final answer."
+
+    total_ms = int((time.time() - loop_start) * 1000)
+
+    # ── Save session state ──
+    session["turns"].append({
+        "role": "assistant",
+        "content": str(final_answer) if isinstance(final_answer, str) else json.dumps(final_answer, default=str),
+        "ts": int(time.time() * 1000),
+    })
+    session["chat_messages"] = chat_messages
+    _agent_sessions[session_id] = session
+
+    agent_result = {
+        "final_answer": final_answer,
+        "iterations": iterations_used,
+        "tool_calls": tool_calls_log,
+        "slot": slot,
+        "name": slot_name,
+    }
+
+    envelope = {
+        "session_id": session_id,
+        "slot": slot,
+        "result": agent_result,
+        "blocked_tools": sorted(list(_AGENT_BLOCKED_TOOLS)),
+        "turn_count": len(session.get("turns", [])),
+        "history": session.get("turns", [])[-12:],
+    }
+
+    # Wrap in MCP-compatible envelope
+    result_text = json.dumps(envelope, indent=2, default=str)
+    return {
+        "result": {
+            "content": [{"type": "text", "text": result_text}],
+            "isError": False,
+        }
+    }
+
+
 async def _postprocess_tool_result(tool_name: str, args: dict, result: dict) -> dict:
     """Intercept and fix known capsule issues at the proxy layer.
 
@@ -2096,6 +2460,21 @@ async def proxy_tool_call(tool_name: str, request: Request):
             source=source,
             client_id=client_id,
         )
+
+    # ── Server-side agent orchestration ──────────────────────────
+    # Intercept agent_chat: run the tool-call loop HERE so each
+    # step is individually visible via activity-stream SSE.
+    # The capsule's monolithic agent_chat is bypassed entirely.
+    if tool_name == "agent_chat":
+        try:
+            orchestrated = await _server_side_agent_chat(call_args, source=source, client_id=client_id)
+            duration_ms = int((time.time() - (time.time())) * 0)  # per-step durations already broadcast
+            _broadcast_activity("agent_chat", call_args, orchestrated.get("result"), 0, orchestrated.get("error"), source=source, client_id=client_id)
+            if orchestrated.get("error"):
+                return JSONResponse(status_code=503, content=orchestrated)
+            return orchestrated
+        finally:
+            await _release_slot_execution(claim)
 
     # Auto-reset capsule chat session when slot changes to prevent cross-slot bleed.
     # The capsule's `chat` tool shares a single conversation — without reset,
@@ -3189,6 +3568,17 @@ async def _handle_streamable_rpc(obj: dict, client_id: str) -> dict | None:
                 source="external",
                 client_id=client_id,
             )
+
+        # ── Server-side agent orchestration for MCP transport ──
+        if tool_name == "agent_chat":
+            try:
+                orchestrated = await _server_side_agent_chat(args, source="external", client_id=client_id)
+                _broadcast_activity("agent_chat", args, orchestrated.get("result"), 0, orchestrated.get("error"), source="external", client_id=client_id)
+                if orchestrated.get("error"):
+                    return _rpc_error(rpc_id, -32603, orchestrated["error"])
+                return {"jsonrpc": "2.0", "id": rpc_id, "result": orchestrated.get("result", orchestrated)}
+            finally:
+                await _release_slot_execution(claim)
 
         start = time.time()
         try:

@@ -625,6 +625,302 @@ _slot_exec_locks: dict[int, asyncio.Lock] = {}
 _slot_exec_active: dict[int, dict] = {}
 
 
+# ═══════════════════════════════════════════════════════════════════════
+# SERVER-SIDE AGENT ORCHESTRATOR
+# ═══════════════════════════════════════════════════════════════════════
+
+_AGENT_BLOCKED_TOOLS = frozenset({
+    "workflow_execute", "start_api_server", "implode", "defrost",
+    "spawn_quine", "spawn_swarm", "replicate", "export_quine",
+    "plug_model", "unplug_slot", "agent_chat",
+})
+
+_AGENT_DEFAULT_GRANTED = [
+    "get_status", "list_slots", "slot_info", "get_capabilities", "embed_text",
+    "invoke_slot", "call",
+    "bag_get", "bag_put", "bag_search", "bag_catalog", "bag_induct",
+    "bag_read_doc", "bag_list_docs", "bag_search_docs", "bag_tree",
+    "bag_versions", "bag_diff", "bag_checkpoint", "bag_restore",
+    "file_read", "file_write", "file_edit", "file_append", "file_prepend",
+    "file_delete", "file_rename", "file_copy", "file_list", "file_tree",
+    "file_search", "file_info", "file_checkpoint", "file_versions",
+    "file_diff", "file_restore",
+    "web_search", "generate", "classify", "rerank",
+    "cascade_graph", "cascade_chain", "cascade_data", "cascade_system",
+    "cascade_record", "diagnose_file", "diagnose_directory",
+    "symbiotic_interpret", "trace_root_causes", "forensics_analyze",
+    "metrics_analyze", "workflow_list", "workflow_get", "workflow_status",
+]
+
+_agent_sessions: dict[str, dict] = {}
+
+
+async def _server_side_agent_chat(
+    args: dict, source: str = "webui", client_id: str | None = None,
+    call_tool_fn=None, list_tools_fn=None, parse_result_fn=None,
+    normalize_args_fn=None, broadcast_fn=None,
+) -> dict:
+    """Run the agent tool-call loop at the proxy layer."""
+    import uuid as _uuid
+
+    _call = call_tool_fn or _call_tool
+    _list = list_tools_fn or _list_tools
+    _parse = parse_result_fn or _parse_mcp_result_payload
+    _norm = normalize_args_fn or _normalize_proxy_tool_args
+
+    def _bcast(**kw):
+        if broadcast_fn:
+            broadcast_fn(**kw)
+
+    slot = int(args.get("slot", 0))
+    message = str(args.get("message", "")).strip()
+    max_iterations = int(args.get("max_iterations", 5))
+    max_tokens = int(args.get("max_tokens", 0)) or 2048
+    reset = bool(args.get("reset", False))
+    session_id = str(args.get("session_id", "")).strip()
+    granted_tools = args.get("granted_tools")
+
+    if not message:
+        return {"error": "message is required"}
+
+    if not session_id:
+        session_id = f"agent_chat:{slot}:{_uuid.uuid4().hex[:10]}"
+    if reset and session_id in _agent_sessions:
+        del _agent_sessions[session_id]
+    session = _agent_sessions.get(session_id)
+    if not session:
+        session = {
+            "id": session_id, "slot": slot, "turns": [],
+            "granted_tools": list(_AGENT_DEFAULT_GRANTED),
+            "chat_messages": [],
+        }
+        _agent_sessions[session_id] = session
+    if isinstance(granted_tools, list) and granted_tools:
+        session["granted_tools"] = [str(t) for t in granted_tools if str(t).strip()]
+    granted = [t for t in session["granted_tools"] if t not in _AGENT_BLOCKED_TOOLS]
+    if not granted:
+        granted = list(_AGENT_DEFAULT_GRANTED)
+
+    slot_info_raw = await _call("slot_info", {"slot": slot})
+    slot_info = _parse(slot_info_raw.get("result")) or {}
+    slot_name = slot_info.get("name", f"slot_{slot}") if isinstance(slot_info, dict) else f"slot_{slot}"
+    plugged = bool(slot_info.get("plugged")) if isinstance(slot_info, dict) else False
+    if not plugged:
+        return {"error": f"Slot {slot} is not plugged. Plug a model first."}
+
+    # Build tool descriptions
+    tools_raw = await _list()
+    all_tools = (tools_raw.get("result", {}).get("tools") or []) if isinstance(tools_raw, dict) else []
+    granted_set = set(granted)
+    td_lines = []
+    for t in all_tools:
+        name = t.get("name", "")
+        if name not in granted_set:
+            continue
+        desc = (t.get("description") or "").strip().split("\n")[0][:120]
+        schema = t.get("inputSchema", {})
+        props = schema.get("properties", {}) if isinstance(schema, dict) else {}
+        req = set(schema.get("required", [])) if isinstance(schema, dict) else set()
+        params = []
+        for pn, pi in props.items():
+            pt = pi.get("type", "any") if isinstance(pi, dict) else "any"
+            params.append(f"{pn}: {pt}" + (" (required)" if pn in req else ""))
+        td_lines.append(f"- {name}({', '.join(params)}): {desc}")
+    tool_descriptions = "\n".join(td_lines) if td_lines else "(no tool descriptions)"
+
+    system_prompt = (
+        f"You are {slot_name}, an AI agent in council slot {slot}.\n"
+        "Respond with EXACTLY ONE JSON object per turn.\n\n"
+        f"AVAILABLE TOOLS:\n{tool_descriptions}\n\n"
+        "To call a tool: {\"tool\": \"name\", \"args\": {\"param\": \"value\"}}\n"
+        "When done: {\"final_answer\": \"your answer\"}\n\n"
+        "Rules: ONE tool at a time. Wait for results. Always end with final_answer.\n"
+    )
+
+    chat_messages = session.get("chat_messages", [])
+    if not chat_messages:
+        chat_messages = [{"role": "system", "content": system_prompt}]
+
+    session["turns"].append({"role": "user", "content": message, "ts": int(time.time() * 1000)})
+    chat_messages.append({"role": "user", "content": message})
+
+    tool_calls_log = []
+    final_answer = None
+    iterations_used = 0
+    loop_start = time.time()
+
+    _bcast(
+        tool="agent_chat", args=args,
+        result={"_phase": "start", "state": "running", "session_id": session_id,
+                "slot": slot, "name": slot_name, "max_iterations": max_iterations},
+        duration_ms=0, error=None, source=source, client_id=client_id,
+    )
+
+    for iteration in range(max_iterations):
+        iterations_used = iteration + 1
+        step_start = time.time()
+
+        if iteration == max_iterations - 1:
+            chat_messages.append({
+                "role": "user",
+                "content": 'This is your LAST iteration. You MUST respond with {"final_answer": "your answer"} now.'
+            })
+
+        invoke_args = {"slot": slot, "text": message, "mode": "generate", "messages": chat_messages, "max_tokens": max_tokens}
+        try:
+            model_raw = await _call("invoke_slot", invoke_args)
+            model_parsed = _parse(model_raw.get("result"))
+        except Exception as e:
+            final_answer = f"Model invocation failed at iteration {iterations_used}: {e}"
+            break
+
+        if not isinstance(model_parsed, dict):
+            final_answer = f"Model returned non-dict at iteration {iterations_used}"
+            break
+        if model_parsed.get("error"):
+            final_answer = f"Model error at iteration {iterations_used}: {model_parsed['error']}"
+            break
+
+        model_output = str(model_parsed.get("output", ""))
+        step_ms = int((time.time() - step_start) * 1000)
+
+        _bcast(
+            tool="agent_chat",
+            args={"_phase": "reasoning", "iteration": iterations_used, "session_id": session_id},
+            result={"content": [{"type": "text", "text": json.dumps({
+                "iteration": iterations_used, "model_output_preview": model_output[:300], "step_ms": step_ms,
+            })}]},
+            duration_ms=step_ms, error=None, source="agent-inner", client_id=client_id,
+        )
+
+        chat_messages.append({"role": "assistant", "content": model_output})
+
+        parsed = None
+        if isinstance(model_output, str):
+            stripped = model_output.strip()
+            import re as _re_agent
+            if "<think>" in stripped:
+                stripped = _re_agent.sub(r"<think>[\s\S]*?</think>\s*", "", stripped).strip()
+            try:
+                parsed = json.loads(stripped)
+            except (json.JSONDecodeError, ValueError):
+                decoder = json.JSONDecoder()
+                scan = 0
+                while scan < len(stripped):
+                    pos = stripped.find("{", scan)
+                    if pos == -1:
+                        break
+                    try:
+                        obj, _ = decoder.raw_decode(stripped, pos)
+                        if isinstance(obj, dict) and ("tool" in obj or "final_answer" in obj):
+                            parsed = obj
+                            break
+                    except (json.JSONDecodeError, ValueError):
+                        pass
+                    scan = pos + 1
+
+        if parsed is None:
+            final_answer = model_output.strip() if model_output.strip() else "Model returned empty response."
+            break
+
+        if "final_answer" in parsed:
+            final_answer = parsed["final_answer"]
+            break
+
+        if "tool" in parsed:
+            called_tool = str(parsed["tool"]).strip()
+            called_args = parsed.get("args", {})
+            if not isinstance(called_args, dict):
+                try:
+                    called_args = json.loads(str(called_args)) if isinstance(called_args, str) else {}
+                except Exception:
+                    called_args = {}
+
+            if called_tool not in granted:
+                denial = f"Tool '{called_tool}' is NOT in your granted tools."
+                chat_messages.append({"role": "user", "content": denial})
+                tool_calls_log.append({"tool": called_tool, "args": called_args, "result": "DENIED", "iteration": iteration})
+                continue
+
+            if called_tool == "invoke_slot" and int(called_args.get("slot", -1)) == slot:
+                guard_msg = f"Self-invocation blocked: invoke_slot(slot={slot})."
+                chat_messages.append({"role": "user", "content": guard_msg})
+                tool_calls_log.append({"tool": called_tool, "args": called_args, "result": "DENIED - " + guard_msg, "iteration": iteration})
+                continue
+
+            normalized_args = _norm(called_tool, called_args)
+
+            _bcast(
+                tool=called_tool, args=normalized_args,
+                result={"_phase": "start", "state": "running", "_agent_session": session_id, "_agent_iteration": iterations_used},
+                duration_ms=0, error=None, source="agent-inner", client_id=client_id,
+            )
+
+            tool_start = time.time()
+            try:
+                tool_raw = await _call(called_tool, normalized_args)
+                tool_result = _parse(tool_raw.get("result"))
+                tool_error = tool_raw.get("error") or (tool_result.get("error") if isinstance(tool_result, dict) else None)
+                tool_result_str = json.dumps(tool_result, indent=2, default=str) if tool_result else ""
+            except Exception as e:
+                tool_result = None
+                tool_error = str(e)
+                tool_result_str = f"ERROR: {e}"
+            tool_ms = int((time.time() - tool_start) * 1000)
+
+            _bcast(
+                tool=called_tool, args=normalized_args,
+                result={"content": [{"type": "text", "text": tool_result_str[:2000]}]} if tool_result_str else None,
+                duration_ms=tool_ms, error=str(tool_error) if tool_error else None,
+                source="agent-inner", client_id=client_id,
+            )
+
+            tool_calls_log.append({
+                "tool": called_tool, "args": called_args,
+                "result": tool_result_str[:500] if tool_result_str else "",
+                "error": str(tool_error) if tool_error else None,
+                "duration_ms": tool_ms, "iteration": iteration,
+            })
+
+            feedback = f"Tool result for {called_tool}({json.dumps(called_args, default=str)}):\n{tool_result_str}\n\nContinue with your next tool call or provide your final_answer."
+            chat_messages.append({"role": "user", "content": feedback})
+        else:
+            final_answer = json.dumps(parsed, default=str)
+            break
+
+    if final_answer is None:
+        final_answer = f"Agent reached max iterations ({max_iterations}) without final answer."
+
+    session["turns"].append({
+        "role": "assistant",
+        "content": str(final_answer) if isinstance(final_answer, str) else json.dumps(final_answer, default=str),
+        "ts": int(time.time() * 1000),
+    })
+    session["chat_messages"] = chat_messages
+    _agent_sessions[session_id] = session
+
+    agent_result = {
+        "final_answer": final_answer,
+        "iterations": iterations_used,
+        "tool_calls": tool_calls_log,
+        "slot": slot, "name": slot_name,
+    }
+    envelope = {
+        "session_id": session_id, "slot": slot,
+        "result": agent_result,
+        "blocked_tools": sorted(list(_AGENT_BLOCKED_TOOLS)),
+        "turn_count": len(session.get("turns", [])),
+        "history": session.get("turns", [])[-12:],
+    }
+    result_text = json.dumps(envelope, indent=2, default=str)
+    return {
+        "result": {
+            "content": [{"type": "text", "text": result_text}],
+            "isError": False,
+        }
+    }
+
+
 def _slot_serial_index(tool_name: str, args: dict | None) -> int | None:
     if tool_name not in _SLOT_SERIAL_TOOLS:
         return None
@@ -1107,6 +1403,29 @@ async def proxy_tool_call(tool_name: str, request: Request):
             source=source,
             client_id=client_id,
         )
+
+    # ── Server-side agent orchestration ──────────────────────────
+    if tool_name == "agent_chat":
+        try:
+            orchestrated = await _server_side_agent_chat(
+                call_args, source=source, client_id=client_id,
+                call_tool_fn=_call_tool, list_tools_fn=_list_tools,
+                parse_result_fn=_parse_mcp_result_payload,
+                normalize_args_fn=_normalize_proxy_tool_args,
+                broadcast_fn=lambda **kw: activity_hub.add_entry(**kw),
+            )
+            activity_hub.add_entry(
+                tool="agent_chat", args=call_args,
+                result=orchestrated.get("result"),
+                duration_ms=0,
+                error=orchestrated.get("error"),
+                source=source, client_id=client_id,
+            )
+            if orchestrated.get("error"):
+                return JSONResponse(status_code=503, content=orchestrated)
+            return orchestrated
+        finally:
+            await _release_slot_execution(claim)
 
     global _last_chat_slot
     if tool_name == "chat":
@@ -1991,6 +2310,29 @@ async def _handle_streamable_rpc(obj: dict, client_id: str | None) -> dict | Non
                 source="external",
                 client_id=client_id,
             )
+
+        # ── Server-side agent orchestration for MCP transport ──
+        if tool_name == "agent_chat":
+            try:
+                orchestrated = await _server_side_agent_chat(
+                    args, source="external", client_id=client_id,
+                    call_tool_fn=_call_tool, list_tools_fn=_list_tools,
+                    parse_result_fn=_parse_mcp_result_payload,
+                    normalize_args_fn=_normalize_proxy_tool_args,
+                    broadcast_fn=lambda **kw: activity_hub.add_entry(**kw),
+                )
+                activity_hub.add_entry(
+                    tool="agent_chat", args=args,
+                    result=orchestrated.get("result"),
+                    duration_ms=0,
+                    error=orchestrated.get("error"),
+                    source="external", client_id=client_id,
+                )
+                if orchestrated.get("error"):
+                    return _rpc_error(rpc_id, -32603, orchestrated["error"])
+                return {"jsonrpc": "2.0", "id": rpc_id, "result": orchestrated.get("result", orchestrated)}
+            finally:
+                await _release_slot_execution(claim)
 
         start = time.time()
         try:
