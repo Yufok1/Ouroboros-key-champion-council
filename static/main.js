@@ -7967,10 +7967,22 @@
             return tab;
         }
 
+        // Detect model swap — if a different model is now in this slot, reset state
+        var modelChanged = existing.modelSource !== modelSource;
         existing.modelSource = modelSource;
         existing.modelType = modelType;
         existing.isPlugged = isPlugged;
         existing.canChat = canChat;
+        if (modelChanged) {
+            existing.messages = [];
+            existing.loopMessages = [];
+            existing.sessionId = '';
+            existing.toolArgs = {};
+            existing.agentConfig = _loadAgentConfig(slotIndex, modelSource);
+            var newPolicyKey = _policyKeyForSlot(slotIndex, modelSource);
+            var newSavedTools = _sanitizeGrantedTools((_achatToolPolicies && _achatToolPolicies[newPolicyKey]) || []);
+            existing.grantedTools = newSavedTools.length ? newSavedTools : _defaultGrantedToolsForTab({ canChat: canChat });
+        }
         if (!existing.canChat && existing.selectedTool === 'agent_chat') {
             existing.selectedTool = 'invoke_slot';
         }
