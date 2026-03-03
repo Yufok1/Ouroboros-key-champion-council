@@ -1432,6 +1432,63 @@ async def _postprocess_tool_result(tool_name: str, args: dict, result: dict) -> 
         if patched:
             return {"result": {"content": [{"type": "text", "text": json.dumps(parsed)}]}}
 
+    # --- Fix agent_chat: synthesize final_answer when model returns empty after tool calls ---
+    if tool_name == "agent_chat" and isinstance(parsed, dict):
+        _result = parsed.get("result") if isinstance(parsed.get("result"), dict) else parsed
+        _fa = str(_result.get("final_answer", "")).strip() if isinstance(_result, dict) else ""
+        _tc = _result.get("tool_calls", []) if isinstance(_result, dict) else []
+        _empty_markers = (
+            "", "model returned an empty response.", "model returned an empty response",
+            "no response received", "no response received.",
+        )
+        if _fa.lower() in _empty_markers and isinstance(_tc, list) and len(_tc) > 0:
+            # Synthesize a summary from the tool call results
+            summary_parts = []
+            for tc in _tc:
+                if not isinstance(tc, dict):
+                    continue
+                t_name = tc.get("tool", "unknown")
+                t_result = tc.get("result", "")
+                t_error = tc.get("error")
+                if t_error:
+                    summary_parts.append(f"[{t_name}] ERROR: {t_error}")
+                elif t_result:
+                    preview = str(t_result)[:600]
+                    if len(str(t_result)) > 600:
+                        preview += "..."
+                    summary_parts.append(f"[{t_name}] {preview}")
+            if summary_parts:
+                synthesized = "Tool results (model failed to synthesize):\n\n" + "\n\n".join(summary_parts)
+                _result["final_answer"] = synthesized
+                _result["_synthesized"] = True
+                if "result" in parsed and isinstance(parsed["result"], dict):
+                    parsed["result"] = _result
+                else:
+                    parsed = _result
+                return {"result": {"content": [{"type": "text", "text": json.dumps(parsed)}]}}
+
+    # --- Fix chat: retry via invoke_slot when chat returns empty response ---
+    if tool_name == "chat" and isinstance(parsed, dict):
+        _response = str(parsed.get("response", "")).strip()
+        if not _response and args.get("message"):
+            _slot = args.get("slot", 0)
+            try:
+                retry = await _call_tool("invoke_slot", {
+                    "slot": int(_slot),
+                    "text": str(args["message"]),
+                    "mode": "generate",
+                    "max_tokens": 512,
+                })
+                retry_parsed = _parse_mcp_result(retry.get("result"))
+                if retry_parsed and isinstance(retry_parsed, dict):
+                    _output = retry_parsed.get("output", "")
+                    if _output:
+                        parsed["response"] = _output
+                        parsed["_fallback"] = "invoke_slot_generate"
+                        return {"result": {"content": [{"type": "text", "text": json.dumps(parsed)}]}}
+            except Exception:
+                pass
+
     # --- Fix orchestra: clean up when consensus averaging fails ---
     if tool_name == "orchestra" and isinstance(parsed, dict):
         outputs = parsed.get("outputs", [])
