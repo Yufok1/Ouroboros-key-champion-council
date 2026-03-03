@@ -709,6 +709,19 @@ MCP_PORT = int(os.environ.get("MCP_PORT", "8765"))
 WEB_PORT = 7860
 CAPSULE_PATH = Path("capsule/champion_gen8.py")
 MCP_BASE = f"http://127.0.0.1:{MCP_PORT}"
+HF_ROUTER_BASE = os.environ.get("HF_ROUTER_BASE", "https://router.huggingface.co").rstrip("/")
+
+
+def _hf_router_token(explicit: str | None = None) -> str | None:
+    token = (explicit or "").strip()
+    if token:
+        return token
+    for key in ("HF_TOKEN", "HUGGING_FACE_HUB_TOKEN", "HUGGINGFACEHUB_API_TOKEN"):
+        val = (os.environ.get(key) or "").strip()
+        if val:
+            return val
+    return None
+
 
 capsule_process = None
 capsule_log_lines = []
@@ -1745,6 +1758,84 @@ async def vast_fleet_state():
     _vast_fleet_cache["ts"] = now
     return fleet
 
+
+async def _hf_router_proxy_impl(request: Request, subpath: str, provider: str = "auto"):
+    token_hint = request.query_params.get("token") or request.query_params.get("hf_token")
+    token = _hf_router_token(token_hint)
+    if not token:
+        return JSONResponse(
+            status_code=401,
+            content={
+                "error": "HF token not configured",
+                "hint": "Set HF_TOKEN in Space secrets (or pass hf_token query for direct testing).",
+            },
+        )
+
+    target = f"{HF_ROUTER_BASE}/v1/{str(subpath or '').lstrip('/')}"
+
+    fwd_params = dict(request.query_params)
+    fwd_params.pop("token", None)
+    fwd_params.pop("hf_token", None)
+
+    headers = {"Accept": request.headers.get("accept", "application/json")}
+    headers["Authorization"] = f"Bearer {token}"
+
+    body_bytes = await request.body()
+    method = request.method.upper()
+
+    if method in ("POST", "PUT", "PATCH"):
+        content_type = request.headers.get("content-type", "")
+        if content_type.startswith("application/json"):
+            try:
+                payload = json.loads(body_bytes.decode("utf-8")) if body_bytes else {}
+            except Exception:
+                payload = {}
+            if isinstance(payload, dict):
+                if provider and provider != "auto" and "provider" not in payload:
+                    payload["provider"] = provider
+                model_hint = fwd_params.get("model")
+                if model_hint and not payload.get("model"):
+                    payload["model"] = model_hint
+                body_bytes = json.dumps(payload).encode("utf-8")
+                headers["Content-Type"] = "application/json"
+        elif content_type:
+            headers["Content-Type"] = content_type
+
+    timeout = 120.0
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            resp = await client.request(
+                method,
+                target,
+                params=fwd_params,
+                content=body_bytes if method in ("POST", "PUT", "PATCH") else None,
+                headers=headers,
+            )
+    except Exception as e:
+        return JSONResponse(status_code=502, content={"error": f"HF router proxy failed: {e}"})
+
+    out_headers = {}
+    ct = resp.headers.get("content-type")
+    if ct:
+        out_headers["Content-Type"] = ct
+    rid = resp.headers.get("x-request-id")
+    if rid:
+        out_headers["x-request-id"] = rid
+    xprov = resp.headers.get("x-inference-provider")
+    if xprov:
+        out_headers["x-inference-provider"] = xprov
+
+    return Response(content=resp.content, status_code=resp.status_code, headers=out_headers)
+
+
+@app.api_route("/hf-router/v1/{subpath:path}", methods=["GET", "POST"])
+async def hf_router_proxy_default(subpath: str, request: Request):
+    return await _hf_router_proxy_impl(request, subpath, provider="auto")
+
+
+@app.api_route("/hf-router/{provider}/v1/{subpath:path}", methods=["GET", "POST"])
+async def hf_router_proxy_provider(provider: str, subpath: str, request: Request):
+    return await _hf_router_proxy_impl(request, subpath, provider=provider)
 
 
 @app.get("/api/activity-stream")

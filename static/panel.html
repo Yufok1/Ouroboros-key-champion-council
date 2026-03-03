@@ -1844,7 +1844,7 @@ input:focus, select:focus { border-color: var(--accent); outline: none; }
         <div class="field">
             <label>Provider Type</label>
             <select id="plug-provider-kind" onchange="onProviderKindChange()">
-                <option value="huggingface">HuggingFace Hub (local model load)</option>
+                <option value="huggingface">HuggingFace Inference Providers (router)</option>
                 <option value="openai">OpenAI-compatible endpoint</option>
             </select>
         </div>
@@ -1853,17 +1853,41 @@ input:focus, select:focus { border-color: var(--accent); outline: none; }
             <div style="font-size:9px;letter-spacing:1px;color:var(--accent);margin-bottom:6px;font-weight:600;">HUGGINGFACE MODEL BROWSER</div>
             <div style="font-size:10px;color:var(--text-dim);line-height:1.5;margin-bottom:8px;">
                 Live search uses HuggingFace API directly and falls back to existing <code>hub_search</code>/<code>hub_top</code> tools.
-                Server-side plug still uses <code>plug_model</code> with the selected model ID.
+                Connect uses existing <code>plug_model</code>, but targets HF router (<code>router.huggingface.co/v1</code>) instead of local model download.
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
                 <div class="field">
-                    <label>HF Token <span style="color:var(--text-dim);">(optional, for private model browsing)</span></label>
-                    <input id="plug-provider-hf-token" type="password" placeholder="hf_..." oninput="onProviderHfInput()" />
+                    <label>Inference Provider</label>
+                    <select id="plug-provider-hf-provider" onchange="onProviderHfInput()">
+                        <option value="auto" selected>Auto route (HF router decides)</option>
+                        <option value="cerebras">Cerebras</option>
+                        <option value="cohere">Cohere</option>
+                        <option value="fal-ai">Fal AI</option>
+                        <option value="featherless-ai">Featherless AI</option>
+                        <option value="fireworks-ai">Fireworks</option>
+                        <option value="groq">Groq</option>
+                        <option value="hf-inference">HF Inference</option>
+                        <option value="hyperbolic">Hyperbolic</option>
+                        <option value="novita">Novita</option>
+                        <option value="nscale">Nscale</option>
+                        <option value="ovhcloud">OVHcloud</option>
+                        <option value="publicai">Public AI</option>
+                        <option value="replicate">Replicate</option>
+                        <option value="sambanova">SambaNova</option>
+                        <option value="scaleway">Scaleway</option>
+                        <option value="together">Together</option>
+                        <option value="wavespeed">WaveSpeed</option>
+                        <option value="zai-org">Z.ai</option>
+                    </select>
                 </div>
                 <div class="field">
                     <label>Search</label>
-                    <input id="plug-provider-hf-query" placeholder="qwen, mistral, bge, your-org/" oninput="onProviderHfInput()" />
+                    <input id="plug-provider-hf-query" placeholder="qwen, llama, flux, your-org/" oninput="onProviderHfInput()" />
                 </div>
+            </div>
+            <div class="field" style="margin-top:6px;">
+                <label>HF Token <span style="color:var(--text-dim);">(optional, used for browser-side model lookup only)</span></label>
+                <input id="plug-provider-hf-token" type="password" placeholder="hf_..." oninput="onProviderHfInput()" />
             </div>
             <div class="field" style="margin-top:6px;">
                 <label>Available Models</label>

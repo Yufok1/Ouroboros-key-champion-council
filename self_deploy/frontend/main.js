@@ -1742,10 +1742,12 @@
         _setProviderModeUI(_providerKind());
     }
 
-    async function _fetchHfModelsDirect(query, token) {
+    async function _fetchHfModelsDirect(query, token, provider) {
         var q = String(query || '').trim();
+        var p = String(provider || 'auto').trim().toLowerCase();
         var url = 'https://huggingface.co/api/models?limit=40&sort=downloads&direction=-1';
         if (q) url += '&search=' + encodeURIComponent(q);
+        if (p && p !== 'auto') url += '&inference_provider=' + encodeURIComponent(p);
 
         var headers = { 'Accept': 'application/json' };
         if (token) headers['Authorization'] = 'Bearer ' + token;
@@ -1828,10 +1830,12 @@
 
         var queryEl = document.getElementById('plug-provider-hf-query');
         var tokenEl = document.getElementById('plug-provider-hf-token');
+        var providerEl = document.getElementById('plug-provider-hf-provider');
         var modelEl = document.getElementById('plug-provider-model');
 
         var query = String((queryEl && queryEl.value) || '').trim();
         var token = String((tokenEl && tokenEl.value) || '').trim();
+        var provider = String((providerEl && providerEl.value) || 'auto').trim().toLowerCase();
         if (!query) query = String((modelEl && modelEl.value) || '').trim();
         var seq = ++_providerBrowseSeq;
 
@@ -1842,7 +1846,7 @@
         var directErr = null;
 
         try {
-            models = await _fetchHfModelsDirect(query, token);
+            models = await _fetchHfModelsDirect(query, token, provider);
         } catch (e) {
             directErr = e;
             source = 'hub-tools';
@@ -1869,7 +1873,8 @@
             }
         }
 
-        var msg = 'Loaded ' + String(models.length) + ' model' + (models.length === 1 ? '' : 's') + ' via ' + source + '.';
+        var providerLabel = (provider && provider !== 'auto') ? ('provider=' + provider + ', ') : '';
+        var msg = 'Loaded ' + String(models.length) + ' model' + (models.length === 1 ? '' : 's') + ' via ' + providerLabel + source + '.';
         if (!token) msg += ' (Tip: add HF token for private repos.)';
         _setProviderStatus(msg, models.length ? 'ok' : 'info');
         _queueProviderModelMetaRefresh(120);
@@ -1909,31 +1914,16 @@
                 return;
             }
 
-            // Preflight metadata to prevent obvious OOM/hang plugs on giant models.
-            try {
-                var info = await callToolAwaitParsed('hub_info', { model_id: model }, '__provider_hf_preflight__', { timeout: 45000 });
-                var sizeMb = Number((info && info.size_mb) || 0);
-                if (sizeMb > 30000) {
-                    var sizeText = _formatModelSizeGb(sizeMb) || (Math.round(sizeMb) + ' MB');
-                    var proceed = window.confirm(
-                        'This model is very large (' + sizeText + ').\n\n' +
-                        'It is likely to hang or OOM on this runtime.\n\n' +
-                        'Continue plug anyway?'
-                    );
-                    if (!proceed) {
-                        mpToast('Plug cancelled due to model size', 'info', 2400);
-                        return;
-                    }
-                }
-            } catch (preErr) {
-                // Soft-fail: metadata lookup issues should not block manual plug.
-            }
+            var provider = String(((document.getElementById('plug-provider-hf-provider') || {}).value || 'auto')).trim().toLowerCase();
+            var origin = window.location.origin || '';
+            var providerPath = provider && provider !== 'auto' ? ('/hf-router/' + encodeURIComponent(provider) + '/v1') : '/hf-router/v1';
+            var routerUrl = origin + providerPath + '?model=' + encodeURIComponent(model);
 
-            var hfArgs = { model_id: model };
+            var hfArgs = { model_id: routerUrl };
             if (slotName) hfArgs.slot_name = slotName;
             callTool('plug_model', hfArgs);
             closeModals();
-            mpToast('Plugging HuggingFace model...', 'info', 2500);
+            mpToast('Plugging HuggingFace inference provider route...', 'info', 2600);
             return;
         }
 
