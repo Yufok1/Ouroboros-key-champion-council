@@ -36,6 +36,9 @@ import persistence
 # Ensure Starlette static serving emits correct MIME for audio container files.
 mimetypes.add_type("audio/mp4", ".m4a")
 
+# Track last chat slot — auto-reset capsule chat session on slot change
+_last_chat_slot: int | None = None
+
 # Tools that are internal plumbing — don't broadcast to activity feed
 _SILENT_TOOLS = frozenset([
     'get_status', 'list_slots', 'bag_catalog', 'workflow_list',
@@ -1320,6 +1323,22 @@ async def _postprocess_tool_result(tool_name: str, args: dict, result: dict) -> 
     """
     parsed = _parse_mcp_result(result.get("result"))
 
+    # --- Resolve cached stubs for multi-slot tools that need postprocessor retry ---
+    # The capsule caches large results BEFORE the proxy sees them. For tools
+    # like broadcast/all_slots/debate, the cached stub has no responses array,
+    # so the retry logic can't run. Resolve the cache first.
+    _CACHE_RESOLVE_TOOLS = ("broadcast", "all_slots", "debate", "compare", "pipe", "chain")
+    if tool_name in _CACHE_RESOLVE_TOOLS and isinstance(parsed, dict) and parsed.get("_cached"):
+        try:
+            _cr = await _call_tool("get_cached", {"cache_id": str(parsed["_cached"])})
+            _cr_parsed = _parse_mcp_result(_cr.get("result"))
+            if _cr_parsed and isinstance(_cr_parsed, dict):
+                parsed = _cr_parsed
+                # Replace the result so downstream gets the full data
+                result = {"result": {"content": [{"type": "text", "text": json.dumps(parsed)}]}}
+        except Exception:
+            pass  # couldn't resolve cache — continue with stub
+
     # --- Fix get_genesis NoneType crash ---
     if tool_name == "get_genesis":
         error_str = result.get("error", "") or ""
@@ -1449,11 +1468,14 @@ async def _postprocess_tool_result(tool_name: str, args: dict, result: dict) -> 
                 err = str(entry.get("error", ""))
                 if _is_retryable_slot_error(err):
                     councilor = entry.get("councilor", "")
-                    # Find slot index by councilor name
+                    # Find slot index by councilor name (resolve cache if needed)
                     slot_idx = None
                     try:
                         slots_result = await _call_tool("list_slots", {})
                         slots_parsed = _parse_mcp_result(slots_result.get("result"))
+                        if isinstance(slots_parsed, dict) and slots_parsed.get("_cached"):
+                            _ls_cr = await _call_tool("get_cached", {"cache_id": str(slots_parsed["_cached"])})
+                            slots_parsed = _parse_mcp_result(_ls_cr.get("result")) or slots_parsed
                         if isinstance(slots_parsed, dict):
                             for s in slots_parsed.get("slots", []):
                                 if s.get("name") == councilor and s.get("plugged"):
@@ -1758,6 +1780,19 @@ async def proxy_tool_call(tool_name: str, request: Request):
             source=source,
             client_id=client_id,
         )
+
+    # Auto-reset capsule chat session when slot changes to prevent cross-slot bleed.
+    # The capsule's `chat` tool shares a single conversation — without reset,
+    # slot 1 sees slot 0's history and responds with the wrong identity.
+    global _last_chat_slot
+    if tool_name == "chat":
+        _chat_slot = int(call_args.get("slot", 0))
+        if _last_chat_slot is not None and _last_chat_slot != _chat_slot:
+            try:
+                await _call_tool("chat_reset", {})
+            except Exception:
+                pass
+        _last_chat_slot = _chat_slot
 
     start = time.time()
     try:
