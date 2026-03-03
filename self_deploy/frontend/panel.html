@@ -4101,39 +4101,78 @@
         <!-- ═══════════════ PLUG PROVIDER MODAL ═══════════════ -->
         <div class="modal-overlay" id="plug-provider-modal">
             <div class="modal" style="width:540px;">
-                <div class="modal-title">PLUG REMOTE PROVIDER</div>
+                <div class="modal-title">PLUG PROVIDER / MODEL SOURCE</div>
                 <div style="font-size:10px;color:var(--text-dim);margin-bottom:12px;line-height:1.5;">
-                    Connect an inference provider as a council slot. Supports
-                    <strong>Anthropic</strong>, <strong>OpenAI</strong>, <strong>Google</strong>,
-                    <strong>GitHub Copilot</strong>, <strong>Ollama</strong>, <strong>vLLM</strong>,
-                    <strong>LM Studio</strong>, <strong>OpenRouter</strong>, or any OpenAI-compatible endpoint.
+                    Use one unified flow for both provider types:
+                    <strong>HuggingFace Hub</strong> (search + plug by model ID) or
+                    <strong>OpenAI-compatible endpoints</strong> (remote provider URL).
+                    This keeps UI and MCP plug flows in parity around <code>plug_model</code>.
                 </div>
-                <div
-                    style="border:1px solid var(--border);padding:10px;margin-bottom:12px;background:rgba(0,255,136,0.03);">
-                    <div
-                        style="font-size:9px;letter-spacing:1px;color:var(--accent);margin-bottom:6px;font-weight:600;">
-                        AUTHENTICATION VIA Pi CLI</div>
-                    <div style="font-size:10px;color:var(--text-dim);line-height:1.5;">
-                        Use <code>/login</code> in a local Pi CLI session to authenticate with your providers via OAuth.
-                        Credentials are stored in <code>~/.pi/agent/auth.json</code> and auto-refresh.
-                        Use <code>/model</code> or <code>Ctrl+L</code> to browse authenticated models.
-                    </div>
-                </div>
+
                 <div class="field">
-                    <label>Provider URL <span style="color:var(--text-dim);">(for custom/self-hosted
-                            endpoints)</span></label>
-                    <input id="plug-provider-url"
-                        placeholder="http://localhost:11434/v1  or  https://api.openai.com/v1" />
+                    <label>Provider Type</label>
+                    <select id="plug-provider-kind" onchange="onProviderKindChange()">
+                        <option value="huggingface">HuggingFace Hub (local model load)</option>
+                        <option value="openai">OpenAI-compatible endpoint</option>
+                    </select>
                 </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+
+                <div id="plug-provider-hf-fields" style="border:1px solid var(--border);padding:10px;margin-bottom:12px;background:rgba(0,255,136,0.03);">
+                    <div style="font-size:9px;letter-spacing:1px;color:var(--accent);margin-bottom:6px;font-weight:600;">HUGGINGFACE MODEL BROWSER</div>
+                    <div style="font-size:10px;color:var(--text-dim);line-height:1.5;margin-bottom:8px;">
+                        Live search uses HuggingFace API directly and falls back to existing <code>hub_search</code>/<code>hub_top</code> tools.
+                        Server-side plug still uses <code>plug_model</code> with the selected model ID.
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                        <div class="field">
+                            <label>HF Token <span style="color:var(--text-dim);">(optional, for private model browsing)</span></label>
+                            <input id="plug-provider-hf-token" type="password" placeholder="hf_..." oninput="onProviderHfInput()" />
+                        </div>
+                        <div class="field">
+                            <label>Search</label>
+                            <input id="plug-provider-hf-query" placeholder="qwen, mistral, bge, your-org/" oninput="onProviderHfInput()" />
+                        </div>
+                    </div>
+                    <div class="field" style="margin-top:6px;">
+                        <label>Available Models</label>
+                        <select id="plug-provider-hf-models" size="8" style="font-family:ui-monospace,Consolas,monospace;font-size:11px;" onchange="onProviderModelPick()"></select>
+                    </div>
+                    <div id="plug-provider-hf-status" style="font-size:10px;color:var(--text-dim);margin-top:4px;">Type to search models…</div>
+                </div>
+
+                <div id="plug-provider-openai-fields" style="display:none;">
+                    <div style="font-size:10px;color:var(--text-dim);margin-bottom:10px;line-height:1.5;">
+                        Connect an inference provider as a council slot. Supports
+                        <strong>Anthropic</strong>, <strong>OpenAI</strong>, <strong>Google</strong>,
+                        <strong>GitHub Copilot</strong>, <strong>Ollama</strong>, <strong>vLLM</strong>,
+                        <strong>LM Studio</strong>, <strong>OpenRouter</strong>, or any OpenAI-compatible endpoint.
+                    </div>
+                    <div
+                        style="border:1px solid var(--border);padding:10px;margin-bottom:12px;background:rgba(0,255,136,0.03);">
+                        <div
+                            style="font-size:9px;letter-spacing:1px;color:var(--accent);margin-bottom:6px;font-weight:600;">
+                            AUTHENTICATION VIA Pi CLI</div>
+                        <div style="font-size:10px;color:var(--text-dim);line-height:1.5;">
+                            Use <code>/login</code> in a local Pi CLI session to authenticate with your providers via OAuth.
+                            Credentials are stored in <code>~/.pi/agent/auth.json</code> and auto-refresh.
+                            Use <code>/model</code> or <code>Ctrl+L</code> to browse authenticated models.
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label>Provider URL <span style="color:var(--text-dim);">(for custom/self-hosted
+                                endpoints)</span></label>
+                        <input id="plug-provider-url"
+                            placeholder="http://localhost:11434/v1  or  https://api.openai.com/v1" />
+                    </div>
                     <div class="field">
                         <label>API Key <span style="color:var(--text-dim);">(optional)</span></label>
                         <input id="plug-provider-key" type="password" placeholder="sk-..." />
                     </div>
-                    <div class="field">
-                        <label>Model Name <span style="color:var(--text-dim);">(auto-detect if blank)</span></label>
-                        <input id="plug-provider-model" placeholder="gpt-4o, claude-sonnet-4-20250514, etc." />
-                    </div>
+                </div>
+
+                <div class="field">
+                    <label>Model Name / Model ID</label>
+                    <input id="plug-provider-model" placeholder="Qwen/Qwen2.5-1.5B-Instruct or gpt-4o" oninput="onProviderHfInput()" />
                 </div>
                 <div class="field">
                     <label>Slot Name <span style="color:var(--text-dim);">(optional)</span></label>

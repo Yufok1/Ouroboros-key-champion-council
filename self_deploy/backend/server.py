@@ -16,7 +16,7 @@ import time
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, urlparse, urlsplit, urlunsplit, unquote
 
 import httpx
 import uvicorn
@@ -225,6 +225,83 @@ async def _slot_ready_guard(tool_name: str, args: dict | None) -> dict | None:
         "slot": slot_idx,
         "error": f"Slot {slot_idx} is not plugged yet. Wait for plug_model/hub_plug to complete before calling {tool_name}.",
     }
+
+
+def _normalize_remote_provider_model_id(model_id: str) -> tuple[str, bool]:
+    """Normalize remote provider URLs for capsule compatibility.
+
+    Capsule-side remote provider parsing is intentionally simple. Normalize here
+    so all client paths (/api/tool + MCP) behave consistently:
+      - decode percent-encoded model/key query values
+      - strip trailing /v1 so capsule appends /v1/* only once
+    """
+    if not isinstance(model_id, str):
+        return model_id, False
+
+    raw = model_id.strip()
+    if not (raw.startswith("http://") or raw.startswith("https://")):
+        return model_id, False
+
+    try:
+        parts = urlsplit(raw)
+    except Exception:
+        return model_id, False
+
+    changed = False
+    path = parts.path or ""
+    path_no_slash = path.rstrip("/")
+    if path_no_slash.endswith("/v1"):
+        path = path_no_slash[:-3]
+        changed = True
+    elif path_no_slash != path:
+        path = path_no_slash
+        changed = True
+
+    query = parts.query or ""
+    if query:
+        normalized_tokens: list[str] = []
+        for token in query.split("&"):
+            if not token:
+                continue
+            if "=" in token:
+                key, value = token.split("=", 1)
+            else:
+                key, value = token, ""
+
+            if key in ("model", "key"):
+                decoded = unquote(value)
+                if decoded != value:
+                    changed = True
+                decoded = decoded.replace("&", "%26").replace("=", "%3D")
+                token = f"{key}={decoded}"
+
+            normalized_tokens.append(token)
+
+        new_query = "&".join(normalized_tokens)
+        if new_query != query:
+            changed = True
+    else:
+        new_query = query
+
+    rebuilt = urlunsplit((parts.scheme, parts.netloc, path, new_query, parts.fragment))
+    if rebuilt != raw:
+        changed = True
+
+    return rebuilt, changed
+
+
+def _normalize_proxy_tool_args(tool_name: str, args: dict | None) -> dict:
+    if not isinstance(args, dict):
+        return args or {}
+
+    if tool_name == "plug_model" and isinstance(args.get("model_id"), str):
+        normalized, changed = _normalize_remote_provider_model_id(args.get("model_id"))
+        if changed:
+            patched = dict(args)
+            patched["model_id"] = normalized
+            return patched
+
+    return args
 
 
 async def _call_tool(name: str, arguments: dict) -> dict:
@@ -731,6 +808,8 @@ async def proxy_tool_call(tool_name: str, request: Request):
 
     if tool_name in ("workflow_create", "workflow_update") and "definition" in body:
         body["definition"] = normalize_workflow_nodes(body["definition"])
+
+    body = _normalize_proxy_tool_args(tool_name, body if isinstance(body, dict) else {})
 
     body_source = _normalize_activity_source(body.pop("__source", None) if isinstance(body, dict) else None)
     source = body_source or _infer_activity_source(request, fallback="webui")
@@ -1469,6 +1548,7 @@ async def _handle_streamable_rpc(obj: dict, client_id: str | None) -> dict | Non
                     "prompts": {"listChanged": False},
                 },
                 "serverInfo": {"name": "champion-council", "version": "0.8.9"},
+                "instructions": "Use tools/call for all operations. For large payloads, follow _cached via get_cached(cache_id). agent_chat supports granted_tools for agentic tool use.",
             },
         }
 
@@ -1504,6 +1584,8 @@ async def _handle_streamable_rpc(obj: dict, client_id: str | None) -> dict | Non
         if tool_name in ("workflow_create", "workflow_update") and "definition" in args:
             args = dict(args)
             args["definition"] = normalize_workflow_nodes(args["definition"])
+
+        args = _normalize_proxy_tool_args(tool_name, args)
 
         capacity_guard = None
         if tool_name in _CAPACITY_GUARD_TOOLS:

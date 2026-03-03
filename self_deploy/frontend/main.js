@@ -1627,21 +1627,215 @@
     }
 
     // ── PLUG PROVIDER MODAL ──
+    var _providerBrowseTimer = null;
+    var _providerBrowseSeq = 0;
+
+    function _providerKind() {
+        var kind = ((document.getElementById('plug-provider-kind') || {}).value || 'huggingface').toLowerCase();
+        if (kind !== 'huggingface' && kind !== 'openai') kind = 'huggingface';
+        return kind;
+    }
+
+    function _setProviderStatus(text, tone) {
+        var el = document.getElementById('plug-provider-hf-status');
+        if (!el) return;
+        el.textContent = String(text || '');
+        el.style.color = (tone === 'error') ? '#f87171' : (tone === 'ok' ? '#34d399' : 'var(--text-dim)');
+    }
+
+    function _setProviderModeUI(kind) {
+        var hfWrap = document.getElementById('plug-provider-hf-fields');
+        var openaiWrap = document.getElementById('plug-provider-openai-fields');
+        var urlInput = document.getElementById('plug-provider-url');
+        if (hfWrap) hfWrap.style.display = (kind === 'huggingface') ? '' : 'none';
+        if (openaiWrap) openaiWrap.style.display = (kind === 'openai') ? '' : 'none';
+        if (urlInput) {
+            if (kind === 'openai') urlInput.setAttribute('required', 'required');
+            else urlInput.removeAttribute('required');
+        }
+        if (kind === 'huggingface') {
+            _setProviderStatus('Type to search models…', 'info');
+            onProviderHfInput();
+        }
+    }
+
+    function onProviderKindChange() {
+        _setProviderModeUI(_providerKind());
+    }
+
+    async function _fetchHfModelsDirect(query, token) {
+        var q = String(query || '').trim();
+        var url = 'https://huggingface.co/api/models?limit=40&sort=downloads&direction=-1';
+        if (q) url += '&search=' + encodeURIComponent(q);
+
+        var headers = { 'Accept': 'application/json' };
+        if (token) headers['Authorization'] = 'Bearer ' + token;
+
+        var resp = await fetch(url, { method: 'GET', headers: headers });
+        if (!resp.ok) throw new Error('HF API HTTP ' + resp.status);
+        var data = await resp.json();
+        if (!Array.isArray(data)) return [];
+
+        var out = [];
+        for (var i = 0; i < data.length; i++) {
+            var m = data[i] || {};
+            var id = String(m.id || '').trim();
+            if (!id) continue;
+            out.push({
+                id: id,
+                downloads: Number(m.downloads || 0),
+                likes: Number(m.likes || 0),
+                task: String(m.pipeline_tag || ''),
+                private: !!m.private
+            });
+        }
+        return out;
+    }
+
+    async function _fetchHfModelsViaTools(query) {
+        var q = String(query || '').trim();
+        var payload = null;
+        if (q) payload = await callToolAwaitParsed('hub_search', { query: q, limit: 40, page: 1 }, '__provider_hf_lookup__', { timeout: 45000 });
+        else payload = await callToolAwaitParsed('hub_top', { limit: 40, page: 1 }, '__provider_hf_lookup__', { timeout: 45000 });
+
+        var models = (payload && Array.isArray(payload.models)) ? payload.models : [];
+        var out = [];
+        for (var i = 0; i < models.length; i++) {
+            var m = models[i] || {};
+            var id = String(m.id || '').trim();
+            if (!id) continue;
+            out.push({
+                id: id,
+                downloads: Number(m.downloads || 0),
+                likes: Number(m.likes || 0),
+                task: String(m.task || ''),
+                private: false
+            });
+        }
+        return out;
+    }
+
+    function _renderHfModelOptions(models) {
+        var sel = document.getElementById('plug-provider-hf-models');
+        if (!sel) return;
+        sel.innerHTML = '';
+
+        if (!Array.isArray(models) || models.length === 0) {
+            var empty = document.createElement('option');
+            empty.value = '';
+            empty.textContent = 'No models found';
+            sel.appendChild(empty);
+            return;
+        }
+
+        for (var i = 0; i < models.length; i++) {
+            var m = models[i] || {};
+            var opt = document.createElement('option');
+            opt.value = String(m.id || '');
+            var badges = [];
+            if (m.task) badges.push(m.task);
+            if (m.downloads > 0) badges.push(_formatCount(m.downloads) + ' dl');
+            if (m.likes > 0) badges.push(_formatCount(m.likes) + ' ❤');
+            if (m.private) badges.push('private');
+            opt.textContent = badges.length ? (opt.value + '   ·   ' + badges.join(' · ')) : opt.value;
+            sel.appendChild(opt);
+        }
+    }
+
+    async function _refreshHfProviderModels() {
+        if (_providerKind() !== 'huggingface') return;
+
+        var queryEl = document.getElementById('plug-provider-hf-query');
+        var tokenEl = document.getElementById('plug-provider-hf-token');
+        var modelEl = document.getElementById('plug-provider-model');
+
+        var query = String((queryEl && queryEl.value) || '').trim();
+        var token = String((tokenEl && tokenEl.value) || '').trim();
+        if (!query) query = String((modelEl && modelEl.value) || '').trim();
+        var seq = ++_providerBrowseSeq;
+
+        _setProviderStatus('Loading models…', 'info');
+
+        var models = [];
+        var source = 'huggingface-api';
+        var directErr = null;
+
+        try {
+            models = await _fetchHfModelsDirect(query, token);
+        } catch (e) {
+            directErr = e;
+            source = 'hub-tools';
+            try {
+                models = await _fetchHfModelsViaTools(query);
+            } catch (e2) {
+                if (seq !== _providerBrowseSeq) return;
+                _renderHfModelOptions([]);
+                _setProviderStatus('Model lookup failed: ' + String((e2 && e2.message) || (directErr && directErr.message) || e2 || directErr), 'error');
+                return;
+            }
+        }
+
+        if (seq !== _providerBrowseSeq) return;
+
+        _renderHfModelOptions(models);
+
+        var sel = document.getElementById('plug-provider-hf-models');
+        if (sel && sel.options && sel.options.length > 0 && sel.options[0].value) {
+            var current = String((modelEl && modelEl.value) || '').trim();
+            if (!current && modelEl) {
+                modelEl.value = sel.options[0].value;
+                sel.selectedIndex = 0;
+            }
+        }
+
+        var msg = 'Loaded ' + String(models.length) + ' model' + (models.length === 1 ? '' : 's') + ' via ' + source + '.';
+        if (!token) msg += ' (Tip: add HF token for private repos.)';
+        _setProviderStatus(msg, models.length ? 'ok' : 'info');
+    }
+
+    function onProviderHfInput() {
+        if (_providerKind() !== 'huggingface') return;
+        if (_providerBrowseTimer) clearTimeout(_providerBrowseTimer);
+        _providerBrowseTimer = setTimeout(function () {
+            _refreshHfProviderModels();
+        }, 300);
+    }
+
+    function onProviderModelPick() {
+        var sel = document.getElementById('plug-provider-hf-models');
+        var modelEl = document.getElementById('plug-provider-model');
+        if (sel && modelEl && sel.value) modelEl.value = sel.value;
+    }
+
     function openPlugProviderModal() {
         var modal = document.getElementById('plug-provider-modal');
         if (modal) modal.classList.add('active');
+        _setProviderModeUI(_providerKind());
     }
-    // Expose to global scope for onclick
-    window.openPlugProviderModal = openPlugProviderModal;
 
     function doPlugProvider() {
+        var kind = _providerKind();
+        var model = String(((document.getElementById('plug-provider-model') || {}).value || '')).trim();
+        var slotName = (document.getElementById('plug-provider-slot-name') || {}).value || '';
+
+        if (kind === 'huggingface') {
+            if (!model) {
+                mpToast('Select or enter a HuggingFace model ID first', 'error', 2600);
+                return;
+            }
+            var hfArgs = { model_id: model };
+            if (slotName) hfArgs.slot_name = slotName;
+            callTool('plug_model', hfArgs);
+            closeModals();
+            mpToast('Plugging HuggingFace model...', 'info', 2500);
+            return;
+        }
+
         var url = (document.getElementById('plug-provider-url') || {}).value || '';
         var key = (document.getElementById('plug-provider-key') || {}).value || '';
-        var model = (document.getElementById('plug-provider-model') || {}).value || '';
-        var slotName = (document.getElementById('plug-provider-slot-name') || {}).value || '';
         if (!url) { mpToast('Provider URL is required', 'error', 2500); return; }
 
-        // Build the URL with query params for RemoteProviderProxy
+        // Build URL payload for RemoteProviderProxy via existing plug_model flow.
         var fullUrl = url;
         var params = [];
         if (model) params.push('model=' + encodeURIComponent(model));
@@ -1655,6 +1849,12 @@
         closeModals();
         mpToast('Plugging remote provider...', 'info', 2500);
     }
+
+    // Expose to global scope for onclick hooks from panel.html
+    window.onProviderKindChange = onProviderKindChange;
+    window.onProviderHfInput = onProviderHfInput;
+    window.onProviderModelPick = onProviderModelPick;
+    window.openPlugProviderModal = openPlugProviderModal;
     window.doPlugProvider = doPlugProvider;
     window._slotDrillCompare = _slotDrillCompare;
     window._slotDrillBenchmark = _slotDrillBenchmark;

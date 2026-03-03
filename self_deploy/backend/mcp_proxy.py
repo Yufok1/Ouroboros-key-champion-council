@@ -4,6 +4,7 @@ import json
 import time
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit, unquote
 
 
 @dataclass
@@ -156,6 +157,76 @@ def _coerce_tool_arguments(args: Any) -> dict[str, Any]:
     return {}
 
 
+def _normalize_remote_provider_model_id(model_id: str) -> tuple[str, bool]:
+    if not isinstance(model_id, str):
+        return model_id, False
+
+    raw = model_id.strip()
+    if not (raw.startswith("http://") or raw.startswith("https://")):
+        return model_id, False
+
+    try:
+        parts = urlsplit(raw)
+    except Exception:
+        return model_id, False
+
+    changed = False
+    path = parts.path or ""
+    path_no_slash = path.rstrip("/")
+    if path_no_slash.endswith("/v1"):
+        path = path_no_slash[:-3]
+        changed = True
+    elif path_no_slash != path:
+        path = path_no_slash
+        changed = True
+
+    query = parts.query or ""
+    if query:
+        tokens: list[str] = []
+        for token in query.split("&"):
+            if not token:
+                continue
+            if "=" in token:
+                key, value = token.split("=", 1)
+            else:
+                key, value = token, ""
+
+            if key in ("model", "key"):
+                decoded = unquote(value)
+                if decoded != value:
+                    changed = True
+                decoded = decoded.replace("&", "%26").replace("=", "%3D")
+                token = f"{key}={decoded}"
+
+            tokens.append(token)
+
+        new_query = "&".join(tokens)
+        if new_query != query:
+            changed = True
+    else:
+        new_query = query
+
+    rebuilt = urlunsplit((parts.scheme, parts.netloc, path, new_query, parts.fragment))
+    if rebuilt != raw:
+        changed = True
+
+    return rebuilt, changed
+
+
+def _normalize_tool_arguments_for_proxy(tool_name: str | None, args: dict[str, Any]) -> dict[str, Any]:
+    if not isinstance(args, dict):
+        return {}
+
+    if tool_name == "plug_model" and isinstance(args.get("model_id"), str):
+        normalized, changed = _normalize_remote_provider_model_id(args.get("model_id"))
+        if changed:
+            patched = dict(args)
+            patched["model_id"] = normalized
+            return patched
+
+    return args
+
+
 def _normalize_tool_call_obj(obj: dict[str, Any]) -> bool:
     """Normalize one JSON-RPC tools/call object in-place."""
     if not isinstance(obj, dict) or obj.get("method") != "tools/call":
@@ -193,6 +264,13 @@ def _normalize_tool_call_obj(obj: dict[str, Any]) -> bool:
         coerced = _coerce_tool_arguments(raw_args)
         if coerced != raw_args:
             params["arguments"] = coerced
+            changed = True
+
+    tool_name = params.get("name")
+    if isinstance(params.get("arguments"), dict):
+        normalized_args = _normalize_tool_arguments_for_proxy(tool_name, params.get("arguments"))
+        if normalized_args != params.get("arguments"):
+            params["arguments"] = normalized_args
             changed = True
 
     # For strict no-arg tools, omit empty arguments object.
@@ -256,6 +334,8 @@ def _extract_tool_call(obj: dict[str, Any]) -> tuple[str | None, str | None, dic
             args = params["args"]
 
     tool_name = params.get("name", "unknown")
+    if isinstance(tool_name, str) and isinstance(args, dict):
+        args = _normalize_tool_arguments_for_proxy(tool_name, args)
     return method, tool_name, args, rpc_id
 
 
