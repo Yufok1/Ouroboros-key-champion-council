@@ -56,14 +56,40 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(args || {})
         });
-        const data = await resp.json();
+
+        const contentType = String(resp.headers.get('content-type') || '').toLowerCase();
+        const raw = await resp.text();
+        let data = null;
+
+        if (raw) {
+            try { data = JSON.parse(raw); }
+            catch {
+                if (contentType.includes('application/json')) {
+                    throw new Error(`Invalid JSON from server (HTTP ${resp.status}).`);
+                }
+                data = {
+                    error: `HTTP ${resp.status} returned non-JSON response`,
+                    status: resp.status,
+                    content_type: contentType || '(unknown)',
+                    body_preview: raw.slice(0, 500)
+                };
+            }
+        } else {
+            data = {};
+        }
+
         // Extract result from JSON-RPC envelope
-        if (data.result && data.result.content) {
+        if (data && data.result && data.result.content) {
             try {
                 const text = data.result.content[0]?.text;
                 return text ? JSON.parse(text) : data.result;
             } catch { return data.result; }
         }
+
+        if (!resp.ok && (!data || typeof data !== 'object' || !data.error)) {
+            return { error: `HTTP ${resp.status} ${resp.statusText || ''}`.trim(), status: resp.status };
+        }
+
         return data;
     }
 

@@ -4100,7 +4100,7 @@
 
         <!-- ═══════════════ PLUG PROVIDER MODAL ═══════════════ -->
         <div class="modal-overlay" id="plug-provider-modal">
-            <div class="modal" style="width:540px;">
+            <div class="modal" style="width:540px;max-width:min(92vw,980px);max-height:82vh;resize:both;overflow:auto;">
                 <div class="modal-title">PLUG PROVIDER / MODEL SOURCE</div>
                 <div style="font-size:10px;color:var(--text-dim);margin-bottom:12px;line-height:1.5;">
                     Use one unified flow for both provider types:
@@ -4173,6 +4173,9 @@
                 <div class="field">
                     <label>Model Name / Model ID</label>
                     <input id="plug-provider-model" placeholder="Qwen/Qwen2.5-1.5B-Instruct or gpt-4o" oninput="onProviderHfInput()" />
+                </div>
+                <div id="plug-provider-model-meta" style="font-size:10px;color:var(--text-dim);margin-top:-4px;margin-bottom:8px;line-height:1.5;">
+                    Select a model to see basic metadata.
                 </div>
                 <div class="field">
                     <label>Slot Name <span style="color:var(--text-dim);">(optional)</span></label>

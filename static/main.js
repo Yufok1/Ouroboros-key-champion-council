@@ -1629,6 +1629,8 @@
     // ── PLUG PROVIDER MODAL ──
     var _providerBrowseTimer = null;
     var _providerBrowseSeq = 0;
+    var _providerMetaTimer = null;
+    var _providerMetaSeq = 0;
 
     function _providerKind() {
         var kind = ((document.getElementById('plug-provider-kind') || {}).value || 'huggingface').toLowerCase();
@@ -1641,6 +1643,80 @@
         if (!el) return;
         el.textContent = String(text || '');
         el.style.color = (tone === 'error') ? '#f87171' : (tone === 'ok' ? '#34d399' : 'var(--text-dim)');
+    }
+
+    function _setProviderModelMeta(text, tone) {
+        var el = document.getElementById('plug-provider-model-meta');
+        if (!el) return;
+        el.textContent = String(text || '');
+        el.style.color = (tone === 'error') ? '#f87171' : (tone === 'ok' ? '#34d399' : 'var(--text-dim)');
+    }
+
+    function _inferParamHint(modelId) {
+        var s = String(modelId || '');
+        var m = s.match(/(?:^|[^0-9])(\d+(?:\.\d+)?)\s*([bmk])(?:[^a-z0-9]|$)/i);
+        if (!m) return '';
+        return (m[1] + m[2]).toUpperCase();
+    }
+
+    function _formatModelSizeGb(sizeMb) {
+        var mb = Number(sizeMb || 0);
+        if (!(mb > 0)) return '';
+        if (mb >= 1024) return (mb / 1024).toFixed(1).replace(/\.0$/, '') + ' GB';
+        return Math.round(mb) + ' MB';
+    }
+
+    async function _refreshProviderModelMeta() {
+        if (_providerKind() !== 'huggingface') {
+            _setProviderModelMeta('Select a model to see basic metadata.', 'info');
+            return;
+        }
+
+        var model = String(((document.getElementById('plug-provider-model') || {}).value || '')).trim();
+        if (!model || model.indexOf('/') < 1) {
+            var hint = _inferParamHint(model);
+            if (hint) _setProviderModelMeta('Parameter hint: ' + hint, 'info');
+            else _setProviderModelMeta('Select a model to see basic metadata.', 'info');
+            return;
+        }
+
+        var seq = ++_providerMetaSeq;
+        _setProviderModelMeta('Loading model metadata…', 'info');
+
+        try {
+            var info = await callToolAwaitParsed('hub_info', { model_id: model }, '__provider_hf_meta__', { timeout: 45000 });
+            if (seq !== _providerMetaSeq) return;
+
+            if (!info || info.error) {
+                _setProviderModelMeta('Metadata unavailable for ' + model, 'error');
+                return;
+            }
+
+            var task = String(info.task || 'unknown');
+            var downloads = Number(info.downloads || 0);
+            var likes = Number(info.likes || 0);
+            var size = _formatModelSizeGb(info.size_mb);
+            var param = _inferParamHint(model);
+
+            var bits = [];
+            bits.push('Task: ' + task);
+            if (param) bits.push('Params: ~' + param);
+            if (size) bits.push('Size: ' + size);
+            if (downloads > 0) bits.push('Downloads: ' + _formatCount(downloads));
+            if (likes > 0) bits.push('Likes: ' + _formatCount(likes));
+
+            _setProviderModelMeta(bits.join(' · '), 'ok');
+        } catch (e) {
+            if (seq !== _providerMetaSeq) return;
+            _setProviderModelMeta('Metadata lookup failed: ' + String((e && e.message) || e), 'error');
+        }
+    }
+
+    function _queueProviderModelMetaRefresh(delayMs) {
+        if (_providerMetaTimer) clearTimeout(_providerMetaTimer);
+        _providerMetaTimer = setTimeout(function () {
+            _refreshProviderModelMeta();
+        }, (typeof delayMs === 'number' ? delayMs : 260));
     }
 
     function _setProviderModeUI(kind) {
@@ -1656,6 +1732,9 @@
         if (kind === 'huggingface') {
             _setProviderStatus('Type to search models…', 'info');
             onProviderHfInput();
+            _queueProviderModelMetaRefresh(120);
+        } else {
+            _setProviderModelMeta('Remote endpoint mode. Metadata preview is available for HuggingFace IDs.', 'info');
         }
     }
 
@@ -1733,7 +1812,9 @@
             var opt = document.createElement('option');
             opt.value = String(m.id || '');
             var badges = [];
+            var paramHint = _inferParamHint(opt.value);
             if (m.task) badges.push(m.task);
+            if (paramHint) badges.push('~' + paramHint);
             if (m.downloads > 0) badges.push(_formatCount(m.downloads) + ' dl');
             if (m.likes > 0) badges.push(_formatCount(m.likes) + ' ❤');
             if (m.private) badges.push('private');
@@ -1791,6 +1872,7 @@
         var msg = 'Loaded ' + String(models.length) + ' model' + (models.length === 1 ? '' : 's') + ' via ' + source + '.';
         if (!token) msg += ' (Tip: add HF token for private repos.)';
         _setProviderStatus(msg, models.length ? 'ok' : 'info');
+        _queueProviderModelMetaRefresh(120);
     }
 
     function onProviderHfInput() {
@@ -1799,21 +1881,24 @@
         _providerBrowseTimer = setTimeout(function () {
             _refreshHfProviderModels();
         }, 300);
+        _queueProviderModelMetaRefresh(220);
     }
 
     function onProviderModelPick() {
         var sel = document.getElementById('plug-provider-hf-models');
         var modelEl = document.getElementById('plug-provider-model');
         if (sel && modelEl && sel.value) modelEl.value = sel.value;
+        _queueProviderModelMetaRefresh(60);
     }
 
     function openPlugProviderModal() {
         var modal = document.getElementById('plug-provider-modal');
         if (modal) modal.classList.add('active');
+        _setProviderModelMeta('Select a model to see basic metadata.', 'info');
         _setProviderModeUI(_providerKind());
     }
 
-    function doPlugProvider() {
+    async function doPlugProvider() {
         var kind = _providerKind();
         var model = String(((document.getElementById('plug-provider-model') || {}).value || '')).trim();
         var slotName = (document.getElementById('plug-provider-slot-name') || {}).value || '';
@@ -1823,6 +1908,27 @@
                 mpToast('Select or enter a HuggingFace model ID first', 'error', 2600);
                 return;
             }
+
+            // Preflight metadata to prevent obvious OOM/hang plugs on giant models.
+            try {
+                var info = await callToolAwaitParsed('hub_info', { model_id: model }, '__provider_hf_preflight__', { timeout: 45000 });
+                var sizeMb = Number((info && info.size_mb) || 0);
+                if (sizeMb > 30000) {
+                    var sizeText = _formatModelSizeGb(sizeMb) || (Math.round(sizeMb) + ' MB');
+                    var proceed = window.confirm(
+                        'This model is very large (' + sizeText + ').\n\n' +
+                        'It is likely to hang or OOM on this runtime.\n\n' +
+                        'Continue plug anyway?'
+                    );
+                    if (!proceed) {
+                        mpToast('Plug cancelled due to model size', 'info', 2400);
+                        return;
+                    }
+                }
+            } catch (preErr) {
+                // Soft-fail: metadata lookup issues should not block manual plug.
+            }
+
             var hfArgs = { model_id: model };
             if (slotName) hfArgs.slot_name = slotName;
             callTool('plug_model', hfArgs);
