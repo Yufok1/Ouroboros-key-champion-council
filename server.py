@@ -738,6 +738,7 @@ _pending_external_calls: dict[str | int, dict] = {}
 # MCP client session (managed by lifespan)
 _mcp_session: ClientSession | None = None
 _mcp_lock = asyncio.Lock()
+_capsule_instructions: str | None = None  # Rich instructions from capsule handshake
 
 
 # --- Capsule Process Management ---
@@ -811,7 +812,7 @@ _write_stream = None
 
 async def _connect_mcp():
     """Connect to capsule MCP server using the SDK client."""
-    global _mcp_session, _sse_cm, _session_cm, _read_stream, _write_stream
+    global _mcp_session, _sse_cm, _session_cm, _read_stream, _write_stream, _capsule_instructions
 
     async with _mcp_lock:
         if _mcp_session is not None:
@@ -842,6 +843,17 @@ async def _connect_mcp():
                         _sname = _v.name
                     if _sname:
                         break
+
+            # Cache the capsule's rich MCP instructions for the proxy initialize response.
+            # The capsule builds these via _build_mcp_instructions() — they contain the full
+            # onboarding orientation (tool groups, workflow engine, FelixBag, CASCADE, etc.).
+            _instr = getattr(result, 'instructions', None)
+            if _instr is None and hasattr(result, 'model_dump'):
+                _instr = result.model_dump().get('instructions')
+            if _instr and isinstance(_instr, str) and len(_instr) > 100:
+                _capsule_instructions = _instr
+                print(f"[OK] Cached capsule instructions ({len(_instr)} chars)")
+
             print(f"[OK] MCP session initialized — server: {_sname or 'unknown'}")
             return True
 
@@ -2379,7 +2391,10 @@ async def _handle_streamable_rpc(obj: dict, client_id: str) -> dict | None:
         session = await _ensure_session()
         if not session:
             return _rpc_error(rpc_id, -32603, "Failed to connect to capsule MCP")
-        # Return server capabilities (mirror what capsule reported)
+        # Return server capabilities with the capsule's REAL instructions.
+        # _capsule_instructions is populated during _connect_mcp() from the
+        # capsule's _build_mcp_instructions() — the full onboarding orientation.
+        _fallback_instructions = "Use tools/call for all operations. For large payloads, follow _cached via get_cached(cache_id). agent_chat supports granted_tools for agentic tool use."
         return {
             "jsonrpc": "2.0",
             "id": rpc_id,
@@ -2391,7 +2406,7 @@ async def _handle_streamable_rpc(obj: dict, client_id: str) -> dict | None:
                     "prompts": {"listChanged": False},
                 },
                 "serverInfo": {"name": "champion-council", "version": "0.8.9"},
-                "instructions": "Use tools/call for all operations. For large payloads, follow _cached via get_cached(cache_id). agent_chat supports granted_tools for agentic tool use.",
+                "instructions": _capsule_instructions or _fallback_instructions,
             },
         }
 

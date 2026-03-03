@@ -25,6 +25,9 @@ class MCPClient:
         self._reconnect_attempts = 0
         self._next_retry_ts = 0.0
 
+        # Rich instructions from capsule handshake (populated during connect)
+        self.capsule_instructions: str | None = None
+
     @property
     def connected(self) -> bool:
         return self._session is not None
@@ -55,7 +58,15 @@ class MCPClient:
                 self._session_cm = ClientSession(self._read_stream, self._write_stream)
                 self._session = await self._session_cm.__aenter__()
 
-                await self._session.initialize()
+                result = await self._session.initialize()
+
+                # Cache the capsule's rich MCP instructions (built by
+                # _build_mcp_instructions() in champion_gen8.py).
+                _instr = getattr(result, 'instructions', None)
+                if _instr is None and hasattr(result, 'model_dump'):
+                    _instr = result.model_dump().get('instructions')
+                if _instr and isinstance(_instr, str) and len(_instr) > 100:
+                    self.capsule_instructions = _instr
 
                 # Successful reconnect clears backoff state.
                 self._reconnect_attempts = 0

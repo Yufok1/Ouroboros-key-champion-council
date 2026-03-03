@@ -1632,6 +1632,9 @@ async def _handle_streamable_rpc(obj: dict, client_id: str | None) -> dict | Non
         session = await mcp_client.ensure_session()
         if not session:
             return _rpc_error(rpc_id, -32603, "Failed to connect to capsule MCP")
+        # Return the capsule's REAL instructions (built by _build_mcp_instructions()
+        # in champion_gen8.py) — cached during mcp_client.connect().
+        _fallback_instructions = "Use tools/call for all operations. For large payloads, follow _cached via get_cached(cache_id). agent_chat supports granted_tools for agentic tool use."
         return {
             "jsonrpc": "2.0",
             "id": rpc_id,
@@ -1643,7 +1646,7 @@ async def _handle_streamable_rpc(obj: dict, client_id: str | None) -> dict | Non
                     "prompts": {"listChanged": False},
                 },
                 "serverInfo": {"name": "champion-council", "version": "0.8.9"},
-                "instructions": "Use tools/call for all operations. For large payloads, follow _cached via get_cached(cache_id). agent_chat supports granted_tools for agentic tool use.",
+                "instructions": mcp_client.capsule_instructions or _fallback_instructions,
             },
         }
 

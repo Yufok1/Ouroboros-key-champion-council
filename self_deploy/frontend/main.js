@@ -4307,15 +4307,19 @@
                     }
 
                     var hasRealAnswer = !!(answer && !/agent reached max iterations/i.test(String(answer)));
-                    var hasAnyToolSoFar = ls.totalToolCalls > 0;
+                    var minCalls = parseInt(ls.minToolCalls, 10) || 1;
+                    var hasMinToolEvidence = ls.totalToolCalls >= minCalls;
+                    var remainingCalls = Math.max(0, minCalls - ls.totalToolCalls);
 
-                    // Don't accept hallucinated "final" answers with zero tool evidence.
-                    if (hasRealAnswer && !hasAnyToolSoFar && ls.iteration < ls.maxIterations) {
-                        _appendAchatMsg('system-info', 'Answer arrived without any tool calls; requesting grounded tool use first.', Date.now(), tab);
+                    // Don't accept hallucinated completion before required tool evidence is met.
+                    if (hasRealAnswer && !hasMinToolEvidence && ls.iteration < ls.maxIterations) {
+                        _appendAchatMsg('system-info',
+                            'Final answer arrived early; enforcing sequential tool-call target (' + ls.totalToolCalls + '/' + minCalls + '). Continuing.',
+                            Date.now(), tab);
                         hasRealAnswer = false;
                     }
 
-                    if (hasRealAnswer) {
+                    if (hasRealAnswer && hasMinToolEvidence) {
                         var totalElapsed = Math.round((Date.now() - ls.startTime) / 1000);
                         _appendAchatMsg('system-info',
                             'Loop complete: ' + ls.iteration + ' iterations · ' +
@@ -4324,19 +4328,25 @@
                         _setAchatBusy(false);
                         tab._loopState = null;
                     } else if (ls.iteration >= ls.maxIterations) {
-                        _appendAchatMsg('error', 'Loop reached max iterations (' + ls.maxIterations + ') without final grounded answer.', Date.now(), tab);
+                        _appendAchatMsg('error',
+                            'Loop reached max iterations (' + ls.maxIterations + ') with ' + ls.totalToolCalls +
+                            ' tool calls (target: ' + minCalls + ').',
+                            Date.now(), tab);
                         _setAchatBusy(false);
                         tab._loopState = null;
                     } else {
                         var used = Object.keys(ls.calledTools || {});
-                        if (!hasAnyToolSoFar) {
-                            ls.nextMessage = 'You have not executed any tools yet. You MUST call at least one granted tool now and use only real returned values. Start with get_status or get_capabilities if unsure.';
-                        } else {
-                            var usedPreview = used.slice(0, 8).join(', ');
+                        var usedPreview = used.slice(0, 8).join(', ');
+                        if (ls.totalToolCalls <= 0) {
                             ls.nextMessage =
-                                'Continue from prior tool results. Avoid repeating tools unless needed. ' +
+                                'SEQUENTIAL EXECUTION ONLY. You have not executed any tools yet. ' +
+                                'Call exactly one granted tool now. Do not return final_answer yet.';
+                        } else {
+                            ls.nextMessage =
+                                'SEQUENTIAL EXECUTION ONLY. Continue with exactly one granted tool call this turn. ' +
+                                'Do not finalize until required tool-call target is met (' + ls.totalToolCalls + '/' + minCalls + ', remaining ' + remainingCalls + '). ' +
                                 (usedPreview ? ('Tools already used: ' + usedPreview + '. ') : '') +
-                                'If enough evidence is collected, return final_answer. Otherwise call the next granted tool.';
+                                'Use real tool outputs only.';
                         }
                         _fireAgentIteration(tab);
                     }
@@ -8503,6 +8513,23 @@
                 continue;
             }
 
+            var cachedInContent = _extractAchatCachedDescriptor(m.content);
+            if (cachedInContent && cachedInContent.cacheId) {
+                var cDiv2 = document.createElement('div');
+                cDiv2.className = 'achat-msg system-info';
+                var cid2 = String(cachedInContent.cacheId || '').trim();
+                var csz2 = parseInt(cachedInContent.cacheSize, 10) || 0;
+                var routeAs2 = String(cachedInContent.routeAs || '__agent_chat__');
+                var sizeInfo2 = csz2 > 0 ? (' · ' + csz2 + ' bytes') : '';
+                var btnHtml2 = '<button class="btn btn-dim" style="margin-left:8px;padding:2px 8px;font-size:9px;" ' +
+                    'onclick=\'_achatLoadCached(' + JSON.stringify(cid2) + ',' + JSON.stringify(tab.key || '') + ',' + JSON.stringify(routeAs2) + ')\'>Load cached result</button>';
+                cDiv2.innerHTML =
+                    'Large response cached as <code>' + escHtml(cid2) + '</code>' + escHtml(sizeInfo2) + btnHtml2 +
+                    (tsStr ? '<span class="achat-ts">' + tsStr + '</span>' : '');
+                container.appendChild(cDiv2);
+                continue;
+            }
+
             var div = document.createElement('div');
             div.className = 'achat-msg ' + (m.role || 'assistant');
             div.innerHTML = escHtml(String(m.content || '')) + (tsStr ? '<span class="achat-ts">' + tsStr + '</span>' : '');
@@ -8525,6 +8552,23 @@
         if (!Array.isArray(tab.messages)) tab.messages = [];
         tab.messages.push({ role: 'tool-trace', toolCalls: Array.isArray(toolCalls) ? toolCalls : [], ts: Date.now() });
         if (tab.key === _achatActiveTabKey) _renderAchatMessages(tab);
+    }
+
+    function _extractAchatCachedDescriptor(value) {
+        var v = value;
+        if (v == null) return null;
+        if (typeof v === 'string') {
+            var s = String(v).trim();
+            if (!s) return null;
+            try { v = JSON.parse(s); } catch (e) { return null; }
+        }
+        if (!v || typeof v !== 'object') return null;
+        if (!v._cached) return null;
+        return {
+            cacheId: String(v._cached || '').trim(),
+            cacheSize: parseInt(v._size, 10) || 0,
+            routeAs: String(v._route_as || '__agent_chat__')
+        };
     }
 
     function _appendAchatCacheHint(cacheId, cacheSize, tabRef, routeAs) {
@@ -9233,6 +9277,23 @@
         return out;
     }
 
+    function _extractRequiredToolCalls(mission) {
+        var text = String(mission || '').toLowerCase();
+        if (!text) return 0;
+        var patterns = [
+            /(?:at\s*least|minimum\s*of|minimum|exactly)\s*(\d{1,4})\s*tool\s*calls?/i,
+            /(\d{1,4})\s*tool\s*calls?/i
+        ];
+        for (var i = 0; i < patterns.length; i++) {
+            var m = text.match(patterns[i]);
+            if (m && m[1]) {
+                var n = parseInt(m[1], 10);
+                if (n > 0) return n;
+            }
+        }
+        return 0;
+    }
+
 
     function sendAgentChat() {
         if (_achatBusy) return;
@@ -9263,11 +9324,18 @@
             var mission = msg || 'Proceed with the configured objective.';
             _appendAchatMsg('user', 'MISSION: ' + mission, Date.now(), tab);
             _setAchatBusy(true);
+            var _maxIter = parseInt((document.getElementById('achat-max-iter') || {}).value || '5', 10) || 5;
+            var _minCalls = _extractRequiredToolCalls(mission);
+            if (_minCalls > _maxIter) {
+                _appendAchatMsg('system-info', 'Auto-expanding max iterations from ' + _maxIter + ' to ' + _minCalls + ' to satisfy required tool-call target.', Date.now(), tab);
+                _maxIter = _minCalls;
+            }
             tab._loopState = {
                 mission: mission,
                 nextMessage: mission,
                 iteration: 0,
-                maxIterations: parseInt((document.getElementById('achat-max-iter') || {}).value || '5', 10) || 5,
+                maxIterations: _maxIter,
+                minToolCalls: _minCalls > 0 ? _minCalls : 1,
                 maxTokens: parseInt((document.getElementById('achat-max-tokens') || {}).value || '256', 10) || 256,
                 totalToolCalls: 0,
                 calledTools: {},
@@ -9307,6 +9375,15 @@
         }
         _appendAchatMsg('system-info', 'Iteration ' + (ls.iteration + 1) + '/' + ls.maxIterations + ' — thinking…', Date.now(), tab);
         var nextMsg = String(ls.nextMessage || ls.mission || '').trim() || 'Continue the task with granted tools.';
+        var _minCalls = parseInt(ls.minToolCalls, 10) || 1;
+        if (_minCalls > 1) {
+            var _remaining = Math.max(0, _minCalls - (parseInt(ls.totalToolCalls, 10) || 0));
+            nextMsg =
+                'SEQUENTIAL EXECUTION ONLY. Call exactly one granted tool this turn. ' +
+                'Do not execute multiple tool calls in a single step. ' +
+                'Current progress: ' + (ls.totalToolCalls || 0) + '/' + _minCalls + ' tool calls (remaining ' + _remaining + ').\n\n' +
+                nextMsg;
+        }
         var args = {
             slot: tab.slot,
             message: nextMsg,
