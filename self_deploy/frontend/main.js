@@ -9123,7 +9123,7 @@
             repetitionPenalty: 1.1,
 
             // Memory & Context
-            contextStrategy: 'full',       // 'full' | 'sliding-window' | 'summarize'
+            contextStrategy: 'sliding-window', // 'full' | 'sliding-window' | 'summarize'
             contextWindowSize: 20,         // max messages before strategy kicks in
             persistMemory: false,          // auto-save to FelixBag after session
             memoryKey: '',                 // custom FelixBag key for this agent's memory
@@ -9169,6 +9169,33 @@
         if (!tab || !tab.agentConfig) return;
         var key = _agentConfigStorageKey(tab.slot, tab.modelSource);
         try { localStorage.setItem(key, JSON.stringify(tab.agentConfig)); } catch (e) { /* quota */ }
+    }
+
+    function _cfgInt(value, fallback, minValue, maxValue) {
+        var n = parseInt(value, 10);
+        if (isNaN(n)) n = parseInt(fallback, 10);
+        if (isNaN(n)) n = 0;
+        if (typeof minValue === 'number' && n < minValue) n = minValue;
+        if (typeof maxValue === 'number' && n > maxValue) n = maxValue;
+        return n;
+    }
+
+    function _agentMaxIterations(tab) {
+        var cfg = (tab && tab.agentConfig) ? tab.agentConfig : _defaultAgentConfig();
+        return _cfgInt(cfg.maxIterations, 5, 1, 200);
+    }
+
+    function _agentMaxTokens(tab) {
+        var cfg = (tab && tab.agentConfig) ? tab.agentConfig : _defaultAgentConfig();
+        return _cfgInt(cfg.maxTokens, 512, 64, 8192);
+    }
+
+    function _syncAchatLoopControlsFromConfig(tab) {
+        if (!tab || !tab.agentConfig) return;
+        var maxIterEl = document.getElementById('achat-max-iter');
+        var maxTokEl = document.getElementById('achat-max-tokens');
+        if (maxIterEl) maxIterEl.value = String(_agentMaxIterations(tab));
+        if (maxTokEl) maxTokEl.value = String(_agentMaxTokens(tab));
     }
 
     // Save agent config to FelixBag for cross-session persistence
@@ -9229,6 +9256,10 @@
             '<div class="achat-cfg-group"><label class="achat-cfg-label">Temperature</label><input type="number" class="chat-input achat-cfg-input" data-cfg="temperature" value="' + c.temperature + '" min="0" max="2" step="0.1" /></div>' +
             '<div class="achat-cfg-group"><label class="achat-cfg-label">Top-P</label><input type="number" class="chat-input achat-cfg-input" data-cfg="topP" value="' + c.topP + '" min="0" max="1" step="0.05" /></div>' +
             '<div class="achat-cfg-group"><label class="achat-cfg-label">Rep. Penalty</label><input type="number" class="chat-input achat-cfg-input" data-cfg="repetitionPenalty" value="' + c.repetitionPenalty + '" min="1" max="2" step="0.05" /></div>' +
+            '</div>' +
+            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;">' +
+            '<div class="achat-cfg-group"><label class="achat-cfg-label">Max Tokens</label><input type="number" class="chat-input achat-cfg-input" data-cfg="maxTokens" value="' + c.maxTokens + '" min="64" max="8192" step="32" /></div>' +
+            '<div class="achat-cfg-group"><label class="achat-cfg-label">Max Iterations</label><input type="number" class="chat-input achat-cfg-input" data-cfg="maxIterations" value="' + c.maxIterations + '" min="1" max="200" step="1" /></div>' +
             '</div>' +
 
             // Context & Memory
@@ -9317,6 +9348,7 @@
             if (cf) tab.agentConfig[cf] = checks[j].checked;
         }
         _saveAgentConfig(tab);
+        _syncAchatLoopControlsFromConfig(tab);
         mpToast('Agent config saved', 'ok', 2000);
     }
     window._saveAgentConfigFromUI = _saveAgentConfigFromUI;
@@ -9328,6 +9360,7 @@
         if (result) {
             var configEl = document.getElementById('achat-agent-config');
             if (configEl) configEl.outerHTML = _renderAgentConfigPanel(tab);
+            _syncAchatLoopControlsFromConfig(tab);
             mpToast('Config loaded from FelixBag', 'ok', 2000);
         } else {
             mpToast('No saved config found in FelixBag for slot ' + tab.slot, 'warn', 2000);
@@ -9340,6 +9373,7 @@
         if (!tab) return;
         tab.agentConfig = _defaultAgentConfig();
         _saveAgentConfig(tab);
+        _syncAchatLoopControlsFromConfig(tab);
         var configEl = document.getElementById('achat-agent-config');
         if (configEl) configEl.outerHTML = _renderAgentConfigPanel(tab);
         mpToast('All config reset to defaults', 'ok', 2000);
@@ -9370,13 +9404,14 @@
         tab.agentConfig.topP = d.topP;
         tab.agentConfig.repetitionPenalty = d.repetitionPenalty;
         _saveAgentConfig(tab);
+        _syncAchatLoopControlsFromConfig(tab);
         var configEl = document.getElementById('achat-agent-config');
         if (configEl) configEl.outerHTML = _renderAgentConfigPanel(tab);
-        mpToast('Generation params reset to defaults (temp=0.7, tokens=256, iter=5)', 'ok', 2000);
+        mpToast('Generation params reset to defaults (temp=0.7, tokens=512, iter=5)', 'ok', 2000);
     }
     window._resetAgentGeneration = _resetAgentGeneration;
 
-    function _buildLoopSystemPrompt(tab) {
+    function _buildLoopSystemPrompt(tab, runtimeBudget) {
         if (!tab) return '';
         var cfg = tab.agentConfig || _defaultAgentConfig();
 
@@ -9392,8 +9427,10 @@
         var persona = String(cfg.persona || '').trim();
         var agentName = String(cfg.agentName || '').trim();
         var agentDesc = String(cfg.agentDescription || '').trim();
-        var maxIter = parseInt(cfg.maxIterations, 10) || 5;
+        var maxIter = _cfgInt((runtimeBudget && runtimeBudget.maxIterations) || cfg.maxIterations, 5, 1, 200);
         var reapEnabled = cfg.reappropriationEnabled !== false;
+        var contextStrategy = String(cfg.contextStrategy || 'sliding-window');
+        var contextWindowSize = _cfgInt(cfg.contextWindowSize, 20, 5, 200);
 
         var lines = [];
 
@@ -9420,6 +9457,17 @@
             lines.push('\n## BLOCKED TOOLS (safety)');
             lines.push('These tools are blocked and must NOT be called: ' + blocked.join(', '));
         }
+
+        lines.push('\n## CONTEXT POLICY');
+        if (contextStrategy === 'full') {
+            lines.push('Context mode: Full history (no trimming).');
+        } else if (contextStrategy === 'summarize') {
+            lines.push('Context mode: Tiered memory (rolling summary + recent window).');
+            lines.push('Preserve key facts, decisions, and unresolved issues while compressing older turns.');
+        } else {
+            lines.push('Context mode: Sliding window.');
+        }
+        lines.push('Active recent context window: last ' + contextWindowSize + ' messages plus system instructions.');
 
         // Sequential execution — strictly enforced
         lines.push('\n## EXECUTION RULES (STRICT SEQUENTIAL — NO PARALLEL)');
@@ -10107,6 +10155,7 @@
         _achatSlot = tab.slot;
         _renderAchatTabs();
         _refreshAchatMeta();
+        _syncAchatLoopControlsFromConfig(tab);
         _renderAchatRunMode(tab);
         _renderAchatToolSelect(tab);
         _renderAchatToolConfig(tab);
@@ -10198,6 +10247,28 @@
                 _renderAchatRunMode(tab);
                 _renderAchatToolConfig(tab);
                 _refreshAchatMeta();
+            });
+        }
+
+        var maxIterEl = document.getElementById('achat-max-iter');
+        if (maxIterEl) {
+            maxIterEl.addEventListener('change', function () {
+                var tab = _getActiveAchatTab();
+                if (!tab || !tab.agentConfig) return;
+                tab.agentConfig.maxIterations = _cfgInt(this.value, _agentMaxIterations(tab), 1, 200);
+                _saveAgentConfig(tab);
+                this.value = String(tab.agentConfig.maxIterations);
+            });
+        }
+
+        var maxTokensEl = document.getElementById('achat-max-tokens');
+        if (maxTokensEl) {
+            maxTokensEl.addEventListener('change', function () {
+                var tab = _getActiveAchatTab();
+                if (!tab || !tab.agentConfig) return;
+                tab.agentConfig.maxTokens = _cfgInt(this.value, _agentMaxTokens(tab), 64, 8192);
+                _saveAgentConfig(tab);
+                this.value = String(tab.agentConfig.maxTokens);
             });
         }
     }
@@ -10373,10 +10444,15 @@
     function _collectSelectedToolArgs(tab, toolName, userMsg) {
         var args = {};
         if (toolName === 'agent_chat') {
+            var cfg = tab.agentConfig || _defaultAgentConfig();
+            var iterVal = (document.getElementById('achat-max-iter') || {}).value;
+            var tokVal = (document.getElementById('achat-max-tokens') || {}).value;
             args.slot = tab.slot;
             args.message = String(userMsg || '').trim() || 'Proceed with the configured objective.';
-            args.max_iterations = parseInt((document.getElementById('achat-max-iter') || {}).value || '5', 10) || 5;
-            args.max_tokens = parseInt((document.getElementById('achat-max-tokens') || {}).value || '512', 10) || 512;
+            args.max_iterations = _cfgInt(iterVal, _agentMaxIterations(tab), 1, 200);
+            args.max_tokens = _cfgInt(tokVal, _agentMaxTokens(tab), 64, 8192);
+            args.context_strategy = String(cfg.contextStrategy || 'sliding-window');
+            args.context_window_size = _cfgInt(cfg.contextWindowSize, 20, 5, 200);
             args.granted_tools = Array.isArray(tab.grantedTools) ? tab.grantedTools.slice() : [];
             if (tab.sessionId) args.session_id = tab.sessionId;
             return args;
@@ -10430,7 +10506,7 @@
                 else args.mode = 'generate';
             }
             if (args.max_tokens === undefined || args.max_tokens === null || args.max_tokens === '') {
-                args.max_tokens = parseInt((document.getElementById('achat-max-tokens') || {}).value || '512', 10) || 512;
+                args.max_tokens = _cfgInt((document.getElementById('achat-max-tokens') || {}).value, _agentMaxTokens(tab), 64, 8192);
             }
         }
 
@@ -10563,7 +10639,8 @@
             var mission = msg || 'Proceed with the configured objective.';
             _appendAchatMsg('user', 'MISSION: ' + mission, Date.now(), tab);
             _setAchatBusy(true);
-            var _maxIter = parseInt((document.getElementById('achat-max-iter') || {}).value || '5', 10) || 5;
+            var _cfg = tab.agentConfig || _defaultAgentConfig();
+            var _maxIter = _cfgInt((document.getElementById('achat-max-iter') || {}).value, _agentMaxIterations(tab), 1, 200);
             var _minCalls = _extractRequiredToolCalls(mission);
             // Only expand iterations if the user explicitly requested N tool calls
             // in their mission text (e.g. "call 10 tools"). Never auto-expand to
@@ -10582,7 +10659,7 @@
                 iteration: 0,
                 maxIterations: _maxIter,
                 minToolCalls: _minCalls > 0 ? _minCalls : 1,
-                maxTokens: parseInt((document.getElementById('achat-max-tokens') || {}).value || '512', 10) || 512,
+                maxTokens: _cfgInt((document.getElementById('achat-max-tokens') || {}).value, _agentMaxTokens(tab), 64, 8192),
                 totalToolCalls: 0,
                 calledTools: {},
                 startTime: Date.now()
@@ -10661,16 +10738,19 @@
 
         // Embed orchestration prompt into the first message only (capsule has no system_prompt param).
         if (ls.iteration === 0) {
-            var sysPrompt = _buildLoopSystemPrompt(tab);
+            var sysPrompt = _buildLoopSystemPrompt(tab, { maxIterations: Math.max(1, (ls.maxIterations || 1) - 1) });
             if (sysPrompt) {
                 nextMsg = '[SYSTEM INSTRUCTIONS]\n' + sysPrompt + '\n\n[USER MISSION]\n' + nextMsg;
             }
         }
+        var _cfg = tab.agentConfig || _defaultAgentConfig();
         var args = {
             slot: tab.slot,
             message: nextMsg,
             max_iterations: 1,
             max_tokens: ls.maxTokens,
+            context_strategy: String(_cfg.contextStrategy || 'sliding-window'),
+            context_window_size: _cfgInt(_cfg.contextWindowSize, 20, 5, 200),
             granted_tools: Array.isArray(tab.grantedTools) ? tab.grantedTools.slice() : []
         };
         if (tab.sessionId) args.session_id = tab.sessionId;

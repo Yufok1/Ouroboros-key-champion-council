@@ -1865,6 +1865,10 @@ _AGENT_MODEL_STEP_TIMEOUT_REMOTE = max(10, int(os.environ.get("AGENT_MODEL_STEP_
 _AGENT_TOOL_STEP_TIMEOUT = max(8, int(os.environ.get("AGENT_TOOL_STEP_TIMEOUT", "40")))
 _AGENT_SESSION_MAX_WALLCLOCK_SEC = max(30, int(os.environ.get("AGENT_SESSION_MAX_WALLCLOCK_SEC", "180")))
 _AGENT_SESSION_MAX_IDLE_SEC = max(20, int(os.environ.get("AGENT_SESSION_MAX_IDLE_SEC", "90")))
+_AGENT_CONTEXT_WINDOW_DEFAULT = max(5, int(os.environ.get("AGENT_CONTEXT_WINDOW_DEFAULT", "20")))
+_AGENT_CONTEXT_WINDOW_MAX = max(_AGENT_CONTEXT_WINDOW_DEFAULT, int(os.environ.get("AGENT_CONTEXT_WINDOW_MAX", "200")))
+_AGENT_CONTEXT_SUMMARY_MAX_CHARS = max(500, int(os.environ.get("AGENT_CONTEXT_SUMMARY_MAX_CHARS", "4000")))
+_AGENT_CONTEXT_ARCHIVE_MAX_ITEMS = max(4, int(os.environ.get("AGENT_CONTEXT_ARCHIVE_MAX_ITEMS", "64")))
 
 _AGENT_LOCAL_TOOL_SPECS = {
     "agent_delegate": {
@@ -2010,6 +2014,9 @@ def _agent_session_snapshot(args: dict | None = None) -> dict:
             "delegation_depth": int(sess.get("delegation_depth") or 0),
             "source": sess.get("source"),
             "client_id": sess.get("client_id"),
+            "context_strategy": sess.get("context_strategy"),
+            "context_window_size": sess.get("context_window_size"),
+            "context_compactions": int(sess.get("context_compactions") or 0),
         })
 
     rows.sort(key=lambda r: int(r.get("updated_ts") or 0), reverse=True)
@@ -2251,6 +2258,164 @@ def _agent_force_drain_sessions(reason: str = "manual") -> dict:
     }
 
 
+def _agent_normalize_context_strategy(value: str | None) -> str:
+    raw = str(value or "").strip().lower()
+    if raw in ("rolling", "window", "sliding", "sliding_window", "sliding-window"):
+        return "sliding-window"
+    if raw in ("summary", "summarize", "tiered", "hybrid"):
+        return "summarize"
+    if raw in ("full", "all", "include-everything", "include_everything"):
+        return "full"
+    return "sliding-window"
+
+
+def _agent_compose_summary_delta(messages: list[dict], max_points: int = 24, max_chars: int = 1800) -> str:
+    points: list[str] = []
+    for msg in messages:
+        if not isinstance(msg, dict):
+            continue
+        role = str(msg.get("role", "") or "").strip().lower() or "msg"
+        content = str(msg.get("content", "") or "").strip()
+        if not content:
+            continue
+
+        # Skip repetitive orchestration boilerplate.
+        if content.startswith("[SYSTEM INSTRUCTIONS]"):
+            continue
+
+        line = ""
+        if content.startswith("TOOL RESULT ["):
+            first = content.splitlines()[0].strip()
+            line = f"tool: {first[:220]}"
+        elif content.startswith("[LIVE UPDATE"):
+            first = content.splitlines()[0].strip()
+            line = f"update: {first[:220]}"
+        elif role == "assistant" and content.startswith("{"):
+            first = content.splitlines()[0].strip()
+            line = f"assistant_json: {first[:220]}"
+        else:
+            compact = " ".join(content.split())
+            line = f"{role}: {compact[:220]}"
+
+        if line:
+            points.append(line)
+        if len(points) >= max_points:
+            break
+
+    if not points:
+        return ""
+
+    summary = "\n".join(f"- {p}" for p in points)
+    if len(summary) > max_chars:
+        summary = summary[:max_chars].rstrip() + "…"
+    return summary
+
+
+def _agent_compact_chat_messages(session: dict, strategy: str, window_size: int) -> dict:
+    """Apply context policy to session chat_messages.
+
+    Keeps first system prompt, optionally a rolling summary, and a bounded recent window.
+    """
+    if not isinstance(session, dict):
+        return {"changed": False, "dropped": 0}
+
+    chat = session.get("chat_messages")
+    if not isinstance(chat, list) or not chat:
+        return {"changed": False, "dropped": 0}
+
+    strategy = _agent_normalize_context_strategy(strategy)
+    window = max(5, min(int(window_size or _AGENT_CONTEXT_WINDOW_DEFAULT), _AGENT_CONTEXT_WINDOW_MAX))
+
+    primary_system = None
+    prior_summary = str(session.get("context_summary") or "")
+    body: list[dict] = []
+
+    for idx, msg in enumerate(chat):
+        if not isinstance(msg, dict):
+            continue
+        role = str(msg.get("role", "") or "")
+        content = str(msg.get("content", "") or "")
+
+        if idx == 0 and role == "system" and primary_system is None:
+            primary_system = msg
+            continue
+
+        if role == "system" and content.startswith("[CONTEXT SUMMARY]"):
+            prior_summary = content[len("[CONTEXT SUMMARY]"):].strip()
+            continue
+
+        if role == "system":
+            # Ignore auxiliary system payloads in rolling body.
+            continue
+
+        body.append(msg)
+
+    if strategy == "full":
+        session["context_strategy"] = strategy
+        session["context_window_size"] = window
+        return {"changed": False, "dropped": 0, "summary_chars": len(prior_summary)}
+
+    if len(body) <= window:
+        rebuilt = []
+        if primary_system:
+            rebuilt.append(primary_system)
+        if strategy == "summarize" and prior_summary:
+            rebuilt.append({"role": "system", "content": "[CONTEXT SUMMARY]\n" + prior_summary})
+        rebuilt.extend(body)
+        changed = rebuilt != chat
+        if changed:
+            session["chat_messages"] = rebuilt
+        session["context_strategy"] = strategy
+        session["context_window_size"] = window
+        return {"changed": changed, "dropped": 0, "summary_chars": len(prior_summary)}
+
+    older = body[:-window]
+    recent = body[-window:]
+    dropped = len(older)
+
+    merged_summary = prior_summary
+    if strategy == "summarize":
+        delta = _agent_compose_summary_delta(older)
+        if delta:
+            merged = (prior_summary + "\n" + delta).strip() if prior_summary else delta
+            if len(merged) > _AGENT_CONTEXT_SUMMARY_MAX_CHARS:
+                merged = merged[-_AGENT_CONTEXT_SUMMARY_MAX_CHARS:]
+            merged_summary = merged
+            archive = session.get("context_archive") if isinstance(session.get("context_archive"), list) else []
+            archive.append({
+                "ts": int(time.time() * 1000),
+                "dropped": dropped,
+                "summary_preview": delta[:280],
+            })
+            if len(archive) > _AGENT_CONTEXT_ARCHIVE_MAX_ITEMS:
+                archive = archive[-_AGENT_CONTEXT_ARCHIVE_MAX_ITEMS:]
+            session["context_archive"] = archive
+            session["context_summary"] = merged_summary
+
+    rebuilt = []
+    if primary_system:
+        rebuilt.append(primary_system)
+    if strategy == "summarize" and merged_summary:
+        rebuilt.append({"role": "system", "content": "[CONTEXT SUMMARY]\n" + merged_summary})
+    rebuilt.extend(recent)
+
+    changed = rebuilt != chat
+    if changed:
+        session["chat_messages"] = rebuilt
+    session["context_strategy"] = strategy
+    session["context_window_size"] = window
+    session["context_compactions"] = int(session.get("context_compactions") or 0) + (1 if dropped > 0 else 0)
+    session["context_dropped_messages"] = int(session.get("context_dropped_messages") or 0) + dropped
+
+    return {
+        "changed": changed,
+        "dropped": dropped,
+        "summary_chars": len(merged_summary),
+        "window_size": window,
+        "strategy": strategy,
+    }
+
+
 async def _get_tool_descriptions(granted_tools: list[str]) -> str:
     """Build tool description block from capsule tool list with bounded prompt size."""
     tools_raw = await _list_tools()
@@ -2354,6 +2519,10 @@ async def _agent_delegate_call(caller_slot: int, caller_session_id: str, caller_
     }
     if delegate_max_tokens > 0:
         delegate_args["max_tokens"] = delegate_max_tokens
+    if called_args.get("context_strategy") is not None:
+        delegate_args["context_strategy"] = called_args.get("context_strategy")
+    if called_args.get("context_window_size") is not None:
+        delegate_args["context_window_size"] = called_args.get("context_window_size")
     # C7 fix: only propagate granted_tools if the caller provided a non-empty list.
     # An empty list would starve the child agent of all tools. When omitted or empty,
     # the child inherits the server default grant set instead.
@@ -2403,11 +2572,14 @@ async def _server_side_agent_chat(args: dict, source: str = "webui", client_id: 
 
     slot = int(args.get("slot", 0))
     message = str(args.get("message", "")).strip()
-    max_iterations = int(args.get("max_iterations", 5))
+    max_iterations = max(1, min(int(args.get("max_iterations", 5)), 200))
     max_tokens = int(args.get("max_tokens", 0)) or 512
     reset = bool(args.get("reset", False))
     session_id = str(args.get("session_id", "")).strip()
     granted_tools = args.get("granted_tools")
+
+    context_strategy_in = args.get("context_strategy") or args.get("contextStrategy")
+    context_window_in = args.get("context_window_size") if args.get("context_window_size") is not None else args.get("contextWindowSize")
 
     if not message:
         return {"error": "message is required"}
@@ -2451,10 +2623,23 @@ async def _server_side_agent_chat(args: dict, source: str = "webui", client_id: 
     if delegation_depth < 0:
         delegation_depth = 0
 
+    context_strategy = _agent_normalize_context_strategy(
+        context_strategy_in if context_strategy_in is not None else session.get("context_strategy", "sliding-window")
+    )
+    try:
+        context_window_size = int(
+            context_window_in if context_window_in is not None else session.get("context_window_size", _AGENT_CONTEXT_WINDOW_DEFAULT)
+        )
+    except Exception:
+        context_window_size = _AGENT_CONTEXT_WINDOW_DEFAULT
+    context_window_size = max(5, min(context_window_size, _AGENT_CONTEXT_WINDOW_MAX))
+
     session["delegation_depth"] = delegation_depth
     session["parent_session_id"] = str(args.get("_parent_session_id", session.get("parent_session_id", "")) or "")
     session["source"] = source
     session["client_id"] = client_id
+    session["context_strategy"] = context_strategy
+    session["context_window_size"] = context_window_size
     _now_ms = int(time.time() * 1000)
     session["updated_ts"] = _now_ms
     if "last_active_ts" not in session:
@@ -2525,6 +2710,7 @@ async def _server_side_agent_chat(args: dict, source: str = "webui", client_id: 
     # Append user message
     session["turns"].append({"role": "user", "content": message, "ts": int(time.time() * 1000)})
     chat_messages.append({"role": "user", "content": message})
+    session["chat_messages"] = chat_messages
 
     # ── Agent loop ──
     tool_calls_log = []
@@ -2536,7 +2722,9 @@ async def _server_side_agent_chat(args: dict, source: str = "webui", client_id: 
         "agent_chat", args,
         {"_phase": "start", "state": "running", "session_id": session_id,
          "slot": slot, "name": slot_name, "max_iterations": max_iterations,
-         "granted_tools_count": len(granted)},
+         "granted_tools_count": len(granted),
+         "context_strategy": context_strategy,
+         "context_window_size": context_window_size},
         0, None, source=source, client_id=client_id,
     )
 
@@ -2587,8 +2775,29 @@ async def _server_side_agent_chat(args: dict, source: str = "webui", client_id: 
                     client_id=client_id,
                 )
 
+        compact_meta = _agent_compact_chat_messages(session, context_strategy, context_window_size)
+        chat_messages = session.get("chat_messages") if isinstance(session.get("chat_messages"), list) else chat_messages
+        if isinstance(compact_meta, dict) and int(compact_meta.get("dropped") or 0) > 0:
+            _broadcast_activity(
+                "agent_chat",
+                {
+                    "_phase": "context_compact",
+                    "session_id": session_id,
+                    "slot": slot,
+                    "iteration": iterations_used,
+                    "strategy": context_strategy,
+                    "window_size": context_window_size,
+                    "dropped": int(compact_meta.get("dropped") or 0),
+                },
+                {"content": [{"type": "text", "text": json.dumps(compact_meta)}]},
+                0,
+                None,
+                source="agent-inner",
+                client_id=client_id,
+            )
+
         # Nudge on last iteration
-        if iteration == max_iterations - 1:
+        if max_iterations > 1 and iteration == max_iterations - 1:
             chat_messages.append({
                 "role": "user",
                 "content": 'This is your LAST iteration. You MUST respond with {"final_answer": "your answer"} now.'
@@ -2664,6 +2873,7 @@ async def _server_side_agent_chat(args: dict, source: str = "webui", client_id: 
         )
 
         chat_messages.append({"role": "assistant", "content": model_output})
+        session["chat_messages"] = chat_messages
         session["updated_ts"] = int(time.time() * 1000)
         session["last_active_ts"] = session["updated_ts"]
 
@@ -2862,6 +3072,7 @@ async def _server_side_agent_chat(args: dict, source: str = "webui", client_id: 
                 f"Respond with exactly one JSON: either a tool call or final_answer."
             )
             chat_messages.append({"role": "user", "content": feedback})
+            session["chat_messages"] = chat_messages
         else:
             # JSON but no tool or final_answer key
             final_answer = json.dumps(parsed, default=str)
@@ -2912,6 +3123,13 @@ async def _server_side_agent_chat(args: dict, source: str = "webui", client_id: 
         "parent_session_id": session.get("parent_session_id"),
         "pending_messages": 0,
         "dropped_pending_messages": dropped_pending,
+        "context_policy": {
+            "strategy": context_strategy,
+            "window_size": context_window_size,
+            "compactions": int(session.get("context_compactions") or 0),
+            "dropped_messages": int(session.get("context_dropped_messages") or 0),
+            "summary_chars": len(str(session.get("context_summary") or "")),
+        },
     }
 
     # Wrap in MCP-compatible envelope
