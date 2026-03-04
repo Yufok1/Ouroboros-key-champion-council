@@ -1310,6 +1310,13 @@ def _normalize_proxy_tool_args(tool_name: str, args: dict | None) -> dict:
         if tool_name == "file_write" and "content" not in patched and "value" in patched:
             patched["content"] = patched.get("value")
 
+    # C4 fix: bag_catalog(filter_type="all") — capsule treats "all" as literal type match.
+    # Strip it so the call returns unfiltered results as the caller intended.
+    if tool_name == "bag_catalog":
+        ft = patched.get("filter_type")
+        if isinstance(ft, str) and ft.strip().lower() in ("all", "*", "any", ""):
+            patched.pop("filter_type", None)
+
     if tool_name == "plug_model" and isinstance(patched.get("model_id"), str):
         normalized, changed = _normalize_remote_provider_model_id(patched.get("model_id"))
         if changed:
@@ -1656,10 +1663,24 @@ def _agent_session_snapshot(args: dict | None = None) -> dict:
     }
 
 
-def _agent_select_session(session_id: str = "", slot: int | None = None, active_preferred: bool = True) -> tuple[str | None, dict | None]:
+def _agent_select_session(session_id: str = "", slot: int | None = None, active_preferred: bool = True, strict_id: bool = False) -> tuple[str | None, dict | None]:
+    """Find a matching agent session.
+
+    Args:
+        session_id: Explicit session id to look up.
+        slot: Slot filter (only when session_id not given or not found).
+        active_preferred: Prefer active sessions in ranking.
+        strict_id: If True and session_id is given but not found, do NOT
+                   fall back to slot-based search.  Return (None, None).
+    """
     sid = str(session_id or "").strip()
     if sid and sid in _agent_sessions and isinstance(_agent_sessions.get(sid), dict):
         return sid, _agent_sessions.get(sid)
+
+    # C2 fix: when caller provided an explicit session_id that doesn't exist,
+    # fail closed instead of falling through to slot-based best-guess.
+    if sid and strict_id:
+        return None, None
 
     candidates = []
     for _sid, sess in _agent_sessions.items():
@@ -1705,12 +1726,34 @@ def _agent_inject_message(args: dict, source: str = "webui", client_id: str | No
         except Exception:
             target_slot = None
 
-    sid, session = _agent_select_session(req_session_id, target_slot, active_preferred=True)
+    # C2 fix: if caller provided an explicit session_id, use strict lookup —
+    # do not fall back to a different session if the id is not found.
+    has_explicit_id = bool(req_session_id)
+    sid, session = _agent_select_session(
+        req_session_id, target_slot, active_preferred=True,
+        strict_id=has_explicit_id,
+    )
     if not sid or not isinstance(session, dict):
+        if has_explicit_id:
+            return {
+                "error": f"Session not found: {req_session_id}",
+                "session_id": req_session_id,
+                "slot": target_slot,
+            }
         return {
             "error": "No matching agent_chat session found",
             "session_id": req_session_id or None,
             "slot": target_slot,
+        }
+
+    # C3 fix: if caller used slot-only targeting (no explicit session_id) and
+    # the matched session is not active, reject rather than silently queueing.
+    if not has_explicit_id and target_slot is not None and not bool(session.get("active", False)):
+        return {
+            "error": f"No active session for slot {target_slot}",
+            "session_id": sid,
+            "slot": target_slot,
+            "active": False,
         }
 
     inbox = session.get("inbox")
@@ -1811,6 +1854,18 @@ async def _agent_delegate_call(caller_slot: int, caller_session_id: str, caller_
     delegate_session_id = str(called_args.get("session_id", "") or "").strip()
     if not delegate_session_id:
         delegate_session_id = f"agent_chat:{target_slot}:{_uuid.uuid4().hex[:10]}"
+    else:
+        # C6 fix: if the session_id already exists but belongs to a DIFFERENT slot,
+        # scope it to prevent cross-slot history leakage / context collision.
+        existing = _agent_sessions.get(delegate_session_id)
+        if isinstance(existing, dict):
+            existing_slot = existing.get("slot")
+            try:
+                existing_slot = int(existing_slot)
+            except Exception:
+                existing_slot = None
+            if existing_slot is not None and existing_slot != target_slot:
+                delegate_session_id = f"{delegate_session_id}:slot{target_slot}"
 
     delegate_args = {
         "slot": target_slot,
@@ -1822,8 +1877,12 @@ async def _agent_delegate_call(caller_slot: int, caller_session_id: str, caller_
     }
     if delegate_max_tokens > 0:
         delegate_args["max_tokens"] = delegate_max_tokens
-    if isinstance(called_args.get("granted_tools"), list) and called_args.get("granted_tools"):
-        delegate_args["granted_tools"] = called_args.get("granted_tools")
+    # C7 fix: only propagate granted_tools if the caller provided a non-empty list.
+    # An empty list would starve the child agent of all tools. When omitted or empty,
+    # the child inherits the server default grant set instead.
+    caller_grants = called_args.get("granted_tools")
+    if isinstance(caller_grants, list) and len(caller_grants) > 0:
+        delegate_args["granted_tools"] = [str(t) for t in caller_grants if str(t).strip()]
 
     claim, busy = await _claim_slot_execution("agent_chat", {"slot": target_slot, "session_id": delegate_session_id}, source="agent-inner", client_id=client_id)
     if busy:
@@ -2389,12 +2448,13 @@ async def _postprocess_tool_result(tool_name: str, args: dict, result: dict) -> 
         _decode_doc_fields(parsed)
         result = {"result": {"content": [{"type": "text", "text": json.dumps(parsed)}]}}
 
-    # bag_tree/file_tree root fallback: synthesize from bag_list_docs when capsule returns empty root.
+    # bag_tree/file_tree fallback: synthesize from bag_list_docs when capsule returns empty tree.
+    # C5 fix: also trigger for non-empty prefix (scoped subtrees), not just root.
     if tool_name in ("bag_tree", "file_tree") and isinstance(parsed, dict):
         tree = parsed.get("tree")
         doc_count = int(parsed.get("document_count", 0) or 0)
         req_prefix = str(args.get("prefix", args.get("path", "")) or "")
-        if (not isinstance(tree, dict) or not tree) and doc_count == 0 and req_prefix == "":
+        if (not isinstance(tree, dict) or not tree) and doc_count == 0:
             try:
                 ls_args = {
                     "prefix": "",
@@ -2409,6 +2469,9 @@ async def _postprocess_tool_result(tool_name: str, args: dict, result: dict) -> 
                     if isinstance(_ls_cache_parsed, dict):
                         ls_parsed = _ls_cache_parsed
                 items = ls_parsed.get("items", []) if isinstance(ls_parsed, dict) else []
+                # C5 fix: filter items to prefix BEFORE building tree
+                _pfx_norm = req_prefix.strip("/") + "/" if req_prefix.strip("/") else ""
+                matching_items = []
                 built = {}
                 for it in items:
                     if not isinstance(it, dict):
@@ -2416,7 +2479,13 @@ async def _postprocess_tool_result(tool_name: str, args: dict, result: dict) -> 
                     k = _doc_decode_key(str(it.get("key", "") or ""))
                     if not k:
                         continue
-                    parts = [p for p in k.split("/") if p]
+                    # When prefix is set, only include keys under that prefix
+                    if _pfx_norm and not k.startswith(_pfx_norm) and k != req_prefix.strip("/"):
+                        continue
+                    matching_items.append(k)
+                    # Build tree relative to the prefix so scoped view makes sense
+                    rel_key = k[len(_pfx_norm):] if _pfx_norm else k
+                    parts = [p for p in rel_key.split("/") if p]
                     if not parts:
                         continue
                     cur = built
@@ -2429,7 +2498,8 @@ async def _postprocess_tool_result(tool_name: str, args: dict, result: dict) -> 
                             node["_items"].append(k)
                         cur = node
                 parsed["tree"] = built
-                parsed["document_count"] = sum(1 for _ in items)
+                parsed["document_count"] = len(matching_items)
+                parsed["prefix"] = req_prefix
                 return {"result": {"content": [{"type": "text", "text": json.dumps(parsed)}]}}
             except Exception:
                 pass

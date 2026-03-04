@@ -143,11 +143,12 @@ async def postprocess_tool_result(
         _decode_doc_fields(parsed)
         result = {"result": {"content": [{"type": "text", "text": json.dumps(parsed)}]}}
 
+    # C5 fix: also trigger for non-empty prefix (scoped subtrees), not just root.
     if tool_name in ("bag_tree", "file_tree") and isinstance(parsed, dict):
         tree = parsed.get("tree")
         doc_count = int(parsed.get("document_count", 0) or 0)
         req_prefix = str(args.get("prefix", args.get("path", "")) or "")
-        if (not isinstance(tree, dict) or not tree) and doc_count == 0 and req_prefix == "":
+        if (not isinstance(tree, dict) or not tree) and doc_count == 0:
             try:
                 ls_args = {
                     "prefix": "",
@@ -162,6 +163,9 @@ async def postprocess_tool_result(
                     if isinstance(_ls_cache_parsed, dict):
                         ls_parsed = _ls_cache_parsed
                 items = ls_parsed.get("items", []) if isinstance(ls_parsed, dict) else []
+                # C5 fix: filter items to prefix BEFORE building tree
+                _pfx_norm = req_prefix.strip("/") + "/" if req_prefix.strip("/") else ""
+                matching_items = []
                 built = {}
                 for it in items:
                     if not isinstance(it, dict):
@@ -169,7 +173,11 @@ async def postprocess_tool_result(
                     k = _doc_decode_key(str(it.get("key", "") or ""))
                     if not k:
                         continue
-                    parts = [p for p in k.split("/") if p]
+                    if _pfx_norm and not k.startswith(_pfx_norm) and k != req_prefix.strip("/"):
+                        continue
+                    matching_items.append(k)
+                    rel_key = k[len(_pfx_norm):] if _pfx_norm else k
+                    parts = [p for p in rel_key.split("/") if p]
                     if not parts:
                         continue
                     cur = built
@@ -182,7 +190,8 @@ async def postprocess_tool_result(
                             node["_items"].append(k)
                         cur = node
                 parsed["tree"] = built
-                parsed["document_count"] = sum(1 for _ in items)
+                parsed["document_count"] = len(matching_items)
+                parsed["prefix"] = req_prefix
                 return {"result": {"content": [{"type": "text", "text": json.dumps(parsed)}]}}
             except Exception:
                 pass

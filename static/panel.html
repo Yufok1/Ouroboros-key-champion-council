@@ -869,7 +869,8 @@
             white-space: pre-wrap;
             user-select: text;
             cursor: text;
-            word-break: break-all;
+            word-break: break-word;
+            overflow-wrap: anywhere;
             border-left: 2px solid var(--accent);
             line-height: 1.5;
             color: var(--text);
@@ -2154,7 +2155,7 @@
 .achat-msg.tool-call-card .tc-details { margin-top: 4px; }
 .achat-msg.tool-call-card .tc-details summary { font-size: 9px; color: var(--text-dim); cursor: pointer; user-select: none; }
 .achat-msg.tool-call-card .tc-details summary:hover { color: var(--text); }
-.achat-msg.tool-call-card .tc-pre { font-size: 9px; line-height: 1.35; margin: 4px 0 0 0; padding: 6px 8px; background: rgba(0,0,0,0.25); border-radius: 3px; max-height: 200px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; }
+.achat-msg.tool-call-card .tc-pre { font-size: 9px; line-height: 1.35; margin: 4px 0 0 0; padding: 6px 8px; background: rgba(0,0,0,0.25); border-radius: 3px; max-height: 200px; overflow-y: auto; white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; }
 .achat-msg.error { background: rgba(239,68,68,0.12); border-color: #ef444477; color: #fecaca; }
 .achat-msg .achat-ts { display: block; margin-top: 4px; font-size: 8px; color: var(--text-dim); text-align: right; }
 .achat-thinking-bar { display: none; align-items: center; gap: 8px; border: 1px dashed var(--border); padding: 7px 10px; font-size: 10px; color: var(--text-dim); }
@@ -5085,7 +5086,7 @@
     <script src="/static/vscode-shim.js?v=25"></script>
     <script src="/static/svg-pan-zoom.min.js"></script>
     <script src="/static/peerjs.min.js"></script>
-    <script src="/static/main.js?v=43"></script>
+    <script src="/static/main.js?v=44"></script>
 
     <!-- ═══════════════ DREAMER + GPU FLEET TAB JS ═══════════════ -->
     <script>

@@ -2604,7 +2604,7 @@
             '<span class="activity-duration">' + (e.durationMs || 0) + 'ms</span>' +
             (hasError ? ' <span style="color:var(--red);">ERR</span>' : '') +
             '<span class="activity-expand-hint">click to expand</span>' +
-            '<pre class="activity-detail">' + _actEsc(detailText) + '</pre>';
+            '<pre class="activity-detail">' + _normalizeNewlines(_actEsc(_decodeDocKey(detailText))) + '</pre>';
         return div;
     }
 
@@ -2694,6 +2694,14 @@
         if (name === 'file_list') {
             if (out.file_type === null || out.file_type === undefined || (typeof out.file_type === 'string' && out.file_type.trim() === '')) {
                 delete out.file_type;
+            }
+        }
+
+        // C4 fix: bag_catalog(filter_type="all") — strip so capsule returns unfiltered.
+        if (name === 'bag_catalog') {
+            var ft = (out.filter_type || '').toString().trim().toLowerCase();
+            if (ft === 'all' || ft === '*' || ft === 'any' || ft === '') {
+                delete out.filter_type;
             }
         }
 
@@ -5269,6 +5277,35 @@
     function escHtml(str) {
         if (!str) return '';
         return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // C8 fix: decode __docv2__ encoded FelixBag keys to human-readable /slash/paths for display.
+    function _decodeDocKey(raw) {
+        if (!raw || typeof raw !== 'string') return raw || '';
+        return raw.replace(/__docv2__[^\s",'}\]]+/g, function (token) {
+            var body = token.substring(9); // skip '__docv2__'
+            if (body.length >= 3 && body.substring(body.length - 3) === '__k') body = body.substring(0, body.length - 3);
+            var out = [], i = 0;
+            while (i < body.length) {
+                if (body[i] === '~' && i + 1 < body.length) {
+                    if (body[i + 1] === 's') { out.push('/'); i += 2; continue; }
+                    if (body[i + 1] === '~') { out.push('~'); i += 2; continue; }
+                }
+                out.push(body[i]); i++;
+            }
+            return out.join('');
+        });
+    }
+
+    // UI fix: normalize escaped newline sequences for display in pre-wrap containers.
+    function _normalizeNewlines(escaped) {
+        if (!escaped || typeof escaped !== 'string') return escaped || '';
+        return escaped.replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n').replace(/\\r/g, '\n');
+    }
+
+    // Combined: decode doc keys, html-escape, then normalize newlines for display.
+    function _escForDisplay(str) {
+        return _normalizeNewlines(escHtml(_decodeDocKey(str)));
     }
 
     function promptToolCall(toolName) {
@@ -9436,10 +9473,10 @@
                         (traceShort ? ' <span class="tc-iter">' + escHtml('#' + traceShort) + '</span>' : '') +
                         '</div>';
                     if (argsStr !== '{}') {
-                        html += '<details class="tc-details"><summary>Arguments</summary><pre class="tc-pre">' + escHtml(argsStr) + '</pre></details>';
+                        html += '<details class="tc-details"><summary>Arguments</summary><pre class="tc-pre">' + _escForDisplay(argsStr) + '</pre></details>';
                     }
                     if (resultStr) {
-                        html += '<details class="tc-details" open><summary>Result</summary><pre class="tc-pre">' + escHtml(resultStr) + '</pre></details>';
+                        html += '<details class="tc-details" open><summary>Result</summary><pre class="tc-pre">' + _escForDisplay(resultStr) + '</pre></details>';
                     }
                     tDiv.innerHTML = html;
                     container.appendChild(tDiv);
@@ -9482,7 +9519,7 @@
 
             var div = document.createElement('div');
             div.className = 'achat-msg ' + (m.role || 'assistant');
-            div.innerHTML = escHtml(String(m.content || '')) + (tsStr ? '<span class="achat-ts">' + tsStr + '</span>' : '');
+            div.innerHTML = _escForDisplay(String(m.content || '')) + (tsStr ? '<span class="achat-ts">' + tsStr + '</span>' : '');
             container.appendChild(div);
         }
         container.scrollTop = container.scrollHeight;
