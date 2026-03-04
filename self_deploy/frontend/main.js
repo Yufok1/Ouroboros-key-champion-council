@@ -48,7 +48,7 @@
     var _achatToolPolicies = {};
     var _achatDefaultGrantedTools = [
         "get_status", "list_slots", "slot_info", "get_capabilities", "embed_text",
-        "invoke_slot", "call",
+        "invoke_slot", "call", "agent_delegate", "agent_chat_inject", "agent_chat_sessions",
         "bag_get", "bag_put", "bag_search", "bag_catalog", "bag_induct",
         "bag_read_doc", "bag_list_docs", "bag_search_docs", "bag_tree",
         "bag_versions", "bag_diff", "bag_checkpoint", "bag_restore",
@@ -56,6 +56,7 @@
         "file_delete", "file_rename", "file_copy", "file_list", "file_tree",
         "file_search", "file_info", "file_checkpoint", "file_versions", "file_diff", "file_restore",
         "workflow_list", "workflow_get", "workflow_status",
+        "plug_model", "hub_plug", "unplug_slot",
         "cascade_graph", "cascade_chain", "cascade_data", "cascade_system",
         "cascade_record", "cascade_instrument", "cascade_proxy",
         "diagnose_file", "diagnose_directory", "symbiotic_interpret",
@@ -63,8 +64,7 @@
     ];
     var _achatBlockedTools = {
         "workflow_execute": 1, "start_api_server": 1, "implode": 1, "defrost": 1,
-        "spawn_quine": 1, "spawn_swarm": 1, "replicate": 1, "export_quine": 1,
-        "plug_model": 1, "unplug_slot": 1
+        "spawn_quine": 1, "spawn_swarm": 1, "replicate": 1, "export_quine": 1
     };
 
     // ── NIP-88: POLL STATE ──
@@ -4595,7 +4595,9 @@
         // Agent MCP console responses — route to slot tab timeline
         if (toolName === 'agent_chat' || toolName === '__agent_chat__' || toolName === '__achat_tool__' || toolName === '__agent_chat_loop__') {
             var isLoopIter = (toolName === '__agent_chat_loop__');
-            if (!isLoopIter) _setAchatBusy(false);
+            var isAchatToolCall = (toolName === '__achat_tool__');
+            var keepBusy = !!(pendingMeta && pendingMeta.keepBusy);
+            if (!isLoopIter && !(isAchatToolCall && keepBusy)) _setAchatBusy(false);
             var activeTab = pendingTabKey ? _achatTabs[pendingTabKey] : _getActiveAchatTab();
             if (msg.error) {
                 _appendAchatMsg('error', String(msg.error || 'Unknown error'), Date.now(), activeTab);
@@ -4629,6 +4631,13 @@
                 if (toolName === '__achat_tool__') {
                     if (payload && payload.error) {
                         _appendAchatMsg('error', String(payload.error), Date.now(), activeTab);
+                        return;
+                    }
+                    if (payload && payload.status === 'queued' && payload.session_id) {
+                        _appendAchatMsg('system-info',
+                            'Live update queued for ' + String(payload.session_id).slice(0, 28) +
+                            ' · pending ' + String(payload.pending_messages || 0),
+                            Date.now(), activeTab);
                         return;
                     }
                     var pretty = '';
@@ -9176,11 +9185,12 @@
         lines.push('7. NEVER output multiple JSON objects or an array of tool calls. One tool, one turn, every time.');
 
         var selfSlot = parseInt(tab.slot, 10);
-        var hasInterSlotTools = granted.indexOf('invoke_slot') >= 0 || granted.indexOf('call') >= 0 || granted.indexOf('agent_chat') >= 0 || granted.indexOf('chat') >= 0;
+        var hasInterSlotTools = granted.indexOf('invoke_slot') >= 0 || granted.indexOf('call') >= 0 || granted.indexOf('agent_chat') >= 0 || granted.indexOf('chat') >= 0 || granted.indexOf('agent_delegate') >= 0;
         if (hasInterSlotTools) {
             lines.push('\n## INTER-SLOT SAFETY (ANTI-RECURSION)');
-            lines.push('Never target your own slot (' + (isNaN(selfSlot) ? 'current slot' : String(selfSlot)) + ') when using invoke_slot/call/chat/agent_chat.');
+            lines.push('Never target your own slot (' + (isNaN(selfSlot) ? 'current slot' : String(selfSlot)) + ') when using invoke_slot/call/chat/agent_chat/agent_delegate.');
             lines.push('Delegate only to OTHER slots to prevent recursive paradox loops.');
+            lines.push('Prefer agent_delegate for structured cross-slot autonomous sub-tasks.');
         }
 
         // Reappropriation protocol
@@ -9650,7 +9660,7 @@
         if (tab.runMode === 'loop') {
             noteEl.innerHTML =
                 'Deterministic loop mode runs <b>invoke_slot</b> iteratively and executes only your granted tool policy (<b>' +
-                (tab.grantedTools ? tab.grantedTools.length : 0) + '</b> tools).';
+                (tab.grantedTools ? tab.grantedTools.length : 0) + '</b> tools). While running, press Send with new text to queue a <b>LIVE UPDATE</b>.';
             fieldsEl.innerHTML = '';
             return;
         }
@@ -10236,13 +10246,55 @@
 
 
     function sendAgentChat() {
-        if (_achatBusy) return;
         var tab = _getActiveAchatTab();
         if (!tab) return;
 
         var input = document.getElementById('achat-input');
         var msg = input ? String(input.value || '').trim() : '';
         if (input) input.value = '';
+
+        // Operator commands
+        if (/^\/sessions\b/i.test(msg || '')) {
+            _appendAchatMsg('user', 'LIST LIVE AGENT SESSIONS', Date.now(), tab);
+            callTool('agent_chat_sessions', { slot: tab.slot, limit: 20 }, '__achat_tool__', { tabKey: tab.key });
+            return;
+        }
+        var injectCmd = String(msg || '').match(/^\/inject\s+(\S+)\s+([\s\S]+)$/i);
+        if (injectCmd) {
+            var targetSession = String(injectCmd[1] || '').trim();
+            var injectText = String(injectCmd[2] || '').trim();
+            if (!targetSession || !injectText) {
+                _appendAchatMsg('error', 'Usage: /inject <session_id> <message>', Date.now(), tab);
+                return;
+            }
+            _appendAchatMsg('user', 'LIVE UPDATE → ' + injectText, Date.now(), tab);
+            callTool('agent_chat_inject', {
+                session_id: targetSession,
+                slot: tab.slot,
+                message: injectText,
+                sender: 'operator'
+            }, '__achat_tool__', { tabKey: tab.key, keepBusy: true });
+            return;
+        }
+
+        // If loop is currently executing, convert new user message into a live update injection.
+        if (_achatBusy) {
+            if (msg) {
+                var targetSid = String(tab.sessionId || '').trim();
+                if (!targetSid) {
+                    _appendAchatMsg('error', 'Agent is running, but no session_id is available yet for injection.', Date.now(), tab);
+                    return;
+                }
+                _appendAchatMsg('user', 'LIVE UPDATE → ' + msg, Date.now(), tab);
+                callTool('agent_chat_inject', {
+                    session_id: targetSid,
+                    slot: tab.slot,
+                    message: msg,
+                    sender: 'operator'
+                }, '__achat_tool__', { tabKey: tab.key, keepBusy: true });
+            }
+            return;
+        }
 
         if (!tab.isPlugged) {
             _appendAchatMsg('error', 'Slot is empty. Plug a model before invoking tools.', Date.now(), tab);

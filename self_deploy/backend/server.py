@@ -517,7 +517,13 @@ async def _call_tool(name: str, arguments: dict) -> dict:
 
 
 async def _list_tools() -> dict:
-    return await mcp_client.list_tools()
+    tools = await mcp_client.list_tools()
+    if isinstance(tools, dict):
+        res = tools.get("result") if isinstance(tools.get("result"), dict) else {}
+        if "tools" in res and isinstance(res.get("tools"), list):
+            res["tools"] = _agent_augment_tools_list(res.get("tools") or [])
+            tools["result"] = res
+    return tools
 
 
 def _ssh_key_paths() -> tuple[Path, Path, Path]:
@@ -633,12 +639,12 @@ _slot_exec_active: dict[int, dict] = {}
 _AGENT_BLOCKED_TOOLS = frozenset({
     "workflow_execute", "start_api_server", "implode", "defrost",
     "spawn_quine", "spawn_swarm", "replicate", "export_quine",
-    "plug_model", "unplug_slot", "agent_chat",
+    "agent_chat",  # prevent direct self-recursive nesting (use agent_delegate)
 })
 
 _AGENT_DEFAULT_GRANTED = [
     "get_status", "list_slots", "slot_info", "get_capabilities", "embed_text",
-    "invoke_slot", "call",
+    "invoke_slot", "call", "agent_delegate", "agent_chat_inject", "agent_chat_sessions",
     "bag_get", "bag_put", "bag_search", "bag_catalog", "bag_induct",
     "bag_read_doc", "bag_list_docs", "bag_search_docs", "bag_tree",
     "bag_versions", "bag_diff", "bag_checkpoint", "bag_restore",
@@ -647,13 +653,228 @@ _AGENT_DEFAULT_GRANTED = [
     "file_search", "file_info", "file_checkpoint", "file_versions",
     "file_diff", "file_restore",
     "web_search", "generate", "classify", "rerank",
+    "plug_model", "hub_plug", "unplug_slot",
     "cascade_graph", "cascade_chain", "cascade_data", "cascade_system",
     "cascade_record", "diagnose_file", "diagnose_directory",
     "symbiotic_interpret", "trace_root_causes", "forensics_analyze",
     "metrics_analyze", "workflow_list", "workflow_get", "workflow_status",
 ]
 
+_AGENT_MAX_DELEGATION_DEPTH = max(1, int(os.environ.get("AGENT_MAX_DELEGATION_DEPTH", "3")))
+_AGENT_INJECT_QUEUE_LIMIT = max(5, int(os.environ.get("AGENT_INJECT_QUEUE_LIMIT", "64")))
+
+_AGENT_LOCAL_TOOL_SPECS = {
+    "agent_delegate": {
+        "description": "Delegate a sub-task to another slot's autonomous agent loop and return its result envelope.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "slot": {"type": "integer", "description": "Target slot index to delegate to"},
+                "message": {"type": "string", "description": "Sub-task message for the delegated agent"},
+                "max_iterations": {"type": "integer", "description": "Optional delegated max iterations"},
+                "max_tokens": {"type": "integer", "description": "Optional delegated max tokens"},
+                "session_id": {"type": "string", "description": "Optional delegated session id"},
+                "granted_tools": {"type": "array", "description": "Optional delegated granted tools"},
+            },
+            "required": ["slot", "message"],
+        },
+    },
+    "agent_chat_inject": {
+        "description": "Queue a live operator/agent update into a running agent_chat session inbox.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "session_id": {"type": "string", "description": "Target agent_chat session id"},
+                "slot": {"type": "integer", "description": "Target slot (used when session_id omitted)"},
+                "message": {"type": "string", "description": "Injected instruction/update text"},
+                "sender": {"type": "string", "description": "Sender label (operator/system/agent)"},
+                "priority": {"type": "string", "description": "Optional priority label"},
+            },
+            "required": ["message"],
+        },
+    },
+    "agent_chat_sessions": {
+        "description": "List active/recent agent_chat sessions with queue depth and state.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "slot": {"type": "integer", "description": "Optional slot filter"},
+                "active_only": {"type": "boolean", "description": "Show only active sessions"},
+                "limit": {"type": "integer", "description": "Max sessions to return"},
+            },
+        },
+    },
+}
+
+
+def _agent_local_tools_manifest() -> list[dict]:
+    return [
+        {
+            "name": name,
+            "description": spec.get("description", ""),
+            "inputSchema": spec.get("inputSchema", {}),
+        }
+        for name, spec in _AGENT_LOCAL_TOOL_SPECS.items()
+    ]
+
+
+def _agent_augment_tools_list(tools: list[dict]) -> list[dict]:
+    merged = []
+    seen = set()
+    for t in (tools or []):
+        if not isinstance(t, dict):
+            continue
+        name = str(t.get("name", "") or "").strip()
+        if not name:
+            continue
+        seen.add(name)
+        merged.append(t)
+    for t in _agent_local_tools_manifest():
+        name = t.get("name")
+        if name not in seen:
+            merged.append(t)
+    return merged
+
+
 _agent_sessions: dict[str, dict] = {}
+
+
+def _agent_session_snapshot(args: dict | None = None) -> dict:
+    args = args or {}
+    slot_filter = args.get("slot")
+    active_only = bool(args.get("active_only", False))
+    try:
+        slot_filter = int(slot_filter) if slot_filter is not None else None
+    except Exception:
+        slot_filter = None
+    limit = int(args.get("limit", 50) or 50)
+    limit = max(1, min(limit, 500))
+
+    rows = []
+    for sid, sess in _agent_sessions.items():
+        if not isinstance(sess, dict):
+            continue
+        try:
+            slot = int(sess.get("slot"))
+        except Exception:
+            slot = None
+        if slot_filter is not None and slot != slot_filter:
+            continue
+        active = bool(sess.get("active", False))
+        if active_only and not active:
+            continue
+        inbox = sess.get("inbox") if isinstance(sess.get("inbox"), list) else []
+        rows.append({
+            "session_id": sid,
+            "slot": slot,
+            "active": active,
+            "turn_count": len(sess.get("turns") or []),
+            "pending_messages": len(inbox),
+            "updated_ts": int(sess.get("updated_ts") or sess.get("last_active_ts") or 0),
+            "parent_session_id": str(sess.get("parent_session_id") or ""),
+            "delegation_depth": int(sess.get("delegation_depth") or 0),
+            "source": sess.get("source"),
+            "client_id": sess.get("client_id"),
+        })
+    rows.sort(key=lambda r: int(r.get("updated_ts") or 0), reverse=True)
+    if len(rows) > limit:
+        rows = rows[:limit]
+    return {
+        "sessions": rows,
+        "count": len(rows),
+        "active_count": sum(1 for r in rows if r.get("active")),
+    }
+
+
+def _agent_select_session(session_id: str = "", slot: int | None = None, active_preferred: bool = True) -> tuple[str | None, dict | None]:
+    sid = str(session_id or "").strip()
+    if sid and sid in _agent_sessions and isinstance(_agent_sessions.get(sid), dict):
+        return sid, _agent_sessions.get(sid)
+
+    candidates = []
+    for _sid, sess in _agent_sessions.items():
+        if not isinstance(sess, dict):
+            continue
+        try:
+            _slot = int(sess.get("slot"))
+        except Exception:
+            _slot = None
+        if slot is not None and _slot != slot:
+            continue
+        candidates.append((_sid, sess))
+    if not candidates:
+        return None, None
+
+    def _rank(item):
+        _sid, sess = item
+        active = 1 if bool(sess.get("active", False)) else 0
+        ts = int(sess.get("updated_ts") or sess.get("last_active_ts") or 0)
+        return (active, ts)
+
+    candidates.sort(key=_rank, reverse=True)
+    if active_preferred:
+        for _sid, sess in candidates:
+            if bool(sess.get("active", False)):
+                return _sid, sess
+    return candidates[0]
+
+
+def _agent_inject_message(args: dict, source: str = "webui", client_id: str | None = None, caller_session_id: str = "", caller_slot: int | None = None) -> dict:
+    args = args or {}
+    message = str(args.get("message", "") or "").strip()
+    if not message:
+        return {"error": "message is required"}
+
+    req_session_id = str(args.get("session_id", "") or "").strip()
+    target_slot = None
+    if args.get("slot") is not None:
+        try:
+            target_slot = int(args.get("slot"))
+        except Exception:
+            target_slot = None
+
+    sid, session = _agent_select_session(req_session_id, target_slot, active_preferred=True)
+    if not sid or not isinstance(session, dict):
+        return {
+            "error": "No matching agent_chat session found",
+            "session_id": req_session_id or None,
+            "slot": target_slot,
+        }
+
+    inbox = session.get("inbox")
+    if not isinstance(inbox, list):
+        inbox = []
+        session["inbox"] = inbox
+
+    sender = str(args.get("sender", "operator") or "operator").strip() or "operator"
+    priority = str(args.get("priority", "normal") or "normal").strip() or "normal"
+    now_ms = int(time.time() * 1000)
+    inbox.append({
+        "message": message,
+        "sender": sender,
+        "priority": priority,
+        "source": source,
+        "client_id": client_id,
+        "caller_session_id": str(caller_session_id or ""),
+        "caller_slot": caller_slot,
+        "ts": now_ms,
+    })
+    if len(inbox) > _AGENT_INJECT_QUEUE_LIMIT:
+        del inbox[:-_AGENT_INJECT_QUEUE_LIMIT]
+
+    session["updated_ts"] = now_ms
+    _agent_sessions[sid] = session
+
+    return {
+        "status": "queued",
+        "session_id": sid,
+        "slot": session.get("slot"),
+        "active": bool(session.get("active", False)),
+        "pending_messages": len(inbox),
+        "message": message,
+        "sender": sender,
+        "priority": priority,
+    }
 
 
 def _agent_decode_keys(text: str) -> str:
@@ -666,6 +887,98 @@ def _agent_decode_keys(text: str) -> str:
             body = body[:-3]
         return "/" + body.replace("~s", "/")
     return re.sub(r'__docv2__[^"}\s,\]]+', _rep, text)
+
+
+async def _agent_delegate_call(
+    caller_slot: int,
+    caller_session_id: str,
+    caller_depth: int,
+    called_args: dict,
+    source: str,
+    client_id: str | None,
+    call_tool_fn=None,
+    list_tools_fn=None,
+    parse_result_fn=None,
+    normalize_args_fn=None,
+    broadcast_fn=None,
+) -> tuple[dict | None, str | None]:
+    import uuid as _uuid
+
+    _parse = parse_result_fn or _parse_mcp_result_payload
+
+    try:
+        target_slot = int(called_args.get("slot", -1))
+    except Exception:
+        target_slot = -1
+    if target_slot < 0:
+        return None, "agent_delegate requires a valid target slot"
+    if target_slot == caller_slot:
+        return None, f"agent_delegate blocked: target slot {target_slot} equals caller slot {caller_slot}"
+    if caller_depth >= _AGENT_MAX_DELEGATION_DEPTH:
+        return None, f"agent_delegate blocked: max delegation depth {_AGENT_MAX_DELEGATION_DEPTH} reached"
+
+    delegate_message = str(called_args.get("message", "") or "").strip()
+    if not delegate_message:
+        return None, "agent_delegate requires message"
+
+    try:
+        delegate_max_iterations = int(called_args.get("max_iterations", 3) or 3)
+    except Exception:
+        delegate_max_iterations = 3
+    delegate_max_iterations = max(1, min(delegate_max_iterations, 20))
+
+    try:
+        delegate_max_tokens = int(called_args.get("max_tokens", 0) or 0)
+    except Exception:
+        delegate_max_tokens = 0
+
+    delegate_session_id = str(called_args.get("session_id", "") or "").strip()
+    if not delegate_session_id:
+        delegate_session_id = f"agent_chat:{target_slot}:{_uuid.uuid4().hex[:10]}"
+
+    delegate_args = {
+        "slot": target_slot,
+        "message": delegate_message,
+        "max_iterations": delegate_max_iterations,
+        "session_id": delegate_session_id,
+        "_agent_depth": caller_depth + 1,
+        "_parent_session_id": caller_session_id,
+    }
+    if delegate_max_tokens > 0:
+        delegate_args["max_tokens"] = delegate_max_tokens
+    if isinstance(called_args.get("granted_tools"), list) and called_args.get("granted_tools"):
+        delegate_args["granted_tools"] = called_args.get("granted_tools")
+
+    claim, busy = await _claim_slot_execution("agent_chat", {"slot": target_slot, "session_id": delegate_session_id}, source="agent-inner", client_id=client_id)
+    if busy:
+        return {"slot_busy": busy}, busy.get("error") or "delegate target busy"
+
+    try:
+        delegated = await _server_side_agent_chat(
+            delegate_args,
+            source="agent-inner",
+            client_id=client_id,
+            call_tool_fn=call_tool_fn,
+            list_tools_fn=list_tools_fn,
+            parse_result_fn=parse_result_fn,
+            normalize_args_fn=normalize_args_fn,
+            broadcast_fn=broadcast_fn,
+        )
+    finally:
+        await _release_slot_execution(claim)
+
+    if isinstance(delegated, dict) and delegated.get("error"):
+        return delegated, str(delegated.get("error"))
+
+    payload = None
+    if isinstance(delegated, dict):
+        payload = _parse(delegated.get("result"))
+        if payload is None:
+            payload = delegated
+    else:
+        payload = delegated
+
+    return payload, None
 
 
 async def _server_side_agent_chat(
@@ -703,13 +1016,37 @@ async def _server_side_agent_chat(
     session = _agent_sessions.get(session_id)
     if not session:
         session = {
-            "id": session_id, "slot": slot, "turns": [],
+            "id": session_id,
+            "slot": slot,
+            "turns": [],
             "granted_tools": list(_AGENT_DEFAULT_GRANTED),
             "chat_messages": [],
+            "inbox": [],
         }
         _agent_sessions[session_id] = session
     if isinstance(granted_tools, list) and granted_tools:
         session["granted_tools"] = [str(t) for t in granted_tools if str(t).strip()]
+
+    depth_in = args.get("_agent_depth", session.get("delegation_depth", 0))
+    try:
+        delegation_depth = int(depth_in)
+    except Exception:
+        delegation_depth = 0
+    if delegation_depth < 0:
+        delegation_depth = 0
+
+    session["delegation_depth"] = delegation_depth
+    session["parent_session_id"] = str(args.get("_parent_session_id", session.get("parent_session_id", "")) or "")
+    session["source"] = source
+    session["client_id"] = client_id
+    _now_ms = int(time.time() * 1000)
+    session["updated_ts"] = _now_ms
+    if "last_active_ts" not in session:
+        session["last_active_ts"] = _now_ms
+    if not isinstance(session.get("inbox"), list):
+        session["inbox"] = []
+    _agent_sessions[session_id] = session
+
     granted = [t for t in session["granted_tools"] if t not in _AGENT_BLOCKED_TOOLS]
     if not granted:
         granted = list(_AGENT_DEFAULT_GRANTED)
@@ -720,6 +1057,11 @@ async def _server_side_agent_chat(
     plugged = bool(slot_info.get("plugged")) if isinstance(slot_info, dict) else False
     if not plugged:
         return {"error": f"Slot {slot} is not plugged. Plug a model first."}
+
+    session["active"] = True
+    session["last_active_ts"] = int(time.time() * 1000)
+    session["updated_ts"] = session["last_active_ts"]
+    _agent_sessions[session_id] = session
 
     # Build tool descriptions
     tools_raw = await _list()
@@ -751,6 +1093,9 @@ async def _server_side_agent_chat(
         "- ONE tool at a time — never batch multiple calls\n"
         "- After EVERY tool result, evaluate: did it succeed? what did you learn? what next?\n"
         "- If a tool failed, decide whether to retry, skip, or adjust\n"
+        "- For cross-slot autonomous work, prefer agent_delegate instead of inventing callback loops\n"
+        "- Never invoke your own slot for delegation\n"
+        "- You may receive [LIVE UPDATE] messages mid-run; incorporate them immediately\n"
         "- Always end with final_answer summarizing outcomes\n"
     )
 
@@ -776,6 +1121,46 @@ async def _server_side_agent_chat(
     for iteration in range(max_iterations):
         iterations_used = iteration + 1
         step_start = time.time()
+
+        pending_updates = session.get("inbox") if isinstance(session.get("inbox"), list) else []
+        if pending_updates:
+            delivered = list(pending_updates)
+            session["inbox"] = []
+            delivered_count = 0
+            for upd in delivered:
+                if not isinstance(upd, dict):
+                    continue
+                upd_msg = str(upd.get("message", "") or "").strip()
+                if not upd_msg:
+                    continue
+                upd_sender = str(upd.get("sender", "operator") or "operator").strip() or "operator"
+                injected = f"[LIVE UPDATE from {upd_sender}] {upd_msg}"
+                chat_messages.append({"role": "user", "content": injected})
+                session.setdefault("turns", []).append({
+                    "role": "inject",
+                    "content": upd_msg,
+                    "sender": upd_sender,
+                    "ts": int(upd.get("ts") or int(time.time() * 1000)),
+                })
+                delivered_count += 1
+            if delivered_count > 0:
+                session["updated_ts"] = int(time.time() * 1000)
+                _bcast(
+                    tool="agent_chat_inject",
+                    args={
+                        "session_id": session_id,
+                        "slot": slot,
+                        "delivered": delivered_count,
+                        "iteration": iterations_used,
+                        "_agent_session": session_id,
+                        "_agent_caller_slot": slot,
+                    },
+                    result={"_phase": "delivered", "delivered": delivered_count, "session_id": session_id},
+                    duration_ms=0,
+                    error=None,
+                    source="agent-inner",
+                    client_id=client_id,
+                )
 
         if iteration == max_iterations - 1:
             chat_messages.append({
@@ -861,6 +1246,20 @@ async def _server_side_agent_chat(
                 except Exception:
                     called_args = {}
 
+            if called_tool == "call":
+                _inner_tool = ""
+                for _k in ("tool", "tool_name", "name"):
+                    _v = called_args.get(_k)
+                    if isinstance(_v, str) and _v.strip():
+                        _inner_tool = _v.strip()
+                        break
+                _inner_args = called_args.get("args", called_args.get("arguments", {}))
+                if not isinstance(_inner_args, dict):
+                    _inner_args = {}
+                if _inner_tool:
+                    called_tool = _inner_tool
+                    called_args = _inner_args
+
             if called_tool not in granted:
                 denial = f"Tool '{called_tool}' is NOT in your granted tools."
                 chat_messages.append({"role": "user", "content": denial})
@@ -868,18 +1267,21 @@ async def _server_side_agent_chat(
                 continue
 
             if called_tool == "invoke_slot" and int(called_args.get("slot", -1)) == slot:
-                guard_msg = f"Self-invocation blocked: invoke_slot(slot={slot})."
+                guard_msg = f"Self-invocation blocked: invoke_slot(slot={slot}). Choose a different slot or use agent_delegate for structured cross-slot orchestration."
                 chat_messages.append({"role": "user", "content": guard_msg})
                 tool_calls_log.append({"tool": called_tool, "args": called_args, "result": "DENIED - " + guard_msg, "iteration": iteration})
                 continue
 
-            normalized_args = _norm(called_tool, called_args)
+            if called_tool in ("agent_delegate", "agent_chat_inject", "agent_chat_sessions"):
+                normalized_args = dict(called_args)
+            else:
+                normalized_args = _norm(called_tool, called_args)
             display_args = dict(called_args)
             display_args["_agent_session"] = session_id
             display_args["_agent_iteration"] = iterations_used
             display_args["_agent_caller_slot"] = slot
             display_args["_agent_caller_name"] = slot_name
-            if called_tool in ("invoke_slot", "chat", "agent_chat", "generate", "classify"):
+            if called_tool in ("invoke_slot", "chat", "agent_chat", "generate", "classify", "agent_delegate", "agent_chat_inject"):
                 try:
                     if called_args.get("slot") is not None:
                         display_args["_agent_target_slot"] = int(called_args.get("slot"))
@@ -894,10 +1296,42 @@ async def _server_side_agent_chat(
 
             tool_start = time.time()
             try:
-                tool_raw = await _call(called_tool, normalized_args)
-                tool_result = _parse(tool_raw.get("result"))
-                tool_error = tool_raw.get("error") or (tool_result.get("error") if isinstance(tool_result, dict) else None)
-                tool_result_str = json.dumps(tool_result, indent=2, default=str) if tool_result else ""
+                if called_tool == "agent_chat_inject":
+                    inject_payload = _agent_inject_message(
+                        normalized_args,
+                        source="agent-inner",
+                        client_id=client_id,
+                        caller_session_id=session_id,
+                        caller_slot=slot,
+                    )
+                    tool_result = inject_payload
+                    tool_error = inject_payload.get("error") if isinstance(inject_payload, dict) else None
+                    tool_result_str = json.dumps(tool_result, indent=2, default=str) if tool_result is not None else ""
+                elif called_tool == "agent_chat_sessions":
+                    sess_payload = _agent_session_snapshot(normalized_args)
+                    tool_result = sess_payload
+                    tool_error = None
+                    tool_result_str = json.dumps(tool_result, indent=2, default=str)
+                elif called_tool == "agent_delegate":
+                    tool_result, tool_error = await _agent_delegate_call(
+                        caller_slot=slot,
+                        caller_session_id=session_id,
+                        caller_depth=delegation_depth,
+                        called_args=normalized_args,
+                        source="agent-inner",
+                        client_id=client_id,
+                        call_tool_fn=_call,
+                        list_tools_fn=_list,
+                        parse_result_fn=_parse,
+                        normalize_args_fn=_norm,
+                        broadcast_fn=broadcast_fn,
+                    )
+                    tool_result_str = json.dumps(tool_result, indent=2, default=str) if tool_result is not None else ""
+                else:
+                    tool_raw = await _call(called_tool, normalized_args)
+                    tool_result = _parse(tool_raw.get("result"))
+                    tool_error = tool_raw.get("error") or (tool_result.get("error") if isinstance(tool_result, dict) else None)
+                    tool_result_str = json.dumps(tool_result, indent=2, default=str) if tool_result else ""
             except Exception as e:
                 tool_result = None
                 tool_error = str(e)
@@ -936,26 +1370,36 @@ async def _server_side_agent_chat(
     if final_answer is None:
         final_answer = f"Agent reached max iterations ({max_iterations}) without final answer."
 
+    total_ms = int((time.time() - loop_start) * 1000)
+
     session["turns"].append({
         "role": "assistant",
         "content": str(final_answer) if isinstance(final_answer, str) else json.dumps(final_answer, default=str),
         "ts": int(time.time() * 1000),
     })
     session["chat_messages"] = chat_messages
+    session["active"] = False
+    session["updated_ts"] = int(time.time() * 1000)
     _agent_sessions[session_id] = session
 
     agent_result = {
         "final_answer": final_answer,
         "iterations": iterations_used,
         "tool_calls": tool_calls_log,
-        "slot": slot, "name": slot_name,
+        "slot": slot,
+        "name": slot_name,
+        "duration_ms": total_ms,
     }
     envelope = {
-        "session_id": session_id, "slot": slot,
+        "session_id": session_id,
+        "slot": slot,
         "result": agent_result,
         "blocked_tools": sorted(list(_AGENT_BLOCKED_TOOLS)),
         "turn_count": len(session.get("turns", [])),
         "history": session.get("turns", [])[-12:],
+        "delegation_depth": delegation_depth,
+        "parent_session_id": session.get("parent_session_id"),
+        "pending_messages": len(session.get("inbox") or []),
     }
     result_text = json.dumps(envelope, indent=2, default=str)
     return {
@@ -1010,6 +1454,7 @@ async def _claim_slot_execution(tool_name: str, args: dict | None, source: str, 
                     "tool": active_tool,
                     "source": active.get("source"),
                     "client_id": active.get("client_id"),
+                    "session_id": active.get("session_id"),
                     "started_ms": started_ms,
                     "running_for_ms": running_for_ms,
                 },
@@ -1018,10 +1463,14 @@ async def _claim_slot_execution(tool_name: str, args: dict | None, source: str, 
             return None, busy
 
         await lock.acquire()
+        _sid = ""
+        if tool_name == "agent_chat" and isinstance(args, dict):
+            _sid = str(args.get("session_id", "") or "").strip()
         _slot_exec_active[slot_idx] = {
             "tool": tool_name,
             "source": source,
             "client_id": client_id,
+            "session_id": _sid or None,
             "started_ms": now_ms,
         }
         return {"slot": slot_idx, "lock": lock}, None
@@ -1368,6 +1817,71 @@ async def proxy_tool_call(tool_name: str, request: Request):
     source = body_source or _infer_activity_source(request, fallback="webui")
     client_id = _extract_client_id(request)
 
+    # Local virtual orchestrator tools (proxy-side; not forwarded to capsule).
+    if tool_name == "agent_chat_inject":
+        payload = _agent_inject_message(body if isinstance(body, dict) else {}, source=source, client_id=client_id)
+        err = payload.get("error") if isinstance(payload, dict) else None
+        activity_hub.add_entry(
+            tool=tool_name,
+            args=body if isinstance(body, dict) else {},
+            result=payload,
+            duration_ms=0,
+            error=err,
+            source=source,
+            client_id=client_id,
+        )
+        if err:
+            return JSONResponse(status_code=404, content=payload)
+        return {"result": {"content": [{"type": "text", "text": json.dumps(payload)}], "isError": False}}
+
+    if tool_name == "agent_chat_sessions":
+        payload = _agent_session_snapshot(body if isinstance(body, dict) else {})
+        activity_hub.add_entry(
+            tool=tool_name,
+            args=body if isinstance(body, dict) else {},
+            result=payload,
+            duration_ms=0,
+            error=None,
+            source=source,
+            client_id=client_id,
+        )
+        return {"result": {"content": [{"type": "text", "text": json.dumps(payload)}], "isError": False}}
+
+    if tool_name == "agent_delegate":
+        raw = body if isinstance(body, dict) else {}
+        try:
+            caller_slot = int(raw.get("caller_slot", -1))
+        except Exception:
+            caller_slot = -1
+        caller_session_id = str(raw.get("caller_session_id", "external") or "external")
+        try:
+            caller_depth = int(raw.get("_agent_depth", 0) or 0)
+        except Exception:
+            caller_depth = 0
+        started = time.time()
+        payload, err = await _agent_delegate_call(
+            caller_slot,
+            caller_session_id,
+            caller_depth,
+            raw,
+            source=source,
+            client_id=client_id,
+            call_tool_fn=_call_tool,
+            list_tools_fn=_list_tools,
+            parse_result_fn=_parse_mcp_result_payload,
+            normalize_args_fn=_normalize_proxy_tool_args,
+            broadcast_fn=lambda **kw: activity_hub.add_entry(**kw),
+        )
+        duration_ms = int((time.time() - started) * 1000)
+        out = payload if isinstance(payload, dict) else {"result": payload}
+        if err:
+            if isinstance(out, dict):
+                out.setdefault("error", err)
+            activity_hub.add_entry(tool=tool_name, args=raw, result=out, duration_ms=duration_ms, error=err, source=source, client_id=client_id)
+            return JSONResponse(status_code=409, content=out)
+        activity_hub.add_entry(tool=tool_name, args=raw, result=out, duration_ms=duration_ms, error=None, source=source, client_id=client_id)
+        return {"result": {"content": [{"type": "text", "text": json.dumps(out)}], "isError": False}}
+
     slot_guard = await _slot_ready_guard(tool_name, body if isinstance(body, dict) else {})
     if slot_guard:
         error_msg = slot_guard.get("error") or f"Slot readiness guard blocked {tool_name}"
@@ -1620,6 +2134,51 @@ async def runtime_capacity(request: Request):
 @app.get("/api/capsule-log")
 async def capsule_log():
     return {"lines": capsule_manager.tail(100)}
+
+
+@app.get("/api/agent_chat/sessions")
+async def api_agent_chat_sessions(request: Request, slot: int | None = None, active_only: bool = False, limit: int = 50):
+    source = _infer_activity_source(request, fallback="webui")
+    client_id = _extract_client_id(request)
+    args = {"active_only": bool(active_only), "limit": int(limit)}
+    if slot is not None:
+        args["slot"] = int(slot)
+    payload = _agent_session_snapshot(args)
+    activity_hub.add_entry(
+        tool="agent_chat_sessions",
+        args=args,
+        result=payload,
+        duration_ms=0,
+        error=None,
+        source=source,
+        client_id=client_id,
+    )
+    return payload
+
+
+@app.post("/api/agent_chat/inject")
+async def api_agent_chat_inject(request: Request):
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    body = body if isinstance(body, dict) else {}
+    source = _normalize_activity_source(body.pop("__source", None)) or _infer_activity_source(request, fallback="webui")
+    client_id = _extract_client_id(request)
+    payload = _agent_inject_message(body, source=source, client_id=client_id)
+    err = payload.get("error") if isinstance(payload, dict) else "inject failed"
+    activity_hub.add_entry(
+        tool="agent_chat_inject",
+        args=body,
+        result=payload,
+        duration_ms=0,
+        error=(err if isinstance(err, str) and err else None),
+        source=source,
+        client_id=client_id,
+    )
+    if isinstance(payload, dict) and payload.get("error"):
+        return JSONResponse(status_code=404, content=payload)
+    return payload
 
 
 @app.post("/api/capsule/restart")
@@ -2243,7 +2802,7 @@ async def _handle_streamable_rpc(obj: dict, client_id: str | None) -> dict | Non
             return _rpc_error(rpc_id, -32603, "Failed to connect to capsule MCP")
         # Return the capsule's REAL instructions (built by _build_mcp_instructions()
         # in champion_gen8.py) — cached during mcp_client.connect().
-        _fallback_instructions = "Use tools/call for all operations. For large payloads, follow _cached via get_cached(cache_id). agent_chat supports granted_tools for agentic tool use."
+        _fallback_instructions = "Use tools/call for all operations. For large payloads, follow _cached via get_cached(cache_id). agent_chat supports granted_tools for agentic tool use. Local orchestration tools: agent_delegate, agent_chat_inject, agent_chat_sessions."
         return {
             "jsonrpc": "2.0",
             "id": rpc_id,
@@ -2293,6 +2852,70 @@ async def _handle_streamable_rpc(obj: dict, client_id: str | None) -> dict | Non
             args["definition"] = normalize_workflow_nodes(args["definition"])
 
         args = _normalize_proxy_tool_args(tool_name, args)
+
+        # Local virtual orchestrator tools (proxy-side).
+        if tool_name == "agent_chat_inject":
+            payload = _agent_inject_message(args, source="external", client_id=client_id)
+            err_msg = payload.get("error") if isinstance(payload, dict) else None
+            activity_hub.add_entry(
+                tool=tool_name,
+                args=args,
+                result=payload,
+                duration_ms=0,
+                error=err_msg,
+                source="external",
+                client_id=client_id,
+            )
+            if err_msg:
+                return _rpc_error(rpc_id, -32012, err_msg, payload)
+            return {"jsonrpc": "2.0", "id": rpc_id, "result": {"content": [{"type": "text", "text": json.dumps(payload)}], "isError": False}}
+
+        if tool_name == "agent_chat_sessions":
+            payload = _agent_session_snapshot(args)
+            activity_hub.add_entry(
+                tool=tool_name,
+                args=args,
+                result=payload,
+                duration_ms=0,
+                error=None,
+                source="external",
+                client_id=client_id,
+            )
+            return {"jsonrpc": "2.0", "id": rpc_id, "result": {"content": [{"type": "text", "text": json.dumps(payload)}], "isError": False}}
+
+        if tool_name == "agent_delegate":
+            try:
+                caller_slot = int(args.get("caller_slot", -1))
+            except Exception:
+                caller_slot = -1
+            caller_session_id = str(args.get("caller_session_id", "external") or "external")
+            try:
+                caller_depth = int(args.get("_agent_depth", 0) or 0)
+            except Exception:
+                caller_depth = 0
+            started = time.time()
+            payload, err_msg = await _agent_delegate_call(
+                caller_slot,
+                caller_session_id,
+                caller_depth,
+                args,
+                source="external",
+                client_id=client_id,
+                call_tool_fn=_call_tool,
+                list_tools_fn=_list_tools,
+                parse_result_fn=_parse_mcp_result_payload,
+                normalize_args_fn=_normalize_proxy_tool_args,
+                broadcast_fn=lambda **kw: activity_hub.add_entry(**kw),
+            )
+            duration_ms = int((time.time() - started) * 1000)
+            out = payload if isinstance(payload, dict) else {"result": payload}
+            if err_msg:
+                if isinstance(out, dict):
+                    out.setdefault("error", err_msg)
+                activity_hub.add_entry(tool=tool_name, args=args, result=out, duration_ms=duration_ms, error=err_msg, source="external", client_id=client_id)
+                return _rpc_error(rpc_id, -32013, err_msg, out)
+            activity_hub.add_entry(tool=tool_name, args=args, result=out, duration_ms=duration_ms, error=None, source="external", client_id=client_id)
+            return {"jsonrpc": "2.0", "id": rpc_id, "result": {"content": [{"type": "text", "text": json.dumps(out)}], "isError": False}}
 
         capacity_guard = None
         if tool_name in _CAPACITY_GUARD_TOOLS:
