@@ -441,6 +441,28 @@
         }
 
         /* ── COUNCIL TAB ── */
+        .panel-head-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+
+        .panel-head-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            min-width: 0;
+        }
+
+        .panel-head-row .section-head {
+            margin-bottom: 0;
+            white-space: nowrap;
+        }
+
         .slots-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
@@ -452,6 +474,10 @@
             gap: 10px;
             flex-wrap: wrap;
             margin: 8px 0 12px;
+        }
+
+        .panel-head-row .council-state-legend {
+            margin: 0;
         }
 
         .council-state-legend .legend-item {
@@ -572,6 +598,12 @@
             flex-wrap: wrap;
         }
 
+        .council-controls-inline {
+            margin-top: 0;
+            margin-left: auto;
+            justify-content: flex-end;
+        }
+
         .plug-progress-banner {
             display: none;
             padding: 10px 14px;
@@ -634,6 +666,19 @@
             display: flex;
             gap: 20px;
             margin-bottom: 16px;
+        }
+
+        .memory-head-row .memory-stats {
+            margin-bottom: 0;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .memory-controls-inline {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-left: auto;
         }
 
         .memory-stats .stat-box {
@@ -3679,20 +3724,24 @@
         <div class="content" id="tab-council">
             <!-- GRID VIEW (default) -->
             <div id="council-grid-view">
-                <div class="section-head" id="council-grid-title">COUNCIL GRID</div>
-                <div class="council-state-legend">
-                    <span class="legend-item"><span class="dot green"></span>Plugged</span>
-                    <span class="legend-item"><span class="dot amber pulse"></span>Plugging</span>
-                    <span class="legend-item"><span class="dot off"></span>Empty</span>
+                <div class="panel-head-row council-head-row">
+                    <div class="panel-head-left">
+                        <div class="section-head" id="council-grid-title">COUNCIL GRID</div>
+                        <div class="council-state-legend">
+                            <span class="legend-item"><span class="dot green"></span>Plugged</span>
+                            <span class="legend-item"><span class="dot amber pulse"></span>Plugging</span>
+                            <span class="legend-item"><span class="dot off"></span>Empty</span>
+                        </div>
+                    </div>
+                    <div class="council-controls council-controls-inline">
+                        <button onclick="openPlugModal()">PLUG MODEL</button>
+                        <button onclick="openPlugProviderModal()">PLUG PROVIDER</button>
+                        <button onclick="callTool('list_slots',{})">REFRESH SLOTS</button>
+                        <button onclick="callTool('council_status',{})">CONSENSUS STATUS</button>
+                        <button class="btn-dim" onclick="callTool('all_slots',{})">INVOKE ALL</button>
+                    </div>
                 </div>
                 <div class="slots-grid" id="slots-grid"></div>
-                <div class="council-controls">
-                    <button onclick="openPlugModal()">PLUG MODEL</button>
-                    <button onclick="openPlugProviderModal()">PLUG PROVIDER</button>
-                    <button onclick="callTool('list_slots',{})">REFRESH SLOTS</button>
-                    <button onclick="callTool('council_status',{})">CONSENSUS STATUS</button>
-                    <button class="btn-dim" onclick="callTool('all_slots',{})">INVOKE ALL</button>
-                </div>
                 <div class="diag-section" style="margin-top:16px;">
                     <div class="diag-title">COUNCIL OUTPUT</div>
                     <div class="diag-output" id="council-output" style="min-height:60px;">Run a council command above.
@@ -3785,18 +3834,22 @@
 
         <!-- ═══════════════ MEMORY TAB ═══════════════ -->
         <div class="content" id="tab-memory">
-            <div class="section-head">FELIXBAG SEMANTIC MEMORY</div>
-            <div class="memory-stats" id="mem-stats"></div>
+            <div class="panel-head-row memory-head-row">
+                <div class="panel-head-left">
+                    <div class="section-head">FELIXBAG SEMANTIC MEMORY</div>
+                    <div class="memory-stats" id="mem-stats"></div>
+                </div>
+                <div class="memory-controls-inline">
+                    <button onclick="callTool('bag_catalog',{})">CATALOG</button>
+                    <button onclick="startMemoryExport()">EXPORT</button>
+                    <button class="btn-dim" onclick="openInductModal()">INDUCT ITEM</button>
+                </div>
+            </div>
             <div style="margin-bottom:12px;">
                 <input id="mem-search" placeholder="Semantic search..." onkeyup="if(event.key==='Enter')memSearch()" />
             </div>
             <div class="memory-list" id="mem-list">
                 <div class="memory-item" style="color:var(--text-dim);">Loading...</div>
-            </div>
-            <div style="margin-top:12px;display:flex;gap:8px;">
-                <button onclick="callTool('bag_catalog',{})">CATALOG</button>
-                <button onclick="startMemoryExport()">EXPORT</button>
-                <button class="btn-dim" onclick="openInductModal()">INDUCT ITEM</button>
             </div>
             <div id="mem-export-status" style="margin-top:8px;font-size:10px;color:var(--text-dim);min-height:14px;">
             </div>
