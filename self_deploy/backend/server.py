@@ -8,6 +8,7 @@ Architecture:
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import shutil
@@ -802,7 +803,15 @@ async def _server_side_agent_chat(
 
         _bcast(
             tool="agent_chat",
-            args={"_phase": "reasoning", "iteration": iterations_used, "session_id": session_id},
+            args={
+                "_phase": "reasoning",
+                "iteration": iterations_used,
+                "session_id": session_id,
+                "_agent_session": session_id,
+                "slot": slot,
+                "_agent_caller_slot": slot,
+                "_agent_caller_name": slot_name,
+            },
             result={"content": [{"type": "text", "text": json.dumps({
                 "iteration": iterations_used, "model_output_preview": _agent_decode_keys(model_output[:300]) if "__docv2__" in model_output[:300] else model_output[:300], "step_ms": step_ms,
             })}]},
@@ -868,6 +877,14 @@ async def _server_side_agent_chat(
             display_args = dict(called_args)
             display_args["_agent_session"] = session_id
             display_args["_agent_iteration"] = iterations_used
+            display_args["_agent_caller_slot"] = slot
+            display_args["_agent_caller_name"] = slot_name
+            if called_tool in ("invoke_slot", "chat", "agent_chat", "generate", "classify"):
+                try:
+                    if called_args.get("slot") is not None:
+                        display_args["_agent_target_slot"] = int(called_args.get("slot"))
+                except Exception:
+                    pass
 
             _bcast(
                 tool=called_tool, args=display_args,

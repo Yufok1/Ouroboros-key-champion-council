@@ -1687,7 +1687,16 @@ async def _server_side_agent_chat(args: dict, source: str = "webui", client_id: 
 
         # Broadcast model reasoning step
         _broadcast_activity(
-            "agent_chat", {"_phase": "reasoning", "iteration": iterations_used, "session_id": session_id},
+            "agent_chat",
+            {
+                "_phase": "reasoning",
+                "iteration": iterations_used,
+                "session_id": session_id,
+                "_agent_session": session_id,
+                "slot": slot,
+                "_agent_caller_slot": slot,
+                "_agent_caller_name": slot_name,
+            },
             {"content": [{"type": "text", "text": json.dumps({
                 "iteration": iterations_used,
                 "model_output_preview": _doc_decode_result_text(model_output[:300]) if "__docv2__" in model_output[:300] else model_output[:300],
@@ -1772,6 +1781,14 @@ async def _server_side_agent_chat(args: dict, source: str = "webui", client_id: 
             display_args = dict(called_args)
             display_args["_agent_session"] = session_id
             display_args["_agent_iteration"] = iterations_used
+            display_args["_agent_caller_slot"] = slot
+            display_args["_agent_caller_name"] = slot_name
+            if called_tool in ("invoke_slot", "chat", "agent_chat", "generate", "classify"):
+                try:
+                    if called_args.get("slot") is not None:
+                        display_args["_agent_target_slot"] = int(called_args.get("slot"))
+                except Exception:
+                    pass
 
             # ── Broadcast tool-call-start (human-readable args) ──
             _broadcast_activity(

@@ -2072,6 +2072,80 @@
         return { role: isError ? 'error' : 'assistant', text: _prettyTruncate(payload, 4000), payload: payload, isError: isError };
     }
 
+    var _activityTraceCounts = {}; // trace/session id -> sequence count
+
+    function _parseAgentSessionSlot(sessionId) {
+        var sid = String(sessionId || '').trim();
+        if (!sid) return -1;
+        var parts = sid.split(':');
+        if (parts.length >= 2) {
+            var idx = parseInt(parts[1], 10);
+            if (!isNaN(idx)) return idx;
+        }
+        return -1;
+    }
+
+    function _hash32(str) {
+        var h = 2166136261 >>> 0;
+        var s = String(str || '');
+        for (var i = 0; i < s.length; i++) {
+            h ^= s.charCodeAt(i);
+            h = Math.imul(h, 16777619) >>> 0;
+        }
+        return h >>> 0;
+    }
+
+    function _extractResultSessionId(result) {
+        if (!result || typeof result !== 'object') return '';
+        if (typeof result.session_id === 'string' && result.session_id.trim()) return result.session_id.trim();
+        if (result.result && typeof result.result === 'object') {
+            var nested = _extractResultSessionId(result.result);
+            if (nested) return nested;
+        }
+        if (result.content && Array.isArray(result.content) && result.content[0] && typeof result.content[0].text === 'string') {
+            var parsed = _safeJsonParse(result.content[0].text);
+            if (parsed && typeof parsed === 'object') {
+                var fromText = _extractResultSessionId(parsed);
+                if (fromText) return fromText;
+            }
+        }
+        return '';
+    }
+
+    function _deriveActivityTrace(event) {
+        if (!event || typeof event !== 'object') return null;
+        var args = (event.args && typeof event.args === 'object') ? event.args : {};
+
+        var sid = '';
+        if (typeof args._agent_session === 'string' && args._agent_session.trim()) sid = args._agent_session.trim();
+        else if (typeof args.session_id === 'string' && args.session_id.trim()) sid = args.session_id.trim();
+        else sid = _extractResultSessionId(event.result);
+
+        if (!sid) return null;
+
+        var callerSlot = _parseAgentSessionSlot(sid);
+        var targetSlot = -1;
+        if (args.slot !== undefined && args.slot !== null && String(args.slot).trim() !== '') {
+            var t = parseInt(args.slot, 10);
+            if (!isNaN(t)) targetSlot = t;
+        }
+
+        var hue = _hash32(sid) % 360;
+        var color = 'hsl(' + hue + ', 78%, 58%)';
+        var role = 'session';
+        if (callerSlot >= 0 && targetSlot >= 0 && callerSlot !== targetSlot) role = 'delegation';
+        else if (event.tool === 'agent_chat') role = 'reasoning';
+
+        return {
+            id: sid,
+            callerSlot: callerSlot,
+            targetSlot: targetSlot,
+            role: role,
+            hue: hue,
+            color: color,
+        };
+    }
+
     function addActivityEntry(event) {
         if (!event) return;
 
@@ -2115,6 +2189,19 @@
             }
         }
 
+        var trace = _deriveActivityTrace(event);
+        if (trace) {
+            var nextSeq = (_activityTraceCounts[trace.id] || 0) + 1;
+            _activityTraceCounts[trace.id] = nextSeq;
+            event._trace_id = trace.id;
+            event._trace_seq = nextSeq;
+            event._trace_role = trace.role;
+            event._trace_hue = trace.hue;
+            event._trace_color = trace.color;
+            event._trace_caller_slot = trace.callerSlot;
+            event._trace_target_slot = trace.targetSlot;
+        }
+
         _activityLog.push(event);
         if (_activityLog.length > 500) _activityLog = _activityLog.slice(-500);
         if (event.tool === 'workflow_execute' || event.tool === 'workflow_status') {
@@ -2134,7 +2221,10 @@
         // Echo to slot drill-in activity feed if open
         if (_slotDrill.active) {
             var targetSlot = event.args && (event.args.slot !== undefined ? event.args.slot : -1);
-            if (targetSlot === _slotDrill.slotIndex || targetSlot === -1) {
+            var ownerSession = event.args && (event.args._agent_session || event.args.session_id || '');
+            var ownerSlot = _parseAgentSessionSlot(ownerSession);
+            if (ownerSlot < 0 && event._trace_caller_slot !== undefined) ownerSlot = parseInt(event._trace_caller_slot, 10);
+            if (targetSlot === _slotDrill.slotIndex || ownerSlot === _slotDrill.slotIndex || targetSlot === -1) {
                 _slotDrillActivity.push(event);
                 _renderSlotActivityFeed();
             }
@@ -2218,56 +2308,95 @@
         }
         // ── AGENT-INNER → LIVE CHAT TIMELINE BRIDGE ──
         // Progressive rendering: server-side orchestrator broadcasts each step
-        // in real time via SSE.  Inject into the chat tab as it happens.
+        // in real time via SSE. Mirror delegated slot calls so both caller and
+        // callee tabs stay in chronological parity.
         if (event.source === 'agent-inner' && event.tool) {
             var innerSession = (event.args && event.args._agent_session) || (event.args && event.args.session_id) || '';
-            var innerSlot = -1;
-            if (innerSession) {
-                var parts = innerSession.split(':');
-                if (parts.length >= 2 && !isNaN(parseInt(parts[1], 10))) innerSlot = parseInt(parts[1], 10);
-            }
-            if (innerSlot < 0 && event.args && event.args.slot !== undefined) innerSlot = parseInt(event.args.slot, 10);
-            var innerTab = (innerSlot >= 0) ? _ensureAchatTab(innerSlot) : _getActiveAchatTab();
+            var callerSlot = _parseAgentSessionSlot(innerSession);
+            if (callerSlot < 0 && event._trace_caller_slot !== undefined) callerSlot = parseInt(event._trace_caller_slot, 10);
 
-            if (innerTab) {
-                // Track that SSE already showed these steps so HTTP response doesn't dump duplicates
+            var rawTargetSlot = (event.args && event.args.slot !== undefined) ? event.args.slot : -1;
+            var targetSlotNum = parseInt(rawTargetSlot, 10);
+            if (isNaN(targetSlotNum)) targetSlotNum = -1;
+
+            var slotScopedTools = ['invoke_slot', 'agent_chat', 'chat', 'generate', 'classify'];
+            var mirrorToTarget = (targetSlotNum >= 0 && slotScopedTools.indexOf(event.tool) >= 0 && targetSlotNum !== callerSlot);
+
+            var routedTabs = [];
+            var _addRoutedTab = function(slotIdx, role) {
+                if (!(slotIdx >= 0)) return;
+                for (var rt = 0; rt < routedTabs.length; rt++) {
+                    if (routedTabs[rt].slot === slotIdx) return;
+                }
+                var tabObj = _ensureAchatTab(slotIdx);
+                if (tabObj) routedTabs.push({ slot: slotIdx, role: role, tab: tabObj });
+            };
+
+            _addRoutedTab(callerSlot, 'caller');
+            if (mirrorToTarget) _addRoutedTab(targetSlotNum, 'target');
+            if (!routedTabs.length) {
+                var fallbackTab = _getActiveAchatTab();
+                if (fallbackTab) routedTabs.push({ slot: fallbackTab.slot, role: 'fallback', tab: fallbackTab });
+            }
+
+            var isStart = !!(event.result && typeof event.result === 'object' && event.result._phase === 'start');
+            var isReasoning = !!(event.args && event.args._phase === 'reasoning');
+
+            // Clean args for display: strip internal tracking fields
+            var _cleanArgs = function(a) {
+                if (!a || typeof a !== 'object') return a;
+                var c = {};
+                for (var k in a) { if (k.charAt(0) !== '_') c[k] = a[k]; }
+                return c;
+            };
+
+            var _eventSig = [
+                String(event.tool || ''),
+                isStart ? 'start' : 'end',
+                String(event.timestamp || ''),
+                String(event.durationMs || ''),
+                innerSession,
+                event.args ? JSON.stringify(event.args) : ''
+            ].join('|');
+
+            for (var rrIdx = 0; rrIdx < routedTabs.length; rrIdx++) {
+                var routed = routedTabs[rrIdx];
+                var innerTab = routed.tab;
+                if (!innerTab) continue;
+
+                // Dedupe occasional mirrored/replayed SSE events per tab.
+                var _tabSig = routed.role + '|' + _eventSig;
+                if (innerTab._lastInnerSig === _tabSig) continue;
+                innerTab._lastInnerSig = _tabSig;
+
                 if (!innerTab._sseToolCount) innerTab._sseToolCount = 0;
 
-                var isStart = !!(event.result && typeof event.result === 'object' && event.result._phase === 'start');
-                var isReasoning = !!(event.args && event.args._phase === 'reasoning');
-                var dur = event.durationMs > 0 ? ' (' + event.durationMs + 'ms)' : '';
-                // Clean args for display: strip internal tracking fields
-                var _cleanArgs = function(a) {
-                    if (!a || typeof a !== 'object') return a;
-                    var c = {};
-                    for (var k in a) { if (k.charAt(0) !== '_') c[k] = a[k]; }
-                    return c;
-                };
+                var flowPrefix = '';
+                if (routed.role === 'target' && callerSlot >= 0) {
+                    flowPrefix = '↳ S' + (callerSlot + 1) + ' delegated · ';
+                } else if (routed.role === 'caller' && mirrorToTarget) {
+                    flowPrefix = '↦ S' + (targetSlotNum + 1) + ' · ';
+                }
 
                 if (isReasoning) {
                     var iterNum = (event.args && event.args.iteration) || '?';
-                    // The result is already parsed by activity broadcast (not MCP-wrapped)
                     var rObj = (typeof event.result === 'object' && event.result !== null && !event.result.content)
                         ? event.result : {};
-                    // Fallback: try extracting from MCP envelope
                     if (!rObj.iteration && event.result && event.result.content) {
-                        try {
-                            var t = event.result.content[0].text;
-                            rObj = JSON.parse(t);
-                        } catch (e2) {}
+                        try { rObj = JSON.parse(event.result.content[0].text); } catch (e2) { }
                     }
                     if (rObj.iteration) iterNum = rObj.iteration;
                     var stepMs = rObj.step_ms ? ' ' + rObj.step_ms + 'ms' : '';
                     var preview = String(rObj.model_output_preview || '').substring(0, 200);
                     if (preview) {
-                        _appendAchatMsg('system-info', '🧠 Step ' + iterNum + stepMs + ' — ' + preview, Date.now(), innerTab);
+                        _appendAchatMsg('system-info', '🧠 ' + flowPrefix + 'Step ' + iterNum + stepMs + ' — ' + preview, Date.now(), innerTab);
                     } else {
-                        _appendAchatMsg('system-info', '🧠 Step ' + iterNum + stepMs + ' — thinking…', Date.now(), innerTab);
+                        _appendAchatMsg('system-info', '🧠 ' + flowPrefix + 'Step ' + iterNum + stepMs + ' — thinking…', Date.now(), innerTab);
                     }
                 } else if (isStart && event.tool !== 'agent_chat') {
                     var argStr = '';
-                    try { argStr = JSON.stringify(_cleanArgs(event.args) || {}).substring(0, 250); } catch (e3) {}
-                    _appendAchatMsg('tool-trace', '🔧 ' + event.tool + ' ' + argStr, Date.now(), innerTab);
+                    try { argStr = JSON.stringify(_cleanArgs(event.args) || {}).substring(0, 250); } catch (e3) { }
+                    _appendAchatMsg('tool-trace', flowPrefix + '🔧 ' + event.tool + ' ' + argStr, Date.now(), innerTab);
                 } else if (!isStart && event.tool !== 'agent_chat') {
                     innerTab._sseToolCount = (innerTab._sseToolCount || 0) + 1;
                     var _sess = (event.args && event.args._agent_session) || '';
@@ -2283,7 +2412,10 @@
                         iteration: (event.args && event.args._agent_iteration !== undefined)
                             ? event.args._agent_iteration
                             : ((event.args && event.args.iteration !== undefined) ? event.args.iteration : undefined),
-                        durationMs: event.durationMs || 0
+                        durationMs: event.durationMs || 0,
+                        caller_slot: callerSlot,
+                        target_slot: targetSlotNum,
+                        trace_id: event._trace_id || innerSession || ''
                     };
 
                     if (event.error) {
@@ -2347,6 +2479,21 @@
         detailLines.push('Duration');
         detailLines.push(String(e.durationMs || 0) + 'ms');
         detailLines.push('');
+
+        var traceId = String(e._trace_id || '');
+        if (traceId) {
+            detailLines.push('Trace');
+            var traceSummary = traceId;
+            if (e._trace_seq !== undefined) traceSummary += ' #' + String(e._trace_seq);
+            if (e._trace_caller_slot >= 0 && e._trace_target_slot >= 0 && e._trace_caller_slot !== e._trace_target_slot) {
+                traceSummary += ' · S' + (e._trace_caller_slot + 1) + '→S' + (e._trace_target_slot + 1);
+            } else if (e._trace_caller_slot >= 0) {
+                traceSummary += ' · S' + (e._trace_caller_slot + 1);
+            }
+            if (e._trace_role) traceSummary += ' · ' + String(e._trace_role);
+            detailLines.push(traceSummary);
+            detailLines.push('');
+        }
 
         if (hasError) {
             detailLines.push('Error');
@@ -2426,8 +2573,23 @@
             sourceBadge = '<span class="activity-cat" style="border-color:' + clientColor + ';color:' + clientColor + ';">' + escHtml(clientLabel) + '</span>';
         }
 
+        var traceBadge = '';
+        if (e._trace_id) {
+            var traceColor = String(e._trace_color || ('hsl(' + (parseInt(e._trace_hue || 180, 10) || 180) + ', 78%, 58%)'));
+            var shortTrace = String(e._trace_id).split(':').slice(-1)[0] || String(e._trace_id).substring(0, 10);
+            if (shortTrace.length > 10) shortTrace = shortTrace.substring(0, 10);
+            var roleTag = e._trace_role ? (' · ' + String(e._trace_role)) : '';
+            var seqTag = (e._trace_seq !== undefined) ? ('#' + String(e._trace_seq)) : '';
+            traceBadge = '<span class="activity-cat" style="border-color:' + traceColor + ';color:' + traceColor + ';">TRACE ' + escHtml(seqTag + roleTag + ' ' + shortTrace).trim() + '</span>';
+        }
+
         var div = document.createElement('div');
         div.className = 'activity-entry';
+        if (e._trace_id) {
+            var traceColorEdge = String(e._trace_color || ('hsl(' + (parseInt(e._trace_hue || 180, 10) || 180) + ', 78%, 58%)'));
+            div.style.borderLeft = '3px solid ' + traceColorEdge;
+            div.style.paddingLeft = '9px';
+        }
         div.onclick = function () {
             var sel = window.getSelection();
             if (sel && sel.toString().length > 0) return;
@@ -2438,6 +2600,7 @@
             '<span class="activity-tool">' + _actEsc(e.tool) + '</span>' +
             '<span class="activity-cat">' + _actEsc(e.category) + '</span>' +
             sourceBadge +
+            traceBadge +
             '<span class="activity-duration">' + (e.durationMs || 0) + 'ms</span>' +
             (hasError ? ' <span style="color:var(--red);">ERR</span>' : '') +
             '<span class="activity-expand-hint">click to expand</span>' +
@@ -9236,6 +9399,16 @@
                     var err = !!tc.error;
                     var iterLabel = tc.iteration !== undefined ? 'Iteration ' + tc.iteration : '';
                     var statusBadge = '<span class="tc-badge ' + (err ? 'tc-badge-err' : 'tc-badge-ok') + '">' + (err ? 'ERROR' : 'OK') + '</span>';
+                    var callerSlot = parseInt(tc.caller_slot, 10);
+                    var targetSlot = parseInt(tc.target_slot, 10);
+                    var flowLabel = '';
+                    if (!isNaN(callerSlot) && !isNaN(targetSlot) && callerSlot >= 0 && targetSlot >= 0 && callerSlot !== targetSlot) {
+                        flowLabel = 'S' + (callerSlot + 1) + '→S' + (targetSlot + 1);
+                    } else if (!isNaN(callerSlot) && callerSlot >= 0) {
+                        flowLabel = 'S' + (callerSlot + 1);
+                    }
+                    var traceShort = tc.trace_id ? String(tc.trace_id).split(':').slice(-1)[0] : '';
+                    if (traceShort && traceShort.length > 8) traceShort = traceShort.substring(0, 8);
                     var argsStr = tc.args ? JSON.stringify(tc.args, null, 2) : '{}';
                     var resultStr = '';
                     if (tc.error) {
@@ -9249,6 +9422,8 @@
                         '<span class="tc-name">' + escHtml(name) + '</span> ' +
                         statusBadge +
                         (iterLabel ? ' <span class="tc-iter">' + escHtml(iterLabel) + '</span>' : '') +
+                        (flowLabel ? ' <span class="tc-iter">' + escHtml(flowLabel) + '</span>' : '') +
+                        (traceShort ? ' <span class="tc-iter">' + escHtml('#' + traceShort) + '</span>' : '') +
                         '</div>';
                     if (argsStr !== '{}') {
                         html += '<details class="tc-details"><summary>Arguments</summary><pre class="tc-pre">' + escHtml(argsStr) + '</pre></details>';
