@@ -245,6 +245,446 @@ def _parse_mcp_result_payload(result: dict | None) -> dict | None:
     return result
 
 
+def _workflow_load_definition(definition) -> tuple[dict | None, str | None]:
+    obj = definition
+    if isinstance(obj, str):
+        try:
+            obj = json.loads(obj)
+        except Exception as e:
+            return None, f"Invalid workflow definition JSON: {e}"
+    if not isinstance(obj, dict):
+        return None, "Workflow definition must be a JSON object"
+    return obj, None
+
+
+def _workflow_validate_definition(definition) -> tuple[dict | None, str | None]:
+    obj, err = _workflow_load_definition(definition)
+    if err:
+        return None, err
+
+    normalized = normalize_workflow_nodes(obj)
+    if isinstance(normalized, str):
+        try:
+            normalized = json.loads(normalized)
+        except Exception as e:
+            return None, f"normalize_workflow_nodes returned invalid JSON: {e}"
+    if not isinstance(normalized, dict):
+        return None, "normalize_workflow_nodes returned non-object"
+
+    wf_id = str(normalized.get("id") or "").strip()
+    if not wf_id:
+        return None, "Workflow definition requires non-empty 'id'"
+
+    nodes = normalized.get("nodes")
+    if not isinstance(nodes, list) or not nodes:
+        return None, "Workflow definition requires a non-empty 'nodes' array"
+
+    node_ids = set()
+    for idx, node in enumerate(nodes):
+        if not isinstance(node, dict):
+            return None, f"Node at index {idx} must be an object"
+        nid = str(node.get("id") or "").strip()
+        if not nid:
+            return None, f"Node at index {idx} is missing non-empty 'id'"
+        if nid in node_ids:
+            return None, f"Duplicate node id: {nid}"
+        node_ids.add(nid)
+
+        ntype = str(node.get("type") or "").strip().lower()
+        if not ntype:
+            return None, f"Node '{nid}' is missing non-empty 'type'"
+
+        if ntype == "tool":
+            tool_name = str(
+                node.get("tool_name")
+                or node.get("tool")
+                or (node.get("parameters") or {}).get("tool")
+                or ""
+            ).strip()
+            if not tool_name:
+                return None, f"Tool node '{nid}' is missing tool/tool_name"
+        elif ntype == "parallel":
+            children = node.get("nodes")
+            if not isinstance(children, list) or not children:
+                return None, f"Parallel node '{nid}' requires non-empty 'nodes'"
+            for cidx, child in enumerate(children):
+                if not isinstance(child, dict):
+                    return None, f"Parallel node '{nid}' child index {cidx} must be object"
+                cid = str(child.get("id") or f"{nid}_child_{cidx}").strip()
+                ctype = str(child.get("type") or "").strip().lower()
+                if not ctype:
+                    return None, f"Parallel node '{nid}' child '{cid}' missing type"
+                if ctype != "tool":
+                    return None, f"Parallel node '{nid}' child '{cid}' currently supports only type='tool'"
+                ctool = str(
+                    child.get("tool_name")
+                    or child.get("tool")
+                    or (child.get("parameters") or {}).get("tool")
+                    or ""
+                ).strip()
+                if not ctool:
+                    return None, f"Parallel node '{nid}' child '{cid}' missing tool/tool_name"
+        elif ntype == "fan_out":
+            params = node.get("parameters") if isinstance(node.get("parameters"), dict) else {}
+            targets = params.get("targets")
+            if not isinstance(targets, list) or not targets:
+                return None, f"fan_out node '{nid}' requires parameters.targets[]"
+            for tidx, target in enumerate(targets):
+                if not isinstance(target, dict):
+                    return None, f"fan_out node '{nid}' target index {tidx} must be object"
+                try:
+                    int(target.get("slot"))
+                except Exception:
+                    return None, f"fan_out node '{nid}' target index {tidx} missing valid integer slot"
+        elif ntype in ("sequential", "if", "switch"):
+            pass
+        else:
+            return None, f"Unknown node type: {ntype} (node '{nid}')"
+
+    return normalized, None
+
+
+def _workflow_local_proxy_tool_names() -> set[str]:
+    return {
+        "agent_delegate",
+        "agent_chat_inject",
+        "agent_chat_sessions",
+        "agent_chat_result",
+        "agent_chat_purge",
+        "workflow_execute",
+        "hf_cache_status",
+        "hf_cache_clear",
+        "capsule_restart",
+        "persist_status",
+        "persist_restore_revision",
+    }
+
+
+def _workflow_node_list(workflow_def: dict) -> list[dict]:
+    nodes = workflow_def.get("nodes")
+    return nodes if isinstance(nodes, list) else []
+
+
+async def _workflow_call_local_proxy_tool(tool_name: str, args: dict, source: str, client_id: str | None):
+    if tool_name == "agent_chat_inject":
+        payload = _agent_inject_message(args, source=source, client_id=client_id)
+        return payload, payload.get("error") if isinstance(payload, dict) else None
+    if tool_name == "agent_chat_sessions":
+        payload = _agent_session_snapshot(args)
+        return payload, None
+    if tool_name == "agent_chat_result":
+        payload = _agent_session_result(args)
+        return payload, payload.get("error") if isinstance(payload, dict) else None
+    if tool_name == "agent_chat_purge":
+        payload = _agent_session_purge(args)
+        return payload, None
+    if tool_name == "agent_delegate":
+        try:
+            caller_slot = int(args.get("caller_slot", -1)) if str(args.get("caller_slot", "")).strip() else -1
+        except Exception:
+            caller_slot = -1
+        try:
+            caller_depth = int(args.get("_agent_depth", 0) or 0)
+        except Exception:
+            caller_depth = 0
+        payload, err = await _agent_delegate_call(
+            caller_slot=caller_slot,
+            caller_session_id=str(args.get("caller_session_id", "workflow-exec") or "workflow-exec"),
+            caller_depth=caller_depth,
+            called_args=args,
+            source=source,
+            client_id=client_id,
+            call_tool_fn=_call_tool,
+            list_tools_fn=_list_tools,
+            parse_result_fn=_parse_mcp_result_payload,
+            normalize_args_fn=_normalize_proxy_tool_args,
+            broadcast_fn=lambda **kw: activity_hub.add_entry(**kw),
+        )
+        return payload, err
+    return None, f"Unsupported local proxy workflow tool: {tool_name}"
+
+
+async def _workflow_proxy_call_tool(tool_name: str, args: dict, source: str, client_id: str | None):
+    start = time.time()
+    tname = str(tool_name or "").strip()
+    if not tname:
+        return None, "Missing tool name", 0
+
+    normalized_args = _normalize_proxy_tool_args(tname, args if isinstance(args, dict) else {})
+
+    if tname in _workflow_local_proxy_tool_names():
+        payload, err = await _workflow_call_local_proxy_tool(tname, normalized_args, source=source, client_id=client_id)
+        duration_ms = int((time.time() - start) * 1000)
+        return payload, err, duration_ms
+
+    raw = await _call_tool(tname, normalized_args)
+    parsed = _parse_mcp_result_payload(raw.get("result") if isinstance(raw, dict) else None)
+    err = None
+    if isinstance(raw, dict):
+        err = raw.get("error")
+    if not err and isinstance(parsed, dict):
+        err = parsed.get("error")
+    duration_ms = int((time.time() - start) * 1000)
+    return parsed, str(err) if err else None, duration_ms
+
+
+def _workflow_apply_embed_reroute(workflow_def: dict) -> dict:
+    if not _WORKFLOW_EMBED_AUTOREROUTE:
+        return workflow_def
+
+    patched = json.loads(json.dumps(workflow_def))
+
+    def _patch_tool_node(node: dict):
+        if not isinstance(node, dict):
+            return
+        ntype = str(node.get("type") or "").strip().lower()
+        if ntype != "tool":
+            return
+        tool_name = str(node.get("tool_name") or node.get("tool") or "").strip()
+        if tool_name != "embed_text":
+            return
+
+        params = node.get("parameters") if isinstance(node.get("parameters"), dict) else {}
+        slot_hint = params.get("slot")
+        if slot_hint is None:
+            return
+
+        try:
+            slot_idx = int(slot_hint)
+        except Exception:
+            return
+
+        texts = []
+        if "text" in params:
+            texts = [str(params.get("text", ""))]
+        elif "texts" in params and isinstance(params.get("texts"), list):
+            texts = [str(t) for t in params.get("texts")]
+        if not texts:
+            return
+
+        node["tool_name"] = "invoke_slot"
+        node["tool"] = "invoke_slot"
+        node["parameters"] = {
+            "slot": slot_idx,
+            "mode": "embed",
+            "text": texts[0],
+        }
+
+    for n in _workflow_node_list(patched):
+        ntype = str(n.get("type") or "").strip().lower()
+        if ntype == "tool":
+            _patch_tool_node(n)
+        elif ntype == "parallel":
+            children = n.get("nodes") if isinstance(n.get("nodes"), list) else []
+            for c in children:
+                _patch_tool_node(c)
+        elif ntype == "fan_out":
+            params = n.get("parameters") if isinstance(n.get("parameters"), dict) else {}
+            tool_name = str(params.get("tool") or params.get("tool_name") or "").strip()
+            if tool_name == "embed_text":
+                params["tool"] = "invoke_slot"
+                params["tool_name"] = "invoke_slot"
+                extra = params.get("args") if isinstance(params.get("args"), dict) else {}
+                if "text" in extra:
+                    text_val = str(extra.get("text", ""))
+                elif isinstance(extra.get("texts"), list) and extra.get("texts"):
+                    text_val = str(extra.get("texts")[0])
+                else:
+                    text_val = ""
+                params["args"] = {"mode": "embed", "text": text_val}
+                n["parameters"] = params
+
+    return patched
+
+
+def _workflow_proxy_requires_parallel_provider_fanout(workflow_def: dict) -> bool:
+    for n in _workflow_node_list(workflow_def):
+        ntype = str(n.get("type") or "").strip().lower()
+        if ntype == "fan_out":
+            return True
+        if ntype == "parallel":
+            children = n.get("nodes") if isinstance(n.get("nodes"), list) else []
+            if len(children) > 1:
+                return True
+    return False
+
+
+async def _execute_proxy_workflow(workflow_id: str, workflow_def: dict, input_data: dict | None, source: str, client_id: str | None) -> dict:
+    ctx = {
+        "input": input_data if isinstance(input_data, dict) else {},
+        "nodes": {},
+        "workflow_id": workflow_id,
+    }
+
+    async def _exec_tool_node(node: dict):
+        nid = str(node.get("id") or "")
+        params = node.get("parameters") if isinstance(node.get("parameters"), dict) else {}
+        tool_name = str(node.get("tool_name") or node.get("tool") or params.get("tool") or "").strip()
+        call_args = params.get("args") if isinstance(params.get("args"), dict) else {}
+        if not call_args:
+            call_args = {k: v for k, v in params.items() if k not in ("tool", "tool_name", "args")}
+        payload, err, duration_ms = await _workflow_proxy_call_tool(tool_name, call_args, source=source, client_id=client_id)
+        out = {
+            "id": nid,
+            "type": "tool",
+            "tool": tool_name,
+            "args": call_args,
+            "duration_ms": duration_ms,
+            "error": err,
+            "output": payload,
+        }
+        ctx["nodes"][nid] = out
+        return out
+
+    async def _exec_parallel_node(node: dict):
+        nid = str(node.get("id") or "")
+        children = node.get("nodes") if isinstance(node.get("nodes"), list) else []
+
+        async def _run_child(child: dict):
+            cnode = dict(child)
+            if "type" not in cnode:
+                cnode["type"] = "tool"
+            return await _exec_node(cnode)
+
+        results = await asyncio.gather(*[_run_child(c) for c in children], return_exceptions=True)
+        mapped = []
+        for r in results:
+            if isinstance(r, Exception):
+                mapped.append({"error": str(r)})
+            else:
+                mapped.append(r)
+        out = {
+            "id": nid,
+            "type": "parallel",
+            "children": mapped,
+        }
+        ctx["nodes"][nid] = out
+        return out
+
+    async def _exec_fan_out_node(node: dict):
+        nid = str(node.get("id") or "")
+        params = node.get("parameters") if isinstance(node.get("parameters"), dict) else {}
+        targets = params.get("targets") if isinstance(params.get("targets"), list) else []
+        tool_name = str(params.get("tool") or params.get("tool_name") or "invoke_slot").strip() or "invoke_slot"
+        args_template = params.get("args") if isinstance(params.get("args"), dict) else {}
+
+        async def _run_target(target: dict):
+            targ = target if isinstance(target, dict) else {}
+            merged = dict(args_template)
+            for k, v in targ.items():
+                if k in ("slot", "max_tokens", "mode", "text", "message"):
+                    merged[k] = v
+            if tool_name == "invoke_slot" and "slot" not in merged and targ.get("slot") is not None:
+                merged["slot"] = targ.get("slot")
+            payload, err, duration_ms = await _workflow_proxy_call_tool(tool_name, merged, source=source, client_id=client_id)
+            return {
+                "target": targ,
+                "tool": tool_name,
+                "args": merged,
+                "duration_ms": duration_ms,
+                "error": err,
+                "output": payload,
+            }
+
+        outputs = await asyncio.gather(*[_run_target(t) for t in targets], return_exceptions=True)
+        normalized = []
+        for o in outputs:
+            if isinstance(o, Exception):
+                normalized.append({"error": str(o)})
+            else:
+                normalized.append(o)
+
+        out = {
+            "id": nid,
+            "type": "fan_out",
+            "count": len(normalized),
+            "outputs": normalized,
+        }
+        ctx["nodes"][nid] = out
+        return out
+
+    async def _exec_node(node: dict):
+        ntype = str(node.get("type") or "").strip().lower()
+        if ntype == "tool":
+            return await _exec_tool_node(node)
+        if ntype == "parallel":
+            return await _exec_parallel_node(node)
+        if ntype == "fan_out":
+            return await _exec_fan_out_node(node)
+        return {
+            "id": str(node.get("id") or ""),
+            "type": ntype,
+            "error": f"Unsupported proxy-executed node type: {ntype}",
+        }
+
+    outputs = []
+    for node in _workflow_node_list(workflow_def):
+        outputs.append(await _exec_node(node))
+
+    failed = []
+    for item in outputs:
+        if isinstance(item, dict):
+            if item.get("error"):
+                failed.append(item)
+            if item.get("type") in ("fan_out", "parallel"):
+                for child in item.get("outputs", item.get("children", [])):
+                    if isinstance(child, dict) and child.get("error"):
+                        failed.append(child)
+
+    return {
+        "status": "ok" if not failed else "partial",
+        "workflow_id": workflow_id,
+        "execution_mode": "proxy",
+        "outputs": outputs,
+        "errors": failed,
+        "node_count": len(_workflow_node_list(workflow_def)),
+        "input": input_data if isinstance(input_data, dict) else {},
+    }
+
+
+async def _maybe_execute_workflow_proxy(args: dict, source: str, client_id: str | None) -> dict | None:
+    if not _WORKFLOW_PROXY_EXECUTION_ENABLED:
+        return None
+    if not isinstance(args, dict):
+        return None
+
+    workflow_id = str(args.get("workflow_id") or "").strip()
+    if not workflow_id:
+        return None
+
+    wf_get_raw = await _call_tool("workflow_get", {"workflow_id": workflow_id})
+    wf_get = _parse_mcp_result_payload((wf_get_raw or {}).get("result") if isinstance(wf_get_raw, dict) else None)
+    if not isinstance(wf_get, dict):
+        return None
+
+    definition = wf_get.get("workflow") or wf_get.get("definition")
+    if isinstance(definition, str):
+        try:
+            definition = json.loads(definition)
+        except Exception:
+            return None
+    if not isinstance(definition, dict):
+        return None
+
+    normalized, err = _workflow_validate_definition(definition)
+    if err:
+        return {"error": err, "workflow_id": workflow_id}
+
+    normalized = _workflow_apply_embed_reroute(normalized)
+
+    if not _workflow_proxy_requires_parallel_provider_fanout(normalized):
+        return None
+
+    input_data = args.get("input_data")
+    if isinstance(input_data, str):
+        try:
+            input_data = json.loads(input_data)
+        except Exception:
+            input_data = {"text": input_data}
+
+    return await _execute_proxy_workflow(workflow_id, normalized, input_data if isinstance(input_data, dict) else {}, source=source, client_id=client_id)
+
+
 async def _slot_ready_guard(tool_name: str, args: dict | None) -> dict | None:
     if tool_name not in _SLOT_READY_TOOLS:
         return None
@@ -647,14 +1087,14 @@ _slot_exec_active: dict[int, dict] = {}
 # ═══════════════════════════════════════════════════════════════════════
 
 _AGENT_BLOCKED_TOOLS = frozenset({
-    "workflow_execute", "start_api_server", "implode", "defrost",
+    "start_api_server", "implode", "defrost",
     "spawn_quine", "spawn_swarm", "replicate", "export_quine",
     "agent_chat",  # prevent direct self-recursive nesting (use agent_delegate)
 })
 
 _AGENT_DEFAULT_GRANTED = [
     "get_status", "list_slots", "slot_info", "get_capabilities", "embed_text",
-    "invoke_slot", "call", "agent_delegate", "agent_chat_inject", "agent_chat_sessions",
+    "invoke_slot", "call", "agent_delegate", "agent_chat_inject", "agent_chat_sessions", "agent_chat_result", "agent_chat_purge",
     "bag_get", "bag_put", "bag_search", "bag_catalog", "bag_induct",
     "bag_read_doc", "bag_list_docs", "bag_search_docs", "bag_tree",
     "bag_versions", "bag_diff", "bag_checkpoint", "bag_restore",
@@ -667,7 +1107,7 @@ _AGENT_DEFAULT_GRANTED = [
     "cascade_graph", "cascade_chain", "cascade_data", "cascade_system",
     "cascade_record", "diagnose_file", "diagnose_directory",
     "symbiotic_interpret", "trace_root_causes", "forensics_analyze",
-    "metrics_analyze", "workflow_list", "workflow_get", "workflow_status",
+    "metrics_analyze", "workflow_list", "workflow_get", "workflow_status", "workflow_execute",
 ]
 
 _AGENT_MAX_DELEGATION_DEPTH = max(1, int(os.environ.get("AGENT_MAX_DELEGATION_DEPTH", "3")))
@@ -683,6 +1123,15 @@ _AGENT_CONTEXT_WINDOW_DEFAULT = max(5, int(os.environ.get("AGENT_CONTEXT_WINDOW_
 _AGENT_CONTEXT_WINDOW_MAX = max(_AGENT_CONTEXT_WINDOW_DEFAULT, int(os.environ.get("AGENT_CONTEXT_WINDOW_MAX", "200")))
 _AGENT_CONTEXT_SUMMARY_MAX_CHARS = max(500, int(os.environ.get("AGENT_CONTEXT_SUMMARY_MAX_CHARS", "4000")))
 _AGENT_CONTEXT_ARCHIVE_MAX_ITEMS = max(4, int(os.environ.get("AGENT_CONTEXT_ARCHIVE_MAX_ITEMS", "64")))
+_AGENT_SESSION_RETENTION_MAX = max(20, int(os.environ.get("AGENT_SESSION_RETENTION_MAX", "200")))
+_AGENT_SESSION_RETENTION_SEC = max(60, int(os.environ.get("AGENT_SESSION_RETENTION_SEC", "3600")))
+
+_PROVIDER_RETRY_ENABLED = str(os.environ.get("PROVIDER_RETRY_ENABLED", "1")).strip().lower() not in ("0", "false", "no", "off")
+_PROVIDER_RETRY_MAX_ATTEMPTS = max(1, int(os.environ.get("PROVIDER_RETRY_MAX_ATTEMPTS", "3")))
+_PROVIDER_RETRY_BASE_DELAY_MS = max(50, int(os.environ.get("PROVIDER_RETRY_BASE_DELAY_MS", "200")))
+
+_WORKFLOW_PROXY_EXECUTION_ENABLED = str(os.environ.get("WORKFLOW_PROXY_EXECUTION_ENABLED", "1")).strip().lower() not in ("0", "false", "no", "off")
+_WORKFLOW_EMBED_AUTOREROUTE = str(os.environ.get("WORKFLOW_EMBED_AUTOREROUTE", "1")).strip().lower() not in ("0", "false", "no", "off")
 
 _AGENT_LOCAL_TOOL_SPECS = {
     "agent_delegate": {
@@ -724,6 +1173,27 @@ _AGENT_LOCAL_TOOL_SPECS = {
                 "slot": {"type": "integer", "description": "Optional slot filter"},
                 "active_only": {"type": "boolean", "description": "Show only active sessions"},
                 "limit": {"type": "integer", "description": "Max sessions to return"},
+            },
+        },
+    },
+    "agent_chat_result": {
+        "description": "Fetch latest result/state for an agent_chat session (timeout reconciliation).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "session_id": {"type": "string", "description": "Agent session id"},
+                "slot": {"type": "integer", "description": "Optional slot filter when session_id omitted"},
+            },
+        },
+    },
+    "agent_chat_purge": {
+        "description": "Purge inactive agent_chat sessions to control memory/retention.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "older_than_seconds": {"type": "integer", "description": "Delete inactive sessions older than N seconds (default retention)"},
+                "limit": {"type": "integer", "description": "Max sessions to purge in one call"},
+                "slot": {"type": "integer", "description": "Optional slot filter"},
             },
         },
     },
@@ -865,9 +1335,36 @@ def _agent_gc_sessions(now_ms: int | None = None) -> dict:
             sess["updated_ts"] = now
             _agent_sessions[sid] = sess
 
+    pruned_inactive = 0
+    inactive_cutoff_ms = now - int(_AGENT_SESSION_RETENTION_SEC * 1000)
+    for sid, sess in list(_agent_sessions.items()):
+        if not isinstance(sess, dict):
+            continue
+        if bool(sess.get("active", False)):
+            continue
+        updated_ts = int(sess.get("updated_ts") or sess.get("last_active_ts") or 0)
+        if updated_ts and updated_ts < inactive_cutoff_ms:
+            _agent_sessions.pop(sid, None)
+            pruned_inactive += 1
+
+    if len(_agent_sessions) > _AGENT_SESSION_RETENTION_MAX:
+        rows = []
+        for sid, sess in _agent_sessions.items():
+            if not isinstance(sess, dict):
+                continue
+            ts = int(sess.get("updated_ts") or sess.get("last_active_ts") or 0)
+            active = bool(sess.get("active", False))
+            rows.append((active, ts, sid))
+        rows.sort(key=lambda r: (1 if r[0] else 0, r[1]), reverse=True)
+        for _, _, sid in rows[_AGENT_SESSION_RETENTION_MAX:]:
+            if sid in _agent_sessions and not bool((_agent_sessions.get(sid) or {}).get("active", False)):
+                _agent_sessions.pop(sid, None)
+                pruned_inactive += 1
+
     return {
         "expired": expired,
         "cleared_inboxes": cleared_inboxes,
+        "pruned_inactive": pruned_inactive,
         "session_count": len(_agent_sessions),
     }
 
@@ -1103,6 +1600,125 @@ def _agent_session_snapshot(args: dict | None = None) -> dict:
     }
 
 
+def _agent_session_result(args: dict | None = None) -> dict:
+    _agent_gc_sessions()
+    args = args or {}
+    sid_req = str(args.get("session_id", "") or "").strip()
+    slot_filter = args.get("slot", None)
+    try:
+        slot_filter = int(slot_filter) if slot_filter is not None else None
+    except Exception:
+        slot_filter = None
+
+    sid, sess = _agent_select_session(sid_req, slot_filter, active_preferred=True, strict_id=bool(sid_req))
+    if not sid or not isinstance(sess, dict):
+        return {
+            "error": f"Session not found: {sid_req}" if sid_req else "No matching session",
+            "session_id": sid_req or None,
+            "slot": slot_filter,
+        }
+
+    turns = sess.get("turns") if isinstance(sess.get("turns"), list) else []
+    last_assistant = ""
+    for t in reversed(turns):
+        if isinstance(t, dict) and str(t.get("role", "")) == "assistant":
+            last_assistant = str(t.get("content", "") or "")
+            break
+
+    return {
+        "session_id": sid,
+        "slot": sess.get("slot"),
+        "active": bool(sess.get("active", False)),
+        "updated_ts": int(sess.get("updated_ts") or sess.get("last_active_ts") or 0),
+        "started_ts": int(sess.get("started_ts") or 0),
+        "turn_count": len(turns),
+        "pending_messages": len(sess.get("inbox") if isinstance(sess.get("inbox"), list) else []),
+        "terminated_reason": sess.get("terminated_reason"),
+        "delegation_depth": int(sess.get("delegation_depth") or 0),
+        "parent_session_id": str(sess.get("parent_session_id") or ""),
+        "source": sess.get("source"),
+        "client_id": sess.get("client_id"),
+        "context_strategy": sess.get("context_strategy"),
+        "context_window_size": sess.get("context_window_size"),
+        "context_compactions": int(sess.get("context_compactions") or 0),
+        "context_dropped_messages": int(sess.get("context_dropped_messages") or 0),
+        "last_assistant": last_assistant,
+        "history_tail": turns[-12:],
+    }
+
+
+def _agent_session_purge(args: dict | None = None) -> dict:
+    _agent_gc_sessions()
+    args = args or {}
+    now = int(time.time() * 1000)
+
+    try:
+        older_than_seconds = int(args.get("older_than_seconds", _AGENT_SESSION_RETENTION_SEC) or _AGENT_SESSION_RETENTION_SEC)
+    except Exception:
+        older_than_seconds = _AGENT_SESSION_RETENTION_SEC
+    older_than_seconds = max(10, older_than_seconds)
+
+    try:
+        purge_limit = int(args.get("limit", _AGENT_SESSION_RETENTION_MAX) or _AGENT_SESSION_RETENTION_MAX)
+    except Exception:
+        purge_limit = _AGENT_SESSION_RETENTION_MAX
+    purge_limit = max(1, purge_limit)
+
+    slot_filter = args.get("slot", None)
+    try:
+        slot_filter = int(slot_filter) if slot_filter is not None else None
+    except Exception:
+        slot_filter = None
+
+    cutoff_ms = now - int(older_than_seconds * 1000)
+    inactive_rows = []
+    for sid, sess in _agent_sessions.items():
+        if not isinstance(sess, dict):
+            continue
+        if bool(sess.get("active", False)):
+            continue
+        try:
+            sess_slot = int(sess.get("slot"))
+        except Exception:
+            sess_slot = None
+        if slot_filter is not None and sess_slot != slot_filter:
+            continue
+        ts = int(sess.get("updated_ts") or sess.get("last_active_ts") or 0)
+        if ts <= cutoff_ms:
+            inactive_rows.append((ts, sid))
+
+    inactive_rows.sort(key=lambda x: x[0])
+    removed = []
+    for _, sid in inactive_rows[:purge_limit]:
+        _agent_sessions.pop(sid, None)
+        removed.append(sid)
+
+    if len(_agent_sessions) > _AGENT_SESSION_RETENTION_MAX:
+        rows = []
+        for sid, sess in _agent_sessions.items():
+            if not isinstance(sess, dict):
+                continue
+            ts = int(sess.get("updated_ts") or sess.get("last_active_ts") or 0)
+            active = bool(sess.get("active", False))
+            rows.append((active, ts, sid))
+        rows.sort(key=lambda r: (1 if r[0] else 0, r[1]), reverse=True)
+        keep = set(sid for _, _, sid in rows[:_AGENT_SESSION_RETENTION_MAX])
+        for _, _, sid in rows[_AGENT_SESSION_RETENTION_MAX:]:
+            if sid in _agent_sessions and sid not in keep:
+                _agent_sessions.pop(sid, None)
+                removed.append(sid)
+
+    return {
+        "status": "ok",
+        "purged": len(removed),
+        "removed_session_ids": removed,
+        "remaining": len(_agent_sessions),
+        "cutoff_ms": cutoff_ms,
+        "older_than_seconds": older_than_seconds,
+        "retention_max": _AGENT_SESSION_RETENTION_MAX,
+    }
+
+
 def _agent_select_session(session_id: str = "", slot: int | None = None, active_preferred: bool = True, strict_id: bool = False) -> tuple[str | None, dict | None]:
     """Find a matching agent session.
 
@@ -1334,17 +1950,43 @@ async def _agent_delegate_call(
     if busy:
         return {"slot_busy": busy}, busy.get("error") or "delegate target busy"
 
+    delegated = None
     try:
-        delegated = await _server_side_agent_chat(
-            delegate_args,
-            source="agent-inner",
-            client_id=client_id,
-            call_tool_fn=call_tool_fn,
-            list_tools_fn=list_tools_fn,
-            parse_result_fn=parse_result_fn,
-            normalize_args_fn=normalize_args_fn,
-            broadcast_fn=broadcast_fn,
-        )
+        attempts = _PROVIDER_RETRY_MAX_ATTEMPTS if _PROVIDER_RETRY_ENABLED else 1
+        for attempt in range(1, attempts + 1):
+            delegated = await _server_side_agent_chat(
+                delegate_args,
+                source="agent-inner",
+                client_id=client_id,
+                call_tool_fn=call_tool_fn,
+                list_tools_fn=list_tools_fn,
+                parse_result_fn=parse_result_fn,
+                normalize_args_fn=normalize_args_fn,
+                broadcast_fn=broadcast_fn,
+            )
+            if isinstance(delegated, dict) and delegated.get("error"):
+                if attempt >= attempts:
+                    break
+                await asyncio.sleep(min(1.5, (_PROVIDER_RETRY_BASE_DELAY_MS / 1000.0) * attempt))
+                continue
+
+            payload_probe = _parse(delegated.get("result")) if isinstance(delegated, dict) else delegated
+            final_answer = ""
+            if isinstance(payload_probe, dict):
+                inner = payload_probe.get("result") if isinstance(payload_probe.get("result"), dict) else payload_probe
+                if isinstance(inner, dict):
+                    final_answer = str(inner.get("final_answer", "") or "").strip()
+            retryable = (
+                not final_answer
+                or (
+                    final_answer.lower().startswith("[remote provider error")
+                    and any(m in final_answer.lower() for m in ("http error 500", "http error 502", "http error 503", "http error 504", "http error 429", "timeout"))
+                )
+            )
+            if retryable and attempt < attempts:
+                await asyncio.sleep(min(1.5, (_PROVIDER_RETRY_BASE_DELAY_MS / 1000.0) * attempt))
+                continue
+            break
     finally:
         await _release_slot_execution(claim)
 
@@ -1641,31 +2283,90 @@ async def _server_side_agent_chat(
             })
 
         invoke_args = {"slot": slot, "text": message, "mode": "generate", "messages": chat_messages, "max_tokens": max_tokens}
-        try:
-            model_raw = await asyncio.wait_for(_call("invoke_slot", invoke_args), timeout=float(model_timeout))
-            model_parsed = _parse(model_raw.get("result"))
-        except asyncio.TimeoutError:
-            final_answer = f"Model invocation timed out after {model_timeout}s at iteration {iterations_used}."
-            break
-        except Exception as e:
-            final_answer = f"Model invocation failed at iteration {iterations_used}: {e}"
+
+        def _is_retryable_provider_output(text: str) -> bool:
+            s = str(text or "").strip()
+            if not s:
+                return True
+            low = s.lower()
+            if low.startswith("[remote provider error"):
+                retry_markers = (
+                    "http error 500",
+                    "http error 502",
+                    "http error 503",
+                    "http error 504",
+                    "http error 429",
+                    "gateway",
+                    "timeout",
+                    "temporarily",
+                )
+                return any(m in low for m in retry_markers)
+            return False
+
+        model_parsed = None
+        model_output = ""
+        model_err = ""
+        attempts = _PROVIDER_RETRY_MAX_ATTEMPTS if _PROVIDER_RETRY_ENABLED else 1
+        for attempt in range(1, attempts + 1):
+            try:
+                model_raw = await asyncio.wait_for(_call("invoke_slot", invoke_args), timeout=float(model_timeout))
+                model_parsed = _parse(model_raw.get("result"))
+            except asyncio.TimeoutError:
+                model_err = f"Model invocation timed out after {model_timeout}s"
+                model_parsed = None
+            except Exception as e:
+                model_err = f"Model invocation failed: {e}"
+                model_parsed = None
+
+            if isinstance(model_parsed, dict) and not model_parsed.get("error"):
+                model_output = str(model_parsed.get("output", "") or "")
+                if not _is_retryable_provider_output(model_output):
+                    break
+                if attempt < attempts:
+                    delay = min(1.5, (_PROVIDER_RETRY_BASE_DELAY_MS / 1000.0) * attempt)
+                    _bcast(
+                        tool="agent_chat",
+                        args={
+                            "_phase": "provider_retry",
+                            "iteration": iterations_used,
+                            "attempt": attempt,
+                            "session_id": session_id,
+                            "slot": slot,
+                        },
+                        result={"content": [{"type": "text", "text": f"Transient provider output; retrying attempt {attempt + 1}/{attempts}"}]},
+                        duration_ms=int((time.time() - step_start) * 1000),
+                        error=None,
+                        source="agent-inner",
+                        client_id=client_id,
+                    )
+                    await asyncio.sleep(delay)
+                    continue
+                break
+
+            if isinstance(model_parsed, dict) and model_parsed.get("error"):
+                model_err = str(model_parsed.get("error") or "")
+                low = model_err.lower()
+                retryable = any(m in low for m in ("http error 500", "http error 502", "http error 503", "http error 504", "http error 429", "timeout", "gateway"))
+                if retryable and attempt < attempts:
+                    await asyncio.sleep(min(1.5, (_PROVIDER_RETRY_BASE_DELAY_MS / 1000.0) * attempt))
+                    continue
+            if attempt < attempts:
+                await asyncio.sleep(min(1.5, (_PROVIDER_RETRY_BASE_DELAY_MS / 1000.0) * attempt))
+                continue
             break
 
         if not isinstance(model_parsed, dict):
-            final_answer = f"Model returned non-dict at iteration {iterations_used}"
+            final_answer = (model_err or f"Model returned non-dict at iteration {iterations_used}")
             break
         if model_parsed.get("error"):
             final_answer = f"Model error at iteration {iterations_used}: {model_parsed['error']}"
             break
 
-        model_output = str(model_parsed.get("output", ""))
-
-        # ── Empty response retry: nudge the model if it returned nothing ──
-        if not model_output.strip() and iteration < max_iterations - 1:
+        if _is_retryable_provider_output(model_output) and iteration < max_iterations - 1:
             chat_messages.append({
                 "role": "user",
                 "content": (
-                    "Your response was empty. You MUST respond with exactly one JSON object.\n"
+                    "Your response was empty or transiently unavailable. You MUST respond with exactly one JSON object.\n"
                     'Either: {"tool": "tool_name", "args": {...}}\n'
                     'Or: {"final_answer": "your answer"}\n'
                     "Try again now."
@@ -1674,7 +2375,7 @@ async def _server_side_agent_chat(
             _bcast(
                 tool="agent_chat",
                 args={"_phase": "empty_retry", "iteration": iterations_used, "session_id": session_id, "slot": slot},
-                result={"content": [{"type": "text", "text": "Empty model response — retrying with nudge"}]},
+                result={"content": [{"type": "text", "text": "Transient/empty model response — retrying with nudge"}]},
                 duration_ms=int((time.time() - step_start) * 1000), error=None,
                 source="agent-inner", client_id=client_id,
             )
@@ -1771,7 +2472,7 @@ async def _server_side_agent_chat(
                 tool_calls_log.append({"tool": called_tool, "args": called_args, "result": "DENIED - " + guard_msg, "iteration": iteration})
                 continue
 
-            if called_tool in ("agent_delegate", "agent_chat_inject", "agent_chat_sessions"):
+            if called_tool in ("agent_delegate", "agent_chat_inject", "agent_chat_sessions", "agent_chat_result", "agent_chat_purge", "workflow_execute"):
                 normalized_args = dict(called_args)
             else:
                 normalized_args = _norm(called_tool, called_args)
@@ -1811,6 +2512,25 @@ async def _server_side_agent_chat(
                     tool_result = sess_payload
                     tool_error = None
                     tool_result_str = json.dumps(tool_result, indent=2, default=str)
+                elif called_tool == "agent_chat_result":
+                    tool_result = _agent_session_result(normalized_args)
+                    tool_error = tool_result.get("error") if isinstance(tool_result, dict) else None
+                    tool_result_str = json.dumps(tool_result, indent=2, default=str)
+                elif called_tool == "agent_chat_purge":
+                    tool_result = _agent_session_purge(normalized_args)
+                    tool_error = None
+                    tool_result_str = json.dumps(tool_result, indent=2, default=str)
+                elif called_tool == "workflow_execute":
+                    wf_proxy = await _maybe_execute_workflow_proxy(normalized_args, source="agent-inner", client_id=client_id)
+                    if wf_proxy is not None:
+                        tool_result = wf_proxy
+                        tool_error = wf_proxy.get("error") if isinstance(wf_proxy, dict) else None
+                        tool_result_str = json.dumps(tool_result, indent=2, default=str)
+                    else:
+                        tool_raw = await asyncio.wait_for(_call(called_tool, normalized_args), timeout=tool_timeout)
+                        tool_result = _parse(tool_raw.get("result"))
+                        tool_error = tool_raw.get("error") or (tool_result.get("error") if isinstance(tool_result, dict) else None)
+                        tool_result_str = json.dumps(tool_result, indent=2, default=str) if tool_result else ""
                 elif called_tool == "agent_delegate":
                     tool_result, tool_error = await asyncio.wait_for(
                         _agent_delegate_call(
@@ -2641,7 +3361,18 @@ async def proxy_tool_call(tool_name: str, request: Request):
     raw_body = dict(body) if isinstance(body, dict) else {}
 
     if tool_name in ("workflow_create", "workflow_update") and "definition" in body:
-        body["definition"] = normalize_workflow_nodes(body["definition"])
+        _def_src = body.get("definition")
+        _def_obj, _def_err = _workflow_load_definition(_def_src)
+        if _def_err:
+            return JSONResponse(status_code=400, content={"error": _def_err})
+        if tool_name == "workflow_update":
+            _wf_id = str(body.get("workflow_id", "") or "").strip()
+            if _wf_id and isinstance(_def_obj, dict) and not _def_obj.get("id"):
+                _def_obj["id"] = _wf_id
+        validated, validation_err = _workflow_validate_definition(_def_obj)
+        if validation_err:
+            return JSONResponse(status_code=400, content={"error": validation_err})
+        body["definition"] = json.dumps(validated)
 
     body = _normalize_proxy_tool_args(tool_name, body if isinstance(body, dict) else {})
 
@@ -2668,6 +3399,35 @@ async def proxy_tool_call(tool_name: str, request: Request):
 
     if tool_name == "agent_chat_sessions":
         payload = _agent_session_snapshot(body if isinstance(body, dict) else {})
+        activity_hub.add_entry(
+            tool=tool_name,
+            args=body if isinstance(body, dict) else {},
+            result=payload,
+            duration_ms=0,
+            error=None,
+            source=source,
+            client_id=client_id,
+        )
+        return {"result": {"content": [{"type": "text", "text": json.dumps(payload)}], "isError": False}}
+
+    if tool_name == "agent_chat_result":
+        payload = _agent_session_result(body if isinstance(body, dict) else {})
+        err = payload.get("error") if isinstance(payload, dict) else None
+        activity_hub.add_entry(
+            tool=tool_name,
+            args=body if isinstance(body, dict) else {},
+            result=payload,
+            duration_ms=0,
+            error=err,
+            source=source,
+            client_id=client_id,
+        )
+        if err:
+            return JSONResponse(status_code=404, content=payload)
+        return {"result": {"content": [{"type": "text", "text": json.dumps(payload)}], "isError": False}}
+
+    if tool_name == "agent_chat_purge":
+        payload = _agent_session_purge(body if isinstance(body, dict) else {})
         activity_hub.add_entry(
             tool=tool_name,
             args=body if isinstance(body, dict) else {},
@@ -2777,6 +3537,16 @@ async def proxy_tool_call(tool_name: str, request: Request):
         if err:
             return JSONResponse(status_code=503, content=payload)
         return {"result": {"content": [{"type": "text", "text": json.dumps(payload)}], "isError": False}}
+
+    if tool_name == "workflow_execute":
+        wf_proxy = await _maybe_execute_workflow_proxy(body if isinstance(body, dict) else {}, source=source, client_id=client_id)
+        if wf_proxy is not None:
+            err = wf_proxy.get("error") if isinstance(wf_proxy, dict) else None
+            status = 400 if err else 200
+            activity_hub.add_entry(tool=tool_name, args=body if isinstance(body, dict) else {}, result=wf_proxy, duration_ms=0, error=err, source=source, client_id=client_id)
+            if err:
+                return JSONResponse(status_code=status, content=wf_proxy)
+            return {"result": {"content": [{"type": "text", "text": json.dumps(wf_proxy)}], "isError": False}}
 
     slot_guard = await _slot_ready_guard(tool_name, body if isinstance(body, dict) else {})
     if slot_guard:
@@ -3168,6 +3938,51 @@ async def api_agent_chat_sessions(request: Request, slot: int | None = None, act
     activity_hub.add_entry(
         tool="agent_chat_sessions",
         args=args,
+        result=payload,
+        duration_ms=0,
+        error=None,
+        source=source,
+        client_id=client_id,
+    )
+    return payload
+
+
+@app.get("/api/agent_chat/result")
+async def api_agent_chat_result(request: Request, session_id: str = "", slot: int | None = None):
+    source = _infer_activity_source(request, fallback="webui")
+    client_id = _extract_client_id(request)
+    args = {"session_id": str(session_id or "")}
+    if slot is not None:
+        args["slot"] = int(slot)
+    payload = _agent_session_result(args)
+    err = payload.get("error") if isinstance(payload, dict) else None
+    activity_hub.add_entry(
+        tool="agent_chat_result",
+        args=args,
+        result=payload,
+        duration_ms=0,
+        error=err,
+        source=source,
+        client_id=client_id,
+    )
+    if err:
+        return JSONResponse(status_code=404, content=payload)
+    return payload
+
+
+@app.post("/api/agent_chat/purge")
+async def api_agent_chat_purge(request: Request):
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    body = body if isinstance(body, dict) else {}
+    source = _normalize_activity_source(body.pop("__source", None)) or _infer_activity_source(request, fallback="webui")
+    client_id = _extract_client_id(request)
+    payload = _agent_session_purge(body)
+    activity_hub.add_entry(
+        tool="agent_chat_purge",
+        args=body,
         result=payload,
         duration_ms=0,
         error=None,
@@ -3634,7 +4449,8 @@ async def mcp_message_proxy(request: Request):
 
     # Local proxy tools should work even for SSE-only MCP clients.
     _local_proxy_tools = {
-        "agent_delegate", "agent_chat_inject", "agent_chat_sessions",
+        "agent_delegate", "agent_chat_inject", "agent_chat_sessions", "agent_chat_result", "agent_chat_purge",
+        "workflow_execute",
         "hf_cache_status", "hf_cache_clear", "capsule_restart",
         "persist_status", "persist_restore_revision",
     }
@@ -3888,7 +4704,7 @@ async def _handle_streamable_rpc(obj: dict, client_id: str | None) -> dict | Non
             return _rpc_error(rpc_id, -32603, "Failed to connect to capsule MCP")
         # Return the capsule's REAL instructions (built by _build_mcp_instructions()
         # in champion_gen8.py) — cached during mcp_client.connect().
-        _fallback_instructions = "Use tools/call for all operations. For large payloads, follow _cached via get_cached(cache_id). agent_chat supports granted_tools for agentic tool use. Local proxy tools: agent_delegate, agent_chat_inject, agent_chat_sessions, hf_cache_status, hf_cache_clear, capsule_restart, persist_status, persist_restore_revision."
+        _fallback_instructions = "Use tools/call for all operations. For large payloads, follow _cached via get_cached(cache_id). agent_chat supports granted_tools for agentic tool use. Local proxy tools: agent_delegate, agent_chat_inject, agent_chat_sessions, agent_chat_result, agent_chat_purge, workflow_execute, hf_cache_status, hf_cache_clear, capsule_restart, persist_status, persist_restore_revision."
         return {
             "jsonrpc": "2.0",
             "id": rpc_id,
@@ -3934,8 +4750,18 @@ async def _handle_streamable_rpc(obj: dict, client_id: str | None) -> dict | Non
                 args = {}
 
         if tool_name in ("workflow_create", "workflow_update") and "definition" in args:
+            _def_obj, _def_err = _workflow_load_definition(args.get("definition"))
+            if _def_err:
+                return _rpc_error(rpc_id, -32602, "Invalid workflow definition", _def_err)
+            if tool_name == "workflow_update":
+                _wf_id = str(args.get("workflow_id", "") or "").strip()
+                if _wf_id and isinstance(_def_obj, dict) and not _def_obj.get("id"):
+                    _def_obj["id"] = _wf_id
+            validated, validation_err = _workflow_validate_definition(_def_obj)
+            if validation_err:
+                return _rpc_error(rpc_id, -32602, "Invalid workflow definition", validation_err)
             args = dict(args)
-            args["definition"] = normalize_workflow_nodes(args["definition"])
+            args["definition"] = json.dumps(validated)
 
         args = _normalize_proxy_tool_args(tool_name, args)
 
@@ -3958,6 +4784,35 @@ async def _handle_streamable_rpc(obj: dict, client_id: str | None) -> dict | Non
 
         if tool_name == "agent_chat_sessions":
             payload = _agent_session_snapshot(args)
+            activity_hub.add_entry(
+                tool=tool_name,
+                args=args,
+                result=payload,
+                duration_ms=0,
+                error=None,
+                source="external",
+                client_id=client_id,
+            )
+            return {"jsonrpc": "2.0", "id": rpc_id, "result": {"content": [{"type": "text", "text": json.dumps(payload)}], "isError": False}}
+
+        if tool_name == "agent_chat_result":
+            payload = _agent_session_result(args)
+            err_msg = payload.get("error") if isinstance(payload, dict) else None
+            activity_hub.add_entry(
+                tool=tool_name,
+                args=args,
+                result=payload,
+                duration_ms=0,
+                error=err_msg,
+                source="external",
+                client_id=client_id,
+            )
+            if err_msg:
+                return _rpc_error(rpc_id, -32012, err_msg, payload)
+            return {"jsonrpc": "2.0", "id": rpc_id, "result": {"content": [{"type": "text", "text": json.dumps(payload)}], "isError": False}}
+
+        if tool_name == "agent_chat_purge":
+            payload = _agent_session_purge(args)
             activity_hub.add_entry(
                 tool=tool_name,
                 args=args,
@@ -4060,6 +4915,15 @@ async def _handle_streamable_rpc(obj: dict, client_id: str | None) -> dict | Non
             if err_msg:
                 return _rpc_error(rpc_id, -32603, err_msg, payload)
             return {"jsonrpc": "2.0", "id": rpc_id, "result": {"content": [{"type": "text", "text": json.dumps(payload)}], "isError": False}}
+
+        if tool_name == "workflow_execute":
+            wf_proxy = await _maybe_execute_workflow_proxy(args, source="external", client_id=client_id)
+            if wf_proxy is not None:
+                err_msg = wf_proxy.get("error") if isinstance(wf_proxy, dict) else None
+                activity_hub.add_entry(tool=tool_name, args=args, result=wf_proxy, duration_ms=0, error=err_msg, source="external", client_id=client_id)
+                if err_msg:
+                    return _rpc_error(rpc_id, -32603, err_msg, wf_proxy)
+                return {"jsonrpc": "2.0", "id": rpc_id, "result": {"content": [{"type": "text", "text": json.dumps(wf_proxy)}], "isError": False}}
 
         capacity_guard = None
         if tool_name in _CAPACITY_GUARD_TOOLS:
