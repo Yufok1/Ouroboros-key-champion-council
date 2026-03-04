@@ -1,68 +1,163 @@
 """
-Per-user persistence via HuggingFace Dataset repos.
+Champion Council persistence (Space runtime).
 
-Each Space owner gets a private dataset repo: {username}/champion-council-state
-On save:  brain state, FelixBag, workflows, slot manifest → uploaded to dataset
-On load:  pull from dataset → restore into capsule via MCP tools
+Goals:
+- Keep FelixBag/workflows/slots/brain durable across Space restarts and code pushes.
+- Work without HF_TOKEN (local-first snapshots, ideally on /data when available).
+- Optionally sync the same snapshots to a private HF dataset repo.
 
-Requires HF_TOKEN with write access (set as Space secret).
+Mode selection (env):
+- PERSISTENCE_MODE=local | hf | both   (default: both)
+- PERSISTENCE_DATA_DIR=/path           (default: /data/champion-council-state if possible)
+- AUTOSAVE_INTERVAL=seconds            (server controls loop interval)
+- SAVE_COOLDOWN=seconds                (default: 30)
 """
-import os
-import json
+
+from __future__ import annotations
+
 import asyncio
+import json
+import os
+import shutil
 import tempfile
-from pathlib import Path
+import time
 from datetime import datetime, timezone
+from pathlib import Path
+from typing import Awaitable, Callable
+
 
 # ---------------------------------------------------------------------------
-# Config
+# Files / layout
 # ---------------------------------------------------------------------------
+
 STATE_REPO_SUFFIX = "champion-council-state"
 BRAIN_FILE = "brain_state.pkl"
 BAG_FILE = "bag_export.json"
 WORKFLOWS_FILE = "workflows.json"
 SLOTS_FILE = "slot_manifest.json"
+META_FILE = "state_meta.json"
+
+LOCAL_LAYOUT = {
+    BRAIN_FILE: Path("brain") / BRAIN_FILE,
+    BAG_FILE: Path("bag") / BAG_FILE,
+    WORKFLOWS_FILE: Path("workflows") / WORKFLOWS_FILE,
+    SLOTS_FILE: Path("slots") / SLOTS_FILE,
+    META_FILE: Path("config") / META_FILE,
+}
+
+
+# ---------------------------------------------------------------------------
+# Global state / config
+# ---------------------------------------------------------------------------
+
+_VALID_MODES = ("local", "hf", "both")
+_MODE = os.environ.get("PERSISTENCE_MODE", "both").strip().lower()
+if _MODE not in _VALID_MODES:
+    _MODE = "both"
+
+SAVE_COOLDOWN = int(os.environ.get("SAVE_COOLDOWN", "30"))
 
 _hf_api = None
 _repo_id: str | None = None
 _save_lock = asyncio.Lock()
-_last_save_ts: float = 0
-SAVE_COOLDOWN = 120  # minimum seconds between auto-saves
+_last_save_ts: float = 0.0
+_autosave_task: asyncio.Task | None = None
+
+
+def _log(msg: str) -> None:
+    print(f"[PERSIST] {msg}")
+
+
+def _env_token() -> str:
+    return (
+        os.environ.get("HF_TOKEN", "")
+        or os.environ.get("HUGGING_FACE_HUB_TOKEN", "")
+        or os.environ.get("HUGGINGFACEHUB_API_TOKEN", "")
+    ).strip()
+
+
+def _candidate_data_dirs() -> list[Path]:
+    explicit = os.environ.get("PERSISTENCE_DATA_DIR", "").strip()
+    if explicit:
+        return [Path(explicit)]
+
+    candidates: list[Path] = []
+
+    # HF Spaces persistent storage location (when enabled)
+    if Path("/data").exists():
+        candidates.append(Path("/data/champion-council-state"))
+
+    # Local fallback in repo working directory
+    candidates.append(Path("./data/champion-council-state"))
+
+    return candidates
+
+
+def _resolve_data_dir() -> tuple[Path, bool]:
+    for cand in _candidate_data_dirs():
+        try:
+            cand.mkdir(parents=True, exist_ok=True)
+            test = cand / ".write_test"
+            test.write_text("ok", encoding="utf-8")
+            test.unlink(missing_ok=True)
+            return cand, True
+        except Exception:
+            continue
+    return Path("./data/champion-council-state"), False
+
+
+_DATA_DIR, _DATA_WRITABLE = _resolve_data_dir()
+_LOCAL_ENABLED = (_MODE in ("local", "both")) and _DATA_WRITABLE
+_HF_TOKEN = _env_token()
+_HF_ENABLED = (_MODE in ("hf", "both")) and bool(_HF_TOKEN)
+
+if _LOCAL_ENABLED:
+    for rel in LOCAL_LAYOUT.values():
+        (_DATA_DIR / rel).parent.mkdir(parents=True, exist_ok=True)
+
+_log(
+    "initialized "
+    f"mode={_MODE} local_enabled={_LOCAL_ENABLED} hf_enabled={_HF_ENABLED} data_dir={_DATA_DIR}"
+)
+
+
+# ---------------------------------------------------------------------------
+# HF helpers
+# ---------------------------------------------------------------------------
 
 
 def _get_api():
     global _hf_api
+    if not _HF_ENABLED:
+        return None
     if _hf_api is None:
         from huggingface_hub import HfApi
-        _hf_api = HfApi()
+
+        _hf_api = HfApi(token=_HF_TOKEN)
     return _hf_api
 
 
 def _get_repo_id() -> str | None:
-    """Derive the per-user dataset repo id from Space environment."""
+    """Derive per-owner dataset repo: {author}/champion-council-state."""
     global _repo_id
     if _repo_id:
         return _repo_id
 
-    # HF injects SPACE_AUTHOR_NAME for the Space owner
     author = os.environ.get("SPACE_AUTHOR_NAME", "")
     if not author:
-        # Fallback: try to get from SPACE_ID (format: "author/space-name")
         space_id = os.environ.get("SPACE_ID", "")
         if "/" in space_id:
-            author = space_id.split("/")[0]
+            author = space_id.split("/", 1)[0]
 
-    if not author:
-        # Last resort: try whoami
+    if not author and _HF_ENABLED:
         try:
             api = _get_api()
-            info = api.whoami()
+            info = api.whoami() if api else {}
             author = info.get("name", "")
         except Exception:
-            pass
+            author = ""
 
     if not author:
-        print("[PERSIST] Cannot determine HF username — persistence disabled")
         return None
 
     _repo_id = f"{author}/{STATE_REPO_SUFFIX}"
@@ -70,7 +165,8 @@ def _get_repo_id() -> str | None:
 
 
 def _ensure_repo() -> bool:
-    """Create the private dataset repo if it doesn't exist."""
+    if not _HF_ENABLED:
+        return False
     repo_id = _get_repo_id()
     if not repo_id:
         return False
@@ -82,319 +178,400 @@ def _ensure_repo() -> bool:
             private=True,
             exist_ok=True,
         )
-        print(f"[PERSIST] Dataset repo ready: {repo_id}")
+        _log(f"hf repo ready: {repo_id}")
         return True
-    except Exception as e:
-        print(f"[PERSIST] Failed to create/verify repo {repo_id}: {e}")
+    except Exception as exc:
+        _log(f"hf repo ensure failed ({repo_id}): {exc}")
         return False
 
 
-
 # ---------------------------------------------------------------------------
-# Save helpers
+# Capsule helpers
 # ---------------------------------------------------------------------------
 
-async def _call_capsule_tool(call_tool_fn, name: str, args: dict) -> dict | None:
-    """Call a capsule MCP tool, return parsed result or None."""
+CallToolFn = Callable[[str, dict], Awaitable[dict]]
+
+
+async def _call_capsule_tool(call_tool_fn: CallToolFn, name: str, args: dict) -> dict | list | None:
+    """Call a capsule MCP tool and return parsed payload (best effort)."""
     try:
         result = await call_tool_fn(name, args)
-        if isinstance(result, dict) and "error" in result:
-            print(f"[PERSIST] Tool {name} error: {result['error']}")
+        if isinstance(result, dict) and result.get("error"):
+            _log(f"tool {name} returned error: {result.get('error')}")
             return None
-        # Unwrap MCP envelope
         if isinstance(result, dict) and "result" in result:
             content = result["result"].get("content", [])
             if content and isinstance(content[0], dict):
                 text = content[0].get("text", "")
                 try:
-                    parsed = json.loads(text)
-                    print(f"[PERSIST] Tool {name} OK: {str(parsed)[:120]}")
-                    return parsed
+                    return json.loads(text)
                 except (json.JSONDecodeError, TypeError):
-                    print(f"[PERSIST] Tool {name} returned non-JSON text: {text[:120]}")
                     return {"text": text}
-        print(f"[PERSIST] Tool {name} unexpected format: {str(result)[:200]}")
-        return result
-    except Exception as e:
-        print(f"[PERSIST] Tool {name} exception: {e}")
+        return result if isinstance(result, (dict, list)) else None
+    except Exception as exc:
+        _log(f"tool {name} exception: {exc}")
         return None
 
 
-async def save_state(call_tool_fn) -> bool:
-    """Save all capsule state to the HF dataset repo.
+def _normalize_workflow_nodes(defn: dict) -> dict:
+    out = dict(defn or {})
+    nodes = out.get("nodes", [])
+    if isinstance(nodes, list):
+        for node in nodes:
+            if not isinstance(node, dict):
+                continue
+            if node.get("type") == "tool_call":
+                node["type"] = "tool"
+            t = node.get("tool_name") or node.get("tool")
+            if t:
+                node["tool_name"] = t
+                node["tool"] = t
+    out["nodes"] = nodes
+    return out
 
-    Args:
-        call_tool_fn: async function(tool_name, args) -> dict that calls MCP tools
-    """
-    import time as _time
+
+async def _collect_state_files(call_tool_fn: CallToolFn, tmpdir: Path) -> dict[str, Path]:
+    """Export all runtime state into temp files; return filename -> path."""
+    files: dict[str, Path] = {}
+    success_signals = 0
+
+    # 1) Brain
+    brain_path = tmpdir / BRAIN_FILE
+    brain_result = await _call_capsule_tool(call_tool_fn, "save_state", {"path": str(brain_path)})
+    if brain_result is not None:
+        success_signals += 1
+    if brain_result is not None and brain_path.exists():
+        files[BRAIN_FILE] = brain_path
+
+    # 2) FelixBag
+    bag_path = tmpdir / BAG_FILE
+    bag_result = await _call_capsule_tool(call_tool_fn, "save_bag", {"file_path": str(bag_path)})
+    if bag_result is not None:
+        success_signals += 1
+    if bag_result is not None and bag_path.exists():
+        files[BAG_FILE] = bag_path
+
+    # 3) Workflows
+    workflows: list[dict] = []
+    wf_path = tmpdir / WORKFLOWS_FILE
+    wf_list = await _call_capsule_tool(call_tool_fn, "workflow_list", {})
+    if wf_list is not None:
+        success_signals += 1
+    if isinstance(wf_list, dict) and isinstance(wf_list.get("workflows"), list):
+        for wf in wf_list["workflows"]:
+            wf_id = wf.get("id") or wf.get("workflow_id")
+            if not wf_id:
+                continue
+            wf_def = await _call_capsule_tool(call_tool_fn, "workflow_get", {"workflow_id": wf_id})
+            if isinstance(wf_def, dict) and wf_def.get("nodes"):
+                workflows.append(wf_def)
+        wf_path.write_text(json.dumps(workflows, indent=2), encoding="utf-8")
+        files[WORKFLOWS_FILE] = wf_path
+
+    # 4) Slot manifest
+    slots_path = tmpdir / SLOTS_FILE
+    slot_manifest = []
+    slots_result = await _call_capsule_tool(call_tool_fn, "list_slots", {})
+    if slots_result is not None:
+        success_signals += 1
+    if isinstance(slots_result, dict):
+        all_ids = slots_result.get("all_ids", [])
+        total = slots_result.get("total", len(all_ids))
+        for i in range(total):
+            name = all_ids[i] if i < len(all_ids) else f"slot_{i}"
+            if name == f"slot_{i}":
+                continue
+            slot_info = await _call_capsule_tool(call_tool_fn, "slot_info", {"slot": i})
+            model_id = None
+            if isinstance(slot_info, dict):
+                model_id = slot_info.get("model_source") or slot_info.get("model_id") or slot_info.get("model")
+            slot_manifest.append({"index": i, "name": name, "model_id": model_id})
+
+        slots_path.write_text(json.dumps(slot_manifest, indent=2), encoding="utf-8")
+        files[SLOTS_FILE] = slots_path
+
+    # No capsule responses at all? don't overwrite previous persistence snapshot.
+    if success_signals == 0:
+        return {}
+
+    # 5) Metadata
+    meta_path = tmpdir / META_FILE
+    meta = {
+        "saved_at": datetime.now(timezone.utc).isoformat(),
+        "mode": _MODE,
+        "local_enabled": _LOCAL_ENABLED,
+        "hf_enabled": _HF_ENABLED,
+        "workflow_count": len(workflows),
+        "slot_count": len(slot_manifest),
+    }
+    meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
+    files[META_FILE] = meta_path
+
+    return files
+
+
+def _local_file_map() -> dict[str, Path]:
+    return {name: _DATA_DIR / rel for name, rel in LOCAL_LAYOUT.items()}
+
+
+def _read_meta_timestamp(path: Path | None) -> float | None:
+    if not path or not path.exists():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        raw = data.get("saved_at")
+        if not raw:
+            return None
+        dt = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+        return dt.timestamp()
+    except Exception:
+        return None
+
+
+async def _restore_from_files(call_tool_fn: CallToolFn, files: dict[str, Path]) -> int:
+    restored = 0
+
+    # 1) Brain
+    brain = files.get(BRAIN_FILE)
+    if brain and brain.exists():
+        result = await _call_capsule_tool(call_tool_fn, "import_brain", {"path": str(brain)})
+        if result is not None:
+            restored += 1
+
+    # 2) Bag
+    bag = files.get(BAG_FILE)
+    if bag and bag.exists():
+        result = await _call_capsule_tool(call_tool_fn, "load_bag", {"file_path": str(bag)})
+        if result is not None:
+            restored += 1
+
+    # 3) Workflows
+    workflows_file = files.get(WORKFLOWS_FILE)
+    if workflows_file and workflows_file.exists():
+        try:
+            workflows = json.loads(workflows_file.read_text(encoding="utf-8"))
+            wf_ok = 0
+            for wf_def in workflows:
+                normalized = _normalize_workflow_nodes(wf_def if isinstance(wf_def, dict) else {})
+                if not normalized.get("id"):
+                    continue
+
+                # Create-first, update-on-conflict fallback.
+                created = await _call_capsule_tool(
+                    call_tool_fn,
+                    "workflow_create",
+                    {"definition": json.dumps(normalized)},
+                )
+                if created is not None and not (isinstance(created, dict) and created.get("error")):
+                    wf_ok += 1
+                    continue
+
+                await _call_capsule_tool(
+                    call_tool_fn,
+                    "workflow_update",
+                    {
+                        "workflow_id": normalized.get("id"),
+                        "definition": json.dumps(normalized),
+                    },
+                )
+                wf_ok += 1
+
+            if wf_ok > 0:
+                restored += 1
+        except Exception as exc:
+            _log(f"workflow restore failed: {exc}")
+
+    # 4) Slot manifest
+    slot_file = files.get(SLOTS_FILE)
+    if slot_file and slot_file.exists():
+        try:
+            manifest = json.loads(slot_file.read_text(encoding="utf-8"))
+            plug_attempts = 0
+            for slot_entry in manifest:
+                if not isinstance(slot_entry, dict):
+                    continue
+                model_id = slot_entry.get("model_id")
+                slot_name = slot_entry.get("name") or ""
+                if not model_id:
+                    continue
+                await _call_capsule_tool(
+                    call_tool_fn,
+                    "hub_plug",
+                    {"model_id": model_id, "slot_name": slot_name},
+                )
+                plug_attempts += 1
+            if plug_attempts > 0:
+                restored += 1
+        except Exception as exc:
+            _log(f"slot restore failed: {exc}")
+
+    return restored
+
+
+# ---------------------------------------------------------------------------
+# Public API used by server.py
+# ---------------------------------------------------------------------------
+
+
+async def save_state(call_tool_fn: CallToolFn, force: bool = False) -> bool:
+    """Save state to local snapshot and/or HF dataset according to mode."""
     global _last_save_ts
 
     async with _save_lock:
-        now = _time.time()
-        if now - _last_save_ts < SAVE_COOLDOWN:
-            print(f"[PERSIST] Save cooldown ({int(SAVE_COOLDOWN - (now - _last_save_ts))}s remaining)")
+        now = time.time()
+        if not force and (now - _last_save_ts) < SAVE_COOLDOWN:
+            remaining = int(SAVE_COOLDOWN - (now - _last_save_ts))
+            _log(f"save skipped by cooldown ({remaining}s remaining)")
             return False
 
-        if not _ensure_repo():
-            return False
-
-        repo_id = _get_repo_id()
-        api = _get_api()
-        tmpdir = Path(tempfile.mkdtemp(prefix="cc_persist_"))
-        saved_files = []
-
+        tmpdir = Path(tempfile.mkdtemp(prefix="cc_space_save_"))
         try:
-            # 1. Brain state
-            brain_path = tmpdir / BRAIN_FILE
-            print(f"[PERSIST] Saving brain to {brain_path}")
-            result = await _call_capsule_tool(call_tool_fn, "save_state", {"path": str(brain_path)})
-            if result and brain_path.exists():
-                saved_files.append((brain_path, BRAIN_FILE))
-                print(f"[PERSIST] Brain state saved ({brain_path.stat().st_size:,} bytes)")
-            else:
-                print(f"[PERSIST] Brain save issue: result={result is not None}, exists={brain_path.exists()}")
+            files = await _collect_state_files(call_tool_fn, tmpdir)
+            if not files:
+                _log("save aborted: no state files collected")
+                return False
 
-            # 2. FelixBag
-            bag_path = tmpdir / BAG_FILE
-            print(f"[PERSIST] Saving bag to {bag_path}")
-            result = await _call_capsule_tool(call_tool_fn, "save_bag", {"file_path": str(bag_path)})
-            if result and bag_path.exists():
-                saved_files.append((bag_path, BAG_FILE))
-                print(f"[PERSIST] Bag saved ({bag_path.stat().st_size:,} bytes)")
-            else:
-                print(f"[PERSIST] Bag save issue: result={result is not None}, exists={bag_path.exists()}")
+            # Local snapshot
+            if _LOCAL_ENABLED:
+                for filename, src in files.items():
+                    dest = _DATA_DIR / LOCAL_LAYOUT.get(filename, Path(filename))
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(src, dest)
+                    _log(f"local save: {filename} -> {dest}")
 
-            # 3. Workflows — export all definitions
-            wf_list = await _call_capsule_tool(call_tool_fn, "workflow_list", {})
-            workflows = []
-            if wf_list and isinstance(wf_list.get("workflows"), list):
-                for wf in wf_list["workflows"]:
-                    wf_id = wf.get("id") or wf.get("workflow_id")
-                    if wf_id:
-                        wf_def = await _call_capsule_tool(call_tool_fn, "workflow_get", {"workflow_id": wf_id})
-                        if wf_def and "nodes" in wf_def:
-                            workflows.append(wf_def)
-            wf_path = tmpdir / WORKFLOWS_FILE
-            wf_path.write_text(json.dumps(workflows, indent=2))
-            saved_files.append((wf_path, WORKFLOWS_FILE))
-            print(f"[PERSIST] {len(workflows)} workflows saved")
+            # Optional HF sync
+            if _HF_ENABLED and _ensure_repo():
+                api = _get_api()
+                repo_id = _get_repo_id()
+                for filename, src in files.items():
+                    api.upload_file(
+                        path_or_fileobj=str(src),
+                        path_in_repo=filename,
+                        repo_id=repo_id,
+                        repo_type="dataset",
+                        commit_message=f"autosave {filename} @ {datetime.now(timezone.utc).isoformat()}",
+                    )
+                    _log(f"hf upload: {filename} -> {repo_id}")
 
-            # 4. Slot manifest — which models are plugged where
-            slots_result = await _call_capsule_tool(call_tool_fn, "list_slots", {})
-            slot_manifest = []
-            if slots_result:
-                all_ids = slots_result.get("all_ids", [])
-                total = slots_result.get("total", len(all_ids))
-                for i in range(total):
-                    name = all_ids[i] if i < len(all_ids) else f"slot_{i}"
-                    default_name = f"slot_{i}"
-                    if name != default_name:
-                        # Non-default name means a model was plugged and renamed
-                        # Try to get full slot info
-                        slot_info = await _call_capsule_tool(call_tool_fn, "slot_info", {"slot": i})
-                        model_id = None
-                        if slot_info:
-                            model_id = (slot_info.get("model_source")
-                                       or slot_info.get("model_id")
-                                       or slot_info.get("model"))
-                        slot_manifest.append({
-                            "index": i,
-                            "name": name,
-                            "model_id": model_id,
-                        })
-
-            manifest_path = tmpdir / SLOTS_FILE
-            manifest_path.write_text(json.dumps(slot_manifest, indent=2))
-            saved_files.append((manifest_path, SLOTS_FILE))
-            print(f"[PERSIST] {len(slot_manifest)} plugged slots saved")
-
-            # 5. Upload all files to dataset repo
-            print(f"[PERSIST] Uploading {len(saved_files)} files to {repo_id}")
-            for local_path, repo_path in saved_files:
-                print(f"[PERSIST] Uploading {repo_path} ({local_path.stat().st_size:,} bytes)")
-                api.upload_file(
-                    path_or_fileobj=str(local_path),
-                    path_in_repo=repo_path,
-                    repo_id=repo_id,
-                    repo_type="dataset",
-                    commit_message=f"Auto-save {repo_path} at {datetime.now(timezone.utc).isoformat()}",
-                )
-                print(f"[PERSIST] Uploaded {repo_path}")
-
-            _last_save_ts = _time.time()
-            print(f"[PERSIST] ✓ State saved to {repo_id} ({len(saved_files)} files)")
+            _last_save_ts = time.time()
+            _log("save complete")
             return True
-
-        except Exception as e:
-            print(f"[PERSIST] Save failed: {e}")
+        except Exception as exc:
+            _log(f"save failed: {exc}")
             return False
         finally:
-            # Cleanup temp files
-            import shutil
             shutil.rmtree(tmpdir, ignore_errors=True)
 
 
-# ---------------------------------------------------------------------------
-# Restore helpers
-# ---------------------------------------------------------------------------
+async def restore_state(call_tool_fn: CallToolFn) -> bool:
+    """Restore state from local snapshot and/or HF sync snapshot.
 
-async def restore_state(call_tool_fn) -> bool:
-    """Restore capsule state from the HF dataset repo.
-
-    Args:
-        call_tool_fn: async function(tool_name, args) -> dict that calls MCP tools
+    In "both" mode, we avoid stale HF overrides by comparing state_meta timestamps.
+    HF restore only applies when HF snapshot is newer than local snapshot.
     """
-    repo_id = _get_repo_id()
-    if not repo_id:
-        return False
+    restored = 0
+    local_meta_ts = None
 
-    api = _get_api()
-    tmpdir = Path(tempfile.mkdtemp(prefix="cc_restore_"))
-    restored = []
+    # Local restore
+    if _LOCAL_ENABLED:
+        local_files = _local_file_map()
+        local_meta_ts = _read_meta_timestamp(local_files.get(META_FILE))
+        restored += await _restore_from_files(call_tool_fn, local_files)
+        _log(f"local restore complete (restored={restored}, meta_ts={local_meta_ts})")
 
-    try:
-        # Check if repo exists
+    # HF restore
+    if _HF_ENABLED and _get_repo_id():
+        api = _get_api()
+        repo_id = _get_repo_id()
+        tmpdir = Path(tempfile.mkdtemp(prefix="cc_space_restore_"))
         try:
-            api.repo_info(repo_id=repo_id, repo_type="dataset")
-        except Exception:
-            print(f"[PERSIST] No state repo found ({repo_id}) — starting fresh")
-            return False
+            try:
+                api.repo_info(repo_id=repo_id, repo_type="dataset")
+            except Exception:
+                _log(f"hf restore skipped: repo unavailable ({repo_id})")
+                return restored > 0
 
-        # 1. Brain state
-        try:
-            brain_path = api.hf_hub_download(
-                repo_id=repo_id, repo_type="dataset",
-                filename=BRAIN_FILE, local_dir=str(tmpdir),
-            )
-            if brain_path and Path(brain_path).exists():
-                result = await _call_capsule_tool(call_tool_fn, "import_brain", {"path": brain_path})
-                if result and not result.get("error"):
-                    restored.append("brain")
-                    print(f"[PERSIST] Brain state restored")
-        except Exception as e:
-            print(f"[PERSIST] Brain restore skipped: {e}")
-
-        # 2. FelixBag
-        try:
-            bag_path = api.hf_hub_download(
-                repo_id=repo_id, repo_type="dataset",
-                filename=BAG_FILE, local_dir=str(tmpdir),
-            )
-            if bag_path and Path(bag_path).exists():
-                result = await _call_capsule_tool(call_tool_fn, "load_bag", {"file_path": bag_path})
-                if result and not result.get("error"):
-                    restored.append("bag")
-                    print(f"[PERSIST] FelixBag restored")
-        except Exception as e:
-            print(f"[PERSIST] Bag restore skipped: {e}")
-
-        # 3. Workflows
-        try:
-            wf_path = api.hf_hub_download(
-                repo_id=repo_id, repo_type="dataset",
-                filename=WORKFLOWS_FILE, local_dir=str(tmpdir),
-            )
-            if wf_path and Path(wf_path).exists():
-                workflows = json.loads(Path(wf_path).read_text())
-                wf_count = 0
-                for wf_def in workflows:
-                    # Ensure tool_name normalization
-                    for node in wf_def.get("nodes", []):
-                        t = node.get("tool_name") or node.get("tool")
-                        if t:
-                            node["tool_name"] = t
-                            node["tool"] = t
-                        if node.get("type") == "tool_call":
-                            node["type"] = "tool"
-                    result = await _call_capsule_tool(
-                        call_tool_fn, "workflow_create",
-                        {"definition": json.dumps(wf_def)}
+            hf_files: dict[str, Path] = {}
+            for filename in (BRAIN_FILE, BAG_FILE, WORKFLOWS_FILE, SLOTS_FILE, META_FILE):
+                try:
+                    downloaded = api.hf_hub_download(
+                        repo_id=repo_id,
+                        repo_type="dataset",
+                        filename=filename,
+                        local_dir=str(tmpdir),
                     )
-                    if result and not result.get("error"):
-                        wf_count += 1
-                restored.append(f"{wf_count} workflows")
-                print(f"[PERSIST] {wf_count} workflows restored")
-        except Exception as e:
-            print(f"[PERSIST] Workflow restore skipped: {e}")
+                    p = Path(downloaded)
+                    if p.exists():
+                        hf_files[filename] = p
+                except Exception as exc:
+                    _log(f"hf restore file skipped ({filename}): {exc}")
 
-        # 4. Slot manifest — re-plug models
-        try:
-            manifest_path = api.hf_hub_download(
-                repo_id=repo_id, repo_type="dataset",
-                filename=SLOTS_FILE, local_dir=str(tmpdir),
-            )
-            if manifest_path and Path(manifest_path).exists():
-                manifest = json.loads(Path(manifest_path).read_text())
-                plug_count = 0
-                for slot_entry in manifest:
-                    model_id = slot_entry.get("model_id")
-                    slot_name = slot_entry.get("name")
-                    if model_id:
-                        print(f"[PERSIST] Re-plugging slot {slot_entry['index']}: {model_id} as '{slot_name}'")
-                        result = await _call_capsule_tool(
-                            call_tool_fn, "hub_plug",
-                            {"model_id": model_id, "slot_name": slot_name or ""}
-                        )
-                        if result and not result.get("error"):
-                            plug_count += 1
-                        else:
-                            print(f"[PERSIST] Failed to re-plug {model_id}: {result}")
-                restored.append(f"{plug_count} models")
-                print(f"[PERSIST] {plug_count} models re-plugged")
-        except Exception as e:
-            print(f"[PERSIST] Slot restore skipped: {e}")
+            hf_meta_ts = _read_meta_timestamp(hf_files.get(META_FILE))
 
-        print(f"[PERSIST] ✓ Restore complete: {', '.join(restored) if restored else 'nothing to restore'}")
-        return len(restored) > 0
+            apply_hf = True
+            if local_meta_ts is not None and hf_meta_ts is not None and hf_meta_ts <= local_meta_ts:
+                apply_hf = False
 
-    except Exception as e:
-        print(f"[PERSIST] Restore failed: {e}")
-        return False
-    finally:
-        import shutil
-        shutil.rmtree(tmpdir, ignore_errors=True)
+            if apply_hf:
+                restored += await _restore_from_files(call_tool_fn, hf_files)
+                _log(f"hf restore complete (restored={restored}, meta_ts={hf_meta_ts})")
+            else:
+                _log(
+                    "hf restore skipped: local snapshot is newer/equal "
+                    f"(local_ts={local_meta_ts}, hf_ts={hf_meta_ts})"
+                )
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    _log(f"restore complete restored={restored}")
+    return restored > 0
 
 
-# ---------------------------------------------------------------------------
-# Periodic auto-save (runs as background task)
-# ---------------------------------------------------------------------------
-
-_autosave_task: asyncio.Task | None = None
-
-async def _autosave_loop(call_tool_fn, interval: int = 300):
-    """Background loop that saves state every `interval` seconds."""
-    import time as _time
+async def _autosave_loop(call_tool_fn: CallToolFn, interval: int = 60):
     while True:
         await asyncio.sleep(interval)
         try:
-            print("[PERSIST] Auto-save triggered")
-            await save_state(call_tool_fn)
-        except Exception as e:
-            print(f"[PERSIST] Auto-save error: {e}")
+            _log("autosave tick")
+            await save_state(call_tool_fn, force=False)
+        except Exception as exc:
+            _log(f"autosave error: {exc}")
 
 
-def start_autosave(call_tool_fn, interval: int = 300):
-    """Start the background auto-save loop."""
+def start_autosave(call_tool_fn: CallToolFn, interval: int = 60):
     global _autosave_task
     if _autosave_task is not None:
         return
-    loop = asyncio.get_event_loop()
-    _autosave_task = loop.create_task(_autosave_loop(call_tool_fn, interval))
-    print(f"[PERSIST] Auto-save started (every {interval}s)")
+    _autosave_task = asyncio.create_task(_autosave_loop(call_tool_fn, interval))
+    _log(f"autosave started interval={interval}s")
 
 
 def stop_autosave():
-    """Cancel the background auto-save loop."""
     global _autosave_task
     if _autosave_task:
         _autosave_task.cancel()
         _autosave_task = None
-        print("[PERSIST] Auto-save stopped")
+        _log("autosave stopped")
 
 
 def is_available() -> bool:
-    """Check if persistence is configured (HF token + username available)."""
-    token = os.environ.get("HF_TOKEN", "")
-    if not token:
-        return False
-    return _get_repo_id() is not None
+    if _MODE == "local":
+        return _LOCAL_ENABLED
+    if _MODE == "hf":
+        return _HF_ENABLED and bool(_get_repo_id())
+    return _LOCAL_ENABLED or (_HF_ENABLED and bool(_get_repo_id()))
+
+
+def status() -> dict:
+    return {
+        "mode": _MODE,
+        "available": is_available(),
+        "local_enabled": _LOCAL_ENABLED,
+        "hf_enabled": _HF_ENABLED,
+        "repo_id": _get_repo_id(),
+        "has_hf_token": bool(_HF_TOKEN),
+        "data_dir": str(_DATA_DIR),
+        "data_writable": _DATA_WRITABLE,
+        "save_cooldown": SAVE_COOLDOWN,
+        "last_save_ts": _last_save_ts,
+        "autosave_running": _autosave_task is not None,
+    }

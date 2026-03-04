@@ -807,28 +807,73 @@
         }
 
         .activity-entry {
-            padding: 8px 12px;
+            padding: 8px 10px;
             border-bottom: 1px solid var(--border);
             font-size: 11px;
             cursor: pointer;
+            display: block;
         }
 
         .activity-entry:hover {
             background: var(--surface2);
         }
 
+        .activity-head {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            width: 100%;
+            min-width: 0;
+        }
+
+        .activity-head-main {
+            display: flex;
+            flex: 1;
+            min-width: 0;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 4px 6px;
+        }
+
+        .activity-head-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: auto;
+            padding-left: 8px;
+            min-width: 0;
+        }
+
+        .activity-trace-toggle {
+            width: 10px;
+            min-width: 10px;
+            height: 18px;
+            margin-top: 1px;
+            border: 0;
+            border-radius: 2px;
+            cursor: pointer;
+            opacity: 0.95;
+            background: var(--trace-color, var(--border));
+        }
+
+        .activity-trace-toggle:hover {
+            filter: brightness(1.15);
+        }
+
+        .activity-trace-toggle.placeholder {
+            visibility: hidden;
+            pointer-events: none;
+        }
+
         .activity-entry .activity-expand-hint {
-            float: right;
             color: var(--text-dim);
             font-size: 9px;
             opacity: 0;
             transition: opacity 0.15s;
+            white-space: nowrap;
         }
 
-        .activity-entry:hover .activity-expand-hint {
-            opacity: 1;
-        }
-
+        .activity-entry:hover .activity-expand-hint,
         .activity-entry.expanded .activity-expand-hint {
             opacity: 1;
         }
@@ -850,12 +895,30 @@
             color: var(--text-dim);
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            margin-left: 6px;
+            margin-left: 2px;
         }
 
         .activity-duration {
             color: var(--text-dim);
-            margin-left: 8px;
+            margin-left: 0;
+            white-space: nowrap;
+        }
+
+        .activity-meta-banner {
+            margin: 4px 0 0 18px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px 8px;
+            min-height: 14px;
+        }
+
+        .activity-meta-chip {
+            font-size: 9px;
+            color: var(--text-dim);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 320px;
         }
 
         .activity-detail {

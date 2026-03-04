@@ -2073,6 +2073,7 @@
     }
 
     var _activityTraceCounts = {}; // trace/session id -> sequence count
+    var _activityTraceGroupExpanded = {}; // trace/session id -> group expand/collapse state
 
     function _parseAgentSessionSlot(sessionId) {
         var sid = String(sessionId || '').trim();
@@ -2455,6 +2456,115 @@
 
     function _actEsc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
+    function _unwrapActivityResult(resultObj) {
+        var out = (resultObj === undefined ? null : resultObj);
+        if (out && typeof out === 'object' && out.content && Array.isArray(out.content)) {
+            var innerText = null;
+            if (out.structuredContent && out.structuredContent.result) {
+                innerText = out.structuredContent.result;
+            } else if (out.content[0] && out.content[0].text) {
+                innerText = out.content[0].text;
+            }
+            if (innerText) {
+                try { out = JSON.parse(innerText); }
+                catch (err) { out = innerText; }
+            }
+        }
+        return out;
+    }
+
+    function _activityTokenShort(value, maxLen) {
+        var s = String(value === null || value === undefined ? '' : value);
+        s = _decodeDocKey(s).replace(/\s+/g, ' ').trim();
+        if (!maxLen || s.length <= maxLen) return s;
+        return s.slice(0, Math.max(4, maxLen - 1)) + '…';
+    }
+
+    function _activitySlotLabel(slotVal) {
+        var n = parseInt(slotVal, 10);
+        if (isNaN(n) || n < 0) return '';
+        return 'S' + (n + 1);
+    }
+
+    function _activityMetaBullets(e, resultObj, hasError) {
+        var out = [];
+        var args = (e && e.args && typeof e.args === 'object') ? e.args : {};
+
+        if (e && e._trace_seq !== undefined) out.push('seq #' + String(e._trace_seq));
+        if (e && e._trace_role) out.push('flow ' + String(e._trace_role));
+
+        var slotLabel = _activitySlotLabel(args.slot);
+        if (slotLabel) out.push('slot ' + slotLabel);
+
+        if (args.session_id) out.push('session ' + _activityTokenShort(args.session_id, 18));
+        if (args.workflow_id) out.push('workflow ' + _activityTokenShort(args.workflow_id, 26));
+        if (args.model_id) out.push('model ' + _activityTokenShort(args.model_id, 32));
+        if (args.path || args.key) out.push('target ' + _activityTokenShort(args.path || args.key, 42));
+
+        if (resultObj && typeof resultObj === 'object' && !Array.isArray(resultObj)) {
+            if (resultObj.status !== undefined) out.push('status ' + _activityTokenShort(resultObj.status, 18));
+            if (resultObj.path || resultObj.key) out.push('stored ' + _activityTokenShort(resultObj.path || resultObj.key, 42));
+            if (resultObj.version !== undefined) out.push('v' + String(resultObj.version));
+            if (resultObj.count !== undefined) out.push('count ' + String(resultObj.count));
+            if (resultObj.slots_filled !== undefined) out.push('slots ' + String(resultObj.slots_filled));
+            if (resultObj.execution_id) out.push('exec ' + _activityTokenShort(resultObj.execution_id, 18));
+            if (resultObj.checkpoint_key) out.push('checkpoint ' + _activityTokenShort(resultObj.checkpoint_key, 28));
+            if (resultObj.error) out.push('error ' + _activityTokenShort(resultObj.error, 44));
+        }
+
+        if (hasError && e && e.error) {
+            out.push('ERR ' + _activityTokenShort(String(e.error).split('\n')[0], 44));
+        }
+
+        var unique = [];
+        var seen = {};
+        for (var i = 0; i < out.length; i++) {
+            var item = String(out[i] || '').trim();
+            if (!item) continue;
+            var key = item.toLowerCase();
+            if (seen[key]) continue;
+            seen[key] = true;
+            unique.push(item);
+            if (unique.length >= 10) break;
+        }
+        return unique;
+    }
+
+    function _activityMetaBannerHtml(items) {
+        if (!items || !items.length) return '';
+        var html = '<div class="activity-meta-banner">';
+        for (var i = 0; i < items.length; i++) {
+            html += '<span class="activity-meta-chip">• ' + _actEsc(items[i]) + '</span>';
+        }
+        html += '</div>';
+        return html;
+    }
+
+    function _toggleTraceGroup(traceId) {
+        if (!traceId) return;
+        var feed = document.getElementById('activity-feed');
+        if (!feed) return;
+        var nodes = feed.querySelectorAll('.activity-entry[data-trace-id]');
+        var matches = [];
+        for (var i = 0; i < nodes.length; i++) {
+            if (nodes[i].getAttribute('data-trace-id') === traceId) matches.push(nodes[i]);
+        }
+        if (!matches.length) return;
+
+        var shouldExpand = false;
+        for (var j = 0; j < matches.length; j++) {
+            if (!matches[j].classList.contains('expanded')) {
+                shouldExpand = true;
+                break;
+            }
+        }
+
+        for (var k = 0; k < matches.length; k++) {
+            matches[k].classList.toggle('expanded', shouldExpand);
+        }
+        _activityTraceGroupExpanded[traceId] = shouldExpand;
+    }
+
     function _buildActivityNode(e) {
         var ts = new Date(e.timestamp).toLocaleTimeString();
         var fullTs;
@@ -2510,19 +2620,7 @@
         }
         detailLines.push('');
 
-        var resultObj = (e.result === undefined ? null : e.result);
-        if (resultObj && typeof resultObj === 'object' && resultObj.content && Array.isArray(resultObj.content)) {
-            var innerText = null;
-            if (resultObj.structuredContent && resultObj.structuredContent.result) {
-                innerText = resultObj.structuredContent.result;
-            } else if (resultObj.content[0] && resultObj.content[0].text) {
-                innerText = resultObj.content[0].text;
-            }
-            if (innerText) {
-                try { resultObj = JSON.parse(innerText); }
-                catch (err) { resultObj = innerText; }
-            }
-        }
+        var resultObj = _unwrapActivityResult(e.result);
 
         var resultText = 'None';
         if (resultObj !== null && resultObj !== undefined) {
@@ -2574,37 +2672,74 @@
         }
 
         var traceBadge = '';
+        var traceStrip = '<span class="activity-trace-toggle placeholder"></span>';
         if (e._trace_id) {
             var traceColor = String(e._trace_color || ('hsl(' + (parseInt(e._trace_hue || 180, 10) || 180) + ', 78%, 58%)'));
+            var safeTraceColor = traceColor.replace(/["'<>]/g, '');
             var shortTrace = String(e._trace_id).split(':').slice(-1)[0] || String(e._trace_id).substring(0, 10);
             if (shortTrace.length > 10) shortTrace = shortTrace.substring(0, 10);
             var roleTag = e._trace_role ? (' · ' + String(e._trace_role)) : '';
             var seqTag = (e._trace_seq !== undefined) ? ('#' + String(e._trace_seq)) : '';
-            traceBadge = '<span class="activity-cat" style="border-color:' + traceColor + ';color:' + traceColor + ';">TRACE ' + escHtml(seqTag + roleTag + ' ' + shortTrace).trim() + '</span>';
+            traceBadge = '<span class="activity-cat" style="border-color:' + safeTraceColor + ';color:' + safeTraceColor + ';">TRACE ' + escHtml(seqTag + roleTag + ' ' + shortTrace).trim() + '</span>';
+            traceStrip = '<button class="activity-trace-toggle" data-trace-id="' + _actEsc(String(e._trace_id)) + '" title="Toggle all entries in this trace" style="--trace-color:' + safeTraceColor + ';background:' + safeTraceColor + ';"></button>';
         }
+
+        var metaBanner = _activityMetaBannerHtml(_activityMetaBullets(e, resultObj, hasError));
 
         var div = document.createElement('div');
         div.className = 'activity-entry';
         if (e._trace_id) {
-            var traceColorEdge = String(e._trace_color || ('hsl(' + (parseInt(e._trace_hue || 180, 10) || 180) + ', 78%, 58%)'));
+            var traceColorEdge = String(e._trace_color || ('hsl(' + (parseInt(e._trace_hue || 180, 10) || 180) + ', 78%, 58%)')).replace(/["'<>]/g, '');
             div.style.borderLeft = '3px solid ' + traceColorEdge;
-            div.style.paddingLeft = '9px';
+            div.style.paddingLeft = '8px';
+            div.setAttribute('data-trace-id', String(e._trace_id));
+            if (_activityTraceGroupExpanded[String(e._trace_id)] === true) {
+                div.classList.add('expanded');
+            }
         }
-        div.onclick = function () {
+
+        div.onclick = function (evt) {
+            if (evt && evt.target && evt.target.classList && evt.target.classList.contains('activity-trace-toggle')) return;
             var sel = window.getSelection();
             if (sel && sel.toString().length > 0) return;
             div.classList.toggle('expanded');
+            if (e._trace_id && Object.prototype.hasOwnProperty.call(_activityTraceGroupExpanded, String(e._trace_id))) {
+                // Manual row toggles break out of group lock to preserve per-entry control.
+                delete _activityTraceGroupExpanded[String(e._trace_id)];
+            }
         };
+
         div.innerHTML =
-            '<span class="activity-ts">' + ts + '</span> ' +
+            '<div class="activity-head">' +
+            traceStrip +
+            '<div class="activity-head-main">' +
+            '<span class="activity-ts">' + ts + '</span>' +
             '<span class="activity-tool">' + _actEsc(e.tool) + '</span>' +
             '<span class="activity-cat">' + _actEsc(e.category) + '</span>' +
             sourceBadge +
             traceBadge +
+            (hasError ? '<span style="color:var(--red);font-weight:700;">ERR</span>' : '') +
+            '</div>' +
+            '<div class="activity-head-right">' +
             '<span class="activity-duration">' + (e.durationMs || 0) + 'ms</span>' +
-            (hasError ? ' <span style="color:var(--red);">ERR</span>' : '') +
-            '<span class="activity-expand-hint">click to expand</span>' +
+            '<span class="activity-expand-hint">row: details · color: trace group</span>' +
+            '</div>' +
+            '</div>' +
+            metaBanner +
             '<pre class="activity-detail">' + _normalizeNewlines(_actEsc(_decodeDocKey(detailText))) + '</pre>';
+
+        var traceBtn = div.querySelector('.activity-trace-toggle');
+        if (traceBtn && !(traceBtn.classList && traceBtn.classList.contains('placeholder'))) {
+            traceBtn.addEventListener('click', function (evt) {
+                if (evt) {
+                    evt.preventDefault();
+                    evt.stopPropagation();
+                }
+                var tid = this.getAttribute('data-trace-id') || '';
+                if (tid) _toggleTraceGroup(tid);
+            });
+        }
+
         return div;
     }
 
@@ -5628,6 +5763,8 @@
 
     function clearActivity() {
         _activityLog = [];
+        _activityTraceCounts = {};
+        _activityTraceGroupExpanded = {};
         renderActivityFeed();
     }
     window.clearActivity = clearActivity;

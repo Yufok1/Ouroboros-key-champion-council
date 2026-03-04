@@ -1011,13 +1011,18 @@ async def lifespan(app: FastAPI):
             if ok:
                 print("[OK] MCP proxy ready")
 
-                # Restore persisted state from HF dataset repo
+                # Restore persisted state (local-first, optional HF sync)
                 if persistence.is_available():
-                    print("[INIT] Restoring persisted state...")
+                    pstat = persistence.status() if hasattr(persistence, "status") else {}
+                    print(f"[INIT] Restoring persisted state (mode={pstat.get('mode', 'unknown')}, local={pstat.get('local_enabled')}, hf={pstat.get('hf_enabled')})...")
                     await persistence.restore_state(_call_tool)
-                    persistence.start_autosave(_call_tool, interval=300)
+                    autosave_interval = int(os.environ.get("AUTOSAVE_INTERVAL", "60"))
+                    if autosave_interval < 15:
+                        autosave_interval = 15
+                    persistence.start_autosave(_call_tool, interval=autosave_interval)
                 else:
-                    print("[INIT] Persistence not available (no HF_TOKEN or username)")
+                    pstat = persistence.status() if hasattr(persistence, "status") else {}
+                    print(f"[INIT] Persistence unavailable: {pstat}")
             else:
                 print("[WARN] MCP connect failed (will retry on first request)")
 
@@ -1026,7 +1031,11 @@ async def lifespan(app: FastAPI):
     # Shutdown — save state before stopping
     if persistence.is_available():
         print("[SHUTDOWN] Saving state...")
-        await persistence.save_state(_call_tool)
+        try:
+            await persistence.save_state(_call_tool, force=True)
+        except TypeError:
+            # Backward compatibility with legacy persistence adapters
+            await persistence.save_state(_call_tool)
         persistence.stop_autosave()
 
     await _disconnect_mcp()
@@ -3189,18 +3198,33 @@ async def runtime_capacity(request: Request):
 
 @app.post("/api/persist/save")
 async def persist_save():
-    """Manually trigger a state save to the HF dataset repo."""
+    """Manually trigger a state save (local snapshot + optional HF sync)."""
     if not persistence.is_available():
-        return JSONResponse(status_code=503, content={"error": "Persistence not available — set HF_TOKEN as a Space secret"})
-    ok = await persistence.save_state(_call_tool)
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "Persistence not available",
+                "status": persistence.status() if hasattr(persistence, "status") else {},
+            },
+        )
+    try:
+        ok = await persistence.save_state(_call_tool, force=True)
+    except TypeError:
+        ok = await persistence.save_state(_call_tool)
     return {"status": "saved" if ok else "failed"}
 
 
 @app.post("/api/persist/restore")
 async def persist_restore():
-    """Manually trigger a state restore from the HF dataset repo."""
+    """Manually trigger state restore (local snapshot first, then optional HF sync)."""
     if not persistence.is_available():
-        return JSONResponse(status_code=503, content={"error": "Persistence not available — set HF_TOKEN as a Space secret"})
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "Persistence not available",
+                "status": persistence.status() if hasattr(persistence, "status") else {},
+            },
+        )
     ok = await persistence.restore_state(_call_tool)
     return {"status": "restored" if ok else "failed"}
 
@@ -3208,6 +3232,8 @@ async def persist_restore():
 @app.get("/api/persist/status")
 async def persist_status():
     """Check persistence configuration status."""
+    if hasattr(persistence, "status"):
+        return persistence.status()
     return {
         "available": persistence.is_available(),
         "repo_id": persistence._get_repo_id(),
