@@ -63,6 +63,25 @@ _save_lock = asyncio.Lock()
 _last_save_ts: float = 0.0
 _autosave_task: asyncio.Task | None = None
 
+_BAG_SHRINK_GUARD_ENABLED = str(os.environ.get("PERSIST_BAG_SHRINK_GUARD", "1")).strip().lower() not in {
+    "0",
+    "false",
+    "no",
+    "off",
+}
+try:
+    _BAG_SHRINK_GUARD_RATIO = float(os.environ.get("PERSIST_BAG_SHRINK_RATIO", "0.70"))
+except Exception:
+    _BAG_SHRINK_GUARD_RATIO = 0.70
+_BAG_SHRINK_GUARD_RATIO = min(0.99, max(0.05, _BAG_SHRINK_GUARD_RATIO))
+try:
+    _BAG_SHRINK_GUARD_MIN_BASELINE = int(os.environ.get("PERSIST_BAG_SHRINK_MIN_BASELINE", "40"))
+except Exception:
+    _BAG_SHRINK_GUARD_MIN_BASELINE = 40
+_BAG_SHRINK_GUARD_MIN_BASELINE = max(1, _BAG_SHRINK_GUARD_MIN_BASELINE)
+
+_bag_guard_baseline_count: int | None = None
+
 
 def _log(msg: str) -> None:
     print(f"[PERSIST] {msg}")
@@ -246,6 +265,7 @@ async def _collect_state_files(call_tool_fn: CallToolFn, tmpdir: Path) -> dict[s
     # 2) FelixBag
     bag_path = tmpdir / BAG_FILE
     bag_result = await _call_capsule_tool(call_tool_fn, "save_bag", {"file_path": str(bag_path)})
+    bag_count = _extract_bag_count(bag_result, bag_path)
     if bag_result is not None:
         success_signals += 1
     if bag_result is not None and bag_path.exists():
@@ -303,6 +323,7 @@ async def _collect_state_files(call_tool_fn: CallToolFn, tmpdir: Path) -> dict[s
         "hf_enabled": _HF_ENABLED,
         "workflow_count": len(workflows),
         "slot_count": len(slot_manifest),
+        "bag_count": bag_count,
     }
     meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
     files[META_FILE] = meta_path
@@ -326,6 +347,63 @@ def _read_meta_timestamp(path: Path | None) -> float | None:
         return dt.timestamp()
     except Exception:
         return None
+
+
+def _read_meta_bag_count(path: Path | None) -> int | None:
+    if not path or not path.exists():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(data, dict):
+            return None
+        for key in ("bag_count", "bag_items", "saved", "total"):
+            raw = data.get(key)
+            try:
+                val = int(raw)
+            except Exception:
+                continue
+            if val >= 0:
+                return val
+    except Exception:
+        return None
+    return None
+
+
+def _extract_bag_count(bag_result: dict | list | None, bag_path: Path) -> int | None:
+    if isinstance(bag_result, dict):
+        for key in ("saved", "count", "total", "items"):
+            raw = bag_result.get(key)
+            try:
+                val = int(raw)
+            except Exception:
+                continue
+            if val >= 0:
+                return val
+
+    if bag_path.exists():
+        try:
+            payload = json.loads(bag_path.read_text(encoding="utf-8"))
+            if isinstance(payload, (dict, list)):
+                return len(payload)
+        except Exception:
+            return None
+    return None
+
+
+def _seed_bag_guard_baseline(count: int | None) -> None:
+    global _bag_guard_baseline_count
+    if count is None:
+        return
+    try:
+        count_i = int(count)
+    except Exception:
+        return
+    if count_i < 0:
+        return
+    if _bag_guard_baseline_count is None:
+        _bag_guard_baseline_count = count_i
+        return
+    _bag_guard_baseline_count = max(_bag_guard_baseline_count, count_i)
 
 
 async def _restore_from_files(call_tool_fn: CallToolFn, files: dict[str, Path]) -> int:
@@ -415,7 +493,7 @@ async def _restore_from_files(call_tool_fn: CallToolFn, files: dict[str, Path]) 
 
 async def save_state(call_tool_fn: CallToolFn, force: bool = False) -> bool:
     """Save state to local snapshot and/or HF dataset according to mode."""
-    global _last_save_ts
+    global _last_save_ts, _bag_guard_baseline_count
 
     async with _save_lock:
         now = time.time()
@@ -430,6 +508,28 @@ async def save_state(call_tool_fn: CallToolFn, force: bool = False) -> bool:
             if not files:
                 _log("save aborted: no state files collected")
                 return False
+
+            current_bag_count = _read_meta_bag_count(files.get(META_FILE))
+            baseline = _bag_guard_baseline_count
+            if baseline is None:
+                baseline = _read_meta_bag_count((_local_file_map()).get(META_FILE))
+                _seed_bag_guard_baseline(baseline)
+                baseline = _bag_guard_baseline_count
+
+            if (
+                _BAG_SHRINK_GUARD_ENABLED
+                and not force
+                and baseline is not None
+                and baseline >= _BAG_SHRINK_GUARD_MIN_BASELINE
+                and current_bag_count is not None
+            ):
+                allowed_floor = max(0, int(baseline * _BAG_SHRINK_GUARD_RATIO))
+                if current_bag_count < allowed_floor:
+                    _log(
+                        "save blocked by bag shrink guard "
+                        f"(current={current_bag_count}, baseline={baseline}, floor={allowed_floor})"
+                    )
+                    return False
 
             # Local snapshot
             if _LOCAL_ENABLED:
@@ -454,6 +554,11 @@ async def save_state(call_tool_fn: CallToolFn, force: bool = False) -> bool:
                     _log(f"hf upload: {filename} -> {repo_id}")
 
             _last_save_ts = time.time()
+            if current_bag_count is not None:
+                if force:
+                    _bag_guard_baseline_count = int(current_bag_count)
+                else:
+                    _seed_bag_guard_baseline(current_bag_count)
             _log("save complete")
             return True
         except Exception as exc:
@@ -469,15 +574,21 @@ async def restore_state(call_tool_fn: CallToolFn) -> bool:
     In "both" mode, we avoid stale HF overrides by comparing state_meta timestamps.
     HF restore only applies when HF snapshot is newer than local snapshot.
     """
+    global _bag_guard_baseline_count
     restored = 0
     local_meta_ts = None
+    local_meta_count = None
 
     # Local restore
     if _LOCAL_ENABLED:
         local_files = _local_file_map()
         local_meta_ts = _read_meta_timestamp(local_files.get(META_FILE))
+        local_meta_count = _read_meta_bag_count(local_files.get(META_FILE))
+        _seed_bag_guard_baseline(local_meta_count)
         restored += await _restore_from_files(call_tool_fn, local_files)
-        _log(f"local restore complete (restored={restored}, meta_ts={local_meta_ts})")
+        _log(
+            f"local restore complete (restored={restored}, meta_ts={local_meta_ts}, bag_count={local_meta_count})"
+        )
 
     # HF restore
     if _HF_ENABLED and _get_repo_id():
@@ -507,6 +618,8 @@ async def restore_state(call_tool_fn: CallToolFn) -> bool:
                     _log(f"hf restore file skipped ({filename}): {exc}")
 
             hf_meta_ts = _read_meta_timestamp(hf_files.get(META_FILE))
+            hf_meta_count = _read_meta_bag_count(hf_files.get(META_FILE))
+            _seed_bag_guard_baseline(hf_meta_count)
 
             apply_hf = True
             if local_meta_ts is not None and hf_meta_ts is not None and hf_meta_ts <= local_meta_ts:
@@ -514,7 +627,9 @@ async def restore_state(call_tool_fn: CallToolFn) -> bool:
 
             if apply_hf:
                 restored += await _restore_from_files(call_tool_fn, hf_files)
-                _log(f"hf restore complete (restored={restored}, meta_ts={hf_meta_ts})")
+                _log(
+                    f"hf restore complete (restored={restored}, meta_ts={hf_meta_ts}, bag_count={hf_meta_count})"
+                )
             else:
                 _log(
                     "hf restore skipped: local snapshot is newer/equal "
@@ -525,6 +640,80 @@ async def restore_state(call_tool_fn: CallToolFn) -> bool:
 
     _log(f"restore complete restored={restored}")
     return restored > 0
+
+
+async def restore_state_revision(
+    call_tool_fn: CallToolFn,
+    revision: str,
+    promote_after_restore: bool = False,
+) -> dict:
+    """Restore state from a specific HF dataset commit/revision.
+
+    Useful for deterministic rollback when head was overwritten by a bad autosave.
+    """
+    rev = str(revision or "").strip()
+    if not rev:
+        return {"status": "error", "error": "Missing revision"}
+    if not (_HF_ENABLED and _get_repo_id()):
+        return {"status": "error", "error": "HF persistence unavailable"}
+
+    api = _get_api()
+    repo_id = _get_repo_id()
+    tmpdir = Path(tempfile.mkdtemp(prefix="cc_space_restore_rev_"))
+    restored = 0
+    hf_meta_ts = None
+    hf_meta_count = None
+    downloaded_files: list[str] = []
+    promote_ok: bool | None = None
+
+    try:
+        try:
+            api.repo_info(repo_id=repo_id, repo_type="dataset")
+        except Exception as exc:
+            return {"status": "error", "error": f"repo unavailable: {exc}", "revision": rev, "repo_id": repo_id}
+
+        hf_files: dict[str, Path] = {}
+        for filename in (BRAIN_FILE, BAG_FILE, WORKFLOWS_FILE, SLOTS_FILE, META_FILE):
+            try:
+                downloaded = api.hf_hub_download(
+                    repo_id=repo_id,
+                    repo_type="dataset",
+                    filename=filename,
+                    revision=rev,
+                    local_dir=str(tmpdir),
+                )
+                p = Path(downloaded)
+                if p.exists():
+                    hf_files[filename] = p
+                    downloaded_files.append(filename)
+            except Exception as exc:
+                _log(f"hf restore revision file skipped ({filename} @ {rev}): {exc}")
+
+        hf_meta_ts = _read_meta_timestamp(hf_files.get(META_FILE))
+        hf_meta_count = _read_meta_bag_count(hf_files.get(META_FILE))
+        _seed_bag_guard_baseline(hf_meta_count)
+
+        restored = await _restore_from_files(call_tool_fn, hf_files)
+
+        if restored > 0 and promote_after_restore:
+            try:
+                promote_ok = await save_state(call_tool_fn, force=True)
+            except TypeError:
+                promote_ok = await save_state(call_tool_fn)
+
+        return {
+            "status": "restored" if restored > 0 else "failed",
+            "revision": rev,
+            "repo_id": repo_id,
+            "restored": restored,
+            "meta_ts": hf_meta_ts,
+            "meta_bag_count": hf_meta_count,
+            "downloaded_files": downloaded_files,
+            "promote_after_restore": bool(promote_after_restore),
+            "promote_ok": promote_ok,
+        }
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
 
 
 async def _autosave_loop(call_tool_fn: CallToolFn, interval: int = 60):
@@ -590,4 +779,10 @@ def status() -> dict:
         "save_cooldown": SAVE_COOLDOWN,
         "last_save_ts": _last_save_ts,
         "autosave_running": _autosave_task is not None,
+        "bag_shrink_guard": {
+            "enabled": _BAG_SHRINK_GUARD_ENABLED,
+            "ratio": _BAG_SHRINK_GUARD_RATIO,
+            "min_baseline": _BAG_SHRINK_GUARD_MIN_BASELINE,
+            "baseline_count": _bag_guard_baseline_count,
+        },
     }
