@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import time
+from datetime import timedelta
 from typing import Any
 
 from mcp import ClientSession
@@ -55,7 +56,7 @@ class MCPClient:
                 self._sse_cm = sse_client(f"{self.mcp_base_url}/sse")
                 self._read_stream, self._write_stream = await self._sse_cm.__aenter__()
 
-                self._session_cm = ClientSession(self._read_stream, self._write_stream)
+                self._session_cm = ClientSession(self._read_stream, self._write_stream, read_timeout_seconds=timedelta(seconds=180))
                 self._session = await self._session_cm.__aenter__()
 
                 result = await self._session.initialize()

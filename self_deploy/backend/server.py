@@ -1184,6 +1184,27 @@ async def _server_side_agent_chat(
             break
 
         model_output = str(model_parsed.get("output", ""))
+
+        # ── Empty response retry: nudge the model if it returned nothing ──
+        if not model_output.strip() and iteration < max_iterations - 1:
+            chat_messages.append({
+                "role": "user",
+                "content": (
+                    "Your response was empty. You MUST respond with exactly one JSON object.\n"
+                    'Either: {"tool": "tool_name", "args": {...}}\n'
+                    'Or: {"final_answer": "your answer"}\n'
+                    "Try again now."
+                ),
+            })
+            _bcast(
+                tool="agent_chat",
+                args={"_phase": "empty_retry", "iteration": iterations_used, "session_id": session_id, "slot": slot},
+                result={"content": [{"type": "text", "text": "Empty model response — retrying with nudge"}]},
+                duration_ms=int((time.time() - step_start) * 1000), error=None,
+                source="agent-inner", client_id=client_id,
+            )
+            continue
+
         step_ms = int((time.time() - step_start) * 1000)
 
         _bcast(
