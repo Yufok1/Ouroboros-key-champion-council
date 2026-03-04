@@ -562,6 +562,18 @@ def is_available() -> bool:
 
 
 def status() -> dict:
+    data_dir_norm = str(_DATA_DIR).replace("\\", "/")
+    durable_local_volume = data_dir_norm.startswith("/data/") or data_dir_norm == "/data"
+    durable_hf_sync = _HF_ENABLED and bool(_get_repo_id())
+    durable_across_redeploy = ("local" in (_MODE, "both") and durable_local_volume and _LOCAL_ENABLED) or durable_hf_sync
+
+    warning = ""
+    if not durable_across_redeploy:
+        warning = (
+            "Persistence is runtime-local only (ephemeral across Space rebuild/push). "
+            "Enable HF Space Persistent Storage (/data) or set HF_TOKEN for dataset sync."
+        )
+
     return {
         "mode": _MODE,
         "available": is_available(),
@@ -571,6 +583,10 @@ def status() -> dict:
         "has_hf_token": bool(_HF_TOKEN),
         "data_dir": str(_DATA_DIR),
         "data_writable": _DATA_WRITABLE,
+        "durable_local_volume": durable_local_volume,
+        "durable_hf_sync": durable_hf_sync,
+        "durable_across_redeploy": durable_across_redeploy,
+        "warning": warning,
         "save_cooldown": SAVE_COOLDOWN,
         "last_save_ts": _last_save_ts,
         "autosave_running": _autosave_task is not None,
