@@ -58,6 +58,24 @@ class PersistenceManager:
         self._hf_api = None
         self._repo_id: str | None = None
 
+        self.bag_shrink_guard_enabled = str(os.environ.get("PERSIST_BAG_SHRINK_GUARD", "1")).strip().lower() not in {
+            "0",
+            "false",
+            "no",
+            "off",
+        }
+        try:
+            ratio = float(os.environ.get("PERSIST_BAG_SHRINK_RATIO", "0.70"))
+        except Exception:
+            ratio = 0.70
+        self.bag_shrink_guard_ratio = min(0.99, max(0.05, ratio))
+        try:
+            min_baseline = int(os.environ.get("PERSIST_BAG_SHRINK_MIN_BASELINE", "40"))
+        except Exception:
+            min_baseline = 40
+        self.bag_shrink_guard_min_baseline = max(1, min_baseline)
+        self._bag_guard_baseline_count: int | None = None
+
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self._ensure_local_dirs()
         self._log(
@@ -84,6 +102,58 @@ class PersistenceManager:
         for rel in LOCAL_LAYOUT.values():
             (self.data_dir / rel).parent.mkdir(parents=True, exist_ok=True)
 
+    def _read_meta_bag_count(self, path: Path | None) -> int | None:
+        if not path or not path.exists():
+            return None
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            if not isinstance(data, dict):
+                return None
+            for key in ("bag_count", "bag_items", "saved", "total"):
+                raw = data.get(key)
+                try:
+                    val = int(raw)
+                except Exception:
+                    continue
+                if val >= 0:
+                    return val
+        except Exception:
+            return None
+        return None
+
+    def _extract_bag_count(self, bag_result: dict | list | None, bag_path: Path) -> int | None:
+        if isinstance(bag_result, dict):
+            for key in ("saved", "count", "total", "items"):
+                raw = bag_result.get(key)
+                try:
+                    val = int(raw)
+                except Exception:
+                    continue
+                if val >= 0:
+                    return val
+        if bag_path.exists():
+            try:
+                payload = json.loads(bag_path.read_text(encoding="utf-8"))
+                if isinstance(payload, (dict, list)):
+                    return len(payload)
+            except Exception:
+                return None
+        return None
+
+    def _seed_bag_guard_baseline(self, count: int | None) -> None:
+        if count is None:
+            return
+        try:
+            count_i = int(count)
+        except Exception:
+            return
+        if count_i < 0:
+            return
+        if self._bag_guard_baseline_count is None:
+            self._bag_guard_baseline_count = count_i
+            return
+        self._bag_guard_baseline_count = max(self._bag_guard_baseline_count, count_i)
+
     def status(self) -> dict:
         return {
             "mode": self.mode,
@@ -94,6 +164,12 @@ class PersistenceManager:
             "data_dir": str(self.data_dir),
             "last_save_ts": self._last_save_ts,
             "autosave_running": self._autosave_task is not None,
+            "bag_shrink_guard": {
+                "enabled": self.bag_shrink_guard_enabled,
+                "ratio": self.bag_shrink_guard_ratio,
+                "min_baseline": self.bag_shrink_guard_min_baseline,
+                "baseline_count": self._bag_guard_baseline_count,
+            },
         }
 
     # ------------------------------------------------------------------
@@ -200,6 +276,7 @@ class PersistenceManager:
         # 2) FelixBag
         bag_path = tmpdir / BAG_FILE
         result = await self._call_tool(call_tool_fn, "save_bag", {"file_path": str(bag_path)})
+        bag_count = self._extract_bag_count(result, bag_path)
         if result is not None:
             success_signals += 1
         if result is not None and bag_path.exists():
@@ -255,6 +332,7 @@ class PersistenceManager:
             "mode": self.mode,
             "workflow_count": len(workflows),
             "slot_count": len(slot_manifest),
+            "bag_count": bag_count,
         }
         meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
         files[META_FILE] = meta_path
@@ -287,6 +365,28 @@ class PersistenceManager:
                     return False
                 self._log(f"collected files: {', '.join(sorted(files.keys()))}")
 
+                current_bag_count = self._read_meta_bag_count(files.get(META_FILE))
+                baseline = self._bag_guard_baseline_count
+                if baseline is None:
+                    baseline = self._read_meta_bag_count((self.data_dir / LOCAL_LAYOUT[META_FILE]))
+                    self._seed_bag_guard_baseline(baseline)
+                    baseline = self._bag_guard_baseline_count
+
+                if (
+                    self.bag_shrink_guard_enabled
+                    and not force
+                    and baseline is not None
+                    and baseline >= self.bag_shrink_guard_min_baseline
+                    and current_bag_count is not None
+                ):
+                    allowed_floor = max(0, int(baseline * self.bag_shrink_guard_ratio))
+                    if current_bag_count < allowed_floor:
+                        self._log(
+                            "save blocked by bag shrink guard "
+                            f"(current={current_bag_count}, baseline={baseline}, floor={allowed_floor})"
+                        )
+                        return False
+
                 # Local save
                 if self.local_enabled:
                     for filename, src in files.items():
@@ -311,6 +411,11 @@ class PersistenceManager:
                         self._log(f"hf upload: {filename} -> {repo_id}")
 
                 self._last_save_ts = time.time()
+                if current_bag_count is not None:
+                    if force:
+                        self._bag_guard_baseline_count = int(current_bag_count)
+                    else:
+                        self._seed_bag_guard_baseline(current_bag_count)
                 self._log("save complete")
                 return True
             except Exception as exc:
@@ -381,7 +486,9 @@ class PersistenceManager:
                 filename: self.data_dir / rel
                 for filename, rel in LOCAL_LAYOUT.items()
             }
-            self._log(f"restore local from {self.data_dir}")
+            local_meta_count = self._read_meta_bag_count(local_files.get(META_FILE))
+            self._seed_bag_guard_baseline(local_meta_count)
+            self._log(f"restore local from {self.data_dir} (bag_count={local_meta_count})")
             restored += await self._restore_from_files(call_tool_fn, local_files)
             self._log(f"restore local complete (restored={restored})")
 
@@ -398,7 +505,7 @@ class PersistenceManager:
                     return restored > 0
 
                 hf_files: dict[str, Path] = {}
-                for filename in (BRAIN_FILE, BAG_FILE, WORKFLOWS_FILE, SLOTS_FILE):
+                for filename in (BRAIN_FILE, BAG_FILE, WORKFLOWS_FILE, SLOTS_FILE, META_FILE):
                     try:
                         downloaded = api.hf_hub_download(
                             repo_id=repo_id,
@@ -413,13 +520,79 @@ class PersistenceManager:
                         self._log(f"restore hf file skipped ({filename}): {exc}")
                         continue
 
+                hf_meta_count = self._read_meta_bag_count(hf_files.get(META_FILE))
+                self._seed_bag_guard_baseline(hf_meta_count)
                 restored += await self._restore_from_files(call_tool_fn, hf_files)
-                self._log(f"restore hf complete (restored={restored})")
+                self._log(f"restore hf complete (restored={restored}, bag_count={hf_meta_count})")
             finally:
                 shutil.rmtree(tmpdir, ignore_errors=True)
 
         self._log(f"restore complete restored={restored}")
         return restored > 0
+
+    async def restore_state_revision(
+        self,
+        call_tool_fn: Callable[[str, dict], Awaitable[dict]],
+        revision: str,
+        *,
+        promote_after_restore: bool = False,
+    ) -> dict:
+        rev = str(revision or "").strip()
+        if not rev:
+            return {"status": "error", "error": "Missing revision"}
+        if not (self.hf_enabled and self._get_repo_id()):
+            return {"status": "error", "error": "HF persistence unavailable"}
+
+        api = self._get_hf_api()
+        repo_id = self._get_repo_id()
+        tmpdir = Path(tempfile.mkdtemp(prefix="cc_self_deploy_restore_rev_"))
+        restored = 0
+        downloaded_files: list[str] = []
+        meta_count = None
+        promote_ok: bool | None = None
+
+        try:
+            try:
+                api.repo_info(repo_id=repo_id, repo_type="dataset")
+            except Exception as exc:
+                return {"status": "error", "error": f"repo unavailable: {exc}", "revision": rev, "repo_id": repo_id}
+
+            hf_files: dict[str, Path] = {}
+            for filename in (BRAIN_FILE, BAG_FILE, WORKFLOWS_FILE, SLOTS_FILE, META_FILE):
+                try:
+                    downloaded = api.hf_hub_download(
+                        repo_id=repo_id,
+                        repo_type="dataset",
+                        filename=filename,
+                        revision=rev,
+                        local_dir=str(tmpdir),
+                    )
+                    p = Path(downloaded)
+                    if p.exists():
+                        hf_files[filename] = p
+                        downloaded_files.append(filename)
+                except Exception as exc:
+                    self._log(f"restore revision file skipped ({filename} @ {rev}): {exc}")
+
+            meta_count = self._read_meta_bag_count(hf_files.get(META_FILE))
+            self._seed_bag_guard_baseline(meta_count)
+            restored = await self._restore_from_files(call_tool_fn, hf_files)
+
+            if restored > 0 and promote_after_restore:
+                promote_ok = await self.save_state(call_tool_fn, force=True)
+
+            return {
+                "status": "restored" if restored > 0 else "failed",
+                "revision": rev,
+                "repo_id": repo_id,
+                "restored": restored,
+                "meta_bag_count": meta_count,
+                "downloaded_files": downloaded_files,
+                "promote_after_restore": bool(promote_after_restore),
+                "promote_ok": promote_ok,
+            }
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
 
     # ------------------------------------------------------------------
     # Autosave

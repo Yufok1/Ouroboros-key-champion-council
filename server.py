@@ -1945,6 +1945,21 @@ _AGENT_LOCAL_TOOL_SPECS = {
                 "reason": {"type": "string", "description": "Operator reason label for audit trail"}
             }
         }
+    },
+    "persist_status": {
+        "description": "Return persistence configuration and durability/guard status.",
+        "inputSchema": {"type": "object", "properties": {}}
+    },
+    "persist_restore_revision": {
+        "description": "Restore persistence state from a specific HF dataset commit hash/revision.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "revision": {"type": "string", "description": "HF dataset commit hash/revision"},
+                "promote_after_restore": {"type": "boolean", "description": "Immediately persist restored state back to HEAD"}
+            },
+            "required": ["revision"]
+        }
     }
 }
 
@@ -3861,6 +3876,32 @@ async def proxy_tool_call(tool_name: str, request: Request):
             return JSONResponse(status_code=503, content=payload)
         return {"result": {"content": [{"type": "text", "text": json.dumps(payload)}], "isError": False}}
 
+    if tool_name == "persist_status":
+        payload = persistence.status() if hasattr(persistence, "status") else {"available": persistence.is_available()}
+        _broadcast_activity(tool_name, body if isinstance(body, dict) else {}, payload, 0, None, source=source, client_id=client_id)
+        return {"result": {"content": [{"type": "text", "text": json.dumps(payload)}], "isError": False}}
+
+    if tool_name == "persist_restore_revision":
+        args = body if isinstance(body, dict) else {}
+        revision = str(args.get("revision", "") or "").strip()
+        if not revision:
+            payload = {"error": "Missing revision"}
+            _broadcast_activity(tool_name, args, payload, 0, "Missing revision", source=source, client_id=client_id)
+            return JSONResponse(status_code=400, content=payload)
+        if hasattr(persistence, "restore_state_revision"):
+            payload = await persistence.restore_state_revision(
+                _call_tool,
+                revision=revision,
+                promote_after_restore=bool(args.get("promote_after_restore", False)),
+            )
+        else:
+            payload = {"error": "restore_state_revision not supported by persistence adapter"}
+        err_msg = payload.get("error") if isinstance(payload, dict) else None
+        _broadcast_activity(tool_name, args, payload, 0, err_msg, source=source, client_id=client_id)
+        if err_msg:
+            return JSONResponse(status_code=503, content=payload)
+        return {"result": {"content": [{"type": "text", "text": json.dumps(payload)}], "isError": False}}
+
     slot_guard = await _slot_ready_guard(tool_name, body if isinstance(body, dict) else {})
     if slot_guard:
         error_msg = slot_guard.get("error") or f"Slot readiness guard blocked {tool_name}"
@@ -4259,6 +4300,42 @@ async def persist_restore():
         )
     ok = await persistence.restore_state(_call_tool)
     return {"status": "restored" if ok else "failed"}
+
+
+@app.post("/api/persist/restore_revision")
+async def persist_restore_revision(request: Request):
+    """Restore persisted state from a specific HF dataset revision/commit hash."""
+    if not persistence.is_available():
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "Persistence not available",
+                "status": persistence.status() if hasattr(persistence, "status") else {},
+            },
+        )
+
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    body = body if isinstance(body, dict) else {}
+
+    revision = str(body.get("revision", "") or "").strip()
+    if not revision:
+        return JSONResponse(status_code=400, content={"error": "Missing revision"})
+
+    if not hasattr(persistence, "restore_state_revision"):
+        return JSONResponse(status_code=501, content={"error": "restore_state_revision not supported"})
+
+    payload = await persistence.restore_state_revision(
+        _call_tool,
+        revision=revision,
+        promote_after_restore=bool(body.get("promote_after_restore", False)),
+    )
+    code = 200
+    if isinstance(payload, dict) and payload.get("error"):
+        code = 503
+    return JSONResponse(status_code=code, content=payload if isinstance(payload, dict) else {"status": "failed"})
 
 
 @app.get("/api/persist/status")
@@ -4825,6 +4902,7 @@ async def mcp_message_proxy(request: Request):
     _local_proxy_tools = {
         "agent_delegate", "agent_chat_inject", "agent_chat_sessions",
         "hf_cache_status", "hf_cache_clear", "capsule_restart",
+        "persist_status", "persist_restore_revision",
     }
     if len(rpc_calls) == 1 and rpc_calls[0].get("tool") in _local_proxy_tools:
         call = rpc_calls[0]
@@ -5188,7 +5266,7 @@ async def _handle_streamable_rpc(obj: dict, client_id: str) -> dict | None:
         # Return server capabilities with the capsule's REAL instructions.
         # _capsule_instructions is populated during _connect_mcp() from the
         # capsule's _build_mcp_instructions() — the full onboarding orientation.
-        _fallback_instructions = "Use tools/call for all operations. For large payloads, follow _cached via get_cached(cache_id). agent_chat supports granted_tools for agentic tool use. Local proxy tools: agent_delegate, agent_chat_inject, agent_chat_sessions, hf_cache_status, hf_cache_clear, capsule_restart."
+        _fallback_instructions = "Use tools/call for all operations. For large payloads, follow _cached via get_cached(cache_id). agent_chat supports granted_tools for agentic tool use. Local proxy tools: agent_delegate, agent_chat_inject, agent_chat_sessions, hf_cache_status, hf_cache_clear, capsule_restart, persist_status, persist_restore_revision."
         return {
             "jsonrpc": "2.0",
             "id": rpc_id,
@@ -5309,6 +5387,29 @@ async def _handle_streamable_rpc(obj: dict, client_id: str) -> dict | None:
                 preserve_state=bool(args.get("preserve_state", True)),
                 restore_state_after=bool(args.get("restore_state", True)),
             )
+            err_msg = payload.get("error") if isinstance(payload, dict) else None
+            _broadcast_activity(tool_name, args, payload, 0, err_msg, source="external", client_id=client_id)
+            if err_msg:
+                return _rpc_error(rpc_id, -32603, err_msg, payload)
+            return {"jsonrpc": "2.0", "id": rpc_id, "result": {"content": [{"type": "text", "text": json.dumps(payload)}], "isError": False}}
+
+        if tool_name == "persist_status":
+            payload = persistence.status() if hasattr(persistence, "status") else {"available": persistence.is_available()}
+            _broadcast_activity(tool_name, args, payload, 0, None, source="external", client_id=client_id)
+            return {"jsonrpc": "2.0", "id": rpc_id, "result": {"content": [{"type": "text", "text": json.dumps(payload)}], "isError": False}}
+
+        if tool_name == "persist_restore_revision":
+            revision = str(args.get("revision", "") or "").strip()
+            if not revision:
+                return _rpc_error(rpc_id, -32602, "Invalid request parameters", "Missing revision")
+            if hasattr(persistence, "restore_state_revision"):
+                payload = await persistence.restore_state_revision(
+                    _call_tool,
+                    revision=revision,
+                    promote_after_restore=bool(args.get("promote_after_restore", False)),
+                )
+            else:
+                payload = {"error": "restore_state_revision not supported by persistence adapter"}
             err_msg = payload.get("error") if isinstance(payload, dict) else None
             _broadcast_activity(tool_name, args, payload, 0, err_msg, source="external", client_id=client_id)
             if err_msg:
