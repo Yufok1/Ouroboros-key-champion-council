@@ -177,6 +177,10 @@ async def _slot_ready_guard(tool_name: str, args: dict | None) -> dict | None:
         }
 
     info_raw = await _call_tool("slot_info", {"slot": slot_idx})
+    if isinstance(info_raw, dict) and info_raw.get("error"):
+        # Fail-open on transient slot_info errors to avoid false "not plugged" negatives.
+        # The downstream call will still surface the real backend error if any.
+        return None
     info = _parse_mcp_result((info_raw or {}).get("result") if isinstance(info_raw, dict) else None) or {}
     if not isinstance(info, dict):
         info = {}
@@ -831,6 +835,8 @@ async def _restart_capsule_runtime(reason: str = "manual", preserve_state: bool 
     save_error = None
     restore_error = None
 
+    session_drain_before = _agent_force_drain_sessions(f"restart:{reason}:before")
+
     if preserve_state and persistence.is_available():
         try:
             saved = await persistence.save_state(_call_tool, force=True)
@@ -859,9 +865,18 @@ async def _restart_capsule_runtime(reason: str = "manual", preserve_state: bool 
         except Exception as exc:
             restore_error = str(exc)
 
+    session_gc_after = _agent_gc_sessions()
+
+    restore_requested = bool(restore_state_after and connected and persistence.is_available())
+    restore_ok = (not restore_requested) or bool(restored)
+    if restore_requested and not restore_ok and not restore_error:
+        restore_error = "restore_state requested but persistence restore returned no state"
+
+    overall_ok = bool(started and ready and connected and restore_ok)
+
     return {
         "reason": reason,
-        "status": "ok" if (started and ready and connected) else "degraded",
+        "status": "ok" if overall_ok else "degraded",
         "capsule_running": capsule_process is not None and capsule_process.poll() is None,
         "capsule_pid": capsule_process.pid if capsule_process and capsule_process.poll() is None else None,
         "mcp_ready": connected,
@@ -869,6 +884,10 @@ async def _restart_capsule_runtime(reason: str = "manual", preserve_state: bool 
         "restored_state": restored,
         "save_error": save_error,
         "restore_error": restore_error,
+        "restore_requested": restore_requested,
+        "restore_ok": restore_ok,
+        "session_drain_before": session_drain_before,
+        "session_gc_after": session_gc_after,
     }
 
 
@@ -1038,6 +1057,7 @@ MCP_PORT = int(os.environ.get("MCP_PORT", "8765"))
 WEB_PORT = 7860
 CAPSULE_PATH = Path("capsule/champion_gen8.py")
 MCP_BASE = f"http://127.0.0.1:{MCP_PORT}"
+_MCP_TOOL_TIMEOUT_SECONDS = max(8, int(os.environ.get("MCP_TOOL_TIMEOUT_SECONDS", "180")))
 HF_ROUTER_BASE = os.environ.get("HF_ROUTER_BASE", "https://router.huggingface.co").rstrip("/")
 
 
@@ -1229,7 +1249,10 @@ async def _call_tool(name: str, arguments: dict) -> dict:
     if not session:
         return {"error": "MCP session not available"}
     try:
-        result = await session.call_tool(name, arguments)
+        result = await asyncio.wait_for(
+            session.call_tool(name, arguments),
+            timeout=float(_MCP_TOOL_TIMEOUT_SECONDS),
+        )
         # Convert to JSON-serializable dict
         return {
             "result": {
@@ -1240,6 +1263,9 @@ async def _call_tool(name: str, arguments: dict) -> dict:
                 "isError": getattr(result, 'isError', None) or getattr(result, 'is_error', False),
             }
         }
+    except asyncio.TimeoutError:
+        await _disconnect_mcp()
+        return {"error": f"MCP tool '{name}' timed out after {_MCP_TOOL_TIMEOUT_SECONDS}s"}
     except Exception as e:
         # Session might be dead — tear down so next call reconnects
         await _disconnect_mcp()
@@ -1252,7 +1278,7 @@ async def _list_tools() -> dict:
     if not session:
         return {"error": "MCP session not available"}
     try:
-        result = await session.list_tools()
+        result = await asyncio.wait_for(session.list_tools(), timeout=float(_MCP_TOOL_TIMEOUT_SECONDS))
         tools = [
             {
                 "name": t.name,
@@ -1832,6 +1858,13 @@ _AGENT_DEFAULT_GRANTED = [
 
 _AGENT_MAX_DELEGATION_DEPTH = max(1, int(os.environ.get("AGENT_MAX_DELEGATION_DEPTH", "3")))
 _AGENT_INJECT_QUEUE_LIMIT = max(5, int(os.environ.get("AGENT_INJECT_QUEUE_LIMIT", "64")))
+_AGENT_TOOL_DESC_MAX = max(4, int(os.environ.get("AGENT_TOOL_DESC_MAX", "24")))
+_AGENT_TOOL_DESC_PARAM_MAX = max(0, int(os.environ.get("AGENT_TOOL_DESC_PARAM_MAX", "4")))
+_AGENT_MODEL_STEP_TIMEOUT_LOCAL = max(15, int(os.environ.get("AGENT_MODEL_STEP_TIMEOUT_LOCAL", "75")))
+_AGENT_MODEL_STEP_TIMEOUT_REMOTE = max(10, int(os.environ.get("AGENT_MODEL_STEP_TIMEOUT_REMOTE", "45")))
+_AGENT_TOOL_STEP_TIMEOUT = max(8, int(os.environ.get("AGENT_TOOL_STEP_TIMEOUT", "40")))
+_AGENT_SESSION_MAX_WALLCLOCK_SEC = max(30, int(os.environ.get("AGENT_SESSION_MAX_WALLCLOCK_SEC", "180")))
+_AGENT_SESSION_MAX_IDLE_SEC = max(20, int(os.environ.get("AGENT_SESSION_MAX_IDLE_SEC", "90")))
 
 _AGENT_LOCAL_TOOL_SPECS = {
     "agent_delegate": {
@@ -1940,6 +1973,7 @@ def _agent_augment_tools_list(tools: list[dict]) -> list[dict]:
 
 
 def _agent_session_snapshot(args: dict | None = None) -> dict:
+    _agent_gc_sessions()
     args = args or {}
     slot_filter = args.get("slot", None)
     active_only = bool(args.get("active_only", False))
@@ -2038,6 +2072,7 @@ def _agent_select_session(session_id: str = "", slot: int | None = None, active_
 
 
 def _agent_inject_message(args: dict, source: str = "webui", client_id: str | None = None, caller_session_id: str = "", caller_slot: int | None = None) -> dict:
+    _agent_gc_sessions()
     args = args or {}
     message = str(args.get("message", "") or "").strip()
     if not message:
@@ -2072,13 +2107,20 @@ def _agent_inject_message(args: dict, source: str = "webui", client_id: str | No
             "slot": target_slot,
         }
 
-    # C3 fix: if caller used slot-only targeting (no explicit session_id) and
-    # the matched session is not active, reject rather than silently queueing.
-    if not has_explicit_id and target_slot is not None and not bool(session.get("active", False)):
+    # Reject injections into inactive sessions (explicit or slot-selected).
+    is_active = bool(session.get("active", False))
+    if not is_active:
+        if not has_explicit_id and target_slot is not None:
+            return {
+                "error": f"No active session for slot {target_slot}",
+                "session_id": sid,
+                "slot": target_slot,
+                "active": False,
+            }
         return {
-            "error": f"No active session for slot {target_slot}",
+            "error": f"Session is not active: {sid}",
             "session_id": sid,
-            "slot": target_slot,
+            "slot": session.get("slot"),
             "active": False,
         }
 
@@ -2123,27 +2165,136 @@ def _agent_inject_message(args: dict, source: str = "webui", client_id: str | No
 _agent_sessions: dict[str, dict] = {}
 
 
+def _is_remote_model_source(source: str | None) -> bool:
+    src = str(source or "").strip().lower()
+    return src.startswith("http://") or src.startswith("https://")
+
+
+def _agent_gc_sessions(now_ms: int | None = None) -> dict:
+    """Expire stale active sessions and clear orphaned pending inboxes."""
+    now = int(now_ms or int(time.time() * 1000))
+    wall_ms = int(_AGENT_SESSION_MAX_WALLCLOCK_SEC * 1000)
+    idle_ms = int(_AGENT_SESSION_MAX_IDLE_SEC * 1000)
+
+    expired = 0
+    cleared_inboxes = 0
+
+    for sid, sess in list(_agent_sessions.items()):
+        if not isinstance(sess, dict):
+            continue
+
+        active = bool(sess.get("active", False))
+        updated_ts = int(sess.get("updated_ts") or sess.get("last_active_ts") or now)
+        started_ts = int(sess.get("started_ts") or updated_ts)
+        inbox = sess.get("inbox") if isinstance(sess.get("inbox"), list) else []
+
+        if active:
+            stale_reasons = []
+            if wall_ms > 0 and (now - started_ts) > wall_ms:
+                stale_reasons.append("wallclock")
+            if idle_ms > 0 and (now - updated_ts) > idle_ms:
+                stale_reasons.append("idle")
+            if stale_reasons:
+                dropped = len(inbox)
+                sess["active"] = False
+                sess["inbox"] = []
+                sess["updated_ts"] = now
+                sess["terminated_reason"] = f"watchdog:{','.join(stale_reasons)}"
+                turns = sess.get("turns")
+                if not isinstance(turns, list):
+                    turns = []
+                    sess["turns"] = turns
+                turns.append({
+                    "role": "system",
+                    "content": f"[AUTO-TERMINATED] Session watchdog tripped ({', '.join(stale_reasons)}).",
+                    "ts": now,
+                })
+                _agent_sessions[sid] = sess
+                expired += 1
+                cleared_inboxes += dropped
+                continue
+
+        if not active and inbox:
+            cleared_inboxes += len(inbox)
+            sess["inbox"] = []
+            sess["updated_ts"] = now
+            _agent_sessions[sid] = sess
+
+    return {
+        "expired": expired,
+        "cleared_inboxes": cleared_inboxes,
+        "session_count": len(_agent_sessions),
+    }
+
+
+def _agent_force_drain_sessions(reason: str = "manual") -> dict:
+    """Mark all sessions inactive and clear inboxes (used around runtime restarts)."""
+    now = int(time.time() * 1000)
+    deactivated = 0
+    cleared = 0
+    for sid, sess in list(_agent_sessions.items()):
+        if not isinstance(sess, dict):
+            continue
+        if bool(sess.get("active", False)):
+            deactivated += 1
+        inbox = sess.get("inbox") if isinstance(sess.get("inbox"), list) else []
+        cleared += len(inbox)
+        sess["active"] = False
+        sess["inbox"] = []
+        sess["updated_ts"] = now
+        sess["terminated_reason"] = f"runtime:{reason}"
+        _agent_sessions[sid] = sess
+    return {
+        "deactivated": deactivated,
+        "cleared_inboxes": cleared,
+        "session_count": len(_agent_sessions),
+    }
+
+
 async def _get_tool_descriptions(granted_tools: list[str]) -> str:
-    """Build tool description block from capsule's tool list."""
+    """Build tool description block from capsule tool list with bounded prompt size."""
     tools_raw = await _list_tools()
     all_tools = (tools_raw.get("result", {}).get("tools") or []) if isinstance(tools_raw, dict) else []
     granted_set = set(granted_tools)
+
     lines = []
+    omitted = 0
+    max_tools = max(1, _AGENT_TOOL_DESC_MAX)
+    max_params = max(0, _AGENT_TOOL_DESC_PARAM_MAX)
+
     for t in all_tools:
-        name = t.get("name", "")
-        if name not in granted_set:
+        name = str(t.get("name", "") or "").strip()
+        if not name or name not in granted_set:
             continue
+
+        if len(lines) >= max_tools:
+            omitted += 1
+            continue
+
         desc = (t.get("description") or "").strip().split("\n")[0][:120]
-        schema = t.get("inputSchema", {})
+        schema = t.get("inputSchema", {}) if isinstance(t, dict) else {}
         props = schema.get("properties", {}) if isinstance(schema, dict) else {}
         required = set(schema.get("required", [])) if isinstance(schema, dict) else set()
+
         params = []
+        total_props = 0
         for pname, pinfo in props.items():
+            total_props += 1
+            if max_params and len(params) >= max_params:
+                continue
             ptype = pinfo.get("type", "any") if isinstance(pinfo, dict) else "any"
             marker = " (required)" if pname in required else ""
             params.append(f"{pname}: {ptype}{marker}")
+
+        if max_params and total_props > max_params:
+            params.append(f"... +{total_props - max_params} more")
+
         sig = ", ".join(params)
         lines.append(f"- {name}({sig}): {desc}")
+
+    if omitted > 0:
+        lines.append(f"- ... plus {omitted} additional granted tools (available but omitted for brevity)")
+
     return "\n".join(lines) if lines else "(no tool descriptions available)"
 
 
@@ -2248,10 +2399,12 @@ async def _server_side_agent_chat(args: dict, source: str = "webui", client_id: 
     """
     import uuid as _uuid
 
+    _agent_gc_sessions()
+
     slot = int(args.get("slot", 0))
     message = str(args.get("message", "")).strip()
     max_iterations = int(args.get("max_iterations", 5))
-    max_tokens = int(args.get("max_tokens", 0)) or 2048
+    max_tokens = int(args.get("max_tokens", 0)) or 512
     reset = bool(args.get("reset", False))
     session_id = str(args.get("session_id", "")).strip()
     granted_tools = args.get("granted_tools")
@@ -2265,6 +2418,16 @@ async def _server_side_agent_chat(args: dict, source: str = "webui", client_id: 
     if reset and session_id in _agent_sessions:
         del _agent_sessions[session_id]
     session = _agent_sessions.get(session_id)
+    if isinstance(session, dict):
+        try:
+            existing_slot = int(session.get("slot"))
+        except Exception:
+            existing_slot = None
+        if existing_slot is not None and existing_slot != slot:
+            # Prevent cross-slot context leakage when callers reuse session_id across slots.
+            session_id = f"{session_id}:slot{slot}"
+            session = _agent_sessions.get(session_id)
+
     if not session:
         session = {
             "id": session_id,
@@ -2276,7 +2439,8 @@ async def _server_side_agent_chat(args: dict, source: str = "webui", client_id: 
         }
         _agent_sessions[session_id] = session
 
-    if isinstance(granted_tools, list) and granted_tools:
+    # Respect explicit grants exactly (including explicit empty list).
+    if isinstance(granted_tools, list):
         session["granted_tools"] = [str(t) for t in granted_tools if str(t).strip()]
 
     depth_in = args.get("_agent_depth", session.get("delegation_depth", 0))
@@ -2299,21 +2463,36 @@ async def _server_side_agent_chat(args: dict, source: str = "webui", client_id: 
         session["inbox"] = []
     _agent_sessions[session_id] = session
 
-    granted = [t for t in session["granted_tools"] if t not in _AGENT_BLOCKED_TOOLS]
-    if not granted:
-        granted = list(_AGENT_DEFAULT_GRANTED)
+    explicit_grants = isinstance(granted_tools, list)
+    granted = [t for t in session.get("granted_tools", []) if t not in _AGENT_BLOCKED_TOOLS]
+    if not granted and not explicit_grants:
+        granted = [t for t in _AGENT_DEFAULT_GRANTED if t not in _AGENT_BLOCKED_TOOLS]
 
     # ── Get slot info ──
     slot_info_raw = await _call_tool("slot_info", {"slot": slot})
+    slot_info_error = slot_info_raw.get("error") if isinstance(slot_info_raw, dict) else None
     slot_info = _parse_mcp_result(slot_info_raw.get("result")) or {}
+    if slot_info_error:
+        return {"error": f"slot_info failed for slot {slot}: {slot_info_error}"}
+
     slot_name = slot_info.get("name", f"slot_{slot}") if isinstance(slot_info, dict) else f"slot_{slot}"
     plugged = bool(slot_info.get("plugged")) if isinstance(slot_info, dict) else False
     if not plugged:
         return {"error": f"Slot {slot} is not plugged. Plug a model first."}
 
+    model_source = ""
+    if isinstance(slot_info, dict):
+        model_source = str(slot_info.get("source") or slot_info.get("model_source") or "")
+    model_timeout = _AGENT_MODEL_STEP_TIMEOUT_REMOTE if _is_remote_model_source(model_source) else _AGENT_MODEL_STEP_TIMEOUT_LOCAL
+    tool_timeout = max(float(_AGENT_TOOL_STEP_TIMEOUT), float(model_timeout))
+    delegate_timeout = max(tool_timeout, float(model_timeout) * 2.0)
+
+    session_was_active = bool(session.get("active", False))
     session["active"] = True
     session["last_active_ts"] = int(time.time() * 1000)
     session["updated_ts"] = session["last_active_ts"]
+    if not session_was_active:
+        session["started_ts"] = session["last_active_ts"]
     _agent_sessions[session_id] = session
 
     # ── Build system prompt ──
@@ -2364,6 +2543,8 @@ async def _server_side_agent_chat(args: dict, source: str = "webui", client_id: 
     for iteration in range(max_iterations):
         iterations_used = iteration + 1
         step_start = time.time()
+        session["updated_ts"] = int(time.time() * 1000)
+        session["last_active_ts"] = session["updated_ts"]
 
         # Deliver pending injected updates at the earliest safe boundary (between iterations).
         pending_updates = session.get("inbox") if isinstance(session.get("inbox"), list) else []
@@ -2422,8 +2603,11 @@ async def _server_side_agent_chat(args: dict, source: str = "webui", client_id: 
             "max_tokens": max_tokens,
         }
         try:
-            model_raw = await _call_tool("invoke_slot", invoke_args)
+            model_raw = await asyncio.wait_for(_call_tool("invoke_slot", invoke_args), timeout=float(model_timeout))
             model_parsed = _parse_mcp_result(model_raw.get("result"))
+        except asyncio.TimeoutError:
+            final_answer = f"Model invocation timed out after {model_timeout}s at iteration {iterations_used}."
+            break
         except Exception as e:
             final_answer = f"Model invocation failed at iteration {iterations_used}: {e}"
             break
@@ -2480,6 +2664,8 @@ async def _server_side_agent_chat(args: dict, source: str = "webui", client_id: 
         )
 
         chat_messages.append({"role": "assistant", "content": model_output})
+        session["updated_ts"] = int(time.time() * 1000)
+        session["last_active_ts"] = session["updated_ts"]
 
         # ── Step 2: Parse model output ──
         parsed = None
@@ -2610,20 +2796,28 @@ async def _server_side_agent_chat(args: dict, source: str = "webui", client_id: 
                     tool_error = None
                     tool_result_str = json.dumps(tool_result, indent=2, default=str)
                 elif called_tool == "agent_delegate":
-                    tool_result, tool_error = await _agent_delegate_call(
-                        caller_slot=slot,
-                        caller_session_id=session_id,
-                        caller_depth=delegation_depth,
-                        called_args=normalized_args,
-                        source="agent-inner",
-                        client_id=client_id,
+                    tool_result, tool_error = await asyncio.wait_for(
+                        _agent_delegate_call(
+                            caller_slot=slot,
+                            caller_session_id=session_id,
+                            caller_depth=delegation_depth,
+                            called_args=normalized_args,
+                            source="agent-inner",
+                            client_id=client_id,
+                        ),
+                        timeout=delegate_timeout,
                     )
                     tool_result_str = json.dumps(tool_result, indent=2, default=str) if tool_result is not None else ""
                 else:
-                    tool_raw = await _call_tool(called_tool, normalized_args)
+                    tool_raw = await asyncio.wait_for(_call_tool(called_tool, normalized_args), timeout=tool_timeout)
                     tool_result = _parse_mcp_result(tool_raw.get("result"))
                     tool_error = tool_raw.get("error") or (tool_result.get("error") if isinstance(tool_result, dict) else None)
                     tool_result_str = json.dumps(tool_result, indent=2, default=str) if tool_result else ""
+            except asyncio.TimeoutError:
+                tool_result = None
+                timeout_used = int(delegate_timeout if called_tool == "agent_delegate" else tool_timeout)
+                tool_error = f"Tool '{called_tool}' timed out after {timeout_used}s"
+                tool_result_str = f"ERROR: {tool_error}"
             except Exception as e:
                 tool_result = None
                 tool_error = str(e)
@@ -2654,6 +2848,9 @@ async def _server_side_agent_chat(args: dict, source: str = "webui", client_id: 
                 "iteration": iteration,
             })
 
+            session["updated_ts"] = int(time.time() * 1000)
+            session["last_active_ts"] = session["updated_ts"]
+
             # Feed result back to model
             # Reorientation prompt: force the model to evaluate before proceeding
             _err_flag = f" ⚠ The tool returned an error." if tool_error else ""
@@ -2681,9 +2878,18 @@ async def _server_side_agent_chat(args: dict, source: str = "webui", client_id: 
         "content": str(final_answer) if isinstance(final_answer, str) else json.dumps(final_answer, default=str),
         "ts": int(time.time() * 1000),
     })
+    dropped_pending = len(session.get("inbox") or [])
+    if dropped_pending:
+        session.setdefault("turns", []).append({
+            "role": "system",
+            "content": f"[AUTO-DRAIN] Discarded {dropped_pending} pending injected message(s) on session close.",
+            "ts": int(time.time() * 1000),
+        })
+    session["inbox"] = []
     session["chat_messages"] = chat_messages
     session["active"] = False
     session["updated_ts"] = int(time.time() * 1000)
+    session["last_active_ts"] = session["updated_ts"]
     _agent_sessions[session_id] = session
 
     agent_result = {
@@ -2704,7 +2910,8 @@ async def _server_side_agent_chat(args: dict, source: str = "webui", client_id: 
         "history": session.get("turns", [])[-12:],
         "delegation_depth": delegation_depth,
         "parent_session_id": session.get("parent_session_id"),
-        "pending_messages": len(session.get("inbox") or []),
+        "pending_messages": 0,
+        "dropped_pending_messages": dropped_pending,
     }
 
     # Wrap in MCP-compatible envelope
@@ -3471,6 +3678,44 @@ async def proxy_tool_call(tool_name: str, request: Request):
         except Exception:
             pre_unplug_slot_info = None
 
+    clone_pre_plugged: set[int] = set()
+    clone_src = ""
+    clone_requested_count = 1
+    clone_pre_snapshot_ok = False
+    if tool_name == "clone_slot":
+        try:
+            clone_requested_count = max(1, int(call_args.get("count", 1) or 1))
+        except Exception:
+            clone_requested_count = 1
+        try:
+            src_slot = int(call_args.get("slot", -1))
+        except Exception:
+            src_slot = -1
+        try:
+            if src_slot >= 0:
+                src_info_raw = await _call_tool("slot_info", {"slot": src_slot})
+                src_info = _parse_mcp_result((src_info_raw or {}).get("result")) if isinstance(src_info_raw, dict) else None
+                if isinstance(src_info, dict):
+                    clone_src = str(src_info.get("source") or src_info.get("model_source") or "")
+            pre_ls_raw = await _call_tool("list_slots", {})
+            pre_ls = _parse_mcp_result((pre_ls_raw or {}).get("result")) if isinstance(pre_ls_raw, dict) else None
+            if isinstance(pre_ls, dict):
+                clone_pre_snapshot_ok = True
+                for s in pre_ls.get("slots") or []:
+                    if not isinstance(s, dict):
+                        continue
+                    idx = s.get("slot") if s.get("slot") is not None else s.get("index")
+                    try:
+                        idx_i = int(idx)
+                    except Exception:
+                        continue
+                    if bool(s.get("plugged")):
+                        clone_pre_plugged.add(idx_i)
+        except Exception:
+            clone_pre_plugged = set()
+            clone_src = ""
+            clone_pre_snapshot_ok = False
+
     # FelixBag doc-ops shim: treat bag_put on virtualized doc keys as document write.
     if tool_name == "bag_put" and isinstance(call_args.get("key"), str) and _doc_is_encoded_key(call_args.get("key", "")):
         tool_name_effective = "bag_induct"
@@ -3585,6 +3830,59 @@ async def proxy_tool_call(tool_name: str, request: Request):
                     }
                 else:
                     result["hard_reclaim"] = reclaim_payload
+
+        if tool_name == "clone_slot" and clone_pre_snapshot_ok and isinstance(result, dict) and not result.get("error"):
+            try:
+                parsed_result = _parse_mcp_result(result.get("result")) if isinstance(result.get("result"), dict) else None
+                new_slots: list[int] = []
+
+                post_ls_raw = await _call_tool("list_slots", {})
+                post_ls = _parse_mcp_result((post_ls_raw or {}).get("result")) if isinstance(post_ls_raw, dict) else None
+                if isinstance(post_ls, dict):
+                    for s in post_ls.get("slots") or []:
+                        if not isinstance(s, dict):
+                            continue
+                        idx = s.get("slot") if s.get("slot") is not None else s.get("index")
+                        try:
+                            idx_i = int(idx)
+                        except Exception:
+                            continue
+                        if idx_i in clone_pre_plugged:
+                            continue
+                        if not bool(s.get("plugged")):
+                            continue
+                        if clone_src:
+                            s_src = str(s.get("source") or s.get("model_source") or "")
+                            if s_src and s_src != clone_src:
+                                continue
+                        new_slots.append(idx_i)
+
+                if not new_slots and isinstance(parsed_result, dict):
+                    fallback_slots = parsed_result.get("clone_slots") or parsed_result.get("slots") or []
+                    for item in fallback_slots:
+                        try:
+                            idx_i = int(item)
+                        except Exception:
+                            continue
+                        if idx_i in clone_pre_plugged:
+                            continue
+                        new_slots.append(idx_i)
+
+                # Deterministic ordering + count cap to newly created slots only.
+                new_slots = sorted(set(new_slots))[:clone_requested_count]
+
+                if isinstance(parsed_result, dict):
+                    parsed_result["clone_slots"] = new_slots
+                    parsed_result["cloned"] = len(new_slots)
+                    parsed_result["requested_clones"] = clone_requested_count
+                    result = {
+                        "result": {
+                            "content": [{"type": "text", "text": json.dumps(parsed_result)}],
+                            "isError": False,
+                        }
+                    }
+            except Exception:
+                pass
 
         duration_ms = int((time.time() - start) * 1000)
         error_str = result.get("error") if isinstance(result.get("error"), str) else None
@@ -4844,6 +5142,44 @@ async def _handle_streamable_rpc(obj: dict, client_id: str) -> dict | None:
             except Exception:
                 pre_unplug_slot_info = None
 
+        clone_pre_plugged: set[int] = set()
+        clone_src = ""
+        clone_requested_count = 1
+        clone_pre_snapshot_ok = False
+        if tool_name == "clone_slot":
+            try:
+                clone_requested_count = max(1, int(args.get("count", 1) or 1))
+            except Exception:
+                clone_requested_count = 1
+            try:
+                src_slot = int(args.get("slot", -1))
+            except Exception:
+                src_slot = -1
+            try:
+                if src_slot >= 0:
+                    src_info_raw = await _call_tool("slot_info", {"slot": src_slot})
+                    src_info = _parse_mcp_result((src_info_raw or {}).get("result")) if isinstance(src_info_raw, dict) else None
+                    if isinstance(src_info, dict):
+                        clone_src = str(src_info.get("source") or src_info.get("model_source") or "")
+                pre_ls_raw = await _call_tool("list_slots", {})
+                pre_ls = _parse_mcp_result((pre_ls_raw or {}).get("result")) if isinstance(pre_ls_raw, dict) else None
+                if isinstance(pre_ls, dict):
+                    clone_pre_snapshot_ok = True
+                    for s in pre_ls.get("slots") or []:
+                        if not isinstance(s, dict):
+                            continue
+                        idx = s.get("slot") if s.get("slot") is not None else s.get("index")
+                        try:
+                            idx_i = int(idx)
+                        except Exception:
+                            continue
+                        if bool(s.get("plugged")):
+                            clone_pre_plugged.add(idx_i)
+            except Exception:
+                clone_pre_plugged = set()
+                clone_src = ""
+                clone_pre_snapshot_ok = False
+
         start = time.time()
         try:
             result = await _call_tool(tool_name, args)
@@ -4871,6 +5207,58 @@ async def _handle_streamable_rpc(obj: dict, client_id: str) -> dict | None:
                         }
                     else:
                         result["hard_reclaim"] = reclaim_payload
+
+            if tool_name == "clone_slot" and clone_pre_snapshot_ok and isinstance(result, dict) and not result.get("error"):
+                try:
+                    parsed_result = _parse_mcp_result(result.get("result")) if isinstance(result.get("result"), dict) else None
+                    new_slots: list[int] = []
+
+                    post_ls_raw = await _call_tool("list_slots", {})
+                    post_ls = _parse_mcp_result((post_ls_raw or {}).get("result")) if isinstance(post_ls_raw, dict) else None
+                    if isinstance(post_ls, dict):
+                        for s in post_ls.get("slots") or []:
+                            if not isinstance(s, dict):
+                                continue
+                            idx = s.get("slot") if s.get("slot") is not None else s.get("index")
+                            try:
+                                idx_i = int(idx)
+                            except Exception:
+                                continue
+                            if idx_i in clone_pre_plugged:
+                                continue
+                            if not bool(s.get("plugged")):
+                                continue
+                            if clone_src:
+                                s_src = str(s.get("source") or s.get("model_source") or "")
+                                if s_src and s_src != clone_src:
+                                    continue
+                            new_slots.append(idx_i)
+
+                    if not new_slots and isinstance(parsed_result, dict):
+                        fallback_slots = parsed_result.get("clone_slots") or parsed_result.get("slots") or []
+                        for item in fallback_slots:
+                            try:
+                                idx_i = int(item)
+                            except Exception:
+                                continue
+                            if idx_i in clone_pre_plugged:
+                                continue
+                            new_slots.append(idx_i)
+
+                    new_slots = sorted(set(new_slots))[:clone_requested_count]
+
+                    if isinstance(parsed_result, dict):
+                        parsed_result["clone_slots"] = new_slots
+                        parsed_result["cloned"] = len(new_slots)
+                        parsed_result["requested_clones"] = clone_requested_count
+                        result = {
+                            "result": {
+                                "content": [{"type": "text", "text": json.dumps(parsed_result)}],
+                                "isError": False,
+                            }
+                        }
+                except Exception:
+                    pass
 
             duration_ms = int((time.time() - start) * 1000)
 

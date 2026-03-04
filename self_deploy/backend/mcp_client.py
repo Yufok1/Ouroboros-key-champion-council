@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import time
 from datetime import timedelta
 from typing import Any
@@ -28,6 +29,7 @@ class MCPClient:
 
         # Rich instructions from capsule handshake (populated during connect)
         self.capsule_instructions: str | None = None
+        self._tool_timeout_seconds = max(8, int(os.environ.get("MCP_TOOL_TIMEOUT_SECONDS", "180")))
 
     @property
     def connected(self) -> bool:
@@ -114,7 +116,10 @@ class MCPClient:
             return {"error": "MCP session not available", "reconnect": self.reconnect_state}
 
         try:
-            result = await session.call_tool(name, arguments)
+            result = await asyncio.wait_for(
+                session.call_tool(name, arguments),
+                timeout=float(self._tool_timeout_seconds),
+            )
             return {
                 "result": {
                     "content": [
@@ -123,6 +128,12 @@ class MCPClient:
                     ],
                     "isError": getattr(result, "isError", None) or getattr(result, "is_error", False),
                 }
+            }
+        except asyncio.TimeoutError:
+            await self.disconnect()
+            return {
+                "error": f"MCP tool '{name}' timed out after {self._tool_timeout_seconds}s",
+                "reconnect": self.reconnect_state,
             }
         except Exception as exc:
             await self.disconnect()
@@ -134,7 +145,10 @@ class MCPClient:
             return {"error": "MCP session not available", "reconnect": self.reconnect_state}
 
         try:
-            result = await session.list_tools()
+            result = await asyncio.wait_for(
+                session.list_tools(),
+                timeout=float(self._tool_timeout_seconds),
+            )
             return {
                 "result": {
                     "tools": [
@@ -147,6 +161,12 @@ class MCPClient:
                         for t in (result.tools or [])
                     ]
                 }
+            }
+        except asyncio.TimeoutError:
+            await self.disconnect()
+            return {
+                "error": f"MCP list_tools timed out after {self._tool_timeout_seconds}s",
+                "reconnect": self.reconnect_state,
             }
         except Exception as exc:
             await self.disconnect()
