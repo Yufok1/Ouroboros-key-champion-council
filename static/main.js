@@ -2478,6 +2478,76 @@
     var _pendingToolTabs = {}; // id -> agent chat tab key
     var _pendingToolMeta = {}; // id -> meta options (promises, suppression)
     var _pendingDiagnostics = {}; // id -> diagnostic key
+
+    function _stringifyArgValue(v) {
+        if (typeof v === 'string') return v;
+        try { return JSON.stringify(v); } catch (e) { return String(v); }
+    }
+
+    function _sanitizeToolArgs(name, args) {
+        var out = {};
+        if (args && typeof args === 'object' && !Array.isArray(args)) {
+            var keys = Object.keys(args);
+            for (var i = 0; i < keys.length; i++) out[keys[i]] = args[keys[i]];
+        }
+
+        var trimFields = [
+            'key', 'path', 'old_path', 'new_path', 'source_path', 'dest_path',
+            'prefix', 'from_checkpoint', 'to_checkpoint', 'checkpoint_key', 'file_type',
+            'pattern', 'workflow_id', 'execution_id', 'query', 'tool_name'
+        ];
+        for (var t = 0; t < trimFields.length; t++) {
+            var tf = trimFields[t];
+            if (typeof out[tf] === 'string') out[tf] = out[tf].trim();
+        }
+
+        if (name === 'file_write') {
+            if (out.content === null || out.content === undefined) out.content = '';
+            if (typeof out.content !== 'string') out.content = _stringifyArgValue(out.content);
+            if (typeof out.file_type !== 'string' || out.file_type.trim() === '') out.file_type = 'text';
+            else out.file_type = out.file_type.trim();
+        }
+
+        if (name === 'bag_induct') {
+            if (out.content !== undefined && out.content !== null && typeof out.content !== 'string') {
+                out.content = _stringifyArgValue(out.content);
+            }
+            if (typeof out.item_type !== 'string' || out.item_type.trim() === '') out.item_type = 'text';
+            else out.item_type = out.item_type.trim();
+        }
+
+        if (name === 'workflow_create' || name === 'workflow_update') {
+            if (out.definition !== undefined && out.definition !== null && typeof out.definition !== 'string') {
+                out.definition = _stringifyArgValue(out.definition);
+            }
+        }
+
+        if (name === 'workflow_execute') {
+            if (out.input_data !== undefined && out.input_data !== null && typeof out.input_data !== 'string') {
+                out.input_data = _stringifyArgValue(out.input_data);
+            }
+        }
+
+        if (name === 'file_list') {
+            if (out.file_type === null || out.file_type === undefined || (typeof out.file_type === 'string' && out.file_type.trim() === '')) {
+                delete out.file_type;
+            }
+        }
+
+        if (name === 'file_diff' || name === 'bag_diff') {
+            if (out.to_checkpoint === null || out.to_checkpoint === undefined || (typeof out.to_checkpoint === 'string' && out.to_checkpoint.trim() === '')) {
+                out.to_checkpoint = 'current';
+            }
+        }
+
+        var outKeys = Object.keys(out);
+        for (var j = 0; j < outKeys.length; j++) {
+            var k = outKeys[j];
+            if (out[k] === null || out[k] === undefined) delete out[k];
+        }
+        return out;
+    }
+
     function callTool(name, args, routeAs, meta) {
         var id = ++_requestId;
         _pendingTools[id] = routeAs || name;
@@ -2488,7 +2558,8 @@
             var councilOut = document.getElementById('council-output');
             if (councilOut) councilOut.innerHTML = '<pre style="white-space:pre-wrap;color:var(--text-dim);font-size:11px;">Running ' + name + '...</pre>';
         }
-        vscode.postMessage({ command: 'callTool', tool: name, args: args || {}, id: id });
+        var safeArgs = _sanitizeToolArgs(name, args || {});
+        vscode.postMessage({ command: 'callTool', tool: name, args: safeArgs, id: id });
         return id;
     }
 
@@ -4276,9 +4347,42 @@
         try { obj = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch (e) { return raw; }
         if (!obj || typeof obj !== 'object') return raw;
 
+        if (obj.status === 'yielded' && obj.hold_id) {
+            var yl = [
+                'HOLD YIELDED',
+                'HOLD ID: ' + String(obj.hold_id),
+                'REASON: ' + String(obj.reason || 'n/a')
+            ];
+            if (obj.ai_choice !== undefined) yl.push('AI CHOICE: ' + String(obj.ai_choice));
+            if (obj.ai_confidence !== undefined) yl.push('AI CONFIDENCE: ' + String(obj.ai_confidence));
+            if (obj.blocking !== undefined) yl.push('BLOCKING: ' + String(!!obj.blocking));
+            if (obj.decision_matrix && typeof obj.decision_matrix === 'object') {
+                var dm = obj.decision_matrix;
+                yl.push('DECISION MATRIX: actions=' + String(dm.action_count || 0) + ', best=' + String(dm.best_action_label || dm.best_action || 'n/a'));
+            }
+            if (obj.message) yl.push('', String(obj.message));
+            return yl.join('\n');
+        }
+
+        if (obj.status === 'resolved' && obj.hold_id) {
+            var rl = [
+                'HOLD RESOLVED',
+                'HOLD ID: ' + String(obj.hold_id),
+                'ACTION: ' + String(obj.action || 'n/a')
+            ];
+            if (obj.mode) rl.push('MODE: ' + String(obj.mode));
+            if (obj.note) rl.push('NOTE: ' + String(obj.note));
+            return rl.join('\n');
+        }
+
         // If result has an "error" field, format as guidance
         if (obj.error) {
             var lines = ['ERROR: ' + obj.error, ''];
+            if (String(obj.error).toLowerCase().indexOf('no active hold to resolve') >= 0) {
+                lines.push('GUIDANCE: Use the exact hold_id returned by hold_yield.');
+                lines.push('If this hold was non-blocking, retry hold_resolve with that hold_id to record resolution.');
+                lines.push('');
+            }
             var keys = Object.keys(obj);
             for (var i = 0; i < keys.length; i++) {
                 var k = keys[i];
@@ -4801,6 +4905,17 @@
 
         // Route to Council tab if it's a council tool
         if (COUNCIL_TOOLS.indexOf(toolName) >= 0) {
+            if (toolName === 'infer' && !msg.error) {
+                try {
+                    var inferObj = typeof text === 'string' ? JSON.parse(text) : text;
+                    var concise = inferObj && typeof inferObj === 'object'
+                        ? (inferObj.assistant_text || (inferObj.result && inferObj.result.assistant_text) || '')
+                        : '';
+                    if (concise) {
+                        text = '[assistant_text]\n' + String(concise) + '\n\n---\n[structured]\n' + (typeof text === 'string' ? text : JSON.stringify(text, null, 2));
+                    }
+                } catch (eInferFmt) { }
+            }
             var councilOut = document.getElementById('council-output');
             if (councilOut) {
                 councilOut.innerHTML = '<pre style="white-space:pre-wrap;word-break:break-word;color:var(--text);font-size:11px;">' +
@@ -8957,6 +9072,8 @@
             lines.push('Avoid bag_put for document editing when bag_induct is available.');
             lines.push('For deletes, prefer bag_forget with explicit pattern for deterministic cleanup.');
             lines.push('If file_* tools are granted, prefer file_read/file_checkpoint/file_edit/file_diff/file_restore for file-style workflows.');
+            lines.push('For bag_diff/file_diff latest comparisons, use to_checkpoint="current" (or omit it). Do not send empty to_checkpoint.');
+            lines.push('For file_write and file_list, keep content/file_type as strings (avoid null).');
             lines.push('Never use file_* to access host filesystem paths — they are FelixBag workspace paths only.');
         }
 
