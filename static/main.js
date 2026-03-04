@@ -458,7 +458,7 @@
                         // without re-rendering (preserves expanded details).
                         // Individual 'activity' events handle live rendering.
                         var needsRender = _activityLog.length === 0 && msg.activityLog.length > 0;
-                        _activityLog = msg.activityLog;
+                        _rehydrateActivityLog(msg.activityLog);
                         if (needsRender) renderActivityFeed();
                     }
                     updateHeader(msg);
@@ -490,7 +490,7 @@
                     break;
                 case 'activityHistory':
                     if (Array.isArray(msg.entries)) {
-                        _activityLog = msg.entries.slice(-500);
+                        _rehydrateActivityLog(msg.entries);
                         renderActivityFeed();
                     }
                     break;
@@ -2153,6 +2153,73 @@
         };
     }
 
+    function _activitySignature(event) {
+        if (!event || typeof event !== 'object') return '';
+        var argsSig = '';
+        try { argsSig = JSON.stringify(event.args || {}); } catch (e) { argsSig = String(event.args || ''); }
+        var ts = event.timestamp !== undefined ? event.timestamp : (event.ts !== undefined ? event.ts : '');
+        var eid = event.eventId !== undefined ? event.eventId : '';
+        return [
+            String(eid),
+            String(event.tool || ''),
+            String(event.source || ''),
+            String(ts),
+            String(event.durationMs !== undefined ? event.durationMs : ''),
+            argsSig
+        ].join('|');
+    }
+
+    function _rehydrateActivityLog(entries) {
+        var incoming = Array.isArray(entries) ? entries.slice(-500) : [];
+        var prevBySig = {};
+        for (var i = 0; i < _activityLog.length; i++) {
+            var prev = _activityLog[i];
+            var sigPrev = _activitySignature(prev);
+            if (sigPrev) prevBySig[sigPrev] = prev;
+        }
+
+        var traceCounts = {};
+        var next = [];
+
+        for (var j = 0; j < incoming.length; j++) {
+            var src = incoming[j];
+            if (!src || typeof src !== 'object') continue;
+            var ev = Object.assign({}, src);
+
+            var prevMatch = prevBySig[_activitySignature(ev)];
+            if (prevMatch && typeof prevMatch === 'object') {
+                if (ev._trace_id === undefined && prevMatch._trace_id !== undefined) ev._trace_id = prevMatch._trace_id;
+                if (ev._trace_seq === undefined && prevMatch._trace_seq !== undefined) ev._trace_seq = prevMatch._trace_seq;
+                if (ev._trace_role === undefined && prevMatch._trace_role !== undefined) ev._trace_role = prevMatch._trace_role;
+                if (ev._trace_hue === undefined && prevMatch._trace_hue !== undefined) ev._trace_hue = prevMatch._trace_hue;
+                if (ev._trace_color === undefined && prevMatch._trace_color !== undefined) ev._trace_color = prevMatch._trace_color;
+                if (ev._trace_caller_slot === undefined && prevMatch._trace_caller_slot !== undefined) ev._trace_caller_slot = prevMatch._trace_caller_slot;
+                if (ev._trace_target_slot === undefined && prevMatch._trace_target_slot !== undefined) ev._trace_target_slot = prevMatch._trace_target_slot;
+            }
+
+            var trace = _deriveActivityTrace(ev);
+            if (trace) {
+                if (!ev._trace_id) ev._trace_id = trace.id;
+                if (ev._trace_role === undefined) ev._trace_role = trace.role;
+                if (ev._trace_hue === undefined) ev._trace_hue = trace.hue;
+                if (ev._trace_color === undefined) ev._trace_color = trace.color;
+                if (ev._trace_caller_slot === undefined) ev._trace_caller_slot = trace.callerSlot;
+                if (ev._trace_target_slot === undefined) ev._trace_target_slot = trace.targetSlot;
+
+                var tid = String(ev._trace_id || trace.id);
+                var seq = parseInt(ev._trace_seq, 10);
+                if (isNaN(seq) || seq <= 0) seq = (traceCounts[tid] || 0) + 1;
+                ev._trace_seq = seq;
+                traceCounts[tid] = Math.max(traceCounts[tid] || 0, seq);
+            }
+
+            next.push(ev);
+        }
+
+        _activityTraceCounts = traceCounts;
+        _activityLog = next;
+    }
+
     function addActivityEntry(event) {
         if (!event) return;
 
@@ -2767,7 +2834,7 @@
             return;
         }
 
-        var recent = filtered.slice(-50).reverse();
+        var recent = filtered.slice(-150).reverse();
         feed.innerHTML = '';
         recent.forEach(function (e) {
             feed.appendChild(_buildActivityNode(e));
