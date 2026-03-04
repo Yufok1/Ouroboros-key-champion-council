@@ -1062,9 +1062,11 @@
                     out.push({
                         slot: i,
                         name: name,
-                        plugged: !isDefault,
-                        status: isDefault ? 'empty' : 'plugged',
-                        model_source: isDefault ? null : name,
+                        // Compact payloads do not reliably encode per-slot plug state.
+                        // Keep conservative defaults and let explicit slots[] refresh win.
+                        plugged: false,
+                        status: 'empty',
+                        model_source: null,
                         model_type: null,
                         type: null
                     });
@@ -1212,7 +1214,9 @@
             var unplugging = isActivelyUnplugging;
             var statusText = unplugging ? 'UNPLUGGING' : (occupied ? 'PLUGGED' : (plugging ? 'PLUGGING' : 'EMPTY'));
             var dotClass = unplugging ? 'amber pulse' : (occupied ? 'green' : (plugging ? 'amber pulse' : 'off'));
-            var detailText = slot.model_type || slot.type || (slot.status ? ('status: ' + String(slot.status).toUpperCase()) : '--');
+            var detailText = (occupied || plugging)
+                ? (slot.model_type || slot.type || (slot.status ? ('status: ' + String(slot.status).toUpperCase()) : '--'))
+                : '--';
             var card = document.createElement('div');
             card.className = 'slot-card state-' + (unplugging ? 'plugging' : state) + (occupied ? ' occupied' : '') + (plugging ? ' plugging' : '') + (unplugging ? ' plugging' : '');
 
@@ -1230,7 +1234,9 @@
                 html += '<div class="slot-detail">' + phaseText + ' (' + elapsed + 's)</div>';
                 html += '<div class="plug-bar"><div class="plug-bar-fill"></div></div>';
             } else {
-                var modelLabel = slot.model_source || slot.model_id || slot.name || 'VACANT';
+                var modelLabel = (occupied || plugging)
+                    ? (slot.model_source || slot.model_id || slot.name || 'VACANT')
+                    : 'VACANT';
                 html += '<div class="slot-model-name">' + escHtml(modelLabel) + '</div>';
                 html += '<div class="slot-detail">' + detailText + '</div>';
 

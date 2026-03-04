@@ -711,6 +711,39 @@ _AGENT_LOCAL_TOOL_SPECS = {
             },
         },
     },
+    "hf_cache_status": {
+        "description": "Inspect local HuggingFace model cache directories and sizes.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "limit": {"type": "integer", "description": "Max cache entries to return"},
+                "force": {"type": "boolean", "description": "Bypass short-lived cache and rescan disk"},
+            },
+        },
+    },
+    "hf_cache_clear": {
+        "description": "Delete local HuggingFace model cache directories (disk cleanup).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "model_id": {"type": "string", "description": "Optional specific model id (e.g. org/name)"},
+                "keep_plugged": {"type": "boolean", "description": "Keep cache dirs for currently plugged local models"},
+                "dry_run": {"type": "boolean", "description": "Preview deletions without deleting"},
+                "hard_reclaim": {"type": "boolean", "description": "Restart capsule after cleanup to reclaim RAM"},
+            },
+        },
+    },
+    "capsule_restart": {
+        "description": "Restart capsule process (optionally preserving and restoring persisted state).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "preserve_state": {"type": "boolean", "description": "Save state before restart"},
+                "restore_state": {"type": "boolean", "description": "Restore state after reconnect"},
+                "reason": {"type": "string", "description": "Operator reason label for audit trail"},
+            },
+        },
+    },
 }
 
 
@@ -1816,6 +1849,295 @@ def _capacity_guard_decision(tool_name: str, args: dict, snapshot: dict) -> dict
     return decision
 
 
+_HF_CACHE_STATUS_CACHE = {"payload": None, "ts": 0.0}
+_HF_CACHE_STATUS_TTL_SECONDS = 5.0
+_UNPLUG_HARD_RECLAIM_DEFAULT = os.environ.get("UNPLUG_LOCAL_HARD_RECLAIM", "0").strip().lower() in ("1", "true", "yes", "on")
+
+
+def _hf_cache_roots() -> list[Path]:
+    roots: list[Path] = []
+
+    def _add(p: str | Path | None):
+        if not p:
+            return
+        try:
+            path = Path(p).expanduser()
+        except Exception:
+            return
+        if path not in roots:
+            roots.append(path)
+
+    _add(os.environ.get("HF_HUB_CACHE", ""))
+    _add(os.environ.get("HUGGINGFACE_HUB_CACHE", ""))
+
+    hf_home = os.environ.get("HF_HOME", "")
+    if hf_home:
+        _add(Path(hf_home).expanduser() / "hub")
+
+    _add(os.environ.get("TRANSFORMERS_CACHE", ""))
+    _add(Path.home() / ".cache" / "huggingface" / "hub")
+
+    return roots
+
+
+def _dir_size_bytes(path: Path) -> int:
+    total = 0
+    try:
+        for root, _, files in os.walk(path, topdown=True):
+            for name in files:
+                fp = Path(root) / name
+                try:
+                    total += fp.stat().st_size
+                except Exception:
+                    continue
+    except Exception:
+        pass
+    return int(total)
+
+
+def _model_dir_to_repo_id(dirname: str) -> str:
+    raw = str(dirname or "")
+    if not raw.startswith("models--"):
+        return ""
+    return raw[len("models--"):].replace("--", "/")
+
+
+def _repo_id_to_model_dir_prefix(repo_id: str) -> str:
+    return "models--" + str(repo_id or "").replace("/", "--")
+
+
+def _collect_hf_cache_entries() -> tuple[list[str], list[dict], int]:
+    roots = [p for p in _hf_cache_roots() if p.exists() and p.is_dir()]
+    root_strings = [str(p) for p in roots]
+    entries: list[dict] = []
+    total_bytes = 0
+
+    for root in roots:
+        try:
+            children = list(root.iterdir())
+        except Exception:
+            continue
+
+        for child in children:
+            if not child.is_dir():
+                continue
+            name = child.name
+            if not name.startswith("models--"):
+                continue
+
+            size_bytes = _dir_size_bytes(child)
+            total_bytes += size_bytes
+            repo_id = _model_dir_to_repo_id(name)
+            try:
+                mtime = int(child.stat().st_mtime)
+            except Exception:
+                mtime = 0
+
+            entries.append(
+                {
+                    "repo_id": repo_id,
+                    "dir_name": name,
+                    "path": str(child),
+                    "size_bytes": int(size_bytes),
+                    "size_gb": float(round(size_bytes / (1024.0 ** 3), 4)),
+                    "mtime": mtime,
+                }
+            )
+
+    entries.sort(key=lambda e: int(e.get("size_bytes", 0)), reverse=True)
+    return root_strings, entries, int(total_bytes)
+
+
+async def _get_plugged_local_model_sources() -> set[str]:
+    sources: set[str] = set()
+    try:
+        ls_raw = await _call_tool("list_slots", {})
+        ls_parsed = _parse_mcp_result_payload((ls_raw or {}).get("result")) if isinstance(ls_raw, dict) else None
+        slots = ls_parsed.get("slots", []) if isinstance(ls_parsed, dict) else []
+        if isinstance(slots, list):
+            for s in slots:
+                if not isinstance(s, dict):
+                    continue
+                if not bool(s.get("plugged")):
+                    continue
+                src = s.get("model_source") or s.get("source") or ""
+                if isinstance(src, str) and src and not src.startswith("http://") and not src.startswith("https://"):
+                    sources.add(src)
+    except Exception:
+        pass
+    return sources
+
+
+async def _hf_cache_status_payload(limit: int = 200, force: bool = False) -> dict:
+    now = time.time()
+    if not force and _HF_CACHE_STATUS_CACHE.get("payload") and (now - float(_HF_CACHE_STATUS_CACHE.get("ts", 0.0))) < _HF_CACHE_STATUS_TTL_SECONDS:
+        payload = dict(_HF_CACHE_STATUS_CACHE.get("payload") or {})
+        entries = payload.get("entries", [])
+        if isinstance(entries, list) and limit > 0:
+            payload["entries"] = entries[:limit]
+        return payload
+
+    roots, entries, total_bytes = _collect_hf_cache_entries()
+    plugged = await _get_plugged_local_model_sources()
+
+    for entry in entries:
+        rid = str(entry.get("repo_id") or "")
+        entry["plugged"] = rid in plugged
+
+    payload_full = {
+        "roots": roots,
+        "model_dirs": len(entries),
+        "total_bytes": int(total_bytes),
+        "total_gb": float(round(total_bytes / (1024.0 ** 3), 4)),
+        "plugged_local_models": sorted(list(plugged)),
+        "entries": entries,
+        "generated_at": datetime.utcnow().isoformat(),
+    }
+
+    _HF_CACHE_STATUS_CACHE["payload"] = dict(payload_full)
+    _HF_CACHE_STATUS_CACHE["ts"] = now
+
+    payload = dict(payload_full)
+    if limit > 0:
+        payload["entries"] = entries[:limit]
+    return payload
+
+
+async def _restart_capsule_runtime(reason: str = "manual", preserve_state: bool = True, restore_state_after: bool = True) -> dict:
+    if not _manage_local_capsule or settings.mcp_base_url != _local_default_mcp:
+        return {
+            "reason": reason,
+            "status": "unavailable",
+            "error": "Capsule restart only available when MANAGE_LOCAL_CAPSULE=1 and MCP_BASE_URL is local",
+            "manage_local_capsule": _manage_local_capsule,
+            "mcp_base_url": settings.mcp_base_url,
+        }
+
+    saved = False
+    restored = False
+    save_error = None
+    restore_error = None
+
+    if preserve_state and persistence.is_available():
+        try:
+            saved = await persistence.save_state(_call_tool, force=True)
+        except Exception as exc:
+            save_error = str(exc)
+
+    restarted = capsule_manager.restart()
+    if not restarted:
+        return {
+            "reason": reason,
+            "status": "failed",
+            "error": "Failed to restart capsule process",
+            "saved_state": saved,
+            "save_error": save_error,
+        }
+
+    await mcp_client.disconnect()
+    ready = await capsule_manager.wait_for_sse(timeout=90)
+    connected = await mcp_client.connect(force=True) if ready else False
+
+    if restore_state_after and connected and persistence.is_available():
+        try:
+            restored = await persistence.restore_state(_call_tool)
+        except Exception as exc:
+            restore_error = str(exc)
+
+    return {
+        "reason": reason,
+        "status": "ok" if (restarted and ready and connected) else "degraded",
+        "capsule_running": capsule_manager.is_running,
+        "capsule_pid": capsule_manager.pid,
+        "mcp_ready": connected,
+        "saved_state": saved,
+        "restored_state": restored,
+        "save_error": save_error,
+        "restore_error": restore_error,
+    }
+
+
+async def _hf_cache_clear_payload(
+    model_id: str = "",
+    keep_plugged: bool = True,
+    dry_run: bool = False,
+    hard_reclaim: bool = False,
+) -> dict:
+    _, entries, _ = _collect_hf_cache_entries()
+    targets: list[dict] = []
+    skipped_plugged: list[dict] = []
+
+    model_filter = str(model_id or "").strip()
+    model_dir_prefix = _repo_id_to_model_dir_prefix(model_filter) if model_filter else ""
+
+    plugged = await _get_plugged_local_model_sources() if keep_plugged else set()
+
+    for entry in entries:
+        rid = str(entry.get("repo_id") or "")
+        dname = str(entry.get("dir_name") or "")
+
+        if model_filter:
+            if rid != model_filter and dname != model_dir_prefix and not dname.startswith(model_dir_prefix + "--"):
+                continue
+
+        if keep_plugged and rid in plugged:
+            skipped_plugged.append(entry)
+            continue
+
+        targets.append(entry)
+
+    candidate_bytes = int(sum(int(t.get("size_bytes", 0)) for t in targets))
+
+    if dry_run:
+        return {
+            "status": "dry_run",
+            "model_filter": model_filter or None,
+            "keep_plugged": keep_plugged,
+            "target_count": len(targets),
+            "target_bytes": candidate_bytes,
+            "target_gb": float(round(candidate_bytes / (1024.0 ** 3), 4)),
+            "targets": targets[:200],
+            "skipped_plugged": skipped_plugged[:50],
+        }
+
+    deleted = []
+    failures = []
+    deleted_bytes = 0
+
+    for entry in targets:
+        p = Path(str(entry.get("path", "")))
+        if not p.exists():
+            continue
+        try:
+            sz = int(entry.get("size_bytes", 0) or 0)
+            shutil.rmtree(p, ignore_errors=False)
+            deleted.append(entry)
+            deleted_bytes += sz
+        except Exception as exc:
+            failures.append({"path": str(p), "error": str(exc), "repo_id": entry.get("repo_id")})
+
+    _HF_CACHE_STATUS_CACHE["payload"] = None
+    _HF_CACHE_STATUS_CACHE["ts"] = 0.0
+
+    reclaim = None
+    if hard_reclaim:
+        reclaim = await _restart_capsule_runtime(reason="hf_cache_clear", preserve_state=True, restore_state_after=True)
+
+    return {
+        "status": "ok" if not failures else "partial",
+        "model_filter": model_filter or None,
+        "keep_plugged": keep_plugged,
+        "deleted_count": len(deleted),
+        "deleted_bytes": int(deleted_bytes),
+        "deleted_gb": float(round(deleted_bytes / (1024.0 ** 3), 4)),
+        "deleted": deleted[:200],
+        "failures": failures[:50],
+        "skipped_plugged": skipped_plugged[:50],
+        "hard_reclaim": bool(hard_reclaim),
+        "reclaim": reclaim,
+    }
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     started_capsule = False
@@ -1962,6 +2284,44 @@ async def proxy_tool_call(tool_name: str, request: Request):
         activity_hub.add_entry(tool=tool_name, args=raw, result=out, duration_ms=duration_ms, error=None, source=source, client_id=client_id)
         return {"result": {"content": [{"type": "text", "text": json.dumps(out)}], "isError": False}}
 
+    if tool_name == "hf_cache_status":
+        args = body if isinstance(body, dict) else {}
+        try:
+            limit = int(args.get("limit", 200) or 200)
+        except Exception:
+            limit = 200
+        force = bool(args.get("force", False))
+        payload = await _hf_cache_status_payload(limit=max(1, min(limit, 2000)), force=force)
+        activity_hub.add_entry(tool=tool_name, args=args, result=payload, duration_ms=0, error=None, source=source, client_id=client_id)
+        return {"result": {"content": [{"type": "text", "text": json.dumps(payload)}], "isError": False}}
+
+    if tool_name == "hf_cache_clear":
+        args = body if isinstance(body, dict) else {}
+        payload = await _hf_cache_clear_payload(
+            model_id=str(args.get("model_id", "") or ""),
+            keep_plugged=bool(args.get("keep_plugged", True)),
+            dry_run=bool(args.get("dry_run", False)),
+            hard_reclaim=bool(args.get("hard_reclaim", False)),
+        )
+        err = payload.get("error") if isinstance(payload, dict) else None
+        activity_hub.add_entry(tool=tool_name, args=args, result=payload, duration_ms=0, error=err, source=source, client_id=client_id)
+        if err:
+            return JSONResponse(status_code=503, content=payload)
+        return {"result": {"content": [{"type": "text", "text": json.dumps(payload)}], "isError": False}}
+
+    if tool_name == "capsule_restart":
+        args = body if isinstance(body, dict) else {}
+        payload = await _restart_capsule_runtime(
+            reason=str(args.get("reason", "api_tool:capsule_restart") or "api_tool:capsule_restart"),
+            preserve_state=bool(args.get("preserve_state", True)),
+            restore_state_after=bool(args.get("restore_state", True)),
+        )
+        err = payload.get("error") if isinstance(payload, dict) else None
+        activity_hub.add_entry(tool=tool_name, args=args, result=payload, duration_ms=0, error=err, source=source, client_id=client_id)
+        if err:
+            return JSONResponse(status_code=503, content=payload)
+        return {"result": {"content": [{"type": "text", "text": json.dumps(payload)}], "isError": False}}
+
     slot_guard = await _slot_ready_guard(tool_name, body if isinstance(body, dict) else {})
     if slot_guard:
         error_msg = slot_guard.get("error") or f"Slot readiness guard blocked {tool_name}"
@@ -2002,6 +2362,18 @@ async def proxy_tool_call(tool_name: str, request: Request):
 
     call_args = body if isinstance(body, dict) else {}
     tool_name_effective = tool_name
+
+    unplug_hard_reclaim = False
+    pre_unplug_slot_info = None
+    if tool_name == "unplug_slot":
+        unplug_hard_reclaim = bool(call_args.pop("hard_reclaim", _UNPLUG_HARD_RECLAIM_DEFAULT))
+        call_args.pop("allow_oom_risk", None)
+        try:
+            pre_slot = int(call_args.get("slot", 0))
+            pre_info_raw = await _call_tool("slot_info", {"slot": pre_slot})
+            pre_unplug_slot_info = _parse_mcp_result_payload((pre_info_raw or {}).get("result")) if isinstance(pre_info_raw, dict) else None
+        except Exception:
+            pre_unplug_slot_info = None
 
     # FelixBag doc-ops shim: treat bag_put on virtualized doc keys as document write.
     if tool_name == "bag_put" and isinstance(call_args.get("key"), str) and _doc_is_encoded_key(call_args.get("key", "")):
@@ -2105,6 +2477,29 @@ async def proxy_tool_call(tool_name: str, request: Request):
                         result = retry
 
         result = await postprocess_tool_result(tool_name, call_args, result, _call_tool, activity_hub=activity_hub)
+
+        if tool_name == "unplug_slot" and unplug_hard_reclaim and isinstance(result, dict) and not result.get("error"):
+            pre_src = ""
+            if isinstance(pre_unplug_slot_info, dict):
+                pre_src = str(pre_unplug_slot_info.get("source") or pre_unplug_slot_info.get("model_source") or "")
+            is_local_pre = bool(pre_src) and not pre_src.startswith("http://") and not pre_src.startswith("https://")
+            if is_local_pre or not pre_src:
+                reclaim_payload = await _restart_capsule_runtime(
+                    reason="unplug_slot:hard_reclaim",
+                    preserve_state=True,
+                    restore_state_after=True,
+                )
+                parsed_result = _parse_mcp_result_payload(result.get("result")) if isinstance(result.get("result"), dict) else None
+                if isinstance(parsed_result, dict):
+                    parsed_result["hard_reclaim"] = reclaim_payload
+                    result = {
+                        "result": {
+                            "content": [{"type": "text", "text": json.dumps(parsed_result)}],
+                            "isError": bool(reclaim_payload.get("error")),
+                        }
+                    }
+                else:
+                    result["hard_reclaim"] = reclaim_payload
 
         duration_ms = int((time.time() - start) * 1000)
         error_str = result.get("error") if isinstance(result.get("error"), str) else None
@@ -2262,31 +2657,49 @@ async def api_agent_chat_inject(request: Request):
 
 
 @app.post("/api/capsule/restart")
-async def capsule_restart():
-    if not _manage_local_capsule or settings.mcp_base_url != _local_default_mcp:
-        return JSONResponse(
-            status_code=400,
-            content={
-                "error": "Capsule restart only available when MANAGE_LOCAL_CAPSULE=1 and MCP_BASE_URL is local",
-                "manage_local_capsule": _manage_local_capsule,
-                "mcp_base_url": settings.mcp_base_url,
-            },
-        )
+async def capsule_restart(request: Request):
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    body = body if isinstance(body, dict) else {}
 
-    restarted = capsule_manager.restart()
-    if not restarted:
-        return JSONResponse(status_code=500, content={"error": "Failed to restart capsule process"})
+    payload = await _restart_capsule_runtime(
+        reason=str(body.get("reason", "api:capsule_restart") or "api:capsule_restart"),
+        preserve_state=bool(body.get("preserve_state", True)),
+        restore_state_after=bool(body.get("restore_state", True)),
+    )
+    if payload.get("error"):
+        code = 400 if payload.get("status") == "unavailable" else 500
+        return JSONResponse(status_code=code, content=payload)
+    return payload
 
-    await mcp_client.disconnect()
-    ready = await capsule_manager.wait_for_sse(timeout=90)
-    connected = await mcp_client.connect(force=True) if ready else False
 
-    return {
-        "status": "ok" if (restarted and ready and connected) else "degraded",
-        "capsule_running": capsule_manager.is_running,
-        "capsule_pid": capsule_manager.pid,
-        "mcp_ready": connected,
-    }
+@app.get("/api/cache/hf/status")
+async def hf_cache_status(limit: int = 200, force: bool = False):
+    limit = max(1, min(int(limit), 2000))
+    payload = await _hf_cache_status_payload(limit=limit, force=bool(force))
+    return payload
+
+
+@app.post("/api/cache/hf/clear")
+async def hf_cache_clear(request: Request):
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    body = body if isinstance(body, dict) else {}
+
+    payload = await _hf_cache_clear_payload(
+        model_id=str(body.get("model_id", "") or ""),
+        keep_plugged=bool(body.get("keep_plugged", True)),
+        dry_run=bool(body.get("dry_run", False)),
+        hard_reclaim=bool(body.get("hard_reclaim", False)),
+    )
+    code = 200 if payload.get("status") in ("ok", "dry_run") else 207
+    if payload.get("error"):
+        code = 503
+    return JSONResponse(status_code=code, content=payload)
 
 
 # ---------------------------------------------------------------------------
@@ -2645,6 +3058,24 @@ async def mcp_message_proxy(request: Request):
     ]
     body = normalize_rpc_workflow(body, normalize_workflow_nodes)
 
+    # Local proxy tools should work even for SSE-only MCP clients.
+    _local_proxy_tools = {
+        "agent_delegate", "agent_chat_inject", "agent_chat_sessions",
+        "hf_cache_status", "hf_cache_clear", "capsule_restart",
+    }
+    if len(rpc_calls) == 1 and rpc_calls[0].get("tool") in _local_proxy_tools:
+        call = rpc_calls[0]
+        rpc_obj = {
+            "jsonrpc": "2.0",
+            "id": call.get("rpc_id"),
+            "method": "tools/call",
+            "params": {"name": call.get("tool"), "arguments": call.get("args") or {}},
+        }
+        handled = await _handle_streamable_rpc(rpc_obj, _mcp_client_id)
+        if handled is None:
+            return Response(status_code=202)
+        return JSONResponse(status_code=200, content=handled)
+
     # Slot readiness guard for external MCP calls.
     blocked_calls = []
     for call in rpc_calls:
@@ -2882,7 +3313,7 @@ async def _handle_streamable_rpc(obj: dict, client_id: str | None) -> dict | Non
             return _rpc_error(rpc_id, -32603, "Failed to connect to capsule MCP")
         # Return the capsule's REAL instructions (built by _build_mcp_instructions()
         # in champion_gen8.py) — cached during mcp_client.connect().
-        _fallback_instructions = "Use tools/call for all operations. For large payloads, follow _cached via get_cached(cache_id). agent_chat supports granted_tools for agentic tool use. Local orchestration tools: agent_delegate, agent_chat_inject, agent_chat_sessions."
+        _fallback_instructions = "Use tools/call for all operations. For large payloads, follow _cached via get_cached(cache_id). agent_chat supports granted_tools for agentic tool use. Local proxy tools: agent_delegate, agent_chat_inject, agent_chat_sessions, hf_cache_status, hf_cache_clear, capsule_restart."
         return {
             "jsonrpc": "2.0",
             "id": rpc_id,
@@ -2997,6 +3428,41 @@ async def _handle_streamable_rpc(obj: dict, client_id: str | None) -> dict | Non
             activity_hub.add_entry(tool=tool_name, args=args, result=out, duration_ms=duration_ms, error=None, source="external", client_id=client_id)
             return {"jsonrpc": "2.0", "id": rpc_id, "result": {"content": [{"type": "text", "text": json.dumps(out)}], "isError": False}}
 
+        if tool_name == "hf_cache_status":
+            try:
+                limit = int(args.get("limit", 200) or 200)
+            except Exception:
+                limit = 200
+            force = bool(args.get("force", False))
+            payload = await _hf_cache_status_payload(limit=max(1, min(limit, 2000)), force=force)
+            activity_hub.add_entry(tool=tool_name, args=args, result=payload, duration_ms=0, error=None, source="external", client_id=client_id)
+            return {"jsonrpc": "2.0", "id": rpc_id, "result": {"content": [{"type": "text", "text": json.dumps(payload)}], "isError": False}}
+
+        if tool_name == "hf_cache_clear":
+            payload = await _hf_cache_clear_payload(
+                model_id=str(args.get("model_id", "") or ""),
+                keep_plugged=bool(args.get("keep_plugged", True)),
+                dry_run=bool(args.get("dry_run", False)),
+                hard_reclaim=bool(args.get("hard_reclaim", False)),
+            )
+            err_msg = payload.get("error") if isinstance(payload, dict) else None
+            activity_hub.add_entry(tool=tool_name, args=args, result=payload, duration_ms=0, error=err_msg, source="external", client_id=client_id)
+            if err_msg:
+                return _rpc_error(rpc_id, -32603, err_msg, payload)
+            return {"jsonrpc": "2.0", "id": rpc_id, "result": {"content": [{"type": "text", "text": json.dumps(payload)}], "isError": False}}
+
+        if tool_name == "capsule_restart":
+            payload = await _restart_capsule_runtime(
+                reason=str(args.get("reason", "mcp:capsule_restart") or "mcp:capsule_restart"),
+                preserve_state=bool(args.get("preserve_state", True)),
+                restore_state_after=bool(args.get("restore_state", True)),
+            )
+            err_msg = payload.get("error") if isinstance(payload, dict) else None
+            activity_hub.add_entry(tool=tool_name, args=args, result=payload, duration_ms=0, error=err_msg, source="external", client_id=client_id)
+            if err_msg:
+                return _rpc_error(rpc_id, -32603, err_msg, payload)
+            return {"jsonrpc": "2.0", "id": rpc_id, "result": {"content": [{"type": "text", "text": json.dumps(payload)}], "isError": False}}
+
         capacity_guard = None
         if tool_name in _CAPACITY_GUARD_TOOLS:
             runtime_capacity = _runtime_capacity_snapshot()
@@ -3082,10 +3548,46 @@ async def _handle_streamable_rpc(obj: dict, client_id: str | None) -> dict | Non
             finally:
                 await _release_slot_execution(claim)
 
+        unplug_hard_reclaim = False
+        pre_unplug_slot_info = None
+        if tool_name == "unplug_slot":
+            unplug_hard_reclaim = bool(args.pop("hard_reclaim", _UNPLUG_HARD_RECLAIM_DEFAULT))
+            args.pop("allow_oom_risk", None)
+            try:
+                pre_slot = int(args.get("slot", 0))
+                pre_info_raw = await _call_tool("slot_info", {"slot": pre_slot})
+                pre_unplug_slot_info = _parse_mcp_result_payload((pre_info_raw or {}).get("result")) if isinstance(pre_info_raw, dict) else None
+            except Exception:
+                pre_unplug_slot_info = None
+
         start = time.time()
         try:
             result = await _call_tool(tool_name, args)
             result = await postprocess_tool_result(tool_name, args, result, _call_tool, activity_hub=activity_hub)
+
+            if tool_name == "unplug_slot" and unplug_hard_reclaim and isinstance(result, dict) and not result.get("error"):
+                pre_src = ""
+                if isinstance(pre_unplug_slot_info, dict):
+                    pre_src = str(pre_unplug_slot_info.get("source") or pre_unplug_slot_info.get("model_source") or "")
+                is_local_pre = bool(pre_src) and not pre_src.startswith("http://") and not pre_src.startswith("https://")
+                if is_local_pre or not pre_src:
+                    reclaim_payload = await _restart_capsule_runtime(
+                        reason="unplug_slot:hard_reclaim",
+                        preserve_state=True,
+                        restore_state_after=True,
+                    )
+                    parsed_result = _parse_mcp_result_payload(result.get("result")) if isinstance(result.get("result"), dict) else None
+                    if isinstance(parsed_result, dict):
+                        parsed_result["hard_reclaim"] = reclaim_payload
+                        result = {
+                            "result": {
+                                "content": [{"type": "text", "text": json.dumps(parsed_result)}],
+                                "isError": bool(reclaim_payload.get("error")),
+                            }
+                        }
+                    else:
+                        result["hard_reclaim"] = reclaim_payload
+
             duration_ms = int((time.time() - start) * 1000)
 
             error_str = result.get("error") if isinstance(result.get("error"), str) else None

@@ -196,11 +196,74 @@ async def postprocess_tool_result(
             except Exception:
                 pass
 
-    # Normalize compact list_slots/council_status summaries to explicit per-slot state.
+    # Normalize slot payloads and clear stale unloaded metadata.
+    def _normalize_unplugged_slot_fields(slot_obj: dict):
+        try:
+            idx = int(slot_obj.get("index", slot_obj.get("slot", 0)))
+        except Exception:
+            idx = 0
+        slot_obj["plugged"] = False
+        slot_obj["name"] = f"slot_{idx}"
+        slot_obj["model_source"] = None
+        slot_obj["source"] = None
+        slot_obj["model"] = None
+        slot_obj["status"] = "empty"
+        slot_obj["model_type"] = None
+        slot_obj["type"] = None
+
+    if tool_name == "slot_info" and isinstance(parsed, dict):
+        if not bool(parsed.get("plugged")):
+            _normalize_unplugged_slot_fields(parsed)
+            return {"result": {"content": [{"type": "text", "text": json.dumps(parsed)}]}}
+
     if tool_name in ("list_slots", "council_status") and isinstance(parsed, dict):
         slots = parsed.get("slots")
         all_ids = parsed.get("all_ids")
         total = parsed.get("total")
+
+        if isinstance(slots, list) and len(slots) > 0:
+            normalized_slots = []
+            for i, raw_slot in enumerate(slots):
+                slot = dict(raw_slot) if isinstance(raw_slot, dict) else {}
+                try:
+                    idx = int(slot.get("index", i))
+                except Exception:
+                    idx = i
+                slot["index"] = idx
+
+                is_plugged = bool(slot.get("plugged"))
+                if is_plugged:
+                    src = slot.get("model_source") or slot.get("source")
+                    if not src and not _is_default_slot_name(slot.get("name", "")):
+                        src = slot.get("name")
+                    slot["model_source"] = src
+                    if slot.get("status") in (None, "", "empty"):
+                        slot["status"] = "plugged"
+                else:
+                    _normalize_unplugged_slot_fields(slot)
+
+                normalized_slots.append(slot)
+
+            parsed["slots"] = normalized_slots
+            parsed["all_ids"] = [str(s.get("name", f"slot_{i}")) for i, s in enumerate(normalized_slots)]
+            parsed["total"] = len(normalized_slots)
+
+            try:
+                plugged_sum = sum(1 for s in normalized_slots if bool(s.get("plugged")))
+                stats = parsed.get("stats") if isinstance(parsed.get("stats"), dict) else {}
+                pstats = stats.get("plugged") if isinstance(stats.get("plugged"), dict) else {}
+                pstats["sum"] = plugged_sum
+                pstats["min"] = False
+                pstats["max"] = True if plugged_sum > 0 else False
+                pstats["avg"] = round(plugged_sum / max(1, len(normalized_slots)), 2)
+                stats["plugged"] = pstats
+                parsed["stats"] = stats
+            except Exception:
+                pass
+
+            return {"result": {"content": [{"type": "text", "text": json.dumps(parsed)}]}}
+
+        # Compact list_slots shape from some external MCP paths (no explicit slots[])
         if (not isinstance(slots, list) or len(slots) == 0) and isinstance(all_ids, list) and isinstance(total, int) and total > 0:
             enriched_slots = []
             for i in range(total):
@@ -223,7 +286,10 @@ async def postprocess_tool_result(
             candidate_indices = [i for i, s in enumerate(enriched_slots) if not _is_default_slot_name(s.get("name", ""))]
             if plugged_sum is not None:
                 if plugged_sum <= 0:
+                    for s in enriched_slots:
+                        _normalize_unplugged_slot_fields(s)
                     parsed["slots"] = enriched_slots
+                    parsed["all_ids"] = [str(s.get("name", f"slot_{i}")) for i, s in enumerate(enriched_slots)]
                     return {"result": {"content": [{"type": "text", "text": json.dumps(parsed)}]}}
                 if plugged_sum > len(candidate_indices):
                     candidate_indices = list(range(total))
@@ -264,7 +330,13 @@ async def postprocess_tool_result(
                     if info.get("model_type"):
                         slot["model_type"] = info["model_type"]
 
+            for s in enriched_slots:
+                if not bool(s.get("plugged")):
+                    _normalize_unplugged_slot_fields(s)
+
             parsed["slots"] = enriched_slots
+            parsed["all_ids"] = [str(s.get("name", f"slot_{i}")) for i, s in enumerate(enriched_slots)]
+            parsed["total"] = len(enriched_slots)
             return {"result": {"content": [{"type": "text", "text": json.dumps(parsed)}]}}
 
     def _return_parsed(payload: dict | list | str) -> dict:
