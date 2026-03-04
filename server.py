@@ -1881,7 +1881,9 @@ _AGENT_LOCAL_TOOL_SPECS = {
                 "max_iterations": {"type": "integer", "description": "Optional delegated max iterations"},
                 "max_tokens": {"type": "integer", "description": "Optional delegated max tokens"},
                 "session_id": {"type": "string", "description": "Optional delegated session id"},
-                "granted_tools": {"type": "array", "description": "Optional delegated granted tools"}
+                "granted_tools": {"type": "array", "description": "Optional delegated granted tools"},
+                "context_strategy": {"type": "string", "description": "Optional delegated context policy: full|sliding-window|summarize"},
+                "context_window_size": {"type": "integer", "description": "Optional delegated recent window size"}
             },
             "required": ["slot", "message"]
         }
