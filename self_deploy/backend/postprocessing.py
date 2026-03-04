@@ -416,6 +416,25 @@ async def postprocess_tool_result(
 
         return None
 
+    def _is_retryable_provider_output(text: str) -> bool:
+        s = str(text or "").strip()
+        if not s:
+            return True
+        low = s.lower()
+        if low.startswith("[remote provider error"):
+            retry_markers = (
+                "http error 500",
+                "http error 502",
+                "http error 503",
+                "http error 504",
+                "http error 429",
+                "gateway",
+                "timeout",
+                "temporarily",
+            )
+            return any(m in low for m in retry_markers)
+        return False
+
     # --- Fix compare: retry slots that fail ---
     if tool_name == "compare" and isinstance(parsed, dict):
         comparisons = parsed.get("comparisons", [])
@@ -681,7 +700,7 @@ async def postprocess_tool_result(
             }
             return _return_parsed(normalized)
 
-    # --- Fix invoke_slot/generate: strip <think> blocks ---
+    # --- Fix invoke_slot/generate: strip <think> blocks + retry transient provider failures ---
     if tool_name in ("invoke_slot", "generate") and isinstance(parsed, dict):
         import re as _re_gen
         _out = str(parsed.get("output", "")).strip()
@@ -693,23 +712,33 @@ async def postprocess_tool_result(
             if _clean and not _clean.lower().startswith("[remote provider error"):
                 parsed["output"] = _clean
                 parsed["_think_stripped"] = True
-                return _return_parsed(parsed)
-            else:
-                if tool_name == "invoke_slot" and args.get("slot") is not None and args.get("text"):
-                    try:
-                        _cf = await call_tool_fn("chat", {"slot": int(args.get("slot", 0)), "message": str(args.get("text", ""))})
-                        _cfp = parse_mcp_result(_cf.get("result"))
-                        if isinstance(_cfp, dict):
-                            _resp = str(_cfp.get("response", "")).strip()
-                            if _resp and not _resp.lower().startswith("[remote provider error"):
-                                parsed["output"] = _resp
-                                parsed["_fallback"] = "chat_after_think_only"
-                                return _return_parsed(parsed)
-                    except Exception:
-                        pass
+                _out = _clean
+            elif tool_name == "invoke_slot" and args.get("slot") is not None and args.get("text"):
+                try:
+                    _cf = await call_tool_fn("chat", {"slot": int(args.get("slot", 0)), "message": str(args.get("text", ""))})
+                    _cfp = parse_mcp_result(_cf.get("result"))
+                    if isinstance(_cfp, dict):
+                        _resp = str(_cfp.get("response", "")).strip()
+                        if _resp and not _resp.lower().startswith("[remote provider error"):
+                            parsed["output"] = _resp
+                            parsed["_fallback"] = "chat_after_think_only"
+                            _out = _resp
+                except Exception:
+                    pass
 
-    # --- Fix chat: strip <think> blocks, retry empty ---
+        if tool_name == "invoke_slot" and args.get("slot") is not None and args.get("text") and _is_retryable_provider_output(_out):
+            _retry_out = await _retry_slot_generate(int(args.get("slot", 0)), str(args.get("text", "")), max_tokens=max(64, int(args.get("max_tokens", 300) or 300)))
+            if _retry_out:
+                parsed["output"] = _retry_out
+                parsed["_fallback"] = "retry_generate"
+                return _return_parsed(parsed)
+
+        if "_think_stripped" in parsed or parsed.get("_fallback"):
+            return _return_parsed(parsed)
+
+    # --- Fix chat: strip <think> blocks, retry transient provider/empty ---
     if tool_name == "chat" and isinstance(parsed, dict):
+        _chat_changed = False
         _response = str(parsed.get("response", "")).strip()
         if _response and "<think>" in _response:
             import re as _re_chat
@@ -719,24 +748,19 @@ async def postprocess_tool_result(
                 _clean = _after[-1].strip() if len(_after) > 1 else ""
             if _clean:
                 parsed["response"] = _clean
-                return _return_parsed(parsed)
+                _response = _clean
+                _chat_changed = True
             else:
                 _response = ""
-        if not _response and args.get("message"):
-            _slot = args.get("slot", 0)
-            try:
-                retry = await call_tool_fn("invoke_slot", {
-                    "slot": int(_slot), "text": str(args["message"]),
-                    "mode": "generate", "max_tokens": 512,
-                })
-                retry_parsed = parse_mcp_result(retry.get("result"))
-                if isinstance(retry_parsed, dict):
-                    _out = retry_parsed.get("output", "")
-                    if _out:
-                        parsed["response"] = _out
-                        parsed["_fallback"] = "invoke_slot_generate"
-                        return _return_parsed(parsed)
-            except Exception:
-                pass
+
+        if args.get("message") and args.get("slot") is not None and _is_retryable_provider_output(_response):
+            _retry_out = await _retry_slot_generate(int(args.get("slot", 0)), str(args.get("message", "")), max_tokens=512)
+            if _retry_out:
+                parsed["response"] = _retry_out
+                parsed["_fallback"] = "invoke_slot_retry"
+                _chat_changed = True
+
+        if _chat_changed:
+            return _return_parsed(parsed)
 
     return result
