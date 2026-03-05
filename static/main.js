@@ -5097,7 +5097,7 @@
                 if (isLoopIter && activeTab && _isAchatDebugEnabled(activeTab)) {
                     var _lsErr = activeTab._loopState || null;
                     if (_lsErr) {
-                        _recordLoopDebugStep(_lsErr, {
+                        var _dbgErrStep = {
                             step: (parseInt(_lsErr.iteration, 10) || 0) + 1,
                             tools: [],
                             failedTools: [],
@@ -5106,7 +5106,9 @@
                             noFinalAnswer: true,
                             loopScaffoldAnswer: false,
                             sessionId: String(activeTab.sessionId || '')
-                        });
+                        };
+                        _recordLoopDebugStep(_lsErr, _dbgErrStep);
+                        _queueLoopDebugTelemetry(activeTab, _lsErr, _dbgErrStep);
                     }
                     _appendAchatMsg('system-info',
                         'DEBUG transport error · step aborted · detail: ' + String(msg.error || 'Unknown error'),
@@ -5189,7 +5191,7 @@
                     if (isLoopIter && tab && _isAchatDebugEnabled(tab)) {
                         var _lsPayloadErr = tab._loopState || null;
                         if (_lsPayloadErr) {
-                            _recordLoopDebugStep(_lsPayloadErr, {
+                            var _dbgPayloadErrStep = {
                                 step: (parseInt(_lsPayloadErr.iteration, 10) || 0) + 1,
                                 tools: [],
                                 failedTools: [],
@@ -5198,7 +5200,9 @@
                                 noFinalAnswer: true,
                                 loopScaffoldAnswer: false,
                                 sessionId: String((resp && resp.session_id) || tab.sessionId || '')
-                            });
+                            };
+                            _recordLoopDebugStep(_lsPayloadErr, _dbgPayloadErrStep);
+                            _queueLoopDebugTelemetry(tab, _lsPayloadErr, _dbgPayloadErrStep);
                         }
                         _appendAchatMsg('system-info',
                             'DEBUG tool error payload · ' + String(resultObj.error),
@@ -5335,7 +5339,7 @@
                             tab
                         );
                     }
-                    _recordLoopDebugStep(tab._loopState, {
+                    var _dbgStepInfo = {
                         step: dbgStep,
                         tools: dbgCalledTools,
                         failedTools: dbgFailureTools,
@@ -5344,7 +5348,9 @@
                         noFinalAnswer: !answer,
                         loopScaffoldAnswer: !!(answer && answerIsLoopFailure),
                         sessionId: sessionId || ''
-                    });
+                    };
+                    _recordLoopDebugStep(tab._loopState, _dbgStepInfo);
+                    _queueLoopDebugTelemetry(tab, tab._loopState, _dbgStepInfo);
                 }
 
                 // Auto-continue loop: run one agent_chat step at a time so
@@ -10302,6 +10308,13 @@
     }
 
     var _debugObserveMirrorSeen = {};
+    var _debugProbeQueue = [];
+    var _debugProbeRunning = false;
+    var _debugProbeSeq = 0;
+    var _debugProbeSigSeen = {};
+    var _debugProbeLastGraphEventBySession = {};
+    var _debugProbeLastHoldTsBySession = {};
+    var _DEBUG_PROBE_QUEUE_MAX = 40;
     function _mirrorDebugTelemetryToObserve(tab, detail, ts) {
         try {
             if (!tab) return;
@@ -10335,6 +10348,217 @@
                 { suppressDefault: true, keepBusy: true }
             );
         } catch (e) { }
+    }
+
+    function _debugProbeToolAllowed(tab, toolName) {
+        if (!toolName) return false;
+        if (!tab || !Array.isArray(tab.grantedTools)) return true;
+        return tab.grantedTools.indexOf(toolName) >= 0;
+    }
+
+    async function _callDebugProbeToolSafe(tab, name, args, routeAs, timeoutMs) {
+        try {
+            if (!_debugProbeToolAllowed(tab, name)) {
+                return { _skipped: true, reason: 'not-granted' };
+            }
+            return await callToolAwaitParsed(name, args || {}, routeAs || ('agent_debug_' + name), {
+                timeout: timeoutMs || 25000,
+                keepBusy: true
+            });
+        } catch (e) {
+            return { _error: String(e && e.message ? e.message : e) };
+        }
+    }
+
+    function _debugProbeBuildSignal(tab, ls, stepInfo) {
+        var step = stepInfo || {};
+        var slot = tab ? parseInt(tab.slot, 10) : NaN;
+        var sessionId = String(
+            step.sessionId ||
+            (tab && tab.sessionId) ||
+            (ls && ls.sessionId) ||
+            ''
+        ).trim();
+        var calledTools = Array.isArray(step.tools) ? step.tools.map(function (t) { return String(t || '').trim(); }).filter(Boolean) : [];
+        var failedTools = Array.isArray(step.failedTools) ? step.failedTools.map(function (t) { return String(t || '').trim(); }).filter(Boolean) : [];
+        var payload = {
+            signal_type: 'agent_debug_step',
+            sequence: ++_debugProbeSeq,
+            slot: isNaN(slot) ? null : slot,
+            session_id: sessionId,
+            step: parseInt(step.step, 10) || 0,
+            failures: parseInt(step.failures, 10) || 0,
+            no_tool_calls: !!step.noToolCalls,
+            no_final_answer: !!step.noFinalAnswer,
+            loop_scaffold_answer: !!step.loopScaffoldAnswer,
+            tools: calledTools,
+            failed_tools: failedTools,
+            debug_level: String(((tab && tab.agentConfig && tab.agentConfig.debugLevel) || 'standard')).toLowerCase(),
+            total_tool_calls: parseInt((ls && ls.totalToolCalls) || 0, 10) || 0,
+            elapsed_ms: ls && ls.startTime ? Math.max(0, Date.now() - parseInt(ls.startTime, 10)) : 0,
+            timestamp_ms: Date.now()
+        };
+        payload.is_anomaly = !!(payload.failures > 0 || payload.no_tool_calls || payload.no_final_answer || payload.loop_scaffold_answer);
+        return payload;
+    }
+
+    function _debugProbeSignalSummary(signal) {
+        if (!signal || typeof signal !== 'object') return '';
+        var parts = [];
+        parts.push('slot=' + String(signal.slot !== null ? signal.slot : 'n/a'));
+        parts.push('session=' + String(signal.session_id || 'n/a'));
+        parts.push('step=' + String(signal.step || 0));
+        parts.push('calls=' + String(Array.isArray(signal.tools) ? signal.tools.length : 0));
+        parts.push('failures=' + String(signal.failures || 0));
+        if (signal.no_tool_calls) parts.push('no_tool_calls');
+        if (signal.no_final_answer) parts.push('no_final_answer');
+        if (signal.loop_scaffold_answer) parts.push('loop_scaffold_answer');
+        if (Array.isArray(signal.tools) && signal.tools.length) parts.push('tools=' + signal.tools.join(','));
+        if (Array.isArray(signal.failed_tools) && signal.failed_tools.length) parts.push('failed_tools=' + signal.failed_tools.join(','));
+        return parts.join(' | ');
+    }
+
+    function _queueLoopDebugTelemetry(tab, ls, stepInfo) {
+        try {
+            if (!_isAchatDebugEnabled(tab)) return;
+            var signal = _debugProbeBuildSignal(tab, ls, stepInfo);
+            var sigKey = [
+                String(signal.slot),
+                String(signal.session_id || ''),
+                String(signal.step || 0),
+                String(signal.tools.join(',')),
+                String(signal.failed_tools.join(',')),
+                String(signal.failures || 0),
+                signal.no_tool_calls ? '1' : '0',
+                signal.no_final_answer ? '1' : '0',
+                signal.loop_scaffold_answer ? '1' : '0'
+            ].join('|');
+
+            var now = Date.now();
+            var seenTs = parseInt(_debugProbeSigSeen[sigKey], 10) || 0;
+            if (seenTs && (now - seenTs) < 12000) return;
+            _debugProbeSigSeen[sigKey] = now;
+
+            for (var dk in _debugProbeSigSeen) {
+                if (!Object.prototype.hasOwnProperty.call(_debugProbeSigSeen, dk)) continue;
+                var dSeen = parseInt(_debugProbeSigSeen[dk], 10) || 0;
+                if (!dSeen || (now - dSeen) > 180000) delete _debugProbeSigSeen[dk];
+            }
+
+            _debugProbeQueue.push({
+                tab: tab,
+                signal: signal
+            });
+            if (_debugProbeQueue.length > _DEBUG_PROBE_QUEUE_MAX) {
+                _debugProbeQueue.splice(0, _debugProbeQueue.length - _DEBUG_PROBE_QUEUE_MAX);
+            }
+            _drainLoopDebugProbeQueue();
+        } catch (e) { }
+    }
+
+    async function _drainLoopDebugProbeQueue() {
+        if (_debugProbeRunning) return;
+        _debugProbeRunning = true;
+        try {
+            while (_debugProbeQueue.length > 0) {
+                var item = _debugProbeQueue.shift();
+                if (!item || !item.signal) continue;
+                var tab = item.tab || null;
+                var signal = item.signal;
+                var isDeep = String(signal.debug_level || 'standard') === 'deep';
+                var isAnomaly = !!signal.is_anomaly;
+                var summary = _debugProbeSignalSummary(signal);
+                var signalJson = JSON.stringify(signal);
+
+                await _callDebugProbeToolSafe(tab, 'observe', {
+                    signal_type: 'event',
+                    data: signalJson
+                }, 'agent_debug_observe_step', 15000);
+
+                if (isAnomaly || isDeep) {
+                    await _callDebugProbeToolSafe(tab, 'symbiotic_interpret', {
+                        signal: summary
+                    }, 'agent_debug_symbiotic_step', 25000);
+
+                    await _callDebugProbeToolSafe(tab, 'trace_root_causes', {
+                        event_description: summary
+                    }, 'agent_debug_trace_step', 25000);
+                }
+
+                if (isDeep) {
+                    await _callDebugProbeToolSafe(tab, 'cascade_system', {
+                        operation: 'analyze',
+                        params: JSON.stringify({ text: summary, signal: signal })
+                    }, 'agent_debug_cascade_system_step', 30000);
+
+                    await _callDebugProbeToolSafe(tab, 'cascade_data', {
+                        operation: 'observe',
+                        params: JSON.stringify({ signal: signal })
+                    }, 'agent_debug_cascade_data_step', 30000);
+
+                    await _callDebugProbeToolSafe(tab, 'cascade_record', {
+                        operation: 'log_interpretive',
+                        params: JSON.stringify({ event: 'agent_debug_step', signal: signal })
+                    }, 'agent_debug_cascade_record_step', 30000);
+
+                    var graphAdd = await _callDebugProbeToolSafe(tab, 'cascade_graph', {
+                        operation: 'add_event',
+                        params: JSON.stringify({
+                            event_id: 'agent_debug_' + String(signal.slot) + '_' + String(signal.step || 0) + '_' + String(signal.sequence || 0),
+                            event_type: 'agent_debug_step',
+                            component: 'agent_debug',
+                            data: signal
+                        })
+                    }, 'agent_debug_cascade_graph_add_event_step', 30000);
+
+                    var graphEventId = graphAdd && graphAdd.event_id ? String(graphAdd.event_id) : '';
+                    var graphSessionKey = String(signal.slot) + '|' + String(signal.session_id || '');
+                    var prevGraphEventId = String(_debugProbeLastGraphEventBySession[graphSessionKey] || '');
+                    if (graphEventId) {
+                        if (prevGraphEventId && prevGraphEventId !== graphEventId) {
+                            await _callDebugProbeToolSafe(tab, 'cascade_graph', {
+                                operation: 'add_link',
+                                params: JSON.stringify({
+                                    from_event: prevGraphEventId,
+                                    to_event: graphEventId,
+                                    link_type: 'debug_sequence',
+                                    confidence: isAnomaly ? 0.94 : 0.78
+                                })
+                            }, 'agent_debug_cascade_graph_add_link_step', 30000);
+                        }
+                        _debugProbeLastGraphEventBySession[graphSessionKey] = graphEventId;
+                    }
+                }
+
+                if (isAnomaly) {
+                    await _callDebugProbeToolSafe(tab, 'forensics_analyze', {
+                        data: signalJson
+                    }, 'agent_debug_forensics_step', 30000);
+                }
+
+                if (isDeep && isAnomaly) {
+                    var holdSessionKey = String(signal.slot) + '|' + String(signal.session_id || '');
+                    var holdNow = Date.now();
+                    var holdLastTs = parseInt(_debugProbeLastHoldTsBySession[holdSessionKey], 10) || 0;
+                    if (!holdLastTs || (holdNow - holdLastTs) > 60000) {
+                        _debugProbeLastHoldTsBySession[holdSessionKey] = holdNow;
+                        var hold = await _callDebugProbeToolSafe(tab, 'hold_yield', {
+                            reason: 'agent_debug_anomaly_step',
+                            data: signalJson
+                        }, 'agent_debug_hold_yield_step', 20000);
+                        var holdId = hold && hold.hold_id ? String(hold.hold_id) : '';
+                        if (holdId) {
+                            await _callDebugProbeToolSafe(tab, 'hold_resolve', {
+                                hold_id: holdId,
+                                action: 'accept'
+                            }, 'agent_debug_hold_resolve_step', 20000);
+                        }
+                    }
+                }
+            }
+        } finally {
+            _debugProbeRunning = false;
+        }
     }
 
     function _appendAchatMsg(role, content, ts, tabRef) {
