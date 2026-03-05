@@ -1,5 +1,10 @@
 # Master TODO - Frontend-Only Execution Plan (2026-03-05)
 
+## Canonical Guides (Read First)
+- `self_deploy/docs/MASTER_GUIDES_INDEX.md`
+- `self_deploy/docs/MASTER_OPERATIONS_PLAYBOOK.md`
+- `self_deploy/docs/MASTER_EVAL_CONTRACTS.md`
+
 ## Operating Precept
 - Do not edit backend files.
 - Do not edit `champion_gen8` or capsule internals.
