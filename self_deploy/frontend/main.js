@@ -5194,7 +5194,7 @@
                         if (tcn) ls.calledTools[tcn] = (ls.calledTools[tcn] || 0) + 1;
                     }
 
-                    var hasRealAnswer = !!(answer && !/agent reached max iterations/i.test(String(answer)));
+                    var hasRealAnswer = !!(answer && !_isLoopFailureAnswer(answer));
                     var isSynthesized = !!(resultObj._synthesized);
                     var minCalls = parseInt(ls.minToolCalls, 10) || 1;
                     var hasMinToolEvidence = ls.totalToolCalls >= minCalls;
@@ -10022,6 +10022,20 @@
         if (tab.key === _achatActiveTabKey) _renderAchatMessages(tab);
     }
 
+    
+    function _isLoopFailureAnswer(answer) {
+        var s = String(answer || '').trim().toLowerCase();
+        if (!s) return true;
+        return (
+            s.indexOf('agent reached max iterations') >= 0 ||
+            s.indexOf('model returned empty response') >= 0 ||
+            s.indexOf('model invocation timed out') >= 0 ||
+            s.indexOf('model invocation failed') >= 0 ||
+            s.indexOf('model returned non-dict') >= 0 ||
+            s.indexOf('model error at iteration') >= 0
+        );
+    }
+
     function _appendAchatToolTrace(toolCalls, tabRef) {
         var tab = tabRef || _getActiveAchatTab();
         if (!tab) return;
@@ -11290,3 +11304,5 @@
     vscode.postMessage({ command: 'web3GetDocTypes' });
     // Community is intentionally disabled in Space build.
 })();
+
+
