@@ -10301,6 +10301,42 @@
         container.scrollTop = container.scrollHeight;
     }
 
+    var _debugObserveMirrorSeen = {};
+    function _mirrorDebugTelemetryToObserve(tab, detail, ts) {
+        try {
+            if (!tab) return;
+            var text = String(detail || '').trim();
+            if (!text) return;
+            var slot = parseInt(tab.slot, 10);
+            var sid = String(tab.sessionId || '').trim();
+            var now = Date.now();
+            var sig = String(isNaN(slot) ? '' : slot) + '|' + sid + '|' + text;
+            var last = parseInt(_debugObserveMirrorSeen[sig], 10) || 0;
+            if (last && (now - last) < 8000) return;
+            _debugObserveMirrorSeen[sig] = now;
+
+            for (var k in _debugObserveMirrorSeen) {
+                if (!Object.prototype.hasOwnProperty.call(_debugObserveMirrorSeen, k)) continue;
+                var seenTs = parseInt(_debugObserveMirrorSeen[k], 10) || 0;
+                if (!seenTs || (now - seenTs) > 120000) delete _debugObserveMirrorSeen[k];
+            }
+
+            var payload = {
+                source: 'agent-debug',
+                slot: isNaN(slot) ? null : slot,
+                session_id: sid,
+                detail: text,
+                timestamp_ms: ts || now
+            };
+            callTool(
+                'observe',
+                { signal_type: 'event', data: JSON.stringify(payload) },
+                'agent_debug_observe',
+                { suppressDefault: true, keepBusy: true }
+            );
+        } catch (e) { }
+    }
+
     function _appendAchatMsg(role, content, ts, tabRef) {
         var tab = tabRef || _getActiveAchatTab();
         if (!tab) return;
@@ -10324,6 +10360,7 @@
                 durationMs: 0,
                 source: 'agent-debug'
             });
+            _mirrorDebugTelemetryToObserve(tab, text, nowTs);
         }
         if (tab.key === _achatActiveTabKey) _renderAchatMessages(tab);
     }
