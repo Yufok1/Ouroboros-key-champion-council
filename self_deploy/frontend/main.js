@@ -5022,6 +5022,19 @@
             if (msg.error) {
                 _appendAchatMsg('error', String(msg.error || 'Unknown error'), Date.now(), activeTab);
                 if (isLoopIter && activeTab && _isAchatDebugEnabled(activeTab)) {
+                    var _lsErr = activeTab._loopState || null;
+                    if (_lsErr) {
+                        _recordLoopDebugStep(_lsErr, {
+                            step: (parseInt(_lsErr.iteration, 10) || 0) + 1,
+                            tools: [],
+                            failedTools: [],
+                            failures: 1,
+                            noToolCalls: true,
+                            noFinalAnswer: true,
+                            loopScaffoldAnswer: false,
+                            sessionId: String(activeTab.sessionId || '')
+                        });
+                    }
                     _appendAchatMsg('system-info',
                         'DEBUG transport error · step aborted · detail: ' + String(msg.error || 'Unknown error'),
                         Date.now(),
@@ -5101,6 +5114,19 @@
                 if (resultObj.error) {
                     _appendAchatMsg('error', String(resultObj.error), Date.now(), tab);
                     if (isLoopIter && tab && _isAchatDebugEnabled(tab)) {
+                        var _lsPayloadErr = tab._loopState || null;
+                        if (_lsPayloadErr) {
+                            _recordLoopDebugStep(_lsPayloadErr, {
+                                step: (parseInt(_lsPayloadErr.iteration, 10) || 0) + 1,
+                                tools: [],
+                                failedTools: [],
+                                failures: 1,
+                                noToolCalls: true,
+                                noFinalAnswer: true,
+                                loopScaffoldAnswer: false,
+                                sessionId: String((resp && resp.session_id) || tab.sessionId || '')
+                            });
+                        }
                         _appendAchatMsg('system-info',
                             'DEBUG tool error payload · ' + String(resultObj.error),
                             Date.now(),
@@ -5239,6 +5265,7 @@
                     _recordLoopDebugStep(tab._loopState, {
                         step: dbgStep,
                         tools: dbgCalledTools,
+                        failedTools: dbgFailureTools,
                         failures: dbgFailures,
                         noToolCalls: toolCalls.length === 0,
                         noFinalAnswer: !answer,
@@ -5292,6 +5319,17 @@
                             'Loop complete: ' + ls.iteration + ' iterations · ' +
                             ls.totalToolCalls + ' tool calls · ' + totalElapsed + 's total',
                             Date.now(), tab);
+                        if (_isAchatDebugEnabled(tab)) {
+                            var dbgDone = _formatLoopDebugSnapshot(ls);
+                            _appendAchatMsg('system-info',
+                                'DEBUG summary · steps=' + dbgDone.steps +
+                                ' · failing_steps=' + dbgDone.failingSteps +
+                                ' · empty_steps=' + dbgDone.emptySteps +
+                                (dbgDone.topFailTools ? ' · failed_tools=' + dbgDone.topFailTools : ''),
+                                Date.now(),
+                                tab
+                            );
+                        }
                         _setAchatBusy(false);
                         tab._loopState = null;
                     } else if (ls.iteration >= ls.maxIterations) {
@@ -5326,6 +5364,17 @@
                                 'Continue working on the mission. Call one tool this turn, or provide final_answer if done.';
                             _fireAgentIteration(tab);
                         } else {
+                            if (_isAchatDebugEnabled(tab)) {
+                                var dbgHardStop = _formatLoopDebugSnapshot(ls);
+                                _appendAchatMsg('system-info',
+                                    'DEBUG hard-stop snapshot · steps=' + dbgHardStop.steps +
+                                    ' · failing_steps=' + dbgHardStop.failingSteps +
+                                    ' · empty_steps=' + dbgHardStop.emptySteps +
+                                    (dbgHardStop.topFailTools ? ' · failed_tools=' + dbgHardStop.topFailTools : ''),
+                                    Date.now(),
+                                    tab
+                                );
+                            }
                             _appendAchatMsg('error',
                                 'Loop reached max iterations (' + ls.maxIterations + ') with ' + ls.totalToolCalls +
                                 ' tool calls (target: ' + minCalls + ').' +
@@ -11024,12 +11073,18 @@
         ls.debugSteps.push(stepInfo);
         if (ls.debugSteps.length > 25) ls.debugSteps.shift();
         var tools = Array.isArray(stepInfo.tools) ? stepInfo.tools : [];
+        var failed = {};
+        var failedTools = Array.isArray(stepInfo.failedTools) ? stepInfo.failedTools : [];
+        for (var fi = 0; fi < failedTools.length; fi++) {
+            var fk = String(failedTools[fi] || '').trim();
+            if (fk) failed[fk] = true;
+        }
         for (var i = 0; i < tools.length; i++) {
             var t = String(tools[i] || '').trim();
             if (!t) continue;
             if (!ls.debugToolStats[t]) ls.debugToolStats[t] = { calls: 0, failures: 0 };
             ls.debugToolStats[t].calls += 1;
-            if ((parseInt(stepInfo.failures, 10) || 0) > 0) ls.debugToolStats[t].failures += 1;
+            if (failed[t]) ls.debugToolStats[t].failures += 1;
         }
     }
 
