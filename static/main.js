@@ -1916,6 +1916,12 @@
     function openPlugProviderModal() {
         var modal = document.getElementById('plug-provider-modal');
         if (modal) modal.classList.add('active');
+        var modelEl = document.getElementById('plug-provider-model');
+        var queryEl = document.getElementById('plug-provider-hf-query');
+        var modelsSel = document.getElementById('plug-provider-hf-models');
+        if (modelEl) modelEl.value = '';
+        if (queryEl) queryEl.value = '';
+        if (modelsSel) modelsSel.selectedIndex = -1;
         _setProviderModelMeta('Select a model to see basic metadata.', 'info');
         _setProviderModeUI(_providerKind());
     }
