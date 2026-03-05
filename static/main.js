@@ -2967,6 +2967,55 @@
         try { return JSON.stringify(v); } catch (e) { return String(v); }
     }
 
+    function _coerceSlotList(rawSlots) {
+        if (!Array.isArray(rawSlots)) return { values: [], invalid: [] };
+        var values = [];
+        var invalid = [];
+        var seen = {};
+        for (var i = 0; i < rawSlots.length; i++) {
+            var raw = rawSlots[i];
+            var iv = parseInt(raw, 10);
+            if (isNaN(iv) || iv < 0) {
+                invalid.push(raw);
+                continue;
+            }
+            if (!seen[iv]) {
+                seen[iv] = true;
+                values.push(iv);
+            }
+        }
+        return { values: values, invalid: invalid };
+    }
+
+    function _isMissingRequiredArg(value) {
+        return value === undefined || value === null || (typeof value === 'string' && value.trim() === '');
+    }
+
+    function _workflowToolPreflight(toolName, args) {
+        var schema = _getAchatToolSchema(toolName);
+        var required = (schema && Array.isArray(schema.required)) ? schema.required : [];
+        for (var i = 0; i < required.length; i++) {
+            var req = required[i];
+            if (_isMissingRequiredArg(args ? args[req] : undefined)) {
+                return 'Missing required field: ' + req;
+            }
+        }
+
+        if ((toolName === 'workflow_create' || toolName === 'workflow_update') && args && typeof args.definition === 'string') {
+            var def = _safeJsonParse(args.definition);
+            if (!_isWorkflowDefinition(def)) {
+                return 'Workflow definition must be valid JSON containing nodes[].';
+            }
+        }
+        if (toolName === 'workflow_execute' && args && typeof args.input_data === 'string' && args.input_data.trim()) {
+            var inputObj = _safeJsonParse(args.input_data);
+            if (inputObj === null || typeof inputObj !== 'object' || Array.isArray(inputObj)) {
+                return 'Execution input must be a valid JSON object.';
+            }
+        }
+        return '';
+    }
+
     function _sanitizeToolArgs(name, args) {
         var out = {};
         if (args && typeof args === 'object' && !Array.isArray(args)) {
@@ -3008,6 +3057,15 @@
         if (name === 'workflow_execute') {
             if (out.input_data !== undefined && out.input_data !== null && typeof out.input_data !== 'string') {
                 out.input_data = _stringifyArgValue(out.input_data);
+            }
+        }
+
+        if (name === 'compare' && Array.isArray(out.slots)) {
+            var slotFix = _coerceSlotList(out.slots);
+            if (slotFix.values.length) out.slots = slotFix.values;
+            else delete out.slots;
+            if (slotFix.invalid.length) {
+                mpToast('compare.slots dropped invalid values: ' + slotFix.invalid.map(function (v) { return String(v); }).join(', '), 'info', 3200);
             }
         }
 
@@ -7905,10 +7963,17 @@
             renderWorkflowNodeStates(_wfLoadedDef, null);
             renderWorkflowGraph(_wfLoadedDef, null);
 
-            callTool('workflow_execute', {
+            var execArgs = {
                 workflow_id: _wfSelectedId,
                 input_data: inputStr
-            });
+            };
+            var execErr = _workflowToolPreflight('workflow_execute', execArgs);
+            if (execErr) {
+                _wfSetBadge('error', 'ERROR');
+                _wfSetExecStatus(execErr, true);
+                return;
+            }
+            callTool('workflow_execute', execArgs);
         });
     }
 
@@ -8271,8 +8336,15 @@
                     }
                 }, null, 2);
 
+                var importCreateArgs = { definition: workflowDefPayload };
+                var importCreateErr = _workflowToolPreflight('workflow_create', importCreateArgs);
+                if (importCreateErr) {
+                    mpToast('Import failed: ' + importCreateErr, 'error', 5200);
+                    return;
+                }
+
                 callTool('bag_induct', { key: sourceArtifactKey, content: sourceArtifactPayload, item_type: 'artifact' });
-                callTool('workflow_create', { definition: workflowDefPayload });
+                callTool('workflow_create', importCreateArgs);
                 callTool('bag_induct', { key: workingArtifactKey, content: workflowDefPayload, item_type: 'json' });
 
                 if (parsedDoc.requiresWrapOnImport) {
@@ -8616,7 +8688,13 @@
                 var normalizedPayload = (typeof normalized === 'string')
                     ? normalized
                     : JSON.stringify(normalized);
-                callTool('workflow_create', { definition: normalizedPayload });
+                var gistCreateArgs = { definition: normalizedPayload };
+                var gistCreateErr = _workflowToolPreflight('workflow_create', gistCreateArgs);
+                if (gistCreateErr) {
+                    mpToast('Gist import failed: ' + gistCreateErr, 'error', 5000);
+                    return;
+                }
+                callTool('workflow_create', gistCreateArgs);
                 mpToast('Workflow imported from Gist', 'success', 3000);
                 console.log('[GitHub] Imported workflow:', result.name);
             } catch (err) { console.error('[GitHub] Import create failed:', err); }
@@ -10627,6 +10705,15 @@
 
         if (props.slot && (args.slot === undefined || args.slot === null || args.slot === '')) {
             args.slot = tab.slot;
+        }
+
+        if (toolName === 'compare' && Array.isArray(args.slots)) {
+            var compareSlots = _coerceSlotList(args.slots);
+            if (compareSlots.invalid.length) {
+                throw new Error('compare.slots must contain numeric slot indexes only.');
+            }
+            if (compareSlots.values.length) args.slots = compareSlots.values;
+            else delete args.slots;
         }
 
         // Guard against strict validators that reject explicit nulls for optional arrays/objects.
