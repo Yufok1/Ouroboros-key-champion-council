@@ -2920,8 +2920,18 @@ async def _server_side_agent_chat(
                         tool_result_str = json.dumps(tool_result, indent=2, default=str)
                     else:
                         tool_raw = await asyncio.wait_for(_call(called_tool, normalized_args), timeout=tool_timeout)
-                        tool_result = _parse(tool_raw.get("result"))
-                        tool_error = tool_raw.get("error") or (tool_result.get("error") if isinstance(tool_result, dict) else None)
+                        try:
+                            tool_raw = await postprocess_tool_result(
+                                called_tool,
+                                normalized_args if isinstance(normalized_args, dict) else {},
+                                tool_raw if isinstance(tool_raw, dict) else {"result": {"content": [{"type": "text", "text": str(tool_raw)}]}},
+                                _call,
+                                activity_hub=activity_hub,
+                            )
+                        except Exception:
+                            pass
+                        tool_result = _parse((tool_raw or {}).get("result")) if isinstance(tool_raw, dict) else None
+                        tool_error = (tool_raw.get("error") if isinstance(tool_raw, dict) else None) or (tool_result.get("error") if isinstance(tool_result, dict) else None)
                         tool_result_str = json.dumps(tool_result, indent=2, default=str) if tool_result else ""
                 elif called_tool == "agent_delegate":
                     tool_result, tool_error = await asyncio.wait_for(
@@ -2943,8 +2953,18 @@ async def _server_side_agent_chat(
                     tool_result_str = json.dumps(tool_result, indent=2, default=str) if tool_result is not None else ""
                 else:
                     tool_raw = await asyncio.wait_for(_call(called_tool, normalized_args), timeout=tool_timeout)
-                    tool_result = _parse(tool_raw.get("result"))
-                    tool_error = tool_raw.get("error") or (tool_result.get("error") if isinstance(tool_result, dict) else None)
+                    try:
+                        tool_raw = await postprocess_tool_result(
+                            called_tool,
+                            normalized_args if isinstance(normalized_args, dict) else {},
+                            tool_raw if isinstance(tool_raw, dict) else {"result": {"content": [{"type": "text", "text": str(tool_raw)}]}},
+                            _call,
+                            activity_hub=activity_hub,
+                        )
+                    except Exception:
+                        pass
+                    tool_result = _parse((tool_raw or {}).get("result")) if isinstance(tool_raw, dict) else None
+                    tool_error = (tool_raw.get("error") if isinstance(tool_raw, dict) else None) or (tool_result.get("error") if isinstance(tool_result, dict) else None)
                     tool_result_str = json.dumps(tool_result, indent=2, default=str) if tool_result else ""
             except asyncio.TimeoutError:
                 tool_result = None

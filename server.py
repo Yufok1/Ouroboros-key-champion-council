@@ -3690,8 +3690,18 @@ async def _server_side_agent_chat(args: dict, source: str = "webui", client_id: 
                     tool_result_str = json.dumps(tool_result, indent=2, default=str) if tool_result is not None else ""
                 else:
                     tool_raw = await asyncio.wait_for(_call_tool(called_tool, normalized_args), timeout=tool_timeout)
-                    tool_result = _parse_mcp_result(tool_raw.get("result"))
-                    tool_error = tool_raw.get("error") or (tool_result.get("error") if isinstance(tool_result, dict) else None)
+                    # Keep agent-inner semantics aligned with external calls so models
+                    # see normalized slot/state payloads instead of raw capsule output.
+                    try:
+                        tool_raw = await _postprocess_tool_result(
+                            called_tool,
+                            normalized_args if isinstance(normalized_args, dict) else {},
+                            tool_raw if isinstance(tool_raw, dict) else {"result": {"content": [{"type": "text", "text": str(tool_raw)}]}},
+                        )
+                    except Exception:
+                        pass
+                    tool_result = _parse_mcp_result((tool_raw or {}).get("result")) if isinstance(tool_raw, dict) else None
+                    tool_error = (tool_raw.get("error") if isinstance(tool_raw, dict) else None) or (tool_result.get("error") if isinstance(tool_result, dict) else None)
                     tool_result_str = json.dumps(tool_result, indent=2, default=str) if tool_result else ""
             except asyncio.TimeoutError:
                 tool_result = None
