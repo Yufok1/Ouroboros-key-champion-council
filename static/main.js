@@ -493,7 +493,8 @@
                     break;
                 case 'activityHistory':
                     if (Array.isArray(msg.entries)) {
-                        _rehydrateActivityLog(msg.entries);
+                        if (_activityLog.length === 0) _rehydrateActivityLog(msg.entries);
+                        else _mergeActivityLogWithLocalDebug(msg.entries);
                         renderActivityFeed();
                     }
                     break;
