@@ -5328,6 +5328,28 @@
                         }
                     }
 
+                    // Debug mode requires minimum diagnostic evidence before finalization.
+                    if (hasRealAnswer && _isAchatDebugEnabled(tab) && ls.iteration < ls.maxIterations && !window.__achatKillRequested) {
+                        var dbgMinCallsReq = parseInt(ls.debugMinCalls, 10) || 2;
+                        var dbgHintTools = Array.isArray(ls.debugHintTools) ? ls.debugHintTools : [];
+                        var dbgDiagCalls = 0;
+                        for (var dh = 0; dh < dbgHintTools.length; dh++) {
+                            var dname = dbgHintTools[dh];
+                            dbgDiagCalls += parseInt((ls.calledTools || {})[dname] || 0, 10) || 0;
+                        }
+                        var dbgHasEvidence = (ls.totalToolCalls >= dbgMinCallsReq) && (dbgHintTools.length === 0 || dbgDiagCalls > 0);
+                        if (!dbgHasEvidence) {
+                            _appendAchatMsg('system-info',
+                                'Debug mode gate: final answer deferred until diagnostic evidence is sufficient (' +
+                                'tool_calls=' + ls.totalToolCalls + '/' + dbgMinCallsReq +
+                                ', diagnostic_calls=' + dbgDiagCalls + ').',
+                                Date.now(),
+                                tab
+                            );
+                            hasRealAnswer = false;
+                        }
+                    }
+
                     if (hasRealAnswer && hasMinToolEvidence) {
                         var totalElapsed = Math.round((Date.now() - ls.startTime) / 1000);
                         _appendAchatMsg('system-info',
@@ -11226,6 +11248,7 @@
             // User sets N iterations for tool calls; the system adds 1 on top
             // so the model always gets a dedicated synthesis pass at the end.
             _maxIter += 1;
+            var _debugHintsAtStart = _debugToolHintsForGranted(tab.grantedTools || []);
             tab._loopState = {
                 mission: mission,
                 nextMessage: mission,
@@ -11237,7 +11260,9 @@
                 calledTools: {},
                 startTime: Date.now(),
                 debugSteps: [],
-                debugToolStats: {}
+                debugToolStats: {},
+                debugMinCalls: _isAchatDebugEnabled(tab) ? 2 : 0,
+                debugHintTools: _debugHintsAtStart
             };
             _fireAgentIteration(tab);
             return;
