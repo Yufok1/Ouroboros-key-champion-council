@@ -5130,6 +5130,7 @@ async def mcp_message_proxy(request: Request):
         )
 
     start = time.time()
+    response_payload_override = None
 
     try:
         async with httpx.AsyncClient() as client:
@@ -5166,10 +5167,13 @@ async def mcp_message_proxy(request: Request):
                     resp_json = resp.json()
                     if isinstance(resp_json, dict):
                         response_items = [resp_json]
+                        response_payload_override = resp_json
                     elif isinstance(resp_json, list):
                         response_items = [item for item in resp_json if isinstance(item, dict)]
+                        response_payload_override = resp_json
                 except Exception:
                     response_items = []
+                    response_payload_override = None
 
                 unmatched_calls = list(rpc_calls)
 
@@ -5199,10 +5203,20 @@ async def mcp_message_proxy(request: Request):
                         else:
                             error_str = str(rpc_error)
 
+                    result_payload = item.get("result")
+                    if error_str is None and isinstance(result_payload, dict):
+                        try:
+                            processed = await postprocess_tool_result(call["tool"], call["args"], {"result": result_payload}, _call_tool, activity_hub=activity_hub)
+                            if isinstance(processed, dict) and isinstance(processed.get("result"), dict):
+                                result_payload = processed.get("result")
+                                item["result"] = result_payload
+                        except Exception:
+                            pass
+
                     activity_hub.add_entry(
                         call["tool"],
                         call["args"],
-                        item.get("result"),
+                        result_payload,
                         duration_ms,
                         error_str,
                         source="external",
@@ -5238,6 +5252,8 @@ async def mcp_message_proxy(request: Request):
             return Response(status_code=resp.status_code)
 
         if resp.headers.get("content-type", "").startswith("application/json"):
+            if response_payload_override is not None:
+                return JSONResponse(content=response_payload_override, status_code=resp.status_code)
             return JSONResponse(content=resp.json(), status_code=resp.status_code)
 
         return JSONResponse(content={"raw": resp.text} if resp.text else {}, status_code=resp.status_code)

@@ -7134,6 +7134,7 @@ async def mcp_message_proxy(request: Request):
             )
 
     start = time.time()
+    response_payload_override = None
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.post(
@@ -7177,10 +7178,13 @@ async def mcp_message_proxy(request: Request):
                         resp_json = resp.json()
                         if isinstance(resp_json, dict):
                             response_items = [resp_json]
+                            response_payload_override = resp_json
                         elif isinstance(resp_json, list):
                             response_items = [item for item in resp_json if isinstance(item, dict)]
+                            response_payload_override = resp_json
                     except Exception:
                         response_items = []
+                        response_payload_override = None
 
                     unmatched_calls = list(rpc_calls)
 
@@ -7209,17 +7213,27 @@ async def mcp_message_proxy(request: Request):
                             else:
                                 error_str = str(rpc_error)
 
+                        result_payload = item.get("result")
+                        if error_str is None and isinstance(result_payload, dict):
+                            try:
+                                processed = await _postprocess_tool_result(call["tool"], call["args"], {"result": result_payload})
+                                if isinstance(processed, dict) and isinstance(processed.get("result"), dict):
+                                    result_payload = processed.get("result")
+                                    item["result"] = result_payload
+                            except Exception:
+                                pass
+
                         _broadcast_activity(
                             call["tool"],
                             call["args"],
-                            item.get("result"),
+                            result_payload,
                             duration_ms,
                             error_str,
                             source="external", client_id=_mcp_client_id,
                         )
                         # Cache-aware inner tool call broadcasting for agent_chat
-                        if call["tool"] == "agent_chat" and item.get("result"):
-                            _bac_parsed = _parse_mcp_result(item.get("result"))
+                        if call["tool"] == "agent_chat" and result_payload:
+                            _bac_parsed = _parse_mcp_result(result_payload)
                             _bac_full = _bac_parsed
                             if isinstance(_bac_parsed, dict) and _bac_parsed.get("_cached"):
                                 try:
@@ -7241,7 +7255,7 @@ async def mcp_message_proxy(request: Request):
                                     source="agent-inner", client_id=_mcp_client_id,
                                 )
                         else:
-                            _broadcast_agent_inner_calls(call["tool"], item.get("result"), duration_ms, source="external", client_id=_mcp_client_id)
+                            _broadcast_agent_inner_calls(call["tool"], result_payload, duration_ms, source="external", client_id=_mcp_client_id)
                         await _release_slot_execution(call.get("_claim"))
 
                     for call in unmatched_calls:
@@ -7275,6 +7289,8 @@ async def mcp_message_proxy(request: Request):
                 from starlette.responses import Response
                 return Response(status_code=resp.status_code)
             elif resp.headers.get("content-type", "").startswith("application/json"):
+                if response_payload_override is not None:
+                    return JSONResponse(content=response_payload_override, status_code=resp.status_code)
                 return JSONResponse(content=resp.json(), status_code=resp.status_code)
             else:
                 return JSONResponse(
