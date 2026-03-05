@@ -543,6 +543,92 @@ async def postprocess_tool_result(
             except Exception:
                 pass
 
+    # trace_root_causes can miss existing causal links; bridge from cascade_graph for event ids.
+    if tool_name == "trace_root_causes" and isinstance(parsed, dict):
+        event_desc = str(args.get("event_description") or parsed.get("event") or "").strip()
+        root_causes = parsed.get("root_causes")
+        no_prior = isinstance(root_causes, list) and any("no prior events to trace" in str(rc).lower() for rc in root_causes)
+        if no_prior and event_desc.startswith("evt_"):
+            try:
+                cg_raw = await call_tool_fn(
+                    "cascade_graph",
+                    {"operation": "get_causes", "params": json.dumps({"event_id": event_desc})},
+                )
+                cg_parsed = parse_mcp_result((cg_raw or {}).get("result"))
+                cg_causes = cg_parsed.get("causes", []) if isinstance(cg_parsed, dict) else []
+                if isinstance(cg_causes, list) and cg_causes:
+                    normalized = []
+                    for cause in cg_causes:
+                        if not isinstance(cause, dict):
+                            normalized.append(str(cause))
+                            continue
+                        cid = str(cause.get("event_id", "") or "").strip()
+                        comp = str(cause.get("component", "") or "").strip()
+                        etype = str(cause.get("event_type", "") or "").strip()
+                        line = "cascade_graph"
+                        if comp:
+                            line += f":{comp}"
+                        if etype:
+                            line += f":{etype}"
+                        if cid:
+                            line += f":{cid}"
+                        normalized.append(line)
+                    parsed["root_causes"] = normalized
+                    parsed["root_causes_structured"] = cg_causes
+                    parsed["trace_depth"] = max(1, len(cg_causes))
+                    parsed["_bridge"] = {"source": "cascade_graph.get_causes", "event_id": event_desc, "cause_count": len(cg_causes)}
+                    return _return_parsed(parsed)
+            except Exception:
+                pass
+
+    # cascade_data pii_scan can overmatch decimal metrics as PHONE_NUMBER; filter deterministically.
+    if tool_name == "cascade_data" and isinstance(parsed, dict):
+        op = str(args.get("operation", "") or "").strip().lower()
+        if op == "pii_scan":
+            hits = parsed.get("pii_found")
+            if isinstance(hits, list) and hits:
+                import re as _re_pii
+
+                params_raw = args.get("params")
+                params_text = ""
+                try:
+                    if isinstance(params_raw, str):
+                        pj = json.loads(params_raw)
+                        if isinstance(pj, dict):
+                            params_text = str(pj.get("text") or pj.get("data") or pj.get("input") or params_raw)
+                        else:
+                            params_text = params_raw
+                    elif isinstance(params_raw, dict):
+                        params_text = str(params_raw.get("text") or params_raw.get("data") or params_raw.get("input") or "")
+                    else:
+                        params_text = str(params_raw or "")
+                except Exception:
+                    params_text = str(params_raw or "")
+
+                metric_context = any(tok in params_text.lower() for tok in ("fitness", "loss", "accuracy", "reward", "score", "rate", "critic"))
+                filtered_hits = []
+                removed = []
+                for hit in hits:
+                    if not isinstance(hit, dict):
+                        filtered_hits.append(hit)
+                        continue
+                    htype = str(hit.get("type", "") or "").upper()
+                    preview = str(hit.get("value_preview", "") or "").replace(" ", "")
+                    if htype == "PHONE_NUMBER":
+                        looks_decimal = bool(_re_pii.match(r"^\d+\.\d+\*{0,8}$", preview))
+                        lacks_phone_chars = not any(ch in preview for ch in "+()-")
+                        if metric_context and looks_decimal and lacks_phone_chars:
+                            removed.append({"type": htype, "value_preview": preview, "reason": "decimal_metric_false_positive"})
+                            continue
+                    filtered_hits.append(hit)
+
+                if removed:
+                    parsed["pii_found"] = filtered_hits
+                    parsed["count"] = len(filtered_hits)
+                    parsed["_false_positive_filtered"] = removed
+                    parsed["note"] = "Filtered decimal metric false positives from pii_scan."
+                    return _return_parsed(parsed)
+
     # --- Fix debate: retry slots that fail ---
     if tool_name == "debate" and isinstance(parsed, dict):
         transcript = parsed.get("transcript", [])

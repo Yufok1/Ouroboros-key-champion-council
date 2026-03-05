@@ -10040,6 +10040,12 @@
             lines.push('Mission execution and debugging run in parallel.');
             lines.push('Track anomalies continuously: tool errors, empty outputs, schema/policy mismatches, latency spikes, and contradictory signals.');
             lines.push('When you suspect a failure, run at least one counter-test before declaring it a confirmed issue (when safe).');
+            lines.push('If you call hold_yield, you MUST call hold_resolve with the returned hold_id before final_answer.');
+            lines.push('For CASCADE tools, use only valid operations and valid params JSON strings:');
+            lines.push('- cascade_system.operation: ingest_text | ingest_file | analyze | classify');
+            lines.push('- cascade_data.operation: observe | schema | pii_scan | license_check');
+            lines.push('- cascade_record.operation: tape_write | tape_read | tape_list | log_kleene | log_interpretive | session_stats');
+            lines.push('Invalid op aliases (e.g. ingest_logs/schema_inference/tape_record) are prohibited; use canonical operation names.');
             lines.push('In final_answer include explicit sections: Observed Signals, Confirmed Issues, Counter-Tests, Residual Risks, and Next Fixes.');
             if (debugLevel === 'deep') {
                 lines.push('Debug level is DEEP: prioritize root-cause isolation and validation depth over speed.');

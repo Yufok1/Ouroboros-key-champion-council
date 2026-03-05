@@ -1231,6 +1231,45 @@ def _normalize_proxy_tool_args(tool_name: str, args: dict | None) -> dict:
         if changed:
             patched["model_id"] = normalized
 
+    # Normalize CASCADE tool operation aliases + params encoding.
+    if tool_name in ("cascade_system", "cascade_data", "cascade_record"):
+        op = str(patched.get("operation", "") or "").strip().lower()
+        if tool_name == "cascade_system":
+            op_alias = {
+                "ingest_logs": "ingest_text",
+                "ingest_log": "ingest_text",
+                "ingest": "ingest_text",
+                "analysis": "analyze",
+            }
+            if op in op_alias:
+                patched["operation"] = op_alias[op]
+        elif tool_name == "cascade_data":
+            op_alias = {
+                "schema_inference": "schema",
+                "schema-inference": "schema",
+                "pii": "pii_scan",
+                "scan_pii": "pii_scan",
+                "license": "license_check",
+                "observe_data": "observe",
+            }
+            if op in op_alias:
+                patched["operation"] = op_alias[op]
+        elif tool_name == "cascade_record":
+            op_alias = {
+                "tape_record": "tape_write",
+                "record_tape": "tape_write",
+                "tape_log": "tape_write",
+                "log": "log_interpretive",
+            }
+            if op in op_alias:
+                patched["operation"] = op_alias[op]
+
+        if "params" in patched and not isinstance(patched.get("params"), str):
+            try:
+                patched["params"] = json.dumps(patched.get("params"))
+            except Exception:
+                patched["params"] = str(patched.get("params"))
+
     if tool_name in ("bag_get", "bag_put", "bag_read_doc", "bag_checkpoint", "bag_versions", "bag_restore", "bag_diff", "bag_induct"):
         k = patched.get("key")
         if _doc_should_virtualize_key(k):
