@@ -10203,8 +10203,27 @@
     function _appendAchatMsg(role, content, ts, tabRef) {
         var tab = tabRef || _getActiveAchatTab();
         if (!tab) return;
+        var text = String(content || '');
         if (!Array.isArray(tab.messages)) tab.messages = [];
-        tab.messages.push({ role: role, content: String(content || ''), ts: ts || Date.now() });
+        var nowTs = ts || Date.now();
+        tab.messages.push({ role: role, content: text, ts: nowTs });
+        if (role === 'system-info' && /^debug\b/i.test(text)) {
+            addActivityEntry({
+                timestamp: nowTs,
+                tool: 'agent_debug',
+                category: 'agent',
+                args: {
+                    slot: tab.slot,
+                    session_id: String(tab.sessionId || ''),
+                    _agent_session: String(tab.sessionId || ''),
+                    detail: text
+                },
+                result: { message: text },
+                error: null,
+                durationMs: 0,
+                source: 'agent-debug'
+            });
+        }
         if (tab.key === _achatActiveTabKey) _renderAchatMessages(tab);
     }
 
