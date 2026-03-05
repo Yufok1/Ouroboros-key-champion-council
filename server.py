@@ -4428,7 +4428,10 @@ async def _postprocess_tool_result(tool_name: str, args: dict, result: dict) -> 
                         continue
                 for idx in refresh_idxs:
                     si = await _slot_info_fresh(idx)
-                    slot_name_by_idx[idx] = str(si.get("name") or f"slot_{idx}")
+                    fresh_name = str(si.get("name") or f"slot_{idx}")
+                    if str(si.get("status", "")).strip().lower() == "empty" and not _is_default_slot_name(fresh_name):
+                        fresh_name = f"slot_{idx}"
+                    slot_name_by_idx[idx] = fresh_name
 
                 _renamed = False
                 for entry in comparisons:
@@ -4512,6 +4515,7 @@ async def _postprocess_tool_result(tool_name: str, args: dict, result: dict) -> 
                     slot_name = str(slot_info.get("name") or f"slot_{idx}")
                     is_plugged = bool(slot_info.get("plugged"))
                     if not is_plugged:
+                        slot_name = f"slot_{idx}"
                         rebuilt.append({"slot": idx, "name": slot_name, "status": "empty"})
                         continue
                     out = await _retry_slot_generate(idx, compare_text)
