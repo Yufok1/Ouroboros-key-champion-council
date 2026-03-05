@@ -3918,6 +3918,35 @@ async def _postprocess_tool_result(tool_name: str, args: dict, result: dict) -> 
         _decode_doc_fields(parsed)
         result = {"result": {"content": [{"type": "text", "text": json.dumps(parsed)}]}}
 
+    # file_write checkpoint contract normalization:
+    # - checkpoint_key returned by write is a pre-write backup snapshot
+    # - add backup_checkpoint explicitly
+    # - promote checkpoint_key to a post-write snapshot for deterministic diff flows
+    if tool_name == "file_write" and isinstance(parsed, dict):
+        _path = str(args.get("path") or parsed.get("path") or parsed.get("key") or "").strip()
+        _auto_ck = str(parsed.get("checkpoint_key") or "").strip()
+        if _path and _auto_ck and bool(parsed.get("replaced")):
+            parsed["backup_checkpoint"] = _auto_ck
+            parsed["backup_checkpoint_semantics"] = "pre_write_backup"
+            try:
+                _post_ck_raw = await _call_tool("file_checkpoint", {"path": _path, "message": "auto post-write snapshot"})
+                _post_ck = _parse_mcp_result((_post_ck_raw or {}).get("result"))
+                if isinstance(_post_ck, dict) and isinstance(_post_ck.get("checkpoint_key"), str):
+                    _post_key_raw = str(_post_ck.get("checkpoint_key") or "").strip()
+                    _post_key = _doc_decode_checkpoint_key(_post_key_raw) if _post_key_raw else ""
+                    if _post_key:
+                        parsed["checkpoint_key"] = _post_key
+                        parsed["post_write_checkpoint"] = _post_key
+                        parsed["checkpoint_semantics"] = "post_write_snapshot"
+                        note = str(parsed.get("note") or "").strip()
+                        extra = "checkpoint_key is post-write; backup_checkpoint is pre-write state"
+                        parsed["note"] = (note + "; " + extra) if note else extra
+                        return {"result": {"content": [{"type": "text", "text": json.dumps(parsed)}]}}
+            except Exception:
+                # Preserve backward compatibility when post-write snapshot creation fails.
+                parsed["checkpoint_semantics"] = "pre_write_backup"
+                return {"result": {"content": [{"type": "text", "text": json.dumps(parsed)}]}}
+
     # bag_tree/file_tree fallback: synthesize from bag_list_docs when capsule returns empty tree.
     # C5 fix: also trigger for non-empty prefix (scoped subtrees), not just root.
     if tool_name in ("bag_tree", "file_tree") and isinstance(parsed, dict):
@@ -4576,6 +4605,51 @@ async def _postprocess_tool_result(tool_name: str, args: dict, result: dict) -> 
                     _result["_unwrapped"] = True
             except (json.JSONDecodeError, ValueError):
                 pass  # Not valid JSON — leave as-is
+
+        # --- Strict-JSON contract normalization for deterministic debug/eval paths ---
+        _req_msg = str(args.get("message", "") or "")
+        _req_low = _req_msg.lower()
+        _strict_json_requested = (
+            "strict json" in _req_low
+            or "json only" in _req_low
+            or "return json" in _req_low
+        )
+        if _strict_json_requested:
+            _fa_obj = _result.get("final_answer") if isinstance(_result.get("final_answer"), (dict, list)) else None
+            if _fa_obj is None and isinstance(_fa, str) and _fa:
+                _cand = _fa.strip()
+                _m = _re.search(r"```(?:json)?\s*([\s\S]*?)```", _cand, flags=_re.IGNORECASE)
+                if _m:
+                    _cand = _m.group(1).strip()
+                try:
+                    _parsed_json = json.loads(_cand)
+                    if isinstance(_parsed_json, (dict, list)):
+                        _fa_obj = _parsed_json
+                except Exception:
+                    _fa_obj = None
+
+            if _fa_obj is not None:
+                if not isinstance(_result.get("final_answer"), (dict, list)):
+                    _result["final_answer"] = _fa_obj
+                    _result["_strict_json_normalized"] = True
+                    _fa = json.dumps(_fa_obj)
+            else:
+                _result["contract_violation"] = {
+                    "type": "strict_json_not_returned",
+                    "expected": "json",
+                    "received": "text",
+                }
+                _result["final_answer_raw"] = _fa
+                _result["final_answer"] = {
+                    "status": "contract_violation",
+                    "violation": "strict_json_not_returned",
+                    "tool_calls": len(_tc) if isinstance(_tc, list) else 0,
+                }
+                if "result" in parsed and isinstance(parsed["result"], dict):
+                    parsed["result"] = _result
+                else:
+                    parsed = _result
+                return {"result": {"content": [{"type": "text", "text": json.dumps(parsed)}]}}
 
         _empty_markers = (
             "", "model returned an empty response.", "model returned an empty response",
