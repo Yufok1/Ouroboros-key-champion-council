@@ -1203,6 +1203,50 @@ def _ensure_parent_dir_for_path(path_value: str | None) -> None:
         pass
 
 
+def _normalize_license_id(raw: str) -> str:
+    """Normalize common free-text license labels to SPDX IDs."""
+    s = str(raw or "").strip()
+    if not s:
+        return ""
+    low = s.lower()
+
+    # Preserve already SPDX-like tokens.
+    if " " not in s and "/" not in s and any(ch.isdigit() for ch in s):
+        return s
+
+    if "apache" in low and ("2.0" in low or "2" in low):
+        return "Apache-2.0"
+    if "mit" in low:
+        return "MIT"
+    if "bsd" in low and "3" in low:
+        return "BSD-3-Clause"
+    if "bsd" in low and "2" in low:
+        return "BSD-2-Clause"
+    if "mpl" in low and "2" in low:
+        return "MPL-2.0"
+    if "agpl" in low and "3" in low:
+        return "AGPL-3.0-only"
+    if "lgpl" in low and "3" in low:
+        return "LGPL-3.0-only"
+    if "lgpl" in low and "2.1" in low:
+        return "LGPL-2.1-only"
+    if "gpl" in low and "3" in low:
+        return "GPL-3.0-only"
+    if "gpl" in low and "2" in low:
+        return "GPL-2.0-only"
+    if "cc0" in low:
+        return "CC0-1.0"
+    if "cc-by-nc-sa" in low:
+        return "CC-BY-NC-SA-4.0"
+    if "cc-by-nc" in low:
+        return "CC-BY-NC-4.0"
+    if "cc-by-sa" in low:
+        return "CC-BY-SA-4.0"
+    if "cc-by" in low:
+        return "CC-BY-4.0"
+    return s
+
+
 def _normalize_proxy_tool_args(tool_name: str, args: dict | None) -> dict:
     if not isinstance(args, dict):
         return args or {}
@@ -1234,6 +1278,18 @@ def _normalize_proxy_tool_args(tool_name: str, args: dict | None) -> dict:
     # Normalize CASCADE tool operation aliases + params encoding.
     if tool_name in ("cascade_system", "cascade_data", "cascade_record"):
         op = str(patched.get("operation", "") or "").strip().lower()
+        params_raw = patched.get("params")
+        params_obj = {}
+        if isinstance(params_raw, dict):
+            params_obj = dict(params_raw)
+        elif isinstance(params_raw, str):
+            try:
+                _parsed = json.loads(params_raw)
+                if isinstance(_parsed, dict):
+                    params_obj = dict(_parsed)
+            except Exception:
+                params_obj = {}
+
         if tool_name == "cascade_system":
             op_alias = {
                 "ingest_logs": "ingest_text",
@@ -1254,6 +1310,47 @@ def _normalize_proxy_tool_args(tool_name: str, args: dict | None) -> dict:
             }
             if op in op_alias:
                 patched["operation"] = op_alias[op]
+            op = str(patched.get("operation", "") or "").strip().lower()
+            if op == "license_check":
+                top_license = patched.get("license")
+                top_target = patched.get("target_license", patched.get("target"))
+                if isinstance(top_license, str) and top_license.strip() and "license" not in params_obj:
+                    params_obj["license"] = top_license.strip()
+                if isinstance(top_target, str) and top_target.strip() and "target_license" not in params_obj:
+                    params_obj["target_license"] = top_target.strip()
+
+                lic_raw = params_obj.get("license", params_obj.get("text", ""))
+                lic_norm = _normalize_license_id(str(lic_raw or ""))
+                if lic_norm:
+                    params_obj["license"] = lic_norm
+                    if not str(params_obj.get("text", "") or "").strip():
+                        params_obj["text"] = lic_norm
+
+                target_raw = params_obj.get("target_license", params_obj.get("target", ""))
+                target_norm = _normalize_license_id(str(target_raw or ""))
+                if target_norm:
+                    params_obj["target_license"] = target_norm
+
+                src_raw = params_obj.get("source_licenses")
+                if isinstance(src_raw, list):
+                    normalized_src = []
+                    for item in src_raw:
+                        if isinstance(item, (list, tuple)) and len(item) >= 2:
+                            origin = str(item[0] or "source").strip() or "source"
+                            lid = _normalize_license_id(str(item[1] or ""))
+                            if lid:
+                                normalized_src.append([origin, lid])
+                        elif isinstance(item, dict):
+                            origin = str(item.get("source") or item.get("origin") or "source").strip() or "source"
+                            lid = _normalize_license_id(str(item.get("license") or item.get("id") or item.get("name") or ""))
+                            if lid:
+                                normalized_src.append([origin, lid])
+                        elif isinstance(item, str):
+                            lid = _normalize_license_id(item)
+                            if lid:
+                                normalized_src.append(["source", lid])
+                    if normalized_src:
+                        params_obj["source_licenses"] = normalized_src
         elif tool_name == "cascade_record":
             op_alias = {
                 "tape_record": "tape_write",
@@ -1263,12 +1360,43 @@ def _normalize_proxy_tool_args(tool_name: str, args: dict | None) -> dict:
             }
             if op in op_alias:
                 patched["operation"] = op_alias[op]
+            op = str(patched.get("operation", "") or "").strip().lower()
+            if op == "tape_write":
+                payload = params_obj.get("data")
+                if payload is None:
+                    for key in ("entry", "event", "payload", "value", "text", "message"):
+                        if key in params_obj:
+                            payload = params_obj.get(key)
+                            break
+                if payload is None:
+                    for key in ("data", "entry", "event", "payload", "value", "text", "message"):
+                        if key in patched:
+                            payload = patched.get(key)
+                            break
+                if payload is not None:
+                    params_obj["data"] = payload
+            elif op == "tape_read":
+                if "count" not in params_obj:
+                    lim = params_obj.get("limit", patched.get("limit", patched.get("count")))
+                    try:
+                        if lim is not None and str(lim).strip():
+                            params_obj["count"] = int(lim)
+                    except Exception:
+                        pass
+            pth = patched.get("path")
+            if isinstance(pth, str) and pth.strip() and "path" not in params_obj:
+                params_obj["path"] = pth.strip()
 
-        if "params" in patched and not isinstance(patched.get("params"), str):
+        needs_params = (
+            "params" in patched
+            or (tool_name == "cascade_data" and str(patched.get("operation", "")).strip().lower() == "license_check")
+            or (tool_name == "cascade_record" and str(patched.get("operation", "")).strip().lower() in ("tape_write", "tape_read"))
+        )
+        if needs_params:
             try:
-                patched["params"] = json.dumps(patched.get("params"))
+                patched["params"] = json.dumps(params_obj)
             except Exception:
-                patched["params"] = str(patched.get("params"))
+                patched["params"] = str(params_obj)
 
     if tool_name in ("bag_get", "bag_put", "bag_read_doc", "bag_checkpoint", "bag_versions", "bag_restore", "bag_diff", "bag_induct"):
         k = patched.get("key")

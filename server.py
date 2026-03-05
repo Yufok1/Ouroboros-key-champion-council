@@ -2001,6 +2001,18 @@ def _normalize_proxy_tool_args(tool_name: str, args: dict | None) -> dict:
     # Normalize CASCADE tool operation aliases + params encoding.
     if tool_name in ("cascade_system", "cascade_data", "cascade_record"):
         op = str(patched.get("operation", "") or "").strip().lower()
+        params_raw = patched.get("params")
+        params_obj = {}
+        if isinstance(params_raw, dict):
+            params_obj = dict(params_raw)
+        elif isinstance(params_raw, str):
+            try:
+                _parsed = json.loads(params_raw)
+                if isinstance(_parsed, dict):
+                    params_obj = dict(_parsed)
+            except Exception:
+                params_obj = {}
+
         if tool_name == "cascade_system":
             op_alias = {
                 "ingest_logs": "ingest_text",
@@ -2021,6 +2033,47 @@ def _normalize_proxy_tool_args(tool_name: str, args: dict | None) -> dict:
             }
             if op in op_alias:
                 patched["operation"] = op_alias[op]
+            op = str(patched.get("operation", "") or "").strip().lower()
+            if op == "license_check":
+                top_license = patched.get("license")
+                top_target = patched.get("target_license", patched.get("target"))
+                if isinstance(top_license, str) and top_license.strip() and "license" not in params_obj:
+                    params_obj["license"] = top_license.strip()
+                if isinstance(top_target, str) and top_target.strip() and "target_license" not in params_obj:
+                    params_obj["target_license"] = top_target.strip()
+
+                lic_raw = params_obj.get("license", params_obj.get("text", ""))
+                lic_norm = _normalize_license_id(str(lic_raw or ""))
+                if lic_norm:
+                    params_obj["license"] = lic_norm
+                    if not str(params_obj.get("text", "") or "").strip():
+                        params_obj["text"] = lic_norm
+
+                target_raw = params_obj.get("target_license", params_obj.get("target", ""))
+                target_norm = _normalize_license_id(str(target_raw or ""))
+                if target_norm:
+                    params_obj["target_license"] = target_norm
+
+                src_raw = params_obj.get("source_licenses")
+                if isinstance(src_raw, list):
+                    normalized_src = []
+                    for item in src_raw:
+                        if isinstance(item, (list, tuple)) and len(item) >= 2:
+                            origin = str(item[0] or "source").strip() or "source"
+                            lid = _normalize_license_id(str(item[1] or ""))
+                            if lid:
+                                normalized_src.append([origin, lid])
+                        elif isinstance(item, dict):
+                            origin = str(item.get("source") or item.get("origin") or "source").strip() or "source"
+                            lid = _normalize_license_id(str(item.get("license") or item.get("id") or item.get("name") or ""))
+                            if lid:
+                                normalized_src.append([origin, lid])
+                        elif isinstance(item, str):
+                            lid = _normalize_license_id(item)
+                            if lid:
+                                normalized_src.append(["source", lid])
+                    if normalized_src:
+                        params_obj["source_licenses"] = normalized_src
         elif tool_name == "cascade_record":
             op_alias = {
                 "tape_record": "tape_write",
@@ -2030,12 +2083,43 @@ def _normalize_proxy_tool_args(tool_name: str, args: dict | None) -> dict:
             }
             if op in op_alias:
                 patched["operation"] = op_alias[op]
+            op = str(patched.get("operation", "") or "").strip().lower()
+            if op == "tape_write":
+                payload = params_obj.get("data")
+                if payload is None:
+                    for key in ("entry", "event", "payload", "value", "text", "message"):
+                        if key in params_obj:
+                            payload = params_obj.get(key)
+                            break
+                if payload is None:
+                    for key in ("data", "entry", "event", "payload", "value", "text", "message"):
+                        if key in patched:
+                            payload = patched.get(key)
+                            break
+                if payload is not None:
+                    params_obj["data"] = payload
+            elif op == "tape_read":
+                if "count" not in params_obj:
+                    lim = params_obj.get("limit", patched.get("limit", patched.get("count")))
+                    try:
+                        if lim is not None and str(lim).strip():
+                            params_obj["count"] = int(lim)
+                    except Exception:
+                        pass
+            pth = patched.get("path")
+            if isinstance(pth, str) and pth.strip() and "path" not in params_obj:
+                params_obj["path"] = pth.strip()
 
-        if "params" in patched and not isinstance(patched.get("params"), str):
+        needs_params = (
+            "params" in patched
+            or (tool_name == "cascade_data" and str(patched.get("operation", "")).strip().lower() == "license_check")
+            or (tool_name == "cascade_record" and str(patched.get("operation", "")).strip().lower() in ("tape_write", "tape_read"))
+        )
+        if needs_params:
             try:
-                patched["params"] = json.dumps(patched.get("params"))
+                patched["params"] = json.dumps(params_obj)
             except Exception:
-                patched["params"] = str(patched.get("params"))
+                patched["params"] = str(params_obj)
 
     # Virtualized document keys for slash-path keys (FelixBag compatibility shim)
     if tool_name in ("bag_get", "bag_put", "bag_read_doc", "bag_checkpoint", "bag_versions", "bag_restore", "bag_diff", "bag_induct"):
@@ -2219,6 +2303,50 @@ def _is_default_slot_name(name: str) -> bool:
     if v.startswith("slot ") and v[5:].isdigit():
         return True
     return False
+
+
+def _normalize_license_id(raw: str) -> str:
+    """Normalize common free-text license labels to SPDX IDs."""
+    s = str(raw or "").strip()
+    if not s:
+        return ""
+    low = s.lower()
+
+    # Preserve already SPDX-like tokens.
+    if " " not in s and "/" not in s and any(ch.isdigit() for ch in s):
+        return s
+
+    if "apache" in low and ("2.0" in low or "2" in low):
+        return "Apache-2.0"
+    if "mit" in low:
+        return "MIT"
+    if "bsd" in low and "3" in low:
+        return "BSD-3-Clause"
+    if "bsd" in low and "2" in low:
+        return "BSD-2-Clause"
+    if "mpl" in low and "2" in low:
+        return "MPL-2.0"
+    if "agpl" in low and "3" in low:
+        return "AGPL-3.0-only"
+    if "lgpl" in low and "3" in low:
+        return "LGPL-3.0-only"
+    if "lgpl" in low and "2.1" in low:
+        return "LGPL-2.1-only"
+    if "gpl" in low and "3" in low:
+        return "GPL-3.0-only"
+    if "gpl" in low and "2" in low:
+        return "GPL-2.0-only"
+    if "cc0" in low:
+        return "CC0-1.0"
+    if "cc-by-nc-sa" in low:
+        return "CC-BY-NC-SA-4.0"
+    if "cc-by-nc" in low:
+        return "CC-BY-NC-4.0"
+    if "cc-by-sa" in low:
+        return "CC-BY-SA-4.0"
+    if "cc-by" in low:
+        return "CC-BY-4.0"
+    return s
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -4240,6 +4368,19 @@ async def _postprocess_tool_result(tool_name: str, args: dict, result: dict) -> 
     if tool_name == "compare" and isinstance(parsed, dict):
         comparisons = parsed.get("comparisons", [])
         patched = False
+
+        async def _slot_info_fresh(slot_idx: int) -> dict:
+            try:
+                si_raw = await _call_tool("slot_info", {"slot": int(slot_idx)})
+                si_parsed = _parse_mcp_result((si_raw or {}).get("result"))
+                if isinstance(si_parsed, dict) and si_parsed.get("_cached"):
+                    _si_cr = await _call_tool("get_cached", {"cache_id": str(si_parsed["_cached"])})
+                    _si_full = _parse_mcp_result((_si_cr or {}).get("result"))
+                    if isinstance(_si_full, dict):
+                        si_parsed = _si_full
+                return si_parsed if isinstance(si_parsed, dict) else {}
+            except Exception:
+                return {}
         for entry in comparisons:
             err = str(entry.get("error", ""))
             if entry.get("status") == "error" and _is_retryable_slot_error(err):
@@ -4274,23 +4415,20 @@ async def _postprocess_tool_result(tool_name: str, args: dict, result: dict) -> 
                         continue
         if _needs_empty_name_refresh:
             try:
-                slots_result = await _call_tool("list_slots", {})
-                slots_parsed = _parse_mcp_result(slots_result.get("result"))
-                if isinstance(slots_parsed, dict) and slots_parsed.get("_cached"):
-                    _ls_cr = await _call_tool("get_cached", {"cache_id": str(slots_parsed["_cached"])})
-                    _ls_full = _parse_mcp_result((_ls_cr or {}).get("result"))
-                    if isinstance(_ls_full, dict):
-                        slots_parsed = _ls_full
-                slots_list = slots_parsed.get("slots", []) if isinstance(slots_parsed, dict) else []
                 slot_name_by_idx = {}
-                for s in slots_list:
-                    if not isinstance(s, dict):
+                refresh_idxs = set()
+                for entry in comparisons:
+                    if not isinstance(entry, dict):
+                        continue
+                    if str(entry.get("status", "")).lower() != "empty":
                         continue
                     try:
-                        sidx = int(s.get("index", s.get("slot", -1)))
+                        refresh_idxs.add(int(entry.get("slot")))
                     except Exception:
                         continue
-                    slot_name_by_idx[sidx] = str(s.get("name") or f"slot_{sidx}")
+                for idx in refresh_idxs:
+                    si = await _slot_info_fresh(idx)
+                    slot_name_by_idx[idx] = str(si.get("name") or f"slot_{idx}")
 
                 _renamed = False
                 for entry in comparisons:
@@ -4368,9 +4506,12 @@ async def _postprocess_tool_result(tool_name: str, args: dict, result: dict) -> 
                 rebuilt = []
                 compare_text = str(args.get("input_text", "") or "")
                 for idx in selected:
-                    slot_info = slots_by_idx.get(idx, {})
+                    slot_info = await _slot_info_fresh(idx)
+                    if not slot_info:
+                        slot_info = slots_by_idx.get(idx, {})
                     slot_name = str(slot_info.get("name") or f"slot_{idx}")
-                    if not bool(slot_info.get("plugged")):
+                    is_plugged = bool(slot_info.get("plugged"))
+                    if not is_plugged:
                         rebuilt.append({"slot": idx, "name": slot_name, "status": "empty"})
                         continue
                     out = await _retry_slot_generate(idx, compare_text)
@@ -4407,6 +4548,82 @@ async def _postprocess_tool_result(tool_name: str, args: dict, result: dict) -> 
     # --- Trace/CASCADE bridge + PII false-positive filtering ---
     def _return_parsed(payload: dict | list | str) -> dict:
         return {"result": {"content": [{"type": "text", "text": json.dumps(payload)}]}}
+
+    # cascade_graph connections can return component-global data for event-scoped queries.
+    # Rebuild event-local connections deterministically from get_causes/get_effects.
+    if tool_name == "cascade_graph" and isinstance(parsed, dict):
+        op = str(args.get("operation", "") or "").strip().lower()
+        if op == "connections":
+            params_raw = args.get("params")
+            event_id = ""
+            if isinstance(params_raw, str):
+                try:
+                    _pj = json.loads(params_raw)
+                    if isinstance(_pj, dict):
+                        event_id = str(_pj.get("event_id") or "").strip()
+                except Exception:
+                    event_id = ""
+            elif isinstance(params_raw, dict):
+                event_id = str(params_raw.get("event_id") or "").strip()
+            if not event_id:
+                event_id = str(args.get("event_id") or parsed.get("event_id") or "").strip()
+
+            has_connections = isinstance(parsed.get("connections"), list) and len(parsed.get("connections")) > 0
+            if event_id and not has_connections:
+                try:
+                    causes_raw = await _call_tool(
+                        "cascade_graph",
+                        {"operation": "get_causes", "params": json.dumps({"event_id": event_id})},
+                    )
+                    effects_raw = await _call_tool(
+                        "cascade_graph",
+                        {"operation": "get_effects", "params": json.dumps({"event_id": event_id})},
+                    )
+                    causes_parsed = _parse_mcp_result((causes_raw or {}).get("result"))
+                    effects_parsed = _parse_mcp_result((effects_raw or {}).get("result"))
+                    if isinstance(causes_parsed, dict) and causes_parsed.get("_cached"):
+                        _cgc = await _call_tool("get_cached", {"cache_id": str(causes_parsed["_cached"])})
+                        _cgc_p = _parse_mcp_result((_cgc or {}).get("result"))
+                        if isinstance(_cgc_p, dict):
+                            causes_parsed = _cgc_p
+                    if isinstance(effects_parsed, dict) and effects_parsed.get("_cached"):
+                        _cge = await _call_tool("get_cached", {"cache_id": str(effects_parsed["_cached"])})
+                        _cge_p = _parse_mcp_result((_cge or {}).get("result"))
+                        if isinstance(_cge_p, dict):
+                            effects_parsed = _cge_p
+
+                    causes = causes_parsed.get("causes", []) if isinstance(causes_parsed, dict) else []
+                    effects = effects_parsed.get("effects", []) if isinstance(effects_parsed, dict) else []
+                    if not isinstance(causes, list):
+                        causes = []
+                    if not isinstance(effects, list):
+                        effects = []
+
+                    bridged = []
+                    for c in causes:
+                        if isinstance(c, dict):
+                            cid = str(c.get("event_id") or "").strip()
+                            if cid:
+                                bridged.append({"from": cid, "to": event_id, "direction": "cause"})
+                    for e in effects:
+                        if isinstance(e, dict):
+                            eid = str(e.get("event_id") or "").strip()
+                            if eid:
+                                bridged.append({"from": event_id, "to": eid, "direction": "effect"})
+
+                    parsed["event_id"] = event_id
+                    parsed["causes"] = causes
+                    parsed["effects"] = effects
+                    parsed["connections"] = bridged
+                    parsed["_bridge"] = {
+                        "source": "cascade_graph.get_causes/get_effects",
+                        "operation": "connections",
+                        "event_id": event_id,
+                    }
+                    parsed["note"] = "Event-scoped connections reconstructed from get_causes/get_effects."
+                    return _return_parsed(parsed)
+                except Exception:
+                    pass
 
     # trace_root_causes can miss existing causal links; bridge from cascade_graph for event ids.
     if tool_name == "trace_root_causes" and isinstance(parsed, dict):
