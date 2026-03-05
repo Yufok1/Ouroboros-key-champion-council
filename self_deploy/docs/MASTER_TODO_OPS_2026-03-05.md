@@ -125,8 +125,8 @@
 6. [todo] Operator UX:
    - “Backend-deferred blocker” badges in Workflow tab.
    - Auto-linked evidence entries from activity rows.
-7. [todo] Workflow placeholder lint for unsupported non-`$input.*` refs.
-8. [todo] Memory read fallback chain (`bag_get` -> `bag_read_doc`) for workflow-produced keys.
+7. [done] Workflow placeholder lint for unsupported non-`$input.*` refs.
+8. [done] Memory read fallback chain (`bag_get` -> `bag_read_doc`) for workflow-produced keys.
 
 ## Collective Memory Substrate Plan (Frontend-Orchestrated)
 - Keep entropy memory pipelines compact:

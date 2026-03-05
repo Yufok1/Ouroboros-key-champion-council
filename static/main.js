@@ -2991,6 +2991,40 @@
         return value === undefined || value === null || (typeof value === 'string' && value.trim() === '');
     }
 
+    function _scanWorkflowPlaceholders(value, out) {
+        if (!out) out = [];
+        if (typeof value === 'string') {
+            var found = value.match(/\$[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z0-9_]+)*/g) || [];
+            for (var i = 0; i < found.length; i++) out.push(found[i]);
+            return out;
+        }
+        if (Array.isArray(value)) {
+            for (var j = 0; j < value.length; j++) _scanWorkflowPlaceholders(value[j], out);
+            return out;
+        }
+        if (value && typeof value === 'object') {
+            var keys = Object.keys(value);
+            for (var k = 0; k < keys.length; k++) _scanWorkflowPlaceholders(value[keys[k]], out);
+        }
+        return out;
+    }
+
+    function _unsupportedWorkflowRefs(definition) {
+        if (!definition || typeof definition !== 'object') return [];
+        var refs = _scanWorkflowPlaceholders(definition, []);
+        if (!refs.length) return [];
+        var unique = [];
+        var seen = {};
+        for (var i = 0; i < refs.length; i++) {
+            var token = String(refs[i] || '').trim();
+            if (!token || seen[token]) continue;
+            seen[token] = true;
+            if (token === '$input' || token.indexOf('$input.') === 0) continue;
+            unique.push(token);
+        }
+        return unique;
+    }
+
     function _workflowToolPreflight(toolName, args) {
         var schema = _getAchatToolSchema(toolName);
         var required = (schema && Array.isArray(schema.required)) ? schema.required : [];
@@ -3005,6 +3039,12 @@
             var def = _safeJsonParse(args.definition);
             if (!_isWorkflowDefinition(def)) {
                 return 'Workflow definition must be valid JSON containing nodes[].';
+            }
+            var badRefs = _unsupportedWorkflowRefs(def);
+            if (badRefs.length) {
+                var shown = badRefs.slice(0, 4).join(', ');
+                var more = badRefs.length > 4 ? (' +' + String(badRefs.length - 4) + ' more') : '';
+                return 'Unsupported workflow placeholder refs: ' + shown + more + '. Use $input.* only.';
             }
         }
         if (toolName === 'workflow_execute' && args && typeof args.input_data === 'string' && args.input_data.trim()) {
@@ -4414,6 +4454,7 @@
     // ── MEMORY INLINE DRILL ──
     var _openDrillKey = null;
     var _bagDrillCache = {}; // key -> latest resolved bag_get payload for publish prefill
+    var _bagReadFallbackPending = {}; // key -> true when bag_get fallback to bag_read_doc is in-flight
     var _bagGitMeta = {};    // key -> latest git metadata for drill header context
     var _gitAvailable = true;  // assume available until probed
     var _gitProbed = false;    // true after first checkGitAvailable response
@@ -4440,6 +4481,7 @@
             contentDiv.style.display = 'block';
             contentDiv.innerHTML = '<div style="padding:8px 12px;color:var(--text-dim);font-size:11px;">Loading...</div>';
         }
+        delete _bagReadFallbackPending[key];
         callTool('bag_get', { key: key });
     }
     window.drillMemItem = drillMemItem;
@@ -5318,8 +5360,8 @@
                 callTool('bag_catalog', {});
             }
 
-            // bag_get / file_read / get_cached → inline drill content
-            if ((toolName === 'bag_get' || toolName === 'file_read' || toolName === 'get_cached') && !msg.error && _openDrillKey) {
+            // bag_get / bag_read_doc / file_read / get_cached → inline drill content
+            if ((toolName === 'bag_get' || toolName === 'bag_read_doc' || toolName === 'file_read' || toolName === 'get_cached') && !msg.error && _openDrillKey) {
                 var drillDiv = document.getElementById('drill-' + _openDrillKey);
                 if (drillDiv) {
                     try {
@@ -5331,9 +5373,18 @@
                             return;
                         }
                         if (got.error) {
+                            // Some workflow-written keys are visible in bag_read_doc but miss in bag_get.
+                            // Fallback automatically so drill-in still works for operators.
+                            if (toolName === 'bag_get' && /not found/i.test(String(got.error || '')) && !_bagReadFallbackPending[_openDrillKey]) {
+                                _bagReadFallbackPending[_openDrillKey] = true;
+                                drillDiv.innerHTML = '<div style="padding:8px 12px;color:var(--text-dim);font-size:11px;">Not found via bag_get, trying bag_read_doc...</div>';
+                                callTool('bag_read_doc', { key: _openDrillKey }, 'bag_read_doc');
+                                return;
+                            }
                             drillDiv.innerHTML = '<div style="padding:8px 12px;color:#e11d48;">' + _esc(got.error) + '</div>';
                             return;
                         }
+                        delete _bagReadFallbackPending[_openDrillKey];
                         var val = (typeof got.value !== 'undefined') ? got.value : got.content;
                         // get_cached returns the raw bag_get/file_read JSON string, parse it
                         if (typeof val === 'undefined' && typeof got.key !== 'undefined') {
