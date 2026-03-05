@@ -8,6 +8,8 @@
     const CATEGORIES = window.__CATEGORIES__ || {};
     let _state = {};
     let _activityLog = [];
+    const ACTIVITY_PAGE_SIZE = 100;
+    let _activityPage = 0; // 0 = newest page
     let _requestId = 0;
     let _weblnAvailable = false;
     let _web3Categories = [];
@@ -2170,7 +2172,7 @@
     }
 
     function _rehydrateActivityLog(entries) {
-        var incoming = Array.isArray(entries) ? entries.slice(-500) : [];
+        var incoming = Array.isArray(entries) ? entries.slice() : [];
         var prevBySig = {};
         for (var i = 0; i < _activityLog.length; i++) {
             var prev = _activityLog[i];
@@ -2277,7 +2279,6 @@
         }
 
         _activityLog.push(event);
-        if (_activityLog.length > 500) _activityLog = _activityLog.slice(-500);
         if (event.tool === 'workflow_execute' || event.tool === 'workflow_status') {
             handleWorkflowActivity(event);
         }
@@ -2517,13 +2518,18 @@
         // Append new entry to DOM without destroying expanded entries
         var feed = document.getElementById('activity-feed');
         if (feed) {
-            // Remove "No activity yet" placeholder if present
-            var placeholder = feed.querySelector('.activity-entry[style*="text-align:center"]');
-            if (placeholder) placeholder.remove();
-            var node = _buildActivityNode(event);
-            if (node) feed.insertBefore(node, feed.firstChild);
-            // Trim to 50 visible entries
-            while (feed.children.length > 50) feed.removeChild(feed.lastChild);
+            var filterActive = !!_getActivityFilterText();
+            if (filterActive || _activityPage !== 0) {
+                _renderActivityPager();
+            } else {
+                // Remove "No activity yet" placeholder if present
+                var placeholder = feed.querySelector('.activity-entry[style*="text-align:center"]');
+                if (placeholder) placeholder.remove();
+                var node = _buildActivityNode(event);
+                if (node) feed.insertBefore(node, feed.firstChild);
+                while (feed.children.length > ACTIVITY_PAGE_SIZE) feed.removeChild(feed.lastChild);
+                _renderActivityPager();
+            }
         }
     }
 
@@ -2816,33 +2822,124 @@
         return div;
     }
 
-    function renderActivityFeed() {
-        var feed = document.getElementById('activity-feed');
-        if (!feed) return;
+    function _getActivityFilterText() {
         var filterEl = document.getElementById('activity-filter');
-        var filter = (filterEl ? filterEl.value : '').toLowerCase();
-        var filtered = filter
+        return String(filterEl ? filterEl.value : '').trim().toLowerCase();
+    }
+
+    function _getFilteredActivityEntries(filterText) {
+        var filter = String(filterText || '').toLowerCase();
+        return filter
             ? _activityLog.filter(function (e) {
                 return e.tool.toLowerCase().includes(filter) ||
                     e.category.toLowerCase().includes(filter) ||
                     String(e.source || '').toLowerCase().includes(filter);
             })
             : _activityLog;
+    }
 
-        if (filtered.length === 0) {
+    function _ensureActivityPager() {
+        var feed = document.getElementById('activity-feed');
+        if (!feed || !feed.parentNode) return null;
+        var pager = document.getElementById('activity-pager');
+        if (pager) return pager;
+
+        pager = document.createElement('div');
+        pager.id = 'activity-pager';
+        pager.style.cssText = 'display:flex;gap:8px;align-items:center;justify-content:space-between;margin:8px 0 10px 0;font-size:11px;color:var(--text-dim);';
+        pager.innerHTML =
+            '<div id="activity-page-stats">Rows 0-0 of 0</div>' +
+            '<div style="display:flex;gap:6px;align-items:center;">' +
+            '<button id="activity-page-latest" class="btn-dim">LATEST</button>' +
+            '<button id="activity-page-newer" class="btn-dim">NEWER</button>' +
+            '<button id="activity-page-older" class="btn-dim">OLDER</button>' +
+            '</div>';
+        feed.parentNode.insertBefore(pager, feed);
+
+        var latestBtn = document.getElementById('activity-page-latest');
+        var newerBtn = document.getElementById('activity-page-newer');
+        var olderBtn = document.getElementById('activity-page-older');
+        if (latestBtn) {
+            latestBtn.addEventListener('click', function () {
+                if (_activityPage === 0) return;
+                _activityPage = 0;
+                renderActivityFeed();
+            });
+        }
+        if (newerBtn) {
+            newerBtn.addEventListener('click', function () {
+                if (_activityPage <= 0) return;
+                _activityPage--;
+                renderActivityFeed();
+            });
+        }
+        if (olderBtn) {
+            olderBtn.addEventListener('click', function () {
+                _activityPage++;
+                renderActivityFeed();
+            });
+        }
+        return pager;
+    }
+
+    function _renderActivityPager(totalFiltered, startIdx, endIdx, totalPages, filterText) {
+        _ensureActivityPager();
+        var statsEl = document.getElementById('activity-page-stats');
+        var latestBtn = document.getElementById('activity-page-latest');
+        var newerBtn = document.getElementById('activity-page-newer');
+        var olderBtn = document.getElementById('activity-page-older');
+
+        var safeTotalPages = Math.max(1, totalPages || 1);
+        if (_activityPage > safeTotalPages - 1) _activityPage = safeTotalPages - 1;
+        if (_activityPage < 0) _activityPage = 0;
+
+        if (statsEl) {
+            var range = totalFiltered > 0 ? (String(startIdx + 1) + '-' + String(endIdx)) : '0-0';
+            var base = 'Rows ' + range + ' of ' + String(totalFiltered) + ' · page ' + String(_activityPage + 1) + '/' + String(safeTotalPages);
+            if (filterText) base += ' · total ' + String(_activityLog.length);
+            statsEl.textContent = base;
+        }
+        if (latestBtn) latestBtn.disabled = (_activityPage === 0);
+        if (newerBtn) newerBtn.disabled = (_activityPage === 0);
+        if (olderBtn) olderBtn.disabled = (_activityPage >= safeTotalPages - 1 || totalFiltered === 0);
+    }
+
+    function renderActivityFeed() {
+        var feed = document.getElementById('activity-feed');
+        if (!feed) return;
+
+        var filter = _getActivityFilterText();
+        var filtered = _getFilteredActivityEntries(filter);
+        var total = filtered.length;
+        var totalPages = Math.max(1, Math.ceil(total / ACTIVITY_PAGE_SIZE));
+        if (_activityPage > totalPages - 1) _activityPage = totalPages - 1;
+        if (_activityPage < 0) _activityPage = 0;
+
+        var endIdx = total - (_activityPage * ACTIVITY_PAGE_SIZE);
+        if (endIdx < 0) endIdx = 0;
+        var startIdx = Math.max(0, endIdx - ACTIVITY_PAGE_SIZE);
+        var pageItems = filtered.slice(startIdx, endIdx).reverse();
+
+        feed.innerHTML = '';
+        if (pageItems.length === 0) {
             feed.innerHTML = '<div class="activity-entry" style="color:var(--text-dim);padding:20px;text-align:center;">No activity yet.</div>';
+            _renderActivityPager(total, 0, 0, totalPages, filter);
             return;
         }
 
-        var recent = filtered.slice(-150).reverse();
-        feed.innerHTML = '';
-        recent.forEach(function (e) {
-            feed.appendChild(_buildActivityNode(e));
-        });
+        for (var i = 0; i < pageItems.length; i++) {
+            feed.appendChild(_buildActivityNode(pageItems[i]));
+        }
+        _renderActivityPager(total, startIdx, endIdx, totalPages, filter);
     }
 
     var activityFilterEl = document.getElementById('activity-filter');
-    if (activityFilterEl) activityFilterEl.addEventListener('input', renderActivityFeed);
+    if (activityFilterEl) {
+        activityFilterEl.addEventListener('input', function () {
+            _activityPage = 0;
+            renderActivityFeed();
+        });
+    }
 
     // ── TOOL CALL ──
     var _pendingTools = {}; // id -> tool name
@@ -5836,6 +5933,7 @@
         _activityLog = [];
         _activityTraceCounts = {};
         _activityTraceGroupExpanded = {};
+        _activityPage = 0;
         renderActivityFeed();
     }
     window.clearActivity = clearActivity;
