@@ -3654,6 +3654,236 @@
         .community-subtab.active {
             display: block;
         }
+
+        /* ── RESPONSIVE LAYOUT ── */
+        .tabs {
+            overflow-x: auto;
+            overflow-y: hidden;
+            white-space: nowrap;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin;
+        }
+
+        .tab {
+            flex: 0 0 auto;
+        }
+
+        @media (max-width: 1100px) {
+            .header {
+                padding: 12px 14px;
+                align-items: flex-start;
+                gap: 8px;
+                flex-wrap: wrap;
+            }
+
+            .header-status {
+                gap: 10px;
+                flex-wrap: wrap;
+            }
+
+            .content {
+                padding: 14px;
+            }
+
+            .meta-grid,
+            .slots-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .wfops-grid,
+            .wfops-exec-grid,
+            .community-split,
+            .mp-stats {
+                grid-template-columns: 1fr;
+            }
+
+            .wfops-graph {
+                min-width: 100%;
+            }
+
+            .activity-head {
+                flex-wrap: wrap;
+            }
+
+            .activity-head-right {
+                margin-left: 0;
+                padding-left: 0;
+                width: 100%;
+                justify-content: flex-start;
+            }
+
+            .memory-stats {
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+
+            .memory-item .mi-meta {
+                flex-wrap: wrap;
+                gap: 6px 10px;
+            }
+
+            .achat-view {
+                min-height: 0;
+            }
+
+            .achat-toolbar input[type="text"],
+            .achat-toolbar select {
+                min-width: 0;
+                max-width: 100%;
+                width: 100%;
+            }
+
+            .achat-iter-label {
+                margin-left: 0;
+            }
+
+            .achat-messages {
+                max-height: min(52vh, 500px);
+            }
+
+            [style*="grid-template-columns:1fr 1fr 1fr"] {
+                grid-template-columns: 1fr !important;
+            }
+
+            [style*="grid-template-columns:1fr 1fr"] {
+                grid-template-columns: 1fr !important;
+            }
+        }
+
+        @media (max-width: 680px) {
+            .header-title {
+                font-size: 12px;
+                letter-spacing: 1.6px;
+            }
+
+            .header-status {
+                width: 100%;
+                font-size: 10px;
+            }
+
+            .tabs {
+                padding: 0 8px;
+            }
+
+            .tab {
+                padding: 10px 10px;
+                font-size: 9px;
+                letter-spacing: 1px;
+            }
+
+            .content {
+                padding: 10px;
+            }
+
+            .panel-head-left,
+            .memory-controls-inline {
+                width: 100%;
+            }
+
+            .meta-grid,
+            .slots-grid {
+                grid-template-columns: 1fr;
+                gap: 8px;
+            }
+
+            .wfops-kv-grid {
+                grid-template-columns: 1fr;
+                gap: 2px;
+            }
+
+            .wfops-list {
+                max-height: 240px;
+            }
+
+            .wfops-graph-wrap {
+                height: 280px;
+            }
+
+            .memory-stats .stat-box {
+                padding: 6px 10px;
+                font-size: 10px;
+            }
+
+            .memory-item {
+                padding: 8px;
+            }
+
+            .activity-entry {
+                padding: 7px 8px;
+            }
+
+            .activity-trace-toggle {
+                height: 16px;
+            }
+
+            .modal {
+                width: calc(100vw - 16px);
+                max-width: calc(100vw - 16px);
+                padding: 12px;
+                max-height: 92vh;
+            }
+
+            .modal-actions {
+                flex-wrap: wrap;
+            }
+
+            .modal-actions .btn {
+                flex: 1 1 100%;
+            }
+
+            .community-msg {
+                padding-right: 34px;
+            }
+
+            .msg-ctx-btn {
+                opacity: 1;
+            }
+
+            .achat-header {
+                flex-wrap: wrap;
+            }
+
+            .achat-session {
+                margin-left: 0;
+                max-width: 100%;
+                width: 100%;
+            }
+
+            .achat-model-card {
+                flex-wrap: wrap;
+            }
+
+            .achat-model-meta {
+                margin-left: 0;
+                justify-content: flex-start;
+                width: 100%;
+            }
+
+            .achat-tab {
+                min-width: 120px;
+            }
+
+            .achat-input-bar {
+                flex-direction: column;
+            }
+
+            .achat-input-bar .achat-send {
+                width: 100%;
+                min-width: 0;
+            }
+
+            .community-toolbar {
+                overflow-x: auto;
+                white-space: nowrap;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            [style*="width:540px"] {
+                width: calc(100vw - 16px) !important;
+                max-width: calc(100vw - 16px) !important;
+                resize: none !important;
+            }
+        }
     </style>
                 </head>
 
@@ -3681,7 +3911,6 @@
         <button class="tab" data-tab="workflows">Workflows</button>
         <button class="tab" data-tab="dreamer">Dreamer</button>
         <button class="tab" data-tab="gpufleet">GPU Fleet</button>
-        <button class="tab" data-tab="community">Community</button>
 
     </div>
 
@@ -4650,7 +4879,7 @@
 
 
         <!-- ═══════════════ COMMUNITY TAB ═══════════════ -->
-        <div class="content" id="tab-community">
+        <div class="content" id="tab-community-disabled">
             <div class="section-head">OUROBOROS COMMUNITY</div>
             <div class="nostr-identity" id="nostr-identity">
                 <span class="dot off" id="nostr-dot"></span>
