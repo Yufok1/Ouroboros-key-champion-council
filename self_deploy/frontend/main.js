@@ -4973,7 +4973,7 @@
     }
 
     function handleToolResult(msg) {
-        var toolName = _pendingTools[msg.id] || '';
+        var toolName = _pendingTools[msg.id] || (msg && msg._toolName ? String(msg._toolName) : '');
         var pendingTabKey = _pendingToolTabs[msg.id] || '';
         var pendingMeta = _pendingToolMeta[msg.id] || null;
         delete _pendingTools[msg.id];
