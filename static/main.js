@@ -2124,23 +2124,34 @@
         var args = (event.args && typeof event.args === 'object') ? event.args : {};
 
         var sid = '';
-        if (typeof args._agent_session === 'string' && args._agent_session.trim()) sid = args._agent_session.trim();
+        if (typeof args._trace_id === 'string' && args._trace_id.trim()) sid = args._trace_id.trim();
+        else if (typeof args._agent_session === 'string' && args._agent_session.trim()) sid = args._agent_session.trim();
         else if (typeof args.session_id === 'string' && args.session_id.trim()) sid = args.session_id.trim();
         else sid = _extractResultSessionId(event.result);
 
         if (!sid) return null;
 
         var callerSlot = _parseAgentSessionSlot(sid);
+        if (args._trace_caller_slot !== undefined && args._trace_caller_slot !== null && String(args._trace_caller_slot).trim() !== '') {
+            var cslot = parseInt(args._trace_caller_slot, 10);
+            if (!isNaN(cslot)) callerSlot = cslot;
+        }
         var targetSlot = -1;
         if (args.slot !== undefined && args.slot !== null && String(args.slot).trim() !== '') {
             var t = parseInt(args.slot, 10);
             if (!isNaN(t)) targetSlot = t;
         }
+        if (args._trace_target_slot !== undefined && args._trace_target_slot !== null && String(args._trace_target_slot).trim() !== '') {
+            var t2 = parseInt(args._trace_target_slot, 10);
+            if (!isNaN(t2)) targetSlot = t2;
+        }
 
         var hue = _hash32(sid) % 360;
         var color = 'hsl(' + hue + ', 78%, 58%)';
         var role = 'session';
-        if (callerSlot >= 0 && targetSlot >= 0 && callerSlot !== targetSlot) role = 'delegation';
+        if (typeof args._trace_role === 'string' && args._trace_role.trim()) role = args._trace_role.trim();
+        else if (args._workflow_execution_id || sid.indexOf('workflow:') === 0) role = 'workflow';
+        else if (callerSlot >= 0 && targetSlot >= 0 && callerSlot !== targetSlot) role = 'delegation';
         else if (event.tool === 'agent_chat') role = 'reasoning';
 
         return {
@@ -2571,6 +2582,10 @@
 
         if (args.session_id) out.push('session ' + _activityTokenShort(args.session_id, 18));
         if (args.workflow_id) out.push('workflow ' + _activityTokenShort(args.workflow_id, 26));
+        if (!args.workflow_id && args._workflow_id) out.push('workflow ' + _activityTokenShort(args._workflow_id, 26));
+        if (args._workflow_execution_id) out.push('exec ' + _activityTokenShort(args._workflow_execution_id, 18));
+        if (args._workflow_node_id) out.push('node ' + _activityTokenShort(args._workflow_node_id, 20));
+        if (args._workflow_target_id) out.push('target ' + _activityTokenShort(args._workflow_target_id, 20));
         if (args.model_id) out.push('model ' + _activityTokenShort(args.model_id, 32));
         if (args.path || args.key) out.push('target ' + _activityTokenShort(args.path || args.key, 42));
 

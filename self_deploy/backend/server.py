@@ -352,6 +352,8 @@ def _workflow_local_proxy_tool_names() -> set[str]:
         "agent_chat_result",
         "agent_chat_purge",
         "workflow_execute",
+        "workflow_status",
+        "workflow_history",
         "hf_cache_status",
         "hf_cache_clear",
         "capsule_restart",
@@ -401,6 +403,34 @@ async def _workflow_call_local_proxy_tool(tool_name: str, args: dict, source: st
             broadcast_fn=lambda **kw: activity_hub.add_entry(**kw),
         )
         return payload, err
+    if tool_name == "workflow_status":
+        execution_id = str(args.get("execution_id", "") or "").strip()
+        if not execution_id:
+            return {"error": "workflow_status requires execution_id"}, "workflow_status requires execution_id"
+        payload = await _workflow_proxy_get_execution(execution_id)
+        if payload is None:
+            return {
+                "execution_id": execution_id,
+                "status": "not_found",
+                "error": f"Execution not found: {execution_id}",
+                "proxy_execution": True,
+            }, f"Execution not found: {execution_id}"
+        return payload, None
+    if tool_name == "workflow_history":
+        workflow_id = str(args.get("workflow_id", "") or "").strip() or None
+        try:
+            limit = int(args.get("limit", 50) or 50)
+        except Exception:
+            limit = 50
+        rows = await _workflow_proxy_history(workflow_id=workflow_id, limit=limit)
+        payload = {
+            "workflow_id": workflow_id,
+            "history": rows,
+            "executions": rows,
+            "count": len(rows),
+            "proxy_execution": True,
+        }
+        return payload, None
     return None, f"Unsupported local proxy workflow tool: {tool_name}"
 
 
@@ -509,11 +539,144 @@ def _workflow_proxy_requires_parallel_provider_fanout(workflow_def: dict) -> boo
     return False
 
 
-async def _execute_proxy_workflow(workflow_id: str, workflow_def: dict, input_data: dict | None, source: str, client_id: str | None) -> dict:
+def _json_clone(value):
+    try:
+        return json.loads(json.dumps(value))
+    except Exception:
+        return value
+
+
+def _workflow_proxy_trace_id(execution_id: str) -> str:
+    return f"workflow:{execution_id}"
+
+
+async def _workflow_proxy_register_start(
+    execution_id: str,
+    workflow_id: str,
+    input_payload: dict,
+    source: str,
+    client_id: str | None,
+) -> dict:
+    now_ms = int(time.time() * 1000)
+    started_iso = datetime.utcnow().isoformat()
+    row = {
+        "execution_id": execution_id,
+        "status": "running",
+        "workflow_id": workflow_id,
+        "outputs": [],
+        "errors": [],
+        "node_count": 0,
+        "input": _json_clone(input_payload if isinstance(input_payload, dict) else {}),
+        "proxy_execution": True,
+        "started_at": started_iso,
+        "elapsed_ms": 0,
+        "source": source,
+        "client_id": client_id,
+        "updated_ms": now_ms,
+    }
+    async with _workflow_proxy_exec_lock:
+        _workflow_proxy_exec_store[execution_id] = row
+        _workflow_proxy_exec_order.append(execution_id)
+        if len(_workflow_proxy_exec_order) > _WORKFLOW_PROXY_HISTORY_LIMIT:
+            trim = len(_workflow_proxy_exec_order) - _WORKFLOW_PROXY_HISTORY_LIMIT
+            for old_id in _workflow_proxy_exec_order[:trim]:
+                _workflow_proxy_exec_store.pop(old_id, None)
+            del _workflow_proxy_exec_order[:trim]
+    return _json_clone(row)
+
+
+async def _workflow_proxy_register_update(
+    execution_id: str,
+    *,
+    status: str | None = None,
+    outputs: list | None = None,
+    errors: list | None = None,
+    node_count: int | None = None,
+    elapsed_ms: int | None = None,
+    error: str | None = None,
+) -> dict | None:
+    async with _workflow_proxy_exec_lock:
+        row = _workflow_proxy_exec_store.get(execution_id)
+        if not isinstance(row, dict):
+            return None
+        if status is not None:
+            row["status"] = status
+        if outputs is not None:
+            row["outputs"] = _json_clone(outputs)
+        if errors is not None:
+            row["errors"] = _json_clone(errors)
+        if node_count is not None:
+            row["node_count"] = int(node_count)
+        if elapsed_ms is not None:
+            row["elapsed_ms"] = int(elapsed_ms)
+        if error is not None:
+            row["error"] = str(error)
+        row["updated_ms"] = int(time.time() * 1000)
+        return _json_clone(row)
+
+
+async def _workflow_proxy_get_execution(execution_id: str) -> dict | None:
+    async with _workflow_proxy_exec_lock:
+        row = _workflow_proxy_exec_store.get(execution_id)
+        return _json_clone(row) if isinstance(row, dict) else None
+
+
+async def _workflow_proxy_history(workflow_id: str | None = None, limit: int = 50) -> list[dict]:
+    wf = str(workflow_id or "").strip()
+    lim = max(1, min(int(limit or 50), _WORKFLOW_PROXY_HISTORY_LIMIT))
+    async with _workflow_proxy_exec_lock:
+        rows: list[dict] = []
+        for exec_id in reversed(_workflow_proxy_exec_order):
+            row = _workflow_proxy_exec_store.get(exec_id)
+            if not isinstance(row, dict):
+                continue
+            if wf and str(row.get("workflow_id") or "") != wf:
+                continue
+            rows.append(_json_clone(row))
+            if len(rows) >= lim:
+                break
+    return rows
+
+
+def _workflow_trace_args(args: dict | None, workflow_id: str, execution_id: str, node_id: str | None = None, target_id: str | None = None) -> dict:
+    out = dict(args or {})
+    trace_id = _workflow_proxy_trace_id(execution_id)
+    out.setdefault("session_id", trace_id)
+    out.setdefault("_trace_id", trace_id)
+    out.setdefault("_trace_role", "workflow")
+    out["_workflow_id"] = workflow_id
+    out["_workflow_execution_id"] = execution_id
+    if node_id:
+        out["_workflow_node_id"] = str(node_id)
+    if target_id:
+        out["_workflow_target_id"] = str(target_id)
+    return out
+
+
+async def _execute_proxy_workflow(
+    workflow_id: str,
+    workflow_def: dict,
+    input_data: dict | None,
+    source: str,
+    client_id: str | None,
+    execution_id: str | None = None,
+) -> dict:
+    started = time.time()
+    execution_id = str(execution_id or f"proxy_exec_{uuid.uuid4().hex[:12]}")
+    start_row = await _workflow_proxy_register_start(
+        execution_id=execution_id,
+        workflow_id=workflow_id,
+        input_payload=input_data if isinstance(input_data, dict) else {},
+        source=source,
+        client_id=client_id,
+    )
+    started_at = str(start_row.get("started_at") or datetime.utcnow().isoformat())
+
     ctx = {
         "input": input_data if isinstance(input_data, dict) else {},
         "nodes": {},
         "workflow_id": workflow_id,
+        "execution_id": execution_id,
     }
 
     async def _exec_tool_node(node: dict):
@@ -524,6 +687,15 @@ async def _execute_proxy_workflow(workflow_id: str, workflow_def: dict, input_da
         if not call_args:
             call_args = {k: v for k, v in params.items() if k not in ("tool", "tool_name", "args")}
         payload, err, duration_ms = await _workflow_proxy_call_tool(tool_name, call_args, source=source, client_id=client_id)
+        activity_hub.add_entry(
+            tool=tool_name,
+            args=_workflow_trace_args(call_args, workflow_id=workflow_id, execution_id=execution_id, node_id=nid),
+            result=payload if isinstance(payload, dict) else {"result": payload},
+            duration_ms=duration_ms,
+            error=str(err) if err else None,
+            source="agent-inner",
+            client_id=client_id,
+        )
         out = {
             "id": nid,
             "type": "tool",
@@ -568,7 +740,7 @@ async def _execute_proxy_workflow(workflow_id: str, workflow_def: dict, input_da
         tool_name = str(params.get("tool") or params.get("tool_name") or "invoke_slot").strip() or "invoke_slot"
         args_template = params.get("args") if isinstance(params.get("args"), dict) else {}
 
-        async def _run_target(target: dict):
+        async def _run_target(target: dict, idx: int):
             targ = target if isinstance(target, dict) else {}
             merged = dict(args_template)
             for k, v in targ.items():
@@ -577,6 +749,22 @@ async def _execute_proxy_workflow(workflow_id: str, workflow_def: dict, input_da
             if tool_name == "invoke_slot" and "slot" not in merged and targ.get("slot") is not None:
                 merged["slot"] = targ.get("slot")
             payload, err, duration_ms = await _workflow_proxy_call_tool(tool_name, merged, source=source, client_id=client_id)
+            target_id = str(targ.get("id") or f"target_{idx}")
+            activity_hub.add_entry(
+                tool=tool_name,
+                args=_workflow_trace_args(
+                    merged,
+                    workflow_id=workflow_id,
+                    execution_id=execution_id,
+                    node_id=nid,
+                    target_id=target_id,
+                ),
+                result=payload if isinstance(payload, dict) else {"result": payload},
+                duration_ms=duration_ms,
+                error=str(err) if err else None,
+                source="agent-inner",
+                client_id=client_id,
+            )
             return {
                 "target": targ,
                 "tool": tool_name,
@@ -586,7 +774,7 @@ async def _execute_proxy_workflow(workflow_id: str, workflow_def: dict, input_da
                 "output": payload,
             }
 
-        outputs = await asyncio.gather(*[_run_target(t) for t in targets], return_exceptions=True)
+        outputs = await asyncio.gather(*[_run_target(t, i) for i, t in enumerate(targets)], return_exceptions=True)
         normalized = []
         for o in outputs:
             if isinstance(o, Exception):
@@ -620,6 +808,41 @@ async def _execute_proxy_workflow(workflow_id: str, workflow_def: dict, input_da
     outputs = []
     for node in _workflow_node_list(workflow_def):
         outputs.append(await _exec_node(node))
+        failed_now = []
+        for item in outputs:
+            if isinstance(item, dict):
+                if item.get("error"):
+                    failed_now.append(item)
+                if item.get("type") in ("fan_out", "parallel"):
+                    for child in item.get("outputs", item.get("children", [])):
+                        if isinstance(child, dict) and child.get("error"):
+                            failed_now.append(child)
+        await _workflow_proxy_register_update(
+            execution_id,
+            status="running",
+            outputs=outputs,
+            errors=failed_now,
+            node_count=len(_workflow_node_list(workflow_def)),
+            elapsed_ms=int((time.time() - started) * 1000),
+        )
+        activity_hub.add_entry(
+            tool="workflow_status",
+            args=_workflow_trace_args({"execution_id": execution_id}, workflow_id=workflow_id, execution_id=execution_id),
+            result={
+                "execution_id": execution_id,
+                "status": "running",
+                "workflow_id": workflow_id,
+                "outputs": outputs,
+                "errors": failed_now,
+                "node_count": len(_workflow_node_list(workflow_def)),
+                "elapsed_ms": int((time.time() - started) * 1000),
+                "proxy_execution": True,
+            },
+            duration_ms=0,
+            error=None,
+            source=source,
+            client_id=client_id,
+        )
 
     failed = []
     for item in outputs:
@@ -631,15 +854,39 @@ async def _execute_proxy_workflow(workflow_id: str, workflow_def: dict, input_da
                     if isinstance(child, dict) and child.get("error"):
                         failed.append(child)
 
-    return {
-        "status": "ok" if not failed else "partial",
+    status = "ok" if not failed else "partial"
+    payload = {
+        "execution_id": execution_id,
+        "status": status,
         "workflow_id": workflow_id,
         "execution_mode": "proxy",
         "outputs": outputs,
         "errors": failed,
         "node_count": len(_workflow_node_list(workflow_def)),
         "input": input_data if isinstance(input_data, dict) else {},
+        "started_at": started_at,
+        "elapsed_ms": int((time.time() - started) * 1000),
+        "proxy_execution": True,
     }
+    await _workflow_proxy_register_update(
+        execution_id,
+        status=status,
+        outputs=outputs,
+        errors=failed,
+        node_count=len(_workflow_node_list(workflow_def)),
+        elapsed_ms=int((time.time() - started) * 1000),
+        error=None,
+    )
+    activity_hub.add_entry(
+        tool="workflow_status",
+        args=_workflow_trace_args({"execution_id": execution_id}, workflow_id=workflow_id, execution_id=execution_id),
+        result=payload,
+        duration_ms=0,
+        error=None,
+        source=source,
+        client_id=client_id,
+    )
+    return payload
 
 
 async def _maybe_execute_workflow_proxy(args: dict, source: str, client_id: str | None) -> dict | None:
@@ -682,7 +929,31 @@ async def _maybe_execute_workflow_proxy(args: dict, source: str, client_id: str 
         except Exception:
             input_data = {"text": input_data}
 
-    return await _execute_proxy_workflow(workflow_id, normalized, input_data if isinstance(input_data, dict) else {}, source=source, client_id=client_id)
+    execution_id = f"proxy_exec_{uuid.uuid4().hex[:12]}"
+    activity_hub.add_entry(
+        tool="workflow_execute",
+        args=_workflow_trace_args(args, workflow_id=workflow_id, execution_id=execution_id),
+        result={
+            "execution_id": execution_id,
+            "status": "running",
+            "workflow_id": workflow_id,
+            "proxy_execution": True,
+            "elapsed_ms": 0,
+        },
+        duration_ms=0,
+        error=None,
+        source=source,
+        client_id=client_id,
+    )
+
+    return await _execute_proxy_workflow(
+        workflow_id,
+        normalized,
+        input_data if isinstance(input_data, dict) else {},
+        source=source,
+        client_id=client_id,
+        execution_id=execution_id,
+    )
 
 
 async def _slot_ready_guard(tool_name: str, args: dict | None) -> dict | None:
@@ -1132,6 +1403,11 @@ _PROVIDER_RETRY_BASE_DELAY_MS = max(50, int(os.environ.get("PROVIDER_RETRY_BASE_
 
 _WORKFLOW_PROXY_EXECUTION_ENABLED = str(os.environ.get("WORKFLOW_PROXY_EXECUTION_ENABLED", "1")).strip().lower() not in ("0", "false", "no", "off")
 _WORKFLOW_EMBED_AUTOREROUTE = str(os.environ.get("WORKFLOW_EMBED_AUTOREROUTE", "1")).strip().lower() not in ("0", "false", "no", "off")
+_WORKFLOW_PROXY_HISTORY_LIMIT = max(50, int(os.environ.get("WORKFLOW_PROXY_HISTORY_LIMIT", "500")))
+
+_workflow_proxy_exec_store: dict[str, dict] = {}
+_workflow_proxy_exec_order: list[str] = []
+_workflow_proxy_exec_lock = asyncio.Lock()
 
 _AGENT_LOCAL_TOOL_SPECS = {
     "agent_delegate": {
@@ -1263,21 +1539,76 @@ def _agent_local_tools_manifest() -> list[dict]:
     ]
 
 
+def _schema_sanitize(node):
+    if isinstance(node, list):
+        return [_schema_sanitize(v) for v in node]
+    if not isinstance(node, dict):
+        return node
+
+    out = {}
+    for key, value in node.items():
+        if key == "properties" and isinstance(value, dict):
+            out[key] = {str(k): _schema_sanitize(v) if isinstance(v, dict) else {"type": "string"} for k, v in value.items()}
+        elif key in ("items", "additionalProperties", "contains", "not", "if", "then", "else", "propertyNames", "unevaluatedItems", "unevaluatedProperties"):
+            if isinstance(value, dict):
+                out[key] = _schema_sanitize(value)
+            elif isinstance(value, list):
+                out[key] = [_schema_sanitize(v) for v in value]
+            else:
+                out[key] = value
+        elif key in ("allOf", "anyOf", "oneOf", "prefixItems"):
+            out[key] = [_schema_sanitize(v) if isinstance(v, dict) else v for v in (value if isinstance(value, list) else [])]
+        elif key in ("$defs", "definitions", "patternProperties", "dependentSchemas") and isinstance(value, dict):
+            out[key] = {str(k): _schema_sanitize(v) if isinstance(v, dict) else {"type": "string"} for k, v in value.items()}
+        else:
+            out[key] = _schema_sanitize(value) if isinstance(value, (dict, list)) else value
+
+    stype = out.get("type")
+    if stype == "array" and "items" not in out:
+        out["items"] = {"type": "string"}
+    if stype == "object" and "properties" not in out and "additionalProperties" not in out:
+        out["properties"] = {}
+    return out
+
+
+def _sanitize_tool_spec(tool: dict) -> dict | None:
+    if not isinstance(tool, dict):
+        return None
+    item = dict(tool)
+    schema = item.get("inputSchema")
+    if schema is None:
+        schema = item.get("input_schema")
+    if hasattr(schema, "model_dump"):
+        try:
+            schema = schema.model_dump()
+        except Exception:
+            schema = {}
+    if not isinstance(schema, dict):
+        schema = {}
+    item["inputSchema"] = _schema_sanitize(schema)
+    item.pop("input_schema", None)
+    return item
+
+
 def _agent_augment_tools_list(tools: list[dict]) -> list[dict]:
     merged = []
     seen = set()
     for t in (tools or []):
-        if not isinstance(t, dict):
+        fixed = _sanitize_tool_spec(t)
+        if not isinstance(fixed, dict):
             continue
-        name = str(t.get("name", "") or "").strip()
+        name = str(fixed.get("name", "") or "").strip()
         if not name:
             continue
         seen.add(name)
-        merged.append(t)
+        merged.append(fixed)
     for t in _agent_local_tools_manifest():
-        name = t.get("name")
+        fixed = _sanitize_tool_spec(t)
+        if not isinstance(fixed, dict):
+            continue
+        name = fixed.get("name")
         if name not in seen:
-            merged.append(t)
+            merged.append(fixed)
     return merged
 
 
@@ -3542,6 +3873,44 @@ async def proxy_tool_call(tool_name: str, request: Request):
             return JSONResponse(status_code=503, content=payload)
         return {"result": {"content": [{"type": "text", "text": json.dumps(payload)}], "isError": False}}
 
+    if tool_name == "workflow_status":
+        args = body if isinstance(body, dict) else {}
+        execution_id = str(args.get("execution_id", "") or "").strip()
+        if execution_id:
+            payload = await _workflow_proxy_get_execution(execution_id)
+            if payload is None and execution_id.startswith("proxy_exec_"):
+                payload = {
+                    "execution_id": execution_id,
+                    "status": "not_found",
+                    "error": f"Execution not found: {execution_id}",
+                    "proxy_execution": True,
+                }
+            if isinstance(payload, dict):
+                err = payload.get("error")
+                activity_hub.add_entry(tool=tool_name, args=args, result=payload, duration_ms=0, error=err, source=source, client_id=client_id)
+                if err:
+                    return JSONResponse(status_code=404, content=payload)
+                return {"result": {"content": [{"type": "text", "text": json.dumps(payload)}], "isError": False}}
+
+    if tool_name == "workflow_history":
+        args = body if isinstance(body, dict) else {}
+        workflow_id = str(args.get("workflow_id", "") or "").strip() or None
+        try:
+            limit = int(args.get("limit", 50) or 50)
+        except Exception:
+            limit = 50
+        rows = await _workflow_proxy_history(workflow_id=workflow_id, limit=limit)
+        if rows:
+            payload = {
+                "workflow_id": workflow_id,
+                "history": rows,
+                "executions": rows,
+                "count": len(rows),
+                "proxy_execution": True,
+            }
+            activity_hub.add_entry(tool=tool_name, args=args, result=payload, duration_ms=0, error=None, source=source, client_id=client_id)
+            return {"result": {"content": [{"type": "text", "text": json.dumps(payload)}], "isError": False}}
+
     if tool_name == "workflow_execute":
         wf_proxy = await _maybe_execute_workflow_proxy(body if isinstance(body, dict) else {}, source=source, client_id=client_id)
         if wf_proxy is not None:
@@ -4454,7 +4823,7 @@ async def mcp_message_proxy(request: Request):
     # Local proxy tools should work even for SSE-only MCP clients.
     _local_proxy_tools = {
         "agent_delegate", "agent_chat_inject", "agent_chat_sessions", "agent_chat_result", "agent_chat_purge",
-        "workflow_execute",
+        "workflow_execute", "workflow_status", "workflow_history",
         "hf_cache_status", "hf_cache_clear", "capsule_restart",
         "persist_status", "persist_restore_revision",
     }
@@ -4919,6 +5288,42 @@ async def _handle_streamable_rpc(obj: dict, client_id: str | None) -> dict | Non
             if err_msg:
                 return _rpc_error(rpc_id, -32603, err_msg, payload)
             return {"jsonrpc": "2.0", "id": rpc_id, "result": {"content": [{"type": "text", "text": json.dumps(payload)}], "isError": False}}
+
+        if tool_name == "workflow_status":
+            execution_id = str(args.get("execution_id", "") or "").strip()
+            if execution_id:
+                payload = await _workflow_proxy_get_execution(execution_id)
+                if payload is None and execution_id.startswith("proxy_exec_"):
+                    payload = {
+                        "execution_id": execution_id,
+                        "status": "not_found",
+                        "error": f"Execution not found: {execution_id}",
+                        "proxy_execution": True,
+                    }
+                if isinstance(payload, dict):
+                    err_msg = payload.get("error") if isinstance(payload, dict) else None
+                    activity_hub.add_entry(tool=tool_name, args=args, result=payload, duration_ms=0, error=err_msg, source="external", client_id=client_id)
+                    if err_msg:
+                        return _rpc_error(rpc_id, -32014, err_msg, payload)
+                    return {"jsonrpc": "2.0", "id": rpc_id, "result": {"content": [{"type": "text", "text": json.dumps(payload)}], "isError": False}}
+
+        if tool_name == "workflow_history":
+            workflow_id = str(args.get("workflow_id", "") or "").strip() or None
+            try:
+                limit = int(args.get("limit", 50) or 50)
+            except Exception:
+                limit = 50
+            rows = await _workflow_proxy_history(workflow_id=workflow_id, limit=limit)
+            if rows:
+                payload = {
+                    "workflow_id": workflow_id,
+                    "history": rows,
+                    "executions": rows,
+                    "count": len(rows),
+                    "proxy_execution": True,
+                }
+                activity_hub.add_entry(tool=tool_name, args=args, result=payload, duration_ms=0, error=None, source="external", client_id=client_id)
+                return {"jsonrpc": "2.0", "id": rpc_id, "result": {"content": [{"type": "text", "text": json.dumps(payload)}], "isError": False}}
 
         if tool_name == "workflow_execute":
             wf_proxy = await _maybe_execute_workflow_proxy(args, source="external", client_id=client_id)
