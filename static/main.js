@@ -4496,7 +4496,8 @@
     function commitBagVersion(btn) {
         var key = btn.getAttribute('data-bag-key');
         if (!key) return;
-        if (!_gitAvailable) {
+        var isWebMode = !!window.__vsCodeShimInstalled;
+        if (!_gitAvailable && !isWebMode) {
             mpToast('Git is not available on this system. Install Git to use versioning.', 'error', 4000);
             return;
         }
@@ -5416,11 +5417,9 @@
                         var commitBtnStyle = gitDisabled
                             ? 'font-size:9px;padding:2px 8px;cursor:not-allowed;background:var(--surface2);color:var(--text-dim);opacity:0.45;border:1px solid var(--border);border-radius:3px;'
                             : 'font-size:9px;padding:2px 8px;cursor:pointer;background:var(--surface2);color:var(--accent);border:1px solid var(--border);border-radius:3px;';
-                        var actionButtons = '';
-                        if (!isWebMode) {
-                            actionButtons =
-                                '<button id="' + commitBtnId + '" data-bag-key="' + _esc(_openDrillKey) + '" onclick="commitBagVersion(this)"' + (gitDisabled ? ' disabled title="Git not available"' : '') + ' style="' + commitBtnStyle + '">Commit Version</button>';
-                        }
+                        var disableCommit = (!isWebMode && gitDisabled) ? ' disabled title="Git not available"' : '';
+                        var actionButtons =
+                            '<button id="' + commitBtnId + '" data-bag-key="' + _esc(_openDrillKey) + '" onclick="commitBagVersion(this)"' + disableCommit + ' style="' + commitBtnStyle + '">Commit Version</button>';
                         drillDiv.innerHTML =
                             '<div style="padding:4px 12px;font-size:10px;color:var(--text-dim);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">' +
                             '<span>' + lineCount + ' lines · ' + _fmtSize(contentStr.length) + ' · v' + verNum + '</span>' +

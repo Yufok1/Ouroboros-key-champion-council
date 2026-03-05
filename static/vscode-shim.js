@@ -246,7 +246,7 @@
         // ── Bag/Git commands → VS Code specific ──────────────
         else if (command === 'bagGitDiff' || command === 'bagGitInspect' ||
                  command === 'bagGitOpenNativeDiff' || command === 'checkGitAvailable' ||
-                 command === 'commitBagVersion') {
+                 command === 'commitBagVersion' || command === 'openBagDocFile') {
             await handleBagGitCommand(msg);
         }
 
@@ -323,7 +323,7 @@
         }
 
         // ── VS Code-specific no-ops ─────────────────────────
-        else if (command === 'openSettings' || command === 'openBagDocFile' ||
+        else if (command === 'openSettings' ||
                  command === 'openExternal') {
             if (command === 'openExternal' && msg.url) {
                 window.open(msg.url, '_blank');
@@ -542,20 +542,249 @@
     // BAG/GIT COMMAND HANDLER
     // ═══════════════════════════════════════════════════════════
 
+    async function _resolveMaybeCachedPayload(payload, maxDepth) {
+        let out = payload;
+        let depth = 0;
+        const limit = Number.isFinite(maxDepth) ? maxDepth : 4;
+        while (out && typeof out === 'object' && out._cached && depth < limit) {
+            out = await mcpToolCall('get_cached', { cache_id: out._cached });
+            depth += 1;
+        }
+        if (typeof out === 'string') {
+            try { out = JSON.parse(out); } catch {}
+        }
+        return out;
+    }
+
+    function _shortSnapshotId(value) {
+        const s = String(value || '').trim();
+        if (!s) return '';
+        return s.length > 12 ? s.slice(0, 12) : s;
+    }
+
+    function _fmtSnapshotWhen(ts) {
+        const n = Number(ts || 0);
+        if (!Number.isFinite(n) || n <= 0) return '';
+        try { return new Date(n).toLocaleString(); } catch { return ''; }
+    }
+
+    function _snapshotKeyFromEntry(entry) {
+        if (!entry || typeof entry !== 'object') return '';
+        return String(entry.checkpoint_key_display || entry.checkpoint_key || '').trim();
+    }
+
+    async function _loadCheckpointMetaForKey(key, includeDiffStat) {
+        const versionsRaw = await _resolveMaybeCachedPayload(await mcpToolCall('bag_versions', { key: key, limit: 25 }));
+        if (!versionsRaw || typeof versionsRaw !== 'object') {
+            return { error: 'Invalid bag_versions response' };
+        }
+        if (versionsRaw.error) {
+            return { error: String(versionsRaw.error) };
+        }
+
+        const checkpoints = Array.isArray(versionsRaw.checkpoints) ? versionsRaw.checkpoints : [];
+        const head = checkpoints.length > 0 ? checkpoints[0] : null;
+        const prev = checkpoints.length > 1 ? checkpoints[1] : null;
+        let diffStat = '';
+
+        if (includeDiffStat && head && prev) {
+            const fromKey = _snapshotKeyFromEntry(prev);
+            const toKey = _snapshotKeyFromEntry(head);
+            if (fromKey && toKey) {
+                const diffRaw = await _resolveMaybeCachedPayload(await mcpToolCall('bag_diff', {
+                    key: key,
+                    from_checkpoint: fromKey,
+                    to_checkpoint: toKey
+                }));
+                if (diffRaw && typeof diffRaw === 'object' && !diffRaw.error) {
+                    const added = Number(diffRaw.added_lines || 0);
+                    const removed = Number(diffRaw.removed_lines || 0);
+                    diffStat = '+' + added + ' / -' + removed + ' lines';
+                }
+            }
+        }
+
+        return {
+            key: key,
+            tracked: checkpoints.length > 0,
+            commitCount: checkpoints.length,
+            headSha: head ? _shortSnapshotId(head.checkpoint_id || head.checkpoint_key) : '',
+            latestWhen: head ? _fmtSnapshotWhen(head.timestamp_ms || head.timestamp) : '',
+            latestSubject: head ? String(head.message || head.tag || 'checkpoint') : '',
+            diffStat: diffStat,
+            filePath: 'FelixBag:' + key,
+            checkpoints: checkpoints
+        };
+    }
+
     async function handleBagGitCommand(msg) {
         const command = msg.command;
+        const key = String((msg && msg.key) || '').trim();
 
         if (command === 'checkGitAvailable') {
-            fireEvent({ type: 'gitAvailable', available: false,
-                ...webModeUnavailable('Git operations') });
+            const status = {
+                available: true,
+                backend: 'felixbag-checkpoints',
+                note: 'Using FelixBag checkpoint versioning in web mode.'
+            };
+            fireEvent({ type: 'gitAvailability', ...status });
+            // Backwards compatibility for any legacy listener.
+            fireEvent({ type: 'gitAvailable', ...status });
         }
-        else if (command === 'bagGitDiff' || command === 'bagGitInspect') {
-            fireEvent({ type: 'bagGitResult', command, id: msg.id,
-                ...webModeUnavailable('Git diff/inspect') });
+        else if (command === 'bagGitInspect') {
+            if (!key) {
+                fireEvent({ type: 'bagGitInfo', key: '', error: 'Missing FelixBag key' });
+                return;
+            }
+            try {
+                const meta = await _loadCheckpointMetaForKey(key, true);
+                if (meta.error) {
+                    fireEvent({ type: 'bagGitInfo', key: key, error: meta.error, filePath: 'FelixBag:' + key });
+                    return;
+                }
+                fireEvent({
+                    type: 'bagGitInfo',
+                    key: key,
+                    tracked: !!meta.tracked,
+                    commitCount: Number(meta.commitCount || 0),
+                    headSha: meta.headSha || '',
+                    latestWhen: meta.latestWhen || '',
+                    latestSubject: meta.latestSubject || '',
+                    diffStat: meta.diffStat || '',
+                    filePath: meta.filePath || ('FelixBag:' + key)
+                });
+            } catch (err) {
+                fireEvent({ type: 'bagGitInfo', key: key, error: String(err && err.message ? err.message : err) });
+            }
+        }
+        else if (command === 'bagGitDiff') {
+            if (!key) {
+                fireEvent({ type: 'bagGitDiffResult', key: '', error: 'Missing FelixBag key' });
+                return;
+            }
+            try {
+                const meta = await _loadCheckpointMetaForKey(key, false);
+                if (meta.error) {
+                    fireEvent({ type: 'bagGitDiffResult', key: key, error: meta.error });
+                    return;
+                }
+                const checkpoints = Array.isArray(meta.checkpoints) ? meta.checkpoints : [];
+                if (checkpoints.length < 2) {
+                    fireEvent({ type: 'bagGitDiffResult', key: key, error: 'Need at least two checkpoints to diff.' });
+                    return;
+                }
+                const toEntry = checkpoints[0];
+                const fromEntry = checkpoints[1];
+                const fromKey = _snapshotKeyFromEntry(fromEntry);
+                const toKey = _snapshotKeyFromEntry(toEntry);
+                const diffRaw = await _resolveMaybeCachedPayload(await mcpToolCall('bag_diff', {
+                    key: key,
+                    from_checkpoint: fromKey,
+                    to_checkpoint: toKey
+                }));
+                if (!diffRaw || typeof diffRaw !== 'object') {
+                    fireEvent({ type: 'bagGitDiffResult', key: key, error: 'Invalid bag_diff response' });
+                    return;
+                }
+                if (diffRaw.error) {
+                    fireEvent({ type: 'bagGitDiffResult', key: key, error: String(diffRaw.error) });
+                    return;
+                }
+                fireEvent({
+                    type: 'bagGitDiffResult',
+                    key: key,
+                    diff: String(diffRaw.diff || ''),
+                    fromSha: _shortSnapshotId(fromEntry.checkpoint_id || fromEntry.checkpoint_key),
+                    toSha: _shortSnapshotId(toEntry.checkpoint_id || toEntry.checkpoint_key),
+                    fromCheckpoint: fromKey,
+                    toCheckpoint: toKey,
+                    addedLines: Number(diffRaw.added_lines || 0),
+                    removedLines: Number(diffRaw.removed_lines || 0)
+                });
+            } catch (err) {
+                fireEvent({ type: 'bagGitDiffResult', key: key, error: String(err && err.message ? err.message : err) });
+            }
         }
         else if (command === 'commitBagVersion') {
-            fireEvent({ type: 'bagGitResult', command, id: msg.id,
-                ...webModeUnavailable('Git commit') });
+            if (!key) {
+                fireEvent({ type: 'bagCommitResult', key: '', error: 'Missing FelixBag key' });
+                return;
+            }
+            try {
+                const tsIso = new Date().toISOString();
+                const checkpointRaw = await _resolveMaybeCachedPayload(await mcpToolCall('bag_checkpoint', {
+                    key: key,
+                    message: 'Memory commit from web UI at ' + tsIso,
+                    tag: 'ui'
+                }));
+                if (!checkpointRaw || typeof checkpointRaw !== 'object') {
+                    fireEvent({ type: 'bagCommitResult', key: key, error: 'Invalid bag_checkpoint response' });
+                    return;
+                }
+                if (checkpointRaw.error || checkpointRaw.status === 'error') {
+                    fireEvent({ type: 'bagCommitResult', key: key, error: String(checkpointRaw.error || 'Checkpoint failed') });
+                    return;
+                }
+
+                const meta = await _loadCheckpointMetaForKey(key, true);
+                const checkpointSha = _shortSnapshotId(checkpointRaw.checkpoint_id || checkpointRaw.checkpoint_key);
+                fireEvent({
+                    type: 'bagCommitResult',
+                    key: key,
+                    sha: checkpointSha || (meta.headSha || ''),
+                    commitCount: Number(meta.commitCount || 0),
+                    latestWhen: meta.latestWhen || '',
+                    latestSubject: meta.latestSubject || 'checkpoint',
+                    diffStat: meta.diffStat || '',
+                    filePath: meta.filePath || ('FelixBag:' + key),
+                    noChanges: false
+                });
+            } catch (err) {
+                fireEvent({ type: 'bagCommitResult', key: key, error: String(err && err.message ? err.message : err) });
+            }
+        }
+        else if (command === 'openBagDocFile') {
+            if (!key) {
+                fireEvent({ type: 'bagDocOpened', key: '', error: 'Missing FelixBag key' });
+                return;
+            }
+            try {
+                const got = await _resolveMaybeCachedPayload(await mcpToolCall('bag_get', { key: key }));
+                if (!got || typeof got !== 'object') {
+                    fireEvent({ type: 'bagDocOpened', key: key, error: 'Invalid bag_get response' });
+                    return;
+                }
+                if (got.error) {
+                    fireEvent({ type: 'bagDocOpened', key: key, error: String(got.error) });
+                    return;
+                }
+                let val = (typeof got.value !== 'undefined') ? got.value : got.content;
+                if (typeof val === 'undefined') val = got;
+                const isString = typeof val === 'string';
+                const text = isString ? val : JSON.stringify(val, null, 2);
+                const safeBase = key.replace(/[\\/:*?"<>|]+/g, '_').slice(0, 120) || 'felixbag_item';
+                const ext = isString ? '.txt' : '.json';
+                const fileName = safeBase + ext;
+                const blob = new Blob([text], { type: isString ? 'text/plain' : 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+                fireEvent({ type: 'bagDocOpened', key: key, filePath: 'Download:' + fileName });
+            } catch (err) {
+                fireEvent({ type: 'bagDocOpened', key: key, error: String(err && err.message ? err.message : err) });
+            }
+        }
+        else if (command === 'bagGitOpenNativeDiff') {
+            fireEvent({
+                type: 'bagDocOpened',
+                key: key,
+                error: 'Native diff editor is not available in web mode. Use "View Last Diff".'
+            });
         }
         else {
             console.log('[shim] VS Code git command ignored:', command);
