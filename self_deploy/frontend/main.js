@@ -2474,6 +2474,14 @@
                     } else {
                         _appendAchatMsg('system-info', '🧠 ' + flowPrefix + 'Step ' + iterNum + stepMs + ' — thinking…', Date.now(), innerTab);
                     }
+                    if (_isAchatDebugEnabled(innerTab)) {
+                        var reasonDbg = [];
+                        reasonDbg.push('DEBUG reasoning step=' + String(iterNum));
+                        if (rObj.step_ms !== undefined && rObj.step_ms !== null) reasonDbg.push('step_ms=' + String(rObj.step_ms));
+                        reasonDbg.push('source=agent-inner');
+                        reasonDbg.push('route=' + String(routed.role || 'unknown'));
+                        _appendAchatMsg('system-info', reasonDbg.join(' · '), Date.now(), innerTab);
+                    }
                 } else if (isStart && event.tool !== 'agent_chat') {
                     var argStr = '';
                     try { argStr = JSON.stringify(_cleanArgs(event.args) || {}).substring(0, 250); } catch (e3) { }
@@ -2517,6 +2525,15 @@
                     }
 
                     _appendAchatToolTrace([tcLive], innerTab);
+                    if (_isAchatDebugEnabled(innerTab)) {
+                        var nestedDbg = [];
+                        nestedDbg.push('DEBUG nested tool=' + String(event.tool));
+                        nestedDbg.push('status=' + (tcLive.error ? 'error' : 'ok'));
+                        if (tcLive.durationMs !== undefined && tcLive.durationMs !== null) nestedDbg.push('duration_ms=' + String(tcLive.durationMs));
+                        nestedDbg.push('source=agent-inner');
+                        nestedDbg.push('route=' + String(routed.role || 'unknown'));
+                        _appendAchatMsg('system-info', nestedDbg.join(' · '), Date.now(), innerTab);
+                    }
                 }
             }
         }
@@ -9562,6 +9579,32 @@
         return !!(tab && tab.agentConfig && tab.agentConfig.debugMode);
     }
 
+    function _achatMissionRequestsDebug(missionText) {
+        var s = String(missionText || '').toLowerCase();
+        if (!s) return false;
+        var cues = [
+            'debug', 'diagnostic', 'diagnostics', 'audit', 'evaluate', 'evaluation',
+            'eval', 'trace', 'root cause', 'forensic', 'investigate',
+            'failure', 'failures', 'bug', 'issues', 'regression'
+        ];
+        for (var i = 0; i < cues.length; i++) {
+            if (s.indexOf(cues[i]) >= 0) return true;
+        }
+        return false;
+    }
+
+    function _achatMissionWantsDeepDebug(missionText) {
+        var s = String(missionText || '').toLowerCase();
+        if (!s) return false;
+        return (
+            s.indexOf('deep dive') >= 0 ||
+            s.indexOf('root cause') >= 0 ||
+            s.indexOf('forensic') >= 0 ||
+            s.indexOf('every issue') >= 0 ||
+            s.indexOf('thorough') >= 0
+        );
+    }
+
     function _refreshAchatDebugControls(tab) {
         var toggle = document.getElementById('achat-debug-toggle');
         var state = document.getElementById('achat-debug-state');
@@ -11188,6 +11231,44 @@
             }, '__achat_tool__', { tabKey: tab.key, keepBusy: true });
             return;
         }
+        var debugCmd = String(msg || '').match(/^\/debug(?:\s+(\S+))?$/i);
+        if (debugCmd) {
+            if (!tab.agentConfig) tab.agentConfig = _defaultAgentConfig();
+            var mode = String(debugCmd[1] || 'status').toLowerCase();
+            if (mode === 'on') {
+                tab.agentConfig.debugMode = true;
+                _saveAgentConfig(tab);
+                _refreshAchatDebugControls(tab);
+                _refreshAchatMeta();
+                _renderAchatToolConfig(tab);
+                _appendAchatMsg('system-info', 'DEBUG mode enabled (' + String(tab.agentConfig.debugLevel || 'standard') + ')', Date.now(), tab);
+            } else if (mode === 'off') {
+                tab.agentConfig.debugMode = false;
+                _saveAgentConfig(tab);
+                _refreshAchatDebugControls(tab);
+                _refreshAchatMeta();
+                _renderAchatToolConfig(tab);
+                _appendAchatMsg('system-info', 'DEBUG mode disabled', Date.now(), tab);
+            } else if (mode === 'deep' || mode === 'standard') {
+                tab.agentConfig.debugMode = true;
+                tab.agentConfig.debugLevel = mode;
+                _saveAgentConfig(tab);
+                _refreshAchatDebugControls(tab);
+                _refreshAchatMeta();
+                _renderAchatToolConfig(tab);
+                _appendAchatMsg('system-info', 'DEBUG mode enabled (' + mode + ')', Date.now(), tab);
+            } else if (mode === 'status') {
+                _appendAchatMsg(
+                    'system-info',
+                    'DEBUG status=' + (_isAchatDebugEnabled(tab) ? 'on' : 'off') + ' · level=' + String((tab.agentConfig && tab.agentConfig.debugLevel) || 'standard'),
+                    Date.now(),
+                    tab
+                );
+            } else {
+                _appendAchatMsg('error', 'Usage: /debug [on|off|deep|standard|status]', Date.now(), tab);
+            }
+            return;
+        }
 
         // If loop is currently executing, convert new user message into a live update injection.
         if (_achatBusy) {
@@ -11226,6 +11307,21 @@
         // with a +1 synthesis pass appended at the end of the chain for final answer.
         if ((tab.runMode || 'direct') === 'loop' && toolName === 'agent_chat') {
             var mission = msg || 'Proceed with the configured objective.';
+            if (!_isAchatDebugEnabled(tab) && _achatMissionRequestsDebug(mission)) {
+                if (!tab.agentConfig) tab.agentConfig = _defaultAgentConfig();
+                tab.agentConfig.debugMode = true;
+                if (_achatMissionWantsDeepDebug(mission)) tab.agentConfig.debugLevel = 'deep';
+                _saveAgentConfig(tab);
+                _refreshAchatDebugControls(tab);
+                _refreshAchatMeta();
+                _renderAchatToolConfig(tab);
+                _appendAchatMsg(
+                    'system-info',
+                    'DEBUG MODE auto-enabled from mission intent (' + String(tab.agentConfig.debugLevel || 'standard') + ')',
+                    Date.now(),
+                    tab
+                );
+            }
             _appendAchatMsg('user', 'MISSION: ' + mission, Date.now(), tab);
             if (_isAchatDebugEnabled(tab)) {
                 var dbgLevel = String((tab.agentConfig && tab.agentConfig.debugLevel) || 'standard');
