@@ -5166,9 +5166,14 @@
                 if (answer && typeof answer === 'object') {
                     try { answer = JSON.stringify(answer, null, 2); } catch (e9) { answer = String(answer); }
                 }
+                var answerIsLoopFailure = _isLoopFailureAnswer(answer);
                 if (answer) {
-                    _appendAchatMsg('assistant', String(answer), Date.now(), tab);
-                } else if (!toolCalls.length) {
+                    // Loop steps run with max_iterations=1 by design; backend can emit
+                    // "max iterations" scaffolding text that is not a real final answer.
+                    if (!(isLoopIter && answerIsLoopFailure)) {
+                        _appendAchatMsg('assistant', String(answer), Date.now(), tab);
+                    }
+                } else if (!toolCalls.length && !isLoopIter) {
                     _appendAchatMsg('error', 'No response received. Check slot/model and selected tool configuration.', Date.now(), tab);
                 }
 
@@ -5201,7 +5206,7 @@
                         if (tcn) ls.calledTools[tcn] = (ls.calledTools[tcn] || 0) + 1;
                     }
 
-                    var hasRealAnswer = !!(answer && !_isLoopFailureAnswer(answer));
+                    var hasRealAnswer = !!(answer && !answerIsLoopFailure);
                     var isSynthesized = !!(resultObj._synthesized);
                     var minCalls = parseInt(ls.minToolCalls, 10) || 1;
                     var hasMinToolEvidence = ls.totalToolCalls >= minCalls;
@@ -9688,6 +9693,8 @@
             lines.push('\n## GRANTED TOOLS (' + granted.length + ')');
             lines.push('You may ONLY call these tools: ' + granted.join(', '));
             lines.push('Any tool not in this list will be rejected.');
+            lines.push('When reporting tool availability, treat this granted count as the enabled-policy truth.');
+            lines.push('Do NOT treat get_capabilities inventory count as granted-tool count (they are different metrics).');
         }
         if (blocked.length > 0) {
             lines.push('\n## BLOCKED TOOLS (safety)');
@@ -10041,11 +10048,45 @@
         );
     }
 
+    function _toolTraceCallSignature(tc) {
+        var call = (tc && typeof tc === 'object') ? tc : {};
+        var toolName = String(call.tool || call.name || '').trim();
+        var iter = (call.iteration !== undefined && call.iteration !== null) ? String(call.iteration) : '';
+        var trace = String(call.trace_id || call.traceId || call.session_id || '').trim();
+        var argsSig = '';
+        try { argsSig = JSON.stringify(call.args || {}); } catch (e) { argsSig = String(call.args || ''); }
+        var state = call.error ? ('ERR:' + String(call.error || '').slice(0, 120)) : 'OK';
+        return [toolName, iter, trace, argsSig, state].join('|');
+    }
+
+    function _toolTraceBatchSignature(calls) {
+        if (!Array.isArray(calls) || !calls.length) return '';
+        var parts = [];
+        for (var i = 0; i < calls.length; i++) {
+            parts.push(_toolTraceCallSignature(calls[i]));
+        }
+        return parts.join('||');
+    }
+
     function _appendAchatToolTrace(toolCalls, tabRef) {
         var tab = tabRef || _getActiveAchatTab();
         if (!tab) return;
+        var calls = Array.isArray(toolCalls) ? toolCalls : [];
         if (!Array.isArray(tab.messages)) tab.messages = [];
-        tab.messages.push({ role: 'tool-trace', toolCalls: Array.isArray(toolCalls) ? toolCalls : [], ts: Date.now() });
+        if (!tab._recentToolTraceSigs || typeof tab._recentToolTraceSigs !== 'object') tab._recentToolTraceSigs = {};
+
+        var now = Date.now();
+        for (var sigKey in tab._recentToolTraceSigs) {
+            if (!Object.prototype.hasOwnProperty.call(tab._recentToolTraceSigs, sigKey)) continue;
+            var seenTs = parseInt(tab._recentToolTraceSigs[sigKey], 10) || 0;
+            if (!seenTs || (now - seenTs) > 30000) delete tab._recentToolTraceSigs[sigKey];
+        }
+
+        var sig = _toolTraceBatchSignature(calls);
+        if (sig && tab._recentToolTraceSigs[sig]) return;
+        if (sig) tab._recentToolTraceSigs[sig] = now;
+
+        tab.messages.push({ role: 'tool-trace', toolCalls: calls, ts: now, _sig: sig });
         if (tab.key === _achatActiveTabKey) _renderAchatMessages(tab);
     }
 
@@ -10977,11 +11018,15 @@
         if (isSynthesisPass) {
             // Final +1 pass: tell the model to synthesize everything into a final report.
             var used = Object.keys(ls.calledTools || {});
+            var grantedCount = Array.isArray(tab.grantedTools) ? tab.grantedTools.length : 0;
+            var blockedCount = Array.isArray(tab.blockedTools) ? tab.blockedTools.length : 0;
             nextMsg =
                 'This is your FINAL iteration. Do NOT call any more tools. ' +
                 'Produce a comprehensive final_answer summarizing ALL findings from your ' +
                 ls.totalToolCalls + ' tool calls (' + used.join(', ') + '). ' +
-                'Be thorough — include key data points, anomalies, and conclusions.\n\n' +
+                'Be thorough — include key data points, anomalies, and conclusions. ' +
+                'If you mention tool counts, use granted=' + grantedCount + ' and blocked=' + blockedCount + '. ' +
+                'Do NOT conflate get_capabilities inventory count with granted-tool policy count.\n\n' +
                 'Original mission: ' + (ls.mission || 'N/A');
         } else {
             var _minCalls = parseInt(ls.minToolCalls, 10) || 1;
