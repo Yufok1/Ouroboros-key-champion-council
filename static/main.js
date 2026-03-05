@@ -809,6 +809,9 @@
             tab.classList.add('active');
             var target = document.getElementById('tab-' + tab.dataset.tab);
             if (target) target.classList.add('active');
+            if (tab.dataset.tab !== 'workflows') {
+                _wfStopPolling();
+            }
 
             // Auto-fetch Memory catalog on first view
             if (tab.dataset.tab === 'memory') {
@@ -3761,12 +3764,22 @@
         }
     }
 
+    function _isWorkflowTabActive() {
+        var tabBtn = document.querySelector('.tab.active[data-tab="workflows"]');
+        var pane = document.getElementById('tab-workflows');
+        return !!(tabBtn && pane && pane.classList.contains('active'));
+    }
+
     function _wfStartPolling(executionId) {
         if (!executionId) return;
         _wfStopPolling();
         _wfCurrentExecutionId = executionId;
         var attempts = 0;
         _wfStatusPollTimer = setInterval(function () {
+            if (!_isWorkflowTabActive() || _wfCurrentExecutionId !== executionId) {
+                _wfStopPolling();
+                return;
+            }
             attempts += 1;
             callTool('workflow_status', { execution_id: executionId });
             if (attempts >= 30) {
@@ -4342,7 +4355,8 @@
         var status = _wfNormalizeStatus(payload.status || 'pending');
         if (status === 'running') {
             _wfSetBadge('running', 'RUNNING · ' + (_wfCurrentExecutionId || '...'));
-            if (_wfCurrentExecutionId) _wfStartPolling(_wfCurrentExecutionId);
+            if (_wfCurrentExecutionId && _isWorkflowTabActive()) _wfStartPolling(_wfCurrentExecutionId);
+            else _wfStopPolling();
         } else if (status === 'completed') {
             _wfSetBadge('completed', 'COMPLETED');
             _wfStopPolling();
@@ -4467,7 +4481,7 @@
 
             _wfRenderExecution(payload);
 
-            if (toolName === 'workflow_execute' && payload.execution_id && _wfNormalizeStatus(payload.status) !== 'running') {
+            if (toolName === 'workflow_execute' && payload.execution_id && _wfNormalizeStatus(payload.status) !== 'running' && _isWorkflowTabActive()) {
                 callTool('workflow_status', { execution_id: payload.execution_id });
             }
             return;
@@ -4486,6 +4500,10 @@
 
         var payload = _wfParsePayload(event.result || null);
         if (!payload || typeof payload !== 'object') return;
+        if (!_isWorkflowTabActive()) {
+            _wfLastExec = payload;
+            return;
+        }
 
         // Auto-load workflow definition if we don't have it
         if (payload.workflow_id && (!_wfLoadedDef || _wfLoadedDef.id !== payload.workflow_id)) {
