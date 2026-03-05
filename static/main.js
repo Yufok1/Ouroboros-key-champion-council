@@ -5036,6 +5036,13 @@
             var activeTab = pendingTabKey ? _achatTabs[pendingTabKey] : _getActiveAchatTab();
             if (msg.error) {
                 _appendAchatMsg('error', String(msg.error || 'Unknown error'), Date.now(), activeTab);
+                if (isLoopIter && activeTab && _isAchatDebugEnabled(activeTab)) {
+                    _appendAchatMsg('system-info',
+                        'DEBUG transport error · step aborted · detail: ' + String(msg.error || 'Unknown error'),
+                        Date.now(),
+                        activeTab
+                    );
+                }
                 if (isLoopIter && activeTab && activeTab._loopState) {
                     _setAchatBusy(false);
                     activeTab._loopState = null;
@@ -5108,6 +5115,13 @@
                 var resultObj = (resp && resp.result) ? resp.result : (resp || {});
                 if (resultObj.error) {
                     _appendAchatMsg('error', String(resultObj.error), Date.now(), tab);
+                    if (isLoopIter && tab && _isAchatDebugEnabled(tab)) {
+                        _appendAchatMsg('system-info',
+                            'DEBUG tool error payload · ' + String(resultObj.error),
+                            Date.now(),
+                            tab
+                        );
+                    }
                     if (isLoopIter && tab && tab._loopState) {
                         _setAchatBusy(false);
                         tab._loopState = null;
@@ -5206,6 +5220,46 @@
                         null,
                         tab
                     );
+                }
+                if (isLoopIter && tab && tab._loopState && _isAchatDebugEnabled(tab)) {
+                    var dbgStep = (parseInt(tab._loopState.iteration, 10) || 0) + 1;
+                    var dbgFailures = 0;
+                    var dbgFailureTools = [];
+                    var dbgCalledTools = [];
+                    for (var dti = 0; dti < toolCalls.length; dti++) {
+                        var dtc = toolCalls[dti] || {};
+                        var dbgToolName = String(dtc.tool || '').trim();
+                        if (dbgToolName) dbgCalledTools.push(dbgToolName);
+                        if (dtc.error) {
+                            dbgFailures += 1;
+                            var dtn = String(dtc.tool || 'unknown');
+                            if (dbgFailureTools.indexOf(dtn) < 0) dbgFailureTools.push(dtn);
+                        }
+                    }
+                    var dbgSignals = [];
+                    dbgSignals.push('DEBUG step #' + dbgStep);
+                    dbgSignals.push('calls=' + toolCalls.length);
+                    dbgSignals.push('step_failures=' + dbgFailures);
+                    if (!toolCalls.length) dbgSignals.push('no_tool_calls');
+                    if (!answer) dbgSignals.push('no_final_answer');
+                    if (answer && answerIsLoopFailure) dbgSignals.push('loop_scaffold_answer');
+                    _appendAchatMsg('system-info', dbgSignals.join(' · '), Date.now(), tab);
+                    if (dbgFailureTools.length) {
+                        _appendAchatMsg('system-info',
+                            'DEBUG anomalies detected in tools: ' + dbgFailureTools.join(', '),
+                            Date.now(),
+                            tab
+                        );
+                    }
+                    _recordLoopDebugStep(tab._loopState, {
+                        step: dbgStep,
+                        tools: dbgCalledTools,
+                        failures: dbgFailures,
+                        noToolCalls: toolCalls.length === 0,
+                        noFinalAnswer: !answer,
+                        loopScaffoldAnswer: !!(answer && answerIsLoopFailure),
+                        sessionId: sessionId || ''
+                    });
                 }
 
                 // Auto-continue loop: run one agent_chat step at a time so
@@ -9391,6 +9445,8 @@
             resourceApprovalMode: 'capped', // 'manual' | 'capped' | 'auto_all'
             haltOnError: false,             // stop loop on first error
             requireConfirmation: false,     // HOLD before tool execution
+            debugMode: false,               // structured debug behavior during loop execution
+            debugLevel: 'standard',         // 'standard' | 'deep'
 
             // Non-disableable hard floor brakes (safety rails)
             guardMaxWallClockSec: 1800,      // 30 minutes
@@ -9448,12 +9504,33 @@
         return _cfgInt(cfg.maxTokens, 512, 64, 8192);
     }
 
+    function _isAchatDebugEnabled(tab) {
+        return !!(tab && tab.agentConfig && tab.agentConfig.debugMode);
+    }
+
+    function _refreshAchatDebugControls(tab) {
+        var toggle = document.getElementById('achat-debug-toggle');
+        var state = document.getElementById('achat-debug-state');
+        var enabled = _isAchatDebugEnabled(tab);
+        if (toggle) {
+            toggle.textContent = enabled ? 'DEBUG ON' : 'DEBUG OFF';
+            toggle.style.color = enabled ? '#fca5a5' : '';
+            toggle.style.borderColor = enabled ? '#7f1d1d' : '';
+            toggle.style.background = enabled ? 'rgba(127,29,29,0.22)' : '';
+        }
+        if (state) {
+            state.textContent = enabled ? 'ON' : 'OFF';
+            state.style.color = enabled ? '#fca5a5' : 'var(--text-dim)';
+        }
+    }
+
     function _syncAchatLoopControlsFromConfig(tab) {
         if (!tab || !tab.agentConfig) return;
         var maxIterEl = document.getElementById('achat-max-iter');
         var maxTokEl = document.getElementById('achat-max-tokens');
         if (maxIterEl) maxIterEl.value = String(_agentMaxIterations(tab));
         if (maxTokEl) maxTokEl.value = String(_agentMaxTokens(tab));
+        _refreshAchatDebugControls(tab);
     }
 
     // Save agent config to FelixBag for cross-session persistence
@@ -9558,6 +9635,19 @@
             '<label style="font-size:9px;display:flex;gap:4px;align-items:center;"><input type="checkbox" class="achat-cfg-check" data-cfg="requireConfirmation"' + (c.requireConfirmation ? ' checked' : '') + ' /> Require confirmation for tool execution</label>' +
             '</div>' +
             '<div class="hint" style="font-size:9px;color:var(--text-dim);margin:0 0 2px;">Auto-Approve ALL still enforces non-disableable hard brakes (runtime, calls, failures, no-progress, kill switch).</div>' +
+
+            // Debug
+            '<div class="section-head" style="margin:8px 0 4px;font-size:9px;">DEBUG FACILITIES</div>' +
+            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">' +
+            '<div class="achat-cfg-group"><label class="achat-cfg-label">Debug Level</label>' +
+            '<select class="chat-input achat-cfg-input" data-cfg="debugLevel">' +
+            '<option value="standard"' + ((c.debugLevel || 'standard') === 'standard' ? ' selected' : '') + '>Standard</option>' +
+            '<option value="deep"' + (c.debugLevel === 'deep' ? ' selected' : '') + '>Deep</option>' +
+            '</select></div>' +
+            '<div class="achat-cfg-group"><label class="achat-cfg-label">Debug Toggle</label>' +
+            '<label style="font-size:9px;display:flex;gap:6px;align-items:center;margin-top:8px;"><input type="checkbox" class="achat-cfg-check" data-cfg="debugMode"' + (c.debugMode ? ' checked' : '') + ' /> Enable debug mode during loop runs</label></div>' +
+            '</div>' +
+            '<div class="hint" style="font-size:9px;color:var(--text-dim);margin:0 0 2px;">Debug mode adds explicit anomaly/counter-test guidance and per-step diagnostic summaries.</div>' +
 
             // Output
             '<div style="display:flex;gap:6px;margin:4px 0;align-items:center;">' +
@@ -9689,6 +9779,8 @@
         var reapEnabled = cfg.reappropriationEnabled !== false;
         var contextStrategy = String(cfg.contextStrategy || 'sliding-window');
         var contextWindowSize = _cfgInt(cfg.contextWindowSize, 20, 5, 200);
+        var debugMode = !!cfg.debugMode;
+        var debugLevel = String(cfg.debugLevel || 'standard').toLowerCase();
 
         var lines = [];
 
@@ -9780,6 +9872,17 @@
         lines.push('4. RECORD: Note each finding — successful or failed — for your final report.');
         lines.push('5. ITERATE: If a tool reveals something unexpected, investigate further. Do NOT skip anomalies.');
         lines.push('Use tools as needed to accomplish the mission. Do NOT call every granted tool — only call tools relevant to the task.');
+
+        if (debugMode) {
+            lines.push('\n## DEBUG MODE (ACTIVE)');
+            lines.push('Mission execution and debugging run in parallel.');
+            lines.push('Track anomalies continuously: tool errors, empty outputs, schema/policy mismatches, latency spikes, and contradictory signals.');
+            lines.push('When you suspect a failure, run at least one counter-test before declaring it a confirmed issue (when safe).');
+            lines.push('In final_answer include explicit sections: Observed Signals, Confirmed Issues, Counter-Tests, Residual Risks, and Next Fixes.');
+            if (debugLevel === 'deep') {
+                lines.push('Debug level is DEEP: prioritize root-cause isolation and validation depth over speed.');
+            }
+        }
 
         lines.push('\n## CONTINUATION');
         lines.push('You will receive results after each tool call. Use those results to inform your next action.');
@@ -10264,6 +10367,9 @@
             noteEl.innerHTML =
                 'Deterministic loop mode runs <b>invoke_slot</b> iteratively and executes only your granted tool policy (<b>' +
                 (tab.grantedTools ? tab.grantedTools.length : 0) + '</b> tools). While running, press Send with new text to queue a <b>LIVE UPDATE</b>.';
+            if (_isAchatDebugEnabled(tab)) {
+                noteEl.innerHTML += '<br><span style="color:#fca5a5;">Debug mode is active: loop emits additional diagnostic summaries per step.</span>';
+            }
             fieldsEl.innerHTML = '';
             return;
         }
@@ -10470,6 +10576,7 @@
         _renderAchatAgentConfig(tab);
         _renderAchatMessages(tab);
         _renderAchatPolicyPanel(tab);
+        _refreshAchatDebugControls(tab);
 
         var inputEl = document.getElementById('achat-input');
         if (focusInput && inputEl) setTimeout(function () { inputEl.focus(); }, 30);
@@ -10512,11 +10619,15 @@
             if (!tab.canChat) {
                 metaEl.innerHTML += '<span class="achat-tag" style="color:#f59e0b;border-color:#f59e0b;background:rgba(245,158,11,0.12);">NO AGENT LOOP</span>';
             }
+            if (_isAchatDebugEnabled(tab)) {
+                metaEl.innerHTML += '<span class="achat-tag" style="color:#fca5a5;border-color:#7f1d1d;background:rgba(127,29,29,0.22);">DEBUG</span>';
+            }
         }
 
         if (toolCountEl) toolCountEl.textContent = String((tab.grantedTools || []).length);
         if (blockedEl) blockedEl.textContent = String(Object.keys(_achatBlockedTools).length);
         if (modeEl) modeEl.value = tab.runMode || (tab.canChat ? 'loop' : 'direct');
+        _refreshAchatDebugControls(tab);
     }
 
     function _bindAchatComposerEvents() {
@@ -10692,6 +10803,20 @@
         _renderAchatAgentConfig(tab);
     }
     window.toggleAchatAgentConfig = toggleAchatAgentConfig;
+
+    function toggleAchatDebugMode() {
+        var tab = _getActiveAchatTab();
+        if (!tab || !tab.agentConfig) return;
+        tab.agentConfig.debugMode = !tab.agentConfig.debugMode;
+        _saveAgentConfig(tab);
+        _refreshAchatDebugControls(tab);
+        _refreshAchatMeta();
+        _renderAchatToolConfig(tab);
+        var cfgPanel = document.getElementById('achat-agent-config');
+        if (cfgPanel) cfgPanel.outerHTML = _renderAgentConfigPanel(tab);
+        mpToast('Debug mode ' + (tab.agentConfig.debugMode ? 'enabled' : 'disabled'), tab.agentConfig.debugMode ? 'warn' : 'ok', 1800);
+    }
+    window.toggleAchatDebugMode = toggleAchatDebugMode;
 
     function _setAchatBusy(busy) {
         _achatBusy = busy;
@@ -10884,6 +11009,74 @@
         return 0;
     }
 
+    function _debugToolHintsForGranted(grantedTools) {
+        var granted = Array.isArray(grantedTools) ? grantedTools : [];
+        var ranked = [
+            'symbiotic_interpret',
+            'trace_root_causes',
+            'diagnose_file',
+            'diagnose_directory',
+            'observe',
+            'cascade_system',
+            'cascade_graph',
+            'cascade_record',
+            'metrics_analyze',
+            'forensics_analyze',
+            'workflow_status',
+            'workflow_history',
+            'agent_chat_result',
+            'agent_chat_sessions'
+        ];
+        var out = [];
+        for (var i = 0; i < ranked.length; i++) {
+            if (granted.indexOf(ranked[i]) >= 0) out.push(ranked[i]);
+        }
+        return out.slice(0, 8);
+    }
+
+    function _recordLoopDebugStep(ls, stepInfo) {
+        if (!ls || !stepInfo || typeof stepInfo !== 'object') return;
+        if (!Array.isArray(ls.debugSteps)) ls.debugSteps = [];
+        if (!ls.debugToolStats || typeof ls.debugToolStats !== 'object') ls.debugToolStats = {};
+        ls.debugSteps.push(stepInfo);
+        if (ls.debugSteps.length > 25) ls.debugSteps.shift();
+        var tools = Array.isArray(stepInfo.tools) ? stepInfo.tools : [];
+        for (var i = 0; i < tools.length; i++) {
+            var t = String(tools[i] || '').trim();
+            if (!t) continue;
+            if (!ls.debugToolStats[t]) ls.debugToolStats[t] = { calls: 0, failures: 0 };
+            ls.debugToolStats[t].calls += 1;
+            if ((parseInt(stepInfo.failures, 10) || 0) > 0) ls.debugToolStats[t].failures += 1;
+        }
+    }
+
+    function _latestLoopDebugStep(ls) {
+        if (!ls || !Array.isArray(ls.debugSteps) || !ls.debugSteps.length) return null;
+        return ls.debugSteps[ls.debugSteps.length - 1];
+    }
+
+    function _formatLoopDebugSnapshot(ls) {
+        var snap = { steps: 0, failingSteps: 0, emptySteps: 0, scaffoldSteps: 0, topFailTools: '' };
+        if (!ls || !Array.isArray(ls.debugSteps)) return snap;
+        snap.steps = ls.debugSteps.length;
+        for (var i = 0; i < ls.debugSteps.length; i++) {
+            var s = ls.debugSteps[i] || {};
+            if ((parseInt(s.failures, 10) || 0) > 0) snap.failingSteps += 1;
+            if (s.noToolCalls) snap.emptySteps += 1;
+            if (s.loopScaffoldAnswer) snap.scaffoldSteps += 1;
+        }
+        var failPairs = [];
+        var stats = ls.debugToolStats || {};
+        var names = Object.keys(stats);
+        for (var j = 0; j < names.length; j++) {
+            var n = names[j];
+            var fs = parseInt((stats[n] || {}).failures, 10) || 0;
+            if (fs > 0) failPairs.push(n + '(' + fs + ')');
+        }
+        snap.topFailTools = failPairs.slice(0, 5).join(', ');
+        return snap;
+    }
+
 
     function sendAgentChat() {
         var tab = _getActiveAchatTab();
@@ -10955,6 +11148,14 @@
         if ((tab.runMode || 'direct') === 'loop' && toolName === 'agent_chat') {
             var mission = msg || 'Proceed with the configured objective.';
             _appendAchatMsg('user', 'MISSION: ' + mission, Date.now(), tab);
+            if (_isAchatDebugEnabled(tab)) {
+                var dbgLevel = String((tab.agentConfig && tab.agentConfig.debugLevel) || 'standard');
+                _appendAchatMsg('system-info',
+                    'DEBUG MODE active (' + dbgLevel + ') · granted=' + (tab.grantedTools || []).length + ' · blocked=' + Object.keys(_achatBlockedTools).length,
+                    Date.now(),
+                    tab
+                );
+            }
             _setAchatBusy(true);
             var _cfg = tab.agentConfig || _defaultAgentConfig();
             var _maxIter = _cfgInt((document.getElementById('achat-max-iter') || {}).value, _agentMaxIterations(tab), 1, 200);
@@ -10979,7 +11180,9 @@
                 maxTokens: _cfgInt((document.getElementById('achat-max-tokens') || {}).value, _agentMaxTokens(tab), 64, 8192),
                 totalToolCalls: 0,
                 calledTools: {},
-                startTime: Date.now()
+                startTime: Date.now(),
+                debugSteps: [],
+                debugToolStats: {}
             };
             _fireAgentIteration(tab);
             return;
@@ -11017,6 +11220,9 @@
             return;
         }
         var ls = tab._loopState;
+        var debugEnabled = _isAchatDebugEnabled(tab);
+        var debugLevel = String(((tab.agentConfig || {}).debugLevel || 'standard')).toLowerCase();
+        var debugHints = _debugToolHintsForGranted(tab.grantedTools || []);
         if (ls.iteration >= ls.maxIterations) {
             _appendAchatMsg('system-info', 'Loop reached max iterations (' + ls.maxIterations + ').', Date.now(), tab);
             _setAchatBusy(false);
@@ -11045,6 +11251,17 @@
                 'If you mention tool counts, use granted=' + grantedCount + ' and blocked=' + blockedCount + '. ' +
                 'Do NOT conflate get_capabilities inventory count with granted-tool policy count.\n\n' +
                 'Original mission: ' + (ls.mission || 'N/A');
+            if (debugEnabled) {
+                var dbgSnap = _formatLoopDebugSnapshot(ls);
+                nextMsg += '\n\nDEBUG MODE REPORT CONTRACT:\n' +
+                    'Return final_answer with sections: OBSERVED SIGNALS, CONFIRMED ISSUES, COUNTER-TESTS, RESIDUAL RISKS, NEXT FIXES.\n' +
+                    'For each confirmed issue include evidence, what was tested, and confidence level.\n' +
+                    'Runtime debug telemetry: steps=' + dbgSnap.steps +
+                    ', failing_steps=' + dbgSnap.failingSteps +
+                    ', empty_steps=' + dbgSnap.emptySteps +
+                    ', loop_scaffold_steps=' + dbgSnap.scaffoldSteps +
+                    (dbgSnap.topFailTools ? ', failed_tools=' + dbgSnap.topFailTools : '') + '.';
+            }
         } else {
             var _minCalls = parseInt(ls.minToolCalls, 10) || 1;
             if (_minCalls > 1) {
@@ -11054,6 +11271,24 @@
                     'Do not execute multiple tool calls in a single step. ' +
                     'Current progress: ' + (ls.totalToolCalls || 0) + '/' + _minCalls + ' tool calls (remaining ' + _remaining + ').\n\n' +
                     nextMsg;
+            }
+            if (debugEnabled) {
+                var latestDbg = _latestLoopDebugStep(ls);
+                var dbgLine =
+                    'DEBUG MODE ACTIVE. Continue mission execution while auditing behavior for anomalies, and counter-test suspected failures when safe. ' +
+                    (debugLevel === 'deep' ? 'Use deeper root-cause probing before concluding.' : 'Keep diagnostics concise and evidence-backed.');
+                if (latestDbg) {
+                    dbgLine += ' Latest signal: step #' + (latestDbg.step || ls.iteration) +
+                        ', tools=' + ((latestDbg.tools && latestDbg.tools.length) ? latestDbg.tools.join(',') : 'none') +
+                        ', failures=' + (latestDbg.failures || 0) +
+                        (latestDbg.noToolCalls ? ', no_tool_calls' : '') +
+                        (latestDbg.noFinalAnswer ? ', no_final_answer' : '') + '.';
+                }
+                if (debugHints.length) {
+                    dbgLine += ' Diagnostic tools available: ' + debugHints.join(', ') + '.';
+                }
+                nextMsg =
+                    dbgLine + '\n\n' + nextMsg;
             }
         }
 

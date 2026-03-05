@@ -4066,12 +4066,14 @@
             <button class="btn-dim" onclick="toggleAchatToolConfig()">ARGS</button>
             <button class="btn-dim" onclick="toggleAchatPolicy()">TOOL ACCESS</button>
             <button class="btn-dim" onclick="toggleAchatAgentConfig()">CONFIG</button>
+            <button class="btn-dim" id="achat-debug-toggle" onclick="toggleAchatDebugMode()">DEBUG OFF</button>
             <button class="btn-dim" style="color:#fca5a5;border-color:#7f1d1d;background:rgba(127,29,29,0.22);" onclick="requestAchatKillSwitch()">KILL</button>
             <span>Mode:</span>
             <select id="achat-run-mode" title="Execution mode">
                 <option value="loop">AGENT LOOP</option>
                 <option value="direct">DIRECT TOOL</option>
             </select>
+            <span>Debug: <span id="achat-debug-state" style="color:var(--text-dim);">OFF</span></span>
 
             <span>Granted:</span>
             <span class="achat-tool-count" id="achat-tool-count">0</span>
