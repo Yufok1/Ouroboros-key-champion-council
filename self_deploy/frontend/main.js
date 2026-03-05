@@ -5393,20 +5393,24 @@
                         };
 
                         var safeKey = _safeBagKeyId(_openDrillKey);
-                        var publishBtnId = 'publish-btn-' + safeKey;
                         var commitBtnId = 'commit-btn-' + safeKey;
                         var gitMetaId = 'bag-git-meta-' + safeKey;
                         var gitDiffId = 'bag-git-diff-' + safeKey;
                         var gitDisabled = (_gitProbed && !_gitAvailable);
+                        var isWebMode = !!window.__vsCodeShimInstalled;
                         var commitBtnStyle = gitDisabled
                             ? 'font-size:9px;padding:2px 8px;cursor:not-allowed;background:var(--surface2);color:var(--text-dim);opacity:0.45;border:1px solid var(--border);border-radius:3px;'
                             : 'font-size:9px;padding:2px 8px;cursor:pointer;background:var(--surface2);color:var(--accent);border:1px solid var(--border);border-radius:3px;';
+                        var actionButtons = '';
+                        if (!isWebMode) {
+                            actionButtons =
+                                '<button id="' + commitBtnId + '" data-bag-key="' + _esc(_openDrillKey) + '" onclick="commitBagVersion(this)"' + (gitDisabled ? ' disabled title="Git not available"' : '') + ' style="' + commitBtnStyle + '">Commit Version</button>';
+                        }
                         drillDiv.innerHTML =
                             '<div style="padding:4px 12px;font-size:10px;color:var(--text-dim);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">' +
                             '<span>' + lineCount + ' lines · ' + _fmtSize(contentStr.length) + ' · v' + verNum + '</span>' +
                             '<div style="display:flex;align-items:center;gap:6px;">' +
-                            '<button id="' + publishBtnId + '" data-bag-key="' + _esc(_openDrillKey) + '" onclick="publishBagToMarketplace(this)" style="font-size:9px;padding:2px 8px;cursor:pointer;background:var(--surface2);color:#60a5fa;border:1px solid var(--border);border-radius:3px;">Publish to Marketplace</button>' +
-                            '<button id="' + commitBtnId + '" data-bag-key="' + _esc(_openDrillKey) + '" onclick="commitBagVersion(this)"' + (gitDisabled ? ' disabled title="Git not available"' : '') + ' style="' + commitBtnStyle + '">Commit Version</button>' +
+                            actionButtons +
                             '</div>' +
                             '</div>' +
                             '<div id="' + gitMetaId + '" style="padding:8px 12px;border-bottom:1px solid var(--border);font-size:10px;color:var(--text-dim);">Loading git details...</div>' +
