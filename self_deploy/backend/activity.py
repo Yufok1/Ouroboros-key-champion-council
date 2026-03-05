@@ -5,7 +5,7 @@ import json
 import os
 import time
 import uuid
-from typing import Any
+from typing import Any, Callable
 
 
 SILENT_TOOLS = frozenset([
@@ -65,18 +65,27 @@ def parse_mcp_result(result: dict | None) -> dict | list | str | None:
 
 
 class ActivityHub:
-    def __init__(self, max_entries: int = 500, suppress_silent_tools: bool | None = None):
+    def __init__(
+        self,
+        max_entries: int = 500,
+        suppress_silent_tools: bool | None = None,
+        mirror_callback: Callable[[dict[str, Any]], None] | None = None,
+    ):
         self.max_entries = max_entries
         self.log: list[dict[str, Any]] = []
         self.subscribers: list[asyncio.Queue] = []
         self._next_event_id = 1
         self.session_id = os.environ.get("ACTIVITY_SESSION_ID", "").strip() or uuid.uuid4().hex
+        self._mirror_callback: Callable[[dict[str, Any]], None] | None = mirror_callback
         if suppress_silent_tools is None:
             suppress_silent_tools = (
                 os.environ.get("ACTIVITY_SUPPRESS_SILENT_TOOLS", "0").strip().lower()
                 in ("1", "true", "yes", "on")
             )
         self.suppress_silent_tools = suppress_silent_tools
+
+    def set_mirror_callback(self, callback: Callable[[dict[str, Any]], None] | None) -> None:
+        self._mirror_callback = callback
 
     @staticmethod
     def _coerce_event_id(value: str | int | None) -> int | None:
@@ -126,6 +135,11 @@ class ActivityHub:
         self.log.append(entry)
         if len(self.log) > self.max_entries:
             self.log.pop(0)
+        if self._mirror_callback:
+            try:
+                self._mirror_callback(entry)
+            except Exception:
+                pass
 
         dead: list[asyncio.Queue] = []
         for q in self.subscribers:

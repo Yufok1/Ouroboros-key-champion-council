@@ -435,7 +435,7 @@ async def postprocess_tool_result(
             return any(m in low for m in retry_markers)
         return False
 
-    # --- Fix compare: retry slots that fail ---
+    # --- Fix compare: retry failures + reconstruct explicit slot filters when capsule returns [] ---
     if tool_name == "compare" and isinstance(parsed, dict):
         comparisons = parsed.get("comparisons", [])
         patched = False
@@ -454,6 +454,94 @@ async def postprocess_tool_result(
                         patched = True
         if patched:
             return {"result": {"content": [{"type": "text", "text": json.dumps(parsed)}]}}
+
+        requested_slots = args.get("slots")
+        if isinstance(requested_slots, list) and requested_slots and isinstance(comparisons, list) and len(comparisons) == 0:
+            try:
+                slots_result = await call_tool_fn("list_slots", {})
+                slots_parsed = parse_mcp_result(slots_result.get("result"))
+                if isinstance(slots_parsed, dict) and slots_parsed.get("_cached"):
+                    _ls_cr = await call_tool_fn("get_cached", {"cache_id": str(slots_parsed["_cached"])})
+                    _ls_full = parse_mcp_result((_ls_cr or {}).get("result"))
+                    if isinstance(_ls_full, dict):
+                        slots_parsed = _ls_full
+                slots_list = slots_parsed.get("slots", []) if isinstance(slots_parsed, dict) else []
+                slots_by_idx = {}
+                slots_by_name = {}
+                for s in slots_list:
+                    if not isinstance(s, dict):
+                        continue
+                    try:
+                        idx = int(s.get("index", s.get("slot", -1)))
+                    except Exception:
+                        continue
+                    slots_by_idx[idx] = s
+                    nm = str(s.get("name") or "").strip().lower()
+                    if nm:
+                        slots_by_name[nm] = idx
+
+                selected = []
+                selected_set = set()
+                unresolved = []
+                for token in requested_slots:
+                    idx = None
+                    if isinstance(token, int):
+                        idx = token
+                    else:
+                        raw = str(token).strip()
+                        low = raw.lower()
+                        if low.lstrip("+-").isdigit():
+                            idx = int(low)
+                        elif low.startswith("s") and low[1:].isdigit():
+                            idx = int(low[1:]) - 1
+                        elif low in slots_by_name:
+                            idx = slots_by_name[low]
+                    if idx is None:
+                        unresolved.append(str(token))
+                        continue
+                    if idx in selected_set:
+                        continue
+                    selected_set.add(idx)
+                    selected.append(idx)
+
+                rebuilt = []
+                compare_text = str(args.get("input_text", "") or "")
+                for idx in selected:
+                    slot_info = slots_by_idx.get(idx, {})
+                    slot_name = str(slot_info.get("name") or f"slot_{idx}")
+                    if not bool(slot_info.get("plugged")):
+                        rebuilt.append({"slot": idx, "name": slot_name, "status": "empty"})
+                        continue
+                    out = await _retry_slot_generate(idx, compare_text)
+                    if out:
+                        rebuilt.append({
+                            "slot": idx,
+                            "name": slot_name,
+                            "status": "ok",
+                            "type": "generation",
+                            "output": out,
+                            "note": "rebuilt via proxy slot-filter fallback",
+                        })
+                    else:
+                        rebuilt.append({
+                            "slot": idx,
+                            "name": slot_name,
+                            "status": "error",
+                            "error": "No output from slot during proxy slot-filter fallback",
+                        })
+
+                for token in unresolved:
+                    rebuilt.append({
+                        "selector": token,
+                        "status": "error",
+                        "error": "Slot selector did not match any slot",
+                    })
+
+                parsed["comparisons"] = rebuilt
+                parsed["note"] = "compare slot-filter fallback applied"
+                return {"result": {"content": [{"type": "text", "text": json.dumps(parsed)}]}}
+            except Exception:
+                pass
 
     # --- Fix debate: retry slots that fail ---
     if tool_name == "debate" and isinstance(parsed, dict):

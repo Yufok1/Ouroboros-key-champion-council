@@ -92,6 +92,60 @@ persistence = PersistenceManager(
 )
 
 HF_ROUTER_BASE = os.environ.get("HF_ROUTER_BASE", "https://router.huggingface.co").rstrip("/")
+_DEBUG_FEED_MIRROR_ENABLED = os.environ.get("DEBUG_FEED_MIRROR_ENABLED", "1").strip().lower() in ("1", "true", "yes", "on")
+_DEBUG_FEED_MIRROR_MAX_CHARS = max(64, int(os.environ.get("DEBUG_FEED_MIRROR_MAX_CHARS", "320") or 320))
+_DEBUG_FEED_MIRROR_EXCLUDED_TOOLS = frozenset({
+    "observe",
+    "feed",
+    "get_cached",
+    "list_tools",
+    "api_health",
+})
+
+
+def _activity_preview(value, max_chars: int | None = None) -> str:
+    limit = int(max_chars or _DEBUG_FEED_MIRROR_MAX_CHARS)
+    try:
+        if isinstance(value, str):
+            out = value
+        else:
+            out = json.dumps(value, ensure_ascii=False, default=str)
+    except Exception:
+        out = str(value)
+    out = out.strip()
+    if len(out) > limit:
+        out = out[:limit] + "..."
+    return out
+
+
+def _schedule_feed_mirror(entry: dict[str, object]) -> None:
+    if not _DEBUG_FEED_MIRROR_ENABLED:
+        return
+    tool = str((entry or {}).get("tool") or "")
+    if tool in _DEBUG_FEED_MIRROR_EXCLUDED_TOOLS:
+        return
+
+    async def _emit():
+        try:
+            payload = {
+                "tool": tool,
+                "category": str((entry or {}).get("category") or ""),
+                "source": str((entry or {}).get("source") or ""),
+                "client_id": str((entry or {}).get("clientId") or ""),
+                "duration_ms": int((entry or {}).get("durationMs") or 0),
+                "error": (entry or {}).get("error"),
+                "args_preview": _activity_preview((entry or {}).get("args") or {}, 220),
+                "result_preview": _activity_preview((entry or {}).get("result"), _DEBUG_FEED_MIRROR_MAX_CHARS),
+                "timestamp_ms": int((entry or {}).get("timestamp") or int(time.time() * 1000)),
+            }
+            await _call_tool("observe", {"signal_type": "event", "data": json.dumps(payload, ensure_ascii=False)})
+        except Exception:
+            pass
+
+    try:
+        asyncio.get_running_loop().create_task(_emit())
+    except Exception:
+        pass
 
 
 def _hf_router_token(explicit: str | None = None) -> str | None:
@@ -1235,6 +1289,9 @@ def _normalize_proxy_tool_args(tool_name: str, args: dict | None) -> dict:
 
 async def _call_tool(name: str, arguments: dict) -> dict:
     return await mcp_client.call_tool(name, arguments)
+
+
+activity_hub.set_mirror_callback(_schedule_feed_mirror)
 
 
 async def _list_tools() -> dict:

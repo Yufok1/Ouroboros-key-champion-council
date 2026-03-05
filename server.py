@@ -1015,6 +1015,50 @@ def _broadcast_activity(tool: str, args: dict, result: dict | None, duration_ms:
             _activity_subscribers.remove(q)
         except ValueError:
             pass
+    if _DEBUG_FEED_MIRROR_ENABLED and tool not in _DEBUG_FEED_MIRROR_EXCLUDED_TOOLS:
+        try:
+            asyncio.get_running_loop().create_task(_mirror_activity_to_observe(entry))
+        except Exception:
+            pass
+
+
+def _activity_preview(value, max_chars: int | None = None) -> str:
+    limit = int(max_chars or _DEBUG_FEED_MIRROR_MAX_CHARS)
+    try:
+        if isinstance(value, str):
+            out = value
+        else:
+            out = json.dumps(value, ensure_ascii=False, default=str)
+    except Exception:
+        out = str(value)
+    out = out.strip()
+    if len(out) > limit:
+        out = out[:limit] + "..."
+    return out
+
+
+async def _mirror_activity_to_observe(entry: dict):
+    """Mirror activity entries into observe()/feed for direct debug telemetry."""
+    if not _DEBUG_FEED_MIRROR_ENABLED:
+        return
+    tool = str((entry or {}).get("tool") or "")
+    if tool in _DEBUG_FEED_MIRROR_EXCLUDED_TOOLS:
+        return
+    try:
+        payload = {
+            "tool": tool,
+            "category": str((entry or {}).get("category") or ""),
+            "source": str((entry or {}).get("source") or ""),
+            "client_id": str((entry or {}).get("clientId") or ""),
+            "duration_ms": int((entry or {}).get("durationMs") or 0),
+            "error": (entry or {}).get("error"),
+            "args_preview": _activity_preview((entry or {}).get("args") or {}, 220),
+            "result_preview": _activity_preview((entry or {}).get("result"), _DEBUG_FEED_MIRROR_MAX_CHARS),
+            "timestamp_ms": int((entry or {}).get("timestamp") or int(time.time() * 1000)),
+        }
+        await _call_tool("observe", {"signal_type": "event", "data": json.dumps(payload, ensure_ascii=False)})
+    except Exception:
+        pass
 
 def _broadcast_agent_inner_calls(tool_name: str, result, duration_ms: int, source: str = "external", client_id: str | None = None):
     """Extract inner tool_calls from agent_chat results and broadcast each as a separate activity entry."""
@@ -1079,6 +1123,15 @@ capsule_log_lines = []
 # Activity tracking for SSE broadcast to web UI
 _activity_log = []       # list of activity event dicts
 _activity_subscribers = []  # list of asyncio.Queue for SSE clients
+_DEBUG_FEED_MIRROR_ENABLED = os.environ.get("DEBUG_FEED_MIRROR_ENABLED", "1").strip().lower() in ("1", "true", "yes", "on")
+_DEBUG_FEED_MIRROR_MAX_CHARS = max(64, int(os.environ.get("DEBUG_FEED_MIRROR_MAX_CHARS", "320") or 320))
+_DEBUG_FEED_MIRROR_EXCLUDED_TOOLS = frozenset({
+    "observe",
+    "feed",
+    "get_cached",
+    "list_tools",
+    "api_health",
+})
 
 # Pending external tool calls — maps JSON-RPC id → {tool, args, start}
 # Populated by mcp_message_proxy, resolved by mcp_sse_proxy when the
@@ -4104,7 +4157,7 @@ async def _postprocess_tool_result(tool_name: str, args: dict, result: dict) -> 
             return any(m in low for m in retry_markers)
         return False
 
-    # --- Fix compare: retry slots that fail with embedding/system-role errors ---
+    # --- Fix compare: retry failures + reconstruct explicit slot filters when capsule returns [] ---
     if tool_name == "compare" and isinstance(parsed, dict):
         comparisons = parsed.get("comparisons", [])
         patched = False
@@ -4123,6 +4176,96 @@ async def _postprocess_tool_result(tool_name: str, args: dict, result: dict) -> 
                         patched = True
         if patched:
             return {"result": {"content": [{"type": "text", "text": json.dumps(parsed)}]}}
+
+        # Some capsule builds return an empty comparisons list when explicit slots
+        # are provided. Reconstruct deterministically at proxy level.
+        requested_slots = args.get("slots")
+        if isinstance(requested_slots, list) and requested_slots and isinstance(comparisons, list) and len(comparisons) == 0:
+            try:
+                slots_result = await _call_tool("list_slots", {})
+                slots_parsed = _parse_mcp_result(slots_result.get("result"))
+                if isinstance(slots_parsed, dict) and slots_parsed.get("_cached"):
+                    _ls_cr = await _call_tool("get_cached", {"cache_id": str(slots_parsed["_cached"])})
+                    _ls_full = _parse_mcp_result(_ls_cr.get("result"))
+                    if isinstance(_ls_full, dict):
+                        slots_parsed = _ls_full
+                slots_list = slots_parsed.get("slots", []) if isinstance(slots_parsed, dict) else []
+                slots_by_idx = {}
+                slots_by_name = {}
+                for s in slots_list:
+                    if not isinstance(s, dict):
+                        continue
+                    try:
+                        idx = int(s.get("index", s.get("slot", -1)))
+                    except Exception:
+                        continue
+                    slots_by_idx[idx] = s
+                    nm = str(s.get("name") or "").strip().lower()
+                    if nm:
+                        slots_by_name[nm] = idx
+
+                selected = []
+                selected_set = set()
+                unresolved = []
+                for token in requested_slots:
+                    idx = None
+                    if isinstance(token, int):
+                        idx = token
+                    else:
+                        raw = str(token).strip()
+                        low = raw.lower()
+                        if low.lstrip("+-").isdigit():
+                            idx = int(low)
+                        elif low.startswith("s") and low[1:].isdigit():
+                            idx = int(low[1:]) - 1
+                        elif low in slots_by_name:
+                            idx = slots_by_name[low]
+                    if idx is None:
+                        unresolved.append(str(token))
+                        continue
+                    if idx in selected_set:
+                        continue
+                    selected_set.add(idx)
+                    selected.append(idx)
+
+                rebuilt = []
+                compare_text = str(args.get("input_text", "") or "")
+                for idx in selected:
+                    slot_info = slots_by_idx.get(idx, {})
+                    slot_name = str(slot_info.get("name") or f"slot_{idx}")
+                    if not bool(slot_info.get("plugged")):
+                        rebuilt.append({"slot": idx, "name": slot_name, "status": "empty"})
+                        continue
+                    out = await _retry_slot_generate(idx, compare_text)
+                    if out:
+                        rebuilt.append({
+                            "slot": idx,
+                            "name": slot_name,
+                            "status": "ok",
+                            "type": "generation",
+                            "output": out,
+                            "note": "rebuilt via proxy slot-filter fallback",
+                        })
+                    else:
+                        rebuilt.append({
+                            "slot": idx,
+                            "name": slot_name,
+                            "status": "error",
+                            "error": "No output from slot during proxy slot-filter fallback",
+                        })
+
+                for token in unresolved:
+                    rebuilt.append({
+                        "selector": token,
+                        "status": "error",
+                        "error": "Slot selector did not match any slot",
+                    })
+
+                parsed["comparisons"] = rebuilt
+                parsed["note"] = "compare slot-filter fallback applied"
+                return {"result": {"content": [{"type": "text", "text": json.dumps(parsed)}]}}
+            except Exception:
+                pass
 
     # --- Fix debate: retry slots that fail with embedding/system-role errors ---
     if tool_name == "debate" and isinstance(parsed, dict):
