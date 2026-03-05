@@ -460,7 +460,8 @@
                         // without re-rendering (preserves expanded details).
                         // Individual 'activity' events handle live rendering.
                         var needsRender = _activityLog.length === 0 && msg.activityLog.length > 0;
-                        _rehydrateActivityLog(msg.activityLog);
+                        if (_activityLog.length === 0) _rehydrateActivityLog(msg.activityLog);
+                        else _mergeActivityLogWithLocalDebug(msg.activityLog);
                         if (needsRender) renderActivityFeed();
                     }
                     updateHeader(msg);
@@ -2237,6 +2238,27 @@
 
         _activityTraceCounts = traceCounts;
         _activityLog = next;
+    }
+
+    function _mergeActivityLogWithLocalDebug(entries) {
+        var serverIncoming = Array.isArray(entries) ? entries.slice() : [];
+        var merged = serverIncoming.slice();
+        var seen = {};
+        for (var i = 0; i < merged.length; i++) {
+            var sig = _activitySignature(merged[i]);
+            if (sig) seen[sig] = 1;
+        }
+        // Preserve local UI-only debug telemetry rows across periodic state sync.
+        for (var j = 0; j < _activityLog.length; j++) {
+            var localEv = _activityLog[j];
+            if (!localEv || typeof localEv !== 'object') continue;
+            if (String(localEv.source || '') !== 'agent-debug') continue;
+            var lsig = _activitySignature(localEv);
+            if (!lsig || seen[lsig]) continue;
+            merged.push(localEv);
+            seen[lsig] = 1;
+        }
+        _rehydrateActivityLog(merged);
     }
 
     function addActivityEntry(event) {
