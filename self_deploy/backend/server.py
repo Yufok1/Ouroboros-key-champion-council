@@ -3027,8 +3027,9 @@ async def _server_side_agent_chat(
 
             tool_calls_log.append({
                 "tool": called_tool, "args": called_args,
-                "result": tool_result_str[:500] if tool_result_str else "",
+                "result": tool_result_str if tool_result_str else "",
                 "error": str(tool_error) if tool_error else None,
+                "result_chars": len(tool_result_str) if tool_result_str else 0,
                 "duration_ms": tool_ms, "iteration": iteration,
             })
 
@@ -4157,7 +4158,7 @@ async def proxy_tool_call(tool_name: str, request: Request):
         )
         return JSONResponse(status_code=409, content=payload)
 
-    if tool_name in _LIVE_START_TOOLS:
+    if tool_name in _LIVE_START_TOOLS and tool_name != "agent_chat":
         activity_hub.add_entry(
             tool=tool_name,
             args=call_args,
@@ -5501,7 +5502,7 @@ async def _handle_streamable_rpc(obj: dict, client_id: str | None) -> dict | Non
             )
             return _rpc_error(rpc_id, -32011, err_msg, payload)
 
-        if tool_name in _LIVE_START_TOOLS:
+        if tool_name in _LIVE_START_TOOLS and tool_name != "agent_chat":
             activity_hub.add_entry(
                 tool=tool_name,
                 args=args,

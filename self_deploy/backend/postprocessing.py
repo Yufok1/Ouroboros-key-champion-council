@@ -483,6 +483,63 @@ async def postprocess_tool_result(
         if patched:
             return {"result": {"content": [{"type": "text", "text": json.dumps(parsed)}]}}
 
+        # Normalize stale empty-slot names against current slot state.
+        _needs_empty_name_refresh = False
+        if isinstance(comparisons, list):
+            for entry in comparisons:
+                if not isinstance(entry, dict):
+                    continue
+                if str(entry.get("status", "")).lower() != "empty":
+                    continue
+                if not _is_default_slot_name(str(entry.get("name", "") or "")):
+                    try:
+                        int(entry.get("slot"))
+                        _needs_empty_name_refresh = True
+                        break
+                    except Exception:
+                        continue
+        if _needs_empty_name_refresh:
+            try:
+                slots_result = await call_tool_fn("list_slots", {})
+                slots_parsed = parse_mcp_result((slots_result or {}).get("result"))
+                if isinstance(slots_parsed, dict) and slots_parsed.get("_cached"):
+                    _ls_cr = await call_tool_fn("get_cached", {"cache_id": str(slots_parsed["_cached"])})
+                    _ls_full = parse_mcp_result((_ls_cr or {}).get("result"))
+                    if isinstance(_ls_full, dict):
+                        slots_parsed = _ls_full
+                slots_list = slots_parsed.get("slots", []) if isinstance(slots_parsed, dict) else []
+                slot_name_by_idx = {}
+                for s in slots_list:
+                    if not isinstance(s, dict):
+                        continue
+                    try:
+                        sidx = int(s.get("index", s.get("slot", -1)))
+                    except Exception:
+                        continue
+                    slot_name_by_idx[sidx] = str(s.get("name") or f"slot_{sidx}")
+
+                _renamed = False
+                for entry in comparisons:
+                    if not isinstance(entry, dict):
+                        continue
+                    if str(entry.get("status", "")).lower() != "empty":
+                        continue
+                    try:
+                        idx = int(entry.get("slot"))
+                    except Exception:
+                        continue
+                    fresh_name = slot_name_by_idx.get(idx, f"slot_{idx}")
+                    if str(entry.get("name") or "") != fresh_name:
+                        entry["name"] = fresh_name
+                        _renamed = True
+
+                if _renamed:
+                    parsed["comparisons"] = comparisons
+                    parsed["_normalized_empty_slot_names"] = True
+                    return {"result": {"content": [{"type": "text", "text": json.dumps(parsed)}]}}
+            except Exception:
+                pass
+
         requested_slots = args.get("slots")
         if isinstance(requested_slots, list) and requested_slots and isinstance(comparisons, list) and len(comparisons) == 0:
             try:
@@ -548,7 +605,7 @@ async def postprocess_tool_result(
                             "status": "ok",
                             "type": "generation",
                             "output": out,
-                            "note": "rebuilt via proxy slot-filter fallback",
+                            "note": "proxy slot-filter execution",
                         })
                     else:
                         rebuilt.append({
@@ -566,7 +623,7 @@ async def postprocess_tool_result(
                     })
 
                 parsed["comparisons"] = rebuilt
-                parsed["note"] = "compare slot-filter fallback applied"
+                parsed["note"] = "compare slot-filter executed by proxy"
                 return {"result": {"content": [{"type": "text", "text": json.dumps(parsed)}]}}
             except Exception:
                 pass

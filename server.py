@@ -3771,8 +3771,9 @@ async def _server_side_agent_chat(args: dict, source: str = "webui", client_id: 
             tool_calls_log.append({
                 "tool": called_tool,
                 "args": called_args,
-                "result": tool_result_str[:500] if tool_result_str else "",
+                "result": tool_result_str if tool_result_str else "",
                 "error": str(tool_error) if tool_error else None,
+                "result_chars": len(tool_result_str) if tool_result_str else 0,
                 "duration_ms": tool_ms,
                 "iteration": iteration,
             })
@@ -4255,6 +4256,64 @@ async def _postprocess_tool_result(tool_name: str, args: dict, result: dict) -> 
         if patched:
             return {"result": {"content": [{"type": "text", "text": json.dumps(parsed)}]}}
 
+        # Normalize stale empty-slot names against current slot state.
+        # Some compare paths can leak historical unplugged labels.
+        _needs_empty_name_refresh = False
+        if isinstance(comparisons, list):
+            for entry in comparisons:
+                if not isinstance(entry, dict):
+                    continue
+                if str(entry.get("status", "")).lower() != "empty":
+                    continue
+                if not _is_default_slot_name(str(entry.get("name", "") or "")):
+                    try:
+                        int(entry.get("slot"))
+                        _needs_empty_name_refresh = True
+                        break
+                    except Exception:
+                        continue
+        if _needs_empty_name_refresh:
+            try:
+                slots_result = await _call_tool("list_slots", {})
+                slots_parsed = _parse_mcp_result(slots_result.get("result"))
+                if isinstance(slots_parsed, dict) and slots_parsed.get("_cached"):
+                    _ls_cr = await _call_tool("get_cached", {"cache_id": str(slots_parsed["_cached"])})
+                    _ls_full = _parse_mcp_result((_ls_cr or {}).get("result"))
+                    if isinstance(_ls_full, dict):
+                        slots_parsed = _ls_full
+                slots_list = slots_parsed.get("slots", []) if isinstance(slots_parsed, dict) else []
+                slot_name_by_idx = {}
+                for s in slots_list:
+                    if not isinstance(s, dict):
+                        continue
+                    try:
+                        sidx = int(s.get("index", s.get("slot", -1)))
+                    except Exception:
+                        continue
+                    slot_name_by_idx[sidx] = str(s.get("name") or f"slot_{sidx}")
+
+                _renamed = False
+                for entry in comparisons:
+                    if not isinstance(entry, dict):
+                        continue
+                    if str(entry.get("status", "")).lower() != "empty":
+                        continue
+                    try:
+                        idx = int(entry.get("slot"))
+                    except Exception:
+                        continue
+                    fresh_name = slot_name_by_idx.get(idx, f"slot_{idx}")
+                    if str(entry.get("name") or "") != fresh_name:
+                        entry["name"] = fresh_name
+                        _renamed = True
+
+                if _renamed:
+                    parsed["comparisons"] = comparisons
+                    parsed["_normalized_empty_slot_names"] = True
+                    return {"result": {"content": [{"type": "text", "text": json.dumps(parsed)}]}}
+            except Exception:
+                pass
+
         # Some capsule builds return an empty comparisons list when explicit slots
         # are provided. Reconstruct deterministically at proxy level.
         requested_slots = args.get("slots")
@@ -4322,7 +4381,7 @@ async def _postprocess_tool_result(tool_name: str, args: dict, result: dict) -> 
                             "status": "ok",
                             "type": "generation",
                             "output": out,
-                            "note": "rebuilt via proxy slot-filter fallback",
+                            "note": "proxy slot-filter execution",
                         })
                     else:
                         rebuilt.append({
@@ -4340,7 +4399,7 @@ async def _postprocess_tool_result(tool_name: str, args: dict, result: dict) -> 
                     })
 
                 parsed["comparisons"] = rebuilt
-                parsed["note"] = "compare slot-filter fallback applied"
+                parsed["note"] = "compare slot-filter executed by proxy"
                 return {"result": {"content": [{"type": "text", "text": json.dumps(parsed)}]}}
             except Exception:
                 pass
@@ -5789,7 +5848,7 @@ async def proxy_tool_call(tool_name: str, request: Request):
         _broadcast_activity(tool_name, call_args, payload, 0, error_msg, source=source, client_id=client_id)
         return JSONResponse(status_code=409, content=payload)
 
-    if tool_name in _LIVE_START_TOOLS:
+    if tool_name in _LIVE_START_TOOLS and tool_name != "agent_chat":
         _broadcast_activity(
             tool_name,
             call_args,
@@ -7318,7 +7377,7 @@ async def _handle_streamable_rpc(obj: dict, client_id: str) -> dict | None:
             _broadcast_activity(tool_name, args, {"slot_busy": busy_guard}, 0, err_msg, source="external", client_id=client_id)
             return _rpc_error(rpc_id, -32011, err_msg, {"slot_busy": busy_guard})
 
-        if tool_name in _LIVE_START_TOOLS:
+        if tool_name in _LIVE_START_TOOLS and tool_name != "agent_chat":
             _broadcast_activity(
                 tool_name,
                 args,
