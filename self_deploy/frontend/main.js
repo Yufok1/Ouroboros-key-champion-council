@@ -1280,10 +1280,15 @@
             var fs = slotsArr[fi] || {};
             var fSrc = fs.model_source || fs.model_id;
             if (fSrc && _getSlotVisualState(fs) === 'plugged' && !_slotHubInfoCache[fSrc] && _slotHubInfoCache[fSrc] !== false) {
+                var hubLookupId = _resolveHubModelId(fSrc);
+                if (!hubLookupId || hubLookupId.indexOf('/') < 1) {
+                    _slotHubInfoCache[fSrc] = false; // no resolvable HF model id
+                    continue;
+                }
                 _slotHubInfoCache[fSrc] = false; // mark as fetching to prevent duplicate calls
-                (function (src) {
-                    callTool('hub_info', { model_id: src }, 'hub_info_enrich');
-                })(fSrc);
+                (function (src, hubId) {
+                    callTool('hub_info', { model_id: hubId }, 'hub_info_enrich', { hubKey: src });
+                })(fSrc, hubLookupId);
             }
         }
 
@@ -1678,6 +1683,22 @@
         return (m[1] + m[2]).toUpperCase();
     }
 
+    function _resolveHubModelId(rawModel) {
+        var raw = String(rawModel || '').trim();
+        if (!raw) return '';
+        if (raw.indexOf('http://') === 0 || raw.indexOf('https://') === 0) {
+            try {
+                var u = new URL(raw, window.location.origin || undefined);
+                var qModel = String((u.searchParams && u.searchParams.get('model')) || '').trim();
+                if (qModel && qModel.indexOf('/') > 0) return qModel;
+                return '';
+            } catch (e) {
+                return '';
+            }
+        }
+        return raw;
+    }
+
     function _formatModelSizeGb(sizeMb) {
         var mb = Number(sizeMb || 0);
         if (!(mb > 0)) return '';
@@ -1692,10 +1713,11 @@
         }
 
         var model = String(((document.getElementById('plug-provider-model') || {}).value || '')).trim();
-        if (!model || model.indexOf('/') < 1) {
-            var hint = _inferParamHint(model);
+        var hubModelId = _resolveHubModelId(model);
+        if (!hubModelId || hubModelId.indexOf('/') < 1) {
+            var hint = _inferParamHint(model || hubModelId);
             if (hint) _setProviderModelMeta('Parameter hint: ' + hint, 'info');
-            else _setProviderModelMeta('Select a model to see basic metadata.', 'info');
+            else _setProviderModelMeta('Select a HuggingFace model ID to see metadata.', 'info');
             return;
         }
 
@@ -1703,11 +1725,11 @@
         _setProviderModelMeta('Loading model metadata…', 'info');
 
         try {
-            var info = await callToolAwaitParsed('hub_info', { model_id: model }, '__provider_hf_meta__', { timeout: 45000 });
+            var info = await callToolAwaitParsed('hub_info', { model_id: hubModelId }, '__provider_hf_meta__', { timeout: 45000 });
             if (seq !== _providerMetaSeq) return;
 
             if (!info || info.error) {
-                _setProviderModelMeta('Metadata unavailable for ' + model, 'error');
+                _setProviderModelMeta('Metadata unavailable for ' + hubModelId, 'error');
                 return;
             }
 
@@ -1715,7 +1737,7 @@
             var downloads = Number(info.downloads || 0);
             var likes = Number(info.likes || 0);
             var size = _formatModelSizeGb(info.size_mb);
-            var param = _inferParamHint(model);
+            var param = _inferParamHint(hubModelId);
 
             var bits = [];
             bits.push('Task: ' + task);
@@ -1727,7 +1749,7 @@
             _setProviderModelMeta(bits.join(' · '), 'ok');
         } catch (e) {
             if (seq !== _providerMetaSeq) return;
-            _setProviderModelMeta('Metadata lookup failed: ' + String((e && e.message) || e), 'error');
+            _setProviderModelMeta('Failed to load metadata for ' + hubModelId, 'error');
         }
     }
 
@@ -5078,7 +5100,9 @@
                 if (hubData && hubData.content && hubData.content[0] && hubData.content[0].text) {
                     hubData = JSON.parse(hubData.content[0].text);
                 }
+                var cacheKey = (pendingMeta && pendingMeta.hubKey) ? String(pendingMeta.hubKey) : '';
                 if (hubData && hubData.id) {
+                    if (cacheKey) _slotHubInfoCache[cacheKey] = hubData;
                     _slotHubInfoCache[hubData.id] = hubData;
                     if (_lastSlotsData) renderSlots(_lastSlotsData);
                 }
@@ -6045,8 +6069,9 @@
 
     async function _refreshHubModelMeta() {
         var model = String(((document.getElementById('plug-model-id') || {}).value || '')).trim();
-        if (!model || model.indexOf('/') < 1) {
-            var hint = _hubInferParamHint(model);
+        var hubModelId = _resolveHubModelId(model);
+        if (!hubModelId || hubModelId.indexOf('/') < 1) {
+            var hint = _hubInferParamHint(model || hubModelId);
             if (hint) _setHubModelMeta('Parameter hint: ' + hint, 'info');
             else _setHubModelMeta('Select a model to see metadata and size estimate.', 'info');
             _setHubSizeWarning('');
@@ -6057,11 +6082,11 @@
         _setHubModelMeta('Loading model metadata\u2026', 'info');
 
         try {
-            var info = await callToolAwaitParsed('hub_info', { model_id: model }, '__hub_model_meta__', { timeout: 45000 });
+            var info = await callToolAwaitParsed('hub_info', { model_id: hubModelId }, '__hub_model_meta__', { timeout: 45000 });
             if (seq !== _hubMetaSeq) return;
 
             if (!info || info.error) {
-                _setHubModelMeta('Metadata unavailable for ' + model, 'error');
+                _setHubModelMeta('Metadata unavailable for ' + hubModelId, 'error');
                 _setHubSizeWarning('');
                 return;
             }
@@ -6071,7 +6096,7 @@
             var likes = Number(info.likes || 0);
             var sizeMb = Number(info.size_mb || 0);
             var size = _hubFormatSize(sizeMb);
-            var param = _hubInferParamHint(model);
+            var param = _hubInferParamHint(hubModelId);
 
             var bits = [];
             bits.push('Task: ' + task);
@@ -6094,7 +6119,7 @@
             }
         } catch (e) {
             if (seq !== _hubMetaSeq) return;
-            _setHubModelMeta('Metadata lookup failed: ' + String((e && e.message) || e), 'error');
+            _setHubModelMeta('Failed to load metadata for ' + hubModelId, 'error');
             _setHubSizeWarning('');
         }
     }
