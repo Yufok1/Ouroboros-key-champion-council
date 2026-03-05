@@ -62,7 +62,8 @@
         "cascade_graph", "cascade_chain", "cascade_data", "cascade_system",
         "cascade_record", "cascade_instrument", "cascade_proxy",
         "diagnose_file", "diagnose_directory", "symbiotic_interpret",
-        "trace_root_causes", "forensics_analyze", "metrics_analyze"
+        "trace_root_causes", "forensics_analyze", "metrics_analyze",
+        "observe", "hold_yield", "hold_resolve"
     ];
     var _achatBlockedTools = {
         "workflow_execute": 1, "start_api_server": 1, "implode": 1, "defrost": 1,
@@ -10315,6 +10316,18 @@
     var _debugProbeLastGraphEventBySession = {};
     var _debugProbeLastHoldTsBySession = {};
     var _DEBUG_PROBE_QUEUE_MAX = 40;
+    var _DEBUG_SYSTEM_PROBE_TOOLS = {
+        observe: 1,
+        symbiotic_interpret: 1,
+        trace_root_causes: 1,
+        cascade_system: 1,
+        cascade_data: 1,
+        cascade_record: 1,
+        cascade_graph: 1,
+        forensics_analyze: 1,
+        hold_yield: 1,
+        hold_resolve: 1
+    };
     function _mirrorDebugTelemetryToObserve(tab, detail, ts) {
         try {
             if (!tab) return;
@@ -10352,6 +10365,7 @@
 
     function _debugProbeToolAllowed(tab, toolName) {
         if (!toolName) return false;
+        if (_DEBUG_SYSTEM_PROBE_TOOLS[toolName]) return true;
         if (!tab || !Array.isArray(tab.grantedTools)) return true;
         return tab.grantedTools.indexOf(toolName) >= 0;
     }
