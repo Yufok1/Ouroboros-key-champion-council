@@ -9,6 +9,7 @@
     let _state = {};
     let _activityLog = [];
     const ACTIVITY_PAGE_SIZE = 100;
+    const DEBUG_FEED_PAGE_SIZE = 120;
     let _activityPage = 0; // 0 = newest page
     let _requestId = 0;
     let _weblnAvailable = false;
@@ -847,6 +848,9 @@
                         _wfRenderDrillDetail();
                     }
                 }
+            }
+            if (tab.dataset.tab === 'debug') {
+                renderDebugFeed();
             }
         });
     });
@@ -2614,6 +2618,9 @@
                 _renderActivityPager();
             }
         }
+        if (_isDebugActivityEntry(event) || _isDebugTabActive()) {
+            renderDebugFeed();
+        }
     }
 
     function _actEsc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
@@ -2947,6 +2954,259 @@
         return String(filterEl ? filterEl.value : '').trim().toLowerCase();
     }
 
+    function _isDebugTabActive() {
+        var tabBtn = document.querySelector('.tab.active[data-tab="debug"]');
+        var pane = document.getElementById('tab-debug');
+        return !!(tabBtn && pane && pane.classList.contains('active'));
+    }
+
+    function _getDebugFilterText() {
+        var filterEl = document.getElementById('debug-filter');
+        return String(filterEl ? filterEl.value : '').trim().toLowerCase();
+    }
+
+    function _debugTextValue(value) {
+        if (value === null || value === undefined) return '';
+        if (typeof value === 'string') return value;
+        try { return JSON.stringify(value); } catch (e) { return String(value); }
+    }
+
+    function _isDebugActivityEntry(e) {
+        if (!e || typeof e !== 'object') return false;
+        if (e.source === 'agent-debug' || e.tool === 'agent_debug') return true;
+        var args = (e.args && typeof e.args === 'object') ? e.args : {};
+        var detail = String(args.detail || (((e.result || {}).message !== undefined) ? (e.result || {}).message : '') || '');
+        if (/^debug\b/i.test(detail)) return true;
+        var signalType = String(args.signal_type || '').toLowerCase();
+        if (signalType.indexOf('agent_debug') >= 0) return true;
+        var reason = String(args.reason || '').toLowerCase();
+        if (reason.indexOf('agent_debug') >= 0) return true;
+        var eventType = String(args.event_type || '').toLowerCase();
+        if (eventType.indexOf('agent_debug') >= 0) return true;
+        return false;
+    }
+
+    function _getFilteredDebugEntries(filterText) {
+        var filter = String(filterText || '').trim().toLowerCase();
+        var out = _activityLog.filter(function (e) { return _isDebugActivityEntry(e); });
+        if (!filter) return out;
+        return out.filter(function (e) {
+            var hay =
+                _activitySearchText(e) + ' ' +
+                _debugTextValue(e.args && e.args.detail) + ' ' +
+                _debugTextValue(e.result && e.result.message);
+            return hay.toLowerCase().indexOf(filter) >= 0;
+        });
+    }
+
+    function _latestDebugMessageForTab(tab) {
+        if (!tab || !Array.isArray(tab.messages)) return '';
+        for (var i = tab.messages.length - 1; i >= 0; i--) {
+            var m = tab.messages[i] || {};
+            if (m.role === 'system-info' && /^debug\b/i.test(String(m.content || ''))) {
+                return String(m.content || '');
+            }
+        }
+        return '';
+    }
+
+    function _collectDebugSessions() {
+        var out = [];
+        var keys = Object.keys(_achatTabs || {});
+        for (var i = 0; i < keys.length; i++) {
+            var key = keys[i];
+            var tab = _achatTabs[key];
+            if (!tab) continue;
+            var debugEnabled = !!(tab.agentConfig && tab.agentConfig.debugMode);
+            var ls = tab._loopState || null;
+            var snap = ls ? _formatLoopDebugSnapshot(ls) : null;
+            var latest = ls ? _latestLoopDebugStep(ls) : null;
+            var latestMsg = _latestDebugMessageForTab(tab);
+            var hasDebugState = debugEnabled || !!latestMsg || !!(snap && (snap.steps || snap.probeCalls || snap.failingSteps));
+            if (!hasDebugState) continue;
+            out.push({
+                key: key,
+                slot: tab.slot,
+                slotName: String(tab.slotName || ('slot_' + tab.slot)),
+                modelSource: String(tab.modelSource || tab.slotName || ('slot_' + tab.slot)),
+                sessionId: String(tab.sessionId || ''),
+                debugEnabled: debugEnabled,
+                active: !!ls,
+                snap: snap,
+                latestStep: latest,
+                latestMessage: latestMsg,
+                debugLevel: String(((tab.agentConfig || {}).debugLevel) || 'standard')
+            });
+        }
+        out.sort(function (a, b) {
+            if (a.active !== b.active) return a.active ? -1 : 1;
+            return (parseInt(a.slot, 10) || 0) - (parseInt(b.slot, 10) || 0);
+        });
+        return out;
+    }
+
+    function _topDebugIssueFromSessions(sessions, entries) {
+        for (var i = 0; i < sessions.length; i++) {
+            var snap = sessions[i].snap || null;
+            if (snap && snap.topProbeIssues) {
+                return String(snap.topProbeIssues).split(',')[0].trim();
+            }
+        }
+        for (var j = entries.length - 1; j >= 0; j--) {
+            var args = (entries[j].args && typeof entries[j].args === 'object') ? entries[j].args : {};
+            var detail = String(args.detail || (((entries[j].result || {}).message !== undefined) ? (entries[j].result || {}).message : '') || '').trim();
+            if (!detail) continue;
+            if (detail.indexOf('probe_issues=') >= 0) {
+                return String(detail.split('probe_issues=')[1] || '').split(' · ')[0].split(',')[0].trim() || 'none';
+            }
+            if (detail.indexOf('DEBUG probes · ') === 0) {
+                return String(detail.substring('DEBUG probes · '.length)).split(' · ')[0].trim() || 'none';
+            }
+        }
+        return 'none';
+    }
+
+    function _renderDebugSessionList(sessions) {
+        var listEl = document.getElementById('debug-session-list');
+        if (!listEl) return;
+        if (!sessions.length) {
+            listEl.innerHTML = '<div class="activity-entry" style="color:var(--text-dim);padding:12px;">No debug sessions yet.</div>';
+            return;
+        }
+        listEl.innerHTML = sessions.map(function (session) {
+            var badges = '';
+            if (session.debugEnabled) badges += '<span class="activity-cat" style="border-color:#7f1d1d;color:#fca5a5;">DEBUG ' + _actEsc(session.debugLevel.toUpperCase()) + '</span>';
+            if (session.active) badges += '<span class="activity-cat" style="border-color:#f59e0b;color:#f59e0b;">RUNNING</span>';
+            var snap = session.snap || null;
+            var lines = [];
+            lines.push('slot S' + String((parseInt(session.slot, 10) || 0) + 1));
+            if (session.sessionId) lines.push('session ' + session.sessionId);
+            if (snap) {
+                lines.push('steps=' + snap.steps + ' failing=' + snap.failingSteps + ' weak=' + snap.probeWeak + ' errors=' + snap.probeErrors);
+                if (snap.topProbeIssues) lines.push('issues=' + snap.topProbeIssues);
+            }
+            var latestStep = session.latestStep || null;
+            if (latestStep && Array.isArray(latestStep.failureDetails) && latestStep.failureDetails.length) {
+                lines.push('last_failure=' + latestStep.failureDetails[0]);
+            } else if (session.latestMessage) {
+                lines.push('latest=' + session.latestMessage);
+            }
+            return '' +
+                '<div class="debug-session-card">' +
+                '<div class="debug-session-head">' +
+                '<span class="debug-session-title">' + _actEsc(session.modelSource) + '</span>' +
+                badges +
+                '</div>' +
+                '<div class="debug-session-meta">' + _actEsc(lines.join('\n')) + '</div>' +
+                '</div>';
+        }).join('');
+    }
+
+    function _renderDebugInspector(sessions, entries, filterText) {
+        var inspector = document.getElementById('debug-inspector');
+        if (!inspector) return;
+        var lines = [];
+        lines.push('DEBUG CONTROL SURFACE');
+        lines.push('sessions=' + sessions.length + ' active_loops=' + sessions.filter(function (s) { return s.active; }).length + ' rows=' + entries.length);
+        if (filterText) lines.push('filter=' + filterText);
+        var topIssue = _topDebugIssueFromSessions(sessions, entries);
+        if (topIssue && topIssue !== 'none') lines.push('top_issue=' + topIssue);
+        lines.push('');
+        lines.push('LIVE SESSIONS');
+        if (!sessions.length) {
+            lines.push('none');
+        } else {
+            for (var i = 0; i < sessions.length; i++) {
+                var s = sessions[i];
+                var head = 'S' + String((parseInt(s.slot, 10) || 0) + 1) + ' ' + s.modelSource;
+                if (s.active) head += ' [RUNNING]';
+                if (s.debugEnabled) head += ' [DEBUG ' + s.debugLevel.toUpperCase() + ']';
+                lines.push(head);
+                if (s.sessionId) lines.push('  session=' + s.sessionId);
+                if (s.snap) {
+                    lines.push('  steps=' + s.snap.steps + ' failing=' + s.snap.failingSteps + ' empty=' + s.snap.emptySteps + ' probe_calls=' + s.snap.probeCalls + ' weak=' + s.snap.probeWeak + ' errors=' + s.snap.probeErrors);
+                    if (s.snap.topFailTools) lines.push('  failed_tools=' + s.snap.topFailTools);
+                    if (s.snap.topProbeIssues) lines.push('  probe_issues=' + s.snap.topProbeIssues);
+                }
+                if (s.latestMessage) lines.push('  latest=' + s.latestMessage);
+            }
+        }
+        lines.push('');
+        lines.push('RECENT DEBUG ROWS');
+        if (!entries.length) {
+            lines.push('none');
+        } else {
+            var recent = entries.slice(Math.max(0, entries.length - 8));
+            for (var j = recent.length - 1; j >= 0; j--) {
+                var e = recent[j];
+                var args = (e.args && typeof e.args === 'object') ? e.args : {};
+                var detail = String(args.detail || (((e.result || {}).message !== undefined) ? (e.result || {}).message : '') || '').trim();
+                var ts = '';
+                try { ts = new Date(e.timestamp || Date.now()).toLocaleTimeString(); } catch (err) { ts = ''; }
+                lines.push('- ' + (ts ? (ts + ' ') : '') + String(e.tool || 'agent_debug') + (detail ? (' :: ' + detail) : ''));
+            }
+        }
+        inspector.textContent = lines.join('\n');
+    }
+
+    function renderDebugFeed() {
+        var feed = document.getElementById('debug-feed');
+        if (!feed) return;
+        var filter = _getDebugFilterText();
+        var entries = _getFilteredDebugEntries(filter);
+        var sessions = _collectDebugSessions();
+        var activeCount = 0;
+        var weakCount = 0;
+        var errorCount = 0;
+        for (var i = 0; i < sessions.length; i++) {
+            if (sessions[i].active) activeCount += 1;
+            if (sessions[i].snap) {
+                weakCount += parseInt(sessions[i].snap.probeWeak, 10) || 0;
+                errorCount += parseInt(sessions[i].snap.probeErrors, 10) || 0;
+            }
+        }
+        var topIssue = _topDebugIssueFromSessions(sessions, entries);
+        var setText = function (id, value) {
+            var el = document.getElementById(id);
+            if (el) el.textContent = String(value);
+        };
+        setText('debug-count-sessions', sessions.length);
+        setText('debug-count-active', activeCount);
+        setText('debug-count-rows', entries.length);
+        setText('debug-count-weak', weakCount);
+        setText('debug-count-errors', errorCount);
+        setText('debug-top-issue', topIssue || 'none');
+
+        _renderDebugSessionList(sessions);
+        _renderDebugInspector(sessions, entries, filter);
+
+        var statusEl = document.getElementById('debug-feed-status');
+        var shownCount = Math.min(entries.length, DEBUG_FEED_PAGE_SIZE);
+        if (statusEl) {
+            var status = 'Showing latest ' + String(shownCount) + ' of ' + String(entries.length) + ' debug rows.';
+            if (filter) status += ' Filter: ' + filter;
+            statusEl.textContent = status;
+        }
+
+        feed.innerHTML = '';
+        if (!entries.length) {
+            feed.innerHTML = '<div class="activity-entry" style="color:var(--text-dim);padding:20px;text-align:center;">No debug telemetry yet.</div>';
+            return;
+        }
+        var recentEntries = entries.slice(Math.max(0, entries.length - DEBUG_FEED_PAGE_SIZE)).reverse();
+        for (var j = 0; j < recentEntries.length; j++) {
+            feed.appendChild(_buildActivityNode(recentEntries[j]));
+        }
+    }
+    window.renderDebugFeed = renderDebugFeed;
+
+    function clearDebugView() {
+        var filterEl = document.getElementById('debug-filter');
+        if (filterEl) filterEl.value = '';
+        renderDebugFeed();
+    }
+    window.clearDebugView = clearDebugView;
+
     function _getFilteredActivityEntries(filterText) {
         var filter = String(filterText || '').toLowerCase();
         return filter
@@ -3056,6 +3316,12 @@
         activityFilterEl.addEventListener('input', function () {
             _activityPage = 0;
             renderActivityFeed();
+        });
+    }
+    var debugFilterEl = document.getElementById('debug-filter');
+    if (debugFilterEl) {
+        debugFilterEl.addEventListener('input', function () {
+            renderDebugFeed();
         });
     }
 
@@ -5287,6 +5553,7 @@
                     if (isLoopIter && tab && tab._loopState) {
                         _setAchatBusy(false);
                         tab._loopState = null;
+                        renderDebugFeed();
                     }
                     return;
                 }
@@ -5521,6 +5788,7 @@
                         }
                         _setAchatBusy(false);
                         tab._loopState = null;
+                        renderDebugFeed();
                     } else if (ls.iteration >= ls.maxIterations) {
                         // ── AUTO-REAPPROPRIATION: extend the loop if approval mode allows ──
                         var _reapCfg = tab.agentConfig || _defaultAgentConfig();
@@ -5572,10 +5840,11 @@
                             _appendAchatMsg('error',
                                 'Loop reached max iterations (' + ls.maxIterations + ') with ' + ls.totalToolCalls +
                                 ' tool calls (target: ' + minCalls + ').' +
-                                (_reapMode === 'manual' ? ' Reappropriation mode is manual — set to "Auto-Approve" in agent config to enable auto-continuation.' : ''),
+                                (_reapMode === 'manual' ? ' Reappropriation mode is manual - set to "Auto-Approve" in agent config to enable auto-continuation.' : ''),
                                 Date.now(), tab);
                             _setAchatBusy(false);
                             tab._loopState = null;
+                            renderDebugFeed();
                         }
                     } else {
                         var used = Object.keys(ls.calledTools || {});
@@ -6358,6 +6627,7 @@
         _activityTraceGroupExpanded = {};
         _activityPage = 0;
         renderActivityFeed();
+        renderDebugFeed();
     }
     window.clearActivity = clearActivity;
 
@@ -9777,6 +10047,7 @@
             state.textContent = enabled ? 'ON' : 'OFF';
             state.style.color = enabled ? '#fca5a5' : 'var(--text-dim)';
         }
+        renderDebugFeed();
     }
 
     function _syncAchatLoopControlsFromConfig(tab) {
@@ -11776,6 +12047,7 @@
             ls.debugToolStats[t].calls += 1;
             if (failed[t]) ls.debugToolStats[t].failures += 1;
         }
+        if (_isDebugTabActive()) renderDebugFeed();
     }
 
     function _latestLoopDebugStep(ls) {
@@ -12046,6 +12318,7 @@
             _appendAchatMsg('system-info', '🛑 Kill switch activated. Loop terminated.', Date.now(), tab);
             _setAchatBusy(false);
             tab._loopState = null;
+            renderDebugFeed();
             window.__achatKillRequested = false;
             return;
         }
@@ -12057,6 +12330,7 @@
             _appendAchatMsg('system-info', 'Loop reached max iterations (' + ls.maxIterations + ').', Date.now(), tab);
             _setAchatBusy(false);
             tab._loopState = null;
+            renderDebugFeed();
             return;
         }
 

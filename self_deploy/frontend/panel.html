@@ -950,6 +950,78 @@
             align-items: center;
         }
 
+        .debug-toolbar {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .debug-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+
+        .debug-card {
+            border: 1px solid var(--border);
+            background: var(--surface);
+            padding: 10px;
+            min-width: 0;
+        }
+
+        .debug-card-label {
+            color: var(--text-dim);
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-bottom: 6px;
+        }
+
+        .debug-card-value {
+            color: var(--accent);
+            font-size: 18px;
+            font-weight: 700;
+            line-height: 1.1;
+            word-break: break-word;
+        }
+
+        .debug-session-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .debug-session-card {
+            border: 1px solid var(--border);
+            background: var(--surface);
+            padding: 10px;
+        }
+
+        .debug-session-head {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 6px;
+        }
+
+        .debug-session-title {
+            color: var(--accent);
+            font-weight: 700;
+            font-size: 11px;
+        }
+
+        .debug-session-meta {
+            color: var(--text-dim);
+            font-size: 10px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
         /* ── WORKFLOWS TAB ── */
         .wfops-toolbar {
             display: flex;
@@ -3906,6 +3978,7 @@
         <button class="tab" data-tab="council">Council</button>
         <button class="tab" data-tab="memory">Memory</button>
         <button class="tab" data-tab="activity">Activity</button>
+        <button class="tab" data-tab="debug">Debug</button>
         <button class="tab" data-tab="tools">Tools</button>
         <button class="tab" data-tab="diagnostics">Diagnostics</button>
         <button class="tab" data-tab="workflows">Workflows</button>
@@ -4173,6 +4246,55 @@
             <div class="activity-feed" id="activity-feed">
                 <div class="activity-entry" style="color:var(--text-dim);padding:20px;text-align:center;">
                     Waiting for tool calls...
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══════════════ DEBUG TAB ═══════════════ -->
+        <div class="content" id="tab-debug">
+            <div class="section-head">DEBUG OPERATIONS</div>
+            <div class="debug-toolbar">
+                <input id="debug-filter" placeholder="Filter debug rows, issues, sessions..." style="width:320px;" />
+                <button class="btn-dim" onclick="renderDebugFeed()">REFRESH VIEW</button>
+                <button class="btn-dim" onclick="clearDebugView()">CLEAR FILTER</button>
+            </div>
+            <div class="debug-grid">
+                <div class="debug-card">
+                    <div class="debug-card-label">Debug Sessions</div>
+                    <div class="debug-card-value" id="debug-count-sessions">0</div>
+                </div>
+                <div class="debug-card">
+                    <div class="debug-card-label">Active Loops</div>
+                    <div class="debug-card-value" id="debug-count-active">0</div>
+                </div>
+                <div class="debug-card">
+                    <div class="debug-card-label">Debug Rows</div>
+                    <div class="debug-card-value" id="debug-count-rows">0</div>
+                </div>
+                <div class="debug-card">
+                    <div class="debug-card-label">Active Weak Probes</div>
+                    <div class="debug-card-value" id="debug-count-weak">0</div>
+                </div>
+                <div class="debug-card">
+                    <div class="debug-card-label">Active Probe Errors</div>
+                    <div class="debug-card-value" id="debug-count-errors">0</div>
+                </div>
+                <div class="debug-card">
+                    <div class="debug-card-label">Top Issue</div>
+                    <div class="debug-card-value" id="debug-top-issue" style="font-size:11px;line-height:1.4;">none</div>
+                </div>
+            </div>
+            <div class="section-head">LIVE DEBUG SESSIONS</div>
+            <div id="debug-session-list" class="debug-session-list">
+                <div class="activity-entry" style="color:var(--text-dim);padding:12px;">No debug sessions yet.</div>
+            </div>
+            <div class="section-head" style="margin-top:16px;">DEBUG INSPECTOR</div>
+            <pre id="debug-inspector" class="activity-detail" style="display:block;max-height:220px;">No debug telemetry yet.</pre>
+            <div class="section-head" style="margin-top:16px;">DEBUG EVENT FEED</div>
+            <div id="debug-feed-status" style="margin:0 0 8px 0;font-size:10px;color:var(--text-dim);">Showing latest debug rows.</div>
+            <div class="activity-feed" id="debug-feed">
+                <div class="activity-entry" style="color:var(--text-dim);padding:20px;text-align:center;">
+                    Waiting for debug telemetry...
                 </div>
             </div>
         </div>
@@ -5381,7 +5503,7 @@
     <script src="/static/vscode-shim.js?v=25"></script>
     <script src="/static/svg-pan-zoom.min.js"></script>
     <script src="/static/peerjs.min.js"></script>
-    <script src="/static/main.js?v=44"></script>
+    <script src="/static/main.js?v=45"></script>
 
     <!-- ═══════════════ DREAMER + GPU FLEET TAB JS ═══════════════ -->
     <script>
