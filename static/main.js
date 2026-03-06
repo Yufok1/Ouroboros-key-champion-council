@@ -2635,6 +2635,37 @@
         return out;
     }
 
+    function _activitySearchText(e) {
+        if (!e || typeof e !== 'object') return '';
+        var args = (e.args && typeof e.args === 'object') ? e.args : {};
+        var resultObj = _unwrapActivityResult(e.result);
+        var resultSummary = '';
+        if (resultObj && typeof resultObj === 'object' && !Array.isArray(resultObj)) {
+            resultSummary = [
+                resultObj.message,
+                resultObj.note,
+                resultObj.error,
+                resultObj.status,
+                resultObj.summary,
+                resultObj.classification && resultObj.classification.primary
+            ].filter(Boolean).join(' ');
+        } else if (resultObj !== null && resultObj !== undefined) {
+            resultSummary = String(resultObj);
+        }
+        return [
+            e.tool || '',
+            e.category || '',
+            e.source || '',
+            e.error || '',
+            args.session_id || '',
+            args.signal_type || '',
+            args.detail || '',
+            args.reason || '',
+            args.model_id || '',
+            resultSummary
+        ].join('\n').toLowerCase();
+    }
+
     function _activityTokenShort(value, maxLen) {
         var s = String(value === null || value === undefined ? '' : value);
         s = _decodeDocKey(s).replace(/\s+/g, ' ').trim();
@@ -2654,6 +2685,8 @@
 
         if (e && e._trace_seq !== undefined) out.push('seq #' + String(e._trace_seq));
         if (e && e._trace_role) out.push('flow ' + String(e._trace_role));
+        if (e && e.tool === 'agent_debug' && args.detail) out.push('debug ' + _activityTokenShort(args.detail, 52));
+        if (args.signal_type) out.push('signal ' + _activityTokenShort(args.signal_type, 18));
 
         var slotLabel = _activitySlotLabel(args.slot);
         if (slotLabel) out.push('slot ' + slotLabel);
@@ -2918,9 +2951,7 @@
         var filter = String(filterText || '').toLowerCase();
         return filter
             ? _activityLog.filter(function (e) {
-                return e.tool.toLowerCase().includes(filter) ||
-                    e.category.toLowerCase().includes(filter) ||
-                    String(e.source || '').toLowerCase().includes(filter);
+                return _activitySearchText(e).indexOf(filter) >= 0;
             })
             : _activityLog;
     }
@@ -5130,7 +5161,9 @@
                             noToolCalls: true,
                             noFinalAnswer: true,
                             loopScaffoldAnswer: false,
-                            sessionId: String(activeTab.sessionId || '')
+                            sessionId: String(activeTab.sessionId || ''),
+                            failureDetails: [String(msg.error || 'Unknown error')],
+                            answerPreview: ''
                         };
                         _recordLoopDebugStep(_lsErr, _dbgErrStep);
                         _queueLoopDebugTelemetry(activeTab, _lsErr, _dbgErrStep);
@@ -5224,7 +5257,9 @@
                                 noToolCalls: true,
                                 noFinalAnswer: true,
                                 loopScaffoldAnswer: false,
-                                sessionId: String((resp && resp.session_id) || tab.sessionId || '')
+                                sessionId: String((resp && resp.session_id) || tab.sessionId || ''),
+                                failureDetails: [String(resultObj.error || 'Unknown payload error')],
+                                answerPreview: ''
                             };
                             _recordLoopDebugStep(_lsPayloadErr, _dbgPayloadErrStep);
                             _queueLoopDebugTelemetry(tab, _lsPayloadErr, _dbgPayloadErrStep);
@@ -5338,6 +5373,7 @@
                     var dbgStep = (parseInt(tab._loopState.iteration, 10) || 0) + 1;
                     var dbgFailures = 0;
                     var dbgFailureTools = [];
+                    var dbgFailureDetails = [];
                     var dbgCalledTools = [];
                     for (var dti = 0; dti < toolCalls.length; dti++) {
                         var dtc = toolCalls[dti] || {};
@@ -5347,8 +5383,11 @@
                             dbgFailures += 1;
                             var dtn = String(dtc.tool || 'unknown');
                             if (dbgFailureTools.indexOf(dtn) < 0) dbgFailureTools.push(dtn);
+                            dbgFailureDetails.push(dtn + ': ' + _debugProbeText(dtc.error || dtc.result || 'tool error', 180));
                         }
                     }
+                    if (!toolCalls.length && !answer) dbgFailureDetails.push('No tool calls and no final answer returned.');
+                    if (answer && answerIsLoopFailure) dbgFailureDetails.push('Loop scaffold answer returned instead of a real final answer.');
                     var dbgSignals = [];
                     dbgSignals.push('DEBUG step #' + dbgStep);
                     dbgSignals.push('calls=' + toolCalls.length);
@@ -5370,9 +5409,11 @@
                         failedTools: dbgFailureTools,
                         failures: dbgFailures,
                         noToolCalls: toolCalls.length === 0,
-                        noFinalAnswer: !answer,
+                        noFinalAnswer: !answer || !!(answer && answerIsLoopFailure),
                         loopScaffoldAnswer: !!(answer && answerIsLoopFailure),
-                        sessionId: sessionId || ''
+                        sessionId: sessionId || '',
+                        failureDetails: dbgFailureDetails,
+                        answerPreview: answer ? _debugProbeText(answer, 240) : ''
                     };
                     _recordLoopDebugStep(tab._loopState, _dbgStepInfo);
                     _queueLoopDebugTelemetry(tab, tab._loopState, _dbgStepInfo);
@@ -5426,12 +5467,15 @@
                             var dname = dbgHintTools[dh];
                             dbgDiagCalls += parseInt((ls.calledTools || {})[dname] || 0, 10) || 0;
                         }
-                        var dbgHasEvidence = (ls.totalToolCalls >= dbgMinCallsReq) && (dbgHintTools.length === 0 || dbgDiagCalls > 0);
+                        var dbgGateSnap = _formatLoopDebugSnapshot(ls);
+                        var dbgProbeCalls = parseInt(dbgGateSnap.probeCalls, 10) || 0;
+                        var dbgHasEvidence = (ls.totalToolCalls >= dbgMinCallsReq) && (dbgHintTools.length === 0 || dbgDiagCalls > 0 || dbgProbeCalls > 0);
                         if (!dbgHasEvidence) {
                             _appendAchatMsg('system-info',
                                 'Debug mode gate: final answer deferred until diagnostic evidence is sufficient (' +
                                 'tool_calls=' + ls.totalToolCalls + '/' + dbgMinCallsReq +
-                                ', diagnostic_calls=' + dbgDiagCalls + ').',
+                                ', diagnostic_calls=' + dbgDiagCalls +
+                                ', auto_probe_calls=' + dbgProbeCalls + ').',
                                 Date.now(),
                                 tab
                             );
@@ -5451,7 +5495,12 @@
                                 'DEBUG summary · steps=' + dbgDone.steps +
                                 ' · failing_steps=' + dbgDone.failingSteps +
                                 ' · empty_steps=' + dbgDone.emptySteps +
-                                (dbgDone.topFailTools ? ' · failed_tools=' + dbgDone.topFailTools : ''),
+                                ' · probe_calls=' + dbgDone.probeCalls +
+                                ' · probe_weak=' + dbgDone.probeWeak +
+                                ' · probe_errors=' + dbgDone.probeErrors +
+                                ' · probe_skipped=' + dbgDone.probeSkipped +
+                                (dbgDone.topFailTools ? ' · failed_tools=' + dbgDone.topFailTools : '') +
+                                (dbgDone.topProbeIssues ? ' · probe_issues=' + dbgDone.topProbeIssues : ''),
                                 Date.now(),
                                 tab
                             );
@@ -5496,7 +5545,12 @@
                                     'DEBUG hard-stop snapshot · steps=' + dbgHardStop.steps +
                                     ' · failing_steps=' + dbgHardStop.failingSteps +
                                     ' · empty_steps=' + dbgHardStop.emptySteps +
-                                    (dbgHardStop.topFailTools ? ' · failed_tools=' + dbgHardStop.topFailTools : ''),
+                                    ' · probe_calls=' + dbgHardStop.probeCalls +
+                                    ' · probe_weak=' + dbgHardStop.probeWeak +
+                                    ' · probe_errors=' + dbgHardStop.probeErrors +
+                                    ' · probe_skipped=' + dbgHardStop.probeSkipped +
+                                    (dbgHardStop.topFailTools ? ' · failed_tools=' + dbgHardStop.topFailTools : '') +
+                                    (dbgHardStop.topProbeIssues ? ' · probe_issues=' + dbgHardStop.topProbeIssues : ''),
                                     Date.now(),
                                     tab
                                 );
@@ -10065,6 +10119,7 @@
             lines.push('Mission execution and debugging run in parallel.');
             lines.push('Track anomalies continuously: tool errors, empty outputs, schema/policy mismatches, latency spikes, and contradictory signals.');
             lines.push('When you suspect a failure, run at least one counter-test before declaring it a confirmed issue (when safe).');
+            lines.push('Treat weak/empty diagnostic probe output as its own finding. Record what the probe failed to establish and the next best diagnostic route.');
             lines.push('If you call hold_yield, you MUST call hold_resolve with the returned hold_id before final_answer.');
             lines.push('For CASCADE tools, use only valid operations and valid params JSON strings:');
             lines.push('- cascade_system.operation: ingest_text | ingest_file | analyze | classify');
@@ -10440,6 +10495,8 @@
             failed_tools: failedTools,
             debug_level: String(((tab && tab.agentConfig && tab.agentConfig.debugLevel) || 'standard')).toLowerCase(),
             total_tool_calls: parseInt((ls && ls.totalToolCalls) || 0, 10) || 0,
+            failure_details: Array.isArray(step.failureDetails) ? step.failureDetails.slice(0, 6) : [],
+            answer_preview: String(step.answerPreview || '').trim(),
             elapsed_ms: ls && ls.startTime ? Math.max(0, Date.now() - parseInt(ls.startTime, 10)) : 0,
             timestamp_ms: Date.now()
         };
@@ -10460,7 +10517,149 @@
         if (signal.loop_scaffold_answer) parts.push('loop_scaffold_answer');
         if (Array.isArray(signal.tools) && signal.tools.length) parts.push('tools=' + signal.tools.join(','));
         if (Array.isArray(signal.failed_tools) && signal.failed_tools.length) parts.push('failed_tools=' + signal.failed_tools.join(','));
+        if (Array.isArray(signal.failure_details) && signal.failure_details.length) parts.push('failure_details=' + signal.failure_details.slice(0, 3).join(' || '));
+        if (signal.answer_preview) parts.push('answer_preview=' + String(signal.answer_preview).slice(0, 180));
         return parts.join(' | ');
+    }
+
+    function _debugProbeText(value, maxLen) {
+        var text = '';
+        try {
+            text = _prettyTruncate(value, maxLen || 900);
+        } catch (e) {
+            text = String(value || '');
+        }
+        text = String(text || '').replace(/\s+/g, ' ').trim();
+        var lim = maxLen || 900;
+        if (text.length > lim) text = text.slice(0, lim) + '…';
+        return text;
+    }
+
+    function _classifyDebugProbeResult(name, signal, raw) {
+        var label = String(name || '').trim() || 'probe';
+        var out = {
+            name: label,
+            status: 'ok',
+            issue: '',
+            nextAction: '',
+            preview: '',
+            ts: Date.now()
+        };
+        if (raw && typeof raw === 'object') {
+            if (raw._skipped) {
+                out.status = 'skipped';
+                out.issue = String(raw.reason || 'skipped');
+                out.preview = out.issue;
+                return out;
+            }
+            if (raw._error || raw.error || raw.status === 'error') {
+                out.status = 'error';
+                out.issue = String(raw._error || raw.error || 'tool_error');
+                out.preview = _debugProbeText(raw._error || raw.error || raw, 220);
+                return out;
+            }
+        } else if (raw === null || raw === undefined || raw === '') {
+            out.status = 'weak';
+            out.issue = 'empty_response';
+            return out;
+        }
+
+        out.preview = _debugProbeText(raw, 320);
+        var lower = out.preview.toLowerCase();
+        if (!out.preview) {
+            out.status = 'weak';
+            out.issue = 'empty_response';
+            return out;
+        }
+
+        if (label === 'trace_root_causes') {
+            if (lower.indexOf('no prior events to trace') >= 0 ||
+                lower.indexOf('no events to trace') >= 0 ||
+                lower.indexOf('no prior events') >= 0) {
+                out.status = 'weak';
+                out.issue = 'no_trace_context';
+                return out;
+            }
+        } else if (label === 'symbiotic_interpret') {
+            var sigSummary = _debugProbeSignalSummary(signal).toLowerCase();
+            if (lower.indexOf('event(') === 0 || lower.indexOf('event (') === 0 || (sigSummary && lower === sigSummary)) {
+                out.status = 'weak';
+                out.issue = 'echo_interpretation';
+                return out;
+            }
+        } else if (label === 'forensics_analyze') {
+            var likelyStack = (raw && typeof raw === 'object') ? String(raw.likely_stack || '').toLowerCase() : '';
+            var emptyArtifacts = !!(raw && typeof raw === 'object' && Array.isArray(raw.artifact_fingerprints) && raw.artifact_fingerprints.length === 0);
+            var emptyOps = !!(raw && typeof raw === 'object' && Array.isArray(raw.probable_operations) && raw.probable_operations.length === 0);
+            if ((likelyStack === '' || likelyStack === 'unknown') && emptyArtifacts && emptyOps) {
+                out.status = 'weak';
+                out.issue = 'empty_forensics';
+                return out;
+            }
+        } else if (label === 'cascade_system') {
+            var conf = 0;
+            if (raw && typeof raw === 'object') {
+                conf = Number(
+                    raw.confidence ||
+                    (raw.classification && raw.classification.confidence) ||
+                    0
+                ) || 0;
+            }
+            if (conf > 0 && conf < 0.45) {
+                out.status = 'weak';
+                out.issue = 'low_confidence';
+                return out;
+            }
+        } else if (label === 'hold_yield') {
+            if (!(raw && raw.hold_id)) {
+                out.status = 'weak';
+                out.issue = 'missing_hold_id';
+                return out;
+            }
+        } else if (label === 'hold_resolve') {
+            var resolveText = _debugProbeText(raw, 180).toLowerCase();
+            if (!(resolveText.indexOf('accept') >= 0 || resolveText.indexOf('resolved') >= 0 || (raw && raw.accepted === true))) {
+                out.status = 'weak';
+                out.issue = 'ambiguous_hold_resolution';
+                return out;
+            }
+        }
+
+        return out;
+    }
+
+    function _debugProbeIssueGuidance(issue) {
+        var key = String(issue || '').trim().toLowerCase();
+        if (!key) return '';
+        if (key === 'no_trace_context') return 'seed observe/cascade_graph events before root-cause tracing';
+        if (key === 'echo_interpretation') return 'pass a richer signal envelope or escalate to deep debug mode';
+        if (key === 'empty_forensics') return 'rerun forensics with anomaly-only payloads and failure details attached';
+        if (key === 'low_confidence') return 'counter-test with more cascade probes before treating the result as evidence';
+        if (key === 'missing_hold_id') return 'inspect hold_yield response shape before attempting hold_resolve';
+        if (key === 'ambiguous_hold_resolution') return 'verify hold_resolve returned an accepted status before assuming success';
+        if (key === 'empty_response') return 'retry the probe and inspect transport/result shape';
+        if (key === 'not-granted') return 'grant the probe tool or keep it in the debug allowlist';
+        return 'inspect raw probe output and retry with richer context';
+    }
+
+    function _recordLoopDebugProbe(ls, probeInfo) {
+        if (!ls || !probeInfo || typeof probeInfo !== 'object') return;
+        if (!ls.debugProbeStats || typeof ls.debugProbeStats !== 'object') ls.debugProbeStats = {};
+        if (!Array.isArray(ls.debugProbeRuns)) ls.debugProbeRuns = [];
+        var name = String(probeInfo.name || 'probe').trim();
+        if (!ls.debugProbeStats[name]) {
+            ls.debugProbeStats[name] = { calls: 0, ok: 0, weak: 0, error: 0, skipped: 0 };
+        }
+        var stat = ls.debugProbeStats[name];
+        stat.calls += 1;
+        var status = String(probeInfo.status || 'ok').toLowerCase();
+        if (status === 'weak' || status === 'error' || status === 'skipped') {
+            stat[status] += 1;
+        } else {
+            stat.ok += 1;
+        }
+        ls.debugProbeRuns.push(probeInfo);
+        if (ls.debugProbeRuns.length > 60) ls.debugProbeRuns.shift();
     }
 
     function _queueLoopDebugTelemetry(tab, ls, stepInfo) {
@@ -10492,6 +10691,7 @@
 
             _debugProbeQueue.push({
                 tab: tab,
+                loopState: ls || null,
                 signal: signal
             });
             if (_debugProbeQueue.length > _DEBUG_PROBE_QUEUE_MAX) {
@@ -10509,50 +10709,69 @@
                 var item = _debugProbeQueue.shift();
                 if (!item || !item.signal) continue;
                 var tab = item.tab || null;
+                var ls = item.loopState || (tab && tab._loopState) || null;
                 var signal = item.signal;
                 var isDeep = String(signal.debug_level || 'standard') === 'deep';
                 var isAnomaly = !!signal.is_anomaly;
                 var summary = _debugProbeSignalSummary(signal);
-                var signalJson = JSON.stringify(signal);
+                var signalEnvelope = {
+                    summary: summary,
+                    signal: signal,
+                    signal_text: _debugProbeText(signal, 1400)
+                };
+                var signalJson = JSON.stringify(signalEnvelope);
+                var probeIssues = [];
+                var _runDebugProbe = async function (label, toolName, args, routeAs, timeoutMs) {
+                    var raw = await _callDebugProbeToolSafe(tab, toolName, args, routeAs, timeoutMs);
+                    var probe = _classifyDebugProbeResult(label, signal, raw);
+                    probe.nextAction = _debugProbeIssueGuidance(probe.issue);
+                    _recordLoopDebugProbe(ls, probe);
+                    if (probe.status === 'error' || probe.status === 'weak') {
+                        var issueText = label + ':' + (probe.issue || probe.status);
+                        if (probe.nextAction) issueText += ' -> ' + probe.nextAction;
+                        probeIssues.push(issueText);
+                    }
+                    return raw;
+                };
 
-                await _callDebugProbeToolSafe(tab, 'observe', {
+                await _runDebugProbe('observe', 'observe', {
                     signal_type: 'event',
                     data: signalJson
                 }, 'agent_debug_observe_step', 15000);
 
                 if (isAnomaly || isDeep) {
-                    await _callDebugProbeToolSafe(tab, 'symbiotic_interpret', {
-                        signal: summary
+                    await _runDebugProbe('symbiotic_interpret', 'symbiotic_interpret', {
+                        signal: signalEnvelope.signal_text
                     }, 'agent_debug_symbiotic_step', 25000);
 
-                    await _callDebugProbeToolSafe(tab, 'trace_root_causes', {
-                        event_description: summary
+                    await _runDebugProbe('trace_root_causes', 'trace_root_causes', {
+                        event_description: signalEnvelope.signal_text
                     }, 'agent_debug_trace_step', 25000);
                 }
 
                 if (isDeep) {
-                    await _callDebugProbeToolSafe(tab, 'cascade_system', {
+                    await _runDebugProbe('cascade_system', 'cascade_system', {
                         operation: 'analyze',
-                        params: JSON.stringify({ text: summary, signal: signal })
+                        params: JSON.stringify({ text: signalEnvelope.signal_text, signal: signal, envelope: signalEnvelope })
                     }, 'agent_debug_cascade_system_step', 30000);
 
-                    await _callDebugProbeToolSafe(tab, 'cascade_data', {
+                    await _runDebugProbe('cascade_data', 'cascade_data', {
                         operation: 'observe',
-                        params: JSON.stringify({ signal: signal })
+                        params: JSON.stringify({ signal: signal, envelope: signalEnvelope })
                     }, 'agent_debug_cascade_data_step', 30000);
 
-                    await _callDebugProbeToolSafe(tab, 'cascade_record', {
+                    await _runDebugProbe('cascade_record', 'cascade_record', {
                         operation: 'log_interpretive',
-                        params: JSON.stringify({ event: 'agent_debug_step', signal: signal })
+                        params: JSON.stringify({ event: 'agent_debug_step', signal: signal, envelope: signalEnvelope })
                     }, 'agent_debug_cascade_record_step', 30000);
 
-                    var graphAdd = await _callDebugProbeToolSafe(tab, 'cascade_graph', {
+                    var graphAdd = await _runDebugProbe('cascade_graph_add_event', 'cascade_graph', {
                         operation: 'add_event',
                         params: JSON.stringify({
                             event_id: 'agent_debug_' + String(signal.slot) + '_' + String(signal.step || 0) + '_' + String(signal.sequence || 0),
                             event_type: 'agent_debug_step',
                             component: 'agent_debug',
-                            data: signal
+                            data: signalEnvelope
                         })
                     }, 'agent_debug_cascade_graph_add_event_step', 30000);
 
@@ -10561,7 +10780,7 @@
                     var prevGraphEventId = String(_debugProbeLastGraphEventBySession[graphSessionKey] || '');
                     if (graphEventId) {
                         if (prevGraphEventId && prevGraphEventId !== graphEventId) {
-                            await _callDebugProbeToolSafe(tab, 'cascade_graph', {
+                            await _runDebugProbe('cascade_graph_add_link', 'cascade_graph', {
                                 operation: 'add_link',
                                 params: JSON.stringify({
                                     from_event: prevGraphEventId,
@@ -10576,7 +10795,7 @@
                 }
 
                 if (isAnomaly) {
-                    await _callDebugProbeToolSafe(tab, 'forensics_analyze', {
+                    await _runDebugProbe('forensics_analyze', 'forensics_analyze', {
                         data: signalJson
                     }, 'agent_debug_forensics_step', 30000);
                 }
@@ -10587,18 +10806,27 @@
                     var holdLastTs = parseInt(_debugProbeLastHoldTsBySession[holdSessionKey], 10) || 0;
                     if (!holdLastTs || (holdNow - holdLastTs) > 60000) {
                         _debugProbeLastHoldTsBySession[holdSessionKey] = holdNow;
-                        var hold = await _callDebugProbeToolSafe(tab, 'hold_yield', {
+                        var hold = await _runDebugProbe('hold_yield', 'hold_yield', {
                             reason: 'agent_debug_anomaly_step',
                             data: signalJson
                         }, 'agent_debug_hold_yield_step', 20000);
                         var holdId = hold && hold.hold_id ? String(hold.hold_id) : '';
                         if (holdId) {
-                            await _callDebugProbeToolSafe(tab, 'hold_resolve', {
+                            await _runDebugProbe('hold_resolve', 'hold_resolve', {
                                 hold_id: holdId,
                                 action: 'accept'
                             }, 'agent_debug_hold_resolve_step', 20000);
                         }
                     }
+                }
+
+                if (probeIssues.length && tab) {
+                    _appendAchatMsg(
+                        'system-info',
+                        'DEBUG probes · ' + probeIssues.slice(0, 6).join(' · '),
+                        Date.now(),
+                        tab
+                    );
                 }
             }
         } finally {
@@ -11542,7 +11770,18 @@
     }
 
     function _formatLoopDebugSnapshot(ls) {
-        var snap = { steps: 0, failingSteps: 0, emptySteps: 0, scaffoldSteps: 0, topFailTools: '' };
+        var snap = {
+            steps: 0,
+            failingSteps: 0,
+            emptySteps: 0,
+            scaffoldSteps: 0,
+            topFailTools: '',
+            probeCalls: 0,
+            probeErrors: 0,
+            probeWeak: 0,
+            probeSkipped: 0,
+            topProbeIssues: ''
+        };
         if (!ls || !Array.isArray(ls.debugSteps)) return snap;
         snap.steps = ls.debugSteps.length;
         for (var i = 0; i < ls.debugSteps.length; i++) {
@@ -11560,6 +11799,27 @@
             if (fs > 0) failPairs.push(n + '(' + fs + ')');
         }
         snap.topFailTools = failPairs.slice(0, 5).join(', ');
+        var probeRuns = Array.isArray(ls.debugProbeRuns) ? ls.debugProbeRuns : [];
+        snap.probeCalls = probeRuns.length;
+        var probeIssues = {};
+        for (var k = 0; k < probeRuns.length; k++) {
+            var probe = probeRuns[k] || {};
+            var status = String(probe.status || 'ok').toLowerCase();
+            if (status === 'error') snap.probeErrors += 1;
+            else if (status === 'weak') snap.probeWeak += 1;
+            else if (status === 'skipped') snap.probeSkipped += 1;
+            if ((status === 'error' || status === 'weak') && probe.issue) {
+                var pk = String(probe.name || 'probe') + ':' + String(probe.issue || status);
+                probeIssues[pk] = (probeIssues[pk] || 0) + 1;
+            }
+        }
+        var rankedIssues = Object.keys(probeIssues).sort(function (a, b) { return probeIssues[b] - probeIssues[a]; });
+        var topIssues = [];
+        for (var ri = 0; ri < rankedIssues.length && ri < 5; ri++) {
+            var rk = rankedIssues[ri];
+            topIssues.push(rk + '(' + probeIssues[rk] + ')');
+        }
+        snap.topProbeIssues = topIssues.join(', ');
         return snap;
     }
 
@@ -11622,9 +11882,21 @@
                 _renderAchatToolConfig(tab);
                 _appendAchatMsg('system-info', 'DEBUG mode enabled (' + mode + ')', Date.now(), tab);
             } else if (mode === 'status') {
+                var dbgStatus = 'DEBUG status=' + (_isAchatDebugEnabled(tab) ? 'on' : 'off') + ' · level=' + String((tab.agentConfig && tab.agentConfig.debugLevel) || 'standard');
+                if (tab._loopState) {
+                    var dbgSnapStatus = _formatLoopDebugSnapshot(tab._loopState);
+                    dbgStatus +=
+                        ' · steps=' + dbgSnapStatus.steps +
+                        ' · failing_steps=' + dbgSnapStatus.failingSteps +
+                        ' · probe_calls=' + dbgSnapStatus.probeCalls +
+                        ' · probe_weak=' + dbgSnapStatus.probeWeak +
+                        ' · probe_errors=' + dbgSnapStatus.probeErrors +
+                        ' · probe_skipped=' + dbgSnapStatus.probeSkipped;
+                    if (dbgSnapStatus.topProbeIssues) dbgStatus += ' · probe_issues=' + dbgSnapStatus.topProbeIssues;
+                }
                 _appendAchatMsg(
                     'system-info',
-                    'DEBUG status=' + (_isAchatDebugEnabled(tab) ? 'on' : 'off') + ' · level=' + String((tab.agentConfig && tab.agentConfig.debugLevel) || 'standard'),
+                    dbgStatus,
                     Date.now(),
                     tab
                 );
@@ -11723,6 +11995,8 @@
                 startTime: Date.now(),
                 debugSteps: [],
                 debugToolStats: {},
+                debugProbeStats: {},
+                debugProbeRuns: [],
                 debugMinCalls: _isAchatDebugEnabled(tab) ? 2 : 0,
                 debugHintTools: _debugHintsAtStart
             };
@@ -11802,7 +12076,12 @@
                     ', failing_steps=' + dbgSnap.failingSteps +
                     ', empty_steps=' + dbgSnap.emptySteps +
                     ', loop_scaffold_steps=' + dbgSnap.scaffoldSteps +
-                    (dbgSnap.topFailTools ? ', failed_tools=' + dbgSnap.topFailTools : '') + '.';
+                    ', probe_calls=' + dbgSnap.probeCalls +
+                    ', probe_weak=' + dbgSnap.probeWeak +
+                    ', probe_errors=' + dbgSnap.probeErrors +
+                    ', probe_skipped=' + dbgSnap.probeSkipped +
+                    (dbgSnap.topFailTools ? ', failed_tools=' + dbgSnap.topFailTools : '') +
+                    (dbgSnap.topProbeIssues ? ', probe_issues=' + dbgSnap.topProbeIssues : '') + '.';
             }
         } else {
             var _minCalls = parseInt(ls.minToolCalls, 10) || 1;
