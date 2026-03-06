@@ -2995,6 +2995,14 @@
         return String(payload.next_route || payload.nextRoute || '').trim();
     }
 
+    function _debugPrettyText(text) {
+        var out = String(text || '').trim();
+        if (!out) return '';
+        if (/^debug\b/i.test(out)) out = out.replace(/\s·\s/g, '\n');
+        if (out.indexOf(' -> ') >= 0) out = out.replace(/\s->\s/g, '\nnext_route: ');
+        return out;
+    }
+
     function _isDebugActivityEntry(e) {
         if (!e || typeof e !== 'object') return false;
         if (e.source === 'agent-debug' || e.tool === 'agent_debug') return true;
@@ -3116,7 +3124,7 @@
             if (latestStep && Array.isArray(latestStep.failureDetails) && latestStep.failureDetails.length) {
                 lines.push('last_failure=' + latestStep.failureDetails[0]);
             } else if (session.latestMessage) {
-                lines.push('latest=' + session.latestMessage);
+                lines.push('latest=' + _debugPrettyText(session.latestMessage));
             }
             return '' +
                 '<div class="debug-session-card">' +
@@ -3172,11 +3180,18 @@
                 var nextRoute = _debugEntryNextRoute(e);
                 var ts = '';
                 try { ts = new Date(e.timestamp || Date.now()).toLocaleTimeString(); } catch (err) { ts = ''; }
-                var line = '- ' + (ts ? (ts + ' ') : '') + String(e.tool || 'agent_debug');
-                if (issue) line += ' :: ' + issue;
-                else if (detail) line += ' :: ' + detail;
-                if (nextRoute) line += ' -> ' + nextRoute;
-                lines.push(line);
+                lines.push('- ' + (ts ? (ts + ' ') : '') + String(e.tool || 'agent_debug'));
+                if (issue) {
+                    lines.push('  issue=' + issue);
+                } else if (detail) {
+                    var prettyDetail = _debugPrettyText(detail);
+                    var detailLines = prettyDetail.split('\n');
+                    for (var dl = 0; dl < detailLines.length; dl++) {
+                        lines.push('  ' + detailLines[dl]);
+                    }
+                }
+                if (nextRoute) lines.push('  next_route=' + nextRoute);
+                lines.push('');
             }
         }
         inspector.textContent = lines.join('\n');
