@@ -692,6 +692,53 @@ async def _workflow_proxy_history(workflow_id: str | None = None, limit: int = 5
     return rows
 
 
+def _workflow_resolve_path(base, path: str):
+    cur = base
+    if not path:
+        return cur
+    for part in path.split("."):
+        if isinstance(cur, dict):
+            if part not in cur:
+                return None
+            cur = cur.get(part)
+        elif isinstance(cur, list):
+            try:
+                idx = int(part)
+            except Exception:
+                return None
+            if idx < 0 or idx >= len(cur):
+                return None
+            cur = cur[idx]
+        else:
+            return None
+    return cur
+
+
+def _workflow_resolve_value(value, node_outputs: dict, input_payload):
+    if isinstance(value, str):
+        raw = value.strip()
+        if raw.startswith("$"):
+            ref = raw[1:]
+            if ref == "input":
+                return input_payload
+            if ref.startswith("input."):
+                resolved = _workflow_resolve_path(input_payload, ref[len("input."):])
+                return resolved if resolved is not None else value
+            if "." in ref:
+                node_id, path = ref.split(".", 1)
+            else:
+                node_id, path = ref, ""
+            if node_id in node_outputs:
+                resolved = _workflow_resolve_path(node_outputs.get(node_id), path)
+                return resolved if resolved is not None else value
+        return value
+    if isinstance(value, list):
+        return [_workflow_resolve_value(v, node_outputs, input_payload) for v in value]
+    if isinstance(value, dict):
+        return {k: _workflow_resolve_value(v, node_outputs, input_payload) for k, v in value.items()}
+    return value
+
+
 def _workflow_trace_args(args: dict | None, workflow_id: str, execution_id: str, node_id: str | None = None, target_id: str | None = None) -> dict:
     out = dict(args or {})
     trace_id = _workflow_proxy_trace_id(execution_id)
@@ -740,6 +787,8 @@ async def _execute_proxy_workflow(
         call_args = params.get("args") if isinstance(params.get("args"), dict) else {}
         if not call_args:
             call_args = {k: v for k, v in params.items() if k not in ("tool", "tool_name", "args")}
+        resolved_args = _workflow_resolve_value(call_args, ctx["nodes"], ctx["input"])
+        call_args = resolved_args if isinstance(resolved_args, dict) else {}
         payload, err, duration_ms = await _workflow_proxy_call_tool(tool_name, call_args, source=source, client_id=client_id)
         activity_hub.add_entry(
             tool=tool_name,
@@ -793,15 +842,17 @@ async def _execute_proxy_workflow(
         targets = params.get("targets") if isinstance(params.get("targets"), list) else []
         tool_name = str(params.get("tool") or params.get("tool_name") or "invoke_slot").strip() or "invoke_slot"
         args_template = params.get("args") if isinstance(params.get("args"), dict) else {}
+        resolved_template = _workflow_resolve_value(args_template, ctx["nodes"], ctx["input"])
+        args_template = resolved_template if isinstance(resolved_template, dict) else {}
 
         async def _run_target(target: dict, idx: int):
             targ = target if isinstance(target, dict) else {}
             merged = dict(args_template)
             for k, v in targ.items():
                 if k in ("slot", "max_tokens", "mode", "text", "message"):
-                    merged[k] = v
+                    merged[k] = _workflow_resolve_value(v, ctx["nodes"], ctx["input"])
             if tool_name == "invoke_slot" and "slot" not in merged and targ.get("slot") is not None:
-                merged["slot"] = targ.get("slot")
+                merged["slot"] = _workflow_resolve_value(targ.get("slot"), ctx["nodes"], ctx["input"])
             payload, err, duration_ms = await _workflow_proxy_call_tool(tool_name, merged, source=source, client_id=client_id)
             target_id = str(targ.get("id") or f"target_{idx}")
             activity_hub.add_entry(
