@@ -4438,6 +4438,20 @@
     function handleWorkflowToolResult(toolName, msg, rawText) {
         var payload = msg.error ? null : _wfParsePayload(rawText);
 
+        if (!msg.error && payload && payload._cached) {
+            var workflowCacheId = String(payload._cached || '').trim();
+            if (workflowCacheId) {
+                var workflowCacheLabel = 'workflow payload';
+                if (toolName === 'workflow_list') workflowCacheLabel = 'workflow catalog';
+                else if (toolName === 'workflow_get') workflowCacheLabel = 'workflow definition';
+                else if (toolName === 'workflow_status') workflowCacheLabel = 'workflow status';
+                else if (toolName === 'workflow_execute') workflowCacheLabel = 'workflow execution';
+                _wfSetExecStatus('Loading ' + workflowCacheLabel + ' from cache...', false);
+                callTool('get_cached', { cache_id: workflowCacheId }, toolName);
+                return;
+            }
+        }
+
         if (toolName === 'workflow_list') {
             if (msg.error) {
                 _wfSetExecStatus('workflow_list failed: ' + msg.error, true);
