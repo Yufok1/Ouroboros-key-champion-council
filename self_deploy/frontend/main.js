@@ -2971,6 +2971,30 @@
         try { return JSON.stringify(value); } catch (e) { return String(value); }
     }
 
+    function _extractDebugEntryPayload(e) {
+        if (!e || typeof e !== 'object') return null;
+        var args = (e.args && typeof e.args === 'object') ? e.args : {};
+        var raw = args.data;
+        if (raw === undefined || raw === null || raw === '') return null;
+        if (typeof raw === 'string') {
+            try { return JSON.parse(raw); } catch (err) { return { raw: raw }; }
+        }
+        if (typeof raw === 'object') return raw;
+        return { raw: String(raw) };
+    }
+
+    function _debugEntryIssue(e) {
+        var payload = _extractDebugEntryPayload(e);
+        if (!payload || typeof payload !== 'object') return '';
+        return String(payload.confirmed_issue || payload.issue || payload.observed_issue || '').trim();
+    }
+
+    function _debugEntryNextRoute(e) {
+        var payload = _extractDebugEntryPayload(e);
+        if (!payload || typeof payload !== 'object') return '';
+        return String(payload.next_route || payload.nextRoute || '').trim();
+    }
+
     function _isDebugActivityEntry(e) {
         if (!e || typeof e !== 'object') return false;
         if (e.source === 'agent-debug' || e.tool === 'agent_debug') return true;
@@ -2994,7 +3018,8 @@
             var hay =
                 _activitySearchText(e) + ' ' +
                 _debugTextValue(e.args && e.args.detail) + ' ' +
-                _debugTextValue(e.result && e.result.message);
+                _debugTextValue(e.result && e.result.message) + ' ' +
+                _debugTextValue(_extractDebugEntryPayload(e));
             return hay.toLowerCase().indexOf(filter) >= 0;
         });
     }
@@ -3055,6 +3080,8 @@
         for (var j = entries.length - 1; j >= 0; j--) {
             var args = (entries[j].args && typeof entries[j].args === 'object') ? entries[j].args : {};
             var detail = String(args.detail || (((entries[j].result || {}).message !== undefined) ? (entries[j].result || {}).message : '') || '').trim();
+            var issue = _debugEntryIssue(entries[j]);
+            if (issue) return issue;
             if (!detail) continue;
             if (detail.indexOf('probe_issues=') >= 0) {
                 return String(detail.split('probe_issues=')[1] || '').split(' · ')[0].split(',')[0].trim() || 'none';
@@ -3141,9 +3168,15 @@
                 var e = recent[j];
                 var args = (e.args && typeof e.args === 'object') ? e.args : {};
                 var detail = String(args.detail || (((e.result || {}).message !== undefined) ? (e.result || {}).message : '') || '').trim();
+                var issue = _debugEntryIssue(e);
+                var nextRoute = _debugEntryNextRoute(e);
                 var ts = '';
                 try { ts = new Date(e.timestamp || Date.now()).toLocaleTimeString(); } catch (err) { ts = ''; }
-                lines.push('- ' + (ts ? (ts + ' ') : '') + String(e.tool || 'agent_debug') + (detail ? (' :: ' + detail) : ''));
+                var line = '- ' + (ts ? (ts + ' ') : '') + String(e.tool || 'agent_debug');
+                if (issue) line += ' :: ' + issue;
+                else if (detail) line += ' :: ' + detail;
+                if (nextRoute) line += ' -> ' + nextRoute;
+                lines.push(line);
             }
         }
         inspector.textContent = lines.join('\n');
@@ -3156,14 +3189,19 @@
         var entries = _getFilteredDebugEntries(filter);
         var sessions = _collectDebugSessions();
         var activeCount = 0;
-        var weakCount = 0;
+        var issueCount = 0;
         var errorCount = 0;
         for (var i = 0; i < sessions.length; i++) {
             if (sessions[i].active) activeCount += 1;
             if (sessions[i].snap) {
-                weakCount += parseInt(sessions[i].snap.probeWeak, 10) || 0;
+                issueCount += parseInt(sessions[i].snap.probeWeak, 10) || 0;
                 errorCount += parseInt(sessions[i].snap.probeErrors, 10) || 0;
             }
+        }
+        for (var k = 0; k < entries.length; k++) {
+            var debugIssue = _debugEntryIssue(entries[k]);
+            if (debugIssue) issueCount += 1;
+            if (entries[k] && entries[k].error) errorCount += 1;
         }
         var topIssue = _topDebugIssueFromSessions(sessions, entries);
         var setText = function (id, value) {
@@ -3173,7 +3211,7 @@
         setText('debug-count-sessions', sessions.length);
         setText('debug-count-active', activeCount);
         setText('debug-count-rows', entries.length);
-        setText('debug-count-weak', weakCount);
+        setText('debug-count-weak', issueCount);
         setText('debug-count-errors', errorCount);
         setText('debug-top-issue', topIssue || 'none');
 
