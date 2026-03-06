@@ -2508,6 +2508,7 @@
                 var routed = routedTabs[rrIdx];
                 var innerTab = routed.tab;
                 if (!innerTab) continue;
+                if (innerSession) innerTab.sessionId = innerSession;
 
                 // Dedupe occasional mirrored/replayed SSE events per tab.
                 var _tabSig = routed.role + '|' + _eventSig;
