@@ -2960,6 +2960,12 @@
         return !!(tabBtn && pane && pane.classList.contains('active'));
     }
 
+    var _debugRemoteSessions = [];
+    var _debugRemoteSessionsTs = 0;
+    var _debugRemoteRefreshPending = false;
+    var _debugRemoteRefreshError = '';
+    var _debugRemoteRefreshSeq = 0;
+
     function _getDebugFilterText() {
         var filterEl = document.getElementById('debug-filter');
         return String(filterEl ? filterEl.value : '').trim().toLowerCase();
@@ -3043,8 +3049,110 @@
         return '';
     }
 
+    function _slotSummaryForDebugSession(slotIndex) {
+        var slotNum = parseInt(slotIndex, 10);
+        var slotData = isNaN(slotNum) ? null : _getSlotData(slotNum);
+        return {
+            slot: isNaN(slotNum) ? -1 : slotNum,
+            slotName: String(slotData && slotData.name ? slotData.name : ('slot_' + (isNaN(slotNum) ? 'x' : slotNum))),
+            modelSource: String(
+                (slotData && (slotData.model_source || slotData.model_id || slotData.name)) ||
+                ('slot_' + (isNaN(slotNum) ? 'x' : slotNum))
+            )
+        };
+    }
+
+    function _normalizeRemoteDebugSession(raw) {
+        if (!raw || typeof raw !== 'object') return null;
+        var slotMeta = _slotSummaryForDebugSession(raw.slot);
+        return {
+            key: 'remote:' + String(raw.session_id || ('slot:' + slotMeta.slot)),
+            slot: slotMeta.slot,
+            slotName: slotMeta.slotName,
+            modelSource: slotMeta.modelSource,
+            sessionId: String(raw.session_id || ''),
+            debugEnabled: false,
+            active: !!raw.active,
+            snap: null,
+            latestStep: null,
+            latestMessage: '',
+            debugLevel: 'passive',
+            remote: true,
+            turnCount: parseInt(raw.turn_count, 10) || 0,
+            pendingMessages: parseInt(raw.pending_messages, 10) || 0,
+            updatedTs: parseInt(raw.updated_ts, 10) || 0,
+            source: String(raw.source || ''),
+            clientId: String(raw.client_id || '')
+        };
+    }
+
+    function _mergeDebugSessionInfo(existing, incoming) {
+        if (!existing) return incoming;
+        if (!incoming) return existing;
+        return {
+            key: existing.key || incoming.key,
+            slot: (incoming.slot !== undefined && incoming.slot !== null && incoming.slot !== -1) ? incoming.slot : existing.slot,
+            slotName: incoming.slotName || existing.slotName || '',
+            modelSource: incoming.modelSource || existing.modelSource || '',
+            sessionId: incoming.sessionId || existing.sessionId || '',
+            debugEnabled: !!(existing.debugEnabled || incoming.debugEnabled),
+            active: !!(existing.active || incoming.active),
+            snap: existing.snap || incoming.snap || null,
+            latestStep: existing.latestStep || incoming.latestStep || null,
+            latestMessage: existing.latestMessage || incoming.latestMessage || '',
+            debugLevel: (existing.debugLevel && existing.debugLevel !== 'passive') ? existing.debugLevel : (incoming.debugLevel || existing.debugLevel || 'standard'),
+            remote: !!(existing.remote || incoming.remote),
+            turnCount: parseInt(incoming.turnCount, 10) || parseInt(existing.turnCount, 10) || 0,
+            pendingMessages: parseInt(incoming.pendingMessages, 10) || parseInt(existing.pendingMessages, 10) || 0,
+            updatedTs: parseInt(incoming.updatedTs, 10) || parseInt(existing.updatedTs, 10) || 0,
+            source: incoming.source || existing.source || '',
+            clientId: incoming.clientId || existing.clientId || ''
+        };
+    }
+
+    async function _refreshDebugRemoteSessions(force) {
+        var now = Date.now();
+        if (!force && _debugRemoteRefreshPending) return;
+        if (!force && _debugRemoteSessionsTs && (now - _debugRemoteSessionsTs) < 15000) return;
+        var seq = ++_debugRemoteRefreshSeq;
+        _debugRemoteRefreshPending = true;
+        _debugRemoteRefreshError = '';
+        try {
+            var payload = await callToolAwaitParsed('agent_chat_sessions', {
+                limit: 50,
+                active_only: false
+            }, '__debug_remote_sessions__', {
+                timeout: 15000,
+                keepBusy: true
+            });
+            if (seq !== _debugRemoteRefreshSeq) return;
+            var sessions = Array.isArray(payload && payload.sessions) ? payload.sessions : [];
+            _debugRemoteSessions = sessions.map(_normalizeRemoteDebugSession).filter(Boolean);
+            _debugRemoteSessionsTs = Date.now();
+        } catch (err) {
+            if (seq !== _debugRemoteRefreshSeq) return;
+            _debugRemoteRefreshError = String(err && err.message ? err.message : err);
+        } finally {
+            if (seq === _debugRemoteRefreshSeq) {
+                _debugRemoteRefreshPending = false;
+                if (_isDebugTabActive()) renderDebugFeed();
+            }
+        }
+    }
+
     function _collectDebugSessions() {
         var out = [];
+        var byKey = {};
+        var addSession = function (session) {
+            if (!session) return;
+            var mergeKey = session.sessionId ? ('sid:' + session.sessionId) : ('slot:' + String(session.slot));
+            if (byKey[mergeKey] !== undefined) {
+                out[byKey[mergeKey]] = _mergeDebugSessionInfo(out[byKey[mergeKey]], session);
+                return;
+            }
+            byKey[mergeKey] = out.length;
+            out.push(session);
+        };
         var keys = Object.keys(_achatTabs || {});
         for (var i = 0; i < keys.length; i++) {
             var key = keys[i];
@@ -3057,7 +3165,7 @@
             var latestMsg = _latestDebugMessageForTab(tab);
             var hasDebugState = debugEnabled || !!latestMsg || !!(snap && (snap.steps || snap.probeCalls || snap.failingSteps));
             if (!hasDebugState) continue;
-            out.push({
+            addSession({
                 key: key,
                 slot: tab.slot,
                 slotName: String(tab.slotName || ('slot_' + tab.slot)),
@@ -3068,8 +3176,17 @@
                 snap: snap,
                 latestStep: latest,
                 latestMessage: latestMsg,
-                debugLevel: String(((tab.agentConfig || {}).debugLevel) || 'standard')
+                debugLevel: String(((tab.agentConfig || {}).debugLevel) || 'standard'),
+                remote: false,
+                turnCount: 0,
+                pendingMessages: 0,
+                updatedTs: 0,
+                source: '',
+                clientId: ''
             });
+        }
+        for (var rs = 0; rs < _debugRemoteSessions.length; rs++) {
+            addSession(_debugRemoteSessions[rs]);
         }
         out.sort(function (a, b) {
             if (a.active !== b.active) return a.active ? -1 : 1;
@@ -3112,10 +3229,12 @@
             var badges = '';
             if (session.debugEnabled) badges += '<span class="activity-cat" style="border-color:#7f1d1d;color:#fca5a5;">DEBUG ' + _actEsc(session.debugLevel.toUpperCase()) + '</span>';
             if (session.active) badges += '<span class="activity-cat" style="border-color:#f59e0b;color:#f59e0b;">RUNNING</span>';
+            if (session.remote) badges += '<span class="activity-cat" style="border-color:#38bdf8;color:#7dd3fc;">MCP</span>';
             var snap = session.snap || null;
             var lines = [];
             lines.push('slot S' + String((parseInt(session.slot, 10) || 0) + 1));
             if (session.sessionId) lines.push('session ' + session.sessionId);
+            if (session.turnCount) lines.push('turns=' + session.turnCount + ' pending=' + (session.pendingMessages || 0));
             if (snap) {
                 lines.push('steps=' + snap.steps + ' failing=' + snap.failingSteps + ' weak=' + snap.probeWeak + ' errors=' + snap.probeErrors);
                 if (snap.topProbeIssues) lines.push('issues=' + snap.topProbeIssues);
@@ -3156,8 +3275,10 @@
                 var head = 'S' + String((parseInt(s.slot, 10) || 0) + 1) + ' ' + s.modelSource;
                 if (s.active) head += ' [RUNNING]';
                 if (s.debugEnabled) head += ' [DEBUG ' + s.debugLevel.toUpperCase() + ']';
+                if (s.remote) head += ' [MCP]';
                 lines.push(head);
                 if (s.sessionId) lines.push('  session=' + s.sessionId);
+                if (s.turnCount) lines.push('  turns=' + s.turnCount + ' pending=' + (s.pendingMessages || 0));
                 if (s.snap) {
                     lines.push('  steps=' + s.snap.steps + ' failing=' + s.snap.failingSteps + ' empty=' + s.snap.emptySteps + ' probe_calls=' + s.snap.probeCalls + ' weak=' + s.snap.probeWeak + ' errors=' + s.snap.probeErrors);
                     if (s.snap.topFailTools) lines.push('  failed_tools=' + s.snap.topFailTools);
@@ -3200,6 +3321,7 @@
     function renderDebugFeed() {
         var feed = document.getElementById('debug-feed');
         if (!feed) return;
+        if (_isDebugTabActive()) _refreshDebugRemoteSessions(false);
         var filter = _getDebugFilterText();
         var entries = _getFilteredDebugEntries(filter);
         var sessions = _collectDebugSessions();
@@ -3238,6 +3360,9 @@
         if (statusEl) {
             var status = 'Showing latest ' + String(shownCount) + ' of ' + String(entries.length) + ' debug rows.';
             if (filter) status += ' Filter: ' + filter;
+            if (_debugRemoteRefreshPending) status += ' Refreshing live sessions…';
+            else if (_debugRemoteRefreshError) status += ' Live session refresh error: ' + _debugRemoteRefreshError;
+            else if (_debugRemoteSessionsTs) status += ' Live sessions=' + String(_debugRemoteSessions.length) + '.';
             statusEl.textContent = status;
         }
 
@@ -3259,6 +3384,12 @@
         renderDebugFeed();
     }
     window.clearDebugView = clearDebugView;
+
+    function refreshDebugView() {
+        renderDebugFeed();
+        _refreshDebugRemoteSessions(true);
+    }
+    window.refreshDebugView = refreshDebugView;
 
     function _getFilteredActivityEntries(filterText) {
         var filter = String(filterText || '').toLowerCase();
@@ -5572,6 +5703,7 @@
 
                 if (resp && resp.session_id && tab) {
                     tab.sessionId = resp.session_id;
+                    if (tab._loopState) tab._loopState.sessionId = tab.sessionId;
                 }
                 _refreshAchatMeta();
 
@@ -10911,25 +11043,51 @@
         }
 
         if (label === 'trace_root_causes') {
+            var rootCauses = (raw && typeof raw === 'object' && Array.isArray(raw.root_causes)) ? raw.root_causes : [];
+            var traceDepth = (raw && typeof raw === 'object') ? (parseInt(raw.trace_depth, 10) || 0) : 0;
+            var rootText = rootCauses.join(' ').toLowerCase();
             if (lower.indexOf('no prior events to trace') >= 0 ||
                 lower.indexOf('no events to trace') >= 0 ||
-                lower.indexOf('no prior events') >= 0) {
+                lower.indexOf('no prior events') >= 0 ||
+                rootText.indexOf('no prior events to trace') >= 0 ||
+                rootText.indexOf('no events to trace') >= 0 ||
+                (traceDepth === 0 && rootCauses.length > 0)) {
                 out.status = 'weak';
                 out.issue = 'no_trace_context';
                 return out;
             }
         } else if (label === 'symbiotic_interpret') {
             var sigSummary = _debugProbeSignalSummary(signal).toLowerCase();
-            if (lower.indexOf('event(') === 0 || lower.indexOf('event (') === 0 || (sigSummary && lower === sigSummary)) {
+            var interpretation = (raw && typeof raw === 'object') ? String(raw.interpretation || '') : '';
+            var interpLower = interpretation.toLowerCase();
+            if (interpLower.indexOf('event(') === 0 || interpLower.indexOf('event (') === 0 ||
+                lower.indexOf('event(') === 0 || lower.indexOf('event (') === 0 ||
+                (sigSummary && lower === sigSummary)) {
                 out.status = 'weak';
                 out.issue = 'echo_interpretation';
                 return out;
             }
         } else if (label === 'forensics_analyze') {
-            var likelyStack = (raw && typeof raw === 'object') ? String(raw.likely_stack || '').toLowerCase() : '';
-            var emptyArtifacts = !!(raw && typeof raw === 'object' && Array.isArray(raw.artifact_fingerprints) && raw.artifact_fingerprints.length === 0);
-            var emptyOps = !!(raw && typeof raw === 'object' && Array.isArray(raw.probable_operations) && raw.probable_operations.length === 0);
-            if ((likelyStack === '' || likelyStack === 'unknown') && emptyArtifacts && emptyOps) {
+            var likelyStack = '';
+            var artifacts = [];
+            var fingerprints = [];
+            var probableOps = [];
+            if (raw && typeof raw === 'object') {
+                if (raw.likely_stack && typeof raw.likely_stack === 'object') {
+                    likelyStack = String(raw.likely_stack.stack || '');
+                } else {
+                    likelyStack = String(raw.likely_stack || '');
+                }
+                artifacts = Array.isArray(raw.artifacts) ? raw.artifacts : (Array.isArray(raw.artifact_fingerprints) ? raw.artifact_fingerprints : []);
+                fingerprints = Array.isArray(raw.fingerprints) ? raw.fingerprints : [];
+                probableOps = (raw.ghost_log && Array.isArray(raw.ghost_log.operations))
+                    ? raw.ghost_log.operations
+                    : (Array.isArray(raw.probable_operations) ? raw.probable_operations : []);
+            }
+            if ((!likelyStack || String(likelyStack).toLowerCase() === 'unknown') &&
+                artifacts.length === 0 &&
+                fingerprints.length === 0 &&
+                probableOps.length === 0) {
                 out.status = 'weak';
                 out.issue = 'empty_forensics';
                 return out;
@@ -12336,6 +12494,7 @@
                 debugToolStats: {},
                 debugProbeStats: {},
                 debugProbeRuns: [],
+                sessionId: String(tab.sessionId || ''),
                 debugMinCalls: _isAchatDebugEnabled(tab) ? 2 : 0,
                 debugHintTools: _debugHintsAtStart
             };
