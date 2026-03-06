@@ -1,4 +1,4 @@
-cascade-lattice>=0.7.0
+cascade-lattice>=0.8.1
 cryptography
 flax
 huggingface_hub
