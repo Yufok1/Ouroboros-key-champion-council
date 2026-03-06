@@ -3360,7 +3360,25 @@ async def _agent_delegate_call(caller_slot: int, caller_session_id: str, caller_
     else:
         payload = delegated
 
-    return payload, None
+    payload_inner = payload.get("result") if isinstance(payload, dict) and isinstance(payload.get("result"), dict) else payload
+    delegate_error = ""
+    if isinstance(payload_inner, dict):
+        delegate_error = str(payload_inner.get("error", "") or "").strip()
+        delegate_answer = str(payload_inner.get("final_answer", "") or "").strip()
+        answer_low = delegate_answer.lower()
+        if not delegate_error:
+            if not delegate_answer:
+                delegate_error = "Delegated session returned no final answer."
+            elif answer_low.startswith("agent reached max iterations"):
+                delegate_error = delegate_answer
+            elif answer_low.startswith("model returned empty response"):
+                delegate_error = delegate_answer
+            elif answer_low.startswith("model error at iteration"):
+                delegate_error = delegate_answer
+            elif answer_low.startswith("[remote provider error"):
+                delegate_error = delegate_answer
+
+    return payload, (delegate_error or None)
 
 
 async def _server_side_agent_chat(args: dict, source: str = "webui", client_id: str | None = None) -> dict:
