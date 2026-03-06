@@ -5504,7 +5504,7 @@
         var shortId = key.length > 8 ? key.substring(0, 8) + '…' : key;
         var typeHtml = type ? ' <span style="font-size:9px;font-weight:700;text-transform:uppercase;padding:1px 6px;border-radius:3px;background:var(--surface2);color:var(--accent);">' + _esc(type) + '</span>' : '';
         var previewHtml = extra ? ' <span style="color:var(--text-dim);font-size:10px;font-style:italic;">— ' + _esc(extra) + '</span>' : '';
-        return '<div>' +
+        return '<div class="mem-card-wrap" data-mem-key="' + _esc(key) + '" data-mem-name="' + _esc(displayName) + '" data-mem-type="' + _esc(type || '') + '">' +
             '<div class="memory-item" onclick="drillMemItem(\'' + _esc(key).replace(/'/g, "\\'") + '\')" style="cursor:pointer;">' +
             '<div class="mi-header">' +
             '<span class="mi-name" title="' + _esc(key) + '">' + _esc(displayName) + '</span>' +
@@ -6209,6 +6209,7 @@
                             html += _renderMemItem(ids[i] || '', ids[i + 1] || ids[i], null, null);
                         }
                         memList.innerHTML = html || '<div class="memory-item" style="color:var(--text-dim);">Bag is empty</div>';
+                        applyMemoryCatalogFilters();
                         return;
                     }
 
@@ -6225,6 +6226,7 @@
                             htmlC += _renderMemItem(items[c], null, null, null);
                         }
                         memList.innerHTML = htmlC || '<div class="memory-item" style="color:var(--text-dim);">Bag is empty</div>';
+                        applyMemoryCatalogFilters();
                         return;
                     }
 
@@ -6242,6 +6244,7 @@
                             html2 += _renderMemItem(it.id || '', it.name, it.type, it.preview);
                         }
                         memList.innerHTML = html2;
+                        applyMemoryCatalogFilters();
                         return;
                     }
                 } catch (e) { /* fall through to raw display */ }
@@ -6490,6 +6493,11 @@
         return _normalizeNewlines(escHtml(_decodeDocKey(str)));
     }
 
+    function _vastNumber(value) {
+        var n = Number(value);
+        return Number.isFinite(n) ? n : null;
+    }
+
     function promptToolCall(toolName) {
         var argsStr = prompt('Arguments (JSON):', '{}');
         if (argsStr === null) return;
@@ -6508,6 +6516,53 @@
         if (q && q.value) callTool('bag_search', { query: q.value });
     }
     window.memSearch = memSearch;
+
+    function _updateMemoryFilterStatus(visible, total, filterText, typeFilter) {
+        var el = document.getElementById('mem-filter-status');
+        if (!el) return;
+        if (!total) {
+            el.textContent = '';
+            return;
+        }
+        var parts = [String(visible) + ' of ' + String(total) + ' catalog items shown'];
+        if (filterText) parts.push('filter=' + filterText);
+        if (typeFilter) parts.push('type=' + (typeFilter === '__unknown__' ? 'unclassified' : typeFilter));
+        el.textContent = parts.join(' · ');
+    }
+
+    function applyMemoryCatalogFilters() {
+        var list = document.getElementById('mem-list');
+        if (!list) return;
+        var rows = Array.prototype.slice.call(list.querySelectorAll('.mem-card-wrap'));
+        if (!rows.length) {
+            _updateMemoryFilterStatus(0, 0, '', '');
+            return;
+        }
+        var filterText = String((document.getElementById('mem-local-filter') || {}).value || '').trim().toLowerCase();
+        var typeFilter = String((document.getElementById('mem-type-filter') || {}).value || '').trim().toLowerCase();
+        var visible = 0;
+        rows.forEach(function (row) {
+            var name = String(row.getAttribute('data-mem-name') || '').toLowerCase();
+            var key = String(row.getAttribute('data-mem-key') || '').toLowerCase();
+            var type = String(row.getAttribute('data-mem-type') || '').toLowerCase();
+            var matchesText = !filterText || (name + ' ' + key + ' ' + type).indexOf(filterText) >= 0;
+            var matchesType = !typeFilter || (typeFilter === '__unknown__' ? !type : type === typeFilter);
+            var show = matchesText && matchesType;
+            row.style.display = show ? '' : 'none';
+            if (show) visible += 1;
+        });
+        _updateMemoryFilterStatus(visible, rows.length, filterText, typeFilter);
+    }
+    window.applyMemoryCatalogFilters = applyMemoryCatalogFilters;
+
+    function resetMemoryFilters() {
+        var textEl = document.getElementById('mem-local-filter');
+        var typeEl = document.getElementById('mem-type-filter');
+        if (textEl) textEl.value = '';
+        if (typeEl) typeEl.value = '';
+        applyMemoryCatalogFilters();
+    }
+    window.resetMemoryFilters = resetMemoryFilters;
 
     function setMemoryExportStatus(message, isError) {
         var el = document.getElementById('mem-export-status');

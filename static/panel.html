@@ -4217,6 +4217,21 @@
             <div style="margin-bottom:12px;">
                 <input id="mem-search" placeholder="Semantic search..." onkeyup="if(event.key==='Enter')memSearch()" />
             </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;">
+                <input id="mem-local-filter" placeholder="Filter current catalog..." style="flex:1;min-width:220px;" oninput="applyMemoryCatalogFilters()" />
+                <select id="mem-type-filter" onchange="applyMemoryCatalogFilters()" style="min-width:140px;">
+                    <option value="">All types</option>
+                    <option value="text">Text</option>
+                    <option value="code">Code</option>
+                    <option value="json">JSON</option>
+                    <option value="file">File</option>
+                    <option value="model">Model</option>
+                    <option value="__unknown__">Unclassified</option>
+                </select>
+                <button class="btn-dim" onclick="resetMemoryFilters()">RESET FILTERS</button>
+            </div>
+            <div id="mem-filter-status" style="margin:-4px 0 12px 0;font-size:10px;color:var(--text-dim);min-height:14px;">
+            </div>
             <div class="memory-list" id="mem-list">
                 <div class="memory-item" style="color:var(--text-dim);">Loading...</div>
             </div>
@@ -4979,7 +4994,13 @@
                 <div style="display:flex;gap:8px;margin-bottom:12px;">
                     <input id="gf-search-query" placeholder="gpu_ram>=48 reliability>0.95 dph<0.50"
                         style="flex:1;font-size:11px;" />
+                    <input id="gf-rent-disk" type="number" min="50" step="10" value="150" placeholder="Disk GB"
+                        style="width:110px;font-size:11px;" />
                     <button onclick="vastSearchOffers()">SEARCH</button>
+                </div>
+                <div style="margin:-4px 0 10px 0;font-size:10px;color:var(--text-dim);line-height:1.4;">
+                    Plan disk against the model you intend to load. Use <code>hub_info</code> first; allow extra room for downloads,
+                    caches, unpacking, and quantized variants. If the instance is still booting, watch the GPU Fleet card or the Vast console link before retrying.
                 </div>
                 <div id="gf-search-results" style="font-size:10px;max-height:300px;overflow-y:auto;">
                     <div style="color:var(--text-dim);">Enter a query and click SEARCH</div>
@@ -5803,6 +5824,11 @@
                 return [];
             }
 
+            function vastMetricNumber(value) {
+                const n = Number(value);
+                return Number.isFinite(n) ? n : null;
+            }
+
             function parseToolEnvelope(raw) {
                 if (!raw) return raw;
                 if (raw.result && raw.result.content && Array.isArray(raw.result.content) && raw.result.content[0] && raw.result.content[0].text) {
@@ -5846,15 +5872,19 @@
 
                 let totalRate = 0;
                 let totalSpent = 0;
+                let hasKnownRate = false;
                 const now = Date.now() / 1000;
                 instances.forEach(inst => {
-                    const cost = inst.dph_total || inst.cost_per_hr || 0;
-                    totalRate += cost;
+                    const cost = vastMetricNumber(inst.dph_total ?? inst.cost_per_hr);
+                    if (cost !== null) {
+                        totalRate += cost;
+                        hasKnownRate = true;
+                    }
                     const start = inst.start_time || inst.start_date || 0;
-                    if (start > 0) totalSpent += cost * ((now - start) / 3600);
+                    if (start > 0 && cost !== null) totalSpent += cost * ((now - start) / 3600);
                 });
-                setText('gf-total-rate', '$' + totalRate.toFixed(3) + '/hr');
-                setText('gf-total-spent', '$' + totalSpent.toFixed(2));
+                setText('gf-total-rate', hasKnownRate ? ('$' + totalRate.toFixed(3) + '/hr') : (instances.length ? 'unknown' : '$0.000/hr'));
+                setText('gf-total-spent', hasKnownRate ? ('$' + totalSpent.toFixed(2)) : (instances.length ? 'n/a' : '$0.00'));
 
                 // Instance cards
                 const container = document.getElementById('gf-instances');
@@ -5873,12 +5903,16 @@
                     const gpu = String(inst.gpu_name || inst.gpu || 'GPU').replace(/_/g, ' ');
                     const ssh = inst.ssh_host || '';
                     const port = inst.ssh_port || '';
-                    const cost = inst.dph_total || inst.cost_per_hr || 0;
-                    const vram = inst.gpu_ram || inst.vram_total || 0;
+                    const cost = vastMetricNumber(inst.dph_total ?? inst.cost_per_hr);
+                    const vram = vastMetricNumber(inst.gpu_ram ?? inst.vram_total) || 0;
 
                     const statusIcon = status === 'running' ? '🟢' : status.includes('load') ? '🟡' : '🔴';
-                    const gpuUtil = inst.gpu_util || 0;
-                    const vramUsed = inst.vram_used || 0;
+                    const gpuUtil = vastMetricNumber(inst.gpu_util);
+                    const vramUsed = vastMetricNumber(inst.vram_used);
+                    const gpuUtilLabel = gpuUtil === null ? 'GPU telemetry unavailable' : ('GPU ' + gpuUtil.toFixed(0) + '%');
+                    const gpuBarWidth = gpuUtil === null ? 12 : Math.min(100, gpuUtil);
+                    const gpuBarColor = gpuUtil === null ? 'rgba(255,255,255,0.18)' : (gpuUtil < 50 ? '#22c55e' : gpuUtil < 80 ? '#f59e0b' : '#ef4444');
+                    const costLabel = cost === null ? 'unknown' : ('$' + cost.toFixed(3) + '/hr');
 
                     html += '<div class="diag-section" style="padding:16px;border-left:3px solid ' + color + ';">';
                     html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
@@ -5888,20 +5922,21 @@
                     html += '<div style="font-size:12px;font-weight:bold;margin-bottom:8px;">' + gpu + '</div>';
 
                     // GPU util bar
-                    html += '<div style="margin-bottom:4px;font-size:9px;color:var(--text-dim);">GPU ' + gpuUtil + '%</div>';
+                    html += '<div style="margin-bottom:4px;font-size:9px;color:var(--text-dim);">' + gpuUtilLabel + '</div>';
                     html += '<div style="background:rgba(255,255,255,0.06);border-radius:3px;height:12px;overflow:hidden;margin-bottom:6px;">';
-                    html += '<div style="height:100%;width:' + Math.min(100, gpuUtil) + '%;background:' + (gpuUtil < 50 ? '#22c55e' : gpuUtil < 80 ? '#f59e0b' : '#ef4444') + ';transition:width 0.5s;border-radius:3px;"></div></div>';
+                    html += '<div style="height:100%;width:' + gpuBarWidth + '%;background:' + gpuBarColor + ';transition:width 0.5s;border-radius:3px;"></div></div>';
 
                     // VRAM bar
                     if (vram > 0) {
-                        const vramPct = vramUsed > 0 ? Math.min(100, (vramUsed / vram) * 100) : 0;
-                        html += '<div style="margin-bottom:4px;font-size:9px;color:var(--text-dim);">VRAM ' + vramUsed.toFixed(1) + '/' + vram.toFixed(0) + ' GB</div>';
+                        const vramPct = vramUsed !== null && vramUsed > 0 ? Math.min(100, (vramUsed / vram) * 100) : 0;
+                        const vramLabel = vramUsed === null ? ('VRAM telemetry unavailable · ' + vram.toFixed(0) + ' GB total') : ('VRAM ' + vramUsed.toFixed(1) + '/' + vram.toFixed(0) + ' GB');
+                        html += '<div style="margin-bottom:4px;font-size:9px;color:var(--text-dim);">' + vramLabel + '</div>';
                         html += '<div style="background:rgba(255,255,255,0.06);border-radius:3px;height:12px;overflow:hidden;margin-bottom:6px;">';
                         html += '<div style="height:100%;width:' + vramPct + '%;background:#60a5fa;transition:width 0.5s;border-radius:3px;"></div></div>';
                     }
 
                     html += '<div style="font-size:10px;display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:8px;">';
-                    html += '<div><span style="color:var(--text-dim);">Cost:</span> $' + cost.toFixed(3) + '/hr</div>';
+                    html += '<div><span style="color:var(--text-dim);">Cost:</span> ' + costLabel + '</div>';
                     if (ssh) html += '<div><span style="color:var(--text-dim);">SSH:</span> ' + ssh + ':' + port + '</div>';
                     html += '</div>';
                     html += '<div style="font-size:9px;margin-bottom:8px;">';
@@ -6006,13 +6041,20 @@
                         html += '<td>' + (o.vram_gb || 0).toFixed(0) + 'GB</td>';
                         html += '<td>$' + (o.price_hr || 0).toFixed(3) + '</td>';
                         html += '<td>' + (o.reliability || 0).toFixed(1) + '%</td>';
-                        html += '<td><button onclick="vastAction(\'vast_rent\',{instance_id:\'' + String(offerId) + '\'})" style="font-size:9px;padding:2px 8px;">RENT</button></td>';
+                        html += '<td><button onclick="vastRentOffer(\'' + String(offerId) + '\')" style="font-size:9px;padding:2px 8px;">RENT</button></td>';
                         html += '</tr>';
                     });
                     html += '</table>';
                     html += '<div style="margin-top:6px;color:var(--text-dim);">' + (obj.total || offers.length) + ' total offers (page ' + (obj.page || 1) + ')</div>';
                     if (out) out.innerHTML = html;
                 } catch (e) { if (out) out.innerHTML = '<div style="color:#ef4444;">Search failed: ' + e.message + '</div>'; }
+            };
+
+            window.vastRentOffer = function (offerId) {
+                const diskEl = document.getElementById('gf-rent-disk');
+                let disk = parseInt(String((diskEl && diskEl.value) || '150'), 10);
+                if (!Number.isFinite(disk) || disk < 50) disk = 150;
+                vastAction('vast_rent', { instance_id: String(offerId), disk: disk });
             };
 
             // ── Tab-aware polling ────────────────────────────────────
