@@ -47,7 +47,7 @@
     };
     function _envDefaultConfig() {
         return {
-            version: '2026-03-07-envops-v11',
+            version: '2026-03-07-envops-v16',
             shell: {
                 defaultRenderer: 'web3d',
                 defaultPackageMode: 'research',
@@ -83,6 +83,21 @@
                 shellParallax: 0.24,
                 shellLift: 14,
                 shellDepthShift: 22,
+                orbit: {
+                    hoverInfluenceX: 1,
+                    hoverInfluenceY: 1,
+                    orbitMaxYaw: 7.2,
+                    orbitMaxPitch: 5.4,
+                    followEase: 0.12,
+                    perspectiveShiftX: 18,
+                    perspectiveShiftY: 12,
+                    shellSwayX: 9,
+                    shellSwayY: 6,
+                    objectParallaxX: 24,
+                    objectParallaxY: 14,
+                    depthGain: 0.08,
+                    tiltGain: 2.4
+                },
                 focusFieldOpacity: 0.34,
                 focusFieldRingOpacity: 0.18,
                 focusFieldGlow: 1,
@@ -94,6 +109,34 @@
                 trajectoryOpacity: 0.55,
                 trajectoryGlow: true,
                 trajectorySpeed: 0.24,
+                web3d: {
+                    objectDepth: 18,
+                    dominantDepth: 24,
+                    glowOpacity: 0.22,
+                    liftBoost: 8,
+                    motion: {
+                        objectBob: 2.8,
+                        objectBank: 1.2,
+                        objectDepthPulse: 6,
+                        routeBob: 3.2,
+                        routeBank: 1.8,
+                        routeDepthPulse: 14,
+                        routeSway: 0.75
+                    },
+                    routeLayer: {
+                        enabled: true,
+                        width: 8,
+                        dominantWidth: 12,
+                        lift: 26,
+                        depthScale: 260,
+                        opacity: 0.24,
+                        glowOpacity: 0.34,
+                        packetOpacity: 0.74,
+                        packetScale: 1,
+                        packetSpan: 72,
+                        arcLift: 24
+                    }
+                },
                 world: {
                     enabled: true,
                     laneCount: 8,
@@ -109,7 +152,36 @@
                     bridgePacketCount: 2,
                     bridgePacketSize: 4.2,
                     bridgePacketSpeed: 0.36,
-                    bridgePulseOpacity: 0.34
+                    bridgePulseOpacity: 0.34,
+                    contactField: {
+                        enabled: true,
+                        lift: 8,
+                        objectOpacity: 0.22,
+                        objectRadiusScale: 1.08,
+                        ellipseFlatten: 0.26,
+                        dominantBoost: 1.28,
+                        failureBoost: 1.32,
+                        routeOpacity: 0.24,
+                        routeWidth: 6.4,
+                        routeGlow: 16,
+                        routeSag: 16,
+                        routePacketCount: 2,
+                        routePacketSize: 3.8,
+                        routePacketSpeed: 0.44,
+                        routePacketOpacity: 0.28
+                    }
+                },
+                platform: {
+                    enabled: true,
+                    widthScale: 6.2,
+                    heightScale: 3.1,
+                    widthBias: 38,
+                    heightBias: 24,
+                    lift: 16,
+                    scaleGain: 0.08,
+                    skirtHeight: 26,
+                    glowOpacity: 0.22,
+                    rimOpacity: 0.24
                 },
                 architecture: {
                     enabled: true,
@@ -5483,7 +5555,15 @@
             if (raw.scene.trajectoryGlow !== undefined) cfg.scene.trajectoryGlow = !!raw.scene.trajectoryGlow;
             if (raw.scene.trajectorySpeed !== undefined) cfg.scene.trajectorySpeed = Math.max(0.02, Math.min(2.5, Number(raw.scene.trajectorySpeed) || cfg.scene.trajectorySpeed));
             if (raw.scene.navigation && typeof raw.scene.navigation === 'object') cfg.scene.navigation = Object.assign({}, cfg.scene.navigation || {}, raw.scene.navigation);
+            if (raw.scene.orbit && typeof raw.scene.orbit === 'object') cfg.scene.orbit = Object.assign({}, cfg.scene.orbit || {}, raw.scene.orbit);
+            if (raw.scene.web3d && typeof raw.scene.web3d === 'object') {
+                cfg.scene.web3d = Object.assign({}, cfg.scene.web3d || {}, raw.scene.web3d);
+                if (raw.scene.web3d.routeLayer && typeof raw.scene.web3d.routeLayer === 'object') {
+                    cfg.scene.web3d.routeLayer = Object.assign({}, ((cfg.scene.web3d || {}).routeLayer) || {}, raw.scene.web3d.routeLayer);
+                }
+            }
             if (raw.scene.world && typeof raw.scene.world === 'object') cfg.scene.world = Object.assign({}, cfg.scene.world || {}, raw.scene.world);
+            if (raw.scene.platform && typeof raw.scene.platform === 'object') cfg.scene.platform = Object.assign({}, cfg.scene.platform || {}, raw.scene.platform);
             if (raw.scene.architecture && typeof raw.scene.architecture === 'object') cfg.scene.architecture = Object.assign({}, cfg.scene.architecture || {}, raw.scene.architecture);
             if (raw.scene.atmosphere && typeof raw.scene.atmosphere === 'object') cfg.scene.atmosphere = Object.assign({}, cfg.scene.atmosphere || {}, raw.scene.atmosphere);
             if (raw.scene.substrate && typeof raw.scene.substrate === 'object') cfg.scene.substrate = Object.assign({}, cfg.scene.substrate || {}, raw.scene.substrate);
@@ -5686,8 +5766,119 @@
         return (((_envSceneConfig() || {}).platform) || {});
     }
 
+    function _envSceneWeb3DRouteConfig() {
+        var routeLayer = ((((_envSceneConfig() || {}).web3d) || {}).routeLayer) || {};
+        return {
+            enabled: routeLayer.enabled !== undefined ? !!routeLayer.enabled : true,
+            width: Math.max(4, Number(routeLayer.width || 8)),
+            dominantWidth: Math.max(6, Number(routeLayer.dominantWidth || 12)),
+            lift: Number(routeLayer.lift || 26),
+            depthScale: Math.max(120, Number(routeLayer.depthScale || 260)),
+            opacity: Math.max(0.04, Math.min(1, Number(routeLayer.opacity || 0.24))),
+            glowOpacity: Math.max(0.04, Math.min(1, Number(routeLayer.glowOpacity || 0.34))),
+            packetOpacity: Math.max(0.08, Math.min(1, Number(routeLayer.packetOpacity || 0.74))),
+            packetScale: Math.max(0.4, Number(routeLayer.packetScale || 1)),
+            packetSpan: Math.max(24, Number(routeLayer.packetSpan || 72)),
+            arcLift: Math.max(0, Number(routeLayer.arcLift || 24))
+        };
+    }
+
+    function _envSceneWeb3DMotionConfig() {
+        var motion = ((((_envSceneConfig() || {}).web3d) || {}).motion) || {};
+        return {
+            objectBob: Math.max(0, Number(motion.objectBob || 2.8)),
+            objectBank: Math.max(0, Number(motion.objectBank || 1.2)),
+            objectDepthPulse: Math.max(0, Number(motion.objectDepthPulse || 6)),
+            routeBob: Math.max(0, Number(motion.routeBob || 3.2)),
+            routeBank: Math.max(0, Number(motion.routeBank || 1.8)),
+            routeDepthPulse: Math.max(0, Number(motion.routeDepthPulse || 14)),
+            routeSway: Math.max(0, Number(motion.routeSway || 0.75))
+        };
+    }
+
+    function _envSceneWeb3DAnchorConfig() {
+        var anchors = ((((_envSceneConfig() || {}).web3d) || {}).anchors) || {};
+        return {
+            enabled: anchors.enabled !== undefined ? !!anchors.enabled : true,
+            height: Math.max(8, Number(anchors.height || 26)),
+            width: Math.max(2, Number(anchors.width || 3)),
+            footWidth: Math.max(18, Number(anchors.footWidth || 42)),
+            glowOpacity: Math.max(0.04, Math.min(0.9, Number(anchors.glowOpacity || 0.26))),
+            depth: Math.max(2, Number(anchors.depth || 10))
+        };
+    }
+
+    function _envSceneWeb3DCanopyConfig() {
+        var canopy = ((((_envSceneConfig() || {}).web3d) || {}).canopy) || {};
+        return {
+            enabled: canopy.enabled !== undefined ? !!canopy.enabled : true,
+            slabHeight: Math.max(8, Number(canopy.slabHeight || 18)),
+            slabWidthScale: Math.max(1.2, Number(canopy.slabWidthScale || 3.9)),
+            slabWidthBias: Math.max(12, Number(canopy.slabWidthBias || 54)),
+            slabLift: Math.max(48, Number(canopy.slabLift || 104)),
+            slabDepthBias: Number(canopy.slabDepthBias || -26),
+            slabOpacity: Math.max(0.04, Math.min(0.9, Number(canopy.slabOpacity || 0.22))),
+            umbilicalWidth: Math.max(2, Number(canopy.umbilicalWidth || 4)),
+            umbilicalOpacity: Math.max(0.04, Math.min(0.9, Number(canopy.umbilicalOpacity || 0.2))),
+            umbilicalDepthGain: Math.max(0, Number(canopy.umbilicalDepthGain || 18)),
+            dominantBoost: Math.max(1, Number(canopy.dominantBoost || 1.22)),
+            failureBoost: Math.max(1, Number(canopy.failureBoost || 1.26))
+        };
+    }
+
+    function _envSceneWeb3DForegroundConfig() {
+        var foreground = ((((_envSceneConfig() || {}).web3d) || {}).foreground) || {};
+        return {
+            enabled: foreground.enabled !== undefined ? !!foreground.enabled : true,
+            scrimCount: Math.max(1, Math.min(6, Number(foreground.scrimCount || 3))),
+            scrimOpacity: Math.max(0.04, Math.min(0.6, Number(foreground.scrimOpacity || 0.14))),
+            scrimBlur: Math.max(2, Number(foreground.scrimBlur || 10)),
+            scrimDepthNear: Math.max(8, Number(foreground.scrimDepthNear || 74)),
+            scrimDepthFar: Math.max(0, Number(foreground.scrimDepthFar || 24)),
+            drift: Math.max(0, Number(foreground.drift || 10)),
+            dominantBoost: Math.max(1, Number(foreground.dominantBoost || 1.18)),
+            failureBoost: Math.max(1, Number(foreground.failureBoost || 1.2))
+        };
+    }
+
+    function _envSceneWeb3DUplinkConfig() {
+        var uplinks = ((((_envSceneConfig() || {}).web3d) || {}).uplinks) || {};
+        return {
+            enabled: uplinks.enabled !== undefined ? !!uplinks.enabled : true,
+            width: Math.max(2, Number(uplinks.width || 4)),
+            lift: Math.max(48, Number(uplinks.lift || 126)),
+            depthScale: Math.max(80, Number(uplinks.depthScale || 240)),
+            depthBias: Number(uplinks.depthBias || -12),
+            opacity: Math.max(0.04, Math.min(0.9, Number(uplinks.opacity || 0.18))),
+            glowOpacity: Math.max(0.04, Math.min(0.9, Number(uplinks.glowOpacity || 0.22))),
+            headSize: Math.max(8, Number(uplinks.headSize || 16)),
+            drift: Math.max(0, Number(uplinks.drift || 5.5)),
+            dominantBoost: Math.max(1, Number(uplinks.dominantBoost || 1.24)),
+            failureBoost: Math.max(1, Number(uplinks.failureBoost || 1.34)),
+            watchBoost: Math.max(1, Number(uplinks.watchBoost || 1.16)),
+            replayBoost: Math.max(1, Number(uplinks.replayBoost || 1.2))
+        };
+    }
+
+    function _envSceneMotionSeed(value) {
+        var str = String(value || '');
+        var hash = 0;
+        for (var i = 0; i < str.length; i++) {
+            hash = ((hash * 31) + str.charCodeAt(i)) % 9973;
+        }
+        return hash / 9973;
+    }
+
     function _envSceneDepthGridConfig() {
         return (((_envSceneWorldConfig() || {}).depthGrid) || {});
+    }
+
+    function _envSceneWorldDepthFieldConfig() {
+        return (((_envSceneWorldConfig() || {}).depthField) || {});
+    }
+
+    function _envSceneWorldContactConfig() {
+        return (((_envSceneWorldConfig() || {}).contactField) || {});
     }
 
     function _envSceneNavigationConfig() {
@@ -7186,19 +7377,109 @@
         return classes.join(' ');
     }
 
-    function _envSceneObjectTransform(item, scaleMultiplier) {
+    function _envSceneObjectTransform(item, scaleMultiplier, visual, dominantLift, timeMs) {
         var obj = item.obj || {};
         var orbitCfg = _envSceneOrbitConfig();
+        var motionCfg = _envSceneWeb3DMotionConfig();
         var cam = _envScene.camera || {};
+        var dominance = _envScene.dominance || _envSceneDominanceContext();
+        var failureKey = _envSceneFailureSurfaceKey(_envScene.failureSurface || null);
+        var kind = String((obj.kind || '')).toLowerCase();
+        var key = _envSceneObjectKey(obj);
+        var v = visual || _envSceneObjectDominance(dominance, obj);
+        var isFailure = !!(failureKey && key === failureKey);
+        var spotlight = !!v.spotlight;
+        var ghosted = !!v.ghosted;
         var depthPx = Math.round((Number(item.depth || 0.5) - 0.5) * 160);
         var tilt = Number(obj.tilt || 0);
         var scale = Math.max(0.48, Number(item.scale || 1)) * Math.max(0.72, Number(scaleMultiplier || 1));
         var orbitX = Number(cam.orbitX || 0);
         var orbitY = Number(cam.orbitY || 0);
-        var pitch = 8 - (orbitY * orbitCfg.tiltGain * 0.28);
-        var yaw = tilt + (orbitX * orbitCfg.tiltGain * 0.16);
-        var roll = orbitX * 0.18;
-        return 'translate(' + Math.round(item.x) + 'px,' + Math.round(item.y) + 'px) translateZ(' + depthPx + 'px) scale(' + scale.toFixed(3) + ') rotateX(' + pitch.toFixed(2) + 'deg) rotateY(' + yaw.toFixed(2) + 'deg) rotateZ(' + roll.toFixed(2) + 'deg)';
+        var rolePitch = 0;
+        var roleYaw = 0;
+        var roleRoll = 0;
+        var lift = 0;
+        var depthBoost = 0;
+        var t = Math.max(0, Number(timeMs || _envScene.lastFrame || 0)) * 0.001;
+        var seed = _envSceneMotionSeed(key || (kind + ':' + String(obj.id || '')));
+        var motionBias = 1;
+        if (kind === 'replay') {
+            rolePitch += 5.8;
+            roleYaw += 1.4;
+            roleRoll -= 0.6;
+            lift += 6;
+            depthBoost += 10;
+            motionBias = 1.24;
+        } else if (kind === 'watch') {
+            rolePitch += 4.4;
+            roleYaw -= 1.2;
+            roleRoll += 0.4;
+            lift += 4;
+            depthBoost += 6;
+            motionBias = 1.12;
+        } else if (kind === 'event') {
+            rolePitch += 2.4;
+            roleYaw += 0.8;
+            roleRoll += 0.2;
+            lift += 3;
+            depthBoost += 4;
+            motionBias = 1.08;
+        } else if (kind === 'branch') {
+            rolePitch += 3.8;
+            roleYaw += 1.6;
+            roleRoll -= 0.4;
+            lift += 2;
+            depthBoost += 5;
+            motionBias = 1.06;
+        } else if (kind === 'trace') {
+            rolePitch += 2.8;
+            roleYaw -= 1;
+            roleRoll += 0.3;
+            depthBoost += 3;
+            motionBias = 1.04;
+        } else if (kind === 'queued' || kind === 'dispatch') {
+            rolePitch += 1.6;
+            roleYaw += 0.4;
+            roleRoll -= 0.2;
+            lift += 2;
+            motionBias = 0.96;
+        } else if (kind === 'profile' || kind === 'recipe') {
+            rolePitch += 1.2;
+            roleYaw += 0.8;
+            roleRoll -= 0.3;
+            lift += 1;
+            motionBias = 0.9;
+        }
+        if (spotlight) {
+            lift += Number(dominantLift || 8);
+            depthBoost += 10;
+            rolePitch += 1.8;
+            roleYaw += orbitX * 0.04;
+            motionBias *= 1.18;
+        }
+        if (ghosted) {
+            lift -= 2;
+            depthBoost -= 4;
+            rolePitch -= 1.2;
+            roleYaw *= 0.7;
+            roleRoll *= 0.7;
+            motionBias *= 0.54;
+        }
+        if (isFailure) {
+            lift += 7;
+            depthBoost += 12;
+            rolePitch += 3.6;
+            roleYaw += 2.4;
+            roleRoll -= 1.4;
+            motionBias *= 1.26;
+        }
+        var bob = Math.sin((t * (0.84 + seed * 0.36)) + (seed * 6.283)) * motionCfg.objectBob * motionBias;
+        var bank = Math.sin((t * (0.58 + seed * 0.28)) + (seed * 4.712)) * motionCfg.objectBank * motionBias;
+        var depthPulse = Math.cos((t * (0.66 + seed * 0.24)) + (seed * 5.497)) * motionCfg.objectDepthPulse * motionBias;
+        var pitch = 8 - (orbitY * orbitCfg.tiltGain * 0.28) + rolePitch;
+        var yaw = tilt + (orbitX * orbitCfg.tiltGain * 0.16) + roleYaw;
+        var roll = (orbitX * 0.18) + roleRoll + bank;
+        return 'translate(' + Math.round(item.x) + 'px,' + Math.round(item.y + (-lift - bob)) + 'px) translateZ(' + Math.round(depthPx + depthBoost + depthPulse) + 'px) scale(' + scale.toFixed(3) + ') rotateX(' + pitch.toFixed(2) + 'deg) rotateY(' + yaw.toFixed(2) + 'deg) rotateZ(' + roll.toFixed(2) + 'deg)';
     }
 
     function _envSceneSubstrateTransform(item, visual, elevatePx, depthBiasPx) {
@@ -7406,10 +7687,112 @@
         layer.innerHTML = rails + nodes;
     }
 
+    function _envSceneRenderRouteLayer(projectionMap) {
+        var layer = document.getElementById('envops-habitat-route-layer');
+        if (!layer) return;
+        var cfg = _envSceneWeb3DRouteConfig();
+        var motionCfg = _envSceneWeb3DMotionConfig();
+        if (cfg.enabled === false) {
+            layer.innerHTML = '';
+            return;
+        }
+        var routes = Array.isArray(_envScene.routes) ? _envScene.routes : [];
+        if (!routes.length) {
+            layer.innerHTML = '';
+            return;
+        }
+        var dominance = _envScene.dominance || _envSceneDominanceContext();
+        layer.innerHTML = routes.map(function (route, idx) {
+            var fromProjection = projectionMap[String(route.fromKey || '')];
+            var toProjection = projectionMap[String(route.toKey || '')];
+            if (!fromProjection || !toProjection) return '';
+            var x1 = Number(fromProjection.x || 0);
+            var y1 = Number(fromProjection.y || 0);
+            var x2 = Number(toProjection.x || 0);
+            var y2 = Number(toProjection.y || 0);
+            var dx = x2 - x1;
+            var dy = y2 - y1;
+            var length = Math.sqrt((dx * dx) + (dy * dy));
+            if (!isFinite(length) || length < 18) return '';
+            var angle = Math.atan2(dy, dx) * (180 / Math.PI);
+            var visual = _envSceneLinkDominance(dominance, route.fromKey, route.toKey, route.tone, {
+                event_id: route.event_id,
+                branch: route.branch,
+                condition: route.condition,
+                label: route.label
+            });
+            var flow = _envSceneConduitFlowState(route.tone, visual, dominance, String(route.tone || '') === 'failed');
+            var tone = String(route.tone || 'idle').toLowerCase();
+            var dominant = !!visual.dominant;
+            var suppressed = !!visual.suppressed;
+            var seed = _envSceneMotionSeed(String(route.fromKey || '') + '::' + String(route.toKey || '') + '::' + String(route.label || route.tone || idx));
+            var t = Math.max(0, Number(_envScene.lastFrame || 0)) * 0.001;
+            var motionBias = dominant ? 1.18 : (suppressed ? 0.48 : 0.88);
+            if (tone === 'failed' || flow.mode === 'alert') motionBias *= 1.28;
+            else if (flow.mode === 'watch') motionBias *= 1.08;
+            else if (flow.mode === 'replay') motionBias *= 1.12;
+            var width = (dominant ? Number(cfg.dominantWidth || 12) : Number(cfg.width || 8)) * Math.max(0.82, Number(visual.width || 1));
+            var depth = Math.round((((Number(fromProjection.depth || 0.5) + Number(toProjection.depth || 0.5)) / 2) - 0.5) * Number(cfg.depthScale || 260));
+            var lift = Math.round(Number(cfg.lift || 26) + (dominant ? Number(cfg.arcLift || 24) * 0.25 : 0));
+            var routeBob = Math.sin((t * (0.92 + seed * 0.46)) + (seed * 6.283)) * motionCfg.routeBob * motionBias;
+            var routeBank = Math.sin((t * (0.58 + seed * 0.34)) + (seed * 4.712)) * motionCfg.routeBank * motionBias;
+            var routeDepth = Math.cos((t * (0.74 + seed * 0.28)) + (seed * 5.497)) * motionCfg.routeDepthPulse * motionBias;
+            var routeSway = Math.sin((t * (0.66 + seed * 0.31)) + (seed * 5.11)) * motionCfg.routeSway * motionBias;
+            var opacity = Math.max(0.06, Math.min(0.94, Number(cfg.opacity || 0.24) * Math.max(0.22, Number(visual.opacity || 1)) * (flow.mode === 'alert' ? 1.28 : 1)));
+            var color = flow.mode !== 'idle' ? flow.color : _envSceneDominanceAccent(dominance, null, tone);
+            var glowOpacity = Math.max(0.08, Math.min(0.92, Number(cfg.glowOpacity || 0.34) * (dominant ? 1.28 : (suppressed ? 0.52 : 1))));
+            var classes = ['envops-habitat-route-ribbon', 'tone-' + _sanitizeClassToken(tone || 'idle')];
+            if (dominant) classes.push('dominant');
+            else if (suppressed) classes.push('ghosted');
+            else classes.push('support');
+            if (flow.mode && flow.mode !== 'idle') classes.push('flow-' + _sanitizeClassToken(flow.mode));
+            if (tone === 'failed' || flow.mode === 'alert') classes.push('alert');
+            var packetCount = Math.max(0, Number(flow.packetCount || 0));
+            var packetWidth = Math.max(14, Number(cfg.packetSpan || 72) * 0.22 * Math.max(0.7, Number(cfg.packetScale || 1) * Number(flow.packetScale || 1)));
+            var packetNodes = [];
+            for (var packetIndex = 0; packetIndex < packetCount; packetIndex++) {
+                packetNodes.push(
+                    '<span class="packet" style="' +
+                    'width:' + Math.round(packetWidth) + 'px;' +
+                    'opacity:' + Math.max(0.16, Math.min(0.96, Number(cfg.packetOpacity || 0.74) * (0.84 + packetIndex * 0.06))).toFixed(3) + ';' +
+                    'animation-duration:' + Math.max(0.8, Number(flow.speed || 3.2)).toFixed(2) + 's;' +
+                    'animation-delay:' + (-packetIndex * Math.max(0.12, Number(flow.speed || 3.2) / Math.max(1, packetCount))).toFixed(2) + 's;"></span>'
+                );
+            }
+            var label = '';
+            if (dominant || tone === 'failed' || tone === 'branch' || tone === 'replay' || flow.mode === 'alert') {
+                label = String(route.label || route.condition || route.branch || route.tone || '');
+            }
+            return '<div class="' + _esc(classes.join(' ')) + '" style="' +
+                'left:' + Math.round(x1) + 'px;' +
+                'top:' + Math.round(y1) + 'px;' +
+                'width:' + length.toFixed(2) + 'px;' +
+                'height:' + Math.round(width * 1.8) + 'px;' +
+                'opacity:' + opacity.toFixed(3) + ';' +
+                'transform:' + _esc('translateZ(' + Math.round(depth + routeDepth) + 'px) translateY(' + Math.round(-lift - routeBob) + 'px) rotateZ(' + angle.toFixed(2) + 'deg) rotateX(' + routeBank.toFixed(2) + 'deg) skewY(' + routeSway.toFixed(2) + 'deg)') + ';' +
+                '--env-route-color:' + _esc(color) + ';' +
+                '--env-route-glow:' + _esc(color) + ';' +
+                '--env-route-glow-opacity:' + glowOpacity.toFixed(3) + ';' +
+                '--env-route-speed:' + Math.max(0.8, Number(flow.speed || 3.2)).toFixed(2) + 's;' +
+                '--env-route-length:' + Math.round(length) + 'px;' +
+                '--env-route-height:' + Math.max(4, Math.round(width)) + 'px;' +
+                '--env-route-bank:' + routeBank.toFixed(2) + 'deg;' +
+                '--env-route-sway:' + routeSway.toFixed(2) + 'deg;' +
+                '" data-env-route="' + _esc(String(route.label || route.branch || route.condition || tone || ('route-' + idx))) + '">' +
+                '<span class="underlay"></span>' +
+                '<span class="glow"></span>' +
+                '<span class="core"></span>' +
+                packetNodes.join('') +
+                (label ? ('<span class="label">' + _esc(label) + '</span>') : '') +
+                '</div>';
+        }).join('');
+    }
+
     function _envSceneRenderWeb3DLayer() {
         var layer = document.getElementById('envops-habitat-object-layer');
         if (!layer) return;
         var cfg = (((_envConfig || {}).scene || {}).web3d) || {};
+        var anchorCfg = _envSceneWeb3DAnchorConfig();
         var pickables = (_envScene.pickables || []).slice().sort(function (a, b) {
             return Number(a.depth || 0) - Number(b.depth || 0);
         });
@@ -7424,8 +7807,11 @@
             var visual = _envSceneObjectDominance(dominance, obj);
             var colors = _envSceneColorForObject(obj);
             var cardDepth = Math.max(10, Math.round((visual.spotlight ? Number(cfg.dominantDepth || 24) : Number(cfg.objectDepth || 18)) * Math.max(0.82, Number(item.scale || 1))));
-            var lift = visual.spotlight ? Math.round(Number(cfg.liftBoost || 8)) : 0;
             var glowOpacity = Math.max(0.06, Math.min(0.72, Number(cfg.glowOpacity || 0.22) * (visual.spotlight ? 1.35 : (visual.ghosted ? 0.54 : 1))));
+            var anchorHeight = Math.round(Number(anchorCfg.height || 26) * Math.max(0.84, Number(item.scale || 1)) * (visual.spotlight ? 1.14 : (visual.ghosted ? 0.88 : 1)));
+            var anchorWidth = Math.max(2, Math.round(Number(anchorCfg.width || 3) * (visual.spotlight ? 1.2 : 1)));
+            var footWidth = Math.max(18, Math.round(Number(anchorCfg.footWidth || 42) * Math.max(0.82, Number(item.scale || 1)) * (visual.spotlight ? 1.16 : 1)));
+            var anchorGlow = Math.max(0.06, Math.min(0.8, Number(anchorCfg.glowOpacity || 0.26) * (visual.spotlight ? 1.26 : (visual.ghosted ? 0.58 : 1))));
             var z = 10 + idx + (visual.spotlight ? 120 : 0);
             var filter = visual.spotlight
                 ? 'saturate(1.34) brightness(1.1)'
@@ -7446,10 +7832,16 @@
                 '--env-face-edge:' + _esc(colors.edge) + ';' +
                 '--env-face-glow:' + _esc(colors.glow) + ';' +
                 '--env-glow-opacity:' + glowOpacity.toFixed(3) + ';' +
-                'transform:' + _esc(_envSceneObjectTransform(item, visual.scale) + ' translateY(' + (-lift) + 'px)') + ';" ' +
+                '--env-anchor-height:' + anchorHeight + 'px;' +
+                '--env-anchor-width:' + anchorWidth + 'px;' +
+                '--env-anchor-foot:' + footWidth + 'px;' +
+                '--env-anchor-glow:' + anchorGlow.toFixed(3) + ';' +
+                '--env-anchor-depth:' + Math.round(Number(anchorCfg.depth || 10)) + 'px;' +
+                'transform:' + _esc(_envSceneObjectTransform(item, visual.scale, visual, Number(cfg.liftBoost || 8), _envScene.lastFrame || 0)) + ';" ' +
                 'data-env-focus-kind="' + _esc(String(obj.kind || 'workflow')) + '" ' +
                 'data-env-focus-id="' + _esc(String(obj.id || '')) + '">' +
                 '<span class="envops-habitat-object-shell" aria-hidden="true">' +
+                (anchorCfg.enabled ? '<span class="envops-habitat-object-anchor"></span><span class="envops-habitat-object-foot"></span>' : '') +
                 '<span class="envops-habitat-object-glow"></span>' +
                 '<span class="envops-habitat-object-face front"></span>' +
                 '<span class="envops-habitat-object-face top"></span>' +
@@ -7676,8 +8068,10 @@
 
     function _envSceneRenderVolumeLayer(workflow, exec, sections, traces) {
         var scene = _envSceneConfig();
+        var web3d = (((scene || {}).web3d || {}).volumetrics) || {};
         var states = _envSceneCollectDistrictStates(workflow, exec, sections, traces);
         var dominance = (_envScene && _envScene.dominance) || _envSceneDominanceContext();
+        var failure = _envLatestFailureSurface(workflow, exec, traces);
         if (!states.length) return '';
         var stateById = {};
         states.forEach(function (entry) {
@@ -7709,6 +8103,25 @@
                 (hot ? 'box-shadow:0 0 18px rgba(255,102,102,0.12);' : '') +
                 '"></div>';
         }).join('');
+        var veilTone = failure.tone === 'alert' ? 'alert' : (dominance.mode === 'watch' ? 'watch' : (dominance.mode === 'replay' ? 'replay' : 'live'));
+        var veils = states.map(function (entry, idx) {
+            var district = entry.district || {};
+            var state = entry.state || {};
+            var centerX = Number(district.x || 0) + (Number(district.w || 20) / 2);
+            var baseY = Number(district.y || 0) + Number(district.h || 16) + 4;
+            var widthPx = Math.max(80, (Number(district.w || 24) * 4.8));
+            var heightPx = Math.max(96, Number(scene.volumeBaseHeight || 34) + (Number(state.count || 0) * 10));
+            var depthPx = Math.round(Number(district.depth || -48) - 8 + (idx * 4));
+            var opacity = Math.max(0.08, Math.min(0.42, (state.active ? 0.2 : 0.12) + (failure.tone === 'alert' && String(state.tone || '') === 'alert' ? 0.12 : 0) + (dominance.mode === 'watch' ? 0.06 : (dominance.mode === 'replay' ? 0.08 : 0))));
+            return '<div class="envops-habitat-volume-veil ' + _esc(veilTone) + '" style="' +
+                'left:' + centerX.toFixed(2) + '%;' +
+                'top:' + baseY.toFixed(2) + '%;' +
+                'width:' + widthPx.toFixed(0) + 'px;' +
+                'height:' + heightPx.toFixed(0) + 'px;' +
+                'opacity:' + opacity.toFixed(3) + ';' +
+                'transform:translate(-50%, -100%) translateZ(' + depthPx + 'px) rotateX(74deg) rotateY(' + ((centerX - 50) * 0.08).toFixed(2) + 'deg);' +
+                '"></div>';
+        }).join('');
         var volumes = states.map(function (entry) {
             var district = entry.district || {};
             var state = entry.state || {};
@@ -7720,21 +8133,46 @@
             var heightPx = Math.max(30, Number(scene.volumeBaseHeight || 34) + (Number(state.count || 0) * Number(scene.volumeHeightGain || 6.5)));
             var depthPx = Math.round(Number(district.depth || -48) + 18 + (heightPx * 0.18));
             var opacity = Math.max(0.18, Math.min(1, Number(visual.opacity || 1) * (visual.suppressed ? 0.78 : 1)));
-            return '<div class="envops-habitat-volume" style="' +
+            var modeBoost = visual.dominant ? Number(web3d.dominantBoost || 1.22) : 1;
+            if (dominance.mode === 'watch') modeBoost *= Number(web3d.watchBoost || 1.14);
+            if (dominance.mode === 'replay') modeBoost *= Number(web3d.replayBoost || 1.18);
+            if (String(state.tone || '') === 'alert') modeBoost *= Number(web3d.failureBoost || 1.3);
+            var shaftWidth = Math.max(26, widthPx * Math.max(0.16, Number(web3d.shaftWidthScale || 0.42)));
+            var shaftOpacity = Math.max(0.08, Math.min(0.72, Number(web3d.shaftOpacity || 0.18) * Math.max(0.62, Number(visual.opacity || 1)) * modeBoost));
+            var crownOpacity = Math.max(0.08, Math.min(0.72, Number(web3d.crownOpacity || 0.22) * Math.max(0.72, Number(visual.opacity || 1)) * modeBoost));
+            var coreHeight = Math.max(24, Math.round(Number(web3d.coreHeightBias || 42) + (heightPx * 0.36)));
+            var drift = Math.sin((_envSceneMotionSeed(centerX, baseY) + (_envSceneNow() * 0.0011)) * Math.max(0.18, Number(web3d.shaftDrift || 8) * 0.06)) * Math.max(2, Number(web3d.shaftDrift || 8));
+            var classes = ['envops-habitat-volume'];
+            if (visual.dominant) classes.push('mode-dominant');
+            else if (visual.suppressed) classes.push('mode-ghosted');
+            else classes.push('mode-support');
+            if (String(state.tone || '') === 'alert') classes.push('failure-surface');
+            if (dominance.mode === 'watch') classes.push('watch');
+            if (dominance.mode === 'replay') classes.push('replay');
+            return '<div class="' + _esc(classes.join(' ')) + '" style="' +
                 'left:' + centerX.toFixed(2) + '%;' +
                 'top:' + baseY.toFixed(2) + '%;' +
                 '--env-volume-width:' + widthPx.toFixed(0) + 'px;' +
                 '--env-volume-height:' + heightPx.toFixed(0) + 'px;' +
                 '--env-volume-depth:' + depthPx + 'px;' +
                 '--env-volume-opacity:' + opacity.toFixed(3) + ';' +
+                '--env-volume-shaft-width:' + shaftWidth.toFixed(0) + 'px;' +
+                '--env-volume-shaft-opacity:' + shaftOpacity.toFixed(3) + ';' +
+                '--env-volume-crown-scale:' + Math.max(1.02, Number(web3d.crownScale || 1.22) + (visual.dominant ? 0.08 : 0)).toFixed(3) + ';' +
+                '--env-volume-crown-opacity:' + crownOpacity.toFixed(3) + ';' +
+                '--env-volume-core-height:' + coreHeight + 'px;' +
+                '--env-volume-glow:' + _esc(String(palette.shadow || 'rgba(79,255,208,0.16)')) + ';' +
                 'filter:brightness(' + Number(visual.glow || 1).toFixed(3) + ') saturate(' + (visual.dominant ? '1.10' : (visual.suppressed ? '0.72' : '1.00')) + ');' +
+                'transform:translate(-50%, -100%) translateZ(' + depthPx + 'px) rotateX(72deg) rotateY(' + (((centerX - 50) * 0.06) + drift).toFixed(2) + 'deg);' +
                 '">' +
+                '<div class="envops-habitat-volume-shaft"></div>' +
                 '<div class="stem" style="background:' + palette.stem + ';box-shadow:inset 0 0 0 1px rgba(255,255,255,0.04), 0 10px 18px rgba(0,0,0,0.18), 0 0 18px ' + palette.shadow + ';"></div>' +
                 '<div class="cap" style="background:' + palette.cap + ';box-shadow:0 0 18px ' + palette.shadow + ';"></div>' +
+                '<div class="envops-habitat-volume-crown"></div>' +
                 '<div class="tag" style="color:' + palette.tag + ';">' + _esc(String(district.label || district.id || 'district')) + ' · ' + String(state.count || 0) + '</div>' +
                 '</div>';
         }).join('');
-        return '<div class="envops-habitat-volume-layer">' + bridges + volumes + '</div>';
+        return '<div class="envops-habitat-volume-layer">' + bridges + veils + volumes + '</div>';
     }
 
     function _envSceneRenderAtmosphereLayer(workflow, exec, sections, traces) {
@@ -7790,8 +8228,165 @@
         if (cfg.enabled === false) return '';
         var states = _envSceneCollectDistrictStates(workflow, exec, sections, traces);
         var dominance = (_envScene && _envScene.dominance) || _envSceneDominanceContext();
+        var failure = _envLatestFailureSurface(workflow, exec, traces);
         var corridorFlowBase = Math.max(0.08, Math.min(1, Number(cfg.corridorFlowOpacity || 0.48)));
         if (!states.length) return '';
+        var shellWallWidth = Math.max(56, Number(cfg.shellWallWidth || 96));
+        var shellWallInset = Math.max(0, Math.min(18, Number(cfg.shellWallInset || 5)));
+        var shellWallTop = Math.max(0, Math.min(24, Number(cfg.shellWallTop || 6)));
+        var shellWallHeight = Math.max(42, Math.min(84, Number(cfg.shellWallHeight || 70)));
+        var shellWallDepth = Number(cfg.shellWallDepth || -126);
+        var shellWallOpacity = Math.max(0.08, Math.min(0.8, Number(cfg.shellWallOpacity || 0.32)));
+        var shellWallCharge = Math.max(0.02, Math.min(0.24, Number(cfg.shellWallCharge || 0.08)));
+        var shellWallSway = Math.max(0, Number(cfg.shellWallSway || 6));
+        var ceilingInset = Math.max(4, Math.min(24, Number(cfg.ceilingInset || 11)));
+        var ceilingTop = Math.max(0, Math.min(18, Number(cfg.ceilingTop || 3)));
+        var ceilingHeight = Math.max(42, Number(cfg.ceilingHeight || 86));
+        var ceilingDepth = Number(cfg.ceilingDepth || -148);
+        var ceilingOpacity = Math.max(0.08, Math.min(0.8, Number(cfg.ceilingOpacity || 0.24)));
+        var ceilingPitchGain = Math.max(0, Number(cfg.ceilingPitchGain || 4));
+        var ceilingLiftGain = Math.max(0, Number(cfg.ceilingLiftGain || 8));
+        var ribCount = Math.max(2, Math.min(12, Number(cfg.ribCount || 6)));
+        var ribTop = Math.max(0, Math.min(20, Number(cfg.ribTop || 7)));
+        var ribSpan = Math.max(32, Math.min(96, Number(cfg.ribSpan || 78)));
+        var ribHeight = Math.max(8, Number(cfg.ribHeight || 24));
+        var ribDepthStep = Math.max(8, Number(cfg.ribDepthStep || 26));
+        var ribOpacity = Math.max(0.04, Math.min(0.7, Number(cfg.ribOpacity || 0.2)));
+        var ribDrift = Math.max(0, Number(cfg.ribDrift || 4));
+        var veilOpacity = Math.max(0.04, Math.min(0.42, Number(cfg.veilOpacity || 0.16)));
+        var veilDepth = Number(cfg.veilDepth || -112);
+        var veilWidth = Math.max(12, Number(cfg.veilWidth || 24));
+        var veilHeight = Math.max(24, Number(cfg.veilHeight || 62));
+        var spillOpacityBase = Math.max(0.06, Math.min(0.52, Number(cfg.spillOpacity || 0.2)));
+        var spillBlur = Math.max(6, Number(cfg.spillBlur || 18));
+        var spillWidth = Math.max(8, Number(cfg.spillWidth || 16));
+        var spillHeight = Math.max(12, Number(cfg.spillHeight || 24));
+        var spillDepth = Number(cfg.spillDepth || -118);
+        var spillReach = Math.max(0.16, Math.min(0.82, Number(cfg.spillReach || 0.42)));
+        var spillCeilingWidth = Math.max(10, Number(cfg.spillCeilingWidth || 18));
+        var spillCeilingHeight = Math.max(6, Number(cfg.spillCeilingHeight || 12));
+        var spillCeilingLift = Math.max(0, Number(cfg.spillCeilingLift || 18));
+        var modeCharge = failure.active ? 1 : (dominance.mode === 'watch' ? 0.74 : (dominance.mode === 'replay' ? 0.82 : (dominance.mode === 'event' ? 0.54 : 0.28)));
+        var wallYaw = shellWallSway * modeCharge;
+        var wallPitch = 4 + (modeCharge * 0.8);
+        var ceilingPitch = 86 + (modeCharge * ceilingPitchGain * 0.2);
+        var ceilingLift = ceilingLiftGain * modeCharge;
+        var shellStructures =
+            '<div class="envops-habitat-shell-wall left" style="' +
+                'left:' + shellWallInset.toFixed(2) + '%;' +
+                'top:' + shellWallTop.toFixed(2) + '%;' +
+                'width:' + shellWallWidth.toFixed(2) + 'px;' +
+                'height:' + shellWallHeight.toFixed(2) + '%;' +
+                'opacity:' + (shellWallOpacity + (shellWallCharge * modeCharge)).toFixed(3) + ';' +
+                'transform:translateZ(' + (shellWallDepth - (modeCharge * 4)).toFixed(2) + 'px) rotateY(' + (74 + wallYaw).toFixed(2) + 'deg) rotateX(' + wallPitch.toFixed(2) + 'deg) skewY(-6deg);' +
+            '"></div>' +
+            '<div class="envops-habitat-shell-wall right" style="' +
+                'right:' + shellWallInset.toFixed(2) + '%;' +
+                'top:' + shellWallTop.toFixed(2) + '%;' +
+                'width:' + shellWallWidth.toFixed(2) + 'px;' +
+                'height:' + shellWallHeight.toFixed(2) + '%;' +
+                'opacity:' + (shellWallOpacity + (shellWallCharge * modeCharge)).toFixed(3) + ';' +
+                'transform:translateZ(' + (shellWallDepth - (modeCharge * 4)).toFixed(2) + 'px) rotateY(' + (-74 - wallYaw).toFixed(2) + 'deg) rotateX(' + wallPitch.toFixed(2) + 'deg) skewY(6deg);' +
+            '"></div>' +
+            '<div class="envops-habitat-shell-ceiling" style="' +
+                'left:' + ceilingInset.toFixed(2) + '%;' +
+                'top:' + Math.max(0, ceilingTop - (ceilingLift * 0.14)).toFixed(2) + '%;' +
+                'width:' + Math.max(18, 100 - (ceilingInset * 2)).toFixed(2) + '%;' +
+                'height:' + ceilingHeight.toFixed(2) + 'px;' +
+                'opacity:' + (ceilingOpacity + (modeCharge * 0.08)).toFixed(3) + ';' +
+                'transform:translateZ(' + (ceilingDepth - ceilingLift).toFixed(2) + 'px) rotateX(' + ceilingPitch.toFixed(2) + 'deg);' +
+            '"></div>' +
+            '<div class="envops-habitat-shell-veil left" style="' +
+                'left:' + (shellWallInset + 6).toFixed(2) + '%;' +
+                'top:' + (shellWallTop + 8).toFixed(2) + '%;' +
+                'width:' + veilWidth.toFixed(2) + '%;' +
+                'height:' + veilHeight.toFixed(2) + '%;' +
+                'opacity:' + (veilOpacity + (modeCharge * 0.08)).toFixed(3) + ';' +
+                'transform:translateZ(' + (veilDepth - (modeCharge * 10)).toFixed(2) + 'px) rotateY(' + (48 + wallYaw * 0.5).toFixed(2) + 'deg);' +
+            '"></div>' +
+            '<div class="envops-habitat-shell-veil right" style="' +
+                'right:' + (shellWallInset + 6).toFixed(2) + '%;' +
+                'top:' + (shellWallTop + 8).toFixed(2) + '%;' +
+                'width:' + veilWidth.toFixed(2) + '%;' +
+                'height:' + veilHeight.toFixed(2) + '%;' +
+                'opacity:' + (veilOpacity + (modeCharge * 0.08)).toFixed(3) + ';' +
+                'transform:translateZ(' + (veilDepth - (modeCharge * 10)).toFixed(2) + 'px) rotateY(' + (-48 - wallYaw * 0.5).toFixed(2) + 'deg);' +
+            '"></div>' +
+            '<div class="envops-habitat-shell-veil crown" style="' +
+                'left:50%;' +
+                'top:' + Math.max(0, shellWallTop + 6 - (ceilingLift * 0.08)).toFixed(2) + '%;' +
+                'width:' + Math.max(26, veilWidth * 2.4).toFixed(2) + '%;' +
+                'height:' + Math.max(18, veilHeight * 0.7).toFixed(2) + '%;' +
+                'opacity:' + (veilOpacity + (modeCharge * 0.12)).toFixed(3) + ';' +
+                'transform:translateX(-50%) translateZ(' + (ceilingDepth - 18 - ceilingLift).toFixed(2) + 'px) rotateX(86deg);' +
+            '"></div>' +
+            new Array(ribCount).fill(0).map(function (_, idx) {
+                var ratio = ribCount === 1 ? 0.5 : (idx / (ribCount - 1));
+                var width = Math.max(28, ribSpan - (idx * 4));
+                var top = ribTop + (ratio * ribHeight);
+                var depth = ceilingDepth + (idx * ribDepthStep) - (modeCharge * 4);
+                var opacity = Math.max(0.06, ribOpacity - (idx * 0.012) + (dominance.mode === 'watch' ? 0.02 : 0));
+                return '<div class="envops-habitat-shell-rib" style="' +
+                    'left:' + ((100 - width) / 2).toFixed(2) + '%;' +
+                    'top:' + top.toFixed(2) + '%;' +
+                    'width:' + width.toFixed(2) + '%;' +
+                    'opacity:' + opacity.toFixed(3) + ';' +
+                    'transform:translateZ(' + depth.toFixed(2) + 'px) rotateX(82deg) rotateZ(' + (((ratio - 0.5) * ribDrift * modeCharge)).toFixed(2) + 'deg);' +
+                '"></div>';
+            }).join('');
+        var spillElements = states.map(function (entry) {
+            var district = entry.district || {};
+            var state = entry.state || {};
+            var visual = _envSceneDistrictDominance(dominance, district, state);
+            var tone = String(state.tone || 'idle').toLowerCase();
+            if (visual.suppressed && !state.active && tone !== 'alert' && tone !== 'warning' && tone !== 'active') return '';
+            var palette = _envSceneDistrictTonePalette(state.tone);
+            var districtKey = _envSceneTargetKey(state.target);
+            var failureMatch = !!(failure && failure.key && districtKey && String(failure.key || '') === districtKey);
+            var centerX = Number(district.x || 0) + (Number(district.w || 20) / 2);
+            var centerY = Number(district.y || 0) + (Number(district.h || 16) / 2);
+            var wallSide = centerX < 50 ? 'left' : 'right';
+            var intensity = visual.dominant ? 1.18 : (state.active ? 1.0 : 0.84);
+            if (tone === 'alert') intensity += 0.22;
+            else if (tone === 'warning') intensity += 0.12;
+            if (failureMatch) intensity += 0.18;
+            if (dominance.mode === 'watch') intensity += 0.06;
+            else if (dominance.mode === 'replay') intensity += 0.08;
+            var wallOpacity = spillOpacityBase * (visual.suppressed ? 0.52 : 1) * intensity;
+            var ceilingOpacity = wallOpacity * 0.88;
+            var wallTop = shellWallTop + Math.max(4, Math.min(shellWallHeight - 8, (centerY - shellWallTop) * spillReach));
+            var wallWidthScaled = spillWidth * (0.9 + (intensity * 0.42));
+            var wallHeightScaled = spillHeight * (1.0 + (intensity * 0.46));
+            var ceilingWidthScaled = spillCeilingWidth * (1.0 + (intensity * 0.42));
+            var ceilingHeightScaled = spillCeilingHeight * (1.0 + (intensity * 0.32));
+            var spillClasses = ['envops-habitat-shell-spill'];
+            if (visual.dominant) spillClasses.push('dominant');
+            if (tone === 'alert' || failureMatch) spillClasses.push('alert');
+            if (dominance.mode === 'watch') spillClasses.push('watch');
+            if (dominance.mode === 'replay') spillClasses.push('replay');
+            var wallColor = 'radial-gradient(circle at 50% 50%, ' + palette.shadow + ' 0%, rgba(255,255,255,0) 72%)';
+            var ceilingColor = 'radial-gradient(circle at 50% 50%, ' + palette.shadow + ' 0%, rgba(255,255,255,0) 78%)';
+            return '<div class="' + _esc(spillClasses.concat(['wall', wallSide]).join(' ')) + '" style="' +
+                (wallSide === 'left' ? ('left:' + (shellWallInset + 2).toFixed(2) + '%;') : ('right:' + (shellWallInset + 2).toFixed(2) + '%;')) +
+                'top:' + wallTop.toFixed(2) + '%;' +
+                'width:' + wallWidthScaled.toFixed(2) + '%;' +
+                'height:' + wallHeightScaled.toFixed(2) + '%;' +
+                '--env-shell-spill-opacity:' + Math.min(0.72, wallOpacity).toFixed(3) + ';' +
+                '--env-shell-spill-blur:' + Math.round(spillBlur * (visual.dominant ? 1.15 : 1)) + 'px;' +
+                'background:' + wallColor + ';' +
+                'transform:translateZ(' + (spillDepth - (intensity * 6)).toFixed(2) + 'px) rotateY(' + (wallSide === 'left' ? (66 + (wallYaw * 0.36)) : (-66 - (wallYaw * 0.36))).toFixed(2) + 'deg) rotateX(' + (8 + (modeCharge * 3)).toFixed(2) + 'deg);' +
+            '"></div>' +
+            '<div class="' + _esc(spillClasses.concat(['ceiling']).join(' ')) + '" style="' +
+                'left:' + centerX.toFixed(2) + '%;' +
+                'top:' + Math.max(0, shellWallTop + 2 - (ceilingLift * 0.08)).toFixed(2) + '%;' +
+                'width:' + ceilingWidthScaled.toFixed(2) + '%;' +
+                'height:' + ceilingHeightScaled.toFixed(2) + '%;' +
+                '--env-shell-spill-opacity:' + Math.min(0.68, ceilingOpacity).toFixed(3) + ';' +
+                '--env-shell-spill-blur:' + Math.round(spillBlur * 1.3) + 'px;' +
+                'background:' + ceilingColor + ';' +
+                'transform:translateX(-50%) translateZ(' + (ceilingDepth - spillCeilingLift - (intensity * 6)).toFixed(2) + 'px) rotateX(86deg);' +
+            '"></div>';
+        }).join('');
         var stateById = {};
         states.forEach(function (entry) {
             stateById[String((entry.district || {}).id || '')] = entry;
@@ -7887,7 +8482,7 @@
                 '<div class="envops-habitat-portal-tag" style="color:' + palette.tag + ';">' + _esc(String(district.label || district.id || 'district')) + ' · ' + _esc(String(state.detail || state.tone || 'ready')) + '</div>' +
                 '</button>';
         }).join('');
-        return '<div class="envops-habitat-architecture-layer">' + corridors + portals + '</div>';
+        return '<div class="envops-habitat-architecture-layer">' + shellStructures + spillElements + corridors + portals + '</div>';
     }
 
     function _envSceneRenderDepthLayer(workflow, exec, sections, traces) {
@@ -8062,6 +8657,180 @@
                 '<div class="skirt"></div>' +
                 '<div class="tag">' + _esc(String(district.label || district.id || 'district')) + ' · ' + _esc(String(state.count || 0)) + '</div>' +
                 '</div>';
+        }).join('') + '</div>';
+    }
+
+    function _envSceneRenderCanopyLayer(workflow, exec, sections, traces) {
+        var cfg = _envSceneWeb3DCanopyConfig();
+        if (cfg.enabled === false) return '';
+        var entries = _envSceneCollectDistrictStates(workflow, exec, sections, traces);
+        var dominance = (_envScene && _envScene.dominance) || _envSceneDominanceContext();
+        if (!entries.length) return '';
+        var stateById = {};
+        entries.forEach(function (entry) {
+            stateById[String((entry.district || {}).id || '')] = entry;
+        });
+        var bridges = _envSceneDistrictBridgeCatalog().map(function (bridge) {
+            var fromEntry = stateById[String(bridge.from || '')];
+            var toEntry = stateById[String(bridge.to || '')];
+            if (!fromEntry || !toEntry) return '';
+            var fromDistrict = fromEntry.district || {};
+            var toDistrict = toEntry.district || {};
+            var x1 = Number(fromDistrict.x || 0) + (Number(fromDistrict.w || 20) / 2);
+            var x2 = Number(toDistrict.x || 0) + (Number(toDistrict.w || 20) / 2);
+            var y1 = Number(fromDistrict.y || 0) + (Number(fromDistrict.h || 16) / 2) - 6 - Math.max(42, Number(cfg.slabLift || 104));
+            var y2 = Number(toDistrict.y || 0) + (Number(toDistrict.h || 16) / 2) - 6 - Math.max(42, Number(cfg.slabLift || 104));
+            var dx = x2 - x1;
+            var dy = y2 - y1;
+            var length = Math.sqrt((dx * dx) + (dy * dy));
+            var angle = Math.atan2(dy, dx) * (180 / Math.PI);
+            var hot = String((fromEntry.state || {}).tone || '') === 'alert' || String((toEntry.state || {}).tone || '') === 'alert';
+            var opacity = Math.max(0.08, Math.min(0.48, Number(cfg.umbilicalOpacity || 0.2) * Number(bridge.weight || 1) * (hot ? Number(cfg.failureBoost || 1.26) : 1)));
+            return '<div class="envops-habitat-canopy-bridge" style="' +
+                'left:' + x1.toFixed(2) + '%;' +
+                'top:' + y1.toFixed(2) + '%;' +
+                'width:' + length.toFixed(2) + '%;' +
+                'opacity:' + opacity.toFixed(3) + ';' +
+                'transform:translateZ(' + Math.round((((Number(fromDistrict.depth || -48) + Number(toDistrict.depth || -48)) / 2) - 6)) + 'px) rotateZ(' + angle.toFixed(2) + 'deg);' +
+                '"></div>';
+        }).filter(Boolean).join('');
+        return '<div class="envops-habitat-canopy-layer">' + bridges + entries.map(function (entry) {
+            var district = entry.district || {};
+            var state = entry.state || {};
+            var visual = _envSceneDistrictDominance(dominance, district, state);
+            var palette = _envSceneDistrictTonePalette(state.tone);
+            var centerX = Number(district.x || 0) + (Number(district.w || 20) / 2);
+            var centerY = Number(district.y || 0) + (Number(district.h || 16) / 2) - 6;
+            var width = Math.max(72, (Number(district.w || 20) * Number(cfg.slabWidthScale || 3.9)) + Number(cfg.slabWidthBias || 54));
+            var slabHeight = Math.max(10, Number(cfg.slabHeight || 18));
+            var lift = Math.max(42, Number(cfg.slabLift || 104));
+            var slabDepth = Math.round(Number(district.depth || -48) + Number(cfg.slabDepthBias || -26));
+            var dominantBoost = visual.dominant ? Number(cfg.dominantBoost || 1.22) : 1;
+            var failureBoost = String(state.tone || '') === 'alert' ? Number(cfg.failureBoost || 1.26) : 1;
+            var slabOpacity = Math.max(0.08, Math.min(0.82, Number(cfg.slabOpacity || 0.22) * Number(visual.opacity || 1) * dominantBoost * failureBoost));
+            var umbilicalHeight = Math.max(26, lift - 18);
+            var umbilicalOpacity = Math.max(0.06, Math.min(0.82, Number(cfg.umbilicalOpacity || 0.2) * (visual.dominant ? 1.16 : 1) * failureBoost));
+            var scale = Math.max(0.84, Number(visual.scale || 1) + (visual.dominant ? 0.06 : 0));
+            var classes = ['envops-habitat-canopy-slab'];
+            if (visual.dominant) classes.push('mode-dominant');
+            if (visual.suppressed) classes.push('mode-ghosted');
+            if (String(state.tone || '') === 'alert') classes.push('failure-surface');
+            return '<div class="envops-habitat-canopy-umbilical" style="' +
+                'left:' + centerX.toFixed(2) + '%;' +
+                'top:' + centerY.toFixed(2) + '%;' +
+                'width:' + Math.max(2, Number(cfg.umbilicalWidth || 4)).toFixed(0) + 'px;' +
+                'height:' + umbilicalHeight.toFixed(0) + 'px;' +
+                'opacity:' + umbilicalOpacity.toFixed(3) + ';' +
+                'transform:translate(-50%, -100%) translateZ(' + Math.round(Number(district.depth || -48) + Number(cfg.umbilicalDepthGain || 18)) + 'px);' +
+                '"></div>' +
+                '<div class="' + _esc(classes.join(' ')) + '" style="' +
+                'left:' + centerX.toFixed(2) + '%;' +
+                'top:' + centerY.toFixed(2) + '%;' +
+                'width:' + width.toFixed(0) + 'px;' +
+                'height:' + slabHeight.toFixed(0) + 'px;' +
+                'opacity:' + slabOpacity.toFixed(3) + ';' +
+                'transform:translate(-50%, calc(-100% - ' + lift.toFixed(0) + 'px)) translateZ(' + slabDepth + 'px) scale(' + scale.toFixed(3) + ') rotateX(84deg) rotateY(' + Number(district.tilt || 0).toFixed(2) + 'deg);' +
+                'box-shadow:0 0 28px ' + _esc(String(palette.shadow || 'rgba(68,198,255,0.08)')) + ';' +
+                '"></div>';
+        }).join('') + '</div>';
+    }
+
+    function _envSceneRenderUplinkLayer() {
+        var cfg = _envSceneWeb3DUplinkConfig();
+        if (cfg.enabled === false) return '';
+        var pickables = (_envScene.pickables || []).slice();
+        if (!pickables.length) return '';
+        var dominance = (_envScene && _envScene.dominance) || _envSceneDominanceContext();
+        var failureKey = _envSceneFailureSurfaceKey(_envScene.failureSurface || null);
+        var t = Math.max(0, Number(_envScene.lastFrame || 0)) * 0.001;
+        var beams = pickables.map(function (item) {
+            var obj = item.obj || {};
+            var key = _envSceneObjectKey(obj);
+            var visual = _envSceneObjectDominance(dominance, obj);
+            var isFailure = !!(failureKey && failureKey === key);
+            var kind = String((obj.kind || '')).toLowerCase();
+            var shouldRender = visual.spotlight || isFailure || kind === 'watch' || kind === 'replay' || kind === 'dispatch' || kind === 'queued';
+            if (!shouldRender) return '';
+            var seed = _envSceneMotionSeed(key || (kind + ':' + String(obj.id || '')));
+            var drift = Math.sin((t * (0.54 + seed * 0.26)) + (seed * 6.283)) * Number(cfg.drift || 5.5);
+            var lift = Number(cfg.lift || 126)
+                + (visual.spotlight ? 16 : 0)
+                + (isFailure ? 10 : 0)
+                + ((kind === 'watch' || kind === 'replay') ? 8 : 0);
+            var top = Number(item.y || 0) - (Number(item.h || 40) * 0.16);
+            var depth = Math.round((((Number(item.depth || 0.5) - 0.5) * Number(cfg.depthScale || 240)) + Number(cfg.depthBias || -12)) + (visual.spotlight ? 8 : 0));
+            var opacity = Number(cfg.opacity || 0.18);
+            if (visual.spotlight) opacity *= Number(cfg.dominantBoost || 1.24);
+            if (isFailure) opacity *= Number(cfg.failureBoost || 1.34);
+            if (kind === 'watch') opacity *= Number(cfg.watchBoost || 1.16);
+            if (kind === 'replay') opacity *= Number(cfg.replayBoost || 1.2);
+            var color = isFailure
+                ? 'rgba(255,108,120,0.32)'
+                : (kind === 'watch'
+                    ? 'rgba(255,190,96,0.26)'
+                    : (kind === 'replay'
+                        ? 'rgba(79,255,208,0.26)'
+                        : 'rgba(102,184,255,0.26)'));
+            var glow = isFailure
+                ? 'rgba(255,108,120,0.16)'
+                : (kind === 'watch'
+                    ? 'rgba(255,190,96,0.14)'
+                    : (kind === 'replay'
+                        ? 'rgba(79,255,208,0.14)'
+                        : 'rgba(102,184,255,0.14)'));
+            var classes = ['envops-habitat-uplink-beam'];
+            if (visual.spotlight) classes.push('mode-dominant');
+            else if (visual.ghosted) classes.push('mode-ghosted');
+            else classes.push('mode-support');
+            if (isFailure) classes.push('failure-surface');
+            if (kind === 'watch') classes.push('watch');
+            if (kind === 'replay') classes.push('replay');
+            return '<div class="' + _esc(classes.join(' ')) + '" style="' +
+                'left:' + Math.round(Number(item.x || 0) + drift) + 'px;' +
+                'top:' + Math.round(top) + 'px;' +
+                '--env-uplink-width:' + Math.max(2, Number(cfg.width || 4)).toFixed(0) + 'px;' +
+                '--env-uplink-height:' + Math.round(lift) + 'px;' +
+                '--env-uplink-head-size:' + Math.round(Number(cfg.headSize || 16)) + 'px;' +
+                '--env-uplink-core:' + _esc(color) + ';' +
+                '--env-uplink-glow:' + _esc(glow) + ';' +
+                '--env-uplink-glow-opacity:' + Math.max(0.04, Math.min(0.88, Number(cfg.glowOpacity || 0.22) * (visual.spotlight ? 1.18 : 1) * (isFailure ? 1.12 : 1))).toFixed(3) + ';' +
+                'opacity:' + Math.max(0.08, Math.min(0.9, opacity * Number(visual.opacity || 1))).toFixed(3) + ';' +
+                'transform:translate(-50%, -100%) translateZ(' + depth + 'px) rotateZ(' + (Number(obj.tilt || 0) * 0.12).toFixed(2) + 'deg);' +
+                '">' +
+                '<span class="glow"></span>' +
+                '<span class="shaft"></span>' +
+                '<span class="head"></span>' +
+                '</div>';
+        }).filter(Boolean).join('');
+        return beams ? '<div class="envops-habitat-uplink-layer">' + beams + '</div>' : '';
+    }
+
+    function _envSceneRenderForegroundLayer(workflow, exec, sections, traces) {
+        var cfg = _envSceneWeb3DForegroundConfig();
+        if (cfg.enabled === false) return '';
+        var dominance = (_envScene && _envScene.dominance) || _envSceneDominanceContext();
+        var failure = _envLatestFailureSurface(workflow, exec, traces);
+        var count = Math.max(1, Number(cfg.scrimCount || 3));
+        return '<div class="envops-habitat-foreground-layer">' + new Array(count).fill(0).map(function (_, idx) {
+            var ratio = count === 1 ? 0.5 : (idx / (count - 1));
+            var width = 16 + (ratio * 14);
+            var height = 52 + (ratio * 24);
+            var left = 12 + (ratio * 72);
+            var top = 18 + (ratio * 10);
+            var drift = (ratio - 0.5) * Number(cfg.drift || 10);
+            var depth = Math.round(Number(cfg.scrimDepthNear || 74) - (ratio * (Number(cfg.scrimDepthNear || 74) - Number(cfg.scrimDepthFar || 24))));
+            var opacity = Number(cfg.scrimOpacity || 0.14);
+            if (dominance.mode === 'watch' || dominance.mode === 'replay') opacity *= Number(cfg.dominantBoost || 1.18);
+            if (failure.tone === 'alert') opacity *= Number(cfg.failureBoost || 1.2);
+            return '<div class="envops-habitat-foreground-scrim" style="' +
+                'left:' + left.toFixed(2) + '%;' +
+                'top:' + top.toFixed(2) + '%;' +
+                'width:' + width.toFixed(2) + '%;' +
+                'height:' + height.toFixed(2) + '%;' +
+                'opacity:' + Math.min(0.42, opacity).toFixed(3) + ';' +
+                'filter:blur(' + Math.max(2, Number(cfg.scrimBlur || 10)).toFixed(0) + 'px);' +
+                'transform:translateZ(' + depth + 'px) rotateY(' + drift.toFixed(2) + 'deg) skewY(' + (drift * 0.18).toFixed(2) + 'deg);' +
+                '"></div>';
         }).join('') + '</div>';
     }
 
@@ -8347,7 +9116,146 @@
         };
     }
 
-    function _envSceneDrawWorldSubstrate(ctx, width, height, timeMs) {
+    function _envSceneContactPoint(item, cfg) {
+        if (!item) return { x: 0, y: 0 };
+        var obj = item.obj || {};
+        var depth = Number(item.depth || 0.5);
+        var lift = Number((cfg && cfg.lift) || 8);
+        var yBias = (Number(item.h || 40) * 0.42) + lift + ((1 - depth) * 6) + (Math.abs(Number(obj.tilt || 0)) * 0.18);
+        return {
+            x: Number(item.x || 0),
+            y: Number(item.y || 0) + yBias
+        };
+    }
+
+    function _envSceneDrawContactField(ctx, projectionMap, dominance, timeMs) {
+        var cfg = _envSceneWorldContactConfig();
+        if (cfg.enabled === false) return;
+        var routes = _envScene.routes || [];
+        var t = Number(timeMs || 0) * 0.001;
+        var routeOpacity = Math.max(0.04, Math.min(0.8, Number(cfg.routeOpacity || 0.24)));
+        var routeWidth = Math.max(2.4, Number(cfg.routeWidth || 6.4));
+        var routeGlow = Math.max(6, Number(cfg.routeGlow || 16));
+        var routeSag = Math.max(6, Number(cfg.routeSag || 16));
+        var routePacketCount = Math.max(0, Number(cfg.routePacketCount || 2));
+        var routePacketSize = Math.max(1.2, Number(cfg.routePacketSize || 3.8));
+        var routePacketSpeed = Math.max(0.08, Number(cfg.routePacketSpeed || 0.44));
+        var routePacketOpacity = Math.max(0.08, Math.min(0.92, Number(cfg.routePacketOpacity || 0.28)));
+        var failureKey = _envSceneFailureSurfaceKey(_envScene.failureSurface || null);
+
+        routes.forEach(function (route, idx) {
+            var fromProjection = projectionMap[String(route.fromKey || '')];
+            var toProjection = projectionMap[String(route.toKey || '')];
+            if (!fromProjection || !toProjection) return;
+            var visual = _envSceneLinkDominance(dominance, route.fromKey, route.toKey, route.tone, {
+                branch: route.branch,
+                condition: route.condition,
+                label: route.label
+            });
+            var flow = _envSceneConduitFlowState(route.tone, visual, dominance, String(route.tone || '') === 'failed');
+            var hot = flow.mode !== 'idle' || visual.dominant || String(route.tone || '') === 'failed';
+            if (!hot && Number(visual.opacity || 0) < 0.32) return;
+            var from = _envSceneContactPoint(fromProjection, cfg);
+            var to = _envSceneContactPoint(toProjection, cfg);
+            var midX = (from.x + to.x) / 2;
+            var midY = Math.max(from.y, to.y) + routeSag + ((idx % 3) * 4);
+            var opacity = Math.max(0.04, Math.min(0.9, routeOpacity * Math.max(0.28, Number(visual.opacity || 1)) * (hot ? 1.18 : 0.82)));
+            var color = flow.mode !== 'idle' ? flow.color : _envSceneDominanceAccent(dominance, null, route.tone);
+            ctx.save();
+            ctx.globalAlpha = opacity;
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = color;
+            ctx.shadowColor = color;
+            ctx.shadowBlur = routeGlow * Math.max(0.72, Number(visual.shadow || 1));
+            ctx.lineWidth = routeWidth * Math.max(0.82, Number(visual.width || 1));
+            ctx.beginPath();
+            ctx.moveTo(from.x, from.y);
+            ctx.quadraticCurveTo(midX, midY, to.x, to.y);
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            ctx.globalAlpha = opacity * 0.52;
+            ctx.lineWidth = Math.max(1.4, routeWidth * 0.42);
+            ctx.strokeStyle = 'rgba(255,255,255,0.34)';
+            ctx.beginPath();
+            ctx.moveTo(from.x, from.y);
+            ctx.quadraticCurveTo(midX, midY, to.x, to.y);
+            ctx.stroke();
+            if (hot) {
+                var packetTotal = Math.max(1, routePacketCount + Number(flow.packetCount || 0));
+                for (var packet = 0; packet < packetTotal; packet++) {
+                    var phase = (t * (routePacketSpeed * Math.max(0.6, Number(flow.speed || 1))) + (packet / packetTotal) + (idx * 0.14)) % 1;
+                    var point = _envSceneQuadraticPoint(from.x, from.y, midX, midY, to.x, to.y, phase);
+                    var radius = routePacketSize * Math.max(0.72, Number(flow.packetScale || 1));
+                    var packetGlow = ctx.createRadialGradient(point.x, point.y, 0, point.x, point.y, radius * 2.6);
+                    packetGlow.addColorStop(0, color.replace(/0\.\d+\)/, Math.min(0.96, routePacketOpacity + 0.24).toFixed(3) + ')'));
+                    packetGlow.addColorStop(1, 'rgba(0,0,0,0)');
+                    ctx.globalAlpha = Math.max(0.14, routePacketOpacity * Math.max(0.4, Number(visual.opacity || 1)));
+                    ctx.fillStyle = packetGlow;
+                    ctx.beginPath();
+                    ctx.arc(point.x, point.y, radius * 2.6, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.globalAlpha = Math.max(0.18, routePacketOpacity + 0.12);
+                    ctx.fillStyle = color;
+                    ctx.beginPath();
+                    ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.globalAlpha = Math.max(0.08, routePacketOpacity * 0.52);
+                    ctx.strokeStyle = color;
+                    ctx.lineWidth = 1.2;
+                    ctx.beginPath();
+                    ctx.ellipse(point.x, point.y, radius * 2.8, Math.max(2, radius * 0.82), 0, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+            }
+            ctx.restore();
+        });
+
+        Object.keys(projectionMap || {}).forEach(function (key) {
+            var item = projectionMap[key];
+            if (!item || !item.obj) return;
+            var obj = item.obj || {};
+            var visual = _envSceneObjectDominance(dominance, obj);
+            var isFailure = !!(failureKey && failureKey === key);
+            var needsContact = visual.spotlight || isFailure || (Number(visual.opacity || 0) >= 0.72);
+            if (!needsContact) return;
+            var point = _envSceneContactPoint(item, cfg);
+            var colors = _envSceneColorForObject(obj);
+            var boost = (visual.spotlight ? Number(cfg.dominantBoost || 1.28) : 1) * (isFailure ? Number(cfg.failureBoost || 1.32) : 1);
+            var opacity = Math.max(0.06, Math.min(0.86, Number(cfg.objectOpacity || 0.22) * Math.max(0.42, Number(visual.opacity || 1)) * boost));
+            var radiusX = Math.max(18, Number(item.w || 56) * Number(cfg.objectRadiusScale || 1.08) * Math.max(0.84, Number(visual.scale || 1)));
+            var radiusY = Math.max(6, radiusX * Math.max(0.12, Number(cfg.ellipseFlatten || 0.26)));
+            ctx.save();
+            ctx.translate(point.x, point.y);
+            var glow = ctx.createRadialGradient(0, 0, 0, 0, 0, radiusX);
+            glow.addColorStop(0, colors.glow);
+            glow.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.globalAlpha = opacity;
+            ctx.fillStyle = glow;
+            ctx.scale(1, radiusY / radiusX);
+            ctx.beginPath();
+            ctx.arc(0, 0, radiusX, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+            if (visual.spotlight || isFailure) {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0.08, opacity * 0.7);
+                ctx.strokeStyle = isFailure ? '#ff7c84' : _envSceneDominanceAccent(dominance, colors, _envSceneObjectTone(obj));
+                ctx.lineWidth = isFailure ? 2.2 : 1.6;
+                ctx.beginPath();
+                ctx.ellipse(point.x, point.y, radiusX * 0.78, radiusY * 0.92, 0, 0, Math.PI * 2);
+                ctx.stroke();
+                var ringPulse = 0.52 + (0.48 * Math.sin((t * (isFailure ? 4.6 : 2.4)) + (Number(item.depth || 0.5) * 4.2)));
+                ctx.globalAlpha = Math.max(0.06, opacity * 0.46);
+                ctx.lineWidth = isFailure ? 1.8 : 1.2;
+                ctx.beginPath();
+                ctx.ellipse(point.x, point.y, radiusX * (0.9 + ringPulse * 0.22), radiusY * (1 + ringPulse * 0.16), 0, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.restore();
+            }
+        });
+    }
+
+    function _envSceneDrawWorldSubstrate(ctx, width, height, timeMs, projectionMap) {
         var cfg = _envSceneWorldConfig();
         if (cfg.enabled === false) return;
         var orbitCfg = _envSceneOrbitConfig();
@@ -8538,6 +9446,8 @@
             }
         });
 
+        _envSceneDrawContactField(ctx, projectionMap || {}, dominance, timeMs);
+
         ctx.restore();
     }
 
@@ -8601,6 +9511,94 @@
             }
             ctx.restore();
         }
+    }
+
+
+    function _envSceneDrawDepthField(ctx, width, height, timeMs) {
+        var cfg = _envSceneWorldDepthFieldConfig();
+        if (!cfg || cfg.enabled === false) return;
+        var palette = _envSceneEnvironmentPalette();
+        var dominance = _envScene.dominance || _envSceneDominanceContext();
+        var orbitCfg = _envSceneOrbitConfig();
+        var camera = _envScene.camera || {};
+        var world = _envSceneWorldConfig();
+        var t = Number(timeMs || 0) * 0.001;
+        var horizonY = height * (0.742 + Number(world.horizonLift || 0));
+        var floorY = height * Math.max(0.92, Number(world.floorDepth || 1.02));
+        var orbitXR = orbitCfg.orbitMaxYaw ? Math.max(-1, Math.min(1, Number(camera.orbitX || 0) / orbitCfg.orbitMaxYaw)) : 0;
+        var drift = Number(cfg.drift || 0.012);
+        var layerCount = Math.max(3, Number(cfg.layerCount || 6));
+        var bandOpacity = Math.max(0.02, Math.min(0.5, Number(cfg.bandOpacity || 0.18)));
+        var beamOpacity = Math.max(0.02, Math.min(0.4, Number(cfg.beamOpacity || 0.12)));
+        var sparkOpacity = Math.max(0.02, Math.min(0.6, Number(cfg.sparkOpacity || 0.24)));
+        var hazeOpacity = Math.max(0.01, Math.min(0.35, Number(cfg.hazeOpacity || 0.1)));
+        var modeBoost = 1;
+        if (dominance.mode === 'failed') modeBoost = Math.max(1, Number(cfg.failureBoost || 1.28));
+        else if (dominance.mode === 'watch') modeBoost = Math.max(1, Number(cfg.watchBoost || 1.16));
+        else if (dominance.mode === 'replay') modeBoost = Math.max(1, Number(cfg.replayBoost || 1.22));
+
+        ctx.save();
+
+        for (var layer = 0; layer < layerCount; layer++) {
+            var ratio = (layer + 1) / layerCount;
+            var depthEase = Math.pow(ratio, 1.18);
+            var bandY = horizonY - 28 + ((floorY - horizonY) * depthEase * 0.82);
+            var span = width * (0.16 + depthEase * 0.58);
+            var centerX = (width * 0.5) + Math.sin((t * (0.08 + ratio * 0.03)) + layer * 1.7) * (width * drift * (0.45 + ratio * 0.8)) + (orbitXR * width * 0.02 * (1 - ratio * 0.4));
+            var bandH = Math.max(14, 18 + layer * 7);
+            var gridAlpha = Math.min(0.34, bandOpacity * (0.42 + ratio * 0.38) * modeBoost);
+            var hazeAlpha = Math.min(0.28, hazeOpacity * (0.8 + ratio * 0.3) * modeBoost);
+            var beamAlpha = Math.min(0.26, beamOpacity * (0.55 + ratio * 0.45) * modeBoost);
+            var sparkGlowAlpha = Math.min(0.42, sparkOpacity * modeBoost);
+            var sparkCoreAlpha = Math.min(0.55, sparkOpacity * 0.9 * modeBoost);
+            var grad = ctx.createLinearGradient(centerX - span, bandY, centerX + span, bandY + bandH);
+            grad.addColorStop(0, 'rgba(0,0,0,0)');
+            grad.addColorStop(0.18, 'rgba(124, 205, 255,' + gridAlpha.toFixed(3) + ')');
+            grad.addColorStop(0.5, 'rgba(112, 170, 214,' + hazeAlpha.toFixed(3) + ')');
+            grad.addColorStop(0.82, 'rgba(126, 255, 236,' + beamAlpha.toFixed(3) + ')');
+            grad.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.ellipse(centerX, bandY, span, bandH, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            var beamCount = 2 + layer;
+            for (var beam = 0; beam < beamCount; beam++) {
+                var beamRatio = beamCount === 1 ? 0.5 : beam / (beamCount - 1);
+                var bx = centerX - span * 0.74 + beamRatio * span * 1.48;
+                var beamTop = bandY - bandH * (1.8 + ratio * 0.9);
+                var beamBottom = bandY + bandH * (0.2 + ratio * 0.18);
+                var beamDrift = Math.sin((t * (0.22 + ratio * 0.05)) + beam * 0.8 + layer) * (6 + ratio * 10);
+                ctx.strokeStyle = 'rgba(126, 255, 236,' + beamAlpha.toFixed(3) + ')';
+                ctx.lineWidth = Math.max(1, 1.1 + ratio * 0.9);
+                ctx.beginPath();
+                ctx.moveTo(bx + beamDrift, beamTop);
+                ctx.lineTo(bx - beamDrift * 0.3, beamBottom);
+                ctx.stroke();
+            }
+
+            var sparkCount = 1 + layer;
+            for (var spark = 0; spark < sparkCount; spark++) {
+                var phase = (((t * (0.11 + ratio * 0.03)) + (spark * 0.21) + layer * 0.13) % 1 + 1) % 1;
+                var sx = centerX - span * 0.7 + phase * span * 1.4;
+                var sy = bandY - bandH * 0.35 + Math.sin((phase * Math.PI * 2) + layer) * (bandH * 0.3);
+                var sr = Math.max(1.2, 1.6 + ratio * 1.8);
+                var sparkGlow = ctx.createRadialGradient(sx, sy, 0, sx, sy, sr * 4.2);
+                sparkGlow.addColorStop(0, 'rgba(107, 208, 255,' + sparkGlowAlpha.toFixed(3) + ')');
+                sparkGlow.addColorStop(1, 'rgba(0,0,0,0)');
+                ctx.fillStyle = sparkGlow;
+                ctx.beginPath();
+                ctx.arc(sx, sy, sr * 4.2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = 'rgba(176, 235, 255,' + sparkCoreAlpha.toFixed(3) + ')';
+                ctx.beginPath();
+                ctx.arc(sx, sy, sr, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        ctx.restore();
     }
 
     function _envSceneDrawPulses(ctx, width, height, timeMs) {
@@ -8928,19 +9926,20 @@
         ctx.clearRect(0, 0, width, height);
         ctx.scale(dpr, dpr);
         _envSceneUpdateCamera(timeMs);
-        _envSceneDrawBackground(ctx, _envScene.width, _envScene.height);
-        _envSceneDrawWorldSubstrate(ctx, _envScene.width, _envScene.height, timeMs);
-        _envSceneDrawPulses(ctx, _envScene.width, _envScene.height, timeMs);
+        _envScene.dominance = _envSceneDominanceContext();
         _envScene.pickables = (_envScene.objects || []).map(function (obj, idx) {
             return _envSceneProjectObject(obj, idx, timeMs);
         }).sort(function (a, b) {
                     return Number(a.y || 0) - Number(b.y || 0);
         });
-        _envScene.dominance = _envSceneDominanceContext();
         var projectionMap = {};
         _envScene.pickables.forEach(function (item) {
             projectionMap[_envSceneObjectKey(item.obj)] = item;
         });
+        _envSceneDrawBackground(ctx, _envScene.width, _envScene.height);
+        _envSceneDrawDepthField(ctx, _envScene.width, _envScene.height, timeMs);
+        _envSceneDrawWorldSubstrate(ctx, _envScene.width, _envScene.height, timeMs, projectionMap);
+        _envSceneDrawPulses(ctx, _envScene.width, _envScene.height, timeMs);
         _envSceneDrawRoutes(ctx, projectionMap, timeMs);
         _envSceneDrawTrajectories(ctx, projectionMap, timeMs);
         _envSceneDrawFocusField(_envScene.dominance, projectionMap, timeMs);
@@ -8949,6 +9948,7 @@
         });
         _envSceneRenderShadowLayer();
         _envSceneRenderSubstrateLayer(projectionMap);
+        _envSceneRenderRouteLayer(projectionMap);
         _envSceneRenderBeaconLayer(projectionMap);
         _envSceneRenderWeb3DLayer();
         ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -10565,13 +11565,17 @@
             _envSceneRenderPlatformLayer(workflow, exec, sections, traces) +
             _envSceneRenderAtmosphereLayer(workflow, exec, sections, traces) +
             _envSceneRenderArchitectureLayer(workflow, exec, sections, traces) +
+            _envSceneRenderCanopyLayer(workflow, exec, sections, traces) +
+            _envSceneRenderUplinkLayer() +
             _envSceneRenderVolumeLayer(workflow, exec, sections, traces) +
             '<canvas class="envops-habitat-canvas" id="envops-habitat-canvas"></canvas>' +
             _envSceneRenderDistrictLayer(workflow, exec, sections, traces) +
             '<div class="envops-habitat-shadow-layer" id="envops-habitat-shadow-layer"></div>' +
             '<div class="envops-habitat-substrate-layer" id="envops-habitat-substrate-layer"></div>' +
+            '<div class="envops-habitat-route-layer" id="envops-habitat-route-layer"></div>' +
             '<div class="envops-habitat-beacon-layer" id="envops-habitat-beacon-layer"></div>' +
             '<div class="envops-habitat-object-layer" id="envops-habitat-object-layer"></div>' +
+            _envSceneRenderForegroundLayer(workflow, exec, sections, traces) +
             '</div>' +
             '<div class="envops-habitat-hud">' +
             '<div class="envops-habitat-hud-primary" id="envops-habitat-hud-primary">' + _esc(focus.label ? ('Focused: ' + String(focus.label)) : 'Scene ready.') + '</div>' +

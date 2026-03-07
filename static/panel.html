@@ -2052,6 +2052,366 @@
             transform-style: preserve-3d;
         }
 
+        .envops-habitat-shell-wall,
+        .envops-habitat-shell-ceiling,
+        .envops-habitat-shell-rib,
+        .envops-habitat-shell-veil {
+            position: absolute;
+            pointer-events: none;
+            transform-style: preserve-3d;
+            transition: opacity 160ms ease, filter 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+        }
+
+        .envops-habitat-shell-wall {
+            border: 1px solid rgba(255,255,255,0.08);
+            background:
+                linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.01) 18%, rgba(6,10,16,0.94) 100%),
+                linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px),
+                linear-gradient(180deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+            background-size: auto, 34px 100%, 100% 34px;
+            box-shadow:
+                inset 0 0 36px rgba(255,255,255,0.04),
+                0 18px 32px rgba(0,0,0,0.28);
+            opacity: 0.3;
+            filter: saturate(1) brightness(1);
+        }
+
+        .envops-habitat-shell-wall::before {
+            content: '';
+            position: absolute;
+            inset: 10px;
+            border: 1px solid rgba(255,255,255,0.05);
+            background:
+                radial-gradient(circle at 50% 16%, rgba(79,255,208,0.10), transparent 46%),
+                linear-gradient(180deg, rgba(68,198,255,0.05), rgba(255,255,255,0));
+            opacity: 0.72;
+        }
+
+        .envops-habitat-shell-wall.left {
+            transform-origin: left center;
+        }
+
+        .envops-habitat-shell-wall.right {
+            transform-origin: right center;
+        }
+
+        .envops-habitat-shell-ceiling {
+            border: 1px solid rgba(255,255,255,0.08);
+            background:
+                linear-gradient(180deg, rgba(255,255,255,0.06), rgba(7,12,18,0.96)),
+                linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+            background-size: auto, 42px 100%;
+            box-shadow:
+                inset 0 0 48px rgba(255,255,255,0.04),
+                0 0 34px rgba(68,198,255,0.05);
+            opacity: 0.22;
+        }
+
+        .envops-habitat-shell-ceiling::before {
+            content: '';
+            position: absolute;
+            inset: 14px 18px;
+            border: 1px solid rgba(255,255,255,0.05);
+            background: radial-gradient(circle at 50% 50%, rgba(79,255,208,0.08), transparent 62%);
+        }
+
+        .envops-habitat-shell-rib {
+            height: 6px;
+            border-radius: 999px;
+            border: 1px solid rgba(255,255,255,0.08);
+            background: linear-gradient(90deg, rgba(255,255,255,0.03), rgba(79,255,208,0.18), rgba(68,198,255,0.14), rgba(255,255,255,0.03));
+            box-shadow:
+                0 0 16px rgba(68,198,255,0.08),
+                0 10px 20px rgba(0,0,0,0.18);
+            opacity: 0.18;
+        }
+
+        .envops-habitat-shell-veil {
+            border-radius: 999px;
+            background: linear-gradient(180deg, rgba(255,255,255,0), rgba(79,255,208,0.18), rgba(68,198,255,0.08), rgba(255,255,255,0));
+            filter: blur(14px);
+            box-shadow: 0 0 32px rgba(68,198,255,0.08);
+            opacity: 0.14;
+            mix-blend-mode: screen;
+        }
+
+        .envops-habitat-shell-veil.crown {
+            border-radius: 50%;
+            filter: blur(20px);
+        }
+
+        .envops-habitat-shell-spill {
+            position: absolute;
+            pointer-events: none;
+            transform-style: preserve-3d;
+            mix-blend-mode: screen;
+            filter: blur(var(--env-shell-spill-blur, 18px));
+            opacity: var(--env-shell-spill-opacity, 0.18);
+            transition: opacity 160ms ease, filter 160ms ease, transform 160ms ease;
+        }
+
+        .envops-habitat-shell-spill.wall {
+            border-radius: 999px;
+        }
+
+        .envops-habitat-shell-spill.ceiling {
+            border-radius: 50%;
+        }
+
+        .envops-habitat-shell-spill.dominant {
+            opacity: calc(var(--env-shell-spill-opacity, 0.18) * 1.28);
+        }
+
+        .envops-habitat-shell-spill.alert {
+            opacity: calc(var(--env-shell-spill-opacity, 0.18) * 1.36);
+        }
+
+        .envops-habitat-shell-spill.watch {
+            opacity: calc(var(--env-shell-spill-opacity, 0.18) * 1.18);
+        }
+
+        .envops-habitat-shell-spill.replay {
+            opacity: calc(var(--env-shell-spill-opacity, 0.18) * 1.22);
+        }
+
+        .envops-habitat-canopy-layer,
+        .envops-habitat-uplink-layer,
+        .envops-habitat-foreground-layer {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            transform-style: preserve-3d;
+            overflow: hidden;
+        }
+
+        .envops-habitat-canopy-layer {
+            z-index: 1;
+        }
+
+        .envops-habitat-uplink-layer {
+            z-index: 2;
+        }
+
+        .envops-habitat-canopy-slab,
+        .envops-habitat-canopy-umbilical,
+        .envops-habitat-canopy-bridge,
+        .envops-habitat-uplink-beam,
+        .envops-habitat-foreground-scrim {
+            position: absolute;
+            pointer-events: none;
+            transform-style: preserve-3d;
+            transition: opacity 160ms ease, filter 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+        }
+
+        .envops-habitat-canopy-slab {
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 18px;
+            background:
+                linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.01) 22%, rgba(7,12,18,0.96)),
+                linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+            background-size: auto, 28px 100%;
+            box-shadow:
+                inset 0 0 32px rgba(255,255,255,0.04),
+                0 0 28px rgba(68,198,255,0.08),
+                0 20px 34px rgba(0,0,0,0.22);
+            opacity: 0.22;
+            filter: saturate(1) brightness(1);
+        }
+
+        .envops-habitat-canopy-slab::before {
+            content: '';
+            position: absolute;
+            inset: 10px 14px;
+            border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 14px;
+            background: radial-gradient(circle at 50% 38%, rgba(79,255,208,0.12), transparent 58%);
+            opacity: 0.72;
+        }
+
+        .envops-habitat-canopy-umbilical {
+            border-radius: 999px;
+            background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(79,255,208,0.18), rgba(68,198,255,0.14), rgba(255,255,255,0));
+            box-shadow:
+                0 0 18px rgba(68,198,255,0.08),
+                0 12px 24px rgba(0,0,0,0.18);
+            opacity: 0.18;
+            filter: saturate(1) brightness(1);
+        }
+
+        .envops-habitat-canopy-bridge {
+            height: 10px;
+            border-radius: 999px;
+            transform-origin: left center;
+            background: linear-gradient(90deg, rgba(255,255,255,0), rgba(79,255,208,0.18), rgba(68,198,255,0.14), rgba(255,255,255,0));
+            box-shadow:
+                0 0 20px rgba(68,198,255,0.08),
+                0 10px 22px rgba(0,0,0,0.18);
+            opacity: 0.16;
+            filter: saturate(1) brightness(1);
+        }
+
+        .envops-habitat-uplink-beam {
+            width: var(--env-uplink-width, 4px);
+            height: var(--env-uplink-height, 120px);
+            transform-origin: bottom center;
+        }
+
+        .envops-habitat-uplink-beam .shaft,
+        .envops-habitat-uplink-beam .glow,
+        .envops-habitat-uplink-beam .head {
+            position: absolute;
+            pointer-events: none;
+            transform-style: preserve-3d;
+        }
+
+        .envops-habitat-uplink-beam .shaft {
+            left: 50%;
+            bottom: 0;
+            width: var(--env-uplink-width, 4px);
+            height: 100%;
+            transform: translateX(-50%);
+            border-radius: 999px;
+            background:
+                linear-gradient(180deg,
+                    rgba(255,255,255,0) 0%,
+                    var(--env-uplink-core, rgba(102,184,255,0.22)) 18%,
+                    color-mix(in srgb, var(--env-uplink-core, rgba(102,184,255,0.22)) 42%, rgba(6,12,20,0.06)) 100%);
+            box-shadow:
+                0 0 18px var(--env-uplink-glow, rgba(102,184,255,0.14)),
+                0 0 40px color-mix(in srgb, var(--env-uplink-glow, rgba(102,184,255,0.14)) 54%, transparent);
+            opacity: 0.92;
+        }
+
+        .envops-habitat-uplink-beam .glow {
+            left: 50%;
+            bottom: 0;
+            width: calc(var(--env-uplink-width, 4px) * 6.4);
+            height: 100%;
+            transform: translateX(-50%);
+            border-radius: 999px;
+            background:
+                linear-gradient(180deg,
+                    rgba(255,255,255,0) 0%,
+                    color-mix(in srgb, var(--env-uplink-glow, rgba(102,184,255,0.14)) 62%, transparent) 20%,
+                    rgba(255,255,255,0) 100%);
+            filter: blur(12px);
+            opacity: var(--env-uplink-glow-opacity, 0.22);
+        }
+
+        .envops-habitat-uplink-beam .head {
+            left: 50%;
+            top: 0;
+            width: var(--env-uplink-head-size, 16px);
+            height: var(--env-uplink-head-size, 16px);
+            transform: translate(-50%, -42%);
+            border-radius: 50%;
+            border: 1px solid color-mix(in srgb, var(--env-uplink-core, rgba(102,184,255,0.22)) 72%, rgba(255,255,255,0.24));
+            background:
+                radial-gradient(circle at 50% 45%, rgba(255,255,255,0.28), rgba(255,255,255,0.02) 42%, rgba(8,12,18,0.9) 100%);
+            box-shadow:
+                0 0 18px var(--env-uplink-glow, rgba(102,184,255,0.14)),
+                0 0 36px color-mix(in srgb, var(--env-uplink-glow, rgba(102,184,255,0.14)) 52%, transparent);
+            opacity: 0.94;
+        }
+
+        .envops-habitat-uplink-beam.mode-dominant .shaft,
+        .envops-habitat-uplink-beam.mode-dominant .head {
+            filter: saturate(1.18) brightness(1.08);
+        }
+
+        .envops-habitat-uplink-beam.mode-support {
+            opacity: 0.86;
+        }
+
+        .envops-habitat-uplink-beam.mode-ghosted {
+            opacity: 0.42;
+        }
+
+        .envops-habitat-uplink-beam.failure-surface .shaft,
+        .envops-habitat-uplink-beam.failure-surface .head {
+            filter: saturate(1.22) brightness(1.08);
+            box-shadow:
+                0 0 20px rgba(255,108,120,0.18),
+                0 0 44px rgba(255,108,120,0.14);
+        }
+
+        .envops-habitat-uplink-beam.watch .shaft,
+        .envops-habitat-uplink-beam.watch .head {
+            filter: saturate(1.18) brightness(1.08);
+        }
+
+        .envops-habitat-uplink-beam.replay .shaft,
+        .envops-habitat-uplink-beam.replay .head {
+            filter: saturate(1.2) brightness(1.1);
+        }
+
+        .envops-habitat-foreground-layer {
+            z-index: 8;
+        }
+
+        .envops-habitat-foreground-scrim {
+            border-radius: 999px;
+            background: linear-gradient(180deg, rgba(255,255,255,0), rgba(79,255,208,0.2), rgba(68,198,255,0.08), rgba(255,255,255,0));
+            mix-blend-mode: screen;
+            opacity: 0.14;
+            box-shadow: 0 0 36px rgba(68,198,255,0.08);
+        }
+
+        .envops-habitat.mode-watch .envops-habitat-canopy-slab,
+        .envops-habitat.mode-watch .envops-habitat-canopy-umbilical,
+        .envops-habitat.mode-watch .envops-habitat-canopy-bridge,
+        .envops-habitat.mode-watch .envops-habitat-uplink-beam,
+        .envops-habitat.mode-watch .envops-habitat-foreground-scrim {
+            filter: saturate(1.16) brightness(1.08);
+            box-shadow: 0 0 30px rgba(255,190,96,0.1);
+        }
+
+        .envops-habitat.mode-replay .envops-habitat-canopy-slab,
+        .envops-habitat.mode-replay .envops-habitat-canopy-umbilical,
+        .envops-habitat.mode-replay .envops-habitat-canopy-bridge,
+        .envops-habitat.mode-replay .envops-habitat-uplink-beam,
+        .envops-habitat.mode-replay .envops-habitat-foreground-scrim {
+            filter: saturate(1.18) brightness(1.1);
+            box-shadow: 0 0 32px rgba(79,255,208,0.1);
+        }
+
+        .envops-habitat.failure-alert .envops-habitat-canopy-slab,
+        .envops-habitat.failure-alert .envops-habitat-canopy-umbilical,
+        .envops-habitat.failure-alert .envops-habitat-canopy-bridge,
+        .envops-habitat.failure-alert .envops-habitat-uplink-beam,
+        .envops-habitat.failure-alert .envops-habitat-foreground-scrim {
+            filter: saturate(1.2) brightness(1.1);
+            box-shadow: 0 0 36px rgba(255,108,120,0.12);
+        }
+
+        .envops-habitat.mode-watch .envops-habitat-shell-wall,
+        .envops-habitat.mode-watch .envops-habitat-shell-ceiling,
+        .envops-habitat.mode-watch .envops-habitat-shell-rib {
+            filter: saturate(1.16) brightness(1.08);
+            box-shadow:
+                inset 0 0 56px rgba(255,190,96,0.06),
+                0 0 22px rgba(255,190,96,0.08);
+        }
+
+        .envops-habitat.mode-replay .envops-habitat-shell-wall,
+        .envops-habitat.mode-replay .envops-habitat-shell-ceiling,
+        .envops-habitat.mode-replay .envops-habitat-shell-rib {
+            filter: saturate(1.2) brightness(1.1);
+            box-shadow:
+                inset 0 0 60px rgba(79,255,208,0.06),
+                0 0 24px rgba(79,255,208,0.08);
+        }
+
+        .envops-habitat.failure-alert .envops-habitat-shell-wall,
+        .envops-habitat.failure-alert .envops-habitat-shell-ceiling,
+        .envops-habitat.failure-alert .envops-habitat-shell-rib,
+        .envops-habitat.failure-alert .envops-habitat-shell-veil {
+            filter: saturate(1.18) brightness(1.08);
+            box-shadow:
+                inset 0 0 68px rgba(255,108,120,0.08),
+                0 0 28px rgba(255,108,120,0.10);
+        }
+
         .envops-habitat-corridor-spine {
             position: absolute;
             height: 10px;
@@ -2427,6 +2787,168 @@
             transform-style: preserve-3d;
         }
 
+        .envops-habitat-route-layer {
+            position: absolute;
+            inset: 0;
+            z-index: 3;
+            pointer-events: none;
+            overflow: hidden;
+            transform-style: preserve-3d;
+        }
+
+        .envops-habitat-route-ribbon {
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 12px;
+            border-radius: 999px;
+            transform-origin: left center;
+            pointer-events: none;
+            opacity: 0.32;
+            transform-style: preserve-3d;
+            transition: opacity 160ms ease, filter 160ms ease, height 160ms ease;
+            --env-route-color: rgba(103,211,255,0.62);
+            --env-route-glow: rgba(103,211,255,0.28);
+            --env-route-glow-opacity: 0.26;
+            --env-route-speed: 0s;
+            --env-route-length: 72px;
+            --env-route-height: 10px;
+        }
+
+        .envops-habitat-route-ribbon .underlay,
+        .envops-habitat-route-ribbon .glow,
+        .envops-habitat-route-ribbon .core {
+            position: absolute;
+            left: 0;
+            top: 50%;
+            width: 100%;
+            transform: translateY(-50%);
+            border-radius: 999px;
+            pointer-events: none;
+        }
+
+        .envops-habitat-route-ribbon .underlay {
+            height: calc(var(--env-route-height) * 2.35);
+            background:
+                linear-gradient(90deg, rgba(4, 8, 14, 0.14), color-mix(in srgb, var(--env-route-color) 18%, rgba(4, 8, 14, 0.4)) 18%, rgba(4, 8, 14, 0.08) 100%);
+            opacity: 0.42;
+            filter: blur(12px);
+            transform:
+                translateY(-50%)
+                translateZ(-10px)
+                scaleY(0.82);
+        }
+
+        .envops-habitat-route-ribbon .glow {
+            height: calc(var(--env-route-height) * 1.8);
+            background: radial-gradient(circle at center, var(--env-route-glow) 0%, rgba(0, 0, 0, 0) 72%);
+            opacity: var(--env-route-glow-opacity);
+            filter: blur(10px);
+            transform:
+                translateY(-50%)
+                translateZ(-2px)
+                scaleY(0.94);
+        }
+
+        .envops-habitat-route-ribbon .core {
+            height: var(--env-route-height);
+            background: linear-gradient(90deg, rgba(255,255,255,0.06), var(--env-route-color) 18%, rgba(255,255,255,0.05) 100%);
+            box-shadow:
+                0 0 18px var(--env-route-glow),
+                inset 0 0 0 1px rgba(255,255,255,0.05);
+            transform:
+                translateY(-50%)
+                translateZ(2px);
+        }
+
+        .envops-habitat-route-ribbon .packet {
+            position: absolute;
+            top: 50%;
+            width: 18px;
+            height: calc(var(--env-route-height) * 0.9);
+            margin-top: calc(var(--env-route-height) * -0.45);
+            border-radius: 999px;
+            background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,0.78), rgba(255,255,255,0));
+            box-shadow: 0 0 14px rgba(255,255,255,0.18);
+            opacity: 0.64;
+            transform: translateZ(8px);
+            animation: envopsRoutePacket var(--env-route-speed) linear infinite;
+        }
+
+        .envops-habitat-route-ribbon .label {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, calc(-50% - 16px));
+            padding: 1px 8px;
+            border-radius: 999px;
+            background: rgba(7, 12, 18, 0.78);
+            border: 1px solid rgba(255,255,255,0.06);
+            color: rgba(240, 247, 255, 0.74);
+            font-size: 9px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            white-space: nowrap;
+            box-shadow: 0 0 12px rgba(0,0,0,0.24);
+        }
+
+        .envops-habitat-route-ribbon.dominant {
+            opacity: 0.88;
+        }
+
+        .envops-habitat-route-ribbon.dominant .underlay {
+            opacity: 0.58;
+            filter: blur(16px);
+        }
+
+        .envops-habitat-route-ribbon.support {
+            opacity: 0.48;
+        }
+
+        .envops-habitat-route-ribbon.ghosted {
+            opacity: 0.16;
+            filter: saturate(0.58) brightness(0.78);
+        }
+
+        .envops-habitat-route-ribbon.alert .underlay,
+        .envops-habitat-route-ribbon.flow-alert .underlay {
+            opacity: 0.72;
+            filter: blur(18px);
+        }
+
+        .envops-habitat-route-ribbon.flow-live .core,
+        .envops-habitat-route-ribbon.flow-watch .core,
+        .envops-habitat-route-ribbon.flow-replay .core,
+        .envops-habitat-route-ribbon.flow-alert .core {
+            box-shadow:
+                0 0 20px var(--env-route-glow),
+                0 0 34px color-mix(in srgb, var(--env-route-glow) 60%, transparent),
+                inset 0 0 0 1px rgba(255,255,255,0.08);
+        }
+
+        .envops-habitat-route-ribbon.alert .label,
+        .envops-habitat-route-ribbon.flow-alert .label {
+            color: rgba(255, 218, 224, 0.88);
+            border-color: rgba(255,108,120,0.18);
+        }
+
+        @keyframes envopsRoutePacket {
+            0% {
+                transform: translateX(-14px) scaleX(0.86);
+                opacity: 0;
+            }
+            12% {
+                opacity: 0.74;
+            }
+            88% {
+                opacity: 0.74;
+            }
+            100% {
+                transform: translateX(calc(var(--env-route-length) - 6px)) scaleX(1.06);
+                opacity: 0;
+            }
+        }
+
         .envops-habitat-substrate-rail {
             position: absolute;
             height: 3px;
@@ -2602,6 +3124,70 @@
             opacity: var(--env-volume-opacity, 0.86);
         }
 
+        .envops-habitat-volume-shaft,
+        .envops-habitat-volume-crown {
+            position: absolute;
+            left: 50%;
+            pointer-events: none;
+            transform-style: preserve-3d;
+        }
+
+        .envops-habitat-volume-shaft {
+            bottom: 10px;
+            width: var(--env-volume-shaft-width, 40px);
+            height: calc(var(--env-volume-height, 56px) + var(--env-volume-core-height, 42px));
+            transform: translateX(-50%);
+            border-radius: 999px;
+            background:
+                linear-gradient(180deg,
+                    rgba(255,255,255,0) 0%,
+                    color-mix(in srgb, var(--env-volume-glow, rgba(79,255,208,0.18)) 54%, transparent) 16%,
+                    color-mix(in srgb, var(--env-volume-glow, rgba(79,255,208,0.18)) 32%, rgba(7,12,18,0.08)) 52%,
+                    rgba(255,255,255,0) 100%);
+            filter: blur(16px);
+            opacity: var(--env-volume-shaft-opacity, 0.18);
+            mix-blend-mode: screen;
+        }
+
+        .envops-habitat-volume-crown {
+            bottom: calc(var(--env-volume-height, 56px) + var(--env-volume-core-height, 42px) - 8px);
+            width: calc(var(--env-volume-width, 70px) * var(--env-volume-crown-scale, 1.22));
+            height: calc(var(--env-volume-width, 70px) * 0.38 * var(--env-volume-crown-scale, 1.22));
+            transform: translateX(-50%);
+            border-radius: 50%;
+            background:
+                radial-gradient(circle at center,
+                    color-mix(in srgb, var(--env-volume-glow, rgba(79,255,208,0.18)) 42%, rgba(255,255,255,0.08)) 0%,
+                    color-mix(in srgb, var(--env-volume-glow, rgba(79,255,208,0.18)) 24%, transparent) 48%,
+                    rgba(0,0,0,0) 100%);
+            filter: blur(12px);
+            opacity: var(--env-volume-crown-opacity, 0.22);
+            mix-blend-mode: screen;
+        }
+
+        .envops-habitat-volume-veil {
+            position: absolute;
+            transform-style: preserve-3d;
+            border-radius: 999px;
+            background: linear-gradient(180deg, rgba(255,255,255,0), rgba(79,255,208,0.12), rgba(68,198,255,0.06), rgba(255,255,255,0));
+            filter: blur(18px);
+            mix-blend-mode: screen;
+            opacity: 0.16;
+            pointer-events: none;
+        }
+
+        .envops-habitat-volume-veil.alert {
+            background: linear-gradient(180deg, rgba(255,255,255,0), rgba(255,108,120,0.16), rgba(255,108,120,0.08), rgba(255,255,255,0));
+        }
+
+        .envops-habitat-volume-veil.watch {
+            background: linear-gradient(180deg, rgba(255,255,255,0), rgba(255,190,96,0.16), rgba(255,190,96,0.08), rgba(255,255,255,0));
+        }
+
+        .envops-habitat-volume-veil.replay {
+            background: linear-gradient(180deg, rgba(255,255,255,0), rgba(79,255,208,0.18), rgba(79,255,208,0.08), rgba(255,255,255,0));
+        }
+
         .envops-habitat-volume .stem {
             position: absolute;
             left: 50%;
@@ -2646,6 +3232,17 @@
             color: var(--text-dim);
             white-space: nowrap;
             text-shadow: 0 1px 0 rgba(0,0,0,0.4);
+        }
+
+        .envops-habitat-volume.mode-dominant .envops-habitat-volume-shaft,
+        .envops-habitat-volume.watch .envops-habitat-volume-shaft,
+        .envops-habitat-volume.replay .envops-habitat-volume-shaft,
+        .envops-habitat-volume.failure-surface .envops-habitat-volume-shaft {
+            filter: blur(18px) saturate(1.12) brightness(1.08);
+        }
+
+        .envops-habitat-volume.failure-surface .envops-habitat-volume-crown {
+            filter: blur(14px) saturate(1.2) brightness(1.08);
         }
 
         .envops-habitat-zone {
@@ -2767,7 +3364,7 @@
         .envops-habitat-object-layer {
             position: absolute;
             inset: 0;
-            z-index: 3;
+            z-index: 4;
             pointer-events: none;
             transform-style: preserve-3d;
         }
@@ -2775,7 +3372,7 @@
         .envops-habitat-beacon-layer {
             position: absolute;
             inset: 0;
-            z-index: 4;
+            z-index: 5;
             pointer-events: none;
             transform-style: preserve-3d;
         }
@@ -3200,11 +3797,45 @@
             transform-style: preserve-3d;
         }
 
+        .envops-habitat-object-anchor,
+        .envops-habitat-object-foot,
         .envops-habitat-object-face,
         .envops-habitat-object-glow {
             position: absolute;
             pointer-events: none;
             transform-style: preserve-3d;
+        }
+
+        .envops-habitat-object-anchor {
+            left: 50%;
+            top: calc(100% - 10px);
+            width: var(--env-anchor-width, 3px);
+            height: var(--env-anchor-height, 26px);
+            transform:
+                translateX(-50%)
+                translateZ(calc(var(--env-anchor-depth, 10px) * -0.25));
+            border-radius: 999px;
+            background:
+                linear-gradient(180deg, color-mix(in srgb, var(--env-face-edge, rgba(255,255,255,0.22)) 48%, rgba(255,255,255,0.16)) 0%, color-mix(in srgb, var(--env-face-glow, rgba(79,255,208,0.22)) 54%, rgba(4,8,14,0.2)) 46%, rgba(4,8,14,0.04) 100%);
+            opacity: 0.68;
+            box-shadow:
+                0 0 14px color-mix(in srgb, var(--env-face-glow, rgba(79,255,208,0.22)) 52%, transparent),
+                0 8px 10px rgba(0, 0, 0, 0.18);
+        }
+
+        .envops-habitat-object-foot {
+            left: 50%;
+            top: calc(100% + var(--env-anchor-height, 26px) - 8px);
+            width: var(--env-anchor-foot, 42px);
+            height: calc(var(--env-anchor-foot, 42px) * 0.28);
+            transform:
+                translateX(-50%)
+                translateZ(calc(var(--env-anchor-depth, 10px) * -0.55))
+                scaleY(0.72);
+            border-radius: 999px;
+            background: radial-gradient(circle at center, color-mix(in srgb, var(--env-face-glow, rgba(79,255,208,0.22)) 42%, rgba(9,15,22,0.26)) 0%, rgba(9,15,22,0.08) 68%, rgba(0,0,0,0) 100%);
+            opacity: var(--env-anchor-glow, 0.26);
+            filter: blur(10px);
         }
 
         .envops-habitat-object-face.front {
@@ -3295,6 +3926,19 @@
             border-color: rgba(255, 83, 83, 0.54);
         }
 
+        .envops-habitat-object.failed .envops-habitat-object-anchor,
+        .envops-habitat-object.failure-surface .envops-habitat-object-anchor {
+            opacity: 0.9;
+            box-shadow:
+                0 0 18px rgba(255, 83, 83, 0.32),
+                0 8px 10px rgba(0, 0, 0, 0.18);
+        }
+
+        .envops-habitat-object.failed .envops-habitat-object-foot,
+        .envops-habitat-object.failure-surface .envops-habitat-object-foot {
+            opacity: calc(var(--env-anchor-glow, 0.26) * 1.45);
+        }
+
         .envops-habitat-object.running .envops-habitat-object-face.front,
         .envops-habitat-object.running .envops-habitat-object-face.top,
         .envops-habitat-object.running .envops-habitat-object-face.side {
@@ -3352,6 +3996,17 @@
 
         .envops-habitat-object.mode-dominant {
             --env-glow-opacity: calc(var(--env-glow-opacity, 0.22) * 1.22);
+        }
+
+        .envops-habitat-object.mode-dominant .envops-habitat-object-anchor {
+            opacity: 0.88;
+            box-shadow:
+                0 0 18px color-mix(in srgb, var(--env-face-glow, rgba(79,255,208,0.22)) 72%, transparent),
+                0 8px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .envops-habitat-object.mode-dominant .envops-habitat-object-foot {
+            opacity: calc(var(--env-anchor-glow, 0.26) * 1.38);
         }
 
         .envops-habitat-object.mode-dominant .envops-habitat-object-face.front {
