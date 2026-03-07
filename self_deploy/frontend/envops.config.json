@@ -1,5 +1,5 @@
 {
-  "version": "2026-03-07-envops-v25",
+  "version": "2026-03-07-envops-v26",
   "shell": {
     "defaultRenderer": "web3d",
     "defaultPackageMode": "research",
@@ -50,6 +50,13 @@
     "historyLimit": 8,
     "maxExecutionCards": 6,
     "maxDeltaLines": 6
+  },
+  "health": {
+    "historyWindow": 8,
+    "traceWindow": 12,
+    "hotspotLimit": 3,
+    "requestCooldownMs": 9000,
+    "staleAfterMs": 45000
   },
   "scene": {
     "enabled": true,

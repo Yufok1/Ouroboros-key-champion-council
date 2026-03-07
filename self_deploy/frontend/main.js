@@ -45,6 +45,17 @@
         refreshedTs: 0,
         error: ''
     };
+    let _envHealthState = {
+        workflowId: '',
+        pendingStatus: false,
+        pendingHeartbeat: false,
+        lastRequestTs: 0,
+        refreshedTs: 0,
+        status: null,
+        heartbeat: null,
+        statusError: '',
+        heartbeatError: ''
+    };
     let _envDocState = {
         workflowId: '',
         query: '',
@@ -57,7 +68,7 @@
     };
     function _envDefaultConfig() {
         return {
-            version: '2026-03-07-envops-v25',
+            version: '2026-03-07-envops-v26',
             shell: {
                 defaultRenderer: 'web3d',
                 defaultPackageMode: 'research',
@@ -83,6 +94,13 @@
                 historyLimit: 8,
                 maxExecutionCards: 6,
                 maxDeltaLines: 6
+            },
+            health: {
+                historyWindow: 8,
+                traceWindow: 12,
+                hotspotLimit: 3,
+                requestCooldownMs: 9000,
+                staleAfterMs: 45000
             },
             scene: {
                 enabled: true,
@@ -2642,7 +2660,7 @@
     // ── ACTIVITY FEED ──
     var PLUG_TOOLS = ['plug_model', 'hub_plug'];
     var EXTERNAL_SLOT_MUTATION_TOOLS = ['plug_model', 'hub_plug', 'unplug_slot', 'clone_slot', 'rename_slot', 'swap_slots', 'cull_slot', 'restore_slot'];
-    var ACTIVITY_SILENT_TOOLS = ['get_status', 'list_slots', 'bag_catalog', 'workflow_list', 'verify_integrity', 'get_cached', 'get_identity', 'feed', 'get_capabilities', 'get_help', 'get_onboarding', 'get_quickstart', 'hub_tasks', 'list_tools', 'heartbeat', 'api_health'];
+    var ACTIVITY_SILENT_TOOLS = ['get_status', 'list_slots', 'bag_catalog', 'workflow_list', 'verify_integrity', 'get_cached', 'get_identity', 'feed', 'get_capabilities', 'get_help', 'get_onboarding', 'get_quickstart', 'hub_tasks', 'list_tools', 'heartbeat', 'api_health', 'env_health_status', 'env_health_heartbeat'];
 
     function _scheduleExternalSlotRefresh(reason) {
         _scheduleSlotRefresh(reason || 'external-mutation', 220);
@@ -5869,6 +5887,315 @@
         }
     }
 
+    function _envHealthConfig() {
+        var health = (_envConfig || {}).health || {};
+        return {
+            historyWindow: Math.max(4, Math.min(24, Number(health.historyWindow || _envComparisonConfig().historyLimit || 8))),
+            traceWindow: Math.max(4, Math.min(32, Number(health.traceWindow || 12))),
+            hotspotLimit: Math.max(1, Math.min(6, Number(health.hotspotLimit || 3))),
+            requestCooldownMs: Math.max(1000, Math.min(60000, Number(health.requestCooldownMs || 9000))),
+            staleAfterMs: Math.max(5000, Math.min(300000, Number(health.staleAfterMs || 45000)))
+        };
+    }
+
+    function _envHealthPending() {
+        return !!(_envHealthState.pendingStatus || _envHealthState.pendingHeartbeat);
+    }
+
+    function _envHealthSearchValue(node, keys, depth, seen) {
+        if (!node || typeof node !== 'object' || !Array.isArray(keys) || !keys.length || depth < 0) return undefined;
+        seen = Array.isArray(seen) ? seen : [];
+        if (seen.indexOf(node) >= 0) return undefined;
+        seen.push(node);
+        for (var i = 0; i < keys.length; i++) {
+            var key = String(keys[i] || '');
+            if (key && Object.prototype.hasOwnProperty.call(node, key) && node[key] !== undefined && node[key] !== null) return node[key];
+        }
+        var preferred = ['resolved', 'result', 'runtime', 'status', 'heartbeat', 'system', 'data', 'meta'];
+        for (var p = 0; p < preferred.length; p++) {
+            var nestedKey = preferred[p];
+            if (node[nestedKey] && typeof node[nestedKey] === 'object') {
+                var nestedFound = _envHealthSearchValue(node[nestedKey], keys, depth - 1, seen);
+                if (nestedFound !== undefined) return nestedFound;
+            }
+        }
+        var nodeKeys = Object.keys(node);
+        for (var j = 0; j < nodeKeys.length; j++) {
+            var child = node[nodeKeys[j]];
+            if (!child || typeof child !== 'object') continue;
+            var found = _envHealthSearchValue(child, keys, depth - 1, seen);
+            if (found !== undefined) return found;
+        }
+        return undefined;
+    }
+
+    function _envHealthBoolValue(node, keys) {
+        var value = _envHealthSearchValue(node, keys, 3, []);
+        if (typeof value === 'boolean') return value;
+        if (typeof value === 'number') return value !== 0;
+        if (typeof value === 'string') {
+            var text = String(value || '').trim().toLowerCase();
+            if (['true', 'ok', 'healthy', 'alive', 'ready', 'running', 'up'].indexOf(text) >= 0) return true;
+            if (['false', 'error', 'failed', 'dead', 'down', 'degraded', 'unhealthy'].indexOf(text) >= 0) return false;
+        }
+        return null;
+    }
+
+    function _envHealthNumberValue(node, keys) {
+        var value = _envHealthSearchValue(node, keys, 3, []);
+        if (typeof value === 'number' && isFinite(value)) return value;
+        if (typeof value === 'string') {
+            var parsed = Number(value);
+            if (isFinite(parsed)) return parsed;
+        }
+        return null;
+    }
+
+    function _envHealthStringValue(node, keys) {
+        var value = _envHealthSearchValue(node, keys, 3, []);
+        if (value === undefined || value === null) return '';
+        if (typeof value === 'string') return value;
+        if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+        return '';
+    }
+
+    function _envHealthFormatDuration(ms) {
+        var total = Math.max(0, Number(ms || 0));
+        if (!isFinite(total) || total <= 0) return '';
+        if (total < 1000) return String(Math.round(total)) + 'ms';
+        var seconds = total / 1000;
+        if (seconds < 60) return seconds.toFixed(seconds < 10 ? 1 : 0) + 's';
+        var minutes = Math.floor(seconds / 60);
+        var remainSeconds = Math.round(seconds % 60);
+        if (minutes < 60) return String(minutes) + 'm ' + String(remainSeconds) + 's';
+        var hours = Math.floor(minutes / 60);
+        var remainMinutes = minutes % 60;
+        return String(hours) + 'h ' + String(remainMinutes) + 'm';
+    }
+
+    function _envBuildHealthSnapshot(workflow, exec, traces) {
+        var cfg = _envHealthConfig();
+        var rows = (_envRunHistoryState.rows || []).slice();
+        if (exec && !rows.some(function (row) { return String((row || {}).execution_id || '') === String(exec.execution_id || ''); })) {
+            rows.unshift(exec);
+        }
+        rows = _envNormalizeExecutionHistoryRows(rows).slice(0, cfg.historyWindow);
+        var counts = { completed: 0, failed: 0, running: 0, pending: 0, skipped: 0 };
+        var elapsedValues = [];
+        var latestFailure = null;
+        var latestSuccess = null;
+        var streakStatus = '';
+        var streakCount = 0;
+        var hotspotMap = {};
+        rows.forEach(function (row, idx) {
+            var status = _wfNormalizeStatus((row && row.status) || 'pending');
+            counts[status] = (counts[status] || 0) + 1;
+            if (typeof row.elapsed_ms === 'number' && isFinite(row.elapsed_ms)) elapsedValues.push(Number(row.elapsed_ms));
+            if (!latestFailure && status === 'failed') latestFailure = row;
+            if (!latestSuccess && status === 'completed') latestSuccess = row;
+            if (idx === 0) streakStatus = status;
+            if (status === streakStatus) streakCount += 1;
+            var nodeStates = row && row.node_states && typeof row.node_states === 'object' ? row.node_states : {};
+            Object.keys(nodeStates).forEach(function (nodeId) {
+                var nodeStatus = _wfNormalizeStatus((((nodeStates || {})[nodeId] || {}).status) || 'pending');
+                if (nodeStatus !== 'failed') return;
+                hotspotMap[nodeId] = (hotspotMap[nodeId] || 0) + 1;
+            });
+        });
+        var settled = Number(counts.completed || 0) + Number(counts.failed || 0);
+        var successRate = settled ? (Number(counts.completed || 0) / settled) : null;
+        var avgElapsedMs = elapsedValues.length ? (elapsedValues.reduce(function (sum, value) { return sum + value; }, 0) / elapsedValues.length) : null;
+        var currentStatus = exec ? _wfNormalizeStatus(exec.status || 'pending') : 'idle';
+        var traceRows = Array.isArray(traces) ? traces.slice(0, cfg.traceWindow) : _envTraceRows(cfg.traceWindow);
+        var traceErrors = [];
+        for (var t = 0; t < traceRows.length; t++) {
+            var traceRow = traceRows[t] || {};
+            if (traceRow.error) traceErrors.push({ index: t, event: traceRow });
+        }
+        var hotspots = Object.keys(hotspotMap).map(function (nodeId) {
+            var workflowNode = workflow && Array.isArray(workflow.nodes) ? workflow.nodes.find(function (node) {
+                return String((node || {}).id || '') === String(nodeId || '');
+            }) : null;
+            return {
+                id: String(nodeId || ''),
+                label: String((workflowNode && (workflowNode.name || workflowNode.label || workflowNode.id)) || nodeId || 'node'),
+                count: Number(hotspotMap[nodeId] || 0)
+            };
+        }).sort(function (a, b) {
+            return Number(b.count || 0) - Number(a.count || 0);
+        }).slice(0, cfg.hotspotLimit);
+        var runtimeAlive = _envHealthBoolValue(_envHealthState.heartbeat, ['alive', 'healthy', 'ok']);
+        if (runtimeAlive === null) runtimeAlive = _envHealthBoolValue(_envHealthState.status, ['alive', 'healthy', 'ok', 'ready']);
+        var runtimeStage = _envHealthStringValue(_envHealthState.status, ['stage', 'status', 'runtime_stage']);
+        var runtimeHardware = _envHealthStringValue(_envHealthState.status, ['hardware', 'device', 'current_hardware']);
+        var runtimeSlotCount = _envHealthNumberValue(_envHealthState.status, ['slot_count', 'slots', 'loaded_slots', 'active_slots']);
+        var uptimeMs = _envHealthNumberValue(_envHealthState.heartbeat, ['uptime_ms']);
+        var uptimeSeconds = uptimeMs === null ? _envHealthNumberValue(_envHealthState.heartbeat, ['uptime_seconds', 'uptime_s']) : null;
+        var uptimeText = uptimeMs !== null
+            ? _envHealthFormatDuration(uptimeMs)
+            : (uptimeSeconds !== null ? _envHealthFormatDuration(uptimeSeconds * 1000) : _envHealthStringValue(_envHealthState.heartbeat, ['uptime']));
+        var runtimeErrors = [String(_envHealthState.statusError || ''), String(_envHealthState.heartbeatError || '')].filter(Boolean);
+        var runtimeTone = runtimeErrors.length || runtimeAlive === false
+            ? 'failed'
+            : (_envHealthPending()
+                ? 'live'
+                : (_envHealthState.refreshedTs
+                    ? 'ready'
+                    : 'idle'));
+        if (runtimeTone === 'ready' && _envHealthState.refreshedTs && (Date.now() - Number(_envHealthState.refreshedTs || 0)) > cfg.staleAfterMs) runtimeTone = 'warning';
+        var tone = 'idle';
+        if (currentStatus === 'failed' || runtimeTone === 'failed' || (successRate !== null && successRate < 0.7 && Number(counts.failed || 0) > 0)) tone = 'failed';
+        else if (currentStatus === 'running' || _envHealthPending()) tone = 'live';
+        else if (Number(counts.failed || 0) > 0 || traceErrors.length > 0 || Number(((_envKernel.ingress || {}).queue || []).length || 0) > 0 || runtimeTone === 'warning') tone = 'warning';
+        else if (rows.length || runtimeAlive === true) tone = 'ready';
+        var title = tone === 'failed'
+            ? 'Reliability degraded'
+            : (tone === 'live'
+                ? 'Runtime active'
+                : (tone === 'warning'
+                    ? 'Watch conditions present'
+                    : (tone === 'ready' ? 'Operationally steady' : 'Awaiting runtime evidence')));
+        var summaryParts = [];
+        if (successRate !== null) summaryParts.push(String(Math.round(successRate * 100)) + '% settled success');
+        else if (rows.length) summaryParts.push('No settled runs yet');
+        else summaryParts.push('No executions sampled yet');
+        if (Number(counts.failed || 0) > 0) summaryParts.push(String(counts.failed) + ' failed');
+        if (Number(counts.running || 0) > 0) summaryParts.push(String(counts.running) + ' running');
+        if (traceErrors.length > 0) summaryParts.push(String(traceErrors.length) + ' trace errors');
+        var runtimeSummary = runtimeErrors.length
+            ? runtimeErrors[0]
+            : (runtimeAlive === false
+                ? 'runtime probe degraded'
+                : (runtimeAlive === true
+                    ? 'runtime reachable'
+                    : (_envHealthState.refreshedTs ? 'runtime probed' : 'runtime not probed')));
+        var runtimeMetaParts = [];
+        if (uptimeText) runtimeMetaParts.push('uptime ' + uptimeText);
+        if (runtimeStage) runtimeMetaParts.push(runtimeStage);
+        if (runtimeHardware) runtimeMetaParts.push(runtimeHardware);
+        if (runtimeSlotCount !== null) runtimeMetaParts.push(String(runtimeSlotCount) + ' slots');
+        if (Number(((_envKernel.ingress || {}).queue || []).length || 0) > 0) runtimeMetaParts.push('queue ' + String(((_envKernel.ingress || {}).queue || []).length));
+        var latestFailureId = latestFailure ? String(latestFailure.execution_id || '') : '';
+        var latestSuccessId = latestSuccess ? String(latestSuccess.execution_id || '') : '';
+        var latestTraceErrorIndex = traceErrors.length ? Number(traceErrors[0].index || 0) : -1;
+        return {
+            workflow_id: String((workflow && workflow.id) || _wfSelectedId || ''),
+            tone: tone,
+            title: title,
+            meta: String(rows.length) + ' recent execution' + (rows.length === 1 ? '' : 's') + ' · ' + (_envHealthState.refreshedTs ? ('runtime refreshed ' + _fmtTimeAgo(_envHealthState.refreshedTs)) : 'runtime not refreshed yet'),
+            summary: summaryParts.join(' · '),
+            history_count: Number(rows.length || 0),
+            settled_runs: Number(settled || 0),
+            success_rate: successRate,
+            average_elapsed_ms: avgElapsedMs,
+            counts: counts,
+            current_status: currentStatus,
+            streak_status: streakStatus,
+            streak_count: streakCount,
+            latest_failure_execution_id: latestFailureId,
+            latest_success_execution_id: latestSuccessId,
+            latest_trace_error_index: latestTraceErrorIndex,
+            trace_error_count: Number(traceErrors.length || 0),
+            queue_depth: Number((((_envKernel.ingress || {}).queue || []).length) || 0),
+            hotspots: hotspots,
+            runtime: {
+                tone: runtimeTone,
+                alive: runtimeAlive,
+                summary: runtimeSummary,
+                meta: runtimeMetaParts.join(' · '),
+                refreshed_ts: Number(_envHealthState.refreshedTs || 0),
+                status_error: String(_envHealthState.statusError || ''),
+                heartbeat_error: String(_envHealthState.heartbeatError || '')
+            }
+        };
+    }
+
+    function _envRenderHealthSurface(workflow, exec, traces) {
+        var snapshot = _envBuildHealthSnapshot(workflow, exec, traces);
+        var successLabel = snapshot.success_rate === null ? 'No settled runs' : (String(Math.round(snapshot.success_rate * 100)) + '% success');
+        var latencyLabel = snapshot.average_elapsed_ms === null ? 'No timing yet' : ('avg ' + _envHealthFormatDuration(snapshot.average_elapsed_ms));
+        var latencyMeta = [];
+        if (exec && typeof exec.elapsed_ms === 'number') latencyMeta.push('current ' + _envHealthFormatDuration(exec.elapsed_ms));
+        if (snapshot.streak_status) latencyMeta.push(snapshot.streak_status + ' x' + String(snapshot.streak_count || 0));
+        var pressureParts = [];
+        if (Number(snapshot.trace_error_count || 0) > 0) pressureParts.push(String(snapshot.trace_error_count) + ' trace errors');
+        if (Number(snapshot.queue_depth || 0) > 0) pressureParts.push('queue ' + String(snapshot.queue_depth));
+        if (snapshot.hotspots.length) pressureParts.push('hotspot ' + String(snapshot.hotspots[0].label || snapshot.hotspots[0].id || 'node'));
+        var healthButtons = [
+            '<button type="button" class="btn-dim" data-env-action="refresh-health">REFRESH HEALTH</button>'
+        ];
+        if (snapshot.latest_failure_execution_id) {
+            healthButtons.push('<button type="button" class="btn-dim" data-env-focus-kind="execution" data-env-focus-id="' + _esc(snapshot.latest_failure_execution_id) + '">FOCUS FAILED RUN</button>');
+        }
+        if (snapshot.latest_trace_error_index >= 0) {
+            healthButtons.push('<button type="button" class="btn-dim" data-env-focus-kind="trace" data-env-focus-id="' + String(snapshot.latest_trace_error_index) + '">FOCUS ERROR TRACE</button>');
+        }
+        healthButtons.push('<button type="button" class="btn-dim" onclick="_envOpenLinkedTab(\'debug\')">OPEN DEBUG</button>');
+        var chips = [];
+        if (snapshot.latest_failure_execution_id) {
+            chips.push('<button type="button" class="envops-health-chip tone-failed" data-env-focus-kind="execution" data-env-focus-id="' + _esc(snapshot.latest_failure_execution_id) + '">' +
+                '<span class="badge">FAILED RUN</span><span class="label">' + _esc(_activityTokenShort(snapshot.latest_failure_execution_id, 18)) + '</span>' +
+                '<span class="meta">execution focus</span></button>');
+        }
+        if (snapshot.latest_success_execution_id) {
+            chips.push('<button type="button" class="envops-health-chip tone-ready" data-env-focus-kind="execution" data-env-focus-id="' + _esc(snapshot.latest_success_execution_id) + '">' +
+                '<span class="badge">LAST SUCCESS</span><span class="label">' + _esc(_activityTokenShort(snapshot.latest_success_execution_id, 18)) + '</span>' +
+                '<span class="meta">reference run</span></button>');
+        }
+        snapshot.hotspots.forEach(function (hotspot) {
+            chips.push('<button type="button" class="envops-health-chip tone-warning" data-env-focus-kind="node" data-env-focus-id="' + _esc(String(hotspot.id || '')) + '">' +
+                '<span class="badge">HOT NODE</span><span class="label">' + _esc(String(hotspot.label || hotspot.id || 'node')) + '</span>' +
+                '<span class="meta">' + _esc(String(hotspot.count || 0) + ' failed appearances') + '</span></button>');
+        });
+        if (snapshot.latest_trace_error_index >= 0) {
+            chips.push('<button type="button" class="envops-health-chip tone-failed" data-env-focus-kind="trace" data-env-focus-id="' + String(snapshot.latest_trace_error_index) + '">' +
+                '<span class="badge">TRACE</span><span class="label">latest errored trace</span>' +
+                '<span class="meta">focus trace #' + String(snapshot.latest_trace_error_index) + '</span></button>');
+        }
+        return '<div class="envops-health-shell tone-' + _esc(snapshot.tone) + '">' +
+            '<div class="envops-health-head">' +
+            '<div>' +
+            '<div class="envops-product-kicker">Health / SLA</div>' +
+            '<div class="envops-health-title">' + _esc(snapshot.title) + '</div>' +
+            '<div class="envops-health-meta">' + _esc(snapshot.meta) + '</div>' +
+            '</div>' +
+            '<div class="envops-health-actions">' + healthButtons.join('') + '</div>' +
+            '</div>' +
+            '<div class="envops-health-note">' + _esc(snapshot.summary || 'No aggregate health signal yet.') + '</div>' +
+            '<div class="envops-health-grid">' +
+            '<div class="envops-health-card tone-' + _esc(snapshot.tone) + '"><div class="k">Reliability</div><div class="v">' + _esc(successLabel) + '</div><div class="m">' + _esc(String(snapshot.counts.completed || 0) + ' completed · ' + String(snapshot.counts.failed || 0) + ' failed · ' + String(snapshot.counts.running || 0) + ' running') + '</div></div>' +
+            '<div class="envops-health-card tone-' + _esc(snapshot.current_status === 'running' ? 'live' : (snapshot.current_status === 'failed' ? 'failed' : 'ready')) + '"><div class="k">Latency / Streak</div><div class="v">' + _esc(latencyLabel) + '</div><div class="m">' + _esc(latencyMeta.join(' · ') || 'No current latency sample.') + '</div></div>' +
+            '<div class="envops-health-card tone-' + _esc(snapshot.runtime.tone) + '"><div class="k">Runtime Substrate</div><div class="v">' + _esc(snapshot.runtime.summary || 'runtime not probed') + '</div><div class="m">' + _esc(snapshot.runtime.meta || 'No heartbeat / status payload cached yet.') + '</div></div>' +
+            '<div class="envops-health-card tone-' + _esc((snapshot.trace_error_count || snapshot.queue_depth) ? 'warning' : 'ready') + '"><div class="k">Pressure</div><div class="v">' + _esc(pressureParts[0] || 'stable') + '</div><div class="m">' + _esc(pressureParts.slice(1).join(' · ') || 'No immediate queue or trace pressure.') + '</div></div>' +
+            '</div>' +
+            '<div class="envops-health-rail">' + (chips.join('') || '<div class="envops-stage-empty">No failure hotspots or reliability anchors surfaced yet.</div>') + '</div>' +
+            '</div>';
+    }
+
+    function _envRequestHealth(reason, force) {
+        var workflowId = String(_wfSelectedId || '').trim();
+        if (!workflowId) return;
+        var cfg = _envHealthConfig();
+        var now = Date.now();
+        if (!force) {
+            if (_envHealthPending()) return;
+            if (String(_envHealthState.workflowId || '') === workflowId && (now - Number(_envHealthState.lastRequestTs || 0)) < cfg.requestCooldownMs) return;
+        }
+        _envHealthState.workflowId = workflowId;
+        _envHealthState.pendingStatus = true;
+        _envHealthState.pendingHeartbeat = true;
+        _envHealthState.lastRequestTs = now;
+        _envHealthState.statusError = '';
+        _envHealthState.heartbeatError = '';
+        callTool('get_status', {}, 'env_health_status');
+        callTool('heartbeat', {}, 'env_health_heartbeat');
+        if (reason) {
+            _envLogAction('system', 'Requested environment health · ' + String(reason), 'system', {
+                workflow_id: workflowId
+            });
+        }
+    }
+
     function _envProfileCatalog() {
         return Array.isArray((_envConfig || {}).profiles) ? (_envConfig.profiles || []).filter(function (profile) {
             return profile && typeof profile === 'object' && profile.id;
@@ -5909,6 +6236,13 @@
             if (raw.comparison.historyLimit !== undefined) cfg.comparison.historyLimit = Math.max(2, Math.min(24, Number(raw.comparison.historyLimit) || cfg.comparison.historyLimit));
             if (raw.comparison.maxExecutionCards !== undefined) cfg.comparison.maxExecutionCards = Math.max(2, Math.min(12, Number(raw.comparison.maxExecutionCards) || cfg.comparison.maxExecutionCards));
             if (raw.comparison.maxDeltaLines !== undefined) cfg.comparison.maxDeltaLines = Math.max(2, Math.min(12, Number(raw.comparison.maxDeltaLines) || cfg.comparison.maxDeltaLines));
+        }
+        if (raw.health && typeof raw.health === 'object') {
+            if (raw.health.historyWindow !== undefined) cfg.health.historyWindow = Math.max(4, Math.min(24, Number(raw.health.historyWindow) || cfg.health.historyWindow));
+            if (raw.health.traceWindow !== undefined) cfg.health.traceWindow = Math.max(4, Math.min(32, Number(raw.health.traceWindow) || cfg.health.traceWindow));
+            if (raw.health.hotspotLimit !== undefined) cfg.health.hotspotLimit = Math.max(1, Math.min(6, Number(raw.health.hotspotLimit) || cfg.health.hotspotLimit));
+            if (raw.health.requestCooldownMs !== undefined) cfg.health.requestCooldownMs = Math.max(1000, Math.min(60000, Number(raw.health.requestCooldownMs) || cfg.health.requestCooldownMs));
+            if (raw.health.staleAfterMs !== undefined) cfg.health.staleAfterMs = Math.max(5000, Math.min(300000, Number(raw.health.staleAfterMs) || cfg.health.staleAfterMs));
         }
         if (raw.scene && typeof raw.scene === 'object') {
             if (raw.scene.enabled !== undefined) cfg.scene.enabled = !!raw.scene.enabled;
@@ -13699,6 +14033,21 @@
     }
 
     function handleEnvironmentToolResult(toolName, msg, rawText) {
+        if (toolName === 'env_health_status' || toolName === 'env_health_heartbeat') {
+            var healthPayload = msg && msg.error ? null : _normalizeToolPayload(rawText);
+            if (toolName === 'env_health_status') {
+                _envHealthState.pendingStatus = false;
+                _envHealthState.status = healthPayload;
+                _envHealthState.statusError = msg && msg.error ? String(msg.error || 'status probe failed') : '';
+            } else {
+                _envHealthState.pendingHeartbeat = false;
+                _envHealthState.heartbeat = healthPayload;
+                _envHealthState.heartbeatError = msg && msg.error ? String(msg.error || 'heartbeat probe failed') : '';
+            }
+            _envHealthState.refreshedTs = Date.now();
+            renderEnvironmentView();
+            return;
+        }
         if (toolName === 'export_interface' || toolName === 'start_api_server') {
             _envToolOutputs[toolName] = msg && msg.error ? { error: msg.error } : (_wfParsePayload(rawText) || rawText);
             _envLogAction('tool', 'Environment tool completed: ' + toolName, msg && msg.error ? 'system' : 'assistant', { tool: toolName, error: msg && msg.error ? String(msg.error) : '' });
@@ -13782,6 +14131,15 @@
         if (!workflow) {
             _envRunHistoryState.workflowId = '';
             _envRunHistoryState.pendingWorkflowId = '';
+            _envHealthState.workflowId = '';
+            _envHealthState.pendingStatus = false;
+            _envHealthState.pendingHeartbeat = false;
+            _envHealthState.lastRequestTs = 0;
+            _envHealthState.refreshedTs = 0;
+            _envHealthState.status = null;
+            _envHealthState.heartbeat = null;
+            _envHealthState.statusError = '';
+            _envHealthState.heartbeatError = '';
             stageEl.innerHTML = '<div class="envops-stage-empty">Select a workflow-backed system from the catalog. The Environment tab will project its runtime, outputs, artifacts, and traces through one operator shell.</div>';
             artifactsEl.innerHTML = '<div class="envops-stage-empty">Load a system to inspect execution payloads, produced artifacts, and export results.</div>';
             kernelEl.innerHTML = '<div class="envops-stage-empty">Load a workflow-backed system to enable focus, sampling, branching, and shared-control operations.</div>';
@@ -13820,6 +14178,7 @@
         var detailHtml = detailEl ? detailEl.innerHTML : '<div class="wfops-detail-empty">Workflow inspector not initialized yet.</div>';
         var sections = _envArtifactSections();
         var traces = _envTraceRows(8);
+        var healthTraces = _envTraceRows(_envHealthConfig().traceWindow);
         var workflowId = String(workflow.id || _wfSelectedId || '');
         if (!_envKernel.focus || String((_envKernel.focus.id || '')) === '' || (_envKernel.focus.kind === 'workflow' && String((_envKernel.focus.id || '')) !== String(workflow.id || _wfSelectedId || ''))) {
             _envKernel.focus = { kind: 'workflow', id: String(workflow.id || _wfSelectedId || ''), label: String(workflow.name || workflow.id || 'workflow'), actor: 'system', payload: null };
@@ -13845,6 +14204,20 @@
         } else if (!_envRunHistoryState.rows.length && !_envRunHistoryState.pendingWorkflowId) {
             _envRequestRunHistory('initial load', false);
         }
+        if (String(_envHealthState.workflowId || '') !== workflowId) {
+            _envHealthState.workflowId = workflowId;
+            _envHealthState.pendingStatus = false;
+            _envHealthState.pendingHeartbeat = false;
+            _envHealthState.lastRequestTs = 0;
+            _envHealthState.refreshedTs = 0;
+            _envHealthState.status = null;
+            _envHealthState.heartbeat = null;
+            _envHealthState.statusError = '';
+            _envHealthState.heartbeatError = '';
+            _envRequestHealth('workflow switch', true);
+        } else if (!_envHealthState.refreshedTs && !_envHealthPending()) {
+            _envRequestHealth('initial load', false);
+        }
         if (focusStateEl) focusStateEl.textContent = String((_envKernel.focus && _envKernel.focus.kind) || 'workflow');
 
         stageEl.innerHTML =
@@ -13869,6 +14242,7 @@
             '<div class="envops-card"><div class="envops-card-label">Node States</div><div class="envops-card-value">completed ' + (stateCounts.completed || 0) + ' · running ' + (stateCounts.running || 0) + ' · failed ' + (stateCounts.failed || 0) + '</div></div>' +
             '</div>' +
             (resourceChips.length ? '<div><div class="envops-card-label" style="margin-bottom:6px;">System Resources</div><div class="envops-chip-row">' + resourceChips.map(function (chip) { return '<span class="envops-chip">' + _esc(chip) + '</span>'; }).join('') + '</div></div>' : '') +
+            _envRenderHealthSurface(workflow, exec, healthTraces) +
             '<div class="envops-stage-shell">' +
             _envRenderHabitat(workflow, exec, sections, traces) +
             '<div class="envops-focus-card">' +
@@ -17912,6 +18286,7 @@
         envRefreshBtn.addEventListener('click', function () {
             _envLogAction('catalog', 'Refreshed workflow-backed system catalog', 'user', {});
             callTool('workflow_list', {});
+            if (_wfSelectedId) _envRequestHealth('toolbar refresh', true);
         });
     }
 
@@ -18048,6 +18423,12 @@
             var actionEl = e.target.closest('[data-env-action]');
             if (actionEl) {
                 var action = actionEl.getAttribute('data-env-action') || '';
+                if (action === 'refresh-health') {
+                    _envRequestRunHistory('health refresh', true);
+                    _envRequestHealth('manual refresh', true);
+                    renderEnvironmentView();
+                    return;
+                }
                 if (action === 'toggle-replay') {
                     _envQueueControl('toggle_replay', '', 'user', 'stage replay toggle');
                     return;
@@ -18441,6 +18822,9 @@
     window.envopsRefreshRunHistory = function (reason) {
         _envRequestRunHistory(reason || 'external refresh', true);
     };
+    window.envopsRefreshHealth = function (reason) {
+        _envRequestHealth(reason || 'external refresh', true);
+    };
     window.envopsGetBusEvents = function (limit) {
         var take = Math.max(1, Math.min(200, Number(limit || _envLiveTailLimit() || 24)));
         return JSON.parse(JSON.stringify((_envBus.events || []).slice(0, take)));
@@ -18452,6 +18836,7 @@
         _envRefreshReplayTrack((_envKernel.replay || {}).mode, true);
         var currentExec = _envCurrentExecution();
         var latestHistory = ((_envRunHistoryState.rows || [])[0]) || null;
+        var healthSnapshot = _envBuildHealthSnapshot(_wfLoadedDef && String((_wfLoadedDef || {}).id || '') === String(_wfSelectedId || '') ? _wfLoadedDef : null, currentExec, _envTraceRows(_envHealthConfig().traceWindow));
         return {
             config_source: _envBus.source || 'defaults',
             focus: Object.assign({}, _envKernel.focus || {}),
@@ -18545,11 +18930,39 @@
                 last_requested_execution_id: String(_envRunHistoryState.lastRequestedExecutionId || ''),
                 error: String(_envRunHistoryState.error || '')
             },
+            health: {
+                workflow_id: String(healthSnapshot.workflow_id || ''),
+                tone: String(healthSnapshot.tone || 'idle'),
+                title: String(healthSnapshot.title || ''),
+                summary: String(healthSnapshot.summary || ''),
+                history_count: Number(healthSnapshot.history_count || 0),
+                settled_runs: Number(healthSnapshot.settled_runs || 0),
+                success_rate: typeof healthSnapshot.success_rate === 'number' ? Number(healthSnapshot.success_rate) : null,
+                average_elapsed_ms: typeof healthSnapshot.average_elapsed_ms === 'number' ? Number(healthSnapshot.average_elapsed_ms) : null,
+                trace_error_count: Number(healthSnapshot.trace_error_count || 0),
+                queue_depth: Number(healthSnapshot.queue_depth || 0),
+                latest_failure_execution_id: String(healthSnapshot.latest_failure_execution_id || ''),
+                latest_trace_error_index: Number(healthSnapshot.latest_trace_error_index || -1),
+                pending: _envHealthPending(),
+                refreshed_ts: Number((_envHealthState || {}).refreshedTs || 0),
+                runtime: Object.assign({}, healthSnapshot.runtime || {}),
+                hotspots: (healthSnapshot.hotspots || []).map(function (hotspot) {
+                    return {
+                        id: String((hotspot || {}).id || ''),
+                        label: String((hotspot || {}).label || ''),
+                        count: Number((hotspot || {}).count || 0)
+                    };
+                })
+            },
             recipes: {
                 count: Number(_envRecipeCatalog().length || 0),
                 ids: _envRecipeCatalog().map(function (recipe) { return String(recipe.id || ''); })
             }
         };
+    };
+    window.envopsGetHealthSnapshot = function () {
+        var workflow = _wfLoadedDef && String((_wfLoadedDef || {}).id || '') === String(_wfSelectedId || '') ? _wfLoadedDef : null;
+        return JSON.parse(JSON.stringify(_envBuildHealthSnapshot(workflow, _envCurrentExecution(), _envTraceRows(_envHealthConfig().traceWindow))));
     };
 
     window.envopsGetHabitatObjects = function () {
