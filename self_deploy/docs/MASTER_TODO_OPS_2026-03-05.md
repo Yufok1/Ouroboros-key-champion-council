@@ -269,9 +269,74 @@
      - system
   3. Surface the action stream as a visible god-mode ledger inside the Environment tab.
 
+#### 18) `ISS-ENVIRONMENT-SESSION-IDENTITY` (Medium)
+- Problem:
+  - The current Environment kernel is shared-state oriented, but it does not yet model operator sessions explicitly.
+  - Actor labels exist, but focus, profile, replay, and ingress state are still globally mutable within the shell.
+- Frontend-first solution:
+  1. Introduce an explicit environment session envelope over the existing shared kernel state.
+  2. Distinguish:
+     - active driver
+     - observing actors
+     - current focus lease for destructive or exclusive actions
+  3. Keep this as shell-level arbitration first; defer hard backend coordination contracts until later runtime work.
+
+#### 19) `ISS-ENVIRONMENT-PRODUCT-VIEW` (Medium)
+- Problem:
+  - The shell increasingly shows the system running, but not yet the produced thing as a first-class product surface.
+  - Operators need a direct "what did this system make" view beyond raw tool outputs and artifact snippets.
+- Frontend-first solution:
+  1. Add a dedicated product/output inspection surface inside the Environment tab.
+  2. Distinguish between:
+     - runtime state
+     - produced product
+     - supporting artifacts
+  3. Keep the first implementation tied to existing tool outputs and FelixBag artifacts.
+
+#### 20) `ISS-ENVIRONMENT-RUN-COMPARISON` (Medium)
+- Problem:
+  - The shell supports samples, branches, and replay, but not yet direct comparison between runs or branches.
+  - That leaves a gap for the core question: what changed between a good run and a bad run.
+- Frontend-first solution:
+  1. Add side-by-side comparison views for:
+     - two executions
+     - two samples
+     - two branches
+  2. Reuse existing kernel samples, replay tracks, and branch data before inventing new storage.
+  3. Surface differences in:
+     - focus
+     - traces
+     - outputs
+     - artifacts
+
+#### 21) `ISS-ENVIRONMENT-HEALTH-SUMMARY` (Medium)
+- Problem:
+  - The shell exposes events and traces, but not yet an aggregate health / reliability view for a system over time.
+  - Operators need summary signals, not only raw event streams.
+- Frontend-first solution:
+  1. Add health cards derived from existing execution and bus history:
+     - recent success/failure mix
+     - mean/median execution time where available
+     - failure frequency
+     - last-known state trend
+  2. Keep the first implementation purely derived from current frontend-visible data.
+
+#### 22) `ISS-ENVIRONMENT-CONFIG-VALIDATION` (Medium)
+- Problem:
+  - envops config is growing quickly and currently relies on permissive merge behavior plus scattered defaults.
+  - Invalid or partial config values can degrade the habitat silently.
+- Frontend-first solution:
+  1. Add config validation and issue surfacing inside the Environment shell.
+  2. Flag:
+     - missing critical sections
+     - invalid numeric ranges
+     - deprecated keys
+     - version drift between inline defaults and external config
+  3. Keep validation advisory first; do not block rendering unless the config is unusable.
+
 ### Backend-Deferred Blockers (Report-Only)
 
-#### 18) `ISS-WF-CACHED-DEF-EXEC` (High blocker)
+#### 23) `ISS-WF-CACHED-DEF-EXEC` (High blocker)
 - Problem:
   - Workflows large enough to trigger `_cached` on `workflow_get` can fail on `workflow_execute` (409), even with valid definitions.
 - Counter-proof:
@@ -283,7 +348,7 @@
   2. Prefer compact workflows + post-run memory writes (external orchestration).
   3. Auto-suggest “compact CI pattern” when definition crosses risk threshold.
 
-#### 19) `ISS-WF-NODE-TEMPLATE-RESOLUTION` (High blocker)
+#### 24) `ISS-WF-NODE-TEMPLATE-RESOLUTION` (High blocker)
 - Problem:
   - Workflow params do not resolve references to prior node outputs (e.g. `$s0`, `$s0.output`), so downstream tools receive literal placeholders.
 - Counter-proof:
@@ -295,7 +360,7 @@
   2. Route cross-node value plumbing through orchestrator post-processing instead of inline templates.
   3. Add lint warning whenever non-`$input.*` placeholders appear in tool params.
 
-#### 20) `ISS-BAG-GET-KEYSPACE-MISMATCH` (Medium blocker)
+#### 25) `ISS-BAG-GET-KEYSPACE-MISMATCH` (Medium blocker)
 - Problem:
   - Some keys written in-workflow by `bag_put` are discoverable via `bag_catalog`/`bag_read_doc` but fail `bag_get`.
 - Counter-proof:
@@ -306,7 +371,7 @@
   2. In UI retrieval path, fallback from `bag_get` to `bag_read_doc` on not-found.
   3. Surface keyspace/source metadata on write confirmation.
 
-#### 21) `ISS-WF-TOOL-ARGS-DROPPED` (High blocker)
+#### 26) `ISS-WF-TOOL-ARGS-DROPPED` (High blocker)
 - Problem:
   - Workflow `tool` nodes are reaching runtime tools without their declared args.
   - Live repros showed both literal args and `$input.*` args arriving as missing positional parameters.
@@ -318,7 +383,7 @@
 - Implication:
   - This is broader than template substitution. Tool-node arg plumbing itself is broken in the live workflow executor.
 
-#### 22) `ISS-WF-EXEC-STATUS-HISTORY-GAP` (Medium blocker)
+#### 27) `ISS-WF-EXEC-STATUS-HISTORY-GAP` (Medium blocker)
 - Problem:
   - Failed workflow executions return an `execution_id`, but `workflow_status` and `workflow_history` do not surface the failed run afterward.
 - Counter-proof:
@@ -328,7 +393,7 @@
 - Implication:
   - Workflow failure auditability is incomplete even when execution failure is reported synchronously.
 
-#### 23) `ISS-VAST-SEARCH-FILTER-PARSE` (Medium blocker)
+#### 28) `ISS-VAST-SEARCH-FILTER-PARSE` (Medium blocker)
 - Problem:
   - Filtered `vast_search` queries can still fail at parse time instead of returning filtered offers.
 - Counter-proof:
@@ -339,7 +404,7 @@
 - Implication:
   - The search helper is brittle for structured filtering and cannot currently be trusted as the only selection surface.
 
-#### 24) `ISS-TRACE-ROOTCAUSE-NOISY-CONTEXT` (Medium blocker)
+#### 29) `ISS-TRACE-ROOTCAUSE-NOISY-CONTEXT` (Medium blocker)
 - Problem:
   - `trace_root_causes` can still return irrelevant historical causes when given a fresh observed runtime error.
 - Counter-proof:
@@ -404,6 +469,18 @@
 21. [todo] Environment operator kernel:
    - focus/sample/act/branch/trace/promote controls
    - visible god-mode ledger with actor attribution
+22. [todo] Environment session identity:
+   - explicit driver/observer distinction
+   - shell-level focus lease and shared control arbitration
+23. [todo] Environment product view:
+   - direct inspection surface for what the system actually produced
+   - separate product output from supporting artifacts
+24. [todo] Environment run comparison:
+   - compare runs, branches, and replay samples side by side
+25. [todo] Environment health summary:
+   - aggregate reliability / trend view from current shell-visible history
+26. [todo] Environment config validation:
+   - detect config drift and invalid values without blocking experimentation
 
 ## Pending Live Validation
 - Deployed runtime commit `1fed2ba` contains the remote-slot Vast pivot.

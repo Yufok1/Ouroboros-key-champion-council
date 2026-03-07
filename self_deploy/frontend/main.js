@@ -96,7 +96,12 @@
                     objectParallaxX: 24,
                     objectParallaxY: 14,
                     depthGain: 0.08,
-                    tiltGain: 2.4
+                    tiltGain: 2.4,
+                    vanishPullX: 0.082,
+                    vanishPullY: 0.048,
+                    shadowCompression: 0.18,
+                    routePortLift: 0.16,
+                    routePortPull: 0.06
                 },
                 focusFieldOpacity: 0.34,
                 focusFieldRingOpacity: 0.18,
@@ -5939,7 +5944,12 @@
             routeCurveShift: Number(orbit.routeCurveShift || 42),
             routeArcLift: Number(orbit.routeArcLift || 20),
             depthGain: Number(orbit.depthGain || 0.08),
-            tiltGain: Number(orbit.tiltGain || 2.4)
+            tiltGain: Number(orbit.tiltGain || 2.4),
+            vanishPullX: Number(orbit.vanishPullX || 0.082),
+            vanishPullY: Number(orbit.vanishPullY || 0.048),
+            shadowCompression: Number(orbit.shadowCompression || 0.18),
+            routePortLift: Number(orbit.routePortLift || 0.16),
+            routePortPull: Number(orbit.routePortPull || 0.06)
         };
     }
 
@@ -5972,7 +5982,12 @@
             backgroundShiftX: orbitXR * width * backgroundParallax,
             backgroundShiftY: orbitYR * height * backgroundParallax * 0.72,
             depthShiftX: orbitXR * width * Number(depthField.orbitShiftX || 0.032),
-            depthShiftY: orbitYR * height * Number(depthField.orbitShiftY || 0.02)
+            depthShiftY: orbitYR * height * Number(depthField.orbitShiftY || 0.02),
+            vanishPullX: Math.max(0, Number(orbitCfg.vanishPullX || 0.082)),
+            vanishPullY: Math.max(0, Number(orbitCfg.vanishPullY || 0.048)),
+            contactCompression: Math.max(0.08, Number(orbitCfg.shadowCompression || 0.18)),
+            routePortLift: Math.max(0.04, Number(orbitCfg.routePortLift || 0.16)),
+            routePortPull: Math.max(0.02, Number(orbitCfg.routePortPull || 0.06))
         };
     }
 
@@ -7385,8 +7400,10 @@
         var perspectiveX = lateralBias * orbitCfg.lateralPerspectiveX * (0.28 + nearField * 0.72);
         var orbitShiftX = orbitXR * orbitCfg.objectParallaxX * (0.45 + ((1 - wyRelative) * 0.7)) + perspectiveX;
         var orbitShiftY = orbitYR * orbitCfg.objectParallaxY * (0.35 + (wyRelative * 0.55)) - (nearField * orbitCfg.objectDepthLift * 28);
-        sx += orbitShiftX;
-        sy += orbitShiftY;
+        var vanishPullX = (metrics.vanishingX - sx) * farField * metrics.vanishPullX;
+        var vanishPullY = (metrics.horizonY - sy) * farField * metrics.vanishPullY;
+        sx += orbitShiftX + vanishPullX;
+        sy += orbitShiftY + vanishPullY;
         var scale = Math.max(0.42, Math.min(1.8,
             Number(obj.scale || 1)
             * Number(cfg.objectScale || 1)
@@ -7406,6 +7423,12 @@
         ));
         var cardWidth = Math.max(58, 88 * scale * depth);
         var cardHeight = Math.max(34, 46 * scale * depth);
+        var routeX = sx + ((metrics.vanishingX - sx) * Math.max(0.02, farField * metrics.routePortPull));
+        var routeY = sy - (cardHeight * (0.12 + (farField * metrics.routePortLift)));
+        var shadowWidth = cardWidth * Math.max(0.34, 0.52 - (farField * metrics.contactCompression * 0.42) + (nearField * 0.08));
+        var shadowHeight = cardHeight * Math.max(0.14, 0.24 - (farField * metrics.contactCompression * 0.22) + (nearField * 0.035));
+        var shadowOffsetY = cardHeight * (0.54 + nearField * 0.06) + farField * 4;
+        var shadowRotation = (orbitXR * 0.12) + (lateralBias * 0.06);
         return {
             obj: obj,
             x: sx,
@@ -7415,7 +7438,13 @@
             depth: depth,
             scale: scale,
             left: sx - (cardWidth / 2),
-            top: sy - (cardHeight / 2)
+            top: sy - (cardHeight / 2),
+            routeX: routeX,
+            routeY: routeY,
+            shadowWidth: shadowWidth,
+            shadowHeight: shadowHeight,
+            shadowOffsetY: shadowOffsetY,
+            shadowRotation: shadowRotation
         };
     }
 
@@ -9754,22 +9783,28 @@
             var from = projectionMap[route.fromKey];
             var to = projectionMap[route.toKey];
             if (!from || !to) return;
+            var fromX = Number(from.routeX || from.x);
+            var fromY = Number(from.routeY || from.y);
+            var toX = Number(to.routeX || to.x);
+            var toY = Number(to.routeY || to.y);
             var active = (focusKey && (route.fromKey === focusKey || route.toKey === focusKey))
                 || (hoverKey && (route.fromKey === hoverKey || route.toKey === hoverKey));
             var visual = _envSceneLinkDominance(dominance, route.fromKey, route.toKey, route.tone, null);
             var color = route.tone === 'failed' ? '#ff6c78' : (route.tone === 'running' ? '#ffb347' : '#67d3ff');
             var depthDelta = Number(to.depth || 0.5) - Number(from.depth || 0.5);
-            var ctrlX = (from.x + to.x) / 2 + depthDelta * orbitCfg.routeCurveShift * (0.72 + Math.abs(orbitXR) * 0.38);
-            var ctrlY = Math.min(from.y, to.y) - 24 - (idx % 3) * 8 - (Math.abs(depthDelta) * orbitCfg.routeArcLift * 0.68) - (orbitYR * 5.5);
-            var ribbonLift = Math.max(8, 10 + Math.abs(depthDelta) * 18 + (((from.y + to.y) / Math.max(1, _envScene.height)) * 12));
+            var ctrlX = (fromX + toX) / 2
+                + depthDelta * orbitCfg.routeCurveShift * (0.72 + Math.abs(orbitXR) * 0.38)
+                + ((metrics.vanishingX - ((fromX + toX) / 2)) * Math.abs(depthDelta) * 0.06);
+            var ctrlY = Math.min(fromY, toY) - 24 - (idx % 3) * 8 - (Math.abs(depthDelta) * orbitCfg.routeArcLift * 0.68) - (orbitYR * 5.5);
+            var ribbonLift = Math.max(8, 10 + Math.abs(depthDelta) * 18 + (((fromY + toY) / Math.max(1, _envScene.height)) * 12));
             var ribbonEndY = ribbonLift * 0.18;
             ctx.save();
             ctx.globalAlpha = Math.max(0.04, 0.18 * visual.opacity);
             ctx.strokeStyle = 'rgba(0,0,0,0.58)';
             ctx.lineWidth = Math.max(1, 1.1 * visual.width * (1 + Math.abs(depthDelta) * 0.4));
             ctx.beginPath();
-            ctx.moveTo(from.x, from.y + ribbonEndY);
-            ctx.quadraticCurveTo(ctrlX + ((metrics.deckCenterX - (_envScene.width * 0.5)) * 0.14), ctrlY + ribbonLift, to.x, to.y + ribbonEndY);
+            ctx.moveTo(fromX, fromY + ribbonEndY);
+            ctx.quadraticCurveTo(ctrlX + ((metrics.deckCenterX - (_envScene.width * 0.5)) * 0.14), ctrlY + ribbonLift, toX, toY + ribbonEndY);
             ctx.stroke();
             ctx.globalAlpha = Math.max(0.08, (active ? 0.92 : Math.max(0.12, Math.min(0.85, Number(cfg.routeOpacity || 0.42)))) * visual.opacity);
             ctx.strokeStyle = color;
@@ -9779,14 +9814,14 @@
                 ctx.shadowBlur = (active ? 18 : 10) * visual.shadow * (1 + Math.abs(depthDelta) * 0.4);
             }
             ctx.beginPath();
-            ctx.moveTo(from.x, from.y);
-            ctx.quadraticCurveTo(ctrlX, ctrlY, to.x, to.y);
+            ctx.moveTo(fromX, fromY);
+            ctx.quadraticCurveTo(ctrlX, ctrlY, toX, toY);
             ctx.stroke();
             ctx.restore();
             if ((route.label || route.branch || route.condition) && !visual.suppressed) {
                 var label = route.label || route.branch || route.condition;
-                var midX = (from.x + to.x) / 2;
-                var midY = (from.y + to.y) / 2 - 14;
+                var midX = (fromX + toX) / 2;
+                var midY = (fromY + toY) / 2 - 14;
                 ctx.save();
                 ctx.globalAlpha = Math.max(0.45, visual.opacity);
                 ctx.fillStyle = 'rgba(7,14,20,0.9)';
@@ -9821,6 +9856,10 @@
             var from = projectionMap[trajectory.fromKey];
             var to = projectionMap[trajectory.toKey];
             if (!from || !to) return;
+            var fromX = Number(from.routeX || from.x);
+            var fromY = Number(from.routeY || from.y);
+            var toX = Number(to.routeX || to.x);
+            var toY = Number(to.routeY || to.y);
             var tone = String(trajectory.tone || 'flow');
             var active = !!trajectory.active;
             var visual = _envSceneLinkDominance(dominance, trajectory.fromKey, trajectory.toKey, tone, trajectory.meta);
@@ -9835,23 +9874,25 @@
             else if (tone === 'watch') color = '#d7ff8a';
             else if (tone === 'completed') color = '#4fffb0';
 
-            var dx = to.x - from.x;
-            var dy = to.y - from.y;
+            var dx = toX - fromX;
+            var dy = toY - fromY;
             var distance = Math.max(24, Math.sqrt(dx * dx + dy * dy));
             var depthDelta = Number(to.depth || 0.5) - Number(from.depth || 0.5);
             var lift = Math.max(16, Math.min(64, distance * 0.24)) + ((idx % 4) * 6) + Math.abs(depthDelta) * orbitCfg.routeArcLift * 0.9;
-            var ctrlX = (from.x + to.x) / 2 + depthDelta * orbitCfg.routeCurveShift * 0.88;
-            var ctrlY = Math.min(from.y, to.y) - lift - (orbitYR * 4.5);
+            var ctrlX = (fromX + toX) / 2
+                + depthDelta * orbitCfg.routeCurveShift * 0.88
+                + ((metrics.vanishingX - ((fromX + toX) / 2)) * Math.abs(depthDelta) * 0.08);
+            var ctrlY = Math.min(fromY, toY) - lift - (orbitYR * 4.5);
             var opacityBase = Math.max(0.18, Math.min(0.92, Number(cfg.trajectoryOpacity || 0.55)));
-            var ribbonLift = Math.max(8, 12 + Math.abs(depthDelta) * 16 + (((from.y + to.y) / Math.max(1, _envScene.height)) * 10));
+            var ribbonLift = Math.max(8, 12 + Math.abs(depthDelta) * 16 + (((fromY + toY) / Math.max(1, _envScene.height)) * 10));
             var ribbonEndY = ribbonLift * 0.16;
             ctx.save();
             ctx.globalAlpha = Math.max(0.05, 0.14 * visual.opacity);
             ctx.strokeStyle = 'rgba(0,0,0,0.48)';
             ctx.lineWidth = Math.max(1, 0.95 * visual.width * (1 + Math.abs(depthDelta) * 0.4));
             ctx.beginPath();
-            ctx.moveTo(from.x, from.y + ribbonEndY);
-            ctx.quadraticCurveTo(ctrlX + ((metrics.deckCenterX - (_envScene.width * 0.5)) * 0.18), ctrlY + ribbonLift, to.x, to.y + ribbonEndY);
+            ctx.moveTo(fromX, fromY + ribbonEndY);
+            ctx.quadraticCurveTo(ctrlX + ((metrics.deckCenterX - (_envScene.width * 0.5)) * 0.18), ctrlY + ribbonLift, toX, toY + ribbonEndY);
             ctx.stroke();
             ctx.globalAlpha = Math.max(0.06, (active ? Math.min(0.95, opacityBase + 0.22) : opacityBase) * visual.opacity);
             ctx.strokeStyle = color;
@@ -9866,8 +9907,8 @@
                 ctx.shadowBlur = (active ? 18 : 10) * visual.shadow;
             }
             ctx.beginPath();
-            ctx.moveTo(from.x, from.y);
-            ctx.quadraticCurveTo(ctrlX, ctrlY, to.x, to.y);
+            ctx.moveTo(fromX, fromY);
+            ctx.quadraticCurveTo(ctrlX, ctrlY, toX, toY);
             ctx.stroke();
             ctx.restore();
 
@@ -9878,7 +9919,7 @@
             else if (tone === 'watch') speed *= 0.62;
             else if (tone === 'profile') speed *= 0.92;
             var t = ((((Number(timeMs || 0) * 0.001) * speed) + Number(trajectory.phase || 0)) % 1);
-            var point = _envSceneBezierPoint(from.x, from.y, ctrlX, ctrlY, to.x, to.y, t);
+            var point = _envSceneBezierPoint(fromX, fromY, ctrlX, ctrlY, toX, toY, t);
             ctx.save();
             ctx.fillStyle = color;
             ctx.shadowColor = color;
@@ -9955,8 +9996,17 @@
         ctx.scale(Math.max(0.78, Number(visual.scale || 1)), 0.94 * Math.max(0.78, Number(visual.scale || 1)));
         ctx.globalAlpha = Math.max(0.12, Number(visual.opacity || 1));
         ctx.fillStyle = 'rgba(0,0,0,0.28)';
+        ctx.rotate(Number(item.shadowRotation || 0));
         ctx.beginPath();
-        ctx.ellipse(0, item.h * 0.56, item.w * 0.52, item.h * 0.24, 0, 0, Math.PI * 2);
+        ctx.ellipse(
+            0,
+            Number(item.shadowOffsetY || (item.h * 0.56)),
+            Number(item.shadowWidth || (item.w * 0.52)),
+            Number(item.shadowHeight || (item.h * 0.24)),
+            0,
+            0,
+            Math.PI * 2
+        );
         ctx.fill();
         ctx.restore();
 
