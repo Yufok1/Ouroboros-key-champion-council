@@ -5905,8 +5905,18 @@
             perspectiveShiftY: Number(orbit.perspectiveShiftY || 12),
             shellSwayX: Number(orbit.shellSwayX || 9),
             shellSwayY: Number(orbit.shellSwayY || 6),
+            perspectiveCurve: Math.max(0.75, Number(orbit.perspectiveCurve || 1.18)),
             objectParallaxX: Number(orbit.objectParallaxX || 24),
             objectParallaxY: Number(orbit.objectParallaxY || 14),
+            nearScaleGain: Number(orbit.nearScaleGain || 0.18),
+            farScaleLoss: Number(orbit.farScaleLoss || 0.12),
+            lateralPerspectiveX: Number(orbit.lateralPerspectiveX || 12),
+            objectDepthSpread: Number(orbit.objectDepthSpread || 0.22),
+            objectDepthLift: Number(orbit.objectDepthLift || 0.1),
+            routeDepthGain: Number(orbit.routeDepthGain || 96),
+            routePerspectiveYaw: Number(orbit.routePerspectiveYaw || 14),
+            routeCurveShift: Number(orbit.routeCurveShift || 42),
+            routeArcLift: Number(orbit.routeArcLift || 20),
             depthGain: Number(orbit.depthGain || 0.08),
             tiltGain: Number(orbit.tiltGain || 2.4)
         };
@@ -7307,14 +7317,34 @@
         var driftY = drift ? Math.cos(t * 0.32 + index * 0.29) * (4 + wy * 3) : 0;
         var cameraY = Number(camera.y || 52);
         var wyRelative = Math.max(0, Math.min(1, (Number(obj.y || 50) - cameraY + 52) / 104));
+        var perspectiveCurve = Math.max(0.75, Number(orbitCfg.perspectiveCurve || 1.18));
+        var nearField = Math.pow(wyRelative, perspectiveCurve);
+        var farField = 1 - nearField;
+        var lateralBias = Math.max(-1, Math.min(1, wx));
         var sx = width * 0.5 + (wx * width * 0.34) + driftX + (Number(obj.tilt || 0) * 0.45);
         var sy = height * 0.2 + (wyRelative * height * 0.6) + driftY;
-        var orbitShiftX = orbitXR * orbitCfg.objectParallaxX * (0.45 + ((1 - wyRelative) * 0.7));
-        var orbitShiftY = orbitYR * orbitCfg.objectParallaxY * (0.35 + (wyRelative * 0.55));
+        var perspectiveX = lateralBias * orbitCfg.lateralPerspectiveX * (0.28 + nearField * 0.72);
+        var orbitShiftX = orbitXR * orbitCfg.objectParallaxX * (0.45 + ((1 - wyRelative) * 0.7)) + perspectiveX;
+        var orbitShiftY = orbitYR * orbitCfg.objectParallaxY * (0.35 + (wyRelative * 0.55)) - (nearField * orbitCfg.objectDepthLift * 28);
         sx += orbitShiftX;
         sy += orbitShiftY;
-        var scale = Math.max(0.42, Math.min(1.8, Number(obj.scale || 1) * Number(cfg.objectScale || 1) * Number(camera.zoom || 1) * (0.92 + wyRelative * 0.32) * (1 + Math.abs(orbitXR) * 0.025)));
-        var depth = Math.max(0.2, Math.min(1.2, camDepth - (wy * 0.32) + (Math.abs(wx) * 0.05) + (Math.abs(orbitXR) * orbitCfg.depthGain) + ((-orbitYR) * orbitCfg.depthGain * 0.5)));
+        var scale = Math.max(0.42, Math.min(1.8,
+            Number(obj.scale || 1)
+            * Number(cfg.objectScale || 1)
+            * Number(camera.zoom || 1)
+            * (0.88 + wyRelative * 0.28)
+            * (1 - farField * orbitCfg.farScaleLoss + nearField * orbitCfg.nearScaleGain)
+            * (1 + Math.abs(orbitXR) * 0.03)
+        ));
+        var depth = Math.max(0.18, Math.min(1.28,
+            camDepth
+            - (farField * orbitCfg.objectDepthSpread)
+            + (nearField * orbitCfg.objectDepthLift)
+            + (Math.abs(wx) * 0.04)
+            + (Math.abs(orbitXR) * orbitCfg.depthGain)
+            + ((-orbitYR) * orbitCfg.depthGain * 0.5)
+            + (lateralBias * orbitXR * 0.018)
+        ));
         var cardWidth = Math.max(58, 88 * scale * depth);
         var cardHeight = Math.max(34, 46 * scale * depth);
         return {
@@ -7732,12 +7762,17 @@
             else if (flow.mode === 'watch') motionBias *= 1.08;
             else if (flow.mode === 'replay') motionBias *= 1.12;
             var width = (dominant ? Number(cfg.dominantWidth || 12) : Number(cfg.width || 8)) * Math.max(0.82, Number(visual.width || 1));
-            var depth = Math.round((((Number(fromProjection.depth || 0.5) + Number(toProjection.depth || 0.5)) / 2) - 0.5) * Number(cfg.depthScale || 260));
-            var lift = Math.round(Number(cfg.lift || 26) + (dominant ? Number(cfg.arcLift || 24) * 0.25 : 0));
+            var depthMid = ((Number(fromProjection.depth || 0.5) + Number(toProjection.depth || 0.5)) / 2);
+            var depthDelta = Number(toProjection.depth || 0.5) - Number(fromProjection.depth || 0.5);
+            var depth = Math.round((depthMid - 0.5) * Number(cfg.depthScale || 260));
+            var lift = Math.round(Number(cfg.lift || 26) + (dominant ? Number(cfg.arcLift || 24) * 0.25 : 0) + Math.abs(depthDelta) * orbitCfg.routeArcLift * 0.4);
             var routeBob = Math.sin((t * (0.92 + seed * 0.46)) + (seed * 6.283)) * motionCfg.routeBob * motionBias;
             var routeBank = Math.sin((t * (0.58 + seed * 0.34)) + (seed * 4.712)) * motionCfg.routeBank * motionBias;
             var routeDepth = Math.cos((t * (0.74 + seed * 0.28)) + (seed * 5.497)) * motionCfg.routeDepthPulse * motionBias;
             var routeSway = Math.sin((t * (0.66 + seed * 0.31)) + (seed * 5.11)) * motionCfg.routeSway * motionBias;
+            var routeShift = depthDelta * orbitCfg.routeDepthGain * (0.44 + motionBias * 0.16);
+            var routeYaw = (depthDelta * orbitCfg.routePerspectiveYaw * 5.2) + (orbitXR * 2.8);
+            var routePitch = routeBank + (depthDelta * orbitCfg.routePerspectiveYaw * 0.22);
             var opacity = Math.max(0.06, Math.min(0.94, Number(cfg.opacity || 0.24) * Math.max(0.22, Number(visual.opacity || 1)) * (flow.mode === 'alert' ? 1.28 : 1)));
             var color = flow.mode !== 'idle' ? flow.color : _envSceneDominanceAccent(dominance, null, tone);
             var glowOpacity = Math.max(0.08, Math.min(0.92, Number(cfg.glowOpacity || 0.34) * (dominant ? 1.28 : (suppressed ? 0.52 : 1))));
@@ -7769,7 +7804,7 @@
                 'width:' + length.toFixed(2) + 'px;' +
                 'height:' + Math.round(width * 1.8) + 'px;' +
                 'opacity:' + opacity.toFixed(3) + ';' +
-                'transform:' + _esc('translateZ(' + Math.round(depth + routeDepth) + 'px) translateY(' + Math.round(-lift - routeBob) + 'px) rotateZ(' + angle.toFixed(2) + 'deg) rotateX(' + routeBank.toFixed(2) + 'deg) skewY(' + routeSway.toFixed(2) + 'deg)') + ';' +
+                'transform:' + _esc('translateX(' + Math.round(routeShift) + 'px) translateZ(' + Math.round(depth + routeDepth + routeShift * 0.32) + 'px) translateY(' + Math.round(-lift - routeBob) + 'px) rotateZ(' + angle.toFixed(2) + 'deg) rotateY(' + routeYaw.toFixed(2) + 'deg) rotateX(' + routePitch.toFixed(2) + 'deg) skewY(' + routeSway.toFixed(2) + 'deg)') + ';' +
                 '--env-route-color:' + _esc(color) + ';' +
                 '--env-route-glow:' + _esc(color) + ';' +
                 '--env-route-glow-opacity:' + glowOpacity.toFixed(3) + ';' +
@@ -9641,6 +9676,10 @@
         var focusKey = _envSceneFocusKey(focus);
         var hoverKey = hover ? _envSceneFocusKey(hover) : '';
         var dominance = _envScene.dominance || _envSceneDominanceContext();
+        var camera = _envScene.camera || {};
+        var orbitCfg = _envSceneOrbitConfig();
+        var orbitXR = orbitCfg.orbitMaxYaw ? Math.max(-1, Math.min(1, Number(camera.orbitX || 0) / orbitCfg.orbitMaxYaw)) : 0;
+        var orbitYR = orbitCfg.orbitMaxPitch ? Math.max(-1, Math.min(1, Number(camera.orbitY || 0) / orbitCfg.orbitMaxPitch)) : 0;
         routes.forEach(function (route, idx) {
             var from = projectionMap[route.fromKey];
             var to = projectionMap[route.toKey];
@@ -9649,15 +9688,16 @@
                 || (hoverKey && (route.fromKey === hoverKey || route.toKey === hoverKey));
             var visual = _envSceneLinkDominance(dominance, route.fromKey, route.toKey, route.tone, null);
             var color = route.tone === 'failed' ? '#ff6c78' : (route.tone === 'running' ? '#ffb347' : '#67d3ff');
-            var ctrlX = (from.x + to.x) / 2;
-            var ctrlY = Math.min(from.y, to.y) - 24 - (idx % 3) * 8;
+            var depthDelta = Number(to.depth || 0.5) - Number(from.depth || 0.5);
+            var ctrlX = (from.x + to.x) / 2 + depthDelta * orbitCfg.routeCurveShift * (0.72 + Math.abs(orbitXR) * 0.38);
+            var ctrlY = Math.min(from.y, to.y) - 24 - (idx % 3) * 8 - (Math.abs(depthDelta) * orbitCfg.routeArcLift * 0.68) - (orbitYR * 5.5);
             ctx.save();
             ctx.globalAlpha = Math.max(0.08, (active ? 0.92 : Math.max(0.12, Math.min(0.85, Number(cfg.routeOpacity || 0.42)))) * visual.opacity);
             ctx.strokeStyle = color;
-            ctx.lineWidth = (active ? 2.4 : 1.35) * visual.width;
+            ctx.lineWidth = (active ? 2.4 : 1.35) * visual.width * (1 + Math.abs(depthDelta) * 0.75);
             if (cfg.routeGlow !== false) {
                 ctx.shadowColor = color;
-                ctx.shadowBlur = (active ? 18 : 10) * visual.shadow;
+                ctx.shadowBlur = (active ? 18 : 10) * visual.shadow * (1 + Math.abs(depthDelta) * 0.4);
             }
             ctx.beginPath();
             ctx.moveTo(from.x, from.y);
@@ -9694,6 +9734,9 @@
         if (!trajectories.length) return;
         var cfg = _envSceneConfig();
         var dominance = _envScene.dominance || _envSceneDominanceContext();
+        var camera = _envScene.camera || {};
+        var orbitCfg = _envSceneOrbitConfig();
+        var orbitYR = orbitCfg.orbitMaxPitch ? Math.max(-1, Math.min(1, Number(camera.orbitY || 0) / orbitCfg.orbitMaxPitch)) : 0;
         trajectories.forEach(function (trajectory, idx) {
             var from = projectionMap[trajectory.fromKey];
             var to = projectionMap[trajectory.toKey];
@@ -9715,14 +9758,15 @@
             var dx = to.x - from.x;
             var dy = to.y - from.y;
             var distance = Math.max(24, Math.sqrt(dx * dx + dy * dy));
-            var lift = Math.max(16, Math.min(64, distance * 0.24)) + ((idx % 4) * 6);
-            var ctrlX = (from.x + to.x) / 2;
-            var ctrlY = Math.min(from.y, to.y) - lift;
+            var depthDelta = Number(to.depth || 0.5) - Number(from.depth || 0.5);
+            var lift = Math.max(16, Math.min(64, distance * 0.24)) + ((idx % 4) * 6) + Math.abs(depthDelta) * orbitCfg.routeArcLift * 0.9;
+            var ctrlX = (from.x + to.x) / 2 + depthDelta * orbitCfg.routeCurveShift * 0.88;
+            var ctrlY = Math.min(from.y, to.y) - lift - (orbitYR * 4.5);
             var opacityBase = Math.max(0.18, Math.min(0.92, Number(cfg.trajectoryOpacity || 0.55)));
             ctx.save();
             ctx.globalAlpha = Math.max(0.06, (active ? Math.min(0.95, opacityBase + 0.22) : opacityBase) * visual.opacity);
             ctx.strokeStyle = color;
-            ctx.lineWidth = (active ? 2.4 : 1.3) * visual.width;
+            ctx.lineWidth = (active ? 2.4 : 1.3) * visual.width * (1 + Math.abs(depthDelta) * 0.68);
             if (tone === 'queued') ctx.setLineDash([4, 5]);
             else if (tone === 'replay') ctx.setLineDash([10, 6]);
             else if (tone === 'watch') ctx.setLineDash([2, 7]);
