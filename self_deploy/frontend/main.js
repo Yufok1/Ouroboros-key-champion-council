@@ -6213,12 +6213,50 @@
         var perspectiveY = 42 + (orbitYR * orbitCfg.perspectiveShiftY);
         var swayX = orbitXR * orbitCfg.shellSwayX;
         var swayY = orbitYR * orbitCfg.shellSwayY;
+        var archShiftX = shiftX * 0.18;
+        var archShiftY = (shiftY * 0.14) - (lift * 0.16);
+        var archDepth = Math.round((depth * 0.26) - 20);
+        var archOrbitX = orbitX * 0.42;
+        var archOrbitY = orbitY * 0.34;
+        var archRoll = roll * 0.22;
+        var canopyShiftX = shiftX * 0.28;
+        var canopyShiftY = (shiftY * 0.2) - (lift * 0.24);
+        var canopyDepth = Math.round((depth * 0.42) - 34);
+        var canopyOrbitX = orbitX * 0.58;
+        var canopyOrbitY = orbitY * 0.5;
+        var canopyRoll = roll * 0.28;
+        var uplinkShiftX = shiftX * 0.34;
+        var uplinkShiftY = (shiftY * 0.26) - (lift * 0.28);
+        var uplinkDepth = Math.round((depth * 0.5) - 16);
+        var uplinkOrbitX = orbitX * 0.74;
+        var uplinkOrbitY = orbitY * 0.66;
+        var uplinkRoll = roll * 0.35;
+        var foregroundShiftX = shiftX * 0.44;
+        var foregroundShiftY = (shiftY * 0.34) - (lift * 0.12);
+        var foregroundDepth = Math.round((depth * 0.7) + 18);
+        var foregroundOrbitX = orbitX * 0.88;
+        var foregroundOrbitY = orbitY * 0.72;
+        var foregroundRoll = roll * 0.48;
         if (mode === 'focus') {
             zoomVar += 0.02;
             depth += 8;
+            canopyDepth += 8;
+            foregroundDepth += 12;
         } else if (mode === 'replay') {
             shiftX *= 1.12;
             roll *= 1.12;
+            canopyShiftX *= 1.08;
+            canopyShiftY *= 1.06;
+            foregroundShiftX *= 1.12;
+            foregroundShiftY *= 1.08;
+        } else if (mode === 'watch') {
+            canopyDepth += 6;
+            uplinkDepth += 10;
+        } else if (mode === 'failed') {
+            archDepth += 10;
+            canopyDepth += 12;
+            uplinkDepth += 14;
+            foregroundDepth += 8;
         }
         return '' +
             '--env-cam-shift-x:' + shiftX.toFixed(1) + 'px;' +
@@ -6236,7 +6274,31 @@
             '--env-cam-perspective-x:' + perspectiveX.toFixed(2) + '%;' +
             '--env-cam-perspective-y:' + perspectiveY.toFixed(2) + '%;' +
             '--env-cam-sway-x:' + swayX.toFixed(1) + 'px;' +
-            '--env-cam-sway-y:' + swayY.toFixed(1) + 'px;';
+            '--env-cam-sway-y:' + swayY.toFixed(1) + 'px;' +
+            '--env-cam-arch-shift-x:' + archShiftX.toFixed(1) + 'px;' +
+            '--env-cam-arch-shift-y:' + archShiftY.toFixed(1) + 'px;' +
+            '--env-cam-arch-depth:' + archDepth + 'px;' +
+            '--env-cam-arch-orbit-x:' + archOrbitX.toFixed(2) + 'deg;' +
+            '--env-cam-arch-orbit-y:' + archOrbitY.toFixed(2) + 'deg;' +
+            '--env-cam-arch-roll:' + archRoll.toFixed(2) + 'deg;' +
+            '--env-cam-canopy-shift-x:' + canopyShiftX.toFixed(1) + 'px;' +
+            '--env-cam-canopy-shift-y:' + canopyShiftY.toFixed(1) + 'px;' +
+            '--env-cam-canopy-depth:' + canopyDepth + 'px;' +
+            '--env-cam-canopy-orbit-x:' + canopyOrbitX.toFixed(2) + 'deg;' +
+            '--env-cam-canopy-orbit-y:' + canopyOrbitY.toFixed(2) + 'deg;' +
+            '--env-cam-canopy-roll:' + canopyRoll.toFixed(2) + 'deg;' +
+            '--env-cam-uplink-shift-x:' + uplinkShiftX.toFixed(1) + 'px;' +
+            '--env-cam-uplink-shift-y:' + uplinkShiftY.toFixed(1) + 'px;' +
+            '--env-cam-uplink-depth:' + uplinkDepth + 'px;' +
+            '--env-cam-uplink-orbit-x:' + uplinkOrbitX.toFixed(2) + 'deg;' +
+            '--env-cam-uplink-orbit-y:' + uplinkOrbitY.toFixed(2) + 'deg;' +
+            '--env-cam-uplink-roll:' + uplinkRoll.toFixed(2) + 'deg;' +
+            '--env-cam-foreground-shift-x:' + foregroundShiftX.toFixed(1) + 'px;' +
+            '--env-cam-foreground-shift-y:' + foregroundShiftY.toFixed(1) + 'px;' +
+            '--env-cam-foreground-depth:' + foregroundDepth + 'px;' +
+            '--env-cam-foreground-orbit-x:' + foregroundOrbitX.toFixed(2) + 'deg;' +
+            '--env-cam-foreground-orbit-y:' + foregroundOrbitY.toFixed(2) + 'deg;' +
+            '--env-cam-foreground-roll:' + foregroundRoll.toFixed(2) + 'deg;';
     }
 
     function _envSceneDistrictTonePalette(tone) {
