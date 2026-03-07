@@ -47,7 +47,7 @@
     };
     function _envDefaultConfig() {
         return {
-            version: '2026-03-07-envops-v23',
+            version: '2026-03-07-envops-v24',
             shell: {
                 defaultRenderer: 'web3d',
                 defaultPackageMode: 'research',
@@ -131,7 +131,13 @@
                         umbilicalOpacity: 0.2,
                         umbilicalDepthGain: 18,
                         dominantBoost: 1.22,
-                        failureBoost: 1.26
+                        failureBoost: 1.26,
+                        parallax: {
+                            lift: 16,
+                            depth: 20,
+                            yaw: 7.5,
+                            pitch: 4.5
+                        }
                     },
                     foreground: {
                         enabled: true,
@@ -157,7 +163,13 @@
                         dominantBoost: 1.24,
                         failureBoost: 1.34,
                         watchBoost: 1.16,
-                        replayBoost: 1.2
+                        replayBoost: 1.2,
+                        parallax: {
+                            lift: 22,
+                            depth: 32,
+                            yaw: 8.5,
+                            sway: 9
+                        }
                     },
                     motion: {
                         objectBob: 2.8,
@@ -205,7 +217,13 @@
                         dominantBoost: 1.24,
                         failureBoost: 1.3,
                         watchBoost: 1.16,
-                        replayBoost: 1.2
+                        replayBoost: 1.2,
+                        parallax: {
+                            lift: 18,
+                            depth: 22,
+                            yaw: 6.5,
+                            pitch: 3.5
+                        }
                     },
                     routeLayer: {
                         enabled: true,
@@ -218,7 +236,14 @@
                         packetOpacity: 0.74,
                         packetScale: 1,
                         packetSpan: 72,
-                        arcLift: 24
+                        arcLift: 24,
+                        parallax: {
+                            lift: 14,
+                            depth: 24,
+                            yaw: 6,
+                            pitch: 3.5,
+                            sway: 5.5
+                        }
                     }
                 },
                 world: {
@@ -5703,12 +5728,18 @@
                 }
                 if (raw.scene.web3d.canopy && typeof raw.scene.web3d.canopy === 'object') {
                     cfg.scene.web3d.canopy = Object.assign({}, ((cfg.scene.web3d || {}).canopy) || {}, raw.scene.web3d.canopy);
+                    if (raw.scene.web3d.canopy.parallax && typeof raw.scene.web3d.canopy.parallax === 'object') {
+                        cfg.scene.web3d.canopy.parallax = Object.assign({}, ((((cfg.scene.web3d || {}).canopy) || {}).parallax) || {}, raw.scene.web3d.canopy.parallax);
+                    }
                 }
                 if (raw.scene.web3d.foreground && typeof raw.scene.web3d.foreground === 'object') {
                     cfg.scene.web3d.foreground = Object.assign({}, ((cfg.scene.web3d || {}).foreground) || {}, raw.scene.web3d.foreground);
                 }
                 if (raw.scene.web3d.uplinks && typeof raw.scene.web3d.uplinks === 'object') {
                     cfg.scene.web3d.uplinks = Object.assign({}, ((cfg.scene.web3d || {}).uplinks) || {}, raw.scene.web3d.uplinks);
+                    if (raw.scene.web3d.uplinks.parallax && typeof raw.scene.web3d.uplinks.parallax === 'object') {
+                        cfg.scene.web3d.uplinks.parallax = Object.assign({}, ((((cfg.scene.web3d || {}).uplinks) || {}).parallax) || {}, raw.scene.web3d.uplinks.parallax);
+                    }
                 }
                 if (raw.scene.web3d.volumetrics && typeof raw.scene.web3d.volumetrics === 'object') {
                     cfg.scene.web3d.volumetrics = Object.assign({}, ((cfg.scene.web3d || {}).volumetrics) || {}, raw.scene.web3d.volumetrics);
@@ -5718,9 +5749,15 @@
                 }
                 if (raw.scene.web3d.coupling && typeof raw.scene.web3d.coupling === 'object') {
                     cfg.scene.web3d.coupling = Object.assign({}, ((cfg.scene.web3d || {}).coupling) || {}, raw.scene.web3d.coupling);
+                    if (raw.scene.web3d.coupling.parallax && typeof raw.scene.web3d.coupling.parallax === 'object') {
+                        cfg.scene.web3d.coupling.parallax = Object.assign({}, ((((cfg.scene.web3d || {}).coupling) || {}).parallax) || {}, raw.scene.web3d.coupling.parallax);
+                    }
                 }
                 if (raw.scene.web3d.routeLayer && typeof raw.scene.web3d.routeLayer === 'object') {
                     cfg.scene.web3d.routeLayer = Object.assign({}, ((cfg.scene.web3d || {}).routeLayer) || {}, raw.scene.web3d.routeLayer);
+                    if (raw.scene.web3d.routeLayer.parallax && typeof raw.scene.web3d.routeLayer.parallax === 'object') {
+                        cfg.scene.web3d.routeLayer.parallax = Object.assign({}, ((((cfg.scene.web3d || {}).routeLayer) || {}).parallax) || {}, raw.scene.web3d.routeLayer.parallax);
+                    }
                 }
             }
             if (raw.scene.world && typeof raw.scene.world === 'object') cfg.scene.world = Object.assign({}, cfg.scene.world || {}, raw.scene.world);
@@ -5927,6 +5964,18 @@
         return (((_envSceneConfig() || {}).platform) || {});
     }
 
+    function _envSceneWeb3DParallaxConfig(raw, defaults) {
+        var cfg = raw || {};
+        var base = defaults || {};
+        return {
+            lift: Number(cfg.lift !== undefined ? cfg.lift : (base.lift || 0)),
+            depth: Number(cfg.depth !== undefined ? cfg.depth : (base.depth || 0)),
+            yaw: Number(cfg.yaw !== undefined ? cfg.yaw : (base.yaw || 0)),
+            pitch: Number(cfg.pitch !== undefined ? cfg.pitch : (base.pitch || 0)),
+            sway: Number(cfg.sway !== undefined ? cfg.sway : (base.sway || 0))
+        };
+    }
+
     function _envSceneWeb3DRouteConfig() {
         var routeLayer = ((((_envSceneConfig() || {}).web3d) || {}).routeLayer) || {};
         return {
@@ -5940,7 +5989,14 @@
             packetOpacity: Math.max(0.08, Math.min(1, Number(routeLayer.packetOpacity || 0.74))),
             packetScale: Math.max(0.4, Number(routeLayer.packetScale || 1)),
             packetSpan: Math.max(24, Number(routeLayer.packetSpan || 72)),
-            arcLift: Math.max(0, Number(routeLayer.arcLift || 24))
+            arcLift: Math.max(0, Number(routeLayer.arcLift || 24)),
+            parallax: _envSceneWeb3DParallaxConfig(routeLayer.parallax, {
+                lift: 14,
+                depth: 24,
+                yaw: 6,
+                pitch: 3.5,
+                sway: 5.5
+            })
         };
     }
 
@@ -5983,7 +6039,13 @@
             umbilicalOpacity: Math.max(0.04, Math.min(0.9, Number(canopy.umbilicalOpacity || 0.2))),
             umbilicalDepthGain: Math.max(0, Number(canopy.umbilicalDepthGain || 18)),
             dominantBoost: Math.max(1, Number(canopy.dominantBoost || 1.22)),
-            failureBoost: Math.max(1, Number(canopy.failureBoost || 1.26))
+            failureBoost: Math.max(1, Number(canopy.failureBoost || 1.26)),
+            parallax: _envSceneWeb3DParallaxConfig(canopy.parallax, {
+                lift: 16,
+                depth: 20,
+                yaw: 7.5,
+                pitch: 4.5
+            })
         };
     }
 
@@ -6017,7 +6079,13 @@
             dominantBoost: Math.max(1, Number(uplinks.dominantBoost || 1.24)),
             failureBoost: Math.max(1, Number(uplinks.failureBoost || 1.34)),
             watchBoost: Math.max(1, Number(uplinks.watchBoost || 1.16)),
-            replayBoost: Math.max(1, Number(uplinks.replayBoost || 1.2))
+            replayBoost: Math.max(1, Number(uplinks.replayBoost || 1.2)),
+            parallax: _envSceneWeb3DParallaxConfig(uplinks.parallax, {
+                lift: 22,
+                depth: 32,
+                yaw: 8.5,
+                sway: 9
+            })
         };
     }
 
@@ -6038,7 +6106,13 @@
             dominantBoost: Math.max(1, Number(coupling.dominantBoost || 1.24)),
             failureBoost: Math.max(1, Number(coupling.failureBoost || 1.3)),
             watchBoost: Math.max(1, Number(coupling.watchBoost || 1.16)),
-            replayBoost: Math.max(1, Number(coupling.replayBoost || 1.2))
+            replayBoost: Math.max(1, Number(coupling.replayBoost || 1.2)),
+            parallax: _envSceneWeb3DParallaxConfig(coupling.parallax, {
+                lift: 18,
+                depth: 22,
+                yaw: 6.5,
+                pitch: 3.5
+            })
         };
     }
 
@@ -6106,6 +6180,19 @@
             shadowCompression: Number(orbit.shadowCompression || 0.18),
             routePortLift: Number(orbit.routePortLift || 0.16),
             routePortPull: Number(orbit.routePortPull || 0.06)
+        };
+    }
+
+    function _envSceneCameraOrbitRatios(camera, orbitCfg) {
+        var cam = camera || _envScene.camera || {};
+        var cfg = orbitCfg || _envSceneOrbitConfig();
+        var orbitX = Number(cam.orbitX || 0);
+        var orbitY = Number(cam.orbitY || 0);
+        return {
+            orbitX: orbitX,
+            orbitY: orbitY,
+            orbitXR: cfg.orbitMaxYaw ? Math.max(-1, Math.min(1, orbitX / cfg.orbitMaxYaw)) : 0,
+            orbitYR: cfg.orbitMaxPitch ? Math.max(-1, Math.min(1, orbitY / cfg.orbitMaxPitch)) : 0
         };
     }
 
@@ -8095,6 +8182,11 @@
         if (!layer) return;
         var cfg = _envSceneWeb3DRouteConfig();
         var motionCfg = _envSceneWeb3DMotionConfig();
+        var orbitCfg = _envSceneOrbitConfig();
+        var orbit = _envSceneCameraOrbitRatios(_envScene.camera, orbitCfg);
+        var sceneWidth = Math.max(1, _envScene.width || 1);
+        var sceneHeight = Math.max(1, _envScene.height || 1);
+        var parallaxCfg = cfg.parallax || {};
         if (cfg.enabled === false) {
             layer.innerHTML = '';
             return;
@@ -8117,6 +8209,10 @@
             var dy = y2 - y1;
             var length = Math.sqrt((dx * dx) + (dy * dy));
             if (!isFinite(length) || length < 18) return '';
+            var midX = (x1 + x2) / 2;
+            var midY = (y1 + y2) / 2;
+            var fieldX = Math.max(-1, Math.min(1, ((midX / sceneWidth) * 2) - 1));
+            var fieldY = Math.max(-1, Math.min(1, ((midY / sceneHeight) * 2) - 1));
             var angle = Math.atan2(dy, dx) * (180 / Math.PI);
             var visual = _envSceneLinkDominance(dominance, route.fromKey, route.toKey, route.tone, {
                 event_id: route.event_id,
@@ -8143,9 +8239,21 @@
             var routeBank = Math.sin((t * (0.58 + seed * 0.34)) + (seed * 4.712)) * motionCfg.routeBank * motionBias;
             var routeDepth = Math.cos((t * (0.74 + seed * 0.28)) + (seed * 5.497)) * motionCfg.routeDepthPulse * motionBias;
             var routeSway = Math.sin((t * (0.66 + seed * 0.31)) + (seed * 5.11)) * motionCfg.routeSway * motionBias;
-            var routeShift = depthDelta * orbitCfg.routeDepthGain * (0.44 + motionBias * 0.16);
-            var routeYaw = (depthDelta * orbitCfg.routePerspectiveYaw * 5.2) + (orbitXR * 2.8);
-            var routePitch = routeBank + (depthDelta * orbitCfg.routePerspectiveYaw * 0.22);
+            var routeParallaxLift = (Math.abs(fieldX) * Math.abs(orbit.orbitXR) * Number(parallaxCfg.lift || 0))
+                + (Math.max(0, -orbit.orbitYR) * Number(parallaxCfg.lift || 0) * 0.48);
+            var routeParallaxDepth = (orbit.orbitXR * fieldX * Number(parallaxCfg.depth || 0))
+                + ((-orbit.orbitYR) * (0.34 + (1 - Math.abs(fieldY)) * 0.18) * Number(parallaxCfg.depth || 0));
+            var routeShift = depthDelta * orbitCfg.routeDepthGain * (0.44 + motionBias * 0.16)
+                + (orbit.orbitXR * Number(parallaxCfg.sway || 0) * (0.36 + Math.abs(fieldY) * 0.44));
+            var routeYaw = (depthDelta * orbitCfg.routePerspectiveYaw * 5.2)
+                + (orbit.orbitXR * 2.8)
+                + (orbit.orbitXR * Number(parallaxCfg.yaw || 0))
+                + (fieldX * 1.4);
+            var routePitch = routeBank
+                + (depthDelta * orbitCfg.routePerspectiveYaw * 0.22)
+                + ((-orbit.orbitYR) * Number(parallaxCfg.pitch || 0));
+            depth += Math.round(routeParallaxDepth);
+            lift += Math.round(routeParallaxLift);
             var opacity = Math.max(0.06, Math.min(0.94, Number(cfg.opacity || 0.24) * Math.max(0.22, Number(visual.opacity || 1)) * (flow.mode === 'alert' ? 1.28 : 1)));
             var color = flow.mode !== 'idle' ? flow.color : _envSceneDominanceAccent(dominance, null, tone);
             var glowOpacity = Math.max(0.08, Math.min(0.92, Number(cfg.glowOpacity || 0.34) * (dominant ? 1.28 : (suppressed ? 0.52 : 1))));
@@ -9073,50 +9181,85 @@
         if (cfg.enabled === false) return '';
         var entries = _envSceneCollectDistrictStates(workflow, exec, sections, traces);
         var dominance = (_envScene && _envScene.dominance) || _envSceneDominanceContext();
+        var orbitCfg = _envSceneOrbitConfig();
+        var orbit = _envSceneCameraOrbitRatios(_envScene.camera, orbitCfg);
+        var parallaxCfg = cfg.parallax || {};
         if (!entries.length) return '';
         var stateById = {};
-        entries.forEach(function (entry) {
-            stateById[String((entry.district || {}).id || '')] = entry;
-        });
-        var bridges = _envSceneDistrictBridgeCatalog().map(function (bridge) {
-            var fromEntry = stateById[String(bridge.from || '')];
-            var toEntry = stateById[String(bridge.to || '')];
-            if (!fromEntry || !toEntry) return '';
-            var fromDistrict = fromEntry.district || {};
-            var toDistrict = toEntry.district || {};
-            var x1 = Number(fromDistrict.x || 0) + (Number(fromDistrict.w || 20) / 2);
-            var x2 = Number(toDistrict.x || 0) + (Number(toDistrict.w || 20) / 2);
-            var y1 = Number(fromDistrict.y || 0) + (Number(fromDistrict.h || 16) / 2) - 6 - Math.max(42, Number(cfg.slabLift || 104));
-            var y2 = Number(toDistrict.y || 0) + (Number(toDistrict.h || 16) / 2) - 6 - Math.max(42, Number(cfg.slabLift || 104));
-            var dx = x2 - x1;
-            var dy = y2 - y1;
-            var length = Math.sqrt((dx * dx) + (dy * dy));
-            var angle = Math.atan2(dy, dx) * (180 / Math.PI);
-            var hot = String((fromEntry.state || {}).tone || '') === 'alert' || String((toEntry.state || {}).tone || '') === 'alert';
-            var opacity = Math.max(0.08, Math.min(0.48, Number(cfg.umbilicalOpacity || 0.2) * Number(bridge.weight || 1) * (hot ? Number(cfg.failureBoost || 1.26) : 1)));
-            return '<div class="envops-habitat-canopy-bridge" style="' +
-                'left:' + x1.toFixed(2) + '%;' +
-                'top:' + y1.toFixed(2) + '%;' +
-                'width:' + length.toFixed(2) + '%;' +
-                'opacity:' + opacity.toFixed(3) + ';' +
-                'transform:translateZ(' + Math.round((((Number(fromDistrict.depth || -48) + Number(toDistrict.depth || -48)) / 2) - 6)) + 'px) rotateZ(' + angle.toFixed(2) + 'deg);' +
-                '"></div>';
-        }).filter(Boolean).join('');
-        return '<div class="envops-habitat-canopy-layer">' + bridges + entries.map(function (entry) {
+        var canopyNodes = entries.map(function (entry) {
             var district = entry.district || {};
             var state = entry.state || {};
             var visual = _envSceneDistrictDominance(dominance, district, state);
             var palette = _envSceneDistrictTonePalette(state.tone);
             var centerX = Number(district.x || 0) + (Number(district.w || 20) / 2);
             var centerY = Number(district.y || 0) + (Number(district.h || 16) / 2) - 6;
+            var fieldX = Math.max(-1, Math.min(1, (centerX - 50) / 50));
+            var fieldY = Math.max(-1, Math.min(1, (centerY - 48) / 48));
+            var lift = Math.max(42, Number(cfg.slabLift || 104))
+                + (Math.abs(fieldX) * Math.abs(orbit.orbitXR) * Number(parallaxCfg.lift || 0))
+                + (Math.max(0, -orbit.orbitYR) * Number(parallaxCfg.lift || 0) * 0.52);
+            var depthShift = (orbit.orbitXR * fieldX * Number(parallaxCfg.depth || 0))
+                + ((-orbit.orbitYR) * (0.24 + (1 - Math.abs(fieldY)) * 0.18) * Number(parallaxCfg.depth || 0));
+            var yaw = (orbit.orbitXR * Number(parallaxCfg.yaw || 0)) + (fieldX * orbitCfg.lateralPerspectiveX * 0.12);
+            var pitch = (-orbit.orbitYR * Number(parallaxCfg.pitch || 0));
+            return {
+                entry: entry,
+                district: district,
+                state: state,
+                visual: visual,
+                palette: palette,
+                centerX: centerX,
+                centerY: centerY,
+                anchorY: centerY - lift,
+                lift: lift,
+                depthShift: depthShift,
+                yaw: yaw,
+                pitch: pitch
+            };
+        });
+        canopyNodes.forEach(function (node) {
+            stateById[String((node.district || {}).id || '')] = node;
+        });
+        var bridges = _envSceneDistrictBridgeCatalog().map(function (bridge) {
+            var fromNode = stateById[String(bridge.from || '')];
+            var toNode = stateById[String(bridge.to || '')];
+            if (!fromNode || !toNode) return '';
+            var x1 = Number(fromNode.centerX || 0);
+            var x2 = Number(toNode.centerX || 0);
+            var y1 = Number(fromNode.anchorY || 0);
+            var y2 = Number(toNode.anchorY || 0);
+            var dx = x2 - x1;
+            var dy = y2 - y1;
+            var length = Math.sqrt((dx * dx) + (dy * dy));
+            var angle = Math.atan2(dy, dx) * (180 / Math.PI);
+            var hot = String((fromNode.state || {}).tone || '') === 'alert' || String((toNode.state || {}).tone || '') === 'alert';
+            var avgYaw = ((Number(fromNode.yaw || 0) + Number(toNode.yaw || 0)) / 2);
+            var avgPitch = ((Number(fromNode.pitch || 0) + Number(toNode.pitch || 0)) / 2);
+            var bridgeDepth = Math.round((((Number((fromNode.district || {}).depth || -48) + Number((toNode.district || {}).depth || -48)) / 2) - 6) + (((Number(fromNode.depthShift || 0) + Number(toNode.depthShift || 0)) / 2) * 0.72));
+            var opacity = Math.max(0.08, Math.min(0.48, Number(cfg.umbilicalOpacity || 0.2) * Number(bridge.weight || 1) * (hot ? Number(cfg.failureBoost || 1.26) : 1)));
+            return '<div class="envops-habitat-canopy-bridge" style="' +
+                'left:' + x1.toFixed(2) + '%;' +
+                'top:' + y1.toFixed(2) + '%;' +
+                'width:' + length.toFixed(2) + '%;' +
+                'opacity:' + opacity.toFixed(3) + ';' +
+                'transform:translateZ(' + bridgeDepth + 'px) rotateZ(' + angle.toFixed(2) + 'deg) rotateY(' + avgYaw.toFixed(2) + 'deg) rotateX(' + avgPitch.toFixed(2) + 'deg);' +
+                '"></div>';
+        }).filter(Boolean).join('');
+        return '<div class="envops-habitat-canopy-layer">' + bridges + canopyNodes.map(function (node) {
+            var district = node.district || {};
+            var state = node.state || {};
+            var visual = node.visual || _envSceneDistrictDominance(dominance, district, state);
+            var palette = node.palette || _envSceneDistrictTonePalette(state.tone);
+            var centerX = Number(node.centerX || 0);
+            var centerY = Number(node.centerY || 0);
             var width = Math.max(72, (Number(district.w || 20) * Number(cfg.slabWidthScale || 3.9)) + Number(cfg.slabWidthBias || 54));
             var slabHeight = Math.max(10, Number(cfg.slabHeight || 18));
-            var lift = Math.max(42, Number(cfg.slabLift || 104));
-            var slabDepth = Math.round(Number(district.depth || -48) + Number(cfg.slabDepthBias || -26));
+            var lift = Number(node.lift || Math.max(42, Number(cfg.slabLift || 104)));
+            var slabDepth = Math.round(Number(district.depth || -48) + Number(cfg.slabDepthBias || -26) + Number(node.depthShift || 0));
             var dominantBoost = visual.dominant ? Number(cfg.dominantBoost || 1.22) : 1;
             var failureBoost = String(state.tone || '') === 'alert' ? Number(cfg.failureBoost || 1.26) : 1;
             var slabOpacity = Math.max(0.08, Math.min(0.82, Number(cfg.slabOpacity || 0.22) * Number(visual.opacity || 1) * dominantBoost * failureBoost));
-            var umbilicalHeight = Math.max(26, lift - 18);
+            var umbilicalHeight = Math.max(26, lift - 18 + Math.abs(Number(node.pitch || 0)) * 0.8);
             var umbilicalOpacity = Math.max(0.06, Math.min(0.82, Number(cfg.umbilicalOpacity || 0.2) * (visual.dominant ? 1.16 : 1) * failureBoost));
             var scale = Math.max(0.84, Number(visual.scale || 1) + (visual.dominant ? 0.06 : 0));
             var classes = ['envops-habitat-canopy-slab'];
@@ -9129,7 +9272,7 @@
                 'width:' + Math.max(2, Number(cfg.umbilicalWidth || 4)).toFixed(0) + 'px;' +
                 'height:' + umbilicalHeight.toFixed(0) + 'px;' +
                 'opacity:' + umbilicalOpacity.toFixed(3) + ';' +
-                'transform:translate(-50%, -100%) translateZ(' + Math.round(Number(district.depth || -48) + Number(cfg.umbilicalDepthGain || 18)) + 'px);' +
+                'transform:translate(-50%, -100%) translateZ(' + Math.round(Number(district.depth || -48) + Number(cfg.umbilicalDepthGain || 18) + Number(node.depthShift || 0) * 0.66) + 'px) rotateY(' + (Number(node.yaw || 0) * 0.4).toFixed(2) + 'deg);' +
                 '"></div>' +
                 '<div class="' + _esc(classes.join(' ')) + '" style="' +
                 'left:' + centerX.toFixed(2) + '%;' +
@@ -9137,7 +9280,7 @@
                 'width:' + width.toFixed(0) + 'px;' +
                 'height:' + slabHeight.toFixed(0) + 'px;' +
                 'opacity:' + slabOpacity.toFixed(3) + ';' +
-                'transform:translate(-50%, calc(-100% - ' + lift.toFixed(0) + 'px)) translateZ(' + slabDepth + 'px) scale(' + scale.toFixed(3) + ') rotateX(84deg) rotateY(' + Number(district.tilt || 0).toFixed(2) + 'deg);' +
+                'transform:translate(-50%, calc(-100% - ' + lift.toFixed(0) + 'px)) translateZ(' + slabDepth + 'px) scale(' + scale.toFixed(3) + ') rotateX(' + (84 + Number(node.pitch || 0)).toFixed(2) + 'deg) rotateY(' + (Number(district.tilt || 0) + Number(node.yaw || 0)).toFixed(2) + 'deg);' +
                 'box-shadow:0 0 28px ' + _esc(String(palette.shadow || 'rgba(68,198,255,0.08)')) + ';' +
                 '"></div>';
         }).join('') + '</div>';
@@ -9148,23 +9291,52 @@
         if (cfg.enabled === false) return '';
         var entries = _envSceneCollectDistrictStates(workflow, exec, sections, traces);
         var dominance = (_envScene && _envScene.dominance) || _envSceneDominanceContext();
+        var orbitCfg = _envSceneOrbitConfig();
+        var orbit = _envSceneCameraOrbitRatios(_envScene.camera, orbitCfg);
+        var parallaxCfg = cfg.parallax || {};
         if (!entries.length) return '';
         var stateById = {};
-        entries.forEach(function (entry) {
-            stateById[String((entry.district || {}).id || '')] = entry;
+        var couplingNodes = entries.map(function (entry) {
+            var district = entry.district || {};
+            var state = entry.state || {};
+            var visual = _envSceneDistrictDominance(dominance, district, state);
+            var centerX = Number(district.x || 0) + (Number(district.w || 20) / 2);
+            var centerY = Number(district.y || 0) + (Number(district.h || 16) / 2);
+            var fieldX = Math.max(-1, Math.min(1, (centerX - 50) / 50));
+            var fieldY = Math.max(-1, Math.min(1, (centerY - 52) / 52));
+            var lift = Number(cfg.lift || 92)
+                + (Math.abs(fieldX) * Math.abs(orbit.orbitXR) * Number(parallaxCfg.lift || 0))
+                + (Math.max(0, -orbit.orbitYR) * Number(parallaxCfg.lift || 0) * 0.4);
+            var depthShift = (orbit.orbitXR * fieldX * Number(parallaxCfg.depth || 0))
+                + ((-orbit.orbitYR) * (0.2 + (1 - Math.abs(fieldY)) * 0.16) * Number(parallaxCfg.depth || 0));
+            var yaw = (orbit.orbitXR * Number(parallaxCfg.yaw || 0)) + (fieldX * 1.6);
+            var pitch = (-orbit.orbitYR * Number(parallaxCfg.pitch || 0));
+            return {
+                entry: entry,
+                district: district,
+                state: state,
+                visual: visual,
+                centerX: centerX,
+                deckY: centerY + 10 + (Math.max(0, orbit.orbitYR) * Number(parallaxCfg.lift || 0) * 0.08),
+                topY: centerY - lift,
+                depthShift: depthShift,
+                yaw: yaw,
+                pitch: pitch
+            };
+        });
+        couplingNodes.forEach(function (node) {
+            stateById[String((node.district || {}).id || '')] = node;
         });
         var braces = _envSceneDistrictBridgeCatalog().map(function (bridge) {
-            var fromEntry = stateById[String(bridge.from || '')];
-            var toEntry = stateById[String(bridge.to || '')];
-            if (!fromEntry || !toEntry) return '';
-            var fromDistrict = fromEntry.district || {};
-            var toDistrict = toEntry.district || {};
-            var fromState = fromEntry.state || {};
-            var toState = toEntry.state || {};
-            var x1 = Number(fromDistrict.x || 0) + (Number(fromDistrict.w || 20) / 2);
-            var x2 = Number(toDistrict.x || 0) + (Number(toDistrict.w || 20) / 2);
-            var y1 = Number(fromDistrict.y || 0) + (Number(fromDistrict.h || 16) / 2) - Number(cfg.lift || 92);
-            var y2 = Number(toDistrict.y || 0) + (Number(toDistrict.h || 16) / 2) - Number(cfg.lift || 92);
+            var fromNode = stateById[String(bridge.from || '')];
+            var toNode = stateById[String(bridge.to || '')];
+            if (!fromNode || !toNode) return '';
+            var fromState = fromNode.state || {};
+            var toState = toNode.state || {};
+            var x1 = Number(fromNode.centerX || 0);
+            var x2 = Number(toNode.centerX || 0);
+            var y1 = Number(fromNode.topY || 0);
+            var y2 = Number(toNode.topY || 0);
             var dx = x2 - x1;
             var dy = y2 - y1;
             var length = Math.sqrt((dx * dx) + (dy * dy));
@@ -9179,6 +9351,9 @@
             if (alert) classes.push('failure-surface');
             if (overallMode === 'watch') classes.push('watch');
             if (overallMode === 'replay') classes.push('replay');
+            var braceDepth = Math.round((((Number((fromNode.district || {}).depth || -48) + Number((toNode.district || {}).depth || -48)) / 2) + Number(cfg.depthBias || -8)) + (((Number(fromNode.depthShift || 0) + Number(toNode.depthShift || 0)) / 2) * 0.74));
+            var braceYaw = ((Number(fromNode.yaw || 0) + Number(toNode.yaw || 0)) / 2);
+            var bracePitch = ((Number(fromNode.pitch || 0) + Number(toNode.pitch || 0)) / 2);
             return '<div class="' + _esc(classes.join(' ')) + '" style="' +
                 'left:' + x1.toFixed(2) + '%;' +
                 'top:' + y1.toFixed(2) + '%;' +
@@ -9186,18 +9361,18 @@
                 'height:' + Math.max(4, Number(cfg.braceWidth || 8)).toFixed(0) + 'px;' +
                 'opacity:' + Math.max(0.08, Math.min(0.84, opacity)).toFixed(3) + ';' +
                 '--env-coupling-glow:' + _esc(alert ? 'rgba(255,108,120,0.18)' : 'rgba(79,255,208,0.12)') + ';' +
-                'transform:translateZ(' + Math.round((((Number(fromDistrict.depth || -48) + Number(toDistrict.depth || -48)) / 2) + Number(cfg.depthBias || -8))) + 'px) rotateZ(' + angle.toFixed(2) + 'deg);' +
+                'transform:translateZ(' + braceDepth + 'px) rotateZ(' + angle.toFixed(2) + 'deg) rotateY(' + braceYaw.toFixed(2) + 'deg) rotateX(' + bracePitch.toFixed(2) + 'deg);' +
                 '"></div>';
         }).filter(Boolean).join('');
-        return '<div class="envops-habitat-coupling-layer">' + braces + entries.map(function (entry) {
-            var district = entry.district || {};
-            var state = entry.state || {};
-            var visual = _envSceneDistrictDominance(dominance, district, state);
+        return '<div class="envops-habitat-coupling-layer">' + braces + couplingNodes.map(function (node) {
+            var district = node.district || {};
+            var state = node.state || {};
+            var visual = node.visual || _envSceneDistrictDominance(dominance, district, state);
             var palette = _envSceneDistrictTonePalette(state.tone);
-            var centerX = Number(district.x || 0) + (Number(district.w || 20) / 2);
-            var deckY = Number(district.y || 0) + (Number(district.h || 16) / 2) + 10;
-            var topY = Number(district.y || 0) + (Number(district.h || 16) / 2) - Number(cfg.lift || 92);
-            var depth = Math.round(Number(district.depth || -48) + Number(cfg.depthBias || -8));
+            var centerX = Number(node.centerX || 0);
+            var deckY = Number(node.deckY || 0);
+            var topY = Number(node.topY || 0);
+            var depth = Math.round(Number(district.depth || -48) + Number(cfg.depthBias || -8) + Number(node.depthShift || 0));
             var overallMode = String((dominance && dominance.mode) || 'ambient');
             var columnOpacity = Number(cfg.opacity || 0.18) * Number(visual.opacity || 1);
             if (visual.dominant) columnOpacity *= Number(cfg.dominantBoost || 1.24);
@@ -9223,7 +9398,7 @@
                 '--env-coupling-crown-size:' + Math.max(12, Number(cfg.crownSize || 28)).toFixed(0) + 'px;' +
                 '--env-coupling-foot-width:' + Math.max(18, Number(cfg.footWidth || 54)).toFixed(0) + 'px;' +
                 '--env-coupling-foot-height:' + Math.max(8, Number(cfg.footHeight || 16)).toFixed(0) + 'px;' +
-                'transform:translate(-50%, -100%) translateZ(' + depth + 'px);' +
+                'transform:translate(-50%, -100%) translateZ(' + depth + 'px) rotateY(' + Number(node.yaw || 0).toFixed(2) + 'deg) rotateX(' + Number(node.pitch || 0).toFixed(2) + 'deg);' +
                 '">' +
                 '<span class="shaft"></span>' +
                 '<span class="glow"></span>' +
@@ -9240,6 +9415,11 @@
         if (!pickables.length) return '';
         var dominance = (_envScene && _envScene.dominance) || _envSceneDominanceContext();
         var failureKey = _envSceneFailureSurfaceKey(_envScene.failureSurface || null);
+        var orbitCfg = _envSceneOrbitConfig();
+        var orbit = _envSceneCameraOrbitRatios(_envScene.camera, orbitCfg);
+        var sceneWidth = Math.max(1, _envScene.width || 1);
+        var sceneHeight = Math.max(1, _envScene.height || 1);
+        var parallaxCfg = cfg.parallax || {};
         var t = Math.max(0, Number(_envScene.lastFrame || 0)) * 0.001;
         var beams = pickables.map(function (item) {
             var obj = item.obj || {};
@@ -9250,13 +9430,21 @@
             var shouldRender = visual.spotlight || isFailure || kind === 'watch' || kind === 'replay' || kind === 'dispatch' || kind === 'queued';
             if (!shouldRender) return '';
             var seed = _envSceneMotionSeed(key || (kind + ':' + String(obj.id || '')));
-            var drift = Math.sin((t * (0.54 + seed * 0.26)) + (seed * 6.283)) * Number(cfg.drift || 5.5);
+            var fieldX = Math.max(-1, Math.min(1, ((Number(item.x || 0) / sceneWidth) * 2) - 1));
+            var fieldY = Math.max(-1, Math.min(1, ((Number(item.y || 0) / sceneHeight) * 2) - 1));
+            var drift = Math.sin((t * (0.54 + seed * 0.26)) + (seed * 6.283)) * Number(cfg.drift || 5.5)
+                + (orbit.orbitXR * Number(parallaxCfg.sway || 0) * (0.42 + Math.abs(fieldY) * 0.58));
+            var liftBias = (Math.abs(fieldX) * Math.abs(orbit.orbitXR) * Number(parallaxCfg.lift || 0))
+                + (Math.max(0, -orbit.orbitYR) * Number(parallaxCfg.lift || 0) * 0.56);
             var lift = Number(cfg.lift || 126)
                 + (visual.spotlight ? 16 : 0)
                 + (isFailure ? 10 : 0)
-                + ((kind === 'watch' || kind === 'replay') ? 8 : 0);
+                + ((kind === 'watch' || kind === 'replay') ? 8 : 0)
+                + liftBias;
             var top = Number(item.y || 0) - (Number(item.h || 40) * 0.16);
-            var depth = Math.round((((Number(item.depth || 0.5) - 0.5) * Number(cfg.depthScale || 240)) + Number(cfg.depthBias || -12)) + (visual.spotlight ? 8 : 0));
+            var depth = Math.round((((Number(item.depth || 0.5) - 0.5) * Number(cfg.depthScale || 240)) + Number(cfg.depthBias || -12)) + (visual.spotlight ? 8 : 0)
+                + (orbit.orbitXR * fieldX * Number(parallaxCfg.depth || 0))
+                + ((-orbit.orbitYR) * (0.26 + (1 - Math.abs(fieldY)) * 0.18) * Number(parallaxCfg.depth || 0)));
             var opacity = Number(cfg.opacity || 0.18);
             if (visual.spotlight) opacity *= Number(cfg.dominantBoost || 1.24);
             if (isFailure) opacity *= Number(cfg.failureBoost || 1.34);
@@ -9283,6 +9471,7 @@
             if (isFailure) classes.push('failure-surface');
             if (kind === 'watch') classes.push('watch');
             if (kind === 'replay') classes.push('replay');
+            var yaw = (orbit.orbitXR * Number(parallaxCfg.yaw || 0)) + (fieldX * orbitCfg.lateralPerspectiveX * 0.1);
             return '<div class="' + _esc(classes.join(' ')) + '" style="' +
                 'left:' + Math.round(Number(item.x || 0) + drift) + 'px;' +
                 'top:' + Math.round(top) + 'px;' +
@@ -9293,7 +9482,7 @@
                 '--env-uplink-glow:' + _esc(glow) + ';' +
                 '--env-uplink-glow-opacity:' + Math.max(0.04, Math.min(0.88, Number(cfg.glowOpacity || 0.22) * (visual.spotlight ? 1.18 : 1) * (isFailure ? 1.12 : 1))).toFixed(3) + ';' +
                 'opacity:' + Math.max(0.08, Math.min(0.9, opacity * Number(visual.opacity || 1))).toFixed(3) + ';' +
-                'transform:translate(-50%, -100%) translateZ(' + depth + 'px) rotateZ(' + (Number(obj.tilt || 0) * 0.12).toFixed(2) + 'deg);' +
+                'transform:translate(-50%, -100%) translateZ(' + depth + 'px) rotateY(' + yaw.toFixed(2) + 'deg) rotateZ(' + ((Number(obj.tilt || 0) * 0.12) + (fieldX * 0.4)).toFixed(2) + 'deg);' +
                 '">' +
                 '<span class="glow"></span>' +
                 '<span class="shaft"></span>' +
