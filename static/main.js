@@ -12818,6 +12818,262 @@
         return sections;
     }
 
+    function _envProductSectionKind(title) {
+        var text = String(title || '').toLowerCase();
+        if (text.indexOf('execution result') >= 0) return 'result';
+        if (text.indexOf('execution output') >= 0) return 'output';
+        if (text.indexOf('execution summary') >= 0) return 'summary';
+        if (text.indexOf('interface export') >= 0) return 'export';
+        if (text.indexOf('api server') >= 0) return 'api';
+        if (text.indexOf('node states') >= 0) return 'node_states';
+        return 'artifact';
+    }
+
+    function _envProductShapeMeta(data) {
+        if (data === undefined || data === null) return { kind: 'empty', label: 'empty payload', count: 0, keys: [] };
+        if (Array.isArray(data)) {
+            return {
+                kind: 'array',
+                label: String(data.length) + ' item' + (data.length === 1 ? '' : 's'),
+                count: data.length,
+                keys: []
+            };
+        }
+        if (typeof data === 'string') {
+            var trimmed = String(data || '').trim();
+            return {
+                kind: 'text',
+                label: String(trimmed.length) + ' chars',
+                count: trimmed.length,
+                keys: []
+            };
+        }
+        if (typeof data === 'object') {
+            var keys = Object.keys(data || {});
+            return {
+                kind: 'object',
+                label: String(keys.length) + ' field' + (keys.length === 1 ? '' : 's'),
+                count: keys.length,
+                keys: keys
+            };
+        }
+        return { kind: typeof data, label: String(typeof data), count: 1, keys: [] };
+    }
+
+    function _envProductCollapseText(value, limit) {
+        var text = String(value || '').replace(/\s+/g, ' ').trim();
+        var maxLen = Math.max(24, Number(limit || 180));
+        if (!text) return '';
+        return text.length > maxLen ? (text.slice(0, maxLen - 1) + '…') : text;
+    }
+
+    function _envProductScalarFields(data, preferredKeys, limit) {
+        if (!data || typeof data !== 'object' || Array.isArray(data)) return [];
+        var max = Math.max(1, Number(limit || 4));
+        var keys = [];
+        var seen = {};
+        (preferredKeys || []).forEach(function (key) {
+            if (seen[key]) return;
+            seen[key] = true;
+            keys.push(key);
+        });
+        Object.keys(data || {}).forEach(function (key) {
+            if (seen[key]) return;
+            seen[key] = true;
+            keys.push(key);
+        });
+        var fields = [];
+        keys.forEach(function (key) {
+            if (fields.length >= max) return;
+            var value = data[key];
+            if (value === undefined || value === null) return;
+            if (typeof value === 'object') return;
+            var preview = _envProductCollapseText(value, 72);
+            if (!preview) return;
+            fields.push(String(key).replace(/_/g, ' ') + ': ' + preview);
+        });
+        return fields;
+    }
+
+    function _envProductNodeStateMeta(nodeStates) {
+        var counts = { completed: 0, running: 0, failed: 0, skipped: 0, pending: 0 };
+        Object.keys(nodeStates || {}).forEach(function (nodeId) {
+            var status = _wfNormalizeStatus((((nodeStates || {})[nodeId] || {}).status) || 'pending');
+            counts[status] = (counts[status] || 0) + 1;
+        });
+        var total = 0;
+        Object.keys(counts).forEach(function (key) { total += Number(counts[key] || 0); });
+        var summary = total ? (String(total) + ' node states') : 'No node states';
+        if (counts.failed) summary = String(counts.failed) + ' failed node' + (counts.failed === 1 ? '' : 's');
+        else if (counts.running) summary = String(counts.running) + ' running node' + (counts.running === 1 ? '' : 's');
+        else if (total) summary = String(total) + ' resolved node state' + (total === 1 ? '' : 's');
+        var preview = [
+            'completed ' + String(counts.completed || 0),
+            'running ' + String(counts.running || 0),
+            'failed ' + String(counts.failed || 0),
+            'pending ' + String(counts.pending || 0)
+        ].join(' · ');
+        return {
+            tone: counts.failed ? 'failed' : (counts.running ? 'live' : (total ? 'ready' : 'idle')),
+            summary: summary,
+            preview: preview
+        };
+    }
+
+    function _envProductPreview(data, kind) {
+        if (data === undefined || data === null) return 'No surfaced payload yet.';
+        if (typeof data === 'string') return _envProductCollapseText(data, 220) || 'Empty text payload.';
+        if (typeof data === 'number' || typeof data === 'boolean') return String(data);
+        if (Array.isArray(data)) {
+            if (!data.length) return 'Empty list payload.';
+            var first = data[0];
+            if (first && typeof first === 'object' && !Array.isArray(first)) {
+                return 'First item keys: ' + Object.keys(first).slice(0, 6).join(', ');
+            }
+            return _envProductCollapseText(data.slice(0, 4).map(function (item) { return String(item); }).join(' · '), 220);
+        }
+        if (kind === 'node_states') {
+            var nodeMeta = _envProductNodeStateMeta(data);
+            return nodeMeta.preview;
+        }
+        if (typeof data === 'object') {
+            var formatted = formatToolOutput(data);
+            if (typeof formatted === 'string' && formatted !== '[object Object]') {
+                return _envProductCollapseText(formatted, 220);
+            }
+            var fields = _envProductScalarFields(data, ['status', 'message', 'url', 'base_url', 'endpoint', 'path', 'output_path', 'directory', 'port', 'host'], 5);
+            if (fields.length) return _envProductCollapseText(fields.join(' · '), 220);
+            var keys = Object.keys(data || {}).slice(0, 8);
+            return keys.length ? ('Keys: ' + keys.join(', ')) : 'Structured payload ready for inspection.';
+        }
+        return _envProductCollapseText(String(data), 220);
+    }
+
+    function _envProductSectionMeta(section, index) {
+        var title = String((section && section.title) || ('artifact ' + index));
+        var data = section ? section.data : null;
+        var kind = _envProductSectionKind(title);
+        var shape = _envProductShapeMeta(data);
+        var tone = shape.count ? 'ready' : 'idle';
+        var summary = shape.label;
+        var preview = _envProductPreview(data, kind);
+        var rank = 20;
+        var badge = kind.replace(/_/g, ' ');
+        if (kind === 'result') rank = 100;
+        else if (kind === 'output') rank = 92;
+        else if (kind === 'summary') rank = 84;
+        else if (kind === 'export') rank = 76;
+        else if (kind === 'api') rank = 72;
+        else if (kind === 'node_states') rank = 48;
+        if (data && typeof data === 'object' && !Array.isArray(data) && data.error) {
+            tone = 'failed';
+            summary = 'error surfaced';
+            preview = _envProductCollapseText(String(data.error || 'Unknown error'), 220);
+        } else if (kind === 'node_states') {
+            var nodeMeta = _envProductNodeStateMeta(data || {});
+            tone = nodeMeta.tone;
+            summary = nodeMeta.summary;
+            preview = nodeMeta.preview;
+        } else if (kind === 'api') {
+            var apiFields = _envProductScalarFields(data, ['url', 'base_url', 'endpoint', 'port', 'host', 'status', 'message'], 4);
+            tone = apiFields.length ? 'live' : (shape.count ? 'ready' : 'idle');
+            summary = apiFields[0] || shape.label;
+            preview = apiFields.length ? apiFields.join(' · ') : preview;
+        } else if (kind === 'export') {
+            var exportFields = _envProductScalarFields(data, ['output_path', 'path', 'directory', 'url', 'status', 'message'], 4);
+            tone = exportFields.length ? 'ready' : (shape.count ? 'ready' : 'idle');
+            summary = exportFields[0] || shape.label;
+            preview = exportFields.length ? exportFields.join(' · ') : preview;
+        } else if (kind === 'summary') {
+            summary = shape.kind === 'text' ? 'summary text ready' : shape.label;
+        } else if (kind === 'result' || kind === 'output') {
+            var resultFields = _envProductScalarFields(data, ['status', 'message', 'summary', 'label'], 3);
+            if (resultFields.length) summary = resultFields[0];
+        }
+        return {
+            index: index,
+            title: title,
+            kind: kind,
+            badge: badge,
+            tone: tone,
+            summary: summary,
+            preview: preview,
+            shapeLabel: shape.label,
+            rank: rank
+        };
+    }
+
+    function _envRenderArtifactPanel(workflow, exec, sections) {
+        if (!sections.length) {
+            return '<div class="envops-stage-empty">No produced artifacts yet. Execute the system or use the export/API actions above to populate this product lens.</div>';
+        }
+        var metas = sections.map(function (section, idx) {
+            return _envProductSectionMeta(section, idx);
+        });
+        var activeArtifactId = ((_envKernel.focus || {}).kind === 'artifact') ? String((_envKernel.focus || {}).id || '') : '';
+        var primary = metas.slice().sort(function (a, b) { return Number(b.rank || 0) - Number(a.rank || 0); })[0] || metas[0];
+        var exportMeta = metas.find(function (meta) { return meta.kind === 'export'; }) || null;
+        var apiMeta = metas.find(function (meta) { return meta.kind === 'api'; }) || null;
+        var outputDepth = metas.filter(function (meta) {
+            return meta.kind === 'result' || meta.kind === 'output' || meta.kind === 'summary';
+        }).length;
+        var execStatus = exec ? _wfNormalizeStatus(exec.status || 'pending') : 'idle';
+        var runTone = execStatus === 'failed' ? 'failed' : (execStatus === 'running' ? 'live' : (execStatus === 'completed' ? 'ready' : 'idle'));
+        var runMetric = exec
+            ? (execStatus + ' · ' + _activityTokenShort(exec.execution_id || 'run', 18))
+            : 'ready · no execution id';
+        function metricCard(label, value, tone, artifactIndex) {
+            var cls = 'envops-product-metric tone-' + _esc(String(tone || 'idle'));
+            if (artifactIndex === undefined || artifactIndex === null) {
+                return '<div class="' + cls + '"><span class="k">' + _esc(label) + '</span><span class="v">' + _esc(value) + '</span></div>';
+            }
+            return '<button type="button" class="' + cls + ' actionable" data-env-action="focus-artifact" data-env-artifact-index="' + String(artifactIndex) + '"><span class="k">' + _esc(label) + '</span><span class="v">' + _esc(value) + '</span></button>';
+        }
+        var rail = metas.map(function (meta) {
+            var active = String(meta.index) === activeArtifactId ? ' active' : '';
+            return '<button type="button" class="envops-product-chip tone-' + _esc(meta.tone) + active + '" data-env-action="focus-artifact" data-env-artifact-index="' + String(meta.index) + '">' +
+                '<span class="badge">' + _esc(String(meta.badge || 'artifact').toUpperCase()) + '</span>' +
+                '<span class="label">' + _esc(meta.title) + '</span>' +
+                '</button>';
+        }).join('');
+        var cards = metas.map(function (meta) {
+            var active = String(meta.index) === activeArtifactId ? ' active' : '';
+            return '<div class="envops-artifact-card tone-' + _esc(meta.tone) + active + '" data-env-action="focus-artifact" data-env-artifact-index="' + String(meta.index) + '">' +
+                '<div class="envops-artifact-card-head">' +
+                '<div class="envops-artifact-title"><span class="envops-product-badge tone-' + _esc(meta.tone) + '">' + _esc(String(meta.badge || 'artifact').toUpperCase()) + '</span><span>' + _esc(meta.title) + '</span></div>' +
+                '<button class="btn-dim envops-artifact-focus" data-env-action="focus-artifact" data-env-artifact-index="' + String(meta.index) + '">FOCUS</button>' +
+                '</div>' +
+                '<div class="envops-artifact-card-body">' +
+                '<div class="envops-artifact-card-meta">' + _esc(meta.summary || meta.shapeLabel || 'artifact') + '</div>' +
+                '<div class="envops-artifact-card-preview">' + _esc(meta.preview || 'No preview available.') + '</div>' +
+                '<div class="envops-product-card-foot"><span>' + _esc(meta.shapeLabel) + '</span><span>' + _esc(meta.tone) + '</span></div>' +
+                '</div>' +
+                '</div>';
+        }).join('');
+        return '<div class="envops-product-lens">' +
+            '<div class="envops-product-hero tone-' + _esc(primary.tone) + '">' +
+            '<div class="envops-product-hero-head">' +
+            '<div>' +
+            '<div class="envops-product-kicker">Product Lens</div>' +
+            '<div class="envops-product-title">' + _esc(primary.title) + '</div>' +
+            '<div class="envops-product-meta">' + _esc((workflow ? String(workflow.name || workflow.id || 'workflow') : 'system') + ' · ' + primary.shapeLabel) + '</div>' +
+            '</div>' +
+            '<button type="button" class="btn-dim envops-artifact-focus" data-env-action="focus-artifact" data-env-artifact-index="' + String(primary.index) + '">FOCUS PRIMARY</button>' +
+            '</div>' +
+            '<div class="envops-product-preview">' + _esc(primary.preview || 'Primary surface ready for inspection.') + '</div>' +
+            '<div class="envops-product-metrics">' +
+            metricCard('Primary Surface', primary.summary || primary.title, primary.tone, primary.index) +
+            metricCard('Current Run', runMetric, runTone, null) +
+            metricCard('Export Surface', exportMeta ? (exportMeta.summary || exportMeta.title) : 'not exported', exportMeta ? exportMeta.tone : 'idle', exportMeta ? exportMeta.index : null) +
+            metricCard('Runtime Surface', apiMeta ? (apiMeta.summary || apiMeta.title) : 'not serving', apiMeta ? apiMeta.tone : 'idle', apiMeta ? apiMeta.index : null) +
+            metricCard('Output Depth', String(outputDepth) + ' execution surface' + (outputDepth === 1 ? '' : 's') + ' · ' + String(metas.length) + ' total', outputDepth ? 'ready' : 'idle', null) +
+            '</div>' +
+            '</div>' +
+            '<div class="envops-product-rail">' + rail + '</div>' +
+            '<div class="envops-product-stack">' + cards + '</div>' +
+            '</div>';
+    }
+
     function _envWorkflowDocQuery(workflow) {
         if (!workflow) return '';
         var parts = [];
@@ -13220,15 +13476,7 @@
             '</div>';
 
         _envSyncHabitatScene(workflow, exec, sections, traces, renderTarget);
-        artifactsEl.innerHTML = sections.length ? sections.map(function (section, idx) {
-            return '<div class="envops-artifact-card" data-env-action="focus-artifact" data-env-artifact-index="' + String(idx) + '">' +
-                '<div class="envops-artifact-card-head">' +
-                '<span>' + _esc(section.title || ('artifact ' + idx)) + '</span>' +
-                '<button class="btn-dim envops-artifact-focus" data-env-action="focus-artifact" data-env-artifact-index="' + String(idx) + '">FOCUS</button>' +
-                '</div>' +
-                _wfJsonBlock(section.title, section.data) +
-                '</div>';
-        }).join('') : '<div class="envops-stage-empty">No produced artifacts yet. Execute the system or use the export/API actions above to populate this surface.</div>';
+        artifactsEl.innerHTML = _envRenderArtifactPanel(workflow, exec, sections);
         if (artifactCountEl) artifactCountEl.textContent = String(sections.length);
         _envRenderTraceRows(traces);
         kernelEl.innerHTML = _envRenderKernel(workflow, exec, sections, traces);

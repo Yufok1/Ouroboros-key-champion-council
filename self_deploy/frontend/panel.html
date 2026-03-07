@@ -1629,6 +1629,171 @@
             line-height: 1.55;
         }
 
+        .envops-product-lens {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .envops-product-hero {
+            border: 1px solid rgba(255,255,255,0.08);
+            background:
+                radial-gradient(circle at top left, rgba(79,255,208,0.08), transparent 42%),
+                linear-gradient(160deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .envops-product-hero.tone-failed {
+            background:
+                radial-gradient(circle at top left, rgba(255,108,120,0.14), transparent 42%),
+                linear-gradient(160deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
+            border-color: rgba(255,108,120,0.22);
+        }
+
+        .envops-product-hero.tone-live {
+            background:
+                radial-gradient(circle at top left, rgba(102,184,255,0.14), transparent 42%),
+                linear-gradient(160deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
+            border-color: rgba(102,184,255,0.2);
+        }
+
+        .envops-product-hero-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .envops-product-kicker {
+            color: var(--text-dim);
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-bottom: 4px;
+        }
+
+        .envops-product-title {
+            color: var(--text);
+            font-size: 14px;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+
+        .envops-product-meta {
+            color: var(--text-dim);
+            font-size: 9px;
+            letter-spacing: 0.4px;
+            text-transform: uppercase;
+            margin-top: 4px;
+        }
+
+        .envops-product-preview {
+            color: var(--text);
+            font-size: 10px;
+            line-height: 1.65;
+        }
+
+        .envops-product-metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 8px;
+        }
+
+        .envops-product-metric {
+            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(255,255,255,0.03);
+            padding: 8px 9px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            text-align: left;
+        }
+
+        .envops-product-metric.actionable {
+            cursor: pointer;
+        }
+
+        .envops-product-metric .k {
+            color: var(--text-dim);
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.7px;
+        }
+
+        .envops-product-metric .v {
+            color: var(--text);
+            font-size: 10px;
+            line-height: 1.4;
+        }
+
+        .envops-product-metric.tone-failed {
+            border-color: rgba(255,108,120,0.22);
+            background: rgba(255,108,120,0.06);
+        }
+
+        .envops-product-metric.tone-live {
+            border-color: rgba(102,184,255,0.22);
+            background: rgba(102,184,255,0.06);
+        }
+
+        .envops-product-metric.tone-ready {
+            border-color: rgba(79,255,208,0.18);
+        }
+
+        .envops-product-rail {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .envops-product-chip {
+            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(255,255,255,0.03);
+            padding: 6px 8px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--text);
+            font-size: 9px;
+            cursor: pointer;
+        }
+
+        .envops-product-chip .badge {
+            color: var(--text-dim);
+            letter-spacing: 0.7px;
+        }
+
+        .envops-product-chip .label {
+            max-width: 180px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .envops-product-chip.active {
+            border-color: rgba(79,255,208,0.34);
+            background: rgba(79,255,208,0.08);
+        }
+
+        .envops-product-chip.tone-failed {
+            border-color: rgba(255,108,120,0.24);
+            background: rgba(255,108,120,0.06);
+        }
+
+        .envops-product-chip.tone-live {
+            border-color: rgba(102,184,255,0.24);
+            background: rgba(102,184,255,0.06);
+        }
+
+        .envops-product-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
         .envops-artifacts pre {
             margin: 0;
             white-space: pre-wrap;
@@ -1641,8 +1806,20 @@
         .envops-artifact-card {
             border: 1px solid rgba(255,255,255,0.08);
             background: rgba(255,255,255,0.02);
-            margin-bottom: 10px;
             cursor: pointer;
+        }
+
+        .envops-artifact-card.active {
+            border-color: rgba(79,255,208,0.3);
+            background: rgba(79,255,208,0.05);
+        }
+
+        .envops-artifact-card.tone-failed {
+            border-color: rgba(255,108,120,0.18);
+        }
+
+        .envops-artifact-card.tone-live {
+            border-color: rgba(102,184,255,0.18);
         }
 
         .envops-artifact-card-head {
@@ -1656,6 +1833,68 @@
             font-size: 9px;
             text-transform: uppercase;
             letter-spacing: 0.8px;
+        }
+
+        .envops-artifact-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 0;
+        }
+
+        .envops-product-badge {
+            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.04);
+            color: var(--text-dim);
+            padding: 2px 6px;
+            font-size: 8px;
+            letter-spacing: 0.8px;
+        }
+
+        .envops-product-badge.tone-ready {
+            border-color: rgba(79,255,208,0.2);
+            color: #9ef6de;
+        }
+
+        .envops-product-badge.tone-live {
+            border-color: rgba(102,184,255,0.22);
+            color: #8fc9ff;
+        }
+
+        .envops-product-badge.tone-failed {
+            border-color: rgba(255,108,120,0.24);
+            color: #ffb3bc;
+        }
+
+        .envops-artifact-card-body {
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+        }
+
+        .envops-artifact-card-meta {
+            color: var(--text-dim);
+            font-size: 9px;
+            letter-spacing: 0.7px;
+            text-transform: uppercase;
+        }
+
+        .envops-artifact-card-preview {
+            color: var(--text);
+            font-size: 10px;
+            line-height: 1.6;
+        }
+
+        .envops-product-card-foot {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            color: var(--text-dim);
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.7px;
         }
 
         .envops-artifact-focus {
@@ -8179,11 +8418,11 @@
             <div class="envops-lower-grid" style="margin-top:12px;">
                 <div class="envops-panel">
                     <div class="envops-panel-head">
-                        <span>PRODUCED OUTPUTS / ARTIFACTS</span>
+                        <span>PRODUCT LENS / OUTPUT SURFACES</span>
                         <span id="envops-artifact-count">0</span>
                     </div>
                     <div class="envops-artifacts" id="envops-artifacts">
-                        <div class="envops-stage-empty">Execute a system to inspect outputs, execution payloads, and surfaced artifacts.</div>
+                        <div class="envops-stage-empty">Execute a system to inspect its primary product surfaces, export state, API exposure, and raw output artifacts.</div>
                     </div>
                 </div>
                 <div class="envops-panel">
