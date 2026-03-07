@@ -6219,6 +6219,30 @@
         var archOrbitX = orbitX * 0.42;
         var archOrbitY = orbitY * 0.34;
         var archRoll = roll * 0.22;
+        var substrateShiftX = shiftX * 0.12;
+        var substrateShiftY = (shiftY * 0.1) - (lift * 0.08);
+        var substrateDepth = Math.round((depth * 0.18) - 6);
+        var substrateOrbitX = orbitX * 0.28;
+        var substrateOrbitY = orbitY * 0.22;
+        var substrateRoll = roll * 0.16;
+        var routeShiftX = shiftX * 0.16;
+        var routeShiftY = (shiftY * 0.12) - (lift * 0.12);
+        var routeDepth = Math.round((depth * 0.28) + 4);
+        var routeOrbitX = orbitX * 0.36;
+        var routeOrbitY = orbitY * 0.28;
+        var routeRoll = roll * 0.22;
+        var objectShiftX = shiftX * 0.2;
+        var objectShiftY = (shiftY * 0.14) - (lift * 0.14);
+        var objectDepth = Math.round((depth * 0.36) + 12);
+        var objectOrbitX = orbitX * 0.48;
+        var objectOrbitY = orbitY * 0.4;
+        var objectRoll = roll * 0.28;
+        var beaconShiftX = shiftX * 0.24;
+        var beaconShiftY = (shiftY * 0.18) - (lift * 0.1);
+        var beaconDepth = Math.round((depth * 0.44) + 20);
+        var beaconOrbitX = orbitX * 0.62;
+        var beaconOrbitY = orbitY * 0.52;
+        var beaconRoll = roll * 0.34;
         var canopyShiftX = shiftX * 0.28;
         var canopyShiftY = (shiftY * 0.2) - (lift * 0.24);
         var canopyDepth = Math.round((depth * 0.42) - 34);
@@ -6240,19 +6264,38 @@
         if (mode === 'focus') {
             zoomVar += 0.02;
             depth += 8;
+            routeDepth += 8;
+            objectDepth += 10;
+            beaconDepth += 16;
             canopyDepth += 8;
             foregroundDepth += 12;
         } else if (mode === 'replay') {
             shiftX *= 1.12;
             roll *= 1.12;
+            routeShiftX *= 1.08;
+            routeShiftY *= 1.06;
+            routeDepth += 10;
+            objectShiftX *= 1.08;
+            objectShiftY *= 1.06;
+            objectDepth += 12;
+            beaconShiftX *= 1.12;
+            beaconShiftY *= 1.08;
+            beaconDepth += 16;
             canopyShiftX *= 1.08;
             canopyShiftY *= 1.06;
             foregroundShiftX *= 1.12;
             foregroundShiftY *= 1.08;
         } else if (mode === 'watch') {
+            routeDepth += 6;
+            objectDepth += 8;
+            beaconDepth += 10;
             canopyDepth += 6;
             uplinkDepth += 10;
         } else if (mode === 'failed') {
+            substrateDepth += 6;
+            routeDepth += 12;
+            objectDepth += 10;
+            beaconDepth += 14;
             archDepth += 10;
             canopyDepth += 12;
             uplinkDepth += 14;
@@ -6281,6 +6324,30 @@
             '--env-cam-arch-orbit-x:' + archOrbitX.toFixed(2) + 'deg;' +
             '--env-cam-arch-orbit-y:' + archOrbitY.toFixed(2) + 'deg;' +
             '--env-cam-arch-roll:' + archRoll.toFixed(2) + 'deg;' +
+            '--env-cam-substrate-shift-x:' + substrateShiftX.toFixed(1) + 'px;' +
+            '--env-cam-substrate-shift-y:' + substrateShiftY.toFixed(1) + 'px;' +
+            '--env-cam-substrate-depth:' + substrateDepth + 'px;' +
+            '--env-cam-substrate-orbit-x:' + substrateOrbitX.toFixed(2) + 'deg;' +
+            '--env-cam-substrate-orbit-y:' + substrateOrbitY.toFixed(2) + 'deg;' +
+            '--env-cam-substrate-roll:' + substrateRoll.toFixed(2) + 'deg;' +
+            '--env-cam-route-shift-x:' + routeShiftX.toFixed(1) + 'px;' +
+            '--env-cam-route-shift-y:' + routeShiftY.toFixed(1) + 'px;' +
+            '--env-cam-route-depth:' + routeDepth + 'px;' +
+            '--env-cam-route-orbit-x:' + routeOrbitX.toFixed(2) + 'deg;' +
+            '--env-cam-route-orbit-y:' + routeOrbitY.toFixed(2) + 'deg;' +
+            '--env-cam-route-roll:' + routeRoll.toFixed(2) + 'deg;' +
+            '--env-cam-object-shift-x:' + objectShiftX.toFixed(1) + 'px;' +
+            '--env-cam-object-shift-y:' + objectShiftY.toFixed(1) + 'px;' +
+            '--env-cam-object-depth:' + objectDepth + 'px;' +
+            '--env-cam-object-orbit-x:' + objectOrbitX.toFixed(2) + 'deg;' +
+            '--env-cam-object-orbit-y:' + objectOrbitY.toFixed(2) + 'deg;' +
+            '--env-cam-object-roll:' + objectRoll.toFixed(2) + 'deg;' +
+            '--env-cam-beacon-shift-x:' + beaconShiftX.toFixed(1) + 'px;' +
+            '--env-cam-beacon-shift-y:' + beaconShiftY.toFixed(1) + 'px;' +
+            '--env-cam-beacon-depth:' + beaconDepth + 'px;' +
+            '--env-cam-beacon-orbit-x:' + beaconOrbitX.toFixed(2) + 'deg;' +
+            '--env-cam-beacon-orbit-y:' + beaconOrbitY.toFixed(2) + 'deg;' +
+            '--env-cam-beacon-roll:' + beaconRoll.toFixed(2) + 'deg;' +
             '--env-cam-canopy-shift-x:' + canopyShiftX.toFixed(1) + 'px;' +
             '--env-cam-canopy-shift-y:' + canopyShiftY.toFixed(1) + 'px;' +
             '--env-cam-canopy-depth:' + canopyDepth + 'px;' +
