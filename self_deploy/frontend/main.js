@@ -6738,6 +6738,7 @@
         var replayCursor = String(Math.max(0, Number(((_envKernel.replay || {}).cursor) || 0)));
         var activeProfileId = String(((_envKernel.profile || {}).activeId) || (((_envConfig || {}).shell || {}).defaultProfile) || '').trim();
         if (command === 'focus_workflow') return _envScene.workflowId ? ('workflow::' + _envScene.workflowId) : '';
+        if (command === 'focus_district') return targetId ? ('district::' + targetId) : '';
         if (command === 'focus_node') return targetId ? ('node::' + targetId) : '';
         if (command === 'focus_doc' || command === 'open_doc_memory') return targetId ? ('doc::' + targetId) : '';
         if (command === 'focus_sample') return targetId ? ('sample::' + targetId) : (latestSample ? ('sample::' + String(latestSample.id || '')) : '');
@@ -7310,6 +7311,31 @@
             return ctx;
         }
 
+        if (focus.kind === 'district' && focus.id) {
+            ctx.mode = 'focus';
+            var district = _envSceneDistrictById(focus.id);
+            addKey('district::' + String(focus.id || ''));
+            if (district) {
+                var workflow = _envScene.workflow || (_wfLoadedDef && String((_wfLoadedDef || {}).id || '') === String(_wfSelectedId || '') ? _wfLoadedDef : null);
+                var exec = _envScene.exec || _envCurrentExecution();
+                var sections = Array.isArray(_envScene.sections) ? _envScene.sections : _envArtifactSections();
+                var traces = Array.isArray(_envScene.traces) ? _envScene.traces : _envTraceRows(8);
+                addKind(String(district.id || '').toLowerCase());
+                _envSceneDistrictChannels(district.id).forEach(addKind);
+                var districtTarget = _envSceneDistrictTarget(
+                    district.id,
+                    workflow,
+                    exec,
+                    sections,
+                    traces,
+                    Array.isArray((_envBus || {}).events) ? _envBus.events : []
+                );
+                addKey(_envSceneTargetKey(districtTarget));
+                if (districtTarget && districtTarget.kind) addKind(String(districtTarget.kind || '').toLowerCase());
+            }
+            return ctx;
+        }
+
         if (focusKey) {
             ctx.mode = 'focus';
             addKey(focusKey);
@@ -7440,8 +7466,9 @@
         }
         var channels = _envSceneDistrictChannels((district && district.id) || '');
         var target = (state && state.target) || {};
+        var districtKey = district && district.id ? ('district::' + String(district.id || '')) : '';
         var targetKey = target.kind && target.id ? (String(target.kind || '') + '::' + String(target.id || '')) : '';
-        var keyMatch = !!(targetKey && ctx.primaryKeys[targetKey]);
+        var keyMatch = !!((districtKey && ctx.primaryKeys[districtKey]) || (targetKey && ctx.primaryKeys[targetKey]));
         var kindMatch = !!ctx.relatedKinds[String((district && district.id) || '').toLowerCase()];
         if (!kindMatch) {
             for (var i = 0; i < channels.length; i++) {
@@ -8539,7 +8566,11 @@
         var districtEvents = _envSceneDistrictEvents(district.id, events);
         var target = _envSceneDistrictTarget(district.id, workflow, exec, sections, traces, districtEvents);
         var focus = _envKernel.focus || {};
-        var active = String(focus.kind || '') === String(target.kind || '') && String(focus.id || '') === String(target.id || '');
+        var districtId = String((district && district.id) || '').toLowerCase();
+        var focusId = String(focus.id || '').toLowerCase();
+        var districtActive = String(focus.kind || '').toLowerCase() === 'district' && focusId === districtId;
+        var targetActive = String(focus.kind || '') === String(target.kind || '') && String(focus.id || '') === String(target.id || '');
+        var active = districtActive || targetActive;
         var tone = 'idle';
         var count = 0;
         var detail = '';
@@ -9529,8 +9560,6 @@
             var district = entry.district || {};
             var state = entry.state || {};
             var visual = _envSceneDistrictDominance(dominance, district, state);
-            var targetKind = String((state.target || {}).kind || '');
-            var targetId = String((state.target || {}).id || '');
             var classes = ['envops-habitat-zone', state.tone];
             if (state.active) classes.push('active');
             var lights = (state.events || []).slice(0, 4).map(function (event) {
@@ -9544,7 +9573,7 @@
                 'z-index:' + (visual.dominant ? 18 : (visual.suppressed ? 4 : 10)) + ';';
             return '<button type="button" class="' + _esc(classes.join(' ')) + '" ' +
                 'style="' + zoneStyle + '" ' +
-                (targetKind && targetId ? ('data-env-focus-kind="' + _esc(targetKind) + '" data-env-focus-id="' + _esc(targetId) + '" ') : '') +
+                'data-env-focus-kind="district" data-env-focus-id="' + _esc(String(district.id || '')) + '" ' +
                 'title="' + _esc(String(district.note || state.detail || district.label || 'district')) + '">' +
                 '<div class="h">' + _esc(String(district.label || district.id || 'district')) + '</div>' +
                 '<div class="v">' + _esc(String(state.detail || district.note || 'ready')) + '</div>' +
@@ -11402,6 +11431,10 @@
     }
 
     function _envFocusDescriptor(kind, id, workflow, sections, traces) {
+        if (kind === 'district') {
+            var district = _envSceneDistrictById(id);
+            if (district) return 'district · ' + String(district.label || district.id || 'district');
+        }
         if (kind === 'node' && workflow && Array.isArray(workflow.nodes)) {
             for (var i = 0; i < workflow.nodes.length; i++) {
                 if (String(workflow.nodes[i].id || '') === String(id || '')) {
@@ -11482,6 +11515,26 @@
 
     function _envFocusPayload(workflow, exec, sections, traces) {
         var focus = _envKernel.focus || {};
+        if (focus.kind === 'district') {
+            var district = _envSceneDistrictById(focus.id);
+            if (district) {
+                var districtEvents = Array.isArray((_envBus || {}).events) ? _envBus.events : [];
+                var districtState = _envSceneDistrictState(district, workflow, exec, sections, traces, districtEvents);
+                return {
+                    label: focus.label || String(district.label || district.id || 'district'),
+                    kind: 'district',
+                    data: {
+                        district: district,
+                        state: districtState,
+                        channels: _envSceneDistrictChannels(district.id),
+                        linkedTarget: districtState.target || null,
+                        workflow_id: String((workflow && workflow.id) || _wfSelectedId || ''),
+                        execution_id: String((exec && exec.execution_id) || ''),
+                        recentEvents: (districtState.events || []).slice(0, 12)
+                    }
+                };
+            }
+        }
         if (focus.kind === 'node' && workflow && Array.isArray(workflow.nodes)) {
             var node = workflow.nodes.find(function (n) { return String(n.id || '') === String(focus.id || ''); }) || null;
             var nodeState = exec && exec.node_states ? (exec.node_states[String(focus.id || '')] || null) : null;
@@ -11715,6 +11768,17 @@
                 return;
             }
             _envRunRecipe(recipeTarget, actorName, reason || ('queued recipe ' + recipeTarget));
+            return;
+        }
+        if (command === 'focus_district') {
+            var focusDistrictId = targetId || ((_envKernel.focus || {}).kind === 'district' ? String((_envKernel.focus || {}).id || '') : '');
+            if (!focusDistrictId || !_envSceneDistrictById(focusDistrictId)) {
+                _envSetBadge('failed', 'NO DIST');
+                _envLogAction('control', 'Control command focus_district missing district target', actorName, { action: command, target: targetId });
+                renderEnvironmentView();
+                return;
+            }
+            _envSetFocus('district', focusDistrictId, actorName);
             return;
         }
         if (command === 'focus_artifact') {
@@ -12411,6 +12475,11 @@
             return '<span class="envops-focus-chip' + active + '" data-env-action="focus-node" data-env-node-id="' + _esc(String(node.id || '')) + '">' + _esc(String(node.name || node.label || node.id || 'node')) + '</span>';
         }).join('');
         if (!nodeButtons) nodeButtons = '<span class="envops-kernel-note">No nodes to focus.</span>';
+        var districtButtons = _envSceneDistrictCatalog().map(function (district) {
+            var active = (_envKernel.focus || {}).kind === 'district' && String((_envKernel.focus || {}).id || '') === String(district.id || '') ? ' active' : '';
+            return '<span class="envops-focus-chip' + active + '" data-env-action="focus-district" data-env-district-id="' + _esc(String(district.id || '')) + '">' + _esc(String(district.label || district.id || 'district')) + '</span>';
+        }).join('');
+        if (!districtButtons) districtButtons = '<span class="envops-kernel-note">No districts configured.</span>';
         var artifactButtons = sections.map(function (section, idx) {
             return '<span class="envops-focus-chip" data-env-action="focus-artifact" data-env-artifact-index="' + String(idx) + '">' + _esc(section.title || ('artifact ' + idx)) + '</span>';
         }).join('');
@@ -12489,13 +12558,14 @@
             '<option value="replay_prev">replay_prev</option>' +
             '<option value="replay_next">replay_next</option>' +
             '<option value="set_replay_mode">set_replay_mode</option>' +
-            '<option value="set_camera_mode">set_camera_mode</option>' +
-            '<option value="focus_replay">focus_replay</option>' +
-            '<option value="branch_snapshot">branch_snapshot</option>' +
-            '<option value="focus_workflow">focus_workflow</option>' +
-            '<option value="focus_node">focus_node</option>' +
-            '<option value="focus_recipe">focus_recipe</option>' +
-            '<option value="focus_dispatch">focus_dispatch</option>' +
+             '<option value="set_camera_mode">set_camera_mode</option>' +
+             '<option value="focus_replay">focus_replay</option>' +
+             '<option value="branch_snapshot">branch_snapshot</option>' +
+             '<option value="focus_workflow">focus_workflow</option>' +
+             '<option value="focus_district">focus_district</option>' +
+             '<option value="focus_node">focus_node</option>' +
+             '<option value="focus_recipe">focus_recipe</option>' +
+             '<option value="focus_dispatch">focus_dispatch</option>' +
             '<option value="focus_queued">focus_queued</option>' +
             '<option value="focus_watch">focus_watch</option>' +
             '<option value="focus_artifact">focus_artifact</option>' +
@@ -12526,12 +12596,13 @@
              '</div>' +
              '<div><div class="envops-card-label" style="margin-bottom:6px;">Watch Modes</div><div class="envops-focus-strip">' + watchModes + '</div></div>' +
             '<div><div class="envops-card-label" style="margin-bottom:6px;">Profile Rail</div><div class="envops-focus-strip">' + profileStrip + '</div></div>' +
-            '<div><div class="envops-card-label" style="margin-bottom:6px;">Recipe Rack</div><div class="envops-focus-strip">' + recipeStrip + '</div></div>' +
+             '<div><div class="envops-card-label" style="margin-bottom:6px;">Recipe Rack</div><div class="envops-focus-strip">' + recipeStrip + '</div></div>' +
              '<div><div class="envops-card-label" style="margin-bottom:6px;">Dispatching Now</div><div class="envops-focus-strip">' + currentDispatch + '</div></div>' +
-            '<div><div class="envops-card-label" style="margin-bottom:6px;">Ingress Queue</div><div class="envops-focus-strip">' + queuePreview + '</div></div>' +
-            '<div><div class="envops-card-label" style="margin-bottom:6px;">Recent Dispatches</div><div class="envops-focus-strip">' + ingressHistory + '</div></div>' +
-            '<div><div class="envops-card-label" style="margin-bottom:6px;">Node Focus Strip</div><div class="envops-focus-strip">' + nodeButtons + '</div></div>' +
-            '<div><div class="envops-card-label" style="margin-bottom:6px;">Artifact Focus Strip</div><div class="envops-focus-strip">' + artifactButtons + '</div></div>' +
+             '<div><div class="envops-card-label" style="margin-bottom:6px;">Ingress Queue</div><div class="envops-focus-strip">' + queuePreview + '</div></div>' +
+             '<div><div class="envops-card-label" style="margin-bottom:6px;">Recent Dispatches</div><div class="envops-focus-strip">' + ingressHistory + '</div></div>' +
+             '<div><div class="envops-card-label" style="margin-bottom:6px;">District Rail</div><div class="envops-focus-strip">' + districtButtons + '</div></div>' +
+             '<div><div class="envops-card-label" style="margin-bottom:6px;">Node Focus Strip</div><div class="envops-focus-strip">' + nodeButtons + '</div></div>' +
+             '<div><div class="envops-card-label" style="margin-bottom:6px;">Artifact Focus Strip</div><div class="envops-focus-strip">' + artifactButtons + '</div></div>' +
             '<div><div class="envops-card-label" style="margin-bottom:6px;">Sample Strip</div><div class="envops-sample-strip">' + sampleStrip + '</div></div>' +
             '<div><div class="envops-card-label" style="margin-bottom:6px;">Branch Strip</div><div class="envops-branch-strip">' + branchStrip + '</div></div>' +
             '<div class="envops-kernel-note">The first god-mode layer is renderer-agnostic. It keeps one local activation point, one ingress path, one bus, and one shared focus state for human and assistant-driven operations.</div>';
@@ -12677,6 +12748,7 @@
     function _envFocusCommandForKind(kind) {
         var k = String(kind || 'workflow').trim();
         if (k === 'workflow') return 'focus_workflow';
+        if (k === 'district') return 'focus_district';
         if (k === 'node') return 'focus_node';
         if (k === 'artifact') return 'focus_artifact';
         if (k === 'trace') return 'focus_trace';
@@ -12913,6 +12985,9 @@
         }
         if (focus.kind === 'node') {
             actions.push('<button class="btn-dim" onclick="_envOpenLinkedTab(\'workflows\')">OPEN NODE INSPECTOR</button>');
+        }
+        if (focus.kind === 'district' && focus.data && focus.data.linkedTarget && focus.data.linkedTarget.kind && String(focus.data.linkedTarget.id || '') !== '') {
+            actions.push('<button class="btn-dim" data-env-action="focus-linked-target" data-env-focus-kind="' + _esc(String(focus.data.linkedTarget.kind || '')) + '" data-env-focus-id="' + _esc(String(focus.data.linkedTarget.id || '')) + '">FOCUS LINKED TARGET</button>');
         }
         panel.innerHTML =
             (actions.length ? '<div class="envops-focus-actions">' + actions.join('') + '</div>' : '') +
@@ -17410,9 +17485,20 @@
     var envFocusPayloadEl = document.getElementById('envops-focus-payload');
     if (envFocusPayloadEl) {
         envFocusPayloadEl.addEventListener('click', function (e) {
-            var actionEl = e.target.closest('[data-env-action="open-doc-memory"]');
+            var actionEl = e.target.closest('[data-env-action]');
             if (!actionEl) return;
-            _envQueueControl('open_doc_memory', actionEl.getAttribute('data-env-doc-key') || '', 'user', 'focus payload memory handoff');
+            var action = actionEl.getAttribute('data-env-action') || '';
+            if (action === 'open-doc-memory') {
+                _envQueueControl('open_doc_memory', actionEl.getAttribute('data-env-doc-key') || '', 'user', 'focus payload memory handoff');
+                return;
+            }
+            if (action === 'focus-linked-target') {
+                var focusKind = actionEl.getAttribute('data-env-focus-kind') || '';
+                var focusId = actionEl.getAttribute('data-env-focus-id') || '';
+                var command = _envFocusCommandForKind(focusKind);
+                if (!command) return;
+                _envQueueControl(command, focusId, 'user', 'focus payload linked target', { kind: focusKind });
+            }
         });
     }
 
@@ -17516,6 +17602,10 @@
                 _envQueueControl('focus_workflow', _wfSelectedId || '', 'user', 'workflow focus');
                 return;
             }
+            if (action === 'focus-district') {
+                _envQueueControl('focus_district', actionEl.getAttribute('data-env-district-id') || '', 'user', 'district rail focus');
+                return;
+            }
             if (action === 'follow-failed') {
                 _envQueueControl('follow_failed', '', 'user', 'follow failed');
                 return;
@@ -17614,6 +17704,9 @@
     };
     window.envopsFocusSample = function (sampleId, actor) {
         _envQueueControl('focus_sample', sampleId || '', actor || 'assistant', 'external sample focus');
+    };
+    window.envopsFocusDistrict = function (districtId, actor) {
+        _envQueueControl('focus_district', districtId || '', actor || 'assistant', 'external district focus');
     };
     window.envopsFocusBranch = function (branchId, actor) {
         _envQueueControl('focus_branch', branchId || '', actor || 'assistant', 'external branch focus');
