@@ -1901,6 +1901,222 @@
             min-width: 72px;
         }
 
+        .envops-run-compare {
+            border: 1px solid rgba(255,255,255,0.08);
+            background:
+                radial-gradient(circle at top right, rgba(102,184,255,0.08), transparent 34%),
+                linear-gradient(160deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .envops-run-compare-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .envops-run-compare-title {
+            color: var(--text);
+            font-size: 13px;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+
+        .envops-run-compare-meta {
+            color: var(--text-dim);
+            font-size: 9px;
+            letter-spacing: 0.6px;
+            text-transform: uppercase;
+            margin-top: 4px;
+        }
+
+        .envops-run-compare-status {
+            border: 1px solid rgba(102,184,255,0.18);
+            background: rgba(102,184,255,0.07);
+            color: #a9d6ff;
+            padding: 8px 10px;
+            font-size: 9px;
+            letter-spacing: 0.6px;
+            text-transform: uppercase;
+        }
+
+        .envops-run-compare-status.error {
+            border-color: rgba(255,108,120,0.22);
+            background: rgba(255,108,120,0.08);
+            color: #ffc3ca;
+        }
+
+        .envops-run-history-rail {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .envops-run-history-chip {
+            min-width: 132px;
+            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(255,255,255,0.03);
+            padding: 8px 9px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 4px;
+            text-align: left;
+            color: var(--text);
+            cursor: pointer;
+        }
+
+        .envops-run-history-chip .badge,
+        .envops-run-history-chip .meta {
+            color: var(--text-dim);
+            font-size: 8px;
+            letter-spacing: 0.7px;
+            text-transform: uppercase;
+        }
+
+        .envops-run-history-chip .label {
+            color: var(--text);
+            font-size: 10px;
+            font-weight: 700;
+            line-height: 1.3;
+        }
+
+        .envops-run-history-chip.active {
+            border-color: rgba(79,255,208,0.34);
+            background: rgba(79,255,208,0.08);
+        }
+
+        .envops-run-history-chip.current {
+            box-shadow: inset 0 0 0 1px rgba(102,184,255,0.22);
+        }
+
+        .envops-run-history-chip.tone-ready {
+            border-color: rgba(79,255,208,0.18);
+        }
+
+        .envops-run-history-chip.tone-live {
+            border-color: rgba(102,184,255,0.22);
+            background: rgba(102,184,255,0.06);
+        }
+
+        .envops-run-history-chip.tone-failed {
+            border-color: rgba(255,108,120,0.22);
+            background: rgba(255,108,120,0.06);
+        }
+
+        .envops-run-compare-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 10px;
+        }
+
+        .envops-run-card {
+            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(255,255,255,0.03);
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            min-height: 164px;
+        }
+
+        .envops-run-card.empty {
+            justify-content: center;
+        }
+
+        .envops-run-card.tone-ready {
+            border-color: rgba(79,255,208,0.18);
+        }
+
+        .envops-run-card.tone-live {
+            border-color: rgba(102,184,255,0.22);
+            background:
+                radial-gradient(circle at top left, rgba(102,184,255,0.1), transparent 36%),
+                rgba(255,255,255,0.03);
+        }
+
+        .envops-run-card.tone-failed {
+            border-color: rgba(255,108,120,0.22);
+            background:
+                radial-gradient(circle at top left, rgba(255,108,120,0.12), transparent 36%),
+                rgba(255,255,255,0.03);
+        }
+
+        .envops-run-card-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .envops-run-card-kicker {
+            color: var(--text-dim);
+            font-size: 8px;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .envops-run-card-title {
+            color: var(--text);
+            font-size: 12px;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+
+        .envops-run-card-meta,
+        .envops-run-card-foot {
+            color: var(--text-dim);
+            font-size: 9px;
+            letter-spacing: 0.6px;
+            text-transform: uppercase;
+        }
+
+        .envops-run-card-status {
+            color: var(--text);
+            font-size: 9px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .envops-run-card-preview {
+            color: var(--text);
+            font-size: 10px;
+            line-height: 1.6;
+            flex: 1;
+        }
+
+        .envops-run-card-foot {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .envops-run-delta {
+            border-top: 1px solid rgba(255,255,255,0.08);
+            padding-top: 10px;
+        }
+
+        .envops-run-delta-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .envops-run-delta-item {
+            border-left: 2px solid rgba(79,255,208,0.22);
+            background: rgba(255,255,255,0.03);
+            color: var(--text);
+            padding: 7px 9px;
+            font-size: 10px;
+            line-height: 1.5;
+        }
+
         .envops-trace-list {
             max-height: 320px;
             overflow: auto;
@@ -8422,7 +8638,7 @@
                         <span id="envops-artifact-count">0</span>
                     </div>
                     <div class="envops-artifacts" id="envops-artifacts">
-                        <div class="envops-stage-empty">Execute a system to inspect its primary product surfaces, export state, API exposure, and raw output artifacts.</div>
+                        <div class="envops-stage-empty">Execute a system to inspect its primary product surfaces, run deltas, export state, API exposure, and raw output artifacts.</div>
                     </div>
                 </div>
                 <div class="envops-panel">

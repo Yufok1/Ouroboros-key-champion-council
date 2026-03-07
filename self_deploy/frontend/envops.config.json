@@ -1,5 +1,5 @@
 {
-  "version": "2026-03-07-envops-v24",
+  "version": "2026-03-07-envops-v25",
   "shell": {
     "defaultRenderer": "web3d",
     "defaultPackageMode": "research",
@@ -45,6 +45,11 @@
     "intervalMs": 4000,
     "maxSamples": 48,
     "autoCaptureOnRuntime": true
+  },
+  "comparison": {
+    "historyLimit": 8,
+    "maxExecutionCards": 6,
+    "maxDeltaLines": 6
   },
   "scene": {
     "enabled": true,

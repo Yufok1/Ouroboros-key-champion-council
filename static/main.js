@@ -35,6 +35,16 @@
         export_interface: null,
         start_api_server: null
     };
+    let _envRunHistoryState = {
+        workflowId: '',
+        pendingWorkflowId: '',
+        rows: [],
+        selectedExecutionId: '',
+        lastRequestedExecutionId: '',
+        lastRequestTs: 0,
+        refreshedTs: 0,
+        error: ''
+    };
     let _envDocState = {
         workflowId: '',
         query: '',
@@ -47,7 +57,7 @@
     };
     function _envDefaultConfig() {
         return {
-            version: '2026-03-07-envops-v24',
+            version: '2026-03-07-envops-v25',
             shell: {
                 defaultRenderer: 'web3d',
                 defaultPackageMode: 'research',
@@ -68,6 +78,11 @@
                 intervalMs: 4000,
                 maxSamples: 48,
                 autoCaptureOnRuntime: true
+            },
+            comparison: {
+                historyLimit: 8,
+                maxExecutionCards: 6,
+                maxDeltaLines: 6
             },
             scene: {
                 enabled: true,
@@ -4747,7 +4762,7 @@
 
     var MEMORY_TOOLS = ['bag_catalog', 'bag_search', 'bag_get', 'bag_export', 'bag_induct', 'bag_forget', 'bag_put', 'pocket', 'summon', 'materialize', 'bag_read_doc', 'bag_list_docs', 'bag_search_docs', 'bag_tree', 'bag_checkpoint', 'bag_versions', 'bag_diff', 'bag_restore', 'file_read', 'file_write', 'file_edit', 'file_append', 'file_prepend', 'file_delete', 'file_rename', 'file_copy', 'file_list', 'file_tree', 'file_search', 'file_info', 'file_checkpoint', 'file_versions', 'file_diff', 'file_restore', 'get_cached'];
     var COUNCIL_TOOLS = ['council_status', 'all_slots', 'broadcast', 'council_broadcast', 'set_consensus', 'debate', 'chain', 'slot_info', 'get_slot_params', 'invoke_slot', 'plug_model', 'unplug_slot', 'clone_slot', 'mu' + 'tate_slot', 'rename_slot', 'swap_slots', 'hub_plug', 'cu' + 'll_slot', 'agent_chat'];
-    var WORKFLOW_TOOLS = ['workflow_list', 'workflow_get', 'workflow_execute', 'workflow_status'];
+    var WORKFLOW_TOOLS = ['workflow_list', 'workflow_get', 'workflow_execute', 'workflow_status', 'workflow_history'];
 
     function parseToolData(data) {
         if (data && data.content && Array.isArray(data.content) && data.content[0] && data.content[0].text) {
@@ -5421,6 +5436,7 @@
     function _wfRenderExecution(payload) {
         if (!payload || typeof payload !== 'object') return;
         _wfLastExec = payload;
+        _envMergeExecutionIntoRunHistory(payload);
 
         if (payload.workflow_id && (!_wfSelectedId || _wfSelectedId !== payload.workflow_id)) {
             _wfSelectedId = payload.workflow_id;
@@ -5473,6 +5489,7 @@
                 else if (toolName === 'workflow_get') workflowCacheLabel = 'workflow definition';
                 else if (toolName === 'workflow_status') workflowCacheLabel = 'workflow status';
                 else if (toolName === 'workflow_execute') workflowCacheLabel = 'workflow execution';
+                else if (toolName === 'workflow_history') workflowCacheLabel = 'workflow history';
                 _wfSetExecStatus('Loading ' + workflowCacheLabel + ' from cache...', false);
                 callTool('get_cached', { cache_id: workflowCacheId }, toolName);
                 return;
@@ -5588,6 +5605,36 @@
             if (toolName === 'workflow_execute' && payload.execution_id && _wfNormalizeStatus(payload.status) !== 'running' && _isWorkflowTabActive()) {
                 callTool('workflow_status', { execution_id: payload.execution_id });
             }
+            _envRequestRunHistory('execution update', true);
+            return;
+        }
+
+        if (toolName === 'workflow_history') {
+            _envRunHistoryState.pendingWorkflowId = '';
+            if (msg.error) {
+                _envRunHistoryState.error = String(msg.error || 'workflow_history failed');
+                renderEnvironmentView();
+                return;
+            }
+            if (payload && payload.error) {
+                _envRunHistoryState.error = String(payload.error || 'workflow_history failed');
+                renderEnvironmentView();
+                return;
+            }
+            var historyWorkflowId = String((payload && payload.workflow_id) || _wfSelectedId || _envRunHistoryState.workflowId || '');
+            var normalizedRows = _envNormalizeExecutionHistoryRows(payload || {});
+            var currentExec = _envCurrentExecution();
+            if (currentExec && String(currentExec.workflow_id || '') === historyWorkflowId) {
+                normalizedRows = _envNormalizeExecutionHistoryRows(normalizedRows.concat([currentExec]));
+            }
+            _envRunHistoryState.workflowId = historyWorkflowId;
+            _envRunHistoryState.rows = normalizedRows;
+            _envRunHistoryState.error = '';
+            _envRunHistoryState.refreshedTs = Date.now();
+            if (!_envRunHistoryState.selectedExecutionId || !_envHistoryExecutionById(_envRunHistoryState.selectedExecutionId)) {
+                _envRunHistoryState.selectedExecutionId = _envDefaultComparisonExecutionId(normalizedRows, currentExec);
+            }
+            renderEnvironmentView();
             return;
         }
     }
@@ -5617,6 +5664,7 @@
         }
 
         _wfRenderExecution(payload);
+        _envRequestRunHistory('activity replay', false);
         renderEnvironmentView();
         if (_envKernel.sampler.active || _isEnvironmentTabActive()) {
             _envLogAction('runtime', 'Workflow activity advanced: ' + _wfNormalizeStatus(payload.status || 'pending'), 'system', { workflow_id: payload.workflow_id || _wfSelectedId || '', execution_id: payload.execution_id || '' });
@@ -5658,6 +5706,169 @@
         return String(_wfLastExec.workflow_id || '') === String(_wfSelectedId) ? _wfLastExec : null;
     }
 
+    function _envComparisonConfig() {
+        var comparison = (_envConfig || {}).comparison || {};
+        return {
+            historyLimit: Math.max(2, Math.min(24, Number(comparison.historyLimit || 8))),
+            maxExecutionCards: Math.max(2, Math.min(12, Number(comparison.maxExecutionCards || 6))),
+            maxDeltaLines: Math.max(2, Math.min(12, Number(comparison.maxDeltaLines || 6)))
+        };
+    }
+
+    function _envExecutionNodeCounts(execRow) {
+        var counts = { completed: 0, running: 0, failed: 0, skipped: 0, pending: 0 };
+        var nodeStates = execRow && execRow.node_states && typeof execRow.node_states === 'object' ? execRow.node_states : {};
+        Object.keys(nodeStates).forEach(function (nodeId) {
+            var status = _wfNormalizeStatus((((nodeStates || {})[nodeId] || {}).status) || 'pending');
+            counts[status] = (counts[status] || 0) + 1;
+        });
+        return counts;
+    }
+
+    function _envExecutionSurfaceCount(execRow) {
+        var count = 0;
+        if (!execRow || typeof execRow !== 'object') return count;
+        if (execRow.output !== undefined) count += 1;
+        if (execRow.result !== undefined) count += 1;
+        if (execRow.summary !== undefined) count += 1;
+        if (execRow.node_states && typeof execRow.node_states === 'object' && Object.keys(execRow.node_states).length) count += 1;
+        return count;
+    }
+
+    function _envExecutionPrimaryPayload(execRow) {
+        if (!execRow || typeof execRow !== 'object') return null;
+        if (execRow.result !== undefined) return { data: execRow.result, kind: 'result' };
+        if (execRow.output !== undefined) return { data: execRow.output, kind: 'output' };
+        if (execRow.summary !== undefined) return { data: execRow.summary, kind: 'summary' };
+        if (execRow.error !== undefined) return { data: execRow.error, kind: 'error' };
+        if (execRow.node_states !== undefined) return { data: execRow.node_states, kind: 'node_states' };
+        if (execRow.input !== undefined) return { data: execRow.input, kind: 'input' };
+        return null;
+    }
+
+    function _envExecutionPreview(execRow) {
+        var primary = _envExecutionPrimaryPayload(execRow);
+        if (!primary) return 'No surfaced execution payload.';
+        if (primary.kind === 'node_states') return _envProductNodeStateMeta(primary.data || {}).preview;
+        if (primary.kind === 'error') return _envProductCollapseText(primary.data, 180) || 'Execution error.';
+        return _envProductPreview(primary.data, primary.kind);
+    }
+
+    function _envExecutionTone(execRow) {
+        var status = _wfNormalizeStatus((execRow && execRow.status) || 'pending');
+        if (status === 'failed') return 'failed';
+        if (status === 'running') return 'live';
+        if (status === 'completed') return 'ready';
+        return 'idle';
+    }
+
+    function _envNormalizeExecutionHistoryRows(payload) {
+        var rows = [];
+        if (payload && Array.isArray(payload.history)) rows = payload.history;
+        else if (payload && Array.isArray(payload.executions)) rows = payload.executions;
+        else if (Array.isArray(payload)) rows = payload;
+        return rows.filter(function (row) {
+            return row && typeof row === 'object' && String(row.execution_id || '').trim();
+        }).map(function (row) {
+            return Object.assign({}, row, {
+                execution_id: String(row.execution_id || ''),
+                workflow_id: String(row.workflow_id || ''),
+                status: _wfNormalizeStatus(row.status || 'pending')
+            });
+        }).sort(function (a, b) {
+            var aTs = Number(a.updated_ms || 0) || Date.parse(String(a.started_at || '')) || 0;
+            var bTs = Number(b.updated_ms || 0) || Date.parse(String(b.started_at || '')) || 0;
+            return bTs - aTs;
+        });
+    }
+
+    function _envHistoryExecutionById(executionId) {
+        var needle = String(executionId || '').trim();
+        if (!needle) return null;
+        var current = _envCurrentExecution();
+        if (current && String(current.execution_id || '') === needle) return current;
+        for (var i = 0; i < (_envRunHistoryState.rows || []).length; i++) {
+            var row = (_envRunHistoryState.rows || [])[i] || {};
+            if (String(row.execution_id || '') === needle) return row;
+        }
+        return null;
+    }
+
+    function _envMergeExecutionIntoRunHistory(execRow) {
+        if (!execRow || typeof execRow !== 'object') return;
+        var workflowId = String(execRow.workflow_id || '').trim();
+        var executionId = String(execRow.execution_id || '').trim();
+        if (!workflowId || !executionId) return;
+        if (String(_envRunHistoryState.workflowId || '') && String(_envRunHistoryState.workflowId || '') !== workflowId) return;
+        var merged = (_envRunHistoryState.rows || []).slice();
+        var replaced = false;
+        for (var i = 0; i < merged.length; i++) {
+            if (String((merged[i] || {}).execution_id || '') === executionId) {
+                merged[i] = Object.assign({}, merged[i] || {}, execRow, {
+                    execution_id: executionId,
+                    workflow_id: workflowId,
+                    status: _wfNormalizeStatus(execRow.status || 'pending')
+                });
+                replaced = true;
+                break;
+            }
+        }
+        if (!replaced) {
+            merged.unshift(Object.assign({}, execRow, {
+                execution_id: executionId,
+                workflow_id: workflowId,
+                status: _wfNormalizeStatus(execRow.status || 'pending')
+            }));
+        }
+        _envRunHistoryState.workflowId = workflowId;
+        _envRunHistoryState.rows = _envNormalizeExecutionHistoryRows(merged);
+        if (!_envRunHistoryState.selectedExecutionId || !_envHistoryExecutionById(_envRunHistoryState.selectedExecutionId)) {
+            _envRunHistoryState.selectedExecutionId = '';
+        }
+    }
+
+    function _envDefaultComparisonExecutionId(rows, currentExec) {
+        var currentId = currentExec ? String(currentExec.execution_id || '') : '';
+        for (var i = 0; i < (rows || []).length; i++) {
+            var candidateId = String((((rows || [])[i] || {}).execution_id) || '');
+            if (!candidateId) continue;
+            if (!currentId || candidateId !== currentId) return candidateId;
+        }
+        return currentId || String((((rows || [])[0] || {}).execution_id) || '');
+    }
+
+    function _envRequestRunHistory(reason, force) {
+        var workflowId = String(_wfSelectedId || '').trim();
+        if (!workflowId) return;
+        var state = _envRunHistoryState || {};
+        var exec = _envCurrentExecution();
+        var currentExecutionId = exec ? String(exec.execution_id || '') : '';
+        var now = Date.now();
+        if (!force) {
+            if (String(state.pendingWorkflowId || '') === workflowId) return;
+            if (String(state.workflowId || '') === workflowId
+                && String(state.lastRequestedExecutionId || '') === currentExecutionId
+                && (now - Number(state.lastRequestTs || 0)) < 2500) {
+                return;
+            }
+        }
+        state.workflowId = workflowId;
+        state.pendingWorkflowId = workflowId;
+        state.lastRequestedExecutionId = currentExecutionId;
+        state.lastRequestTs = now;
+        state.error = '';
+        callTool('workflow_history', {
+            workflow_id: workflowId,
+            limit: String(_envComparisonConfig().historyLimit)
+        });
+        if (reason) {
+            _envLogAction('runtime', 'Requested workflow history · ' + String(reason), 'system', {
+                workflow_id: workflowId,
+                execution_id: currentExecutionId
+            });
+        }
+    }
+
     function _envProfileCatalog() {
         return Array.isArray((_envConfig || {}).profiles) ? (_envConfig.profiles || []).filter(function (profile) {
             return profile && typeof profile === 'object' && profile.id;
@@ -5693,6 +5904,11 @@
             if (raw.sampler.intervalMs !== undefined) cfg.sampler.intervalMs = Math.max(1000, Number(raw.sampler.intervalMs) || cfg.sampler.intervalMs);
             if (raw.sampler.maxSamples !== undefined) cfg.sampler.maxSamples = Math.max(8, Number(raw.sampler.maxSamples) || cfg.sampler.maxSamples);
             if (raw.sampler.autoCaptureOnRuntime !== undefined) cfg.sampler.autoCaptureOnRuntime = !!raw.sampler.autoCaptureOnRuntime;
+        }
+        if (raw.comparison && typeof raw.comparison === 'object') {
+            if (raw.comparison.historyLimit !== undefined) cfg.comparison.historyLimit = Math.max(2, Math.min(24, Number(raw.comparison.historyLimit) || cfg.comparison.historyLimit));
+            if (raw.comparison.maxExecutionCards !== undefined) cfg.comparison.maxExecutionCards = Math.max(2, Math.min(12, Number(raw.comparison.maxExecutionCards) || cfg.comparison.maxExecutionCards));
+            if (raw.comparison.maxDeltaLines !== undefined) cfg.comparison.maxDeltaLines = Math.max(2, Math.min(12, Number(raw.comparison.maxDeltaLines) || cfg.comparison.maxDeltaLines));
         }
         if (raw.scene && typeof raw.scene === 'object') {
             if (raw.scene.enabled !== undefined) cfg.scene.enabled = !!raw.scene.enabled;
@@ -6738,6 +6954,7 @@
         var replayCursor = String(Math.max(0, Number(((_envKernel.replay || {}).cursor) || 0)));
         var activeProfileId = String(((_envKernel.profile || {}).activeId) || (((_envConfig || {}).shell || {}).defaultProfile) || '').trim();
         if (command === 'focus_workflow') return _envScene.workflowId ? ('workflow::' + _envScene.workflowId) : '';
+        if (command === 'focus_execution') return targetId ? ('execution::' + targetId) : (_envScene.executionId ? ('execution::' + _envScene.executionId) : '');
         if (command === 'focus_district') return targetId ? ('district::' + targetId) : '';
         if (command === 'focus_node') return targetId ? ('node::' + targetId) : '';
         if (command === 'focus_doc' || command === 'open_doc_memory') return targetId ? ('doc::' + targetId) : '';
@@ -11435,6 +11652,9 @@
             var district = _envSceneDistrictById(id);
             if (district) return 'district · ' + String(district.label || district.id || 'district');
         }
+        if (kind === 'execution') {
+            return id ? ('execution · ' + _activityTokenShort(id, 18)) : 'execution';
+        }
         if (kind === 'node' && workflow && Array.isArray(workflow.nodes)) {
             for (var i = 0; i < workflow.nodes.length; i++) {
                 if (String(workflow.nodes[i].id || '') === String(id || '')) {
@@ -11626,7 +11846,8 @@
             }
         }
         if (focus.kind === 'execution') {
-            return { label: 'execution', kind: 'execution', data: exec || null };
+            var execPayload = _envHistoryExecutionById(focus.id) || focus.payload || exec || null;
+            return { label: focus.label || 'execution', kind: 'execution', data: execPayload };
         }
         return { label: workflow ? String(workflow.name || workflow.id || 'workflow') : 'workflow', kind: 'workflow', data: workflow || null };
     }
@@ -11872,6 +12093,19 @@
                 return;
             }
             _envSetFocus('branch', branchId, actorName);
+            return;
+        }
+        if (command === 'focus_execution') {
+            var currentExec = _envCurrentExecution();
+            var executionId = targetId || (currentExec ? String(currentExec.execution_id || '') : '') || _envRunHistoryState.selectedExecutionId;
+            var executionRow = _envHistoryExecutionById(executionId);
+            if (!executionId || !executionRow) {
+                _envSetBadge('failed', 'NO EXEC');
+                _envLogAction('control', 'Control command focus_execution missing execution target', actorName, { action: command, target: targetId });
+                renderEnvironmentView();
+                return;
+            }
+            _envSetFocus('execution', executionId, actorName, executionRow);
             return;
         }
         if (command === 'focus_workflow') {
@@ -12748,6 +12982,7 @@
     function _envFocusCommandForKind(kind) {
         var k = String(kind || 'workflow').trim();
         if (k === 'workflow') return 'focus_workflow';
+        if (k === 'execution') return 'focus_execution';
         if (k === 'district') return 'focus_district';
         if (k === 'node') return 'focus_node';
         if (k === 'artifact') return 'focus_artifact';
@@ -13003,15 +13238,166 @@
         };
     }
 
-    function _envRenderArtifactPanel(workflow, exec, sections) {
-        if (!sections.length) {
-            return '<div class="envops-stage-empty">No produced artifacts yet. Execute the system or use the export/API actions above to populate this product lens.</div>';
+    function _envExecutionCardMeta(execRow, label) {
+        if (!execRow || typeof execRow !== 'object') return null;
+        var status = _wfNormalizeStatus(execRow.status || 'pending');
+        var tone = _envExecutionTone(execRow);
+        var counts = _envExecutionNodeCounts(execRow);
+        var total = Number(counts.completed || 0) + Number(counts.running || 0) + Number(counts.failed || 0) + Number(counts.pending || 0) + Number(counts.skipped || 0);
+        var whenTs = Number(execRow.updated_ms || 0) || Date.parse(String(execRow.started_at || '')) || 0;
+        var summary = total
+            ? ('nodes ' + total + ' · failed ' + String(counts.failed || 0) + ' · running ' + String(counts.running || 0))
+            : ('nodes executed ' + String(Number(execRow.nodes_executed || 0)));
+        return {
+            execution_id: String(execRow.execution_id || ''),
+            label: String(label || 'execution'),
+            status: status,
+            tone: tone,
+            statusLabel: status.toUpperCase(),
+            runLabel: _activityTokenShort(String(execRow.execution_id || 'run'), 18),
+            meta: (whenTs ? _fmtTimeAgo(whenTs) : 'time unknown') + (typeof execRow.elapsed_ms === 'number' ? (' · ' + String(execRow.elapsed_ms) + 'ms') : ''),
+            summary: summary,
+            preview: _envExecutionPreview(execRow),
+            surfaceCount: _envExecutionSurfaceCount(execRow),
+            inputPreview: execRow.input !== undefined ? _envProductPreview(execRow.input, 'input') : '',
+            counts: counts
+        };
+    }
+
+    function _envRunComparisonDeltas(baseRow, compareRow) {
+        var maxLines = _envComparisonConfig().maxDeltaLines;
+        var deltas = [];
+        if (!baseRow || !compareRow) return deltas;
+        function pushDelta(text) {
+            if (!text || deltas.length >= maxLines) return;
+            deltas.push(text);
         }
+        var baseStatus = _wfNormalizeStatus(baseRow.status || 'pending');
+        var compareStatus = _wfNormalizeStatus(compareRow.status || 'pending');
+        if (baseStatus !== compareStatus) pushDelta('status: ' + baseStatus + ' vs ' + compareStatus);
+        if (typeof baseRow.elapsed_ms === 'number' && typeof compareRow.elapsed_ms === 'number' && baseRow.elapsed_ms !== compareRow.elapsed_ms) {
+            var deltaMs = Number(baseRow.elapsed_ms || 0) - Number(compareRow.elapsed_ms || 0);
+            pushDelta('elapsed delta: ' + (deltaMs > 0 ? '+' : '') + String(deltaMs) + 'ms');
+        }
+        if (Number(baseRow.nodes_executed || 0) !== Number(compareRow.nodes_executed || 0)) {
+            pushDelta('nodes executed: ' + String(Number(baseRow.nodes_executed || 0)) + ' vs ' + String(Number(compareRow.nodes_executed || 0)));
+        }
+        var baseCounts = _envExecutionNodeCounts(baseRow);
+        var compareCounts = _envExecutionNodeCounts(compareRow);
+        ['completed', 'running', 'failed', 'pending'].forEach(function (key) {
+            if (deltas.length >= maxLines) return;
+            if (Number(baseCounts[key] || 0) !== Number(compareCounts[key] || 0)) {
+                pushDelta(key + ' nodes: ' + String(Number(baseCounts[key] || 0)) + ' vs ' + String(Number(compareCounts[key] || 0)));
+            }
+        });
+        if (_envExecutionSurfaceCount(baseRow) !== _envExecutionSurfaceCount(compareRow)) {
+            pushDelta('product surfaces: ' + String(_envExecutionSurfaceCount(baseRow)) + ' vs ' + String(_envExecutionSurfaceCount(compareRow)));
+        }
+        var basePrimary = _envExecutionPrimaryPayload(baseRow);
+        var comparePrimary = _envExecutionPrimaryPayload(compareRow);
+        if (basePrimary && comparePrimary && String(basePrimary.kind || '') !== String(comparePrimary.kind || '')) {
+            pushDelta('primary payload: ' + String(basePrimary.kind || 'none') + ' vs ' + String(comparePrimary.kind || 'none'));
+        }
+        var baseInput = baseRow.input !== undefined ? _envProductCollapseText(_envProductPreview(baseRow.input, 'input'), 88) : '';
+        var compareInput = compareRow.input !== undefined ? _envProductCollapseText(_envProductPreview(compareRow.input, 'input'), 88) : '';
+        if (baseInput && compareInput && baseInput !== compareInput) {
+            pushDelta('input surface changed');
+        }
+        if (baseRow.error || compareRow.error) {
+            var baseErr = _envProductCollapseText(baseRow.error || '', 64);
+            var compareErr = _envProductCollapseText(compareRow.error || '', 64);
+            if (baseErr !== compareErr) pushDelta('error surface diverged');
+        }
+        return deltas.slice(0, maxLines);
+    }
+
+    function _envRenderRunComparison(exec) {
+        var rows = (_envRunHistoryState.rows || []).slice();
+        var compareCfg = _envComparisonConfig();
+        var currentExec = exec || null;
+        var currentId = currentExec ? String(currentExec.execution_id || '') : '';
+        var baseRow = currentExec || rows[0] || null;
+        var compareId = String(_envRunHistoryState.selectedExecutionId || '');
+        var compareRow = compareId ? _envHistoryExecutionById(compareId) : null;
+        if (!compareRow || (baseRow && String(compareRow.execution_id || '') === String(baseRow.execution_id || ''))) {
+            compareId = _envDefaultComparisonExecutionId(rows, currentExec);
+            compareRow = compareId ? _envHistoryExecutionById(compareId) : null;
+            _envRunHistoryState.selectedExecutionId = compareId;
+        }
+        var refreshMeta = _envRunHistoryState.refreshedTs ? ('refreshed ' + _fmtTimeAgo(_envRunHistoryState.refreshedTs)) : 'history not loaded yet';
+        var historyState = _envRunHistoryState.pendingWorkflowId
+            ? '<div class="envops-run-compare-status">Loading workflow history…</div>'
+            : (_envRunHistoryState.error ? '<div class="envops-run-compare-status error">' + _esc(_envRunHistoryState.error) + '</div>' : '');
+        var historyRail = rows.slice(0, compareCfg.maxExecutionCards).map(function (row, idx) {
+            var rowStatus = _wfNormalizeStatus(row.status || 'pending');
+            var active = compareRow && String(compareRow.execution_id || '') === String(row.execution_id || '') ? ' active' : '';
+            var current = currentId && String(row.execution_id || '') === currentId ? ' current' : '';
+            return '<button type="button" class="envops-run-history-chip tone-' + _esc(_envExecutionTone(row)) + active + current + '" data-env-action="set-compare-execution" data-env-execution-id="' + _esc(String(row.execution_id || '')) + '">' +
+                '<span class="badge">' + _esc((idx === 0 && !current ? 'latest' : rowStatus).toUpperCase()) + '</span>' +
+                '<span class="label">' + _esc(_activityTokenShort(String(row.execution_id || 'run'), 18)) + '</span>' +
+                '<span class="meta">' + _esc(typeof row.elapsed_ms === 'number' ? (String(row.elapsed_ms) + 'ms') : (row.started_at ? _fmtTimeAgo(Date.parse(String(row.started_at || ''))) : 'execution')) + '</span>' +
+                '</button>';
+        }).join('');
+        if (!baseRow && !rows.length) {
+            return '<div class="envops-run-compare">' +
+                '<div class="envops-run-compare-head">' +
+                '<div><div class="envops-product-kicker">Run Comparison</div><div class="envops-run-compare-title">Execution deltas</div><div class="envops-run-compare-meta">' + _esc(refreshMeta) + '</div></div>' +
+                '<button type="button" class="btn-dim" data-env-action="refresh-run-history">REFRESH HISTORY</button>' +
+                '</div>' +
+                historyState +
+                '<div class="envops-stage-empty">Run comparison needs execution history. Execute this system or refresh workflow history to populate the comparison rail.</div>' +
+                '</div>';
+        }
+        var baseMeta = _envExecutionCardMeta(baseRow, currentExec ? 'CURRENT RUN' : 'LATEST RUN');
+        var compareMeta = _envExecutionCardMeta(compareRow, 'COMPARE RUN');
+        var deltas = _envRunComparisonDeltas(baseRow, compareRow);
+        function runCard(meta, side) {
+            if (!meta) {
+                return '<div class="envops-run-card empty"><div class="envops-stage-empty">Select another execution to compare against the active run.</div></div>';
+            }
+            return '<div class="envops-run-card tone-' + _esc(meta.tone) + '">' +
+                '<div class="envops-run-card-head">' +
+                '<div><div class="envops-run-card-kicker">' + _esc(meta.label) + '</div><div class="envops-run-card-title">' + _esc(meta.runLabel) + '</div><div class="envops-run-card-meta">' + _esc(meta.meta) + '</div></div>' +
+                '<button type="button" class="btn-dim envops-artifact-focus" data-env-action="focus-execution" data-env-execution-id="' + _esc(meta.execution_id) + '">' + _esc(side === 'base' ? 'FOCUS RUN' : 'FOCUS COMPARE') + '</button>' +
+                '</div>' +
+                '<div class="envops-run-card-status">' + _esc(meta.statusLabel) + ' · ' + _esc(meta.summary) + '</div>' +
+                '<div class="envops-run-card-preview">' + _esc(meta.preview || 'No preview available.') + '</div>' +
+                '<div class="envops-run-card-foot"><span>' + _esc(String(meta.surfaceCount) + ' surfaced payload' + (meta.surfaceCount === 1 ? '' : 's')) + '</span><span>' + _esc('failed ' + String((meta.counts || {}).failed || 0)) + '</span></div>' +
+                '</div>';
+        }
+        var deltaHtml = deltas.length
+            ? ('<div class="envops-run-delta-list">' + deltas.map(function (line) {
+                return '<div class="envops-run-delta-item">' + _esc(line) + '</div>';
+            }).join('') + '</div>')
+            : '<div class="envops-stage-empty">No material delta surfaced between these runs yet.</div>';
+        return '<div class="envops-run-compare">' +
+            '<div class="envops-run-compare-head">' +
+            '<div>' +
+            '<div class="envops-product-kicker">Run Comparison</div>' +
+            '<div class="envops-run-compare-title">' + _esc(currentExec ? 'Current run vs prior executions' : 'Recent execution deltas') + '</div>' +
+            '<div class="envops-run-compare-meta">' + _esc(String(rows.length) + ' cached execution' + (rows.length === 1 ? '' : 's') + ' · ' + refreshMeta) + '</div>' +
+            '</div>' +
+            '<button type="button" class="btn-dim" data-env-action="refresh-run-history">REFRESH HISTORY</button>' +
+            '</div>' +
+            historyState +
+            '<div class="envops-run-history-rail">' + (historyRail || '<div class="envops-stage-empty">No prior executions cached yet.</div>') + '</div>' +
+            '<div class="envops-run-compare-grid">' +
+            runCard(baseMeta, 'base') +
+            runCard(compareMeta, 'compare') +
+            '</div>' +
+            '<div class="envops-run-delta">' +
+            '<div class="envops-card-label" style="margin-bottom:6px;">What Changed</div>' +
+            deltaHtml +
+            '</div>' +
+            '</div>';
+    }
+
+    function _envRenderArtifactPanel(workflow, exec, sections) {
         var metas = sections.map(function (section, idx) {
             return _envProductSectionMeta(section, idx);
         });
         var activeArtifactId = ((_envKernel.focus || {}).kind === 'artifact') ? String((_envKernel.focus || {}).id || '') : '';
-        var primary = metas.slice().sort(function (a, b) { return Number(b.rank || 0) - Number(a.rank || 0); })[0] || metas[0];
+        var primary = metas.slice().sort(function (a, b) { return Number(b.rank || 0) - Number(a.rank || 0); })[0] || metas[0] || null;
         var exportMeta = metas.find(function (meta) { return meta.kind === 'export'; }) || null;
         var apiMeta = metas.find(function (meta) { return meta.kind === 'api'; }) || null;
         var outputDepth = metas.filter(function (meta) {
@@ -13021,13 +13407,16 @@
         var runTone = execStatus === 'failed' ? 'failed' : (execStatus === 'running' ? 'live' : (execStatus === 'completed' ? 'ready' : 'idle'));
         var runMetric = exec
             ? (execStatus + ' · ' + _activityTokenShort(exec.execution_id || 'run', 18))
-            : 'ready · no execution id';
+            : ((_envRunHistoryState.rows || []).length ? ('history · ' + String((_envRunHistoryState.rows || []).length) + ' cached') : 'ready · no execution id');
         function metricCard(label, value, tone, artifactIndex) {
             var cls = 'envops-product-metric tone-' + _esc(String(tone || 'idle'));
             if (artifactIndex === undefined || artifactIndex === null) {
                 return '<div class="' + cls + '"><span class="k">' + _esc(label) + '</span><span class="v">' + _esc(value) + '</span></div>';
             }
             return '<button type="button" class="' + cls + ' actionable" data-env-action="focus-artifact" data-env-artifact-index="' + String(artifactIndex) + '"><span class="k">' + _esc(label) + '</span><span class="v">' + _esc(value) + '</span></button>';
+        }
+        if (!primary) {
+            return _envRenderRunComparison(exec);
         }
         var rail = metas.map(function (meta) {
             var active = String(meta.index) === activeArtifactId ? ' active' : '';
@@ -13069,6 +13458,7 @@
             metricCard('Output Depth', String(outputDepth) + ' execution surface' + (outputDepth === 1 ? '' : 's') + ' · ' + String(metas.length) + ' total', outputDepth ? 'ready' : 'idle', null) +
             '</div>' +
             '</div>' +
+            _envRenderRunComparison(exec) +
             '<div class="envops-product-rail">' + rail + '</div>' +
             '<div class="envops-product-stack">' + cards + '</div>' +
             '</div>';
@@ -13390,6 +13780,8 @@
         if (configEl) _envRenderConfigPanel();
 
         if (!workflow) {
+            _envRunHistoryState.workflowId = '';
+            _envRunHistoryState.pendingWorkflowId = '';
             stageEl.innerHTML = '<div class="envops-stage-empty">Select a workflow-backed system from the catalog. The Environment tab will project its runtime, outputs, artifacts, and traces through one operator shell.</div>';
             artifactsEl.innerHTML = '<div class="envops-stage-empty">Load a system to inspect execution payloads, produced artifacts, and export results.</div>';
             kernelEl.innerHTML = '<div class="envops-stage-empty">Load a workflow-backed system to enable focus, sampling, branching, and shared-control operations.</div>';
@@ -13442,6 +13834,16 @@
             _envDocState.activeDocMeta = null;
             _envDocState.activeDocContent = '';
             _envRefreshDocs('workflow switch', 'system', true);
+        }
+        if (String(_envRunHistoryState.workflowId || '') !== workflowId) {
+            _envRunHistoryState.workflowId = workflowId;
+            _envRunHistoryState.pendingWorkflowId = '';
+            _envRunHistoryState.rows = [];
+            _envRunHistoryState.selectedExecutionId = '';
+            _envRunHistoryState.error = '';
+            _envRequestRunHistory('workflow switch', true);
+        } else if (!_envRunHistoryState.rows.length && !_envRunHistoryState.pendingWorkflowId) {
+            _envRequestRunHistory('initial load', false);
         }
         if (focusStateEl) focusStateEl.textContent = String((_envKernel.focus && _envKernel.focus.kind) || 'workflow');
 
@@ -17689,9 +18091,26 @@
     var envArtifactsEl = document.getElementById('envops-artifacts');
     if (envArtifactsEl) {
         envArtifactsEl.addEventListener('click', function (e) {
-            var artifactEl = e.target.closest('[data-env-action="focus-artifact"]');
-            if (!artifactEl) return;
-            _envQueueControl('focus_artifact', artifactEl.getAttribute('data-env-artifact-index') || '0', 'user', 'artifact click focus');
+            var actionEl = e.target.closest('[data-env-action]');
+            if (!actionEl) return;
+            var action = actionEl.getAttribute('data-env-action') || '';
+            if (action === 'focus-artifact') {
+                _envQueueControl('focus_artifact', actionEl.getAttribute('data-env-artifact-index') || '0', 'user', 'artifact click focus');
+                return;
+            }
+            if (action === 'refresh-run-history') {
+                _envRequestRunHistory('manual refresh', true);
+                renderEnvironmentView();
+                return;
+            }
+            if (action === 'set-compare-execution') {
+                _envRunHistoryState.selectedExecutionId = String(actionEl.getAttribute('data-env-execution-id') || '');
+                renderEnvironmentView();
+                return;
+            }
+            if (action === 'focus-execution') {
+                _envQueueControl('focus_execution', actionEl.getAttribute('data-env-execution-id') || '', 'user', 'execution compare focus');
+            }
         });
     }
 
@@ -17965,6 +18384,9 @@
     window.envopsFocusArtifact = function (artifactIndex, actor) {
         _envQueueControl('focus_artifact', artifactIndex === undefined || artifactIndex === null ? '0' : String(artifactIndex), actor || 'assistant', 'external artifact focus');
     };
+    window.envopsFocusExecution = function (executionId, actor) {
+        _envQueueControl('focus_execution', executionId === undefined || executionId === null ? '' : String(executionId), actor || 'assistant', 'external execution focus');
+    };
     window.envopsFocusTrace = function (traceIndex, actor) {
         _envQueueControl('focus_trace', traceIndex === undefined || traceIndex === null ? '0' : String(traceIndex), actor || 'assistant', 'external trace focus');
     };
@@ -18016,6 +18438,9 @@
     window.envopsSetWatchMode = function (mode, enabled, actor) {
         _envSetWatchMode(mode || '', enabled, actor || 'assistant');
     };
+    window.envopsRefreshRunHistory = function (reason) {
+        _envRequestRunHistory(reason || 'external refresh', true);
+    };
     window.envopsGetBusEvents = function (limit) {
         var take = Math.max(1, Math.min(200, Number(limit || _envLiveTailLimit() || 24)));
         return JSON.parse(JSON.stringify((_envBus.events || []).slice(0, take)));
@@ -18025,6 +18450,8 @@
     };
     window.envopsGetSharedState = function () {
         _envRefreshReplayTrack((_envKernel.replay || {}).mode, true);
+        var currentExec = _envCurrentExecution();
+        var latestHistory = ((_envRunHistoryState.rows || [])[0]) || null;
         return {
             config_source: _envBus.source || 'defaults',
             focus: Object.assign({}, _envKernel.focus || {}),
@@ -18108,6 +18535,15 @@
                 query: String((_envDocState.query || '')),
                 result_count: Number(((_envDocState.results || []).length) || 0),
                 active_doc: String(_envDocState.activeDocId || '')
+            },
+            comparison: {
+                workflow_id: String(_envRunHistoryState.workflowId || ''),
+                pending: !!String(_envRunHistoryState.pendingWorkflowId || ''),
+                history_count: Number(((_envRunHistoryState.rows || []).length) || 0),
+                selected_execution_id: String(_envRunHistoryState.selectedExecutionId || ''),
+                latest_execution_id: String((latestHistory || {}).execution_id || ((currentExec || {}).execution_id || '')),
+                last_requested_execution_id: String(_envRunHistoryState.lastRequestedExecutionId || ''),
+                error: String(_envRunHistoryState.error || '')
             },
             recipes: {
                 count: Number(_envRecipeCatalog().length || 0),
