@@ -1828,6 +1828,142 @@
             color: var(--text-dim);
         }
 
+        .envops-habitat-mode-rail {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 8px;
+            margin-top: 6px;
+        }
+
+        .envops-habitat-mode-card {
+            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(255,255,255,0.035);
+            padding: 8px 10px;
+            min-height: 66px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .envops-habitat-mode-card .h {
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            font-size: 8px;
+        }
+
+        .envops-habitat-mode-card .v {
+            color: var(--text);
+            font-size: 11px;
+            line-height: 1.35;
+            font-weight: 700;
+        }
+
+        .envops-habitat-mode-card .m {
+            color: var(--text-dim);
+            font-size: 9px;
+            line-height: 1.45;
+        }
+
+        .envops-habitat-mode-card.dominant.mode-watch {
+            border-color: rgba(255,190,96,0.34);
+            box-shadow: inset 0 0 0 1px rgba(255,190,96,0.1);
+        }
+
+        .envops-habitat-mode-card.dominant.mode-replay {
+            border-color: rgba(79,255,208,0.34);
+            box-shadow: inset 0 0 0 1px rgba(79,255,208,0.1);
+        }
+
+        .envops-habitat-mode-card.dominant.mode-event,
+        .envops-habitat-mode-card.dominant.mode-focus {
+            border-color: rgba(102,184,255,0.34);
+            box-shadow: inset 0 0 0 1px rgba(102,184,255,0.1);
+        }
+
+        .envops-habitat-mode-card.route {
+            border-color: rgba(79,255,208,0.18);
+        }
+
+        .envops-habitat-mode-card.ok {
+            border-color: rgba(0,255,136,0.18);
+        }
+
+        .envops-habitat-mode-card.warning {
+            border-color: rgba(255,170,0,0.3);
+            box-shadow: inset 0 0 0 1px rgba(255,170,0,0.08);
+        }
+
+        .envops-habitat-mode-card.alert {
+            border-color: rgba(255,83,83,0.34);
+            box-shadow: inset 0 0 0 1px rgba(255,83,83,0.1);
+        }
+
+        .envops-habitat-event-route {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr);
+            gap: 8px;
+            align-items: stretch;
+            margin-top: 6px;
+        }
+
+        .envops-habitat-event-pill {
+            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(255,255,255,0.03);
+            padding: 8px 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            min-height: 64px;
+        }
+
+        .envops-habitat-event-pill .h {
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            font-size: 8px;
+        }
+
+        .envops-habitat-event-pill .v {
+            color: var(--text);
+            font-size: 11px;
+            line-height: 1.35;
+            font-weight: 700;
+        }
+
+        .envops-habitat-event-pill .m {
+            color: var(--text-dim);
+            font-size: 9px;
+            line-height: 1.45;
+        }
+
+        .envops-habitat-event-pill.source {
+            border-color: rgba(255,190,96,0.28);
+        }
+
+        .envops-habitat-event-pill.relay {
+            border-color: rgba(102,184,255,0.32);
+            box-shadow: inset 0 0 0 1px rgba(102,184,255,0.08);
+        }
+
+        .envops-habitat-event-pill.target {
+            border-color: rgba(79,255,208,0.28);
+        }
+
+        .envops-habitat-event-link {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-dim);
+            font-size: 8px;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+            border: 1px dashed rgba(255,255,255,0.08);
+            padding: 0 8px;
+            min-height: 64px;
+            font-family: var(--mono);
+        }
+
         .envops-habitat-shell {
             --env-cam-shift-x: 0px;
             --env-cam-shift-y: 0px;
@@ -1835,11 +1971,22 @@
             --env-cam-roll: 0deg;
             --env-cam-lift: 0px;
             --env-cam-depth: 0px;
+            --env-cam-orbit-x: 0deg;
+            --env-cam-orbit-y: 0deg;
+            --env-cam-orbit-x-soft: 0deg;
+            --env-cam-orbit-y-soft: 0deg;
+            --env-cam-orbit-x-near: 0deg;
+            --env-cam-orbit-y-near: 0deg;
+            --env-cam-perspective-x: 50%;
+            --env-cam-perspective-y: 42%;
+            --env-cam-sway-x: 0px;
+            --env-cam-sway-y: 0px;
             min-height: 280px;
             position: relative;
             perspective: 1200px;
-            perspective-origin: 50% 42%;
+            perspective-origin: var(--env-cam-perspective-x) var(--env-cam-perspective-y);
             transform-style: preserve-3d;
+            transform: translate3d(var(--env-cam-sway-x), var(--env-cam-sway-y), 0px);
         }
 
         .envops-habitat-atmosphere-layer {
@@ -1911,9 +2058,17 @@
             border-radius: 999px;
             transform-origin: left center;
             opacity: 0.38;
+            overflow: hidden;
+            isolation: isolate;
+            --env-flow-color: rgba(79,255,208,0.64);
+            --env-flow-opacity: 0;
+            --env-flow-speed: 0s;
+            --env-flow-span: 64px;
+            --env-conduit-glow: rgba(68,198,255,0.18);
             box-shadow:
                 0 0 16px rgba(79,255,208,0.12),
                 0 0 30px rgba(68,198,255,0.08);
+            transition: opacity 140ms ease, filter 140ms ease, box-shadow 140ms ease, height 140ms ease;
         }
 
         .envops-habitat-corridor-spine::before,
@@ -1926,14 +2081,47 @@
         }
 
         .envops-habitat-corridor-spine::before {
-            background: linear-gradient(90deg, rgba(255,255,255,0.02), rgba(255,255,255,0.16), rgba(255,255,255,0.02));
+            left: calc(-1 * var(--env-flow-span, 64px));
+            width: var(--env-flow-span, 64px);
+            top: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, rgba(255,255,255,0), var(--env-flow-color, rgba(79,255,208,0.64)) 52%, rgba(255,255,255,0));
             mix-blend-mode: screen;
+            filter: blur(0.6px);
+            opacity: 0;
         }
 
         .envops-habitat-corridor-spine::after {
             inset: 2px;
             background: linear-gradient(90deg, rgba(79,255,208,0.08), rgba(68,198,255,0.24), rgba(79,255,208,0.08));
             opacity: 0.86;
+            box-shadow: 0 0 12px var(--env-conduit-glow, rgba(68,198,255,0.18));
+        }
+
+        .envops-habitat-corridor-spine.support {
+            opacity: 0.26;
+        }
+
+        .envops-habitat-corridor-spine.dominant {
+            opacity: 0.58;
+            height: 11px;
+        }
+
+        .envops-habitat-corridor-spine.alert {
+            filter: saturate(1.18) brightness(1.08);
+        }
+
+        .envops-habitat-corridor-spine.ghosted {
+            opacity: 0.1;
+            filter: saturate(0.54) brightness(0.74);
+        }
+
+        .envops-habitat-corridor-spine.flow-live::before,
+        .envops-habitat-corridor-spine.flow-watch::before,
+        .envops-habitat-corridor-spine.flow-replay::before,
+        .envops-habitat-corridor-spine.flow-alert::before {
+            animation: envopsConduitFlow var(--env-flow-speed, 4.8s) linear infinite;
+            opacity: var(--env-flow-opacity, 0.42);
         }
 
         .envops-habitat-portal {
@@ -2027,12 +2215,359 @@
             text-shadow: 0 1px 0 rgba(0,0,0,0.4);
         }
 
+        .envops-habitat-platform-layer {
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            transform-style: preserve-3d;
+        }
+
+        .envops-habitat-platform {
+            position: absolute;
+            width: var(--env-platform-width, 164px);
+            height: calc(var(--env-platform-height, 68px) + var(--env-platform-skirt-height, 26px));
+            transform:
+                translate(-50%, -50%)
+                translateZ(calc(var(--env-platform-depth, -12px) + var(--env-cam-depth, 0px)))
+                rotateX(calc(72deg + var(--env-cam-orbit-y-near)))
+                rotateY(var(--env-cam-orbit-x-near))
+                rotateZ(calc(var(--env-cam-roll) * 0.3))
+                scale(var(--env-platform-scale, 1));
+            transform-style: preserve-3d;
+            opacity: var(--env-platform-opacity, 0.88);
+            filter:
+                brightness(var(--env-platform-brightness, 1))
+                saturate(var(--env-platform-saturation, 1));
+            transition: transform 140ms ease, opacity 140ms ease, filter 140ms ease;
+        }
+
+        .envops-habitat-platform.mode-dominant {
+            opacity: min(1, calc(var(--env-platform-opacity, 0.88) + 0.12));
+            filter:
+                brightness(calc(var(--env-platform-brightness, 1) + 0.08))
+                saturate(calc(var(--env-platform-saturation, 1) + 0.18));
+        }
+
+        .envops-habitat-platform.mode-ghosted {
+            opacity: max(0.14, calc(var(--env-platform-opacity, 0.88) - 0.24));
+            filter:
+                brightness(calc(var(--env-platform-brightness, 1) - 0.16))
+                saturate(calc(var(--env-platform-saturation, 1) - 0.32));
+        }
+
+        .envops-habitat-platform.failure-surface {
+            filter:
+                brightness(calc(var(--env-platform-brightness, 1) + 0.1))
+                saturate(calc(var(--env-platform-saturation, 1) + 0.24));
+        }
+
+        .envops-habitat-platform .glow {
+            position: absolute;
+            inset: -24px;
+            transform: translateZ(-10px);
+            background: radial-gradient(circle at center, var(--env-platform-glow, rgba(79,255,208,0.16)) 0%, rgba(0,0,0,0) 72%);
+            filter: blur(18px);
+            opacity: var(--env-platform-glow-opacity, 0.2);
+        }
+
+        .envops-habitat-platform .deck {
+            position: absolute;
+            inset: 0 0 auto 0;
+            height: var(--env-platform-height, 68px);
+            border-radius: 26px;
+            border: 1px solid rgba(255,255,255,0.12);
+            background:
+                linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.01) 22%, rgba(7,10,16,0.12)),
+                var(--env-platform-fill, linear-gradient(180deg, rgba(79,255,208,0.2), rgba(68,198,255,0.08) 60%, rgba(8,14,22,0.94)));
+            box-shadow:
+                inset 0 0 0 1px rgba(255,255,255,0.03),
+                0 16px 24px rgba(0,0,0,0.26);
+        }
+
+        .envops-habitat-platform .rim {
+            position: absolute;
+            left: 50%;
+            top: 10px;
+            width: calc(var(--env-platform-width, 164px) - 26px);
+            height: calc(var(--env-platform-height, 68px) - 20px);
+            transform: translateX(-50%) translateZ(3px);
+            border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.08);
+            background:
+                radial-gradient(circle at 50% 32%, rgba(255,255,255,0.12), rgba(255,255,255,0.02) 48%, rgba(0,0,0,0) 78%);
+            opacity: var(--env-platform-rim-opacity, 0.24);
+        }
+
+        .envops-habitat-platform .skirt {
+            position: absolute;
+            left: 50%;
+            top: calc(var(--env-platform-height, 68px) - 5px);
+            width: calc(var(--env-platform-width, 164px) * 0.88);
+            height: var(--env-platform-skirt-height, 26px);
+            transform:
+                translateX(-50%)
+                rotateX(90deg);
+            border-radius: 0 0 18px 18px;
+            border: 1px solid rgba(255,255,255,0.08);
+            background:
+                linear-gradient(180deg, rgba(255,255,255,0.04), rgba(0,0,0,0.22)),
+                var(--env-platform-skirt, linear-gradient(180deg, rgba(79,255,208,0.18), rgba(8,14,22,0.92)));
+            box-shadow:
+                0 10px 18px rgba(0,0,0,0.24),
+                0 0 18px var(--env-platform-glow, rgba(79,255,208,0.14));
+        }
+
+        .envops-habitat-platform .tag {
+            position: absolute;
+            left: 50%;
+            bottom: -4px;
+            min-width: 110px;
+            transform: translateX(-50%);
+            text-align: center;
+            font-size: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.82px;
+            color: var(--env-platform-tag, var(--text-dim));
+            text-shadow: 0 1px 0 rgba(0,0,0,0.46);
+            white-space: nowrap;
+        }
+
         .envops-habitat-zone-layer {
             position: absolute;
             inset: 0;
             z-index: 1;
             pointer-events: none;
             transform-style: preserve-3d;
+        }
+
+        .envops-habitat-shadow-layer {
+            position: absolute;
+            inset: 0;
+            z-index: 1;
+            pointer-events: none;
+            overflow: hidden;
+            transform-style: preserve-3d;
+        }
+
+        .envops-habitat-shadow-cluster {
+            position: absolute;
+            width: 0;
+            height: 0;
+            pointer-events: none;
+            transform-style: preserve-3d;
+            transition: opacity 140ms ease, filter 140ms ease, transform 140ms ease;
+        }
+
+        .envops-habitat-shadow-cluster.mode-dominant {
+            filter: saturate(1.12) brightness(1.06);
+        }
+
+        .envops-habitat-shadow-cluster.mode-support {
+            filter: saturate(1.02) brightness(0.98);
+        }
+
+        .envops-habitat-shadow-cluster.mode-ghosted {
+            filter: saturate(0.6) brightness(0.72);
+        }
+
+        .envops-habitat-shadow-cluster.failure-surface {
+            filter: saturate(1.18) brightness(1.08);
+        }
+
+        .envops-habitat.mode-watch .envops-habitat-shadow-cluster.mode-dominant {
+            filter: saturate(1.2) brightness(1.08);
+        }
+
+        .envops-habitat.mode-replay .envops-habitat-shadow-cluster.mode-dominant {
+            filter: saturate(1.22) brightness(1.1);
+        }
+
+        .envops-habitat.failure-alert .envops-habitat-shadow-cluster.failure-surface {
+            filter: saturate(1.24) brightness(1.12);
+        }
+
+        .envops-habitat-shadow,
+        .envops-habitat-reflection {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            pointer-events: none;
+            transform-style: preserve-3d;
+        }
+
+        .envops-habitat-shadow {
+            border-radius: 999px;
+            transform: translate(-50%, -50%);
+            filter: blur(12px);
+        }
+
+        .envops-habitat-reflection {
+            border-radius: 20px 20px 999px 999px;
+            transform: translate(-50%, -50%);
+            mix-blend-mode: screen;
+            border: 1px solid rgba(255,255,255,0.04);
+            filter: blur(0.6px);
+        }
+
+        .envops-habitat-shadow-cluster.mode-dominant .envops-habitat-shadow {
+            filter: blur(14px);
+        }
+
+        .envops-habitat-shadow-cluster.failure-surface .envops-habitat-reflection {
+            border-color: rgba(255,122,122,0.12);
+            box-shadow: 0 0 22px rgba(255,92,92,0.14);
+        }
+
+        .envops-habitat-substrate-layer {
+            position: absolute;
+            inset: 0;
+            z-index: 2;
+            pointer-events: none;
+            transform-style: preserve-3d;
+        }
+
+        .envops-habitat-substrate-rail {
+            position: absolute;
+            height: 3px;
+            border-radius: 999px;
+            transform-origin: left center;
+            background: linear-gradient(90deg, rgba(79,255,208,0.18), rgba(68,198,255,0.42), rgba(79,255,208,0.12));
+            opacity: 0.24;
+            mix-blend-mode: screen;
+            overflow: hidden;
+            isolation: isolate;
+            --env-flow-color: rgba(79,255,208,0.68);
+            --env-flow-opacity: 0;
+            --env-flow-speed: 0s;
+            --env-flow-span: 44px;
+            --env-conduit-glow: rgba(68,198,255,0.16);
+            transition: opacity 140ms ease, filter 140ms ease, box-shadow 140ms ease, height 140ms ease;
+        }
+
+        .envops-habitat-substrate-rail::before,
+        .envops-habitat-substrate-rail::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            pointer-events: none;
+        }
+
+        .envops-habitat-substrate-rail::before {
+            left: calc(-1 * var(--env-flow-span, 44px));
+            width: var(--env-flow-span, 44px);
+            top: -1px;
+            bottom: -1px;
+            background: linear-gradient(90deg, rgba(255,255,255,0), var(--env-flow-color, rgba(79,255,208,0.68)) 52%, rgba(255,255,255,0));
+            filter: blur(0.45px);
+            opacity: 0;
+        }
+
+        .envops-habitat-substrate-rail::after {
+            inset: 0;
+            background: linear-gradient(90deg, rgba(255,255,255,0.02), rgba(255,255,255,0.12), rgba(255,255,255,0.02));
+            opacity: 0.22;
+        }
+
+        .envops-habitat-substrate-rail.failed {
+            background: linear-gradient(90deg, rgba(255,112,124,0.28), rgba(255,96,104,0.54), rgba(255,112,124,0.12));
+        }
+
+        .envops-habitat-substrate-rail.ghosted {
+            opacity: 0.08;
+        }
+
+        .envops-habitat-substrate-rail.dominant {
+            height: 4px;
+        }
+
+        .envops-habitat-substrate-rail.support {
+            opacity: 0.18;
+        }
+
+        .envops-habitat-substrate-rail.alert {
+            filter: saturate(1.16) brightness(1.06);
+        }
+
+        .envops-habitat-substrate-rail.flow-live::before,
+        .envops-habitat-substrate-rail.flow-watch::before,
+        .envops-habitat-substrate-rail.flow-replay::before,
+        .envops-habitat-substrate-rail.flow-alert::before {
+            animation: envopsConduitFlow var(--env-flow-speed, 4.2s) linear infinite;
+            opacity: var(--env-flow-opacity, 0.48);
+        }
+
+        .envops-habitat-substrate-node {
+            position: absolute;
+            width: 112px;
+            height: 128px;
+            pointer-events: none;
+            transform-style: preserve-3d;
+            filter: saturate(1) brightness(1);
+        }
+
+        .envops-habitat-substrate-node .column,
+        .envops-habitat-substrate-node .core,
+        .envops-habitat-substrate-node .ring,
+        .envops-habitat-substrate-node .tag {
+            position: absolute;
+            left: 50%;
+            transform-style: preserve-3d;
+        }
+
+        .envops-habitat-substrate-node .column {
+            width: 30px;
+            height: 62px;
+            bottom: 26px;
+            transform: translateX(-50%) translateZ(-8px);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 16px 16px 10px 10px;
+        }
+
+        .envops-habitat-substrate-node .core {
+            width: 64px;
+            height: 16px;
+            bottom: 78px;
+            transform: translateX(-50%) translateZ(18px);
+            border-radius: 999px;
+            border: 1px solid rgba(255,255,255,0.14);
+        }
+
+        .envops-habitat-substrate-node .ring {
+            width: 92px;
+            height: 92px;
+            bottom: 34px;
+            transform: translateX(-50%) translateZ(6px);
+            border-radius: 50%;
+            border: 1px solid rgba(79,255,208,0.28);
+            opacity: 0.66;
+        }
+
+        .envops-habitat-substrate-node .tag {
+            bottom: 0;
+            transform: translateX(-50%);
+            min-width: 108px;
+            text-align: center;
+            font-size: 8px;
+            letter-spacing: 0.85px;
+            text-transform: uppercase;
+            color: var(--text-dim);
+            white-space: nowrap;
+            text-shadow: 0 1px 0 rgba(0,0,0,0.48);
+        }
+
+        .envops-habitat-substrate-node.dominant .ring {
+            opacity: 0.96;
+            transform: translateX(-50%) translateZ(14px) scale(1.06);
+        }
+
+        .envops-habitat-substrate-node.ghosted {
+            filter: saturate(0.62) brightness(0.78);
+        }
+
+        .envops-habitat-substrate-node.failed .ring {
+            border-style: dashed;
         }
 
         .envops-habitat-volume-layer {
@@ -2060,7 +2595,8 @@
             transform:
                 translate(-50%, -100%)
                 translateZ(calc(var(--env-volume-depth, 0px) + var(--env-cam-depth, 0px)))
-                rotateX(72deg)
+                rotateX(calc(72deg + var(--env-cam-orbit-y-near)))
+                rotateY(var(--env-cam-orbit-x-near))
                 rotateZ(var(--env-cam-roll));
             transform-style: preserve-3d;
             opacity: var(--env-volume-opacity, 0.86);
@@ -2231,9 +2767,131 @@
         .envops-habitat-object-layer {
             position: absolute;
             inset: 0;
-            z-index: 2;
+            z-index: 3;
             pointer-events: none;
             transform-style: preserve-3d;
+        }
+
+        .envops-habitat-beacon-layer {
+            position: absolute;
+            inset: 0;
+            z-index: 4;
+            pointer-events: none;
+            transform-style: preserve-3d;
+        }
+
+        .envops-habitat-beacon-line {
+            position: absolute;
+            height: 2px;
+            border-radius: 999px;
+            transform-origin: left center;
+            background: linear-gradient(90deg, rgba(79,255,208,0.82), rgba(68,198,255,0.16));
+            box-shadow: 0 0 14px rgba(79,255,208,0.2);
+            opacity: 0.42;
+        }
+
+        .envops-habitat-beacon-line.target {
+            background: linear-gradient(90deg, rgba(68,198,255,0.76), rgba(79,255,208,0.08));
+        }
+
+        .envops-habitat-beacon-line.failure {
+            background: linear-gradient(90deg, rgba(255,122,122,0.92), rgba(255,92,92,0.12));
+            box-shadow: 0 0 18px rgba(255, 92, 92, 0.26);
+        }
+
+        .envops-habitat-beacon {
+            position: absolute;
+            width: 118px;
+            min-height: 58px;
+            padding: 8px 10px 10px;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            background: linear-gradient(180deg, rgba(17, 28, 40, 0.94), rgba(7, 10, 16, 0.96));
+            box-shadow:
+                0 16px 34px rgba(0, 0, 0, 0.34),
+                0 0 0 1px rgba(255, 255, 255, 0.03);
+            color: var(--text);
+            pointer-events: auto;
+            cursor: pointer;
+            overflow: hidden;
+            transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease, opacity 120ms ease;
+        }
+
+        .envops-habitat-beacon.anchor {
+            border-color: rgba(79, 255, 208, 0.38);
+            box-shadow:
+                0 18px 38px rgba(0, 0, 0, 0.34),
+                0 0 0 1px rgba(79, 255, 208, 0.14),
+                0 0 26px rgba(79, 255, 208, 0.14);
+        }
+
+        .envops-habitat-beacon.target {
+            border-color: rgba(68, 198, 255, 0.3);
+        }
+
+        .envops-habitat-beacon.failure {
+            border-color: rgba(255, 122, 122, 0.44);
+            box-shadow:
+                0 18px 38px rgba(0, 0, 0, 0.34),
+                0 0 0 1px rgba(255, 122, 122, 0.14),
+                0 0 28px rgba(255, 92, 92, 0.18);
+        }
+
+        .envops-habitat-beacon:hover,
+        .envops-habitat-beacon.active {
+            transform: translate(-50%, -50%) scale(1.04);
+        }
+
+        .envops-habitat-beacon-ring {
+            position: absolute;
+            inset: -22px;
+            border: 1px solid rgba(79, 255, 208, 0.18);
+            border-radius: 999px;
+            animation: envopsBeaconRing 1.8s ease-out infinite;
+            pointer-events: none;
+        }
+
+        .envops-habitat-beacon.target .envops-habitat-beacon-ring {
+            border-color: rgba(68, 198, 255, 0.16);
+        }
+
+        .envops-habitat-beacon.failure .envops-habitat-beacon-ring {
+            border-color: rgba(255, 122, 122, 0.22);
+        }
+
+        .envops-habitat-beacon-body {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .envops-habitat-beacon-kind {
+            font-size: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.82px;
+            color: var(--text-dim);
+        }
+
+        .envops-habitat-beacon-label {
+            font-size: 11px;
+            font-weight: 700;
+            line-height: 1.34;
+        }
+
+        .envops-habitat-beacon-meta {
+            font-size: 9px;
+            line-height: 1.42;
+            color: var(--text-dim);
+        }
+
+        .envops-habitat-beacon-flare {
+            position: absolute;
+            inset: auto -16px -18px auto;
+            width: 44px;
+            height: 44px;
+            border-radius: 999px;
+            background: radial-gradient(circle at center, rgba(255, 122, 122, 0.5), rgba(255, 92, 92, 0) 70%);
+            pointer-events: none;
         }
 
         .envops-habitat-backwall {
@@ -2248,6 +2906,8 @@
             transform:
                 translate3d(calc(var(--env-cam-shift-x) * 0.18), calc(var(--env-cam-shift-y) * 0.12 - var(--env-cam-lift)), calc(-120px + var(--env-cam-depth)))
                 scale(calc(1.12 * var(--env-cam-zoom)))
+                rotateX(var(--env-cam-orbit-y-soft))
+                rotateY(var(--env-cam-orbit-x-soft))
                 rotateZ(var(--env-cam-roll));
             transform-origin: center center;
             opacity: 0.65;
@@ -2269,11 +2929,194 @@
             transform:
                 translate3d(calc(var(--env-cam-shift-x) * 0.12), calc(var(--env-cam-shift-y) * 0.08), calc(-80px + var(--env-cam-depth)))
                 rotateX(72deg)
+                rotateY(var(--env-cam-orbit-x-near))
                 rotateZ(calc(var(--env-cam-roll) * 0.45));
             transform-origin: top center;
             border-top: 1px solid rgba(255, 255, 255, 0.05);
             box-shadow: inset 0 18px 30px rgba(0, 0, 0, 0.34);
             transition: opacity 160ms ease, filter 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+        }
+
+        .envops-habitat-depth-layer {
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            transform-style: preserve-3d;
+            overflow: hidden;
+        }
+
+        .envops-habitat-depth-lane,
+        .envops-habitat-depth-cross,
+        .envops-habitat-depth-pylon {
+            position: absolute;
+            transform-style: preserve-3d;
+            pointer-events: none;
+        }
+
+        .envops-habitat-depth-lane {
+            width: 3px;
+            border-radius: 999px;
+            background: linear-gradient(180deg, rgba(255,255,255,0), rgba(79,255,208,0.26), rgba(68,198,255,0.12), rgba(255,255,255,0));
+            box-shadow:
+                0 0 12px rgba(79,255,208,0.08),
+                0 0 24px rgba(68,198,255,0.06);
+            opacity: 0.22;
+        }
+
+        .envops-habitat-depth-lane.dominant {
+            opacity: 0.46;
+            box-shadow:
+                0 0 16px rgba(79,255,208,0.14),
+                0 0 28px rgba(68,198,255,0.12);
+        }
+
+        .envops-habitat-depth-lane.alert {
+            background: linear-gradient(180deg, rgba(255,255,255,0), rgba(255,108,120,0.3), rgba(255,108,120,0.12), rgba(255,255,255,0));
+            box-shadow:
+                0 0 16px rgba(255,108,120,0.14),
+                0 0 28px rgba(255,108,120,0.10);
+        }
+
+        .envops-habitat-depth-cross {
+            height: 2px;
+            border-radius: 999px;
+            background: linear-gradient(90deg, rgba(255,255,255,0), rgba(102,184,255,0.24), rgba(79,255,208,0.18), rgba(255,255,255,0));
+            box-shadow: 0 0 10px rgba(68,198,255,0.06);
+            opacity: 0.2;
+        }
+
+        .envops-habitat-depth-cross.dominant {
+            opacity: 0.36;
+        }
+
+        .envops-habitat-depth-cross.alert {
+            background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,108,120,0.24), rgba(255,255,255,0));
+            box-shadow: 0 0 12px rgba(255,108,120,0.08);
+            opacity: 0.3;
+        }
+
+        .envops-habitat-depth-pylon {
+            width: 54px;
+            height: 116px;
+            transform-origin: 50% 100%;
+            opacity: 0.24;
+            filter: saturate(1) brightness(1);
+            transition: opacity 140ms ease, filter 140ms ease, transform 140ms ease;
+        }
+
+        .envops-habitat-depth-pylon .shaft,
+        .envops-habitat-depth-pylon .cap,
+        .envops-habitat-depth-pylon .foot {
+            position: absolute;
+            left: 50%;
+            transform-style: preserve-3d;
+        }
+
+        .envops-habitat-depth-pylon .shaft {
+            bottom: 18px;
+            width: 14px;
+            height: 78px;
+            transform: translateX(-50%) rotateX(90deg);
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.08);
+            background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(68,198,255,0.14), rgba(8,14,22,0.92));
+            box-shadow: 0 10px 18px rgba(0,0,0,0.18);
+        }
+
+        .envops-habitat-depth-pylon .cap {
+            bottom: 84px;
+            width: 34px;
+            height: 12px;
+            transform: translateX(-50%) translateZ(8px);
+            border-radius: 999px;
+            border: 1px solid rgba(255,255,255,0.12);
+            background: radial-gradient(circle at center, rgba(79,255,208,0.32), rgba(68,198,255,0.16) 58%, rgba(8,14,22,0.94));
+            box-shadow: 0 0 16px rgba(79,255,208,0.1);
+        }
+
+        .envops-habitat-depth-pylon .foot {
+            bottom: 0;
+            width: 52px;
+            height: 18px;
+            transform: translateX(-50%);
+            border-radius: 999px;
+            border: 1px solid rgba(255,255,255,0.08);
+            background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(8,14,22,0.94));
+            box-shadow: 0 10px 18px rgba(0,0,0,0.2);
+        }
+
+        .envops-habitat-depth-pylon.dominant {
+            opacity: 0.42;
+            filter: saturate(1.14) brightness(1.08);
+        }
+
+        .envops-habitat-depth-pylon.alert {
+            opacity: 0.38;
+            filter: saturate(1.18) brightness(1.1);
+        }
+
+        .envops-habitat-depth-pylon.alert .shaft {
+            background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,108,120,0.22), rgba(8,14,22,0.92));
+        }
+
+        .envops-habitat-depth-pylon.alert .cap {
+            background: radial-gradient(circle at center, rgba(255,108,120,0.34), rgba(255,108,120,0.14) 58%, rgba(8,14,22,0.94));
+            box-shadow: 0 0 18px rgba(255,108,120,0.12);
+        }
+
+        .envops-habitat-vanish-layer {
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            transform-style: preserve-3d;
+            overflow: hidden;
+        }
+
+        .envops-habitat-vanish-beam {
+            position: absolute;
+            height: 18px;
+            border-radius: 999px;
+            transform-origin: left center;
+            opacity: 0.16;
+            filter: blur(1.2px) saturate(1) brightness(1);
+            box-shadow: 0 0 24px rgba(68,198,255,0.08);
+        }
+
+        .envops-habitat-vanish-beam.watch {
+            opacity: 0.24;
+            box-shadow: 0 0 28px rgba(255,190,96,0.12);
+        }
+
+        .envops-habitat-vanish-beam.replay {
+            opacity: 0.22;
+            box-shadow: 0 0 28px rgba(79,255,208,0.12);
+        }
+
+        .envops-habitat-vanish-beam.alert {
+            opacity: 0.28;
+            box-shadow: 0 0 30px rgba(255,108,120,0.14);
+        }
+
+        .envops-habitat.mode-watch .envops-habitat-depth-lane,
+        .envops-habitat.mode-watch .envops-habitat-depth-cross {
+            filter: saturate(1.18) brightness(1.08);
+        }
+
+        .envops-habitat.mode-replay .envops-habitat-depth-lane,
+        .envops-habitat.mode-replay .envops-habitat-depth-cross {
+            filter: saturate(1.22) brightness(1.08);
+        }
+
+        .envops-habitat.failure-alert .envops-habitat-depth-lane,
+        .envops-habitat.failure-alert .envops-habitat-depth-cross {
+            filter: saturate(1.28) brightness(1.1);
+        }
+
+        .envops-habitat.mode-watch .envops-habitat-depth-pylon.dominant,
+        .envops-habitat.mode-replay .envops-habitat-depth-pylon.dominant {
+            transform: translate(-50%, -100%) translateZ(8px) scale(1.04);
         }
 
         .envops-habitat.mode-focus .envops-habitat-backwall,
@@ -2330,58 +3173,158 @@
 
         .envops-habitat-object {
             position: absolute;
-            width: 128px;
-            min-height: 62px;
-            padding: 8px 9px;
-            border: 1px solid rgba(255, 255, 255, 0.14);
-            background: linear-gradient(180deg, rgba(20, 31, 43, 0.96), rgba(9, 14, 20, 0.96));
-            box-shadow: 0 10px 26px rgba(0, 0, 0, 0.26);
+            width: var(--env-card-width, 128px);
+            height: var(--env-card-height, 68px);
+            padding: 0;
+            border: none;
+            background: transparent;
+            box-shadow: none;
             transform:
                 translate(-50%, -50%)
                 scale(var(--env-scale, 1))
-                rotateX(8deg)
+                rotateX(14deg)
                 rotateY(calc(var(--env-tilt, 0) * 1deg));
             transform-style: preserve-3d;
             cursor: pointer;
             transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
             color: var(--text);
-            overflow: hidden;
+            overflow: visible;
+            isolation: isolate;
             pointer-events: auto;
+        }
+
+        .envops-habitat-object-shell,
+        .envops-habitat-object-body {
+            position: absolute;
+            inset: 0;
+            transform-style: preserve-3d;
+        }
+
+        .envops-habitat-object-face,
+        .envops-habitat-object-glow {
+            position: absolute;
+            pointer-events: none;
+            transform-style: preserve-3d;
+        }
+
+        .envops-habitat-object-face.front {
+            inset: 0;
+            transform: translateZ(calc(var(--env-card-depth, 18px) * 0.52));
+            border: 1px solid var(--env-face-edge, rgba(255, 255, 255, 0.14));
+            border-radius: 14px;
+            background:
+                linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0) 30%),
+                linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.08)),
+                var(--env-face-fill, #243444);
+            box-shadow:
+                inset 0 0 0 1px rgba(255,255,255,0.03),
+                0 16px 28px rgba(0, 0, 0, 0.24);
+        }
+
+        .envops-habitat-object-face.top {
+            left: 0;
+            right: 0;
+            top: 0;
+            height: var(--env-card-depth, 18px);
+            transform-origin: top center;
+            transform:
+                translateZ(calc(var(--env-card-depth, 18px) * 0.52))
+                rotateX(90deg);
+            border-radius: 14px 14px 8px 8px;
+            border: 1px solid rgba(255,255,255,0.14);
+            background:
+                linear-gradient(180deg, rgba(255,255,255,0.28), rgba(255,255,255,0.04) 60%),
+                var(--env-face-fill, #243444);
+            opacity: 0.92;
+        }
+
+        .envops-habitat-object-face.side {
+            top: 0;
+            bottom: 0;
+            right: 0;
+            width: var(--env-card-depth, 18px);
+            transform-origin: right center;
+            transform:
+                translateZ(calc(var(--env-card-depth, 18px) * 0.52))
+                rotateY(90deg);
+            border-radius: 0 14px 14px 0;
+            border: 1px solid rgba(255,255,255,0.1);
+            background:
+                linear-gradient(180deg, rgba(255,255,255,0.04), rgba(0,0,0,0.24)),
+                var(--env-face-fill, #243444);
+            opacity: 0.88;
+        }
+
+        .envops-habitat-object-glow {
+            inset: -14px;
+            transform: translateZ(calc(var(--env-card-depth, 18px) * 0.26));
+            background: radial-gradient(circle at center, var(--env-face-glow, rgba(79,255,208,0.22)) 0%, rgba(0,0,0,0) 72%);
+            filter: blur(16px);
+            opacity: var(--env-glow-opacity, 0.22);
+        }
+
+        .envops-habitat-object-body {
+            padding: 8px 9px;
+            transform: translateZ(calc(var(--env-card-depth, 18px) * 0.66));
+            display: flex;
+            flex-direction: column;
+            gap: 0;
         }
 
         .envops-habitat-object:hover,
         .envops-habitat-object.active {
-            border-color: var(--accent);
-            box-shadow: 0 14px 32px rgba(0, 0, 0, 0.34), 0 0 0 1px rgba(0, 255, 136, 0.18);
             transform:
                 translate(-50%, -50%)
                 scale(calc(var(--env-scale, 1) + 0.04))
-                rotateX(8deg)
+                rotateX(14deg)
                 rotateY(calc(var(--env-tilt, 0) * 1deg));
         }
 
-        .envops-habitat-object.failed {
+        .envops-habitat-object:hover .envops-habitat-object-face.front,
+        .envops-habitat-object.active .envops-habitat-object-face.front {
+            border-color: var(--accent);
+            box-shadow:
+                inset 0 0 0 1px rgba(255,255,255,0.05),
+                0 20px 34px rgba(0, 0, 0, 0.3),
+                0 0 0 1px rgba(0, 255, 136, 0.18);
+        }
+
+        .envops-habitat-object.failed .envops-habitat-object-face.front,
+        .envops-habitat-object.failed .envops-habitat-object-face.top,
+        .envops-habitat-object.failed .envops-habitat-object-face.side {
             border-color: rgba(255, 83, 83, 0.54);
         }
 
-        .envops-habitat-object.running {
+        .envops-habitat-object.running .envops-habitat-object-face.front,
+        .envops-habitat-object.running .envops-habitat-object-face.top,
+        .envops-habitat-object.running .envops-habitat-object-face.side {
             border-color: rgba(255, 170, 0, 0.52);
         }
 
-        .envops-habitat-object.completed {
+        .envops-habitat-object.completed .envops-habitat-object-face.front,
+        .envops-habitat-object.completed .envops-habitat-object-face.top,
+        .envops-habitat-object.completed .envops-habitat-object-face.side {
             border-color: rgba(0, 255, 136, 0.42);
         }
 
-        .envops-habitat-object.event {
+        .envops-habitat-object.event .envops-habitat-object-face.front,
+        .envops-habitat-object.event .envops-habitat-object-face.top,
+        .envops-habitat-object.event .envops-habitat-object-face.side {
             border-color: rgba(68, 198, 255, 0.34);
         }
 
-        .envops-habitat-object.trace {
+        .envops-habitat-object.trace .envops-habitat-object-face.front,
+        .envops-habitat-object.trace .envops-habitat-object-face.top,
+        .envops-habitat-object.trace .envops-habitat-object-face.side {
             border-color: rgba(255, 170, 0, 0.34);
         }
 
-        .envops-habitat-object.artifact,
-        .envops-habitat-object.doc {
+        .envops-habitat-object.artifact .envops-habitat-object-face.front,
+        .envops-habitat-object.artifact .envops-habitat-object-face.top,
+        .envops-habitat-object.artifact .envops-habitat-object-face.side,
+        .envops-habitat-object.doc .envops-habitat-object-face.front,
+        .envops-habitat-object.doc .envops-habitat-object-face.top,
+        .envops-habitat-object.doc .envops-habitat-object-face.side {
             border-color: rgba(170, 200, 255, 0.28);
         }
 
@@ -2392,10 +3335,10 @@
         .envops-habitat-object.recipe,
         .envops-habitat-object.dispatch,
         .envops-habitat-object.queued {
-            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(255, 255, 255, 0.04);
+            filter: saturate(1.04);
         }
 
-        .envops-habitat-object.spotlight {
+        .envops-habitat-object.spotlight .envops-habitat-object-face.front {
             box-shadow:
                 inset 0 0 0 1px rgba(255,255,255,0.08),
                 0 18px 36px rgba(0,0,0,0.28),
@@ -2405,6 +3348,65 @@
         .envops-habitat-object.ghosted::after {
             border-color: rgba(255,255,255,0.04);
             opacity: 0.5;
+        }
+
+        .envops-habitat-object.mode-dominant {
+            --env-glow-opacity: calc(var(--env-glow-opacity, 0.22) * 1.22);
+        }
+
+        .envops-habitat-object.mode-dominant .envops-habitat-object-face.front {
+            box-shadow:
+                inset 0 0 0 1px rgba(255,255,255,0.08),
+                0 18px 40px rgba(0,0,0,0.32),
+                0 0 28px rgba(79,255,208,0.14);
+        }
+
+        .envops-habitat-object.mode-support .envops-habitat-object-face.front {
+            box-shadow:
+                inset 0 0 0 1px rgba(255,255,255,0.06),
+                0 14px 30px rgba(0,0,0,0.24),
+                0 0 12px rgba(102,184,255,0.08);
+        }
+
+        .envops-habitat-object.mode-ghosted {
+            opacity: 0.34;
+        }
+
+        .envops-habitat-object.failure-surface {
+            animation: envopsFailureSurfacePulse 1.5s ease-in-out infinite;
+        }
+
+        .envops-habitat-object.failure-surface .envops-habitat-object-face.front {
+            border-color: rgba(255,83,83,0.42);
+            box-shadow:
+                inset 0 0 0 1px rgba(255,83,83,0.14),
+                0 0 0 1px rgba(255,83,83,0.16),
+                0 0 28px rgba(255,83,83,0.18),
+                0 16px 36px rgba(0,0,0,0.28);
+        }
+
+        .envops-habitat-object.event-source .envops-habitat-object-face.front {
+            border-color: rgba(255,190,96,0.36);
+            box-shadow:
+                inset 0 0 0 1px rgba(255,190,96,0.1),
+                0 0 20px rgba(255,190,96,0.12),
+                0 14px 30px rgba(0,0,0,0.26);
+        }
+
+        .envops-habitat-object.event-relay .envops-habitat-object-face.front {
+            border-color: rgba(102,184,255,0.4);
+            box-shadow:
+                inset 0 0 0 1px rgba(102,184,255,0.12),
+                0 0 24px rgba(102,184,255,0.16),
+                0 16px 34px rgba(0,0,0,0.28);
+        }
+
+        .envops-habitat-object.event-target .envops-habitat-object-face.front {
+            border-color: rgba(79,255,208,0.4);
+            box-shadow:
+                inset 0 0 0 1px rgba(79,255,208,0.12),
+                0 0 24px rgba(79,255,208,0.16),
+                0 16px 34px rgba(0,0,0,0.28);
         }
 
         .envops-habitat-object .p {
@@ -2485,9 +3487,37 @@
             bottom: -14px;
             height: 14px;
             background: radial-gradient(ellipse at center, rgba(0,0,0,0.34), transparent 72%);
-            transform: rotateX(90deg) translateZ(-8px);
+            transform: rotateX(90deg) translateZ(calc(var(--env-card-depth, 18px) * -0.42));
             transform-origin: top center;
             pointer-events: none;
+        }
+
+        @keyframes envopsBeaconRing {
+            0% {
+                opacity: 0.78;
+                transform: scale(0.72);
+            }
+            100% {
+                opacity: 0;
+                transform: scale(1.18);
+            }
+        }
+
+        @keyframes envopsConduitFlow {
+            0% {
+                left: calc(-1 * var(--env-flow-span, 56px));
+                opacity: 0;
+            }
+            12% {
+                opacity: var(--env-flow-opacity, 0.42);
+            }
+            88% {
+                opacity: var(--env-flow-opacity, 0.42);
+            }
+            100% {
+                left: calc(100% + var(--env-flow-span, 56px));
+                opacity: 0;
+            }
         }
 
         @keyframes envopsDispatchPulse {
@@ -2537,6 +3567,24 @@
                     scale(calc(var(--env-scale, 1) + 0.05))
                     rotateX(8deg)
                     rotateY(calc(var(--env-tilt, 0) * 1deg));
+            }
+        }
+
+        @keyframes envopsFailureSurfacePulse {
+            0%,
+            100% {
+                box-shadow:
+                    inset 0 0 0 1px rgba(255,83,83,0.14),
+                    0 0 0 1px rgba(255,83,83,0.16),
+                    0 0 28px rgba(255,83,83,0.18),
+                    0 16px 36px rgba(0,0,0,0.28);
+            }
+            50% {
+                box-shadow:
+                    inset 0 0 0 1px rgba(255,83,83,0.24),
+                    0 0 0 1px rgba(255,83,83,0.24),
+                    0 0 34px rgba(255,83,83,0.28),
+                    0 18px 42px rgba(0,0,0,0.32);
             }
         }
 
@@ -2616,6 +3664,27 @@
 
         .envops-habitat-status-card.idle {
             opacity: 0.86;
+        }
+
+        .envops-habitat.mode-watch .envops-habitat-status-card[data-role="watch"] {
+            border-color: rgba(255,190,96,0.34);
+            box-shadow: inset 0 0 0 1px rgba(255,190,96,0.12), 0 0 18px rgba(255,190,96,0.08);
+        }
+
+        .envops-habitat.mode-replay .envops-habitat-status-card[data-role="replay"] {
+            border-color: rgba(79,255,208,0.34);
+            box-shadow: inset 0 0 0 1px rgba(79,255,208,0.12), 0 0 18px rgba(79,255,208,0.08);
+        }
+
+        .envops-habitat.mode-event .envops-habitat-status-card[data-role="latest"],
+        .envops-habitat.mode-focus .envops-habitat-status-card[data-role="latest"] {
+            border-color: rgba(102,184,255,0.34);
+            box-shadow: inset 0 0 0 1px rgba(102,184,255,0.12), 0 0 18px rgba(102,184,255,0.08);
+        }
+
+        .envops-habitat.failure-alert .envops-habitat-status-card[data-role="failure"],
+        .envops-habitat.failure-warning .envops-habitat-status-card[data-role="failure"] {
+            box-shadow: inset 0 0 0 1px rgba(255,83,83,0.12), 0 0 22px rgba(255,83,83,0.08);
         }
 
         .envops-habitat-pulse-lane {

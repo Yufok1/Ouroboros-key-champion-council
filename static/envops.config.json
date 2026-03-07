@@ -1,5 +1,5 @@
 {
-  "version": "2026-03-07-envops-v9",
+  "version": "2026-03-07-envops-v14",
   "shell": {
     "defaultRenderer": "web3d",
     "defaultPackageMode": "research",
@@ -60,6 +60,21 @@
     "shellParallax": 0.24,
     "shellLift": 14,
     "shellDepthShift": 22,
+    "orbit": {
+      "hoverInfluenceX": 1,
+      "hoverInfluenceY": 1,
+      "orbitMaxYaw": 7.2,
+      "orbitMaxPitch": 5.4,
+      "followEase": 0.12,
+      "perspectiveShiftX": 18,
+      "perspectiveShiftY": 12,
+      "shellSwayX": 9,
+      "shellSwayY": 6,
+      "objectParallaxX": 24,
+      "objectParallaxY": 14,
+      "depthGain": 0.08,
+      "tiltGain": 2.4
+    },
     "focusFieldOpacity": 0.34,
     "focusFieldRingOpacity": 0.18,
     "focusFieldGlow": 1,
@@ -71,6 +86,57 @@
     "trajectoryOpacity": 0.55,
     "trajectoryGlow": true,
     "trajectorySpeed": 0.24,
+    "web3d": {
+      "objectDepth": 18,
+      "dominantDepth": 24,
+      "glowOpacity": 0.22,
+      "liftBoost": 8
+    },
+    "world": {
+      "enabled": true,
+      "laneCount": 8,
+      "deckBands": 6,
+      "laneOpacity": 0.18,
+      "deckOpacity": 0.24,
+      "districtOpacity": 0.22,
+      "districtGlow": 0.42,
+      "floorDepth": 1.02,
+      "horizonLift": 0,
+      "vanishingDrift": 0.01,
+      "fogOpacity": 0.18,
+      "bridgePacketCount": 2,
+      "bridgePacketSize": 4.2,
+      "bridgePacketSpeed": 0.36,
+      "bridgePulseOpacity": 0.34,
+      "depthGrid": {
+        "enabled": true,
+        "crossbarCount": 7,
+        "laneDepthStep": 18,
+        "pylonOpacity": 0.26,
+        "pylonLift": 14
+      }
+    },
+    "platform": {
+      "enabled": true,
+      "widthScale": 6.2,
+      "heightScale": 3.1,
+      "widthBias": 38,
+      "heightBias": 24,
+      "lift": 16,
+      "scaleGain": 0.08,
+      "skirtHeight": 26,
+      "glowOpacity": 0.22,
+      "rimOpacity": 0.24
+    },
+    "substrate": {
+      "enabled": true,
+      "nodeLimit": 28,
+      "railOpacity": 0.28,
+      "railFlowOpacity": 0.52,
+      "depthScale": 220,
+      "elevation": 18,
+      "labelMinScale": 0.85
+    },
     "architecture": {
       "enabled": true,
       "portalWidth": 132,
@@ -78,7 +144,8 @@
       "portalLift": 14,
       "corridorThickness": 10,
       "corridorOpacity": 0.34,
-      "corridorGlow": 0.22
+      "corridorGlow": 0.22,
+      "corridorFlowOpacity": 0.48
     },
     "atmosphere": {
       "enabled": true,

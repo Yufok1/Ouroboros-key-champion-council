@@ -47,7 +47,7 @@
     };
     function _envDefaultConfig() {
         return {
-            version: '2026-03-07-envops-v9',
+            version: '2026-03-07-envops-v11',
             shell: {
                 defaultRenderer: 'web3d',
                 defaultPackageMode: 'research',
@@ -80,8 +80,37 @@
                 cameraDepth: 0.78,
                 objectScale: 1,
                 defaultCameraMode: 'overview',
+                shellParallax: 0.24,
+                shellLift: 14,
+                shellDepthShift: 22,
+                focusFieldOpacity: 0.34,
+                focusFieldRingOpacity: 0.18,
+                focusFieldGlow: 1,
+                volumeBaseHeight: 34,
+                volumeHeightGain: 6.5,
+                volumeBridgeOpacity: 0.22,
                 routeOpacity: 0.42,
                 routeGlow: true,
+                trajectoryOpacity: 0.55,
+                trajectoryGlow: true,
+                trajectorySpeed: 0.24,
+                world: {
+                    enabled: true,
+                    laneCount: 8,
+                    deckBands: 6,
+                    laneOpacity: 0.18,
+                    deckOpacity: 0.24,
+                    districtOpacity: 0.22,
+                    districtGlow: 0.42,
+                    floorDepth: 1.02,
+                    horizonLift: 0,
+                    vanishingDrift: 0.01,
+                    fogOpacity: 0.18,
+                    bridgePacketCount: 2,
+                    bridgePacketSize: 4.2,
+                    bridgePacketSpeed: 0.36,
+                    bridgePulseOpacity: 0.34
+                },
                 architecture: {
                     enabled: true,
                     portalWidth: 132,
@@ -89,7 +118,8 @@
                     portalLift: 14,
                     corridorThickness: 10,
                     corridorOpacity: 0.34,
-                    corridorGlow: 0.22
+                    corridorGlow: 0.22,
+                    corridorFlowOpacity: 0.48
                 },
                 atmosphere: {
                     enabled: true,
@@ -97,6 +127,15 @@
                     driftCount: 9,
                     beamCount: 3,
                     hazeOpacity: 0.26
+                },
+                substrate: {
+                    enabled: true,
+                    nodeLimit: 28,
+                    railOpacity: 0.28,
+                    railFlowOpacity: 0.52,
+                    depthScale: 220,
+                    elevation: 18,
+                    labelMinScale: 0.85
                 }
             },
             ingress: {
@@ -297,6 +336,10 @@
             targetX: 50,
             targetY: 52,
             targetZoom: 1,
+            orbitX: 0,
+            orbitY: 0,
+            targetOrbitX: 0,
+            targetOrbitY: 0,
             offsetX: 0,
             offsetY: 0,
             zoomScale: 1,
@@ -311,7 +354,10 @@
             startClientY: 0,
             startOffsetX: 0,
             startOffsetY: 0,
-            moved: false
+            moved: false,
+            hoverX: 0,
+            hoverY: 0,
+            hoverActive: false
         }
     };
 
@@ -5422,10 +5468,26 @@
             if (raw.scene.cameraDepth !== undefined) cfg.scene.cameraDepth = Math.max(0.5, Math.min(0.95, Number(raw.scene.cameraDepth) || cfg.scene.cameraDepth));
             if (raw.scene.objectScale !== undefined) cfg.scene.objectScale = Math.max(0.5, Math.min(2.2, Number(raw.scene.objectScale) || cfg.scene.objectScale));
             if (raw.scene.defaultCameraMode) cfg.scene.defaultCameraMode = String(raw.scene.defaultCameraMode);
+            if (raw.scene.shellParallax !== undefined) cfg.scene.shellParallax = Math.max(0.05, Math.min(0.8, Number(raw.scene.shellParallax) || cfg.scene.shellParallax));
+            if (raw.scene.shellLift !== undefined) cfg.scene.shellLift = Number(raw.scene.shellLift) || cfg.scene.shellLift;
+            if (raw.scene.shellDepthShift !== undefined) cfg.scene.shellDepthShift = Number(raw.scene.shellDepthShift) || cfg.scene.shellDepthShift;
+            if (raw.scene.focusFieldOpacity !== undefined) cfg.scene.focusFieldOpacity = Math.max(0.02, Math.min(1, Number(raw.scene.focusFieldOpacity) || cfg.scene.focusFieldOpacity));
+            if (raw.scene.focusFieldRingOpacity !== undefined) cfg.scene.focusFieldRingOpacity = Math.max(0.02, Math.min(1, Number(raw.scene.focusFieldRingOpacity) || cfg.scene.focusFieldRingOpacity));
+            if (raw.scene.focusFieldGlow !== undefined) cfg.scene.focusFieldGlow = Math.max(0.2, Math.min(4, Number(raw.scene.focusFieldGlow) || cfg.scene.focusFieldGlow));
+            if (raw.scene.volumeBaseHeight !== undefined) cfg.scene.volumeBaseHeight = Math.max(12, Number(raw.scene.volumeBaseHeight) || cfg.scene.volumeBaseHeight);
+            if (raw.scene.volumeHeightGain !== undefined) cfg.scene.volumeHeightGain = Math.max(1, Number(raw.scene.volumeHeightGain) || cfg.scene.volumeHeightGain);
+            if (raw.scene.volumeBridgeOpacity !== undefined) cfg.scene.volumeBridgeOpacity = Math.max(0.02, Math.min(1, Number(raw.scene.volumeBridgeOpacity) || cfg.scene.volumeBridgeOpacity));
             if (raw.scene.routeOpacity !== undefined) cfg.scene.routeOpacity = Math.max(0.05, Math.min(1, Number(raw.scene.routeOpacity) || cfg.scene.routeOpacity));
             if (raw.scene.routeGlow !== undefined) cfg.scene.routeGlow = !!raw.scene.routeGlow;
+            if (raw.scene.trajectoryOpacity !== undefined) cfg.scene.trajectoryOpacity = Math.max(0.05, Math.min(1, Number(raw.scene.trajectoryOpacity) || cfg.scene.trajectoryOpacity));
+            if (raw.scene.trajectoryGlow !== undefined) cfg.scene.trajectoryGlow = !!raw.scene.trajectoryGlow;
+            if (raw.scene.trajectorySpeed !== undefined) cfg.scene.trajectorySpeed = Math.max(0.02, Math.min(2.5, Number(raw.scene.trajectorySpeed) || cfg.scene.trajectorySpeed));
+            if (raw.scene.navigation && typeof raw.scene.navigation === 'object') cfg.scene.navigation = Object.assign({}, cfg.scene.navigation || {}, raw.scene.navigation);
+            if (raw.scene.world && typeof raw.scene.world === 'object') cfg.scene.world = Object.assign({}, cfg.scene.world || {}, raw.scene.world);
             if (raw.scene.architecture && typeof raw.scene.architecture === 'object') cfg.scene.architecture = Object.assign({}, cfg.scene.architecture || {}, raw.scene.architecture);
             if (raw.scene.atmosphere && typeof raw.scene.atmosphere === 'object') cfg.scene.atmosphere = Object.assign({}, cfg.scene.atmosphere || {}, raw.scene.atmosphere);
+            if (raw.scene.substrate && typeof raw.scene.substrate === 'object') cfg.scene.substrate = Object.assign({}, cfg.scene.substrate || {}, raw.scene.substrate);
+            if (Array.isArray(raw.scene.districts) && raw.scene.districts.length) cfg.scene.districts = raw.scene.districts.slice();
         }
         if (raw.ingress && typeof raw.ingress === 'object') {
             if (raw.ingress.intervalMs !== undefined) cfg.ingress.intervalMs = Math.max(250, Number(raw.ingress.intervalMs) || cfg.ingress.intervalMs);
@@ -5604,12 +5666,28 @@
         return ((_envConfig || {}).scene || {});
     }
 
+    function _envSceneSubstrateConfig() {
+        return (_envSceneConfig().substrate || {});
+    }
+
     function _envSceneArchitectureConfig() {
         return (((_envSceneConfig() || {}).architecture) || {});
     }
 
     function _envSceneAtmosphereConfig() {
         return (((_envSceneConfig() || {}).atmosphere) || {});
+    }
+
+    function _envSceneWorldConfig() {
+        return (((_envSceneConfig() || {}).world) || {});
+    }
+
+    function _envScenePlatformConfig() {
+        return (((_envSceneConfig() || {}).platform) || {});
+    }
+
+    function _envSceneDepthGridConfig() {
+        return (((_envSceneWorldConfig() || {}).depthGrid) || {});
     }
 
     function _envSceneNavigationConfig() {
@@ -5620,6 +5698,26 @@
             zoomStep: Number(nav.zoomStep || 0.12),
             minZoomScale: Math.max(0.55, Number(nav.minZoomScale || 0.7)),
             maxZoomScale: Math.max(1.1, Number(nav.maxZoomScale || 1.8))
+        };
+    }
+
+    function _envSceneOrbitConfig() {
+        var scene = _envSceneConfig();
+        var orbit = scene.orbit || {};
+        return {
+            hoverInfluenceX: Number(orbit.hoverInfluenceX || 1),
+            hoverInfluenceY: Number(orbit.hoverInfluenceY || 1),
+            orbitMaxYaw: Math.max(1.5, Number(orbit.orbitMaxYaw || 7.2)),
+            orbitMaxPitch: Math.max(1.2, Number(orbit.orbitMaxPitch || 5.4)),
+            followEase: Math.max(0.04, Math.min(0.35, Number(orbit.followEase || 0.12))),
+            perspectiveShiftX: Number(orbit.perspectiveShiftX || 18),
+            perspectiveShiftY: Number(orbit.perspectiveShiftY || 12),
+            shellSwayX: Number(orbit.shellSwayX || 9),
+            shellSwayY: Number(orbit.shellSwayY || 6),
+            objectParallaxX: Number(orbit.objectParallaxX || 24),
+            objectParallaxY: Number(orbit.objectParallaxY || 14),
+            depthGain: Number(orbit.depthGain || 0.08),
+            tiltGain: Number(orbit.tiltGain || 2.4)
         };
     }
 
@@ -5771,6 +5869,8 @@
     function _envSceneUpdateCamera(timeMs) {
         var mode = _envSceneNormalizeCameraMode(_envScene.cameraMode || (((_envConfig || {}).scene || {}).defaultCameraMode) || 'overview');
         var cam = _envScene.camera || {};
+        var orbitCfg = _envSceneOrbitConfig();
+        var navState = _envScene.nav || {};
         var target = _envSceneResolveCameraTarget(mode);
         var baseTargetX = 50;
         var baseTargetY = 52;
@@ -5787,9 +5887,23 @@
         cam.offsetX = Number(cam.offsetX || 0);
         cam.offsetY = Number(cam.offsetY || 0);
         cam.zoomScale = _envSceneClampZoomScale(Number(cam.zoomScale || 1));
+        cam.orbitX = Number(cam.orbitX || 0);
+        cam.orbitY = Number(cam.orbitY || 0);
+        cam.targetOrbitX = Number(cam.targetOrbitX || 0);
+        cam.targetOrbitY = Number(cam.targetOrbitY || 0);
         var targetX = baseTargetX + cam.offsetX;
         var targetY = baseTargetY + cam.offsetY;
         var targetZoom = Math.max(0.62, baseTargetZoom * cam.zoomScale);
+        var hoverX = Math.max(-1, Math.min(1, Number(navState.hoverX || 0)));
+        var hoverY = Math.max(-1, Math.min(1, Number(navState.hoverY || 0)));
+        var orbitBiasX = 0;
+        var orbitBiasY = 0;
+        if (target) {
+            orbitBiasX = ((Number(target.x || 50) - 50) / 50) * orbitCfg.orbitMaxYaw * (mode === 'focus' ? 0.52 : 0.34);
+            orbitBiasY = ((52 - Number(target.y || 52)) / 52) * orbitCfg.orbitMaxPitch * (mode === 'replay' ? 0.46 : 0.28);
+        }
+        cam.targetOrbitX = Math.max(-orbitCfg.orbitMaxYaw, Math.min(orbitCfg.orbitMaxYaw, orbitBiasX + (hoverX * orbitCfg.orbitMaxYaw * orbitCfg.hoverInfluenceX)));
+        cam.targetOrbitY = Math.max(-orbitCfg.orbitMaxPitch, Math.min(orbitCfg.orbitMaxPitch, orbitBiasY + ((-hoverY) * orbitCfg.orbitMaxPitch * orbitCfg.hoverInfluenceY)));
         cam.targetX = targetX;
         cam.targetY = targetY;
         cam.targetZoom = targetZoom;
@@ -5798,12 +5912,15 @@
         cam.x = Number(cam.x || 50) + (targetX - Number(cam.x || 50)) * 0.12;
         cam.y = Number(cam.y || 52) + (targetY - Number(cam.y || 52)) * 0.12;
         cam.zoom = Number(cam.zoom || 1) + (targetZoom - Number(cam.zoom || 1)) * 0.12;
+        cam.orbitX = Number(cam.orbitX || 0) + (cam.targetOrbitX - Number(cam.orbitX || 0)) * orbitCfg.followEase;
+        cam.orbitY = Number(cam.orbitY || 0) + (cam.targetOrbitY - Number(cam.orbitY || 0)) * orbitCfg.followEase;
         cam.lastSwitchTs = Number(timeMs || Date.now());
         _envScene.camera = cam;
     }
 
     function _envSceneShellStyle(camera, dominance) {
         var scene = _envSceneConfig();
+        var orbitCfg = _envSceneOrbitConfig();
         var cam = camera || {};
         var parallax = Number(scene.shellParallax || 0.22);
         var liftBase = Number(scene.shellLift || 12);
@@ -5811,6 +5928,10 @@
         var xDelta = 50 - Number(cam.x || 50);
         var yDelta = 52 - Number(cam.y || 52);
         var zoom = Number(cam.zoom || 1);
+        var orbitX = Number(cam.orbitX || 0);
+        var orbitY = Number(cam.orbitY || 0);
+        var orbitXR = orbitCfg.orbitMaxYaw ? Math.max(-1, Math.min(1, orbitX / orbitCfg.orbitMaxYaw)) : 0;
+        var orbitYR = orbitCfg.orbitMaxPitch ? Math.max(-1, Math.min(1, orbitY / orbitCfg.orbitMaxPitch)) : 0;
         var mode = String((dominance && dominance.mode) || 'ambient');
         var shiftX = xDelta * parallax * 6.4;
         var shiftY = yDelta * parallax * 4.8;
@@ -5818,6 +5939,10 @@
         var roll = Math.max(-6, Math.min(6, xDelta * 0.12));
         var lift = liftBase + Math.max(-18, Math.min(18, -yDelta * 1.2));
         var depth = Math.round((zoom - 1) * depthShift * 4.2);
+        var perspectiveX = 50 + (orbitXR * orbitCfg.perspectiveShiftX);
+        var perspectiveY = 42 + (orbitYR * orbitCfg.perspectiveShiftY);
+        var swayX = orbitXR * orbitCfg.shellSwayX;
+        var swayY = orbitYR * orbitCfg.shellSwayY;
         if (mode === 'focus') {
             zoomVar += 0.02;
             depth += 8;
@@ -5831,7 +5956,17 @@
             '--env-cam-zoom:' + zoomVar.toFixed(3) + ';' +
             '--env-cam-roll:' + roll.toFixed(2) + 'deg;' +
             '--env-cam-lift:' + lift.toFixed(1) + 'px;' +
-            '--env-cam-depth:' + depth + 'px;';
+            '--env-cam-depth:' + depth + 'px;' +
+            '--env-cam-orbit-x:' + orbitX.toFixed(2) + 'deg;' +
+            '--env-cam-orbit-y:' + orbitY.toFixed(2) + 'deg;' +
+            '--env-cam-orbit-x-soft:' + (orbitX * 0.55).toFixed(2) + 'deg;' +
+            '--env-cam-orbit-y-soft:' + (orbitY * 0.48).toFixed(2) + 'deg;' +
+            '--env-cam-orbit-x-near:' + (orbitX * 0.92).toFixed(2) + 'deg;' +
+            '--env-cam-orbit-y-near:' + (orbitY * 0.72).toFixed(2) + 'deg;' +
+            '--env-cam-perspective-x:' + perspectiveX.toFixed(2) + '%;' +
+            '--env-cam-perspective-y:' + perspectiveY.toFixed(2) + '%;' +
+            '--env-cam-sway-x:' + swayX.toFixed(1) + 'px;' +
+            '--env-cam-sway-y:' + swayY.toFixed(1) + 'px;';
     }
 
     function _envSceneDistrictTonePalette(tone) {
@@ -6556,6 +6691,67 @@
         return { opacity: 0.15, width: 0.8, shadow: 0.32, dominant: false, suppressed: true };
     }
 
+    function _envSceneConduitFlowState(tone, visual, dominance, hot) {
+        var mode = 'idle';
+        var baseTone = String(tone || 'idle').toLowerCase();
+        var currentMode = String((dominance && dominance.mode) || 'ambient').toLowerCase();
+        var v = visual || { dominant: false, suppressed: false, opacity: 1 };
+        if (hot || baseTone === 'failed') mode = 'alert';
+        else if (currentMode === 'replay' && (v.dominant || baseTone === 'replay' || baseTone === 'branch')) mode = 'replay';
+        else if (currentMode === 'watch' && (v.dominant || baseTone === 'watch' || baseTone === 'queued' || baseTone === 'branch')) mode = 'watch';
+        else if (currentMode === 'event' && (v.dominant || baseTone === 'focus' || baseTone === 'running')) mode = 'live';
+        else if (v.dominant || baseTone === 'running' || baseTone === 'active' || baseTone === 'profile' || baseTone === 'focus' || baseTone === 'queued') mode = 'live';
+
+        var state = {
+            mode: mode,
+            color: 'rgba(164,182,196,0.28)',
+            opacity: 0.16,
+            speed: 0,
+            span: 56,
+            packetCount: 0,
+            packetScale: 0.84
+        };
+        if (mode === 'alert') {
+            state.color = 'rgba(255,108,120,0.86)';
+            state.opacity = 0.74;
+            state.speed = 2.9;
+            state.span = 84;
+            state.packetCount = 3;
+            state.packetScale = 1.08;
+        } else if (mode === 'replay') {
+            state.color = 'rgba(79,255,208,0.82)';
+            state.opacity = 0.62;
+            state.speed = 3.8;
+            state.span = 78;
+            state.packetCount = 2;
+            state.packetScale = 1.02;
+        } else if (mode === 'watch') {
+            state.color = 'rgba(255,190,96,0.8)';
+            state.opacity = 0.58;
+            state.speed = 4.6;
+            state.span = 72;
+            state.packetCount = 2;
+            state.packetScale = 0.98;
+        } else if (mode === 'live') {
+            state.color = 'rgba(102,184,255,0.78)';
+            state.opacity = 0.48;
+            state.speed = 5.2;
+            state.span = 64;
+            state.packetCount = 1;
+            state.packetScale = 0.92;
+        }
+        state.opacity *= Math.max(0.32, Math.min(1.12, Number(v.opacity || 1)));
+        if (v.dominant && state.mode !== 'idle') {
+            state.opacity = Math.min(0.92, state.opacity + 0.12);
+            state.packetCount += 1;
+            state.packetScale += 0.08;
+        }
+        if (v.suppressed && state.mode === 'idle') {
+            state.opacity *= 0.52;
+        }
+        return state;
+    }
+
     function _envSceneObjectDominance(ctx, obj) {
         if (!ctx || ctx.mode === 'ambient') return { opacity: 1, scale: 1, boost: 1, spotlight: false, ghosted: false };
         var key = _envSceneObjectKey(obj);
@@ -6589,6 +6785,11 @@
             return { opacity: 0.72, scale: 1.06, glow: 1.02, dominant: false, suppressed: false };
         }
         return { opacity: 0.18, scale: 0.92, glow: 0.38, dominant: false, suppressed: true };
+    }
+
+    function _envSceneTargetKey(target) {
+        if (!target || !target.kind || target.id === undefined || target.id === null || String(target.id || '') === '') return '';
+        return String(target.kind || '') + '::' + String(target.id || '');
     }
 
     function _envSceneDistrictDominance(ctx, district, state) {
@@ -6769,6 +6970,26 @@
         };
     }
 
+    function _envSceneEventFocusSummary(ctx) {
+        var active = ctx || _envScene.dominance || _envSceneDominanceContext();
+        if (!active || String(active.mode || '') !== 'event' || !active.eventId) return null;
+        var event = _envFindBusEvent(active.eventId);
+        if (!event) return null;
+        var links = _envSceneEventLinkKeys(event);
+        return {
+            id: String(active.eventId || ''),
+            channel: String(links.channel || event.channel || 'event'),
+            actor: String(event.actor || 'system'),
+            body: String(event.body || event.label || ('event ' + String(active.eventId || ''))),
+            eventKey: String(links.eventKey || ('event::' + String(active.eventId || ''))),
+            sourceKey: String(links.sourceKey || ''),
+            targetKey: String(links.targetKey || ''),
+            sourceLabel: _envSceneKeyLabel(links.sourceKey),
+            targetLabel: _envSceneKeyLabel(links.targetKey),
+            eventLabel: _envSceneKeyLabel(links.eventKey || ('event::' + String(active.eventId || '')))
+        };
+    }
+
     function _envSceneDrawFocusField(ctx, projectionMap, timeMs) {
         if (!ctx || ctx.mode === 'ambient') return;
         var anchorKey = _envSceneFocusAnchorKey(ctx);
@@ -6880,11 +7101,16 @@
         var width = Math.max(1, _envScene.width || 1);
         var height = Math.max(1, _envScene.height || 1);
         var cfg = _envSceneConfig();
+        var orbitCfg = _envSceneOrbitConfig();
         var camera = _envScene.camera || {};
         var drift = !!cfg.ambientDrift;
         var t = Number(timeMs || 0) * 0.001;
         var wx = ((Number(obj.x || 50) - Number(camera.x || 50)) / 50) * Number(camera.zoom || 1);
         var wy = Math.max(0, Math.min(1, Number(obj.y || 50) / 100));
+        var orbitX = Number(camera.orbitX || 0);
+        var orbitY = Number(camera.orbitY || 0);
+        var orbitXR = orbitCfg.orbitMaxYaw ? Math.max(-1, Math.min(1, orbitX / orbitCfg.orbitMaxYaw)) : 0;
+        var orbitYR = orbitCfg.orbitMaxPitch ? Math.max(-1, Math.min(1, orbitY / orbitCfg.orbitMaxPitch)) : 0;
         var camDepth = Math.max(0.5, Math.min(0.95, Number(cfg.cameraDepth || 0.78)));
         var driftX = drift ? Math.sin(t * 0.45 + index * 0.37) * (10 + wy * 6) : 0;
         var driftY = drift ? Math.cos(t * 0.32 + index * 0.29) * (4 + wy * 3) : 0;
@@ -6892,8 +7118,12 @@
         var wyRelative = Math.max(0, Math.min(1, (Number(obj.y || 50) - cameraY + 52) / 104));
         var sx = width * 0.5 + (wx * width * 0.34) + driftX + (Number(obj.tilt || 0) * 0.45);
         var sy = height * 0.2 + (wyRelative * height * 0.6) + driftY;
-        var scale = Math.max(0.42, Math.min(1.8, Number(obj.scale || 1) * Number(cfg.objectScale || 1) * Number(camera.zoom || 1) * (0.92 + wyRelative * 0.32)));
-        var depth = Math.max(0.2, Math.min(1.2, camDepth - (wy * 0.32) + (Math.abs(wx) * 0.05)));
+        var orbitShiftX = orbitXR * orbitCfg.objectParallaxX * (0.45 + ((1 - wyRelative) * 0.7));
+        var orbitShiftY = orbitYR * orbitCfg.objectParallaxY * (0.35 + (wyRelative * 0.55));
+        sx += orbitShiftX;
+        sy += orbitShiftY;
+        var scale = Math.max(0.42, Math.min(1.8, Number(obj.scale || 1) * Number(cfg.objectScale || 1) * Number(camera.zoom || 1) * (0.92 + wyRelative * 0.32) * (1 + Math.abs(orbitXR) * 0.025)));
+        var depth = Math.max(0.2, Math.min(1.2, camDepth - (wy * 0.32) + (Math.abs(wx) * 0.05) + (Math.abs(orbitXR) * orbitCfg.depthGain) + ((-orbitYR) * orbitCfg.depthGain * 0.5)));
         var cardWidth = Math.max(58, 88 * scale * depth);
         var cardHeight = Math.max(34, 46 * scale * depth);
         return {
@@ -6917,6 +7147,16 @@
         return 'idle';
     }
 
+    function _envSceneFailureSurfaceKey(surface) {
+        if (!surface) return '';
+        var explicit = String(surface.key || '').trim();
+        if (explicit) return explicit;
+        var kind = String(surface.kind || '').trim();
+        var id = String(surface.id || '').trim();
+        if (!kind || !id) return '';
+        return kind + '::' + id;
+    }
+
     function _envSceneObjectClass(obj) {
         var classes = ['envops-habitat-object', _envSceneObjectTone(obj)];
         var kind = String((obj && obj.kind) || '').toLowerCase();
@@ -6925,20 +7165,251 @@
         if (String(focus.kind || '') === kind && String(focus.id || '') === String((obj && obj.id) || '')) {
             classes.push('active');
         }
+        var dominance = _envScene.dominance || _envSceneDominanceContext();
+        var visual = _envSceneObjectDominance(dominance, obj);
+        if (visual.spotlight) classes.push('mode-dominant');
+        else if (dominance && dominance.mode !== 'ambient' && visual.ghosted) classes.push('mode-ghosted');
+        else if (dominance && dominance.mode !== 'ambient') classes.push('mode-support');
+        var failureKey = _envSceneFailureSurfaceKey(_envScene.failureSurface || null);
+        if (failureKey && failureKey === _envSceneObjectKey(obj)) {
+            classes.push('failure-surface');
+        }
+        if (dominance && dominance.mode === 'event') {
+            var eventSummary = _envSceneEventFocusSummary(dominance);
+            var key = _envSceneObjectKey(obj);
+            if (eventSummary) {
+                if (eventSummary.sourceKey && key === eventSummary.sourceKey) classes.push('event-source');
+                if (eventSummary.targetKey && key === eventSummary.targetKey) classes.push('event-target');
+                if (eventSummary.eventKey && key === eventSummary.eventKey) classes.push('event-relay');
+            }
+        }
         return classes.join(' ');
     }
 
     function _envSceneObjectTransform(item, scaleMultiplier) {
         var obj = item.obj || {};
+        var orbitCfg = _envSceneOrbitConfig();
+        var cam = _envScene.camera || {};
         var depthPx = Math.round((Number(item.depth || 0.5) - 0.5) * 160);
         var tilt = Number(obj.tilt || 0);
         var scale = Math.max(0.48, Number(item.scale || 1)) * Math.max(0.72, Number(scaleMultiplier || 1));
-        return 'translate(' + Math.round(item.x) + 'px,' + Math.round(item.y) + 'px) translateZ(' + depthPx + 'px) scale(' + scale.toFixed(3) + ') rotateX(8deg) rotateY(' + tilt.toFixed(1) + 'deg)';
+        var orbitX = Number(cam.orbitX || 0);
+        var orbitY = Number(cam.orbitY || 0);
+        var pitch = 8 - (orbitY * orbitCfg.tiltGain * 0.28);
+        var yaw = tilt + (orbitX * orbitCfg.tiltGain * 0.16);
+        var roll = orbitX * 0.18;
+        return 'translate(' + Math.round(item.x) + 'px,' + Math.round(item.y) + 'px) translateZ(' + depthPx + 'px) scale(' + scale.toFixed(3) + ') rotateX(' + pitch.toFixed(2) + 'deg) rotateY(' + yaw.toFixed(2) + 'deg) rotateZ(' + roll.toFixed(2) + 'deg)';
+    }
+
+    function _envSceneSubstrateTransform(item, visual, elevatePx, depthBiasPx) {
+        var obj = item.obj || {};
+        var depthPx = Math.round((Number(item.depth || 0.5) - 0.5) * Number(depthBiasPx || 220));
+        var tilt = Number(obj.tilt || 0) * 0.85;
+        var scale = Math.max(0.42, Number(item.scale || 1)) * Math.max(0.78, Number(visual.scale || 1));
+        return 'translate(' + Math.round(item.x) + 'px,' + Math.round(item.y) + 'px) translateZ(' + Math.round(depthPx + Number(elevatePx || 18)) + 'px) scale(' + scale.toFixed(3) + ') rotateX(72deg) rotateY(' + tilt.toFixed(1) + 'deg)';
+    }
+
+    function _envSceneSubstratePalette(tone, visual, obj) {
+        var kind = String((obj && obj.kind) || '').toLowerCase();
+        if (tone === 'failed') {
+            return {
+                core: 'linear-gradient(180deg, rgba(255,128,132,0.72), rgba(108,18,30,0.94))',
+                column: 'linear-gradient(180deg, rgba(255,130,138,0.26), rgba(48,8,12,0.94))',
+                ring: 'rgba(255,116,128,0.64)',
+                shadow: 'rgba(255,86,102,0.24)',
+                tag: 'rgba(255,208,214,0.92)'
+            };
+        }
+        if (tone === 'running' || kind === 'dispatch' || kind === 'queued') {
+            return {
+                core: 'linear-gradient(180deg, rgba(255,212,124,0.72), rgba(128,76,10,0.94))',
+                column: 'linear-gradient(180deg, rgba(255,194,96,0.26), rgba(34,18,6,0.94))',
+                ring: 'rgba(255,198,96,0.62)',
+                shadow: 'rgba(255,180,72,0.20)',
+                tag: 'rgba(255,232,180,0.92)'
+            };
+        }
+        if (kind === 'doc' || kind === 'artifact') {
+            return {
+                core: 'linear-gradient(180deg, rgba(156,138,255,0.70), rgba(44,26,92,0.94))',
+                column: 'linear-gradient(180deg, rgba(144,126,255,0.24), rgba(16,10,32,0.94))',
+                ring: 'rgba(156,132,255,0.58)',
+                shadow: 'rgba(120,98,255,0.18)',
+                tag: 'rgba(218,208,255,0.92)'
+            };
+        }
+        if (kind === 'trace' || kind === 'branch' || kind === 'replay' || kind === 'sample' || kind === 'event' || kind === 'watch') {
+            return {
+                core: 'linear-gradient(180deg, rgba(102,184,255,0.72), rgba(12,62,126,0.94))',
+                column: 'linear-gradient(180deg, rgba(102,184,255,0.22), rgba(8,18,42,0.94))',
+                ring: 'rgba(102,184,255,0.58)',
+                shadow: 'rgba(68,198,255,0.18)',
+                tag: 'rgba(210,236,255,0.92)'
+            };
+        }
+        var glow = visual && visual.spotlight ? 1.16 : (visual && visual.ghosted ? 0.76 : 1);
+        return {
+            core: 'linear-gradient(180deg, rgba(79,255,208,0.72), rgba(8,86,68,0.94))',
+            column: 'linear-gradient(180deg, rgba(79,255,208,0.22), rgba(6,24,18,0.94))',
+            ring: 'rgba(79,255,208,' + (0.52 * glow).toFixed(3) + ')',
+            shadow: 'rgba(79,255,208,' + (0.18 * glow).toFixed(3) + ')',
+            tag: 'rgba(208,255,242,0.92)'
+        };
+    }
+
+    function _envSceneShadowConfig() {
+        var world = (((_envConfig || {}).scene || {}).world) || {};
+        return {
+            shadowOpacity: Math.max(0.04, Number(world.shadowOpacity || 0.24)),
+            shadowStretch: Math.max(0.72, Number(world.shadowStretch || 1.42)),
+            shadowLift: Number(world.shadowLift || 11),
+            reflectionOpacity: Math.max(0.02, Number(world.reflectionOpacity || 0.12)),
+            reflectionScale: Math.max(0.58, Number(world.reflectionScale || 0.92)),
+            dominantShadowBoost: Math.max(1, Number(world.dominantShadowBoost || 1.22)),
+            failureShadowBoost: Math.max(1, Number(world.failureShadowBoost || 1.28))
+        };
+    }
+
+    function _envSceneRenderShadowLayer() {
+        var layer = document.getElementById('envops-habitat-shadow-layer');
+        if (!layer) return;
+        var pickables = _envScene.pickables || [];
+        if (!pickables.length) {
+            layer.innerHTML = '';
+            return;
+        }
+        var dominance = _envScene.dominance || _envSceneDominanceContext();
+        var failureKey = _envSceneFailureSurfaceKey(_envScene.failureSurface || null);
+        var cfg = _envSceneShadowConfig();
+        layer.innerHTML = pickables.map(function (item, idx) {
+            var obj = item.obj || {};
+            var key = _envSceneObjectKey(obj);
+            var visual = _envSceneObjectDominance(dominance, obj);
+            var colors = _envSceneColorForObject(obj);
+            var isFailure = !!(failureKey && failureKey === key);
+            var liftBoost = (visual.spotlight ? cfg.dominantShadowBoost : 1) * (isFailure ? cfg.failureShadowBoost : 1);
+            var shadowOpacity = Math.max(0.03, Math.min(0.88, Number(cfg.shadowOpacity || 0.24) * Math.max(0.18, Number(visual.opacity || 1)) * liftBoost * (visual.ghosted ? 0.58 : 1)));
+            var reflectionOpacity = Math.max(0.02, Math.min(0.62, Number(cfg.reflectionOpacity || 0.12) * Math.max(0.16, Number(visual.opacity || 1)) * (visual.spotlight ? 1.18 : 1) * (isFailure ? 1.16 : 1) * (visual.ghosted ? 0.54 : 1)));
+            var depthFactor = Math.max(0.68, 1.08 - (Number(item.depth || 0.5) * 0.24));
+            var shadowW = Math.max(40, Number(item.w || 60) * Number(cfg.shadowStretch || 1.42) * depthFactor);
+            var shadowH = Math.max(10, Number(item.h || 40) * 0.28 * depthFactor);
+            var reflectionW = Math.max(36, Number(item.w || 60) * Number(cfg.reflectionScale || 0.92) * (0.96 + (depthFactor - 0.68) * 0.25));
+            var reflectionH = Math.max(14, Number(item.h || 40) * 0.72 * depthFactor);
+            var tilt = Number(obj.tilt || 0) * 0.3;
+            var clusterTop = Number(item.y || 0) + (Number(item.h || 40) * 0.42);
+            var clusterTransform = _envSceneSubstrateTransform(item, visual, Number(cfg.shadowLift || 11), 132);
+            var classes = ['envops-habitat-shadow-cluster'];
+            if (visual.spotlight) classes.push('mode-dominant');
+            else if (visual.ghosted) classes.push('mode-ghosted');
+            else if (dominance && dominance.mode !== 'ambient') classes.push('mode-support');
+            if (isFailure) classes.push('failure-surface');
+            return '<div class="' + _esc(classes.join(' ')) + '" ' +
+                'style="left:' + Math.round(item.x) + 'px;top:' + Math.round(clusterTop) + 'px;z-index:' + String(8 + idx + (visual.spotlight ? 40 : 0)) + ';opacity:' + Math.max(shadowOpacity, reflectionOpacity).toFixed(3) + ';transform:' + _esc(clusterTransform) + ';">' +
+                '<span class="envops-habitat-shadow" style="' +
+                    'width:' + Math.round(shadowW) + 'px;' +
+                    'height:' + Math.round(shadowH) + 'px;' +
+                    'background:radial-gradient(circle at center, ' + _esc(colors.glow) + ' 0%, rgba(8,14,20,0.26) 52%, rgba(8,14,20,0) 76%);' +
+                    'opacity:' + shadowOpacity.toFixed(3) + ';' +
+                    'box-shadow:0 0 ' + Math.round(14 + (visual.spotlight ? 10 : 0)) + 'px ' + _esc(colors.glow) + ';' +
+                    'transform:translate(-50%, -50%) rotate(' + tilt.toFixed(1) + 'deg) scaleX(1.02) scaleY(' + (0.88 + (depthFactor - 0.68) * 0.22).toFixed(3) + ');"></span>' +
+                '<span class="envops-habitat-reflection" style="' +
+                    'width:' + Math.round(reflectionW) + 'px;' +
+                    'height:' + Math.round(reflectionH) + 'px;' +
+                    'background:linear-gradient(180deg, rgba(255,255,255,' + (0.14 * Math.max(0.72, Number(visual.opacity || 1))).toFixed(3) + '), rgba(255,255,255,0.02) 36%, rgba(8,14,20,0) 100%);' +
+                    'opacity:' + reflectionOpacity.toFixed(3) + ';' +
+                    'box-shadow:0 0 ' + Math.round(16 + (isFailure ? 8 : 0)) + 'px ' + _esc(colors.glow) + ';' +
+                    'transform:translate(-50%, -50%) translateY(' + Math.round((Number(item.h || 40) * 0.22) + 6) + 'px) scaleY(' + (0.78 + (depthFactor - 0.68) * 0.18).toFixed(3) + ') skewX(' + (-tilt * 0.9).toFixed(1) + 'deg);"></span>' +
+                '</div>';
+        }).join('');
+    }
+
+    function _envSceneRenderSubstrateLayer(projectionMap) {
+        var layer = document.getElementById('envops-habitat-substrate-layer');
+        if (!layer) return;
+        var cfg = _envSceneSubstrateConfig();
+        if (cfg.enabled === false) {
+            layer.innerHTML = '';
+            return;
+        }
+        var projectionEntries = Object.keys(projectionMap || {}).map(function (key) {
+            return projectionMap[key];
+        }).filter(Boolean).sort(function (a, b) {
+            return Number(a.depth || 0) - Number(b.depth || 0);
+        });
+        if (!projectionEntries.length) {
+            layer.innerHTML = '';
+            return;
+        }
+        var limit = Math.max(10, Math.min(64, Number(cfg.nodeLimit || 28)));
+        var dominance = _envScene.dominance || _envSceneDominanceContext();
+        var railFlowBase = Math.max(0.08, Math.min(1, Number(cfg.railFlowOpacity || 0.52)));
+        var rails = (_envScene.routes || []).map(function (route) {
+            var fromProjection = projectionMap[String(route.fromKey || '')];
+            var toProjection = projectionMap[String(route.toKey || '')];
+            if (!fromProjection || !toProjection) return '';
+            var x1 = Number(fromProjection.x || 0);
+            var y1 = Number(fromProjection.y || 0);
+            var x2 = Number(toProjection.x || 0);
+            var y2 = Number(toProjection.y || 0);
+            var dx = x2 - x1;
+            var dy = y2 - y1;
+            var length = Math.sqrt((dx * dx) + (dy * dy));
+            if (!isFinite(length) || length < 8) return '';
+            var angle = Math.atan2(dy, dx) * (180 / Math.PI);
+            var visual = _envSceneLinkDominance(dominance, route.fromKey, route.toKey, route.tone, {
+                branch: route.branch,
+                condition: route.condition,
+                label: route.label
+            });
+            var flow = _envSceneConduitFlowState(route.tone, visual, dominance, String(route.tone || '') === 'failed');
+            var classes = ['envops-habitat-substrate-rail', String(route.tone || 'idle')];
+            if (flow.mode === 'alert') classes.push('alert');
+            if (visual.dominant) classes.push('dominant');
+            else if (visual.suppressed) classes.push('ghosted');
+            else classes.push('support');
+            if (flow.mode !== 'idle') classes.push('flow-' + flow.mode);
+            return '<div class="' + _esc(classes.join(' ')) + '" style="' +
+                'left:' + Math.round(x1) + 'px;' +
+                'top:' + Math.round(y1) + 'px;' +
+                'width:' + length.toFixed(2) + 'px;' +
+                'opacity:' + Math.max(0.08, Number(cfg.railOpacity || 0.28) * Number(visual.opacity || 1)).toFixed(3) + ';' +
+                'transform:translateZ(' + Math.round((((Number(fromProjection.depth || 0.5) + Number(toProjection.depth || 0.5)) / 2) - 0.5) * Number(cfg.depthScale || 220)) + 'px) rotateZ(' + angle.toFixed(2) + 'deg);' +
+                '--env-flow-color:' + _esc(flow.color) + ';' +
+                '--env-flow-opacity:' + Math.max(0, Math.min(0.95, railFlowBase * Number(flow.opacity || 0))).toFixed(3) + ';' +
+                '--env-flow-speed:' + Number(flow.speed || 0).toFixed(2) + 's;' +
+                '--env-flow-span:' + Math.round(Number(flow.span || 56)) + 'px;' +
+                '--env-conduit-glow:' + _esc(flow.color) + ';' +
+                'box-shadow:0 0 ' + Math.round(14 * Number(visual.shadow || 1)) + 'px ' + _esc(flow.color) + ';' +
+                '"></div>';
+        }).join('');
+        var nodes = projectionEntries.slice(0, limit).map(function (item, idx) {
+            var obj = item.obj || {};
+            var visual = _envSceneObjectDominance(dominance, obj);
+            var palette = _envSceneSubstratePalette(_envSceneObjectTone(obj), visual, obj);
+            var classes = ['envops-habitat-substrate-node', String((obj.kind || 'primitive')).toLowerCase()];
+            if (visual.spotlight) classes.push('dominant');
+            else if (visual.ghosted) classes.push('ghosted');
+            else classes.push('support');
+            if (_envSceneFailureSurfaceKey(_envScene.failureSurface || null) === _envSceneObjectKey(obj)) classes.push('failed');
+            return '<div class="' + _esc(classes.join(' ')) + '" style="' +
+                'left:' + Math.round(item.x) + 'px;' +
+                'top:' + Math.round(item.y) + 'px;' +
+                'opacity:' + Math.max(0.12, Number(visual.opacity || 1) * 0.96).toFixed(3) + ';' +
+                'z-index:' + String(20 + idx + (visual.spotlight ? 80 : 0)) + ';' +
+                'transform:' + _esc(_envSceneSubstrateTransform(item, visual, Number(cfg.elevation || 18), Number(cfg.depthScale || 220))) + ';">' +
+                '<span class="ring" style="border-color:' + _esc(palette.ring) + ';box-shadow:0 0 18px ' + _esc(palette.shadow) + ';"></span>' +
+                '<span class="column" style="background:' + _esc(palette.column) + ';box-shadow:0 12px 18px rgba(0,0,0,0.22),0 0 18px ' + _esc(palette.shadow) + ';"></span>' +
+                '<span class="core" style="background:' + _esc(palette.core) + ';box-shadow:0 0 18px ' + _esc(palette.shadow) + ';"></span>' +
+                '<span class="tag" style="color:' + _esc(palette.tag) + ';opacity:' + Math.max(Number(cfg.labelMinScale || 0.85), Number(visual.scale || 1)).toFixed(3) + ';">' + _esc(String(obj.label || obj.kind || 'object')) + '</span>' +
+                '</div>';
+        }).join('');
+        layer.innerHTML = rails + nodes;
     }
 
     function _envSceneRenderWeb3DLayer() {
         var layer = document.getElementById('envops-habitat-object-layer');
         if (!layer) return;
+        var cfg = (((_envConfig || {}).scene || {}).web3d) || {};
         var pickables = (_envScene.pickables || []).slice().sort(function (a, b) {
             return Number(a.depth || 0) - Number(b.depth || 0);
         });
@@ -6951,20 +7422,133 @@
             var obj = item.obj || {};
             var meta = String(obj.meta || obj.category || obj.kind || '');
             var visual = _envSceneObjectDominance(dominance, obj);
+            var colors = _envSceneColorForObject(obj);
+            var cardDepth = Math.max(10, Math.round((visual.spotlight ? Number(cfg.dominantDepth || 24) : Number(cfg.objectDepth || 18)) * Math.max(0.82, Number(item.scale || 1))));
+            var lift = visual.spotlight ? Math.round(Number(cfg.liftBoost || 8)) : 0;
+            var glowOpacity = Math.max(0.06, Math.min(0.72, Number(cfg.glowOpacity || 0.22) * (visual.spotlight ? 1.35 : (visual.ghosted ? 0.54 : 1))));
             var z = 10 + idx + (visual.spotlight ? 120 : 0);
             var filter = visual.spotlight
                 ? 'saturate(1.34) brightness(1.1)'
                 : (visual.ghosted ? 'saturate(0.54) brightness(0.72)' : 'saturate(1.02) brightness(0.98)');
             return '<button type="button" class="' + _esc(_envSceneObjectClass(obj) + (visual.spotlight ? ' spotlight' : '') + (visual.ghosted ? ' ghosted' : '')) + '" ' +
-                'style="left:' + Math.round(item.x) + 'px;top:' + Math.round(item.y) + 'px;z-index:' + String(z) + ';opacity:' + visual.opacity.toFixed(3) + ';filter:' + filter + ';transform:' + _esc(_envSceneObjectTransform(item, visual.scale)) + ';" ' +
+                'style="' +
+                'left:' + Math.round(item.x) + 'px;' +
+                'top:' + Math.round(item.y) + 'px;' +
+                'z-index:' + String(z) + ';' +
+                'opacity:' + visual.opacity.toFixed(3) + ';' +
+                'filter:' + filter + ';' +
+                'width:' + Math.round(item.w) + 'px;' +
+                'height:' + Math.round(item.h) + 'px;' +
+                '--env-card-width:' + Math.round(item.w) + 'px;' +
+                '--env-card-height:' + Math.round(item.h) + 'px;' +
+                '--env-card-depth:' + cardDepth + 'px;' +
+                '--env-face-fill:' + _esc(colors.fill) + ';' +
+                '--env-face-edge:' + _esc(colors.edge) + ';' +
+                '--env-face-glow:' + _esc(colors.glow) + ';' +
+                '--env-glow-opacity:' + glowOpacity.toFixed(3) + ';' +
+                'transform:' + _esc(_envSceneObjectTransform(item, visual.scale) + ' translateY(' + (-lift) + 'px)') + ';" ' +
                 'data-env-focus-kind="' + _esc(String(obj.kind || 'workflow')) + '" ' +
                 'data-env-focus-id="' + _esc(String(obj.id || '')) + '">' +
+                '<span class="envops-habitat-object-shell" aria-hidden="true">' +
+                '<span class="envops-habitat-object-glow"></span>' +
+                '<span class="envops-habitat-object-face front"></span>' +
+                '<span class="envops-habitat-object-face top"></span>' +
+                '<span class="envops-habitat-object-face side"></span>' +
+                '</span>' +
+                '<span class="envops-habitat-object-body">' +
                 '<span class="p"></span>' +
                 '<div class="k">' + _esc(String(obj.category || obj.kind || 'primitive')) + '</div>' +
                 '<div class="t">' + _esc(String(obj.label || obj.kind || 'object')) + '</div>' +
                 '<div class="m">' + _esc(meta) + '</div>' +
+                '</span>' +
                 '</button>';
         }).join('');
+    }
+
+    function _envSceneRenderBeaconLayer(projectionMap) {
+        var layer = document.getElementById('envops-habitat-beacon-layer');
+        if (!layer) return;
+        var ctx = _envScene.dominance || _envSceneDominanceContext();
+        if (!ctx || !projectionMap) {
+            layer.innerHTML = '';
+            return;
+        }
+        var anchorKey = _envSceneFocusAnchorKey(ctx);
+        var targetKeys = _envSceneFocusRailTargets(ctx, anchorKey, projectionMap).slice(0, 5);
+        var exec = _envScene.exec || null;
+        var traces = Array.isArray(_envScene.traces) ? _envScene.traces : [];
+        var nodeStates = exec && exec.node_states ? exec.node_states : {};
+        var failureNodeId = Object.keys(nodeStates).find(function (nodeId) {
+            return _wfNormalizeStatus((nodeStates[nodeId] || {}).status || 'pending') === 'failed';
+        }) || '';
+        var failureKey = failureNodeId ? ('node::' + failureNodeId) : '';
+        if (!failureKey) {
+            var failureTraceIndex = traces.findIndex(function (trace) { return !!trace && !!trace.error; });
+            if (failureTraceIndex >= 0) failureKey = 'trace::' + String(failureTraceIndex);
+        }
+        if (!failureKey) {
+            var latestFailureEvent = _envRecentBusEvents(10).find(function (event) {
+                return _envBusEventSignalsFailure(event);
+            }) || null;
+            if (latestFailureEvent) failureKey = 'event::' + String(latestFailureEvent.id || latestFailureEvent.seq || '');
+        }
+        if (failureKey && failureKey !== anchorKey && targetKeys.indexOf(failureKey) === -1 && projectionMap[failureKey]) {
+            targetKeys.unshift(failureKey);
+        }
+        var anchorProjection = projectionMap[String(anchorKey || '')] || (targetKeys.length ? projectionMap[targetKeys[0]] : null);
+        if (!anchorProjection) {
+            layer.innerHTML = '';
+            return;
+        }
+        var anchorKind = _envSceneKeyKind(anchorKey || _envSceneObjectKey(anchorProjection.obj));
+        var anchorId = String(anchorKey || _envSceneObjectKey(anchorProjection.obj)).split('::').slice(1).join('::');
+
+        function renderBeacon(role, key, projection, metaText, isFailure) {
+            if (!projection) return '';
+            var text = String(key || '');
+            var idx = text.indexOf('::');
+            var kind = idx >= 0 ? text.slice(0, idx) : String((projection.obj || {}).kind || role || 'primitive');
+            var id = idx >= 0 ? text.slice(idx + 2) : String((projection.obj || {}).id || '');
+            var visual = _envSceneObjectDominance(ctx, projection.obj || { kind: kind, id: id });
+            var classes = ['envops-habitat-beacon', role];
+            if (isFailure) classes.push('failure');
+            if (visual.spotlight) classes.push('active');
+            var opacity = Math.max(0.28, Math.min(1, Number(visual.opacity || 1) * (role === 'anchor' ? 1 : 0.96)));
+            var scale = (role === 'anchor' ? 1.02 : 0.96) * Math.max(0.92, Number(visual.scale || 1));
+            return '<button type="button" class="' + _esc(classes.join(' ')) + '" ' +
+                'style="left:' + Math.round(projection.x) + 'px;top:' + Math.round(projection.y) + 'px;opacity:' + opacity.toFixed(3) + ';transform:translate(-50%, -50%) scale(' + scale.toFixed(3) + ');" ' +
+                'data-env-focus-kind="' + _esc(kind) + '" data-env-focus-id="' + _esc(id) + '">' +
+                '<span class="envops-habitat-beacon-ring"></span>' +
+                '<div class="envops-habitat-beacon-body">' +
+                '<div class="envops-habitat-beacon-kind">' + _esc(role === 'anchor' ? 'focus anchor' : (isFailure ? 'failure target' : 'focus target')) + '</div>' +
+                '<div class="envops-habitat-beacon-label">' + _esc(_envSceneKeyLabel(text)) + '</div>' +
+                '<div class="envops-habitat-beacon-meta">' + _esc(metaText || kind) + '</div>' +
+                '</div>' +
+                (isFailure ? '<span class="envops-habitat-beacon-flare"></span>' : '') +
+                '</button>';
+        }
+
+        var beaconLines = [];
+        var beaconNodes = [];
+        beaconNodes.push(renderBeacon('anchor', anchorKey || _envSceneObjectKey(anchorProjection.obj), anchorProjection, _envSceneDominanceSummary().mode || 'focus'));
+        targetKeys.forEach(function (key) {
+            var projection = projectionMap[key];
+            if (!projection) return;
+            var isFailure = key === failureKey;
+            var dx = Number(projection.x || 0) - Number(anchorProjection.x || 0);
+            var dy = Number(projection.y || 0) - Number(anchorProjection.y || 0);
+            var distance = Math.sqrt((dx * dx) + (dy * dy));
+            if (distance > 8) {
+                var angle = Math.atan2(dy, dx) * 180 / Math.PI;
+                var linkVisual = _envSceneLinkDominance(ctx, anchorKey || _envSceneObjectKey(anchorProjection.obj), key, isFailure ? 'failed' : String(ctx.mode || 'focus'), { event_id: String(ctx.eventId || '') });
+                beaconLines.push(
+                    '<div class="envops-habitat-beacon-line ' + _esc(isFailure ? 'failure' : 'target') + '" ' +
+                    'style="left:' + Math.round(anchorProjection.x) + 'px;top:' + Math.round(anchorProjection.y) + 'px;width:' + distance.toFixed(1) + 'px;opacity:' + Math.max(0.16, Math.min(1, Number(linkVisual.opacity || 0.42) * (isFailure ? 1.12 : 0.9))).toFixed(3) + ';transform:translateY(-50%) rotate(' + angle.toFixed(2) + 'deg);"></div>'
+                );
+            }
+            beaconNodes.push(renderBeacon('target', key, projection, isFailure ? 'failure surface' : _envSceneKeyKind(key), isFailure));
+        });
+        layer.innerHTML = beaconLines.join('') + beaconNodes.join('');
     }
 
     function _envSceneDistrictChannels(id) {
@@ -7206,6 +7790,7 @@
         if (cfg.enabled === false) return '';
         var states = _envSceneCollectDistrictStates(workflow, exec, sections, traces);
         var dominance = (_envScene && _envScene.dominance) || _envSceneDominanceContext();
+        var corridorFlowBase = Math.max(0.08, Math.min(1, Number(cfg.corridorFlowOpacity || 0.48)));
         if (!states.length) return '';
         var stateById = {};
         states.forEach(function (entry) {
@@ -7226,13 +7811,38 @@
             var length = Math.sqrt((dx * dx) + (dy * dy));
             var angle = Math.atan2(dy, dx) * (180 / Math.PI);
             var hot = String((fromEntry.state || {}).tone || '') === 'alert' || String((toEntry.state || {}).tone || '') === 'alert';
-            var opacity = Math.max(0.14, Number(cfg.corridorOpacity || 0.34) * Number(bridge.weight || 1));
+            var bridgeTone = hot
+                ? 'failed'
+                : (((fromEntry.state || {}).active || (toEntry.state || {}).active)
+                    ? 'running'
+                    : ((String((fromEntry.state || {}).tone || '') === 'warning' || String((toEntry.state || {}).tone || '') === 'warning')
+                        ? 'queued'
+                        : 'idle'));
+            var bridgeVisual = _envSceneLinkDominance(
+                dominance,
+                _envSceneTargetKey((fromEntry.state || {}).target),
+                _envSceneTargetKey((toEntry.state || {}).target),
+                bridgeTone,
+                { bridge_id: String((bridge || {}).id || '') }
+            );
+            var flow = _envSceneConduitFlowState(bridgeTone, bridgeVisual, dominance, hot);
+            var opacity = Math.max(0.14, Number(cfg.corridorOpacity || 0.34) * Number(bridge.weight || 1) * Math.max(0.42, Number(bridgeVisual.opacity || 1)));
             if (hot) opacity += 0.16;
             var depth = Math.round((((Number(fromDistrict.depth || -44) + Number(toDistrict.depth || -44)) / 2)) + 58);
-            var accent = hot
+            var accent = flow.mode === 'alert'
                 ? 'linear-gradient(90deg, rgba(255,108,120,0.16), rgba(255,108,120,0.42), rgba(255,108,120,0.16))'
-                : 'linear-gradient(90deg, rgba(79,255,208,0.12), rgba(68,198,255,0.36), rgba(79,255,208,0.12))';
-            return '<div class="envops-habitat-corridor-spine" style="' +
+                : (flow.mode === 'watch'
+                    ? 'linear-gradient(90deg, rgba(255,190,96,0.12), rgba(255,190,96,0.34), rgba(255,190,96,0.12))'
+                    : (flow.mode === 'replay'
+                        ? 'linear-gradient(90deg, rgba(79,255,208,0.12), rgba(79,255,208,0.34), rgba(79,255,208,0.12))'
+                        : 'linear-gradient(90deg, rgba(79,255,208,0.12), rgba(68,198,255,0.36), rgba(79,255,208,0.12))'));
+            var classes = ['envops-habitat-corridor-spine'];
+            if (flow.mode === 'alert') classes.push('alert');
+            if (bridgeVisual.dominant) classes.push('dominant');
+            else if (bridgeVisual.suppressed) classes.push('ghosted');
+            else classes.push('support');
+            if (flow.mode !== 'idle') classes.push('flow-' + flow.mode);
+            return '<div class="' + _esc(classes.join(' ')) + '" style="' +
                 'left:' + x1.toFixed(2) + '%;' +
                 'top:' + y1.toFixed(2) + '%;' +
                 'width:' + length.toFixed(2) + '%;' +
@@ -7240,6 +7850,11 @@
                 'opacity:' + opacity.toFixed(3) + ';' +
                 'transform:translateZ(' + depth + 'px) rotateZ(' + angle.toFixed(2) + 'deg);' +
                 'background:' + accent + ';' +
+                '--env-flow-color:' + _esc(flow.color) + ';' +
+                '--env-flow-opacity:' + Math.max(0, Math.min(0.96, corridorFlowBase * Number(flow.opacity || 0))).toFixed(3) + ';' +
+                '--env-flow-speed:' + Number(flow.speed || 0).toFixed(2) + 's;' +
+                '--env-flow-span:' + Math.round(Number(flow.span || 64)) + 'px;' +
+                '--env-conduit-glow:' + _esc(flow.color) + ';' +
                 '"></div>';
         }).join('');
         var portals = states.map(function (entry) {
@@ -7273,6 +7888,181 @@
                 '</button>';
         }).join('');
         return '<div class="envops-habitat-architecture-layer">' + corridors + portals + '</div>';
+    }
+
+    function _envSceneRenderDepthLayer(workflow, exec, sections, traces) {
+        var world = _envSceneWorldConfig();
+        var cfg = _envSceneDepthGridConfig();
+        if (cfg.enabled === false) return '';
+        var entries = _envSceneCollectDistrictStates(workflow, exec, sections, traces);
+        var dominance = (_envScene && _envScene.dominance) || _envSceneDominanceContext();
+        var failure = _envLatestFailureSurface(workflow, exec, traces);
+        var laneCount = Math.max(4, Math.min(14, Number(world.laneCount || 8)));
+        var crossbarCount = Math.max(4, Math.min(12, Number(cfg.crossbarCount || 7)));
+        var laneDepthStep = Math.max(8, Number(cfg.laneDepthStep || 18));
+        var laneBaseOpacity = Math.max(0.1, Math.min(0.7, Number(world.laneOpacity || 0.18) * 1.12));
+        var pylonOpacity = Math.max(0.12, Math.min(0.8, Number(cfg.pylonOpacity || 0.26)));
+        var pylonLift = Math.max(4, Number(cfg.pylonLift || 14));
+        var lanes = new Array(laneCount).fill(0).map(function (_, idx) {
+            var ratio = laneCount === 1 ? 0.5 : (idx / (laneCount - 1));
+            var spread = (ratio - 0.5);
+            var depth = Math.round((-132 + (idx * laneDepthStep)) + (dominance.mode === 'replay' ? 8 : 0));
+            var classes = ['envops-habitat-depth-lane'];
+            var opacity = laneBaseOpacity * (0.82 + Math.abs(spread) * 0.5);
+            if (failure.tone === 'alert' && (idx === 0 || idx === laneCount - 1 || idx === Math.floor(laneCount / 2))) {
+                classes.push('alert');
+                opacity += 0.08;
+            } else if (dominance.mode === 'watch' && (idx === 1 || idx === laneCount - 2 || idx === Math.floor(laneCount / 2))) {
+                classes.push('dominant');
+                opacity += 0.12;
+            }
+            var laneHeight = 40 + (Math.abs(spread) * 8);
+            return '<div class="' + _esc(classes.join(' ')) + '" style="' +
+                'left:' + (14 + (ratio * 72)).toFixed(2) + '%;' +
+                'top:45%;' +
+                'height:' + laneHeight.toFixed(2) + '%;' +
+                'opacity:' + Math.min(0.72, opacity).toFixed(3) + ';' +
+                'transform:translateX(-50%) translateZ(' + depth + 'px) rotateX(82deg) rotateY(' + (spread * 16).toFixed(2) + 'deg);' +
+                '"></div>';
+        }).join('');
+        var crosses = new Array(crossbarCount).fill(0).map(function (_, idx) {
+            var ratio = crossbarCount === 1 ? 0.5 : (idx / (crossbarCount - 1));
+            var width = 18 + (ratio * 92);
+            var top = 40 + (ratio * 45);
+            var depth = Math.round(-140 + (ratio * laneDepthStep * 4));
+            var classes = ['envops-habitat-depth-cross'];
+            var opacity = 0.12 + (ratio * 0.14);
+            if (failure.tone === 'alert' && idx >= crossbarCount - 2) {
+                classes.push('alert');
+                opacity += 0.1;
+            } else if ((dominance.mode === 'watch' || dominance.mode === 'replay') && idx >= crossbarCount - 3) {
+                classes.push('dominant');
+                opacity += 0.08;
+            }
+            return '<div class="' + _esc(classes.join(' ')) + '" style="' +
+                'left:50%;' +
+                'top:' + top.toFixed(2) + '%;' +
+                'width:' + width.toFixed(2) + '%;' +
+                'opacity:' + Math.min(0.58, opacity).toFixed(3) + ';' +
+                'transform:translateX(-50%) translateZ(' + depth + 'px) rotateX(81deg);' +
+                '"></div>';
+        }).join('');
+        var pylons = entries.map(function (entry) {
+            var district = entry.district || {};
+            var state = entry.state || {};
+            var visual = _envSceneDistrictDominance(dominance, district, state);
+            var palette = _envSceneDistrictTonePalette(state.tone);
+            var centerX = Number(district.x || 0) + (Number(district.w || 20) / 2);
+            var baseY = Number(district.y || 0) + Number(district.h || 16) + 14;
+            var depth = Math.round(Number(district.depth || -48) + pylonLift);
+            var classes = ['envops-habitat-depth-pylon'];
+            if (visual.dominant) classes.push('dominant');
+            if (String(state.tone || '') === 'alert') classes.push('alert');
+            return '<div class="' + _esc(classes.join(' ')) + '" style="' +
+                'left:' + centerX.toFixed(2) + '%;' +
+                'top:' + baseY.toFixed(2) + '%;' +
+                'opacity:' + Math.min(0.72, pylonOpacity * (visual.dominant ? 1.38 : (visual.suppressed ? 0.62 : 1))).toFixed(3) + ';' +
+                'transform:translate(-50%, -100%) translateZ(' + depth + 'px) scale(' + Math.max(0.86, Number(visual.scale || 1)).toFixed(3) + ');' +
+                '">' +
+                '<div class="shaft" style="background:linear-gradient(180deg, rgba(255,255,255,0.05), ' + palette.shadow + ', rgba(8,14,22,0.92));"></div>' +
+                '<div class="cap" style="background:radial-gradient(circle at center, ' + palette.shadow + ', rgba(8,14,22,0.94) 72%);box-shadow:0 0 18px ' + palette.shadow + ';"></div>' +
+                '<div class="foot"></div>' +
+                '</div>';
+        }).join('');
+        return '<div class="envops-habitat-depth-layer">' + lanes + crosses + pylons + '</div>';
+    }
+
+    function _envSceneRenderVanishLayer(workflow, exec, sections, traces) {
+        var entries = _envSceneCollectDistrictStates(workflow, exec, sections, traces);
+        var dominance = (_envScene && _envScene.dominance) || _envSceneDominanceContext();
+        var failure = _envLatestFailureSurface(workflow, exec, traces);
+        if (!entries.length) return '';
+        var horizonX = 50 + (dominance.mode === 'event' ? 2 : 0);
+        var horizonY = 34;
+        var beams = entries.map(function (entry) {
+            var district = entry.district || {};
+            var state = entry.state || {};
+            var visual = _envSceneDistrictDominance(dominance, district, state);
+            if (!(visual.dominant || state.active || String(state.tone || '') === 'alert')) return '';
+            var x1 = Number(district.x || 0) + (Number(district.w || 20) / 2);
+            var y1 = Number(district.y || 0) + Number(district.h || 16) + 6;
+            var dx = horizonX - x1;
+            var dy = horizonY - y1;
+            var length = Math.sqrt((dx * dx) + (dy * dy));
+            var angle = Math.atan2(dy, dx) * (180 / Math.PI);
+            var mode = String(state.tone || '') === 'alert' ? 'alert' : String((dominance && dominance.mode) || 'focus');
+            var color = mode === 'alert'
+                ? 'linear-gradient(90deg, rgba(255,255,255,0), rgba(255,108,120,0.22), rgba(255,108,120,0.06), rgba(255,255,255,0))'
+                : (mode === 'watch'
+                    ? 'linear-gradient(90deg, rgba(255,255,255,0), rgba(255,190,96,0.2), rgba(255,190,96,0.06), rgba(255,255,255,0))'
+                    : (mode === 'replay'
+                        ? 'linear-gradient(90deg, rgba(255,255,255,0), rgba(79,255,208,0.2), rgba(79,255,208,0.06), rgba(255,255,255,0))'
+                        : 'linear-gradient(90deg, rgba(255,255,255,0), rgba(102,184,255,0.22), rgba(102,184,255,0.06), rgba(255,255,255,0))'));
+            var depth = Math.round(Number(district.depth || -48) - 16);
+            return '<div class="envops-habitat-vanish-beam ' + _esc(mode) + '" style="' +
+                'left:' + x1.toFixed(2) + '%;' +
+                'top:' + y1.toFixed(2) + '%;' +
+                'width:' + length.toFixed(2) + '%;' +
+                'opacity:' + Math.min(0.34, 0.14 + (visual.dominant ? 0.12 : 0.06) + (failure.tone === 'alert' && mode === 'alert' ? 0.06 : 0)).toFixed(3) + ';' +
+                'transform:translateZ(' + depth + 'px) rotateZ(' + angle.toFixed(2) + 'deg);' +
+                'background:' + color + ';' +
+                '"></div>';
+        }).filter(Boolean).join('');
+        return beams ? '<div class="envops-habitat-vanish-layer">' + beams + '</div>' : '';
+    }
+
+    function _envSceneRenderPlatformLayer(workflow, exec, sections, traces) {
+        var cfg = _envScenePlatformConfig();
+        if (cfg.enabled === false) return '';
+        var entries = _envSceneCollectDistrictStates(workflow, exec, sections, traces);
+        var dominance = (_envScene && _envScene.dominance) || _envSceneDominanceContext();
+        if (!entries.length) return '';
+        return '<div class="envops-habitat-platform-layer">' + entries.map(function (entry) {
+            var district = entry.district || {};
+            var state = entry.state || {};
+            var visual = _envSceneDistrictDominance(dominance, district, state);
+            var palette = _envSceneDistrictTonePalette(state.tone);
+            var centerX = Number(district.x || 0) + (Number(district.w || 20) / 2);
+            var centerY = Number(district.y || 0) + (Number(district.h || 16) / 2) + 8;
+            var width = Math.max(112, (Number(district.w || 20) * Number(cfg.widthScale || 6.2)) + Number(cfg.widthBias || 38));
+            var height = Math.max(54, (Number(district.h || 16) * Number(cfg.heightScale || 3.1)) + Number(cfg.heightBias || 24));
+            var depth = Math.round(Number(district.depth || -48) + Number(cfg.lift || 16));
+            var scale = Math.max(0.88, Number(visual.scale || 1) + (visual.dominant ? Number(cfg.scaleGain || 0.08) : 0));
+            var opacity = Math.max(0.18, Math.min(1, Number(visual.opacity || 1) * (visual.suppressed ? 0.78 : 0.96)));
+            var brightness = visual.dominant ? 1.08 : (visual.suppressed ? 0.78 : 0.98);
+            var saturation = visual.dominant ? 1.16 : (visual.suppressed ? 0.7 : 1.02);
+            var classes = ['envops-habitat-platform', String(state.tone || 'idle')];
+            if (visual.dominant) classes.push('mode-dominant');
+            else if (visual.suppressed) classes.push('mode-ghosted');
+            else classes.push('mode-support');
+            if (String(state.tone || '') === 'alert') classes.push('failure-surface');
+            var fill = 'linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02) 22%, rgba(7,10,16,0.1)), ' + String(palette.cap || '');
+            var skirt = 'linear-gradient(180deg, rgba(255,255,255,0.04), rgba(0,0,0,0.22)), ' + String(palette.stem || '');
+            return '<div class="' + _esc(classes.join(' ')) + '" style="' +
+                'left:' + centerX.toFixed(2) + '%;' +
+                'top:' + centerY.toFixed(2) + '%;' +
+                '--env-platform-width:' + width.toFixed(0) + 'px;' +
+                '--env-platform-height:' + height.toFixed(0) + 'px;' +
+                '--env-platform-depth:' + depth + 'px;' +
+                '--env-platform-scale:' + scale.toFixed(3) + ';' +
+                '--env-platform-opacity:' + opacity.toFixed(3) + ';' +
+                '--env-platform-brightness:' + brightness.toFixed(3) + ';' +
+                '--env-platform-saturation:' + saturation.toFixed(3) + ';' +
+                '--env-platform-skirt-height:' + Math.round(Number(cfg.skirtHeight || 26)) + 'px;' +
+                '--env-platform-glow-opacity:' + Math.max(0.06, Math.min(0.8, Number(cfg.glowOpacity || 0.22) * (visual.dominant ? 1.28 : (visual.suppressed ? 0.52 : 1)))).toFixed(3) + ';' +
+                '--env-platform-rim-opacity:' + Math.max(0.08, Math.min(0.8, Number(cfg.rimOpacity || 0.24) * (visual.dominant ? 1.18 : 1))).toFixed(3) + ';' +
+                '--env-platform-glow:' + _esc(String(palette.shadow || 'rgba(79,255,208,0.16)')) + ';' +
+                '--env-platform-fill:' + _esc(fill) + ';' +
+                '--env-platform-skirt:' + _esc(skirt) + ';' +
+                '--env-platform-tag:' + _esc(String(palette.tag || '#a8b6c2')) + ';' +
+                '">' +
+                '<div class="glow"></div>' +
+                '<div class="deck"></div>' +
+                '<div class="rim"></div>' +
+                '<div class="skirt"></div>' +
+                '<div class="tag">' + _esc(String(district.label || district.id || 'district')) + ' · ' + _esc(String(state.count || 0)) + '</div>' +
+                '</div>';
+        }).join('') + '</div>';
     }
 
     function _envSceneRenderDistrictLayer(workflow, exec, sections, traces) {
@@ -7441,6 +8231,13 @@
                 shell.classList.add('dragging');
             });
             shell.addEventListener('pointermove', function (event) {
+                var rect = shell.getBoundingClientRect();
+                if (rect && rect.width > 0 && rect.height > 0) {
+                    _envScene.nav.hoverX = Math.max(-1, Math.min(1, (((event.clientX - rect.left) / rect.width) * 2) - 1));
+                    _envScene.nav.hoverY = Math.max(-1, Math.min(1, (((event.clientY - rect.top) / rect.height) * 2) - 1));
+                    _envScene.nav.hoverActive = true;
+                    _envScene.dirty = true;
+                }
                 if (!_envScene.nav.dragging || _envScene.nav.pointerId !== event.pointerId) return;
                 var nav = _envSceneNavigationConfig();
                 var dx = (event.clientX - _envScene.nav.startClientX) * nav.panSensitivity;
@@ -7466,6 +8263,10 @@
             });
             shell.addEventListener('pointerleave', function () {
                 if (!_envScene.nav.dragging) shell.classList.remove('dragging');
+                _envScene.nav.hoverX = 0;
+                _envScene.nav.hoverY = 0;
+                _envScene.nav.hoverActive = false;
+                _envScene.dirty = true;
             });
             shell.addEventListener('wheel', function (event) {
                 event.preventDefault();
@@ -7523,6 +8324,221 @@
             palette.horizon = 'rgba(255,96,96,0.06)';
         }
         return palette;
+    }
+
+    function _envSceneWorldProjectPoint(width, height, horizonY, floorY, xPct, yPct, vanishingX) {
+        var nx = Math.max(0, Math.min(1, Number(xPct || 50) / 100));
+        var ny = Math.max(0, Math.min(1, Number(yPct || 50) / 100));
+        var depth = Math.pow(ny, 1.08);
+        var targetX = width * (0.08 + nx * 0.84);
+        var vx = Number(vanishingX || (width * 0.5));
+        return {
+            x: vx + ((targetX - vx) * (0.14 + depth * 0.86)),
+            y: horizonY + ((floorY - horizonY) * depth),
+            depth: depth
+        };
+    }
+
+    function _envSceneQuadraticPoint(x0, y0, cx, cy, x1, y1, t) {
+        var nt = 1 - t;
+        return {
+            x: (nt * nt * x0) + (2 * nt * t * cx) + (t * t * x1),
+            y: (nt * nt * y0) + (2 * nt * t * cy) + (t * t * y1)
+        };
+    }
+
+    function _envSceneDrawWorldSubstrate(ctx, width, height, timeMs) {
+        var cfg = _envSceneWorldConfig();
+        if (cfg.enabled === false) return;
+        var orbitCfg = _envSceneOrbitConfig();
+        var camera = _envScene.camera || {};
+        var palette = _envSceneEnvironmentPalette();
+        var dominance = _envScene.dominance || _envSceneDominanceContext();
+        var t = Number(timeMs || 0) * 0.001;
+        var horizonY = height * (0.742 + Number(cfg.horizonLift || 0));
+        var floorY = height * Math.max(0.92, Number(cfg.floorDepth || 1.02));
+        var orbitXR = orbitCfg.orbitMaxYaw ? Math.max(-1, Math.min(1, Number(camera.orbitX || 0) / orbitCfg.orbitMaxYaw)) : 0;
+        var vanishingX = width * (0.5 + Math.sin(t * 0.08) * Number(cfg.vanishingDrift || 0.01) + (orbitXR * 0.04));
+        var deckBands = Math.max(3, Number(cfg.deckBands || 6));
+        var laneCount = Math.max(4, Number(cfg.laneCount || 8));
+        var deckOpacity = Math.max(0.06, Math.min(0.9, Number(cfg.deckOpacity || 0.24)));
+        var laneOpacity = Math.max(0.04, Math.min(0.8, Number(cfg.laneOpacity || 0.18)));
+        var districtOpacity = Math.max(0.04, Math.min(0.7, Number(cfg.districtOpacity || 0.22)));
+        var fogOpacity = Math.max(0.02, Math.min(0.5, Number(cfg.fogOpacity || 0.18)));
+        var bridgePacketCount = Math.max(0, Number(cfg.bridgePacketCount || 2));
+        var bridgePacketSize = Math.max(1.2, Number(cfg.bridgePacketSize || 4.2));
+        var bridgePacketSpeed = Math.max(0.05, Number(cfg.bridgePacketSpeed || 0.36));
+        var bridgePulseOpacity = Math.max(0.08, Math.min(0.82, Number(cfg.bridgePulseOpacity || 0.34)));
+
+        ctx.save();
+
+        var fog = ctx.createLinearGradient(0, horizonY, 0, floorY);
+        fog.addColorStop(0, 'rgba(255,255,255,0)');
+        fog.addColorStop(0.42, 'rgba(255,255,255,0.02)');
+        fog.addColorStop(1, 'rgba(6,10,14,' + fogOpacity.toFixed(3) + ')');
+        ctx.fillStyle = fog;
+        ctx.fillRect(0, horizonY - 4, width, Math.max(24, floorY - horizonY + 8));
+
+        for (var band = 0; band < deckBands; band++) {
+            var p0 = band / deckBands;
+            var p1 = (band + 1) / deckBands;
+            var y0 = horizonY + ((floorY - horizonY) * Math.pow(p0, 1.08));
+            var y1 = horizonY + ((floorY - horizonY) * Math.pow(p1, 1.08));
+            var span0 = width * (0.07 + p0 * 0.40);
+            var span1 = width * (0.07 + p1 * 0.40);
+            ctx.fillStyle = (band % 2 === 0)
+                ? 'rgba(255,255,255,' + (deckOpacity * 0.28).toFixed(3) + ')'
+                : 'rgba(0,0,0,' + (deckOpacity * 0.32).toFixed(3) + ')';
+            ctx.beginPath();
+            ctx.moveTo(vanishingX - span0, y0);
+            ctx.lineTo(vanishingX + span0, y0);
+            ctx.lineTo((width * 0.5) + span1, y1);
+            ctx.lineTo((width * 0.5) - span1, y1);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        ctx.strokeStyle = palette.grid;
+        ctx.lineWidth = 1;
+        ctx.globalAlpha = laneOpacity;
+        for (var lane = 0; lane <= laneCount; lane++) {
+            var ratio = lane / laneCount;
+            var laneStartX = vanishingX + ((ratio - 0.5) * width * 0.14);
+            var laneEndX = width * (0.1 + ratio * 0.8);
+            ctx.beginPath();
+            ctx.moveTo(laneStartX, horizonY);
+            ctx.lineTo(laneEndX, floorY);
+            ctx.stroke();
+        }
+
+        var districtStates = _envSceneCollectDistrictStates(_envScene.workflow, _envScene.exec, _envScene.sections, _envScene.traces);
+        var districtCenters = {};
+        districtStates.forEach(function (entry, idx) {
+            var district = entry.district || {};
+            var state = entry.state || {};
+            var tone = _envSceneDistrictTonePalette(state.tone || 'idle');
+            var districtVisual = _envSceneDistrictDominance(dominance, district, state);
+            var leftTop = _envSceneWorldProjectPoint(width, height, horizonY, floorY, Number(district.x || 50), Number(district.y || 50), vanishingX);
+            var rightTop = _envSceneWorldProjectPoint(width, height, horizonY, floorY, Number(district.x || 50) + Number(district.w || 12), Number(district.y || 50), vanishingX);
+            var rightBottom = _envSceneWorldProjectPoint(width, height, horizonY, floorY, Number(district.x || 50) + Number(district.w || 12), Number(district.y || 50) + Number(district.h || 12), vanishingX);
+            var leftBottom = _envSceneWorldProjectPoint(width, height, horizonY, floorY, Number(district.x || 50), Number(district.y || 50) + Number(district.h || 12), vanishingX);
+            var center = _envSceneWorldProjectPoint(width, height, horizonY, floorY, Number(district.x || 50) + (Number(district.w || 12) / 2), Number(district.y || 50) + (Number(district.h || 12) / 2), vanishingX);
+            districtCenters[String(district.id || '')] = { center: center, state: state, tone: tone, district: district };
+            var haloRadius = Math.max(30, ((rightBottom.x - leftBottom.x) * (0.5 + districtVisual.glow * 0.05)));
+            ctx.globalAlpha = districtOpacity * Math.max(0.54, Number(cfg.districtGlow || 0.42) * districtVisual.glow);
+            var halo = ctx.createRadialGradient(center.x, center.y, 2, center.x, center.y, haloRadius);
+            halo.addColorStop(0, tone.shadow);
+            halo.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = halo;
+            ctx.beginPath();
+            ctx.arc(center.x, center.y, haloRadius, 0, Math.PI * 2);
+            ctx.fill();
+
+            var pulseBias = districtVisual.dominant ? 1.15 : (districtVisual.suppressed ? 0.72 : 0.92);
+            if ((state.tone === 'alert') || districtVisual.dominant || (dominance && dominance.mode === 'watch') || (dominance && dominance.mode === 'replay')) {
+                var pulse = 0.5 + (0.5 * Math.sin((t * (state.tone === 'alert' ? 4.8 : 2.6)) + (idx * 0.8)));
+                var ringRadius = haloRadius * (0.58 + pulse * 0.34 * pulseBias);
+                ctx.globalAlpha = Math.max(0.08, districtOpacity * (state.tone === 'alert' ? 0.62 : 0.38) * Math.max(0.42, districtVisual.opacity));
+                ctx.strokeStyle = state.tone === 'alert'
+                    ? 'rgba(255,128,136,0.92)'
+                    : ((dominance && dominance.mode === 'watch')
+                        ? 'rgba(255,198,112,0.86)'
+                        : ((dominance && dominance.mode === 'replay')
+                            ? 'rgba(79,255,208,0.84)'
+                            : tone.tag));
+                ctx.lineWidth = 1.2 + pulse * (districtVisual.dominant ? 2.4 : 1.4);
+                ctx.beginPath();
+                ctx.arc(center.x, center.y, ringRadius, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+
+            ctx.globalAlpha = districtOpacity * Math.max(0.22, districtVisual.opacity);
+            ctx.fillStyle = (idx % 2 === 0)
+                ? 'rgba(255,255,255,' + (0.03 + districtVisual.glow * 0.012).toFixed(3) + ')'
+                : 'rgba(0,0,0,' + (0.08 + districtVisual.glow * 0.025).toFixed(3) + ')';
+            ctx.beginPath();
+            ctx.moveTo(leftTop.x, leftTop.y);
+            ctx.lineTo(rightTop.x, rightTop.y);
+            ctx.lineTo(rightBottom.x, rightBottom.y);
+            ctx.lineTo(leftBottom.x, leftBottom.y);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.globalAlpha = Math.max(0.08, districtOpacity * Math.max(0.44, districtVisual.opacity) * 1.08);
+            ctx.strokeStyle = tone.tag;
+            ctx.lineWidth = 1.1 + districtVisual.glow * 0.65;
+            ctx.shadowColor = tone.shadow;
+            ctx.shadowBlur = districtVisual.dominant ? 12 : 0;
+            ctx.beginPath();
+            ctx.moveTo(leftTop.x, leftTop.y);
+            ctx.lineTo(rightTop.x, rightTop.y);
+            ctx.lineTo(rightBottom.x, rightBottom.y);
+            ctx.lineTo(leftBottom.x, leftBottom.y);
+            ctx.closePath();
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+        });
+
+        var bridges = _envSceneDistrictBridgeCatalog();
+        ctx.lineCap = 'round';
+        bridges.forEach(function (bridge, bridgeIndex) {
+            var from = districtCenters[String((bridge || {}).from || '')];
+            var to = districtCenters[String((bridge || {}).to || '')];
+            if (!from || !to) return;
+            var weight = Math.max(0.4, Number((bridge || {}).weight || 0.8));
+            var midX = (from.center.x + to.center.x) / 2;
+            var midY = Math.min(from.center.y, to.center.y) - (12 + weight * 10);
+            var bridgeTone = ((from.state && from.state.tone === 'alert') || (to.state && to.state.tone === 'alert')) ? 'failed'
+                : ((from.state && from.state.tone) === 'watch' || (to.state && to.state.tone) === 'watch') ? 'watch'
+                    : ((from.state && from.state.tone) === 'replay' || (to.state && to.state.tone) === 'replay') ? 'replay'
+                        : 'focus';
+            var fromKey = _envSceneTargetKey((from.state || {}).target || {}) || ('district::' + String(((from.district || {}).id) || ''));
+            var toKey = _envSceneTargetKey((to.state || {}).target || {}) || ('district::' + String(((to.district || {}).id) || ''));
+            var bridgeVisual = _envSceneLinkDominance(
+                dominance,
+                fromKey,
+                toKey,
+                bridgeTone,
+                { bridge_id: String((bridge && bridge.id) || ((bridge && bridge.from) + '::' + (bridge && bridge.to))) }
+            );
+            var flow = _envSceneConduitFlowState(bridgeTone, bridgeVisual, dominance, bridgeTone === 'failed');
+            ctx.globalAlpha = Math.max(0.06, districtOpacity * 0.4 * weight * Math.max(0.28, bridgeVisual.opacity));
+            ctx.strokeStyle = flow.mode !== 'idle' ? flow.color : ((bridgeTone === 'failed') ? 'rgba(255,116,116,0.52)' : palette.beam);
+            ctx.lineWidth = (1.2 + weight * 1.6) * Math.max(0.82, bridgeVisual.width || 1);
+            ctx.shadowColor = flow.mode !== 'idle'
+                ? flow.color
+                : ((bridgeTone === 'failed') ? 'rgba(255,116,116,0.46)' : palette.beam);
+            ctx.shadowBlur = flow.mode !== 'idle' ? 10 * Math.max(0.7, bridgeVisual.shadow || 1) : 0;
+            ctx.beginPath();
+            ctx.moveTo(from.center.x, from.center.y);
+            ctx.quadraticCurveTo(midX, midY, to.center.x, to.center.y);
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            var packetTotal = Math.max(0, bridgePacketCount + Number(flow.packetCount || 0));
+            if (packetTotal > 0 && flow.mode !== 'idle') {
+                for (var packet = 0; packet < packetTotal; packet++) {
+                    var phase = (t * (bridgePacketSpeed * Math.max(0.6, Number(flow.speed || 1))) + (packet / packetTotal) + (bridgeIndex * 0.17)) % 1;
+                    var point = _envSceneQuadraticPoint(from.center.x, from.center.y, midX, midY, to.center.x, to.center.y, phase);
+                    var radius = bridgePacketSize * Math.max(0.68, Number(flow.packetScale || 1)) * (0.88 + weight * 0.12);
+                    var packetGlow = ctx.createRadialGradient(point.x, point.y, 0, point.x, point.y, radius * 2.2);
+                    packetGlow.addColorStop(0, flow.color.replace(/0\.\d+\)/, Math.min(0.96, bridgePulseOpacity + 0.22).toFixed(3) + ')'));
+                    packetGlow.addColorStop(1, 'rgba(0,0,0,0)');
+                    ctx.globalAlpha = Math.max(0.18, bridgePulseOpacity * Math.max(0.4, bridgeVisual.opacity));
+                    ctx.fillStyle = packetGlow;
+                    ctx.beginPath();
+                    ctx.arc(point.x, point.y, radius * 2.2, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.globalAlpha = Math.max(0.24, bridgePulseOpacity + 0.16);
+                    ctx.fillStyle = flow.color;
+                    ctx.beginPath();
+                    ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        });
+
+        ctx.restore();
     }
 
     function _envSceneDominanceAccent(dominance, colors, tone) {
@@ -7913,6 +8929,7 @@
         ctx.scale(dpr, dpr);
         _envSceneUpdateCamera(timeMs);
         _envSceneDrawBackground(ctx, _envScene.width, _envScene.height);
+        _envSceneDrawWorldSubstrate(ctx, _envScene.width, _envScene.height, timeMs);
         _envSceneDrawPulses(ctx, _envScene.width, _envScene.height, timeMs);
         _envScene.pickables = (_envScene.objects || []).map(function (obj, idx) {
             return _envSceneProjectObject(obj, idx, timeMs);
@@ -7930,6 +8947,9 @@
         _envScene.pickables.forEach(function (item) {
             _envSceneDrawObject(ctx, item, timeMs);
         });
+        _envSceneRenderShadowLayer();
+        _envSceneRenderSubstrateLayer(projectionMap);
+        _envSceneRenderBeaconLayer(projectionMap);
         _envSceneRenderWeb3DLayer();
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         _envScene.dirty = false;
@@ -7964,6 +8984,8 @@
             _envScene.shell = null;
             var layer = document.getElementById('envops-habitat-object-layer');
             if (layer) layer.innerHTML = '';
+            var shadowLayer = document.getElementById('envops-habitat-shadow-layer');
+            if (shadowLayer) shadowLayer.innerHTML = '';
             return;
         }
         _envSceneBindCanvas(canvas);
@@ -9197,15 +10219,20 @@
         if (failedNodeId) {
             return {
                 kind: 'node',
+                id: String(failedNodeId),
+                key: 'node::' + String(failedNodeId),
                 label: _envFocusDescriptor('node', failedNodeId, workflow, [], traces),
                 detail: 'node failure',
                 tone: 'alert'
             };
         }
-        var failedTrace = (traces || []).find(function (trace) { return !!trace.error; }) || null;
+        var failedTraceIndex = (traces || []).findIndex(function (trace) { return !!trace.error; });
+        var failedTrace = failedTraceIndex >= 0 ? (traces || [])[failedTraceIndex] : null;
         if (failedTrace) {
             return {
                 kind: 'trace',
+                id: String(failedTraceIndex),
+                key: 'trace::' + String(failedTraceIndex),
                 label: String(failedTrace.tool || 'trace relay'),
                 detail: 'trace error',
                 tone: 'alert'
@@ -9215,8 +10242,11 @@
             return event && (event.kind === 'watch' || event.kind === 'control') && /fail/i.test(String(event.body || ''));
         }) || null;
         if (latest) {
+            var latestEventId = String(latest.id || latest.seq || '').trim();
             return {
-                kind: String(latest.kind || 'system'),
+                kind: latestEventId ? 'event' : String(latest.kind || 'system'),
+                id: latestEventId,
+                key: latestEventId ? ('event::' + latestEventId) : '',
                 label: String(latest.body || 'failure signal'),
                 detail: 'bus signal',
                 tone: 'warning'
@@ -9261,27 +10291,27 @@
         var modeLabel = String((dominance && dominance.mode) || 'ambient').replace(/_/g, ' ');
         return '' +
             '<div class="envops-habitat-status">' +
-            '<div class="envops-habitat-status-card ' + _esc(ingressTone) + '">' +
+            '<div class="envops-habitat-status-card ' + _esc(ingressTone) + '" data-role="ingress">' +
             '<div class="h">Ingress</div>' +
             '<div class="v">' + (ingress.active ? 'armed' : 'paused') + ' · ' + String((ingress.queue || []).length) + ' queued</div>' +
             '<div class="m">' + (ingress.processing ? 'dispatching shared commands' : 'shared command bus ready') + '</div>' +
             '</div>' +
-            '<div class="envops-habitat-status-card ' + _esc(samplerTone) + '">' +
+            '<div class="envops-habitat-status-card ' + _esc(samplerTone) + '" data-role="watch">' +
             '<div class="h">Sampler</div>' +
             '<div class="v">' + (sampler.active ? 'streaming' : 'manual') + ' · ' + String(sampler.intervalMs || 0) + 'ms</div>' +
             '<div class="m">' + ((watchModes.length ? watchModes.join(' · ') : 'manual watch only')) + '</div>' +
             '</div>' +
-            '<div class="envops-habitat-status-card ' + _esc(replayTone) + '">' +
+            '<div class="envops-habitat-status-card ' + _esc(replayTone) + '" data-role="replay">' +
             '<div class="h">Replay Rail</div>' +
             '<div class="v">' + (replay.active ? 'playing' : 'ready') + ' · ' + _esc(String(replay.mode || 'samples')) + '</div>' +
             '<div class="m">' + (((replay.track || []).length) ? ('cursor ' + String(Math.max(0, Number(replay.cursor || 0)) + 1) + ' / ' + String((replay.track || []).length)) : 'waiting on replay track') + '</div>' +
             '</div>' +
-            '<div class="envops-habitat-status-card ' + _esc(latestTone) + '">' +
+            '<div class="envops-habitat-status-card ' + _esc(latestTone) + '" data-role="latest">' +
             '<div class="h">Latest Bus Action</div>' +
             '<div class="v">' + _esc(latest ? String(latest.body || 'event') : 'No recent action') + '</div>' +
             '<div class="m">' + _esc(latest ? (String(latest.actor || 'system') + ' · ' + String(latest.channel || 'system')) : 'waiting on shared ingress') + '</div>' +
             '</div>' +
-            '<div class="envops-habitat-status-card ' + _esc(failure.tone) + '">' +
+            '<div class="envops-habitat-status-card ' + _esc(failure.tone) + '" data-role="failure">' +
             '<div class="h">Failure Surface</div>' +
             '<div class="v">' + _esc(failure.label) + '</div>' +
             '<div class="m">' + _esc(failure.detail + ' · ' + failure.kind) + '</div>' +
@@ -9498,22 +10528,72 @@
             var active = cameraMode === mode.id ? ' active' : '';
             return '<span class="envops-focus-chip' + active + '" data-env-action="set-camera-mode" data-env-camera-mode="' + _esc(mode.id) + '">' + _esc(mode.label) + '</span>';
         }).join('');
+        _envScene.failureSurface = failure;
+        var dominanceTargetText = (dominanceSummary.targets || []).length
+            ? dominanceSummary.targets.map(function (item) { return item.label; }).join(' · ')
+            : 'No active targets';
+        var eventSummary = _envSceneEventFocusSummary(dominance);
+        var eventRouteHtml = eventSummary ? (
+            '<div class="envops-habitat-event-route">' +
+            '<div class="envops-habitat-event-pill source">' +
+            '<div class="h">Source</div>' +
+            '<div class="v">' + _esc(eventSummary.sourceLabel || 'No source') + '</div>' +
+            '<div class="m">' + _esc(eventSummary.actor || 'system') + '</div>' +
+            '</div>' +
+            '<div class="envops-habitat-event-link">' + _esc(String(eventSummary.channel || 'event').toUpperCase()) + '</div>' +
+            '<div class="envops-habitat-event-pill relay">' +
+            '<div class="h">Event</div>' +
+            '<div class="v">' + _esc(eventSummary.eventLabel || eventSummary.body) + '</div>' +
+            '<div class="m">' + _esc(eventSummary.body) + '</div>' +
+            '</div>' +
+            '<div class="envops-habitat-event-link">TARGET</div>' +
+            '<div class="envops-habitat-event-pill target">' +
+            '<div class="h">Target</div>' +
+            '<div class="v">' + _esc(eventSummary.targetLabel || 'No target') + '</div>' +
+            '<div class="m">' + _esc('event #' + String(eventSummary.id || '')) + '</div>' +
+            '</div>' +
+            '</div>'
+        ) : '';
         var html = '<div class="' + _esc(habitatClasses.join(' ')) + '">' +
             _envRenderHabitatTelemetry(workflow, exec, traces) +
             '<div class="envops-habitat-scene">' +
             '<div class="envops-habitat-shell" id="envops-habitat-shell" style="' + _esc(shellStyle) + '" data-env-camera-mode="' + _esc(cameraMode) + '" data-env-dominance-mode="' + _esc(String((dominance && dominance.mode) || 'ambient')) + '">' +
             '<div class="envops-habitat-backwall"></div>' +
             '<div class="envops-habitat-floor"></div>' +
+            _envSceneRenderDepthLayer(workflow, exec, sections, traces) +
+            _envSceneRenderVanishLayer(workflow, exec, sections, traces) +
+            _envSceneRenderPlatformLayer(workflow, exec, sections, traces) +
             _envSceneRenderAtmosphereLayer(workflow, exec, sections, traces) +
             _envSceneRenderArchitectureLayer(workflow, exec, sections, traces) +
             _envSceneRenderVolumeLayer(workflow, exec, sections, traces) +
             '<canvas class="envops-habitat-canvas" id="envops-habitat-canvas"></canvas>' +
             _envSceneRenderDistrictLayer(workflow, exec, sections, traces) +
+            '<div class="envops-habitat-shadow-layer" id="envops-habitat-shadow-layer"></div>' +
+            '<div class="envops-habitat-substrate-layer" id="envops-habitat-substrate-layer"></div>' +
+            '<div class="envops-habitat-beacon-layer" id="envops-habitat-beacon-layer"></div>' +
             '<div class="envops-habitat-object-layer" id="envops-habitat-object-layer"></div>' +
             '</div>' +
             '<div class="envops-habitat-hud">' +
             '<div class="envops-habitat-hud-primary" id="envops-habitat-hud-primary">' + _esc(focus.label ? ('Focused: ' + String(focus.label)) : 'Scene ready.') + '</div>' +
             '<div class="envops-habitat-hud-secondary" id="envops-habitat-hud-secondary">Click a primitive to route focus through the shared ingress queue. Drag the habitat shell to pan, wheel to zoom, double-click to reset.</div>' +
+            '<div class="envops-habitat-mode-rail">' +
+            '<div class="envops-habitat-mode-card dominant mode-' + _esc(dominanceSummary.mode) + '">' +
+            '<div class="h">Dominance</div>' +
+            '<div class="v">' + _esc(String(dominanceSummary.mode || 'ambient').toUpperCase()) + '</div>' +
+            '<div class="m">' + _esc(dominanceSummary.anchorLabel || 'No active anchor') + '</div>' +
+            '</div>' +
+            '<div class="envops-habitat-mode-card route">' +
+            '<div class="h">Primary Route</div>' +
+            '<div class="v">' + _esc(dominanceSummary.anchorLabel || 'No active anchor') + '</div>' +
+            '<div class="m">' + _esc(dominanceTargetText) + '</div>' +
+            '</div>' +
+            '<div class="envops-habitat-mode-card ' + _esc(failure.tone) + '">' +
+            '<div class="h">Failure Bias</div>' +
+            '<div class="v">' + _esc(failure.label) + '</div>' +
+            '<div class="m">' + _esc(failure.detail + ' · ' + failure.kind) + '</div>' +
+            '</div>' +
+            '</div>' +
+            eventRouteHtml +
             '<div class="envops-habitat-dominance">' +
             '<span class="envops-habitat-dominance-chip mode-' + _esc(dominanceSummary.mode) + '">' + _esc(String(dominanceSummary.mode || 'ambient').toUpperCase()) + '</span>' +
             (dominanceSummary.anchorLabel ? '<span class="envops-habitat-dominance-path">' + _esc(dominanceSummary.anchorLabel) + '</span>' : '<span class="envops-habitat-dominance-path">No active anchor</span>') +
