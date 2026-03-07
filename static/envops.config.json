@@ -1,5 +1,5 @@
 {
-  "version": "2026-03-07-envops-v6",
+  "version": "2026-03-07-envops-v8",
   "shell": {
     "defaultRenderer": "web3d",
     "defaultPackageMode": "research",
@@ -57,6 +57,15 @@
     "cameraDepth": 0.78,
     "objectScale": 1,
     "defaultCameraMode": "overview",
+    "shellParallax": 0.24,
+    "shellLift": 14,
+    "shellDepthShift": 22,
+    "focusFieldOpacity": 0.34,
+    "focusFieldRingOpacity": 0.18,
+    "focusFieldGlow": 1,
+    "volumeBaseHeight": 34,
+    "volumeHeightGain": 6.5,
+    "volumeBridgeOpacity": 0.22,
     "routeOpacity": 0.42,
     "routeGlow": true,
     "trajectoryOpacity": 0.55,

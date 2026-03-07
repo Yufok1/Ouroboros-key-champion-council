@@ -1781,10 +1781,64 @@
             line-height: 1.5;
         }
 
+        .envops-habitat-dominance {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-top: 2px;
+        }
+
+        .envops-habitat-dominance-chip,
+        .envops-habitat-dominance-target,
+        .envops-habitat-dominance-path {
+            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(255,255,255,0.04);
+            color: var(--text);
+            font-size: 8px;
+            line-height: 1;
+            padding: 4px 7px;
+            text-transform: uppercase;
+            letter-spacing: 0.7px;
+            font-family: var(--mono);
+        }
+
+        .envops-habitat-dominance-chip.mode-watch {
+            border-color: rgba(255,190,96,0.32);
+            color: #ffd49b;
+        }
+
+        .envops-habitat-dominance-chip.mode-replay {
+            border-color: rgba(79,255,208,0.32);
+            color: #8fffe0;
+        }
+
+        .envops-habitat-dominance-chip.mode-event,
+        .envops-habitat-dominance-chip.mode-focus {
+            border-color: rgba(102,184,255,0.32);
+            color: #a4d1ff;
+        }
+
+        .envops-habitat-dominance-path {
+            color: var(--accent);
+            background: rgba(79,255,208,0.08);
+        }
+
+        .envops-habitat-dominance-target {
+            color: var(--text-dim);
+        }
+
         .envops-habitat-shell {
+            --env-cam-shift-x: 0px;
+            --env-cam-shift-y: 0px;
+            --env-cam-zoom: 1;
+            --env-cam-roll: 0deg;
+            --env-cam-lift: 0px;
+            --env-cam-depth: 0px;
             min-height: 280px;
             position: relative;
             perspective: 1200px;
+            perspective-origin: 50% 42%;
             transform-style: preserve-3d;
         }
 
@@ -1794,6 +1848,83 @@
             z-index: 1;
             pointer-events: none;
             transform-style: preserve-3d;
+        }
+
+        .envops-habitat-volume-layer {
+            position: absolute;
+            inset: 0;
+            z-index: 1;
+            pointer-events: none;
+            transform-style: preserve-3d;
+        }
+
+        .envops-habitat-volume-bridge {
+            position: absolute;
+            height: 4px;
+            border-radius: 999px;
+            transform-origin: left center;
+            background: linear-gradient(90deg, rgba(79,255,208,0.08), rgba(68,198,255,0.34), rgba(79,255,208,0.08));
+            box-shadow: 0 0 14px rgba(68,198,255,0.08);
+            opacity: 0.42;
+        }
+
+        .envops-habitat-volume {
+            position: absolute;
+            width: var(--env-volume-width, 70px);
+            height: calc(var(--env-volume-height, 56px) + 28px);
+            transform:
+                translate(-50%, -100%)
+                translateZ(calc(var(--env-volume-depth, 0px) + var(--env-cam-depth, 0px)))
+                rotateX(72deg)
+                rotateZ(var(--env-cam-roll));
+            transform-style: preserve-3d;
+            opacity: var(--env-volume-opacity, 0.86);
+        }
+
+        .envops-habitat-volume .stem {
+            position: absolute;
+            left: 50%;
+            bottom: 0;
+            width: calc(var(--env-volume-width, 70px) * 0.62);
+            height: var(--env-volume-height, 56px);
+            transform: translateX(-50%);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px 12px 4px 4px;
+            background:
+                linear-gradient(180deg, rgba(79,255,208,0.26), rgba(68,198,255,0.06) 42%, rgba(8,18,26,0.92)),
+                linear-gradient(90deg, rgba(255,255,255,0.06), transparent 40%, rgba(255,255,255,0.03));
+            box-shadow:
+                inset 0 0 0 1px rgba(255,255,255,0.04),
+                0 10px 18px rgba(0,0,0,0.18);
+        }
+
+        .envops-habitat-volume .cap {
+            position: absolute;
+            left: 50%;
+            bottom: calc(var(--env-volume-height, 56px) - 8px);
+            width: var(--env-volume-width, 70px);
+            height: 18px;
+            transform: translateX(-50%);
+            border-radius: 999px;
+            border: 1px solid rgba(255,255,255,0.12);
+            background:
+                radial-gradient(circle at center, rgba(79,255,208,0.32), rgba(68,198,255,0.08) 55%, rgba(8,18,26,0.88) 100%);
+            box-shadow: 0 0 18px rgba(79,255,208,0.12);
+        }
+
+        .envops-habitat-volume .tag {
+            position: absolute;
+            left: 50%;
+            bottom: calc(var(--env-volume-height, 56px) + 12px);
+            transform: translateX(-50%);
+            min-width: 92px;
+            text-align: center;
+            font-size: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--text-dim);
+            white-space: nowrap;
+            text-shadow: 0 1px 0 rgba(0,0,0,0.4);
         }
 
         .envops-habitat-zone {
@@ -1929,7 +2060,10 @@
                 linear-gradient(180deg, rgba(255,255,255,0.04) 1px, transparent 1px);
             background-size: auto, 52px 100%, 100% 52px;
             border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-            transform: translateZ(-120px) scale(1.12);
+            transform:
+                translate3d(calc(var(--env-cam-shift-x) * 0.18), calc(var(--env-cam-shift-y) * 0.12 - var(--env-cam-lift)), calc(-120px + var(--env-cam-depth)))
+                scale(calc(1.12 * var(--env-cam-zoom)))
+                rotateZ(var(--env-cam-roll));
             transform-origin: center center;
             opacity: 0.65;
             transition: opacity 160ms ease, filter 160ms ease, box-shadow 160ms ease, transform 160ms ease;
@@ -1947,7 +2081,10 @@
                 linear-gradient(180deg, rgba(255,255,255,0.05) 1px, transparent 1px),
                 linear-gradient(180deg, rgba(10, 21, 28, 0.9), rgba(5, 9, 13, 0.98));
             background-size: auto, 42px 100%, 100% 42px, auto;
-            transform: rotateX(72deg) translateZ(-80px);
+            transform:
+                translate3d(calc(var(--env-cam-shift-x) * 0.12), calc(var(--env-cam-shift-y) * 0.08), calc(-80px + var(--env-cam-depth)))
+                rotateX(72deg)
+                rotateZ(calc(var(--env-cam-roll) * 0.45));
             transform-origin: top center;
             border-top: 1px solid rgba(255, 255, 255, 0.05);
             box-shadow: inset 0 18px 30px rgba(0, 0, 0, 0.34);
@@ -2071,6 +2208,18 @@
         .envops-habitat-object.dispatch,
         .envops-habitat-object.queued {
             box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(255, 255, 255, 0.04);
+        }
+
+        .envops-habitat-object.spotlight {
+            box-shadow:
+                inset 0 0 0 1px rgba(255,255,255,0.08),
+                0 18px 36px rgba(0,0,0,0.28),
+                0 0 24px rgba(79,255,208,0.14);
+        }
+
+        .envops-habitat-object.ghosted::after {
+            border-color: rgba(255,255,255,0.04);
+            opacity: 0.5;
         }
 
         .envops-habitat-object .p {

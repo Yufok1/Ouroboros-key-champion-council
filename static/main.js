@@ -5776,6 +5776,102 @@
         _envScene.camera = cam;
     }
 
+    function _envSceneShellStyle(camera, dominance) {
+        var scene = _envSceneConfig();
+        var cam = camera || {};
+        var parallax = Number(scene.shellParallax || 0.22);
+        var liftBase = Number(scene.shellLift || 12);
+        var depthShift = Number(scene.shellDepthShift || 20);
+        var xDelta = 50 - Number(cam.x || 50);
+        var yDelta = 52 - Number(cam.y || 52);
+        var zoom = Number(cam.zoom || 1);
+        var mode = String((dominance && dominance.mode) || 'ambient');
+        var shiftX = xDelta * parallax * 6.4;
+        var shiftY = yDelta * parallax * 4.8;
+        var zoomVar = 1 + ((zoom - 1) * 0.28);
+        var roll = Math.max(-6, Math.min(6, xDelta * 0.12));
+        var lift = liftBase + Math.max(-18, Math.min(18, -yDelta * 1.2));
+        var depth = Math.round((zoom - 1) * depthShift * 4.2);
+        if (mode === 'focus') {
+            zoomVar += 0.02;
+            depth += 8;
+        } else if (mode === 'replay') {
+            shiftX *= 1.12;
+            roll *= 1.12;
+        }
+        return '' +
+            '--env-cam-shift-x:' + shiftX.toFixed(1) + 'px;' +
+            '--env-cam-shift-y:' + shiftY.toFixed(1) + 'px;' +
+            '--env-cam-zoom:' + zoomVar.toFixed(3) + ';' +
+            '--env-cam-roll:' + roll.toFixed(2) + 'deg;' +
+            '--env-cam-lift:' + lift.toFixed(1) + 'px;' +
+            '--env-cam-depth:' + depth + 'px;';
+    }
+
+    function _envSceneDistrictTonePalette(tone) {
+        var value = String(tone || 'idle').toLowerCase();
+        if (value === 'alert') {
+            return {
+                stem: 'linear-gradient(180deg, rgba(255,122,122,0.34), rgba(255,88,88,0.08) 42%, rgba(25,8,12,0.92)),linear-gradient(90deg, rgba(255,255,255,0.05), transparent 40%, rgba(255,255,255,0.02))',
+                cap: 'radial-gradient(circle at center, rgba(255,132,132,0.42), rgba(255,84,84,0.12) 55%, rgba(22,8,12,0.9) 100%)',
+                shadow: 'rgba(255,102,102,0.18)',
+                tag: '#ffc2c2'
+            };
+        }
+        if (value === 'warning') {
+            return {
+                stem: 'linear-gradient(180deg, rgba(255,204,102,0.34), rgba(255,170,0,0.08) 42%, rgba(24,16,8,0.92)),linear-gradient(90deg, rgba(255,255,255,0.05), transparent 40%, rgba(255,255,255,0.02))',
+                cap: 'radial-gradient(circle at center, rgba(255,206,122,0.42), rgba(255,170,0,0.12) 55%, rgba(22,14,8,0.9) 100%)',
+                shadow: 'rgba(255,190,72,0.16)',
+                tag: '#ffe0a6'
+            };
+        }
+        if (value === 'active') {
+            return {
+                stem: 'linear-gradient(180deg, rgba(79,255,208,0.34), rgba(68,198,255,0.08) 42%, rgba(8,18,26,0.92)),linear-gradient(90deg, rgba(255,255,255,0.06), transparent 40%, rgba(255,255,255,0.03))',
+                cap: 'radial-gradient(circle at center, rgba(79,255,208,0.42), rgba(68,198,255,0.12) 55%, rgba(8,18,26,0.88) 100%)',
+                shadow: 'rgba(79,255,208,0.16)',
+                tag: '#b7fff1'
+            };
+        }
+        if (value === 'ok') {
+            return {
+                stem: 'linear-gradient(180deg, rgba(118,207,255,0.28), rgba(82,152,255,0.08) 42%, rgba(8,16,28,0.92)),linear-gradient(90deg, rgba(255,255,255,0.05), transparent 40%, rgba(255,255,255,0.02))',
+                cap: 'radial-gradient(circle at center, rgba(122,214,255,0.34), rgba(82,152,255,0.12) 55%, rgba(8,16,28,0.9) 100%)',
+                shadow: 'rgba(118,207,255,0.12)',
+                tag: '#c3e8ff'
+            };
+        }
+        return {
+            stem: 'linear-gradient(180deg, rgba(164,182,196,0.18), rgba(88,110,128,0.08) 42%, rgba(10,14,18,0.94)),linear-gradient(90deg, rgba(255,255,255,0.04), transparent 40%, rgba(255,255,255,0.02))',
+            cap: 'radial-gradient(circle at center, rgba(164,182,196,0.24), rgba(88,110,128,0.1) 55%, rgba(10,14,18,0.92) 100%)',
+            shadow: 'rgba(136,156,172,0.08)',
+            tag: '#a8b6c2'
+        };
+    }
+
+    function _envSceneDistrictBridgeCatalog() {
+        return [
+            { id: 'control-runtime', from: 'control', to: 'runtime', weight: 1.1 },
+            { id: 'control-ingress', from: 'control', to: 'ingress', weight: 0.9 },
+            { id: 'runtime-trace', from: 'runtime', to: 'trace', weight: 1.0 },
+            { id: 'runtime-replay', from: 'runtime', to: 'replay', weight: 0.9 },
+            { id: 'ingress-memory', from: 'ingress', to: 'memory', weight: 0.82 },
+            { id: 'memory-trace', from: 'memory', to: 'trace', weight: 0.76 },
+            { id: 'trace-replay', from: 'trace', to: 'replay', weight: 0.88 }
+        ];
+    }
+
+    function _envSceneCollectDistrictStates(workflow, exec, sections, traces) {
+        var events = _envRecentBusEvents(18);
+        return _envSceneDistrictCatalog().map(function (district) {
+            return {
+                district: district,
+                state: _envSceneDistrictState(district, workflow, exec, sections, traces, events)
+            };
+        });
+    }
+
     function _envSceneBuildRoutes(workflow, objects) {
         if (!workflow) return [];
         var lookup = {};
@@ -6499,6 +6595,237 @@
         return { opacity: 0.22, glow: 0.42, dominant: false, suppressed: true };
     }
 
+    function _envSceneFocusAnchorKey(ctx) {
+        if (!ctx) return '';
+        if (ctx.mode === 'event' && ctx.eventId) {
+            var event = _envFindBusEvent(ctx.eventId);
+            var links = _envSceneEventLinkKeys(event);
+            return String(links.targetKey || links.sourceKey || links.eventKey || '').trim();
+        }
+        if (ctx.mode === 'replay') {
+            var replay = _envKernel.replay || {};
+            var replayKey = 'replay::' + String(Math.max(0, Number(replay.cursor || 0)));
+            if (ctx.primaryKeys[replayKey]) return replayKey;
+            var current = replay.current || null;
+            if (current && current.kind) return String(current.kind || '') + '::' + String(current.id || '');
+            var latestBranch = ((_envKernel.branches || [])[0]) || null;
+            if (latestBranch) return 'branch::' + String(latestBranch.id || '');
+            var latestSample = ((_envKernel.samples || [])[0]) || null;
+            if (latestSample) return 'sample::' + String(latestSample.id || '');
+        }
+        if (ctx.mode === 'watch') {
+            var failedTraceIndex = (Array.isArray(_envScene.traces) ? _envScene.traces : []).findIndex(function (trace) {
+                return !!trace && (!!trace.error || /fail|error/i.test(String(trace.result || '')));
+            });
+            if (failedTraceIndex >= 0) return 'trace::' + String(failedTraceIndex);
+            var latestFailureEvent = (Array.isArray((_envBus || {}).events) ? _envBus.events : []).find(function (event) {
+                return _envBusEventSignalsFailure(event);
+            }) || null;
+            if (latestFailureEvent) return 'event::' + String(latestFailureEvent.id || latestFailureEvent.seq || '');
+            var watchIds = Object.keys(ctx.watchIds || {});
+            if (watchIds.length) return 'watch::' + String(watchIds[0] || '');
+        }
+        if (ctx.focusKey) return String(ctx.focusKey || '').trim();
+        var keys = Object.keys(ctx.primaryKeys || {});
+        return keys.length ? String(keys[0] || '').trim() : '';
+    }
+
+    function _envSceneFocusRailTargets(ctx, anchorKey, projectionMap) {
+        var targets = [];
+        Object.keys(ctx.primaryKeys || {}).forEach(function (key) {
+            var text = String(key || '').trim();
+            if (!text || text === anchorKey) return;
+            if (!projectionMap[text]) return;
+            if (targets.indexOf(text) >= 0) return;
+            targets.push(text);
+        });
+        return targets.slice(0, 10);
+    }
+
+    function _envSceneKeyLabel(key) {
+        var text = String(key || '').trim();
+        if (!text) return '';
+        var idx = text.indexOf('::');
+        var kind = idx >= 0 ? text.slice(0, idx) : text;
+        var id = idx >= 0 ? text.slice(idx + 2) : '';
+        if (kind === 'workflow') {
+            return String(((_envScene.workflow || {}).name) || ((_envScene.workflow || {}).id) || id || 'workflow');
+        }
+        if (kind === 'node') {
+            var node = ((_envScene.workflow || {}).nodes || []).find(function (item) {
+                return String((item && item.id) || '') === String(id || '');
+            }) || null;
+            return String((node && (node.name || node.label || node.id)) || ('node ' + id));
+        }
+        if (kind === 'trace') {
+            var trace = ((_envScene.traces || [])[Number(id)] || null);
+            return String((trace && (trace.tool || trace.label)) || ('trace ' + id));
+        }
+        if (kind === 'artifact') {
+            var artifact = ((_envScene.sections || [])[Number(id)] || null);
+            return String((artifact && artifact.title) || ('artifact ' + id));
+        }
+        if (kind === 'sample') {
+            var sample = ((_envKernel.samples || [])).find(function (item) {
+                return String((item && item.id) || '') === String(id || '');
+            }) || null;
+            return sample ? ('sample #' + String(sample.seq || id || '0')) : ('sample ' + id);
+        }
+        if (kind === 'branch') {
+            var branch = ((_envKernel.branches || [])).find(function (item) {
+                return String((item && item.id) || '') === String(id || '');
+            }) || null;
+            return String((branch && branch.reason) || ('branch ' + id));
+        }
+        if (kind === 'replay') {
+            var replay = ((_envKernel.replay || {}).current) || null;
+            return String((replay && (replay.label || replay.kind)) || ('replay ' + id));
+        }
+        if (kind === 'watch') {
+            var descriptor = _envWatchDescriptors().find(function (item) {
+                return String((item && item.key) || '') === String(id || '');
+            }) || null;
+            return String((descriptor && (descriptor.label || descriptor.key)) || ('watch ' + id));
+        }
+        if (kind === 'profile') {
+            var profile = _envProfileById(id);
+            return String((profile && (profile.label || profile.id)) || ('profile ' + id));
+        }
+        if (kind === 'recipe') {
+            var recipe = _envRecipeById(id);
+            return String((recipe && (recipe.label || recipe.id)) || ('recipe ' + id));
+        }
+        if (kind === 'dispatch') {
+            var ingressCurrent = ((_envKernel.ingress || {}).current) || null;
+            return String((ingressCurrent && ingressCurrent.action) || ('dispatch ' + id));
+        }
+        if (kind === 'queued') {
+            var queued = (((_envKernel.ingress || {}).queue) || []).find(function (item) {
+                return String((item && item.id) || '') === String(id || '');
+            }) || null;
+            return String((queued && queued.action) || ('queued ' + id));
+        }
+        if (kind === 'event') {
+            var event = _envFindBusEvent(id);
+            return event ? (String(event.channel || 'event') + ' #' + String(event.seq || id)) : ('event ' + id);
+        }
+        if (kind === 'doc') {
+            var doc = ((_envDocState.results || [])).find(function (item) {
+                var value = item && (item.key || item.path || item.id);
+                return String(value || '') === String(id || '');
+            }) || null;
+            var path = String((doc && (doc.key || doc.path || doc.id)) || id || '');
+            return path.split('/').slice(-1)[0] || path;
+        }
+        return id || kind;
+    }
+
+    function _envSceneDominanceSummary() {
+        var ctx = _envScene.dominance || _envSceneDominanceContext();
+        if (!ctx) return { mode: 'ambient', anchorKey: '', anchorLabel: '', targets: [] };
+        var anchorKey = _envSceneFocusAnchorKey(ctx);
+        var targets = Object.keys(ctx.primaryKeys || {}).filter(function (key) {
+            var text = String(key || '').trim();
+            return !!text && text !== anchorKey;
+        }).slice(0, 4).map(function (key) {
+            return {
+                key: key,
+                label: _envSceneKeyLabel(key)
+            };
+        }).filter(function (item) {
+            return !!String(item.label || '').trim();
+        });
+        return {
+            mode: String(ctx.mode || 'ambient'),
+            anchorKey: anchorKey,
+            anchorLabel: _envSceneKeyLabel(anchorKey),
+            targets: targets
+        };
+    }
+
+    function _envSceneDrawFocusField(ctx, projectionMap, timeMs) {
+        if (!ctx || ctx.mode === 'ambient') return;
+        var anchorKey = _envSceneFocusAnchorKey(ctx);
+        var anchor = anchorKey ? projectionMap[anchorKey] : null;
+        if (!anchor) return;
+        var cfg = _envSceneConfig();
+        var accent = _envSceneDominanceAccent(ctx, { edge: '#67d3ff' }, '');
+        var fieldOpacity = Math.max(0.08, Math.min(0.92, Number(cfg.focusFieldOpacity || 0.34)));
+        var ringOpacity = Math.max(0.06, Math.min(0.72, Number(cfg.focusFieldRingOpacity || 0.18)));
+        var glow = Math.max(0.4, Number(cfg.focusFieldGlow || 1));
+        var targets = _envSceneFocusRailTargets(ctx, anchorKey, projectionMap);
+        var t = Number(timeMs || 0) * 0.001;
+
+        targets.forEach(function (targetKey, idx) {
+            var target = projectionMap[targetKey];
+            if (!target) return;
+            var dx = target.x - anchor.x;
+            var dy = target.y - anchor.y;
+            var distance = Math.max(18, Math.sqrt(dx * dx + dy * dy));
+            var ctrlX = (anchor.x + target.x) / 2;
+            var ctrlY = Math.min(anchor.y, target.y) - Math.max(18, Math.min(86, distance * 0.26)) - ((idx % 3) * 9);
+            var phase = (((t * (ctx.mode === 'replay' ? 0.42 : (ctx.mode === 'watch' ? 0.28 : 0.34))) + idx * 0.12) % 1);
+            var point = _envSceneBezierPoint(anchor.x, anchor.y, ctrlX, ctrlY, target.x, target.y, phase);
+            var tail = _envSceneBezierPoint(anchor.x, anchor.y, ctrlX, ctrlY, target.x, target.y, Math.max(0, phase - 0.12));
+
+            _envScene.ctx.save();
+            _envScene.ctx.globalAlpha = fieldOpacity;
+            _envScene.ctx.strokeStyle = accent;
+            _envScene.ctx.lineWidth = (ctx.mode === 'event' ? 2.3 : (ctx.mode === 'replay' ? 2.0 : 1.7));
+            if (ctx.mode === 'watch') _envScene.ctx.setLineDash([3, 7]);
+            else if (ctx.mode === 'replay') _envScene.ctx.setLineDash([11, 6]);
+            else if (ctx.mode === 'event') _envScene.ctx.setLineDash([5, 5]);
+            else _envScene.ctx.setLineDash([7, 4]);
+            _envScene.ctx.shadowColor = accent;
+            _envScene.ctx.shadowBlur = 16 * glow;
+            _envScene.ctx.beginPath();
+            _envScene.ctx.moveTo(anchor.x, anchor.y);
+            _envScene.ctx.quadraticCurveTo(ctrlX, ctrlY, target.x, target.y);
+            _envScene.ctx.stroke();
+            _envScene.ctx.restore();
+
+            _envScene.ctx.save();
+            _envScene.ctx.globalAlpha = Math.min(1, fieldOpacity + 0.18);
+            _envScene.ctx.fillStyle = accent;
+            _envScene.ctx.shadowColor = accent;
+            _envScene.ctx.shadowBlur = 14 * glow;
+            _envScene.ctx.beginPath();
+            _envScene.ctx.arc(point.x, point.y, ctx.mode === 'replay' ? 4.2 : 3.6, 0, Math.PI * 2);
+            _envScene.ctx.fill();
+            _envScene.ctx.globalAlpha = ringOpacity * 1.2;
+            _envScene.ctx.beginPath();
+            _envScene.ctx.arc(tail.x, tail.y, 2.4, 0, Math.PI * 2);
+            _envScene.ctx.fill();
+            _envScene.ctx.restore();
+        });
+
+        _envScene.ctx.save();
+        _envScene.ctx.translate(anchor.x, anchor.y);
+        _envScene.ctx.strokeStyle = accent;
+        _envScene.ctx.fillStyle = accent;
+        _envScene.ctx.shadowColor = accent;
+        _envScene.ctx.shadowBlur = 18 * glow;
+        _envScene.ctx.globalAlpha = ringOpacity * 1.5;
+        for (var ring = 0; ring < 2; ring++) {
+            var radius = 18 + ring * 10 + Math.sin(t * (1.2 + ring * 0.2)) * 2.4;
+            _envScene.ctx.beginPath();
+            _envScene.ctx.arc(0, 0, radius, 0, Math.PI * 2);
+            _envScene.ctx.stroke();
+        }
+        if (ctx.mode === 'watch' || ctx.mode === 'replay' || ctx.mode === 'event') {
+            _envScene.ctx.globalAlpha = Math.min(0.82, ringOpacity * 2.1);
+            _envScene.ctx.lineWidth = 2;
+            _envScene.ctx.beginPath();
+            _envScene.ctx.arc(0, 0, 30, (t * 1.4) % (Math.PI * 2), ((t * 1.4) % (Math.PI * 2)) + Math.PI * 0.72);
+            _envScene.ctx.stroke();
+        }
+        _envScene.ctx.globalAlpha = Math.min(0.95, fieldOpacity + 0.24);
+        _envScene.ctx.beginPath();
+        _envScene.ctx.arc(0, 0, 5.2, 0, Math.PI * 2);
+        _envScene.ctx.fill();
+        _envScene.ctx.restore();
+    }
+
     function _envSceneSetHoverFromObject(obj, item) {
         if (obj) {
             _envScene.hover = {
@@ -6602,7 +6929,7 @@
             var filter = visual.spotlight
                 ? 'saturate(1.34) brightness(1.1)'
                 : (visual.ghosted ? 'saturate(0.54) brightness(0.72)' : 'saturate(1.02) brightness(0.98)');
-            return '<button type="button" class="' + _esc(_envSceneObjectClass(obj)) + '" ' +
+            return '<button type="button" class="' + _esc(_envSceneObjectClass(obj) + (visual.spotlight ? ' spotlight' : '') + (visual.ghosted ? ' ghosted' : '')) + '" ' +
                 'style="left:' + Math.round(item.x) + 'px;top:' + Math.round(item.y) + 'px;z-index:' + String(z) + ';opacity:' + visual.opacity.toFixed(3) + ';filter:' + filter + ';transform:' + _esc(_envSceneObjectTransform(item, visual.scale)) + ';" ' +
                 'data-env-focus-kind="' + _esc(String(obj.kind || 'workflow')) + '" ' +
                 'data-env-focus-id="' + _esc(String(obj.id || '')) + '">' +
@@ -6737,13 +7064,76 @@
         };
     }
 
-    function _envSceneRenderDistrictLayer(workflow, exec, sections, traces) {
-        var districts = _envSceneDistrictCatalog();
-        var events = _envRecentBusEvents(18);
+    function _envSceneRenderVolumeLayer(workflow, exec, sections, traces) {
+        var scene = _envSceneConfig();
+        var states = _envSceneCollectDistrictStates(workflow, exec, sections, traces);
         var dominance = (_envScene && _envScene.dominance) || _envSceneDominanceContext();
-        if (!districts.length) return '';
-        return '<div class="envops-habitat-zone-layer">' + districts.map(function (district) {
-            var state = _envSceneDistrictState(district, workflow, exec, sections, traces, events);
+        if (!states.length) return '';
+        var stateById = {};
+        states.forEach(function (entry) {
+            stateById[String((entry.district || {}).id || '')] = entry;
+        });
+        var bridges = _envSceneDistrictBridgeCatalog().map(function (bridge) {
+            var fromEntry = stateById[String(bridge.from || '')];
+            var toEntry = stateById[String(bridge.to || '')];
+            if (!fromEntry || !toEntry) return '';
+            var fromDistrict = fromEntry.district || {};
+            var toDistrict = toEntry.district || {};
+            var x1 = Number(fromDistrict.x || 0) + (Number(fromDistrict.w || 20) / 2);
+            var y1 = Number(fromDistrict.y || 0) + (Number(fromDistrict.h || 14) / 2) + 10;
+            var x2 = Number(toDistrict.x || 0) + (Number(toDistrict.w || 20) / 2);
+            var y2 = Number(toDistrict.y || 0) + (Number(toDistrict.h || 14) / 2) + 10;
+            var dx = x2 - x1;
+            var dy = y2 - y1;
+            var length = Math.sqrt((dx * dx) + (dy * dy));
+            var angle = Math.atan2(dy, dx) * (180 / Math.PI);
+            var hot = String((fromEntry.state || {}).tone || '') === 'alert' || String((toEntry.state || {}).tone || '') === 'alert';
+            var opacity = Math.max(0.08, Number(scene.volumeBridgeOpacity || 0.22) * Number(bridge.weight || 1));
+            if (hot) opacity += 0.12;
+            return '<div class="envops-habitat-volume-bridge" style="' +
+                'left:' + x1.toFixed(2) + '%;' +
+                'top:' + y1.toFixed(2) + '%;' +
+                'width:' + length.toFixed(2) + '%;' +
+                'transform:translateZ(' + Math.round((((Number(fromDistrict.depth || -40) + Number(toDistrict.depth || -40)) / 2) + 24)) + 'px) rotateZ(' + angle.toFixed(2) + 'deg);' +
+                'opacity:' + opacity.toFixed(3) + ';' +
+                (hot ? 'box-shadow:0 0 18px rgba(255,102,102,0.12);' : '') +
+                '"></div>';
+        }).join('');
+        var volumes = states.map(function (entry) {
+            var district = entry.district || {};
+            var state = entry.state || {};
+            var visual = _envSceneDistrictDominance(dominance, district, state);
+            var palette = _envSceneDistrictTonePalette(state.tone);
+            var centerX = Number(district.x || 0) + (Number(district.w || 20) / 2);
+            var baseY = Number(district.y || 0) + Number(district.h || 16) + 10;
+            var widthPx = Math.max(64, (Number(district.w || 24) * 2.7));
+            var heightPx = Math.max(30, Number(scene.volumeBaseHeight || 34) + (Number(state.count || 0) * Number(scene.volumeHeightGain || 6.5)));
+            var depthPx = Math.round(Number(district.depth || -48) + 18 + (heightPx * 0.18));
+            var opacity = Math.max(0.18, Math.min(1, Number(visual.opacity || 1) * (visual.suppressed ? 0.78 : 1)));
+            return '<div class="envops-habitat-volume" style="' +
+                'left:' + centerX.toFixed(2) + '%;' +
+                'top:' + baseY.toFixed(2) + '%;' +
+                '--env-volume-width:' + widthPx.toFixed(0) + 'px;' +
+                '--env-volume-height:' + heightPx.toFixed(0) + 'px;' +
+                '--env-volume-depth:' + depthPx + 'px;' +
+                '--env-volume-opacity:' + opacity.toFixed(3) + ';' +
+                'filter:brightness(' + Number(visual.glow || 1).toFixed(3) + ') saturate(' + (visual.dominant ? '1.10' : (visual.suppressed ? '0.72' : '1.00')) + ');' +
+                '">' +
+                '<div class="stem" style="background:' + palette.stem + ';box-shadow:inset 0 0 0 1px rgba(255,255,255,0.04), 0 10px 18px rgba(0,0,0,0.18), 0 0 18px ' + palette.shadow + ';"></div>' +
+                '<div class="cap" style="background:' + palette.cap + ';box-shadow:0 0 18px ' + palette.shadow + ';"></div>' +
+                '<div class="tag" style="color:' + palette.tag + ';">' + _esc(String(district.label || district.id || 'district')) + ' · ' + String(state.count || 0) + '</div>' +
+                '</div>';
+        }).join('');
+        return '<div class="envops-habitat-volume-layer">' + bridges + volumes + '</div>';
+    }
+
+    function _envSceneRenderDistrictLayer(workflow, exec, sections, traces) {
+        var entries = _envSceneCollectDistrictStates(workflow, exec, sections, traces);
+        var dominance = (_envScene && _envScene.dominance) || _envSceneDominanceContext();
+        if (!entries.length) return '';
+        return '<div class="envops-habitat-zone-layer">' + entries.map(function (entry) {
+            var district = entry.district || {};
+            var state = entry.state || {};
             var visual = _envSceneDistrictDominance(dominance, district, state);
             var targetKind = String((state.target || {}).kind || '');
             var targetId = String((state.target || {}).id || '');
@@ -7388,6 +7778,7 @@
         });
         _envSceneDrawRoutes(ctx, projectionMap, timeMs);
         _envSceneDrawTrajectories(ctx, projectionMap, timeMs);
+        _envSceneDrawFocusField(_envScene.dominance, projectionMap, timeMs);
         _envScene.pickables.forEach(function (item) {
             _envSceneDrawObject(ctx, item, timeMs);
         });
@@ -8946,6 +9337,8 @@
         var habitatClasses = ['envops-habitat', 'mode-' + String((dominance && dominance.mode) || 'ambient'), 'failure-' + String((failure && failure.tone) || 'ok')];
         if (watch.autoFollowFailed || watch.autoBranchOnFailure || watch.autoSampleOnRuntime || watch.autoFocusLatestTrace) habitatClasses.push('watch-armed');
         if (((_envKernel.ingress || {}).processing)) habitatClasses.push('ingress-active');
+        var shellStyle = _envSceneShellStyle(camera, dominance);
+        var dominanceSummary = _envSceneDominanceSummary();
         var cameraOffset = (Math.abs(Number(camera.offsetX || 0)) > 0.25 || Math.abs(Number(camera.offsetY || 0)) > 0.25 || Math.abs(Number((camera.zoomScale || 1) - 1)) > 0.02)
             ? ('offset ' + Number(camera.offsetX || 0).toFixed(1) + ',' + Number(camera.offsetY || 0).toFixed(1) + ' · zoom ' + Number(camera.zoomScale || 1).toFixed(2))
             : 'camera locked to rail';
@@ -8960,9 +9353,10 @@
         var html = '<div class="' + _esc(habitatClasses.join(' ')) + '">' +
             _envRenderHabitatTelemetry(workflow, exec, traces) +
             '<div class="envops-habitat-scene">' +
-            '<div class="envops-habitat-shell" id="envops-habitat-shell" data-env-camera-mode="' + _esc(cameraMode) + '" data-env-dominance-mode="' + _esc(String((dominance && dominance.mode) || 'ambient')) + '">' +
+            '<div class="envops-habitat-shell" id="envops-habitat-shell" style="' + _esc(shellStyle) + '" data-env-camera-mode="' + _esc(cameraMode) + '" data-env-dominance-mode="' + _esc(String((dominance && dominance.mode) || 'ambient')) + '">' +
             '<div class="envops-habitat-backwall"></div>' +
             '<div class="envops-habitat-floor"></div>' +
+            _envSceneRenderVolumeLayer(workflow, exec, sections, traces) +
             '<canvas class="envops-habitat-canvas" id="envops-habitat-canvas"></canvas>' +
             _envSceneRenderDistrictLayer(workflow, exec, sections, traces) +
             '<div class="envops-habitat-object-layer" id="envops-habitat-object-layer"></div>' +
@@ -8970,6 +9364,13 @@
             '<div class="envops-habitat-hud">' +
             '<div class="envops-habitat-hud-primary" id="envops-habitat-hud-primary">' + _esc(focus.label ? ('Focused: ' + String(focus.label)) : 'Scene ready.') + '</div>' +
             '<div class="envops-habitat-hud-secondary" id="envops-habitat-hud-secondary">Click a primitive to route focus through the shared ingress queue. Drag the habitat shell to pan, wheel to zoom, double-click to reset.</div>' +
+            '<div class="envops-habitat-dominance">' +
+            '<span class="envops-habitat-dominance-chip mode-' + _esc(dominanceSummary.mode) + '">' + _esc(String(dominanceSummary.mode || 'ambient').toUpperCase()) + '</span>' +
+            (dominanceSummary.anchorLabel ? '<span class="envops-habitat-dominance-path">' + _esc(dominanceSummary.anchorLabel) + '</span>' : '<span class="envops-habitat-dominance-path">No active anchor</span>') +
+            (dominanceSummary.targets || []).map(function (item) {
+                return '<span class="envops-habitat-dominance-target">' + _esc(item.label) + '</span>';
+            }).join('') +
+            '</div>' +
             '</div>' +
             '</div>' +
             '<div class="envops-habitat-legend">' +
