@@ -147,6 +147,12 @@
                     districtGlow: 0.42,
                     floorDepth: 1.02,
                     horizonLift: 0,
+                    orbitHorizonLift: 0.018,
+                    floorPitchLift: 18,
+                    lateralParallax: 0.085,
+                    floorShear: 0.05,
+                    horizonShear: 0.028,
+                    backgroundParallax: 0.024,
                     vanishingDrift: 0.01,
                     fogOpacity: 0.18,
                     bridgePacketCount: 2,
@@ -169,6 +175,21 @@
                         routePacketSize: 3.8,
                         routePacketSpeed: 0.44,
                         routePacketOpacity: 0.28
+                    },
+                    depthField: {
+                        enabled: true,
+                        layerCount: 6,
+                        bandOpacity: 0.18,
+                        beamOpacity: 0.12,
+                        sparkOpacity: 0.24,
+                        drift: 0.012,
+                        orbitShiftX: 0.032,
+                        orbitShiftY: 0.02,
+                        layerParallax: 0.82,
+                        hazeOpacity: 0.1,
+                        failureBoost: 1.28,
+                        watchBoost: 1.16,
+                        replayBoost: 1.22
                     }
                 },
                 platform: {
@@ -5922,6 +5943,39 @@
         };
     }
 
+    function _envSceneWorldMetrics(width, height, timeMs) {
+        var world = _envSceneWorldConfig();
+        var depthField = _envSceneWorldDepthFieldConfig();
+        var orbitCfg = _envSceneOrbitConfig();
+        var camera = _envScene.camera || {};
+        var t = Number(timeMs || 0) * 0.001;
+        var orbitXR = orbitCfg.orbitMaxYaw ? Math.max(-1, Math.min(1, Number(camera.orbitX || 0) / orbitCfg.orbitMaxYaw)) : 0;
+        var orbitYR = orbitCfg.orbitMaxPitch ? Math.max(-1, Math.min(1, Number(camera.orbitY || 0) / orbitCfg.orbitMaxPitch)) : 0;
+        var horizonY = height * (0.742 + Number(world.horizonLift || 0)) - (orbitYR * height * Number(world.orbitHorizonLift || 0.018));
+        var floorY = height * Math.max(0.92, Number(world.floorDepth || 1.02)) + (orbitYR * Number(world.floorPitchLift || 18));
+        var lateralParallax = Number(world.lateralParallax || 0.085);
+        var horizonShear = Number(world.horizonShear || 0.028);
+        var floorShear = Number(world.floorShear || 0.05);
+        var backgroundParallax = Number(world.backgroundParallax || 0.024);
+        var vanishingX = width * (0.5 + Math.sin(t * 0.08) * Number(world.vanishingDrift || 0.01) + (orbitXR * (0.04 + lateralParallax * 0.18)));
+        var deckCenterX = width * 0.5 + (orbitXR * width * lateralParallax);
+        var horizonCenterX = width * 0.5 + (orbitXR * width * horizonShear);
+        return {
+            orbitXR: orbitXR,
+            orbitYR: orbitYR,
+            horizonY: horizonY,
+            floorY: floorY,
+            vanishingX: vanishingX,
+            deckCenterX: deckCenterX,
+            horizonCenterX: horizonCenterX,
+            floorShiftX: orbitXR * width * floorShear,
+            backgroundShiftX: orbitXR * width * backgroundParallax,
+            backgroundShiftY: orbitYR * height * backgroundParallax * 0.72,
+            depthShiftX: orbitXR * width * Number(depthField.orbitShiftX || 0.032),
+            depthShiftY: orbitYR * height * Number(depthField.orbitShiftY || 0.02)
+        };
+    }
+
     function _envSceneDistrictCatalog() {
         var scene = _envSceneConfig();
         if (Array.isArray(scene.districts) && scene.districts.length) return scene.districts;
@@ -9293,15 +9347,14 @@
     function _envSceneDrawWorldSubstrate(ctx, width, height, timeMs, projectionMap) {
         var cfg = _envSceneWorldConfig();
         if (cfg.enabled === false) return;
-        var orbitCfg = _envSceneOrbitConfig();
-        var camera = _envScene.camera || {};
         var palette = _envSceneEnvironmentPalette();
         var dominance = _envScene.dominance || _envSceneDominanceContext();
         var t = Number(timeMs || 0) * 0.001;
-        var horizonY = height * (0.742 + Number(cfg.horizonLift || 0));
-        var floorY = height * Math.max(0.92, Number(cfg.floorDepth || 1.02));
-        var orbitXR = orbitCfg.orbitMaxYaw ? Math.max(-1, Math.min(1, Number(camera.orbitX || 0) / orbitCfg.orbitMaxYaw)) : 0;
-        var vanishingX = width * (0.5 + Math.sin(t * 0.08) * Number(cfg.vanishingDrift || 0.01) + (orbitXR * 0.04));
+        var metrics = _envSceneWorldMetrics(width, height, timeMs);
+        var horizonY = metrics.horizonY;
+        var floorY = metrics.floorY;
+        var vanishingX = metrics.vanishingX;
+        var deckCenterX = metrics.deckCenterX;
         var deckBands = Math.max(3, Number(cfg.deckBands || 6));
         var laneCount = Math.max(4, Number(cfg.laneCount || 8));
         var deckOpacity = Math.max(0.06, Math.min(0.9, Number(cfg.deckOpacity || 0.24)));
@@ -9335,8 +9388,8 @@
             ctx.beginPath();
             ctx.moveTo(vanishingX - span0, y0);
             ctx.lineTo(vanishingX + span0, y0);
-            ctx.lineTo((width * 0.5) + span1, y1);
-            ctx.lineTo((width * 0.5) - span1, y1);
+            ctx.lineTo(deckCenterX + span1, y1);
+            ctx.lineTo(deckCenterX - span1, y1);
             ctx.closePath();
             ctx.fill();
         }
@@ -9347,7 +9400,7 @@
         for (var lane = 0; lane <= laneCount; lane++) {
             var ratio = lane / laneCount;
             var laneStartX = vanishingX + ((ratio - 0.5) * width * 0.14);
-            var laneEndX = width * (0.1 + ratio * 0.8);
+            var laneEndX = deckCenterX + ((ratio - 0.5) * width * 0.8);
             ctx.beginPath();
             ctx.moveTo(laneStartX, horizonY);
             ctx.lineTo(laneEndX, floorY);
@@ -9498,9 +9551,10 @@
         return (colors && colors.edge) ? colors.edge : '#67d3ff';
     }
 
-    function _envSceneDrawBackground(ctx, width, height) {
+    function _envSceneDrawBackground(ctx, width, height, timeMs) {
         var cfg = _envSceneConfig();
         var palette = _envSceneEnvironmentPalette();
+        var metrics = _envSceneWorldMetrics(width, height, timeMs);
         var gradient = ctx.createLinearGradient(0, 0, 0, height);
         gradient.addColorStop(0, palette.top);
         gradient.addColorStop(0.55, palette.mid);
@@ -9509,39 +9563,50 @@
         ctx.fillRect(0, 0, width, height);
         ctx.fillStyle = palette.glowA;
         ctx.beginPath();
-        ctx.arc(width * 0.17, height * 0.16, Math.max(48, width * 0.14), 0, Math.PI * 2);
+        ctx.arc(width * 0.17 + metrics.backgroundShiftX * 1.2, height * 0.16 + metrics.backgroundShiftY * 0.7, Math.max(48, width * 0.14), 0, Math.PI * 2);
         ctx.fill();
         ctx.fillStyle = palette.glowB;
         ctx.beginPath();
-        ctx.arc(width * 0.82, height * 0.11, Math.max(44, width * 0.12), 0, Math.PI * 2);
+        ctx.arc(width * 0.82 + metrics.backgroundShiftX * 0.8, height * 0.11 + metrics.backgroundShiftY, Math.max(44, width * 0.12), 0, Math.PI * 2);
         ctx.fill();
+        var floorTopY = metrics.horizonY + height * 0.018;
+        var floorBottomY = Math.max(height * 0.98, metrics.floorY + height * 0.015);
+        var horizonHalfSpan = width * 0.58;
+        var deckHalfSpan = width * 0.38;
         ctx.fillStyle = palette.floor;
         ctx.beginPath();
-        ctx.moveTo(-width * 0.08, height * 0.76);
-        ctx.lineTo(width * 1.08, height * 0.76);
-        ctx.lineTo(width * 0.88, height * 1.02);
-        ctx.lineTo(width * 0.12, height * 1.02);
+        ctx.moveTo(metrics.horizonCenterX - horizonHalfSpan, floorTopY);
+        ctx.lineTo(metrics.horizonCenterX + horizonHalfSpan, floorTopY);
+        ctx.lineTo(metrics.deckCenterX + deckHalfSpan + metrics.floorShiftX * 0.7, floorBottomY);
+        ctx.lineTo(metrics.deckCenterX - deckHalfSpan + metrics.floorShiftX * 0.7, floorBottomY);
         ctx.closePath();
         ctx.fill();
         ctx.fillStyle = palette.horizon;
-        ctx.fillRect(width * 0.08, height * 0.745, width * 0.84, 3);
+        ctx.fillRect(metrics.horizonCenterX - width * 0.42, metrics.horizonY + 1, width * 0.84, 3);
         if (cfg.showGrid !== false) {
             ctx.save();
             ctx.strokeStyle = palette.grid;
             ctx.lineWidth = 1;
             for (var gx = 0; gx <= 8; gx++) {
-                var x = (width * 0.1) + gx * (width * 0.1);
+                var ratio = gx / 8;
+                var xTop = metrics.horizonCenterX - width * 0.4 + ratio * width * 0.8;
+                var xBottom = metrics.deckCenterX - width * 0.4 + ratio * width * 0.8;
                 ctx.beginPath();
-                ctx.moveTo(x, height * 0.76);
-                ctx.lineTo(width * 0.5 + (x - width * 0.5) * 0.64, height * 0.98);
+                ctx.moveTo(xTop, floorTopY);
+                ctx.lineTo(xBottom, floorBottomY);
                 ctx.stroke();
             }
             for (var gy = 0; gy <= 5; gy++) {
-                var y = height * 0.76 + gy * ((height * 0.22) / 5);
-                var inset = gy * (width * 0.055);
+                var gRatio = gy / 5;
+                var y = floorTopY + gRatio * (floorBottomY - floorTopY);
+                var topInset = gRatio * (width * 0.055);
+                var bottomInset = gRatio * (width * 0.11);
                 ctx.beginPath();
-                ctx.moveTo(width * 0.1 + inset, y);
-                ctx.lineTo(width * 0.9 - inset, y);
+                ctx.moveTo(metrics.horizonCenterX - width * 0.4 + topInset, y);
+                ctx.lineTo(metrics.horizonCenterX + width * 0.4 - topInset, y);
+                ctx.lineTo(metrics.deckCenterX + width * 0.4 - bottomInset, y + (floorBottomY - floorTopY) * 0.06);
+                ctx.lineTo(metrics.deckCenterX - width * 0.4 + bottomInset, y + (floorBottomY - floorTopY) * 0.06);
+                ctx.closePath();
                 ctx.stroke();
             }
             ctx.restore();
@@ -9554,15 +9619,13 @@
         if (!cfg || cfg.enabled === false) return;
         var palette = _envSceneEnvironmentPalette();
         var dominance = _envScene.dominance || _envSceneDominanceContext();
-        var orbitCfg = _envSceneOrbitConfig();
-        var camera = _envScene.camera || {};
-        var world = _envSceneWorldConfig();
         var t = Number(timeMs || 0) * 0.001;
-        var horizonY = height * (0.742 + Number(world.horizonLift || 0));
-        var floorY = height * Math.max(0.92, Number(world.floorDepth || 1.02));
-        var orbitXR = orbitCfg.orbitMaxYaw ? Math.max(-1, Math.min(1, Number(camera.orbitX || 0) / orbitCfg.orbitMaxYaw)) : 0;
+        var metrics = _envSceneWorldMetrics(width, height, timeMs);
+        var horizonY = metrics.horizonY;
+        var floorY = metrics.floorY;
         var drift = Number(cfg.drift || 0.012);
         var layerCount = Math.max(3, Number(cfg.layerCount || 6));
+        var layerParallax = Math.max(0, Number(cfg.layerParallax || 0.82));
         var bandOpacity = Math.max(0.02, Math.min(0.5, Number(cfg.bandOpacity || 0.18)));
         var beamOpacity = Math.max(0.02, Math.min(0.4, Number(cfg.beamOpacity || 0.12)));
         var sparkOpacity = Math.max(0.02, Math.min(0.6, Number(cfg.sparkOpacity || 0.24)));
@@ -9577,9 +9640,10 @@
         for (var layer = 0; layer < layerCount; layer++) {
             var ratio = (layer + 1) / layerCount;
             var depthEase = Math.pow(ratio, 1.18);
-            var bandY = horizonY - 28 + ((floorY - horizonY) * depthEase * 0.82);
+            var parallax = 0.36 + depthEase * layerParallax;
+            var bandY = horizonY - 28 + ((floorY - horizonY) * depthEase * 0.82) + (metrics.depthShiftY * parallax);
             var span = width * (0.16 + depthEase * 0.58);
-            var centerX = (width * 0.5) + Math.sin((t * (0.08 + ratio * 0.03)) + layer * 1.7) * (width * drift * (0.45 + ratio * 0.8)) + (orbitXR * width * 0.02 * (1 - ratio * 0.4));
+            var centerX = (width * 0.5) + Math.sin((t * (0.08 + ratio * 0.03)) + layer * 1.7) * (width * drift * (0.45 + ratio * 0.8)) + (metrics.depthShiftX * parallax);
             var bandH = Math.max(14, 18 + layer * 7);
             var gridAlpha = Math.min(0.34, bandOpacity * (0.42 + ratio * 0.38) * modeBoost);
             var hazeAlpha = Math.min(0.28, hazeOpacity * (0.8 + ratio * 0.3) * modeBoost);
@@ -9980,7 +10044,7 @@
         _envScene.pickables.forEach(function (item) {
             projectionMap[_envSceneObjectKey(item.obj)] = item;
         });
-        _envSceneDrawBackground(ctx, _envScene.width, _envScene.height);
+        _envSceneDrawBackground(ctx, _envScene.width, _envScene.height, timeMs);
         _envSceneDrawDepthField(ctx, _envScene.width, _envScene.height, timeMs);
         _envSceneDrawWorldSubstrate(ctx, _envScene.width, _envScene.height, timeMs, projectionMap);
         _envSceneDrawPulses(ctx, _envScene.width, _envScene.height, timeMs);
