@@ -2206,6 +2206,7 @@
         }
 
         .envops-habitat-canopy-layer,
+        .envops-habitat-coupling-layer,
         .envops-habitat-uplink-layer,
         .envops-habitat-foreground-layer {
             position: absolute;
@@ -2226,8 +2227,18 @@
             transform-origin: center center;
         }
 
-        .envops-habitat-uplink-layer {
+        .envops-habitat-coupling-layer {
             z-index: 2;
+            transform:
+                translate3d(var(--env-cam-canopy-shift-x), var(--env-cam-canopy-shift-y), calc(var(--env-cam-canopy-depth) * 0.72))
+                rotateX(var(--env-cam-canopy-orbit-y))
+                rotateY(var(--env-cam-canopy-orbit-x))
+                rotateZ(var(--env-cam-canopy-roll));
+            transform-origin: center center;
+        }
+
+        .envops-habitat-uplink-layer {
+            z-index: 3;
             transform:
                 translate3d(var(--env-cam-uplink-shift-x), var(--env-cam-uplink-shift-y), var(--env-cam-uplink-depth))
                 rotateX(var(--env-cam-uplink-orbit-y))
@@ -2248,6 +2259,8 @@
         .envops-habitat-canopy-slab,
         .envops-habitat-canopy-umbilical,
         .envops-habitat-canopy-bridge,
+        .envops-habitat-coupling-column,
+        .envops-habitat-coupling-brace,
         .envops-habitat-uplink-beam,
         .envops-habitat-foreground-scrim {
             position: absolute;
@@ -2301,6 +2314,118 @@
                 0 10px 22px rgba(0,0,0,0.18);
             opacity: 0.16;
             filter: saturate(1) brightness(1);
+        }
+
+        .envops-habitat-coupling-column {
+            width: var(--env-coupling-width, 6px);
+            height: var(--env-coupling-height, 96px);
+            transform-origin: bottom center;
+            opacity: var(--env-coupling-opacity, 0.18);
+        }
+
+        .envops-habitat-coupling-column .shaft,
+        .envops-habitat-coupling-column .glow,
+        .envops-habitat-coupling-column .crown,
+        .envops-habitat-coupling-column .foot {
+            position: absolute;
+            pointer-events: none;
+            transform-style: preserve-3d;
+        }
+
+        .envops-habitat-coupling-column .shaft {
+            left: 50%;
+            bottom: 0;
+            width: var(--env-coupling-width, 6px);
+            height: 100%;
+            transform: translateX(-50%);
+            border-radius: 999px;
+            background:
+                linear-gradient(180deg,
+                    rgba(255,255,255,0) 0%,
+                    color-mix(in srgb, var(--env-coupling-core, rgba(102,184,255,0.24)) 68%, rgba(255,255,255,0.1)) 18%,
+                    color-mix(in srgb, var(--env-coupling-core, rgba(102,184,255,0.24)) 42%, rgba(8,12,18,0.1)) 100%);
+            box-shadow:
+                0 0 16px var(--env-coupling-glow, rgba(102,184,255,0.12)),
+                0 0 34px color-mix(in srgb, var(--env-coupling-glow, rgba(102,184,255,0.12)) 48%, transparent);
+            opacity: 0.92;
+        }
+
+        .envops-habitat-coupling-column .glow {
+            left: 50%;
+            bottom: 0;
+            width: calc(var(--env-coupling-width, 6px) * 7.2);
+            height: 100%;
+            transform: translateX(-50%);
+            border-radius: 999px;
+            background:
+                linear-gradient(180deg,
+                    rgba(255,255,255,0) 0%,
+                    color-mix(in srgb, var(--env-coupling-glow, rgba(102,184,255,0.12)) 62%, transparent) 18%,
+                    rgba(255,255,255,0) 100%);
+            filter: blur(12px);
+            opacity: var(--env-coupling-glow-opacity, 0.24);
+        }
+
+        .envops-habitat-coupling-column .crown {
+            left: 50%;
+            top: 0;
+            width: var(--env-coupling-crown-size, 28px);
+            height: var(--env-coupling-crown-size, 28px);
+            transform: translate(-50%, -48%);
+            border-radius: 50%;
+            border: 1px solid color-mix(in srgb, var(--env-coupling-core, rgba(102,184,255,0.24)) 72%, rgba(255,255,255,0.22));
+            background:
+                radial-gradient(circle at 50% 44%, rgba(255,255,255,0.24), rgba(255,255,255,0.02) 44%, rgba(8,12,18,0.92) 100%);
+            box-shadow:
+                0 0 16px var(--env-coupling-glow, rgba(102,184,255,0.12)),
+                0 0 30px color-mix(in srgb, var(--env-coupling-glow, rgba(102,184,255,0.12)) 52%, transparent);
+            opacity: 0.94;
+        }
+
+        .envops-habitat-coupling-column .foot {
+            left: 50%;
+            bottom: 0;
+            width: var(--env-coupling-foot-width, 54px);
+            height: var(--env-coupling-foot-height, 16px);
+            transform: translate(-50%, 46%);
+            border-radius: 999px;
+            background:
+                radial-gradient(ellipse at center,
+                    color-mix(in srgb, var(--env-coupling-core, rgba(102,184,255,0.24)) 38%, rgba(255,255,255,0.06)) 0%,
+                    color-mix(in srgb, var(--env-coupling-glow, rgba(102,184,255,0.12)) 48%, transparent) 54%,
+                    rgba(255,255,255,0) 100%);
+            filter: blur(2px);
+            opacity: 0.84;
+        }
+
+        .envops-habitat-coupling-brace {
+            border-radius: 999px;
+            transform-origin: left center;
+            background: linear-gradient(90deg, rgba(255,255,255,0), color-mix(in srgb, var(--env-coupling-glow, rgba(79,255,208,0.12)) 78%, rgba(255,255,255,0.06)), rgba(255,255,255,0));
+            box-shadow:
+                0 0 18px color-mix(in srgb, var(--env-coupling-glow, rgba(79,255,208,0.12)) 52%, transparent),
+                0 10px 24px rgba(0,0,0,0.14);
+            filter: saturate(1) brightness(1);
+        }
+
+        .envops-habitat-coupling-column.mode-dominant .shaft,
+        .envops-habitat-coupling-column.mode-dominant .crown,
+        .envops-habitat-coupling-brace.mode-dominant {
+            filter: saturate(1.18) brightness(1.08);
+        }
+
+        .envops-habitat-coupling-column.mode-ghosted,
+        .envops-habitat-coupling-brace.mode-ghosted {
+            opacity: 0.42;
+        }
+
+        .envops-habitat-coupling-column.failure-surface .shaft,
+        .envops-habitat-coupling-column.failure-surface .crown,
+        .envops-habitat-coupling-brace.failure-surface {
+            filter: saturate(1.22) brightness(1.08);
+            box-shadow:
+                0 0 20px rgba(255,108,120,0.18),
+                0 0 42px rgba(255,108,120,0.12);
         }
 
         .envops-habitat-uplink-beam {
@@ -2413,6 +2538,8 @@
         .envops-habitat.mode-watch .envops-habitat-canopy-slab,
         .envops-habitat.mode-watch .envops-habitat-canopy-umbilical,
         .envops-habitat.mode-watch .envops-habitat-canopy-bridge,
+        .envops-habitat.mode-watch .envops-habitat-coupling-column,
+        .envops-habitat.mode-watch .envops-habitat-coupling-brace,
         .envops-habitat.mode-watch .envops-habitat-uplink-beam,
         .envops-habitat.mode-watch .envops-habitat-foreground-scrim {
             filter: saturate(1.16) brightness(1.08);
@@ -2422,6 +2549,8 @@
         .envops-habitat.mode-replay .envops-habitat-canopy-slab,
         .envops-habitat.mode-replay .envops-habitat-canopy-umbilical,
         .envops-habitat.mode-replay .envops-habitat-canopy-bridge,
+        .envops-habitat.mode-replay .envops-habitat-coupling-column,
+        .envops-habitat.mode-replay .envops-habitat-coupling-brace,
         .envops-habitat.mode-replay .envops-habitat-uplink-beam,
         .envops-habitat.mode-replay .envops-habitat-foreground-scrim {
             filter: saturate(1.18) brightness(1.1);
@@ -2431,6 +2560,8 @@
         .envops-habitat.failure-alert .envops-habitat-canopy-slab,
         .envops-habitat.failure-alert .envops-habitat-canopy-umbilical,
         .envops-habitat.failure-alert .envops-habitat-canopy-bridge,
+        .envops-habitat.failure-alert .envops-habitat-coupling-column,
+        .envops-habitat.failure-alert .envops-habitat-coupling-brace,
         .envops-habitat.failure-alert .envops-habitat-uplink-beam,
         .envops-habitat.failure-alert .envops-habitat-foreground-scrim {
             filter: saturate(1.2) brightness(1.1);

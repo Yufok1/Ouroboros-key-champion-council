@@ -1,5 +1,5 @@
 {
-  "version": "2026-03-07-envops-v22",
+  "version": "2026-03-07-envops-v23",
   "shell": {
     "defaultRenderer": "web3d",
     "defaultPackageMode": "research",
@@ -176,6 +176,23 @@
         "footWidth": 42,
         "glowOpacity": 0.26,
         "depth": 10
+      },
+      "coupling": {
+        "enabled": true,
+        "width": 6,
+        "opacity": 0.18,
+        "glowOpacity": 0.24,
+        "braceWidth": 8,
+        "braceOpacity": 0.16,
+        "crownSize": 28,
+        "footWidth": 54,
+        "footHeight": 16,
+        "lift": 92,
+        "depthBias": -8,
+        "dominantBoost": 1.24,
+        "failureBoost": 1.3,
+        "watchBoost": 1.16,
+        "replayBoost": 1.2
       },
       "routeLayer": {
         "enabled": true,

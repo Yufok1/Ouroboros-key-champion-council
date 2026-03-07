@@ -47,7 +47,7 @@
     };
     function _envDefaultConfig() {
         return {
-            version: '2026-03-07-envops-v16',
+            version: '2026-03-07-envops-v23',
             shell: {
                 defaultRenderer: 'web3d',
                 defaultPackageMode: 'research',
@@ -119,6 +119,46 @@
                     dominantDepth: 24,
                     glowOpacity: 0.22,
                     liftBoost: 8,
+                    canopy: {
+                        enabled: true,
+                        slabHeight: 18,
+                        slabWidthScale: 3.9,
+                        slabWidthBias: 54,
+                        slabLift: 104,
+                        slabDepthBias: -26,
+                        slabOpacity: 0.22,
+                        umbilicalWidth: 4,
+                        umbilicalOpacity: 0.2,
+                        umbilicalDepthGain: 18,
+                        dominantBoost: 1.22,
+                        failureBoost: 1.26
+                    },
+                    foreground: {
+                        enabled: true,
+                        scrimCount: 3,
+                        scrimOpacity: 0.14,
+                        scrimBlur: 10,
+                        scrimDepthNear: 74,
+                        scrimDepthFar: 24,
+                        drift: 10,
+                        dominantBoost: 1.18,
+                        failureBoost: 1.2
+                    },
+                    uplinks: {
+                        enabled: true,
+                        width: 4,
+                        lift: 126,
+                        depthScale: 240,
+                        depthBias: -12,
+                        opacity: 0.18,
+                        glowOpacity: 0.22,
+                        headSize: 16,
+                        drift: 5.5,
+                        dominantBoost: 1.24,
+                        failureBoost: 1.34,
+                        watchBoost: 1.16,
+                        replayBoost: 1.2
+                    },
                     motion: {
                         objectBob: 2.8,
                         objectBank: 1.2,
@@ -127,6 +167,45 @@
                         routeBank: 1.8,
                         routeDepthPulse: 14,
                         routeSway: 0.75
+                    },
+                    volumetrics: {
+                        enabled: true,
+                        shaftWidthScale: 0.42,
+                        shaftOpacity: 0.18,
+                        shaftGlowOpacity: 0.24,
+                        shaftDrift: 8,
+                        coreHeightBias: 42,
+                        crownScale: 1.22,
+                        crownOpacity: 0.22,
+                        dominantBoost: 1.22,
+                        failureBoost: 1.3,
+                        watchBoost: 1.14,
+                        replayBoost: 1.18
+                    },
+                    anchors: {
+                        enabled: true,
+                        height: 26,
+                        width: 3,
+                        footWidth: 42,
+                        glowOpacity: 0.26,
+                        depth: 10
+                    },
+                    coupling: {
+                        enabled: true,
+                        width: 6,
+                        opacity: 0.18,
+                        glowOpacity: 0.24,
+                        braceWidth: 8,
+                        braceOpacity: 0.16,
+                        crownSize: 28,
+                        footWidth: 54,
+                        footHeight: 16,
+                        lift: 92,
+                        depthBias: -8,
+                        dominantBoost: 1.24,
+                        failureBoost: 1.3,
+                        watchBoost: 1.16,
+                        replayBoost: 1.2
                     },
                     routeLayer: {
                         enabled: true,
@@ -217,7 +296,42 @@
                     corridorThickness: 10,
                     corridorOpacity: 0.34,
                     corridorGlow: 0.22,
-                    corridorFlowOpacity: 0.48
+                    corridorFlowOpacity: 0.48,
+                    shellWallWidth: 96,
+                    shellWallInset: 5,
+                    shellWallTop: 6,
+                    shellWallHeight: 70,
+                    shellWallDepth: -126,
+                    shellWallOpacity: 0.32,
+                    shellWallCharge: 0.08,
+                    shellWallSway: 6,
+                    ceilingInset: 11,
+                    ceilingTop: 3,
+                    ceilingHeight: 86,
+                    ceilingDepth: -148,
+                    ceilingOpacity: 0.24,
+                    ceilingPitchGain: 4,
+                    ceilingLiftGain: 8,
+                    ribCount: 6,
+                    ribTop: 7,
+                    ribSpan: 78,
+                    ribHeight: 24,
+                    ribDepthStep: 26,
+                    ribOpacity: 0.2,
+                    ribDrift: 4,
+                    veilOpacity: 0.16,
+                    veilDepth: -112,
+                    veilWidth: 24,
+                    veilHeight: 62,
+                    spillOpacity: 0.2,
+                    spillBlur: 18,
+                    spillWidth: 16,
+                    spillHeight: 24,
+                    spillDepth: -118,
+                    spillReach: 0.42,
+                    spillCeilingWidth: 18,
+                    spillCeilingHeight: 12,
+                    spillCeilingLift: 18
                 },
                 atmosphere: {
                     enabled: true,
@@ -5584,6 +5698,27 @@
             if (raw.scene.orbit && typeof raw.scene.orbit === 'object') cfg.scene.orbit = Object.assign({}, cfg.scene.orbit || {}, raw.scene.orbit);
             if (raw.scene.web3d && typeof raw.scene.web3d === 'object') {
                 cfg.scene.web3d = Object.assign({}, cfg.scene.web3d || {}, raw.scene.web3d);
+                if (raw.scene.web3d.motion && typeof raw.scene.web3d.motion === 'object') {
+                    cfg.scene.web3d.motion = Object.assign({}, ((cfg.scene.web3d || {}).motion) || {}, raw.scene.web3d.motion);
+                }
+                if (raw.scene.web3d.canopy && typeof raw.scene.web3d.canopy === 'object') {
+                    cfg.scene.web3d.canopy = Object.assign({}, ((cfg.scene.web3d || {}).canopy) || {}, raw.scene.web3d.canopy);
+                }
+                if (raw.scene.web3d.foreground && typeof raw.scene.web3d.foreground === 'object') {
+                    cfg.scene.web3d.foreground = Object.assign({}, ((cfg.scene.web3d || {}).foreground) || {}, raw.scene.web3d.foreground);
+                }
+                if (raw.scene.web3d.uplinks && typeof raw.scene.web3d.uplinks === 'object') {
+                    cfg.scene.web3d.uplinks = Object.assign({}, ((cfg.scene.web3d || {}).uplinks) || {}, raw.scene.web3d.uplinks);
+                }
+                if (raw.scene.web3d.volumetrics && typeof raw.scene.web3d.volumetrics === 'object') {
+                    cfg.scene.web3d.volumetrics = Object.assign({}, ((cfg.scene.web3d || {}).volumetrics) || {}, raw.scene.web3d.volumetrics);
+                }
+                if (raw.scene.web3d.anchors && typeof raw.scene.web3d.anchors === 'object') {
+                    cfg.scene.web3d.anchors = Object.assign({}, ((cfg.scene.web3d || {}).anchors) || {}, raw.scene.web3d.anchors);
+                }
+                if (raw.scene.web3d.coupling && typeof raw.scene.web3d.coupling === 'object') {
+                    cfg.scene.web3d.coupling = Object.assign({}, ((cfg.scene.web3d || {}).coupling) || {}, raw.scene.web3d.coupling);
+                }
                 if (raw.scene.web3d.routeLayer && typeof raw.scene.web3d.routeLayer === 'object') {
                     cfg.scene.web3d.routeLayer = Object.assign({}, ((cfg.scene.web3d || {}).routeLayer) || {}, raw.scene.web3d.routeLayer);
                 }
@@ -5883,6 +6018,27 @@
             failureBoost: Math.max(1, Number(uplinks.failureBoost || 1.34)),
             watchBoost: Math.max(1, Number(uplinks.watchBoost || 1.16)),
             replayBoost: Math.max(1, Number(uplinks.replayBoost || 1.2))
+        };
+    }
+
+    function _envSceneWeb3DCouplingConfig() {
+        var coupling = ((((_envSceneConfig() || {}).web3d) || {}).coupling) || {};
+        return {
+            enabled: coupling.enabled !== undefined ? !!coupling.enabled : true,
+            width: Math.max(2, Number(coupling.width || 6)),
+            opacity: Math.max(0.04, Math.min(0.9, Number(coupling.opacity || 0.18))),
+            glowOpacity: Math.max(0.04, Math.min(0.9, Number(coupling.glowOpacity || 0.24))),
+            braceWidth: Math.max(4, Number(coupling.braceWidth || 8)),
+            braceOpacity: Math.max(0.04, Math.min(0.9, Number(coupling.braceOpacity || 0.16))),
+            crownSize: Math.max(12, Number(coupling.crownSize || 28)),
+            footWidth: Math.max(18, Number(coupling.footWidth || 54)),
+            footHeight: Math.max(8, Number(coupling.footHeight || 16)),
+            lift: Math.max(36, Number(coupling.lift || 92)),
+            depthBias: Number(coupling.depthBias || -8),
+            dominantBoost: Math.max(1, Number(coupling.dominantBoost || 1.24)),
+            failureBoost: Math.max(1, Number(coupling.failureBoost || 1.3)),
+            watchBoost: Math.max(1, Number(coupling.watchBoost || 1.16)),
+            replayBoost: Math.max(1, Number(coupling.replayBoost || 1.2))
         };
     }
 
@@ -8987,6 +9143,96 @@
         }).join('') + '</div>';
     }
 
+    function _envSceneRenderCouplingLayer(workflow, exec, sections, traces) {
+        var cfg = _envSceneWeb3DCouplingConfig();
+        if (cfg.enabled === false) return '';
+        var entries = _envSceneCollectDistrictStates(workflow, exec, sections, traces);
+        var dominance = (_envScene && _envScene.dominance) || _envSceneDominanceContext();
+        if (!entries.length) return '';
+        var stateById = {};
+        entries.forEach(function (entry) {
+            stateById[String((entry.district || {}).id || '')] = entry;
+        });
+        var braces = _envSceneDistrictBridgeCatalog().map(function (bridge) {
+            var fromEntry = stateById[String(bridge.from || '')];
+            var toEntry = stateById[String(bridge.to || '')];
+            if (!fromEntry || !toEntry) return '';
+            var fromDistrict = fromEntry.district || {};
+            var toDistrict = toEntry.district || {};
+            var fromState = fromEntry.state || {};
+            var toState = toEntry.state || {};
+            var x1 = Number(fromDistrict.x || 0) + (Number(fromDistrict.w || 20) / 2);
+            var x2 = Number(toDistrict.x || 0) + (Number(toDistrict.w || 20) / 2);
+            var y1 = Number(fromDistrict.y || 0) + (Number(fromDistrict.h || 16) / 2) - Number(cfg.lift || 92);
+            var y2 = Number(toDistrict.y || 0) + (Number(toDistrict.h || 16) / 2) - Number(cfg.lift || 92);
+            var dx = x2 - x1;
+            var dy = y2 - y1;
+            var length = Math.sqrt((dx * dx) + (dy * dy));
+            var angle = Math.atan2(dy, dx) * (180 / Math.PI);
+            var alert = String(fromState.tone || '') === 'alert' || String(toState.tone || '') === 'alert';
+            var overallMode = String((dominance && dominance.mode) || 'ambient');
+            var opacity = Number(cfg.braceOpacity || 0.16);
+            if (alert) opacity *= Number(cfg.failureBoost || 1.3);
+            if (overallMode === 'watch') opacity *= Number(cfg.watchBoost || 1.16);
+            if (overallMode === 'replay') opacity *= Number(cfg.replayBoost || 1.2);
+            var classes = ['envops-habitat-coupling-brace'];
+            if (alert) classes.push('failure-surface');
+            if (overallMode === 'watch') classes.push('watch');
+            if (overallMode === 'replay') classes.push('replay');
+            return '<div class="' + _esc(classes.join(' ')) + '" style="' +
+                'left:' + x1.toFixed(2) + '%;' +
+                'top:' + y1.toFixed(2) + '%;' +
+                'width:' + length.toFixed(2) + '%;' +
+                'height:' + Math.max(4, Number(cfg.braceWidth || 8)).toFixed(0) + 'px;' +
+                'opacity:' + Math.max(0.08, Math.min(0.84, opacity)).toFixed(3) + ';' +
+                '--env-coupling-glow:' + _esc(alert ? 'rgba(255,108,120,0.18)' : 'rgba(79,255,208,0.12)') + ';' +
+                'transform:translateZ(' + Math.round((((Number(fromDistrict.depth || -48) + Number(toDistrict.depth || -48)) / 2) + Number(cfg.depthBias || -8))) + 'px) rotateZ(' + angle.toFixed(2) + 'deg);' +
+                '"></div>';
+        }).filter(Boolean).join('');
+        return '<div class="envops-habitat-coupling-layer">' + braces + entries.map(function (entry) {
+            var district = entry.district || {};
+            var state = entry.state || {};
+            var visual = _envSceneDistrictDominance(dominance, district, state);
+            var palette = _envSceneDistrictTonePalette(state.tone);
+            var centerX = Number(district.x || 0) + (Number(district.w || 20) / 2);
+            var deckY = Number(district.y || 0) + (Number(district.h || 16) / 2) + 10;
+            var topY = Number(district.y || 0) + (Number(district.h || 16) / 2) - Number(cfg.lift || 92);
+            var depth = Math.round(Number(district.depth || -48) + Number(cfg.depthBias || -8));
+            var overallMode = String((dominance && dominance.mode) || 'ambient');
+            var columnOpacity = Number(cfg.opacity || 0.18) * Number(visual.opacity || 1);
+            if (visual.dominant) columnOpacity *= Number(cfg.dominantBoost || 1.24);
+            if (String(state.tone || '') === 'alert') columnOpacity *= Number(cfg.failureBoost || 1.3);
+            if (overallMode === 'watch') columnOpacity *= Number(cfg.watchBoost || 1.16);
+            if (overallMode === 'replay') columnOpacity *= Number(cfg.replayBoost || 1.2);
+            var classes = ['envops-habitat-coupling-column'];
+            if (visual.dominant) classes.push('mode-dominant');
+            else if (visual.suppressed) classes.push('mode-ghosted');
+            else classes.push('mode-support');
+            if (String(state.tone || '') === 'alert') classes.push('failure-surface');
+            if (overallMode === 'watch') classes.push('watch');
+            if (overallMode === 'replay') classes.push('replay');
+            return '<div class="' + _esc(classes.join(' ')) + '" style="' +
+                'left:' + centerX.toFixed(2) + '%;' +
+                'top:' + deckY.toFixed(2) + '%;' +
+                '--env-coupling-width:' + Math.max(2, Number(cfg.width || 6)).toFixed(0) + 'px;' +
+                '--env-coupling-height:' + Math.max(28, deckY - topY).toFixed(0) + 'px;' +
+                '--env-coupling-opacity:' + Math.max(0.08, Math.min(0.88, columnOpacity)).toFixed(3) + ';' +
+                '--env-coupling-glow-opacity:' + Math.max(0.04, Math.min(0.9, Number(cfg.glowOpacity || 0.24) * (visual.dominant ? 1.18 : 1))).toFixed(3) + ';' +
+                '--env-coupling-core:' + _esc(String(palette.tag || '#8cdfff')) + ';' +
+                '--env-coupling-glow:' + _esc(String(palette.shadow || 'rgba(68,198,255,0.12)')) + ';' +
+                '--env-coupling-crown-size:' + Math.max(12, Number(cfg.crownSize || 28)).toFixed(0) + 'px;' +
+                '--env-coupling-foot-width:' + Math.max(18, Number(cfg.footWidth || 54)).toFixed(0) + 'px;' +
+                '--env-coupling-foot-height:' + Math.max(8, Number(cfg.footHeight || 16)).toFixed(0) + 'px;' +
+                'transform:translate(-50%, -100%) translateZ(' + depth + 'px);' +
+                '">' +
+                '<span class="shaft"></span>' +
+                '<span class="glow"></span>' +
+                '<span class="crown"></span>' +
+                '<span class="foot"></span>' +
+                '</div>';
+        }).join('') + '</div>';
+    }
+
     function _envSceneRenderUplinkLayer() {
         var cfg = _envSceneWeb3DUplinkConfig();
         if (cfg.enabled === false) return '';
@@ -11878,6 +12124,7 @@
             _envSceneRenderAtmosphereLayer(workflow, exec, sections, traces) +
             _envSceneRenderArchitectureLayer(workflow, exec, sections, traces) +
             _envSceneRenderCanopyLayer(workflow, exec, sections, traces) +
+            _envSceneRenderCouplingLayer(workflow, exec, sections, traces) +
             _envSceneRenderUplinkLayer() +
             _envSceneRenderVolumeLayer(workflow, exec, sections, traces) +
             '<canvas class="envops-habitat-canvas" id="envops-habitat-canvas"></canvas>' +
