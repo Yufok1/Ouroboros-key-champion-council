@@ -31,6 +31,273 @@
     let _wfNodePositions = {};  // workflowId -> { nodeId -> {x, y} }
     let _wfColorCache = {};     // workflowId -> '#rrggbb'
     let _wfColorIndex = 0;
+    let _envToolOutputs = {
+        export_interface: null,
+        start_api_server: null
+    };
+    let _envDocState = {
+        workflowId: '',
+        query: '',
+        pendingSearch: '',
+        pendingRead: '',
+        results: [],
+        activeDocId: '',
+        activeDocMeta: null,
+        activeDocContent: ''
+    };
+    function _envDefaultConfig() {
+        return {
+            version: '2026-03-07-envops-v6',
+            shell: {
+                defaultRenderer: 'web3d',
+                defaultPackageMode: 'research',
+                defaultProfile: 'observe',
+                rendererTargets: [
+                    { id: 'web3d', label: 'Web-3D Habitat', note: 'Primary browser-native habitat for spatial systems and overlays.' },
+                    { id: 'webpanel', label: 'Panel Overlay', note: 'Fast 2D shell for workflow-backed operator systems.' },
+                    { id: 'interface', label: 'Interface Bundle', note: 'Project the current system toward exportable interface artifacts.' },
+                    { id: 'godot', label: 'Godot Cockpit', note: 'Secondary embodiment target for richer scene/world projection.' }
+                ],
+                packageModes: [
+                    { id: 'online', label: 'Online / pull dependencies' },
+                    { id: 'local', label: 'Self-contained local package' },
+                    { id: 'research', label: 'Research / observe only' }
+                ]
+            },
+            sampler: {
+                intervalMs: 4000,
+                maxSamples: 48,
+                autoCaptureOnRuntime: true
+            },
+            scene: {
+                enabled: true,
+                fpsCap: 30,
+                pixelRatioCap: 1.5,
+                ambientDrift: true,
+                showGrid: true,
+                showLabels: true,
+                showPulseTrails: true,
+                cameraDepth: 0.78,
+                objectScale: 1,
+                defaultCameraMode: 'overview',
+                routeOpacity: 0.42,
+                routeGlow: true
+            },
+            ingress: {
+                intervalMs: 700,
+                maxQueue: 48,
+                autostart: true,
+                historyLimit: 16,
+                batchLimit: 24
+            },
+            replay: {
+                intervalMs: 1400,
+                maxTrack: 24,
+                mode: 'samples',
+                loop: false
+            },
+            watch: {
+                autoFollowFailed: true,
+                autoBranchOnFailure: false,
+                autoSampleOnRuntime: true,
+                autoFocusLatestTrace: true
+            },
+            docs: {
+                searchPrefix: 'docs/',
+                searchLimit: 8,
+                continuityIndex: 'docs/ENVIRONMENT_MEMORY_INDEX.md'
+            },
+            bus: {
+                maxEvents: 160,
+                liveTail: 24,
+                retainActions: 80,
+                channels: ['catalog', 'selection', 'runtime', 'focus', 'profile', 'sample', 'branch', 'replay', 'control', 'recipe', 'docs', 'tool', 'export', 'system', 'ingress', 'watch']
+            },
+            profiles: [
+                {
+                    id: 'observe',
+                    label: 'Observe',
+                    note: 'Wide-angle monitoring mode for live systems and passive operator awareness.',
+                    cameraMode: 'overview',
+                    samplerActive: false,
+                    samplerIntervalMs: 4000,
+                    replayMode: 'samples',
+                    replayLoop: false,
+                    watch: {
+                        autoFollowFailed: false,
+                        autoBranchOnFailure: false,
+                        autoSampleOnRuntime: true,
+                        autoFocusLatestTrace: false
+                    }
+                },
+                {
+                    id: 'triage',
+                    label: 'Triage',
+                    note: 'Failure-chasing mode for unstable nodes, traces, and runtime surfaces.',
+                    cameraMode: 'focus',
+                    samplerActive: true,
+                    samplerIntervalMs: 3000,
+                    replayMode: 'events',
+                    replayLoop: false,
+                    watch: {
+                        autoFollowFailed: true,
+                        autoBranchOnFailure: false,
+                        autoSampleOnRuntime: true,
+                        autoFocusLatestTrace: true
+                    }
+                },
+                {
+                    id: 'branch_lab',
+                    label: 'Branch Lab',
+                    note: 'Mutation and stabilization mode for branching on anomalies and preserving experiments.',
+                    cameraMode: 'focus',
+                    samplerActive: true,
+                    samplerIntervalMs: 2800,
+                    replayMode: 'branches',
+                    replayLoop: false,
+                    watch: {
+                        autoFollowFailed: true,
+                        autoBranchOnFailure: true,
+                        autoSampleOnRuntime: true,
+                        autoFocusLatestTrace: true
+                    }
+                },
+                {
+                    id: 'replay_chase',
+                    label: 'Replay Chase',
+                    note: 'Trajectory-following mode for replaying recent events and samples through the habitat.',
+                    cameraMode: 'replay',
+                    samplerActive: false,
+                    samplerIntervalMs: 4000,
+                    replayMode: 'events',
+                    replayLoop: true,
+                    watch: {
+                        autoFollowFailed: true,
+                        autoBranchOnFailure: false,
+                        autoSampleOnRuntime: false,
+                        autoFocusLatestTrace: true
+                    }
+                }
+            ],
+            recipes: [
+                {
+                    id: 'diagnose_system',
+                    label: 'Diagnose System',
+                    note: 'Capture a snapshot, scan docs, and refocus the workflow.',
+                    commands: [
+                        { action: 'sample_now', note: 'diagnostic snapshot' },
+                        { action: 'scan_docs', note: 'refresh related docs' },
+                        { action: 'focus_workflow', note: 'restore workflow focus' }
+                    ]
+                },
+                {
+                    id: 'trace_failure',
+                    label: 'Trace Failure',
+                    note: 'Follow the latest failure surface, capture evidence, and open debug.',
+                    commands: [
+                        { action: 'follow_failed', note: 'focus failure surface' },
+                        { action: 'sample_now', note: 'capture failure sample' },
+                        { action: 'open_debug', note: 'inspect debug stream' }
+                    ]
+                },
+                {
+                    id: 'artifact_pass',
+                    label: 'Artifact Pass',
+                    note: 'Refresh docs and hand the active document into Memory.',
+                    commands: [
+                        { action: 'scan_docs', note: 'refresh documents' },
+                        { action: 'focus_doc', note: 'focus active document' },
+                        { action: 'open_doc_memory', note: 'open active document in Memory' }
+                    ]
+                },
+                {
+                    id: 'stabilize_loop',
+                    label: 'Stabilize Loop',
+                    note: 'Capture state, branch it, and keep the workflow in focus.',
+                    commands: [
+                        { action: 'sample_now', note: 'capture baseline' },
+                        { action: 'branch_snapshot', note: 'stabilization branch' },
+                        { action: 'focus_workflow', note: 'restore workflow focus' }
+                    ]
+                }
+            ]
+        };
+    }
+    let _envConfig = _envDefaultConfig();
+    let _envBus = {
+        source: 'defaults',
+        loaded: false,
+        seq: 0,
+        events: [],
+        lastTs: 0
+    };
+    let _envKernel = {
+        focus: { kind: 'workflow', id: '', label: 'workflow', actor: 'system', payload: null },
+        profile: { activeId: '', lastAppliedTs: 0 },
+        sampler: { active: false, mode: 'snapshot', intervalMs: 4000, timer: null },
+        ingress: { active: false, timer: null, processing: false, intervalMs: 700, queue: [], lastTs: 0, current: null, history: [] },
+        replay: { active: false, timer: null, mode: 'samples', intervalMs: 1400, cursor: -1, loop: false, track: [], current: null, builtTs: 0 },
+        watch: {
+            autoFollowFailed: true,
+            autoBranchOnFailure: false,
+            autoSampleOnRuntime: true,
+            autoFocusLatestTrace: true,
+            lastFailureKey: '',
+            lastTraceKey: '',
+            lastBusSampleKey: '',
+            lastBusFailureKey: '',
+            lastBusEventFocusKey: ''
+        },
+        actions: [],
+        branches: [],
+        samples: []
+    };
+    let _envScene = {
+        enabled: true,
+        canvas: null,
+        shell: null,
+        ctx: null,
+        raf: null,
+        width: 0,
+        height: 0,
+        lastFrame: 0,
+        fpsCap: 30,
+        objects: [],
+        routes: [],
+        trajectories: [],
+        pickables: [],
+        hover: null,
+        hud: { primary: 'Scene idle.', secondary: 'Load a workflow-backed system to activate the habitat.' },
+        pulses: [],
+        dirty: true,
+        workflowId: '',
+        executionId: '',
+        renderTarget: 'web3d',
+        cameraMode: 'overview',
+        camera: {
+            x: 50,
+            y: 52,
+            zoom: 1,
+            targetX: 50,
+            targetY: 52,
+            targetZoom: 1,
+            offsetX: 0,
+            offsetY: 0,
+            zoomScale: 1,
+            anchorKind: 'workflow',
+            anchorId: '',
+            lastSwitchTs: 0
+        },
+        nav: {
+            dragging: false,
+            pointerId: null,
+            startClientX: 0,
+            startClientY: 0,
+            startOffsetX: 0,
+            startOffsetY: 0,
+            moved: false
+        }
+    };
 
     // ── SLOT DRILL-IN STATE ──
     let _slotDrill = { active: false, slotIndex: -1 };
@@ -846,6 +1113,16 @@
                         renderWorkflowGraph(_wfLoadedDef, _wfLastExec ? _wfLastExec.node_states : null);
                         renderWorkflowNodeStates(_wfLoadedDef, _wfLastExec ? _wfLastExec.node_states : null);
                         _wfRenderDrillDetail();
+                    }
+                }
+            }
+            if (tab.dataset.tab === 'environment') {
+                if (_wfCatalog.length === 0) {
+                    callTool('workflow_list', {});
+                } else {
+                    renderEnvironmentView();
+                    if (_wfSelectedId && (!_wfLoadedDef || !Array.isArray(_wfLoadedDef.nodes) || _wfLoadedDef.nodes.length === 0)) {
+                        callTool('workflow_get', { workflow_id: _wfSelectedId });
                     }
                 }
             }
@@ -4935,12 +5212,14 @@
             }
 
             renderWorkflowList();
+            renderEnvironmentView();
             if (_wfSelectedId && (!_wfLoadedDef || _wfLoadedDef.id !== _wfSelectedId)) {
                 callTool('workflow_get', { workflow_id: _wfSelectedId });
             } else if (!_wfSelectedId) {
                 renderWorkflowGraph(null, null);
                 renderWorkflowNodeStates(null, null);
                 _wfRenderDrillDetail();
+                renderEnvironmentView();
             }
             _wfSetExecStatus('Loaded ' + String(_wfCatalog.length) + ' workflows.', false);
             return;
@@ -4976,6 +5255,7 @@
             renderWorkflowGraph(_wfLoadedDef, matchingNodeStates);
             renderWorkflowNodeStates(_wfLoadedDef, matchingNodeStates);
             _wfRenderDrillDetail();
+            renderEnvironmentView();
             _wfSetExecStatus('Loaded definition for workflow: ' + (_wfLoadedDef.id || _wfSelectedId), false);
             return;
         }
@@ -4999,6 +5279,12 @@
             }
 
             _wfRenderExecution(payload);
+            renderEnvironmentView();
+            if (_envKernel.sampler.active || _isEnvironmentTabActive()) {
+                _envLogAction('runtime', 'Workflow execution state updated: ' + _wfNormalizeStatus(payload.status || 'pending'), 'system', { workflow_id: payload.workflow_id || _wfSelectedId || '', execution_id: payload.execution_id || '' });
+                if (_envKernel.sampler.active) _envCaptureSample('workflow update', 'system');
+            }
+            _envHandleRuntimeHooks(payload, { tool: toolName });
 
             if (toolName === 'workflow_execute' && payload.execution_id && _wfNormalizeStatus(payload.status) !== 'running' && _isWorkflowTabActive()) {
                 callTool('workflow_status', { execution_id: payload.execution_id });
@@ -5032,6 +5318,4464 @@
         }
 
         _wfRenderExecution(payload);
+        renderEnvironmentView();
+        if (_envKernel.sampler.active || _isEnvironmentTabActive()) {
+            _envLogAction('runtime', 'Workflow activity advanced: ' + _wfNormalizeStatus(payload.status || 'pending'), 'system', { workflow_id: payload.workflow_id || _wfSelectedId || '', execution_id: payload.execution_id || '' });
+            if (_envKernel.sampler.active) _envCaptureSample('workflow activity', 'system');
+        }
+        _envHandleRuntimeHooks(payload, event);
+    }
+
+    function _isEnvironmentTabActive() {
+        var tabBtn = document.querySelector('.tab.active[data-tab="environment"]');
+        var pane = document.getElementById('tab-environment');
+        return !!(tabBtn && pane && pane.classList.contains('active'));
+    }
+
+    function _envSetBadge(status, label) {
+        var badge = document.getElementById('envops-running-badge');
+        if (!badge) return;
+        var s = _wfNormalizeStatus(status || 'idle');
+        badge.className = 'envops-run-badge ' + s;
+        badge.textContent = label || s.toUpperCase();
+    }
+
+    function _envOpenLinkedTab(tabName) {
+        var btn = document.querySelector('.tab[data-tab="' + tabName + '"]');
+        if (btn) btn.click();
+    }
+    window._envOpenLinkedTab = _envOpenLinkedTab;
+
+    function _envGetSelectedWorkflow() {
+        if (!_wfSelectedId) return null;
+        for (var i = 0; i < _wfCatalog.length; i++) {
+            if (_wfCatalog[i].id === _wfSelectedId) return _wfCatalog[i];
+        }
+        return null;
+    }
+
+    function _envCurrentExecution() {
+        if (!_wfLastExec || !_wfSelectedId) return null;
+        return String(_wfLastExec.workflow_id || '') === String(_wfSelectedId) ? _wfLastExec : null;
+    }
+
+    function _envProfileCatalog() {
+        return Array.isArray((_envConfig || {}).profiles) ? (_envConfig.profiles || []).filter(function (profile) {
+            return profile && typeof profile === 'object' && profile.id;
+        }) : [];
+    }
+
+    function _envProfileById(profileId) {
+        var wanted = String(profileId || '').trim();
+        if (!wanted) return null;
+        var profiles = _envProfileCatalog();
+        for (var i = 0; i < profiles.length; i++) {
+            if (String(profiles[i].id || '') === wanted) return profiles[i];
+        }
+        return null;
+    }
+
+    function _envActionId(prefix) {
+        return String(prefix || 'env') + '-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
+    }
+
+    function _envMergeConfig(raw) {
+        var cfg = _envDefaultConfig();
+        if (!raw || typeof raw !== 'object') return cfg;
+        if (raw.version) cfg.version = String(raw.version);
+        if (raw.shell && typeof raw.shell === 'object') {
+            if (raw.shell.defaultRenderer) cfg.shell.defaultRenderer = String(raw.shell.defaultRenderer);
+            if (raw.shell.defaultPackageMode) cfg.shell.defaultPackageMode = String(raw.shell.defaultPackageMode);
+            if (raw.shell.defaultProfile) cfg.shell.defaultProfile = String(raw.shell.defaultProfile);
+            if (Array.isArray(raw.shell.rendererTargets) && raw.shell.rendererTargets.length) cfg.shell.rendererTargets = raw.shell.rendererTargets.slice();
+            if (Array.isArray(raw.shell.packageModes) && raw.shell.packageModes.length) cfg.shell.packageModes = raw.shell.packageModes.slice();
+        }
+        if (raw.sampler && typeof raw.sampler === 'object') {
+            if (raw.sampler.intervalMs !== undefined) cfg.sampler.intervalMs = Math.max(1000, Number(raw.sampler.intervalMs) || cfg.sampler.intervalMs);
+            if (raw.sampler.maxSamples !== undefined) cfg.sampler.maxSamples = Math.max(8, Number(raw.sampler.maxSamples) || cfg.sampler.maxSamples);
+            if (raw.sampler.autoCaptureOnRuntime !== undefined) cfg.sampler.autoCaptureOnRuntime = !!raw.sampler.autoCaptureOnRuntime;
+        }
+        if (raw.scene && typeof raw.scene === 'object') {
+            if (raw.scene.enabled !== undefined) cfg.scene.enabled = !!raw.scene.enabled;
+            if (raw.scene.fpsCap !== undefined) cfg.scene.fpsCap = Math.max(12, Math.min(60, Number(raw.scene.fpsCap) || cfg.scene.fpsCap));
+            if (raw.scene.pixelRatioCap !== undefined) cfg.scene.pixelRatioCap = Math.max(1, Math.min(3, Number(raw.scene.pixelRatioCap) || cfg.scene.pixelRatioCap));
+            if (raw.scene.ambientDrift !== undefined) cfg.scene.ambientDrift = !!raw.scene.ambientDrift;
+            if (raw.scene.showGrid !== undefined) cfg.scene.showGrid = !!raw.scene.showGrid;
+            if (raw.scene.showLabels !== undefined) cfg.scene.showLabels = !!raw.scene.showLabels;
+            if (raw.scene.showPulseTrails !== undefined) cfg.scene.showPulseTrails = !!raw.scene.showPulseTrails;
+            if (raw.scene.cameraDepth !== undefined) cfg.scene.cameraDepth = Math.max(0.5, Math.min(0.95, Number(raw.scene.cameraDepth) || cfg.scene.cameraDepth));
+            if (raw.scene.objectScale !== undefined) cfg.scene.objectScale = Math.max(0.5, Math.min(2.2, Number(raw.scene.objectScale) || cfg.scene.objectScale));
+            if (raw.scene.defaultCameraMode) cfg.scene.defaultCameraMode = String(raw.scene.defaultCameraMode);
+            if (raw.scene.routeOpacity !== undefined) cfg.scene.routeOpacity = Math.max(0.05, Math.min(1, Number(raw.scene.routeOpacity) || cfg.scene.routeOpacity));
+            if (raw.scene.routeGlow !== undefined) cfg.scene.routeGlow = !!raw.scene.routeGlow;
+        }
+        if (raw.ingress && typeof raw.ingress === 'object') {
+            if (raw.ingress.intervalMs !== undefined) cfg.ingress.intervalMs = Math.max(250, Number(raw.ingress.intervalMs) || cfg.ingress.intervalMs);
+            if (raw.ingress.maxQueue !== undefined) cfg.ingress.maxQueue = Math.max(8, Number(raw.ingress.maxQueue) || cfg.ingress.maxQueue);
+            if (raw.ingress.autostart !== undefined) cfg.ingress.autostart = !!raw.ingress.autostart;
+            if (raw.ingress.historyLimit !== undefined) cfg.ingress.historyLimit = Math.max(4, Number(raw.ingress.historyLimit) || cfg.ingress.historyLimit);
+            if (raw.ingress.batchLimit !== undefined) cfg.ingress.batchLimit = Math.max(1, Number(raw.ingress.batchLimit) || cfg.ingress.batchLimit);
+        }
+        if (raw.watch && typeof raw.watch === 'object') {
+            if (raw.watch.autoFollowFailed !== undefined) cfg.watch.autoFollowFailed = !!raw.watch.autoFollowFailed;
+            if (raw.watch.autoBranchOnFailure !== undefined) cfg.watch.autoBranchOnFailure = !!raw.watch.autoBranchOnFailure;
+            if (raw.watch.autoSampleOnRuntime !== undefined) cfg.watch.autoSampleOnRuntime = !!raw.watch.autoSampleOnRuntime;
+            if (raw.watch.autoFocusLatestTrace !== undefined) cfg.watch.autoFocusLatestTrace = !!raw.watch.autoFocusLatestTrace;
+        }
+        if (raw.docs && typeof raw.docs === 'object') {
+            if (raw.docs.searchPrefix) cfg.docs.searchPrefix = String(raw.docs.searchPrefix);
+            if (raw.docs.searchLimit !== undefined) cfg.docs.searchLimit = Math.max(1, Number(raw.docs.searchLimit) || cfg.docs.searchLimit);
+            if (raw.docs.continuityIndex) cfg.docs.continuityIndex = String(raw.docs.continuityIndex);
+        }
+        if (raw.bus && typeof raw.bus === 'object') {
+            if (raw.bus.maxEvents !== undefined) cfg.bus.maxEvents = Math.max(24, Number(raw.bus.maxEvents) || cfg.bus.maxEvents);
+            if (raw.bus.liveTail !== undefined) cfg.bus.liveTail = Math.max(6, Number(raw.bus.liveTail) || cfg.bus.liveTail);
+            if (raw.bus.retainActions !== undefined) cfg.bus.retainActions = Math.max(24, Number(raw.bus.retainActions) || cfg.bus.retainActions);
+            if (Array.isArray(raw.bus.channels) && raw.bus.channels.length) cfg.bus.channels = raw.bus.channels.slice();
+        }
+        if (Array.isArray(raw.profiles)) {
+            cfg.profiles = raw.profiles.filter(function (profile) {
+                return profile && typeof profile === 'object' && profile.id;
+            }).map(function (profile) {
+                var base = (_envDefaultConfig().profiles || []).find(function (entry) {
+                    return String(entry.id || '') === String(profile.id || '');
+                }) || {};
+                return {
+                    id: String(profile.id || base.id || ''),
+                    label: String(profile.label || base.label || profile.id || 'profile'),
+                    note: String(profile.note || base.note || ''),
+                    cameraMode: String(profile.cameraMode || base.cameraMode || 'overview'),
+                    samplerActive: profile.samplerActive !== undefined ? !!profile.samplerActive : !!base.samplerActive,
+                    samplerIntervalMs: Math.max(1000, Number(profile.samplerIntervalMs || base.samplerIntervalMs || (((cfg || {}).sampler || {}).intervalMs) || 4000)),
+                    replayMode: String(profile.replayMode || base.replayMode || (((cfg || {}).replay || {}).mode) || 'samples'),
+                    replayLoop: profile.replayLoop !== undefined ? !!profile.replayLoop : !!base.replayLoop,
+                    watch: Object.assign({}, base.watch || {}, profile.watch && typeof profile.watch === 'object' ? profile.watch : {})
+                };
+            });
+        }
+        if (Array.isArray(raw.recipes)) {
+            cfg.recipes = raw.recipes.filter(function (recipe) {
+                return recipe && typeof recipe === 'object' && recipe.id && Array.isArray(recipe.commands) && recipe.commands.length;
+            }).map(function (recipe) {
+                return {
+                    id: String(recipe.id),
+                    label: String(recipe.label || recipe.id),
+                    note: String(recipe.note || ''),
+                    commands: recipe.commands.filter(function (entry) {
+                        return entry && typeof entry === 'object' && entry.action;
+                    }).map(function (entry) {
+                        return {
+                            action: String(entry.action),
+                            target: entry.target === undefined || entry.target === null ? '' : String(entry.target),
+                            note: String(entry.note || ''),
+                            actor: entry.actor ? String(entry.actor) : '',
+                            meta: entry.meta && typeof entry.meta === 'object' ? Object.assign({}, entry.meta) : {}
+                        };
+                    })
+                };
+            }).filter(function (recipe) {
+                return recipe.commands.length > 0;
+            });
+        }
+        return cfg;
+    }
+
+    function _envBusChannelForKind(kind) {
+        var k = String(kind || 'system').toLowerCase();
+        if (k === 'catalog' || k === 'load' || k === 'select') return 'selection';
+        if (k === 'runtime' || k === 'execute') return 'runtime';
+        if (k === 'sample') return 'sample';
+        if (k === 'branch') return 'branch';
+        if (k === 'control') return 'control';
+        if (k === 'recipe') return 'recipe';
+        if (k === 'profile') return 'profile';
+        if (k === 'ingress') return 'ingress';
+        if (k === 'watch') return 'watch';
+        if (k === 'doc' || k === 'docs') return 'docs';
+        if (k === 'tool') return 'tool';
+        if (k === 'export') return 'export';
+        if (k === 'focus') return 'focus';
+        return 'system';
+    }
+
+    function _envBusLimit() {
+        return Math.max(24, Number((((_envConfig || {}).bus || {}).maxEvents) || 160));
+    }
+
+    function _envLiveTailLimit() {
+        return Math.max(6, Number((((_envConfig || {}).bus || {}).liveTail) || 24));
+    }
+
+    function _envIngressLimit() {
+        return Math.max(8, Number((((_envConfig || {}).ingress || {}).maxQueue) || 48));
+    }
+
+    function _envIngressHistoryLimit() {
+        return Math.max(4, Number((((_envConfig || {}).ingress || {}).historyLimit) || 16));
+    }
+
+    function _envBatchControlLimit() {
+        return Math.max(1, Number((((_envConfig || {}).ingress || {}).batchLimit) || 24));
+    }
+
+    function _envQueueBatch(commands, actor, notePrefix, metaDefaults) {
+        if (!Array.isArray(commands)) return [];
+        var queued = [];
+        var limit = _envBatchControlLimit();
+        commands.slice(0, limit).forEach(function (entry, idx) {
+            if (!entry || typeof entry !== 'object') return;
+            var mergedMeta = Object.assign({}, metaDefaults || {}, entry.meta && typeof entry.meta === 'object' ? entry.meta : {});
+            var item = _envQueueControl(
+                String(entry.action || ''),
+                entry.target === undefined || entry.target === null ? '' : String(entry.target),
+                actor || entry.actor || 'assistant',
+                entry.note || (notePrefix ? String(notePrefix) + ' #' + String(idx + 1) : ''),
+                mergedMeta
+            );
+            if (item) queued.push(item.id);
+        });
+        return queued;
+    }
+
+    function _envApplyConfig() {
+        _envKernel.sampler.intervalMs = Math.max(1000, Number((((_envConfig || {}).sampler || {}).intervalMs) || 4000));
+        _envKernel.ingress.intervalMs = Math.max(250, Number((((_envConfig || {}).ingress || {}).intervalMs) || 700));
+        _envKernel.replay.intervalMs = Math.max(400, Number((((_envConfig || {}).replay || {}).intervalMs) || 1400));
+        _envKernel.replay.mode = String((((_envConfig || {}).replay || {}).mode) || 'samples');
+        _envKernel.replay.loop = !!((((_envConfig || {}).replay || {}).loop));
+        _envKernel.watch.autoFollowFailed = !!((((_envConfig || {}).watch || {}).autoFollowFailed));
+        _envKernel.watch.autoBranchOnFailure = !!((((_envConfig || {}).watch || {}).autoBranchOnFailure));
+        _envKernel.watch.autoSampleOnRuntime = !!((((_envConfig || {}).watch || {}).autoSampleOnRuntime));
+        _envKernel.watch.autoFocusLatestTrace = !!((((_envConfig || {}).watch || {}).autoFocusLatestTrace));
+        _envScene.enabled = (((_envConfig || {}).scene || {}).enabled !== false);
+        _envScene.fpsCap = Math.max(12, Math.min(60, Number((((_envConfig || {}).scene || {}).fpsCap) || 30)));
+        _envScene.cameraMode = _envSceneNormalizeCameraMode((((_envConfig || {}).scene || {}).defaultCameraMode) || _envScene.cameraMode || 'overview');
+        if ((((_envConfig || {}).ingress || {}).autostart)) _envStartIngressLoop();
+        else _envStopIngressLoop(false);
+        var renderTargetEl = document.getElementById('envops-render-target');
+        if (renderTargetEl) {
+            var currentRender = String(renderTargetEl.value || '');
+            var targetOptions = ((_envConfig || {}).shell || {}).rendererTargets || [];
+            renderTargetEl.innerHTML = targetOptions.map(function (target) {
+                return '<option value="' + _esc(String(target.id || '')) + '">' + _esc(String(target.label || target.id || 'target')) + '</option>';
+            }).join('');
+            var desiredRender = currentRender || String(((_envConfig || {}).shell || {}).defaultRenderer || 'web3d');
+            renderTargetEl.value = targetOptions.some(function (target) { return String(target.id || '') === desiredRender; }) ? desiredRender : String((targetOptions[0] || {}).id || 'web3d');
+        }
+        var packageModeEl = document.getElementById('envops-package-mode');
+        if (packageModeEl) {
+            var currentMode = String(packageModeEl.value || '');
+            var packageOptions = ((_envConfig || {}).shell || {}).packageModes || [];
+            packageModeEl.innerHTML = packageOptions.map(function (mode) {
+                return '<option value="' + _esc(String(mode.id || '')) + '">' + _esc(String(mode.label || mode.id || 'mode')) + '</option>';
+            }).join('');
+            var desiredMode = currentMode || String(((_envConfig || {}).shell || {}).defaultPackageMode || 'research');
+            packageModeEl.value = packageOptions.some(function (mode) { return String(mode.id || '') === desiredMode; }) ? desiredMode : String((packageOptions[0] || {}).id || 'research');
+        }
+        var desiredProfileId = String(((_envKernel.profile || {}).activeId) || (((_envConfig || {}).shell || {}).defaultProfile) || '').trim();
+        if (desiredProfileId && _envProfileById(desiredProfileId)) {
+            _envApplyProfile(desiredProfileId, 'system', 'config apply', true);
+        } else {
+            _envKernel.profile.activeId = '';
+            _envKernel.profile.lastAppliedTs = 0;
+            _envRefreshReplayTrack(_envKernel.replay.mode, true);
+        }
+    }
+
+    function _envSceneConfig() {
+        return ((_envConfig || {}).scene || {});
+    }
+
+    function _envSceneNavigationConfig() {
+        var scene = _envSceneConfig();
+        var nav = scene.navigation || {};
+        return {
+            panSensitivity: Number(nav.panSensitivity || 0.12),
+            zoomStep: Number(nav.zoomStep || 0.12),
+            minZoomScale: Math.max(0.55, Number(nav.minZoomScale || 0.7)),
+            maxZoomScale: Math.max(1.1, Number(nav.maxZoomScale || 1.8))
+        };
+    }
+
+    function _envSceneDistrictCatalog() {
+        var scene = _envSceneConfig();
+        if (Array.isArray(scene.districts) && scene.districts.length) return scene.districts;
+        return [
+            { id: 'control', label: 'Control Deck', note: 'workflow core · profiles · recipes', x: 6, y: 10, w: 27, h: 17, depth: -44, tilt: -8 },
+            { id: 'runtime', label: 'Runtime Spine', note: 'node lattice · tool flow · active execution', x: 34, y: 18, w: 32, h: 24, depth: -70, tilt: 0 },
+            { id: 'ingress', label: 'Ingress Gate', note: 'dispatch core · queued actions', x: 6, y: 31, w: 24, h: 15, depth: -38, tilt: -12 },
+            { id: 'memory', label: 'Memory Shelf', note: 'docs · artifacts · export handoff', x: 8, y: 55, w: 27, h: 18, depth: -58, tilt: -15 },
+            { id: 'trace', label: 'Trace Relay', note: 'failures · causal relays · live bus pressure', x: 66, y: 56, w: 26, h: 16, depth: -60, tilt: 16 },
+            { id: 'replay', label: 'Replay Yard', note: 'samples · branches · replay review', x: 68, y: 15, w: 24, h: 18, depth: -46, tilt: 12 }
+        ];
+    }
+
+    function _envSceneDistrictById(id) {
+        var wanted = String(id || '').toLowerCase();
+        return _envSceneDistrictCatalog().find(function (district) {
+            return String((district && district.id) || '').toLowerCase() === wanted;
+        }) || null;
+    }
+
+    function _envSceneEventDistrictId(event) {
+        var channel = String(((event || {}).channel) || 'system').toLowerCase();
+        if (channel === 'control' || channel === 'selection' || channel === 'profile' || channel === 'recipe' || channel === 'focus') return 'control';
+        if (channel === 'runtime' || channel === 'tool' || channel === 'sample' || channel === 'system') return 'runtime';
+        if (channel === 'ingress') return 'ingress';
+        if (channel === 'docs' || channel === 'export') return 'memory';
+        if (channel === 'watch') return 'trace';
+        if (channel === 'branch' || channel === 'replay') return 'replay';
+        return 'runtime';
+    }
+
+    function _envSceneEventAnchor(event, idx, laneIndex) {
+        var districtId = _envSceneEventDistrictId(event);
+        var district = _envSceneDistrictById(districtId);
+        var channel = String(((event || {}).channel) || 'system').toLowerCase();
+        var lane = Math.max(0, Number(laneIndex || 0));
+        var anchor = district ? {
+            x: Number(district.x || 50) + (Number(district.w || 12) / 2),
+            y: Number(district.y || 40) + (Number(district.h || 12) / 2),
+            tilt: Number(district.tilt || 0)
+        } : { x: 80, y: 24, tilt: 10 };
+        var dx = 0;
+        var dy = 0;
+        if (districtId === 'control') {
+            dx = -7 + lane * 6;
+            dy = -4 + (lane % 2) * 5;
+        } else if (districtId === 'runtime') {
+            dx = 10 + lane * 4;
+            dy = -8 + (lane % 3) * 5;
+        } else if (districtId === 'ingress') {
+            dx = -8 + lane * 7;
+            dy = 8 + lane * 3;
+        } else if (districtId === 'memory') {
+            dx = -8 + lane * 6;
+            dy = 8 + (lane % 2) * 5;
+        } else if (districtId === 'trace') {
+            dx = 8 - lane * 4;
+            dy = 4 + lane * 4;
+        } else if (districtId === 'replay') {
+            dx = 7 - lane * 5;
+            dy = -7 + (lane % 3) * 4;
+        }
+        if (channel === 'watch') dy -= 4;
+        if (channel === 'focus') dy -= 6;
+        if (channel === 'ingress') dy += 4;
+        return {
+            x: Math.max(8, Math.min(92, anchor.x + dx)),
+            y: Math.max(10, Math.min(92, anchor.y + dy)),
+            tilt: anchor.tilt + ((lane - 1) * 4),
+            scale: Math.max(0.62, 0.78 - lane * 0.04),
+            category: 'event ' + channel
+        };
+    }
+
+    function _envSceneNormalizeCameraMode(mode) {
+        var value = String(mode || 'overview').toLowerCase();
+        if (value === 'focus' || value === 'follow_focus') return 'focus';
+        if (value === 'replay' || value === 'follow_replay') return 'replay';
+        return 'overview';
+    }
+
+    function _envSceneClampZoomScale(value) {
+        var nav = _envSceneNavigationConfig();
+        return Math.max(nav.minZoomScale, Math.min(nav.maxZoomScale, Number(value || 1)));
+    }
+
+    function _envSceneObjectKey(obj) {
+        if (!obj) return '';
+        return String((obj.kind || 'primitive')) + '::' + String((obj.id || ''));
+    }
+
+    function _envSceneFindObjectByKey(key) {
+        var text = String(key || '').trim();
+        if (!text) return null;
+        var idx = text.indexOf('::');
+        if (idx < 0) return null;
+        return _envSceneFindObject(text.slice(0, idx), text.slice(idx + 2));
+    }
+
+    function _envSceneFindObject(kind, id) {
+        var desiredKind = String(kind || '').trim();
+        var desiredId = String(id || '').trim();
+        return (_envScene.objects || []).find(function (obj) {
+            return String((obj && obj.kind) || '') === desiredKind && String((obj && obj.id) || '') === desiredId;
+        }) || null;
+    }
+
+    function _envSceneFindPickable(kind, id) {
+        var desiredKind = String(kind || '').trim();
+        var desiredId = String(id || '').trim();
+        return (_envScene.pickables || []).find(function (item) {
+            var obj = item && item.obj ? item.obj : {};
+            return String((obj && obj.kind) || '') === desiredKind && String((obj && obj.id) || '') === desiredId;
+        }) || null;
+    }
+
+    function _envSceneResolveEventFocusTarget(focus) {
+        if (!focus || String(focus.kind || '') !== 'event') return null;
+        var event = _envFindBusEvent(focus.id);
+        if (!event) return _envSceneFindObject('event', focus.id);
+        var links = _envSceneEventLinkKeys(event);
+        return _envSceneFindObjectByKey(links.targetKey)
+            || _envSceneFindObjectByKey(links.sourceKey)
+            || _envSceneFindObjectByKey(links.eventKey)
+            || _envSceneFindObject('event', focus.id)
+            || null;
+    }
+
+    function _envSceneResolveCameraTarget(mode) {
+        var focus = _envKernel.focus || {};
+        if (mode === 'focus' && focus.kind && focus.id !== undefined) {
+            if (String(focus.kind || '') === 'event') {
+                var eventTarget = _envSceneResolveEventFocusTarget(focus);
+                if (eventTarget) return eventTarget;
+            }
+            var focused = _envSceneFindObject(focus.kind, focus.id);
+            if (focused) return focused;
+        }
+        if (mode === 'replay') {
+            var replayObj = _envSceneFindObject('replay', Math.max(0, Number(((_envKernel.replay || {}).cursor) || 0)));
+            if (replayObj) return replayObj;
+        }
+        return _envSceneFindObject('workflow', _envScene.workflowId) || (_envScene.objects || [])[0] || null;
+    }
+
+    function _envSceneUpdateCamera(timeMs) {
+        var mode = _envSceneNormalizeCameraMode(_envScene.cameraMode || (((_envConfig || {}).scene || {}).defaultCameraMode) || 'overview');
+        var cam = _envScene.camera || {};
+        var target = _envSceneResolveCameraTarget(mode);
+        var baseTargetX = 50;
+        var baseTargetY = 52;
+        var baseTargetZoom = 1;
+        if (mode === 'focus' && target) {
+            baseTargetX = Number(target.x || 50);
+            baseTargetY = Number(target.y || 50);
+            baseTargetZoom = 1.18;
+        } else if (mode === 'replay' && target) {
+            baseTargetX = Number(target.x || 50);
+            baseTargetY = Number(target.y || 50);
+            baseTargetZoom = 1.12;
+        }
+        cam.offsetX = Number(cam.offsetX || 0);
+        cam.offsetY = Number(cam.offsetY || 0);
+        cam.zoomScale = _envSceneClampZoomScale(Number(cam.zoomScale || 1));
+        var targetX = baseTargetX + cam.offsetX;
+        var targetY = baseTargetY + cam.offsetY;
+        var targetZoom = Math.max(0.62, baseTargetZoom * cam.zoomScale);
+        cam.targetX = targetX;
+        cam.targetY = targetY;
+        cam.targetZoom = targetZoom;
+        cam.anchorKind = target ? String(target.kind || 'workflow') : 'workflow';
+        cam.anchorId = target ? String(target.id || '') : '';
+        cam.x = Number(cam.x || 50) + (targetX - Number(cam.x || 50)) * 0.12;
+        cam.y = Number(cam.y || 52) + (targetY - Number(cam.y || 52)) * 0.12;
+        cam.zoom = Number(cam.zoom || 1) + (targetZoom - Number(cam.zoom || 1)) * 0.12;
+        cam.lastSwitchTs = Number(timeMs || Date.now());
+        _envScene.camera = cam;
+    }
+
+    function _envSceneBuildRoutes(workflow, objects) {
+        if (!workflow) return [];
+        var lookup = {};
+        (objects || []).forEach(function (obj) {
+            lookup[_envSceneObjectKey(obj)] = obj;
+        });
+        var nodeIds = {};
+        (workflow.nodes || []).forEach(function (node) {
+            nodeIds[String((node && node.id) || '')] = true;
+        });
+        var routes = [];
+        var rawConnections = Array.isArray(workflow.connections) ? workflow.connections : [];
+        rawConnections.forEach(function (edge, idx) {
+            var from = edge && edge.from != null ? String(edge.from) : '';
+            var to = edge && edge.to != null ? String(edge.to) : '';
+            if (!nodeIds[from] || !nodeIds[to]) return;
+            var fromObj = lookup['node::' + from];
+            var toObj = lookup['node::' + to];
+            if (!fromObj || !toObj) return;
+            routes.push({
+                id: 'route::' + idx,
+                fromKey: 'node::' + from,
+                toKey: 'node::' + to,
+                label: edge && edge.label ? String(edge.label) : '',
+                branch: edge && edge.branch ? String(edge.branch) : '',
+                condition: edge && edge.condition ? String(edge.condition) : '',
+                tone: (_wfNormalizeStatus(String(fromObj.state || 'pending')) === 'failed' || _wfNormalizeStatus(String(toObj.state || 'pending')) === 'failed') ? 'failed' : ((_wfNormalizeStatus(String(fromObj.state || 'pending')) === 'running' || _wfNormalizeStatus(String(toObj.state || 'pending')) === 'running') ? 'running' : 'idle')
+            });
+        });
+        var indegree = {};
+        Object.keys(nodeIds).forEach(function (nodeId) { indegree[nodeId] = 0; });
+        routes.forEach(function (route) {
+            var targetId = String(route.toKey || '').split('::')[1] || '';
+            if (indegree[targetId] !== undefined) indegree[targetId] += 1;
+        });
+        var workflowObj = lookup['workflow::' + String((workflow && workflow.id) || _wfSelectedId || 'workflow')];
+        if (workflowObj) {
+            Object.keys(indegree).filter(function (nodeId) {
+                return Number(indegree[nodeId] || 0) === 0;
+            }).slice(0, 6).forEach(function (nodeId, idx) {
+                if (!lookup['node::' + nodeId]) return;
+                routes.push({
+                    id: 'route::root::' + idx,
+                    fromKey: _envSceneObjectKey(workflowObj),
+                    toKey: 'node::' + nodeId,
+                    label: 'entry',
+                    branch: '',
+                    condition: '',
+                    tone: 'idle'
+                });
+            });
+        }
+        return routes;
+    }
+
+    function _envSceneResolveControlTargetKey(action, target) {
+        var command = String(action || '').trim().toLowerCase();
+        var targetId = String(target || '').trim();
+        var latestSample = (_envKernel.samples || [])[0] || null;
+        var latestBranch = (_envKernel.branches || [])[0] || null;
+        var replayCursor = String(Math.max(0, Number(((_envKernel.replay || {}).cursor) || 0)));
+        var activeProfileId = String(((_envKernel.profile || {}).activeId) || (((_envConfig || {}).shell || {}).defaultProfile) || '').trim();
+        if (command === 'focus_workflow') return _envScene.workflowId ? ('workflow::' + _envScene.workflowId) : '';
+        if (command === 'focus_node') return targetId ? ('node::' + targetId) : '';
+        if (command === 'focus_doc' || command === 'open_doc_memory') return targetId ? ('doc::' + targetId) : '';
+        if (command === 'focus_sample') return targetId ? ('sample::' + targetId) : (latestSample ? ('sample::' + String(latestSample.id || '')) : '');
+        if (command === 'focus_branch') return targetId ? ('branch::' + targetId) : (latestBranch ? ('branch::' + String(latestBranch.id || '')) : '');
+        if (command === 'focus_trace') return 'trace::' + String(targetId || '0');
+        if (command === 'focus_artifact') return 'artifact::' + String(targetId || '0');
+        if (command === 'focus_profile' || command === 'activate_profile') return (targetId || activeProfileId) ? ('profile::' + String(targetId || activeProfileId)) : '';
+        if (command === 'focus_recipe' || command === 'run_recipe') return targetId ? ('recipe::' + targetId) : '';
+        if (command === 'focus_event' || command === 'follow_failed') return targetId ? ('event::' + targetId) : '';
+        if (command === 'focus_dispatch') return targetId ? ('dispatch::' + targetId) : (((_envKernel.ingress || {}).current) ? ('dispatch::' + String(((_envKernel.ingress || {}).current || {}).id || '')) : '');
+        if (command === 'focus_queued') return targetId ? ('queued::' + targetId) : ((((_envKernel.ingress || {}).queue || [])[0]) ? ('queued::' + String((((_envKernel.ingress || {}).queue || [])[0] || {}).id || '')) : '');
+        if (command === 'focus_watch') return targetId ? ('watch::' + targetId) : 'watch::autoFollowFailed';
+        if (command === 'focus_replay' || command === 'toggle_replay' || command === 'replay_prev' || command === 'replay_next' || command === 'set_replay_mode') return 'replay::' + replayCursor;
+        if (command === 'sample_now' || command === 'toggle_stream') return latestSample ? ('sample::' + String(latestSample.id || '')) : '';
+        if (command === 'branch_snapshot') return latestBranch ? ('branch::' + String(latestBranch.id || '')) : '';
+        if (command === 'set_camera_mode') return _envScene.workflowId ? ('workflow::' + _envScene.workflowId) : '';
+        return _envScene.workflowId ? ('workflow::' + _envScene.workflowId) : '';
+    }
+
+    function _envSceneBuildTrajectories(workflow, traces) {
+        if (!workflow) return [];
+        var workflowKey = 'workflow::' + String((workflow && workflow.id) || _wfSelectedId || 'workflow');
+        var focus = _envKernel.focus || {};
+        var activeProfileId = String((((_envKernel.profile || {}).activeId) || ''));
+        var latestSample = ((_envKernel.samples || [])[0]) || null;
+        var latestBranch = ((_envKernel.branches || [])[0]) || null;
+        var activeDoc = (_envDocState.results || [])[0] || null;
+        var currentReplay = ((_envKernel.replay || {}).current) || null;
+        var artifactSections = _envArtifactSections();
+        var trajectories = [];
+        var seq = 0;
+        function push(fromKey, toKey, tone, label, active, meta) {
+            if (!fromKey || !toKey || fromKey === toKey) return;
+            trajectories.push({
+                id: 'trajectory::' + (++seq),
+                fromKey: String(fromKey),
+                toKey: String(toKey),
+                tone: String(tone || 'flow'),
+                label: String(label || ''),
+                active: !!active,
+                phase: (seq * 0.173) % 1,
+                meta: meta || null
+            });
+        }
+
+        (_envKernel.samples || []).slice(0, 5).forEach(function (sample, idx) {
+            push(
+                workflowKey,
+                'sample::' + String(sample.id || idx),
+                _envSampleStatus(sample),
+                'sample',
+                idx === 0,
+                { sample_id: String(sample.id || idx) }
+            );
+        });
+
+        (_envKernel.branches || []).slice(0, 4).forEach(function (branch) {
+            var fromKey = branch.sample_id ? ('sample::' + String(branch.sample_id || '')) : workflowKey;
+            push(
+                fromKey,
+                'branch::' + String(branch.id || ''),
+                'branch',
+                'branch',
+                false,
+                { branch_id: String(branch.id || '') }
+            );
+        });
+
+        if ((_envKernel.replay || {}).current) {
+            var replayItem = (_envKernel.replay || {}).current;
+            var replayId = String(Math.max(0, Number(((_envKernel.replay || {}).cursor) || 0)));
+            push(
+                'replay::' + replayId,
+                String(replayItem.kind || '') + '::' + String(replayItem.id || ''),
+                'replay',
+                'replay',
+                !!((_envKernel.replay || {}).active),
+                { replay_id: replayId, replay_kind: String(replayItem.kind || '') }
+            );
+        }
+
+        if (activeProfileId) {
+            push(
+                workflowKey,
+                'profile::' + activeProfileId,
+                'profile',
+                'profile',
+                true,
+                { profile_id: activeProfileId }
+            );
+        }
+
+        if (focus.kind && focus.kind !== 'workflow' && focus.id !== undefined && focus.id !== null && String(focus.id || '') !== '') {
+            push(
+                workflowKey,
+                String(focus.kind || '') + '::' + String(focus.id || ''),
+                'focus',
+                'focus',
+                true,
+                { focus_kind: String(focus.kind || ''), focus_id: String(focus.id || '') }
+            );
+        }
+
+        var failureTrace = (traces || []).find(function (trace) {
+            return !!trace && (!!trace.error || /fail|error/i.test(String(trace.result || '')));
+        });
+        if (failureTrace) {
+            var failureIndex = String((traces || []).indexOf(failureTrace));
+            var failureNodeId = String((((failureTrace || {}).args || {})._workflow_node_id) || '');
+            push(
+                failureNodeId ? ('node::' + failureNodeId) : workflowKey,
+                'trace::' + failureIndex,
+                'failed',
+                'failure',
+                true,
+                { trace_index: failureIndex, node_id: failureNodeId }
+            );
+        }
+
+        var ingressCurrent = ((_envKernel.ingress || {}).current) || null;
+        if (ingressCurrent) {
+            var dispatchKey = 'dispatch::' + String(ingressCurrent.id || 'dispatch');
+            var dispatchTargetKey = _envSceneResolveControlTargetKey(ingressCurrent.action, ingressCurrent.target);
+            if (activeProfileId) {
+                push(
+                    'profile::' + activeProfileId,
+                    dispatchKey,
+                    'profile',
+                    'orchestrate',
+                    true,
+                    { profile_id: activeProfileId, action: String(ingressCurrent.action || '') }
+                );
+            }
+            push(
+                workflowKey,
+                dispatchKey,
+                'running',
+                'ingress',
+                true,
+                { action: String(ingressCurrent.action || ''), actor: String(ingressCurrent.actor || '') }
+            );
+            push(
+                dispatchKey,
+                dispatchTargetKey,
+                'running',
+                String(ingressCurrent.action || 'dispatch'),
+                true,
+                { action: String(ingressCurrent.action || ''), actor: String(ingressCurrent.actor || '') }
+            );
+        }
+
+        (((_envKernel.ingress || {}).queue) || []).slice(0, 3).forEach(function (item, idx) {
+            var queuedKey = 'queued::' + String(item.id || ('queued-' + idx));
+            var queuedTargetKey = _envSceneResolveControlTargetKey(item.action, item.target);
+            if (activeProfileId) {
+                push(
+                    'profile::' + activeProfileId,
+                    queuedKey,
+                    'profile',
+                    'stage',
+                    idx === 0 && !ingressCurrent,
+                    { profile_id: activeProfileId, action: String(item.action || ''), queue_index: idx }
+                );
+            }
+            push(
+                workflowKey,
+                queuedKey,
+                'queued',
+                'queue',
+                idx === 0 && !ingressCurrent,
+                { action: String(item.action || ''), actor: String(item.actor || ''), queue_index: idx }
+            );
+            push(
+                queuedKey,
+                queuedTargetKey,
+                'queued',
+                String(item.action || 'queued'),
+                idx === 0 && !ingressCurrent,
+                { action: String(item.action || ''), actor: String(item.actor || ''), queue_index: idx }
+            );
+        });
+
+        var latestSample = ((_envKernel.samples || [])[0]) || null;
+        var latestBranch = ((_envKernel.branches || [])[0]) || null;
+        if (failureTrace && latestBranch) {
+            push(
+                'trace::' + failureIndex,
+                'branch::' + String(latestBranch.id || ''),
+                'branch',
+                'fork',
+                true,
+                { trace_index: failureIndex, branch_id: String(latestBranch.id || '') }
+            );
+        }
+        if (((_envKernel.replay || {}).current) && latestBranch) {
+            push(
+                'branch::' + String(latestBranch.id || ''),
+                'replay::' + String(Math.max(0, Number(((_envKernel.replay || {}).cursor) || 0))),
+                'replay',
+                'review',
+                !!((_envKernel.replay || {}).active),
+                { branch_id: String(latestBranch.id || ''), replay_cursor: String(Math.max(0, Number(((_envKernel.replay || {}).cursor) || 0))) }
+            );
+        }
+        _envWatchDescriptors().forEach(function (watchMeta) {
+            var watchKey = 'watch::' + String(watchMeta.key || '');
+            if (!((_envKernel.watch || {})[watchMeta.key])) return;
+            push(
+                workflowKey,
+                watchKey,
+                'watch',
+                'watch',
+                false,
+                { watch_key: String(watchMeta.key || '') }
+            );
+            if (watchMeta.key === 'autoFollowFailed' && failureTrace) {
+                push(
+                    watchKey,
+                    'trace::' + failureIndex,
+                    'watch',
+                    'follow',
+                    true,
+                    { watch_key: String(watchMeta.key || ''), trace_index: failureIndex }
+                );
+            } else if (watchMeta.key === 'autoBranchOnFailure' && latestBranch) {
+                push(
+                    watchKey,
+                    'branch::' + String(latestBranch.id || ''),
+                    'watch',
+                    'branch',
+                    true,
+                    { watch_key: String(watchMeta.key || ''), branch_id: String(latestBranch.id || '') }
+                );
+            } else if (watchMeta.key === 'autoSampleOnRuntime' && latestSample) {
+                push(
+                    watchKey,
+                    'sample::' + String(latestSample.id || ''),
+                    'watch',
+                    'sample',
+                    !!ingressCurrent,
+                    { watch_key: String(watchMeta.key || ''), sample_id: String(latestSample.id || '') }
+                );
+            } else if (watchMeta.key === 'autoFocusLatestTrace' && traces && traces.length) {
+                push(
+                    watchKey,
+                    'trace::0',
+                    'watch',
+                    'trace',
+                    true,
+                    { watch_key: String(watchMeta.key || ''), trace_index: '0' }
+                );
+            }
+        });
+
+        _envRecentBusEvents(6).forEach(function (event, idx) {
+            if (!event) return;
+            var eventId = String(event.id || event.seq || idx);
+            if (!eventId) return;
+            var payload = event.payload || {};
+            var channel = String(event.channel || 'system').toLowerCase();
+            var eventKey = 'event::' + eventId;
+            var targetKey = '';
+            var sourceKey = '';
+            if (payload.profile_id) sourceKey = 'profile::' + String(payload.profile_id || '');
+            else if (payload.recipe_id) sourceKey = 'recipe::' + String(payload.recipe_id || '');
+            else if (payload.watch_key) sourceKey = 'watch::' + String(payload.watch_key || '');
+            else if (payload.branch_id) sourceKey = 'branch::' + String(payload.branch_id || '');
+            else if (payload.sample_id) sourceKey = 'sample::' + String(payload.sample_id || '');
+            else if (payload.trace_index !== undefined && payload.trace_index !== null) sourceKey = 'trace::' + String(payload.trace_index);
+            else if (channel === 'ingress' && ((_envKernel.ingress || {}).current)) sourceKey = 'dispatch::' + String(((_envKernel.ingress || {}).current || {}).id || '');
+            else if (channel === 'control' || channel === 'selection' || channel === 'focus') sourceKey = workflowKey;
+            else if (channel === 'docs' || channel === 'export') sourceKey = workflowKey;
+
+            if (payload.trace_index !== undefined && payload.trace_index !== null) targetKey = 'trace::' + String(payload.trace_index);
+            else if (payload.node_id) targetKey = 'node::' + String(payload.node_id || '');
+            else if (payload.sample_id) targetKey = 'sample::' + String(payload.sample_id || '');
+            else if (payload.branch_id) targetKey = 'branch::' + String(payload.branch_id || '');
+            else if (payload.recipe_id) targetKey = 'recipe::' + String(payload.recipe_id || '');
+            else if (payload.profile_id) targetKey = 'profile::' + String(payload.profile_id || '');
+            else if (payload.watch_key) targetKey = 'watch::' + String(payload.watch_key || '');
+            else if (channel === 'docs' && activeDoc) targetKey = 'doc::' + String(activeDoc.key || activeDoc.path || activeDoc.id || '');
+            else if (channel === 'export' && artifactSections && artifactSections.length) targetKey = 'artifact::0';
+            else if ((channel === 'runtime' || channel === 'tool') && traces && traces.length) targetKey = 'trace::0';
+            else if (channel === 'sample' && latestSample) targetKey = 'sample::' + String(latestSample.id || '');
+            else if (channel === 'branch' && latestBranch) targetKey = 'branch::' + String(latestBranch.id || '');
+            else if (channel === 'replay' && currentReplay) targetKey = 'replay::' + String(Math.max(0, Number(((_envKernel.replay || {}).cursor) || 0)));
+            else if ((channel === 'control' || channel === 'ingress' || channel === 'focus') && payload.action) targetKey = _envSceneResolveControlTargetKey(payload.action, payload.target || '');
+
+            var tone = _envBusEventSignalsFailure(event)
+                ? 'failed'
+                : (channel === 'sample' ? 'completed'
+                    : (channel === 'branch' ? 'branch'
+                        : (channel === 'replay' ? 'replay'
+                            : (channel === 'watch' ? 'watch'
+                                : ((channel === 'control' || channel === 'ingress') ? 'running' : 'completed')))));
+            var active = idx === 0 || (focus.kind === 'event' && String(focus.id || '') === eventId);
+
+            if (sourceKey) {
+                push(
+                    sourceKey,
+                    eventKey,
+                    tone,
+                    channel,
+                    active,
+                    { event_id: eventId, channel: channel, direction: 'source' }
+                );
+            }
+            if (targetKey) {
+                push(
+                    eventKey,
+                    targetKey,
+                    tone,
+                    channel,
+                    active,
+                    { event_id: eventId, channel: channel, direction: 'target' }
+                );
+            }
+        });
+
+        return trajectories.slice(0, 28);
+    }
+
+    function _envSceneBezierPoint(x0, y0, cx, cy, x1, y1, t) {
+        var omt = 1 - t;
+        return {
+            x: (omt * omt * x0) + (2 * omt * t * cx) + (t * t * x1),
+            y: (omt * omt * y0) + (2 * omt * t * cy) + (t * t * y1)
+        };
+    }
+
+    function _envSceneColorForObject(obj) {
+        var category = String((obj && obj.category) || (obj && obj.kind) || 'other').toLowerCase();
+        var state = String((obj && obj.state) || 'idle').toLowerCase();
+        if (state === 'failed') return { fill: '#7d1f27', edge: '#ff5f6d', glow: 'rgba(255,95,109,0.28)' };
+        if (state === 'running') return { fill: '#5b3d11', edge: '#ffb347', glow: 'rgba(255,179,71,0.24)' };
+        if (state === 'completed') return { fill: '#0f4d38', edge: '#4fffb0', glow: 'rgba(79,255,176,0.22)' };
+        if (category.indexOf('artifact') >= 0) return { fill: '#1e355f', edge: '#66b8ff', glow: 'rgba(102,184,255,0.24)' };
+        if (category.indexOf('trace') >= 0) return { fill: '#4e284d', edge: '#ff8ce7', glow: 'rgba(255,140,231,0.22)' };
+        if (category.indexOf('sample') >= 0) return { fill: '#274b58', edge: '#73f0ff', glow: 'rgba(115,240,255,0.22)' };
+        if (category.indexOf('branch') >= 0) return { fill: '#51401d', edge: '#ffd36a', glow: 'rgba(255,211,106,0.22)' };
+        if (category.indexOf('replay') >= 0) return { fill: '#523919', edge: '#ffe58a', glow: 'rgba(255,229,138,0.24)' };
+        if (category.indexOf('recipe') >= 0) return { fill: '#3f284f', edge: '#c697ff', glow: 'rgba(198,151,255,0.22)' };
+        if (category.indexOf('profile') >= 0) return { fill: '#243c4d', edge: '#7fc7ff', glow: 'rgba(127,199,255,0.22)' };
+        if (category.indexOf('doc') >= 0) return { fill: '#30442d', edge: '#9df57a', glow: 'rgba(157,245,122,0.20)' };
+        if (category.indexOf('event') >= 0) return { fill: '#233a52', edge: '#8bd2ff', glow: 'rgba(139,210,255,0.22)' };
+        if (category.indexOf('ingress') >= 0) return { fill: '#4d4324', edge: '#f8f2a8', glow: 'rgba(248,242,168,0.20)' };
+        if (category.indexOf('watch') >= 0) return { fill: '#314526', edge: '#d7ff8a', glow: 'rgba(215,255,138,0.20)' };
+        if (category.indexOf('workflow') >= 0) return { fill: '#103a32', edge: '#4fffd0', glow: 'rgba(79,255,208,0.24)' };
+        return { fill: '#243444', edge: '#91b5d8', glow: 'rgba(145,181,216,0.18)' };
+    }
+
+    function _envSceneColorForEvent(event) {
+        var channel = String((event && event.channel) || '').toLowerCase();
+        if (channel === 'focus') return '#4fffd0';
+        if (channel === 'sample') return '#73f0ff';
+        if (channel === 'branch') return '#ffd36a';
+        if (channel === 'runtime') return '#66b8ff';
+        if (channel === 'docs') return '#9df57a';
+        if (channel === 'recipe') return '#c697ff';
+        if (channel === 'tool' || channel === 'export') return '#ffb347';
+        if (channel === 'ingress') return '#f8f2a8';
+        if (channel === 'system') return '#d0d9e3';
+        return '#8aa4be';
+    }
+
+    function _envSceneDpr() {
+        var cfg = _envSceneConfig();
+        var cap = Math.max(1, Math.min(3, Number(cfg.pixelRatioCap || 1.5)));
+        var dpr = Number(window.devicePixelRatio || 1);
+        return Math.max(1, Math.min(cap, dpr));
+    }
+
+    function _envSceneResize(canvas) {
+        if (!canvas) return false;
+        var rect = canvas.getBoundingClientRect();
+        var width = Math.max(280, Math.round(rect.width || canvas.clientWidth || 0));
+        var height = Math.max(220, Math.round(rect.height || canvas.clientHeight || 0));
+        var dpr = _envSceneDpr();
+        var pixelWidth = Math.max(1, Math.round(width * dpr));
+        var pixelHeight = Math.max(1, Math.round(height * dpr));
+        if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
+            canvas.width = pixelWidth;
+            canvas.height = pixelHeight;
+        }
+        _envScene.width = width;
+        _envScene.height = height;
+        return true;
+    }
+
+    function _envSceneHudText(primary, secondary) {
+        _envScene.hud.primary = String(primary || 'Scene ready.');
+        _envScene.hud.secondary = String(secondary || '');
+        var primaryEl = document.getElementById('envops-habitat-hud-primary');
+        var secondaryEl = document.getElementById('envops-habitat-hud-secondary');
+        if (primaryEl) primaryEl.textContent = _envScene.hud.primary;
+        if (secondaryEl) secondaryEl.textContent = _envScene.hud.secondary;
+    }
+
+    function _envSceneFocusKey(focus) {
+        if (!focus || !focus.kind) return '';
+        return String(focus.kind || '') + '::' + String(focus.id || '');
+    }
+
+    function _envSceneKeyKind(key) {
+        var text = String(key || '');
+        var idx = text.indexOf('::');
+        return idx >= 0 ? text.slice(0, idx) : text;
+    }
+
+    function _envFindBusEvent(eventId) {
+        var id = String(eventId || '').trim();
+        if (!id) return null;
+        var events = Array.isArray((_envBus || {}).events) ? _envBus.events : [];
+        for (var i = 0; i < events.length; i++) {
+            var event = events[i];
+            if (String((event && (event.id || event.seq)) || '') === id) return event;
+        }
+        return null;
+    }
+
+    function _envSceneEventLinkKeys(event) {
+        if (!event) return { eventKey: '', sourceKey: '', targetKey: '', channel: '' };
+        var workflowKey = _envScene.workflowId ? ('workflow::' + _envScene.workflowId) : '';
+        var traces = Array.isArray(_envScene.traces) ? _envScene.traces : [];
+        var artifactSections = Array.isArray(_envScene.sections) ? _envScene.sections : [];
+        var payload = event.payload || {};
+        var channel = String(event.channel || 'system').toLowerCase();
+        var eventId = String(event.id || event.seq || '');
+        var eventKey = eventId ? ('event::' + eventId) : '';
+        var latestSample = ((_envKernel.samples || [])[0]) || null;
+        var latestBranch = ((_envKernel.branches || [])[0]) || null;
+        var currentReplay = ((_envKernel.replay || {}).current) || null;
+        var activeDoc = (_envDocState.results || [])[0] || null;
+        var sourceKey = '';
+        var targetKey = '';
+
+        if (payload.profile_id) sourceKey = 'profile::' + String(payload.profile_id || '');
+        else if (payload.recipe_id) sourceKey = 'recipe::' + String(payload.recipe_id || '');
+        else if (payload.watch_key) sourceKey = 'watch::' + String(payload.watch_key || '');
+        else if (payload.branch_id) sourceKey = 'branch::' + String(payload.branch_id || '');
+        else if (payload.sample_id) sourceKey = 'sample::' + String(payload.sample_id || '');
+        else if (payload.trace_index !== undefined && payload.trace_index !== null) sourceKey = 'trace::' + String(payload.trace_index);
+        else if (channel === 'ingress' && ((_envKernel.ingress || {}).current)) sourceKey = 'dispatch::' + String(((_envKernel.ingress || {}).current || {}).id || '');
+        else if (channel === 'control' || channel === 'selection' || channel === 'focus' || channel === 'docs' || channel === 'export') sourceKey = workflowKey;
+
+        if (payload.trace_index !== undefined && payload.trace_index !== null) targetKey = 'trace::' + String(payload.trace_index);
+        else if (payload.node_id) targetKey = 'node::' + String(payload.node_id || '');
+        else if (payload.sample_id) targetKey = 'sample::' + String(payload.sample_id || '');
+        else if (payload.branch_id) targetKey = 'branch::' + String(payload.branch_id || '');
+        else if (payload.recipe_id) targetKey = 'recipe::' + String(payload.recipe_id || '');
+        else if (payload.profile_id) targetKey = 'profile::' + String(payload.profile_id || '');
+        else if (payload.watch_key) targetKey = 'watch::' + String(payload.watch_key || '');
+        else if (channel === 'docs' && activeDoc) targetKey = 'doc::' + String(activeDoc.key || activeDoc.path || activeDoc.id || '');
+        else if (channel === 'export' && artifactSections.length) targetKey = 'artifact::0';
+        else if ((channel === 'runtime' || channel === 'tool') && traces.length) targetKey = 'trace::0';
+        else if (channel === 'sample' && latestSample) targetKey = 'sample::' + String(latestSample.id || '');
+        else if (channel === 'branch' && latestBranch) targetKey = 'branch::' + String(latestBranch.id || '');
+        else if (channel === 'replay' && currentReplay) targetKey = 'replay::' + String(Math.max(0, Number(((_envKernel.replay || {}).cursor) || 0)));
+        else if ((channel === 'control' || channel === 'ingress' || channel === 'focus') && payload.action) targetKey = _envSceneResolveControlTargetKey(payload.action, payload.target || '');
+
+        return {
+            eventKey: eventKey,
+            sourceKey: sourceKey,
+            targetKey: targetKey,
+            channel: channel
+        };
+    }
+
+    function _envSceneDominanceContext() {
+        var focus = _envKernel.focus || {};
+        var focusKey = _envSceneFocusKey(focus);
+        var replay = _envKernel.replay || {};
+        var watch = _envKernel.watch || {};
+        var latestBranch = ((_envKernel.branches || [])[0]) || null;
+        var latestSample = ((_envKernel.samples || [])[0]) || null;
+        var ctx = {
+            mode: 'ambient',
+            focusKey: focusKey,
+            eventId: '',
+            primaryKeys: {},
+            relatedKinds: {},
+            watchIds: {}
+        };
+        function addKey(key) {
+            var text = String(key || '').trim();
+            if (!text) return;
+            ctx.primaryKeys[text] = true;
+            var kind = _envSceneKeyKind(text);
+            if (kind) ctx.relatedKinds[kind] = true;
+        }
+        function addKind(kind) {
+            var text = String(kind || '').trim();
+            if (text) ctx.relatedKinds[text] = true;
+        }
+
+        if (focus.kind === 'event' && focus.id) {
+            ctx.mode = 'event';
+            ctx.eventId = String(focus.id || '');
+            addKey('event::' + ctx.eventId);
+            var eventLinks = _envSceneEventLinkKeys(_envFindBusEvent(ctx.eventId));
+            addKey(eventLinks.sourceKey);
+            addKey(eventLinks.targetKey);
+            addKind(eventLinks.channel);
+            if (eventLinks.channel === 'control' || eventLinks.channel === 'ingress') {
+                addKind('dispatch');
+                addKind('queued');
+            }
+            return ctx;
+        }
+
+        if (replay.active || focus.kind === 'replay') {
+            ctx.mode = 'replay';
+            var replayId = focus.kind === 'replay'
+                ? String(focus.id || Math.max(0, Number(replay.cursor || 0)))
+                : String(Math.max(0, Number(replay.cursor || 0)));
+            addKey('replay::' + replayId);
+            var current = replay.current || ((Array.isArray(replay.track) && replay.track.length)
+                ? replay.track[Math.max(0, Math.min(replay.track.length - 1, Number(replay.cursor || 0)))]
+                : null);
+            if (current && current.kind) addKey(String(current.kind || '') + '::' + String(current.id || ''));
+            if (latestBranch) addKey('branch::' + String(latestBranch.id || ''));
+            if (latestSample) addKind('sample');
+            addKind('replay');
+            addKind('trace');
+            return ctx;
+        }
+
+        var watchActive = !!(focus.kind === 'watch'
+            || watch.autoFollowFailed
+            || watch.autoBranchOnFailure
+            || watch.autoSampleOnRuntime
+            || watch.autoFocusLatestTrace);
+        if (watchActive) {
+            ctx.mode = 'watch';
+            var watchId = String((focus.kind === 'watch' && focus.id) || 'autoFollowFailed');
+            ctx.watchIds[watchId] = true;
+            addKey('watch::' + watchId);
+            if (watch.autoBranchOnFailure) {
+                ctx.watchIds.autoBranchOnFailure = true;
+                addKey('watch::autoBranchOnFailure');
+            }
+            if (watch.autoSampleOnRuntime) {
+                ctx.watchIds.autoSampleOnRuntime = true;
+                addKey('watch::autoSampleOnRuntime');
+            }
+            if (watch.autoFocusLatestTrace) {
+                ctx.watchIds.autoFocusLatestTrace = true;
+                addKey('watch::autoFocusLatestTrace');
+            }
+            var latestFailureEvent = (_envBus.events || []).find(function (event) {
+                return _envBusEventSignalsFailure(event);
+            }) || null;
+            if (latestFailureEvent) {
+                addKey('event::' + String(latestFailureEvent.id || latestFailureEvent.seq || ''));
+                var failureLinks = _envSceneEventLinkKeys(latestFailureEvent);
+                addKey(failureLinks.sourceKey);
+                addKey(failureLinks.targetKey);
+            }
+            var failedTraceIndex = (Array.isArray(_envScene.traces) ? _envScene.traces : []).findIndex(function (trace) {
+                return !!trace.error;
+            });
+            if (failedTraceIndex >= 0) addKey('trace::' + String(failedTraceIndex));
+            if (latestBranch) addKey('branch::' + String(latestBranch.id || ''));
+            if (latestSample) addKey('sample::' + String(latestSample.id || ''));
+            addKind('watch');
+            addKind('trace');
+            addKind('event');
+            addKind('branch');
+            addKind('sample');
+            return ctx;
+        }
+
+        if (focusKey) {
+            ctx.mode = 'focus';
+            addKey(focusKey);
+            addKind(focus.kind);
+        }
+        return ctx;
+    }
+
+    function _envSceneLinkDominance(ctx, fromKey, toKey, tone, meta) {
+        if (!ctx || ctx.mode === 'ambient') return { opacity: 1, width: 1, shadow: 1, dominant: false, suppressed: false };
+        var fromKind = _envSceneKeyKind(fromKey);
+        var toKind = _envSceneKeyKind(toKey);
+        var eventMatch = !!(ctx.eventId && meta && String(meta.event_id || '') === ctx.eventId);
+        var keyMatch = !!(ctx.primaryKeys[String(fromKey || '')] || ctx.primaryKeys[String(toKey || '')]);
+        var kindMatch = !!(ctx.relatedKinds[fromKind] || ctx.relatedKinds[toKind]);
+        var toneMatch = !!((ctx.mode === 'replay' && (tone === 'replay' || fromKind === 'replay' || toKind === 'replay'))
+            || (ctx.mode === 'watch' && (tone === 'watch' || tone === 'failed' || tone === 'branch'))
+            || (ctx.mode === 'event' && eventMatch));
+        if (keyMatch || eventMatch) return { opacity: 1.02, width: 1.62, shadow: 1.65, dominant: true, suppressed: false };
+        if (kindMatch || toneMatch) return { opacity: 0.66, width: 1.12, shadow: 1.08, dominant: false, suppressed: false };
+        return { opacity: 0.15, width: 0.8, shadow: 0.32, dominant: false, suppressed: true };
+    }
+
+    function _envSceneObjectDominance(ctx, obj) {
+        if (!ctx || ctx.mode === 'ambient') return { opacity: 1, scale: 1, boost: 1, spotlight: false, ghosted: false };
+        var key = _envSceneObjectKey(obj);
+        var kind = String((obj && obj.kind) || '');
+        var category = String((obj && obj.category) || '');
+        if (ctx.primaryKeys[key]) {
+            return { opacity: 1, scale: 1.08, boost: 1.45, spotlight: true, ghosted: false };
+        }
+        if (ctx.relatedKinds[kind] || ctx.relatedKinds[category]) {
+            return { opacity: 0.78, scale: 1.02, boost: 1.08, spotlight: false, ghosted: false };
+        }
+        return { opacity: 0.24, scale: 0.97, boost: 0.42, spotlight: false, ghosted: true };
+    }
+
+    function _envSceneEventDominance(ctx, event) {
+        if (!ctx || ctx.mode === 'ambient') {
+            return { opacity: 1, scale: 1, glow: 0.88, dominant: false, suppressed: false };
+        }
+        var links = _envSceneEventLinkKeys(event);
+        var eventId = String((event && (event.id || event.seq)) || '');
+        var eventKey = links.eventKey || (eventId ? ('event::' + eventId) : '');
+        var keyMatch = !!(ctx.primaryKeys[eventKey] || ctx.primaryKeys[links.sourceKey] || ctx.primaryKeys[links.targetKey]);
+        var kindMatch = !!(ctx.relatedKinds[String(links.channel || '')]
+            || ctx.relatedKinds[_envSceneKeyKind(links.sourceKey)]
+            || ctx.relatedKinds[_envSceneKeyKind(links.targetKey)]);
+        var eventMatch = !!(ctx.eventId && eventId && String(ctx.eventId) === eventId);
+        if (eventMatch || keyMatch) {
+            return { opacity: 1, scale: 1.24, glow: 1.45, dominant: true, suppressed: false };
+        }
+        if (kindMatch) {
+            return { opacity: 0.72, scale: 1.06, glow: 1.02, dominant: false, suppressed: false };
+        }
+        return { opacity: 0.18, scale: 0.92, glow: 0.38, dominant: false, suppressed: true };
+    }
+
+    function _envSceneDistrictDominance(ctx, district, state) {
+        if (!ctx || ctx.mode === 'ambient') {
+            return { opacity: 1, glow: 0.92, dominant: false, suppressed: false };
+        }
+        var channels = _envSceneDistrictChannels((district && district.id) || '');
+        var target = (state && state.target) || {};
+        var targetKey = target.kind && target.id ? (String(target.kind || '') + '::' + String(target.id || '')) : '';
+        var keyMatch = !!(targetKey && ctx.primaryKeys[targetKey]);
+        var kindMatch = !!ctx.relatedKinds[String((district && district.id) || '').toLowerCase()];
+        if (!kindMatch) {
+            for (var i = 0; i < channels.length; i++) {
+                if (ctx.relatedKinds[String(channels[i] || '').toLowerCase()]) {
+                    kindMatch = true;
+                    break;
+                }
+            }
+        }
+        if (!kindMatch && target.kind) kindMatch = !!ctx.relatedKinds[String(target.kind || '').toLowerCase()];
+        var eventMatch = !!((state && state.events) || []).find(function (event) {
+            return ctx.eventId && String((event && (event.id || event.seq)) || '') === String(ctx.eventId);
+        });
+        if (eventMatch || keyMatch) {
+            return { opacity: 1, glow: 1.38, dominant: true, suppressed: false };
+        }
+        if (kindMatch || (state && state.active)) {
+            return { opacity: 0.76, glow: 1.06, dominant: false, suppressed: false };
+        }
+        return { opacity: 0.22, glow: 0.42, dominant: false, suppressed: true };
+    }
+
+    function _envSceneSetHoverFromObject(obj, item) {
+        if (obj) {
+            _envScene.hover = {
+                obj: obj,
+                item: item || null,
+                kind: String(obj.kind || ''),
+                id: String(obj.id || ''),
+                label: String(obj.label || obj.kind || 'object')
+            };
+            _envSceneHudText(
+                String(obj.label || obj.kind || 'object'),
+                String(obj.meta || obj.category || obj.kind || 'primitive')
+            );
+        } else {
+            _envScene.hover = null;
+            var focus = _envKernel.focus || {};
+            _envSceneHudText(
+                focus.label ? ('Focused: ' + String(focus.label)) : 'Scene ready.',
+                'Click a primitive to route focus through the shared ingress queue.'
+            );
+        }
+        _envScene.dirty = true;
+    }
+
+    function _envSceneProjectObject(obj, index, timeMs) {
+        var width = Math.max(1, _envScene.width || 1);
+        var height = Math.max(1, _envScene.height || 1);
+        var cfg = _envSceneConfig();
+        var camera = _envScene.camera || {};
+        var drift = !!cfg.ambientDrift;
+        var t = Number(timeMs || 0) * 0.001;
+        var wx = ((Number(obj.x || 50) - Number(camera.x || 50)) / 50) * Number(camera.zoom || 1);
+        var wy = Math.max(0, Math.min(1, Number(obj.y || 50) / 100));
+        var camDepth = Math.max(0.5, Math.min(0.95, Number(cfg.cameraDepth || 0.78)));
+        var driftX = drift ? Math.sin(t * 0.45 + index * 0.37) * (10 + wy * 6) : 0;
+        var driftY = drift ? Math.cos(t * 0.32 + index * 0.29) * (4 + wy * 3) : 0;
+        var cameraY = Number(camera.y || 52);
+        var wyRelative = Math.max(0, Math.min(1, (Number(obj.y || 50) - cameraY + 52) / 104));
+        var sx = width * 0.5 + (wx * width * 0.34) + driftX + (Number(obj.tilt || 0) * 0.45);
+        var sy = height * 0.2 + (wyRelative * height * 0.6) + driftY;
+        var scale = Math.max(0.42, Math.min(1.8, Number(obj.scale || 1) * Number(cfg.objectScale || 1) * Number(camera.zoom || 1) * (0.92 + wyRelative * 0.32)));
+        var depth = Math.max(0.2, Math.min(1.2, camDepth - (wy * 0.32) + (Math.abs(wx) * 0.05)));
+        var cardWidth = Math.max(58, 88 * scale * depth);
+        var cardHeight = Math.max(34, 46 * scale * depth);
+        return {
+            obj: obj,
+            x: sx,
+            y: sy,
+            w: cardWidth,
+            h: cardHeight,
+            depth: depth,
+            scale: scale,
+            left: sx - (cardWidth / 2),
+            top: sy - (cardHeight / 2)
+        };
+    }
+
+    function _envSceneObjectTone(obj) {
+        var state = _wfNormalizeStatus((obj && obj.state) || 'idle');
+        if (state === 'failed') return 'failed';
+        if (state === 'running') return 'running';
+        if (state === 'completed') return 'completed';
+        return 'idle';
+    }
+
+    function _envSceneObjectClass(obj) {
+        var classes = ['envops-habitat-object', _envSceneObjectTone(obj)];
+        var kind = String((obj && obj.kind) || '').toLowerCase();
+        if (kind) classes.push(kind);
+        var focus = _envKernel.focus || {};
+        if (String(focus.kind || '') === kind && String(focus.id || '') === String((obj && obj.id) || '')) {
+            classes.push('active');
+        }
+        return classes.join(' ');
+    }
+
+    function _envSceneObjectTransform(item, scaleMultiplier) {
+        var obj = item.obj || {};
+        var depthPx = Math.round((Number(item.depth || 0.5) - 0.5) * 160);
+        var tilt = Number(obj.tilt || 0);
+        var scale = Math.max(0.48, Number(item.scale || 1)) * Math.max(0.72, Number(scaleMultiplier || 1));
+        return 'translate(' + Math.round(item.x) + 'px,' + Math.round(item.y) + 'px) translateZ(' + depthPx + 'px) scale(' + scale.toFixed(3) + ') rotateX(8deg) rotateY(' + tilt.toFixed(1) + 'deg)';
+    }
+
+    function _envSceneRenderWeb3DLayer() {
+        var layer = document.getElementById('envops-habitat-object-layer');
+        if (!layer) return;
+        var pickables = (_envScene.pickables || []).slice().sort(function (a, b) {
+            return Number(a.depth || 0) - Number(b.depth || 0);
+        });
+        if (!pickables.length) {
+            layer.innerHTML = '';
+            return;
+        }
+        var dominance = _envScene.dominance || _envSceneDominanceContext();
+        layer.innerHTML = pickables.map(function (item, idx) {
+            var obj = item.obj || {};
+            var meta = String(obj.meta || obj.category || obj.kind || '');
+            var visual = _envSceneObjectDominance(dominance, obj);
+            var z = 10 + idx + (visual.spotlight ? 120 : 0);
+            var filter = visual.spotlight
+                ? 'saturate(1.34) brightness(1.1)'
+                : (visual.ghosted ? 'saturate(0.54) brightness(0.72)' : 'saturate(1.02) brightness(0.98)');
+            return '<button type="button" class="' + _esc(_envSceneObjectClass(obj)) + '" ' +
+                'style="left:' + Math.round(item.x) + 'px;top:' + Math.round(item.y) + 'px;z-index:' + String(z) + ';opacity:' + visual.opacity.toFixed(3) + ';filter:' + filter + ';transform:' + _esc(_envSceneObjectTransform(item, visual.scale)) + ';" ' +
+                'data-env-focus-kind="' + _esc(String(obj.kind || 'workflow')) + '" ' +
+                'data-env-focus-id="' + _esc(String(obj.id || '')) + '">' +
+                '<span class="p"></span>' +
+                '<div class="k">' + _esc(String(obj.category || obj.kind || 'primitive')) + '</div>' +
+                '<div class="t">' + _esc(String(obj.label || obj.kind || 'object')) + '</div>' +
+                '<div class="m">' + _esc(meta) + '</div>' +
+                '</button>';
+        }).join('');
+    }
+
+    function _envSceneDistrictChannels(id) {
+        var map = {
+            control: ['selection', 'control', 'profile', 'recipe'],
+            runtime: ['runtime', 'system', 'sample', 'tool'],
+            ingress: ['ingress', 'control'],
+            memory: ['docs', 'export'],
+            trace: ['watch', 'focus', 'system'],
+            replay: ['branch', 'replay', 'sample']
+        };
+        return map[String(id || '').toLowerCase()] || [];
+    }
+
+    function _envSceneDistrictEvents(id, events) {
+        var channels = _envSceneDistrictChannels(id);
+        return (events || []).filter(function (event) {
+            return channels.indexOf(String(event.channel || '')) >= 0;
+        });
+    }
+
+    function _envSceneFirstNodeByState(workflow, exec, desiredStates) {
+        var nodeStates = exec && exec.node_states ? exec.node_states : {};
+        var states = Array.isArray(desiredStates) ? desiredStates : [desiredStates];
+        var found = (workflow && Array.isArray(workflow.nodes) ? workflow.nodes : []).find(function (node) {
+            var status = _wfNormalizeStatus(((nodeStates[String((node && node.id) || '')] || {}).status) || 'pending');
+            return states.indexOf(status) >= 0;
+        });
+        return found ? String(found.id || '') : '';
+    }
+
+    function _envSceneDistrictTarget(districtId, workflow, exec, sections, traces, events) {
+        var id = String(districtId || '').toLowerCase();
+        if (id === 'control') {
+            if (((_envKernel.profile || {}).activeId)) return { kind: 'profile', id: String((_envKernel.profile || {}).activeId) };
+            return { kind: 'workflow', id: String((workflow && workflow.id) || _wfSelectedId || '') };
+        }
+        if (id === 'runtime') {
+            var failedNode = _envSceneFirstNodeByState(workflow, exec, ['failed']);
+            if (failedNode) return { kind: 'node', id: failedNode };
+            var runningNode = _envSceneFirstNodeByState(workflow, exec, ['running']);
+            if (runningNode) return { kind: 'node', id: runningNode };
+            var firstNode = workflow && Array.isArray(workflow.nodes) && workflow.nodes.length ? String(workflow.nodes[0].id || '') : '';
+            return firstNode ? { kind: 'node', id: firstNode } : { kind: 'workflow', id: String((workflow && workflow.id) || _wfSelectedId || '') };
+        }
+        if (id === 'ingress') {
+            var current = ((_envKernel.ingress || {}).current) || null;
+            if (current && current.id) return { kind: 'dispatch', id: String(current.id) };
+            var queued = (((_envKernel.ingress || {}).queue) || [])[0] || null;
+            if (queued && queued.id) return { kind: 'queued', id: String(queued.id) };
+            return { kind: 'workflow', id: String((workflow && workflow.id) || _wfSelectedId || '') };
+        }
+        if (id === 'memory') {
+            var doc = (_envDocState.results || [])[0] || null;
+            if (doc) return { kind: 'doc', id: String(doc.key || doc.path || doc.id || '') };
+            if (sections && sections.length) return { kind: 'artifact', id: '0' };
+            return { kind: 'workflow', id: String((workflow && workflow.id) || _wfSelectedId || '') };
+        }
+        if (id === 'trace') {
+            var failedTraceIndex = (traces || []).findIndex(function (trace) { return !!trace.error; });
+            if (failedTraceIndex >= 0) return { kind: 'trace', id: String(failedTraceIndex) };
+            if ((traces || []).length) return { kind: 'trace', id: '0' };
+            var event = (events || [])[0] || null;
+            if (event) return { kind: 'event', id: String(event.id || event.seq || '') };
+            return { kind: 'workflow', id: String((workflow && workflow.id) || _wfSelectedId || '') };
+        }
+        if (id === 'replay') {
+            var replay = _envKernel.replay || {};
+            if (Array.isArray(replay.track) && replay.track.length) return { kind: 'replay', id: String(Math.max(0, Number(replay.cursor || 0))) };
+            var branch = ((_envKernel.branches || [])[0]) || null;
+            if (branch) return { kind: 'branch', id: String(branch.id || '') };
+            var sample = ((_envKernel.samples || [])[0]) || null;
+            if (sample) return { kind: 'sample', id: String(sample.id || '') };
+            return { kind: 'workflow', id: String((workflow && workflow.id) || _wfSelectedId || '') };
+        }
+        return { kind: 'workflow', id: String((workflow && workflow.id) || _wfSelectedId || '') };
+    }
+
+    function _envSceneDistrictState(district, workflow, exec, sections, traces, events) {
+        var districtEvents = _envSceneDistrictEvents(district.id, events);
+        var target = _envSceneDistrictTarget(district.id, workflow, exec, sections, traces, districtEvents);
+        var focus = _envKernel.focus || {};
+        var active = String(focus.kind || '') === String(target.kind || '') && String(focus.id || '') === String(target.id || '');
+        var tone = 'idle';
+        var count = 0;
+        var detail = '';
+        if (district.id === 'control') {
+            count = _envProfileCatalog().length + _envRecipeCatalog().length;
+            detail = ((_envKernel.profile || {}).activeId) ? ('profile ' + String((_envKernel.profile || {}).activeId)) : 'workflow control ready';
+            tone = active ? 'active' : (districtEvents.length ? 'warning' : 'ok');
+        } else if (district.id === 'runtime') {
+            var failedNode = _envSceneFirstNodeByState(workflow, exec, ['failed']);
+            var runningNode = _envSceneFirstNodeByState(workflow, exec, ['running']);
+            count = Array.isArray(workflow && workflow.nodes) ? workflow.nodes.length : 0;
+            detail = failedNode ? 'failed node in lattice' : (runningNode ? 'active node executing' : 'runtime lane ready');
+            tone = failedNode ? 'alert' : (active || runningNode ? 'active' : (count ? 'ok' : 'idle'));
+        } else if (district.id === 'ingress') {
+            count = Number((((_envKernel.ingress || {}).queue) || []).length) + (((_envKernel.ingress || {}).current) ? 1 : 0);
+            detail = ((_envKernel.ingress || {}).processing) ? 'dispatching shared commands' : (((_envKernel.ingress || {}).queue || []).length ? 'queue pressure building' : 'ingress standing by');
+            tone = ((_envKernel.ingress || {}).processing) ? 'active' : ((((_envKernel.ingress || {}).queue || []).length) ? 'warning' : (((_envKernel.ingress || {}).active) ? 'ok' : 'idle'));
+        } else if (district.id === 'memory') {
+            count = (_envDocState.results || []).length + (sections || []).length;
+            detail = (_envDocState.results || []).length ? 'document arbitration online' : ((sections || []).length ? 'artifact dock populated' : 'memory shelf idle');
+            tone = active ? 'active' : (count ? 'ok' : 'idle');
+        } else if (district.id === 'trace') {
+            var traceFailures = (traces || []).filter(function (trace) { return !!trace.error; }).length;
+            count = (traces || []).length + districtEvents.length;
+            detail = traceFailures ? (String(traceFailures) + ' failure relays visible') : ((traces || []).length ? 'trace relays stable' : 'waiting on live relays');
+            tone = traceFailures ? 'alert' : (active ? 'active' : (count ? 'warning' : 'idle'));
+        } else if (district.id === 'replay') {
+            var replay = _envKernel.replay || {};
+            count = Number((replay.track || []).length) + Number((_envKernel.branches || []).length);
+            detail = (replay.track || []).length ? ('replay ' + String(replay.mode || 'samples') + ' ready') : ((_envKernel.branches || []).length ? 'branch yard occupied' : 'replay yard idle');
+            tone = replay.active ? 'active' : (active ? 'active' : (count ? 'warning' : 'idle'));
+        }
+        return {
+            target: target,
+            active: active,
+            tone: tone,
+            count: count,
+            detail: detail,
+            events: districtEvents
+        };
+    }
+
+    function _envSceneRenderDistrictLayer(workflow, exec, sections, traces) {
+        var districts = _envSceneDistrictCatalog();
+        var events = _envRecentBusEvents(18);
+        var dominance = (_envScene && _envScene.dominance) || _envSceneDominanceContext();
+        if (!districts.length) return '';
+        return '<div class="envops-habitat-zone-layer">' + districts.map(function (district) {
+            var state = _envSceneDistrictState(district, workflow, exec, sections, traces, events);
+            var visual = _envSceneDistrictDominance(dominance, district, state);
+            var targetKind = String((state.target || {}).kind || '');
+            var targetId = String((state.target || {}).id || '');
+            var classes = ['envops-habitat-zone', state.tone];
+            if (state.active) classes.push('active');
+            var lights = (state.events || []).slice(0, 4).map(function (event) {
+                var hot = _envBusEventSignalsFailure(event) || String(event.channel || '') === 'control' || String(event.channel || '') === 'ingress' || String(event.channel || '') === 'replay';
+                return '<span class="dot' + (hot ? ' hot' : '') + '" title="' + _esc(String(event.body || event.channel || 'event')) + '"></span>';
+            }).join('');
+            if (!lights) lights = '<span class="dot"></span>';
+            var zoneStyle = 'left:' + Number(district.x || 0) + '%;top:' + Number(district.y || 0) + '%;width:' + Number(district.w || 24) + '%;height:' + Number(district.h || 16) + '%;--env-zone-depth:' + Number(district.depth || -48) + 'px;--env-zone-tilt:' + Number(district.tilt || 0) + ';' +
+                'opacity:' + Number(visual.opacity || 1).toFixed(3) + ';' +
+                'filter:brightness(' + Number(visual.glow || 1).toFixed(3) + ') saturate(' + (visual.dominant ? '1.16' : (visual.suppressed ? '0.72' : '1.00')) + ');' +
+                'z-index:' + (visual.dominant ? 18 : (visual.suppressed ? 4 : 10)) + ';';
+            return '<button type="button" class="' + _esc(classes.join(' ')) + '" ' +
+                'style="' + zoneStyle + '" ' +
+                (targetKind && targetId ? ('data-env-focus-kind="' + _esc(targetKind) + '" data-env-focus-id="' + _esc(targetId) + '" ') : '') +
+                'title="' + _esc(String(district.note || state.detail || district.label || 'district')) + '">' +
+                '<div class="h">' + _esc(String(district.label || district.id || 'district')) + '</div>' +
+                '<div class="v">' + _esc(String(state.detail || district.note || 'ready')) + '</div>' +
+                '<div class="m">' + _esc(String(district.note || '')) + '</div>' +
+                '<div class="s">' +
+                '<span class="pill">' + String(state.count || 0) + ' linked</span>' +
+                '<span class="pill">' + _esc(String(state.tone || 'idle')) + '</span>' +
+                '<span class="lights">' + lights + '</span>' +
+                '</div>' +
+                '</button>';
+        }).join('') + '</div>';
+    }
+
+    function _envSceneHitTest(clientX, clientY) {
+        var canvas = _envScene.canvas;
+        if (!canvas) return null;
+        var rect = canvas.getBoundingClientRect();
+        var x = clientX - rect.left;
+        var y = clientY - rect.top;
+        for (var i = (_envScene.pickables || []).length - 1; i >= 0; i--) {
+            var item = _envScene.pickables[i];
+            if (x >= item.left && x <= item.left + item.w && y >= item.top && y <= item.top + item.h) {
+                return item;
+            }
+        }
+        return null;
+    }
+
+    function _envSceneAdjustCamera(dx, dy, zoomDelta, actor, reason) {
+        var cam = _envScene.camera || {};
+        cam.offsetX = Number(cam.offsetX || 0) + Number(dx || 0);
+        cam.offsetY = Number(cam.offsetY || 0) + Number(dy || 0);
+        cam.zoomScale = _envSceneClampZoomScale(Number(cam.zoomScale || 1) + Number(zoomDelta || 0));
+        _envScene.camera = cam;
+        _envScene.dirty = true;
+        if (actor) {
+            _envLogAction('camera', 'Adjusted habitat camera', actor, {
+                reason: String(reason || 'adjust'),
+                offset_x: Number(cam.offsetX || 0),
+                offset_y: Number(cam.offsetY || 0),
+                zoom_scale: Number(cam.zoomScale || 1)
+            });
+            _envEmitBus('control', 'Adjusted habitat camera', actor, {
+                action: 'adjust_camera',
+                reason: String(reason || 'adjust'),
+                offset_x: Number(cam.offsetX || 0),
+                offset_y: Number(cam.offsetY || 0),
+                zoom_scale: Number(cam.zoomScale || 1)
+            });
+        }
+    }
+
+    function _envSceneResetCamera(actor, reason) {
+        var cam = _envScene.camera || {};
+        cam.offsetX = 0;
+        cam.offsetY = 0;
+        cam.zoomScale = 1;
+        _envScene.camera = cam;
+        _envScene.dirty = true;
+        if (actor) {
+            _envLogAction('camera', 'Reset habitat camera offsets', actor, {
+                reason: String(reason || 'reset'),
+                camera_mode: _envSceneNormalizeCameraMode(_envScene.cameraMode || 'overview')
+            });
+            _envEmitBus('control', 'Reset habitat camera offsets', actor, {
+                action: 'reset_camera',
+                reason: String(reason || 'reset'),
+                camera_mode: _envSceneNormalizeCameraMode(_envScene.cameraMode || 'overview')
+            });
+        }
+    }
+
+    function _envSceneBindCanvas(canvas) {
+        if (!canvas || canvas === _envScene.canvas) return;
+        _envScene.canvas = canvas;
+        _envScene.ctx = canvas.getContext('2d', { alpha: true });
+        var layer = document.getElementById('envops-habitat-object-layer');
+        if (!canvas.dataset.envopsBound) {
+            canvas.dataset.envopsBound = '1';
+            canvas.addEventListener('mousemove', function (event) {
+                var hit = _envSceneHitTest(event.clientX, event.clientY);
+                if (hit) {
+                    canvas.style.cursor = 'pointer';
+                    _envSceneSetHoverFromObject(hit.obj, hit);
+                } else {
+                    canvas.style.cursor = '';
+                    _envSceneSetHoverFromObject(null, null);
+                }
+            });
+            canvas.addEventListener('mouseleave', function () {
+                canvas.style.cursor = '';
+                _envSceneSetHoverFromObject(null, null);
+            });
+            canvas.addEventListener('click', function (event) {
+                var hit = _envSceneHitTest(event.clientX, event.clientY);
+                if (!hit || !hit.obj) return;
+                var command = _envFocusCommandForKind(hit.obj.kind);
+                if (!command) return;
+                _envQueueControl(command, String(hit.obj.id || ''), 'user', 'scene focus', {
+                    source: 'habitat_scene',
+                    kind: hit.obj.kind,
+                    label: hit.obj.label || hit.obj.kind || 'primitive'
+                });
+            });
+        }
+        if (layer && !layer.dataset.envopsBound) {
+            layer.dataset.envopsBound = '1';
+            layer.addEventListener('pointerover', function (event) {
+                var target = event.target.closest('[data-env-focus-kind][data-env-focus-id]');
+                if (!target) return;
+                var kind = target.getAttribute('data-env-focus-kind') || '';
+                var id = target.getAttribute('data-env-focus-id') || '';
+                var hit = _envSceneFindPickable(kind, id);
+                if (!hit || !hit.obj) return;
+                _envSceneSetHoverFromObject(hit.obj, hit);
+            });
+            layer.addEventListener('pointerleave', function () {
+                _envSceneSetHoverFromObject(null, null);
+            });
+        }
+    }
+
+    function _envSceneBindShell(shell) {
+        if (!shell || shell === _envScene.shell) return;
+        _envScene.shell = shell;
+        if (!shell.dataset.envopsNavBound) {
+            shell.dataset.envopsNavBound = '1';
+            shell.addEventListener('pointerdown', function (event) {
+                var target = event.target;
+                if (!target || typeof target.closest !== 'function') return;
+                if (target.closest('.envops-habitat-object, .envops-habitat-zone, .envops-habitat-pulse-dot')) return;
+                _envScene.nav.dragging = true;
+                _envScene.nav.pointerId = event.pointerId;
+                _envScene.nav.startClientX = event.clientX;
+                _envScene.nav.startClientY = event.clientY;
+                _envScene.nav.startOffsetX = Number(((_envScene.camera || {}).offsetX) || 0);
+                _envScene.nav.startOffsetY = Number(((_envScene.camera || {}).offsetY) || 0);
+                _envScene.nav.moved = false;
+                try { shell.setPointerCapture(event.pointerId); } catch (ignored) { }
+                shell.classList.add('dragging');
+            });
+            shell.addEventListener('pointermove', function (event) {
+                if (!_envScene.nav.dragging || _envScene.nav.pointerId !== event.pointerId) return;
+                var nav = _envSceneNavigationConfig();
+                var dx = (event.clientX - _envScene.nav.startClientX) * nav.panSensitivity;
+                var dy = (event.clientY - _envScene.nav.startClientY) * nav.panSensitivity;
+                var cam = _envScene.camera || {};
+                cam.offsetX = _envScene.nav.startOffsetX - dx;
+                cam.offsetY = _envScene.nav.startOffsetY - dy;
+                _envScene.camera = cam;
+                _envScene.nav.moved = Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5;
+                _envScene.dirty = true;
+            });
+            shell.addEventListener('pointerup', function (event) {
+                if (!_envScene.nav.dragging || _envScene.nav.pointerId !== event.pointerId) return;
+                shell.classList.remove('dragging');
+                try { shell.releasePointerCapture(event.pointerId); } catch (ignored) { }
+                var moved = !!_envScene.nav.moved;
+                _envScene.nav.dragging = false;
+                _envScene.nav.pointerId = null;
+                if (moved) {
+                    _envSceneAdjustCamera(0, 0, 0, 'user', 'manual pan');
+                    renderEnvironmentView();
+                }
+            });
+            shell.addEventListener('pointerleave', function () {
+                if (!_envScene.nav.dragging) shell.classList.remove('dragging');
+            });
+            shell.addEventListener('wheel', function (event) {
+                event.preventDefault();
+                var nav = _envSceneNavigationConfig();
+                var delta = event.deltaY < 0 ? nav.zoomStep : -nav.zoomStep;
+                _envSceneAdjustCamera(0, 0, delta, 'user', 'manual zoom');
+                renderEnvironmentView();
+            }, { passive: false });
+            shell.addEventListener('dblclick', function (event) {
+                var target = event.target;
+                if (target && typeof target.closest === 'function' && target.closest('.envops-habitat-object, .envops-habitat-zone, .envops-habitat-pulse-dot')) return;
+                _envSceneResetCamera('user', 'manual reset');
+                renderEnvironmentView();
+            });
+        }
+    }
+
+    function _envSceneEnvironmentPalette() {
+        var dominance = _envScene.dominance || _envSceneDominanceContext();
+        var failure = _envLatestFailureSurface(_envScene.workflow, _envScene.exec, _envScene.traces);
+        var palette = {
+            top: '#09111a',
+            mid: '#0c151f',
+            bottom: '#060a0f',
+            glowA: 'rgba(79,255,208,0.08)',
+            glowB: 'rgba(102,184,255,0.08)',
+            floor: 'rgba(7, 14, 20, 0.96)',
+            grid: 'rgba(255,255,255,0.06)',
+            horizon: 'rgba(255,255,255,0.04)',
+            beam: 'rgba(102,184,255,0.18)'
+        };
+        if (dominance.mode === 'event' || dominance.mode === 'focus') {
+            palette.top = '#09131d';
+            palette.mid = '#0d1823';
+            palette.glowB = 'rgba(102,184,255,0.14)';
+            palette.beam = 'rgba(102,184,255,0.28)';
+        } else if (dominance.mode === 'watch') {
+            palette.top = '#12100a';
+            palette.mid = '#18130d';
+            palette.glowA = 'rgba(255,190,96,0.16)';
+            palette.glowB = 'rgba(255,220,140,0.08)';
+            palette.beam = 'rgba(255,190,96,0.28)';
+        } else if (dominance.mode === 'replay') {
+            palette.top = '#08130f';
+            palette.mid = '#0b1814';
+            palette.glowA = 'rgba(0,255,136,0.16)';
+            palette.glowB = 'rgba(152,255,214,0.10)';
+            palette.beam = 'rgba(0,255,136,0.24)';
+        }
+        if (failure.tone === 'alert') {
+            palette.glowA = 'rgba(255,83,83,0.18)';
+            palette.glowB = 'rgba(255,150,150,0.10)';
+            palette.beam = 'rgba(255,96,96,0.3)';
+            palette.grid = 'rgba(255,180,180,0.08)';
+            palette.horizon = 'rgba(255,96,96,0.06)';
+        }
+        return palette;
+    }
+
+    function _envSceneDominanceAccent(dominance, colors, tone) {
+        var mode = String((dominance && dominance.mode) || 'ambient');
+        if (tone === 'failed') return '#ff6c78';
+        if (tone === 'branch') return '#ffd36a';
+        if (tone === 'queued') return '#f8f2a8';
+        if (tone === 'profile') return '#7fc7ff';
+        if (mode === 'watch') return '#ffbe60';
+        if (mode === 'replay') return '#4fffd0';
+        if (mode === 'event' || mode === 'focus') return '#66b8ff';
+        return (colors && colors.edge) ? colors.edge : '#67d3ff';
+    }
+
+    function _envSceneDrawBackground(ctx, width, height) {
+        var cfg = _envSceneConfig();
+        var palette = _envSceneEnvironmentPalette();
+        var gradient = ctx.createLinearGradient(0, 0, 0, height);
+        gradient.addColorStop(0, palette.top);
+        gradient.addColorStop(0.55, palette.mid);
+        gradient.addColorStop(1, palette.bottom);
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, width, height);
+        ctx.fillStyle = palette.glowA;
+        ctx.beginPath();
+        ctx.arc(width * 0.17, height * 0.16, Math.max(48, width * 0.14), 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = palette.glowB;
+        ctx.beginPath();
+        ctx.arc(width * 0.82, height * 0.11, Math.max(44, width * 0.12), 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = palette.floor;
+        ctx.beginPath();
+        ctx.moveTo(-width * 0.08, height * 0.76);
+        ctx.lineTo(width * 1.08, height * 0.76);
+        ctx.lineTo(width * 0.88, height * 1.02);
+        ctx.lineTo(width * 0.12, height * 1.02);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = palette.horizon;
+        ctx.fillRect(width * 0.08, height * 0.745, width * 0.84, 3);
+        if (cfg.showGrid !== false) {
+            ctx.save();
+            ctx.strokeStyle = palette.grid;
+            ctx.lineWidth = 1;
+            for (var gx = 0; gx <= 8; gx++) {
+                var x = (width * 0.1) + gx * (width * 0.1);
+                ctx.beginPath();
+                ctx.moveTo(x, height * 0.76);
+                ctx.lineTo(width * 0.5 + (x - width * 0.5) * 0.64, height * 0.98);
+                ctx.stroke();
+            }
+            for (var gy = 0; gy <= 5; gy++) {
+                var y = height * 0.76 + gy * ((height * 0.22) / 5);
+                var inset = gy * (width * 0.055);
+                ctx.beginPath();
+                ctx.moveTo(width * 0.1 + inset, y);
+                ctx.lineTo(width * 0.9 - inset, y);
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+    }
+
+    function _envSceneDrawPulses(ctx, width, height, timeMs) {
+        if (!_envSceneConfig().showPulseTrails) return;
+        var dominance = _envScene.dominance || _envSceneDominanceContext();
+        var palette = _envSceneEnvironmentPalette();
+        var events = _envRecentBusEvents(6);
+        events.forEach(function (event, idx) {
+            var color = _envSceneColorForEvent(event);
+            var visual = _envSceneEventDominance(dominance, event);
+            var age = Math.max(0, (Number(timeMs || 0) - Number(event.ts || 0)) / 1000);
+            var x = width * (0.16 + idx * 0.12) + Math.sin(age * 4 + idx) * 10;
+            var y = height * 0.11 + idx * 8;
+            var radius = Math.max(4, 8 - idx) * Math.max(0.8, Number(visual.scale || 1));
+            ctx.save();
+            ctx.strokeStyle = palette.beam;
+            ctx.lineWidth = visual.dominant ? 2.2 : 1.1;
+            ctx.globalAlpha = Math.max(0.08, 0.22 * Number(visual.opacity || 1));
+            ctx.beginPath();
+            ctx.moveTo(x, y + radius);
+            ctx.lineTo(width * 0.5 + (x - width * 0.5) * 0.24, height * 0.74);
+            ctx.stroke();
+            ctx.fillStyle = color;
+            ctx.shadowColor = color;
+            ctx.shadowBlur = 18 * Math.max(0.45, Number(visual.glow || 1));
+            ctx.globalAlpha = Math.max(0.08, (0.88 - (idx * 0.12)) * Number(visual.opacity || 1));
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        });
+    }
+
+    function _envSceneDrawRoutes(ctx, projectionMap, timeMs) {
+        var routes = _envScene.routes || [];
+        if (!routes.length) return;
+        var cfg = _envSceneConfig();
+        var focus = _envKernel.focus || {};
+        var hover = _envScene.hover || null;
+        var focusKey = _envSceneFocusKey(focus);
+        var hoverKey = hover ? _envSceneFocusKey(hover) : '';
+        var dominance = _envScene.dominance || _envSceneDominanceContext();
+        routes.forEach(function (route, idx) {
+            var from = projectionMap[route.fromKey];
+            var to = projectionMap[route.toKey];
+            if (!from || !to) return;
+            var active = (focusKey && (route.fromKey === focusKey || route.toKey === focusKey))
+                || (hoverKey && (route.fromKey === hoverKey || route.toKey === hoverKey));
+            var visual = _envSceneLinkDominance(dominance, route.fromKey, route.toKey, route.tone, null);
+            var color = route.tone === 'failed' ? '#ff6c78' : (route.tone === 'running' ? '#ffb347' : '#67d3ff');
+            var ctrlX = (from.x + to.x) / 2;
+            var ctrlY = Math.min(from.y, to.y) - 24 - (idx % 3) * 8;
+            ctx.save();
+            ctx.globalAlpha = Math.max(0.08, (active ? 0.92 : Math.max(0.12, Math.min(0.85, Number(cfg.routeOpacity || 0.42)))) * visual.opacity);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = (active ? 2.4 : 1.35) * visual.width;
+            if (cfg.routeGlow !== false) {
+                ctx.shadowColor = color;
+                ctx.shadowBlur = (active ? 18 : 10) * visual.shadow;
+            }
+            ctx.beginPath();
+            ctx.moveTo(from.x, from.y);
+            ctx.quadraticCurveTo(ctrlX, ctrlY, to.x, to.y);
+            ctx.stroke();
+            ctx.restore();
+            if ((route.label || route.branch || route.condition) && !visual.suppressed) {
+                var label = route.label || route.branch || route.condition;
+                var midX = (from.x + to.x) / 2;
+                var midY = (from.y + to.y) / 2 - 14;
+                ctx.save();
+                ctx.globalAlpha = Math.max(0.45, visual.opacity);
+                ctx.fillStyle = 'rgba(7,14,20,0.9)';
+                ctx.strokeStyle = 'rgba(255,255,255,0.10)';
+                ctx.lineWidth = 1;
+                var text = String(label);
+                if (text.length > 18) text = text.slice(0, 18) + '…';
+                var paddingX = 6;
+                ctx.font = '9px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+                var textWidth = Math.max(18, ctx.measureText(text).width);
+                ctx.beginPath();
+                ctx.roundRect(midX - (textWidth / 2) - paddingX, midY - 9, textWidth + paddingX * 2, 18, 8);
+                ctx.fill();
+                ctx.stroke();
+                ctx.fillStyle = '#dce9f7';
+                ctx.fillText(text, midX - (textWidth / 2), midY + 4);
+                ctx.restore();
+            }
+        });
+    }
+
+    function _envSceneDrawTrajectories(ctx, projectionMap, timeMs) {
+        var trajectories = _envScene.trajectories || [];
+        if (!trajectories.length) return;
+        var cfg = _envSceneConfig();
+        var dominance = _envScene.dominance || _envSceneDominanceContext();
+        trajectories.forEach(function (trajectory, idx) {
+            var from = projectionMap[trajectory.fromKey];
+            var to = projectionMap[trajectory.toKey];
+            if (!from || !to) return;
+            var tone = String(trajectory.tone || 'flow');
+            var active = !!trajectory.active;
+            var visual = _envSceneLinkDominance(dominance, trajectory.fromKey, trajectory.toKey, tone, trajectory.meta);
+            var color = '#73f0ff';
+            if (tone === 'failed') color = '#ff6c78';
+            else if (tone === 'running') color = '#ffb347';
+            else if (tone === 'branch') color = '#ffd36a';
+            else if (tone === 'replay') color = '#ffe58a';
+            else if (tone === 'focus') color = '#4fffd0';
+            else if (tone === 'queued') color = '#f8f2a8';
+            else if (tone === 'profile') color = '#7fc7ff';
+            else if (tone === 'watch') color = '#d7ff8a';
+            else if (tone === 'completed') color = '#4fffb0';
+
+            var dx = to.x - from.x;
+            var dy = to.y - from.y;
+            var distance = Math.max(24, Math.sqrt(dx * dx + dy * dy));
+            var lift = Math.max(16, Math.min(64, distance * 0.24)) + ((idx % 4) * 6);
+            var ctrlX = (from.x + to.x) / 2;
+            var ctrlY = Math.min(from.y, to.y) - lift;
+            var opacityBase = Math.max(0.18, Math.min(0.92, Number(cfg.trajectoryOpacity || 0.55)));
+            ctx.save();
+            ctx.globalAlpha = Math.max(0.06, (active ? Math.min(0.95, opacityBase + 0.22) : opacityBase) * visual.opacity);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = (active ? 2.4 : 1.3) * visual.width;
+            if (tone === 'queued') ctx.setLineDash([4, 5]);
+            else if (tone === 'replay') ctx.setLineDash([10, 6]);
+            else if (tone === 'watch') ctx.setLineDash([2, 7]);
+            else if (tone === 'profile') ctx.setLineDash([12, 4]);
+            else ctx.setLineDash([6, 4]);
+            if (cfg.trajectoryGlow !== false) {
+                ctx.shadowColor = color;
+                ctx.shadowBlur = (active ? 18 : 10) * visual.shadow;
+            }
+            ctx.beginPath();
+            ctx.moveTo(from.x, from.y);
+            ctx.quadraticCurveTo(ctrlX, ctrlY, to.x, to.y);
+            ctx.stroke();
+            ctx.restore();
+
+            var speed = Math.max(0.08, Number(cfg.trajectorySpeed || 0.24));
+            if (tone === 'replay') speed *= 1.45;
+            else if (tone === 'running') speed *= 1.2;
+            else if (tone === 'queued') speed *= 0.75;
+            else if (tone === 'watch') speed *= 0.62;
+            else if (tone === 'profile') speed *= 0.92;
+            var t = ((((Number(timeMs || 0) * 0.001) * speed) + Number(trajectory.phase || 0)) % 1);
+            var point = _envSceneBezierPoint(from.x, from.y, ctrlX, ctrlY, to.x, to.y, t);
+            ctx.save();
+            ctx.fillStyle = color;
+            ctx.shadowColor = color;
+            ctx.shadowBlur = (active ? 18 : 12) * visual.shadow;
+            ctx.globalAlpha = Math.max(0.08, (active ? 0.98 : 0.82) * visual.opacity);
+            ctx.beginPath();
+            ctx.arc(point.x, point.y, (active ? 4.8 : 3.5) * Math.max(0.75, visual.width), 0, Math.PI * 2);
+            ctx.fill();
+            if (active) {
+                var tailT = Math.max(0, t - 0.1);
+                var tail = _envSceneBezierPoint(from.x, from.y, ctrlX, ctrlY, to.x, to.y, tailT);
+                ctx.globalAlpha = 0.42;
+                ctx.beginPath();
+                ctx.arc(tail.x, tail.y, 2.6, 0, Math.PI * 2);
+                ctx.fill();
+                var tail2T = Math.max(0, t - 0.18);
+                var tail2 = _envSceneBezierPoint(from.x, from.y, ctrlX, ctrlY, to.x, to.y, tail2T);
+                ctx.globalAlpha = tone === 'watch' ? 0.2 : 0.28;
+                ctx.beginPath();
+                ctx.arc(tail2.x, tail2.y, tone === 'profile' ? 3.2 : 2.2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            if ((tone === 'replay' || tone === 'watch' || tone === 'profile') && (active || visual.dominant)) {
+                var chorusOffsets = tone === 'replay' ? [0.14, 0.28] : (tone === 'watch' ? [0.16] : [0.12]);
+                chorusOffsets.forEach(function (offset, chorusIdx) {
+                    var chorusT = (((t + offset) % 1) + 1) % 1;
+                    var chorusPoint = _envSceneBezierPoint(from.x, from.y, ctrlX, ctrlY, to.x, to.y, chorusT);
+                    ctx.globalAlpha = Math.max(0.16, (tone === 'watch' ? 0.34 : 0.42) * visual.opacity);
+                    ctx.beginPath();
+                    ctx.arc(chorusPoint.x, chorusPoint.y, (tone === 'replay' ? 3.4 : 2.6) - (chorusIdx * 0.35), 0, Math.PI * 2);
+                    ctx.fill();
+                });
+            }
+            if (tone === 'watch' || tone === 'profile') {
+                var head2T = (((t + 0.12) % 1) + 1) % 1;
+                var point2 = _envSceneBezierPoint(from.x, from.y, ctrlX, ctrlY, to.x, to.y, head2T);
+                ctx.globalAlpha = tone === 'watch' ? 0.42 : 0.52;
+                ctx.beginPath();
+                ctx.arc(point2.x, point2.y, tone === 'watch' ? 2.4 : 3.0, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            if (active && trajectory.label && trajectory.label !== 'focus') {
+                var tag = String(trajectory.label);
+                if (tag.length > 14) tag = tag.slice(0, 14) + '…';
+                ctx.shadowBlur = 0;
+                ctx.globalAlpha = 0.92;
+                ctx.fillStyle = 'rgba(7,14,20,0.9)';
+                ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+                ctx.lineWidth = 1;
+                ctx.font = '9px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+                var tagWidth = Math.max(16, ctx.measureText(tag).width);
+                ctx.beginPath();
+                ctx.roundRect(point.x - (tagWidth / 2) - 5, point.y - 19, tagWidth + 10, 16, 7);
+                ctx.fill();
+                ctx.stroke();
+                ctx.fillStyle = color;
+                ctx.fillText(tag, point.x - (tagWidth / 2), point.y - 8);
+            }
+            ctx.restore();
+        });
+    }
+
+    function _envSceneDrawObject(ctx, item, timeMs) {
+        var obj = item.obj || {};
+        var focus = _envKernel.focus || {};
+        var hover = _envScene.hover || null;
+        var colors = _envSceneColorForObject(obj);
+        var isFocused = String(focus.kind || '') === String(obj.kind || '') && String(focus.id || '') === String(obj.id || '');
+        var isHovered = hover && String(hover.kind || '') === String(obj.kind || '') && String(hover.id || '') === String(obj.id || '');
+        var dominance = _envScene.dominance || _envSceneDominanceContext();
+        var visual = _envSceneObjectDominance(dominance, obj);
+        ctx.save();
+        ctx.translate(item.x, item.y);
+        ctx.scale(Math.max(0.78, Number(visual.scale || 1)), 0.94 * Math.max(0.78, Number(visual.scale || 1)));
+        ctx.globalAlpha = Math.max(0.12, Number(visual.opacity || 1));
+        ctx.fillStyle = 'rgba(0,0,0,0.28)';
+        ctx.beginPath();
+        ctx.ellipse(0, item.h * 0.56, item.w * 0.52, item.h * 0.24, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        ctx.save();
+        ctx.translate(item.left, item.top);
+        ctx.globalAlpha = Math.max(0.12, Number(visual.opacity || 1));
+        ctx.fillStyle = colors.fill;
+        ctx.strokeStyle = isFocused ? '#ffffff' : (isHovered ? colors.edge : 'rgba(255,255,255,0.14)');
+        ctx.lineWidth = isFocused ? 2 : 1.2;
+        ctx.shadowColor = isFocused ? colors.edge : colors.glow;
+        ctx.shadowBlur = (isFocused ? 24 : 14) * Math.max(0.35, Number(visual.boost || 1));
+        ctx.beginPath();
+        ctx.roundRect(0, 0, item.w, item.h, 12);
+        ctx.fill();
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        ctx.fillStyle = 'rgba(255,255,255,0.6)';
+        ctx.font = '600 9px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+        ctx.fillText(String(obj.category || obj.kind || 'primitive').toUpperCase(), 10, 14);
+        ctx.fillStyle = '#f4fbff';
+        ctx.font = '700 11px ui-sans-serif, Segoe UI, sans-serif';
+        var label = String(obj.label || obj.kind || 'object');
+        if (label.length > 20) label = label.slice(0, 20) + '…';
+        ctx.fillText(label, 10, 31);
+        ctx.fillStyle = 'rgba(224,236,245,0.72)';
+        ctx.font = '10px ui-sans-serif, Segoe UI, sans-serif';
+        var meta = String(obj.meta || obj.state || obj.kind || '');
+        if (meta.length > 28) meta = meta.slice(0, 28) + '…';
+        ctx.fillText(meta, 10, item.h - 12);
+        if (isFocused || isHovered) {
+            ctx.strokeStyle = isFocused ? '#4fffd0' : colors.edge;
+            ctx.setLineDash([4, 3]);
+            ctx.strokeRect(-4, -4, item.w + 8, item.h + 8);
+            ctx.setLineDash([]);
+        } else if (visual.spotlight) {
+            ctx.strokeStyle = colors.edge;
+            ctx.globalAlpha = 0.7;
+            ctx.setLineDash([6, 4]);
+            ctx.strokeRect(-3, -3, item.w + 6, item.h + 6);
+            ctx.setLineDash([]);
+        }
+        var dominanceActive = dominance.mode !== 'ambient' && (visual.spotlight || dominance.relatedKinds[String(obj.kind || '')] || dominance.relatedKinds[String(obj.category || '')]);
+        if (dominanceActive && !visual.ghosted) {
+            var pulse = 1 + 0.08 * Math.sin((Number(timeMs || 0) * 0.008) + (item.x * 0.01));
+            var pad = visual.spotlight ? 9 : 6;
+            var accent = _envSceneDominanceAccent(dominance, colors, String(obj.state || ''));
+            ctx.save();
+            ctx.globalAlpha = Math.max(0.12, (visual.spotlight ? 0.34 : 0.18) * Math.max(0.65, Number(visual.opacity || 1)));
+            ctx.strokeStyle = visual.spotlight ? '#ffffff' : accent;
+            ctx.lineWidth = visual.spotlight ? 1.5 : 1.1;
+            ctx.beginPath();
+            ctx.roundRect(
+                -pad * pulse,
+                -pad * 0.78 * pulse,
+                item.w + (pad * 2 * pulse),
+                item.h + (pad * 1.56 * pulse),
+                14
+            );
+            ctx.stroke();
+            ctx.restore();
+
+            ctx.save();
+            ctx.globalAlpha = Math.max(0.08, (visual.spotlight ? 0.28 : 0.16) * Math.max(0.7, Number(visual.opacity || 1)));
+            ctx.strokeStyle = accent;
+            ctx.fillStyle = accent;
+            ctx.shadowColor = accent;
+            ctx.shadowBlur = visual.spotlight ? 18 : 10;
+            ctx.lineWidth = visual.spotlight ? 1.7 : 1.1;
+            ctx.beginPath();
+            ctx.moveTo(item.w / 2, -4);
+            ctx.lineTo(item.w / 2, -item.h * (visual.spotlight ? 1.5 : 0.95));
+            ctx.stroke();
+            ctx.globalAlpha = Math.max(0.06, (visual.spotlight ? 0.22 : 0.12) * Math.max(0.7, Number(visual.opacity || 1)));
+            ctx.beginPath();
+            ctx.ellipse(item.w / 2, item.h + 6, item.w * (visual.spotlight ? 0.42 : 0.34) * pulse, (visual.spotlight ? 8 : 5.5) * pulse, 0, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+        }
+        ctx.restore();
+    }
+
+    function _envSceneFrame(timeMs) {
+        _envScene.raf = null;
+        if (!_isEnvironmentTabActive()) return;
+        if (!_envScene.enabled) return;
+        if (!_envScene.canvas || !_envScene.ctx || !document.body.contains(_envScene.canvas)) return;
+        var targetDelay = 1000 / Math.max(12, Number(_envScene.fpsCap || 30));
+        if (_envScene.lastFrame && (timeMs - _envScene.lastFrame) < (targetDelay - 2) && !_envScene.dirty) {
+            _envScene.raf = requestAnimationFrame(_envSceneFrame);
+            return;
+        }
+        _envScene.lastFrame = timeMs;
+        _envSceneResize(_envScene.canvas);
+        var ctx = _envScene.ctx;
+        var width = _envScene.canvas.width;
+        var height = _envScene.canvas.height;
+        var dpr = _envSceneDpr();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, width, height);
+        ctx.scale(dpr, dpr);
+        _envSceneUpdateCamera(timeMs);
+        _envSceneDrawBackground(ctx, _envScene.width, _envScene.height);
+        _envSceneDrawPulses(ctx, _envScene.width, _envScene.height, timeMs);
+        _envScene.pickables = (_envScene.objects || []).map(function (obj, idx) {
+            return _envSceneProjectObject(obj, idx, timeMs);
+        }).sort(function (a, b) {
+                    return Number(a.y || 0) - Number(b.y || 0);
+        });
+        _envScene.dominance = _envSceneDominanceContext();
+        var projectionMap = {};
+        _envScene.pickables.forEach(function (item) {
+            projectionMap[_envSceneObjectKey(item.obj)] = item;
+        });
+        _envSceneDrawRoutes(ctx, projectionMap, timeMs);
+        _envSceneDrawTrajectories(ctx, projectionMap, timeMs);
+        _envScene.pickables.forEach(function (item) {
+            _envSceneDrawObject(ctx, item, timeMs);
+        });
+        _envSceneRenderWeb3DLayer();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        _envScene.dirty = false;
+        _envScene.raf = requestAnimationFrame(_envSceneFrame);
+    }
+
+    function _envEnsureSceneLoop() {
+        if (!_envScene.enabled) return;
+        if (_envScene.raf) return;
+        _envScene.raf = requestAnimationFrame(_envSceneFrame);
+    }
+
+    function _envSyncHabitatScene(workflow, exec, sections, traces, renderTarget) {
+        _envScene.enabled = (((_envConfig || {}).scene || {}).enabled !== false);
+        _envScene.renderTarget = String(renderTarget || (((_envConfig || {}).shell || {}).defaultRenderer || 'web3d'));
+        _envScene.workflowId = String((workflow && workflow.id) || _wfSelectedId || '');
+        _envScene.executionId = String((exec && exec.execution_id) || '');
+        _envScene.workflow = workflow || null;
+        _envScene.exec = exec || null;
+        _envScene.sections = Array.isArray(sections) ? sections.slice() : [];
+        _envScene.traces = Array.isArray(traces) ? traces.slice() : [];
+        _envScene.objects = _envHabitatObjects(workflow, exec, sections, traces);
+        _envScene.routes = _envSceneBuildRoutes(workflow, _envScene.objects);
+        _envScene.trajectories = _envSceneBuildTrajectories(workflow, traces);
+        _envScene.pulses = _envRecentBusEvents(6);
+        _envScene.dirty = true;
+        var canvas = document.getElementById('envops-habitat-canvas');
+        var shell = document.getElementById('envops-habitat-shell');
+        if (!canvas) {
+            _envScene.canvas = null;
+            _envScene.ctx = null;
+            _envScene.shell = null;
+            var layer = document.getElementById('envops-habitat-object-layer');
+            if (layer) layer.innerHTML = '';
+            return;
+        }
+        _envSceneBindCanvas(canvas);
+        _envSceneBindShell(shell);
+        var focus = _envKernel.focus || {};
+        _envSceneHudText(
+            focus.label ? ('Focused: ' + String(focus.label)) : (workflow ? String(workflow.name || workflow.id || 'workflow') : 'Scene ready.'),
+            workflow ? 'Click a primitive to route focus through the shared ingress queue.' : 'Load a workflow-backed system to activate the habitat.'
+        );
+        _envEnsureSceneLoop();
+    }
+
+    function _envRecipeCatalog() {
+        return Array.isArray((_envConfig || {}).recipes) ? (_envConfig || {}).recipes : [];
+    }
+
+    function _envRecipeById(recipeId) {
+        var id = String(recipeId || '').trim();
+        if (!id) return null;
+        var recipes = _envRecipeCatalog();
+        for (var i = 0; i < recipes.length; i++) {
+            if (String(recipes[i].id || '') === id) return recipes[i];
+        }
+        return null;
+    }
+
+    function _envRunRecipe(recipeId, actor, note) {
+        var recipe = _envRecipeById(recipeId);
+        var actorName = String(actor || 'assistant').trim() || 'assistant';
+        if (!recipe) {
+            _envSetBadge('failed', 'NO RECIPE');
+            _envLogAction('recipe', 'Recipe not found: ' + String(recipeId || ''), actorName, { recipe_id: String(recipeId || '') });
+            renderEnvironmentView();
+            return [];
+        }
+        var queued = _envQueueBatch(
+            recipe.commands,
+            actorName,
+            note || ('recipe ' + String(recipe.label || recipe.id)),
+            { recipe_id: String(recipe.id || '') }
+        );
+        _envLogAction('recipe', 'Queued recipe: ' + String(recipe.label || recipe.id) + ' · ' + String(queued.length) + ' actions', actorName, {
+            recipe_id: String(recipe.id || ''),
+            queued_count: queued.length
+        });
+        _envEmitBus('recipe', 'Queued recipe: ' + String(recipe.label || recipe.id), actorName, {
+            recipe_id: String(recipe.id || ''),
+            queued_count: queued.length
+        });
+        renderEnvironmentView();
+        return queued;
+    }
+
+    function _envLoadConfig(force) {
+        if (_envBus.loadingConfig) return;
+        if (_envBus.loaded && !force) return;
+        _envBus.loadingConfig = true;
+        fetch('envops.config.json' + (force ? ('?ts=' + Date.now()) : ''), { method: 'GET', cache: 'no-store' })
+            .then(function (resp) {
+                if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                return resp.json();
+            })
+            .then(function (data) {
+                _envConfig = _envMergeConfig(data);
+                _envBus.source = 'envops.config.json';
+                _envBus.loaded = true;
+                _envBus.loadingConfig = false;
+                _envApplyConfig();
+                _envLogAction('system', 'Loaded environment config ' + String(_envConfig.version || ''), 'system', { source: _envBus.source, version: _envConfig.version || '' });
+                renderEnvironmentView();
+            })
+            .catch(function (err) {
+                _envConfig = _envMergeConfig(null);
+                _envBus.source = 'defaults';
+                _envBus.loaded = true;
+                _envBus.loadingConfig = false;
+                _envApplyConfig();
+                _envLogAction('system', 'Environment config fallback to defaults', 'system', { error: String((err && err.message) || err || 'config unavailable') });
+                renderEnvironmentView();
+            });
+    }
+
+    function _envEmitBusEvent(kind, actor, body, payload) {
+        var event = {
+            id: _envActionId('bus'),
+            seq: ++_envBus.seq,
+            kind: String(kind || 'system'),
+            channel: _envBusChannelForKind(kind),
+            actor: String(actor || 'system'),
+            body: String(body || ''),
+            payload: payload || null,
+            ts: Date.now()
+        };
+        _envBus.events.unshift(event);
+        if (_envBus.events.length > _envBusLimit()) _envBus.events.length = _envBusLimit();
+        _envBus.lastTs = event.ts;
+        _envEvaluateBusWatches(event);
+        return event;
+    }
+
+    function _envEmitBus(kind, body, actor, payload) {
+        return _envEmitBusEvent(kind, actor, body, payload);
+    }
+
+    function _envBusEventSignalsFailure(event) {
+        if (!event) return false;
+        var payload = event.payload || {};
+        var channel = String(event.channel || '').toLowerCase();
+        if (channel === 'runtime') {
+            return _wfNormalizeStatus(String(payload.status || '')) === 'failed'
+                || /fail|error/i.test(String(event.body || ''));
+        }
+        if (channel === 'tool') {
+            return !!payload.error || /fail|error/i.test(String(event.body || ''));
+        }
+        if (channel === 'docs' || channel === 'export') {
+            return /fail|error/i.test(String(event.body || ''));
+        }
+        return false;
+    }
+
+    function _envEvaluateBusWatches(event) {
+        if (!event) return;
+        var watch = _envKernel.watch || {};
+        var channel = String(event.channel || '').toLowerCase();
+        var eventKey = String(event.id || event.seq || '');
+        if (!eventKey) return;
+
+        if (watch.autoSampleOnRuntime
+            && (((_envConfig || {}).sampler || {}).autoCaptureOnRuntime)
+            && !_envKernel.sampler.active
+            && ['runtime', 'tool', 'docs', 'export'].indexOf(channel) >= 0
+            && watch.lastBusSampleKey !== eventKey) {
+            watch.lastBusSampleKey = eventKey;
+            _envQueueControl('sample_now', '', 'system', 'watch bus sample', {
+                event_id: eventKey,
+                channel: channel
+            });
+        }
+
+        if (_envBusEventSignalsFailure(event) && watch.lastBusFailureKey !== eventKey) {
+            watch.lastBusFailureKey = eventKey;
+            if (watch.autoFollowFailed) {
+                _envQueueControl('focus_event', eventKey, 'system', 'watch failed bus event', {
+                    event_id: eventKey,
+                    channel: channel
+                });
+            }
+            if (watch.autoBranchOnFailure) {
+                _envQueueControl('branch_snapshot', '', 'system', 'watch branch on bus failure', {
+                    event_id: eventKey,
+                    channel: channel
+                });
+            }
+        }
+
+        if (watch.autoFocusLatestTrace
+            && channel === 'runtime'
+            && watch.lastBusEventFocusKey !== eventKey
+            && /fail|error|updated|advanced/i.test(String(event.body || ''))) {
+            watch.lastBusEventFocusKey = eventKey;
+            _envQueueControl('focus_event', eventKey, 'system', 'watch latest runtime event', {
+                event_id: eventKey,
+                channel: channel
+            });
+        }
+    }
+
+    function _envStopSampler() {
+        if (_envKernel.sampler.timer) {
+            clearInterval(_envKernel.sampler.timer);
+            _envKernel.sampler.timer = null;
+        }
+        _envKernel.sampler.active = false;
+    }
+
+    function _envSetSamplerActive(enabled, actor, reason, silent) {
+        var actorName = String(actor || 'system');
+        var shouldEnable = !!enabled;
+        var sampler = _envKernel.sampler || {};
+        var intervalMs = Math.max(1000, Number(sampler.intervalMs || (((_envConfig || {}).sampler || {}).intervalMs) || 4000));
+        var wasActive = !!sampler.active;
+        sampler.intervalMs = intervalMs;
+        if (!shouldEnable) {
+            _envStopSampler();
+            if (!silent && wasActive) {
+                _envEmitBus('sample', 'Stopped continuous sampling', actorName, { active: false });
+                _envLogAction('sampler', 'Stopped continuous sampling', actorName, { active: false });
+                renderEnvironmentView();
+            }
+            return false;
+        }
+        _envStopSampler();
+        sampler.active = true;
+        sampler.timer = setInterval(function () {
+            _envCaptureSample('continuous sample', actorName);
+        }, intervalMs);
+        if (!silent) {
+            _envEmitBus('sample', wasActive ? 'Updated continuous sampling' : 'Started continuous sampling', actorName, { active: true, intervalMs: intervalMs });
+            _envLogAction('sampler', (wasActive ? 'Updated' : 'Started') + ' continuous sampling @ ' + String(intervalMs) + 'ms', actorName, { active: true, intervalMs: intervalMs });
+            _envCaptureSample(reason || (wasActive ? 'sampler update' : 'sampler start'), actorName);
+            renderEnvironmentView();
+        }
+        return true;
+    }
+
+    function _envApplyProfile(profileId, actor, note, silent) {
+        var actorName = String(actor || 'system');
+        var profile = _envProfileById(profileId) || _envProfileById((((_envConfig || {}).shell || {}).defaultProfile) || '');
+        if (!profile) return false;
+        var reason = String(note || 'profile apply').trim() || 'profile apply';
+        _envKernel.profile.activeId = String(profile.id || '');
+        _envKernel.profile.lastAppliedTs = Date.now();
+        _envKernel.sampler.intervalMs = Math.max(1000, Number(profile.samplerIntervalMs || (((_envConfig || {}).sampler || {}).intervalMs) || 4000));
+        _envSetSamplerActive(!!profile.samplerActive, actorName, reason, true);
+        _envKernel.replay.mode = String(profile.replayMode || (((_envConfig || {}).replay || {}).mode) || 'samples');
+        _envKernel.replay.loop = !!profile.replayLoop;
+        _envKernel.watch.autoFollowFailed = !!(((profile || {}).watch || {}).autoFollowFailed);
+        _envKernel.watch.autoBranchOnFailure = !!(((profile || {}).watch || {}).autoBranchOnFailure);
+        _envKernel.watch.autoSampleOnRuntime = !!(((profile || {}).watch || {}).autoSampleOnRuntime);
+        _envKernel.watch.autoFocusLatestTrace = !!(((profile || {}).watch || {}).autoFocusLatestTrace);
+        _envScene.cameraMode = _envSceneNormalizeCameraMode(profile.cameraMode || (((_envConfig || {}).scene || {}).defaultCameraMode) || 'overview');
+        _envRefreshReplayTrack(_envKernel.replay.mode, true);
+        if (!silent) {
+            _envEmitBus('profile', 'Activated profile', actorName, {
+                profile_id: String(profile.id || ''),
+                camera_mode: _envScene.cameraMode,
+                replay_mode: _envKernel.replay.mode,
+                sampler_active: !!((_envKernel.sampler || {}).active)
+            });
+            _envLogAction('profile', 'Activated profile ' + String(profile.label || profile.id || 'profile'), actorName, {
+                profile_id: String(profile.id || ''),
+                note: reason
+            });
+            _envSetFocus('profile', String(profile.id || ''), actorName, { reason: reason });
+            renderEnvironmentView();
+        }
+        return true;
+    }
+
+    function _envStartIngressLoop() {
+        if (_envKernel.ingress.timer) return;
+        _envKernel.ingress.active = true;
+        _envKernel.ingress.timer = setInterval(function () {
+            _envDrainIngressQueue();
+        }, Math.max(250, Number(_envKernel.ingress.intervalMs || 700)));
+    }
+
+    function _envStopIngressLoop(logAction) {
+        if (_envKernel.ingress.timer) {
+            clearInterval(_envKernel.ingress.timer);
+            _envKernel.ingress.timer = null;
+        }
+        _envKernel.ingress.active = false;
+        if (logAction !== false) {
+            _envLogAction('ingress', 'Paused ingress queue processing', 'system', {
+                pending: (_envKernel.ingress.queue || []).length
+            });
+        }
+    }
+
+    function _envQueueControl(action, target, actor, note, meta) {
+        var item = {
+            id: _envActionId('ingress'),
+            action: String(action || '').trim(),
+            target: String(target || '').trim(),
+            actor: String(actor || 'assistant').trim() || 'assistant',
+            note: String(note || '').trim(),
+            meta: meta || null,
+            ts: Date.now(),
+            status: 'queued'
+        };
+        if (!item.action) return null;
+        _envKernel.ingress.queue.push(item);
+        if (_envKernel.ingress.queue.length > _envIngressLimit()) {
+            _envKernel.ingress.queue = _envKernel.ingress.queue.slice(-_envIngressLimit());
+        }
+        _envLogAction('ingress', 'Queued control action: ' + item.action, item.actor, {
+            target: item.target,
+            note: item.note,
+            queue_depth: _envKernel.ingress.queue.length
+        });
+        if (!_envKernel.ingress.active) _envStartIngressLoop();
+        renderEnvironmentView();
+        return item;
+    }
+
+    function _envPushIngressHistory(item, status, extra) {
+        if (!item) return null;
+        var record = Object.assign({}, item, extra || {});
+        record.status = String(status || record.status || 'completed');
+        record.completedTs = Date.now();
+        _envKernel.ingress.history.unshift(record);
+        if (_envKernel.ingress.history.length > _envIngressHistoryLimit()) {
+            _envKernel.ingress.history.length = _envIngressHistoryLimit();
+        }
+        return record;
+    }
+
+    function _envDrainIngressQueue() {
+        if (_envKernel.ingress.processing) return;
+        if (!_envKernel.ingress.queue.length) return;
+        var item = _envKernel.ingress.queue.shift();
+        if (!item) return;
+        _envKernel.ingress.processing = true;
+        item.status = 'dispatching';
+        item.startedTs = Date.now();
+        _envKernel.ingress.current = item;
+        _envLogAction('ingress', 'Dispatching queued action: ' + item.action, item.actor || 'assistant', {
+            target: item.target || '',
+            note: item.note || ''
+        });
+        try {
+            _envExecuteControlCommand(item.action, item.target, item.actor || 'assistant', item.note || '');
+            _envPushIngressHistory(item, 'completed');
+        } catch (err) {
+            _envPushIngressHistory(item, 'failed', {
+                error: String((err && err.message) || err || 'unknown ingress failure')
+            });
+            throw err;
+        } finally {
+            _envKernel.ingress.processing = false;
+            _envKernel.ingress.current = null;
+            _envKernel.ingress.lastTs = Date.now();
+            renderEnvironmentView();
+        }
+    }
+
+    function _envSetWatchMode(mode, enabled, actor) {
+        if (!_envKernel.watch || !_envKernel.watch.hasOwnProperty(mode)) return;
+        if (mode === 'lastFailureKey' || mode === 'lastTraceKey') return;
+        _envKernel.watch[mode] = !!enabled;
+        _envLogAction('watch', (enabled ? 'Enabled ' : 'Disabled ') + mode, actor || 'system', {
+            mode: mode,
+            enabled: !!enabled
+        });
+        renderEnvironmentView();
+    }
+
+    function _envReplayTrackLimit() {
+        return Math.max(4, Number((((_envConfig || {}).replay || {}).maxTrack) || 24));
+    }
+
+    function _envBuildReplayTrack(mode) {
+        var replayMode = String(mode || (_envKernel.replay || {}).mode || 'samples');
+        if (replayMode === 'branches') {
+            return (_envKernel.branches || []).slice(0, _envReplayTrackLimit()).map(function (branch, idx) {
+                return {
+                    kind: 'branch',
+                    id: String(branch.id || idx),
+                    label: String(branch.reason || ('branch ' + (idx + 1))),
+                    meta: branch.sample_id ? ('linked to ' + String(branch.sample_id)) : 'branch snapshot',
+                    ts: Number(branch.ts || 0),
+                    status: 'completed',
+                    command: 'focus_branch',
+                    target: String(branch.id || idx)
+                };
+            });
+        }
+        if (replayMode === 'events') {
+            return _envRecentBusEvents(_envReplayTrackLimit()).map(function (event, idx) {
+                return {
+                    kind: 'event',
+                    id: String(event.id || event.seq || idx),
+                    label: String(event.body || event.channel || ('event ' + (idx + 1))),
+                    meta: String(event.actor || 'system') + ' · ' + String(event.channel || 'system'),
+                    ts: Number(event.ts || 0),
+                    status: _envBusEventSignalsFailure(event) ? 'failed' : 'completed',
+                    command: 'focus_event',
+                    target: String(event.id || event.seq || idx)
+                };
+            });
+        }
+        return (_envKernel.samples || []).slice(0, _envReplayTrackLimit()).map(function (sample, idx) {
+            return {
+                kind: 'sample',
+                id: String(sample.id || idx),
+                label: 'sample #' + String(sample.seq || (idx + 1)),
+                meta: _envSampleStatus(sample) + ' · traces ' + String(sample.trace_count || 0),
+                ts: Number(sample.ts || 0),
+                status: _envSampleStatus(sample),
+                command: 'focus_sample',
+                target: String(sample.id || idx)
+            };
+        });
+    }
+
+    function _envRefreshReplayTrack(mode, preserveCurrent) {
+        var replay = _envKernel.replay || {};
+        replay.mode = String(mode || replay.mode || 'samples');
+        var priorCurrentId = preserveCurrent && replay.current ? String(replay.current.id || '') : '';
+        replay.track = _envBuildReplayTrack(replay.mode);
+        replay.builtTs = Date.now();
+        if (!replay.track.length) {
+            replay.cursor = -1;
+            replay.current = null;
+            return replay.track;
+        }
+        var nextIndex = preserveCurrent && priorCurrentId
+            ? replay.track.findIndex(function (item) { return String(item.id || '') === priorCurrentId; })
+            : -1;
+        if (nextIndex < 0) nextIndex = Math.min(Math.max(0, Number(replay.cursor || 0)), replay.track.length - 1);
+        replay.cursor = nextIndex;
+        replay.current = replay.track[nextIndex] || null;
+        return replay.track;
+    }
+
+    function _envReplayItemCommand(item) {
+        if (!item) return null;
+        return {
+            action: String(item.command || ''),
+            target: String(item.target || ''),
+            kind: String(item.kind || '')
+        };
+    }
+
+    function _envStopReplay(actor, note) {
+        var replay = _envKernel.replay || {};
+        if (replay.timer) {
+            clearInterval(replay.timer);
+            replay.timer = null;
+        }
+        replay.active = false;
+        _envEmitBus('replay', 'Stopped replay rail', actor || 'system', {
+            mode: replay.mode || 'samples',
+            note: String(note || '')
+        });
+        _envLogAction('replay', 'Stopped replay rail', actor || 'system', {
+            mode: replay.mode || 'samples',
+            note: String(note || '')
+        });
+    }
+
+    function _envReplayFocusIndex(index, actor, note) {
+        var replay = _envKernel.replay || {};
+        _envRefreshReplayTrack(replay.mode, true);
+        if (!replay.track.length) {
+            _envSetBadge('failed', 'NO REPLAY');
+            renderEnvironmentView();
+            return null;
+        }
+        var nextIndex = Math.max(0, Math.min(replay.track.length - 1, Number(index || 0)));
+        var item = replay.track[nextIndex] || null;
+        if (!item) return null;
+        replay.cursor = nextIndex;
+        replay.current = item;
+        var cmd = _envReplayItemCommand(item);
+        if (cmd && cmd.action) {
+            _envQueueControl(cmd.action, cmd.target, actor || 'assistant', note || ('replay ' + item.kind), {
+                source: 'replay',
+                replay_mode: replay.mode,
+                replay_index: nextIndex,
+                replay_id: String(item.id || '')
+            });
+        }
+        _envEmitBus('replay', 'Focused replay item', actor || 'assistant', {
+            mode: replay.mode,
+            index: nextIndex,
+            item_kind: item.kind,
+            item_id: String(item.id || '')
+        });
+        _envLogAction('replay', 'Focused replay item', actor || 'assistant', {
+            mode: replay.mode,
+            index: nextIndex,
+            item_kind: item.kind,
+            item_id: String(item.id || '')
+        });
+        renderEnvironmentView();
+        return item;
+    }
+
+    function _envReplayStep(delta, actor, note) {
+        var replay = _envKernel.replay || {};
+        _envRefreshReplayTrack(replay.mode, true);
+        if (!replay.track.length) {
+            _envSetBadge('failed', 'NO REPLAY');
+            renderEnvironmentView();
+            return null;
+        }
+        var currentIndex = Number(replay.cursor || 0);
+        var nextIndex = currentIndex + Number(delta || 0);
+        if (nextIndex < 0) nextIndex = replay.loop ? replay.track.length - 1 : 0;
+        if (nextIndex >= replay.track.length) nextIndex = replay.loop ? 0 : replay.track.length - 1;
+        return _envReplayFocusIndex(nextIndex, actor || 'assistant', note || 'replay step');
+    }
+
+    function _envToggleReplay(actor) {
+        var replay = _envKernel.replay || {};
+        _envRefreshReplayTrack(replay.mode, true);
+        if (replay.active) {
+            _envStopReplay(actor || 'assistant', 'toggle replay off');
+            renderEnvironmentView();
+            return false;
+        }
+        if (!replay.track.length) {
+            _envSetBadge('failed', 'NO TRACK');
+            _envLogAction('replay', 'Replay requested without track', actor || 'assistant', { mode: replay.mode });
+            renderEnvironmentView();
+            return false;
+        }
+        if (replay.timer) clearInterval(replay.timer);
+        replay.active = true;
+        replay.timer = setInterval(function () {
+            _envReplayStep(1, actor || 'assistant', 'replay loop tick');
+        }, Math.max(400, Number(replay.intervalMs || 1400)));
+        _envEmitBus('replay', 'Started replay rail', actor || 'assistant', {
+            mode: replay.mode,
+            interval_ms: Number(replay.intervalMs || 1400),
+            track_length: replay.track.length
+        });
+        _envLogAction('replay', 'Started replay rail', actor || 'assistant', {
+            mode: replay.mode,
+            interval_ms: Number(replay.intervalMs || 1400),
+            track_length: replay.track.length
+        });
+        _envReplayFocusIndex(replay.cursor >= 0 ? replay.cursor : 0, actor || 'assistant', 'replay start');
+        return true;
+    }
+
+    function _envSetReplayMode(mode, actor) {
+        var replay = _envKernel.replay || {};
+        replay.mode = String(mode || 'samples');
+        _envRefreshReplayTrack(replay.mode, false);
+        _envEmitBus('replay', 'Changed replay mode', actor || 'system', {
+            mode: replay.mode,
+            track_length: (replay.track || []).length
+        });
+        _envLogAction('replay', 'Changed replay mode', actor || 'system', {
+            mode: replay.mode,
+            track_length: (replay.track || []).length
+        });
+        renderEnvironmentView();
+    }
+
+    function _envHandleRuntimeHooks(payload, sourceEvent) {
+        payload = payload || {};
+        var norm = _wfNormalizeStatus(payload.status || 'pending');
+        var execId = String(payload.execution_id || '');
+        var nodeStates = payload.node_states || {};
+        var failedId = Object.keys(nodeStates).find(function (nodeId) {
+            return _wfNormalizeStatus((nodeStates[nodeId] || {}).status || 'pending') === 'failed';
+        }) || '';
+        if (((( _envConfig || {}).sampler || {}).autoCaptureOnRuntime) && _envKernel.watch.autoSampleOnRuntime && !_envKernel.sampler.active) {
+            _envCaptureSample('runtime hook', 'system');
+        }
+        if (failedId || norm === 'failed') {
+            var failureKey = [String(payload.workflow_id || _wfSelectedId || ''), execId, failedId, norm].join('|');
+            if (_envKernel.watch.lastFailureKey !== failureKey) {
+                _envKernel.watch.lastFailureKey = failureKey;
+                if (_envKernel.watch.autoFollowFailed) {
+                    _envQueueControl('follow_failed', failedId, 'system', 'watch auto follow failed', {
+                        execution_id: execId,
+                        workflow_id: payload.workflow_id || _wfSelectedId || ''
+                    });
+                }
+                if (_envKernel.watch.autoBranchOnFailure) {
+                    _envQueueControl('branch_snapshot', failedId, 'system', 'watch failure branch', {
+                        execution_id: execId,
+                        workflow_id: payload.workflow_id || _wfSelectedId || ''
+                    });
+                }
+            }
+        }
+        var traces = _envTraceRows(8);
+        var latestTrace = traces.length ? traces[0] : null;
+        var latestTraceKey = latestTrace ? [String(latestTrace.tool || ''), String(latestTrace.time || latestTrace.ts || ''), latestTrace.error ? 'err' : 'ok'].join('|') : '';
+        if (_envKernel.watch.autoFocusLatestTrace && latestTrace && latestTrace.error && latestTraceKey && _envKernel.watch.lastTraceKey !== latestTraceKey) {
+            _envKernel.watch.lastTraceKey = latestTraceKey;
+            _envQueueControl('focus_trace', '0', 'system', 'watch latest failed trace', {
+                tool: latestTrace.tool || '',
+                source: sourceEvent ? String(sourceEvent.tool || '') : 'runtime'
+            });
+        }
+    }
+
+    function _envLogAction(kind, body, actor, payload) {
+        var entry = {
+            id: _envActionId(kind),
+            kind: String(kind || 'action'),
+            body: String(body || ''),
+            actor: String(actor || 'system'),
+            payload: payload || null,
+            ts: Date.now()
+        };
+        _envKernel.actions.unshift(entry);
+        if (_envKernel.actions.length > Math.max(24, Number((((_envConfig || {}).bus || {}).retainActions) || 80))) {
+            _envKernel.actions.length = Math.max(24, Number((((_envConfig || {}).bus || {}).retainActions) || 80));
+        }
+        _envEmitBusEvent(kind, actor, body, payload);
+    }
+
+    function _envFindSample(sampleId) {
+        var needle = String(sampleId || '');
+        for (var i = 0; i < (_envKernel.samples || []).length; i++) {
+            var sample = _envKernel.samples[i] || {};
+            if (String(sample.id || '') === needle) return sample;
+        }
+        return null;
+    }
+
+    function _envFindBranch(branchId) {
+        var needle = String(branchId || '');
+        for (var i = 0; i < (_envKernel.branches || []).length; i++) {
+            var branch = _envKernel.branches[i] || {};
+            if (String(branch.id || '') === needle) return branch;
+        }
+        return null;
+    }
+
+    function _envFindQueuedAction(actionId) {
+        var needle = String(actionId || '').trim();
+        if (!needle) return null;
+        for (var i = 0; i < ((_envKernel.ingress || {}).queue || []).length; i++) {
+            var item = (_envKernel.ingress.queue || [])[i] || {};
+            if (String(item.id || '') === needle) return item;
+        }
+        return null;
+    }
+
+    function _envFindIngressHistory(actionId) {
+        var needle = String(actionId || '').trim();
+        if (!needle) return null;
+        for (var i = 0; i < ((_envKernel.ingress || {}).history || []).length; i++) {
+            var item = (_envKernel.ingress.history || [])[i] || {};
+            if (String(item.id || '') === needle) return item;
+        }
+        return null;
+    }
+
+    function _envFindBusEvent(eventId) {
+        var needle = String(eventId || '').trim();
+        if (!needle) return null;
+        for (var i = 0; i < (_envBus.events || []).length; i++) {
+            var event = _envBus.events[i] || {};
+            if (String(event.id || '') === needle) return event;
+            if (String(event.seq || '') === needle) return event;
+        }
+        return null;
+    }
+
+    function _envWatchDescriptors() {
+        return [
+            { key: 'autoFollowFailed', label: 'follow failed', detail: 'auto-focus the latest failure surface' },
+            { key: 'autoBranchOnFailure', label: 'branch on failure', detail: 'spawn branch snapshots when failures appear' },
+            { key: 'autoSampleOnRuntime', label: 'sample on runtime', detail: 'capture samples while runtime state is active' },
+            { key: 'autoFocusLatestTrace', label: 'focus latest trace', detail: 'lock focus onto the newest failed trace' }
+        ];
+    }
+
+    function _envWatchDescriptor(modeKey) {
+        var needle = String(modeKey || '').trim();
+        if (!needle) return null;
+        var items = _envWatchDescriptors();
+        for (var i = 0; i < items.length; i++) {
+            if (String(items[i].key || '') === needle) return items[i];
+        }
+        return null;
+    }
+
+    function _envSampleStatus(sample) {
+        sample = sample || {};
+        var counts = sample.node_counts || {};
+        if (Number(counts.failed || 0) > 0) return 'failed';
+        if (Number(counts.running || 0) > 0 || String(sample.status || '') === 'running') return 'running';
+        if (String(sample.status || '') === 'completed' || Number(counts.completed || 0) > 0) return 'completed';
+        return String(sample.status || 'idle');
+    }
+
+    function _envFocusDescriptor(kind, id, workflow, sections, traces) {
+        if (kind === 'node' && workflow && Array.isArray(workflow.nodes)) {
+            for (var i = 0; i < workflow.nodes.length; i++) {
+                if (String(workflow.nodes[i].id || '') === String(id || '')) {
+                    return String(workflow.nodes[i].name || workflow.nodes[i].label || workflow.nodes[i].id || 'node');
+                }
+            }
+        }
+        if (kind === 'artifact' && sections && sections[id]) return String(sections[id].title || ('artifact ' + id));
+        if (kind === 'trace' && traces && traces[id]) return String(traces[id].tool || ('trace ' + id));
+        if (kind === 'doc') {
+            if (_envDocState.activeDocMeta && String((_envDocState.activeDocMeta.key || _envDocState.activeDocMeta.path || '')) === String(id || '')) {
+                return String(_envDocState.activeDocMeta.key || _envDocState.activeDocMeta.path || _envDocState.activeDocMeta.id || 'document');
+            }
+            for (var d = 0; d < _envDocState.results.length; d++) {
+                var doc = _envDocState.results[d] || {};
+                if (String(doc.key || doc.path || doc.id || '') === String(id || '')) {
+                    return String(doc.key || doc.path || doc.id || 'document');
+                }
+            }
+        }
+        if (kind === 'sample') {
+            var sample = _envFindSample(id);
+            if (sample) return 'sample #' + String(sample.seq || 0);
+        }
+        if (kind === 'branch') {
+            var branch = _envFindBranch(id);
+            if (branch) return String(branch.reason || branch.id || 'branch');
+        }
+        if (kind === 'recipe') {
+            var recipe = _envRecipeById(id);
+            if (recipe) return String(recipe.label || recipe.id || 'recipe');
+        }
+        if (kind === 'profile') {
+            var profile = _envProfileById(id);
+            if (profile) return 'profile · ' + String(profile.label || profile.id || 'profile');
+        }
+        if (kind === 'event') {
+            var event = _envFindBusEvent(id);
+            if (event) return String(event.body || (String(event.channel || 'event') + ' #' + String(event.seq || '')));
+        }
+        if (kind === 'dispatch') {
+            var dispatch = ((_envKernel.ingress || {}).current) || null;
+            if (dispatch && String(dispatch.id || '') === String(id || '')) {
+                return 'dispatch · ' + String(dispatch.action || 'action');
+            }
+        }
+        if (kind === 'queued') {
+            var queued = _envFindQueuedAction(id) || _envFindIngressHistory(id);
+            if (queued) return 'queued · ' + String(queued.action || queued.id || 'action');
+        }
+        if (kind === 'watch') {
+            var watchMeta = _envWatchDescriptor(id);
+            if (watchMeta) return 'watch · ' + String(watchMeta.label || watchMeta.key || 'mode');
+        }
+        if (kind === 'execution') return 'execution';
+        return String(kind || 'workflow');
+    }
+
+    function _envSetFocus(kind, id, actor, payload) {
+        var workflow = _wfLoadedDef && String(_wfLoadedDef.id || '') === String(_wfSelectedId || '') ? _wfLoadedDef : null;
+        var traces = _envTraceRows(8);
+        var sections = _envArtifactSections();
+        var label = _envFocusDescriptor(kind, id, workflow, sections, traces);
+        _envKernel.focus = {
+            kind: String(kind || 'workflow'),
+            id: id === undefined || id === null ? '' : String(id),
+            label: label,
+            actor: String(actor || 'system'),
+            payload: payload || null
+        };
+        if (kind === 'node' && id) _wfSelectNodeDrill(String(id));
+        else if (kind === 'workflow') _wfSelectWorkflowDrill();
+        else if (kind === 'trace' && traces[id] && traces[id].args && traces[id].args._workflow_node_id) _wfSelectNodeDrill(String(traces[id].args._workflow_node_id));
+        else if (kind === 'doc') _envDocRequestRead(id, actor || 'system');
+        _envLogAction('focus', 'Focused ' + label + ' (' + String(kind || 'workflow') + ')', actor || 'system', { kind: kind, id: id });
+        renderEnvironmentView();
+    }
+
+    function _envFocusPayload(workflow, exec, sections, traces) {
+        var focus = _envKernel.focus || {};
+        if (focus.kind === 'node' && workflow && Array.isArray(workflow.nodes)) {
+            var node = workflow.nodes.find(function (n) { return String(n.id || '') === String(focus.id || ''); }) || null;
+            var nodeState = exec && exec.node_states ? (exec.node_states[String(focus.id || '')] || null) : null;
+            return { label: focus.label || 'node', kind: 'node', data: { node: node, state: nodeState } };
+        }
+        if (focus.kind === 'artifact' && sections && sections[Number(focus.id)] ) {
+            return { label: focus.label || 'artifact', kind: 'artifact', data: sections[Number(focus.id)] };
+        }
+        if (focus.kind === 'trace' && traces && traces[Number(focus.id)]) {
+            return { label: focus.label || 'trace', kind: 'trace', data: traces[Number(focus.id)] };
+        }
+        if (focus.kind === 'sample') {
+            var sample = _envFindSample(focus.id);
+            if (sample) return { label: focus.label || ('sample #' + String(sample.seq || 0)), kind: 'sample', data: sample };
+        }
+        if (focus.kind === 'branch') {
+            var branch = _envFindBranch(focus.id);
+            if (branch) return { label: focus.label || String(branch.reason || 'branch'), kind: 'branch', data: branch };
+        }
+        if (focus.kind === 'recipe') {
+            var recipe = _envRecipeById(focus.id);
+            if (recipe) return { label: focus.label || String(recipe.label || recipe.id || 'recipe'), kind: 'recipe', data: recipe };
+        }
+        if (focus.kind === 'profile') {
+            var profile = _envProfileById(focus.id);
+            if (profile) {
+                return {
+                    label: focus.label || String(profile.label || profile.id || 'profile'),
+                    kind: 'profile',
+                    data: {
+                        profile: profile,
+                        active: String(((_envKernel.profile || {}).activeId) || '') === String(profile.id || ''),
+                        sampler: {
+                            active: !!((_envKernel.sampler || {}).active),
+                            intervalMs: Number(((_envKernel.sampler || {}).intervalMs) || 0)
+                        },
+                        watch: Object.assign({}, _envKernel.watch || {}),
+                        replay: {
+                            mode: String(((_envKernel.replay || {}).mode) || 'samples'),
+                            loop: !!((_envKernel.replay || {}).loop)
+                        },
+                        cameraMode: _envSceneNormalizeCameraMode(_envScene.cameraMode || (((_envConfig || {}).scene || {}).defaultCameraMode) || 'overview')
+                    }
+                };
+            }
+        }
+        if (focus.kind === 'event') {
+            var event = _envFindBusEvent(focus.id);
+            if (event) return { label: focus.label || ('event #' + String(event.seq || '')), kind: 'event', data: event };
+        }
+        if (focus.kind === 'dispatch') {
+            var dispatch = ((_envKernel.ingress || {}).current) || null;
+            if (dispatch && String(dispatch.id || '') === String(focus.id || '')) {
+                return { label: focus.label || String(dispatch.action || 'dispatch'), kind: 'dispatch', data: dispatch };
+            }
+        }
+        if (focus.kind === 'queued') {
+            var queued = _envFindQueuedAction(focus.id) || _envFindIngressHistory(focus.id);
+            if (queued) return { label: focus.label || String(queued.action || 'queued action'), kind: 'queued', data: queued };
+        }
+        if (focus.kind === 'watch') {
+            var watchMeta = _envWatchDescriptor(focus.id);
+            if (watchMeta) {
+                return {
+                    label: focus.label || String(watchMeta.label || watchMeta.key || 'watch mode'),
+                    kind: 'watch',
+                    data: {
+                        key: String(watchMeta.key || ''),
+                        label: String(watchMeta.label || watchMeta.key || ''),
+                        detail: String(watchMeta.detail || ''),
+                        enabled: !!((_envKernel.watch || {})[watchMeta.key])
+                    }
+                };
+            }
+        }
+        if (focus.kind === 'doc') {
+            var docMeta = _envDocState.activeDocMeta && String((_envDocState.activeDocMeta.key || _envDocState.activeDocMeta.path || '')) === String(focus.id || '')
+                ? _envDocState.activeDocMeta
+                : _envDocResultById(focus.id);
+            if (docMeta) {
+                return {
+                    label: focus.label || 'document',
+                    kind: 'doc',
+                    data: {
+                        metadata: docMeta,
+                        content: String(_envDocState.activeDocContent || '')
+                    }
+                };
+            }
+        }
+        if (focus.kind === 'execution') {
+            return { label: 'execution', kind: 'execution', data: exec || null };
+        }
+        return { label: workflow ? String(workflow.name || workflow.id || 'workflow') : 'workflow', kind: 'workflow', data: workflow || null };
+    }
+
+    function _envCreateBranch(actor, reason) {
+        var exec = _envCurrentExecution();
+        var latestSample = (_envKernel.samples || [])[0] || null;
+        var branch = {
+            id: _envActionId('branch'),
+            workflow_id: _wfSelectedId || '',
+            execution_id: exec ? String(exec.execution_id || '') : '',
+            focus: Object.assign({}, _envKernel.focus || {}),
+            sample_id: latestSample ? String(latestSample.id || '') : '',
+            reason: String(reason || 'manual branch'),
+            actor: String(actor || 'system'),
+            ts: Date.now()
+        };
+        _envKernel.branches.unshift(branch);
+        if (_envKernel.branches.length > 16) _envKernel.branches.length = 16;
+        _envLogAction('branch', 'Created branch snapshot: ' + branch.reason, actor || 'system', branch);
+        renderEnvironmentView();
+    }
+
+    function _envCaptureSample(reason, actor) {
+        var workflow = _wfLoadedDef && String(_wfLoadedDef.id || '') === String(_wfSelectedId || '') ? _wfLoadedDef : null;
+        var exec = _envCurrentExecution();
+        if (!workflow) return;
+        var nodeStates = exec && exec.node_states ? exec.node_states : {};
+        var counts = { completed: 0, running: 0, failed: 0, pending: 0 };
+        Object.keys(nodeStates).forEach(function (nodeId) {
+            var st = _wfNormalizeStatus((nodeStates[nodeId] || {}).status || 'pending');
+            counts[st] = (counts[st] || 0) + 1;
+        });
+        var traces = _envTraceRows(8);
+        var sample = {
+            id: _envActionId('sample'),
+            seq: ((_envKernel.samples || [])[0] && Number((_envKernel.samples || [])[0].seq || 0) + 1) || 1,
+            workflow_id: String(workflow.id || _wfSelectedId || ''),
+            execution_id: exec ? String(exec.execution_id || '') : '',
+            status: exec ? _wfNormalizeStatus(exec.status || 'pending') : 'idle',
+            focus: Object.assign({}, _envKernel.focus || {}),
+            trace_count: traces.length,
+            artifact_count: _envArtifactSections().length,
+            node_counts: counts,
+            reason: String(reason || 'sample'),
+            actor: String(actor || 'system'),
+            ts: Date.now()
+        };
+        _envKernel.samples.unshift(sample);
+        if (_envKernel.samples.length > Math.max(8, Number((((_envConfig || {}).sampler || {}).maxSamples) || 48))) {
+            _envKernel.samples.length = Math.max(8, Number((((_envConfig || {}).sampler || {}).maxSamples) || 48));
+        }
+        _envLogAction('sample', 'Captured ' + sample.reason + ' snapshot · ' + sample.status + ' · traces ' + sample.trace_count, actor || 'system', sample);
+        renderEnvironmentView();
+    }
+
+    function _envToggleSampler(actor) {
+        _envSetSamplerActive(!(_envKernel.sampler || {}).active, actor || 'system', 'manual sampler toggle', false);
+    }
+
+    function _envExecuteControlCommand(action, target, actor, note) {
+        var command = String(action || '').trim();
+        var actorName = String(actor || 'assistant').trim() || 'assistant';
+        var targetId = String(target || '').trim();
+        var reason = String(note || '').trim();
+        var activeDocKey = String(_envDocState.activeDocId || ((_envDocState.activeDocMeta || {}).key || (_envDocState.activeDocMeta || {}).path || '')).trim();
+        if (!command) return;
+        if (command === 'sample_now') {
+            _envCaptureSample(reason || 'control console sample', actorName);
+            return;
+        }
+        if (command === 'toggle_stream') {
+            _envToggleSampler(actorName);
+            return;
+        }
+        if (command === 'toggle_replay') {
+            _envToggleReplay(actorName);
+            return;
+        }
+        if (command === 'replay_prev') {
+            _envReplayStep(-1, actorName, reason || 'replay previous');
+            return;
+        }
+        if (command === 'replay_next') {
+            _envReplayStep(1, actorName, reason || 'replay next');
+            return;
+        }
+        if (command === 'set_replay_mode') {
+            _envSetReplayMode(targetId || ((_envKernel.replay || {}).mode) || 'samples', actorName);
+            return;
+        }
+        if (command === 'focus_replay') {
+            _envReplayFocusIndex(Number(targetId || 0), actorName, reason || 'focus replay item');
+            return;
+        }
+        if (command === 'branch_snapshot') {
+            _envCreateBranch(actorName, reason || 'control console branch');
+            return;
+        }
+        if (command === 'focus_recipe') {
+            var recipeId = targetId || ((_envKernel.focus || {}).kind === 'recipe' ? String((_envKernel.focus || {}).id || '') : '');
+            if (!recipeId || !_envRecipeById(recipeId)) {
+                _envSetBadge('failed', 'NO RECIPE');
+                _envLogAction('control', 'Control command focus_recipe missing recipe target', actorName, { action: command, target: targetId });
+                renderEnvironmentView();
+                return;
+            }
+            _envSetFocus('recipe', recipeId, actorName);
+            return;
+        }
+        if (command === 'activate_profile') {
+            var profileTarget = targetId || String(((_envKernel.profile || {}).activeId) || (((_envConfig || {}).shell || {}).defaultProfile) || '').trim();
+            if (!profileTarget || !_envProfileById(profileTarget)) {
+                _envSetBadge('failed', 'NO PROFILE');
+                _envLogAction('control', 'Control command activate_profile missing target profile', actorName, { action: command, target: targetId });
+                renderEnvironmentView();
+                return;
+            }
+            _envApplyProfile(profileTarget, actorName, reason || 'activate profile', false);
+            return;
+        }
+        if (command === 'focus_profile') {
+            var focusProfileId = targetId || ((_envKernel.focus || {}).kind === 'profile' ? String((_envKernel.focus || {}).id || '') : String(((_envKernel.profile || {}).activeId) || ''));
+            if (!focusProfileId || !_envProfileById(focusProfileId)) {
+                _envSetBadge('failed', 'NO PROFILE');
+                _envLogAction('control', 'Control command focus_profile missing target profile', actorName, { action: command, target: targetId });
+                renderEnvironmentView();
+                return;
+            }
+            _envSetFocus('profile', focusProfileId, actorName);
+            return;
+        }
+        if (command === 'run_recipe') {
+            var recipeTarget = targetId || reason;
+            if (!recipeTarget) {
+                _envSetBadge('failed', 'NO RECIPE');
+                _envLogAction('control', 'Control command run_recipe missing recipe target', actorName, { action: command, target: targetId });
+                renderEnvironmentView();
+                return;
+            }
+            _envRunRecipe(recipeTarget, actorName, reason || ('queued recipe ' + recipeTarget));
+            return;
+        }
+        if (command === 'focus_artifact') {
+            var artifactId = targetId || ((_envKernel.focus || {}).kind === 'artifact' ? String((_envKernel.focus || {}).id || '') : '');
+            if (!artifactId) {
+                _envSetBadge('failed', 'NO ART');
+                _envLogAction('control', 'Control command focus_artifact missing target artifact', actorName, { action: command, target: targetId });
+                renderEnvironmentView();
+                return;
+            }
+            _envSetFocus('artifact', artifactId, actorName);
+            return;
+        }
+        if (command === 'focus_trace') {
+            var traceId = targetId || ((_envKernel.focus || {}).kind === 'trace' ? String((_envKernel.focus || {}).id || '') : '');
+            if (!traceId) {
+                _envSetBadge('failed', 'NO TRACE');
+                _envLogAction('control', 'Control command focus_trace missing target trace', actorName, { action: command, target: targetId });
+                renderEnvironmentView();
+                return;
+            }
+            _envSetFocus('trace', traceId, actorName);
+            return;
+        }
+        if (command === 'focus_event') {
+            var eventId = targetId || ((_envKernel.focus || {}).kind === 'event' ? String((_envKernel.focus || {}).id || '') : '');
+            if (!eventId || !_envFindBusEvent(eventId)) {
+                _envSetBadge('failed', 'NO EVENT');
+                _envLogAction('control', 'Control command focus_event missing target event', actorName, { action: command, target: targetId });
+                renderEnvironmentView();
+                return;
+            }
+            _envSetFocus('event', eventId, actorName);
+            return;
+        }
+        if (command === 'focus_dispatch') {
+            var dispatchItem = ((_envKernel.ingress || {}).current) || null;
+            var dispatchId = targetId || (dispatchItem ? String(dispatchItem.id || '') : '');
+            if (!dispatchItem || !dispatchId || String(dispatchItem.id || '') !== String(dispatchId)) {
+                _envSetBadge('failed', 'NO DISPATCH');
+                _envLogAction('control', 'Control command focus_dispatch missing active dispatch', actorName, { action: command, target: targetId });
+                renderEnvironmentView();
+                return;
+            }
+            _envSetFocus('dispatch', dispatchId, actorName);
+            return;
+        }
+        if (command === 'focus_queued') {
+            var queuedItem = targetId ? _envFindQueuedAction(targetId) : (((_envKernel.ingress || {}).queue || [])[0] || null);
+            var queuedId = targetId || (queuedItem ? String(queuedItem.id || '') : '');
+            if (!queuedItem || !queuedId) {
+                _envSetBadge('failed', 'NO QUEUE');
+                _envLogAction('control', 'Control command focus_queued missing queued action', actorName, { action: command, target: targetId });
+                renderEnvironmentView();
+                return;
+            }
+            _envSetFocus('queued', queuedId, actorName);
+            return;
+        }
+        if (command === 'focus_watch') {
+            var watchId = targetId || Object.keys(_envKernel.watch || {}).find(function (key) {
+                return /^auto/.test(String(key || '')) && !!((_envKernel.watch || {})[key]);
+            }) || 'autoFollowFailed';
+            var watchMeta = _envWatchDescriptor(watchId);
+            if (!watchMeta) {
+                _envSetBadge('failed', 'NO WATCH');
+                _envLogAction('control', 'Control command focus_watch missing watch mode', actorName, { action: command, target: targetId });
+                renderEnvironmentView();
+                return;
+            }
+            _envSetFocus('watch', watchId, actorName);
+            return;
+        }
+        if (command === 'focus_sample') {
+            var sampleId = targetId || (((_envKernel.samples || [])[0] || {}).id || '');
+            if (!sampleId) {
+                _envSetBadge('failed', 'NO SAMPLE');
+                _envLogAction('control', 'Control command focus_sample missing sample target', actorName, { action: command, target: targetId });
+                renderEnvironmentView();
+                return;
+            }
+            _envSetFocus('sample', sampleId, actorName);
+            return;
+        }
+        if (command === 'focus_branch') {
+            var branchId = targetId || (((_envKernel.branches || [])[0] || {}).id || '');
+            if (!branchId) {
+                _envSetBadge('failed', 'NO BRANCH');
+                _envLogAction('control', 'Control command focus_branch missing branch target', actorName, { action: command, target: targetId });
+                renderEnvironmentView();
+                return;
+            }
+            _envSetFocus('branch', branchId, actorName);
+            return;
+        }
+        if (command === 'focus_workflow') {
+            _envSetFocus('workflow', _wfSelectedId || targetId, actorName);
+            return;
+        }
+        if (command === 'focus_node') {
+            var nodeId = targetId || ((_envKernel.focus || {}).kind === 'node' ? String((_envKernel.focus || {}).id || '') : '');
+            if (!nodeId) {
+                _envSetBadge('failed', 'NO NODE');
+                _envLogAction('control', 'Control command focus_node missing target node', actorName, { action: command, target: targetId });
+                renderEnvironmentView();
+                return;
+            }
+            _envSetFocus('node', nodeId, actorName);
+            return;
+        }
+        if (command === 'focus_doc') {
+            var docId = targetId || activeDocKey;
+            if (!docId) {
+                _envSetBadge('failed', 'NO DOC');
+                _envLogAction('control', 'Control command focus_doc missing document target', actorName, { action: command, target: targetId });
+                renderEnvironmentView();
+                return;
+            }
+            _envSetFocus('doc', docId, actorName);
+            return;
+        }
+        if (command === 'set_camera_mode') {
+            var mode = _envSceneNormalizeCameraMode(targetId || ((_envScene || {}).cameraMode) || 'overview');
+            _envScene.cameraMode = mode;
+            _envLogAction('control', 'Updated habitat camera mode', actorName, { action: command, camera_mode: mode });
+            _envEmitBus('control', 'Updated habitat camera mode', actorName, { action: command, camera_mode: mode });
+            _envSetBadge('running', 'CAM ' + mode.toUpperCase());
+            _envScene.dirty = true;
+            renderEnvironmentView();
+            return;
+        }
+        if (command === 'scan_docs') {
+            _envRefreshDocs(reason || 'control console scan', actorName, true);
+            renderEnvironmentView();
+            return;
+        }
+        if (command === 'open_doc_memory') {
+            var memoryKey = targetId || activeDocKey;
+            if (!memoryKey) {
+                _envSetBadge('failed', 'NO DOC');
+                _envLogAction('control', 'Control command open_doc_memory missing document target', actorName, { action: command, target: targetId });
+                renderEnvironmentView();
+                return;
+            }
+            _envDocOpenInMemory(memoryKey, actorName);
+            return;
+        }
+        if (command === 'open_workflows' || command === 'open_debug' || command === 'open_memory' || command === 'open_tools') {
+            _envOpenLinkedTab(command.replace('open_', ''));
+            _envLogAction('control', 'Opened linked tab: ' + command.replace('open_', ''), actorName, { action: command });
+            renderEnvironmentView();
+            return;
+        }
+        if (command === 'follow_failed') {
+            var exec = _envCurrentExecution();
+            var nodeStates = exec && exec.node_states ? exec.node_states : {};
+            var failedId = Object.keys(nodeStates).find(function (nodeId) {
+                return _wfNormalizeStatus((nodeStates[nodeId] || {}).status || 'pending') === 'failed';
+            }) || '';
+            if (failedId) {
+                _envSetFocus('node', failedId, actorName);
+                return;
+            }
+            var traces = _envTraceRows(8);
+            var failedTraceIndex = traces.findIndex(function (trace) { return !!trace.error; });
+            if (failedTraceIndex >= 0) {
+                _envSetFocus('trace', String(failedTraceIndex), actorName);
+                return;
+            }
+            _envSetBadge('failed', 'NO FAIL');
+            _envLogAction('control', 'Control command follow_failed found no failure surface', actorName, { action: command });
+            renderEnvironmentView();
+            return;
+        }
+        _envSetBadge('failed', 'UNKNOWN');
+        _envLogAction('control', 'Unknown control command: ' + command, actorName, { action: command, target: targetId });
+        renderEnvironmentView();
+    }
+
+    function _envRenderTrajectoryPanel() {
+        var focus = _envKernel.focus || {};
+        var replay = _envKernel.replay || {};
+        _envRefreshReplayTrack(replay.mode, true);
+        var samples = (_envKernel.samples || []).slice(0, 12);
+        var branches = (_envKernel.branches || []).slice(0, 6);
+        var replayTrack = (replay.track || []).slice(0, _envReplayTrackLimit());
+        var replayHtml = replayTrack.length ? replayTrack.map(function (item, idx) {
+            var active = replay.current && String((replay.current || {}).id || '') === String(item.id || '') ? ' active' : '';
+            var tone = _envSampleStatus(item) || String(item.status || 'completed');
+            var label = item.kind === 'event' ? (String(item.meta || '') || String(item.kind || 'event')) : String(item.kind || 'item');
+            return '<button class="envops-sample-cell ' + _esc(tone) + active + '" data-env-action="replay-focus" data-env-replay-index="' + String(idx) + '">' +
+                '<span class="envops-sample-seq">' + _esc(String(item.kind || 'item').slice(0, 6).toUpperCase()) + '</span>' +
+                '<span class="envops-branch-title">' + _esc(String(item.label || ('item ' + (idx + 1)))) + '</span>' +
+                '<span class="envops-sample-meta">' + _esc(label + ' · ' + _fmtTimeAgo(item.ts)) + '</span>' +
+                '</button>';
+        }).join('') : '<div class="envops-stage-empty">No replay track yet. Build samples, branches, or event history first.</div>';
+        var sampleHtml = samples.length ? samples.map(function (sample) {
+            var counts = sample.node_counts || {};
+            var total = Number(counts.completed || 0) + Number(counts.running || 0) + Number(counts.failed || 0) + Number(counts.pending || 0);
+            var resolved = total > 0 ? Number(counts.completed || 0) / total : 0;
+            var running = total > 0 ? Number(counts.running || 0) / total : 0;
+            var failed = total > 0 ? Number(counts.failed || 0) / total : 0;
+            var status = _envSampleStatus(sample);
+            var active = focus.kind === 'sample' && String(focus.id || '') === String(sample.id || '') ? ' active' : '';
+            return '<button class="envops-sample-cell ' + _esc(status) + active + '" data-env-focus-kind="sample" data-env-focus-id="' + _esc(String(sample.id || '')) + '">' +
+                '<span class="envops-sample-seq">#' + String(sample.seq || 0) + '</span>' +
+                '<span class="envops-sample-bar">' +
+                '<span class="resolved" style="width:' + String(Math.max(6, Math.round(resolved * 100))) + '%;"></span>' +
+                '<span class="running" style="width:' + String(Math.round(running * 100)) + '%;"></span>' +
+                '<span class="failed" style="width:' + String(Math.round(failed * 100)) + '%;"></span>' +
+                '</span>' +
+                '<span class="envops-sample-meta">' + _esc(status) + ' · ' + _esc(_fmtTimeAgo(sample.ts)) + '</span>' +
+                '</button>';
+        }).join('') : '<div class="envops-stage-empty">No trajectory samples yet. Use SNAPSHOT NOW or START STREAM.</div>';
+        var branchHtml = branches.length ? branches.map(function (branch) {
+            var active = focus.kind === 'branch' && String(focus.id || '') === String(branch.id || '') ? ' active' : '';
+            return '<button class="envops-branch-cell' + active + '" data-env-focus-kind="branch" data-env-focus-id="' + _esc(String(branch.id || '')) + '">' +
+                '<span class="envops-branch-title">' + _esc(String(branch.reason || 'branch')) + '</span>' +
+                '<span class="envops-branch-meta">' + _esc(_fmtTimeAgo(branch.ts)) + (branch.sample_id ? ' · sample linked' : '') + '</span>' +
+                '</button>';
+        }).join('') : '<div class="envops-stage-empty">No branches yet. Use BRANCH SNAPSHOT to fork current state.</div>';
+        return '<div class="envops-trajectory-panel">' +
+            '<div class="envops-trajectory-head"><span>Replay Rail</span><span>' + String(replayTrack.length) + ' items · ' + _esc(String(replay.mode || 'samples')) + '</span></div>' +
+            '<div class="envops-kernel-actions" style="margin-bottom:8px;">' +
+            '<button data-env-action="toggle-replay">' + (replay.active ? 'PAUSE REPLAY' : 'START REPLAY') + '</button>' +
+            '<button class="btn-dim" data-env-action="replay-prev">STEP BACK</button>' +
+            '<button class="btn-dim" data-env-action="replay-next">STEP NEXT</button>' +
+            '<button class="btn-dim' + ((replay.mode || 'samples') === 'samples' ? ' active' : '') + '" data-env-action="set-replay-mode" data-env-replay-mode="samples">SAMPLES</button>' +
+            '<button class="btn-dim' + ((replay.mode || 'samples') === 'branches' ? ' active' : '') + '" data-env-action="set-replay-mode" data-env-replay-mode="branches">BRANCHES</button>' +
+            '<button class="btn-dim' + ((replay.mode || 'samples') === 'events' ? ' active' : '') + '" data-env-action="set-replay-mode" data-env-replay-mode="events">EVENTS</button>' +
+            '</div>' +
+            '<div class="envops-trajectory-strip">' + replayHtml + '</div>' +
+            '<div class="envops-trajectory-head"><span>Trajectory Monitor</span><span>' + String(samples.length) + ' samples</span></div>' +
+            '<div class="envops-trajectory-strip">' + sampleHtml + '</div>' +
+            '<div class="envops-trajectory-head" style="margin-top:10px;"><span>Branch Yard</span><span>' + String(branches.length) + ' branches</span></div>' +
+            '<div class="envops-branch-yard">' + branchHtml + '</div>' +
+            '</div>';
+    }
+
+    function _envRecentBusEvents(limit) {
+        return (_envBus.events || []).slice(0, Math.max(1, Number(limit || 6)));
+    }
+
+    function _envLatestFailureSurface(workflow, exec, traces) {
+        var nodeStates = exec && exec.node_states ? exec.node_states : {};
+        var failedNodeId = Object.keys(nodeStates).find(function (nodeId) {
+            return _wfNormalizeStatus((nodeStates[nodeId] || {}).status || 'pending') === 'failed';
+        }) || '';
+        if (failedNodeId) {
+            return {
+                kind: 'node',
+                label: _envFocusDescriptor('node', failedNodeId, workflow, [], traces),
+                detail: 'node failure',
+                tone: 'alert'
+            };
+        }
+        var failedTrace = (traces || []).find(function (trace) { return !!trace.error; }) || null;
+        if (failedTrace) {
+            return {
+                kind: 'trace',
+                label: String(failedTrace.tool || 'trace relay'),
+                detail: 'trace error',
+                tone: 'alert'
+            };
+        }
+        var latest = _envRecentBusEvents(4).find(function (event) {
+            return event && (event.kind === 'watch' || event.kind === 'control') && /fail/i.test(String(event.body || ''));
+        }) || null;
+        if (latest) {
+            return {
+                kind: String(latest.kind || 'system'),
+                label: String(latest.body || 'failure signal'),
+                detail: 'bus signal',
+                tone: 'warning'
+            };
+        }
+        return {
+            kind: 'system',
+            label: 'No active failure surface',
+            detail: 'stable',
+            tone: 'ok'
+        };
+    }
+
+    function _envRenderHabitatTelemetry(workflow, exec, traces) {
+        var ingress = _envKernel.ingress || {};
+        var watch = _envKernel.watch || {};
+        var sampler = _envKernel.sampler || {};
+        var replay = _envKernel.replay || {};
+        var events = _envRecentBusEvents(10);
+        var dominance = (_envScene && _envScene.dominance) || _envSceneDominanceContext();
+        var latest = events[0] || null;
+        var failure = _envLatestFailureSurface(workflow, exec, traces);
+        var watchModes = [];
+        if (watch.autoFollowFailed) watchModes.push('follow fail');
+        if (watch.autoBranchOnFailure) watchModes.push('branch fail');
+        if (watch.autoSampleOnRuntime) watchModes.push('sample runtime');
+        if (watch.autoFocusLatestTrace) watchModes.push('focus trace');
+        var ingressTone = ingress.processing ? 'active' : ((ingress.queue || []).length ? 'warning' : (ingress.active ? 'ok' : 'idle'));
+        var samplerTone = sampler.active ? 'active' : 'idle';
+        var replayTone = replay.active ? 'active' : ((replay.track || []).length ? 'ok' : 'idle');
+        var latestTone = latest && latest.kind === 'control' ? 'active' : (latest && latest.channel === 'trace' ? 'warning' : 'ok');
+        var pulseHtml = events.length ? events.map(function (event) {
+            var cls = String(event.channel || 'system').replace(/[^a-z0-9_-]/gi, '').toLowerCase() || 'system';
+            var title = String(event.actor || 'system') + ' · ' + String(event.channel || 'system') + ' · ' + String(event.body || '');
+            var active = (_envKernel.focus || {}).kind === 'event' && String((_envKernel.focus || {}).id || '') === String(event.id || '') ? ' active' : '';
+            var visual = _envSceneEventDominance(dominance, event);
+            var style = 'opacity:' + Number(visual.opacity || 1).toFixed(3) + ';' +
+                'filter:brightness(' + Number(visual.glow || 1).toFixed(3) + ') saturate(' + (visual.dominant ? '1.25' : (visual.suppressed ? '0.68' : '1.00')) + ');' +
+                'transform:scale(' + Number(visual.scale || 1).toFixed(3) + ');';
+            return '<button type="button" class="envops-habitat-pulse-dot ' + _esc(cls) + active + '" style="' + style + '" title="' + _esc(title) + '" data-env-focus-kind="event" data-env-focus-id="' + _esc(String(event.id || event.seq || '')) + '"></button>';
+        }).join('') : '<span class="envops-kernel-note">No bus pulses yet.</span>';
+        var modeLabel = String((dominance && dominance.mode) || 'ambient').replace(/_/g, ' ');
+        return '' +
+            '<div class="envops-habitat-status">' +
+            '<div class="envops-habitat-status-card ' + _esc(ingressTone) + '">' +
+            '<div class="h">Ingress</div>' +
+            '<div class="v">' + (ingress.active ? 'armed' : 'paused') + ' · ' + String((ingress.queue || []).length) + ' queued</div>' +
+            '<div class="m">' + (ingress.processing ? 'dispatching shared commands' : 'shared command bus ready') + '</div>' +
+            '</div>' +
+            '<div class="envops-habitat-status-card ' + _esc(samplerTone) + '">' +
+            '<div class="h">Sampler</div>' +
+            '<div class="v">' + (sampler.active ? 'streaming' : 'manual') + ' · ' + String(sampler.intervalMs || 0) + 'ms</div>' +
+            '<div class="m">' + ((watchModes.length ? watchModes.join(' · ') : 'manual watch only')) + '</div>' +
+            '</div>' +
+            '<div class="envops-habitat-status-card ' + _esc(replayTone) + '">' +
+            '<div class="h">Replay Rail</div>' +
+            '<div class="v">' + (replay.active ? 'playing' : 'ready') + ' · ' + _esc(String(replay.mode || 'samples')) + '</div>' +
+            '<div class="m">' + (((replay.track || []).length) ? ('cursor ' + String(Math.max(0, Number(replay.cursor || 0)) + 1) + ' / ' + String((replay.track || []).length)) : 'waiting on replay track') + '</div>' +
+            '</div>' +
+            '<div class="envops-habitat-status-card ' + _esc(latestTone) + '">' +
+            '<div class="h">Latest Bus Action</div>' +
+            '<div class="v">' + _esc(latest ? String(latest.body || 'event') : 'No recent action') + '</div>' +
+            '<div class="m">' + _esc(latest ? (String(latest.actor || 'system') + ' · ' + String(latest.channel || 'system')) : 'waiting on shared ingress') + '</div>' +
+            '</div>' +
+            '<div class="envops-habitat-status-card ' + _esc(failure.tone) + '">' +
+            '<div class="h">Failure Surface</div>' +
+            '<div class="v">' + _esc(failure.label) + '</div>' +
+            '<div class="m">' + _esc(failure.detail + ' · ' + failure.kind) + '</div>' +
+            '</div>' +
+            '</div>' +
+            '<div class="envops-habitat-pulse-lane">' +
+            '<div class="envops-habitat-pulse-head"><span>Live Pulse Lane</span><span>' + String(events.length) + ' recent bus events · priority: ' + _esc(modeLabel) + '</span></div>' +
+            '<div class="envops-habitat-pulse-strip">' + pulseHtml + '</div>' +
+            '</div>';
+    }
+
+    function _envHabitatObjects(workflow, exec, sections, traces) {
+        if (!workflow) return [];
+        var objects = [{
+            kind: 'workflow',
+            id: String(workflow.id || _wfSelectedId || 'workflow'),
+            label: String(workflow.name || workflow.id || 'workflow'),
+            meta: 'control core',
+            state: exec ? _wfNormalizeStatus(exec.status || 'pending') : 'idle',
+            category: 'workflow',
+            x: 50, y: 18, scale: 1.08, tilt: 0
+        }];
+        var lanes = { inputs: 14, agents: 34, tools: 54, control: 74, outputs: 88, other: 22 };
+        var counts = {};
+        (workflow.nodes || []).forEach(function (node) {
+            var bucket = _envClassifyNodeType(node);
+            counts[bucket] = (counts[bucket] || 0) + 1;
+            var idx = counts[bucket] - 1;
+            var laneX = lanes[bucket] || 22;
+            var row = idx % 4;
+            var col = Math.floor(idx / 4);
+            var x = Math.min(92, laneX + col * 6);
+            var y = 36 + row * 14 + col * 2;
+            var nodeState = exec && exec.node_states ? (exec.node_states[String(node.id || '')] || {}) : {};
+            objects.push({
+                kind: 'node',
+                id: String(node.id || ''),
+                label: String(node.name || node.label || node.id || 'node'),
+                meta: String(node.type || 'node') + (node.tool ? ' · ' + node.tool : ''),
+                state: _wfNormalizeStatus(nodeState.status || 'pending'),
+                category: bucket,
+                x: x, y: y, scale: Math.max(0.78, 1 - (row * 0.05) - (col * 0.03)), tilt: (laneX - 50) / 4
+            });
+        });
+        sections.slice(0, 3).forEach(function (section, idx) {
+            objects.push({
+                kind: 'artifact',
+                id: String(idx),
+                label: String(section.title || ('artifact ' + idx)),
+                meta: 'artifact dock',
+                state: 'completed',
+                category: 'artifact',
+                x: 16 + idx * 12, y: 78, scale: 0.82, tilt: -8 + idx * 4
+            });
+        });
+        traces.slice(0, 3).forEach(function (trace, idx) {
+            objects.push({
+                kind: 'trace',
+                id: String(idx),
+                label: String(trace.tool || ('trace ' + idx)),
+                meta: 'trace relay',
+                state: trace.error ? 'failed' : 'completed',
+                category: 'trace',
+                x: 84 - idx * 10, y: 76, scale: 0.8, tilt: 10 - idx * 4
+            });
+        });
+        var eventLanes = {};
+        _envRecentBusEvents(6).forEach(function (event, idx) {
+            var isFailure = _envBusEventSignalsFailure(event);
+            var channel = String(event.channel || 'system').toLowerCase();
+            eventLanes[channel] = (eventLanes[channel] || 0) + 1;
+            var anchor = _envSceneEventAnchor(event, idx, eventLanes[channel] - 1);
+            objects.push({
+                kind: 'event',
+                id: String(event.id || event.seq || idx),
+                label: String(event.channel || 'event') + ' #' + String(event.seq || idx + 1),
+                meta: String(event.actor || 'system') + ' · ' + String(event.body || 'bus signal').slice(0, 42),
+                state: isFailure ? 'failed' : ((String(event.channel || '') === 'runtime' || String(event.channel || '') === 'control') ? 'running' : 'completed'),
+                category: String(anchor.category || ('event ' + channel)),
+                x: anchor.x,
+                y: anchor.y,
+                scale: anchor.scale,
+                tilt: anchor.tilt
+            });
+        });
+        (_envKernel.samples || []).slice(0, 4).forEach(function (sample, idx) {
+            objects.push({
+                kind: 'sample',
+                id: String(sample.id || idx),
+                label: 'sample #' + String(sample.seq || idx + 1),
+                meta: _envSampleStatus(sample) + ' · traces ' + String(sample.trace_count || 0),
+                state: _envSampleStatus(sample),
+                category: 'sample beacon',
+                x: 22 + idx * 10, y: 18 + idx * 3, scale: 0.68, tilt: -18 + idx * 6
+            });
+        });
+        (_envKernel.branches || []).slice(0, 3).forEach(function (branch, idx) {
+            objects.push({
+                kind: 'branch',
+                id: String(branch.id || idx),
+                label: String(branch.reason || ('branch ' + (idx + 1))),
+                meta: 'fork yard',
+                state: 'completed',
+                category: 'branch',
+                x: 76 + idx * 8, y: 18 + idx * 5, scale: 0.72, tilt: 16 - idx * 6
+            });
+        });
+        if ((_envKernel.replay || {}).current) {
+            var replayItem = (_envKernel.replay || {}).current;
+            objects.push({
+                kind: 'replay',
+                id: String(Math.max(0, Number((_envKernel.replay || {}).cursor || 0))),
+                label: 'replay · ' + String(replayItem.label || replayItem.kind || 'item'),
+                meta: String(((_envKernel.replay || {}).mode) || 'samples') + ' cursor',
+                state: (_envKernel.replay || {}).active ? 'running' : 'completed',
+                category: 'replay',
+                x: 50, y: 10, scale: 0.88, tilt: 0
+            });
+        }
+        _envRecipeCatalog().slice(0, 4).forEach(function (recipe, idx) {
+            objects.push({
+                kind: 'recipe',
+                id: String(recipe.id || idx),
+                label: String(recipe.label || recipe.id || ('recipe ' + (idx + 1))),
+                meta: 'recipe console',
+                state: 'idle',
+                category: 'recipe',
+                x: 66 + idx * 8, y: 58, scale: 0.74, tilt: 14 - idx * 5
+            });
+        });
+        _envProfileCatalog().slice(0, 4).forEach(function (profile, idx) {
+            var active = String(((_envKernel.profile || {}).activeId) || '') === String(profile.id || '');
+            objects.push({
+                kind: 'profile',
+                id: String(profile.id || idx),
+                label: String(profile.label || profile.id || ('profile ' + (idx + 1))),
+                meta: String(profile.note || 'control profile'),
+                state: active ? 'running' : 'idle',
+                category: 'profile',
+                x: 62 + idx * 8, y: 92, scale: 0.7, tilt: 12 - idx * 5
+            });
+        });
+        var ingressCurrent = ((_envKernel.ingress || {}).current) || null;
+        if (ingressCurrent) {
+            objects.push({
+                kind: 'dispatch',
+                id: String(ingressCurrent.id || 'dispatch'),
+                label: 'dispatch · ' + String(ingressCurrent.action || 'action'),
+                meta: String(ingressCurrent.actor || 'system') + ' · ' + String(ingressCurrent.target || 'shared target'),
+                state: _wfNormalizeStatus(ingressCurrent.status || 'running'),
+                category: 'ingress dispatch',
+                x: 38, y: 10, scale: 0.74, tilt: -6
+            });
+        }
+        (((_envKernel.ingress || {}).queue) || []).slice(0, 3).forEach(function (item, idx) {
+            objects.push({
+                kind: 'queued',
+                id: String(item.id || ('queued-' + idx)),
+                label: 'queued · ' + String(item.action || ('action ' + (idx + 1))),
+                meta: String(item.actor || 'assistant') + ' · ' + String(item.target || 'awaiting target'),
+                state: idx === 0 ? 'running' : 'idle',
+                category: 'ingress queued',
+                x: 26 + idx * 10, y: 24 + idx * 4, scale: 0.68, tilt: -12 + idx * 6
+            });
+        });
+        _envWatchDescriptors().forEach(function (watchMeta, idx) {
+            var enabled = !!((_envKernel.watch || {})[watchMeta.key]);
+            objects.push({
+                kind: 'watch',
+                id: String(watchMeta.key || ('watch-' + idx)),
+                label: String(watchMeta.label || watchMeta.key || ('watch ' + (idx + 1))),
+                meta: String(watchMeta.detail || 'watch sentinel'),
+                state: enabled ? 'running' : 'idle',
+                category: 'watch sentinel',
+                x: 18 + idx * 12, y: 90, scale: 0.64, tilt: -16 + idx * 6
+            });
+        });
+        (_envDocState.results || []).slice(0, 2).forEach(function (doc, idx) {
+            objects.push({
+                kind: 'doc',
+                id: String(doc.key || doc.path || doc.id || idx),
+                label: String(doc.key || doc.path || ('doc ' + (idx + 1))),
+                meta: 'memory shelf',
+                state: idx === 0 ? 'completed' : 'idle',
+                category: 'doc',
+                x: 14 + idx * 12, y: 58, scale: 0.72, tilt: -20 + idx * 10
+            });
+        });
+        return objects;
+    }
+
+    function _envRenderHabitat(workflow, exec, sections, traces) {
+        var focus = _envKernel.focus || {};
+        var dominance = (_envScene && _envScene.dominance) || _envSceneDominanceContext();
+        var failure = _envLatestFailureSurface(workflow, exec, traces);
+        var cameraMode = _envSceneNormalizeCameraMode(_envScene.cameraMode || (((_envConfig || {}).scene || {}).defaultCameraMode) || 'overview');
+        var camera = _envScene.camera || {};
+        var routeCount = Number(((_envScene.routes || []).length) || 0);
+        var trajectoryCount = Number(((_envScene.trajectories || []).length) || 0);
+        var watch = _envKernel.watch || {};
+        var habitatClasses = ['envops-habitat', 'mode-' + String((dominance && dominance.mode) || 'ambient'), 'failure-' + String((failure && failure.tone) || 'ok')];
+        if (watch.autoFollowFailed || watch.autoBranchOnFailure || watch.autoSampleOnRuntime || watch.autoFocusLatestTrace) habitatClasses.push('watch-armed');
+        if (((_envKernel.ingress || {}).processing)) habitatClasses.push('ingress-active');
+        var cameraOffset = (Math.abs(Number(camera.offsetX || 0)) > 0.25 || Math.abs(Number(camera.offsetY || 0)) > 0.25 || Math.abs(Number((camera.zoomScale || 1) - 1)) > 0.02)
+            ? ('offset ' + Number(camera.offsetX || 0).toFixed(1) + ',' + Number(camera.offsetY || 0).toFixed(1) + ' · zoom ' + Number(camera.zoomScale || 1).toFixed(2))
+            : 'camera locked to rail';
+        var cameraModes = [
+            { id: 'overview', label: 'Overview Cam' },
+            { id: 'focus', label: 'Follow Focus' },
+            { id: 'replay', label: 'Follow Replay' }
+        ].map(function (mode) {
+            var active = cameraMode === mode.id ? ' active' : '';
+            return '<span class="envops-focus-chip' + active + '" data-env-action="set-camera-mode" data-env-camera-mode="' + _esc(mode.id) + '">' + _esc(mode.label) + '</span>';
+        }).join('');
+        var html = '<div class="' + _esc(habitatClasses.join(' ')) + '">' +
+            _envRenderHabitatTelemetry(workflow, exec, traces) +
+            '<div class="envops-habitat-scene">' +
+            '<div class="envops-habitat-shell" id="envops-habitat-shell" data-env-camera-mode="' + _esc(cameraMode) + '" data-env-dominance-mode="' + _esc(String((dominance && dominance.mode) || 'ambient')) + '">' +
+            '<div class="envops-habitat-backwall"></div>' +
+            '<div class="envops-habitat-floor"></div>' +
+            '<canvas class="envops-habitat-canvas" id="envops-habitat-canvas"></canvas>' +
+            _envSceneRenderDistrictLayer(workflow, exec, sections, traces) +
+            '<div class="envops-habitat-object-layer" id="envops-habitat-object-layer"></div>' +
+            '</div>' +
+            '<div class="envops-habitat-hud">' +
+            '<div class="envops-habitat-hud-primary" id="envops-habitat-hud-primary">' + _esc(focus.label ? ('Focused: ' + String(focus.label)) : 'Scene ready.') + '</div>' +
+            '<div class="envops-habitat-hud-secondary" id="envops-habitat-hud-secondary">Click a primitive to route focus through the shared ingress queue. Drag the habitat shell to pan, wheel to zoom, double-click to reset.</div>' +
+            '</div>' +
+            '</div>' +
+            '<div class="envops-habitat-legend">' +
+            '<span class="envops-legend-pill">workflow core</span>' +
+            '<span class="envops-legend-pill">node lattice</span>' +
+            '<span class="envops-legend-pill">artifact dock</span>' +
+            '<span class="envops-legend-pill">trace relays</span>' +
+            '<span class="envops-legend-pill">event relays</span>' +
+            '<span class="envops-legend-pill">dispatch core</span>' +
+            '<span class="envops-legend-pill">queue rail</span>' +
+            '<span class="envops-legend-pill">sample beacons</span>' +
+            '<span class="envops-legend-pill">branch yard</span>' +
+            '<span class="envops-legend-pill">replay cursor</span>' +
+            '<span class="envops-legend-pill">recipe consoles</span>' +
+            '<span class="envops-legend-pill">watch sentinels</span>' +
+            '<span class="envops-legend-pill">memory shelf</span>' +
+            '<span class="envops-legend-pill">route topology · ' + String(routeCount) + '</span>' +
+            '<span class="envops-legend-pill">trajectory ribbons · ' + String(trajectoryCount) + '</span>' +
+            '</div>' +
+            '<div class="envops-habitat-pulse-lane">' +
+            '<div class="envops-habitat-pulse-head"><span>Camera Rail</span><span>' + _esc(cameraMode) + '</span></div>' +
+            '<div class="envops-focus-strip">' + cameraModes + '<span class="envops-focus-chip" data-env-action="reset-camera">Reset Drift</span></div>' +
+            '<div class="envops-kernel-note" style="padding:6px 10px 0 10px;">' + _esc(cameraOffset) + '</div>' +
+            '</div>' +
+            _envRenderTrajectoryPanel() +
+            '</div>';
+        return html;
+    }
+
+    function _envRenderKernel(workflow, exec, sections, traces) {
+        var focus = _envFocusPayload(workflow, exec, sections, traces);
+        var replay = _envKernel.replay || {};
+        var activeProfile = _envProfileById(((_envKernel.profile || {}).activeId) || '');
+        var focusMeta = [];
+        var focusId = String(((_envKernel.focus || {}).id) || '');
+        var focusKind = String(((_envKernel.focus || {}).kind) || 'workflow');
+        var activeDocKey = String(_envDocState.activeDocId || ((_envDocState.activeDocMeta || {}).key || (_envDocState.activeDocMeta || {}).path || '')).trim();
+        if (_envKernel.focus && _envKernel.focus.actor) focusMeta.push('actor ' + _envKernel.focus.actor);
+        if (exec && exec.execution_id) focusMeta.push('exec ' + _activityTokenShort(exec.execution_id, 18));
+        if (activeProfile) focusMeta.push('profile ' + String(activeProfile.label || activeProfile.id || 'active'));
+        var branchStrip = _envKernel.branches.slice(0, 5).map(function (branch) {
+            var active = (_envKernel.focus || {}).kind === 'branch' && String((_envKernel.focus || {}).id || '') === String(branch.id || '') ? ' active' : '';
+            return '<span class="envops-branch-chip' + active + '" data-env-action="focus-branch" data-env-branch-id="' + _esc(branch.id) + '">' + _esc(branch.reason) + '</span>';
+        }).join('');
+        if (!branchStrip) branchStrip = '<span class="envops-kernel-note">No branch snapshots yet.</span>';
+        var sampleStrip = (_envKernel.samples || []).slice(0, 8).map(function (sample) {
+            var active = (_envKernel.focus || {}).kind === 'sample' && String((_envKernel.focus || {}).id || '') === String(sample.id || '') ? ' active' : '';
+            return '<span class="envops-sample-chip' + active + '" data-env-action="focus-sample" data-env-sample-id="' + _esc(String(sample.id || '')) + '">#' + String(sample.seq || 0) + ' · ' + _esc(_envSampleStatus(sample)) + '</span>';
+        }).join('');
+        if (!sampleStrip) sampleStrip = '<span class="envops-kernel-note">No samples yet.</span>';
+        var nodeButtons = (workflow.nodes || []).slice(0, 10).map(function (node) {
+            var active = (_envKernel.focus || {}).kind === 'node' && String((_envKernel.focus || {}).id || '') === String(node.id || '') ? ' active' : '';
+            return '<span class="envops-focus-chip' + active + '" data-env-action="focus-node" data-env-node-id="' + _esc(String(node.id || '')) + '">' + _esc(String(node.name || node.label || node.id || 'node')) + '</span>';
+        }).join('');
+        if (!nodeButtons) nodeButtons = '<span class="envops-kernel-note">No nodes to focus.</span>';
+        var artifactButtons = sections.map(function (section, idx) {
+            return '<span class="envops-focus-chip" data-env-action="focus-artifact" data-env-artifact-index="' + String(idx) + '">' + _esc(section.title || ('artifact ' + idx)) + '</span>';
+        }).join('');
+        if (!artifactButtons) artifactButtons = '<span class="envops-kernel-note">No artifact outputs yet.</span>';
+        var controlTarget = focusKind === 'doc' ? activeDocKey : focusId;
+        var queuePreview = (_envKernel.ingress.queue || []).slice(0, 4).map(function (item) {
+            return '<span class="envops-focus-chip" data-env-action="drop-queued" data-env-queue-id="' + _esc(String(item.id || '')) + '" title="Drop queued action">' + _esc(String(item.action || 'action')) + (item.target ? ' → ' + _esc(String(item.target)) : '') + '</span>';
+        }).join('');
+        if (!queuePreview) queuePreview = '<span class="envops-kernel-note">Ingress queue is empty.</span>';
+        var ingressCurrent = _envKernel.ingress.current || null;
+        var currentDispatch = ingressCurrent
+            ? '<span class="envops-focus-chip active">' + _esc(String(ingressCurrent.action || 'action')) + (ingressCurrent.target ? ' → ' + _esc(String(ingressCurrent.target)) : '') + ' · ' + _esc(String(ingressCurrent.actor || 'system')) + '</span>'
+            : '<span class="envops-kernel-note">No active dispatch.</span>';
+        var ingressHistory = (_envKernel.ingress.history || []).slice(0, 6).map(function (item) {
+            var status = String(item.status || 'completed');
+            return '<span class="envops-focus-chip' + (status === 'failed' ? ' active' : '') + '" data-env-action="requeue-history" data-env-history-id="' + _esc(String(item.id || '')) + '" title="Replay ingress action">' + _esc(String(item.action || 'action')) + ' · ' + _esc(status) + '</span>';
+        }).join('');
+        if (!ingressHistory) ingressHistory = '<span class="envops-kernel-note">No completed ingress actions yet.</span>';
+        var watchModes = [
+            { key: 'autoFollowFailed', label: 'follow failed' },
+            { key: 'autoBranchOnFailure', label: 'branch on fail' },
+            { key: 'autoSampleOnRuntime', label: 'sample runtime' },
+            { key: 'autoFocusLatestTrace', label: 'focus latest trace' }
+        ].map(function (watch) {
+            var active = _envKernel.watch[watch.key] ? ' active' : '';
+            return '<span class="envops-focus-chip' + active + '" data-env-action="toggle-watch" data-env-watch-key="' + _esc(watch.key) + '">' + _esc(watch.label) + '</span>';
+        }).join('');
+        var recipeStrip = _envRecipeCatalog().map(function (recipe) {
+            return '<span class="envops-focus-chip" data-env-action="run-recipe" data-env-recipe-id="' + _esc(String(recipe.id || '')) + '" title="' + _esc(String(recipe.note || '')) + '">' + _esc(String(recipe.label || recipe.id || 'recipe')) + '</span>';
+        }).join('');
+        if (!recipeStrip) recipeStrip = '<span class="envops-kernel-note">No recipes configured.</span>';
+        var profileStrip = _envProfileCatalog().map(function (profile) {
+            var isActive = String(((_envKernel.profile || {}).activeId) || '') === String(profile.id || '');
+            var focusActive = (_envKernel.focus || {}).kind === 'profile' && String(((_envKernel.focus || {}).id || '') === String(profile.id || ''));
+            var cls = (isActive || focusActive) ? ' active' : '';
+            return '<span class="envops-focus-chip' + cls + '" data-env-action="' + (isActive ? 'focus-profile' : 'activate-profile') + '" data-env-profile-id="' + _esc(String(profile.id || '')) + '" title="' + _esc(String(profile.note || '')) + '">' + _esc(String(profile.label || profile.id || 'profile')) + '</span>';
+        }).join('');
+        if (!profileStrip) profileStrip = '<span class="envops-kernel-note">No profiles configured.</span>';
+        return '' +
+            '<div class="envops-focus-card">' +
+            '<div class="envops-focus-head"><div class="envops-focus-title">' + _esc(String(focus.label || 'workflow')) + '</div><div class="envops-focus-meta">' + _esc(focusMeta.join(' · ') || 'focus ready') + '</div></div>' +
+            '<div class="envops-focus-meta">' + _esc(String(focus.kind || 'workflow').toUpperCase()) + ' · This shell is the shared activation point for manual and assistant-directed control.</div>' +
+            _wfJsonBlock('Focused Payload', focus.data || {}) +
+            '</div>' +
+            '<div class="envops-kernel-row">' +
+            '<div class="envops-kernel-card"><div class="h">Sampling</div><div class="v">' + (_envKernel.sampler.active ? 'Continuous @ ' + String(_envKernel.sampler.intervalMs) + 'ms' : 'Manual snapshots only') + '</div></div>' +
+            '<div class="envops-kernel-card"><div class="h">Branches</div><div class="v">' + String(_envKernel.branches.length) + ' saved branches</div></div>' +
+            '<div class="envops-kernel-card"><div class="h">Replay</div><div class="v">' + (replay.active ? 'Playing ' : 'Ready ') + '· ' + _esc(String(replay.mode || 'samples')) + ' · ' + String((replay.track || []).length) + ' items</div></div>' +
+            '<div class="envops-kernel-card"><div class="h">Trace Window</div><div class="v">' + String(traces.length) + ' recent rows linked to this system</div></div>' +
+            '<div class="envops-kernel-card"><div class="h">Ingress</div><div class="v">' + (_envKernel.ingress.active ? 'Live @ ' + String(_envKernel.ingress.intervalMs) + 'ms' : 'Paused') + ' · ' + String((_envKernel.ingress.queue || []).length) + ' queued</div></div>' +
+            '<div class="envops-kernel-card"><div class="h">Profile</div><div class="v">' + _esc(activeProfile ? String(activeProfile.label || activeProfile.id || 'active') : 'none') + '</div></div>' +
+            '</div>' +
+            '<div class="envops-kernel-actions">' +
+            '<button data-env-action="sample-now">SNAPSHOT NOW</button>' +
+            '<button class="btn-dim" data-env-action="toggle-sampler">' + (_envKernel.sampler.active ? 'STOP STREAM' : 'START STREAM') + '</button>' +
+            '<button class="btn-dim" data-env-action="toggle-replay">' + (replay.active ? 'PAUSE REPLAY' : 'START REPLAY') + '</button>' +
+            '<button class="btn-dim" data-env-action="replay-prev">STEP BACK</button>' +
+            '<button class="btn-dim" data-env-action="replay-next">STEP NEXT</button>' +
+            '<button class="btn-dim" data-env-action="focus-workflow">FOCUS WORKFLOW</button>' +
+            '<button class="btn-dim" data-env-action="follow-failed">FOLLOW FAILED</button>' +
+            '<button class="btn-dim" data-env-action="branch-now">BRANCH SNAPSHOT</button>' +
+            '<button class="btn-dim" data-env-action="toggle-ingress">' + (_envKernel.ingress.active ? 'PAUSE INGRESS' : 'RESUME INGRESS') + '</button>' +
+            '<button class="btn-dim" data-env-action="clear-queue">CLEAR QUEUE</button>' +
+            '</div>' +
+            '<div class="envops-control-shell">' +
+            '<div class="envops-card-label" style="margin-bottom:0;">Shared Control Console</div>' +
+             '<div class="envops-control-grid">' +
+             '<div class="envops-control-field"><label for="envops-control-actor">Actor</label><select id="envops-control-actor"><option value="user">user</option><option value="assistant">assistant</option><option value="system">system</option></select></div>' +
+             '<div class="envops-control-field"><label for="envops-control-action">Action</label><select id="envops-control-action">' +
+            '<option value="run_recipe">run_recipe</option>' +
+             '<option value="activate_profile">activate_profile</option>' +
+             '<option value="focus_profile">focus_profile</option>' +
+             '<option value="sample_now">sample_now</option>' +
+            '<option value="toggle_stream">toggle_stream</option>' +
+            '<option value="toggle_replay">toggle_replay</option>' +
+            '<option value="replay_prev">replay_prev</option>' +
+            '<option value="replay_next">replay_next</option>' +
+            '<option value="set_replay_mode">set_replay_mode</option>' +
+            '<option value="set_camera_mode">set_camera_mode</option>' +
+            '<option value="focus_replay">focus_replay</option>' +
+            '<option value="branch_snapshot">branch_snapshot</option>' +
+            '<option value="focus_workflow">focus_workflow</option>' +
+            '<option value="focus_node">focus_node</option>' +
+            '<option value="focus_recipe">focus_recipe</option>' +
+            '<option value="focus_dispatch">focus_dispatch</option>' +
+            '<option value="focus_queued">focus_queued</option>' +
+            '<option value="focus_watch">focus_watch</option>' +
+            '<option value="focus_artifact">focus_artifact</option>' +
+            '<option value="focus_trace">focus_trace</option>' +
+            '<option value="focus_sample">focus_sample</option>' +
+            '<option value="focus_branch">focus_branch</option>' +
+            '<option value="focus_doc">focus_doc</option>' +
+            '<option value="follow_failed">follow_failed</option>' +
+            '<option value="scan_docs">scan_docs</option>' +
+            '<option value="open_doc_memory">open_doc_memory</option>' +
+            '<option value="open_workflows">open_workflows</option>' +
+            '<option value="open_debug">open_debug</option>' +
+            '<option value="open_memory">open_memory</option>' +
+            '<option value="open_tools">open_tools</option>' +
+            '</select></div>' +
+            '<div class="envops-control-field"><label for="envops-control-target">Target</label><input id="envops-control-target" value="' + _esc(controlTarget) + '" placeholder="node id / doc key / workflow id" /></div>' +
+            '<div class="envops-control-field"><label for="envops-control-note">Reason</label><input id="envops-control-note" value="" placeholder="optional note for ledger / branch" /></div>' +
+            '</div>' +
+            '<div class="envops-input-wrap" style="margin-top:10px;">' +
+            '<div class="envops-input-label">Batch Control JSON</div>' +
+            '<textarea class="envops-input" id="envops-control-batch" style="min-height:92px;" placeholder=\'[{\"action\":\"sample_now\"},{\"action\":\"scan_docs\",\"note\":\"refresh docs\"},{\"action\":\"focus_workflow\"}]\'></textarea>' +
+            '</div>' +
+            '<div class="envops-control-foot">' +
+            '<button data-env-action="execute-command">QUEUE CONTROL ACTION</button>' +
+            '<button class="btn-dim" data-env-action="queue-batch">QUEUE BATCH</button>' +
+            '<span class="envops-kernel-note">All assistant and manual control commands converge through one ingress queue and one bus.</span>' +
+            '</div>' +
+             '</div>' +
+             '<div><div class="envops-card-label" style="margin-bottom:6px;">Watch Modes</div><div class="envops-focus-strip">' + watchModes + '</div></div>' +
+            '<div><div class="envops-card-label" style="margin-bottom:6px;">Profile Rail</div><div class="envops-focus-strip">' + profileStrip + '</div></div>' +
+            '<div><div class="envops-card-label" style="margin-bottom:6px;">Recipe Rack</div><div class="envops-focus-strip">' + recipeStrip + '</div></div>' +
+             '<div><div class="envops-card-label" style="margin-bottom:6px;">Dispatching Now</div><div class="envops-focus-strip">' + currentDispatch + '</div></div>' +
+            '<div><div class="envops-card-label" style="margin-bottom:6px;">Ingress Queue</div><div class="envops-focus-strip">' + queuePreview + '</div></div>' +
+            '<div><div class="envops-card-label" style="margin-bottom:6px;">Recent Dispatches</div><div class="envops-focus-strip">' + ingressHistory + '</div></div>' +
+            '<div><div class="envops-card-label" style="margin-bottom:6px;">Node Focus Strip</div><div class="envops-focus-strip">' + nodeButtons + '</div></div>' +
+            '<div><div class="envops-card-label" style="margin-bottom:6px;">Artifact Focus Strip</div><div class="envops-focus-strip">' + artifactButtons + '</div></div>' +
+            '<div><div class="envops-card-label" style="margin-bottom:6px;">Sample Strip</div><div class="envops-sample-strip">' + sampleStrip + '</div></div>' +
+            '<div><div class="envops-card-label" style="margin-bottom:6px;">Branch Strip</div><div class="envops-branch-strip">' + branchStrip + '</div></div>' +
+            '<div class="envops-kernel-note">The first god-mode layer is renderer-agnostic. It keeps one local activation point, one ingress path, one bus, and one shared focus state for human and assistant-driven operations.</div>';
+    }
+
+    function _envRenderLedger() {
+        var ledgerEl = document.getElementById('envops-ledger');
+        var countEl = document.getElementById('envops-action-count');
+        if (!ledgerEl) return;
+        if (countEl) countEl.textContent = String(_envKernel.actions.length);
+        if (!_envKernel.actions.length) {
+            ledgerEl.innerHTML = '<div class="envops-stage-empty">No god-mode actions yet. Focus a system, take a sample, start a stream, or branch the current state.</div>';
+            return;
+        }
+        ledgerEl.innerHTML = '<div class="envops-ledger-list">' + _envKernel.actions.map(function (entry) {
+            var when = _fmtTimeAgo(entry.ts);
+            var payloadText = entry.payload ? JSON.stringify(entry.payload, null, 2) : '';
+            if (payloadText.length > 220) payloadText = payloadText.slice(0, 220) + '…';
+            return '<div class="envops-ledger-entry">' +
+                '<div class="envops-ledger-head">' +
+                '<span class="envops-ledger-kind">' + _esc(entry.kind) + '</span>' +
+                '<span class="envops-ledger-actor">' + _esc(entry.actor) + '</span>' +
+                '<span class="envops-ledger-time">' + _esc(when) + '</span>' +
+                '</div>' +
+                '<div class="envops-ledger-body">' + _esc(entry.body) + (payloadText ? '\n' + payloadText : '') + '</div>' +
+                '</div>';
+        }).join('') + '</div>';
+    }
+
+    function _envRenderBus() {
+        var busEl = document.getElementById('envops-bus');
+        var countEl = document.getElementById('envops-bus-count');
+        if (!busEl) return;
+        if (countEl) countEl.textContent = String(_envBus.events.length);
+        var events = (_envBus.events || []).slice(0, _envLiveTailLimit());
+        if (!events.length) {
+            busEl.innerHTML = '<div class="envops-stage-empty">No bus events yet. Every operator action, runtime update, sample, branch, and document read will surface here.</div>';
+            return;
+        }
+        busEl.innerHTML = '<div class="envops-ledger-list">' + events.map(function (event) {
+            var when = _fmtTimeAgo(event.ts);
+            var payloadText = event.payload ? JSON.stringify(event.payload, null, 2) : '';
+            var active = (_envKernel.focus || {}).kind === 'event' && String((_envKernel.focus || {}).id || '') === String(event.id || '') ? ' active' : '';
+            return '<div class="envops-ledger-entry' + active + '" data-env-action="focus-event" data-env-event-id="' + _esc(String(event.id || event.seq || '')) + '">' +
+                '<div class="envops-ledger-head">' +
+                '<span class="envops-ledger-kind">' + _esc(event.channel) + '</span>' +
+                '<span class="envops-ledger-actor">' + _esc(event.actor) + '</span>' +
+                '<span class="envops-ledger-time">#' + String(event.seq) + ' · ' + _esc(when) + '</span>' +
+                '</div>' +
+                '<div class="envops-ledger-body">' + _esc(event.body) + (payloadText ? '\n' + payloadText : '') + '</div>' +
+                '</div>';
+        }).join('') + '</div>';
+    }
+
+    function _envRenderConfigPanel() {
+        var panelEl = document.getElementById('envops-config-panel');
+        var sourceEl = document.getElementById('envops-config-source');
+        if (!panelEl) return;
+        if (sourceEl) sourceEl.textContent = String(_envBus.source || 'defaults');
+        var renderTargetEl = document.getElementById('envops-render-target');
+        var packageModeEl = document.getElementById('envops-package-mode');
+        var activeProfile = _envProfileById(((_envKernel.profile || {}).activeId) || '');
+        var summary = {
+            config_version: String((_envConfig || {}).version || 'unknown'),
+            config_source: String(_envBus.source || 'defaults'),
+            selected_renderer: String((renderTargetEl && renderTargetEl.value) || (((_envConfig || {}).shell || {}).defaultRenderer || 'web3d')),
+            selected_package_mode: String((packageModeEl && packageModeEl.value) || (((_envConfig || {}).shell || {}).defaultPackageMode || 'research')),
+            default_profile: String((((_envConfig || {}).shell || {}).defaultProfile) || ''),
+            active_profile: String((activeProfile && (activeProfile.id || activeProfile.label)) || ''),
+            profile_count: Number(_envProfileCatalog().length || 0),
+            sampler_interval_ms: Number((((_envConfig || {}).sampler || {}).intervalMs) || 4000),
+            scene_camera_mode: String(_envSceneNormalizeCameraMode(_envScene.cameraMode || (((_envConfig || {}).scene || {}).defaultCameraMode) || 'overview')),
+            scene_route_count: Number(((_envScene.routes || []).length) || 0),
+            scene_trajectory_count: Number(((_envScene.trajectories || []).length) || 0),
+            bus_max_events: _envBusLimit(),
+            bus_live_tail: _envLiveTailLimit(),
+            docs_prefix: String((((_envConfig || {}).docs || {}).searchPrefix) || 'docs/'),
+            docs_limit: Number((((_envConfig || {}).docs || {}).searchLimit) || 8),
+            continuity_index: String((((_envConfig || {}).docs || {}).continuityIndex) || ''),
+            recipe_count: Number(_envRecipeCatalog().length || 0),
+            ingress_interval_ms: Number((((_envConfig || {}).ingress || {}).intervalMs) || 700),
+            ingress_active: !!((_envKernel.ingress || {}).active),
+            ingress_queue_depth: Number((((_envKernel.ingress || {}).queue || []).length) || 0),
+            watch_modes: {
+                auto_follow_failed: !!((_envKernel.watch || {}).autoFollowFailed),
+                auto_branch_on_failure: !!((_envKernel.watch || {}).autoBranchOnFailure),
+                auto_sample_on_runtime: !!((_envKernel.watch || {}).autoSampleOnRuntime),
+                auto_focus_latest_trace: !!((_envKernel.watch || {}).autoFocusLatestTrace)
+            },
+            shared_focus: Object.assign({}, (_envKernel.focus || {})),
+            sampler_state: {
+                active: !!((_envKernel.sampler || {}).active),
+                interval_ms: Number((_envKernel.sampler || {}).intervalMs || 0)
+            },
+            replay_state: {
+                active: !!((_envKernel.replay || {}).active),
+                mode: String(((_envKernel.replay || {}).mode) || 'samples'),
+                interval_ms: Number(((_envKernel.replay || {}).intervalMs) || 0),
+                cursor: Number(((_envKernel.replay || {}).cursor) || -1),
+                loop: !!((_envKernel.replay || {}).loop),
+                track_length: Number((((_envKernel.replay || {}).track || []).length) || 0)
+            }
+        };
+        var rendererNotes = (((_envConfig || {}).shell || {}).rendererTargets || []).map(function (target) {
+            return '<div class="envops-doc-item">' +
+                '<div class="envops-doc-title">' + _esc(String(target.label || target.id || 'renderer')) + '</div>' +
+                '<div class="envops-doc-meta">' + _esc(String(target.id || '')) + '</div>' +
+                (target.note ? '<div class="envops-doc-preview">' + _esc(String(target.note || '')) + '</div>' : '') +
+                '</div>';
+        }).join('');
+        var profileNotes = _envProfileCatalog().map(function (profile) {
+            var active = String(((_envKernel.profile || {}).activeId) || '') === String(profile.id || '');
+            return '<div class="envops-doc-item">' +
+                '<div class="envops-doc-title">' + _esc(String(profile.label || profile.id || 'profile')) + (active ? ' <span style="color:var(--accent);">[active]</span>' : '') + '</div>' +
+                '<div class="envops-doc-meta">' + _esc(String(profile.id || '')) + ' · camera ' + _esc(String(profile.cameraMode || 'overview')) + ' · replay ' + _esc(String(profile.replayMode || 'samples')) + '</div>' +
+                (profile.note ? '<div class="envops-doc-preview">' + _esc(String(profile.note || '')) + '</div>' : '') +
+                '</div>';
+        }).join('');
+        var recipeNotes = _envRecipeCatalog().map(function (recipe) {
+            return '<div class="envops-doc-item">' +
+                '<div class="envops-doc-title">' + _esc(String(recipe.label || recipe.id || 'recipe')) + '</div>' +
+                '<div class="envops-doc-meta">' + _esc(String(recipe.id || '')) + ' · ' + String((recipe.commands || []).length) + ' actions</div>' +
+                (recipe.note ? '<div class="envops-doc-preview">' + _esc(String(recipe.note || '')) + '</div>' : '') +
+                '</div>';
+        }).join('');
+        panelEl.innerHTML =
+            '<div class="envops-doc-content-head">' +
+            '<div>' +
+            '<div class="envops-doc-title">Environment Config / Shared State</div>' +
+            '<div class="envops-doc-meta">Common bus substrate for manual and assistant-directed control</div>' +
+            '</div>' +
+            '<div class="envops-doc-actions"><button class="btn-dim" data-env-action="reload-config">RELOAD CONFIG</button></div>' +
+            '</div>' +
+            _wfJsonBlock('Config Summary', summary) +
+            '<div class="envops-card-label" style="margin:10px 0 6px 0;">Renderer Targets</div>' +
+            '<div class="envops-doc-list">' + rendererNotes + '</div>' +
+            '<div class="envops-card-label" style="margin:10px 0 6px 0;">Profile Modes</div>' +
+            '<div class="envops-doc-list">' + (profileNotes || '<div class="envops-stage-empty">No profiles configured.</div>') + '</div>' +
+            '<div class="envops-card-label" style="margin:10px 0 6px 0;">Recipe Presets</div>' +
+            '<div class="envops-doc-list">' + (recipeNotes || '<div class="envops-stage-empty">No recipes configured.</div>') + '</div>';
+    }
+
+    function _envFocusCommandForKind(kind) {
+        var k = String(kind || 'workflow').trim();
+        if (k === 'workflow') return 'focus_workflow';
+        if (k === 'node') return 'focus_node';
+        if (k === 'artifact') return 'focus_artifact';
+        if (k === 'trace') return 'focus_trace';
+        if (k === 'doc') return 'focus_doc';
+        if (k === 'sample') return 'focus_sample';
+        if (k === 'branch') return 'focus_branch';
+        if (k === 'replay') return 'focus_replay';
+        if (k === 'recipe') return 'focus_recipe';
+        if (k === 'profile') return 'focus_profile';
+        if (k === 'event') return 'focus_event';
+        if (k === 'dispatch') return 'focus_dispatch';
+        if (k === 'queued') return 'focus_queued';
+        if (k === 'watch') return 'focus_watch';
+        return '';
+    }
+
+    function _envClassifyNodeType(node) {
+        var t = String((node && node.type) || '').toLowerCase();
+        if (t === 'input') return 'inputs';
+        if (t === 'output') return 'outputs';
+        if (t === 'agent') return 'agents';
+        if (t === 'tool' || t === 'http' || t === 'web_search') return 'tools';
+        if (t === 'fan_out' || t === 'if' || t === 'set' || t === 'merge') return 'control';
+        return 'other';
+    }
+
+    function _envNodeBuckets(workflow) {
+        var buckets = { inputs: 0, agents: 0, tools: 0, control: 0, outputs: 0, other: 0 };
+        if (!workflow || !Array.isArray(workflow.nodes)) return buckets;
+        workflow.nodes.forEach(function (node) {
+            buckets[_envClassifyNodeType(node)] += 1;
+        });
+        return buckets;
+    }
+
+    function _envResourceChips(workflow) {
+        if (!workflow || !Array.isArray(workflow.nodes)) return [];
+        var seen = {};
+        var chips = [];
+        workflow.nodes.forEach(function (node) {
+            var type = String((node && node.type) || '').toLowerCase();
+            var label = '';
+            if (type === 'tool') label = 'tool:' + String((node && node.tool) || (node && node.name) || 'unknown');
+            else if (type === 'agent') label = 'agent:' + String((node && node.name) || (node && node.id) || 'agent');
+            else if (type === 'http') label = 'http';
+            else if (type === 'web_search') label = 'web_search';
+            else if (type) label = type;
+            if (label && !seen[label]) {
+                seen[label] = true;
+                chips.push(label);
+            }
+        });
+        return chips.slice(0, 18);
+    }
+
+    function _envArtifactSections() {
+        var sections = [];
+        var exec = _envCurrentExecution();
+        if (exec) {
+            if (exec.output !== undefined) sections.push({ title: 'Execution Output', data: exec.output });
+            if (exec.result !== undefined) sections.push({ title: 'Execution Result', data: exec.result });
+            if (exec.summary !== undefined) sections.push({ title: 'Execution Summary', data: exec.summary });
+            if (exec.node_states) sections.push({ title: 'Node States', data: exec.node_states });
+        }
+        if (_envToolOutputs.export_interface) sections.push({ title: 'Interface Export', data: _envToolOutputs.export_interface });
+        if (_envToolOutputs.start_api_server) sections.push({ title: 'API Server', data: _envToolOutputs.start_api_server });
+        return sections;
+    }
+
+    function _envWorkflowDocQuery(workflow) {
+        if (!workflow) return '';
+        var parts = [];
+        function pushPart(value) {
+            var text = String(value || '').trim();
+            if (!text) return;
+            if (parts.indexOf(text) === -1) parts.push(text);
+        }
+        pushPart(workflow.name);
+        pushPart(workflow.id);
+        pushPart(workflow.description);
+        (workflow.nodes || []).slice(0, 12).forEach(function (node) {
+            pushPart(node.name || node.label || node.id);
+            if (node.tool) pushPart(node.tool);
+            if (node.type) pushPart(node.type);
+        });
+        return parts.join(' ');
+    }
+
+    function _envNormalizeDocResults(payload) {
+        var results = [];
+        if (!payload || typeof payload !== 'object') return results;
+        var rows = Array.isArray(payload.results) ? payload.results : [];
+        rows.forEach(function (row) {
+            if (!row || typeof row !== 'object') return;
+            var key = String(row.key || row.path || row.storage_key || row.id || '').trim();
+            if (!key) return;
+            results.push({
+                id: String(row.id || key),
+                key: key,
+                path: String(row.path || row.key || key),
+                storage_key: String(row.storage_key || row.storage_path || ''),
+                preview: String(row.preview || ''),
+                score: Number(row.score || 0),
+                source: 'bag_search_docs'
+            });
+        });
+        return results;
+    }
+
+    function _envDocResultById(id) {
+        var needle = String(id || '');
+        for (var i = 0; i < _envDocState.results.length; i++) {
+            var doc = _envDocState.results[i] || {};
+            if (String(doc.key || doc.path || doc.id || '') === needle) return doc;
+        }
+        if (_envDocState.activeDocMeta && String((_envDocState.activeDocMeta.key || _envDocState.activeDocMeta.path || '')) === needle) {
+            return _envDocState.activeDocMeta;
+        }
+        return null;
+    }
+
+    function _envDocOpenInMemory(key, actor) {
+        var docKey = String(key || '').trim();
+        if (!docKey) return;
+        var filterEl = document.getElementById('mem-local-filter');
+        if (filterEl) filterEl.value = docKey;
+        _envOpenLinkedTab('memory');
+        try { applyMemoryCatalogFilters(); } catch (e) { }
+        _envLogAction('handoff', 'Opened Memory filter for ' + docKey, actor || 'system', { key: docKey });
+    }
+
+    function _envDocRequestRead(docRef, actor) {
+        var doc = typeof docRef === 'string' ? _envDocResultById(docRef) || { key: String(docRef || '') } : (docRef || {});
+        var key = String(doc.key || doc.path || '').trim();
+        if (!key) return;
+        _envDocState.activeDocId = key;
+        _envDocState.pendingRead = key;
+        _envDocState.activeDocMeta = Object.assign({}, doc);
+        _envDocState.activeDocContent = '';
+        callTool('bag_read_doc', { key: key }, 'bag_read_doc');
+        _envLogAction('doc', 'Requested document read for ' + key, actor || 'system', { key: key });
+    }
+
+    function _envRefreshDocs(reason, actor, force) {
+        var workflow = _wfLoadedDef && String(_wfLoadedDef.id || '') === String(_wfSelectedId || '') ? _wfLoadedDef : null;
+        if (!workflow) return;
+        var workflowId = String(workflow.id || _wfSelectedId || '');
+        var query = _envWorkflowDocQuery(workflow);
+        if (!query) return;
+        if (!force && _envDocState.pendingSearch === workflowId) return;
+        if (!force && _envDocState.workflowId === workflowId && _envDocState.query === query && _envDocState.results.length) return;
+        _envDocState.workflowId = workflowId;
+        _envDocState.query = query;
+        _envDocState.pendingSearch = workflowId;
+        _envDocState.results = [];
+        _envDocState.activeDocId = '';
+        _envDocState.activeDocMeta = null;
+        _envDocState.activeDocContent = '';
+        callTool('bag_search_docs', {
+            query: query,
+            limit: Math.max(1, Number((((_envConfig || {}).docs || {}).searchLimit) || 8)),
+            prefix: String((((_envConfig || {}).docs || {}).searchPrefix) || 'docs/')
+        }, 'bag_search_docs');
+        _envLogAction('docs', 'Scanning related docs' + (reason ? ' · ' + reason : ''), actor || 'system', { workflow_id: workflowId, query: query });
+    }
+
+    function _envRenderDocsPanel() {
+        var docsEl = document.getElementById('envops-docs');
+        var countEl = document.getElementById('envops-doc-count');
+        if (!docsEl) return;
+        if (countEl) countEl.textContent = String(_envDocState.results.length);
+        if (_envDocState.pendingSearch) {
+            docsEl.innerHTML = '<div class="envops-stage-empty">Scanning FelixBag docs for the current system…</div>';
+            return;
+        }
+        if (!_envDocState.results.length) {
+            docsEl.innerHTML = '<div class="envops-stage-empty">No related docs surfaced yet. Use SCAN DOCS after loading a system to pull matching FelixBag materials into the shell.</div>';
+            return;
+        }
+        var listHtml = _envDocState.results.map(function (doc) {
+            var active = String(doc.key || doc.path || '') === String(_envDocState.activeDocId || '') ? ' active' : '';
+            var meta = [];
+            if (doc.score) meta.push('score ' + Number(doc.score).toFixed(3));
+            if (doc.storage_key) meta.push(doc.storage_key);
+            return '<div class="envops-doc-item' + active + '" data-env-action="focus-doc" data-env-doc-key="' + _esc(String(doc.key || doc.path || '')) + '">' +
+                '<div class="envops-doc-title">' + _esc(String(doc.key || doc.path || 'document')) + '</div>' +
+                (meta.length ? '<div class="envops-doc-meta">' + _esc(meta.join(' · ')) + '</div>' : '') +
+                (doc.preview ? '<div class="envops-doc-preview">' + _esc(doc.preview) + '</div>' : '') +
+                '<div class="envops-doc-actions">' +
+                '<button class="btn-dim" data-env-action="focus-doc" data-env-doc-key="' + _esc(String(doc.key || doc.path || '')) + '">READ</button>' +
+                '<button class="btn-dim" data-env-action="open-doc-memory" data-env-doc-key="' + _esc(String(doc.key || doc.path || '')) + '">MEMORY</button>' +
+                '</div>' +
+                '</div>';
+        }).join('');
+        var activeHtml = '';
+        if (_envDocState.activeDocMeta) {
+            var activeDoc = _envDocState.activeDocMeta;
+            activeHtml =
+                '<div class="envops-doc-content-head">' +
+                '<div>' +
+                '<div class="envops-doc-title">' + _esc(String(activeDoc.key || activeDoc.path || 'document')) + '</div>' +
+                '<div class="envops-doc-meta">' + _esc('type ' + String(activeDoc.type || activeDoc.source || 'doc') + ' · v' + String(activeDoc.version || 1)) + '</div>' +
+                '</div>' +
+                '<div class="envops-doc-actions">' +
+                '<button class="btn-dim" data-env-action="open-doc-memory" data-env-doc-key="' + _esc(String(activeDoc.key || activeDoc.path || '')) + '">OPEN IN MEMORY</button>' +
+                '</div>' +
+                '</div>' +
+                '<pre>' + _esc(String(_envDocState.activeDocContent || 'Loading document content…')) + '</pre>';
+        }
+        docsEl.innerHTML =
+            '<div class="envops-doc-list">' + listHtml + '</div>' +
+            '<div class="envops-doc-content">' + (activeHtml || '<div class="envops-stage-empty">Select a related document to inspect its contents inside the environment shell.</div>') + '</div>';
+    }
+
+    function _envRenderFocusPayloadPanel(workflow, exec, sections, traces) {
+        var panel = document.getElementById('envops-focus-payload');
+        var kindEl = document.getElementById('envops-focus-payload-kind');
+        if (!panel) return;
+        var focus = _envFocusPayload(workflow, exec, sections, traces);
+        if (kindEl) kindEl.textContent = String((focus && focus.kind) || 'workflow');
+        if (!focus || typeof focus !== 'object') {
+            panel.innerHTML = '<div class="envops-stage-empty">No focus payload yet.</div>';
+            return;
+        }
+        var actions = [];
+        if (focus.kind === 'doc' && _envDocState.activeDocMeta) {
+            actions.push('<button class="btn-dim" data-env-action="open-doc-memory" data-env-doc-key="' + _esc(String(_envDocState.activeDocMeta.key || _envDocState.activeDocMeta.path || '')) + '">OPEN DOC IN MEMORY</button>');
+        }
+        if (focus.kind === 'trace') {
+            actions.push('<button class="btn-dim" onclick="_envOpenLinkedTab(\'debug\')">OPEN DEBUG</button>');
+        }
+        if (focus.kind === 'event') {
+            actions.push('<button class="btn-dim" onclick="_envOpenLinkedTab(\'debug\')">OPEN DEBUG</button>');
+        }
+        if (focus.kind === 'node') {
+            actions.push('<button class="btn-dim" onclick="_envOpenLinkedTab(\'workflows\')">OPEN NODE INSPECTOR</button>');
+        }
+        panel.innerHTML =
+            (actions.length ? '<div class="envops-focus-actions">' + actions.join('') + '</div>' : '') +
+            _wfJsonBlock(String(focus.label || 'Focus Payload'), focus.data || {});
+    }
+
+    function _envTraceMatches(event, workflowId, executionId) {
+        if (!event || !workflowId) return false;
+        var args = event.args || {};
+        if (String(args.workflow_id || '') === workflowId) return true;
+        if (String(args._workflow_id || '') === workflowId) return true;
+        if (executionId && String(args._workflow_execution_id || '') === executionId) return true;
+        if (event.tool === 'workflow_execute' || event.tool === 'workflow_status') {
+            var payload = _wfParsePayload(event.result || null);
+            if (payload && String(payload.workflow_id || '') === workflowId) return true;
+            if (payload && executionId && String(payload.execution_id || '') === executionId) return true;
+        }
+        return false;
+    }
+
+    function _envTraceRows(limit) {
+        var workflowId = String(_wfSelectedId || '');
+        if (!workflowId) return [];
+        var exec = _envCurrentExecution();
+        var executionId = exec ? String(exec.execution_id || '') : '';
+        var rows = [];
+        for (var i = _activityLog.length - 1; i >= 0; i--) {
+            var event = _activityLog[i];
+            if (!_envTraceMatches(event, workflowId, executionId)) continue;
+            rows.push(event);
+            if (rows.length >= limit) break;
+        }
+        return rows;
+    }
+
+    function _envRenderTraceRows(rows) {
+        var traceList = document.getElementById('envops-trace-list');
+        var countEl = document.getElementById('envops-trace-count');
+        if (!traceList) return;
+        if (countEl) countEl.textContent = String(rows.length);
+        if (!rows.length) {
+            traceList.innerHTML = '<div class="envops-trace-entry"><div class="envops-trace-body">No workflow-linked trace rows yet. Execute a system or surface it through the existing runtime.</div></div>';
+            return;
+        }
+        traceList.innerHTML = rows.map(function (event) {
+            var when = event.time ? _fmtTimeAgo(event.time) : 'now';
+            var body = event.error ? ('ERROR: ' + event.error) : String(formatToolOutput(String(event.result || '')) || '').trim();
+            if (body.length > 320) body = body.slice(0, 320) + '…';
+            var args = event.args || {};
+            var meta = [];
+            if (args._workflow_execution_id) meta.push('exec ' + _activityTokenShort(args._workflow_execution_id, 18));
+            if (args._workflow_node_id) meta.push('node ' + _activityTokenShort(args._workflow_node_id, 18));
+            if (event.durationMs > 0) meta.push(String(event.durationMs) + 'ms');
+            return '<div class="envops-trace-entry" data-env-action="focus-trace" data-env-trace-index="' + String(rows.indexOf(event)) + '">' +
+                '<div class="envops-trace-head">' +
+                '<span class="envops-trace-tool">' + _esc(String(event.tool || 'event')) + '</span>' +
+                '<span class="envops-trace-time">' + _esc(when) + '</span>' +
+                '</div>' +
+                (meta.length ? '<div class="envops-trace-meta">' + _esc(meta.join(' · ')) + '</div>' : '') +
+                '<div class="envops-trace-body">' + _esc(body || 'No result body.') + '</div>' +
+                '</div>';
+        }).join('');
+    }
+
+    function handleEnvironmentToolResult(toolName, msg, rawText) {
+        if (toolName === 'export_interface' || toolName === 'start_api_server') {
+            _envToolOutputs[toolName] = msg && msg.error ? { error: msg.error } : (_wfParsePayload(rawText) || rawText);
+            _envLogAction('tool', 'Environment tool completed: ' + toolName, msg && msg.error ? 'system' : 'assistant', { tool: toolName, error: msg && msg.error ? String(msg.error) : '' });
+            renderEnvironmentView();
+            return;
+        }
+        if (toolName === 'bag_search_docs') {
+            var searchPayload = _wfParsePayload(rawText) || {};
+            _envDocState.pendingSearch = '';
+            _envDocState.results = _envNormalizeDocResults(searchPayload);
+            if (_envDocState.results.length) {
+                var firstDoc = _envDocState.results[0];
+                _envDocState.activeDocId = String(firstDoc.key || firstDoc.path || '');
+                _envSetFocus('doc', _envDocState.activeDocId, 'assistant', null);
+            } else {
+                _envLogAction('docs', 'No related docs matched the current system query', 'system', { query: _envDocState.query });
+                renderEnvironmentView();
+            }
+            return;
+        }
+        if (toolName === 'bag_read_doc' || toolName === 'file_read') {
+            var docPayload = _wfParsePayload(rawText) || {};
+            if (msg && msg.error) docPayload = { error: String(msg.error) };
+            if (docPayload && docPayload.error && toolName === 'bag_read_doc' && _envDocState.pendingRead) {
+                callTool('file_read', { path: _envDocState.pendingRead }, 'file_read');
+                return;
+            }
+            _envDocState.pendingRead = '';
+            var docKey = String(docPayload.key || docPayload.path || _envDocState.activeDocId || '');
+            _envDocState.activeDocId = docKey;
+            _envDocState.activeDocMeta = Object.assign({}, _envDocResultById(docKey) || {}, docPayload);
+            _envDocState.activeDocContent = docPayload && docPayload.error ? String(docPayload.error) : String(docPayload.content || '');
+            _envLogAction('doc', 'Loaded document payload for ' + (docKey || 'document'), msg && msg.error ? 'system' : 'assistant', { key: docKey, error: docPayload && docPayload.error ? String(docPayload.error) : '' });
+            renderEnvironmentView();
+        }
+    }
+
+    function renderEnvironmentView() {
+        var listEl = document.getElementById('envops-system-list');
+        var countEl = document.getElementById('envops-system-count');
+        var selectedEl = document.getElementById('envops-selected');
+        var stageEl = document.getElementById('envops-stage');
+        var artifactsEl = document.getElementById('envops-artifacts');
+        var artifactCountEl = document.getElementById('envops-artifact-count');
+        var kernelEl = document.getElementById('envops-kernel');
+        var focusStateEl = document.getElementById('envops-focus-state');
+        var docsEl = document.getElementById('envops-docs');
+        var busEl = document.getElementById('envops-bus');
+        var configEl = document.getElementById('envops-config-panel');
+        if (!listEl || !stageEl || !artifactsEl || !kernelEl) return;
+
+        if (countEl) countEl.textContent = String(_wfCatalog.length);
+        listEl.innerHTML = _wfCatalog.length ? _wfCatalog.map(function (wf) {
+            var active = wf.id === _wfSelectedId ? ' active' : '';
+            var exec = _envCurrentExecution();
+            var executing = exec && String(exec.workflow_id || '') === String(wf.id) && _wfNormalizeStatus(exec.status || 'pending') === 'running' ? ' executing' : '';
+            return '<div class="envops-system-item' + active + executing + '" data-envops-id="' + _esc(wf.id) + '">' +
+                '<div class="envops-system-title">' + _esc(wf.name || wf.id) + '</div>' +
+                '<div class="envops-system-meta">' +
+                '<span>' + _esc(wf.id) + '</span>' +
+                '<span>' + String(wf.node_count || 0) + ' nodes</span>' +
+                (wf.description ? '<span>' + _esc(wf.description) + '</span>' : '') +
+                '</div>' +
+                '</div>';
+        }).join('') : '<div class="envops-system-item" style="color:var(--text-dim);cursor:default;border-left-color:transparent;">No workflow-backed systems found yet. Refresh the catalog first.</div>';
+
+        var workflow = _wfLoadedDef && String(_wfLoadedDef.id || '') === String(_wfSelectedId || '') ? _wfLoadedDef : null;
+        var selected = _envGetSelectedWorkflow();
+        var exec = _envCurrentExecution();
+        var renderTargetEl = document.getElementById('envops-render-target');
+        var packageModeEl = document.getElementById('envops-package-mode');
+        var renderTarget = String((renderTargetEl && renderTargetEl.value) || (((_envConfig || {}).shell || {}).defaultRenderer || 'web3d'));
+        var packageMode = String((packageModeEl && packageModeEl.value) || 'online');
+        var status = exec ? _wfNormalizeStatus(exec.status || 'pending') : (workflow ? 'idle' : 'idle');
+        _envRefreshReplayTrack((_envKernel.replay || {}).mode, true);
+        _envSetBadge(status, !workflow ? 'IDLE' : (exec ? status.toUpperCase() : 'READY'));
+        if (selectedEl) selectedEl.textContent = selected ? (selected.name || selected.id) : 'none';
+        if (busEl) _envRenderBus();
+        if (configEl) _envRenderConfigPanel();
+
+        if (!workflow) {
+            stageEl.innerHTML = '<div class="envops-stage-empty">Select a workflow-backed system from the catalog. The Environment tab will project its runtime, outputs, artifacts, and traces through one operator shell.</div>';
+            artifactsEl.innerHTML = '<div class="envops-stage-empty">Load a system to inspect execution payloads, produced artifacts, and export results.</div>';
+            kernelEl.innerHTML = '<div class="envops-stage-empty">Load a workflow-backed system to enable focus, sampling, branching, and shared-control operations.</div>';
+            if (docsEl) docsEl.innerHTML = '<div class="envops-stage-empty">Load a system to search related FelixBag documents and inspect them without leaving the environment shell.</div>';
+            if (artifactCountEl) artifactCountEl.textContent = '0';
+            var docCountEl = document.getElementById('envops-doc-count');
+            if (docCountEl) docCountEl.textContent = '0';
+            if (focusStateEl) focusStateEl.textContent = 'workflow';
+            var focusPayloadKindEl = document.getElementById('envops-focus-payload-kind');
+            if (focusPayloadKindEl) focusPayloadKindEl.textContent = 'workflow';
+            _envScene.canvas = null;
+            _envScene.ctx = null;
+            _envScene.workflowId = '';
+            _envScene.executionId = '';
+            _envScene.objects = [];
+            _envScene.pickables = [];
+            _envScene.hover = null;
+            _envScene.pulses = [];
+            _envScene.dirty = false;
+            _envRenderTraceRows([]);
+            _envRenderLedger();
+            _envRenderFocusPayloadPanel(null, null, [], []);
+            return;
+        }
+
+        var bucket = _envNodeBuckets(workflow);
+        var execId = exec ? String(exec.execution_id || '—') : '—';
+        var nodeStates = exec && exec.node_states ? exec.node_states : {};
+        var stateCounts = { completed: 0, running: 0, failed: 0, skipped: 0, pending: 0 };
+        Object.keys(nodeStates).forEach(function (nodeId) {
+            var st = _wfNormalizeStatus((nodeStates[nodeId] || {}).status || 'pending');
+            stateCounts[st] = (stateCounts[st] || 0) + 1;
+        });
+        var resourceChips = _envResourceChips(workflow);
+        var detailEl = document.getElementById('wfops-detail');
+        var detailHtml = detailEl ? detailEl.innerHTML : '<div class="wfops-detail-empty">Workflow inspector not initialized yet.</div>';
+        var sections = _envArtifactSections();
+        var traces = _envTraceRows(8);
+        var workflowId = String(workflow.id || _wfSelectedId || '');
+        if (!_envKernel.focus || String((_envKernel.focus.id || '')) === '' || (_envKernel.focus.kind === 'workflow' && String((_envKernel.focus.id || '')) !== String(workflow.id || _wfSelectedId || ''))) {
+            _envKernel.focus = { kind: 'workflow', id: String(workflow.id || _wfSelectedId || ''), label: String(workflow.name || workflow.id || 'workflow'), actor: 'system', payload: null };
+        }
+        if (String(_envDocState.workflowId || '') !== workflowId) {
+            _envDocState.workflowId = workflowId;
+            _envDocState.query = '';
+            _envDocState.pendingSearch = '';
+            _envDocState.pendingRead = '';
+            _envDocState.results = [];
+            _envDocState.activeDocId = '';
+            _envDocState.activeDocMeta = null;
+            _envDocState.activeDocContent = '';
+            _envRefreshDocs('workflow switch', 'system', true);
+        }
+        if (focusStateEl) focusStateEl.textContent = String((_envKernel.focus && _envKernel.focus.kind) || 'workflow');
+
+        stageEl.innerHTML =
+            '<div class="envops-stage-hero">' +
+            '<div>' +
+            '<div class="envops-stage-title">' + _esc(String(workflow.name || (selected && selected.name) || workflow.id || _wfSelectedId)) + '</div>' +
+            '<div class="envops-stage-subtitle">Workflow-backed environment shell using the champion runtime as control plane. Renderer target: ' + _esc(renderTarget) + ' · Deployment mode: ' + _esc(packageMode) + '</div>' +
+            '</div>' +
+            '<div class="envops-links">' +
+            '<button class="btn-dim" onclick="_envOpenLinkedTab(\'workflows\')">OPEN WORKFLOWS</button>' +
+            '<button class="btn-dim" onclick="_envOpenLinkedTab(\'debug\')">OPEN DEBUG</button>' +
+            '<button class="btn-dim" onclick="_envOpenLinkedTab(\'memory\')">OPEN MEMORY</button>' +
+            '<button class="btn-dim" onclick="_envOpenLinkedTab(\'tools\')">OPEN TOOLS</button>' +
+            '</div>' +
+            '</div>' +
+            '<div class="envops-card-grid">' +
+            '<div class="envops-card"><div class="envops-card-label">Execution Status</div><div class="envops-card-value">' + _esc(status.toUpperCase()) + '</div></div>' +
+            '<div class="envops-card"><div class="envops-card-label">Execution ID</div><div class="envops-card-value">' + _esc(execId) + '</div></div>' +
+            '<div class="envops-card"><div class="envops-card-label">Nodes</div><div class="envops-card-value">' + String((workflow.nodes || []).length) + ' total</div></div>' +
+            '<div class="envops-card"><div class="envops-card-label">Connections</div><div class="envops-card-value">' + String((workflow.connections || []).length) + ' edges</div></div>' +
+            '<div class="envops-card"><div class="envops-card-label">Runtime Shape</div><div class="envops-card-value">inputs ' + bucket.inputs + ' · agents ' + bucket.agents + ' · tools ' + bucket.tools + ' · control ' + bucket.control + ' · outputs ' + bucket.outputs + '</div></div>' +
+            '<div class="envops-card"><div class="envops-card-label">Node States</div><div class="envops-card-value">completed ' + (stateCounts.completed || 0) + ' · running ' + (stateCounts.running || 0) + ' · failed ' + (stateCounts.failed || 0) + '</div></div>' +
+            '</div>' +
+            (resourceChips.length ? '<div><div class="envops-card-label" style="margin-bottom:6px;">System Resources</div><div class="envops-chip-row">' + resourceChips.map(function (chip) { return '<span class="envops-chip">' + _esc(chip) + '</span>'; }).join('') + '</div></div>' : '') +
+            '<div class="envops-stage-shell">' +
+            _envRenderHabitat(workflow, exec, sections, traces) +
+            '<div class="envops-focus-card">' +
+            '<div class="envops-panel-head" style="margin:-10px -12px 0 -12px;border-bottom:1px solid rgba(255,255,255,0.08);background:transparent;"><span>INSPECTOR FOCUS</span><span>' + _esc(String((_envKernel.focus && _envKernel.focus.kind) || 'workflow')) + '</span></div>' +
+            '<div class="wfops-detail" id="envops-detail-mirror">' + detailHtml + '</div>' +
+            '</div>' +
+            '</div>';
+
+        _envSyncHabitatScene(workflow, exec, sections, traces, renderTarget);
+        artifactsEl.innerHTML = sections.length ? sections.map(function (section, idx) {
+            return '<div class="envops-artifact-card" data-env-action="focus-artifact" data-env-artifact-index="' + String(idx) + '">' +
+                '<div class="envops-artifact-card-head">' +
+                '<span>' + _esc(section.title || ('artifact ' + idx)) + '</span>' +
+                '<button class="btn-dim envops-artifact-focus" data-env-action="focus-artifact" data-env-artifact-index="' + String(idx) + '">FOCUS</button>' +
+                '</div>' +
+                _wfJsonBlock(section.title, section.data) +
+                '</div>';
+        }).join('') : '<div class="envops-stage-empty">No produced artifacts yet. Execute the system or use the export/API actions above to populate this surface.</div>';
+        if (artifactCountEl) artifactCountEl.textContent = String(sections.length);
+        _envRenderTraceRows(traces);
+        kernelEl.innerHTML = _envRenderKernel(workflow, exec, sections, traces);
+        _envRenderDocsPanel();
+        _envRenderFocusPayloadPanel(workflow, exec, sections, traces);
+        _envRenderLedger();
+        _envRenderBus();
+        _envRenderConfigPanel();
     }
 
     // ── MEMORY INLINE DRILL ──
@@ -6098,6 +10842,8 @@
                 }
             } catch (_eCache) { /* not a cached stub — continue normal routing */ }
         }
+
+        handleEnvironmentToolResult(toolName, msg, text);
 
         // Route to Memory tab if it's a memory tool
         if (MEMORY_TOOLS.indexOf(toolName) >= 0) {
@@ -9048,6 +13794,636 @@
             _wfSelectWorkflowDrill();
         });
     }
+
+    // ── ENVIRONMENT OPS CONTROLS ──
+    var envRefreshBtn = document.getElementById('envops-refresh');
+    if (envRefreshBtn) {
+        envRefreshBtn.addEventListener('click', function () {
+            _envLogAction('catalog', 'Refreshed workflow-backed system catalog', 'user', {});
+            callTool('workflow_list', {});
+        });
+    }
+
+    var envRefreshDocsBtn = document.getElementById('envops-refresh-docs');
+    if (envRefreshDocsBtn) {
+        envRefreshDocsBtn.addEventListener('click', function () {
+            _envRefreshDocs('manual scan', 'user', true);
+            renderEnvironmentView();
+        });
+    }
+
+    var envReloadConfigBtn = document.getElementById('envops-reload-config');
+    if (envReloadConfigBtn) {
+        envReloadConfigBtn.addEventListener('click', function () {
+            _envLoadConfig(true);
+        });
+    }
+
+    var envLoadBtn = document.getElementById('envops-load');
+    if (envLoadBtn) {
+        envLoadBtn.addEventListener('click', function () {
+            if (!_wfSelectedId) {
+                _envSetBadge('failed', 'NO SYSTEM');
+                renderEnvironmentView();
+                return;
+            }
+            _envLogAction('load', 'Requested workflow definition load', 'user', { workflow_id: _wfSelectedId });
+            callTool('workflow_get', { workflow_id: _wfSelectedId });
+        });
+    }
+
+    var envExecuteBtn = document.getElementById('envops-execute');
+    if (envExecuteBtn) {
+        envExecuteBtn.addEventListener('click', function () {
+            if (!_wfSelectedId) {
+                _envSetBadge('failed', 'NO SYSTEM');
+                renderEnvironmentView();
+                return;
+            }
+            var inputEl = document.getElementById('envops-input');
+            var inputStr = inputEl ? inputEl.value.trim() : '';
+            if (inputStr) {
+                try {
+                    JSON.parse(inputStr);
+                } catch (err) {
+                    _envSetBadge('failed', 'BAD INPUT');
+                    renderEnvironmentView();
+                    return;
+                }
+            }
+            var workflowInputEl = document.getElementById('wfops-input');
+            if (workflowInputEl) workflowInputEl.value = inputStr;
+            _envSetBadge('running', 'RUNNING...');
+            _envLogAction('execute', 'Requested workflow execution', 'user', { workflow_id: _wfSelectedId, input_data: inputStr || '{}' });
+            renderEnvironmentView();
+            var execArgs = {
+                workflow_id: _wfSelectedId,
+                input_data: inputStr
+            };
+            var execErr = _workflowToolPreflight('workflow_execute', execArgs);
+            if (execErr) {
+                _envSetBadge('failed', 'ERROR');
+                return;
+            }
+            callTool('workflow_execute', execArgs);
+        });
+    }
+
+    var envSystemList = document.getElementById('envops-system-list');
+    if (envSystemList) {
+        envSystemList.addEventListener('click', function (e) {
+            var row = e.target.closest('[data-envops-id]');
+            if (!row) return;
+            _wfSelectedId = row.getAttribute('data-envops-id') || '';
+            _wfDrill = { kind: 'workflow', nodeId: '', edgeIndex: -1, workflowId: _wfSelectedId };
+            _envKernel.focus = { kind: 'workflow', id: _wfSelectedId, label: _wfSelectedId || 'workflow', actor: 'user', payload: null };
+            _envLogAction('select', 'Selected workflow-backed system', 'user', { workflow_id: _wfSelectedId });
+            renderWorkflowList();
+            renderEnvironmentView();
+            if (_wfSelectedId) callTool('workflow_get', { workflow_id: _wfSelectedId });
+        });
+    }
+
+    var envOpenWorkflowsBtn = document.getElementById('envops-open-workflows');
+    if (envOpenWorkflowsBtn) {
+        envOpenWorkflowsBtn.addEventListener('click', function () {
+            _envOpenLinkedTab('workflows');
+        });
+    }
+
+    var envExportInterfaceBtn = document.getElementById('envops-export-interface');
+    if (envExportInterfaceBtn) {
+        envExportInterfaceBtn.addEventListener('click', function () {
+            _envLogAction('export', 'Triggered export_interface', 'user', { workflow_id: _wfSelectedId || '' });
+            callTool('export_interface', {});
+        });
+    }
+
+    var envStartApiBtn = document.getElementById('envops-start-api');
+    if (envStartApiBtn) {
+        envStartApiBtn.addEventListener('click', function () {
+            _envLogAction('export', 'Triggered start_api_server', 'user', { workflow_id: _wfSelectedId || '' });
+            callTool('start_api_server', {});
+        });
+    }
+
+    var envInputEl = document.getElementById('envops-input');
+    var workflowInputElForSync = document.getElementById('wfops-input');
+    if (envInputEl && workflowInputElForSync) {
+        workflowInputElForSync.addEventListener('input', function () {
+            if (!envInputEl.value.trim()) envInputEl.value = workflowInputElForSync.value;
+        });
+    }
+
+    var envRenderTargetEl = document.getElementById('envops-render-target');
+    if (envRenderTargetEl) {
+        envRenderTargetEl.addEventListener('change', function () {
+            _envLogAction('control', 'Switched renderer target to ' + String(envRenderTargetEl.value || ''), 'user', { renderer: envRenderTargetEl.value || '' });
+            renderEnvironmentView();
+        });
+    }
+
+    var envPackageModeEl = document.getElementById('envops-package-mode');
+    if (envPackageModeEl) {
+        envPackageModeEl.addEventListener('change', function () {
+            _envLogAction('control', 'Switched deployment mode to ' + String(envPackageModeEl.value || ''), 'user', { package_mode: envPackageModeEl.value || '' });
+            renderEnvironmentView();
+        });
+    }
+
+    var envStageEl = document.getElementById('envops-stage');
+    if (envStageEl) {
+        envStageEl.addEventListener('click', function (e) {
+            var actionEl = e.target.closest('[data-env-action]');
+            if (actionEl) {
+                var action = actionEl.getAttribute('data-env-action') || '';
+                if (action === 'toggle-replay') {
+                    _envQueueControl('toggle_replay', '', 'user', 'stage replay toggle');
+                    return;
+                }
+                if (action === 'replay-prev') {
+                    _envQueueControl('replay_prev', '', 'user', 'stage replay previous');
+                    return;
+                }
+                if (action === 'replay-next') {
+                    _envQueueControl('replay_next', '', 'user', 'stage replay next');
+                    return;
+                }
+                if (action === 'set-replay-mode') {
+                    _envQueueControl('set_replay_mode', actionEl.getAttribute('data-env-replay-mode') || 'samples', 'user', 'stage replay mode');
+                    return;
+                }
+                if (action === 'replay-focus') {
+                    _envQueueControl('focus_replay', actionEl.getAttribute('data-env-replay-index') || '0', 'user', 'stage replay focus');
+                    return;
+                }
+            }
+            var focusEl = e.target.closest('[data-env-focus-kind]');
+            if (!focusEl) return;
+            var focusKind = focusEl.getAttribute('data-env-focus-kind') || 'workflow';
+            var focusId = focusEl.getAttribute('data-env-focus-id') || '';
+            var command = _envFocusCommandForKind(focusKind);
+            if (!command) return;
+            _envQueueControl(command, focusId, 'user', 'habitat focus', { kind: focusKind });
+        });
+    }
+
+    var envTraceEl = document.getElementById('envops-trace-list');
+    if (envTraceEl) {
+        envTraceEl.addEventListener('click', function (e) {
+            var traceEl = e.target.closest('[data-env-action="focus-trace"]');
+            if (!traceEl) return;
+            _envQueueControl('focus_trace', traceEl.getAttribute('data-env-trace-index') || '0', 'user', 'trace click focus');
+        });
+    }
+
+    var envArtifactsEl = document.getElementById('envops-artifacts');
+    if (envArtifactsEl) {
+        envArtifactsEl.addEventListener('click', function (e) {
+            var artifactEl = e.target.closest('[data-env-action="focus-artifact"]');
+            if (!artifactEl) return;
+            _envQueueControl('focus_artifact', artifactEl.getAttribute('data-env-artifact-index') || '0', 'user', 'artifact click focus');
+        });
+    }
+
+    var envDocsEl = document.getElementById('envops-docs');
+    if (envDocsEl) {
+        envDocsEl.addEventListener('click', function (e) {
+            var actionEl = e.target.closest('[data-env-action]');
+            if (!actionEl) return;
+            var action = actionEl.getAttribute('data-env-action') || '';
+            var docKey = actionEl.getAttribute('data-env-doc-key') || '';
+            if (action === 'focus-doc') {
+                _envQueueControl('focus_doc', docKey, 'user', 'doc click focus');
+                return;
+            }
+            if (action === 'open-doc-memory') {
+                _envQueueControl('open_doc_memory', docKey, 'user', 'doc memory handoff');
+            }
+        });
+    }
+
+    var envBusEl = document.getElementById('envops-bus');
+    if (envBusEl) {
+        envBusEl.addEventListener('click', function (e) {
+            var eventEl = e.target.closest('[data-env-action="focus-event"]');
+            if (!eventEl) return;
+            _envQueueControl('focus_event', eventEl.getAttribute('data-env-event-id') || '', 'user', 'bus event focus');
+        });
+    }
+
+    var envConfigEl = document.getElementById('envops-config-panel');
+    if (envConfigEl) {
+        envConfigEl.addEventListener('click', function (e) {
+            var actionEl = e.target.closest('[data-env-action="reload-config"]');
+            if (!actionEl) return;
+            _envLoadConfig(true);
+        });
+    }
+
+    var envFocusPayloadEl = document.getElementById('envops-focus-payload');
+    if (envFocusPayloadEl) {
+        envFocusPayloadEl.addEventListener('click', function (e) {
+            var actionEl = e.target.closest('[data-env-action="open-doc-memory"]');
+            if (!actionEl) return;
+            _envQueueControl('open_doc_memory', actionEl.getAttribute('data-env-doc-key') || '', 'user', 'focus payload memory handoff');
+        });
+    }
+
+    var envKernelEl = document.getElementById('envops-kernel');
+    if (envKernelEl) {
+        envKernelEl.addEventListener('click', function (e) {
+            var actionEl = e.target.closest('[data-env-action]');
+            if (!actionEl) return;
+            var action = actionEl.getAttribute('data-env-action') || '';
+            if (action === 'run-recipe') {
+                _envRunRecipe(actionEl.getAttribute('data-env-recipe-id') || '', 'user', 'kernel recipe');
+                return;
+            }
+            if (action === 'activate-profile') {
+                _envQueueControl('activate_profile', actionEl.getAttribute('data-env-profile-id') || '', 'user', 'kernel profile activate');
+                return;
+            }
+            if (action === 'focus-profile') {
+                _envQueueControl('focus_profile', actionEl.getAttribute('data-env-profile-id') || '', 'user', 'kernel profile focus');
+                return;
+            }
+            if (action === 'execute-command') {
+                var actorEl = document.getElementById('envops-control-actor');
+                var actionSelectEl = document.getElementById('envops-control-action');
+                var targetEl = document.getElementById('envops-control-target');
+                var noteEl = document.getElementById('envops-control-note');
+                _envQueueControl(
+                    actionSelectEl ? actionSelectEl.value : '',
+                    targetEl ? targetEl.value : '',
+                    actorEl ? actorEl.value : 'user',
+                    noteEl ? noteEl.value : '',
+                    { source: 'control-console' }
+                );
+                return;
+            }
+            if (action === 'queue-batch') {
+                var batchActorEl = document.getElementById('envops-control-actor');
+                var batchNoteEl = document.getElementById('envops-control-note');
+                var batchEl = document.getElementById('envops-control-batch');
+                var rawBatch = batchEl ? String(batchEl.value || '').trim() : '';
+                if (!rawBatch) {
+                    _envSetBadge('failed', 'NO BATCH');
+                    _envLogAction('control', 'Batch queue requested without JSON payload', 'user', { action: 'queue_batch' });
+                    renderEnvironmentView();
+                    return;
+                }
+                var parsedBatch = null;
+                try {
+                    parsedBatch = JSON.parse(rawBatch);
+                } catch (err) {
+                    _envSetBadge('failed', 'BAD BATCH');
+                    _envLogAction('control', 'Batch JSON parse failed', 'user', { action: 'queue_batch', error: String((err && err.message) || err || 'invalid json') });
+                    renderEnvironmentView();
+                    return;
+                }
+                var commands = Array.isArray(parsedBatch) ? parsedBatch : (Array.isArray(parsedBatch && parsedBatch.commands) ? parsedBatch.commands : null);
+                if (!commands || !commands.length) {
+                    _envSetBadge('failed', 'NO CMDS');
+                    _envLogAction('control', 'Batch payload contained no commands', 'user', { action: 'queue_batch' });
+                    renderEnvironmentView();
+                    return;
+                }
+                var queued = window.envopsBatchControl(commands, batchActorEl ? batchActorEl.value : 'user', batchNoteEl ? batchNoteEl.value : '');
+                _envLogAction('control', 'Queued batch control sequence', 'user', { count: queued.length });
+                renderEnvironmentView();
+                return;
+            }
+            if (action === 'sample-now') {
+                _envQueueControl('sample_now', '', 'user', 'manual sample');
+                return;
+            }
+            if (action === 'toggle-sampler') {
+                _envQueueControl('toggle_stream', '', 'user', 'manual stream toggle');
+                return;
+            }
+            if (action === 'toggle-replay') {
+                _envQueueControl('toggle_replay', '', 'user', 'manual replay toggle');
+                return;
+            }
+            if (action === 'replay-prev') {
+                _envQueueControl('replay_prev', '', 'user', 'manual replay previous');
+                return;
+            }
+            if (action === 'replay-next') {
+                _envQueueControl('replay_next', '', 'user', 'manual replay next');
+                return;
+            }
+            if (action === 'set-replay-mode') {
+                _envQueueControl('set_replay_mode', actionEl.getAttribute('data-env-replay-mode') || 'samples', 'user', 'manual replay mode');
+                return;
+            }
+            if (action === 'set-camera-mode') {
+                _envQueueControl('set_camera_mode', actionEl.getAttribute('data-env-camera-mode') || 'overview', 'user', 'manual habitat camera');
+                return;
+            }
+            if (action === 'focus-replay') {
+                _envQueueControl('focus_replay', actionEl.getAttribute('data-env-replay-index') || '0', 'user', 'manual replay focus');
+                return;
+            }
+            if (action === 'focus-workflow') {
+                _envQueueControl('focus_workflow', _wfSelectedId || '', 'user', 'workflow focus');
+                return;
+            }
+            if (action === 'follow-failed') {
+                _envQueueControl('follow_failed', '', 'user', 'follow failed');
+                return;
+            }
+            if (action === 'branch-now') {
+                _envQueueControl('branch_snapshot', '', 'user', 'manual branch');
+                return;
+            }
+            if (action === 'focus-node') {
+                _envQueueControl('focus_node', actionEl.getAttribute('data-env-node-id') || '', 'user', 'node strip focus');
+                return;
+            }
+            if (action === 'focus-artifact') {
+                _envQueueControl('focus_artifact', actionEl.getAttribute('data-env-artifact-index') || '0', 'user', 'artifact strip focus');
+                return;
+            }
+            if (action === 'focus-sample') {
+                _envQueueControl('focus_sample', actionEl.getAttribute('data-env-sample-id') || '', 'user', 'sample strip focus');
+                return;
+            }
+            if (action === 'focus-branch') {
+                _envQueueControl('focus_branch', actionEl.getAttribute('data-env-branch-id') || '', 'user', 'branch strip focus');
+                return;
+            }
+            if (action === 'toggle-ingress') {
+                if (_envKernel.ingress.active) _envStopIngressLoop(true);
+                else _envStartIngressLoop();
+                renderEnvironmentView();
+                return;
+            }
+            if (action === 'clear-queue') {
+                _envKernel.ingress.queue = [];
+                _envLogAction('ingress', 'Cleared ingress queue', 'user', { queued: 0 });
+                _envEmitBus('ingress', 'Cleared ingress queue', 'user', { queued: 0 });
+                renderEnvironmentView();
+                return;
+            }
+            if (action === 'drop-queued') {
+                var queueId = actionEl.getAttribute('data-env-queue-id') || '';
+                if (!queueId) return;
+                var before = (_envKernel.ingress.queue || []).length;
+                _envKernel.ingress.queue = (_envKernel.ingress.queue || []).filter(function (item) {
+                    return String((item || {}).id || '') !== String(queueId);
+                });
+                var removed = before !== (_envKernel.ingress.queue || []).length;
+                if (removed) {
+                    _envLogAction('ingress', 'Dropped queued action', 'user', { action_id: queueId, queued: (_envKernel.ingress.queue || []).length });
+                    renderEnvironmentView();
+                }
+                return;
+            }
+            if (action === 'requeue-history') {
+                var historyId = actionEl.getAttribute('data-env-history-id') || '';
+                var historyItem = _envFindIngressHistory(historyId);
+                if (!historyItem) return;
+                _envQueueControl(historyItem.action || '', historyItem.target || '', 'user', historyItem.note || 'replayed from ingress history', Object.assign({}, historyItem.meta || {}, { replay_of: historyId }));
+                return;
+            }
+            if (action === 'toggle-watch') {
+                var watchKey = actionEl.getAttribute('data-env-watch-key') || '';
+                if (!watchKey) return;
+                _envSetWatchMode(watchKey, !_envKernel.watch[watchKey], 'user');
+                return;
+            }
+        });
+    }
+
+    window.envopsSelectSystem = function (workflowId) {
+        _wfSelectedId = String(workflowId || '');
+        _wfDrill = { kind: 'workflow', nodeId: '', edgeIndex: -1, workflowId: _wfSelectedId };
+        _envKernel.focus = { kind: 'workflow', id: _wfSelectedId, label: _wfSelectedId || 'workflow', actor: 'assistant', payload: null };
+        _envLogAction('select', 'Selected workflow-backed system', 'assistant', { workflow_id: _wfSelectedId });
+        renderWorkflowList();
+        renderEnvironmentView();
+        if (_wfSelectedId) callTool('workflow_get', { workflow_id: _wfSelectedId });
+    };
+    window.envopsSetFocus = function (kind, id, actor) {
+        var command = _envFocusCommandForKind(kind);
+        if (!command) return;
+        _envQueueControl(command, id === undefined || id === null ? '' : String(id), actor || 'assistant', 'external focus');
+    };
+    window.envopsSampleNow = function (reason, actor) {
+        _envQueueControl('sample_now', '', actor || 'assistant', reason || 'external sample');
+    };
+    window.envopsToggleSampler = function (actor) {
+        _envQueueControl('toggle_stream', '', actor || 'assistant', 'external stream toggle');
+    };
+    window.envopsCreateBranch = function (reason, actor) {
+        _envQueueControl('branch_snapshot', '', actor || 'assistant', reason || 'external branch');
+    };
+    window.envopsRefreshDocs = function (reason, actor) {
+        _envQueueControl('scan_docs', '', actor || 'assistant', reason || 'external scan');
+    };
+    window.envopsOpenDoc = function (key, actor) {
+        _envQueueControl('focus_doc', key || '', actor || 'assistant', 'external doc focus');
+    };
+    window.envopsFocusSample = function (sampleId, actor) {
+        _envQueueControl('focus_sample', sampleId || '', actor || 'assistant', 'external sample focus');
+    };
+    window.envopsFocusBranch = function (branchId, actor) {
+        _envQueueControl('focus_branch', branchId || '', actor || 'assistant', 'external branch focus');
+    };
+    window.envopsFocusRecipe = function (recipeId, actor) {
+        _envQueueControl('focus_recipe', recipeId || '', actor || 'assistant', 'external recipe focus');
+    };
+    window.envopsFocusArtifact = function (artifactIndex, actor) {
+        _envQueueControl('focus_artifact', artifactIndex === undefined || artifactIndex === null ? '0' : String(artifactIndex), actor || 'assistant', 'external artifact focus');
+    };
+    window.envopsFocusTrace = function (traceIndex, actor) {
+        _envQueueControl('focus_trace', traceIndex === undefined || traceIndex === null ? '0' : String(traceIndex), actor || 'assistant', 'external trace focus');
+    };
+    window.envopsFocusEvent = function (eventId, actor) {
+        _envQueueControl('focus_event', eventId === undefined || eventId === null ? '' : String(eventId), actor || 'assistant', 'external event focus');
+    };
+    window.envopsFocusDispatch = function (dispatchId, actor) {
+        _envQueueControl('focus_dispatch', dispatchId === undefined || dispatchId === null ? '' : String(dispatchId), actor || 'assistant', 'external dispatch focus');
+    };
+    window.envopsFocusQueued = function (queueId, actor) {
+        _envQueueControl('focus_queued', queueId === undefined || queueId === null ? '' : String(queueId), actor || 'assistant', 'external queued focus');
+    };
+    window.envopsFocusWatch = function (watchKey, actor) {
+        _envQueueControl('focus_watch', watchKey === undefined || watchKey === null ? '' : String(watchKey), actor || 'assistant', 'external watch focus');
+    };
+    window.envopsFollowFailed = function (actor) {
+        _envQueueControl('follow_failed', '', actor || 'assistant', 'assistant follow failed');
+    };
+    window.envopsControl = function (action, target, actor, note) {
+        _envQueueControl(action || '', target || '', actor || 'assistant', note || '');
+    };
+    window.envopsQueueControl = function (action, target, actor, note, meta) {
+        _envQueueControl(action || '', target || '', actor || 'assistant', note || '', meta || {});
+    };
+    window.envopsBatchControl = function (commands, actor, notePrefix) {
+        return _envQueueBatch(commands, actor, notePrefix, {});
+    };
+    window.envopsRunRecipe = function (recipeId, actor, note) {
+        return _envRunRecipe(recipeId || '', actor || 'assistant', note || '');
+    };
+    window.envopsActivateProfile = function (profileId, actor) {
+        _envQueueControl('activate_profile', profileId || '', actor || 'assistant', 'external profile activate');
+    };
+    window.envopsFocusProfile = function (profileId, actor) {
+        _envQueueControl('focus_profile', profileId || '', actor || 'assistant', 'external profile focus');
+    };
+    window.envopsSetCameraMode = function (mode, actor) {
+        _envQueueControl('set_camera_mode', mode || 'overview', actor || 'assistant', 'external habitat camera');
+    };
+    window.envopsToggleIngress = function (actor) {
+        if (_envKernel.ingress.active) _envStopIngressLoop(true);
+        else _envStartIngressLoop();
+        if (actor && actor !== 'system') {
+            _envLogAction('ingress', 'Toggled ingress loop', actor, { active: !!_envKernel.ingress.active });
+            _envEmitBus('ingress', 'Toggled ingress loop', actor, { active: !!_envKernel.ingress.active });
+        }
+        renderEnvironmentView();
+    };
+    window.envopsSetWatchMode = function (mode, enabled, actor) {
+        _envSetWatchMode(mode || '', enabled, actor || 'assistant');
+    };
+    window.envopsGetBusEvents = function (limit) {
+        var take = Math.max(1, Math.min(200, Number(limit || _envLiveTailLimit() || 24)));
+        return JSON.parse(JSON.stringify((_envBus.events || []).slice(0, take)));
+    };
+    window.envopsGetConfig = function () {
+        return JSON.parse(JSON.stringify(_envConfig || {}));
+    };
+    window.envopsGetSharedState = function () {
+        _envRefreshReplayTrack((_envKernel.replay || {}).mode, true);
+        return {
+            config_source: _envBus.source || 'defaults',
+            focus: Object.assign({}, _envKernel.focus || {}),
+            sampler: {
+                active: !!((_envKernel.sampler || {}).active),
+                intervalMs: Number((_envKernel.sampler || {}).intervalMs || 0)
+            },
+            ingress: {
+                active: !!((_envKernel.ingress || {}).active),
+                processing: !!((_envKernel.ingress || {}).processing),
+                intervalMs: Number((_envKernel.ingress || {}).intervalMs || 0),
+                queue_depth: Number((((_envKernel.ingress || {}).queue || []).length) || 0),
+                current: (_envKernel.ingress || {}).current ? {
+                    id: String(((_envKernel.ingress || {}).current || {}).id || ''),
+                    action: String(((_envKernel.ingress || {}).current || {}).action || ''),
+                    target: String(((_envKernel.ingress || {}).current || {}).target || ''),
+                    actor: String(((_envKernel.ingress || {}).current || {}).actor || ''),
+                    status: String(((_envKernel.ingress || {}).current || {}).status || '')
+                } : null,
+                history_count: Number((((_envKernel.ingress || {}).history || []).length) || 0)
+            },
+            bus: {
+                seq: Number(_envBus.seq || 0),
+                event_count: Number(((_envBus.events || []).length) || 0),
+                live_tail: _envLiveTailLimit()
+            },
+            watch: {
+                autoFollowFailed: !!((_envKernel.watch || {}).autoFollowFailed),
+                autoBranchOnFailure: !!((_envKernel.watch || {}).autoBranchOnFailure),
+                autoSampleOnRuntime: !!((_envKernel.watch || {}).autoSampleOnRuntime),
+                autoFocusLatestTrace: !!((_envKernel.watch || {}).autoFocusLatestTrace)
+            },
+            profile: {
+                activeId: String(((_envKernel.profile || {}).activeId) || ''),
+                lastAppliedTs: Number(((_envKernel.profile || {}).lastAppliedTs) || 0),
+                count: Number(_envProfileCatalog().length || 0),
+                ids: _envProfileCatalog().map(function (profile) { return String(profile.id || ''); })
+            },
+            replay: {
+                active: !!((_envKernel.replay || {}).active),
+                mode: String(((_envKernel.replay || {}).mode) || 'samples'),
+                intervalMs: Number(((_envKernel.replay || {}).intervalMs) || 0),
+                cursor: Number(((_envKernel.replay || {}).cursor) || -1),
+                loop: !!((_envKernel.replay || {}).loop),
+                track_length: Number((((_envKernel.replay || {}).track || []).length) || 0),
+                current: (_envKernel.replay || {}).current ? {
+                    kind: String(((_envKernel.replay || {}).current || {}).kind || ''),
+                    id: String(((_envKernel.replay || {}).current || {}).id || ''),
+                    label: String(((_envKernel.replay || {}).current || {}).label || '')
+                } : null
+            },
+            scene: {
+                enabled: !!_envScene.enabled,
+                fpsCap: Number(_envScene.fpsCap || 0),
+                cameraMode: String(_envSceneNormalizeCameraMode(_envScene.cameraMode || (((_envConfig || {}).scene || {}).defaultCameraMode) || 'overview')),
+                workflow_id: String(_envScene.workflowId || ''),
+                execution_id: String(_envScene.executionId || ''),
+                object_count: Number(((_envScene.objects || []).length) || 0),
+                route_count: Number(((_envScene.routes || []).length) || 0),
+                trajectory_count: Number(((_envScene.trajectories || []).length) || 0),
+                pickable_count: Number(((_envScene.pickables || []).length) || 0),
+                hover: _envScene.hover ? {
+                    kind: String((_envScene.hover.kind) || ''),
+                    id: String((_envScene.hover.id) || ''),
+                    label: String((_envScene.hover.label) || '')
+                } : null,
+                pulses: Number(((_envScene.pulses || []).length) || 0),
+                camera: {
+                    x: Number(((_envScene.camera || {}).x) || 0),
+                    y: Number(((_envScene.camera || {}).y) || 0),
+                    zoom: Number(((_envScene.camera || {}).zoom) || 1),
+                    anchorKind: String(((_envScene.camera || {}).anchorKind) || ''),
+                    anchorId: String(((_envScene.camera || {}).anchorId) || '')
+                },
+                viewport: {
+                    width: Number(_envScene.width || 0),
+                    height: Number(_envScene.height || 0)
+                }
+            },
+            docs: {
+                query: String((_envDocState.query || '')),
+                result_count: Number(((_envDocState.results || []).length) || 0),
+                active_doc: String(_envDocState.activeDocId || '')
+            },
+            recipes: {
+                count: Number(_envRecipeCatalog().length || 0),
+                ids: _envRecipeCatalog().map(function (recipe) { return String(recipe.id || ''); })
+            }
+        };
+    };
+
+    window.envopsGetHabitatObjects = function () {
+        return ((_envScene.objects || [])).map(function (obj) {
+            return {
+                id: String(obj.id || ''),
+                kind: String(obj.kind || ''),
+                label: String(obj.label || ''),
+                category: String(obj.category || ''),
+                state: String(obj.state || ''),
+                meta: String(obj.meta || ''),
+                x: Number(obj.x || 0),
+                y: Number(obj.y || 0),
+                scale: Number(obj.scale || 1),
+                tilt: Number(obj.tilt || 0),
+                active: !!obj.active,
+                source: obj.source || null
+            };
+        });
+    };
+
+    window.envopsToggleReplay = function (actor) {
+        return _envToggleReplay(actor || 'assistant');
+    };
+
+    window.envopsReplayStep = function (delta, actor) {
+        return _envReplayStep(Number(delta || 0), actor || 'assistant', 'api replay step');
+    };
+
+    window.envopsSetReplayMode = function (mode, actor) {
+        _envSetReplayMode(mode || 'samples', actor || 'assistant');
+        return window.envopsGetSharedState();
+    };
+
+    window.envopsFocusReplay = function (index, actor) {
+        return _envReplayFocusIndex(Number(index || 0), actor || 'assistant', 'api replay focus');
+    };
 
     // ── MARKETPLACE SEARCH ──
     var mpSearchInput = document.getElementById('mp-search');
@@ -12981,6 +18357,8 @@
     vscode.postMessage({ command: 'web3GetDID' });
     vscode.postMessage({ command: 'web3GetCategories' });
     vscode.postMessage({ command: 'web3GetDocTypes' });
+    _envApplyConfig();
+    _envLoadConfig(false);
     // Community is intentionally disabled in Space build.
 })();
 
