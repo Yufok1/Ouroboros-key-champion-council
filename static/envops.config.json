@@ -1,5 +1,5 @@
 {
-  "version": "2026-03-07-envops-v8",
+  "version": "2026-03-07-envops-v9",
   "shell": {
     "defaultRenderer": "web3d",
     "defaultPackageMode": "research",
@@ -71,6 +71,22 @@
     "trajectoryOpacity": 0.55,
     "trajectoryGlow": true,
     "trajectorySpeed": 0.24,
+    "architecture": {
+      "enabled": true,
+      "portalWidth": 132,
+      "portalHeight": 162,
+      "portalLift": 14,
+      "corridorThickness": 10,
+      "corridorOpacity": 0.34,
+      "corridorGlow": 0.22
+    },
+    "atmosphere": {
+      "enabled": true,
+      "starCount": 18,
+      "driftCount": 9,
+      "beamCount": 3,
+      "hazeOpacity": 0.26
+    },
     "districts": [
       {
         "id": "control",

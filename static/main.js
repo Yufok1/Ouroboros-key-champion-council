@@ -47,7 +47,7 @@
     };
     function _envDefaultConfig() {
         return {
-            version: '2026-03-07-envops-v6',
+            version: '2026-03-07-envops-v9',
             shell: {
                 defaultRenderer: 'web3d',
                 defaultPackageMode: 'research',
@@ -81,7 +81,23 @@
                 objectScale: 1,
                 defaultCameraMode: 'overview',
                 routeOpacity: 0.42,
-                routeGlow: true
+                routeGlow: true,
+                architecture: {
+                    enabled: true,
+                    portalWidth: 132,
+                    portalHeight: 162,
+                    portalLift: 14,
+                    corridorThickness: 10,
+                    corridorOpacity: 0.34,
+                    corridorGlow: 0.22
+                },
+                atmosphere: {
+                    enabled: true,
+                    starCount: 18,
+                    driftCount: 9,
+                    beamCount: 3,
+                    hazeOpacity: 0.26
+                }
             },
             ingress: {
                 intervalMs: 700,
@@ -5408,6 +5424,8 @@
             if (raw.scene.defaultCameraMode) cfg.scene.defaultCameraMode = String(raw.scene.defaultCameraMode);
             if (raw.scene.routeOpacity !== undefined) cfg.scene.routeOpacity = Math.max(0.05, Math.min(1, Number(raw.scene.routeOpacity) || cfg.scene.routeOpacity));
             if (raw.scene.routeGlow !== undefined) cfg.scene.routeGlow = !!raw.scene.routeGlow;
+            if (raw.scene.architecture && typeof raw.scene.architecture === 'object') cfg.scene.architecture = Object.assign({}, cfg.scene.architecture || {}, raw.scene.architecture);
+            if (raw.scene.atmosphere && typeof raw.scene.atmosphere === 'object') cfg.scene.atmosphere = Object.assign({}, cfg.scene.atmosphere || {}, raw.scene.atmosphere);
         }
         if (raw.ingress && typeof raw.ingress === 'object') {
             if (raw.ingress.intervalMs !== undefined) cfg.ingress.intervalMs = Math.max(250, Number(raw.ingress.intervalMs) || cfg.ingress.intervalMs);
@@ -5584,6 +5602,14 @@
 
     function _envSceneConfig() {
         return ((_envConfig || {}).scene || {});
+    }
+
+    function _envSceneArchitectureConfig() {
+        return (((_envSceneConfig() || {}).architecture) || {});
+    }
+
+    function _envSceneAtmosphereConfig() {
+        return (((_envSceneConfig() || {}).atmosphere) || {});
     }
 
     function _envSceneNavigationConfig() {
@@ -7125,6 +7151,128 @@
                 '</div>';
         }).join('');
         return '<div class="envops-habitat-volume-layer">' + bridges + volumes + '</div>';
+    }
+
+    function _envSceneRenderAtmosphereLayer(workflow, exec, sections, traces) {
+        var cfg = _envSceneAtmosphereConfig();
+        if (cfg.enabled === false) return '';
+        var dominance = (_envScene && _envScene.dominance) || _envSceneDominanceContext();
+        var failure = _envLatestFailureSurface(workflow, exec, traces);
+        var hazeOpacity = Math.max(0.08, Math.min(0.8, Number(cfg.hazeOpacity || 0.26)));
+        var beamCount = Math.max(1, Math.min(6, Number(cfg.beamCount || 3)));
+        var driftCount = Math.max(4, Math.min(18, Number(cfg.driftCount || 9)));
+        var starCount = Math.max(8, Math.min(40, Number(cfg.starCount || 18)));
+        var beamColor = failure.tone === 'alert'
+            ? 'linear-gradient(180deg, rgba(255,108,120,0.30), rgba(255,108,120,0.02))'
+            : (dominance.mode === 'watch'
+                ? 'linear-gradient(180deg, rgba(255,190,96,0.28), rgba(255,190,96,0.02))'
+                : (dominance.mode === 'replay'
+                    ? 'linear-gradient(180deg, rgba(79,255,208,0.28), rgba(79,255,208,0.02))'
+                    : 'linear-gradient(180deg, rgba(102,184,255,0.28), rgba(102,184,255,0.02))'));
+        var hazeColor = failure.tone === 'alert'
+            ? 'radial-gradient(circle at center, rgba(255,108,120,0.28), rgba(255,108,120,0.02) 70%)'
+            : (dominance.mode === 'watch'
+                ? 'radial-gradient(circle at center, rgba(255,190,96,0.24), rgba(255,190,96,0.02) 70%)'
+                : 'radial-gradient(circle at center, rgba(79,255,208,0.18), rgba(68,198,255,0.02) 70%)');
+        var beams = new Array(beamCount).fill(0).map(function (_, idx) {
+            var left = 12 + ((idx + 1) * (76 / (beamCount + 1)));
+            var rotate = -8 + idx * 7;
+            var opacity = Math.max(0.12, 0.22 - (idx * 0.02));
+            return '<div class="envops-habitat-atmo-beam" style="left:' + left.toFixed(2) + '%;transform:translateX(-50%) translateZ(' + Math.round(-140 + idx * 18) + 'px) rotateZ(' + rotate.toFixed(2) + 'deg);opacity:' + opacity.toFixed(3) + ';background:' + beamColor + ';"></div>';
+        }).join('');
+        var stars = new Array(starCount).fill(0).map(function (_, idx) {
+            var left = ((idx * 37) % 96) + 2;
+            var top = ((idx * 19) % 34) + 4;
+            var scale = 0.6 + (((idx * 11) % 7) * 0.12);
+            var opacity = 0.34 + (((idx * 13) % 5) * 0.12);
+            return '<span class="envops-habitat-atmo-star" style="left:' + left.toFixed(2) + '%;top:' + top.toFixed(2) + '%;opacity:' + opacity.toFixed(3) + ';transform:translateZ(' + Math.round(-180 - ((idx % 6) * 18)) + 'px) scale(' + scale.toFixed(2) + ');"></span>';
+        }).join('');
+        var drifts = new Array(driftCount).fill(0).map(function (_, idx) {
+            var left = 6 + ((idx * 11) % 88);
+            var top = 18 + ((idx * 9) % 46);
+            var rotate = -14 + ((idx * 17) % 28);
+            var width = 44 + ((idx * 13) % 42);
+            var opacity = 0.18 + (((idx * 7) % 6) * 0.06);
+            return '<span class="envops-habitat-atmo-drift" style="left:' + left.toFixed(2) + '%;top:' + top.toFixed(2) + '%;width:' + width + 'px;opacity:' + opacity.toFixed(3) + ';transform:translateZ(' + Math.round(-110 - ((idx % 5) * 14)) + 'px) rotateZ(' + rotate.toFixed(2) + 'deg);"></span>';
+        }).join('');
+        return '<div class="envops-habitat-atmosphere-layer">' +
+            '<div class="envops-habitat-atmo-haze" style="opacity:' + hazeOpacity.toFixed(3) + ';background:' + hazeColor + ';"></div>' +
+            beams + drifts + stars +
+            '</div>';
+    }
+
+    function _envSceneRenderArchitectureLayer(workflow, exec, sections, traces) {
+        var cfg = _envSceneArchitectureConfig();
+        if (cfg.enabled === false) return '';
+        var states = _envSceneCollectDistrictStates(workflow, exec, sections, traces);
+        var dominance = (_envScene && _envScene.dominance) || _envSceneDominanceContext();
+        if (!states.length) return '';
+        var stateById = {};
+        states.forEach(function (entry) {
+            stateById[String((entry.district || {}).id || '')] = entry;
+        });
+        var corridors = _envSceneDistrictBridgeCatalog().map(function (bridge) {
+            var fromEntry = stateById[String(bridge.from || '')];
+            var toEntry = stateById[String(bridge.to || '')];
+            if (!fromEntry || !toEntry) return '';
+            var fromDistrict = fromEntry.district || {};
+            var toDistrict = toEntry.district || {};
+            var x1 = Number(fromDistrict.x || 0) + (Number(fromDistrict.w || 20) / 2);
+            var y1 = Number(fromDistrict.y || 0) + (Number(fromDistrict.h || 14) / 2) + 2;
+            var x2 = Number(toDistrict.x || 0) + (Number(toDistrict.w || 20) / 2);
+            var y2 = Number(toDistrict.y || 0) + (Number(toDistrict.h || 14) / 2) + 2;
+            var dx = x2 - x1;
+            var dy = y2 - y1;
+            var length = Math.sqrt((dx * dx) + (dy * dy));
+            var angle = Math.atan2(dy, dx) * (180 / Math.PI);
+            var hot = String((fromEntry.state || {}).tone || '') === 'alert' || String((toEntry.state || {}).tone || '') === 'alert';
+            var opacity = Math.max(0.14, Number(cfg.corridorOpacity || 0.34) * Number(bridge.weight || 1));
+            if (hot) opacity += 0.16;
+            var depth = Math.round((((Number(fromDistrict.depth || -44) + Number(toDistrict.depth || -44)) / 2)) + 58);
+            var accent = hot
+                ? 'linear-gradient(90deg, rgba(255,108,120,0.16), rgba(255,108,120,0.42), rgba(255,108,120,0.16))'
+                : 'linear-gradient(90deg, rgba(79,255,208,0.12), rgba(68,198,255,0.36), rgba(79,255,208,0.12))';
+            return '<div class="envops-habitat-corridor-spine" style="' +
+                'left:' + x1.toFixed(2) + '%;' +
+                'top:' + y1.toFixed(2) + '%;' +
+                'width:' + length.toFixed(2) + '%;' +
+                'height:' + Math.max(6, Number(cfg.corridorThickness || 10)) + 'px;' +
+                'opacity:' + opacity.toFixed(3) + ';' +
+                'transform:translateZ(' + depth + 'px) rotateZ(' + angle.toFixed(2) + 'deg);' +
+                'background:' + accent + ';' +
+                '"></div>';
+        }).join('');
+        var portals = states.map(function (entry) {
+            var district = entry.district || {};
+            var state = entry.state || {};
+            var visual = _envSceneDistrictDominance(dominance, district, state);
+            var palette = _envSceneDistrictTonePalette(state.tone);
+            var targetKind = String((state.target || {}).kind || '');
+            var targetId = String((state.target || {}).id || '');
+            var centerX = Number(district.x || 0) + (Number(district.w || 20) / 2);
+            var centerY = Number(district.y || 0) + (Number(district.h || 16) / 2);
+            var depth = Math.round(Number(district.depth || -44) + 64 + Number(cfg.portalLift || 14));
+            var rotateY = Number(district.tilt || 0) * 0.85;
+            var width = Math.max(104, Number(cfg.portalWidth || 132));
+            var height = Math.max(128, Number(cfg.portalHeight || 162));
+            var frameGlow = visual.spotlight ? '0 0 28px ' + palette.shadow : '0 0 18px ' + palette.shadow;
+            var portalStyle =
+                'left:' + centerX.toFixed(2) + '%;' +
+                'top:' + centerY.toFixed(2) + '%;' +
+                'width:' + width + 'px;' +
+                'height:' + height + 'px;' +
+                'opacity:' + Math.max(0.2, visual.opacity).toFixed(3) + ';' +
+                'transform:translate(-50%, -50%) translateZ(' + depth + 'px) rotateX(10deg) rotateY(' + rotateY.toFixed(2) + 'deg) scale(' + Math.max(0.82, visual.scale).toFixed(3) + ');';
+            return '<button type="button" class="envops-habitat-portal' + (state.active ? ' active' : '') + '" ' +
+                (targetKind && targetId ? ('data-env-focus-kind="' + _esc(targetKind) + '" data-env-focus-id="' + _esc(targetId) + '" ') : '') +
+                'style="' + portalStyle + '" title="' + _esc(String(state.detail || district.note || district.label || 'district portal')) + '">' +
+                '<div class="envops-habitat-portal-frame" style="box-shadow:' + frameGlow + ';"></div>' +
+                '<div class="envops-habitat-portal-crown" style="background:' + palette.cap + ';box-shadow:' + frameGlow + ';"></div>' +
+                '<div class="envops-habitat-portal-plinth" style="box-shadow:0 12px 18px rgba(0,0,0,0.22), 0 0 16px ' + palette.shadow + ';"></div>' +
+                '<div class="envops-habitat-portal-tag" style="color:' + palette.tag + ';">' + _esc(String(district.label || district.id || 'district')) + ' · ' + _esc(String(state.detail || state.tone || 'ready')) + '</div>' +
+                '</button>';
+        }).join('');
+        return '<div class="envops-habitat-architecture-layer">' + corridors + portals + '</div>';
     }
 
     function _envSceneRenderDistrictLayer(workflow, exec, sections, traces) {
@@ -9356,6 +9504,8 @@
             '<div class="envops-habitat-shell" id="envops-habitat-shell" style="' + _esc(shellStyle) + '" data-env-camera-mode="' + _esc(cameraMode) + '" data-env-dominance-mode="' + _esc(String((dominance && dominance.mode) || 'ambient')) + '">' +
             '<div class="envops-habitat-backwall"></div>' +
             '<div class="envops-habitat-floor"></div>' +
+            _envSceneRenderAtmosphereLayer(workflow, exec, sections, traces) +
+            _envSceneRenderArchitectureLayer(workflow, exec, sections, traces) +
             _envSceneRenderVolumeLayer(workflow, exec, sections, traces) +
             '<canvas class="envops-habitat-canvas" id="envops-habitat-canvas"></canvas>' +
             _envSceneRenderDistrictLayer(workflow, exec, sections, traces) +
@@ -9387,6 +9537,9 @@
             '<span class="envops-legend-pill">recipe consoles</span>' +
             '<span class="envops-legend-pill">watch sentinels</span>' +
             '<span class="envops-legend-pill">memory shelf</span>' +
+            '<span class="envops-legend-pill">district portals</span>' +
+            '<span class="envops-legend-pill">corridor spines</span>' +
+            '<span class="envops-legend-pill">atmosphere field</span>' +
             '<span class="envops-legend-pill">route topology · ' + String(routeCount) + '</span>' +
             '<span class="envops-legend-pill">trajectory ribbons · ' + String(trajectoryCount) + '</span>' +
             '</div>' +
