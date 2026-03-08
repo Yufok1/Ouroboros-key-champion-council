@@ -1406,21 +1406,36 @@
 
         .envops-grid {
             display: grid;
-            grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+            grid-template-columns: minmax(0, 1fr);
+            grid-template-areas:
+                "stage"
+                "catalog";
             gap: 12px;
             margin-bottom: 12px;
         }
 
+        .envops-grid > .envops-panel:first-child {
+            grid-area: catalog;
+        }
+
+        .envops-grid > .envops-panel:last-child {
+            grid-area: stage;
+        }
+
         .envops-lower-grid {
             display: grid;
-            grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+            grid-template-columns: minmax(0, 1.18fr) minmax(320px, 0.82fr);
             gap: 12px;
+            align-items: start;
         }
 
         .envops-panel {
             border: 1px solid var(--border);
             background: var(--surface);
             min-height: 120px;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
         }
 
         .envops-panel-head {
@@ -1437,15 +1452,21 @@
         }
 
         .envops-system-list {
-            max-height: 520px;
-            overflow-y: auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 8px;
+            padding: 10px;
+            max-height: 280px;
+            overflow: auto;
+            align-content: start;
         }
 
         .envops-system-item {
-            border-bottom: 1px solid var(--border);
+            border: 1px solid var(--border);
             padding: 10px 12px;
             cursor: pointer;
             border-left: 2px solid transparent;
+            min-height: 74px;
         }
 
         .envops-system-item:hover {
@@ -1476,12 +1497,20 @@
             flex-wrap: wrap;
         }
 
+        .envops-system-meta span {
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
         .envops-stage {
-            padding: 14px;
+            flex: 1;
+            padding: 16px 18px;
             display: flex;
             flex-direction: column;
-            gap: 12px;
-            min-height: 360px;
+            gap: 14px;
+            min-height: 420px;
             background:
                 radial-gradient(circle at top right, rgba(0, 255, 136, 0.08), transparent 34%),
                 linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 42%);
@@ -1491,7 +1520,7 @@
             color: var(--text-dim);
             font-size: 11px;
             line-height: 1.6;
-            max-width: 760px;
+            max-width: none;
         }
 
         .envops-stage-hero {
@@ -1736,8 +1765,8 @@
 
         .envops-form-grid {
             display: grid;
-            grid-template-columns: minmax(0, 1fr) minmax(160px, 180px) minmax(160px, 180px);
-            gap: 10px;
+            grid-template-columns: minmax(280px, 1.45fr) minmax(180px, 0.8fr) minmax(180px, 0.8fr);
+            gap: 12px;
             align-items: stretch;
         }
 
@@ -1757,7 +1786,7 @@
 
         .envops-input {
             width: 100%;
-            min-height: 118px;
+            min-height: 96px;
             resize: vertical;
             border: none;
             background: var(--bg);
@@ -1799,8 +1828,9 @@
         }
 
         .envops-artifacts {
-            padding: 10px 12px;
-            max-height: 320px;
+            flex: 1;
+            padding: 12px 14px;
+            max-height: clamp(280px, 42vh, 460px);
             overflow: auto;
             font-size: 10px;
             line-height: 1.55;
@@ -2295,7 +2325,8 @@
         }
 
         .envops-trace-list {
-            max-height: 320px;
+            flex: 1;
+            max-height: clamp(280px, 42vh, 460px);
             overflow: auto;
         }
 
@@ -2350,14 +2381,14 @@
 
         .envops-stage-shell {
             display: grid;
-            grid-template-columns: minmax(0, 1.3fr) minmax(280px, 0.7fr);
-            gap: 12px;
-            align-items: stretch;
+            grid-template-columns: minmax(0, 1fr);
+            gap: 14px;
+            align-items: start;
         }
 
         .envops-habitat {
             border: 1px solid rgba(255, 255, 255, 0.08);
-            min-height: 480px;
+            min-height: 560px;
             background:
                 radial-gradient(circle at 20% 18%, rgba(0, 255, 136, 0.12), transparent 28%),
                 radial-gradient(circle at 82% 12%, rgba(68, 198, 255, 0.12), transparent 26%),
@@ -2368,8 +2399,8 @@
 
         .envops-habitat-scene {
             position: relative;
-            min-height: 420px;
-            height: clamp(420px, 58vh, 760px);
+            min-height: 500px;
+            height: clamp(500px, 66vh, 980px);
             overflow: auto;
             resize: vertical;
             border-bottom: 1px solid rgba(255, 255, 255, 0.05);
@@ -2383,7 +2414,7 @@
             display: block;
             width: 100%;
             height: 100%;
-            min-height: 420px;
+            min-height: 500px;
             cursor: crosshair;
             touch-action: none;
         }
@@ -2609,6 +2640,7 @@
             --env-cam-orbit-x: 0deg;
             --env-cam-orbit-y: 0deg;
             --env-cam-orbit-x-soft: 0deg;
+            min-height: 500px;
             --env-cam-orbit-y-soft: 0deg;
             --env-cam-orbit-x-near: 0deg;
             --env-cam-orbit-y-near: 0deg;
@@ -5318,13 +5350,15 @@
 
         .envops-ops-grid {
             display: grid;
-            grid-template-columns: minmax(0, 1fr) minmax(360px, 0.9fr);
+            grid-template-columns: minmax(0, 1.12fr) minmax(320px, 0.88fr);
             gap: 12px;
             margin-top: 12px;
+            align-items: start;
         }
 
         .envops-kernel,
         .envops-ledger {
+            flex: 1;
             padding: 12px;
             display: flex;
             flex-direction: column;
@@ -5707,8 +5741,9 @@
 
         .envops-docs,
         .envops-focus-payload {
-            padding: 10px 12px;
-            min-height: 180px;
+            flex: 1;
+            padding: 12px 14px;
+            min-height: 220px;
         }
 
         .envops-doc-list {
@@ -5795,6 +5830,11 @@
             .envops-stage-shell,
             .envops-ops-grid {
                 grid-template-columns: 1fr;
+            }
+
+            .envops-system-list {
+                grid-template-columns: 1fr;
+                max-height: 360px;
             }
 
             .envops-run-badge {
