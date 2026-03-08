@@ -10569,6 +10569,7 @@
             if (!lights) lights = '<span class="dot"></span>';
             var detail = String(state.detail || district.note || 'ready').trim();
             if (detail.length > 42) detail = detail.slice(0, 39).trim() + '...';
+            var summaryText = state.active ? detail : '';
             var zoneStyle = 'left:' + Number(district.x || 0) + '%;top:' + Number(district.y || 0) + '%;width:' + Number(district.w || 24) + '%;height:' + Number(district.h || 16) + '%;--env-zone-depth:' + Number(district.depth || -48) + 'px;--env-zone-tilt:' + Number(district.tilt || 0) + ';' +
                 'opacity:' + Number(visual.opacity || 1).toFixed(3) + ';' +
                 'filter:brightness(' + Number(visual.glow || 1).toFixed(3) + ') saturate(' + (visual.dominant ? '1.16' : (visual.suppressed ? '0.72' : '1.00')) + ');' +
@@ -10578,7 +10579,7 @@
                 'data-env-focus-kind="district" data-env-focus-id="' + _esc(String(district.id || '')) + '" ' +
                 'title="' + _esc(String(district.note || state.detail || district.label || 'district')) + '">' +
                 '<div class="h">' + _esc(String(district.label || district.id || 'district')) + '</div>' +
-                '<div class="v">' + _esc(detail) + '</div>' +
+                (summaryText ? '<div class="v">' + _esc(summaryText) + '</div>' : '') +
                 '<div class="s">' +
                 '<span class="pill">' + String(state.count || 0) + ' linked</span>' +
                 '<span class="lights">' + lights + '</span>' +
@@ -13245,37 +13246,29 @@
             return '<button type="button" class="envops-habitat-pulse-dot ' + _esc(cls) + active + '" style="' + style + '" title="' + _esc(title) + '" data-env-focus-kind="event" data-env-focus-id="' + _esc(String(event.id || event.seq || '')) + '"></button>';
         }).join('') : '<span class="envops-kernel-note">No bus pulses yet.</span>';
         var modeLabel = String((dominance && dominance.mode) || 'ambient').replace(/_/g, ' ');
+        var latestLabel = latest ? String(latest.body || latest.channel || 'event') : 'No recent action';
+        if (latestLabel.length > 52) latestLabel = latestLabel.slice(0, 49).trim() + '...';
+        var replayLabel = replay.active ? 'playing' : 'ready';
+        if (replaySummary) replayLabel += ' · ' + replaySummary;
+        function chip(label, value, tone, role) {
+            return '<div class="envops-habitat-status-chip ' + _esc(tone) + '" data-role="' + _esc(role || label.toLowerCase()) + '">' +
+                '<span class="k">' + _esc(label) + '</span>' +
+                '<span class="v">' + _esc(value) + '</span>' +
+                '</div>';
+        }
         return '' +
-            '<div class="envops-habitat-status">' +
-            '<div class="envops-habitat-status-card ' + _esc(ingressTone) + '" data-role="ingress">' +
-            '<div class="h">Ingress</div>' +
-            '<div class="v">' + (ingress.active ? 'armed' : 'paused') + ' · ' + String((ingress.queue || []).length) + ' queued</div>' +
-            '<div class="m">' + (ingress.processing ? 'dispatching shared commands' : 'shared command bus ready') + '</div>' +
+            '<div class="envops-habitat-overlay-dock">' +
+            '<div class="envops-habitat-scene-status">' +
+            chip('Ingress', (ingress.active ? 'armed' : 'paused') + ' · ' + String((ingress.queue || []).length) + ' queued', ingressTone, 'ingress') +
+            chip('Sampler', (sampler.active ? 'streaming' : 'manual') + ' · ' + String(sampler.intervalMs || 0) + 'ms', samplerTone, 'watch') +
+            chip('Replay', replayLabel, replayTone, 'replay') +
+            chip('Failure', failure.label + ' · ' + failure.kind, failure.tone, 'failure') +
             '</div>' +
-            '<div class="envops-habitat-status-card ' + _esc(samplerTone) + '" data-role="watch">' +
-            '<div class="h">Sampler</div>' +
-            '<div class="v">' + (sampler.active ? 'streaming' : 'manual') + ' · ' + String(sampler.intervalMs || 0) + 'ms</div>' +
-            '<div class="m">' + ((watchModes.length ? watchModes.join(' · ') : 'manual watch only')) + '</div>' +
+            '<div class="envops-habitat-scene-status-meta">' +
+            '<div class="envops-habitat-status-mini ' + _esc(latestTone) + '" data-role="latest"><span class="k">Latest</span><span class="v">' + _esc(latestLabel) + '</span></div>' +
+            '<div class="envops-habitat-status-mini"><span class="k">Pulse</span><span class="v">' + _esc(String(events.length) + ' pulses · ' + modeLabel) + '</span></div>' +
             '</div>' +
-            '<div class="envops-habitat-status-card ' + _esc(replayTone) + '" data-role="replay">' +
-            '<div class="h">Replay Rail</div>' +
-            '<div class="v">' + (replay.active ? 'playing' : 'ready') + ' · ' + _esc(String(replay.mode || 'samples')) + '</div>' +
-            '<div class="m">' + _esc(replaySummary || 'waiting on replay track') + '</div>' +
-            '</div>' +
-            '<div class="envops-habitat-status-card ' + _esc(latestTone) + '" data-role="latest">' +
-            '<div class="h">Latest Bus Action</div>' +
-            '<div class="v">' + _esc(latest ? String(latest.body || 'event') : 'No recent action') + '</div>' +
-            '<div class="m">' + _esc(latest ? (String(latest.actor || 'system') + ' · ' + String(latest.channel || 'system')) : 'waiting on shared ingress') + '</div>' +
-            '</div>' +
-            '<div class="envops-habitat-status-card ' + _esc(failure.tone) + '" data-role="failure">' +
-            '<div class="h">Failure Surface</div>' +
-            '<div class="v">' + _esc(failure.label) + '</div>' +
-            '<div class="m">' + _esc(failure.detail + ' · ' + failure.kind) + '</div>' +
-            '</div>' +
-            '</div>' +
-            '<div class="envops-habitat-pulse-lane">' +
-            '<div class="envops-habitat-pulse-head"><span>Live Pulse Lane</span><span>' + String(events.length) + ' recent bus events · priority: ' + _esc(modeLabel) + '</span></div>' +
-            '<div class="envops-habitat-pulse-strip">' + pulseHtml + '</div>' +
+            '<div class="envops-habitat-pulse-inline">' + pulseHtml + '</div>' +
             '</div>';
     }
 
@@ -13551,14 +13544,15 @@
     }
 
     function _envRenderHabitat(workflow, exec, sections, traces) {
-        var focus = _envKernel.focus || {};
         var hudCopy = _envHabitatHudCopy(workflow);
+        var replay = _envKernel.replay || {};
         var dominance = (_envScene && _envScene.dominance) || _envSceneDominanceContext();
         var failure = _envLatestFailureSurface(workflow, exec, traces);
         var cameraMode = _envSceneNormalizeCameraMode(_envScene.cameraMode || (((_envConfig || {}).scene || {}).defaultCameraMode) || 'overview');
         var camera = _envScene.camera || {};
         var routeCount = Number(((_envScene.routes || []).length) || 0);
         var trajectoryCount = Number(((_envScene.trajectories || []).length) || 0);
+        var replaySummary = _envReplayCursorSummary();
         var watch = _envKernel.watch || {};
         var habitatClasses = ['envops-habitat', 'mode-' + String((dominance && dominance.mode) || 'ambient'), 'failure-' + String((failure && failure.tone) || 'ok')];
         if (watch.autoFollowFailed || watch.autoBranchOnFailure || watch.autoSampleOnRuntime || watch.autoFocusLatestTrace) habitatClasses.push('watch-armed');
@@ -13577,34 +13571,10 @@
             return '<span class="envops-focus-chip' + active + '" data-env-action="set-camera-mode" data-env-camera-mode="' + _esc(mode.id) + '">' + _esc(mode.label) + '</span>';
         }).join('');
         _envScene.failureSurface = failure;
-        var dominanceTargetText = (dominanceSummary.targets || []).length
-            ? dominanceSummary.targets.map(function (item) { return item.label; }).join(' · ')
-            : 'No active targets';
-        var eventSummary = _envSceneEventFocusSummary(dominance);
-        var eventRouteHtml = eventSummary ? (
-            '<div class="envops-habitat-event-route">' +
-            '<div class="envops-habitat-event-pill source">' +
-            '<div class="h">Source</div>' +
-            '<div class="v">' + _esc(eventSummary.sourceLabel || 'No source') + '</div>' +
-            '<div class="m">' + _esc(eventSummary.actor || 'system') + '</div>' +
-            '</div>' +
-            '<div class="envops-habitat-event-link">' + _esc(String(eventSummary.channel || 'event').toUpperCase()) + '</div>' +
-            '<div class="envops-habitat-event-pill relay">' +
-            '<div class="h">Event</div>' +
-            '<div class="v">' + _esc(eventSummary.eventLabel || eventSummary.body) + '</div>' +
-            '<div class="m">' + _esc(eventSummary.body) + '</div>' +
-            '</div>' +
-            '<div class="envops-habitat-event-link">TARGET</div>' +
-            '<div class="envops-habitat-event-pill target">' +
-            '<div class="h">Target</div>' +
-            '<div class="v">' + _esc(eventSummary.targetLabel || 'No target') + '</div>' +
-            '<div class="m">' + _esc('event #' + String(eventSummary.id || '')) + '</div>' +
-            '</div>' +
-            '</div>'
-        ) : '';
+        var telemetryHtml = _envRenderHabitatTelemetry(workflow, exec, traces);
         var html = '<div class="' + _esc(habitatClasses.join(' ')) + '">' +
-            _envRenderHabitatTelemetry(workflow, exec, traces) +
             '<div class="envops-habitat-scene">' +
+            telemetryHtml +
             '<div class="envops-habitat-shell" id="envops-habitat-shell" style="' + _esc(shellStyle) + '" data-env-camera-mode="' + _esc(cameraMode) + '" data-env-dominance-mode="' + _esc(String((dominance && dominance.mode) || 'ambient')) + '">' +
             '<div class="envops-habitat-backwall"></div>' +
             '<div class="envops-habitat-floor"></div>' +
@@ -13628,60 +13598,21 @@
             '</div>' +
             '<div class="envops-habitat-hud">' +
             '<div class="envops-habitat-hud-primary" id="envops-habitat-hud-primary">' + _esc(hudCopy.primary) + '</div>' +
-            '<div class="envops-habitat-hud-secondary" id="envops-habitat-hud-secondary">' + _esc(hudCopy.secondary) + ' Drag the habitat shell to pan, wheel to zoom, double-click to reset.</div>' +
-            '<div class="envops-habitat-mode-rail">' +
-            '<div class="envops-habitat-mode-card dominant mode-' + _esc(dominanceSummary.mode) + '">' +
-            '<div class="h">Dominance</div>' +
-            '<div class="v">' + _esc(String(dominanceSummary.mode || 'ambient').toUpperCase()) + '</div>' +
-            '<div class="m">' + _esc(dominanceSummary.anchorLabel || 'No active anchor') + '</div>' +
-            '</div>' +
-            '<div class="envops-habitat-mode-card route">' +
-            '<div class="h">Primary Route</div>' +
-            '<div class="v">' + _esc(dominanceSummary.anchorLabel || 'No active anchor') + '</div>' +
-            '<div class="m">' + _esc(dominanceTargetText) + '</div>' +
-            '</div>' +
-            '<div class="envops-habitat-mode-card ' + _esc(failure.tone) + '">' +
-            '<div class="h">Failure Bias</div>' +
-            '<div class="v">' + _esc(failure.label) + '</div>' +
-            '<div class="m">' + _esc(failure.detail + ' · ' + failure.kind) + '</div>' +
-            '</div>' +
-            '</div>' +
-            eventRouteHtml +
+            '<div class="envops-habitat-hud-secondary" id="envops-habitat-hud-secondary">' + _esc(hudCopy.secondary) + '</div>' +
             '<div class="envops-habitat-dominance">' +
             '<span class="envops-habitat-dominance-chip mode-' + _esc(dominanceSummary.mode) + '">' + _esc(String(dominanceSummary.mode || 'ambient').toUpperCase()) + '</span>' +
             (dominanceSummary.anchorLabel ? '<span class="envops-habitat-dominance-path">' + _esc(dominanceSummary.anchorLabel) + '</span>' : '<span class="envops-habitat-dominance-path">No active anchor</span>') +
-            (dominanceSummary.targets || []).map(function (item) {
-                return '<span class="envops-habitat-dominance-target">' + _esc(item.label) + '</span>';
-            }).join('') +
+            '<span class="envops-habitat-dominance-target">' + _esc(failure.label + ' · ' + failure.kind) + '</span>' +
+            (replaySummary ? '<span class="envops-habitat-dominance-target">Replay · ' + _esc(replaySummary) + '</span>' : '') +
+            '<span class="envops-habitat-dominance-target">Routes ' + String(routeCount) + ' · Ribbons ' + String(trajectoryCount) + '</span>' +
             '</div>' +
             '</div>' +
-            '</div>' +
-            '<div class="envops-habitat-legend">' +
-            '<span class="envops-legend-pill">workflow core</span>' +
-            '<span class="envops-legend-pill">node lattice</span>' +
-            '<span class="envops-legend-pill">artifact dock</span>' +
-            '<span class="envops-legend-pill">trace relays</span>' +
-            '<span class="envops-legend-pill">event relays</span>' +
-            '<span class="envops-legend-pill">dispatch core</span>' +
-            '<span class="envops-legend-pill">queue rail</span>' +
-            '<span class="envops-legend-pill">sample beacons</span>' +
-            '<span class="envops-legend-pill">branch yard</span>' +
-            '<span class="envops-legend-pill">replay cursor</span>' +
-            '<span class="envops-legend-pill">recipe consoles</span>' +
-            '<span class="envops-legend-pill">watch sentinels</span>' +
-            '<span class="envops-legend-pill">memory shelf</span>' +
-            '<span class="envops-legend-pill">district portals</span>' +
-            '<span class="envops-legend-pill">corridor spines</span>' +
-            '<span class="envops-legend-pill">atmosphere field</span>' +
-            '<span class="envops-legend-pill">route topology · ' + String(routeCount) + '</span>' +
-            '<span class="envops-legend-pill">trajectory ribbons · ' + String(trajectoryCount) + '</span>' +
-            '</div>' +
-            '<div class="envops-habitat-pulse-lane">' +
-            '<div class="envops-habitat-pulse-head"><span>Camera Rail</span><span>' + _esc(cameraMode) + '</span></div>' +
+            '<div class="envops-habitat-scene-cockpit">' +
+            '<div class="envops-habitat-scene-cockpit-head"><span>Camera</span><span>' + _esc(cameraMode) + '</span></div>' +
             '<div class="envops-focus-strip">' + cameraModes + '<span class="envops-focus-chip" data-env-action="reset-camera">Reset Drift</span></div>' +
-            '<div class="envops-kernel-note" style="padding:6px 10px 0 10px;">' + _esc(cameraOffset) + '</div>' +
+            '<div class="envops-kernel-note">' + _esc(cameraOffset) + '</div>' +
+            (replaySummary || replay.active ? '<div class="envops-habitat-scene-cockpit-head" style="margin-top:8px;"><span>Replay</span><span>' + _esc(replay.active ? 'playing' : 'ready') + '</span></div><div class="envops-kernel-note">' + _esc(replaySummary || String(replay.mode || 'samples')) + '</div>' : '') +
             '</div>' +
-            _envRenderTrajectoryPanel() +
             '</div>';
         return html;
     }
