@@ -4087,6 +4087,10 @@
                 radial-gradient(circle at top right, rgba(79, 255, 208, 0.08), transparent 46%);
             box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02), 0 18px 30px rgba(0,0,0,0.16);
             padding: 10px 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 4px;
             pointer-events: auto;
             cursor: pointer;
             transform:
@@ -4096,6 +4100,7 @@
             transform-style: preserve-3d;
             transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;
             overflow: hidden;
+            text-align: left;
         }
 
         .envops-habitat-zone:hover,
@@ -4130,29 +4135,32 @@
             text-transform: uppercase;
             letter-spacing: 0.9px;
             color: var(--text-dim);
-            margin-bottom: 6px;
+            margin-bottom: 0;
         }
 
         .envops-habitat-zone .v {
-            font-size: 11px;
+            font-size: 10px;
             font-weight: 700;
-            line-height: 1.35;
+            line-height: 1.3;
             color: var(--text);
-            margin-bottom: 5px;
+            max-width: 100%;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
         }
 
         .envops-habitat-zone .m {
-            font-size: 9px;
-            line-height: 1.45;
-            color: var(--text-dim);
+            display: none;
         }
 
         .envops-habitat-zone .s {
-            margin-top: 8px;
+            margin-top: auto;
             display: flex;
             gap: 6px;
             flex-wrap: wrap;
             align-items: center;
+            width: 100%;
         }
 
         .envops-habitat-zone .pill {
@@ -4980,6 +4988,26 @@
             font-size: 9px;
             color: var(--text-dim);
             line-height: 1.45;
+        }
+
+        .envops-habitat-object.compact .envops-habitat-object-body {
+            padding: 7px 8px 6px;
+            justify-content: center;
+            gap: 2px;
+        }
+
+        .envops-habitat-object.compact .k,
+        .envops-habitat-object.compact .m {
+            display: none;
+        }
+
+        .envops-habitat-object.compact .t {
+            margin: 7px 14px 0 0;
+            font-size: 9px;
+            line-height: 1.2;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .envops-habitat-object::after {

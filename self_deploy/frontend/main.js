@@ -646,7 +646,10 @@
             moved: false,
             hoverX: 0,
             hoverY: 0,
-            hoverActive: false
+            hoverActive: false,
+            zoomLogTimer: null,
+            zoomLogActor: '',
+            zoomLogReason: ''
         }
     };
 
@@ -8730,6 +8733,7 @@
         var height = Math.max(1, _envScene.height || 1);
         var cfg = _envSceneConfig();
         var orbitCfg = _envSceneOrbitConfig();
+        var footprint = _envSceneObjectFootprint(obj);
         var metrics = _envSceneWorldMetrics(width, height, timeMs);
         var camera = _envScene.camera || {};
         var drift = !!cfg.ambientDrift;
@@ -8779,8 +8783,8 @@
             + ((-orbitYR) * orbitCfg.depthGain * 0.5)
             + (lateralBias * orbitXR * 0.018)
         ));
-        var cardWidth = Math.max(58, 88 * scale * depth);
-        var cardHeight = Math.max(34, 46 * scale * depth);
+        var cardWidth = Math.max(Number(footprint.minWidth || 58), Number(footprint.width || 88) * scale * depth);
+        var cardHeight = Math.max(Number(footprint.minHeight || 34), Number(footprint.height || 46) * scale * depth);
         var routeX = sx + ((metrics.vanishingX - sx) * Math.max(0.02, farField * metrics.routePortPull));
         var routeY = sy - (cardHeight * (0.12 + (farField * metrics.routePortLift)));
         var shadowWidth = cardWidth * Math.max(0.34, 0.52 - (farField * metrics.contactCompression * 0.42) + (nearField * 0.08));
@@ -8804,6 +8808,30 @@
             shadowOffsetY: shadowOffsetY,
             shadowRotation: shadowRotation
         };
+    }
+
+    function _envSceneObjectIsCompact(obj) {
+        var kind = String(((obj || {}).kind) || '').toLowerCase();
+        return kind === 'actor'
+            || kind === 'event'
+            || kind === 'sample'
+            || kind === 'watch'
+            || kind === 'branch'
+            || kind === 'replay'
+            || kind === 'profile'
+            || kind === 'recipe'
+            || kind === 'dispatch'
+            || kind === 'queued'
+            || kind === 'trace';
+    }
+
+    function _envSceneObjectFootprint(obj) {
+        var kind = String(((obj || {}).kind) || '').toLowerCase();
+        if (kind === 'workflow') return { width: 96, height: 50, minWidth: 66, minHeight: 36 };
+        if (kind === 'node') return { width: 84, height: 42, minWidth: 60, minHeight: 34 };
+        if (kind === 'doc' || kind === 'artifact') return { width: 74, height: 38, minWidth: 56, minHeight: 30 };
+        if (_envSceneObjectIsCompact(obj)) return { width: 58, height: 26, minWidth: 44, minHeight: 22 };
+        return { width: 88, height: 46, minWidth: 58, minHeight: 34 };
     }
 
     function _envSceneObjectTone(obj) {
@@ -9308,6 +9336,7 @@
             var meta = String(obj.meta || obj.category || obj.kind || '');
             var visual = _envSceneObjectDominance(dominance, obj);
             var colors = _envSceneColorForObject(obj);
+            var compact = _envSceneObjectIsCompact(obj) && !visual.spotlight;
             var cardDepth = Math.max(10, Math.round((visual.spotlight ? Number(cfg.dominantDepth || 24) : Number(cfg.objectDepth || 18)) * Math.max(0.82, Number(item.scale || 1))));
             var glowOpacity = Math.max(0.06, Math.min(0.72, Number(cfg.glowOpacity || 0.22) * (visual.spotlight ? 1.35 : (visual.ghosted ? 0.54 : 1))));
             var anchorHeight = Math.round(Number(anchorCfg.height || 26) * Math.max(0.84, Number(item.scale || 1)) * (visual.spotlight ? 1.14 : (visual.ghosted ? 0.88 : 1)));
@@ -9318,7 +9347,7 @@
             var filter = visual.spotlight
                 ? 'saturate(1.34) brightness(1.1)'
                 : (visual.ghosted ? 'saturate(0.54) brightness(0.72)' : 'saturate(1.02) brightness(0.98)');
-            return '<button type="button" class="' + _esc(_envSceneObjectClass(obj) + (visual.spotlight ? ' spotlight' : '') + (visual.ghosted ? ' ghosted' : '')) + '" ' +
+            return '<button type="button" class="' + _esc(_envSceneObjectClass(obj) + (visual.spotlight ? ' spotlight' : '') + (visual.ghosted ? ' ghosted' : '') + (compact ? ' compact' : '')) + '" ' +
                 'style="' +
                 'left:' + Math.round(item.x) + 'px;' +
                 'top:' + Math.round(item.y) + 'px;' +
@@ -9351,9 +9380,9 @@
                 '</span>' +
                 '<span class="envops-habitat-object-body">' +
                 '<span class="p"></span>' +
-                '<div class="k">' + _esc(String(obj.category || obj.kind || 'primitive')) + '</div>' +
+                (compact ? '' : ('<div class="k">' + _esc(String(obj.category || obj.kind || 'primitive')) + '</div>')) +
                 '<div class="t">' + _esc(String(obj.label || obj.kind || 'object')) + '</div>' +
-                '<div class="m">' + _esc(meta) + '</div>' +
+                (compact ? '' : ('<div class="m">' + _esc(meta) + '</div>')) +
                 '</span>' +
                 '</button>';
         }).join('');
@@ -10526,6 +10555,8 @@
                 return '<span class="dot' + (hot ? ' hot' : '') + '" title="' + _esc(String(event.body || event.channel || 'event')) + '"></span>';
             }).join('');
             if (!lights) lights = '<span class="dot"></span>';
+            var detail = String(state.detail || district.note || 'ready').trim();
+            if (detail.length > 42) detail = detail.slice(0, 39).trim() + '...';
             var zoneStyle = 'left:' + Number(district.x || 0) + '%;top:' + Number(district.y || 0) + '%;width:' + Number(district.w || 24) + '%;height:' + Number(district.h || 16) + '%;--env-zone-depth:' + Number(district.depth || -48) + 'px;--env-zone-tilt:' + Number(district.tilt || 0) + ';' +
                 'opacity:' + Number(visual.opacity || 1).toFixed(3) + ';' +
                 'filter:brightness(' + Number(visual.glow || 1).toFixed(3) + ') saturate(' + (visual.dominant ? '1.16' : (visual.suppressed ? '0.72' : '1.00')) + ');' +
@@ -10535,11 +10566,9 @@
                 'data-env-focus-kind="district" data-env-focus-id="' + _esc(String(district.id || '')) + '" ' +
                 'title="' + _esc(String(district.note || state.detail || district.label || 'district')) + '">' +
                 '<div class="h">' + _esc(String(district.label || district.id || 'district')) + '</div>' +
-                '<div class="v">' + _esc(String(state.detail || district.note || 'ready')) + '</div>' +
-                '<div class="m">' + _esc(String(district.note || '')) + '</div>' +
+                '<div class="v">' + _esc(detail) + '</div>' +
                 '<div class="s">' +
                 '<span class="pill">' + String(state.count || 0) + ' linked</span>' +
-                '<span class="pill">' + _esc(String(state.tone || 'idle')) + '</span>' +
                 '<span class="lights">' + lights + '</span>' +
                 '</div>' +
                 '</button>';
@@ -10561,6 +10590,39 @@
         return null;
     }
 
+    function _envSceneCommitCameraLog(actor, reason) {
+        if (!actor) return;
+        var cam = _envScene.camera || {};
+        _envLogAction('camera', 'Adjusted habitat camera', actor, {
+            reason: String(reason || 'adjust'),
+            offset_x: Number(cam.offsetX || 0),
+            offset_y: Number(cam.offsetY || 0),
+            zoom_scale: Number(cam.zoomScale || 1)
+        });
+    }
+
+    function _envSceneCancelZoomLog() {
+        var nav = _envScene.nav || {};
+        if (nav.zoomLogTimer) clearTimeout(nav.zoomLogTimer);
+        nav.zoomLogTimer = null;
+        nav.zoomLogActor = '';
+        nav.zoomLogReason = '';
+    }
+
+    function _envSceneScheduleZoomLog(actor, reason) {
+        var nav = _envScene.nav || {};
+        if (nav.zoomLogTimer) clearTimeout(nav.zoomLogTimer);
+        nav.zoomLogActor = String(actor || '');
+        nav.zoomLogReason = String(reason || 'manual zoom');
+        nav.zoomLogTimer = setTimeout(function () {
+            var pendingActor = nav.zoomLogActor;
+            var pendingReason = nav.zoomLogReason;
+            _envSceneCancelZoomLog();
+            _envSceneCommitCameraLog(pendingActor, pendingReason);
+            renderEnvironmentView();
+        }, 180);
+    }
+
     function _envSceneAdjustCamera(dx, dy, zoomDelta, actor, reason) {
         var cam = _envScene.camera || {};
         cam.offsetX = Number(cam.offsetX || 0) + Number(dx || 0);
@@ -10568,14 +10630,7 @@
         cam.zoomScale = _envSceneClampZoomScale(Number(cam.zoomScale || 1) + Number(zoomDelta || 0));
         _envScene.camera = cam;
         _envScene.dirty = true;
-        if (actor) {
-            _envLogAction('camera', 'Adjusted habitat camera', actor, {
-                reason: String(reason || 'adjust'),
-                offset_x: Number(cam.offsetX || 0),
-                offset_y: Number(cam.offsetY || 0),
-                zoom_scale: Number(cam.zoomScale || 1)
-            });
-        }
+        if (actor) _envSceneCommitCameraLog(actor, reason);
     }
 
     function _envSceneResetCamera(actor, reason) {
@@ -10689,6 +10744,7 @@
                 _envScene.nav.dragging = false;
                 _envScene.nav.pointerId = null;
                 if (moved) {
+                    _envSceneCancelZoomLog();
                     _envSceneAdjustCamera(0, 0, 0, _envManualActorId(), 'manual pan');
                     renderEnvironmentView();
                 }
@@ -10704,12 +10760,14 @@
                 event.preventDefault();
                 var nav = _envSceneNavigationConfig();
                 var delta = event.deltaY < 0 ? nav.zoomStep : -nav.zoomStep;
-                _envSceneAdjustCamera(0, 0, delta, _envManualActorId(), 'manual zoom');
+                _envSceneAdjustCamera(0, 0, delta, '', 'manual zoom');
+                _envSceneScheduleZoomLog(_envManualActorId(), 'manual zoom');
                 renderEnvironmentView();
             }, { passive: false });
             shell.addEventListener('dblclick', function (event) {
                 var target = event.target;
                 if (target && typeof target.closest === 'function' && target.closest('.envops-habitat-object, .envops-habitat-zone, .envops-habitat-pulse-dot')) return;
+                _envSceneCancelZoomLog();
                 _envSceneResetCamera(_envManualActorId(), 'manual reset');
                 renderEnvironmentView();
             });
