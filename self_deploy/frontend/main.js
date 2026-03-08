@@ -7728,7 +7728,7 @@
         var latestSample = ((_envKernel.samples || [])[0]) || null;
         var latestBranch = ((_envKernel.branches || [])[0]) || null;
         var activeDoc = (_envDocState.results || [])[0] || null;
-        var currentReplay = ((_envKernel.replay || {}).current) || null;
+        var currentReplay = _envReplayCurrentItem();
         var artifactSections = _envArtifactSections();
         var trajectories = [];
         var seq = 0;
@@ -8132,7 +8132,7 @@
         var eventKey = eventId ? ('event::' + eventId) : '';
         var latestSample = ((_envKernel.samples || [])[0]) || null;
         var latestBranch = ((_envKernel.branches || [])[0]) || null;
-        var currentReplay = ((_envKernel.replay || {}).current) || null;
+        var currentReplay = _envReplayCurrentItem();
         var activeDoc = (_envDocState.results || [])[0] || null;
         var sourceKey = '';
         var targetKey = '';
@@ -8217,9 +8217,7 @@
                 ? String(focus.id || Math.max(0, Number(replay.cursor || 0)))
                 : String(Math.max(0, Number(replay.cursor || 0)));
             addKey('replay::' + replayId);
-            var current = replay.current || ((Array.isArray(replay.track) && replay.track.length)
-                ? replay.track[Math.max(0, Math.min(replay.track.length - 1, Number(replay.cursor || 0)))]
-                : null);
+            var current = _envReplayCurrentItem();
             if (current && current.kind) addKey(String(current.kind || '') + '::' + String(current.id || ''));
             if (latestBranch) addKey('branch::' + String(latestBranch.id || ''));
             if (latestSample) addKind('sample');
@@ -8464,7 +8462,7 @@
             var replay = _envKernel.replay || {};
             var replayKey = 'replay::' + String(Math.max(0, Number(replay.cursor || 0)));
             if (ctx.primaryKeys[replayKey]) return replayKey;
-            var current = replay.current || null;
+            var current = _envReplayCurrentItem();
             if (current && current.kind) return String(current.kind || '') + '::' + String(current.id || '');
             var latestBranch = ((_envKernel.branches || [])[0]) || null;
             if (latestBranch) return 'branch::' + String(latestBranch.id || '');
@@ -11771,11 +11769,8 @@
         }
         _envSceneBindCanvas(canvas);
         _envSceneBindShell(shell);
-        var focus = _envKernel.focus || {};
-        _envSceneHudText(
-            focus.label ? ('Focused: ' + String(focus.label)) : (workflow ? String(workflow.name || workflow.id || 'workflow') : 'Scene ready.'),
-            workflow ? 'Click a primitive to route focus through the shared ingress queue.' : 'Load a workflow-backed system to activate the habitat.'
-        );
+        var hudCopy = _envHabitatHudCopy(workflow);
+        _envSceneHudText(hudCopy.primary, hudCopy.secondary);
         _envEnsureSceneLoop();
     }
 
@@ -12235,12 +12230,41 @@
         return replay.track;
     }
 
-    function _envReplayItemCommand(item) {
-        if (!item) return null;
+    function _envReplayCurrentItem() {
+        var replay = _envKernel.replay || {};
+        if (replay.current) return replay.current;
+        if (!Array.isArray(replay.track) || !replay.track.length) return null;
+        var index = Math.max(0, Math.min(replay.track.length - 1, Number(replay.cursor || 0)));
+        return replay.track[index] || null;
+    }
+
+    function _envReplayCursorSummary() {
+        var replay = _envKernel.replay || {};
+        var item = _envReplayCurrentItem();
+        if (!item) return '';
+        var summary = String(item.label || item.kind || 'item');
+        if (Array.isArray(replay.track) && replay.track.length) {
+            summary += ' · cursor ' + String(Math.max(0, Number(replay.cursor || 0)) + 1) + '/' + String(replay.track.length);
+        }
+        return summary;
+    }
+
+    function _envHabitatHudCopy(workflow) {
+        var focus = _envKernel.focus || {};
+        var replay = _envKernel.replay || {};
+        var replaySummary = _envReplayCursorSummary();
+        var primary = focus.label
+            ? ('Focused: ' + String(focus.label))
+            : (workflow ? String(workflow.name || workflow.id || 'workflow') : 'Scene ready.');
+        var secondary = workflow
+            ? 'Click a primitive to route focus through the shared ingress queue.'
+            : 'Load a workflow-backed system to activate the habitat.';
+        if (replaySummary) {
+            secondary += ' Replay cursor: ' + replaySummary + (replay.active ? ' · playback active.' : '.');
+        }
         return {
-            action: String(item.command || ''),
-            target: String(item.target || ''),
-            kind: String(item.kind || '')
+            primary: primary,
+            secondary: secondary
         };
     }
 
@@ -12251,10 +12275,6 @@
             replay.timer = null;
         }
         replay.active = false;
-        _envEmitBus('replay', 'Stopped replay rail', actor || 'system', {
-            mode: replay.mode || 'samples',
-            note: String(note || '')
-        });
         _envLogAction('replay', 'Stopped replay rail', actor || 'system', {
             mode: replay.mode || 'samples',
             note: String(note || '')
@@ -12274,26 +12294,14 @@
         if (!item) return null;
         replay.cursor = nextIndex;
         replay.current = item;
-        var cmd = _envReplayItemCommand(item);
-        if (cmd && cmd.action) {
-            _envQueueControl(cmd.action, cmd.target, actor || 'assistant', note || ('replay ' + item.kind), {
-                source: 'replay',
-                replay_mode: replay.mode,
-                replay_index: nextIndex,
-                replay_id: String(item.id || '')
-            });
-        }
-        _envEmitBus('replay', 'Focused replay item', actor || 'assistant', {
-            mode: replay.mode,
-            index: nextIndex,
-            item_kind: item.kind,
-            item_id: String(item.id || '')
-        });
         _envLogAction('replay', 'Focused replay item', actor || 'assistant', {
             mode: replay.mode,
             index: nextIndex,
             item_kind: item.kind,
-            item_id: String(item.id || '')
+            item_id: String(item.id || ''),
+            note: String(note || ''),
+            shell_focus_kind: String(((_envKernel.focus || {}).kind) || 'workflow'),
+            shell_focus_id: String(((_envKernel.focus || {}).id) || '')
         });
         renderEnvironmentView();
         return item;
@@ -12333,11 +12341,6 @@
         replay.timer = setInterval(function () {
             _envReplayStep(1, actor || 'assistant', 'replay loop tick');
         }, Math.max(400, Number(replay.intervalMs || 1400)));
-        _envEmitBus('replay', 'Started replay rail', actor || 'assistant', {
-            mode: replay.mode,
-            interval_ms: Number(replay.intervalMs || 1400),
-            track_length: replay.track.length
-        });
         _envLogAction('replay', 'Started replay rail', actor || 'assistant', {
             mode: replay.mode,
             interval_ms: Number(replay.intervalMs || 1400),
@@ -12351,10 +12354,6 @@
         var replay = _envKernel.replay || {};
         replay.mode = String(mode || 'samples');
         _envRefreshReplayTrack(replay.mode, false);
-        _envEmitBus('replay', 'Changed replay mode', actor || 'system', {
-            mode: replay.mode,
-            track_length: (replay.track || []).length
-        });
         _envLogAction('replay', 'Changed replay mode', actor || 'system', {
             mode: replay.mode,
             track_length: (replay.track || []).length
@@ -13092,11 +13091,12 @@
         var focus = _envKernel.focus || {};
         var replay = _envKernel.replay || {};
         _envRefreshReplayTrack(replay.mode, true);
+        var replayCurrent = _envReplayCurrentItem();
         var samples = (_envKernel.samples || []).slice(0, 12);
         var branches = (_envKernel.branches || []).slice(0, 6);
         var replayTrack = (replay.track || []).slice(0, _envReplayTrackLimit());
         var replayHtml = replayTrack.length ? replayTrack.map(function (item, idx) {
-            var active = replay.current && String((replay.current || {}).id || '') === String(item.id || '') ? ' active' : '';
+            var active = replayCurrent && String((replayCurrent || {}).id || '') === String(item.id || '') ? ' active' : '';
             var tone = _envSampleStatus(item) || String(item.status || 'completed');
             var label = item.kind === 'event' ? (String(item.meta || '') || String(item.kind || 'event')) : String(item.kind || 'item');
             return '<button class="envops-sample-cell ' + _esc(tone) + active + '" data-env-action="replay-focus" data-env-replay-index="' + String(idx) + '">' +
@@ -13206,6 +13206,7 @@
         var watch = _envKernel.watch || {};
         var sampler = _envKernel.sampler || {};
         var replay = _envKernel.replay || {};
+        var replaySummary = _envReplayCursorSummary();
         var events = _envRecentBusEvents(10);
         var dominance = (_envScene && _envScene.dominance) || _envSceneDominanceContext();
         var latest = events[0] || null;
@@ -13245,7 +13246,7 @@
             '<div class="envops-habitat-status-card ' + _esc(replayTone) + '" data-role="replay">' +
             '<div class="h">Replay Rail</div>' +
             '<div class="v">' + (replay.active ? 'playing' : 'ready') + ' · ' + _esc(String(replay.mode || 'samples')) + '</div>' +
-            '<div class="m">' + (((replay.track || []).length) ? ('cursor ' + String(Math.max(0, Number(replay.cursor || 0)) + 1) + ' / ' + String((replay.track || []).length)) : 'waiting on replay track') + '</div>' +
+            '<div class="m">' + _esc(replaySummary || 'waiting on replay track') + '</div>' +
             '</div>' +
             '<div class="envops-habitat-status-card ' + _esc(latestTone) + '" data-role="latest">' +
             '<div class="h">Latest Bus Action</div>' +
@@ -13461,6 +13462,7 @@
 
     function _envRenderHabitat(workflow, exec, sections, traces) {
         var focus = _envKernel.focus || {};
+        var hudCopy = _envHabitatHudCopy(workflow);
         var dominance = (_envScene && _envScene.dominance) || _envSceneDominanceContext();
         var failure = _envLatestFailureSurface(workflow, exec, traces);
         var cameraMode = _envSceneNormalizeCameraMode(_envScene.cameraMode || (((_envConfig || {}).scene || {}).defaultCameraMode) || 'overview');
@@ -13535,8 +13537,8 @@
             _envSceneRenderForegroundLayer(workflow, exec, sections, traces) +
             '</div>' +
             '<div class="envops-habitat-hud">' +
-            '<div class="envops-habitat-hud-primary" id="envops-habitat-hud-primary">' + _esc(focus.label ? ('Focused: ' + String(focus.label)) : 'Scene ready.') + '</div>' +
-            '<div class="envops-habitat-hud-secondary" id="envops-habitat-hud-secondary">Click a primitive to route focus through the shared ingress queue. Drag the habitat shell to pan, wheel to zoom, double-click to reset.</div>' +
+            '<div class="envops-habitat-hud-primary" id="envops-habitat-hud-primary">' + _esc(hudCopy.primary) + '</div>' +
+            '<div class="envops-habitat-hud-secondary" id="envops-habitat-hud-secondary">' + _esc(hudCopy.secondary) + ' Drag the habitat shell to pan, wheel to zoom, double-click to reset.</div>' +
             '<div class="envops-habitat-mode-rail">' +
             '<div class="envops-habitat-mode-card dominant mode-' + _esc(dominanceSummary.mode) + '">' +
             '<div class="h">Dominance</div>' +
@@ -13654,6 +13656,7 @@
     function _envRenderKernel(workflow, exec, sections, traces) {
         var focus = _envFocusPayload(workflow, exec, sections, traces);
         var replay = _envKernel.replay || {};
+        var replaySummary = _envReplayCursorSummary();
         var activeProfile = _envProfileById(((_envKernel.profile || {}).activeId) || '');
         var activeActorId = _envActorActiveId();
         var activeActor = _envActorSessionSnapshot(activeActorId);
@@ -13664,6 +13667,7 @@
         if (_envKernel.focus && _envKernel.focus.actor) focusMeta.push('actor ' + _envKernel.focus.actor);
         if (exec && exec.execution_id) focusMeta.push('exec ' + _activityTokenShort(exec.execution_id, 18));
         if (activeProfile) focusMeta.push('profile ' + String(activeProfile.label || activeProfile.id || 'active'));
+        if (replaySummary) focusMeta.push('replay ' + replaySummary);
         var branchStrip = _envKernel.branches.slice(0, 5).map(function (branch) {
             var active = (_envKernel.focus || {}).kind === 'branch' && String((_envKernel.focus || {}).id || '') === String(branch.id || '') ? ' active' : '';
             return '<span class="envops-branch-chip' + active + '" data-env-action="focus-branch" data-env-branch-id="' + _esc(branch.id) + '">' + _esc(branch.reason) + '</span>';
@@ -13733,7 +13737,7 @@
             '<div class="envops-kernel-row">' +
             '<div class="envops-kernel-card"><div class="h">Sampling</div><div class="v">' + (_envKernel.sampler.active ? 'Continuous @ ' + String(_envKernel.sampler.intervalMs) + 'ms' : 'Manual snapshots only') + '</div></div>' +
             '<div class="envops-kernel-card"><div class="h">Branches</div><div class="v">' + String(_envKernel.branches.length) + ' saved branches</div></div>' +
-            '<div class="envops-kernel-card"><div class="h">Replay</div><div class="v">' + (replay.active ? 'Playing ' : 'Ready ') + '· ' + _esc(String(replay.mode || 'samples')) + ' · ' + String((replay.track || []).length) + ' items</div></div>' +
+            '<div class="envops-kernel-card"><div class="h">Replay</div><div class="v">' + (replay.active ? 'Playing ' : 'Ready ') + '· ' + _esc(String(replay.mode || 'samples')) + ' · ' + String((replay.track || []).length) + ' items' + (replaySummary ? (' · ' + _esc(replaySummary)) : '') + '</div></div>' +
             '<div class="envops-kernel-card"><div class="h">Trace Window</div><div class="v">' + String(traces.length) + ' recent rows linked to this system</div></div>' +
             '<div class="envops-kernel-card"><div class="h">Ingress</div><div class="v">' + (_envKernel.ingress.active ? 'Live @ ' + String(_envKernel.ingress.intervalMs) + 'ms' : 'Paused') + ' · ' + String((_envKernel.ingress.queue || []).length) + ' queued</div></div>' +
             '<div class="envops-kernel-card"><div class="h">Profile</div><div class="v">' + _esc(activeProfile ? String(activeProfile.label || activeProfile.id || 'active') : 'none') + '</div></div>' +
