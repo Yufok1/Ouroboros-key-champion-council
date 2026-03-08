@@ -5335,6 +5335,131 @@
             min-width: 120px;
         }
 
+        .envops-actor-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 8px;
+        }
+
+        .envops-actor-card {
+            border: 1px solid rgba(255,255,255,0.08);
+            background:
+                radial-gradient(circle at top right, rgba(255,255,255,0.05), transparent 40%),
+                rgba(255,255,255,0.02);
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .envops-actor-card.tone-manual {
+            border-color: rgba(255,190,96,0.18);
+        }
+
+        .envops-actor-card.tone-assistant {
+            border-color: rgba(102,184,255,0.2);
+        }
+
+        .envops-actor-card.tone-system {
+            border-color: rgba(255,255,255,0.12);
+        }
+
+        .envops-actor-card.active {
+            background:
+                radial-gradient(circle at top right, rgba(79,255,208,0.08), transparent 42%),
+                rgba(255,255,255,0.03);
+            box-shadow: inset 0 0 0 1px rgba(79,255,208,0.14);
+        }
+
+        .envops-actor-card.focused {
+            box-shadow:
+                inset 0 0 0 1px rgba(255,190,96,0.18),
+                0 0 0 1px rgba(255,190,96,0.08);
+        }
+
+        .envops-actor-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .envops-actor-title {
+            color: var(--text);
+            font-size: 11px;
+            font-weight: 700;
+            line-height: 1.3;
+        }
+
+        .envops-actor-meta {
+            color: var(--text-dim);
+            font-size: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.7px;
+            line-height: 1.5;
+            margin-top: 3px;
+        }
+
+        .envops-actor-badge {
+            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.04);
+            color: var(--text-dim);
+            padding: 3px 7px;
+            font-size: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.7px;
+            white-space: nowrap;
+        }
+
+        .envops-actor-card.active .envops-actor-badge {
+            border-color: rgba(79,255,208,0.18);
+            color: #bffff0;
+            background: rgba(79,255,208,0.08);
+        }
+
+        .envops-actor-note {
+            color: var(--text-dim);
+            font-size: 9px;
+            line-height: 1.55;
+            min-height: 30px;
+        }
+
+        .envops-actor-stats {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .envops-actor-stats span {
+            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(255,255,255,0.03);
+            color: var(--text-dim);
+            padding: 3px 6px;
+            font-size: 8px;
+            font-family: var(--mono);
+        }
+
+        .envops-actor-focus {
+            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(0,0,0,0.14);
+            color: var(--text);
+            padding: 7px 8px;
+            font-size: 9px;
+            line-height: 1.5;
+            font-family: var(--mono);
+            word-break: break-word;
+        }
+
+        .envops-actor-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .envops-actor-actions button {
+            min-width: 92px;
+        }
+
         .envops-focus-strip,
         .envops-branch-strip,
         .envops-sample-strip {
@@ -5443,6 +5568,13 @@
             color: var(--text-dim);
             font-size: 9px;
             line-height: 1.55;
+        }
+
+        .envops-ledger-filter {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding-bottom: 2px;
         }
 
         .envops-control-shell {

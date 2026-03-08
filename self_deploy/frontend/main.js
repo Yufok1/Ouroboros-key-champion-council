@@ -68,7 +68,7 @@
     };
     function _envDefaultConfig() {
         return {
-            version: '2026-03-07-envops-v26',
+            version: '2026-03-07-envops-v27',
             shell: {
                 defaultRenderer: 'web3d',
                 defaultPackageMode: 'research',
@@ -101,6 +101,16 @@
                 hotspotLimit: 3,
                 requestCooldownMs: 9000,
                 staleAfterMs: 45000
+            },
+            actors: {
+                defaultActiveId: 'assistant',
+                restoreFocusOnActivate: true,
+                maxVisible: 6,
+                roster: [
+                    { id: 'user', label: 'Operator', role: 'human', tone: 'manual', note: 'Manual cockpit lane for direct human control.' },
+                    { id: 'assistant', label: 'Assistant', role: 'copilot', tone: 'assistant', note: 'Primary autonomous orchestration lane for agent-driven operation.' },
+                    { id: 'system', label: 'System', role: 'runtime', tone: 'system', note: 'Runtime hooks, watches, and substrate-level automation.' }
+                ]
             },
             scene: {
                 enabled: true,
@@ -436,7 +446,7 @@
                 maxEvents: 160,
                 liveTail: 24,
                 retainActions: 80,
-                channels: ['catalog', 'selection', 'runtime', 'focus', 'profile', 'sample', 'branch', 'replay', 'control', 'recipe', 'docs', 'tool', 'export', 'system', 'ingress', 'watch']
+                channels: ['catalog', 'selection', 'runtime', 'focus', 'profile', 'sample', 'branch', 'replay', 'control', 'recipe', 'docs', 'tool', 'export', 'system', 'ingress', 'watch', 'actor']
             },
             profiles: [
                 {
@@ -575,7 +585,8 @@
         },
         actions: [],
         branches: [],
-        samples: []
+        samples: [],
+        actors: { activeId: 'assistant', filterId: 'all', seq: 0, lanes: {} }
     };
     let _envScene = {
         enabled: true,
@@ -6216,6 +6227,252 @@
         return String(prefix || 'env') + '-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
     }
 
+    function _envNormalizeActorId(actorId) {
+        return String(actorId || '').trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '_').replace(/^_+|_+$/g, '');
+    }
+
+    function _envActorDefaults() {
+        return [
+            { id: 'user', label: 'Operator', role: 'human', tone: 'manual', note: 'Manual cockpit lane for direct human control.' },
+            { id: 'assistant', label: 'Assistant', role: 'copilot', tone: 'assistant', note: 'Primary autonomous orchestration lane for agent-driven operation.' },
+            { id: 'system', label: 'System', role: 'runtime', tone: 'system', note: 'Runtime hooks, watches, and substrate-level automation.' }
+        ];
+    }
+
+    function _envActorLabelFromId(actorId) {
+        var text = String(actorId || 'actor').replace(/[_-]+/g, ' ').trim();
+        return text ? text.replace(/\b[a-z]/g, function (ch) { return ch.toUpperCase(); }) : 'Actor';
+    }
+
+    function _envActorKernel() {
+        if (!_envKernel.actors || typeof _envKernel.actors !== 'object') {
+            _envKernel.actors = { activeId: 'assistant', filterId: 'all', seq: 0, lanes: {} };
+        }
+        if (!_envKernel.actors.lanes || typeof _envKernel.actors.lanes !== 'object') {
+            _envKernel.actors.lanes = {};
+        }
+        return _envKernel.actors;
+    }
+
+    function _envActorConfig() {
+        var raw = (_envConfig || {}).actors || {};
+        var roster = Array.isArray(raw.roster) ? raw.roster : [];
+        return {
+            defaultActiveId: _envNormalizeActorId(raw.defaultActiveId || 'assistant') || 'assistant',
+            restoreFocusOnActivate: raw.restoreFocusOnActivate !== false,
+            maxVisible: Math.max(3, Math.min(8, Number(raw.maxVisible || 6))),
+            roster: roster.map(function (entry) {
+                var id = _envNormalizeActorId((entry || {}).id || '');
+                if (!id) return null;
+                return {
+                    id: id,
+                    label: String((entry || {}).label || _envActorLabelFromId(id)),
+                    role: String((entry || {}).role || 'custom'),
+                    tone: String((entry || {}).tone || 'custom'),
+                    note: String((entry || {}).note || '')
+                };
+            }).filter(Boolean)
+        };
+    }
+
+    function _envActorMeta(actorId) {
+        var id = _envNormalizeActorId(actorId || '');
+        if (!id) return null;
+        var merged = null;
+        _envActorDefaults().concat(_envActorConfig().roster || []).forEach(function (entry) {
+            if (String((entry || {}).id || '') !== id) return;
+            merged = Object.assign({}, merged || {}, entry || {});
+        });
+        return Object.assign({
+            id: id,
+            label: _envActorLabelFromId(id),
+            role: 'custom',
+            tone: 'custom',
+            note: ''
+        }, merged || {});
+    }
+
+    function _envActorEnsureLane(actorId, meta) {
+        var store = _envActorKernel();
+        var id = _envNormalizeActorId(actorId || '') || _envActorConfig().defaultActiveId || 'assistant';
+        var seed = Object.assign({}, _envActorMeta(id) || {}, meta || {});
+        if (!store.lanes[id]) {
+            store.seq = Number(store.seq || 0) + 1;
+            store.lanes[id] = {
+                id: id,
+                label: String(seed.label || _envActorLabelFromId(id)),
+                role: String(seed.role || 'custom'),
+                tone: String(seed.tone || 'custom'),
+                note: String(seed.note || ''),
+                sessionId: 'env-' + id + '-' + String(store.seq),
+                createdTs: Date.now(),
+                lastActiveTs: 0,
+                lastFocusTs: 0,
+                lastActionId: '',
+                lastActionKind: '',
+                lastActionBody: '',
+                lastActionTs: 0,
+                focus: { kind: 'workflow', id: '', label: 'workflow', actor: id, payload: null },
+                profileId: '',
+                queueDepth: 0,
+                currentDispatchId: '',
+                latestSampleId: '',
+                latestBranchId: '',
+                counts: {
+                    actions: 0,
+                    bus: 0,
+                    queued: 0,
+                    completed: 0,
+                    failed: 0,
+                    samples: 0,
+                    branches: 0
+                }
+            };
+        }
+        var lane = store.lanes[id];
+        lane.label = String(seed.label || lane.label || _envActorLabelFromId(id));
+        lane.role = String(seed.role || lane.role || 'custom');
+        lane.tone = String(seed.tone || lane.tone || 'custom');
+        lane.note = String(seed.note || lane.note || '');
+        return lane;
+    }
+
+    function _envActorLaneById(actorId) {
+        var id = _envNormalizeActorId(actorId || '');
+        if (!id) return null;
+        var store = _envActorKernel();
+        return store.lanes && store.lanes[id] ? store.lanes[id] : null;
+    }
+
+    function _envActorCatalog() {
+        var store = _envActorKernel();
+        var seen = {};
+        var out = [];
+        _envActorDefaults().concat(_envActorConfig().roster || []).forEach(function (entry) {
+            var id = _envNormalizeActorId((entry || {}).id || '');
+            if (!id || seen[id]) return;
+            seen[id] = true;
+            out.push(_envActorEnsureLane(id, entry));
+        });
+        Object.keys(store.lanes || {}).forEach(function (id) {
+            if (seen[id]) return;
+            seen[id] = true;
+            out.push(_envActorEnsureLane(id, store.lanes[id]));
+        });
+        return out;
+    }
+
+    function _envActorActiveId() {
+        var store = _envActorKernel();
+        var activeId = _envNormalizeActorId(store.activeId || '') || _envActorConfig().defaultActiveId || 'assistant';
+        store.activeId = _envActorEnsureLane(activeId).id;
+        return store.activeId;
+    }
+
+    function _envManualActorId() {
+        return _envActorActiveId();
+    }
+
+    function _envActorRefreshQueueState() {
+        var store = _envActorKernel();
+        Object.keys(store.lanes || {}).forEach(function (id) {
+            var lane = store.lanes[id];
+            lane.queueDepth = 0;
+            lane.currentDispatchId = '';
+        });
+        (((_envKernel.ingress || {}).queue) || []).forEach(function (item) {
+            var lane = _envActorEnsureLane(String((item || {}).actor || 'assistant'));
+            lane.queueDepth += 1;
+        });
+        var current = ((_envKernel.ingress || {}).current) || null;
+        if (current && current.actor) {
+            _envActorEnsureLane(current.actor).currentDispatchId = String(current.id || '');
+        }
+    }
+
+    function _envActorSetActive(actorId, actor, note, silent) {
+        var store = _envActorKernel();
+        var lane = _envActorEnsureLane(actorId || _envActorConfig().defaultActiveId || 'assistant');
+        var changed = String(store.activeId || '') !== String(lane.id || '');
+        store.activeId = String(lane.id || '');
+        lane.lastActiveTs = Date.now();
+        _envActorRefreshQueueState();
+        if (!silent && changed && _envActorConfig().restoreFocusOnActivate && lane.focus && typeof lane.focus === 'object') {
+            _envKernel.focus = Object.assign({}, lane.focus);
+        }
+        if (!silent) {
+            _envLogAction('actor', (changed ? 'Activated' : 'Refreshed') + ' actor lane ' + String(lane.label || lane.id || 'actor'), actor || lane.id, {
+                actor_id: String(lane.id || ''),
+                session_id: String(lane.sessionId || ''),
+                note: String(note || '')
+            });
+            renderEnvironmentView();
+        }
+        return lane;
+    }
+
+    function _envActorSetFilter(actorId) {
+        var store = _envActorKernel();
+        var next = String(actorId || '') === 'all' ? 'all' : _envActorEnsureLane(actorId || '').id;
+        store.filterId = next || 'all';
+        renderEnvironmentView();
+        return store.filterId;
+    }
+
+    function _envActorSessionSnapshot(actorId) {
+        var lane = _envActorEnsureLane(actorId || _envActorActiveId());
+        var current = ((_envKernel.ingress || {}).current) || null;
+        var queue = (((_envKernel.ingress || {}).queue) || []).filter(function (item) {
+            return String((item || {}).actor || '') === String(lane.id || '');
+        }).slice(0, 6);
+        var history = (((_envKernel.ingress || {}).history) || []).filter(function (item) {
+            return String((item || {}).actor || '') === String(lane.id || '');
+        }).slice(0, 6);
+        var actions = (_envKernel.actions || []).filter(function (entry) {
+            return String((entry || {}).actor || '') === String(lane.id || '');
+        }).slice(0, 8);
+        var events = (_envBus.events || []).filter(function (event) {
+            return String((event || {}).actor || '') === String(lane.id || '');
+        }).slice(0, 8);
+        var focus = lane.focus && typeof lane.focus === 'object' ? Object.assign({}, lane.focus) : null;
+        return {
+            actor: {
+                id: String(lane.id || ''),
+                label: String(lane.label || lane.id || 'actor'),
+                role: String(lane.role || 'custom'),
+                tone: String(lane.tone || 'custom'),
+                note: String(lane.note || ''),
+                session_id: String(lane.sessionId || ''),
+                active: String(_envActorActiveId() || '') === String(lane.id || ''),
+                created_ts: Number(lane.createdTs || 0),
+                last_active_ts: Number(lane.lastActiveTs || 0)
+            },
+            focus: focus,
+            linkedTarget: focus && String(focus.kind || '') !== 'actor' && String(focus.id || '') !== '' ? {
+                kind: String(focus.kind || ''),
+                id: String(focus.id || ''),
+                label: String(focus.label || '')
+            } : null,
+            last_focus_ts: Number(lane.lastFocusTs || 0),
+            last_action: lane.lastActionId ? {
+                id: String(lane.lastActionId || ''),
+                kind: String(lane.lastActionKind || ''),
+                body: String(lane.lastActionBody || ''),
+                ts: Number(lane.lastActionTs || 0)
+            } : null,
+            profile_id: String(lane.profileId || ''),
+            queue_depth: Number(lane.queueDepth || queue.length || 0),
+            current_dispatch: current && String((current || {}).actor || '') === String(lane.id || '') ? Object.assign({}, current) : null,
+            latest_sample: lane.latestSampleId ? _envFindSample(lane.latestSampleId) : null,
+            latest_branch: lane.latestBranchId ? _envFindBranch(lane.latestBranchId) : null,
+            queued: queue,
+            history: history,
+            actions: actions,
+            events: events,
+            counts: Object.assign({}, lane.counts || {})
+        };
+    }
+
     function _envMergeConfig(raw) {
         var cfg = _envDefaultConfig();
         if (!raw || typeof raw !== 'object') return cfg;
@@ -6243,6 +6500,27 @@
             if (raw.health.hotspotLimit !== undefined) cfg.health.hotspotLimit = Math.max(1, Math.min(6, Number(raw.health.hotspotLimit) || cfg.health.hotspotLimit));
             if (raw.health.requestCooldownMs !== undefined) cfg.health.requestCooldownMs = Math.max(1000, Math.min(60000, Number(raw.health.requestCooldownMs) || cfg.health.requestCooldownMs));
             if (raw.health.staleAfterMs !== undefined) cfg.health.staleAfterMs = Math.max(5000, Math.min(300000, Number(raw.health.staleAfterMs) || cfg.health.staleAfterMs));
+        }
+        if (raw.actors && typeof raw.actors === 'object') {
+            if (raw.actors.defaultActiveId !== undefined) cfg.actors.defaultActiveId = _envNormalizeActorId(raw.actors.defaultActiveId) || cfg.actors.defaultActiveId;
+            if (raw.actors.restoreFocusOnActivate !== undefined) cfg.actors.restoreFocusOnActivate = !!raw.actors.restoreFocusOnActivate;
+            if (raw.actors.maxVisible !== undefined) cfg.actors.maxVisible = Math.max(3, Math.min(8, Number(raw.actors.maxVisible) || cfg.actors.maxVisible));
+            if (Array.isArray(raw.actors.roster) && raw.actors.roster.length) {
+                cfg.actors.roster = raw.actors.roster.map(function (entry) {
+                    var id = _envNormalizeActorId((entry || {}).id || '');
+                    if (!id) return null;
+                    var base = (_envDefaultConfig().actors.roster || []).find(function (seed) {
+                        return String((seed || {}).id || '') === String(id || '');
+                    }) || {};
+                    return {
+                        id: id,
+                        label: String((entry || {}).label || base.label || _envActorLabelFromId(id)),
+                        role: String((entry || {}).role || base.role || 'custom'),
+                        tone: String((entry || {}).tone || base.tone || 'custom'),
+                        note: String((entry || {}).note || base.note || '')
+                    };
+                }).filter(Boolean);
+            }
         }
         if (raw.scene && typeof raw.scene === 'object') {
             if (raw.scene.enabled !== undefined) cfg.scene.enabled = !!raw.scene.enabled;
@@ -6391,6 +6669,7 @@
     function _envBusChannelForKind(kind) {
         var k = String(kind || 'system').toLowerCase();
         if (k === 'catalog' || k === 'load' || k === 'select') return 'selection';
+        if (k === 'actor') return 'actor';
         if (k === 'runtime' || k === 'execute') return 'runtime';
         if (k === 'sample') return 'sample';
         if (k === 'branch') return 'branch';
@@ -6460,6 +6739,12 @@
         _envScene.cameraMode = _envSceneNormalizeCameraMode((((_envConfig || {}).scene || {}).defaultCameraMode) || _envScene.cameraMode || 'overview');
         if ((((_envConfig || {}).ingress || {}).autostart)) _envStartIngressLoop();
         else _envStopIngressLoop(false);
+        _envActorCatalog();
+        _envActorSetActive(((_envKernel.actors || {}).activeId) || _envActorConfig().defaultActiveId || 'assistant', 'system', 'config apply', true);
+        if (String(((_envKernel.actors || {}).filterId) || '') !== 'all' && !_envActorLaneById((_envKernel.actors || {}).filterId)) {
+            _envKernel.actors.filterId = 'all';
+        }
+        _envActorRefreshQueueState();
         var renderTargetEl = document.getElementById('envops-render-target');
         if (renderTargetEl) {
             var currentRender = String(renderTargetEl.value || '');
@@ -7287,8 +7572,10 @@
         var latestBranch = (_envKernel.branches || [])[0] || null;
         var replayCursor = String(Math.max(0, Number(((_envKernel.replay || {}).cursor) || 0)));
         var activeProfileId = String(((_envKernel.profile || {}).activeId) || (((_envConfig || {}).shell || {}).defaultProfile) || '').trim();
+        var activeActorId = String(_envActorActiveId() || '').trim();
         if (command === 'focus_workflow') return _envScene.workflowId ? ('workflow::' + _envScene.workflowId) : '';
         if (command === 'focus_execution') return targetId ? ('execution::' + targetId) : (_envScene.executionId ? ('execution::' + _envScene.executionId) : '');
+        if (command === 'focus_actor') return (targetId || activeActorId) ? ('actor::' + String(targetId || activeActorId)) : '';
         if (command === 'focus_district') return targetId ? ('district::' + targetId) : '';
         if (command === 'focus_node') return targetId ? ('node::' + targetId) : '';
         if (command === 'focus_doc' || command === 'open_doc_memory') return targetId ? ('doc::' + targetId) : '';
@@ -10223,7 +10510,7 @@
                 if (!hit || !hit.obj) return;
                 var command = _envFocusCommandForKind(hit.obj.kind);
                 if (!command) return;
-                _envQueueControl(command, String(hit.obj.id || ''), 'user', 'scene focus', {
+                _envQueueControl(command, String(hit.obj.id || ''), _envManualActorId(), 'scene focus', {
                     source: 'habitat_scene',
                     kind: hit.obj.kind,
                     label: hit.obj.label || hit.obj.kind || 'primitive'
@@ -10293,7 +10580,7 @@
                 _envScene.nav.dragging = false;
                 _envScene.nav.pointerId = null;
                 if (moved) {
-                    _envSceneAdjustCamera(0, 0, 0, 'user', 'manual pan');
+                    _envSceneAdjustCamera(0, 0, 0, _envManualActorId(), 'manual pan');
                     renderEnvironmentView();
                 }
             });
@@ -10308,13 +10595,13 @@
                 event.preventDefault();
                 var nav = _envSceneNavigationConfig();
                 var delta = event.deltaY < 0 ? nav.zoomStep : -nav.zoomStep;
-                _envSceneAdjustCamera(0, 0, delta, 'user', 'manual zoom');
+                _envSceneAdjustCamera(0, 0, delta, _envManualActorId(), 'manual zoom');
                 renderEnvironmentView();
             }, { passive: false });
             shell.addEventListener('dblclick', function (event) {
                 var target = event.target;
                 if (target && typeof target.closest === 'function' && target.closest('.envops-habitat-object, .envops-habitat-zone, .envops-habitat-pulse-dot')) return;
-                _envSceneResetCamera('user', 'manual reset');
+                _envSceneResetCamera(_envManualActorId(), 'manual reset');
                 renderEnvironmentView();
             });
         }
@@ -11396,12 +11683,14 @@
     }
 
     function _envEmitBusEvent(kind, actor, body, payload) {
+        var actorName = _envNormalizeActorId(actor || 'system') || 'system';
+        var lane = _envActorEnsureLane(actorName);
         var event = {
             id: _envActionId('bus'),
             seq: ++_envBus.seq,
             kind: String(kind || 'system'),
             channel: _envBusChannelForKind(kind),
-            actor: String(actor || 'system'),
+            actor: actorName,
             body: String(body || ''),
             payload: payload || null,
             ts: Date.now()
@@ -11409,6 +11698,8 @@
         _envBus.events.unshift(event);
         if (_envBus.events.length > _envBusLimit()) _envBus.events.length = _envBusLimit();
         _envBus.lastTs = event.ts;
+        lane.counts.bus = Number((lane.counts || {}).bus || 0) + 1;
+        lane.lastActiveTs = event.ts;
         _envEvaluateBusWatches(event);
         return event;
     }
@@ -11524,8 +11815,11 @@
         var profile = _envProfileById(profileId) || _envProfileById((((_envConfig || {}).shell || {}).defaultProfile) || '');
         if (!profile) return false;
         var reason = String(note || 'profile apply').trim() || 'profile apply';
+        var lane = _envActorEnsureLane(actorName);
         _envKernel.profile.activeId = String(profile.id || '');
         _envKernel.profile.lastAppliedTs = Date.now();
+        lane.profileId = String(profile.id || '');
+        lane.lastActiveTs = Date.now();
         _envKernel.sampler.intervalMs = Math.max(1000, Number(profile.samplerIntervalMs || (((_envConfig || {}).sampler || {}).intervalMs) || 4000));
         _envSetSamplerActive(!!profile.samplerActive, actorName, reason, true);
         _envKernel.replay.mode = String(profile.replayMode || (((_envConfig || {}).replay || {}).mode) || 'samples');
@@ -11575,13 +11869,18 @@
     }
 
     function _envQueueControl(action, target, actor, note, meta) {
+        var actorName = _envNormalizeActorId(actor || _envManualActorId() || 'assistant') || 'assistant';
+        var lane = _envActorEnsureLane(actorName);
         var item = {
             id: _envActionId('ingress'),
             action: String(action || '').trim(),
             target: String(target || '').trim(),
-            actor: String(actor || 'assistant').trim() || 'assistant',
+            actor: actorName,
             note: String(note || '').trim(),
-            meta: meta || null,
+            meta: Object.assign({}, meta || {}, {
+                actor_id: actorName,
+                actor_session_id: String(lane.sessionId || '')
+            }),
             ts: Date.now(),
             status: 'queued'
         };
@@ -11590,6 +11889,14 @@
         if (_envKernel.ingress.queue.length > _envIngressLimit()) {
             _envKernel.ingress.queue = _envKernel.ingress.queue.slice(-_envIngressLimit());
         }
+        lane.counts.queued = Number((lane.counts || {}).queued || 0) + 1;
+        lane.lastActionId = String(item.id || '');
+        lane.lastActionKind = 'ingress';
+        lane.lastActionBody = 'Queued ' + String(item.action || 'action');
+        lane.lastActionTs = item.ts;
+        lane.lastActiveTs = item.ts;
+        if (actorName !== 'system') _envActorSetActive(actorName, actorName, 'queue control', true);
+        _envActorRefreshQueueState();
         _envLogAction('ingress', 'Queued control action: ' + item.action, item.actor, {
             target: item.target,
             note: item.note,
@@ -11605,10 +11912,15 @@
         var record = Object.assign({}, item, extra || {});
         record.status = String(status || record.status || 'completed');
         record.completedTs = Date.now();
+        var lane = _envActorEnsureLane(record.actor || 'assistant');
+        if (record.status === 'failed') lane.counts.failed = Number((lane.counts || {}).failed || 0) + 1;
+        else lane.counts.completed = Number((lane.counts || {}).completed || 0) + 1;
+        lane.lastActiveTs = record.completedTs;
         _envKernel.ingress.history.unshift(record);
         if (_envKernel.ingress.history.length > _envIngressHistoryLimit()) {
             _envKernel.ingress.history.length = _envIngressHistoryLimit();
         }
+        _envActorRefreshQueueState();
         return record;
     }
 
@@ -11621,6 +11933,7 @@
         item.status = 'dispatching';
         item.startedTs = Date.now();
         _envKernel.ingress.current = item;
+        _envActorRefreshQueueState();
         _envLogAction('ingress', 'Dispatching queued action: ' + item.action, item.actor || 'assistant', {
             target: item.target || '',
             note: item.note || ''
@@ -11637,6 +11950,7 @@
             _envKernel.ingress.processing = false;
             _envKernel.ingress.current = null;
             _envKernel.ingress.lastTs = Date.now();
+            _envActorRefreshQueueState();
             renderEnvironmentView();
         }
     }
@@ -11889,11 +12203,13 @@
     }
 
     function _envLogAction(kind, body, actor, payload) {
+        var actorName = _envNormalizeActorId(actor || 'system') || 'system';
+        var lane = _envActorEnsureLane(actorName);
         var entry = {
             id: _envActionId(kind),
             kind: String(kind || 'action'),
             body: String(body || ''),
-            actor: String(actor || 'system'),
+            actor: actorName,
             payload: payload || null,
             ts: Date.now()
         };
@@ -11901,7 +12217,13 @@
         if (_envKernel.actions.length > Math.max(24, Number((((_envConfig || {}).bus || {}).retainActions) || 80))) {
             _envKernel.actions.length = Math.max(24, Number((((_envConfig || {}).bus || {}).retainActions) || 80));
         }
-        _envEmitBusEvent(kind, actor, body, payload);
+        lane.counts.actions = Number((lane.counts || {}).actions || 0) + 1;
+        lane.lastActionId = String(entry.id || '');
+        lane.lastActionKind = String(entry.kind || '');
+        lane.lastActionBody = String(entry.body || '');
+        lane.lastActionTs = entry.ts;
+        lane.lastActiveTs = entry.ts;
+        _envEmitBusEvent(kind, actorName, body, payload);
     }
 
     function _envFindSample(sampleId) {
@@ -11982,6 +12304,10 @@
     }
 
     function _envFocusDescriptor(kind, id, workflow, sections, traces) {
+        if (kind === 'actor') {
+            var actorLane = _envActorLaneById(id) || _envActorEnsureLane(id || _envActorActiveId());
+            if (actorLane) return 'actor · ' + String(actorLane.label || actorLane.id || 'actor');
+        }
         if (kind === 'district') {
             var district = _envSceneDistrictById(id);
             if (district) return 'district · ' + String(district.label || district.id || 'district');
@@ -12052,18 +12378,24 @@
         var traces = _envTraceRows(8);
         var sections = _envArtifactSections();
         var label = _envFocusDescriptor(kind, id, workflow, sections, traces);
+        var actorName = _envNormalizeActorId(actor || 'system') || 'system';
+        var lane = _envActorEnsureLane(actorName);
         _envKernel.focus = {
             kind: String(kind || 'workflow'),
             id: id === undefined || id === null ? '' : String(id),
             label: label,
-            actor: String(actor || 'system'),
+            actor: actorName,
             payload: payload || null
         };
+        lane.focus = Object.assign({}, _envKernel.focus || {});
+        lane.lastFocusTs = Date.now();
+        lane.lastActiveTs = lane.lastFocusTs;
+        if (actorName !== 'system') _envActorSetActive(actorName, actorName, 'focus shift', true);
         if (kind === 'node' && id) _wfSelectNodeDrill(String(id));
         else if (kind === 'workflow') _wfSelectWorkflowDrill();
         else if (kind === 'trace' && traces[id] && traces[id].args && traces[id].args._workflow_node_id) _wfSelectNodeDrill(String(traces[id].args._workflow_node_id));
-        else if (kind === 'doc') _envDocRequestRead(id, actor || 'system');
-        _envLogAction('focus', 'Focused ' + label + ' (' + String(kind || 'workflow') + ')', actor || 'system', { kind: kind, id: id });
+        else if (kind === 'doc') _envDocRequestRead(id, actorName);
+        _envLogAction('focus', 'Focused ' + label + ' (' + String(kind || 'workflow') + ')', actorName, { kind: kind, id: id });
         renderEnvironmentView();
     }
 
@@ -12088,6 +12420,14 @@
                     }
                 };
             }
+        }
+        if (focus.kind === 'actor') {
+            var actorSnapshot = _envActorSessionSnapshot(focus.id || _envActorActiveId());
+            return {
+                label: focus.label || String((((actorSnapshot || {}).actor) || {}).label || 'actor'),
+                kind: 'actor',
+                data: actorSnapshot
+            };
         }
         if (focus.kind === 'node' && workflow && Array.isArray(workflow.nodes)) {
             var node = workflow.nodes.find(function (n) { return String(n.id || '') === String(focus.id || ''); }) || null;
@@ -12189,6 +12529,7 @@
     function _envCreateBranch(actor, reason) {
         var exec = _envCurrentExecution();
         var latestSample = (_envKernel.samples || [])[0] || null;
+        var actorName = _envNormalizeActorId(actor || 'system') || 'system';
         var branch = {
             id: _envActionId('branch'),
             workflow_id: _wfSelectedId || '',
@@ -12196,12 +12537,16 @@
             focus: Object.assign({}, _envKernel.focus || {}),
             sample_id: latestSample ? String(latestSample.id || '') : '',
             reason: String(reason || 'manual branch'),
-            actor: String(actor || 'system'),
+            actor: actorName,
             ts: Date.now()
         };
         _envKernel.branches.unshift(branch);
         if (_envKernel.branches.length > 16) _envKernel.branches.length = 16;
-        _envLogAction('branch', 'Created branch snapshot: ' + branch.reason, actor || 'system', branch);
+        var lane = _envActorEnsureLane(actorName);
+        lane.latestBranchId = String(branch.id || '');
+        lane.counts.branches = Number((lane.counts || {}).branches || 0) + 1;
+        lane.lastActiveTs = branch.ts;
+        _envLogAction('branch', 'Created branch snapshot: ' + branch.reason, actorName, branch);
         renderEnvironmentView();
     }
 
@@ -12209,6 +12554,7 @@
         var workflow = _wfLoadedDef && String(_wfLoadedDef.id || '') === String(_wfSelectedId || '') ? _wfLoadedDef : null;
         var exec = _envCurrentExecution();
         if (!workflow) return;
+        var actorName = _envNormalizeActorId(actor || 'system') || 'system';
         var nodeStates = exec && exec.node_states ? exec.node_states : {};
         var counts = { completed: 0, running: 0, failed: 0, pending: 0 };
         Object.keys(nodeStates).forEach(function (nodeId) {
@@ -12227,14 +12573,18 @@
             artifact_count: _envArtifactSections().length,
             node_counts: counts,
             reason: String(reason || 'sample'),
-            actor: String(actor || 'system'),
+            actor: actorName,
             ts: Date.now()
         };
         _envKernel.samples.unshift(sample);
         if (_envKernel.samples.length > Math.max(8, Number((((_envConfig || {}).sampler || {}).maxSamples) || 48))) {
             _envKernel.samples.length = Math.max(8, Number((((_envConfig || {}).sampler || {}).maxSamples) || 48));
         }
-        _envLogAction('sample', 'Captured ' + sample.reason + ' snapshot · ' + sample.status + ' · traces ' + sample.trace_count, actor || 'system', sample);
+        var lane = _envActorEnsureLane(actorName);
+        lane.latestSampleId = String(sample.id || '');
+        lane.counts.samples = Number((lane.counts || {}).samples || 0) + 1;
+        lane.lastActiveTs = sample.ts;
+        _envLogAction('sample', 'Captured ' + sample.reason + ' snapshot · ' + sample.status + ' · traces ' + sample.trace_count, actorName, sample);
         renderEnvironmentView();
     }
 
@@ -12323,6 +12673,17 @@
                 return;
             }
             _envRunRecipe(recipeTarget, actorName, reason || ('queued recipe ' + recipeTarget));
+            return;
+        }
+        if (command === 'focus_actor') {
+            var actorTarget = targetId || _envActorActiveId();
+            if (!actorTarget) {
+                _envSetBadge('failed', 'NO ACTOR');
+                _envLogAction('control', 'Control command focus_actor missing actor target', actorName, { action: command, target: targetId });
+                renderEnvironmentView();
+                return;
+            }
+            _envSetFocus('actor', actorTarget, actorName);
             return;
         }
         if (command === 'focus_district') {
@@ -12713,6 +13074,21 @@
             category: 'workflow',
             x: 50, y: 18, scale: 1.08, tilt: 0
         }];
+        _envActorCatalog().slice(0, 4).forEach(function (actorLane, idx) {
+            var actorSnapshot = _envActorSessionSnapshot(actorLane.id);
+            objects.push({
+                kind: 'actor',
+                id: String(actorLane.id || ('actor-' + idx)),
+                label: String(actorLane.label || actorLane.id || ('actor ' + (idx + 1))),
+                meta: String(actorLane.role || 'actor') + ' · ' + String((((actorSnapshot || {}).actor) || {}).session_id || ''),
+                state: (((actorSnapshot || {}).actor) || {}).active ? 'running' : ((((actorSnapshot || {}).queue_depth) || 0) ? 'completed' : 'idle'),
+                category: 'actor lane',
+                x: 20 + idx * 20,
+                y: 8 + idx * 2,
+                scale: 0.7,
+                tilt: -16 + idx * 10
+            });
+        });
         var lanes = { inputs: 14, agents: 34, tools: 54, control: 74, outputs: 88, other: 22 };
         var counts = {};
         (workflow.nodes || []).forEach(function (node) {
@@ -13017,10 +13393,69 @@
         return html;
     }
 
+    function _envRenderActorOptions() {
+        return _envActorCatalog().map(function (lane) {
+            var active = String(_envActorActiveId() || '') === String((lane || {}).id || '') ? ' selected' : '';
+            return '<option value="' + _esc(String((lane || {}).id || '')) + '"' + active + '>' +
+                _esc(String((lane || {}).label || (lane || {}).id || 'actor')) + ' · ' + _esc(String((lane || {}).role || 'actor')) +
+                '</option>';
+        }).join('');
+    }
+
+    function _envRenderActorRail() {
+        var focus = _envKernel.focus || {};
+        var maxVisible = _envActorConfig().maxVisible;
+        var actors = _envActorCatalog().slice(0, maxVisible);
+        if (!actors.length) return '<div class="envops-stage-empty">No actor lanes registered yet.</div>';
+        return '<div class="envops-actor-grid">' + actors.map(function (lane) {
+            var snapshot = _envActorSessionSnapshot(lane.id);
+            var actorMeta = (snapshot || {}).actor || {};
+            var linkedTarget = (snapshot || {}).linkedTarget || null;
+            var latestSample = (snapshot || {}).latest_sample || null;
+            var latestBranch = (snapshot || {}).latest_branch || null;
+            var isFocused = String((focus.kind || '')) === 'actor' && String((focus.id || '')) === String((lane || {}).id || '');
+            var cardClasses = ['envops-actor-card', 'tone-' + String((lane || {}).tone || 'custom')];
+            if (actorMeta.active) cardClasses.push('active');
+            if (isFocused) cardClasses.push('focused');
+            var queueText = Number((snapshot || {}).queue_depth || 0) > 0
+                ? (String(snapshot.queue_depth) + ' queued')
+                : (((snapshot || {}).current_dispatch) ? 'dispatching now' : 'queue clear');
+            var latestText = latestSample
+                ? ('sample #' + String(latestSample.seq || 0))
+                : (latestBranch ? String(latestBranch.reason || 'branch ready') : 'no snapshots yet');
+            var focusText = snapshot.focus && snapshot.focus.label
+                ? String(snapshot.focus.label)
+                : 'No lane focus yet';
+            return '<div class="' + _esc(cardClasses.join(' ')) + '">' +
+                '<div class="envops-actor-head">' +
+                '<div>' +
+                '<div class="envops-actor-title">' + _esc(String(actorMeta.label || lane.label || lane.id || 'actor')) + '</div>' +
+                '<div class="envops-actor-meta">' + _esc(String(actorMeta.role || lane.role || 'actor')) + ' · ' + _esc(String(actorMeta.session_id || '')) + '</div>' +
+                '</div>' +
+                '<span class="envops-actor-badge">' + _esc(actorMeta.active ? 'ACTIVE' : 'LANE') + '</span>' +
+                '</div>' +
+                '<div class="envops-actor-note">' + _esc(String((lane || {}).note || 'Shared operator lane.')) + '</div>' +
+                '<div class="envops-actor-stats">' +
+                '<span>' + _esc(queueText) + '</span>' +
+                '<span>' + _esc(latestText) + '</span>' +
+                '<span>' + _esc((snapshot || {}).profile_id ? ('profile ' + String(snapshot.profile_id)) : 'no profile') + '</span>' +
+                '</div>' +
+                '<div class="envops-actor-focus">' + _esc(focusText) + '</div>' +
+                '<div class="envops-actor-actions">' +
+                '<button type="button" class="' + (actorMeta.active ? 'btn-dim' : '') + '" data-env-action="activate-actor" data-env-actor-id="' + _esc(String((lane || {}).id || '')) + '">' + _esc(actorMeta.active ? 'CURRENT' : 'ACTIVATE') + '</button>' +
+                '<button type="button" class="btn-dim" data-env-action="focus-actor" data-env-actor-id="' + _esc(String((lane || {}).id || '')) + '">INSPECT</button>' +
+                (linkedTarget ? '<button type="button" class="btn-dim" data-env-action="restore-actor-focus" data-env-focus-kind="' + _esc(String(linkedTarget.kind || '')) + '" data-env-focus-id="' + _esc(String(linkedTarget.id || '')) + '">RESTORE FOCUS</button>' : '') +
+                '</div>' +
+                '</div>';
+        }).join('') + '</div>';
+    }
+
     function _envRenderKernel(workflow, exec, sections, traces) {
         var focus = _envFocusPayload(workflow, exec, sections, traces);
         var replay = _envKernel.replay || {};
         var activeProfile = _envProfileById(((_envKernel.profile || {}).activeId) || '');
+        var activeActorId = _envActorActiveId();
+        var activeActor = _envActorSessionSnapshot(activeActorId);
         var focusMeta = [];
         var focusId = String(((_envKernel.focus || {}).id) || '');
         var focusKind = String(((_envKernel.focus || {}).kind) || 'workflow');
@@ -13052,7 +13487,9 @@
             return '<span class="envops-focus-chip" data-env-action="focus-artifact" data-env-artifact-index="' + String(idx) + '">' + _esc(section.title || ('artifact ' + idx)) + '</span>';
         }).join('');
         if (!artifactButtons) artifactButtons = '<span class="envops-kernel-note">No artifact outputs yet.</span>';
-        var controlTarget = focusKind === 'doc' ? activeDocKey : focusId;
+        var controlTarget = focusKind === 'doc'
+            ? activeDocKey
+            : (focusKind === 'actor' ? String((((focus || {}).data || {}).actor || {}).id || focusId) : focusId);
         var queuePreview = (_envKernel.ingress.queue || []).slice(0, 4).map(function (item) {
             return '<span class="envops-focus-chip" data-env-action="drop-queued" data-env-queue-id="' + _esc(String(item.id || '')) + '" title="Drop queued action">' + _esc(String(item.action || 'action')) + (item.target ? ' → ' + _esc(String(item.target)) : '') + '</span>';
         }).join('');
@@ -13099,6 +13536,7 @@
             '<div class="envops-kernel-card"><div class="h">Trace Window</div><div class="v">' + String(traces.length) + ' recent rows linked to this system</div></div>' +
             '<div class="envops-kernel-card"><div class="h">Ingress</div><div class="v">' + (_envKernel.ingress.active ? 'Live @ ' + String(_envKernel.ingress.intervalMs) + 'ms' : 'Paused') + ' · ' + String((_envKernel.ingress.queue || []).length) + ' queued</div></div>' +
             '<div class="envops-kernel-card"><div class="h">Profile</div><div class="v">' + _esc(activeProfile ? String(activeProfile.label || activeProfile.id || 'active') : 'none') + '</div></div>' +
+            '<div class="envops-kernel-card"><div class="h">Active Actor</div><div class="v">' + _esc(String((((activeActor || {}).actor) || {}).label || activeActorId || 'assistant')) + ' · ' + _esc(String((((activeActor || {}).actor) || {}).role || 'actor')) + '</div></div>' +
             '</div>' +
             '<div class="envops-kernel-actions">' +
             '<button data-env-action="sample-now">SNAPSHOT NOW</button>' +
@@ -13115,12 +13553,13 @@
             '<div class="envops-control-shell">' +
             '<div class="envops-card-label" style="margin-bottom:0;">Shared Control Console</div>' +
              '<div class="envops-control-grid">' +
-             '<div class="envops-control-field"><label for="envops-control-actor">Actor</label><select id="envops-control-actor"><option value="user">user</option><option value="assistant">assistant</option><option value="system">system</option></select></div>' +
+             '<div class="envops-control-field"><label for="envops-control-actor">Actor</label><select id="envops-control-actor">' + _envRenderActorOptions() + '</select></div>' +
              '<div class="envops-control-field"><label for="envops-control-action">Action</label><select id="envops-control-action">' +
-            '<option value="run_recipe">run_recipe</option>' +
-             '<option value="activate_profile">activate_profile</option>' +
-             '<option value="focus_profile">focus_profile</option>' +
-             '<option value="sample_now">sample_now</option>' +
+             '<option value="run_recipe">run_recipe</option>' +
+              '<option value="activate_profile">activate_profile</option>' +
+              '<option value="focus_profile">focus_profile</option>' +
+             '<option value="focus_actor">focus_actor</option>' +
+              '<option value="sample_now">sample_now</option>' +
             '<option value="toggle_stream">toggle_stream</option>' +
             '<option value="toggle_replay">toggle_replay</option>' +
             '<option value="replay_prev">replay_prev</option>' +
@@ -13159,9 +13598,10 @@
             '<div class="envops-control-foot">' +
             '<button data-env-action="execute-command">QUEUE CONTROL ACTION</button>' +
             '<button class="btn-dim" data-env-action="queue-batch">QUEUE BATCH</button>' +
-            '<span class="envops-kernel-note">All assistant and manual control commands converge through one ingress queue and one bus.</span>' +
+            '<span class="envops-kernel-note">All manual, assistant, and runtime control commands converge through one ingress queue, but actor lanes keep their own session identity, focus memory, and queue evidence.</span>' +
             '</div>' +
              '</div>' +
+             '<div><div class="envops-card-label" style="margin-bottom:6px;">Actor Sessions</div>' + _envRenderActorRail() + '</div>' +
              '<div><div class="envops-card-label" style="margin-bottom:6px;">Watch Modes</div><div class="envops-focus-strip">' + watchModes + '</div></div>' +
             '<div><div class="envops-card-label" style="margin-bottom:6px;">Profile Rail</div><div class="envops-focus-strip">' + profileStrip + '</div></div>' +
              '<div><div class="envops-card-label" style="margin-bottom:6px;">Recipe Rack</div><div class="envops-focus-strip">' + recipeStrip + '</div></div>' +
@@ -13173,19 +13613,37 @@
              '<div><div class="envops-card-label" style="margin-bottom:6px;">Artifact Focus Strip</div><div class="envops-focus-strip">' + artifactButtons + '</div></div>' +
             '<div><div class="envops-card-label" style="margin-bottom:6px;">Sample Strip</div><div class="envops-sample-strip">' + sampleStrip + '</div></div>' +
             '<div><div class="envops-card-label" style="margin-bottom:6px;">Branch Strip</div><div class="envops-branch-strip">' + branchStrip + '</div></div>' +
-            '<div class="envops-kernel-note">The first god-mode layer is renderer-agnostic. It keeps one local activation point, one ingress path, one bus, and one shared focus state for human and assistant-driven operations.</div>';
+            '<div class="envops-kernel-note">The first god-mode layer is renderer-agnostic. It keeps one local ingress path and one bus, while partitioning operator intent into actor sessions with their own focus rails and control history.</div>';
     }
 
     function _envRenderLedger() {
         var ledgerEl = document.getElementById('envops-ledger');
         var countEl = document.getElementById('envops-action-count');
         if (!ledgerEl) return;
-        if (countEl) countEl.textContent = String(_envKernel.actions.length);
-        if (!_envKernel.actions.length) {
+        var filterId = String(((_envKernel.actors || {}).filterId) || 'all');
+        var actions = (_envKernel.actions || []).filter(function (entry) {
+            return filterId === 'all' || String((entry || {}).actor || '') === filterId;
+        });
+        if (countEl) countEl.textContent = String(actions.length) + (filterId === 'all' ? '' : (' / ' + String((_envKernel.actions || []).length)));
+        if (!(_envKernel.actions || []).length) {
             ledgerEl.innerHTML = '<div class="envops-stage-empty">No god-mode actions yet. Focus a system, take a sample, start a stream, or branch the current state.</div>';
             return;
         }
-        ledgerEl.innerHTML = '<div class="envops-ledger-list">' + _envKernel.actions.map(function (entry) {
+        var filterRail = '<div class="envops-ledger-filter">' +
+            '<span class="envops-card-label" style="margin:0;">Actor Filter</span>' +
+            '<div class="envops-focus-strip">' +
+            '<span class="envops-focus-chip' + (filterId === 'all' ? ' active' : '') + '" data-env-action="set-ledger-actor-filter" data-env-actor-id="all">ALL</span>' +
+            _envActorCatalog().map(function (lane) {
+                var active = filterId === String((lane || {}).id || '') ? ' active' : '';
+                return '<span class="envops-focus-chip' + active + '" data-env-action="set-ledger-actor-filter" data-env-actor-id="' + _esc(String((lane || {}).id || '')) + '">' + _esc(String((lane || {}).label || (lane || {}).id || 'actor')) + '</span>';
+            }).join('') +
+            '</div>' +
+            '</div>';
+        if (!actions.length) {
+            ledgerEl.innerHTML = filterRail + '<div class="envops-stage-empty">No ledger rows for the current actor filter yet.</div>';
+            return;
+        }
+        ledgerEl.innerHTML = filterRail + '<div class="envops-ledger-list">' + actions.map(function (entry) {
             var when = _fmtTimeAgo(entry.ts);
             var payloadText = entry.payload ? JSON.stringify(entry.payload, null, 2) : '';
             if (payloadText.length > 220) payloadText = payloadText.slice(0, 220) + '…';
@@ -13233,6 +13691,7 @@
         var renderTargetEl = document.getElementById('envops-render-target');
         var packageModeEl = document.getElementById('envops-package-mode');
         var activeProfile = _envProfileById(((_envKernel.profile || {}).activeId) || '');
+        var activeActorId = _envActorActiveId();
         var summary = {
             config_version: String((_envConfig || {}).version || 'unknown'),
             config_source: String(_envBus.source || 'defaults'),
@@ -13240,6 +13699,10 @@
             selected_package_mode: String((packageModeEl && packageModeEl.value) || (((_envConfig || {}).shell || {}).defaultPackageMode || 'research')),
             default_profile: String((((_envConfig || {}).shell || {}).defaultProfile) || ''),
             active_profile: String((activeProfile && (activeProfile.id || activeProfile.label)) || ''),
+            default_actor: String(((_envConfig || {}).actors || {}).defaultActiveId || ''),
+            active_actor: String(activeActorId || ''),
+            actor_filter: String(((_envKernel.actors || {}).filterId) || 'all'),
+            actor_count: Number(_envActorCatalog().length || 0),
             profile_count: Number(_envProfileCatalog().length || 0),
             sampler_interval_ms: Number((((_envConfig || {}).sampler || {}).intervalMs) || 4000),
             scene_camera_mode: String(_envSceneNormalizeCameraMode(_envScene.cameraMode || (((_envConfig || {}).scene || {}).defaultCameraMode) || 'overview')),
@@ -13317,6 +13780,7 @@
         var k = String(kind || 'workflow').trim();
         if (k === 'workflow') return 'focus_workflow';
         if (k === 'execution') return 'focus_execution';
+        if (k === 'actor') return 'focus_actor';
         if (k === 'district') return 'focus_district';
         if (k === 'node') return 'focus_node';
         if (k === 'artifact') return 'focus_artifact';
@@ -13968,6 +14432,12 @@
         }
         if (focus.kind === 'district' && focus.data && focus.data.linkedTarget && focus.data.linkedTarget.kind && String(focus.data.linkedTarget.id || '') !== '') {
             actions.push('<button class="btn-dim" data-env-action="focus-linked-target" data-env-focus-kind="' + _esc(String(focus.data.linkedTarget.kind || '')) + '" data-env-focus-id="' + _esc(String(focus.data.linkedTarget.id || '')) + '">FOCUS LINKED TARGET</button>');
+        }
+        if (focus.kind === 'actor' && focus.data && focus.data.actor) {
+            actions.push('<button class="btn-dim" data-env-action="activate-actor" data-env-actor-id="' + _esc(String((focus.data.actor || {}).id || '')) + '">' + (_envActorActiveId() === String((focus.data.actor || {}).id || '') ? 'ACTOR ACTIVE' : 'ACTIVATE ACTOR') + '</button>');
+            if (focus.data.linkedTarget && focus.data.linkedTarget.kind && String(focus.data.linkedTarget.id || '') !== '') {
+                actions.push('<button class="btn-dim" data-env-action="focus-linked-target" data-env-focus-kind="' + _esc(String(focus.data.linkedTarget.kind || '')) + '" data-env-focus-id="' + _esc(String(focus.data.linkedTarget.id || '')) + '">RESTORE ACTOR FOCUS</button>');
+            }
         }
         panel.innerHTML =
             (actions.length ? '<div class="envops-focus-actions">' + actions.join('') + '</div>' : '') +
@@ -18284,7 +18754,8 @@
     var envRefreshBtn = document.getElementById('envops-refresh');
     if (envRefreshBtn) {
         envRefreshBtn.addEventListener('click', function () {
-            _envLogAction('catalog', 'Refreshed workflow-backed system catalog', 'user', {});
+            var uiActor = _envManualActorId();
+            _envLogAction('catalog', 'Refreshed workflow-backed system catalog', uiActor, {});
             callTool('workflow_list', {});
             if (_wfSelectedId) _envRequestHealth('toolbar refresh', true);
         });
@@ -18293,7 +18764,7 @@
     var envRefreshDocsBtn = document.getElementById('envops-refresh-docs');
     if (envRefreshDocsBtn) {
         envRefreshDocsBtn.addEventListener('click', function () {
-            _envRefreshDocs('manual scan', 'user', true);
+            _envRefreshDocs('manual scan', _envManualActorId(), true);
             renderEnvironmentView();
         });
     }
@@ -18308,12 +18779,13 @@
     var envLoadBtn = document.getElementById('envops-load');
     if (envLoadBtn) {
         envLoadBtn.addEventListener('click', function () {
+            var uiActor = _envManualActorId();
             if (!_wfSelectedId) {
                 _envSetBadge('failed', 'NO SYSTEM');
                 renderEnvironmentView();
                 return;
             }
-            _envLogAction('load', 'Requested workflow definition load', 'user', { workflow_id: _wfSelectedId });
+            _envLogAction('load', 'Requested workflow definition load', uiActor, { workflow_id: _wfSelectedId });
             callTool('workflow_get', { workflow_id: _wfSelectedId });
         });
     }
@@ -18321,6 +18793,7 @@
     var envExecuteBtn = document.getElementById('envops-execute');
     if (envExecuteBtn) {
         envExecuteBtn.addEventListener('click', function () {
+            var uiActor = _envManualActorId();
             if (!_wfSelectedId) {
                 _envSetBadge('failed', 'NO SYSTEM');
                 renderEnvironmentView();
@@ -18340,7 +18813,7 @@
             var workflowInputEl = document.getElementById('wfops-input');
             if (workflowInputEl) workflowInputEl.value = inputStr;
             _envSetBadge('running', 'RUNNING...');
-            _envLogAction('execute', 'Requested workflow execution', 'user', { workflow_id: _wfSelectedId, input_data: inputStr || '{}' });
+            _envLogAction('execute', 'Requested workflow execution', uiActor, { workflow_id: _wfSelectedId, input_data: inputStr || '{}' });
             renderEnvironmentView();
             var execArgs = {
                 workflow_id: _wfSelectedId,
@@ -18360,12 +18833,12 @@
         envSystemList.addEventListener('click', function (e) {
             var row = e.target.closest('[data-envops-id]');
             if (!row) return;
+            var uiActor = _envManualActorId();
             _wfSelectedId = row.getAttribute('data-envops-id') || '';
             _wfDrill = { kind: 'workflow', nodeId: '', edgeIndex: -1, workflowId: _wfSelectedId };
-            _envKernel.focus = { kind: 'workflow', id: _wfSelectedId, label: _wfSelectedId || 'workflow', actor: 'user', payload: null };
-            _envLogAction('select', 'Selected workflow-backed system', 'user', { workflow_id: _wfSelectedId });
+            _envLogAction('select', 'Selected workflow-backed system', uiActor, { workflow_id: _wfSelectedId });
+            _envSetFocus('workflow', _wfSelectedId, uiActor);
             renderWorkflowList();
-            renderEnvironmentView();
             if (_wfSelectedId) callTool('workflow_get', { workflow_id: _wfSelectedId });
         });
     }
@@ -18380,7 +18853,8 @@
     var envExportInterfaceBtn = document.getElementById('envops-export-interface');
     if (envExportInterfaceBtn) {
         envExportInterfaceBtn.addEventListener('click', function () {
-            _envLogAction('export', 'Triggered export_interface', 'user', { workflow_id: _wfSelectedId || '' });
+            var uiActor = _envManualActorId();
+            _envLogAction('export', 'Triggered export_interface', uiActor, { workflow_id: _wfSelectedId || '' });
             callTool('export_interface', {});
         });
     }
@@ -18388,7 +18862,8 @@
     var envStartApiBtn = document.getElementById('envops-start-api');
     if (envStartApiBtn) {
         envStartApiBtn.addEventListener('click', function () {
-            _envLogAction('export', 'Triggered start_api_server', 'user', { workflow_id: _wfSelectedId || '' });
+            var uiActor = _envManualActorId();
+            _envLogAction('export', 'Triggered start_api_server', uiActor, { workflow_id: _wfSelectedId || '' });
             callTool('start_api_server', {});
         });
     }
@@ -18404,7 +18879,7 @@
     var envRenderTargetEl = document.getElementById('envops-render-target');
     if (envRenderTargetEl) {
         envRenderTargetEl.addEventListener('change', function () {
-            _envLogAction('control', 'Switched renderer target to ' + String(envRenderTargetEl.value || ''), 'user', { renderer: envRenderTargetEl.value || '' });
+            _envLogAction('control', 'Switched renderer target to ' + String(envRenderTargetEl.value || ''), _envManualActorId(), { renderer: envRenderTargetEl.value || '' });
             renderEnvironmentView();
         });
     }
@@ -18412,7 +18887,7 @@
     var envPackageModeEl = document.getElementById('envops-package-mode');
     if (envPackageModeEl) {
         envPackageModeEl.addEventListener('change', function () {
-            _envLogAction('control', 'Switched deployment mode to ' + String(envPackageModeEl.value || ''), 'user', { package_mode: envPackageModeEl.value || '' });
+            _envLogAction('control', 'Switched deployment mode to ' + String(envPackageModeEl.value || ''), _envManualActorId(), { package_mode: envPackageModeEl.value || '' });
             renderEnvironmentView();
         });
     }
@@ -18420,6 +18895,7 @@
     var envStageEl = document.getElementById('envops-stage');
     if (envStageEl) {
         envStageEl.addEventListener('click', function (e) {
+            var uiActor = _envManualActorId();
             var actionEl = e.target.closest('[data-env-action]');
             if (actionEl) {
                 var action = actionEl.getAttribute('data-env-action') || '';
@@ -18430,23 +18906,23 @@
                     return;
                 }
                 if (action === 'toggle-replay') {
-                    _envQueueControl('toggle_replay', '', 'user', 'stage replay toggle');
+                    _envQueueControl('toggle_replay', '', uiActor, 'stage replay toggle');
                     return;
                 }
                 if (action === 'replay-prev') {
-                    _envQueueControl('replay_prev', '', 'user', 'stage replay previous');
+                    _envQueueControl('replay_prev', '', uiActor, 'stage replay previous');
                     return;
                 }
                 if (action === 'replay-next') {
-                    _envQueueControl('replay_next', '', 'user', 'stage replay next');
+                    _envQueueControl('replay_next', '', uiActor, 'stage replay next');
                     return;
                 }
                 if (action === 'set-replay-mode') {
-                    _envQueueControl('set_replay_mode', actionEl.getAttribute('data-env-replay-mode') || 'samples', 'user', 'stage replay mode');
+                    _envQueueControl('set_replay_mode', actionEl.getAttribute('data-env-replay-mode') || 'samples', uiActor, 'stage replay mode');
                     return;
                 }
                 if (action === 'replay-focus') {
-                    _envQueueControl('focus_replay', actionEl.getAttribute('data-env-replay-index') || '0', 'user', 'stage replay focus');
+                    _envQueueControl('focus_replay', actionEl.getAttribute('data-env-replay-index') || '0', uiActor, 'stage replay focus');
                     return;
                 }
             }
@@ -18456,7 +18932,7 @@
             var focusId = focusEl.getAttribute('data-env-focus-id') || '';
             var command = _envFocusCommandForKind(focusKind);
             if (!command) return;
-            _envQueueControl(command, focusId, 'user', 'habitat focus', { kind: focusKind });
+            _envQueueControl(command, focusId, uiActor, 'habitat focus', { kind: focusKind });
         });
     }
 
@@ -18465,18 +18941,19 @@
         envTraceEl.addEventListener('click', function (e) {
             var traceEl = e.target.closest('[data-env-action="focus-trace"]');
             if (!traceEl) return;
-            _envQueueControl('focus_trace', traceEl.getAttribute('data-env-trace-index') || '0', 'user', 'trace click focus');
+            _envQueueControl('focus_trace', traceEl.getAttribute('data-env-trace-index') || '0', _envManualActorId(), 'trace click focus');
         });
     }
 
     var envArtifactsEl = document.getElementById('envops-artifacts');
     if (envArtifactsEl) {
         envArtifactsEl.addEventListener('click', function (e) {
+            var uiActor = _envManualActorId();
             var actionEl = e.target.closest('[data-env-action]');
             if (!actionEl) return;
             var action = actionEl.getAttribute('data-env-action') || '';
             if (action === 'focus-artifact') {
-                _envQueueControl('focus_artifact', actionEl.getAttribute('data-env-artifact-index') || '0', 'user', 'artifact click focus');
+                _envQueueControl('focus_artifact', actionEl.getAttribute('data-env-artifact-index') || '0', uiActor, 'artifact click focus');
                 return;
             }
             if (action === 'refresh-run-history') {
@@ -18490,7 +18967,7 @@
                 return;
             }
             if (action === 'focus-execution') {
-                _envQueueControl('focus_execution', actionEl.getAttribute('data-env-execution-id') || '', 'user', 'execution compare focus');
+                _envQueueControl('focus_execution', actionEl.getAttribute('data-env-execution-id') || '', uiActor, 'execution compare focus');
             }
         });
     }
@@ -18498,16 +18975,17 @@
     var envDocsEl = document.getElementById('envops-docs');
     if (envDocsEl) {
         envDocsEl.addEventListener('click', function (e) {
+            var uiActor = _envManualActorId();
             var actionEl = e.target.closest('[data-env-action]');
             if (!actionEl) return;
             var action = actionEl.getAttribute('data-env-action') || '';
             var docKey = actionEl.getAttribute('data-env-doc-key') || '';
             if (action === 'focus-doc') {
-                _envQueueControl('focus_doc', docKey, 'user', 'doc click focus');
+                _envQueueControl('focus_doc', docKey, uiActor, 'doc click focus');
                 return;
             }
             if (action === 'open-doc-memory') {
-                _envQueueControl('open_doc_memory', docKey, 'user', 'doc memory handoff');
+                _envQueueControl('open_doc_memory', docKey, uiActor, 'doc memory handoff');
             }
         });
     }
@@ -18517,7 +18995,7 @@
         envBusEl.addEventListener('click', function (e) {
             var eventEl = e.target.closest('[data-env-action="focus-event"]');
             if (!eventEl) return;
-            _envQueueControl('focus_event', eventEl.getAttribute('data-env-event-id') || '', 'user', 'bus event focus');
+            _envQueueControl('focus_event', eventEl.getAttribute('data-env-event-id') || '', _envManualActorId(), 'bus event focus');
         });
     }
 
@@ -18533,11 +19011,16 @@
     var envFocusPayloadEl = document.getElementById('envops-focus-payload');
     if (envFocusPayloadEl) {
         envFocusPayloadEl.addEventListener('click', function (e) {
+            var uiActor = _envManualActorId();
             var actionEl = e.target.closest('[data-env-action]');
             if (!actionEl) return;
             var action = actionEl.getAttribute('data-env-action') || '';
             if (action === 'open-doc-memory') {
-                _envQueueControl('open_doc_memory', actionEl.getAttribute('data-env-doc-key') || '', 'user', 'focus payload memory handoff');
+                _envQueueControl('open_doc_memory', actionEl.getAttribute('data-env-doc-key') || '', uiActor, 'focus payload memory handoff');
+                return;
+            }
+            if (action === 'activate-actor') {
+                _envActorSetActive(actionEl.getAttribute('data-env-actor-id') || '', uiActor, 'focus payload actor activate', false);
                 return;
             }
             if (action === 'focus-linked-target') {
@@ -18545,7 +19028,20 @@
                 var focusId = actionEl.getAttribute('data-env-focus-id') || '';
                 var command = _envFocusCommandForKind(focusKind);
                 if (!command) return;
-                _envQueueControl(command, focusId, 'user', 'focus payload linked target', { kind: focusKind });
+                _envQueueControl(command, focusId, uiActor, 'focus payload linked target', { kind: focusKind });
+            }
+        });
+    }
+
+    var envLedgerEl = document.getElementById('envops-ledger');
+    if (envLedgerEl) {
+        envLedgerEl.addEventListener('click', function (e) {
+            var actionEl = e.target.closest('[data-env-action]');
+            if (!actionEl) return;
+            var action = actionEl.getAttribute('data-env-action') || '';
+            if (action === 'set-ledger-actor-filter') {
+                _envActorSetFilter(actionEl.getAttribute('data-env-actor-id') || 'all');
+                return;
             }
         });
     }
@@ -18556,16 +19052,33 @@
             var actionEl = e.target.closest('[data-env-action]');
             if (!actionEl) return;
             var action = actionEl.getAttribute('data-env-action') || '';
+            var uiActor = _envManualActorId();
             if (action === 'run-recipe') {
-                _envRunRecipe(actionEl.getAttribute('data-env-recipe-id') || '', 'user', 'kernel recipe');
+                _envRunRecipe(actionEl.getAttribute('data-env-recipe-id') || '', uiActor, 'kernel recipe');
+                return;
+            }
+            if (action === 'activate-actor') {
+                _envActorSetActive(actionEl.getAttribute('data-env-actor-id') || '', uiActor, 'kernel actor activate', false);
+                return;
+            }
+            if (action === 'focus-actor') {
+                _envQueueControl('focus_actor', actionEl.getAttribute('data-env-actor-id') || '', uiActor, 'kernel actor focus');
+                return;
+            }
+            if (action === 'restore-actor-focus') {
+                var restoreKind = actionEl.getAttribute('data-env-focus-kind') || '';
+                var restoreId = actionEl.getAttribute('data-env-focus-id') || '';
+                var restoreCommand = _envFocusCommandForKind(restoreKind);
+                if (!restoreCommand) return;
+                _envQueueControl(restoreCommand, restoreId, uiActor, 'actor lane restore focus', { kind: restoreKind });
                 return;
             }
             if (action === 'activate-profile') {
-                _envQueueControl('activate_profile', actionEl.getAttribute('data-env-profile-id') || '', 'user', 'kernel profile activate');
+                _envQueueControl('activate_profile', actionEl.getAttribute('data-env-profile-id') || '', uiActor, 'kernel profile activate');
                 return;
             }
             if (action === 'focus-profile') {
-                _envQueueControl('focus_profile', actionEl.getAttribute('data-env-profile-id') || '', 'user', 'kernel profile focus');
+                _envQueueControl('focus_profile', actionEl.getAttribute('data-env-profile-id') || '', uiActor, 'kernel profile focus');
                 return;
             }
             if (action === 'execute-command') {
@@ -18576,7 +19089,7 @@
                 _envQueueControl(
                     actionSelectEl ? actionSelectEl.value : '',
                     targetEl ? targetEl.value : '',
-                    actorEl ? actorEl.value : 'user',
+                    actorEl ? actorEl.value : uiActor,
                     noteEl ? noteEl.value : '',
                     { source: 'control-console' }
                 );
@@ -18589,7 +19102,7 @@
                 var rawBatch = batchEl ? String(batchEl.value || '').trim() : '';
                 if (!rawBatch) {
                     _envSetBadge('failed', 'NO BATCH');
-                    _envLogAction('control', 'Batch queue requested without JSON payload', 'user', { action: 'queue_batch' });
+                    _envLogAction('control', 'Batch queue requested without JSON payload', uiActor, { action: 'queue_batch' });
                     renderEnvironmentView();
                     return;
                 }
@@ -18598,84 +19111,84 @@
                     parsedBatch = JSON.parse(rawBatch);
                 } catch (err) {
                     _envSetBadge('failed', 'BAD BATCH');
-                    _envLogAction('control', 'Batch JSON parse failed', 'user', { action: 'queue_batch', error: String((err && err.message) || err || 'invalid json') });
+                    _envLogAction('control', 'Batch JSON parse failed', uiActor, { action: 'queue_batch', error: String((err && err.message) || err || 'invalid json') });
                     renderEnvironmentView();
                     return;
                 }
                 var commands = Array.isArray(parsedBatch) ? parsedBatch : (Array.isArray(parsedBatch && parsedBatch.commands) ? parsedBatch.commands : null);
                 if (!commands || !commands.length) {
                     _envSetBadge('failed', 'NO CMDS');
-                    _envLogAction('control', 'Batch payload contained no commands', 'user', { action: 'queue_batch' });
+                    _envLogAction('control', 'Batch payload contained no commands', uiActor, { action: 'queue_batch' });
                     renderEnvironmentView();
                     return;
                 }
-                var queued = window.envopsBatchControl(commands, batchActorEl ? batchActorEl.value : 'user', batchNoteEl ? batchNoteEl.value : '');
-                _envLogAction('control', 'Queued batch control sequence', 'user', { count: queued.length });
+                var queued = window.envopsBatchControl(commands, batchActorEl ? batchActorEl.value : uiActor, batchNoteEl ? batchNoteEl.value : '');
+                _envLogAction('control', 'Queued batch control sequence', uiActor, { count: queued.length });
                 renderEnvironmentView();
                 return;
             }
             if (action === 'sample-now') {
-                _envQueueControl('sample_now', '', 'user', 'manual sample');
+                _envQueueControl('sample_now', '', uiActor, 'manual sample');
                 return;
             }
             if (action === 'toggle-sampler') {
-                _envQueueControl('toggle_stream', '', 'user', 'manual stream toggle');
+                _envQueueControl('toggle_stream', '', uiActor, 'manual stream toggle');
                 return;
             }
             if (action === 'toggle-replay') {
-                _envQueueControl('toggle_replay', '', 'user', 'manual replay toggle');
+                _envQueueControl('toggle_replay', '', uiActor, 'manual replay toggle');
                 return;
             }
             if (action === 'replay-prev') {
-                _envQueueControl('replay_prev', '', 'user', 'manual replay previous');
+                _envQueueControl('replay_prev', '', uiActor, 'manual replay previous');
                 return;
             }
             if (action === 'replay-next') {
-                _envQueueControl('replay_next', '', 'user', 'manual replay next');
+                _envQueueControl('replay_next', '', uiActor, 'manual replay next');
                 return;
             }
             if (action === 'set-replay-mode') {
-                _envQueueControl('set_replay_mode', actionEl.getAttribute('data-env-replay-mode') || 'samples', 'user', 'manual replay mode');
+                _envQueueControl('set_replay_mode', actionEl.getAttribute('data-env-replay-mode') || 'samples', uiActor, 'manual replay mode');
                 return;
             }
             if (action === 'set-camera-mode') {
-                _envQueueControl('set_camera_mode', actionEl.getAttribute('data-env-camera-mode') || 'overview', 'user', 'manual habitat camera');
+                _envQueueControl('set_camera_mode', actionEl.getAttribute('data-env-camera-mode') || 'overview', uiActor, 'manual habitat camera');
                 return;
             }
             if (action === 'focus-replay') {
-                _envQueueControl('focus_replay', actionEl.getAttribute('data-env-replay-index') || '0', 'user', 'manual replay focus');
+                _envQueueControl('focus_replay', actionEl.getAttribute('data-env-replay-index') || '0', uiActor, 'manual replay focus');
                 return;
             }
             if (action === 'focus-workflow') {
-                _envQueueControl('focus_workflow', _wfSelectedId || '', 'user', 'workflow focus');
+                _envQueueControl('focus_workflow', _wfSelectedId || '', uiActor, 'workflow focus');
                 return;
             }
             if (action === 'focus-district') {
-                _envQueueControl('focus_district', actionEl.getAttribute('data-env-district-id') || '', 'user', 'district rail focus');
+                _envQueueControl('focus_district', actionEl.getAttribute('data-env-district-id') || '', uiActor, 'district rail focus');
                 return;
             }
             if (action === 'follow-failed') {
-                _envQueueControl('follow_failed', '', 'user', 'follow failed');
+                _envQueueControl('follow_failed', '', uiActor, 'follow failed');
                 return;
             }
             if (action === 'branch-now') {
-                _envQueueControl('branch_snapshot', '', 'user', 'manual branch');
+                _envQueueControl('branch_snapshot', '', uiActor, 'manual branch');
                 return;
             }
             if (action === 'focus-node') {
-                _envQueueControl('focus_node', actionEl.getAttribute('data-env-node-id') || '', 'user', 'node strip focus');
+                _envQueueControl('focus_node', actionEl.getAttribute('data-env-node-id') || '', uiActor, 'node strip focus');
                 return;
             }
             if (action === 'focus-artifact') {
-                _envQueueControl('focus_artifact', actionEl.getAttribute('data-env-artifact-index') || '0', 'user', 'artifact strip focus');
+                _envQueueControl('focus_artifact', actionEl.getAttribute('data-env-artifact-index') || '0', uiActor, 'artifact strip focus');
                 return;
             }
             if (action === 'focus-sample') {
-                _envQueueControl('focus_sample', actionEl.getAttribute('data-env-sample-id') || '', 'user', 'sample strip focus');
+                _envQueueControl('focus_sample', actionEl.getAttribute('data-env-sample-id') || '', uiActor, 'sample strip focus');
                 return;
             }
             if (action === 'focus-branch') {
-                _envQueueControl('focus_branch', actionEl.getAttribute('data-env-branch-id') || '', 'user', 'branch strip focus');
+                _envQueueControl('focus_branch', actionEl.getAttribute('data-env-branch-id') || '', uiActor, 'branch strip focus');
                 return;
             }
             if (action === 'toggle-ingress') {
@@ -18686,8 +19199,9 @@
             }
             if (action === 'clear-queue') {
                 _envKernel.ingress.queue = [];
-                _envLogAction('ingress', 'Cleared ingress queue', 'user', { queued: 0 });
-                _envEmitBus('ingress', 'Cleared ingress queue', 'user', { queued: 0 });
+                _envActorRefreshQueueState();
+                _envLogAction('ingress', 'Cleared ingress queue', uiActor, { queued: 0 });
+                _envEmitBus('ingress', 'Cleared ingress queue', uiActor, { queued: 0 });
                 renderEnvironmentView();
                 return;
             }
@@ -18700,7 +19214,8 @@
                 });
                 var removed = before !== (_envKernel.ingress.queue || []).length;
                 if (removed) {
-                    _envLogAction('ingress', 'Dropped queued action', 'user', { action_id: queueId, queued: (_envKernel.ingress.queue || []).length });
+                    _envActorRefreshQueueState();
+                    _envLogAction('ingress', 'Dropped queued action', uiActor, { action_id: queueId, queued: (_envKernel.ingress.queue || []).length });
                     renderEnvironmentView();
                 }
                 return;
@@ -18709,23 +19224,51 @@
                 var historyId = actionEl.getAttribute('data-env-history-id') || '';
                 var historyItem = _envFindIngressHistory(historyId);
                 if (!historyItem) return;
-                _envQueueControl(historyItem.action || '', historyItem.target || '', 'user', historyItem.note || 'replayed from ingress history', Object.assign({}, historyItem.meta || {}, { replay_of: historyId }));
+                _envQueueControl(historyItem.action || '', historyItem.target || '', uiActor, historyItem.note || 'replayed from ingress history', Object.assign({}, historyItem.meta || {}, { replay_of: historyId }));
                 return;
             }
             if (action === 'toggle-watch') {
                 var watchKey = actionEl.getAttribute('data-env-watch-key') || '';
                 if (!watchKey) return;
-                _envSetWatchMode(watchKey, !_envKernel.watch[watchKey], 'user');
+                _envSetWatchMode(watchKey, !_envKernel.watch[watchKey], uiActor);
                 return;
             }
         });
     }
 
-    window.envopsSelectSystem = function (workflowId) {
+    function _envActorPublicSessions() {
+        return _envActorCatalog().map(function (lane) {
+            var snapshot = _envActorSessionSnapshot((lane || {}).id || '');
+            return {
+                actor: Object.assign({}, ((snapshot || {}).actor) || {}),
+                focus: (snapshot || {}).focus ? {
+                    kind: String((((snapshot || {}).focus) || {}).kind || ''),
+                    id: String((((snapshot || {}).focus) || {}).id || ''),
+                    label: String((((snapshot || {}).focus) || {}).label || '')
+                } : null,
+                linked_target: (snapshot || {}).linkedTarget ? {
+                    kind: String((((snapshot || {}).linkedTarget) || {}).kind || ''),
+                    id: String((((snapshot || {}).linkedTarget) || {}).id || ''),
+                    label: String((((snapshot || {}).linkedTarget) || {}).label || '')
+                } : null,
+                profile_id: String((snapshot || {}).profile_id || ''),
+                queue_depth: Number((snapshot || {}).queue_depth || 0),
+                current_dispatch_id: String((((snapshot || {}).current_dispatch) || {}).id || ''),
+                latest_sample_id: String((((snapshot || {}).latest_sample) || {}).id || ''),
+                latest_branch_id: String((((snapshot || {}).latest_branch) || {}).id || ''),
+                last_focus_ts: Number((snapshot || {}).last_focus_ts || 0),
+                last_action: (snapshot || {}).last_action ? Object.assign({}, snapshot.last_action) : null,
+                counts: Object.assign({}, ((snapshot || {}).counts) || {})
+            };
+        });
+    }
+
+    window.envopsSelectSystem = function (workflowId, actor) {
+        var actorName = _envNormalizeActorId(actor || _envActorActiveId() || 'assistant') || 'assistant';
         _wfSelectedId = String(workflowId || '');
         _wfDrill = { kind: 'workflow', nodeId: '', edgeIndex: -1, workflowId: _wfSelectedId };
-        _envKernel.focus = { kind: 'workflow', id: _wfSelectedId, label: _wfSelectedId || 'workflow', actor: 'assistant', payload: null };
-        _envLogAction('select', 'Selected workflow-backed system', 'assistant', { workflow_id: _wfSelectedId });
+        _envSetFocus('workflow', _wfSelectedId, actorName);
+        _envLogAction('select', 'Selected workflow-backed system', actorName, { workflow_id: _wfSelectedId });
         renderWorkflowList();
         renderEnvironmentView();
         if (_wfSelectedId) callTool('workflow_get', { workflow_id: _wfSelectedId });
@@ -18875,6 +19418,13 @@
                 count: Number(_envProfileCatalog().length || 0),
                 ids: _envProfileCatalog().map(function (profile) { return String(profile.id || ''); })
             },
+            actors: {
+                active_id: String(_envActorActiveId() || ''),
+                filter_id: String(((_envActorKernel() || {}).filterId) || 'all'),
+                count: Number(_envActorCatalog().length || 0),
+                restore_focus_on_activate: !!_envActorConfig().restoreFocusOnActivate,
+                lanes: _envActorPublicSessions()
+            },
             replay: {
                 active: !!((_envKernel.replay || {}).active),
                 mode: String(((_envKernel.replay || {}).mode) || 'samples'),
@@ -18963,6 +19513,24 @@
     window.envopsGetHealthSnapshot = function () {
         var workflow = _wfLoadedDef && String((_wfLoadedDef || {}).id || '') === String(_wfSelectedId || '') ? _wfLoadedDef : null;
         return JSON.parse(JSON.stringify(_envBuildHealthSnapshot(workflow, _envCurrentExecution(), _envTraceRows(_envHealthConfig().traceWindow))));
+    };
+
+    window.envopsGetActorSessions = function () {
+        return JSON.parse(JSON.stringify(_envActorPublicSessions()));
+    };
+
+    window.envopsSetActiveActor = function (actorId, actor, note) {
+        var actorName = _envNormalizeActorId(actor || _envActorActiveId() || 'assistant') || 'assistant';
+        return JSON.parse(JSON.stringify(_envActorSetActive(actorId || actorName, actorName, note || 'external actor activate', false)));
+    };
+
+    window.envopsFocusActor = function (actorId, actor) {
+        _envQueueControl('focus_actor', actorId || '', actor || 'assistant', 'external actor focus');
+    };
+
+    window.envopsRegisterActor = function (actorId, meta) {
+        if (!actorId) return null;
+        return JSON.parse(JSON.stringify(_envActorEnsureLane(actorId, meta && typeof meta === 'object' ? meta : {})));
     };
 
     window.envopsGetHabitatObjects = function () {

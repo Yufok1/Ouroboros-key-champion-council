@@ -1,5 +1,5 @@
 {
-  "version": "2026-03-07-envops-v26",
+  "version": "2026-03-07-envops-v27",
   "shell": {
     "defaultRenderer": "web3d",
     "defaultPackageMode": "research",
@@ -57,6 +57,34 @@
     "hotspotLimit": 3,
     "requestCooldownMs": 9000,
     "staleAfterMs": 45000
+  },
+  "actors": {
+    "defaultActiveId": "assistant",
+    "restoreFocusOnActivate": true,
+    "maxVisible": 6,
+    "roster": [
+      {
+        "id": "user",
+        "label": "Operator",
+        "role": "human",
+        "tone": "manual",
+        "note": "Manual cockpit lane for direct human control."
+      },
+      {
+        "id": "assistant",
+        "label": "Assistant",
+        "role": "copilot",
+        "tone": "assistant",
+        "note": "Primary autonomous orchestration lane for agent-driven operation."
+      },
+      {
+        "id": "system",
+        "label": "System",
+        "role": "runtime",
+        "tone": "system",
+        "note": "Runtime hooks, watches, and substrate-level automation."
+      }
+    ]
   },
   "scene": {
     "enabled": true,
@@ -488,6 +516,7 @@
       "ingress",
       "watch",
       "control",
+      "actor",
       "recipe",
       "docs",
       "tool",
