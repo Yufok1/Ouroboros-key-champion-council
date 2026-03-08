@@ -13692,6 +13692,8 @@
         var packageModeEl = document.getElementById('envops-package-mode');
         var activeProfile = _envProfileById(((_envKernel.profile || {}).activeId) || '');
         var activeActorId = _envActorActiveId();
+        var workflow = _wfLoadedDef && String((_wfLoadedDef || {}).id || '') === String(_wfSelectedId || '') ? _wfLoadedDef : null;
+        var contractSnapshot = _envBuildContractSnapshot(workflow, _envCurrentExecution(), _envArtifactSections());
         var summary = {
             config_version: String((_envConfig || {}).version || 'unknown'),
             config_source: String(_envBus.source || 'defaults'),
@@ -13717,6 +13719,9 @@
             ingress_interval_ms: Number((((_envConfig || {}).ingress || {}).intervalMs) || 700),
             ingress_active: !!((_envKernel.ingress || {}).active),
             ingress_queue_depth: Number((((_envKernel.ingress || {}).queue || []).length) || 0),
+            contract_version: String((contractSnapshot || {}).contract_version || ''),
+            contract_product_surfaces: Number((((contractSnapshot || {}).product_surfaces) || []).length || 0),
+            contract_runtime_status: String((((contractSnapshot || {}).runtime) || {}).status || 'idle'),
             watch_modes: {
                 auto_follow_failed: !!((_envKernel.watch || {}).autoFollowFailed),
                 auto_branch_on_failure: !!((_envKernel.watch || {}).autoBranchOnFailure),
@@ -13763,12 +13768,13 @@
             '<div class="envops-doc-content-head">' +
             '<div>' +
             '<div class="envops-doc-title">Environment Config / Shared State</div>' +
-            '<div class="envops-doc-meta">Common bus substrate for manual and assistant-directed control</div>' +
-            '</div>' +
-            '<div class="envops-doc-actions"><button class="btn-dim" data-env-action="reload-config">RELOAD CONFIG</button></div>' +
-            '</div>' +
-            _wfJsonBlock('Config Summary', summary) +
-            '<div class="envops-card-label" style="margin:10px 0 6px 0;">Renderer Targets</div>' +
+             '<div class="envops-doc-meta">Common bus substrate for manual and assistant-directed control</div>' +
+             '</div>' +
+             '<div class="envops-doc-actions"><button class="btn-dim" data-env-action="reload-config">RELOAD CONFIG</button></div>' +
+             '</div>' +
+             _wfJsonBlock('Config Summary', summary) +
+             _wfJsonBlock('Contract Snapshot', contractSnapshot) +
+             '<div class="envops-card-label" style="margin:10px 0 6px 0;">Renderer Targets</div>' +
             '<div class="envops-doc-list">' + rendererNotes + '</div>' +
             '<div class="envops-card-label" style="margin:10px 0 6px 0;">Profile Modes</div>' +
             '<div class="envops-doc-list">' + (profileNotes || '<div class="envops-stage-empty">No profiles configured.</div>') + '</div>' +
@@ -14033,6 +14039,108 @@
             preview: preview,
             shapeLabel: shape.label,
             rank: rank
+        };
+    }
+
+    function _envContractShape(data) {
+        var meta = _envProductShapeMeta(data);
+        return {
+            kind: String(meta.kind || ''),
+            label: String(meta.label || ''),
+            count: Number(meta.count || 0),
+            keys: Array.isArray(meta.keys) ? meta.keys.slice(0, 12) : []
+        };
+    }
+
+    function _envContractSurface(source, title, data) {
+        var kind = _envProductSectionKind(title);
+        return {
+            source: String(source || 'surface'),
+            title: String(title || 'surface'),
+            kind: String(kind || 'artifact'),
+            shape: _envContractShape(data),
+            preview: _envProductPreview(data, kind)
+        };
+    }
+
+    function _envContractToolOutputs() {
+        return {
+            export_interface: _envToolOutputs.export_interface ? _envContractSurface('tool', 'Interface Export', _envToolOutputs.export_interface) : null,
+            start_api_server: _envToolOutputs.start_api_server ? _envContractSurface('tool', 'API Server', _envToolOutputs.start_api_server) : null
+        };
+    }
+
+    function _envBuildContractSnapshot(workflow, exec, sections) {
+        var currentWorkflow = workflow || (_wfLoadedDef && String((_wfLoadedDef || {}).id || '') === String(_wfSelectedId || '') ? _wfLoadedDef : null);
+        var currentExec = exec || _envCurrentExecution();
+        var artifactSections = Array.isArray(sections) ? sections : _envArtifactSections();
+        var runtimePrimary = _envExecutionPrimaryPayload(currentExec);
+        var resourceChips = _envResourceChips(currentWorkflow).slice(0, 12);
+        var activeDocPayload = (_envDocState.activeDocMeta || _envDocState.activeDocContent)
+            ? {
+                metadata: Object.assign({}, _envDocState.activeDocMeta || {}),
+                content: String(_envDocState.activeDocContent || '')
+            }
+            : null;
+        return {
+            contract_version: 'envops-contract-v1',
+            workflow: {
+                selected_id: String(_wfSelectedId || ''),
+                loaded: !!currentWorkflow,
+                node_count: Number((((currentWorkflow || {}).nodes) || []).length || 0),
+                connection_count: Number((((currentWorkflow || {}).connections) || []).length || 0),
+                resources: resourceChips
+            },
+            runtime: currentExec ? {
+                available: true,
+                workflow_id: String(currentExec.workflow_id || ''),
+                execution_id: String(currentExec.execution_id || ''),
+                status: _wfNormalizeStatus(currentExec.status || 'pending'),
+                primary_surface: String((runtimePrimary || {}).kind || ''),
+                surface_count: Number(_envExecutionSurfaceCount(currentExec) || 0),
+                node_state_count: Number(Object.keys((currentExec.node_states && typeof currentExec.node_states === 'object') ? currentExec.node_states : {}).length || 0),
+                shape: runtimePrimary ? _envContractShape(runtimePrimary.data) : _envContractShape(null),
+                preview: _envExecutionPreview(currentExec)
+            } : {
+                available: false,
+                workflow_id: String(_wfSelectedId || ''),
+                execution_id: '',
+                status: 'idle',
+                primary_surface: '',
+                surface_count: 0,
+                node_state_count: 0,
+                shape: _envContractShape(null),
+                preview: 'No active execution surfaced.'
+            },
+            product_surfaces: artifactSections.map(function (section) {
+                var title = String((section && section.title) || 'artifact');
+                var source = /^execution /i.test(title) || title === 'Node States' ? 'runtime' : 'tool';
+                return _envContractSurface(source, title, section ? section.data : null);
+            }),
+            tool_outputs: _envContractToolOutputs(),
+            docs: {
+                result_count: Number(((_envDocState.results || []).length) || 0),
+                active_doc: String(_envDocState.activeDocId || ''),
+                pending_search: String(_envDocState.pendingSearch || ''),
+                pending_read: String(_envDocState.pendingRead || ''),
+                continuity_index: String((((_envConfig || {}).docs || {}).continuityIndex) || ''),
+                active_shape: _envContractShape(activeDocPayload),
+                preview: activeDocPayload ? _envProductPreview(activeDocPayload.content || activeDocPayload, 'doc') : 'No document payload surfaced.'
+            },
+            health: {
+                pending: _envHealthPending(),
+                refreshed_ts: Number((_envHealthState || {}).refreshedTs || 0),
+                status_shape: _envContractShape((_envHealthState || {}).status),
+                heartbeat_shape: _envContractShape((_envHealthState || {}).heartbeat),
+                status_error: String((_envHealthState || {}).statusError || ''),
+                heartbeat_error: String((_envHealthState || {}).heartbeatError || '')
+            },
+            actors: {
+                active_id: String(_envActorActiveId() || ''),
+                filter_id: String(((_envActorKernel() || {}).filterId) || 'all'),
+                count: Number(_envActorCatalog().length || 0),
+                restore_focus_on_activate: !!_envActorConfig().restoreFocusOnActivate
+            }
         };
     }
 
@@ -14519,13 +14627,13 @@
             return;
         }
         if (toolName === 'export_interface' || toolName === 'start_api_server') {
-            _envToolOutputs[toolName] = msg && msg.error ? { error: msg.error } : (_wfParsePayload(rawText) || rawText);
+            _envToolOutputs[toolName] = msg && msg.error ? { error: msg.error } : (_normalizeToolPayload(rawText) || rawText);
             _envLogAction('tool', 'Environment tool completed: ' + toolName, msg && msg.error ? 'system' : 'assistant', { tool: toolName, error: msg && msg.error ? String(msg.error) : '' });
             renderEnvironmentView();
             return;
         }
         if (toolName === 'bag_search_docs') {
-            var searchPayload = _wfParsePayload(rawText) || {};
+            var searchPayload = _normalizeToolPayload(rawText) || {};
             _envDocState.pendingSearch = '';
             _envDocState.results = _envNormalizeDocResults(searchPayload);
             if (_envDocState.results.length) {
@@ -14539,7 +14647,7 @@
             return;
         }
         if (toolName === 'bag_read_doc' || toolName === 'file_read') {
-            var docPayload = _wfParsePayload(rawText) || {};
+            var docPayload = _normalizeToolPayload(rawText) || {};
             if (msg && msg.error) docPayload = { error: String(msg.error) };
             if (docPayload && docPayload.error && toolName === 'bag_read_doc' && _envDocState.pendingRead) {
                 callTool('file_read', { path: _envDocState.pendingRead }, 'file_read');
@@ -19377,9 +19485,11 @@
     };
     window.envopsGetSharedState = function () {
         _envRefreshReplayTrack((_envKernel.replay || {}).mode, true);
+        var currentWorkflow = _wfLoadedDef && String((_wfLoadedDef || {}).id || '') === String(_wfSelectedId || '') ? _wfLoadedDef : null;
         var currentExec = _envCurrentExecution();
         var latestHistory = ((_envRunHistoryState.rows || [])[0]) || null;
-        var healthSnapshot = _envBuildHealthSnapshot(_wfLoadedDef && String((_wfLoadedDef || {}).id || '') === String(_wfSelectedId || '') ? _wfLoadedDef : null, currentExec, _envTraceRows(_envHealthConfig().traceWindow));
+        var healthSnapshot = _envBuildHealthSnapshot(currentWorkflow, currentExec, _envTraceRows(_envHealthConfig().traceWindow));
+        var contractSnapshot = _envBuildContractSnapshot(currentWorkflow, currentExec, _envArtifactSections());
         return {
             config_source: _envBus.source || 'defaults',
             focus: Object.assign({}, _envKernel.focus || {}),
@@ -19507,12 +19617,18 @@
             recipes: {
                 count: Number(_envRecipeCatalog().length || 0),
                 ids: _envRecipeCatalog().map(function (recipe) { return String(recipe.id || ''); })
-            }
+            },
+            contracts: contractSnapshot
         };
     };
     window.envopsGetHealthSnapshot = function () {
         var workflow = _wfLoadedDef && String((_wfLoadedDef || {}).id || '') === String(_wfSelectedId || '') ? _wfLoadedDef : null;
         return JSON.parse(JSON.stringify(_envBuildHealthSnapshot(workflow, _envCurrentExecution(), _envTraceRows(_envHealthConfig().traceWindow))));
+    };
+
+    window.envopsGetContracts = function () {
+        var workflow = _wfLoadedDef && String((_wfLoadedDef || {}).id || '') === String(_wfSelectedId || '') ? _wfLoadedDef : null;
+        return JSON.parse(JSON.stringify(_envBuildContractSnapshot(workflow, _envCurrentExecution(), _envArtifactSections())));
     };
 
     window.envopsGetActorSessions = function () {
