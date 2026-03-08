@@ -6786,6 +6786,7 @@
         if (k === 'sample') return 'sample';
         if (k === 'branch') return 'branch';
         if (k === 'control') return 'control';
+        if (k === 'camera') return 'control';
         if (k === 'recipe') return 'recipe';
         if (k === 'profile') return 'profile';
         if (k === 'ingress') return 'ingress';
@@ -10574,13 +10575,6 @@
                 offset_y: Number(cam.offsetY || 0),
                 zoom_scale: Number(cam.zoomScale || 1)
             });
-            _envEmitBus('control', 'Adjusted habitat camera', actor, {
-                action: 'adjust_camera',
-                reason: String(reason || 'adjust'),
-                offset_x: Number(cam.offsetX || 0),
-                offset_y: Number(cam.offsetY || 0),
-                zoom_scale: Number(cam.zoomScale || 1)
-            });
         }
     }
 
@@ -10593,11 +10587,6 @@
         _envScene.dirty = true;
         if (actor) {
             _envLogAction('camera', 'Reset habitat camera offsets', actor, {
-                reason: String(reason || 'reset'),
-                camera_mode: _envSceneNormalizeCameraMode(_envScene.cameraMode || 'overview')
-            });
-            _envEmitBus('control', 'Reset habitat camera offsets', actor, {
-                action: 'reset_camera',
                 reason: String(reason || 'reset'),
                 camera_mode: _envSceneNormalizeCameraMode(_envScene.cameraMode || 'overview')
             });
@@ -11882,12 +11871,14 @@
         var watch = _envKernel.watch || {};
         var channel = String(event.channel || '').toLowerCase();
         var eventKey = String(event.id || event.seq || '');
+        var body = String(event.body || '').toLowerCase();
         if (!eventKey) return;
 
         if (watch.autoSampleOnRuntime
             && (((_envConfig || {}).sampler || {}).autoCaptureOnRuntime)
             && !_envKernel.sampler.active
             && ['runtime', 'tool', 'docs', 'export'].indexOf(channel) >= 0
+            && !(channel === 'runtime' && /requested workflow history/.test(body))
             && watch.lastBusSampleKey !== eventKey) {
             watch.lastBusSampleKey = eventKey;
             _envQueueControl('sample_now', '', 'system', 'watch bus sample', {
@@ -14891,6 +14882,9 @@
                     _envRunHistoryState.pendingWorkflowId = '';
                     _envRunHistoryState.rows = [];
                     _envRunHistoryState.selectedExecutionId = '';
+                    _envRunHistoryState.lastRequestedExecutionId = '';
+                    _envRunHistoryState.lastRequestTs = 0;
+                    _envRunHistoryState.refreshedTs = 0;
                     _envRunHistoryState.error = '';
                     _envRequestRunHistory('selected workflow pending definition', false);
                 }
@@ -14951,6 +14945,12 @@
             }
             _envRunHistoryState.workflowId = '';
             _envRunHistoryState.pendingWorkflowId = '';
+            _envRunHistoryState.rows = [];
+            _envRunHistoryState.selectedExecutionId = '';
+            _envRunHistoryState.lastRequestedExecutionId = '';
+            _envRunHistoryState.lastRequestTs = 0;
+            _envRunHistoryState.refreshedTs = 0;
+            _envRunHistoryState.error = '';
             _envHealthState.workflowId = '';
             _envHealthState.pendingStatus = false;
             _envHealthState.pendingHeartbeat = false;
@@ -15025,9 +15025,15 @@
             _envRunHistoryState.pendingWorkflowId = '';
             _envRunHistoryState.rows = [];
             _envRunHistoryState.selectedExecutionId = '';
+            _envRunHistoryState.lastRequestedExecutionId = '';
+            _envRunHistoryState.lastRequestTs = 0;
+            _envRunHistoryState.refreshedTs = 0;
             _envRunHistoryState.error = '';
             _envRequestRunHistory('workflow switch', true);
-        } else if (!_envRunHistoryState.rows.length && !_envRunHistoryState.pendingWorkflowId) {
+        } else if (!_envRunHistoryState.rows.length
+            && !_envRunHistoryState.pendingWorkflowId
+            && !Number(_envRunHistoryState.refreshedTs || 0)
+            && !String(_envRunHistoryState.error || '')) {
             _envRequestRunHistory('initial load', false);
         }
         if (String(_envHealthState.workflowId || '') !== workflowId) {
