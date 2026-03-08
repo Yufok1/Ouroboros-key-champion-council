@@ -4974,6 +4974,21 @@
             '</div>';
     }
 
+    function _envSafeJsonText(value, limit) {
+        if (value === undefined || value === null) return '';
+        var text = '';
+        try {
+            text = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+        } catch (err) {
+            var tag = Object.prototype.toString.call(value);
+            var message = err && err.message ? String(err.message) : 'payload could not be serialized';
+            text = '[unserializable payload ' + tag + ': ' + message + ']';
+        }
+        var maxLen = Number(limit || 0);
+        if (maxLen > 0 && text.length > maxLen) text = text.slice(0, maxLen) + '…';
+        return text;
+    }
+
     function _wfSetDetailKindLabel(kind) {
         var el = document.getElementById('wfops-detail-kind');
         if (!el) return;
@@ -13729,8 +13744,7 @@
         }
         ledgerEl.innerHTML = filterRail + '<div class="envops-ledger-list">' + actions.map(function (entry) {
             var when = _fmtTimeAgo(entry.ts);
-            var payloadText = entry.payload ? JSON.stringify(entry.payload, null, 2) : '';
-            if (payloadText.length > 220) payloadText = payloadText.slice(0, 220) + '…';
+            var payloadText = _envSafeJsonText(entry.payload, 220);
             return '<div class="envops-ledger-entry">' +
                 '<div class="envops-ledger-head">' +
                 '<span class="envops-ledger-kind">' + _esc(entry.kind) + '</span>' +
@@ -13754,7 +13768,7 @@
         }
         busEl.innerHTML = '<div class="envops-ledger-list">' + events.map(function (event) {
             var when = _fmtTimeAgo(event.ts);
-            var payloadText = event.payload ? JSON.stringify(event.payload, null, 2) : '';
+            var payloadText = _envSafeJsonText(event.payload);
             var active = (_envKernel.focus || {}).kind === 'event' && String((_envKernel.focus || {}).id || '') === String(event.id || '') ? ' active' : '';
             return '<div class="envops-ledger-entry' + active + '" data-env-action="focus-event" data-env-event-id="' + _esc(String(event.id || event.seq || '')) + '">' +
                 '<div class="envops-ledger-head">' +
@@ -14787,8 +14801,20 @@
         _envRefreshReplayTrack((_envKernel.replay || {}).mode, true);
         _envSetBadge(status, !workflow ? 'IDLE' : (exec ? status.toUpperCase() : 'READY'));
         if (selectedEl) selectedEl.textContent = selected ? (selected.name || selected.id) : 'none';
-        if (busEl) _envRenderBus();
-        if (configEl) _envRenderConfigPanel();
+        if (busEl) {
+            try {
+                _envRenderBus();
+            } catch (err) {
+                busEl.innerHTML = '<div class="envops-stage-empty">Environment bus render failed: ' + _esc(String((err && err.message) || err || 'unknown error')) + '</div>';
+            }
+        }
+        if (configEl) {
+            try {
+                _envRenderConfigPanel();
+            } catch (err) {
+                configEl.innerHTML = '<div class="envops-stage-empty">Environment config render failed: ' + _esc(String((err && err.message) || err || 'unknown error')) + '</div>';
+            }
+        }
 
         if (!workflow) {
             var selectedId = String((selected && selected.id) || _wfSelectedId || '').trim();
