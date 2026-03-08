@@ -5018,6 +5018,22 @@
         return text;
     }
 
+    function _envRenderFailureHtml(label, err) {
+        var name = String(label || 'section');
+        var message = String((err && err.message) || err || 'unknown error');
+        return '<div class="envops-stage-empty">Environment ' + _esc(name) + ' render failed: ' + _esc(message) + '</div>';
+    }
+
+    function _envRenderSafeHtml(label, renderFn) {
+        try {
+            var html = renderFn();
+            return html == null ? '' : String(html);
+        } catch (err) {
+            console.error('[envops] ' + String(label || 'section') + ' render failed', err);
+            return _envRenderFailureHtml(label, err);
+        }
+    }
+
     function _wfSetDetailKindLabel(kind) {
         var el = document.getElementById('wfops-detail-kind');
         if (!el) return;
@@ -14975,6 +14991,12 @@
         var sections = _envArtifactSections();
         var traces = _envTraceRows(8);
         var healthTraces = _envTraceRows(_envHealthConfig().traceWindow);
+        var healthHtml = _envRenderSafeHtml('health surface', function () {
+            return _envRenderHealthSurface(workflow, exec, healthTraces);
+        });
+        var habitatHtml = _envRenderSafeHtml('habitat stage', function () {
+            return _envRenderHabitat(workflow, exec, sections, traces);
+        });
         var workflowId = String(workflow.id || _wfSelectedId || '');
         if (!_envKernel.focus || String((_envKernel.focus.id || '')) === '' || (_envKernel.focus.kind === 'workflow' && String((_envKernel.focus.id || '')) !== String(workflow.id || _wfSelectedId || ''))) {
             _envKernel.focus = { kind: 'workflow', id: String(workflow.id || _wfSelectedId || ''), label: String(workflow.name || workflow.id || 'workflow'), actor: 'system', payload: null };
@@ -15038,25 +15060,64 @@
             '<div class="envops-card"><div class="envops-card-label">Node States</div><div class="envops-card-value">completed ' + (stateCounts.completed || 0) + ' · running ' + (stateCounts.running || 0) + ' · failed ' + (stateCounts.failed || 0) + '</div></div>' +
             '</div>' +
             (resourceChips.length ? '<div><div class="envops-card-label" style="margin-bottom:6px;">System Resources</div><div class="envops-chip-row">' + resourceChips.map(function (chip) { return '<span class="envops-chip">' + _esc(chip) + '</span>'; }).join('') + '</div></div>' : '') +
-            _envRenderHealthSurface(workflow, exec, healthTraces) +
+            healthHtml +
             '<div class="envops-stage-shell">' +
-            _envRenderHabitat(workflow, exec, sections, traces) +
+            habitatHtml +
             '<div class="envops-focus-card">' +
             '<div class="envops-panel-head" style="margin:-10px -12px 0 -12px;border-bottom:1px solid rgba(255,255,255,0.08);background:transparent;"><span>INSPECTOR FOCUS</span><span>' + _esc(String((_envKernel.focus && _envKernel.focus.kind) || 'workflow')) + '</span></div>' +
             '<div class="wfops-detail" id="envops-detail-mirror">' + detailHtml + '</div>' +
             '</div>' +
             '</div>';
 
-        _envSyncHabitatScene(workflow, exec, sections, traces, renderTarget);
-        artifactsEl.innerHTML = _envRenderArtifactPanel(workflow, exec, sections);
+        try {
+            _envSyncHabitatScene(workflow, exec, sections, traces, renderTarget);
+        } catch (err) {
+            console.error('[envops] habitat sync failed', err);
+        }
+        try {
+            artifactsEl.innerHTML = _envRenderArtifactPanel(workflow, exec, sections);
+        } catch (err) {
+            artifactsEl.innerHTML = _envRenderFailureHtml('product lens', err);
+        }
         if (artifactCountEl) artifactCountEl.textContent = String(sections.length);
-        _envRenderTraceRows(traces);
-        kernelEl.innerHTML = _envRenderKernel(workflow, exec, sections, traces);
-        _envRenderDocsPanel();
-        _envRenderFocusPayloadPanel(workflow, exec, sections, traces);
-        _envRenderLedger();
-        _envRenderBus();
-        _envRenderConfigPanel();
+        try {
+            _envRenderTraceRows(traces);
+        } catch (err) {
+            var traceListEl = document.getElementById('envops-trace-list');
+            if (traceListEl) traceListEl.innerHTML = _envRenderFailureHtml('trace rail', err);
+        }
+        try {
+            kernelEl.innerHTML = _envRenderKernel(workflow, exec, sections, traces);
+        } catch (err) {
+            kernelEl.innerHTML = _envRenderFailureHtml('operator kernel', err);
+        }
+        try {
+            _envRenderDocsPanel();
+        } catch (err) {
+            if (docsEl) docsEl.innerHTML = _envRenderFailureHtml('docs panel', err);
+        }
+        try {
+            _envRenderFocusPayloadPanel(workflow, exec, sections, traces);
+        } catch (err) {
+            var focusPayloadEl = document.getElementById('envops-focus-payload');
+            if (focusPayloadEl) focusPayloadEl.innerHTML = _envRenderFailureHtml('focus payload', err);
+        }
+        try {
+            _envRenderLedger();
+        } catch (err) {
+            var ledgerEl = document.getElementById('envops-ledger');
+            if (ledgerEl) ledgerEl.innerHTML = _envRenderFailureHtml('ledger', err);
+        }
+        try {
+            _envRenderBus();
+        } catch (err) {
+            if (busEl) busEl.innerHTML = _envRenderFailureHtml('bus', err);
+        }
+        try {
+            _envRenderConfigPanel();
+        } catch (err) {
+            if (configEl) configEl.innerHTML = _envRenderFailureHtml('config', err);
+        }
     }
 
     // ── MEMORY INLINE DRILL ──
