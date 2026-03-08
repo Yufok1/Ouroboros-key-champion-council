@@ -13279,8 +13279,72 @@
             '</div>';
     }
 
+    function _envHabitatVisualMode() {
+        var profileId = String(((_envKernel.profile || {}).activeId) || (((_envConfig || {}).shell || {}).defaultProfile) || 'observe').trim().toLowerCase();
+        if (((_envKernel.replay || {}).active) || profileId === 'replay_chase') return 'replay_chase';
+        if (profileId === 'triage' || profileId === 'branch_lab') return profileId;
+        return 'observe';
+    }
+
+    function _envHabitatVisualPlan(mode) {
+        var plan = {
+            actorLimit: 3,
+            actorScope: 'observe',
+            nodeLimit: 24,
+            artifactLimit: 1,
+            traceLimit: 1,
+            eventLimit: 2,
+            sampleLimit: 2,
+            branchLimit: 1,
+            showReplay: true,
+            recipeLimit: 1,
+            profileLimit: 1,
+            queueLimit: 1,
+            showDispatch: true,
+            watchLimit: 1,
+            watchActiveOnly: true,
+            docLimit: 1
+        };
+        if (mode === 'triage') {
+            plan.actorLimit = 2;
+            plan.actorScope = 'active';
+            plan.traceLimit = 3;
+            plan.eventLimit = 4;
+            plan.sampleLimit = 2;
+            plan.queueLimit = 2;
+            plan.watchLimit = 3;
+        } else if (mode === 'branch_lab') {
+            plan.actorLimit = 2;
+            plan.actorScope = 'active';
+            plan.traceLimit = 2;
+            plan.eventLimit = 2;
+            plan.sampleLimit = 3;
+            plan.branchLimit = 3;
+            plan.recipeLimit = 2;
+            plan.watchLimit = 2;
+        } else if (mode === 'replay_chase') {
+            plan.actorLimit = 2;
+            plan.actorScope = 'active';
+            plan.nodeLimit = 8;
+            plan.artifactLimit = 0;
+            plan.traceLimit = 2;
+            plan.eventLimit = 4;
+            plan.sampleLimit = 4;
+            plan.branchLimit = 1;
+            plan.recipeLimit = 0;
+            plan.queueLimit = 0;
+            plan.showDispatch = false;
+            plan.watchLimit = 1;
+            plan.docLimit = 0;
+        }
+        return plan;
+    }
+
     function _envHabitatObjects(workflow, exec, sections, traces) {
         if (!workflow) return [];
+        var visualMode = _envHabitatVisualMode();
+        var plan = _envHabitatVisualPlan(visualMode);
+        var activeActorId = String(_envActorActiveId() || '').trim();
         var objects = [{
             kind: 'workflow',
             id: String(workflow.id || _wfSelectedId || 'workflow'),
@@ -13290,7 +13354,15 @@
             category: 'workflow',
             x: 50, y: 18, scale: 1.08, tilt: 0
         }];
-        _envActorCatalog().slice(0, 4).forEach(function (actorLane, idx) {
+        _envActorCatalog().filter(function (actorLane, idx) {
+            var actorId = String((actorLane || {}).id || ('actor-' + idx));
+            var actorSnapshot = _envActorSessionSnapshot(actorId);
+            var actorMeta = ((actorSnapshot || {}).actor) || {};
+            var isActiveLane = !!actorMeta.active || actorId === activeActorId;
+            var isSystemLane = actorId === 'system';
+            if (plan.actorScope === 'active') return isActiveLane || isSystemLane;
+            return idx < plan.actorLimit || isActiveLane || isSystemLane;
+        }).slice(0, plan.actorLimit).forEach(function (actorLane, idx) {
             var actorSnapshot = _envActorSessionSnapshot(actorLane.id);
             objects.push({
                 kind: 'actor',
@@ -13307,7 +13379,7 @@
         });
         var lanes = { inputs: 14, agents: 34, tools: 54, control: 74, outputs: 88, other: 22 };
         var counts = {};
-        (workflow.nodes || []).forEach(function (node) {
+        (workflow.nodes || []).slice(0, plan.nodeLimit).forEach(function (node) {
             var bucket = _envClassifyNodeType(node);
             counts[bucket] = (counts[bucket] || 0) + 1;
             var idx = counts[bucket] - 1;
@@ -13327,7 +13399,7 @@
                 x: x, y: y, scale: Math.max(0.78, 1 - (row * 0.05) - (col * 0.03)), tilt: (laneX - 50) / 4
             });
         });
-        sections.slice(0, 3).forEach(function (section, idx) {
+        sections.slice(0, plan.artifactLimit).forEach(function (section, idx) {
             objects.push({
                 kind: 'artifact',
                 id: String(idx),
@@ -13338,7 +13410,7 @@
                 x: 16 + idx * 12, y: 78, scale: 0.82, tilt: -8 + idx * 4
             });
         });
-        traces.slice(0, 3).forEach(function (trace, idx) {
+        traces.slice(0, plan.traceLimit).forEach(function (trace, idx) {
             objects.push({
                 kind: 'trace',
                 id: String(idx),
@@ -13350,7 +13422,7 @@
             });
         });
         var eventLanes = {};
-        _envRecentBusEvents(6).forEach(function (event, idx) {
+        _envRecentBusEvents(plan.eventLimit).forEach(function (event, idx) {
             var isFailure = _envBusEventSignalsFailure(event);
             var channel = String(event.channel || 'system').toLowerCase();
             eventLanes[channel] = (eventLanes[channel] || 0) + 1;
@@ -13368,7 +13440,7 @@
                 tilt: anchor.tilt
             });
         });
-        (_envKernel.samples || []).slice(0, 4).forEach(function (sample, idx) {
+        (_envKernel.samples || []).slice(0, plan.sampleLimit).forEach(function (sample, idx) {
             objects.push({
                 kind: 'sample',
                 id: String(sample.id || idx),
@@ -13379,7 +13451,7 @@
                 x: 22 + idx * 10, y: 18 + idx * 3, scale: 0.68, tilt: -18 + idx * 6
             });
         });
-        (_envKernel.branches || []).slice(0, 3).forEach(function (branch, idx) {
+        (_envKernel.branches || []).slice(0, plan.branchLimit).forEach(function (branch, idx) {
             objects.push({
                 kind: 'branch',
                 id: String(branch.id || idx),
@@ -13390,7 +13462,7 @@
                 x: 76 + idx * 8, y: 18 + idx * 5, scale: 0.72, tilt: 16 - idx * 6
             });
         });
-        if ((_envKernel.replay || {}).current) {
+        if (plan.showReplay && ((_envKernel.replay || {}).current)) {
             var replayItem = (_envKernel.replay || {}).current;
             objects.push({
                 kind: 'replay',
@@ -13402,7 +13474,7 @@
                 x: 50, y: 10, scale: 0.88, tilt: 0
             });
         }
-        _envRecipeCatalog().slice(0, 4).forEach(function (recipe, idx) {
+        _envRecipeCatalog().slice(0, plan.recipeLimit).forEach(function (recipe, idx) {
             objects.push({
                 kind: 'recipe',
                 id: String(recipe.id || idx),
@@ -13413,7 +13485,9 @@
                 x: 66 + idx * 8, y: 58, scale: 0.74, tilt: 14 - idx * 5
             });
         });
-        _envProfileCatalog().slice(0, 4).forEach(function (profile, idx) {
+        _envProfileCatalog().filter(function (profile) {
+            return String(profile.id || '') === String(((_envKernel.profile || {}).activeId) || (((_envConfig || {}).shell || {}).defaultProfile) || 'observe');
+        }).slice(0, plan.profileLimit).forEach(function (profile, idx) {
             var active = String(((_envKernel.profile || {}).activeId) || '') === String(profile.id || '');
             objects.push({
                 kind: 'profile',
@@ -13426,7 +13500,7 @@
             });
         });
         var ingressCurrent = ((_envKernel.ingress || {}).current) || null;
-        if (ingressCurrent) {
+        if (plan.showDispatch && ingressCurrent) {
             objects.push({
                 kind: 'dispatch',
                 id: String(ingressCurrent.id || 'dispatch'),
@@ -13437,7 +13511,7 @@
                 x: 38, y: 10, scale: 0.74, tilt: -6
             });
         }
-        (((_envKernel.ingress || {}).queue) || []).slice(0, 3).forEach(function (item, idx) {
+        (((_envKernel.ingress || {}).queue) || []).slice(0, plan.queueLimit).forEach(function (item, idx) {
             objects.push({
                 kind: 'queued',
                 id: String(item.id || ('queued-' + idx)),
@@ -13448,7 +13522,9 @@
                 x: 26 + idx * 10, y: 24 + idx * 4, scale: 0.68, tilt: -12 + idx * 6
             });
         });
-        _envWatchDescriptors().forEach(function (watchMeta, idx) {
+        _envWatchDescriptors().filter(function (watchMeta) {
+            return !plan.watchActiveOnly || !!((_envKernel.watch || {})[watchMeta.key]);
+        }).slice(0, plan.watchLimit).forEach(function (watchMeta, idx) {
             var enabled = !!((_envKernel.watch || {})[watchMeta.key]);
             objects.push({
                 kind: 'watch',
@@ -13460,7 +13536,7 @@
                 x: 18 + idx * 12, y: 90, scale: 0.64, tilt: -16 + idx * 6
             });
         });
-        (_envDocState.results || []).slice(0, 2).forEach(function (doc, idx) {
+        (_envDocState.results || []).slice(0, plan.docLimit).forEach(function (doc, idx) {
             objects.push({
                 kind: 'doc',
                 id: String(doc.key || doc.path || doc.id || idx),
