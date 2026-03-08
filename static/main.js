@@ -7072,6 +7072,14 @@
         return hash / 9973;
     }
 
+    function _envSceneNow() {
+        if (_envScene && Number(_envScene.lastFrame || 0) > 0) return Number(_envScene.lastFrame || 0);
+        if (typeof performance !== 'undefined' && performance && typeof performance.now === 'function') {
+            return performance.now();
+        }
+        return 0;
+    }
+
     function _envSceneDepthGridConfig() {
         return (((_envSceneWorldConfig() || {}).depthGrid) || {});
     }
@@ -14735,8 +14743,8 @@
         }
         traceList.innerHTML = rows.map(function (event) {
             var when = event.time ? _fmtTimeAgo(event.time) : 'now';
-            var body = event.error ? ('ERROR: ' + event.error) : String(formatToolOutput(String(event.result || '')) || '').trim();
-            if (body.length > 320) body = body.slice(0, 320) + '…';
+            var preview = formatToolOutput(_normalizeToolPayload(event.result || null));
+            var body = event.error ? ('ERROR: ' + event.error) : _envSafeJsonText(preview, 320).trim();
             var args = event.args || {};
             var meta = [];
             if (args._workflow_execution_id) meta.push('exec ' + _activityTokenShort(args._workflow_execution_id, 18));
