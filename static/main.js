@@ -11653,18 +11653,50 @@
         return queued;
     }
 
+    function _envConfigFetchCandidates(force) {
+        var stamp = force ? ('?ts=' + Date.now()) : '';
+        var seen = {};
+        var urls = [];
+        [
+            'envops.config.json',
+            './envops.config.json',
+            '/static/envops.config.json',
+            'static/envops.config.json'
+        ].forEach(function (base) {
+            var url = String(base || '') + stamp;
+            if (!url || seen[url]) return;
+            seen[url] = true;
+            urls.push(url);
+        });
+        return urls;
+    }
+
     function _envLoadConfig(force) {
         if (_envBus.loadingConfig) return;
         if (_envBus.loaded && !force) return;
         _envBus.loadingConfig = true;
-        fetch('envops.config.json' + (force ? ('?ts=' + Date.now()) : ''), { method: 'GET', cache: 'no-store' })
-            .then(function (resp) {
-                if (!resp.ok) throw new Error('HTTP ' + resp.status);
-                return resp.json();
-            })
+        var candidates = _envConfigFetchCandidates(force);
+        var lastError = null;
+        function tryFetchConfig(index) {
+            if (index >= candidates.length) return Promise.reject(lastError || new Error('config unavailable'));
+            var url = candidates[index];
+            return fetch(url, { method: 'GET', cache: 'no-store' })
+                .then(function (resp) {
+                    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                    return resp.json();
+                })
+                .then(function (data) {
+                    return { data: data, source: String(url || '').replace(/\?.*$/, '') };
+                })
+                .catch(function (err) {
+                    lastError = new Error(String(url || 'envops.config.json') + ' · ' + String((err && err.message) || err || 'config unavailable'));
+                    return tryFetchConfig(index + 1);
+                });
+        }
+        tryFetchConfig(0)
             .then(function (data) {
-                _envConfig = _envMergeConfig(data);
-                _envBus.source = 'envops.config.json';
+                _envConfig = _envMergeConfig((data || {}).data || null);
+                _envBus.source = String((data || {}).source || 'envops.config.json');
                 _envBus.loaded = true;
                 _envBus.loadingConfig = false;
                 _envApplyConfig();
