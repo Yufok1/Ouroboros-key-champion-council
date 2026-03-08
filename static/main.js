@@ -8243,7 +8243,6 @@
         var watchActive = !!(focus.kind === 'watch'
             || watch.autoFollowFailed
             || watch.autoBranchOnFailure
-            || watch.autoSampleOnRuntime
             || watch.autoFocusLatestTrace);
         if (watchActive) {
             ctx.mode = 'watch';
@@ -9654,12 +9653,14 @@
         var veils = states.map(function (entry, idx) {
             var district = entry.district || {};
             var state = entry.state || {};
+            var visual = _envSceneDistrictDominance(dominance, district, state);
+            if (!(visual.dominant || state.active || String(state.tone || '') === 'alert')) return '';
             var centerX = Number(district.x || 0) + (Number(district.w || 20) / 2);
             var baseY = Number(district.y || 0) + Number(district.h || 16) + 4;
-            var widthPx = Math.max(80, (Number(district.w || 24) * 4.8));
-            var heightPx = Math.max(96, Number(scene.volumeBaseHeight || 34) + (Number(state.count || 0) * 10));
+            var widthPx = Math.max(56, (Number(district.w || 24) * 2.9));
+            var heightPx = Math.max(72, Math.round((Number(scene.volumeBaseHeight || 34) * 0.72) + (Number(state.count || 0) * 6)));
             var depthPx = Math.round(Number(district.depth || -48) - 8 + (idx * 4));
-            var opacity = Math.max(0.08, Math.min(0.42, (state.active ? 0.2 : 0.12) + (failure.tone === 'alert' && String(state.tone || '') === 'alert' ? 0.12 : 0) + (dominance.mode === 'watch' ? 0.06 : (dominance.mode === 'replay' ? 0.08 : 0))));
+            var opacity = Math.max(0.04, Math.min(0.18, (state.active ? 0.12 : 0.07) + (failure.tone === 'alert' && String(state.tone || '') === 'alert' ? 0.04 : 0) + (dominance.mode === 'replay' ? 0.05 : 0)));
             return '<div class="envops-habitat-volume-veil ' + _esc(veilTone) + '" style="' +
                 'left:' + centerX.toFixed(2) + '%;' +
                 'top:' + baseY.toFixed(2) + '%;' +
@@ -9676,19 +9677,23 @@
             var palette = _envSceneDistrictTonePalette(state.tone);
             var centerX = Number(district.x || 0) + (Number(district.w || 20) / 2);
             var baseY = Number(district.y || 0) + Number(district.h || 16) + 10;
-            var widthPx = Math.max(64, (Number(district.w || 24) * 2.7));
+            var widthPx = Math.max(42, (Number(district.w || 24) * 1.8));
             var heightPx = Math.max(30, Number(scene.volumeBaseHeight || 34) + (Number(state.count || 0) * Number(scene.volumeHeightGain || 6.5)));
             var depthPx = Math.round(Number(district.depth || -48) + 18 + (heightPx * 0.18));
-            var opacity = Math.max(0.18, Math.min(1, Number(visual.opacity || 1) * (visual.suppressed ? 0.78 : 1)));
+            var opacity = Math.max(0.1, Math.min(0.72, Number(visual.opacity || 1) * (visual.suppressed ? 0.52 : 0.84)));
             var modeBoost = visual.dominant ? Number(web3d.dominantBoost || 1.22) : 1;
             if (dominance.mode === 'watch') modeBoost *= Number(web3d.watchBoost || 1.14);
             if (dominance.mode === 'replay') modeBoost *= Number(web3d.replayBoost || 1.18);
             if (String(state.tone || '') === 'alert') modeBoost *= Number(web3d.failureBoost || 1.3);
-            var shaftWidth = Math.max(26, widthPx * Math.max(0.16, Number(web3d.shaftWidthScale || 0.42)));
-            var shaftOpacity = Math.max(0.08, Math.min(0.72, Number(web3d.shaftOpacity || 0.18) * Math.max(0.62, Number(visual.opacity || 1)) * modeBoost));
-            var crownOpacity = Math.max(0.08, Math.min(0.72, Number(web3d.crownOpacity || 0.22) * Math.max(0.72, Number(visual.opacity || 1)) * modeBoost));
-            var coreHeight = Math.max(24, Math.round(Number(web3d.coreHeightBias || 42) + (heightPx * 0.36)));
-            var drift = Math.sin((_envSceneMotionSeed(centerX, baseY) + (_envSceneNow() * 0.0011)) * Math.max(0.18, Number(web3d.shaftDrift || 8) * 0.06)) * Math.max(2, Number(web3d.shaftDrift || 8));
+            var shaftWidth = Math.max(18, widthPx * Math.max(0.14, Number(web3d.shaftWidthScale || 0.42)));
+            var shaftOpacity = Math.max(0.04, Math.min(0.28, Number(web3d.shaftOpacity || 0.18) * Math.max(0.52, Number(visual.opacity || 1)) * modeBoost));
+            var showCrown = !!(visual.dominant || state.active || String(state.tone || '') === 'alert');
+            var crownOpacity = showCrown
+                ? Math.max(0.05, Math.min(0.24, Number(web3d.crownOpacity || 0.22) * Math.max(0.62, Number(visual.opacity || 1)) * modeBoost))
+                : 0;
+            var coreHeight = Math.max(18, Math.round(Number(web3d.coreHeightBias || 42) + (heightPx * 0.22)));
+            var drift = Math.sin((_envSceneMotionSeed(centerX, baseY) + (_envSceneNow() * 0.0011)) * Math.max(0.18, Number(web3d.shaftDrift || 8) * 0.05)) * Math.max(1, Number(web3d.shaftDrift || 8) * 0.5);
+            var showTag = !!(visual.dominant || state.active || String(state.tone || '') === 'alert');
             var classes = ['envops-habitat-volume'];
             if (visual.dominant) classes.push('mode-dominant');
             else if (visual.suppressed) classes.push('mode-ghosted');
@@ -9715,8 +9720,8 @@
                 '<div class="envops-habitat-volume-shaft"></div>' +
                 '<div class="stem" style="background:' + palette.stem + ';box-shadow:inset 0 0 0 1px rgba(255,255,255,0.04), 0 10px 18px rgba(0,0,0,0.18), 0 0 18px ' + palette.shadow + ';"></div>' +
                 '<div class="cap" style="background:' + palette.cap + ';box-shadow:0 0 18px ' + palette.shadow + ';"></div>' +
-                '<div class="envops-habitat-volume-crown"></div>' +
-                '<div class="tag" style="color:' + palette.tag + ';">' + _esc(String(district.label || district.id || 'district')) + ' · ' + String(state.count || 0) + '</div>' +
+                (showCrown ? '<div class="envops-habitat-volume-crown"></div>' : '') +
+                (showTag ? ('<div class="tag" style="color:' + palette.tag + ';">' + _esc(String(district.label || district.id || 'district')) + ' · ' + String(state.count || 0) + '</div>') : '') +
                 '</div>';
         }).join('');
         return '<div class="envops-habitat-volume-layer">' + bridges + veils + volumes + '</div>';
@@ -10166,11 +10171,11 @@
             var palette = _envSceneDistrictTonePalette(state.tone);
             var centerX = Number(district.x || 0) + (Number(district.w || 20) / 2);
             var centerY = Number(district.y || 0) + (Number(district.h || 16) / 2) + 8;
-            var width = Math.max(112, (Number(district.w || 20) * Number(cfg.widthScale || 6.2)) + Number(cfg.widthBias || 38));
-            var height = Math.max(54, (Number(district.h || 16) * Number(cfg.heightScale || 3.1)) + Number(cfg.heightBias || 24));
+            var width = Math.max(84, (Number(district.w || 20) * Number(cfg.widthScale || 6.2)) + Number(cfg.widthBias || 38));
+            var height = Math.max(40, (Number(district.h || 16) * Number(cfg.heightScale || 3.1)) + Number(cfg.heightBias || 24));
             var depth = Math.round(Number(district.depth || -48) + Number(cfg.lift || 16));
             var scale = Math.max(0.88, Number(visual.scale || 1) + (visual.dominant ? Number(cfg.scaleGain || 0.08) : 0));
-            var opacity = Math.max(0.18, Math.min(1, Number(visual.opacity || 1) * (visual.suppressed ? 0.78 : 0.96)));
+            var opacity = Math.max(0.12, Math.min(0.74, Number(visual.opacity || 1) * (visual.suppressed ? 0.62 : 0.82)));
             var brightness = visual.dominant ? 1.08 : (visual.suppressed ? 0.78 : 0.98);
             var saturation = visual.dominant ? 1.16 : (visual.suppressed ? 0.7 : 1.02);
             var classes = ['envops-habitat-platform', String(state.tone || 'idle')];
@@ -10180,6 +10185,7 @@
             if (String(state.tone || '') === 'alert') classes.push('failure-surface');
             var fill = 'linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02) 22%, rgba(7,10,16,0.1)), ' + String(palette.cap || '');
             var skirt = 'linear-gradient(180deg, rgba(255,255,255,0.04), rgba(0,0,0,0.22)), ' + String(palette.stem || '');
+            var showTag = !!(visual.dominant || state.active || String(state.tone || '') === 'alert');
             return '<div class="' + _esc(classes.join(' ')) + '" style="' +
                 'left:' + centerX.toFixed(2) + '%;' +
                 'top:' + centerY.toFixed(2) + '%;' +
@@ -10202,7 +10208,7 @@
                 '<div class="deck"></div>' +
                 '<div class="rim"></div>' +
                 '<div class="skirt"></div>' +
-                '<div class="tag">' + _esc(String(district.label || district.id || 'district')) + ' · ' + _esc(String(state.count || 0)) + '</div>' +
+                (showTag ? ('<div class="tag">' + _esc(String(district.label || district.id || 'district')) + ' · ' + _esc(String(state.count || 0)) + '</div>') : '') +
                 '</div>';
         }).join('') + '</div>';
     }
@@ -13281,22 +13287,22 @@
 
     function _envHabitatVisualPlan(mode) {
         var plan = {
-            actorLimit: 3,
-            actorScope: 'observe',
-            nodeLimit: 24,
-            artifactLimit: 1,
+            actorLimit: 2,
+            actorScope: 'active',
+            nodeLimit: 12,
+            artifactLimit: 0,
             traceLimit: 1,
-            eventLimit: 2,
-            sampleLimit: 2,
+            eventLimit: 1,
+            sampleLimit: 1,
             branchLimit: 1,
             showReplay: true,
-            recipeLimit: 1,
-            profileLimit: 1,
-            queueLimit: 1,
+            recipeLimit: 0,
+            profileLimit: 0,
+            queueLimit: 0,
             showDispatch: true,
-            watchLimit: 1,
+            watchLimit: 0,
             watchActiveOnly: true,
-            docLimit: 1
+            docLimit: 0
         };
         if (mode === 'triage') {
             plan.actorLimit = 2;
