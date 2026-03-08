@@ -4842,6 +4842,20 @@
     }
 
     function _esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+    function _sanitizeClassToken(value, fallback) {
+        var token = String(value == null ? '' : value)
+            .toLowerCase()
+            .replace(/[^a-z0-9_-]+/g, '-')
+            .replace(/-+/g, '-')
+            .replace(/^-+|-+$/g, '');
+        if (token) return token;
+        var backup = String(fallback == null ? 'token' : fallback)
+            .toLowerCase()
+            .replace(/[^a-z0-9_-]+/g, '-')
+            .replace(/-+/g, '-')
+            .replace(/^-+|-+$/g, '');
+        return backup || 'token';
+    }
     function _countTypes(items) {
         var seen = {};
         for (var i = 0; i < items.length; i++) { seen[items[i].type || 'unknown'] = 1; }
