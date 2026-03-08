@@ -66,6 +66,14 @@
         activeDocMeta: null,
         activeDocContent: ''
     };
+    let _envWorkflowLoadState = {
+        workflowId: '',
+        pending: false,
+        requestedTs: 0,
+        resolvedTs: 0,
+        error: '',
+        message: ''
+    };
     function _envDefaultConfig() {
         return {
             version: '2026-03-07-envops-v27',
@@ -1451,7 +1459,7 @@
                     renderWorkflowList();
                     // Always re-fetch definition if cached _wfLoadedDef is missing or has no nodes
                     if (_wfSelectedId && (!_wfLoadedDef || !Array.isArray(_wfLoadedDef.nodes) || _wfLoadedDef.nodes.length === 0)) {
-                        callTool('workflow_get', { workflow_id: _wfSelectedId });
+                        _wfRequestDefinition(_wfSelectedId, 'Hydrating selected workflow definition');
                     } else {
                         renderWorkflowGraph(_wfLoadedDef, _wfLastExec ? _wfLastExec.node_states : null);
                         renderWorkflowNodeStates(_wfLoadedDef, _wfLastExec ? _wfLastExec.node_states : null);
@@ -1465,7 +1473,7 @@
                 } else {
                     renderEnvironmentView();
                     if (_wfSelectedId && (!_wfLoadedDef || !Array.isArray(_wfLoadedDef.nodes) || _wfLoadedDef.nodes.length === 0)) {
-                        callTool('workflow_get', { workflow_id: _wfSelectedId });
+                        _wfRequestDefinition(_wfSelectedId, 'Hydrating selected workflow definition');
                     }
                 }
             }
@@ -5475,7 +5483,7 @@
             _wfCurrentExecutionId = payload.execution_id;
         }
         if (payload.workflow_id && (!_wfLoadedDef || _wfLoadedDef.id !== payload.workflow_id)) {
-            callTool('workflow_get', { workflow_id: payload.workflow_id });
+            _wfRequestDefinition(payload.workflow_id, 'Refreshing workflow definition from execution payload');
         }
 
         var status = _wfNormalizeStatus(payload.status || 'pending');
@@ -5552,6 +5560,7 @@
             } else {
                 _wfSelectedId = '';
                 _wfLoadedDef = null;
+                _envResetWorkflowLoadState('');
                 _wfGraphMeta = null;
                 _wfDrill = { kind: 'workflow', nodeId: '', edgeIndex: -1, workflowId: '' };
             }
@@ -5559,7 +5568,7 @@
             renderWorkflowList();
             renderEnvironmentView();
             if (_wfSelectedId && (!_wfLoadedDef || _wfLoadedDef.id !== _wfSelectedId)) {
-                callTool('workflow_get', { workflow_id: _wfSelectedId });
+                _wfRequestDefinition(_wfSelectedId, 'Loading selected workflow definition');
             } else if (!_wfSelectedId) {
                 renderWorkflowGraph(null, null);
                 renderWorkflowNodeStates(null, null);
@@ -5573,20 +5582,27 @@
         if (toolName === 'workflow_get') {
             if (msg.error) {
                 _wfSetExecStatus('workflow_get failed: ' + msg.error, true);
+                _envTrackWorkflowLoadResult((_envWorkflowLoadState || {}).workflowId || _wfSelectedId, false, 'workflow_get failed: ' + msg.error);
+                renderEnvironmentView();
                 return;
             }
             if (payload && payload.error) {
                 _wfSetExecStatus('workflow_get failed: ' + payload.error, true);
+                _envTrackWorkflowLoadResult(((payload && payload.id) || (_envWorkflowLoadState || {}).workflowId || _wfSelectedId), false, 'workflow_get failed: ' + payload.error);
+                renderEnvironmentView();
                 return;
             }
             if (!payload || !Array.isArray(payload.nodes)) {
                 _wfSetExecStatus('workflow_get returned invalid workflow definition.', true);
+                _envTrackWorkflowLoadResult((_envWorkflowLoadState || {}).workflowId || _wfSelectedId, false, 'workflow_get returned invalid workflow definition.');
+                renderEnvironmentView();
                 return;
             }
 
             var prevWorkflowId = _wfLoadedDef && _wfLoadedDef.id ? String(_wfLoadedDef.id) : '';
             _wfLoadedDef = payload;
             if (payload.id) _wfSelectedId = String(payload.id);
+            _envTrackWorkflowLoadResult(String(payload.id || _wfSelectedId || ''), true, 'Loaded definition for workflow: ' + String(payload.id || _wfSelectedId || 'workflow'));
             var loadedWorkflowId = String(_wfLoadedDef.id || _wfSelectedId || '');
             if (!prevWorkflowId || prevWorkflowId !== loadedWorkflowId || _wfDrill.workflowId !== loadedWorkflowId) {
                 _wfDrill = { kind: 'workflow', nodeId: '', edgeIndex: -1, workflowId: loadedWorkflowId };
@@ -5687,7 +5703,7 @@
 
         // Auto-load workflow definition if we don't have it
         if (payload.workflow_id && (!_wfLoadedDef || _wfLoadedDef.id !== payload.workflow_id)) {
-            callTool('workflow_get', { workflow_id: payload.workflow_id });
+            _wfRequestDefinition(payload.workflow_id, 'Refreshing workflow definition from workflow activity');
             // Also refresh the list so it appears
             callTool('workflow_list', {});
         }
@@ -5733,6 +5749,42 @@
     function _envCurrentExecution() {
         if (!_wfLastExec || !_wfSelectedId) return null;
         return String(_wfLastExec.workflow_id || '') === String(_wfSelectedId) ? _wfLastExec : null;
+    }
+
+    function _envResetWorkflowLoadState(workflowId) {
+        _envWorkflowLoadState.workflowId = String(workflowId || '').trim();
+        _envWorkflowLoadState.pending = false;
+        _envWorkflowLoadState.requestedTs = 0;
+        _envWorkflowLoadState.resolvedTs = 0;
+        _envWorkflowLoadState.error = '';
+        _envWorkflowLoadState.message = '';
+    }
+
+    function _envTrackWorkflowLoadRequest(workflowId, note) {
+        var id = String(workflowId || '').trim();
+        if (!id) return;
+        _envWorkflowLoadState.workflowId = id;
+        _envWorkflowLoadState.pending = true;
+        _envWorkflowLoadState.requestedTs = Date.now();
+        _envWorkflowLoadState.error = '';
+        _envWorkflowLoadState.message = String(note || 'Loading workflow definition…');
+    }
+
+    function _envTrackWorkflowLoadResult(workflowId, ok, message) {
+        var id = String(workflowId || _envWorkflowLoadState.workflowId || _wfSelectedId || '').trim();
+        _envWorkflowLoadState.workflowId = id;
+        _envWorkflowLoadState.pending = false;
+        _envWorkflowLoadState.resolvedTs = Date.now();
+        _envWorkflowLoadState.error = ok ? '' : String(message || 'Workflow definition load failed.');
+        _envWorkflowLoadState.message = String(message || (ok ? 'Workflow definition loaded.' : 'Workflow definition load failed.'));
+    }
+
+    function _wfRequestDefinition(workflowId, note) {
+        var id = String(workflowId || '').trim();
+        if (!id) return;
+        _envTrackWorkflowLoadRequest(id, note || 'Loading workflow definition…');
+        callTool('workflow_get', { workflow_id: id });
+        if (_isEnvironmentTabActive()) renderEnvironmentView();
     }
 
     function _envComparisonConfig() {
@@ -14739,6 +14791,85 @@
         if (configEl) _envRenderConfigPanel();
 
         if (!workflow) {
+            var selectedId = String((selected && selected.id) || _wfSelectedId || '').trim();
+            if (selectedId) {
+                var loadState = _envWorkflowLoadState || {};
+                var loadPending = !!loadState.pending && String(loadState.workflowId || '') === selectedId;
+                var loadFailed = !loadPending && !!String(loadState.error || '').trim() && String(loadState.workflowId || '') === selectedId;
+                var selectedName = String((selected && (selected.name || selected.id)) || selectedId);
+                var selectedMeta = [];
+                if (selected && selected.id && String(selected.id) !== selectedName) selectedMeta.push(String(selected.id));
+                if (selected && typeof selected.node_count === 'number') selectedMeta.push(String(selected.node_count) + ' nodes');
+                if (selected && selected.description) selectedMeta.push(String(selected.description));
+                var statusTitle = loadPending ? 'Loading workflow definition' : (loadFailed ? 'Workflow definition failed to load' : 'Selected system waiting for hydrate');
+                var statusBody = loadPending
+                    ? 'The Environment shell has the selected workflow and is waiting on the server definition payload before it can render the live stage.'
+                    : (loadFailed
+                        ? String(loadState.error || 'workflow_get failed before the Environment stage could hydrate.')
+                        : 'The selected workflow is known to the catalog, but its full definition has not landed in the Environment shell yet.');
+                if (String(_envRunHistoryState.workflowId || '') !== selectedId) {
+                    _envRunHistoryState.workflowId = selectedId;
+                    _envRunHistoryState.pendingWorkflowId = '';
+                    _envRunHistoryState.rows = [];
+                    _envRunHistoryState.selectedExecutionId = '';
+                    _envRunHistoryState.error = '';
+                    _envRequestRunHistory('selected workflow pending definition', false);
+                }
+                if (String(_envHealthState.workflowId || '') !== selectedId) {
+                    _envHealthState.workflowId = selectedId;
+                    _envHealthState.pendingStatus = false;
+                    _envHealthState.pendingHeartbeat = false;
+                    _envHealthState.lastRequestTs = 0;
+                    _envHealthState.refreshedTs = 0;
+                    _envHealthState.status = null;
+                    _envHealthState.heartbeat = null;
+                    _envHealthState.statusError = '';
+                    _envHealthState.heartbeatError = '';
+                    _envRequestHealth('selected workflow pending definition', false);
+                }
+                _envSetBadge(loadFailed ? 'failed' : 'running', loadFailed ? 'LOAD FAILED' : (loadPending ? 'LOADING DEF' : 'SELECTED'));
+                stageEl.innerHTML =
+                    '<div class="envops-stage-hero">' +
+                    '<div>' +
+                    '<div class="envops-stage-title">' + _esc(selectedName) + '</div>' +
+                    '<div class="envops-stage-subtitle">' + _esc(statusTitle + ' · renderer ' + renderTarget + ' · mode ' + packageMode) + '</div>' +
+                    '</div>' +
+                    '<div class="envops-links">' +
+                    '<button class="btn-dim" onclick="_envOpenLinkedTab(\'workflows\')">OPEN WORKFLOWS</button>' +
+                    '<button class="btn-dim" data-env-action="reload-config">RELOAD CONFIG</button>' +
+                    '</div>' +
+                    '</div>' +
+                    '<div class="envops-card-grid">' +
+                    '<div class="envops-card"><div class="envops-card-label">Selection</div><div class="envops-card-value">' + _esc(selectedName) + '</div></div>' +
+                    '<div class="envops-card"><div class="envops-card-label">Definition State</div><div class="envops-card-value">' + _esc(loadFailed ? 'FAILED' : (loadPending ? 'LOADING' : 'PENDING')) + '</div></div>' +
+                    '<div class="envops-card"><div class="envops-card-label">Run History</div><div class="envops-card-value">' + String((_envRunHistoryState.rows || []).length) + ' cached</div></div>' +
+                    '<div class="envops-card"><div class="envops-card-label">Health Probe</div><div class="envops-card-value">' + _esc(_envHealthPending() ? 'REQUESTED' : ((_envHealthState.refreshedTs || 0) ? 'READY' : 'IDLE')) + '</div></div>' +
+                    '</div>' +
+                    (selectedMeta.length ? '<div><div class="envops-card-label" style="margin-bottom:6px;">Catalog Context</div><div class="envops-chip-row">' + selectedMeta.map(function (meta) { return '<span class="envops-chip">' + _esc(meta) + '</span>'; }).join('') + '</div></div>' : '') +
+                    '<div class="envops-stage-empty">' + _esc(statusBody) + '</div>';
+                artifactsEl.innerHTML = '<div class="envops-stage-empty">' + _esc(loadFailed ? 'Definition load failed, so product surfaces cannot hydrate yet.' : 'Product surfaces will appear as soon as the workflow definition is available and executions start flowing.') + '</div>';
+                kernelEl.innerHTML = '<div class="envops-stage-empty">' + _esc(loadFailed ? 'The operator kernel is waiting on a successful definition load before it can bind workflow-specific controls.' : 'The operator kernel is staging the selected workflow now. Focus rails, recipes, and action bindings will hydrate when the definition arrives.') + '</div>';
+                if (docsEl) docsEl.innerHTML = '<div class="envops-stage-empty">' + _esc(loadFailed ? 'Related docs are paused until the workflow definition loads cleanly.' : 'Related docs are already being queried against the selected workflow id and will hydrate into this panel as results arrive.') + '</div>';
+                if (artifactCountEl) artifactCountEl.textContent = '0';
+                var pendingDocCountEl = document.getElementById('envops-doc-count');
+                if (pendingDocCountEl) pendingDocCountEl.textContent = String((_envDocState.results || []).length || 0);
+                if (focusStateEl) focusStateEl.textContent = 'workflow';
+                var pendingFocusPayloadKindEl = document.getElementById('envops-focus-payload-kind');
+                if (pendingFocusPayloadKindEl) pendingFocusPayloadKindEl.textContent = 'workflow';
+                _envScene.canvas = null;
+                _envScene.ctx = null;
+                _envScene.workflowId = selectedId;
+                _envScene.executionId = '';
+                _envScene.objects = [];
+                _envScene.pickables = [];
+                _envScene.hover = null;
+                _envScene.pulses = [];
+                _envScene.dirty = false;
+                _envRenderTraceRows(_envTraceRows(8));
+                _envRenderLedger();
+                _envRenderFocusPayloadPanel(null, null, [], []);
+                return;
+            }
             _envRunHistoryState.workflowId = '';
             _envRunHistoryState.pendingWorkflowId = '';
             _envHealthState.workflowId = '';
@@ -18635,7 +18766,7 @@
                 _wfSetExecStatus('Select a workflow first.', true);
                 return;
             }
-            callTool('workflow_get', { workflow_id: _wfSelectedId });
+            _wfRequestDefinition(_wfSelectedId, 'Manual workflow definition load');
         });
     }
 
@@ -18686,7 +18817,7 @@
             _wfDrill = { kind: 'workflow', nodeId: '', edgeIndex: -1, workflowId: _wfSelectedId };
             renderWorkflowList();
             if (_wfSelectedId) {
-                callTool('workflow_get', { workflow_id: _wfSelectedId });
+                _wfRequestDefinition(_wfSelectedId, 'Workflow tab selection');
             }
         });
     }
@@ -18926,7 +19057,7 @@
                 return;
             }
             _envLogAction('load', 'Requested workflow definition load', uiActor, { workflow_id: _wfSelectedId });
-            callTool('workflow_get', { workflow_id: _wfSelectedId });
+            _wfRequestDefinition(_wfSelectedId, 'Environment manual load');
         });
     }
 
@@ -18979,7 +19110,7 @@
             _envLogAction('select', 'Selected workflow-backed system', uiActor, { workflow_id: _wfSelectedId });
             _envSetFocus('workflow', _wfSelectedId, uiActor);
             renderWorkflowList();
-            if (_wfSelectedId) callTool('workflow_get', { workflow_id: _wfSelectedId });
+            if (_wfSelectedId) _wfRequestDefinition(_wfSelectedId, 'Environment workflow selection');
         });
     }
 
@@ -19411,7 +19542,7 @@
         _envLogAction('select', 'Selected workflow-backed system', actorName, { workflow_id: _wfSelectedId });
         renderWorkflowList();
         renderEnvironmentView();
-        if (_wfSelectedId) callTool('workflow_get', { workflow_id: _wfSelectedId });
+        if (_wfSelectedId) _wfRequestDefinition(_wfSelectedId, 'External environment system selection');
     };
     window.envopsSetFocus = function (kind, id, actor) {
         var command = _envFocusCommandForKind(kind);
