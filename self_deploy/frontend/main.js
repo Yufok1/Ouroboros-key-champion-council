@@ -3309,6 +3309,35 @@
         return s.slice(0, Math.max(4, maxLen - 1)) + '…';
     }
 
+    function _fmtTimeAgo(value) {
+        var ts = Number(value || 0);
+        if (!isFinite(ts) || ts <= 0) {
+            var parsed = Date.parse(String(value || ''));
+            ts = isNaN(parsed) ? 0 : parsed;
+        }
+        if (!ts || !isFinite(ts) || ts <= 0) return 'time unknown';
+        var deltaMs = Date.now() - ts;
+        if (Math.abs(deltaMs) < 1500) return 'now';
+        var future = deltaMs < 0;
+        var deltaSec = Math.max(1, Math.round(Math.abs(deltaMs) / 1000));
+        var amount = 0;
+        var unit = '';
+        if (deltaSec < 60) {
+            amount = deltaSec;
+            unit = 's';
+        } else if (deltaSec < 3600) {
+            amount = Math.round(deltaSec / 60);
+            unit = 'm';
+        } else if (deltaSec < 86400) {
+            amount = Math.round(deltaSec / 3600);
+            unit = 'h';
+        } else {
+            amount = Math.round(deltaSec / 86400);
+            unit = 'd';
+        }
+        return future ? ('in ' + String(amount) + unit) : (String(amount) + unit + ' ago');
+    }
+
     function _activitySlotLabel(slotVal) {
         var n = parseInt(slotVal, 10);
         if (isNaN(n) || n < 0) return '';
