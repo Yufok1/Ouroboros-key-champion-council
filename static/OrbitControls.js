@@ -1,4 +1,5 @@
 // Adapted for global THREE
+(function() {
 const {
 	EventDispatcher,
 	MOUSE,
@@ -1416,3 +1417,4 @@ class OrbitControls extends EventDispatcher {
 }
 
 THREE.OrbitControls = OrbitControls;
+})();

@@ -1,4 +1,5 @@
 // Adapted for global THREE
+(function() {
 const {
 	Matrix4,
 	Object3D,
@@ -214,3 +215,4 @@ class CSS2DRenderer {
 }
 
 THREE.CSS2DObject = CSS2DObject; THREE.CSS2DRenderer = CSS2DRenderer;
+})();
