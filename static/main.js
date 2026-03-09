@@ -33,7 +33,10 @@
     let _wfColorIndex = 0;
     let _envToolOutputs = {
         export_interface: null,
-        start_api_server: null
+        start_api_server: null,
+        env_read: null,
+        env_persist: null,
+        live_mirror: null
     };
     let _envRunHistoryState = {
         workflowId: '',
@@ -74,6 +77,30 @@
         error: '',
         message: ''
     };
+    let _envMirrorState = {
+        live: null,
+        sharedState: null,
+        contracts: null,
+        habitatObjects: [],
+        stateExcerpt: null,
+        refreshedTs: 0,
+        lastTool: '',
+        lastSource: ''
+    };
+    let _envLiveSyncState = {
+        timer: 0,
+        inFlight: false,
+        queued: false,
+        pendingReason: '',
+        error: '',
+        lastSignature: '',
+        pendingSignature: '',
+        inFlightSignature: '',
+        lastSyncedSignature: '',
+        lastSyncedTs: 0,
+        inFlightPayload: null
+    };
+    let _envAppliedContractTokens = {};
     function _envDefaultConfig() {
         return {
             version: '2026-03-07-envops-v27',
@@ -7120,7 +7147,7 @@
         var nav = scene.navigation || {};
         return {
             panSensitivity: Number(nav.panSensitivity || 0.12),
-            zoomStep: Number(nav.zoomStep || 0.12),
+            zoomStep: Number(nav.zoomStep || 0.04),
             minZoomScale: Math.max(0.55, Number(nav.minZoomScale || 0.7)),
             maxZoomScale: Math.max(1.1, Number(nav.maxZoomScale || 1.8))
         };
@@ -10856,7 +10883,8 @@
             shell.addEventListener('wheel', function (event) {
                 event.preventDefault();
                 var nav = _envSceneNavigationConfig();
-                var delta = event.deltaY < 0 ? nav.zoomStep : -nav.zoomStep;
+                var magnitude = Math.max(0.45, Math.min(1, Math.abs(Number(event.deltaY || 0)) / 120));
+                var delta = (event.deltaY < 0 ? nav.zoomStep : -nav.zoomStep) * magnitude;
                 _envSceneAdjustCamera(0, 0, delta, '', 'manual zoom');
                 _envSceneScheduleZoomLog(_envManualActorId(), 'manual zoom');
                 renderEnvironmentView();
@@ -13817,6 +13845,310 @@
         });
     }
 
+    function _envCloneJson(value, fallback) {
+        try {
+            return JSON.parse(JSON.stringify(value));
+        } catch (err) {
+            return fallback === undefined ? null : fallback;
+        }
+    }
+
+    function _envNormalizeEnvironmentPayload(raw) {
+        var payload = _normalizeToolPayload(raw);
+        if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
+        return payload;
+    }
+
+    function _envUpsertSpawnedObject(params) {
+        if (!params || typeof params !== 'object') return null;
+        return _envMutateObject(params) || _envSpawnObject(params);
+    }
+
+    function _envPruneAppliedContractTokens(now) {
+        var threshold = Number(now || Date.now()) - 2500;
+        Object.keys(_envAppliedContractTokens || {}).forEach(function (token) {
+            if (Number(_envAppliedContractTokens[token] || 0) < threshold) delete _envAppliedContractTokens[token];
+        });
+    }
+
+    function _envEffectToken(toolName, payload) {
+        if (!payload || typeof payload !== 'object') return '';
+        var effects = payload.environment_effects && typeof payload.environment_effects === 'object' ? payload.environment_effects : {};
+        var hasEffects = !!(payload.command
+            || Object.keys(effects).length
+            || payload.operation_status === 'loaded'
+            || payload.operation_status === 'cleared');
+        if (!hasEffects) return '';
+        try {
+            return JSON.stringify({
+                tool: String(toolName || ''),
+                operation: String(payload.operation || ''),
+                operation_status: String(payload.operation_status || ''),
+                command: String(payload.command || ''),
+                target_id: String(payload.target_id || payload.target || ''),
+                delta: payload.delta || {},
+                environment_effects: effects
+            });
+        } catch (err) {
+            return String(toolName || '') + '|' + String(payload.summary || payload.operation_status || payload.command || '');
+        }
+    }
+
+    function _envHasAppliedToken(token) {
+        if (!token) return false;
+        var now = Date.now();
+        _envPruneAppliedContractTokens(now);
+        var seenAt = Number(_envAppliedContractTokens[token] || 0);
+        return seenAt > 0 && (now - seenAt) < 2500;
+    }
+
+    function _envRememberAppliedToken(token) {
+        if (!token) return;
+        _envPruneAppliedContractTokens(Date.now());
+        _envAppliedContractTokens[token] = Date.now();
+    }
+
+    function _envStoreMirroredState(payload, toolName, source) {
+        if (!payload || typeof payload !== 'object') return false;
+        var changed = false;
+        var liveState = payload.live_state && typeof payload.live_state === 'object'
+            ? payload.live_state
+            : null;
+        if (!liveState && toolName === '__env_sync_live__' && _envLiveSyncState.inFlightPayload && !(payload && payload.error)) {
+            liveState = _envLiveSyncState.inFlightPayload;
+        }
+        if (liveState) {
+            _envMirrorState.live = _envCloneJson(liveState, null);
+            _envMirrorState.sharedState = _envCloneJson((liveState && liveState.shared_state) || null, null);
+            _envMirrorState.contracts = _envCloneJson(
+                (liveState && (liveState.contracts || ((liveState.shared_state || {}).contracts))) || null,
+                null
+            );
+            _envMirrorState.habitatObjects = _envCloneJson((liveState && liveState.habitat_objects) || [], []);
+            changed = true;
+        }
+        if (Object.prototype.hasOwnProperty.call(payload, 'shared_state')) {
+            _envMirrorState.sharedState = _envCloneJson(payload.shared_state, null);
+            changed = true;
+        }
+        if (Object.prototype.hasOwnProperty.call(payload, 'contracts')) {
+            _envMirrorState.contracts = _envCloneJson(payload.contracts, null);
+            changed = true;
+        }
+        if (Object.prototype.hasOwnProperty.call(payload, 'habitat_objects')) {
+            _envMirrorState.habitatObjects = _envCloneJson(payload.habitat_objects || [], []);
+            changed = true;
+        }
+        if (Object.prototype.hasOwnProperty.call(payload, 'state_excerpt')) {
+            _envMirrorState.stateExcerpt = _envCloneJson(payload.state_excerpt, null);
+            changed = true;
+        }
+        if (changed) {
+            _envMirrorState.refreshedTs = Date.now();
+            _envMirrorState.lastTool = String(toolName || '');
+            _envMirrorState.lastSource = String(source || '');
+            _envToolOutputs.live_mirror = _envMirrorState.live
+                ? _envCloneJson(_envMirrorState.live, null)
+                : (_envMirrorState.sharedState ? {
+                    shared_state: _envCloneJson(_envMirrorState.sharedState, null),
+                    contracts: _envCloneJson(_envMirrorState.contracts, null),
+                    habitat_objects: _envCloneJson(_envMirrorState.habitatObjects, []),
+                    state_excerpt: _envCloneJson(_envMirrorState.stateExcerpt, null)
+                } : null);
+        }
+        return changed;
+    }
+
+    function _envApplyEnvironmentEffects(payload, toolName, source) {
+        if (!payload || typeof payload !== 'object') return false;
+        var effects = payload.environment_effects && typeof payload.environment_effects === 'object'
+            ? payload.environment_effects
+            : {};
+        var token = _envEffectToken(toolName, payload);
+        if (token && _envHasAppliedToken(token)) return false;
+
+        var changed = false;
+        var actor = String((((payload.normalized_args || {}).actor) || 'assistant'));
+        var fallbackObject = payload.object && typeof payload.object === 'object'
+            ? payload.object
+            : ((payload.kind || payload.id || payload.label) ? payload : null);
+
+        if (payload.operation === 'env_persist' && (payload.operation_status === 'loaded' || payload.operation_status === 'cleared')) {
+            if (_envSpawnedObjects.length) {
+                _envClearSpawnedObjects();
+                changed = true;
+            }
+        }
+
+        var removed = Array.isArray(effects.objects_removed) ? effects.objects_removed : [];
+        removed.forEach(function (ref) {
+            if (!ref || typeof ref !== 'object') return;
+            if (_envRemoveObject(ref.kind, ref.id)) changed = true;
+        });
+
+        var upserted = Array.isArray(effects.objects_upserted) ? effects.objects_upserted : [];
+        upserted.forEach(function (obj) {
+            if (_envUpsertSpawnedObject(obj)) changed = true;
+        });
+
+        if (!upserted.length && (toolName === 'env_spawn' || toolName === 'env_mutate') && fallbackObject) {
+            if (_envUpsertSpawnedObject(fallbackObject)) changed = true;
+        }
+        if (!removed.length && toolName === 'env_remove' && fallbackObject && fallbackObject.kind && fallbackObject.id) {
+            if (_envRemoveObject(fallbackObject.kind, fallbackObject.id)) changed = true;
+        }
+        if (payload.command) {
+            _envExecuteControlCommand(payload.command, payload.target_id || payload.target || '', actor, payload.summary || '');
+            changed = true;
+        }
+
+        if (token) _envRememberAppliedToken(token);
+        return changed;
+    }
+
+    function _envApplyEnvironmentPayload(payload, toolName, source) {
+        var mirrored = _envStoreMirroredState(payload, toolName, source);
+        var changed = _envApplyEnvironmentEffects(payload, toolName, source);
+        return {
+            changed: changed,
+            mirrored: mirrored
+        };
+    }
+
+    function _envCompactWorkflowMeta(workflow) {
+        if (!workflow || typeof workflow !== 'object') return null;
+        return {
+            id: String(workflow.id || ''),
+            name: String(workflow.name || workflow.id || ''),
+            description: String(workflow.description || ''),
+            node_count: Number(workflow.node_count || (((workflow.nodes || []).length) || 0)),
+            connection_count: Number(workflow.connection_count || (((workflow.connections || []).length) || 0))
+        };
+    }
+
+    function _envCompactExecutionMeta(exec) {
+        if (!exec || typeof exec !== 'object') return null;
+        return {
+            workflow_id: String(exec.workflow_id || ''),
+            execution_id: String(exec.execution_id || ''),
+            status: String(exec.status || ''),
+            elapsed_ms: typeof exec.elapsed_ms === 'number' ? Number(exec.elapsed_ms) : null,
+            started_at: exec.started_at || null,
+            updated_ms: typeof exec.updated_ms === 'number' ? Number(exec.updated_ms) : null,
+            nodes_executed: Number(exec.nodes_executed || 0),
+            summary: exec.summary !== undefined ? _envProductCollapseText(_envProductPreview(exec.summary, 'summary'), 160) : '',
+            error: exec.error ? String(exec.error) : ''
+        };
+    }
+
+    function _envBuildLiveSyncPayload(reason) {
+        if (typeof window.envopsGetSharedState !== 'function'
+            || typeof window.envopsGetContracts !== 'function'
+            || typeof window.envopsGetHabitatObjects !== 'function') {
+            return null;
+        }
+        var sharedState = window.envopsGetSharedState();
+        return {
+            version: 'env-live-v1',
+            source: 'envops-browser',
+            synced_from: 'environment_tab',
+            reason: String(reason || 'render'),
+            tab_active: _isEnvironmentTabActive(),
+            selected_workflow: _envCompactWorkflowMeta(_envGetSelectedWorkflow()),
+            current_execution: _envCompactExecutionMeta(_envCurrentExecution()),
+            shared_state: _envCloneJson(sharedState, null),
+            contracts: _envCloneJson(window.envopsGetContracts(), null),
+            habitat_objects: _envCloneJson(window.envopsGetHabitatObjects(), []),
+            recent_bus: typeof window.envopsGetBusEvents === 'function'
+                ? _envCloneJson(window.envopsGetBusEvents(12), [])
+                : []
+        };
+    }
+
+    function _envLiveSyncSignature(payload) {
+        if (!payload || typeof payload !== 'object') return '';
+        var shared = payload.shared_state && typeof payload.shared_state === 'object' ? payload.shared_state : {};
+        var scene = shared.scene && typeof shared.scene === 'object' ? shared.scene : {};
+        var focus = shared.focus && typeof shared.focus === 'object' ? shared.focus : {};
+        var bus = shared.bus && typeof shared.bus === 'object' ? shared.bus : {};
+        var docs = shared.docs && typeof shared.docs === 'object' ? shared.docs : {};
+        var health = shared.health && typeof shared.health === 'object' ? shared.health : {};
+        var comparison = shared.comparison && typeof shared.comparison === 'object' ? shared.comparison : {};
+        var workflow = payload.selected_workflow && typeof payload.selected_workflow === 'object' ? payload.selected_workflow : {};
+        var exec = payload.current_execution && typeof payload.current_execution === 'object' ? payload.current_execution : {};
+        return [
+            String(workflow.id || ''),
+            String(exec.execution_id || ''),
+            String(exec.status || ''),
+            String(scene.workflow_id || ''),
+            String(scene.execution_id || ''),
+            String(scene.object_count || 0),
+            String(scene.route_count || 0),
+            String(scene.trajectory_count || 0),
+            String(focus.kind || ''),
+            String(focus.id || ''),
+            String(docs.active_doc || ''),
+            String(docs.result_count || 0),
+            String(health.tone || ''),
+            String(comparison.selected_execution_id || ''),
+            String((Array.isArray(payload.habitat_objects) ? payload.habitat_objects.length : 0)),
+            String(bus.seq || 0)
+        ].join('|');
+    }
+
+    function _envFlushLiveSync() {
+        if (_envLiveSyncState.timer) {
+            clearTimeout(_envLiveSyncState.timer);
+            _envLiveSyncState.timer = 0;
+        }
+        if (!_isEnvironmentTabActive()) return false;
+        var payload = _envBuildLiveSyncPayload(_envLiveSyncState.pendingReason || 'render');
+        if (!payload) return false;
+        var signature = _envLiveSyncSignature(payload);
+        _envLiveSyncState.lastSignature = signature;
+        if (signature && signature === _envLiveSyncState.lastSyncedSignature) return false;
+        if (_envLiveSyncState.inFlight) {
+            if (!signature || signature === _envLiveSyncState.inFlightSignature) return false;
+            _envLiveSyncState.queued = true;
+            _envLiveSyncState.pendingSignature = signature;
+            return false;
+        }
+        _envLiveSyncState.inFlight = true;
+        _envLiveSyncState.queued = false;
+        _envLiveSyncState.error = '';
+        _envLiveSyncState.pendingSignature = signature;
+        _envLiveSyncState.inFlightSignature = signature;
+        _envLiveSyncState.inFlightPayload = payload;
+        callTool('env_persist', {
+            operation: 'sync_live',
+            params: { payload: payload },
+            __source: 'hydration'
+        }, '__env_sync_live__');
+        return true;
+    }
+
+    function _envScheduleLiveSync(reason, force) {
+        if (!_isEnvironmentTabActive()) return false;
+        var payload = _envBuildLiveSyncPayload(reason || 'render');
+        if (!payload) return false;
+        var signature = _envLiveSyncSignature(payload);
+        _envLiveSyncState.pendingReason = String(reason || 'render');
+        _envLiveSyncState.lastSignature = signature;
+        if (!force) {
+            if (signature && (signature === _envLiveSyncState.lastSyncedSignature
+                || signature === _envLiveSyncState.inFlightSignature
+                || signature === _envLiveSyncState.pendingSignature)) {
+                return false;
+            }
+        }
+        _envLiveSyncState.pendingSignature = signature;
+        if (_envLiveSyncState.timer) clearTimeout(_envLiveSyncState.timer);
+        _envLiveSyncState.timer = setTimeout(function () {
+            _envFlushLiveSync();
+        }, force ? 0 : 800);
+        return true;
+    }
+
     // Hook: inject spawned objects into habitat scene
     var _origEnvHabitatObjects = _envHabitatObjects;
     _envHabitatObjects = function (workflow, exec, sections, traces) {
@@ -13831,27 +14163,12 @@
     function _envHandleActivityToolEvent(event) {
         if (!event || !event.tool) return false;
         var tool = String(event.tool || '');
-        var result = event.result || {};
-        if (typeof result === 'string') {
-            try { result = JSON.parse(result); } catch (e) { return false; }
-        }
-        if (result && result.content && Array.isArray(result.content) && result.content[0] && result.content[0].text) {
-            try { result = JSON.parse(result.content[0].text); } catch (e) { return false; }
-        }
-        if (tool === 'env_spawn' && result) {
-            _envSpawnObject(result);
-            return true;
-        }
-        if (tool === 'env_mutate' && result) {
-            _envMutateObject(result);
-            return true;
-        }
-        if (tool === 'env_remove' && result) {
-            _envRemoveObject(result.kind, result.id);
-            return true;
-        }
-        if (tool === 'env_control' && result && result.command) {
-            _envExecuteControlCommand(result.command, result.target || '', 'assistant');
+        if (['env_spawn', 'env_mutate', 'env_remove', 'env_read', 'env_control', 'env_persist'].indexOf(tool) < 0) return false;
+        var result = _envNormalizeEnvironmentPayload(event.result || {});
+        if (!result) return false;
+        var applied = _envApplyEnvironmentPayload(result, tool, 'activity');
+        if (applied.changed || applied.mirrored) {
+            renderEnvironmentView();
             return true;
         }
         return false;
@@ -14008,6 +14325,7 @@
             _env3D.controls.maxPolarAngle = Math.PI * 0.48;
             _env3D.controls.minDistance = 10;
             _env3D.controls.maxDistance = 120;
+            _env3D.controls.zoomSpeed = 0.35;
             _env3D.controls.target.copy(prevTarget);
             _env3D.controls.enablePan = true;
             _env3D.controls.panSpeed = 0.6;
@@ -14072,6 +14390,7 @@
         controls.maxPolarAngle = Math.PI * 0.48;
         controls.minDistance = 10;
         controls.maxDistance = 120;
+        controls.zoomSpeed = 0.35;
         controls.target.set(0, 0, 0);
         controls.enablePan = true;
         controls.panSpeed = 0.6;
@@ -14962,6 +15281,7 @@
         }
         if (_envToolOutputs.export_interface) sections.push({ title: 'Interface Export', data: _envToolOutputs.export_interface });
         if (_envToolOutputs.start_api_server) sections.push({ title: 'API Server', data: _envToolOutputs.start_api_server });
+        if (_envToolOutputs.live_mirror) sections.push({ title: 'Live Theater Mirror', data: _envToolOutputs.live_mirror });
         return sections;
     }
 
@@ -15174,7 +15494,10 @@
     function _envContractToolOutputs() {
         return {
             export_interface: _envToolOutputs.export_interface ? _envContractSurface('tool', 'Interface Export', _envToolOutputs.export_interface) : null,
-            start_api_server: _envToolOutputs.start_api_server ? _envContractSurface('tool', 'API Server', _envToolOutputs.start_api_server) : null
+            start_api_server: _envToolOutputs.start_api_server ? _envContractSurface('tool', 'API Server', _envToolOutputs.start_api_server) : null,
+            env_read: _envToolOutputs.env_read ? _envContractSurface('tool', 'Environment Readback', _envToolOutputs.env_read) : null,
+            env_persist: _envToolOutputs.env_persist ? _envContractSurface('tool', 'Environment Persist', _envToolOutputs.env_persist) : null,
+            live_mirror: _envToolOutputs.live_mirror ? _envContractSurface('mirror', 'Live Theater Mirror', _envToolOutputs.live_mirror) : null
         };
     }
 
@@ -15719,6 +16042,26 @@
     }
 
     function handleEnvironmentToolResult(toolName, msg, rawText) {
+        if (toolName === '__env_sync_live__') {
+            var syncPayload = msg && msg.error ? { error: String(msg.error || 'sync_live failed') } : _envNormalizeEnvironmentPayload(rawText);
+            _envLiveSyncState.inFlight = false;
+            _envLiveSyncState.timer = 0;
+            if (msg && msg.error) {
+                _envLiveSyncState.error = String(msg.error || 'sync_live failed');
+            } else {
+                _envLiveSyncState.error = '';
+                if (syncPayload) _envStoreMirroredState(syncPayload, toolName, 'hydration');
+                _envLiveSyncState.lastSyncedSignature = _envLiveSyncState.inFlightSignature || _envLiveSyncState.lastSignature;
+                _envLiveSyncState.lastSyncedTs = Date.now();
+            }
+            _envLiveSyncState.inFlightPayload = null;
+            _envLiveSyncState.inFlightSignature = '';
+            var requeueSync = !!_envLiveSyncState.queued;
+            _envLiveSyncState.queued = false;
+            if (requeueSync) _envScheduleLiveSync('queued', false);
+            if (_isEnvironmentTabActive()) renderEnvironmentView();
+            return;
+        }
         if (toolName === 'env_health_status' || toolName === 'env_health_heartbeat') {
             var healthPayload = msg && msg.error ? null : _normalizeToolPayload(rawText);
             if (toolName === 'env_health_status') {
@@ -15738,6 +16081,19 @@
             _envToolOutputs[toolName] = msg && msg.error ? { error: msg.error } : (_normalizeToolPayload(rawText) || rawText);
             _envLogAction('tool', 'Environment tool completed: ' + toolName, msg && msg.error ? 'system' : 'assistant', { tool: toolName, error: msg && msg.error ? String(msg.error) : '' });
             renderEnvironmentView();
+            return;
+        }
+        if (['env_spawn', 'env_mutate', 'env_remove', 'env_read', 'env_control', 'env_persist'].indexOf(toolName) >= 0) {
+            var envPayload = msg && msg.error
+                ? { status: 'error', error: String(msg.error || 'Environment tool failed'), summary: String(msg.error || 'Environment tool failed') }
+                : _envNormalizeEnvironmentPayload(rawText);
+            if (envPayload && (toolName === 'env_read' || toolName === 'env_persist')) {
+                _envToolOutputs[toolName] = _envCloneJson(envPayload, envPayload);
+            }
+            var envApplied = envPayload ? _envApplyEnvironmentPayload(envPayload, toolName, 'tool') : { changed: false, mirrored: false };
+            if (envApplied.changed || envApplied.mirrored || (toolName === 'env_read' || toolName === 'env_persist')) {
+                renderEnvironmentView();
+            }
             return;
         }
         if (toolName === 'bag_search_docs') {
@@ -16098,6 +16454,7 @@
         } catch (err) {
             if (configEl) configEl.innerHTML = _envRenderFailureHtml('config', err);
         }
+        if (_isEnvironmentTabActive()) _envScheduleLiveSync('render', false);
     }
 
     // ── MEMORY INLINE DRILL ──
@@ -20943,6 +21300,7 @@
     window.envopsFocusReplay = function (index, actor) {
         return _envReplayFocusIndex(Number(index || 0), actor || 'assistant', 'api replay focus');
     };
+    if (_isEnvironmentTabActive()) _envScheduleLiveSync('bootstrap', true);
 
     // ── MARKETPLACE SEARCH ──
     var mpSearchInput = document.getElementById('mp-search');
