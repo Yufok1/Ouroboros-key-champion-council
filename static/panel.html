@@ -2410,6 +2410,24 @@
                 linear-gradient(180deg, rgba(8, 16, 24, 0.88), rgba(6, 10, 15, 0.98));
         }
 
+        .envops-habitat-3d-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            min-height: 500px;
+            perspective: none !important;
+            transform-style: flat !important;
+            transform: none !important;
+            background: #0a0a1a;
+        }
+        .envops-habitat-3d-container canvas {
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
         .envops-habitat-canvas {
             display: block;
             width: 100%;
@@ -10293,14 +10311,17 @@
 
     <!-- TOOL CATEGORIES (same JSON that buildHTML() injects) -->
     <script>
-        window.__CATEGORIES__ = {"Core Inference":{"setting":"coreInference","tools":["forward","infer","embed_text","deliberate","imagine"]},"Chat & Conversation":{"setting":"chat","tools":["chat","chat_reset","chat_history","agent_chat"]},"Batch Operations":{"setting":"batch","tools":["batch_forward","batch_embed","pipe","compare","invoke_slot"]},"Council/Slot Management":{"setting":"councilSlots","tools":["plug_model","unplug_slot","list_slots","clone_slot","mutate_slot","rename_slot","swap_slots","slot_info","get_slot_params","hub_plug","cull_slot","load_manifest"]},"Council Operations":{"setting":"council","tools":["broadcast","council_broadcast","council_status","set_consensus","debate","chain","all_slots"]},"FelixBag Memory":{"setting":"felixbag","tools":["bag_get","bag_put","bag_search","bag_catalog","bag_induct","bag_forget","bag_export","pocket","summon","materialize","load_bag","save_bag","bag_read_doc","bag_list_docs","bag_search_docs","bag_tree","bag_checkpoint","bag_versions","bag_diff","bag_restore","file_read","file_write","file_edit","file_append","file_prepend","file_delete","file_rename","file_copy","file_list","file_tree","file_search","file_info","file_checkpoint","file_versions","file_diff","file_restore"]},"HuggingFace Hub":{"setting":"huggingface","tools":["hub_search","hub_search_datasets","hub_top","hub_info","hub_download","hub_tasks","hub_count","capture_model"]},"LLM Operations":{"setting":"llm","tools":["generate","classify","rerank"]},"Vast.AI GPU Rental":{"setting":"vastai","tools":["vast_search","vast_details","vast_rent","vast_instances","vast_stop","vast_connect","vast_ready","vast_run","vast_load_model","vast_generate","vast_embed","vast_broadcast","vast_distribute"]},"Snapshots & Variants":{"setting":"replication","tools":["replicate","spawn_swarm","spawn_quine","export_quine","import_brain"]},"Export & Documentation":{"setting":"export","tools":["export_config","export_docs","export_interface","export_pt","export_onnx","get_readme","get_artifacts","save_state"]},"Visualization":{"setting":"visualization","tools":["start_rerun_viewer","log_to_rerun","rerun_log_inference","rerun_log_evolution","spawn_tui"]},"Status & Introspection":{"setting":"status","tools":["get_status","get_capabilities","get_identity","get_genesis","get_provenance","verify_integrity","verify_hash","tree","show_weights","show_dims","show_rssm","show_lora","demo","get_help","get_about","get_onboarding","get_quickstart","list_models","heartbeat","get_embedder_info"]},"Diagnostics":{"setting":"diagnostics","tools":["diagnose_file","diagnose_directory","symbiotic_interpret","trace_root_causes","forensics_analyze","metrics_analyze"]},"API & Server":{"setting":"apiServer","tools":["start_api_server","orchestra","relay_status","relay_send","spawn_tui","toggle_relay","web_search"]},"HOLD Protocol":{"setting":"hold","tools":["hold_yield","hold_resolve"]},"Safety":{"setting":"security","tools":["implode","defrost","is_frozen"]},"Workflow Automation":{"setting":"workflows","tools":["workflow_test","workflow_execute","workflow_list","workflow_create","workflow_get","workflow_update","workflow_delete","workflow_history","workflow_status"]},"Advanced":{"setting":"advanced","tools":["call","observe","feed","grab_slot","restore_slot"]},"Cache Management":{"setting":"cache","tools":["get_cached","clear_cache"]},"CASCADE Observability":{"setting":"cascade","tools":["cascade_graph","cascade_chain","cascade_data","cascade_system","cascade_instrument","cascade_record","cascade_proxy"]}};
+        window.__CATEGORIES__ = {"Core Inference":{"setting":"coreInference","tools":["forward","infer","embed_text","deliberate","imagine"]},"Chat & Conversation":{"setting":"chat","tools":["chat","chat_reset","chat_history","agent_chat"]},"Batch Operations":{"setting":"batch","tools":["batch_forward","batch_embed","pipe","compare","invoke_slot"]},"Council/Slot Management":{"setting":"councilSlots","tools":["plug_model","unplug_slot","list_slots","clone_slot","mutate_slot","rename_slot","swap_slots","slot_info","get_slot_params","hub_plug","cull_slot","load_manifest"]},"Council Operations":{"setting":"council","tools":["broadcast","council_broadcast","council_status","set_consensus","debate","chain","all_slots"]},"FelixBag Memory":{"setting":"felixbag","tools":["bag_get","bag_put","bag_search","bag_catalog","bag_induct","bag_forget","bag_export","pocket","summon","materialize","load_bag","save_bag","bag_read_doc","bag_list_docs","bag_search_docs","bag_tree","bag_checkpoint","bag_versions","bag_diff","bag_restore","file_read","file_write","file_edit","file_append","file_prepend","file_delete","file_rename","file_copy","file_list","file_tree","file_search","file_info","file_checkpoint","file_versions","file_diff","file_restore"]},"HuggingFace Hub":{"setting":"huggingface","tools":["hub_search","hub_search_datasets","hub_top","hub_info","hub_download","hub_tasks","hub_count","capture_model"]},"LLM Operations":{"setting":"llm","tools":["generate","classify","rerank"]},"Vast.AI GPU Rental":{"setting":"vastai","tools":["vast_search","vast_details","vast_rent","vast_instances","vast_stop","vast_connect","vast_ready","vast_run","vast_load_model","vast_generate","vast_embed","vast_broadcast","vast_distribute"]},"Snapshots & Variants":{"setting":"replication","tools":["replicate","spawn_swarm","spawn_quine","export_quine","import_brain"]},"Export & Documentation":{"setting":"export","tools":["export_config","export_docs","export_interface","export_pt","export_onnx","get_readme","get_artifacts","save_state"]},"Visualization":{"setting":"visualization","tools":["start_rerun_viewer","log_to_rerun","rerun_log_inference","rerun_log_evolution","spawn_tui"]},"Status & Introspection":{"setting":"status","tools":["get_status","get_capabilities","get_identity","get_genesis","get_provenance","verify_integrity","verify_hash","tree","show_weights","show_dims","show_rssm","show_lora","demo","get_help","get_about","get_onboarding","get_quickstart","list_models","heartbeat","get_embedder_info"]},"Diagnostics":{"setting":"diagnostics","tools":["diagnose_file","diagnose_directory","symbiotic_interpret","trace_root_causes","forensics_analyze","metrics_analyze"]},"API & Server":{"setting":"apiServer","tools":["start_api_server","orchestra","relay_status","relay_send","spawn_tui","toggle_relay","web_search"]},"HOLD Protocol":{"setting":"hold","tools":["hold_yield","hold_resolve"]},"Safety":{"setting":"security","tools":["implode","defrost","is_frozen"]},"Workflow Automation":{"setting":"workflows","tools":["workflow_test","workflow_execute","workflow_list","workflow_create","workflow_get","workflow_update","workflow_delete","workflow_history","workflow_status"]},"Advanced":{"setting":"advanced","tools":["call","observe","feed","grab_slot","restore_slot"]},"Cache Management":{"setting":"cache","tools":["get_cached","clear_cache"]},"CASCADE Observability":{"setting":"cascade","tools":["cascade_graph","cascade_chain","cascade_data","cascade_system","cascade_instrument","cascade_record","cascade_proxy"]},"Environment":{"setting":"environment","tools":["env_spawn","env_mutate","env_remove","env_read","env_control","env_persist"]}};
     </script>
 
     <!-- Load shim BEFORE main.js so acquireVsCodeApi is available -->
     <script src="/static/vscode-shim.js?v=25"></script>
     <script src="/static/svg-pan-zoom.min.js"></script>
     <script src="/static/peerjs.min.js"></script>
-    <script src="/static/main.js?v=45"></script>
+    <script src="/static/three.min.js"></script>
+    <script src="/static/OrbitControls.js"></script>
+    <script src="/static/CSS2DRenderer.js"></script>
+    <script src="/static/main.js?v=46"></script>
 
     <!-- ═══════════════ DREAMER + GPU FLEET TAB JS ═══════════════ -->
     <script>

@@ -2927,7 +2927,7 @@
         if (!event) return;
 
         // Reduce feed noise from background orchestration and polling.
-        if (ACTIVITY_SILENT_TOOLS.indexOf(event.tool) >= 0 && event.source !== 'external' && event.source !== 'agent-inner') {
+        if (ACTIVITY_SILENT_TOOLS.indexOf(event.tool) >= 0 && event.source !== 'agent-inner') {
             return;
         }
 
@@ -2982,6 +2982,11 @@
         _activityLog.push(event);
         if (event.tool === 'workflow_execute' || event.tool === 'workflow_status') {
             handleWorkflowActivity(event);
+        }
+
+        // Environment tab scene mutation tools
+        if (typeof _envHandleActivityToolEvent === 'function') {
+            _envHandleActivityToolEvent(event);
         }
 
         // External slot mutations must force council-grid re-hydration.
@@ -8062,6 +8067,11 @@
         if (category.indexOf('event') >= 0) return { fill: '#233a52', edge: '#8bd2ff', glow: 'rgba(139,210,255,0.22)' };
         if (category.indexOf('ingress') >= 0) return { fill: '#4d4324', edge: '#f8f2a8', glow: 'rgba(248,242,168,0.20)' };
         if (category.indexOf('watch') >= 0) return { fill: '#314526', edge: '#d7ff8a', glow: 'rgba(215,255,138,0.20)' };
+        if (category.indexOf('slot') >= 0 || category.indexOf('council') >= 0) return { fill: '#4d2a14', edge: '#ff9955', glow: 'rgba(255,153,85,0.24)' };
+        if (category.indexOf('npc') >= 0) return { fill: '#4d3214', edge: '#ffaa44', glow: 'rgba(255,170,68,0.24)' };
+        if (category.indexOf('chatbot') >= 0) return { fill: '#143450', edge: '#44bbff', glow: 'rgba(68,187,255,0.24)' };
+        if (category.indexOf('service') >= 0) return { fill: '#2a322a', edge: '#99aa99', glow: 'rgba(153,170,153,0.20)' };
+        if (category.indexOf('panel') >= 0) return { fill: '#144d32', edge: '#44ffaa', glow: 'rgba(68,255,170,0.24)' };
         if (category.indexOf('workflow') >= 0) return { fill: '#103a32', edge: '#4fffd0', glow: 'rgba(79,255,208,0.24)' };
         return { fill: '#243444', edge: '#91b5d8', glow: 'rgba(145,181,216,0.18)' };
     }
@@ -8586,6 +8596,12 @@
             var path = String((doc && (doc.key || doc.path || doc.id)) || id || '');
             return path.split('/').slice(-1)[0] || path;
         }
+        if (kind === 'slot' || kind === 'npc' || kind === 'chatbot' || kind === 'service' || kind === 'panel') {
+            var slotIdx = parseInt(id, 10);
+            var slotData = (!isNaN(slotIdx) && _getSlotData) ? _getSlotData(slotIdx) : null;
+            var prefix = kind === 'slot' ? 'slot' : kind;
+            return slotData ? String(slotData.name || (prefix + ' ' + id)) : (prefix + ' ' + id);
+        }
         return id || kind;
     }
 
@@ -8833,13 +8849,20 @@
             || kind === 'recipe'
             || kind === 'dispatch'
             || kind === 'queued'
-            || kind === 'trace';
+            || kind === 'trace'
+            || kind === 'slot'
+            || kind === 'npc'
+            || kind === 'chatbot'
+            || kind === 'service'
+            || kind === 'panel';
     }
 
     function _envSceneObjectFootprint(obj) {
         var kind = String(((obj || {}).kind) || '').toLowerCase();
         if (kind === 'workflow') return { width: 96, height: 50, minWidth: 66, minHeight: 36 };
         if (kind === 'node') return { width: 84, height: 42, minWidth: 60, minHeight: 34 };
+        if (kind === 'slot' || kind === 'npc' || kind === 'chatbot' || kind === 'service') return { width: 72, height: 36, minWidth: 54, minHeight: 28 };
+        if (kind === 'panel') return { width: 96, height: 52, minWidth: 68, minHeight: 36 };
         if (kind === 'doc' || kind === 'artifact') return { width: 74, height: 38, minWidth: 56, minHeight: 30 };
         if (_envSceneObjectIsCompact(obj)) return { width: 58, height: 26, minWidth: 44, minHeight: 22 };
         return { width: 88, height: 46, minWidth: 58, minHeight: 34 };
@@ -8964,6 +8987,16 @@
             roleRoll -= 0.3;
             lift += 1;
             motionBias = 0.9;
+        } else if (kind === 'slot' || kind === 'npc' || kind === 'chatbot' || kind === 'service' || kind === 'panel') {
+            rolePitch += 3.2;
+            roleYaw += 1.8;
+            roleRoll -= 0.5;
+            lift += 5;
+            depthBoost += 8;
+            motionBias = 1.14;
+            if (kind === 'npc') { lift += 2; motionBias = 1.22; }
+            if (kind === 'service') { motionBias = 0.86; lift -= 1; }
+            if (kind === 'panel') { rolePitch -= 1.5; motionBias = 0.92; }
         }
         if (spotlight) {
             lift += Number(dominantLift || 8);
@@ -9032,6 +9065,51 @@
                 ring: 'rgba(156,132,255,0.58)',
                 shadow: 'rgba(120,98,255,0.18)',
                 tag: 'rgba(218,208,255,0.92)'
+            };
+        }
+        if (kind === 'slot') {
+            return {
+                core: 'linear-gradient(180deg, rgba(255,153,85,0.72), rgba(92,42,10,0.94))',
+                column: 'linear-gradient(180deg, rgba(255,153,85,0.24), rgba(28,14,6,0.94))',
+                ring: 'rgba(255,153,85,0.58)',
+                shadow: 'rgba(255,128,64,0.20)',
+                tag: 'rgba(255,224,196,0.92)'
+            };
+        }
+        if (kind === 'npc') {
+            return {
+                core: 'linear-gradient(180deg, rgba(255,170,68,0.74), rgba(102,52,8,0.94))',
+                column: 'linear-gradient(180deg, rgba(255,170,68,0.26), rgba(32,16,4,0.94))',
+                ring: 'rgba(255,170,68,0.60)',
+                shadow: 'rgba(255,148,44,0.22)',
+                tag: 'rgba(255,230,196,0.92)'
+            };
+        }
+        if (kind === 'chatbot') {
+            return {
+                core: 'linear-gradient(180deg, rgba(68,187,255,0.72), rgba(10,52,92,0.94))',
+                column: 'linear-gradient(180deg, rgba(68,187,255,0.24), rgba(6,16,28,0.94))',
+                ring: 'rgba(68,187,255,0.58)',
+                shadow: 'rgba(44,164,255,0.20)',
+                tag: 'rgba(196,232,255,0.92)'
+            };
+        }
+        if (kind === 'service') {
+            return {
+                core: 'linear-gradient(180deg, rgba(153,170,153,0.70), rgba(42,52,42,0.94))',
+                column: 'linear-gradient(180deg, rgba(153,170,153,0.22), rgba(14,18,14,0.94))',
+                ring: 'rgba(153,170,153,0.52)',
+                shadow: 'rgba(128,148,128,0.18)',
+                tag: 'rgba(220,230,220,0.92)'
+            };
+        }
+        if (kind === 'panel') {
+            return {
+                core: 'linear-gradient(180deg, rgba(68,255,170,0.72), rgba(10,92,52,0.94))',
+                column: 'linear-gradient(180deg, rgba(68,255,170,0.24), rgba(6,28,16,0.94))',
+                ring: 'rgba(68,255,170,0.58)',
+                shadow: 'rgba(44,255,148,0.20)',
+                tag: 'rgba(196,255,230,0.92)'
             };
         }
         if (kind === 'trace' || kind === 'branch' || kind === 'replay' || kind === 'sample' || kind === 'event' || kind === 'watch') {
@@ -11776,23 +11854,21 @@
         _envScene.trajectories = _envSceneBuildTrajectories(workflow, traces);
         _envScene.pulses = _envRecentBusEvents(6);
         _envScene.dirty = true;
-        var canvas = document.getElementById('envops-habitat-canvas');
-        var shell = document.getElementById('envops-habitat-shell');
-        if (!canvas) {
-            _envScene.canvas = null;
-            _envScene.ctx = null;
-            _envScene.shell = null;
-            var layer = document.getElementById('envops-habitat-object-layer');
-            if (layer) layer.innerHTML = '';
-            var shadowLayer = document.getElementById('envops-habitat-shadow-layer');
-            if (shadowLayer) shadowLayer.innerHTML = '';
-            return;
+
+        // === THREE.JS PIPELINE ===
+        var container = document.getElementById('envops-habitat-shell');
+        if (!container) return;
+        if (typeof THREE !== 'undefined') {
+            _env3DInit(container);
+            _env3DSyncObjects(_envScene.objects);
+            _env3DResize();
+            // Restart anim loop if it stopped (tab was inactive)
+            if (_env3D.inited && !_env3D.animId) {
+                _env3D.animId = requestAnimationFrame(_env3DAnimate);
+            }
         }
-        _envSceneBindCanvas(canvas);
-        _envSceneBindShell(shell);
         var hudCopy = _envHabitatHudCopy(workflow);
         _envSceneHudText(hudCopy.primary, hudCopy.secondary);
-        _envEnsureSceneLoop();
     }
 
     function _envRecipeCatalog() {
@@ -12617,6 +12693,11 @@
         else if (kind === 'trace' && traces[id] && traces[id].args && traces[id].args._workflow_node_id) _wfSelectNodeDrill(String(traces[id].args._workflow_node_id));
         else if (kind === 'doc') _envDocRequestRead(id, actorName);
         _envLogAction('focus', 'Focused ' + label + ' (' + String(kind || 'workflow') + ')', actorName, { kind: kind, id: id });
+        // Drive three.js camera to follow focus
+        if (_env3D.inited) {
+            var cMode = _envSceneNormalizeCameraMode(_envScene.cameraMode || 'overview');
+            if (cMode === 'focus') _env3DFocusObject(kind, id);
+        }
         renderEnvironmentView();
     }
 
@@ -13103,6 +13184,15 @@
             renderEnvironmentView();
             return;
         }
+        if (command === 'focus_slot') {
+            var slotId = targetId || '0';
+            var slotNum = parseInt(slotId, 10);
+            var slotMeta = isNaN(slotNum) ? null : (_getSlotData ? _getSlotData(slotNum) : null);
+            _envSetFocus('slot', slotId, actorName, slotMeta);
+            _envLogAction('control', 'Focus slot ' + slotId + (slotMeta ? (' (' + String(slotMeta.name || 'slot') + ')') : ''), actorName, { action: command, target: slotId, slot: slotMeta });
+            renderEnvironmentView();
+            return;
+        }
         _envSetBadge('failed', 'UNKNOWN');
         _envLogAction('control', 'Unknown control command: ' + command, actorName, { action: command, target: targetId });
         renderEnvironmentView();
@@ -13302,7 +13392,8 @@
             showDispatch: true,
             watchLimit: 0,
             watchActiveOnly: true,
-            docLimit: 0
+            docLimit: 0,
+            slotLimit: 6
         };
         if (mode === 'triage') {
             plan.actorLimit = 2;
@@ -13312,6 +13403,7 @@
             plan.sampleLimit = 2;
             plan.queueLimit = 2;
             plan.watchLimit = 3;
+            plan.slotLimit = 4;
         } else if (mode === 'branch_lab') {
             plan.actorLimit = 2;
             plan.actorScope = 'active';
@@ -13321,6 +13413,7 @@
             plan.branchLimit = 3;
             plan.recipeLimit = 2;
             plan.watchLimit = 2;
+            plan.slotLimit = 4;
         } else if (mode === 'replay_chase') {
             plan.actorLimit = 2;
             plan.actorScope = 'active';
@@ -13335,6 +13428,7 @@
             plan.showDispatch = false;
             plan.watchLimit = 1;
             plan.docLimit = 0;
+            plan.slotLimit = 2;
         }
         return plan;
     }
@@ -13546,8 +13640,809 @@
                 x: 14 + idx * 12, y: 58, scale: 0.72, tilt: -20 + idx * 10
             });
         });
+        // Council slots — pull from cached slot data
+        if (_lastSlotsData && plan.slotLimit > 0) {
+            var slotArr = [];
+            try {
+                var slotRaw = _lastSlotsData;
+                if (slotRaw && slotRaw.content && Array.isArray(slotRaw.content) && slotRaw.content[0] && slotRaw.content[0].text) {
+                    slotRaw = JSON.parse(slotRaw.content[0].text);
+                } else if (typeof slotRaw === 'string') {
+                    slotRaw = JSON.parse(slotRaw);
+                }
+                slotArr = _normalizeSlotsArrayPayload(slotRaw);
+            } catch (e) { slotArr = []; }
+            var slotPlugged = slotArr.filter(function (s) { return s && s.plugged; });
+            var slotVisible = slotPlugged.length ? slotPlugged : slotArr.filter(function (s) { return s && s.name && !_isDefaultSlotName(s.name); });
+            if (!slotVisible.length && slotArr.length) slotVisible = slotArr.slice(0, Math.min(4, plan.slotLimit));
+            slotVisible.slice(0, plan.slotLimit).forEach(function (slot, idx) {
+                var slotIndex = typeof slot.slot === 'number' ? slot.slot : idx;
+                var isPlugged = !!(slot.plugged || slot.model_source || slot.model_id);
+                // Read medium from agent config (localStorage) if available
+                var slotMedium = 'slot';
+                try {
+                    var cfgKey = 'cc_agent_cfg_' + slotIndex + '_' + String(slot.model_source || slot.name || '').replace(/[^a-zA-Z0-9_-]/g, '_');
+                    var stored = localStorage.getItem(cfgKey);
+                    if (stored) {
+                        var parsed = JSON.parse(stored);
+                        if (parsed && parsed.medium && parsed.medium !== 'slot') slotMedium = parsed.medium;
+                    }
+                } catch (e) {}
+                var objKind = slotMedium !== 'slot' ? slotMedium : 'slot';
+                objects.push({
+                    kind: objKind,
+                    id: String(slotIndex),
+                    label: String(slot.name || ('slot ' + slotIndex)),
+                    meta: isPlugged ? String(slot.model_source || slot.model_id || 'plugged model') : 'vacant slot',
+                    state: isPlugged ? 'running' : 'idle',
+                    category: 'council ' + objKind,
+                    x: 72 + (idx % 3) * 8, y: 38 + Math.floor(idx / 3) * 10, scale: 0.78, tilt: 8 - idx * 3
+                });
+            });
+        }
         return objects;
     }
+
+    // ═══════════════════════════════════════════════════════════════
+    // DYNAMIC SCENE OBJECTS — spawned/mutated via env_spawn/env_mutate
+    // ═══════════════════════════════════════════════════════════════
+
+    var _envSpawnedObjects = [];  // array of spawned scene objects
+
+    function _envSpawnObject(params) {
+        var p = params || {};
+        var id = String(p.id || ('spawned-' + Date.now() + '-' + Math.floor(Math.random() * 9999)));
+        var kind = String(p.kind || 'spawned');
+        // Remove existing object with same id if present
+        _envSpawnedObjects = _envSpawnedObjects.filter(function (obj) {
+            return !(obj.kind === kind && obj.id === id);
+        });
+        var obj = {
+            kind: kind,
+            id: id,
+            label: String(p.label || p.name || kind),
+            meta: String(p.meta || p.description || ''),
+            state: String(p.state || 'idle'),
+            category: String(p.category || kind),
+            x: Math.max(2, Math.min(98, Number(p.x || 50))),
+            y: Math.max(2, Math.min(98, Number(p.y || 50))),
+            scale: Math.max(0.3, Math.min(2.5, Number(p.scale || 1))),
+            tilt: Number(p.tilt || 0),
+            spawned: true,
+            spawnedTs: Date.now(),
+            data: p.data || null,
+            html: p.html || null,
+            color: p.color || null
+        };
+        _envSpawnedObjects.push(obj);
+        _envEmitBus('spawn', 'Spawned ' + kind + ' object: ' + obj.label, 'system', { kind: kind, id: id });
+        _envLogAction('spawn', 'Spawned scene object: ' + obj.label, 'assistant', { kind: kind, id: id, x: obj.x, y: obj.y });
+        // Trigger scene refresh
+        if (_env3D.inited) _envSyncHabitatScene();
+        else renderEnvironmentView();
+        return obj;
+    }
+
+    function _envMutateObject(params) {
+        var p = params || {};
+        var kind = String(p.kind || '');
+        var id = String(p.id || '');
+        if (!kind && !id) return null;
+        var target = null;
+        for (var i = 0; i < _envSpawnedObjects.length; i++) {
+            var obj = _envSpawnedObjects[i];
+            if (kind && id && obj.kind === kind && obj.id === id) { target = obj; break; }
+            if (!kind && obj.id === id) { target = obj; break; }
+            if (!id && obj.kind === kind) { target = obj; break; }
+        }
+        if (!target) return null;
+        if (p.label !== undefined) target.label = String(p.label);
+        if (p.meta !== undefined) target.meta = String(p.meta);
+        if (p.state !== undefined) target.state = String(p.state);
+        if (p.x !== undefined) target.x = Math.max(2, Math.min(98, Number(p.x)));
+        if (p.y !== undefined) target.y = Math.max(2, Math.min(98, Number(p.y)));
+        if (p.scale !== undefined) target.scale = Math.max(0.3, Math.min(2.5, Number(p.scale)));
+        if (p.tilt !== undefined) target.tilt = Number(p.tilt);
+        if (p.color !== undefined) target.color = p.color;
+        if (p.data !== undefined) target.data = p.data;
+        if (p.html !== undefined) target.html = p.html;
+        _envEmitBus('spawn', 'Mutated object: ' + target.label, 'system', { kind: target.kind, id: target.id });
+        if (_env3D.inited) _envSyncHabitatScene();
+        else renderEnvironmentView();
+        return target;
+    }
+
+    function _envRemoveObject(kind, id) {
+        var removed = false;
+        _envSpawnedObjects = _envSpawnedObjects.filter(function (obj) {
+            if (obj.kind === String(kind || '') && obj.id === String(id || '')) {
+                removed = true;
+                return false;
+            }
+            return true;
+        });
+        if (removed) {
+            _envEmitBus('spawn', 'Removed object: ' + kind + '::' + id, 'system', { kind: kind, id: id });
+            _envLogAction('spawn', 'Removed scene object: ' + kind + '::' + id, 'assistant', { kind: kind, id: id });
+            // Clean up three.js mesh if present
+            var meshKey = String(kind) + '::' + String(id);
+            if (_env3D.meshes[meshKey]) {
+                _env3D.scene.remove(_env3D.meshes[meshKey]);
+                _env3D.meshes[meshKey].geometry.dispose();
+                _env3D.meshes[meshKey].material.dispose();
+                delete _env3D.meshes[meshKey];
+            }
+            if (_env3D.cssLabels[meshKey]) {
+                _env3D.scene.remove(_env3D.cssLabels[meshKey]);
+                delete _env3D.cssLabels[meshKey];
+            }
+            if (_env3D.inited) _envSyncHabitatScene();
+            else renderEnvironmentView();
+        }
+        return removed;
+    }
+
+    function _envClearSpawnedObjects() {
+        _envSpawnedObjects.forEach(function (obj) {
+            var meshKey = String(obj.kind) + '::' + String(obj.id);
+            if (_env3D.meshes[meshKey]) {
+                _env3D.scene.remove(_env3D.meshes[meshKey]);
+                _env3D.meshes[meshKey].geometry.dispose();
+                _env3D.meshes[meshKey].material.dispose();
+                delete _env3D.meshes[meshKey];
+            }
+            if (_env3D.cssLabels[meshKey]) {
+                _env3D.scene.remove(_env3D.cssLabels[meshKey]);
+                delete _env3D.cssLabels[meshKey];
+            }
+        });
+        _envSpawnedObjects = [];
+        if (_env3D.inited) _envSyncHabitatScene();
+        else renderEnvironmentView();
+    }
+
+    function _envListSpawnedObjects() {
+        return _envSpawnedObjects.map(function (obj) {
+            return {
+                kind: obj.kind,
+                id: obj.id,
+                label: obj.label,
+                meta: obj.meta,
+                state: obj.state,
+                x: obj.x,
+                y: obj.y,
+                scale: obj.scale,
+                spawned: true
+            };
+        });
+    }
+
+    // Hook: inject spawned objects into habitat scene
+    var _origEnvHabitatObjects = _envHabitatObjects;
+    _envHabitatObjects = function (workflow, exec, sections, traces) {
+        var objects = _origEnvHabitatObjects(workflow, exec, sections, traces);
+        _envSpawnedObjects.forEach(function (obj) {
+            objects.push(obj);
+        });
+        return objects;
+    };
+
+    // Activity event handler for env_spawn/env_mutate/env_remove tool calls
+    function _envHandleActivityToolEvent(event) {
+        if (!event || !event.tool) return false;
+        var tool = String(event.tool || '');
+        var result = event.result || {};
+        if (typeof result === 'string') {
+            try { result = JSON.parse(result); } catch (e) { return false; }
+        }
+        if (result && result.content && Array.isArray(result.content) && result.content[0] && result.content[0].text) {
+            try { result = JSON.parse(result.content[0].text); } catch (e) { return false; }
+        }
+        if (tool === 'env_spawn' && result) {
+            _envSpawnObject(result);
+            return true;
+        }
+        if (tool === 'env_mutate' && result) {
+            _envMutateObject(result);
+            return true;
+        }
+        if (tool === 'env_remove' && result) {
+            _envRemoveObject(result.kind, result.id);
+            return true;
+        }
+        if (tool === 'env_control' && result && result.command) {
+            _envExecuteControlCommand(result.command, result.target || '', 'assistant');
+            return true;
+        }
+        return false;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // THREE.JS HABITAT ENGINE — replaces CSS 3D layer pipeline
+    // ═══════════════════════════════════════════════════════════════
+
+    var _env3D = {
+        inited: false,
+        scene: null,
+        camera: null,
+        renderer: null,
+        cssRenderer: null,
+        controls: null,
+        groundPlane: null,
+        gridHelper: null,
+        meshes: {},        // keyed by kind::id
+        cssLabels: {},     // CSS2DObject labels keyed by kind::id
+        lineMeshes: [],    // route/trajectory lines
+        particleSystem: null,
+        clock: null,
+        container: null,
+        animId: null,
+        resizeObserver: null,
+        lastObjectHash: ''
+    };
+
+    var _env3DKindColors = {
+        workflow:  0x00ff88,
+        actor:     0x4488ff,
+        node:      0x44ccff,
+        artifact:  0xa855f7,
+        trace:     0xff8844,
+        event:     0xffaa00,
+        sample:    0x00ff88,
+        branch:    0x4488ff,
+        replay:    0x4fffd0,
+        recipe:    0xff44aa,
+        profile:   0x00ff88,
+        dispatch:  0xffaa00,
+        queued:    0x888888,
+        watch:     0xff4444,
+        doc:       0x8888ff,
+        slot:      0xff6633,
+        npc:       0xffaa44,
+        chatbot:   0x44bbff,
+        service:   0x99aa99,
+        panel:     0x44ffaa
+    };
+
+    var _env3DStateEmissive = {
+        running:   0x00ff88,
+        completed: 0x224422,
+        failed:    0xff4444,
+        idle:      0x111122,
+        pending:   0x222233,
+        queued:    0x333344
+    };
+
+    function _env3DObjectKey(obj) {
+        return String(obj.kind || 'primitive') + '::' + String(obj.id || '');
+    }
+
+    function _env3DXYZFromObject(obj) {
+        // Map x (0-100) to world X (-40 to +40), y (0-100) to world Z (-20 to +20)
+        // Height (Y) based on kind hierarchy
+        var wx = ((Number(obj.x || 50) / 100) * 80) - 40;
+        var wz = ((Number(obj.y || 50) / 100) * 40) - 20;
+        var wy = 0;
+        switch (obj.kind) {
+            case 'workflow':  wy = 4; break;
+            case 'actor':     wy = 3.5; break;
+            case 'replay':    wy = 3; break;
+            case 'dispatch':  wy = 2.5; break;
+            case 'node':      wy = 1.5; break;
+            case 'event':     wy = 1; break;
+            case 'sample':    wy = 2; break;
+            case 'branch':    wy = 2; break;
+            case 'trace':     wy = 0.5; break;
+            case 'artifact':  wy = 0.5; break;
+            case 'recipe':    wy = 0.3; break;
+            case 'profile':   wy = 0.2; break;
+            case 'watch':     wy = 0.2; break;
+            case 'queued':    wy = 1.8; break;
+            case 'doc':       wy = 0.3; break;
+            case 'slot':      wy = 3; break;
+            default:          wy = 1; break;
+        }
+        return { x: wx, y: wy, z: wz };
+    }
+
+    function _env3DGeometryForKind(kind) {
+        switch (kind) {
+            case 'workflow':
+                return new THREE.IcosahedronGeometry(2.2, 1);
+            case 'actor':
+                return new THREE.OctahedronGeometry(1.4, 0);
+            case 'node':
+                return new THREE.BoxGeometry(1.6, 1.0, 1.6);
+            case 'artifact':
+                return new THREE.CylinderGeometry(0.8, 0.8, 1.2, 6);
+            case 'trace':
+                return new THREE.ConeGeometry(0.7, 1.4, 4);
+            case 'event':
+                return new THREE.SphereGeometry(0.6, 8, 6);
+            case 'sample':
+                return new THREE.TetrahedronGeometry(1.0, 0);
+            case 'branch':
+                return new THREE.OctahedronGeometry(1.0, 0);
+            case 'replay':
+                return new THREE.TorusGeometry(1.2, 0.3, 8, 16);
+            case 'recipe':
+                return new THREE.DodecahedronGeometry(0.9, 0);
+            case 'profile':
+                return new THREE.TorusGeometry(0.8, 0.15, 8, 6);
+            case 'dispatch':
+                return new THREE.ConeGeometry(0.8, 1.6, 6);
+            case 'queued':
+                return new THREE.BoxGeometry(0.8, 0.8, 0.8);
+            case 'watch':
+                return new THREE.SphereGeometry(0.5, 6, 6);
+            case 'doc':
+                return new THREE.BoxGeometry(1.4, 0.3, 1.0);
+            case 'slot':
+                return new THREE.CylinderGeometry(0.6, 0.9, 1.6, 8);
+            case 'npc':
+                return new THREE.DodecahedronGeometry(1.1, 0);
+            case 'chatbot':
+                return new THREE.SphereGeometry(0.9, 12, 8);
+            case 'service':
+                return new THREE.OctahedronGeometry(0.9, 0);
+            case 'panel':
+                return new THREE.BoxGeometry(1.8, 1.2, 0.2);
+            default:
+                return new THREE.SphereGeometry(0.7, 8, 8);
+        }
+    }
+
+    function _env3DInit(container) {
+        if (_env3D.inited && _env3D.container === container) return;
+        // If already inited but container changed (innerHTML rebuild), reattach canvases
+        if (_env3D.inited && _env3D.container !== container && _env3D.renderer) {
+            // Preserve camera target before rebuilding controls
+            var prevTarget = _env3D.controls ? _env3D.controls.target.clone() : new THREE.Vector3(0, 0, 0);
+            _env3D.container = container;
+            container.appendChild(_env3D.renderer.domElement);
+            container.appendChild(_env3D.cssRenderer.domElement);
+            _env3D.controls.dispose();
+            _env3D.controls = new THREE.OrbitControls(_env3D.camera, _env3D.renderer.domElement);
+            _env3D.controls.enableDamping = true;
+            _env3D.controls.dampingFactor = 0.08;
+            _env3D.controls.maxPolarAngle = Math.PI * 0.48;
+            _env3D.controls.minDistance = 10;
+            _env3D.controls.maxDistance = 120;
+            _env3D.controls.target.copy(prevTarget);
+            _env3D.controls.enablePan = true;
+            _env3D.controls.panSpeed = 0.6;
+            _env3D.controls.rotateSpeed = 0.5;
+            // Rebind ResizeObserver to new container
+            if (_env3D.resizeObserver) {
+                _env3D.resizeObserver.disconnect();
+            }
+            if (typeof ResizeObserver !== 'undefined') {
+                _env3D.resizeObserver = new ResizeObserver(function () { _env3DResize(); });
+                _env3D.resizeObserver.observe(container);
+            }
+            _env3DResize();
+            return;
+        }
+        _env3DDispose();
+
+        _env3D.container = container;
+        _env3D.clock = new THREE.Clock();
+
+        // Scene
+        var scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0a0a1a);
+        scene.fog = new THREE.FogExp2(0x0a0a1a, 0.012);
+        _env3D.scene = scene;
+
+        // Camera
+        var aspect = container.clientWidth / Math.max(1, container.clientHeight);
+        var camera = new THREE.PerspectiveCamera(50, aspect, 0.1, 500);
+        camera.position.set(0, 35, 50);
+        camera.lookAt(0, 0, 0);
+        _env3D.camera = camera;
+
+        // WebGL Renderer
+        var renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+        renderer.shadowMap.enabled = false;
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
+        container.appendChild(renderer.domElement);
+        renderer.domElement.style.position = 'absolute';
+        renderer.domElement.style.top = '0';
+        renderer.domElement.style.left = '0';
+        renderer.domElement.style.width = '100%';
+        renderer.domElement.style.height = '100%';
+        _env3D.renderer = renderer;
+
+        // CSS2D Renderer (for HTML labels in 3D)
+        var cssRenderer = new THREE.CSS2DRenderer();
+        cssRenderer.setSize(container.clientWidth, container.clientHeight);
+        cssRenderer.domElement.style.position = 'absolute';
+        cssRenderer.domElement.style.top = '0';
+        cssRenderer.domElement.style.left = '0';
+        cssRenderer.domElement.style.pointerEvents = 'none';
+        container.appendChild(cssRenderer.domElement);
+        _env3D.cssRenderer = cssRenderer;
+
+        // Orbit Controls
+        var controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.08;
+        controls.maxPolarAngle = Math.PI * 0.48;
+        controls.minDistance = 10;
+        controls.maxDistance = 120;
+        controls.target.set(0, 0, 0);
+        controls.enablePan = true;
+        controls.panSpeed = 0.6;
+        controls.rotateSpeed = 0.5;
+        _env3D.controls = controls;
+
+        // Ground plane
+        var groundGeo = new THREE.PlaneGeometry(120, 80);
+        var groundMat = new THREE.MeshStandardMaterial({
+            color: 0x0d0d24,
+            roughness: 0.9,
+            metalness: 0.1,
+            transparent: true,
+            opacity: 0.85
+        });
+        var ground = new THREE.Mesh(groundGeo, groundMat);
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.y = -0.1;
+        scene.add(ground);
+        _env3D.groundPlane = ground;
+
+        // Grid
+        var grid = new THREE.GridHelper(100, 40, 0x1a1a3e, 0x111128);
+        grid.position.y = 0;
+        grid.material.transparent = true;
+        grid.material.opacity = 0.4;
+        scene.add(grid);
+        _env3D.gridHelper = grid;
+
+        // Lights
+        var ambient = new THREE.AmbientLight(0x334466, 0.6);
+        scene.add(ambient);
+
+        var hemiLight = new THREE.HemisphereLight(0x4488ff, 0x0a0a1a, 0.5);
+        hemiLight.position.set(0, 40, 0);
+        scene.add(hemiLight);
+
+        var dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(20, 30, 15);
+        scene.add(dirLight);
+
+        var accentLight = new THREE.PointLight(0x00ff88, 0.6, 80);
+        accentLight.position.set(0, 8, 0);
+        scene.add(accentLight);
+
+        // Particle field (ambient drift)
+        _env3DBuildParticles(scene);
+
+        // Resize observer for container resize (CSS resize: vertical)
+        if (typeof ResizeObserver !== 'undefined') {
+            _env3D.resizeObserver = new ResizeObserver(function () {
+                _env3DResize();
+            });
+            _env3D.resizeObserver.observe(container);
+        }
+
+        _env3D.inited = true;
+        _env3DAnimate();
+    }
+
+    function _env3DBuildParticles(scene) {
+        var count = 200;
+        var geo = new THREE.BufferGeometry();
+        var positions = new Float32Array(count * 3);
+        for (var i = 0; i < count; i++) {
+            positions[i * 3] = (Math.random() - 0.5) * 100;
+            positions[i * 3 + 1] = Math.random() * 30;
+            positions[i * 3 + 2] = (Math.random() - 0.5) * 60;
+        }
+        geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        var mat = new THREE.PointsMaterial({
+            color: 0x4488ff,
+            size: 0.15,
+            transparent: true,
+            opacity: 0.4,
+            sizeAttenuation: true
+        });
+        var points = new THREE.Points(geo, mat);
+        scene.add(points);
+        _env3D.particleSystem = points;
+    }
+
+    function _env3DSyncObjects(objects) {
+        if (!_env3D.scene) return;
+        var scene = _env3D.scene;
+        var newKeys = {};
+
+        // Build a hash to detect changes — skip full sync if nothing changed
+        var hash = objects.map(function (o) {
+            return o.kind + ':' + o.id + ':' + o.state + ':' + Math.round(o.x) + ':' + Math.round(o.y);
+        }).join('|');
+        if (hash === _env3D.lastObjectHash) return;
+
+        objects.forEach(function (obj) {
+            var key = _env3DObjectKey(obj);
+            newKeys[key] = true;
+            var pos = _env3DXYZFromObject(obj);
+            var scl = Number(obj.scale || 1);
+            var color = _env3DKindColors[obj.kind] || 0x888888;
+            var emissive = _env3DStateEmissive[obj.state] || 0x111122;
+
+            // Create or update mesh
+            var mesh = _env3D.meshes[key];
+            if (!mesh) {
+                var geo = _env3DGeometryForKind(obj.kind);
+                var mat = new THREE.MeshStandardMaterial({
+                    color: color,
+                    emissive: emissive,
+                    emissiveIntensity: obj.state === 'running' ? 0.8 : (obj.state === 'failed' ? 1.0 : 0.3),
+                    roughness: 0.5,
+                    metalness: 0.3,
+                    transparent: true,
+                    opacity: 0.9
+                });
+                mesh = new THREE.Mesh(geo, mat);
+                mesh.userData = { kind: obj.kind, id: obj.id, label: obj.label };
+                scene.add(mesh);
+                _env3D.meshes[key] = mesh;
+
+                // CSS2D label
+                var labelDiv = document.createElement('div');
+                labelDiv.className = 'env3d-label env3d-label-' + obj.kind;
+                labelDiv.textContent = obj.label || obj.kind;
+                labelDiv.style.cssText = 'color:#e0e0e0;font-size:10px;font-family:monospace;background:rgba(10,10,26,0.8);padding:2px 6px;border-radius:3px;border:1px solid rgba(0,255,136,0.3);pointer-events:auto;cursor:pointer;white-space:nowrap;';
+                var cssLabel = new THREE.CSS2DObject(labelDiv);
+                cssLabel.position.set(0, 1.5, 0);
+                mesh.add(cssLabel);
+                _env3D.cssLabels[key] = cssLabel;
+
+                // Click handler on label
+                labelDiv.addEventListener('click', function () {
+                    var command = _envFocusCommandForKind(obj.kind);
+                    if (command) {
+                        _envQueueControl(command, String(obj.id || ''), _envManualActorId(), 'scene focus', {
+                            source: 'habitat_3d',
+                            kind: obj.kind,
+                            label: obj.label || obj.kind
+                        });
+                    }
+                });
+            }
+
+            // Update position (lerp for smooth motion)
+            var targetPos = new THREE.Vector3(pos.x, pos.y, pos.z);
+            mesh.position.lerp(targetPos, 0.15);
+            mesh.userData.baseY = mesh.position.y; // track for float animation
+            mesh.scale.lerp(new THREE.Vector3(scl, scl, scl), 0.15);
+
+            // Update material — boost focused object
+            var focus = _envKernel.focus || {};
+            var isFocused = String(focus.kind || '') === obj.kind && String(focus.id || '') === String(obj.id || '');
+            mesh.material.emissive.setHex(isFocused ? 0x00ff88 : emissive);
+            mesh.material.emissiveIntensity = isFocused ? 1.2 : (obj.state === 'running' ? 0.8 : (obj.state === 'failed' ? 1.0 : 0.3));
+            mesh.material.opacity = isFocused ? 1.0 : 0.9;
+            mesh.userData.focused = isFocused;
+
+            // Update label text
+            var cssLabel = _env3D.cssLabels[key];
+            if (cssLabel && cssLabel.element) {
+                var newText = (obj.label || obj.kind);
+                if (obj.state === 'running') newText += ' ●';
+                if (obj.state === 'failed') newText += ' ✕';
+                if (cssLabel.element.textContent !== newText) {
+                    cssLabel.element.textContent = newText;
+                }
+                // Color border by state
+                var borderColor = obj.state === 'failed' ? 'rgba(255,68,68,0.6)' :
+                    (obj.state === 'running' ? 'rgba(0,255,136,0.6)' : 'rgba(0,255,136,0.2)');
+                cssLabel.element.style.borderColor = borderColor;
+            }
+        });
+
+        // Remove meshes for objects that no longer exist
+        Object.keys(_env3D.meshes).forEach(function (key) {
+            if (!newKeys[key]) {
+                scene.remove(_env3D.meshes[key]);
+                if (_env3D.meshes[key].geometry) _env3D.meshes[key].geometry.dispose();
+                if (_env3D.meshes[key].material) _env3D.meshes[key].material.dispose();
+                delete _env3D.meshes[key];
+                if (_env3D.cssLabels[key]) {
+                    if (_env3D.cssLabels[key].element && _env3D.cssLabels[key].element.parentNode) {
+                        _env3D.cssLabels[key].element.parentNode.removeChild(_env3D.cssLabels[key].element);
+                    }
+                    delete _env3D.cssLabels[key];
+                }
+            }
+        });
+
+        // Build route lines
+        _env3DSyncRoutes(objects);
+
+        _env3D.lastObjectHash = hash;
+    }
+
+    function _env3DSyncRoutes(objects) {
+        // Remove old lines
+        _env3D.lineMeshes.forEach(function (line) {
+            _env3D.scene.remove(line);
+            if (line.geometry) line.geometry.dispose();
+            if (line.material) line.material.dispose();
+        });
+        _env3D.lineMeshes = [];
+
+        var routes = _envScene.routes || [];
+        routes.forEach(function (route) {
+            var fromKey = String(route.fromKey || '');
+            var toKey = String(route.toKey || '');
+            var fromMesh = _env3D.meshes[fromKey];
+            var toMesh = _env3D.meshes[toKey];
+            if (!fromMesh || !toMesh) return;
+
+            var points = [fromMesh.position.clone(), toMesh.position.clone()];
+            var lineGeo = new THREE.BufferGeometry().setFromPoints(points);
+            var lineMat = new THREE.LineBasicMaterial({
+                color: route.tone === 'failed' ? 0xff4444 : (route.tone === 'running' ? 0x00ff88 : 0x336688),
+                transparent: true,
+                opacity: route.tone === 'failed' ? 0.6 : (route.tone === 'running' ? 0.5 : 0.3)
+            });
+            var line = new THREE.Line(lineGeo, lineMat);
+            line.userData = { fromKey: fromKey, toKey: toKey };
+            _env3D.scene.add(line);
+            _env3D.lineMeshes.push(line);
+        });
+
+        // Workflow->root-node connections are already in _envScene.routes (route::root::N entries).
+
+        // Trajectory ribbons (execution trace paths between kernel objects)
+        var trajectories = _envScene.trajectories || [];
+        trajectories.forEach(function (traj) {
+            var fromKey = String(traj.fromKey || '');
+            var toKey = String(traj.toKey || '');
+            var fromMesh = _env3D.meshes[fromKey];
+            var toMesh = _env3D.meshes[toKey];
+            if (!fromMesh || !toMesh) return;
+
+            var points = [fromMesh.position.clone(), toMesh.position.clone()];
+            var lineGeo = new THREE.BufferGeometry().setFromPoints(points);
+            var trajColor = traj.tone === 'failed' ? 0xff4444 :
+                (traj.tone === 'running' ? 0x4fffd0 :
+                (traj.tone === 'branch' ? 0x4488ff :
+                (traj.active ? 0x00ff88 : 0x334466)));
+            var lineMat = new THREE.LineBasicMaterial({
+                color: trajColor,
+                transparent: true,
+                opacity: traj.active ? 0.55 : 0.25
+            });
+            var line = new THREE.Line(lineGeo, lineMat);
+            line.userData = { fromKey: fromKey, toKey: toKey };
+            _env3D.scene.add(line);
+            _env3D.lineMeshes.push(line);
+        });
+    }
+
+    function _env3DAnimate() {
+        if (!_env3D.inited) return;
+        if (!_isEnvironmentTabActive()) {
+            _env3D.animId = null; // stop loop when tab not active; restarted by _envSyncHabitatScene
+            return;
+        }
+        _env3D.animId = requestAnimationFrame(_env3DAnimate);
+
+        var dt = _env3D.clock.getDelta();
+        var time = _env3D.clock.getElapsedTime();
+
+        // Rotate meshes gently based on kind
+        Object.keys(_env3D.meshes).forEach(function (key) {
+            var mesh = _env3D.meshes[key];
+            if (!mesh) return;
+            var kind = mesh.userData.kind || '';
+            var speed = kind === 'workflow' ? 0.3 :
+                        kind === 'replay' ? 0.6 :
+                        kind === 'event' ? 0.4 : 0.15;
+            mesh.rotation.y += speed * dt;
+            // Gentle float (non-accumulating — store base Y in userData)
+            if (kind === 'workflow' || kind === 'replay') {
+                if (mesh.userData.baseY === undefined) mesh.userData.baseY = mesh.position.y;
+                mesh.position.y = mesh.userData.baseY + Math.sin(time * 1.5 + mesh.position.x * 0.1) * 0.3;
+            }
+            // Pulse focused object scale
+            if (mesh.userData.focused) {
+                var pulse = 1 + Math.sin(time * 3) * 0.08;
+                mesh.scale.multiplyScalar(pulse);
+            }
+        });
+
+        // Drift particles (slow upward float with soft wraparound)
+        if (_env3D.particleSystem) {
+            var positions = _env3D.particleSystem.geometry.attributes.position.array;
+            for (var i = 0; i < positions.length; i += 3) {
+                positions[i + 1] += 0.008 + Math.sin(time * 0.7 + positions[i] * 0.1) * 0.004;
+                if (positions[i + 1] > 30) positions[i + 1] = -2 + Math.random() * 2;
+            }
+            _env3D.particleSystem.geometry.attributes.position.needsUpdate = true;
+        }
+
+        // Update route lines to follow moving meshes (use stored keys, not index)
+        _env3D.lineMeshes.forEach(function (line) {
+            var fromMesh = _env3D.meshes[line.userData.fromKey];
+            var toMesh = _env3D.meshes[line.userData.toKey];
+            if (fromMesh && toMesh) {
+                var posArr = line.geometry.attributes.position.array;
+                posArr[0] = fromMesh.position.x; posArr[1] = fromMesh.position.y; posArr[2] = fromMesh.position.z;
+                posArr[3] = toMesh.position.x; posArr[4] = toMesh.position.y; posArr[5] = toMesh.position.z;
+                line.geometry.attributes.position.needsUpdate = true;
+            }
+        });
+
+        _env3D.controls.update();
+        _env3D.renderer.render(_env3D.scene, _env3D.camera);
+        _env3D.cssRenderer.render(_env3D.scene, _env3D.camera);
+    }
+
+    function _env3DResize() {
+        if (!_env3D.inited || !_env3D.container) return;
+        var w = _env3D.container.clientWidth;
+        var h = _env3D.container.clientHeight;
+        if (w < 1 || h < 1) return;
+        _env3D.camera.aspect = w / h;
+        _env3D.camera.updateProjectionMatrix();
+        _env3D.renderer.setSize(w, h);
+        _env3D.cssRenderer.setSize(w, h);
+    }
+
+    function _env3DDispose() {
+        if (_env3D.resizeObserver) {
+            _env3D.resizeObserver.disconnect();
+            _env3D.resizeObserver = null;
+        }
+        if (_env3D.animId) {
+            cancelAnimationFrame(_env3D.animId);
+            _env3D.animId = null;
+        }
+        if (_env3D.renderer && _env3D.renderer.domElement && _env3D.renderer.domElement.parentNode) {
+            _env3D.renderer.domElement.parentNode.removeChild(_env3D.renderer.domElement);
+        }
+        if (_env3D.cssRenderer && _env3D.cssRenderer.domElement && _env3D.cssRenderer.domElement.parentNode) {
+            _env3D.cssRenderer.domElement.parentNode.removeChild(_env3D.cssRenderer.domElement);
+        }
+        Object.keys(_env3D.meshes).forEach(function (key) {
+            if (_env3D.meshes[key].geometry) _env3D.meshes[key].geometry.dispose();
+            if (_env3D.meshes[key].material) _env3D.meshes[key].material.dispose();
+        });
+        _env3D.lineMeshes.forEach(function (line) {
+            if (line.geometry) line.geometry.dispose();
+            if (line.material) line.material.dispose();
+        });
+        if (_env3D.renderer) {
+            _env3D.renderer.dispose();
+        }
+        _env3D.meshes = {};
+        _env3D.cssLabels = {};
+        _env3D.lineMeshes = [];
+        _env3D.inited = false;
+        _env3D.scene = null;
+        _env3D.camera = null;
+        _env3D.renderer = null;
+        _env3D.cssRenderer = null;
+        _env3D.controls = null;
+        _env3D.container = null;
+    }
+
+    function _env3DFocusObject(kind, id) {
+        var key = String(kind || 'primitive') + '::' + String(id || '');
+        var mesh = _env3D.meshes[key];
+        if (!mesh || !_env3D.controls) return;
+        _env3D.controls.target.lerp(mesh.position, 0.3);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // END THREE.JS HABITAT ENGINE
+    // ═══════════════════════════════════════════════════════════════
 
     function _envRenderHabitat(workflow, exec, sections, traces) {
         var hudCopy = _envHabitatHudCopy(workflow);
@@ -13581,26 +14476,7 @@
         var html = '<div class="' + _esc(habitatClasses.join(' ')) + '">' +
             '<div class="envops-habitat-scene">' +
             telemetryHtml +
-            '<div class="envops-habitat-shell" id="envops-habitat-shell" style="' + _esc(shellStyle) + '" data-env-camera-mode="' + _esc(cameraMode) + '" data-env-dominance-mode="' + _esc(String((dominance && dominance.mode) || 'ambient')) + '">' +
-            '<div class="envops-habitat-backwall"></div>' +
-            '<div class="envops-habitat-floor"></div>' +
-            _envSceneRenderDepthLayer(workflow, exec, sections, traces) +
-            _envSceneRenderVanishLayer(workflow, exec, sections, traces) +
-            _envSceneRenderPlatformLayer(workflow, exec, sections, traces) +
-            _envSceneRenderAtmosphereLayer(workflow, exec, sections, traces) +
-            _envSceneRenderArchitectureLayer(workflow, exec, sections, traces) +
-            _envSceneRenderCanopyLayer(workflow, exec, sections, traces) +
-            _envSceneRenderCouplingLayer(workflow, exec, sections, traces) +
-            _envSceneRenderUplinkLayer() +
-            _envSceneRenderVolumeLayer(workflow, exec, sections, traces) +
-            '<canvas class="envops-habitat-canvas" id="envops-habitat-canvas"></canvas>' +
-            _envSceneRenderDistrictLayer(workflow, exec, sections, traces) +
-            '<div class="envops-habitat-shadow-layer" id="envops-habitat-shadow-layer"></div>' +
-            '<div class="envops-habitat-substrate-layer" id="envops-habitat-substrate-layer"></div>' +
-            '<div class="envops-habitat-route-layer" id="envops-habitat-route-layer"></div>' +
-            '<div class="envops-habitat-beacon-layer" id="envops-habitat-beacon-layer"></div>' +
-            '<div class="envops-habitat-object-layer" id="envops-habitat-object-layer"></div>' +
-            _envSceneRenderForegroundLayer(workflow, exec, sections, traces) +
+            '<div class="envops-habitat-shell envops-habitat-3d-container" id="envops-habitat-shell" style="position:relative;width:100%;height:100%;overflow:hidden;" data-env-camera-mode="' + _esc(cameraMode) + '" data-env-dominance-mode="' + _esc(String((dominance && dominance.mode) || 'ambient')) + '">' +
             '</div>' +
             '<div class="envops-habitat-hud">' +
             '<div class="envops-habitat-hud-primary" id="envops-habitat-hud-primary">' + _esc(hudCopy.primary) + '</div>' +
@@ -14032,6 +14908,7 @@
         if (k === 'dispatch') return 'focus_dispatch';
         if (k === 'queued') return 'focus_queued';
         if (k === 'watch') return 'focus_watch';
+        if (k === 'slot' || k === 'npc' || k === 'chatbot' || k === 'service' || k === 'panel') return 'focus_slot';
         return '';
     }
 
@@ -21184,6 +22061,8 @@
             agentDescription: '',
             systemPrompt: '',  // empty = use default loop prompt
             persona: '',       // freeform persona description
+            medium: 'slot',    // 'slot' | 'npc' | 'chatbot' | 'service' | 'panel'
+            appearance: { geometry: '', color: '' },  // custom 3D appearance overrides
 
             // Generation Parameters
             temperature: 0.7,
@@ -21365,6 +22244,15 @@
             '<label class="achat-cfg-label">Persona</label>' +
             '<input class="chat-input achat-cfg-input" data-cfg="persona" value="' + esc(c.persona) + '" placeholder="e.g. You are a meticulous code reviewer..." />' +
             '</div>' +
+            '<div class="achat-cfg-group">' +
+            '<label class="achat-cfg-label">Medium <span style="color:var(--text-dim);font-size:8px;">(environment rendering)</span></label>' +
+            '<select class="chat-input achat-cfg-input" data-cfg="medium">' +
+            '<option value="slot"' + (c.medium === 'slot' ? ' selected' : '') + '>Slot (default)</option>' +
+            '<option value="npc"' + (c.medium === 'npc' ? ' selected' : '') + '>NPC (scene character)</option>' +
+            '<option value="chatbot"' + (c.medium === 'chatbot' ? ' selected' : '') + '>Chatbot (conversational)</option>' +
+            '<option value="service"' + (c.medium === 'service' ? ' selected' : '') + '>Service (background worker)</option>' +
+            '<option value="panel"' + (c.medium === 'panel' ? ' selected' : '') + '>Panel (HTML interface)</option>' +
+            '</select></div>' +
             '<div class="achat-cfg-group">' +
             '<label class="achat-cfg-label">System Prompt <span style="color:var(--text-dim);font-size:8px;">(overrides default)</span></label>' +
             '<textarea class="chat-input achat-cfg-input" data-cfg="systemPrompt" rows="4" placeholder="Leave empty for default orchestration prompt">' + esc(c.systemPrompt) + '</textarea>' +
