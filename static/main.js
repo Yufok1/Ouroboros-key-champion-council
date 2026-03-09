@@ -14426,6 +14426,50 @@
         }
     }
 
+    function _env3DNavigationConfig() {
+        var web3d = (((_envSceneConfig() || {}).web3d) || {});
+        var nav = (web3d.navigation && typeof web3d.navigation === 'object') ? web3d.navigation : {};
+        return {
+            minDistance: Math.max(8, Number(nav.minDistance || 18)),
+            maxDistance: Math.max(48, Number(nav.maxDistance || 220)),
+            wheelStep: Math.max(0.04, Number(nav.wheelStep || 0.14))
+        };
+    }
+
+    function _env3DWheelDelta(event) {
+        var delta = Number((event && event.deltaY) || 0);
+        var mode = Number((event && event.deltaMode) || 0);
+        if (mode === 1) delta *= 16;
+        else if (mode === 2) delta *= 120;
+        return Math.max(-720, Math.min(720, delta));
+    }
+
+    function _env3DApplyZoomDelta(deltaY, deltaMode) {
+        if (!_env3D.camera || !_env3D.controls) return false;
+        var nav = _env3DNavigationConfig();
+        var target = _env3D.controls.target ? _env3D.controls.target.clone() : new THREE.Vector3(0, 0, 0);
+        var offset = _env3D.camera.position.clone().sub(target);
+        var currentDistance = Math.max(0.001, offset.length());
+        var exponent = (_env3DWheelDelta({ deltaY: deltaY, deltaMode: deltaMode }) / 240) * nav.wheelStep;
+        var nextDistance = Math.max(nav.minDistance, Math.min(nav.maxDistance, currentDistance * Math.exp(exponent)));
+        if (Math.abs(nextDistance - currentDistance) < 0.0001) return false;
+        offset.normalize().multiplyScalar(nextDistance);
+        _env3D.camera.position.copy(target.clone().add(offset));
+        _env3D.camera.updateProjectionMatrix();
+        _env3D.controls.update();
+        return true;
+    }
+
+    function _env3DBindWheelZoom(domEl) {
+        if (!domEl || domEl.dataset.envopsWheelZoomBound) return;
+        domEl.dataset.envopsWheelZoomBound = '1';
+        domEl.addEventListener('wheel', function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            _env3DApplyZoomDelta(Number(event.deltaY || 0), Number(event.deltaMode || 0));
+        }, { passive: false });
+    }
+
     function _env3DInit(container) {
         if (_env3D.inited && _env3D.container === container) return;
         // If already inited but container changed (innerHTML rebuild), reattach canvases
@@ -14436,17 +14480,20 @@
             container.appendChild(_env3D.renderer.domElement);
             container.appendChild(_env3D.cssRenderer.domElement);
             _env3D.controls.dispose();
+            var navCfg = _env3DNavigationConfig();
             _env3D.controls = new THREE.OrbitControls(_env3D.camera, _env3D.renderer.domElement);
             _env3D.controls.enableDamping = true;
             _env3D.controls.dampingFactor = 0.08;
             _env3D.controls.maxPolarAngle = Math.PI * 0.48;
-            _env3D.controls.minDistance = 10;
-            _env3D.controls.maxDistance = 120;
-            _env3D.controls.zoomSpeed = 0.35;
+            _env3D.controls.minDistance = navCfg.minDistance;
+            _env3D.controls.maxDistance = navCfg.maxDistance;
+            _env3D.controls.zoomSpeed = 0.12;
+            _env3D.controls.enableZoom = false;
             _env3D.controls.target.copy(prevTarget);
             _env3D.controls.enablePan = true;
             _env3D.controls.panSpeed = 0.6;
             _env3D.controls.rotateSpeed = 0.5;
+            _env3DBindWheelZoom(_env3D.renderer.domElement);
             // Rebind ResizeObserver to new container
             if (_env3D.resizeObserver) {
                 _env3D.resizeObserver.disconnect();
@@ -14489,6 +14536,7 @@
         renderer.domElement.style.width = '100%';
         renderer.domElement.style.height = '100%';
         _env3D.renderer = renderer;
+        _env3DBindWheelZoom(renderer.domElement);
 
         // CSS2D Renderer (for HTML labels in 3D)
         var cssRenderer = new THREE.CSS2DRenderer();
@@ -14502,12 +14550,14 @@
 
         // Orbit Controls
         var controls = new THREE.OrbitControls(camera, renderer.domElement);
+        var navCfg = _env3DNavigationConfig();
         controls.enableDamping = true;
         controls.dampingFactor = 0.08;
         controls.maxPolarAngle = Math.PI * 0.48;
-        controls.minDistance = 10;
-        controls.maxDistance = 120;
-        controls.zoomSpeed = 0.35;
+        controls.minDistance = navCfg.minDistance;
+        controls.maxDistance = navCfg.maxDistance;
+        controls.zoomSpeed = 0.12;
+        controls.enableZoom = false;
         controls.target.set(0, 0, 0);
         controls.enablePan = true;
         controls.panSpeed = 0.6;
@@ -14655,6 +14705,7 @@
             mesh.position.lerp(targetPos, 0.15);
             mesh.userData.baseY = mesh.position.y; // track for float animation
             mesh.scale.lerp(new THREE.Vector3(scl, scl, scl), 0.15);
+            mesh.userData.baseScale = scl;
 
             // Update material — boost focused object
             var focus = _envKernel.focus || {};
@@ -14789,7 +14840,11 @@
             // Pulse focused object scale
             if (mesh.userData.focused) {
                 var pulse = 1 + Math.sin(time * 3) * 0.08;
-                mesh.scale.multiplyScalar(pulse);
+                var baseScale = Math.max(0.001, Number(mesh.userData.baseScale || 1));
+                mesh.scale.setScalar(baseScale * pulse);
+            } else if (mesh.userData.baseScale !== undefined) {
+                var settle = Math.max(0.001, Number(mesh.userData.baseScale || 1));
+                mesh.scale.lerp(new THREE.Vector3(settle, settle, settle), 0.18);
             }
         });
 
