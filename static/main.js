@@ -3012,15 +3012,19 @@
             event._trace_target_slot = trace.targetSlot;
         }
 
-        _activityLog.push(event);
-        if (event.tool === 'workflow_execute' || event.tool === 'workflow_status') {
-            handleWorkflowActivity(event);
+        var hiddenFromActivity = !!event.hiddenFromActivity;
+        if (!hiddenFromActivity) {
+            _activityLog.push(event);
+            if (event.tool === 'workflow_execute' || event.tool === 'workflow_status') {
+                handleWorkflowActivity(event);
+            }
         }
 
         // Environment tab scene mutation tools
         if (typeof _envHandleActivityToolEvent === 'function') {
             _envHandleActivityToolEvent(event);
         }
+        if (hiddenFromActivity) return;
 
         // External slot mutations must force council-grid re-hydration.
         if (event.source === 'external' && !event.error && EXTERNAL_SLOT_MUTATION_TOOLS.indexOf(event.tool) >= 0 && event.durationMs >= 0) {
@@ -13191,6 +13195,7 @@
         if (command === 'set_camera_mode') {
             var mode = _envSceneNormalizeCameraMode(targetId || ((_envScene || {}).cameraMode) || 'overview');
             _envScene.cameraMode = mode;
+            if (_env3D.inited) _env3DApplyCameraRig(true);
             _envLogAction('control', 'Updated habitat camera mode', actorName, { action: command, camera_mode: mode });
             _envEmitBus('control', 'Updated habitat camera mode', actorName, { action: command, camera_mode: mode });
             _envSetBadge('running', 'CAM ' + mode.toUpperCase());
@@ -13954,6 +13959,9 @@
                 null
             );
             _envMirrorState.habitatObjects = _envCloneJson((liveState && liveState.habitat_objects) || [], []);
+            if (!Object.prototype.hasOwnProperty.call(payload, 'state_excerpt')) {
+                _envMirrorState.stateExcerpt = _envLiveStateExcerpt(liveState);
+            }
             changed = true;
         }
         if (Object.prototype.hasOwnProperty.call(payload, 'shared_state')) {
@@ -13991,6 +13999,7 @@
 
     function _envBuildLiveMirrorSurface() {
         var hasLive = !!_envMirrorState.live;
+        var now = Date.now();
         var sync = {
             status: String(_envLiveSyncState.lastStatus || (hasLive ? 'ok' : 'idle')),
             error: String(_envLiveSyncState.error || ''),
@@ -14005,7 +14014,8 @@
             last_attempt_ts: Number(_envLiveSyncState.lastAttemptTs || 0),
             last_synced_ts: Number(_envLiveSyncState.lastSyncedTs || 0),
             last_signature: String(_envLiveSyncState.lastSignature || ''),
-            last_synced_signature: String(_envLiveSyncState.lastSyncedSignature || '')
+            last_synced_signature: String(_envLiveSyncState.lastSyncedSignature || ''),
+            last_sync_age_ms: Number(_envLiveSyncState.lastSyncedTs ? Math.max(0, now - _envLiveSyncState.lastSyncedTs) : -1)
         };
         var surface = {
             sync: sync,
@@ -14013,7 +14023,8 @@
             mirror_meta: {
                 refreshed_ts: Number(_envMirrorState.refreshedTs || 0),
                 last_tool: String(_envMirrorState.lastTool || ''),
-                last_source: String(_envMirrorState.lastSource || '')
+                last_source: String(_envMirrorState.lastSource || ''),
+                mirror_age_ms: Number(_envMirrorState.refreshedTs ? Math.max(0, now - _envMirrorState.refreshedTs) : -1)
             }
         };
         if (_envMirrorState.live) surface.live_state = _envCloneJson(_envMirrorState.live, null);
@@ -14111,6 +14122,30 @@
         };
     }
 
+    function _envLiveStateExcerpt(liveState) {
+        var live = liveState && typeof liveState === 'object' ? liveState : {};
+        var shared = live.shared_state && typeof live.shared_state === 'object' ? live.shared_state : {};
+        var scene = shared.scene && typeof shared.scene === 'object' ? shared.scene : {};
+        var focus = shared.focus && typeof shared.focus === 'object' ? shared.focus : {};
+        return {
+            synced_at: Number(live.synced_at || 0),
+            workflow_id: String(scene.workflow_id || ((live.selected_workflow || {}).id) || ''),
+            execution_id: String(scene.execution_id || ((live.current_execution || {}).execution_id) || ''),
+            focus: {
+                kind: String(focus.kind || ''),
+                id: String(focus.id || ''),
+                label: String(focus.label || '')
+            },
+            scene: {
+                camera_mode: String(scene.cameraMode || ''),
+                object_count: Number(scene.object_count || 0),
+                route_count: Number(scene.route_count || 0),
+                trajectory_count: Number(scene.trajectory_count || 0),
+                pickable_count: Number(scene.pickable_count || 0)
+            }
+        };
+    }
+
     function _envBuildLiveSyncPayload(reason) {
         if (typeof window.envopsGetSharedState !== 'function'
             || typeof window.envopsGetContracts !== 'function'
@@ -14144,17 +14179,34 @@
         var docs = shared.docs && typeof shared.docs === 'object' ? shared.docs : {};
         var health = shared.health && typeof shared.health === 'object' ? shared.health : {};
         var comparison = shared.comparison && typeof shared.comparison === 'object' ? shared.comparison : {};
+        var camera = scene.camera && typeof scene.camera === 'object' ? scene.camera : {};
+        var camera3d = scene.camera3d && typeof scene.camera3d === 'object' ? scene.camera3d : {};
         var workflow = payload.selected_workflow && typeof payload.selected_workflow === 'object' ? payload.selected_workflow : {};
         var exec = payload.current_execution && typeof payload.current_execution === 'object' ? payload.current_execution : {};
         return [
             String(workflow.id || ''),
             String(exec.execution_id || ''),
             String(exec.status || ''),
+            String(scene.cameraMode || ''),
             String(scene.workflow_id || ''),
             String(scene.execution_id || ''),
             String(scene.object_count || 0),
             String(scene.route_count || 0),
             String(scene.trajectory_count || 0),
+            Number(camera.zoom || 0).toFixed(3),
+            Number(camera.zoomScale || 0).toFixed(3),
+            Number(camera.orbitX || 0).toFixed(2),
+            Number(camera.orbitY || 0).toFixed(2),
+            String(camera.anchorKind || ''),
+            String(camera.anchorId || ''),
+            Number(camera3d.distance || 0).toFixed(3),
+            Number((((camera3d.target || {}).x) || 0)).toFixed(2),
+            Number((((camera3d.target || {}).y) || 0)).toFixed(2),
+            Number((((camera3d.target || {}).z) || 0)).toFixed(2),
+            Number((((camera3d.position || {}).x) || 0)).toFixed(2),
+            Number((((camera3d.position || {}).y) || 0)).toFixed(2),
+            Number((((camera3d.position || {}).z) || 0)).toFixed(2),
+            String(camera3d.focus_key || ''),
             String(focus.kind || ''),
             String(focus.id || ''),
             String(docs.active_doc || ''),
@@ -14285,6 +14337,9 @@
         if (!result) return false;
         var applied = _envApplyEnvironmentPayload(result, tool, 'activity');
         if (applied.changed || applied.mirrored) {
+            if (event.source !== 'hydration' && applied.changed) {
+                _envScheduleLiveSync(tool + ':activity', true);
+            }
             renderEnvironmentView();
             return true;
         }
@@ -14312,7 +14367,8 @@
         container: null,
         animId: null,
         resizeObserver: null,
-        lastObjectHash: ''
+        lastObjectHash: '',
+        rigMeta: null
     };
 
     var _env3DKindColors = {
@@ -14377,6 +14433,120 @@
             default:          wy = 1; break;
         }
         return { x: wx, y: wy, z: wz };
+    }
+
+    function _env3DVectorSnapshot(vec) {
+        if (!vec) return null;
+        return {
+            x: Number(vec.x || 0),
+            y: Number(vec.y || 0),
+            z: Number(vec.z || 0)
+        };
+    }
+
+    function _env3DCameraPoseSnapshot() {
+        if (!_env3D.camera) return null;
+        var target = _env3D.controls && _env3D.controls.target ? _env3D.controls.target.clone() : new THREE.Vector3(0, 0, 0);
+        var position = _env3D.camera.position ? _env3D.camera.position.clone() : new THREE.Vector3(0, 0, 0);
+        var offset = position.clone().sub(target);
+        var distance = Math.max(0, offset.length());
+        return {
+            mode: String(_envSceneNormalizeCameraMode(_envScene.cameraMode || (((_envConfig || {}).scene || {}).defaultCameraMode) || 'overview')),
+            position: _env3DVectorSnapshot(position),
+            target: _env3DVectorSnapshot(target),
+            distance: Number(distance.toFixed(3)),
+            azimuth: Number(((_env3D.controls && typeof _env3D.controls.getAzimuthalAngle === 'function')
+                ? _env3D.controls.getAzimuthalAngle()
+                : Math.atan2(offset.x, offset.z)).toFixed(4)),
+            polar: Number(((_env3D.controls && typeof _env3D.controls.getPolarAngle === 'function')
+                ? _env3D.controls.getPolarAngle()
+                : Math.acos(Math.max(-1, Math.min(1, offset.y / Math.max(0.001, distance))))).toFixed(4)),
+            focus_key: String((((_env3D.rigMeta || {}).focus_key) || '')),
+            focus_kind: String((((_env3D.rigMeta || {}).focus_kind) || '')),
+            focus_id: String((((_env3D.rigMeta || {}).focus_id) || ''))
+        };
+    }
+
+    function _env3DResolveFocusMesh(kind, id) {
+        var focusKind = String(kind === undefined ? ((_envKernel.focus || {}).kind || '') : kind || '');
+        var focusId = String(id === undefined ? ((_envKernel.focus || {}).id || '') : id || '');
+        if (!focusKind || !focusId) return null;
+        return _env3D.meshes[String(focusKind || 'primitive') + '::' + String(focusId || '')] || null;
+    }
+
+    function _env3DResolveReplayMesh() {
+        var replayCurrent = typeof _envReplayCurrentItem === 'function' ? _envReplayCurrentItem() : null;
+        if (replayCurrent && replayCurrent.kind && replayCurrent.id) {
+            var replayMesh = _env3DResolveFocusMesh(replayCurrent.kind, replayCurrent.id);
+            if (replayMesh) return replayMesh;
+        }
+        return _env3DResolveFocusMesh();
+    }
+
+    function _env3DFramingOffsetForMesh(mesh, mode) {
+        var nav = _env3DNavigationConfig();
+        var kind = String((((mesh || {}).userData || {}).kind) || 'primitive');
+        var lateralSign = Number((mesh && mesh.position && mesh.position.x) || 0) >= 0 ? -1 : 1;
+        if (mode === 'replay') lateralSign *= -1;
+        var spec = mode === 'overview'
+            ? { side: 0, lift: 34, depth: 50 }
+            : { side: 14, lift: 12, depth: 20 };
+        if (kind === 'workflow' || kind === 'replay') spec = mode === 'replay'
+            ? { side: 18, lift: 16, depth: 22 }
+            : { side: 16, lift: 15, depth: 24 };
+        else if (kind === 'actor' || kind === 'slot' || kind === 'npc' || kind === 'chatbot' || kind === 'service') spec = { side: 13, lift: 11, depth: 18 };
+        else if (kind === 'event' || kind === 'trace' || kind === 'watch' || kind === 'queued' || kind === 'dispatch') spec = { side: 11, lift: 9, depth: 15 };
+        else if (kind === 'doc' || kind === 'artifact' || kind === 'recipe' || kind === 'profile') spec = { side: 10, lift: 8, depth: 16 };
+        var offset = new THREE.Vector3(spec.side * lateralSign, spec.lift, spec.depth);
+        var distance = Math.max(nav.minDistance * 1.04, Math.min(nav.maxDistance * 0.7, offset.length()));
+        if (offset.length() > 0.001) offset.setLength(distance);
+        return offset;
+    }
+
+    function _env3DDesiredCameraRig() {
+        if (!_env3D.camera || !_env3D.controls) return null;
+        var mode = _envSceneNormalizeCameraMode(_envScene.cameraMode || (((_envConfig || {}).scene || {}).defaultCameraMode) || 'overview');
+        var target = new THREE.Vector3(0, 0, 0);
+        var position = new THREE.Vector3(0, 35, 50);
+        var meta = { mode: mode, focus_key: '', focus_kind: '', focus_id: '' };
+        var mesh = null;
+        if (mode === 'focus') mesh = _env3DResolveFocusMesh();
+        else if (mode === 'replay') mesh = _env3DResolveReplayMesh();
+        if (mesh) {
+            target.copy(mesh.position);
+            target.y += (mesh.userData && mesh.userData.kind === 'workflow') ? 1.6 : 0.8;
+            position.copy(target.clone().add(_env3DFramingOffsetForMesh(mesh, mode)));
+            meta.focus_key = String(_env3DObjectKey((mesh || {}).userData || {}));
+            meta.focus_kind = String((((mesh || {}).userData || {}).kind) || '');
+            meta.focus_id = String((((mesh || {}).userData || {}).id) || '');
+        }
+        return {
+            mode: mode,
+            target: target,
+            position: position,
+            meta: meta
+        };
+    }
+
+    function _env3DApplyCameraRig(force) {
+        if (!_env3D.camera || !_env3D.controls) return false;
+        var rig = _env3DDesiredCameraRig();
+        if (!rig) return false;
+        var targetEase = force ? 0.5 : 0.12;
+        var positionEase = force ? 0.42 : 0.1;
+        var moved = false;
+        if (_env3D.controls.target.distanceToSquared(rig.target) > 0.0001) {
+            _env3D.controls.target.lerp(rig.target, targetEase);
+            moved = true;
+        }
+        if (_env3D.camera.position.distanceToSquared(rig.position) > 0.0001) {
+            _env3D.camera.position.lerp(rig.position, positionEase);
+            moved = true;
+        }
+        _env3D.rigMeta = rig.meta;
+        _env3D.camera.lookAt(_env3D.controls.target);
+        _env3D.camera.updateProjectionMatrix();
+        return moved;
     }
 
     function _env3DGeometryForKind(kind) {
@@ -14494,6 +14664,7 @@
             _env3D.controls.panSpeed = 0.6;
             _env3D.controls.rotateSpeed = 0.5;
             _env3DBindWheelZoom(_env3D.renderer.domElement);
+            _env3DApplyCameraRig(true);
             // Rebind ResizeObserver to new container
             if (_env3D.resizeObserver) {
                 _env3D.resizeObserver.disconnect();
@@ -14563,6 +14734,7 @@
         controls.panSpeed = 0.6;
         controls.rotateSpeed = 0.5;
         _env3D.controls = controls;
+        _env3DApplyCameraRig(true);
 
         // Ground plane
         var groundGeo = new THREE.PlaneGeometry(120, 80);
@@ -14870,6 +15042,7 @@
             }
         });
 
+        _env3DApplyCameraRig(false);
         _env3D.controls.update();
         _env3D.renderer.render(_env3D.scene, _env3D.camera);
         _env3D.cssRenderer.render(_env3D.scene, _env3D.camera);
@@ -14922,13 +15095,19 @@
         _env3D.cssRenderer = null;
         _env3D.controls = null;
         _env3D.container = null;
+        _env3D.rigMeta = null;
     }
 
     function _env3DFocusObject(kind, id) {
-        var key = String(kind || 'primitive') + '::' + String(id || '');
-        var mesh = _env3D.meshes[key];
+        var mesh = _env3DResolveFocusMesh(kind, id);
         if (!mesh || !_env3D.controls) return;
-        _env3D.controls.target.lerp(mesh.position, 0.3);
+        _env3D.rigMeta = {
+            mode: 'focus',
+            focus_key: String(_env3DObjectKey((mesh || {}).userData || {})),
+            focus_kind: String((((mesh || {}).userData || {}).kind) || ''),
+            focus_id: String((((mesh || {}).userData || {}).id) || '')
+        };
+        _env3DApplyCameraRig(true);
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -16278,7 +16457,9 @@
             }
             var envApplied = envPayload ? _envApplyEnvironmentPayload(envPayload, toolName, 'tool') : { changed: false, mirrored: false };
             if (!msg.error && toolName !== 'env_read' && toolName !== 'env_persist') {
-                _envScheduleLiveSync(toolName, false);
+                _envScheduleLiveSync(toolName, !!envApplied.changed);
+            } else if (!msg.error && toolName === 'env_persist' && envApplied.changed) {
+                _envScheduleLiveSync(toolName, true);
             }
             if (envApplied.changed || envApplied.mirrored || (toolName === 'env_read' || toolName === 'env_persist')) {
                 renderEnvironmentView();
@@ -21373,9 +21554,18 @@
                     x: Number(((_envScene.camera || {}).x) || 0),
                     y: Number(((_envScene.camera || {}).y) || 0),
                     zoom: Number(((_envScene.camera || {}).zoom) || 1),
+                    zoomScale: Number(((_envScene.camera || {}).zoomScale) || 1),
+                    offsetX: Number(((_envScene.camera || {}).offsetX) || 0),
+                    offsetY: Number(((_envScene.camera || {}).offsetY) || 0),
+                    orbitX: Number(((_envScene.camera || {}).orbitX) || 0),
+                    orbitY: Number(((_envScene.camera || {}).orbitY) || 0),
+                    targetX: Number(((_envScene.camera || {}).targetX) || 0),
+                    targetY: Number(((_envScene.camera || {}).targetY) || 0),
+                    targetZoom: Number(((_envScene.camera || {}).targetZoom) || 1),
                     anchorKind: String(((_envScene.camera || {}).anchorKind) || ''),
                     anchorId: String(((_envScene.camera || {}).anchorId) || '')
                 },
+                camera3d: _env3DCameraPoseSnapshot(),
                 viewport: {
                     width: Number(_envScene.width || 0),
                     height: Number(_envScene.height || 0)

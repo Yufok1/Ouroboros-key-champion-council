@@ -973,11 +973,11 @@ async def _hf_cache_clear_payload(
     }
 
 
+_activity_event_seq = 0
+
+
 def _broadcast_activity(tool: str, args: dict, result: dict | None, duration_ms: int, error: str | None, source: str = "external", client_id: str | None = None):
     """Record and broadcast a tool call to all SSE activity subscribers."""
-    # Suppress hydration calls entirely
-    if source == "hydration":
-        return
     # Only suppress silent tools for internal/webui calls — external MCP
     # clients (Kiro, Claude, etc.) should always see their results.
     if tool in _SILENT_TOOLS and source not in ("external", "agent-inner"):
@@ -989,7 +989,11 @@ def _broadcast_activity(tool: str, args: dict, result: dict | None, duration_ms:
     # Debug: log what we're broadcasting so we can trace blank-data issues
     result_preview = str(parsed_result)[:200] if parsed_result else "None"
     print(f"[ACTIVITY] Broadcasting: tool={tool} source={source} client={client_id} has_result={parsed_result is not None} result_type={type(parsed_result).__name__} subs={len(_activity_subscribers)} preview={result_preview}")
+    global _activity_event_seq
+    _activity_event_seq += 1
+    hidden_from_activity = source == "hydration"
     entry = {
+        "id": f"act-{int(time.time() * 1000)}-{_activity_event_seq}",
         "tool": tool,
         "category": cat,
         "args": args or {},
@@ -999,10 +1003,18 @@ def _broadcast_activity(tool: str, args: dict, result: dict | None, duration_ms:
         "timestamp": int(time.time() * 1000),
         "source": source,
         "clientId": client_id,  # granular client identification
+        "hiddenFromActivity": hidden_from_activity,
     }
     _activity_log.append(entry)
     if len(_activity_log) > 500:
         _activity_log.pop(0)
+    if _DEBUG_FEED_MIRROR_ENABLED and tool not in _DEBUG_FEED_MIRROR_EXCLUDED_TOOLS:
+        try:
+            asyncio.get_running_loop().create_task(_mirror_activity_to_observe(entry))
+        except Exception:
+            pass
+    if hidden_from_activity:
+        return
     # Push to all SSE subscribers
     dead = []
     for q in _activity_subscribers:
@@ -1015,13 +1027,6 @@ def _broadcast_activity(tool: str, args: dict, result: dict | None, duration_ms:
             _activity_subscribers.remove(q)
         except ValueError:
             pass
-    if _DEBUG_FEED_MIRROR_ENABLED and tool not in _DEBUG_FEED_MIRROR_EXCLUDED_TOOLS:
-        try:
-            asyncio.get_running_loop().create_task(_mirror_activity_to_observe(entry))
-        except Exception:
-            pass
-
-
 def _activity_preview(value, max_chars: int | None = None) -> str:
     limit = int(max_chars or _DEBUG_FEED_MIRROR_MAX_CHARS)
     try:
@@ -1037,6 +1042,26 @@ def _activity_preview(value, max_chars: int | None = None) -> str:
     return out
 
 
+def _activity_mirror_value(value, max_chars: int = 6000):
+    try:
+        if isinstance(value, str):
+            encoded = value
+        else:
+            encoded = json.dumps(value, ensure_ascii=False, default=str)
+    except Exception:
+        encoded = str(value)
+    if len(encoded) <= max_chars:
+        return value
+    payload = {
+        "_truncated": True,
+        "chars": len(encoded),
+        "preview": _activity_preview(value, min(640, max_chars)),
+    }
+    if isinstance(value, dict) and value.get("_cached"):
+        payload["_cached"] = value.get("_cached")
+    return payload
+
+
 async def _mirror_activity_to_observe(entry: dict):
     """Mirror activity entries into observe()/feed for direct debug telemetry."""
     if not _DEBUG_FEED_MIRROR_ENABLED:
@@ -1050,8 +1075,12 @@ async def _mirror_activity_to_observe(entry: dict):
             "category": str((entry or {}).get("category") or ""),
             "source": str((entry or {}).get("source") or ""),
             "client_id": str((entry or {}).get("clientId") or ""),
+            "activity_id": str((entry or {}).get("id") or ""),
+            "hidden_from_activity": bool((entry or {}).get("hiddenFromActivity")),
             "duration_ms": int((entry or {}).get("durationMs") or 0),
             "error": (entry or {}).get("error"),
+            "args": _activity_mirror_value((entry or {}).get("args") or {}, 5000),
+            "result": _activity_mirror_value((entry or {}).get("result"), 14000),
             "args_preview": _activity_preview((entry or {}).get("args") or {}, 220),
             "result_preview": _activity_preview((entry or {}).get("result"), _DEBUG_FEED_MIRROR_MAX_CHARS),
             "timestamp_ms": int((entry or {}).get("timestamp") or int(time.time() * 1000)),
