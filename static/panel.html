@@ -2657,6 +2657,82 @@
             top: 14px;
             width: min(320px, calc(100% - 28px));
         }
+        .envops-scene-trigger-focus-proxy {
+            display: block;
+            width: 2px;
+            height: 2px;
+            opacity: 0;
+            pointer-events: none;
+        }
+        .envops-focus-anchor {
+            position: absolute;
+            width: 14px;
+            height: 14px;
+            transform: translate(-50%, -50%);
+            border: 1px solid rgba(126,255,215,0.32);
+            background: radial-gradient(circle at center, rgba(126,255,215,0.32), rgba(126,255,215,0.02));
+            box-shadow: 0 0 18px rgba(126,255,215,0.18);
+            pointer-events: none;
+        }
+        .envops-focus-matrix-card {
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding: 12px 14px 14px 14px;
+            border: 1px solid rgba(126, 255, 215, 0.16);
+            background: linear-gradient(180deg, rgba(7, 14, 20, 0.96), rgba(4, 8, 12, 0.985));
+            box-shadow: 0 18px 34px rgba(0,0,0,0.34), 0 0 16px rgba(102,184,255,0.08);
+            backdrop-filter: blur(12px);
+            overflow: hidden;
+            pointer-events: auto;
+        }
+        .envops-focus-matrix-card.fallback {
+            min-height: 160px;
+            align-items: center;
+            justify-content: center;
+        }
+        .envops-focus-matrix-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+        }
+        .envops-focus-matrix-copy {
+            min-width: 0;
+            flex: 1;
+        }
+        .envops-focus-matrix-metrics {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .envops-focus-matrix-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .envops-focus-matrix-sections {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 6px;
+        }
+        .envops-focus-matrix-body {
+            flex: 1;
+            min-height: 0;
+            overflow: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(255,255,255,0.06);
+        }
+        .envops-focus-detail-pane {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            min-height: 0;
+        }
         .envops-focus-shell {
             position: relative;
             width: 100%;
@@ -2945,6 +3021,14 @@
                 top: auto !important;
                 bottom: 14px;
                 height: auto !important;
+            }
+            .envops-focus-matrix-card {
+                left: 14px !important;
+                right: 14px;
+                width: auto !important;
+                top: auto !important;
+                bottom: 14px;
+                height: min(72vh, 540px) !important;
             }
             .envops-focus-shell {
                 min-height: 420px;

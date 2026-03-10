@@ -14911,6 +14911,23 @@
         var shell = document.getElementById('envops-habitat-shell');
         if (!shell) return null;
         var shellRect = shell.getBoundingClientRect ? shell.getBoundingClientRect() : null;
+        var mesh = key && _env3D.meshes ? _env3D.meshes[key] : null;
+        if (mesh && _env3D.camera && shellRect && typeof THREE !== 'undefined' && THREE && typeof THREE.Vector3 === 'function') {
+            try {
+                var worldPos = new THREE.Vector3();
+                mesh.getWorldPosition(worldPos);
+                var lift = Math.max(1.35, Number((mesh.userData || {}).baseScale || 1) * 1.75);
+                worldPos.y += lift;
+                var projected = worldPos.clone().project(_env3D.camera);
+                if (Number.isFinite(projected.x) && Number.isFinite(projected.y) && projected.z > -1.2 && projected.z < 1.2) {
+                    return {
+                        x: ((projected.x + 1) / 2) * shellRect.width,
+                        y: ((-projected.y + 1) / 2) * shellRect.height,
+                        mode: 'mesh'
+                    };
+                }
+            } catch (ignored) { }
+        }
         var cssLabel = key && _env3D.cssLabels ? _env3D.cssLabels[key] : null;
         var labelEl = cssLabel && cssLabel.element ? cssLabel.element : null;
         if (labelEl && shellRect) {
@@ -15749,6 +15766,71 @@
             '</div>';
     }
 
+    function _envRenderInspectorPanel() {
+        if (!_envInspectorState.active) return '';
+        var obj = _envInspectorCurrentObject();
+        if (!obj) {
+            return '<div class="envops-inspector-shell fallback"><div class="envops-focus-matrix-card fallback"><div class="envops-stage-empty">Focus target no longer exists.</div></div></div>';
+        }
+        _envInspectorState.anchor = _envInspectorAnchorForObject(obj) || _envInspectorState.anchor;
+        var view = _envCollectInspectorView(obj);
+        var activeSection = _envInspectorResolveActiveSection(view);
+        var anchor = _envInspectorState.anchor || null;
+        var viewportWidth = Number(_envScene.width || 0);
+        var viewportHeight = Number(_envScene.height || 0);
+        var safeTop = 72;
+        var safeBottom = 128;
+        var safeSide = 18;
+        var cardWidth = Math.max(308, Math.min(360, Math.floor(viewportWidth * 0.31) || 332));
+        var cardHeight = Math.max(336, Math.min(460, Math.floor(viewportHeight * 0.62) || 388));
+        var anchorX = anchor ? Math.round(anchor.x) : Math.round(cardWidth / 2) + safeSide;
+        var anchorY = anchor ? Math.round(anchor.y) : safeTop + 104;
+        anchorX = Math.max(safeSide + 16, Math.min((viewportWidth - safeSide - 16), anchorX));
+        anchorY = Math.max(safeTop + 18, Math.min((viewportHeight - safeBottom - 18), anchorY));
+        var placement = 'right';
+        if ((viewportWidth - anchorX - 26) < cardWidth && (anchorX - 26) > cardWidth) placement = 'left';
+        else if ((viewportWidth - anchorX - 26) < cardWidth && (anchorX - 26) < cardWidth) placement = 'center';
+        var left = placement === 'right'
+            ? Math.max(safeSide, Math.min((viewportWidth - cardWidth - safeSide), anchorX + 24))
+            : (placement === 'left'
+                ? Math.max(safeSide, Math.min((viewportWidth - cardWidth - safeSide), anchorX - cardWidth - 24))
+                : Math.max(safeSide, Math.min((viewportWidth - cardWidth - safeSide), Math.round(anchorX - (cardWidth / 2)))));
+        var top = placement === 'center' && anchorY < (viewportHeight * 0.42)
+            ? Math.max(safeTop, Math.min((viewportHeight - cardHeight - safeBottom), anchorY + 28))
+            : Math.max(safeTop, Math.min((viewportHeight - cardHeight - safeBottom), Math.round(anchorY - (cardHeight * 0.28))));
+        var connectorX = placement === 'right' ? left : (placement === 'left' ? (left + cardWidth) : Math.max(left + 42, Math.min((left + cardWidth - 42), anchorX)));
+        var connectorY = Math.max(top + 48, Math.min((top + cardHeight - 48), anchorY));
+        var connectorStyle = _envFocusLinkStyle(anchorX, anchorY, connectorX, connectorY);
+        var actionMarkup = (view.actions || []).join('');
+        var sectionButtons = (view.sections || []).map(function (section) {
+            return _envInspectorSectionButton(section, activeSection ? activeSection.key : '');
+        }).join('');
+        var detailBody = activeSection ? String(activeSection.bodyHtml || '') : '<div class="envops-stage-empty">No active detail.</div>';
+        return '<div class="envops-inspector-shell" style="left:0;top:0;width:100%;height:100%;">' +
+            '<div class="envops-focus-link" style="' + _esc(connectorStyle) + '"></div>' +
+            '<div class="envops-focus-anchor" style="left:' + String(anchorX) + 'px;top:' + String(anchorY) + 'px;"></div>' +
+            '<div class="envops-focus-matrix-card placement-' + _esc(placement) + '" data-env-inspector-root="1" style="left:' + String(left) + 'px;top:' + String(top) + 'px;width:' + String(cardWidth) + 'px;height:' + String(cardHeight) + 'px;">' +
+            '<div class="envops-focus-matrix-head">' +
+            '<div class="envops-focus-matrix-copy">' +
+            '<div class="envops-focus-kicker">' + _esc(String(obj.kind || 'object')) + '</div>' +
+            '<div class="envops-focus-title">' + _esc(String(view.summary.title || obj.label || obj.id || obj.kind || 'object')) + '</div>' +
+            '<div class="envops-focus-subtitle">' + _esc(String(view.summary.subtitle || (String(obj.kind || '').toUpperCase() + ' · ' + String(obj.id || '')))) + '</div>' +
+            '</div>' +
+            '<button type="button" class="btn-dim envops-inspector-close" data-env-inspector-action="close-inspector" aria-label="Close focus shell">×</button>' +
+            '</div>' +
+            (view.summary.metrics.length ? '<div class="envops-focus-matrix-metrics">' + view.summary.metrics.join('') + '</div>' : '') +
+            (actionMarkup ? '<div class="envops-focus-matrix-actions envops-inspector-actions">' + actionMarkup + '</div>' : '') +
+            '<div class="envops-focus-matrix-sections">' + sectionButtons + '</div>' +
+            '<div class="envops-focus-matrix-body">' +
+            '<div class="envops-focus-detail-kicker">Object Matrix</div>' +
+            '<div class="envops-focus-detail-title">' + _esc(String((activeSection && activeSection.title) || 'Details')) + '</div>' +
+            '<div class="envops-focus-detail-meta">' + _esc(String((activeSection && activeSection.meta) || String(obj.label || obj.kind || 'object'))) + '</div>' +
+            '<div class="envops-focus-detail-pane">' + detailBody + '</div>' +
+            '</div>' +
+            '</div>' +
+            '</div>';
+    }
+
     function _env3DLabelMarkupForObject(obj) {
         var sourceObj = obj && typeof obj === 'object' ? obj : {};
         var objectKey = _env3DObjectKey(sourceObj);
@@ -15762,6 +15844,7 @@
         var interaction = _envSceneInteractionMeta(sourceObj);
         var inspectorActive = !!_envInspectorState.active;
         var isFocused = inspectorActive && String(_envInspectorState.objectKey || '') === objectKey;
+        if (isFocused) return '<span class="envops-scene-trigger-focus-proxy" aria-hidden="true"></span>';
         var badge = interaction.has_html
             ? 'panel'
             : (interaction.primary_action ? String(interaction.primary_action).replace(/_/g, ' ') : String(sourceObj.kind || 'object'));
