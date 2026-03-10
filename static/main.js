@@ -15015,6 +15015,10 @@
         if (!obj || typeof obj !== 'object') return false;
         var actorName = String(actor || _envManualActorId() || 'assistant');
         _envSetFocus(String(obj.kind || 'workflow'), String(obj.id || ''), actorName, obj);
+        if (_env3D.inited) {
+            _envScene.cameraMode = 'focus';
+            _env3DFocusObject(String(obj.kind || 'workflow'), String(obj.id || ''));
+        }
         _envEmitBus('focus', 'Scene focus · ' + String(obj.label || obj.id || obj.kind || 'object'), actorName, {
             object_key: _envSceneObjectKey(obj),
             kind: String(obj.kind || ''),
@@ -15778,28 +15782,20 @@
         var anchor = _envInspectorState.anchor || null;
         var viewportWidth = Number(_envScene.width || 0);
         var viewportHeight = Number(_envScene.height || 0);
-        var safeTop = 72;
+        var safeTop = 64;
         var safeBottom = 128;
         var safeSide = 18;
-        var cardWidth = Math.max(308, Math.min(360, Math.floor(viewportWidth * 0.31) || 332));
-        var cardHeight = Math.max(336, Math.min(460, Math.floor(viewportHeight * 0.62) || 388));
+        var cardWidth = Math.max(360, Math.min(420, Math.floor(viewportWidth * 0.34) || 392));
+        var cardHeight = Math.max(420, Math.min((viewportHeight - safeTop - safeBottom), Math.floor(viewportHeight * 0.78) || 520));
         var anchorX = anchor ? Math.round(anchor.x) : Math.round(cardWidth / 2) + safeSide;
         var anchorY = anchor ? Math.round(anchor.y) : safeTop + 104;
         anchorX = Math.max(safeSide + 16, Math.min((viewportWidth - safeSide - 16), anchorX));
         anchorY = Math.max(safeTop + 18, Math.min((viewportHeight - safeBottom - 18), anchorY));
         var placement = 'right';
-        if ((viewportWidth - anchorX - 26) < cardWidth && (anchorX - 26) > cardWidth) placement = 'left';
-        else if ((viewportWidth - anchorX - 26) < cardWidth && (anchorX - 26) < cardWidth) placement = 'center';
-        var left = placement === 'right'
-            ? Math.max(safeSide, Math.min((viewportWidth - cardWidth - safeSide), anchorX + 24))
-            : (placement === 'left'
-                ? Math.max(safeSide, Math.min((viewportWidth - cardWidth - safeSide), anchorX - cardWidth - 24))
-                : Math.max(safeSide, Math.min((viewportWidth - cardWidth - safeSide), Math.round(anchorX - (cardWidth / 2)))));
-        var top = placement === 'center' && anchorY < (viewportHeight * 0.42)
-            ? Math.max(safeTop, Math.min((viewportHeight - cardHeight - safeBottom), anchorY + 28))
-            : Math.max(safeTop, Math.min((viewportHeight - cardHeight - safeBottom), Math.round(anchorY - (cardHeight * 0.28))));
-        var connectorX = placement === 'right' ? left : (placement === 'left' ? (left + cardWidth) : Math.max(left + 42, Math.min((left + cardWidth - 42), anchorX)));
-        var connectorY = Math.max(top + 48, Math.min((top + cardHeight - 48), anchorY));
+        var left = Math.max(safeSide, viewportWidth - cardWidth - safeSide);
+        var top = safeTop;
+        var connectorX = left;
+        var connectorY = Math.max(top + 56, Math.min((top + cardHeight - 56), anchorY));
         var connectorStyle = _envFocusLinkStyle(anchorX, anchorY, connectorX, connectorY);
         var actionMarkup = (view.actions || []).join('');
         var sectionButtons = (view.sections || []).map(function (section) {
