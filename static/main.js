@@ -149,7 +149,9 @@
     let _envSceneBootstrapState = {
         pending: false,
         requestedTs: 0,
+        snapshotRequestedTs: 0,
         hydratedTs: 0,
+        snapshotName: '',
         lastSource: '',
         error: ''
     };
@@ -5932,7 +5934,12 @@
     }
 
     function _envScenePrimarySnapshotName() {
-        return String(((_envNavigationState.pendingLoad || {}).snapshot) || _envNavigationState.currentSnapshot || '').trim();
+        return String(
+            ((_envNavigationState.pendingLoad || {}).snapshot)
+            || _envNavigationState.currentSnapshot
+            || _envSceneBootstrapState.snapshotName
+            || ''
+        ).trim();
     }
 
     function _envKnownPersistedObjectCount() {
@@ -14088,9 +14095,11 @@
         var op = String(payload.operation || '').toLowerCase();
         var opStatus = String(payload.operation_status || '').toLowerCase();
         var query = String(payload.query || '').toLowerCase();
+        var snapshotName = _envSceneSnapshotNameFromPayload(payload, null);
         if (op === 'clear' || opStatus === 'cleared') {
             changed = _envReplaceCustomSceneObjects([], source || 'env_clear') || changed;
             _envSceneBootstrapState.hydratedTs = Date.now();
+            _envSceneBootstrapState.snapshotName = '';
             return changed;
         }
         var listLike = (toolName === 'env_read' && query === 'list') || (toolName === 'env_persist' && (op === 'load' || opStatus === 'loaded'));
@@ -14109,12 +14118,19 @@
         if (payload.object && _envIsCustomSceneKind(payload.object.kind)) {
             if (_envUpsertSpawnedObject(payload.object)) changed = true;
         }
-        if (payload.snapshot && Array.isArray(payload.snapshot.objects)) {
-            changed = _envReplaceCustomSceneObjects(payload.snapshot.objects, source || 'snapshot') || changed;
-            _envSceneBootstrapState.pending = false;
-            _envSceneBootstrapState.hydratedTs = Date.now();
-            _envSceneBootstrapState.lastSource = String(source || 'snapshot');
-            _envSceneBootstrapState.error = '';
+        if (payload.snapshot) {
+            var snapshotObjects = _envSceneSnapshotObjects(payload.snapshot);
+            if (snapshotObjects.length) {
+                changed = _envReplaceCustomSceneObjects(snapshotObjects, source || 'snapshot') || changed;
+                _envSceneBootstrapState.pending = false;
+                _envSceneBootstrapState.hydratedTs = Date.now();
+                _envSceneBootstrapState.lastSource = String(source || 'snapshot');
+                _envSceneBootstrapState.error = '';
+            }
+        }
+        if (snapshotName) {
+            _envSceneBootstrapState.snapshotName = snapshotName;
+            if (!_envNavigationState.currentSnapshot) _envNavigationState.currentSnapshot = snapshotName;
         }
         return changed;
     }
@@ -14131,6 +14147,59 @@
             sceneBootstrapReason: String(reason || 'bootstrap')
         });
         return true;
+    }
+
+    function _envEnsureSceneSnapshotIdentity(reason, force) {
+        if (_envSceneBootstrapState.pending) return false;
+        if (!force && _envScenePrimarySnapshotName()) return false;
+        var now = Date.now();
+        if (!force && Number(_envSceneBootstrapState.snapshotRequestedTs || 0) && (now - Number(_envSceneBootstrapState.snapshotRequestedTs || 0)) < 15000) {
+            return false;
+        }
+        _envSceneBootstrapState.snapshotRequestedTs = now;
+        callTool('env_read', { query: 'snapshot' }, 'env_read', {
+            sceneSnapshotIdentity: true,
+            sceneSnapshotReason: String(reason || 'snapshot identity')
+        });
+        return true;
+    }
+
+    function _envClearSceneWorkflowResidue(sceneSnapshotName) {
+        var changed = false;
+        var sceneLabel = String(sceneSnapshotName || _envScenePrimarySnapshotName() || 'scene');
+        var focus = _envKernel.focus && typeof _envKernel.focus === 'object' ? _envKernel.focus : null;
+        var staleFocusKinds = {
+            workflow: 1, node: 1, execution: 1, artifact: 1, trace: 1,
+            doc: 1, district: 1, dispatch: 1, queued: 1, watch: 1, recipe: 1, profile: 1
+        };
+        var shouldPromoteSceneFocus = !!(focus
+            && String(focus.kind || '').toLowerCase() === 'scene'
+            && sceneLabel
+            && String(focus.id || '') !== sceneLabel
+            && (!String(focus.id || '').trim() || String(focus.id || '') === 'scene'));
+        if (!focus || !String(focus.id || '').trim() || staleFocusKinds[String(focus.kind || '').toLowerCase()] || shouldPromoteSceneFocus) {
+            _envKernel.focus = {
+                kind: 'scene',
+                id: sceneLabel,
+                label: sceneLabel,
+                actor: 'system',
+                payload: null
+            };
+            changed = true;
+        }
+        if (!_envInspectorState.active && !_envHtmlPanelState.active && !_envDocState.pendingRead) {
+            if (_envDocState.workflowId || _envDocState.query || _envDocState.pendingSearch || _envDocState.results.length || _envDocState.activeDocId || _envDocState.activeDocMeta || _envDocState.activeDocContent) {
+                _envDocState.workflowId = '';
+                _envDocState.query = '';
+                _envDocState.pendingSearch = '';
+                _envDocState.results = [];
+                _envDocState.activeDocId = '';
+                _envDocState.activeDocMeta = null;
+                _envDocState.activeDocContent = '';
+                changed = true;
+            }
+        }
+        return changed;
     }
 
     function _envSpawnObject(params) {
@@ -14452,9 +14521,23 @@
         return null;
     }
 
+    function _envSceneSnapshotObjects(snapshot) {
+        var snap = snapshot && typeof snapshot === 'object' ? snapshot : null;
+        if (!snap) return [];
+        if (Array.isArray(snap.objects)) return snap.objects.slice();
+        if (snap.objects && typeof snap.objects === 'object') {
+            return Object.keys(snap.objects).map(function (key) {
+                return snap.objects[key];
+            }).filter(function (item) {
+                return item && typeof item === 'object';
+            });
+        }
+        return [];
+    }
+
     function _envSceneNavigationSnapshot() {
         return {
-            current_snapshot: String(_envNavigationState.currentSnapshot || ''),
+            current_snapshot: _envScenePrimarySnapshotName(),
             history_depth: Number((_envNavigationState.history || []).length || 0),
             history: (_envNavigationState.history || []).map(function (entry) {
                 return {
@@ -14618,8 +14701,10 @@
         if (metaNav && metaNav.snapshot) return String(metaNav.snapshot || '');
         var normalized = payload && payload.normalized_args && typeof payload.normalized_args === 'object' ? payload.normalized_args : {};
         var params = normalized.params && typeof normalized.params === 'object' ? normalized.params : {};
+        var snapshotPayload = payload && payload.snapshot && typeof payload.snapshot === 'object' ? payload.snapshot : null;
         return String(
-            (payload && (payload.snapshot_name || payload.snapshot || payload.loaded_snapshot || payload.name)) ||
+            (payload && (payload.snapshot_name || payload.loaded_snapshot || payload.name || (typeof payload.snapshot === 'string' ? payload.snapshot : ''))) ||
+            (snapshotPayload && snapshotPayload.name) ||
             params.name ||
             normalized.name ||
             ''
@@ -14649,6 +14734,7 @@
             }
         }
         _envNavigationState.currentSnapshot = snapshot;
+        _envSceneBootstrapState.snapshotName = snapshot;
         _envNavigationState.pendingLoad = null;
         _envCloseHtmlPanel((navMeta && navMeta.actor) || 'assistant', 'snapshot load');
         _envScheduleLiveSync('snapshot:load', true);
@@ -16147,7 +16233,7 @@
             scene: {
                 object_count: Number(((_envScene.objects || []).length) || 0),
                 pickable_count: Number(((_envScene.pickables || []).length) || 0),
-                current_snapshot: String(_envNavigationState.currentSnapshot || ''),
+                current_snapshot: _envScenePrimarySnapshotName(),
                 bootstrap_pending: !!_envSceneBootstrapState.pending,
                 bootstrap_error: String(_envSceneBootstrapState.error || '')
             },
@@ -19018,9 +19104,11 @@
         }
 
         if (!workflow && scenePrimary) {
+            _envEnsureSceneSnapshotIdentity('scene-primary', false);
             var sections = _envArtifactSections();
             var traces = [];
             var sceneSnapshotName = _envScenePrimarySnapshotName();
+            _envClearSceneWorkflowResidue(sceneSnapshotName);
             var sceneStatus = {
                 snapshot: sceneSnapshotName,
                 object_count: Number(((_envSpawnedObjects || []).length) || 0),
@@ -19039,15 +19127,6 @@
             var sceneHabitatHtml = _envRenderSafeHtml('habitat stage', function () {
                 return _envRenderHabitat(null, null, sections, traces);
             });
-            if (!_envKernel.focus || !String((_envKernel.focus.id || ''))) {
-                _envKernel.focus = {
-                    kind: 'scene',
-                    id: sceneSnapshotName || 'scene',
-                    label: sceneSnapshotName || 'scene',
-                    actor: 'system',
-                    payload: null
-                };
-            }
             _envRunHistoryState.workflowId = '';
             _envRunHistoryState.pendingWorkflowId = '';
             _envRunHistoryState.rows = [];
@@ -24208,12 +24287,13 @@
                 inspector_active: !!_envInspectorState.active,
                 inspected_object_key: String(_envInspectorState.objectKey || ''),
                 inspected_section: String(_envInspectorState.activeSection || ''),
-                current_snapshot: String(_envNavigationState.currentSnapshot || ''),
+                current_snapshot: _envScenePrimarySnapshotName(),
                 snapshot_history_depth: Number((_envNavigationState.history || []).length || 0),
                 bootstrap: {
                     pending: !!_envSceneBootstrapState.pending,
                     hydrated_ts: Number(_envSceneBootstrapState.hydratedTs || 0),
                     requested_ts: Number(_envSceneBootstrapState.requestedTs || 0),
+                    snapshot_name: String(_envSceneBootstrapState.snapshotName || ''),
                     last_source: String(_envSceneBootstrapState.lastSource || ''),
                     error: String(_envSceneBootstrapState.error || '')
                 },
