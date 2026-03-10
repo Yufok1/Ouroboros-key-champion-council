@@ -2428,6 +2428,207 @@
             width: 100%;
             height: 100%;
         }
+        .env3d-label-shell {
+            max-width: min(320px, 42vw);
+            pointer-events: auto;
+        }
+        .envops-scene-trigger {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 128px;
+            max-width: 240px;
+            padding: 8px 10px;
+            border: 1px solid rgba(79, 255, 208, 0.28);
+            border-radius: 12px;
+            background: linear-gradient(180deg, rgba(8, 16, 26, 0.92), rgba(5, 10, 18, 0.98));
+            color: #e6f5ff;
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.34), 0 0 18px rgba(79, 255, 208, 0.12);
+            text-align: left;
+            text-transform: none;
+            letter-spacing: 0;
+        }
+        .envops-scene-trigger:hover {
+            background: linear-gradient(180deg, rgba(10, 20, 32, 0.96), rgba(6, 12, 20, 0.98));
+            color: #f6fffb;
+        }
+        .envops-scene-trigger-title {
+            font-size: 11px;
+            font-weight: 700;
+            color: #f5fbff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .envops-scene-trigger-meta {
+            font-size: 9px;
+            color: rgba(224, 242, 255, 0.72);
+            line-height: 1.35;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .envops-scene-trigger-badge {
+            margin-top: 4px;
+            font-size: 8px;
+            letter-spacing: 1.2px;
+            text-transform: uppercase;
+            color: #7effd7;
+        }
+        .envops-scene-menu {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            width: min(100%, 680px);
+        }
+        .envops-scene-menu.compact {
+            gap: 6px;
+            width: min(280px, 42vw);
+        }
+        .envops-scene-menu-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            width: 100%;
+            padding: 12px 14px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 14px;
+            background: linear-gradient(180deg, rgba(10, 18, 28, 0.96), rgba(7, 12, 20, 0.98));
+            color: #edf8ff;
+            text-align: left;
+            text-transform: none;
+            letter-spacing: 0;
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
+        }
+        .envops-scene-menu-item.compact {
+            padding: 8px 10px;
+            border-radius: 12px;
+        }
+        .envops-scene-menu-item:hover {
+            background: linear-gradient(180deg, rgba(14, 24, 36, 0.98), rgba(8, 14, 22, 0.98));
+            color: #ffffff;
+        }
+        .envops-scene-menu-main {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+            flex: 1;
+        }
+        .envops-scene-menu-copy {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 0;
+            flex: 1;
+        }
+        .envops-scene-menu-icon {
+            font-size: 18px;
+            line-height: 1;
+        }
+        .envops-scene-menu-label {
+            font-size: 12px;
+            font-weight: 700;
+            color: #f8fdff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .envops-scene-menu-note {
+            font-size: 10px;
+            color: rgba(224, 242, 255, 0.72);
+            line-height: 1.35;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .envops-scene-menu-target {
+            font-size: 8px;
+            letter-spacing: 1.2px;
+            text-transform: uppercase;
+            color: #7effd7;
+            white-space: nowrap;
+        }
+        .envops-scene-panel-shell {
+            position: absolute;
+            inset: 0;
+            z-index: 26;
+            pointer-events: none;
+        }
+        .envops-scene-panel-backdrop {
+            position: absolute;
+            inset: 0;
+            background: rgba(3, 7, 12, 0.76);
+            backdrop-filter: blur(12px);
+            pointer-events: auto;
+        }
+        .envops-scene-panel {
+            position: absolute;
+            inset: 18px;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid rgba(126, 255, 215, 0.14);
+            background: linear-gradient(180deg, rgba(8, 14, 21, 0.96), rgba(4, 8, 13, 0.98));
+            box-shadow: 0 22px 56px rgba(0, 0, 0, 0.42), 0 0 36px rgba(79, 255, 208, 0.08);
+            pointer-events: auto;
+            overflow: hidden;
+        }
+        .envops-scene-panel-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 14px 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0));
+        }
+        .envops-scene-panel-copy {
+            min-width: 0;
+        }
+        .envops-scene-panel-kicker {
+            font-size: 9px;
+            letter-spacing: 1.6px;
+            text-transform: uppercase;
+            color: rgba(126, 255, 215, 0.86);
+            margin-bottom: 6px;
+        }
+        .envops-scene-panel-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #f7fdff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .envops-scene-panel-meta {
+            font-size: 11px;
+            color: rgba(224, 242, 255, 0.72);
+            margin-top: 4px;
+        }
+        .envops-scene-panel-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .envops-scene-panel-body {
+            flex: 1;
+            min-height: 0;
+            overflow: auto;
+            padding: 16px;
+            color: var(--text);
+        }
+        .envops-scene-panel-body iframe,
+        .envops-scene-panel-body video,
+        .envops-scene-panel-body img {
+            max-width: 100%;
+        }
+        .envops-scene-panel-empty {
+            padding: 18px;
+            border: 1px dashed rgba(255,255,255,0.12);
+            color: rgba(224, 242, 255, 0.74);
+            background: rgba(255,255,255,0.02);
+        }
         .envops-habitat-canvas {
             display: block;
             width: 100%;
@@ -10321,7 +10522,7 @@
     <script src="/static/three.min.js"></script>
     <script src="/static/OrbitControls.js"></script>
     <script src="/static/CSS2DRenderer.js"></script>
-    <script src="/static/main.js?v=52"></script>
+    <script src="/static/main.js?v=53"></script>
 
     <!-- ═══════════════ DREAMER + GPU FLEET TAB JS ═══════════════ -->
     <script>
