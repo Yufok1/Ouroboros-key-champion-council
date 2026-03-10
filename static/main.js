@@ -10767,6 +10767,16 @@
         if (actor) _envSceneCommitCameraLog(actor, reason);
     }
 
+    function _envSceneAdjustOrbit(dx, dy, actor, reason) {
+        var cam = _envScene.camera || {};
+        var orbitCfg = _envSceneOrbitConfig();
+        cam.orbitX = Math.max(-orbitCfg.orbitMaxYaw, Math.min(orbitCfg.orbitMaxYaw, Number(cam.orbitX || 0) + Number(dx || 0)));
+        cam.orbitY = Math.max(-orbitCfg.orbitMaxPitch, Math.min(orbitCfg.orbitMaxPitch, Number(cam.orbitY || 0) + Number(dy || 0)));
+        _envScene.camera = cam;
+        _envScene.dirty = true;
+        if (actor) _envSceneCommitCameraLog(actor, reason);
+    }
+
     function _envSceneUsesShellNavigation() {
         return String((_envScene.renderTarget || '')).toLowerCase() !== 'web3d';
     }
@@ -12955,6 +12965,75 @@
         _envSetSamplerActive(!(_envKernel.sampler || {}).active, actor || 'system', 'manual sampler toggle', false);
     }
 
+    function _envHandleCameraControlCommand(command, actorName, reason) {
+        var cameraMode = _envSceneNormalizeCameraMode(_envScene.cameraMode || (((_envConfig || {}).scene || {}).defaultCameraMode) || 'overview');
+        var meta = {
+            action: String(command || ''),
+            reason: String(reason || command || ''),
+            camera_mode: cameraMode
+        };
+        var label = '';
+        if (command === 'camera_frame_overview') {
+            _envScene.cameraMode = 'overview';
+            _envSceneResetCamera('', 'camera frame overview');
+            _env3DResetPoseOffset();
+            if (_env3D.inited) _env3DApplyCameraRig(true);
+            meta.camera_mode = 'overview';
+            label = 'Framed habitat overview camera';
+        } else if (command === 'camera_frame_focus') {
+            _envScene.cameraMode = 'focus';
+            _envSceneResetCamera('', 'camera frame focus');
+            _env3DResetPoseOffset();
+            if (_env3D.inited) _env3DApplyCameraRig(true);
+            meta.camera_mode = 'focus';
+            label = 'Framed habitat focus camera';
+        } else if (command === 'camera_frame_replay') {
+            _envScene.cameraMode = 'replay';
+            _envSceneResetCamera('', 'camera frame replay');
+            _env3DResetPoseOffset();
+            if (_env3D.inited) _env3DApplyCameraRig(true);
+            meta.camera_mode = 'replay';
+            label = 'Framed habitat replay camera';
+        } else if (command === 'camera_orbit_left') {
+            if (_env3D.inited) _env3DAdjustPoseOffset({ azimuthDelta: -0.24 });
+            else _envSceneAdjustOrbit(-0.7, 0, '', 'camera orbit left');
+            label = 'Orbited habitat camera left';
+        } else if (command === 'camera_orbit_right') {
+            if (_env3D.inited) _env3DAdjustPoseOffset({ azimuthDelta: 0.24 });
+            else _envSceneAdjustOrbit(0.7, 0, '', 'camera orbit right');
+            label = 'Orbited habitat camera right';
+        } else if (command === 'camera_tilt_up') {
+            if (_env3D.inited) _env3DAdjustPoseOffset({ polarDelta: -0.12 });
+            else _envSceneAdjustOrbit(0, -0.45, '', 'camera tilt up');
+            label = 'Tilted habitat camera up';
+        } else if (command === 'camera_tilt_down') {
+            if (_env3D.inited) _env3DAdjustPoseOffset({ polarDelta: 0.12 });
+            else _envSceneAdjustOrbit(0, 0.45, '', 'camera tilt down');
+            label = 'Tilted habitat camera down';
+        } else if (command === 'camera_dolly_in') {
+            if (_env3D.inited) _env3DAdjustPoseOffset({ distanceScaleFactor: 0.84 });
+            else _envSceneApplyZoomFactor(1.08, '', 'camera dolly in');
+            label = 'Dollied habitat camera in';
+        } else if (command === 'camera_dolly_out') {
+            if (_env3D.inited) _env3DAdjustPoseOffset({ distanceScaleFactor: 1.18 });
+            else _envSceneApplyZoomFactor(0.93, '', 'camera dolly out');
+            label = 'Dollied habitat camera out';
+        } else if (command === 'camera_reset_pose') {
+            _envSceneResetCamera('', 'camera reset pose');
+            _env3DResetPoseOffset();
+            if (_env3D.inited) _env3DApplyCameraRig(true);
+            label = 'Reset habitat camera pose';
+        } else {
+            return false;
+        }
+        _envSetBadge('running', 'CAM');
+        _envLogAction('camera', label, actorName, meta);
+        _envEmitBus('camera', label, actorName, meta);
+        _envScene.dirty = true;
+        renderEnvironmentView();
+        return true;
+    }
+
     function _envExecuteControlCommand(action, target, actor, note) {
         var command = String(action || '').trim();
         var actorName = String(actor || 'assistant').trim() || 'assistant';
@@ -13168,6 +13247,9 @@
         }
         if (command === 'focus_workflow') {
             _envSetFocus('workflow', _wfSelectedId || targetId, actorName);
+            return;
+        }
+        if (_envHandleCameraControlCommand(command, actorName, reason)) {
             return;
         }
         if (command === 'focus_node') {
@@ -14368,7 +14450,8 @@
         animId: null,
         resizeObserver: null,
         lastObjectHash: '',
-        rigMeta: null
+        rigMeta: null,
+        poseOffset: { azimuth: 0, polar: 0, distanceScale: 1 }
     };
 
     var _env3DKindColors = {
@@ -14444,6 +14527,38 @@
         };
     }
 
+    function _env3DPoseOffsetState() {
+        if (!_env3D.poseOffset || typeof _env3D.poseOffset !== 'object') {
+            _env3D.poseOffset = { azimuth: 0, polar: 0, distanceScale: 1 };
+        }
+        return _env3D.poseOffset;
+    }
+
+    function _env3DResetPoseOffset() {
+        _env3D.poseOffset = { azimuth: 0, polar: 0, distanceScale: 1 };
+        return _env3D.poseOffset;
+    }
+
+    function _env3DAdjustPoseOffset(delta) {
+        var pose = _env3DPoseOffsetState();
+        var next = {
+            azimuth: Number(pose.azimuth || 0),
+            polar: Number(pose.polar || 0),
+            distanceScale: Number(pose.distanceScale || 1)
+        };
+        if (delta && delta.reset) {
+            next = { azimuth: 0, polar: 0, distanceScale: 1 };
+        }
+        if (delta && delta.azimuthDelta !== undefined) next.azimuth += Number(delta.azimuthDelta || 0);
+        if (delta && delta.polarDelta !== undefined) next.polar += Number(delta.polarDelta || 0);
+        if (delta && delta.distanceScaleFactor !== undefined) next.distanceScale *= Math.max(0.2, Number(delta.distanceScaleFactor || 1));
+        next.azimuth = Math.max(-Math.PI * 0.72, Math.min(Math.PI * 0.72, next.azimuth));
+        next.polar = Math.max(-0.72, Math.min(0.54, next.polar));
+        next.distanceScale = Math.max(0.48, Math.min(2.2, next.distanceScale));
+        _env3D.poseOffset = next;
+        return next;
+    }
+
     function _env3DCameraPoseSnapshot() {
         if (!_env3D.camera) return null;
         var target = _env3D.controls && _env3D.controls.target ? _env3D.controls.target.clone() : new THREE.Vector3(0, 0, 0);
@@ -14461,6 +14576,11 @@
             polar: Number(((_env3D.controls && typeof _env3D.controls.getPolarAngle === 'function')
                 ? _env3D.controls.getPolarAngle()
                 : Math.acos(Math.max(-1, Math.min(1, offset.y / Math.max(0.001, distance))))).toFixed(4)),
+            pose_offset: {
+                azimuth: Number((_env3DPoseOffsetState().azimuth || 0).toFixed(4)),
+                polar: Number((_env3DPoseOffsetState().polar || 0).toFixed(4)),
+                distanceScale: Number((_env3DPoseOffsetState().distanceScale || 1).toFixed(4))
+            },
             focus_key: String((((_env3D.rigMeta || {}).focus_key) || '')),
             focus_kind: String((((_env3D.rigMeta || {}).focus_kind) || '')),
             focus_id: String((((_env3D.rigMeta || {}).focus_id) || ''))
@@ -14506,6 +14626,8 @@
     function _env3DDesiredCameraRig() {
         if (!_env3D.camera || !_env3D.controls) return null;
         var mode = _envSceneNormalizeCameraMode(_envScene.cameraMode || (((_envConfig || {}).scene || {}).defaultCameraMode) || 'overview');
+        var nav = _env3DNavigationConfig();
+        var pose = _env3DPoseOffsetState();
         var target = new THREE.Vector3(0, 0, 0);
         var position = new THREE.Vector3(0, 35, 50);
         var meta = { mode: mode, focus_key: '', focus_kind: '', focus_id: '' };
@@ -14520,6 +14642,14 @@
             meta.focus_kind = String((((mesh || {}).userData || {}).kind) || '');
             meta.focus_id = String((((mesh || {}).userData || {}).id) || '');
         }
+        var offset = position.clone().sub(target);
+        if (offset.lengthSq() < 0.0001) offset.set(0, 24, 32);
+        var spherical = new THREE.Spherical().setFromVector3(offset);
+        spherical.theta += Number(pose.azimuth || 0);
+        spherical.phi = Math.max(0.22, Math.min(Math.PI * 0.48, spherical.phi + Number(pose.polar || 0)));
+        spherical.radius = Math.max(nav.minDistance, Math.min(nav.maxDistance, spherical.radius * Number(pose.distanceScale || 1)));
+        offset.setFromSpherical(spherical);
+        position = target.clone().add(offset);
         return {
             mode: mode,
             target: target,
@@ -15096,6 +15226,7 @@
         _env3D.controls = null;
         _env3D.container = null;
         _env3D.rigMeta = null;
+        _env3D.poseOffset = { azimuth: 0, polar: 0, distanceScale: 1 };
     }
 
     function _env3DFocusObject(kind, id) {
@@ -15344,6 +15475,16 @@
             '<option value="replay_next">replay_next</option>' +
             '<option value="set_replay_mode">set_replay_mode</option>' +
              '<option value="set_camera_mode">set_camera_mode</option>' +
+             '<option value="camera_frame_overview">camera_frame_overview</option>' +
+             '<option value="camera_frame_focus">camera_frame_focus</option>' +
+             '<option value="camera_frame_replay">camera_frame_replay</option>' +
+             '<option value="camera_orbit_left">camera_orbit_left</option>' +
+             '<option value="camera_orbit_right">camera_orbit_right</option>' +
+             '<option value="camera_tilt_up">camera_tilt_up</option>' +
+             '<option value="camera_tilt_down">camera_tilt_down</option>' +
+             '<option value="camera_dolly_in">camera_dolly_in</option>' +
+             '<option value="camera_dolly_out">camera_dolly_out</option>' +
+             '<option value="camera_reset_pose">camera_reset_pose</option>' +
              '<option value="focus_replay">focus_replay</option>' +
              '<option value="branch_snapshot">branch_snapshot</option>' +
              '<option value="focus_workflow">focus_workflow</option>' +
