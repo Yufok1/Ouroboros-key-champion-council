@@ -15679,57 +15679,110 @@
         if (!_envInspectorState.active) return '';
         var obj = _envInspectorCurrentObject();
         if (!obj) {
-            return '<div class="envops-inspector-shell fallback"><div class="envops-focus-matrix-card fallback"><div class="envops-stage-empty">Focus target no longer exists.</div></div></div>';
+            return '<div class="envops-inspector-shell fallback"><div class="envops-hud-empty">Focus target no longer exists.</div></div>';
         }
         _envInspectorState.anchor = _envInspectorAnchorForObject(obj) || _envInspectorState.anchor;
         var view = _envCollectInspectorView(obj);
         var activeSection = _envInspectorResolveActiveSection(view);
         var anchor = _envInspectorState.anchor || null;
-        var viewportWidth = Number(_envScene.width || 0);
-        var viewportHeight = Number(_envScene.height || 0);
-        var safeTop = 64;
-        var safeBottom = 128;
-        var safeSide = 18;
-        var cardWidth = Math.max(360, Math.min(420, Math.floor(viewportWidth * 0.34) || 392));
-        var cardHeight = Math.max(420, Math.min((viewportHeight - safeTop - safeBottom), Math.floor(viewportHeight * 0.78) || 520));
-        var anchorX = anchor ? Math.round(anchor.x) : Math.round(cardWidth / 2) + safeSide;
-        var anchorY = anchor ? Math.round(anchor.y) : safeTop + 104;
-        anchorX = Math.max(safeSide + 16, Math.min((viewportWidth - safeSide - 16), anchorX));
-        anchorY = Math.max(safeTop + 18, Math.min((viewportHeight - safeBottom - 18), anchorY));
-        var placement = 'right';
-        var left = Math.max(safeSide, viewportWidth - cardWidth - safeSide);
-        var top = safeTop;
-        var connectorX = left;
-        var connectorY = Math.max(top + 56, Math.min((top + cardHeight - 56), anchorY));
-        var connectorStyle = _envFocusLinkStyle(anchorX, anchorY, connectorX, connectorY);
-        var actionMarkup = (view.actions || []).join('');
-        var sectionButtons = (view.sections || []).map(function (section) {
+        var vw = Number(_envScene.width || 0);
+        var vh = Number(_envScene.height || 0);
+
+        // --- Anchor position (clamped) ---
+        var ax = anchor ? Math.round(anchor.x) : Math.round(vw * 0.4);
+        var ay = anchor ? Math.round(anchor.y) : Math.round(vh * 0.4);
+        ax = Math.max(80, Math.min(vw - 80, ax));
+        ay = Math.max(60, Math.min(vh - 80, ay));
+
+        // --- Core chip: centered on anchor ---
+        var chipW = Math.min(200, Math.max(140, Math.floor(vw * 0.16)));
+        var chipLeft = Math.round(ax - chipW / 2);
+        var chipTop = Math.round(ay - 28);
+
+        // --- Action ring: pills around core chip ---
+        var actionSlots = (view.actions || []).slice(0, 4);
+        var actionPositions = [
+            { x: ax, y: chipTop - 36 },
+            { x: ax + chipW / 2 + 14, y: ay },
+            { x: ax, y: ay + 36 },
+            { x: ax - chipW / 2 - 14, y: ay }
+        ];
+
+        // --- Detail panel: right rail ---
+        var panelW = Math.max(340, Math.min(400, Math.floor(vw * 0.32)));
+        var panelTop = 48;
+        var panelBottom = 18;
+        var panelLeft = Math.max(14, vw - panelW - 14);
+        var panelH = vh - panelTop - panelBottom;
+
+        // --- Connector line: anchor to panel left edge ---
+        var connY = Math.max(panelTop + 40, Math.min(panelTop + panelH - 40, ay));
+        var connectorStyle = _envFocusLinkStyle(ax, ay, panelLeft, connY);
+
+        // --- Build action ring HTML ---
+        var actionRingHtml = actionSlots.map(function(actionHtml, idx) {
+            var pos = actionPositions[idx] || actionPositions[0];
+            return '<div class="envops-hud-action" style="left:' + Math.round(pos.x) + 'px;top:' + Math.round(pos.y) + 'px;">' + actionHtml + '</div>';
+        }).join('');
+
+        // --- Build section strip (horizontal) ---
+        var sectionStripHtml = (view.sections || []).map(function(section) {
             return _envInspectorSectionButton(section, activeSection ? activeSection.key : '');
         }).join('');
-        var detailBody = activeSection ? String(activeSection.bodyHtml || '') : '<div class="envops-stage-empty">No active detail.</div>';
+
+        // --- Build detail body ---
+        var detailBody = activeSection ? String(activeSection.bodyHtml || '') : '<div class="envops-stage-empty">Select a section.</div>';
+
+        // --- Summary metrics (compact) ---
+        var metricsHtml = view.summary.metrics.length
+            ? '<div class="envops-hud-metrics">' + view.summary.metrics.join('') + '</div>'
+            : '';
+
+        // --- Assemble ---
         return '<div class="envops-inspector-shell" style="left:0;top:0;width:100%;height:100%;">' +
-            '<div class="envops-focus-link" style="' + _esc(connectorStyle) + '"></div>' +
-            '<div class="envops-focus-anchor" style="left:' + String(anchorX) + 'px;top:' + String(anchorY) + 'px;"></div>' +
-            '<div class="envops-focus-matrix-card placement-' + _esc(placement) + '" data-env-inspector-root="1" style="left:' + String(left) + 'px;top:' + String(top) + 'px;width:' + String(cardWidth) + 'px;height:' + String(cardHeight) + 'px;">' +
-            '<div class="envops-focus-matrix-head">' +
-            '<div class="envops-focus-matrix-copy">' +
-            '<div class="envops-focus-kicker">' + _esc(String(obj.kind || 'object')) + '</div>' +
-            '<div class="envops-focus-title">' + _esc(String(view.summary.title || obj.label || obj.id || obj.kind || 'object')) + '</div>' +
-            '<div class="envops-focus-subtitle">' + _esc(String(view.summary.subtitle || (String(obj.kind || '').toUpperCase() + ' · ' + String(obj.id || '')))) + '</div>' +
+
+            // Connector line
+            '<div class="envops-hud-connector" style="' + _esc(connectorStyle) + '"></div>' +
+
+            // Core chip (on the object)
+            '<div class="envops-hud-chip" style="left:' + chipLeft + 'px;top:' + chipTop + 'px;width:' + chipW + 'px;">' +
+                '<div class="envops-hud-chip-kicker">' + _esc(String(obj.kind || 'object')) + '</div>' +
+                '<div class="envops-hud-chip-title">' + _esc(String(view.summary.title || obj.label || obj.id || 'object')) + '</div>' +
             '</div>' +
-            '<button type="button" class="btn-dim envops-inspector-close" data-env-inspector-action="close-inspector" aria-label="Close focus shell">×</button>' +
+
+            // Action ring
+            actionRingHtml +
+
+            // Detail panel (right rail)
+            '<div class="envops-hud-panel" data-env-inspector-root="1" style="left:' + panelLeft + 'px;top:' + panelTop + 'px;width:' + panelW + 'px;height:' + panelH + 'px;">' +
+
+                // Panel header
+                '<div class="envops-hud-panel-head">' +
+                    '<div class="envops-hud-panel-copy">' +
+                        '<div class="envops-hud-panel-kicker">' + _esc(String(obj.kind || 'object').toUpperCase()) + ' MATRIX</div>' +
+                        '<div class="envops-hud-panel-title">' + _esc(String(view.summary.title || obj.label || obj.id || 'object')) + '</div>' +
+                        '<div class="envops-hud-panel-subtitle">' + _esc(String(view.summary.subtitle || '')) + '</div>' +
+                    '</div>' +
+                    '<button type="button" class="envops-hud-close" data-env-inspector-action="close-inspector" aria-label="Close">x</button>' +
+                '</div>' +
+
+                // Metrics row
+                metricsHtml +
+
+                // Section strip (horizontal scroll)
+                '<div class="envops-hud-sections">' + sectionStripHtml + '</div>' +
+
+                // Detail body (scrollable, takes remaining height)
+                '<div class="envops-hud-body">' +
+                    '<div class="envops-hud-body-head">' +
+                        '<div class="envops-hud-body-title">' + _esc(String((activeSection && activeSection.title) || 'Details')) + '</div>' +
+                        '<div class="envops-hud-body-meta">' + _esc(String((activeSection && activeSection.meta) || '')) + '</div>' +
+                    '</div>' +
+                    '<div class="envops-hud-body-content">' + detailBody + '</div>' +
+                '</div>' +
+
             '</div>' +
-            (view.summary.metrics.length ? '<div class="envops-focus-matrix-metrics">' + view.summary.metrics.join('') + '</div>' : '') +
-            (actionMarkup ? '<div class="envops-focus-matrix-actions envops-inspector-actions">' + actionMarkup + '</div>' : '') +
-            '<div class="envops-focus-matrix-sections">' + sectionButtons + '</div>' +
-            '<div class="envops-focus-matrix-body">' +
-            '<div class="envops-focus-detail-kicker">Object Matrix</div>' +
-            '<div class="envops-focus-detail-title">' + _esc(String((activeSection && activeSection.title) || 'Details')) + '</div>' +
-            '<div class="envops-focus-detail-meta">' + _esc(String((activeSection && activeSection.meta) || String(obj.label || obj.kind || 'object'))) + '</div>' +
-            '<div class="envops-focus-detail-pane">' + detailBody + '</div>' +
-            '</div>' +
-            '</div>' +
-            '</div>';
+        '</div>';
     }
 
     function _env3DLabelMarkupForObject(obj) {
