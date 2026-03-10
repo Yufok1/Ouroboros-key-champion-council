@@ -8313,7 +8313,7 @@
         var layout = layoutSnapshot && typeof layoutSnapshot === 'object' ? layoutSnapshot : _envBuildLayoutSnapshot();
         var focus = _envCorroborationFocusSummary();
         var scene = _envScene || {};
-        var camera3d = _env3DCameraPoseSnapshot();
+        var camera3d = _env3DCameraPoseSnapshot() || {};
         var snapshotName = _envScenePrimarySnapshotName();
         var lastAction = _envCorroborationLastAction();
         var clipped = Array.isArray(layout.clipped) ? layout.clipped.slice(0, 4) : [];
