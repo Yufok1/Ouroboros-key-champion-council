@@ -2971,6 +2971,13 @@
                 width: auto !important;
                 height: min(76vh, 600px) !important;
             }
+            .envops-habitat-ops-rail {
+                left: 8px;
+                right: 8px;
+                top: 118px;
+                width: auto;
+                max-height: min(30vh, 260px);
+            }
         }
         .envops-habitat-canvas {
             display: block;
@@ -3079,6 +3086,96 @@
             color: var(--text-dim);
             font-size: 8px;
             line-height: 1.4;
+        }
+
+        .envops-habitat-ops-rail {
+            position: absolute;
+            top: 108px;
+            right: 12px;
+            width: min(360px, 34vw);
+            max-height: min(44vh, 340px);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding: 10px 12px;
+            border: 1px solid rgba(102,184,255,0.22);
+            background: linear-gradient(180deg, rgba(6, 12, 18, 0.78), rgba(4, 10, 16, 0.9));
+            backdrop-filter: blur(10px);
+            box-shadow: 0 12px 24px rgba(0,0,0,0.28), inset 0 0 0 1px rgba(102,184,255,0.06);
+            z-index: 27;
+            pointer-events: auto;
+            overflow: auto;
+        }
+
+        .envops-habitat-ops-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 10px;
+        }
+
+        .envops-habitat-ops-head .k {
+            color: var(--accent);
+            font-size: 8px;
+            font-family: var(--mono);
+            letter-spacing: 0.9px;
+            text-transform: uppercase;
+        }
+
+        .envops-habitat-ops-head .v {
+            color: var(--text);
+            font-size: 10px;
+            font-weight: 700;
+        }
+
+        .envops-habitat-ops-rail .envops-habitat-event-route {
+            grid-template-columns: 1fr;
+            gap: 6px;
+            margin-top: 0;
+        }
+
+        .envops-habitat-ops-rail .envops-habitat-event-pill {
+            min-height: 0;
+            border-color: rgba(255,255,255,0.1);
+            text-align: left;
+        }
+
+        .envops-habitat-op-history {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .envops-habitat-op-history-item {
+            width: 100%;
+            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(255,255,255,0.03);
+            color: var(--text);
+            padding: 7px 9px;
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            gap: 8px;
+            align-items: center;
+            text-align: left;
+            font-family: var(--mono);
+            font-size: 9px;
+        }
+
+        .envops-habitat-op-history-item .tool {
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+        }
+
+        .envops-habitat-op-history-item .target {
+            color: var(--text);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .envops-habitat-op-history-item .when {
+            color: var(--text-dim);
         }
 
         .envops-habitat-dominance {
@@ -10933,7 +11030,7 @@
     <script src="/static/three.min.js"></script>
     <script src="/static/OrbitControls.js"></script>
     <script src="/static/CSS2DRenderer.js"></script>
-    <script src="/static/main.js?v=59"></script>
+    <script src="/static/main.js?v=60"></script>
 
     <!-- ═══════════════ DREAMER + GPU FLEET TAB JS ═══════════════ -->
     <script>

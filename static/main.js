@@ -8386,6 +8386,152 @@
         '</div>';
     }
 
+    function _envActivityPreviewText(value, limit) {
+        if (value === undefined || value === null) return '';
+        var maxLen = Math.max(24, Number(limit || 140));
+        var text = '';
+        if (typeof value === 'string') text = value;
+        else text = _envSafeJsonText(value, maxLen);
+        text = String(text || '').replace(/\s+/g, ' ').trim();
+        return _envProductCollapseText(text, maxLen);
+    }
+
+    function _envIsOperationalActivityEvent(event) {
+        if (!event || !event.tool) return false;
+        if (event.hidden_from_activity || String(event.source || '') === 'hydration') return false;
+        var tool = String(event.tool || '').trim().toLowerCase();
+        if (!tool) return false;
+        if (tool === 'get_cached' || tool === 'env_read' || tool === 'workflow_history' || tool === 'heartbeat') return false;
+        return true;
+    }
+
+    function _envActivityTargetKey(event) {
+        var args = event && event.args && typeof event.args === 'object' ? event.args : {};
+        var result = event && event.result && typeof event.result === 'object' ? event.result : {};
+        if (args.slot !== undefined && args.slot !== null && String(args.slot).trim()) return 'slot::' + String(args.slot).trim();
+        if (args.kind && args.id) return String(args.kind || '') + '::' + String(args.id || '');
+        if (result.kind && result.id) return String(result.kind || '') + '::' + String(result.id || '');
+        if (args.workflow_id) return 'workflow::' + String(args.workflow_id || '');
+        if (args._workflow_node_id) return 'node::' + String(args._workflow_node_id || '');
+        if (args._workflow_target_id && String(args._workflow_target_id || '').indexOf('::') >= 0) return String(args._workflow_target_id || '');
+        return '';
+    }
+
+    function _envActivityInputPreview(event) {
+        var args = event && event.args && typeof event.args === 'object' ? event.args : {};
+        if (args.message) return _envActivityPreviewText(args.message, 180);
+        if (args.text) return _envActivityPreviewText(args.text, 180);
+        if (args.query) return _envActivityPreviewText(args.query, 180);
+        if (args.input_text) return _envActivityPreviewText(args.input_text, 180);
+        if (args.input_data) return _envActivityPreviewText(args.input_data, 180);
+        if (args.reason) return _envActivityPreviewText(args.reason, 180);
+        if (args.command) return _envActivityPreviewText(args.command, 140);
+        if (args.definition) return _envActivityPreviewText(args.definition, 180);
+        return '';
+    }
+
+    function _envActivityResultPreview(event) {
+        var result = event && event.result && typeof event.result === 'object' ? event.result : {};
+        if (event && event.error) return _envActivityPreviewText(event.error, 180);
+        if (event && event.result_preview) return _envActivityPreviewText(event.result_preview, 180);
+        if (result.summary) return _envActivityPreviewText(result.summary, 180);
+        if (result.message) return _envActivityPreviewText(result.message, 180);
+        if (result.preview) return _envActivityPreviewText(result.preview, 180);
+        if (result.output) return _envActivityPreviewText(result.output, 180);
+        if (result.result) return _envActivityPreviewText(result.result, 180);
+        if (result.status) return _envActivityPreviewText('status: ' + String(result.status || ''), 180);
+        return '';
+    }
+
+    function _envBuildOperationSnapshot(limit) {
+        var take = Math.max(1, Math.min(8, Number(limit || 4)));
+        var entries = [];
+        for (var i = _activityLog.length - 1; i >= 0 && entries.length < take; i--) {
+            var event = _activityLog[i] || null;
+            if (!_envIsOperationalActivityEvent(event)) continue;
+            var objectKey = _envActivityTargetKey(event);
+            var targetObj = objectKey ? _envSceneObjectByKey(objectKey) : null;
+            var targetKind = objectKey ? _envSceneKeyKind(objectKey) : '';
+            var targetId = objectKey && objectKey.indexOf('::') >= 0 ? objectKey.split('::').slice(1).join('::') : '';
+            var targetLabel = targetObj
+                ? String(targetObj.label || targetObj.id || objectKey)
+                : (objectKey ? _envSceneKeyLabel(objectKey) : '');
+            var actorLabel = String(event.actor || event.client_id || event.source || 'system');
+            var inputPreview = _envActivityInputPreview(event);
+            var resultPreview = _envActivityResultPreview(event);
+            entries.push({
+                id: String(event.activity_id || event.id || event.timestamp_ms || entries.length),
+                tool: String(event.tool || ''),
+                actor: actorLabel,
+                source: String(event.source || ''),
+                object_key: objectKey,
+                target_kind: targetKind,
+                target_id: targetId,
+                target_label: targetLabel,
+                input_preview: inputPreview,
+                result_preview: resultPreview,
+                when: _fmtTimeAgo(Number(event.ts || event.timestamp_ms || Date.now())),
+                error: String(event.error || '')
+            });
+        }
+        return {
+            active: entries.length > 0,
+            count: entries.length,
+            primary: entries[0] || null,
+            recent: entries
+        };
+    }
+
+    function _envRenderOperationsRail(snapshot) {
+        var view = snapshot && typeof snapshot === 'object' ? snapshot : _envBuildOperationSnapshot(4);
+        if (!view.active || !view.primary) return '';
+        var primary = view.primary;
+        var sourceFocusKind = String(primary.source || '').toLowerCase() === 'external' ? 'actor' : '';
+        var sourceFocusId = sourceFocusKind ? 'assistant' : '';
+        var targetAttrs = primary.object_key
+            ? (' data-env-focus-kind="' + _esc(primary.target_kind || _envSceneKeyKind(primary.object_key)) + '" data-env-focus-id="' + _esc(primary.target_id || '') + '"')
+            : '';
+        var sourceAttrs = sourceFocusKind
+            ? (' data-env-focus-kind="' + _esc(sourceFocusKind) + '" data-env-focus-id="' + _esc(sourceFocusId) + '"')
+            : '';
+        var historyHtml = (view.recent || []).slice(1, 4).map(function (entry) {
+            var attrs = entry.object_key
+                ? (' data-env-focus-kind="' + _esc(entry.target_kind || _envSceneKeyKind(entry.object_key)) + '" data-env-focus-id="' + _esc(entry.target_id || '') + '"')
+                : '';
+            return '<button type="button" class="envops-habitat-op-history-item"' + attrs + '>' +
+                '<span class="tool">' + _esc(String(entry.tool || 'tool')) + '</span>' +
+                '<span class="target">' + _esc(String(entry.target_label || entry.actor || 'target')) + '</span>' +
+                '<span class="when">' + _esc(String(entry.when || 'now')) + '</span>' +
+            '</button>';
+        }).join('');
+        return '<div class="envops-habitat-ops-rail" id="envops-habitat-ops-rail">' +
+            '<div class="envops-habitat-ops-head">' +
+                '<span class="k">LIVE OPS</span>' +
+                '<span class="v">' + _esc(String(primary.tool || 'tool')) + '</span>' +
+            '</div>' +
+            '<div class="envops-habitat-event-route">' +
+                '<button type="button" class="envops-habitat-event-pill source"' + sourceAttrs + '>' +
+                    '<span class="h">source</span>' +
+                    '<span class="v">' + _esc(String(primary.actor || primary.source || 'system')) + '</span>' +
+                    '<span class="m">' + _esc(String(primary.when || 'now')) + '</span>' +
+                '</button>' +
+                '<div class="envops-habitat-event-pill relay">' +
+                    '<span class="h">operation</span>' +
+                    '<span class="v">' + _esc(String(primary.tool || 'tool')) + '</span>' +
+                    '<span class="m">' + _esc(String(primary.input_preview || 'No input preview')) + '</span>' +
+                '</div>' +
+                '<button type="button" class="envops-habitat-event-pill target"' + targetAttrs + '>' +
+                    '<span class="h">target</span>' +
+                    '<span class="v">' + _esc(String(primary.target_label || 'scene')) + '</span>' +
+                    '<span class="m">' + _esc(String(primary.result_preview || primary.error || 'Awaiting richer result')) + '</span>' +
+                '</button>' +
+            '</div>' +
+            (historyHtml
+                ? '<div class="envops-habitat-op-history">' + historyHtml + '</div>'
+                : '') +
+        '</div>';
+    }
+
     function _envSceneFocusKey(focus) {
         if (!focus || !focus.kind) return '';
         return String(focus.kind || '') + '::' + String(focus.id || '');
@@ -16231,6 +16377,7 @@
         add('hud_primary', '#envops-habitat-hud-primary');
         add('hud_secondary', '#envops-habitat-hud-secondary');
         add('hud_corroboration', '#envops-habitat-corroboration');
+        add('hud_operations', '#envops-habitat-ops-rail');
         add('focus_card', '.envops-focus-card');
         return layers;
     }
@@ -16251,6 +16398,7 @@
             hud_primary: document.getElementById('envops-habitat-hud-primary'),
             hud_secondary: document.getElementById('envops-habitat-hud-secondary'),
             hud_corroboration: document.getElementById('envops-habitat-corroboration'),
+            hud_operations: document.getElementById('envops-habitat-ops-rail'),
             focus_card: document.querySelector('.envops-focus-card')
         };
         var rects = {};
@@ -16609,10 +16757,13 @@
             : (shared.layout && typeof shared.layout === 'object' ? shared.layout : {});
         var inspectorRect = (((layout.rects || {}).inspector) || {});
         var scenePanelRect = (((layout.rects || {}).scene_panel) || {});
+        var operationsRect = (((layout.rects || {}).hud_operations) || {});
         var camera = scene.camera && typeof scene.camera === 'object' ? scene.camera : {};
         var camera3d = scene.camera3d && typeof scene.camera3d === 'object' ? scene.camera3d : {};
         var workflow = payload.selected_workflow && typeof payload.selected_workflow === 'object' ? payload.selected_workflow : {};
         var exec = payload.current_execution && typeof payload.current_execution === 'object' ? payload.current_execution : {};
+        var operations = shared.operations && typeof shared.operations === 'object' ? shared.operations : {};
+        var primaryOp = operations.primary && typeof operations.primary === 'object' ? operations.primary : {};
         return [
             String(workflow.id || ''),
             String(exec.execution_id || ''),
@@ -16653,6 +16804,8 @@
             String(inspector.kind || ''),
             String((((corroboration.subject || {}).key) || '')),
             String((((corroboration.last_action || {}).body) || '')),
+            String(primaryOp.tool || ''),
+            String(primaryOp.object_key || ''),
             String(render.stage_mode || ''),
             String(render.blank_reason || ''),
             String(render.renderer_active || ''),
@@ -16664,6 +16817,8 @@
             Number(inspectorRect.height || 0).toFixed(0),
             Number(scenePanelRect.width || 0).toFixed(0),
             Number(scenePanelRect.height || 0).toFixed(0),
+            Number(operationsRect.width || 0).toFixed(0),
+            Number(operationsRect.height || 0).toFixed(0),
             String((Array.isArray(payload.habitat_objects) ? payload.habitat_objects.length : 0)),
             String(bus.seq || 0)
         ].join('|');
@@ -17747,6 +17902,7 @@
     function _envRenderHabitat(workflow, exec, sections, traces) {
         var hudCopy = _envHabitatHudCopy(workflow);
         var corroboration = _envBuildCorroborationState();
+        var operations = _envBuildOperationSnapshot(4);
         var replay = _envKernel.replay || {};
         var dominance = (_envScene && _envScene.dominance) || _envSceneDominanceContext();
         var failure = _envLatestFailureSurface(workflow, exec, traces);
@@ -17783,6 +17939,7 @@
             '</div>' +
             scenePanelHtml +
             inspectorHtml +
+            _envRenderOperationsRail(operations) +
             '<div class="envops-habitat-hud">' +
             '<div class="envops-habitat-hud-primary" id="envops-habitat-hud-primary">' + _esc(hudCopy.primary) + '</div>' +
             '<div class="envops-habitat-hud-secondary" id="envops-habitat-hud-secondary">' + _esc(hudCopy.secondary) + '</div>' +
@@ -19288,10 +19445,6 @@
                 '</div>' +
                 '<div class="envops-stage-shell">' +
                 sceneHabitatHtml +
-                '<div class="envops-focus-card">' +
-                '<div class="envops-panel-head" style="margin:-10px -12px 0 -12px;border-bottom:1px solid rgba(255,255,255,0.08);background:transparent;"><span>SCENE STATE</span><span>' + _esc(sceneSnapshotName || 'scene') + '</span></div>' +
-                _wfJsonBlock('Scene Payload', sceneStatus) +
-                '</div>' +
                 '</div>';
             try {
                 _envSyncHabitatScene(null, null, sections, traces, renderTarget);
@@ -24465,6 +24618,7 @@
                 count: Number(_envRecipeCatalog().length || 0),
                 ids: _envRecipeCatalog().map(function (recipe) { return String(recipe.id || ''); })
             },
+            operations: _envBuildOperationSnapshot(4),
             render: renderTruth,
             layout: layoutSnapshot,
             corroboration: corroborationState,
