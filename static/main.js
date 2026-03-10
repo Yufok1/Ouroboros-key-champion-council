@@ -10733,6 +10733,7 @@
             offset_y: Number(cam.offsetY || 0),
             zoom_scale: Number(cam.zoomScale || 1)
         });
+        _envScheduleLiveSync('camera:' + String(reason || 'adjust'), true);
     }
 
     function _envSceneCancelZoomLog() {
@@ -13030,6 +13031,7 @@
         _envLogAction('camera', label, actorName, meta);
         _envEmitBus('camera', label, actorName, meta);
         _envScene.dirty = true;
+        _envScheduleLiveSync('camera:' + String(command || 'control'), true);
         renderEnvironmentView();
         return true;
     }
@@ -13861,6 +13863,7 @@
         _envSpawnedObjects.push(obj);
         _envEmitBus('spawn', 'Spawned ' + kind + ' object: ' + obj.label, 'system', { kind: kind, id: id });
         _envLogAction('spawn', 'Spawned scene object: ' + obj.label, 'assistant', { kind: kind, id: id, x: obj.x, y: obj.y });
+        _envScheduleLiveSync('spawn:local', true);
         // Trigger scene refresh
         if (_env3D.inited) _envSyncHabitatScene();
         else renderEnvironmentView();
@@ -13891,6 +13894,7 @@
         if (p.data !== undefined) target.data = p.data;
         if (p.html !== undefined) target.html = p.html;
         _envEmitBus('spawn', 'Mutated object: ' + target.label, 'system', { kind: target.kind, id: target.id });
+        _envScheduleLiveSync('mutate:local', true);
         if (_env3D.inited) _envSyncHabitatScene();
         else renderEnvironmentView();
         return target;
@@ -13908,6 +13912,7 @@
         if (removed) {
             _envEmitBus('spawn', 'Removed object: ' + kind + '::' + id, 'system', { kind: kind, id: id });
             _envLogAction('spawn', 'Removed scene object: ' + kind + '::' + id, 'assistant', { kind: kind, id: id });
+            _envScheduleLiveSync('remove:local', true);
             // Clean up three.js mesh if present
             var meshKey = String(kind) + '::' + String(id);
             if (_env3D.meshes[meshKey]) {
@@ -14300,6 +14305,17 @@
         ].join('|');
     }
 
+    function _envLiveSyncDelayMs(reason, force) {
+        if (force) return 0;
+        var text = String(reason || '').toLowerCase();
+        if (!text) return 240;
+        if (text.indexOf('camera') >= 0 || text.indexOf('manual') >= 0) return 120;
+        if (text.indexOf('spawn') >= 0 || text.indexOf('mutate') >= 0 || text.indexOf('remove') >= 0) return 140;
+        if (text.indexOf('focus') >= 0 || text.indexOf('control') >= 0 || text.indexOf('activity') >= 0) return 160;
+        if (text.indexOf('render') >= 0) return 320;
+        return 220;
+    }
+
     function _envFlushLiveSync() {
         if (_envLiveSyncState.timer) {
             clearTimeout(_envLiveSyncState.timer);
@@ -14395,7 +14411,7 @@
         if (_envLiveSyncState.timer) clearTimeout(_envLiveSyncState.timer);
         _envLiveSyncState.timer = setTimeout(function () {
             _envFlushLiveSync();
-        }, force ? 0 : 800);
+        }, _envLiveSyncDelayMs(reason, force));
         _envRefreshLiveMirrorSurface();
         return true;
     }
@@ -14451,7 +14467,10 @@
         resizeObserver: null,
         lastObjectHash: '',
         rigMeta: null,
-        poseOffset: { azimuth: 0, polar: 0, distanceScale: 1 }
+        poseOffset: { azimuth: 0, polar: 0, distanceScale: 1, targetX: 0, targetY: 0, targetZ: 0 },
+        manualControlActive: false,
+        manualCommitTimer: 0,
+        lastManualReason: ''
     };
 
     var _env3DKindColors = {
@@ -14529,13 +14548,13 @@
 
     function _env3DPoseOffsetState() {
         if (!_env3D.poseOffset || typeof _env3D.poseOffset !== 'object') {
-            _env3D.poseOffset = { azimuth: 0, polar: 0, distanceScale: 1 };
+            _env3D.poseOffset = { azimuth: 0, polar: 0, distanceScale: 1, targetX: 0, targetY: 0, targetZ: 0 };
         }
         return _env3D.poseOffset;
     }
 
     function _env3DResetPoseOffset() {
-        _env3D.poseOffset = { azimuth: 0, polar: 0, distanceScale: 1 };
+        _env3D.poseOffset = { azimuth: 0, polar: 0, distanceScale: 1, targetX: 0, targetY: 0, targetZ: 0 };
         return _env3D.poseOffset;
     }
 
@@ -14544,17 +14563,26 @@
         var next = {
             azimuth: Number(pose.azimuth || 0),
             polar: Number(pose.polar || 0),
-            distanceScale: Number(pose.distanceScale || 1)
+            distanceScale: Number(pose.distanceScale || 1),
+            targetX: Number(pose.targetX || 0),
+            targetY: Number(pose.targetY || 0),
+            targetZ: Number(pose.targetZ || 0)
         };
         if (delta && delta.reset) {
-            next = { azimuth: 0, polar: 0, distanceScale: 1 };
+            next = { azimuth: 0, polar: 0, distanceScale: 1, targetX: 0, targetY: 0, targetZ: 0 };
         }
         if (delta && delta.azimuthDelta !== undefined) next.azimuth += Number(delta.azimuthDelta || 0);
         if (delta && delta.polarDelta !== undefined) next.polar += Number(delta.polarDelta || 0);
         if (delta && delta.distanceScaleFactor !== undefined) next.distanceScale *= Math.max(0.2, Number(delta.distanceScaleFactor || 1));
+        if (delta && delta.targetX !== undefined) next.targetX = Number(delta.targetX || 0);
+        if (delta && delta.targetY !== undefined) next.targetY = Number(delta.targetY || 0);
+        if (delta && delta.targetZ !== undefined) next.targetZ = Number(delta.targetZ || 0);
         next.azimuth = Math.max(-Math.PI * 0.72, Math.min(Math.PI * 0.72, next.azimuth));
         next.polar = Math.max(-0.72, Math.min(0.54, next.polar));
         next.distanceScale = Math.max(0.48, Math.min(2.2, next.distanceScale));
+        next.targetX = Math.max(-80, Math.min(80, next.targetX));
+        next.targetY = Math.max(-40, Math.min(40, next.targetY));
+        next.targetZ = Math.max(-80, Math.min(80, next.targetZ));
         _env3D.poseOffset = next;
         return next;
     }
@@ -14579,7 +14607,10 @@
             pose_offset: {
                 azimuth: Number((_env3DPoseOffsetState().azimuth || 0).toFixed(4)),
                 polar: Number((_env3DPoseOffsetState().polar || 0).toFixed(4)),
-                distanceScale: Number((_env3DPoseOffsetState().distanceScale || 1).toFixed(4))
+                distanceScale: Number((_env3DPoseOffsetState().distanceScale || 1).toFixed(4)),
+                targetX: Number((_env3DPoseOffsetState().targetX || 0).toFixed(3)),
+                targetY: Number((_env3DPoseOffsetState().targetY || 0).toFixed(3)),
+                targetZ: Number((_env3DPoseOffsetState().targetZ || 0).toFixed(3))
             },
             focus_key: String((((_env3D.rigMeta || {}).focus_key) || '')),
             focus_kind: String((((_env3D.rigMeta || {}).focus_kind) || '')),
@@ -14623,11 +14654,9 @@
         return offset;
     }
 
-    function _env3DDesiredCameraRig() {
+    function _env3DBaseCameraRig() {
         if (!_env3D.camera || !_env3D.controls) return null;
         var mode = _envSceneNormalizeCameraMode(_envScene.cameraMode || (((_envConfig || {}).scene || {}).defaultCameraMode) || 'overview');
-        var nav = _env3DNavigationConfig();
-        var pose = _env3DPoseOffsetState();
         var target = new THREE.Vector3(0, 0, 0);
         var position = new THREE.Vector3(0, 35, 50);
         var meta = { mode: mode, focus_key: '', focus_kind: '', focus_id: '' };
@@ -14642,20 +14671,114 @@
             meta.focus_kind = String((((mesh || {}).userData || {}).kind) || '');
             meta.focus_id = String((((mesh || {}).userData || {}).id) || '');
         }
-        var offset = position.clone().sub(target);
-        if (offset.lengthSq() < 0.0001) offset.set(0, 24, 32);
-        var spherical = new THREE.Spherical().setFromVector3(offset);
-        spherical.theta += Number(pose.azimuth || 0);
-        spherical.phi = Math.max(0.22, Math.min(Math.PI * 0.48, spherical.phi + Number(pose.polar || 0)));
-        spherical.radius = Math.max(nav.minDistance, Math.min(nav.maxDistance, spherical.radius * Number(pose.distanceScale || 1)));
-        offset.setFromSpherical(spherical);
-        position = target.clone().add(offset);
         return {
             mode: mode,
             target: target,
             position: position,
             meta: meta
         };
+    }
+
+    function _env3DDesiredCameraRig() {
+        var baseRig = _env3DBaseCameraRig();
+        if (!baseRig) return null;
+        var nav = _env3DNavigationConfig();
+        var pose = _env3DPoseOffsetState();
+        var target = baseRig.target.clone().add(new THREE.Vector3(
+            Number(pose.targetX || 0),
+            Number(pose.targetY || 0),
+            Number(pose.targetZ || 0)
+        ));
+        var offset = baseRig.position.clone().sub(baseRig.target);
+        if (offset.lengthSq() < 0.0001) offset.set(0, 24, 32);
+        var spherical = new THREE.Spherical().setFromVector3(offset);
+        spherical.theta += Number(pose.azimuth || 0);
+        spherical.phi = Math.max(0.22, Math.min(Math.PI * 0.48, spherical.phi + Number(pose.polar || 0)));
+        spherical.radius = Math.max(nav.minDistance, Math.min(nav.maxDistance, spherical.radius * Number(pose.distanceScale || 1)));
+        offset.setFromSpherical(spherical);
+        var position = target.clone().add(offset);
+        return {
+            mode: baseRig.mode,
+            target: target,
+            position: position,
+            meta: baseRig.meta
+        };
+    }
+
+    function _env3DAbsorbCurrentCameraPose(reason, forceSync) {
+        if (!_env3D.camera || !_env3D.controls) return null;
+        var baseRig = _env3DBaseCameraRig();
+        if (!baseRig) return null;
+        var nav = _env3DNavigationConfig();
+        var currentTarget = _env3D.controls.target ? _env3D.controls.target.clone() : new THREE.Vector3(0, 0, 0);
+        var currentPosition = _env3D.camera.position ? _env3D.camera.position.clone() : new THREE.Vector3(0, 0, 0);
+        var baseOffset = baseRig.position.clone().sub(baseRig.target);
+        if (baseOffset.lengthSq() < 0.0001) baseOffset.set(0, 24, 32);
+        var currentOffset = currentPosition.clone().sub(currentTarget);
+        if (currentOffset.lengthSq() < 0.0001) currentOffset.copy(baseOffset);
+        var baseSpherical = new THREE.Spherical().setFromVector3(baseOffset);
+        var currentSpherical = new THREE.Spherical().setFromVector3(currentOffset);
+        _env3D.poseOffset = {
+            azimuth: Math.max(-Math.PI * 0.72, Math.min(Math.PI * 0.72, Number(currentSpherical.theta - baseSpherical.theta || 0))),
+            polar: Math.max(-0.72, Math.min(0.54, Number(currentSpherical.phi - baseSpherical.phi || 0))),
+            distanceScale: Math.max(0.48, Math.min(2.2, Number(currentSpherical.radius / Math.max(0.001, baseSpherical.radius || nav.minDistance)))),
+            targetX: Math.max(-80, Math.min(80, Number(currentTarget.x - baseRig.target.x || 0))),
+            targetY: Math.max(-40, Math.min(40, Number(currentTarget.y - baseRig.target.y || 0))),
+            targetZ: Math.max(-80, Math.min(80, Number(currentTarget.z - baseRig.target.z || 0)))
+        };
+        _env3D.rigMeta = baseRig.meta;
+        _envScene.dirty = true;
+        if (forceSync) _envScheduleLiveSync(String(reason || 'camera:manual'), true);
+        return _env3D.poseOffset;
+    }
+
+    function _env3DCommitManualCamera(reason, forceSync) {
+        var actor = typeof _envManualActorId === 'function' ? _envManualActorId() : 'assistant';
+        _env3DAbsorbCurrentCameraPose(reason || 'camera:manual', !!forceSync);
+        var snapshot = _env3DCameraPoseSnapshot();
+        _envLogAction('camera', 'Adjusted habitat 3D camera', actor, {
+            reason: String(reason || 'manual 3d camera'),
+            mode: snapshot ? String(snapshot.mode || '') : '',
+            distance: snapshot ? Number(snapshot.distance || 0) : 0,
+            focus_key: snapshot ? String(snapshot.focus_key || '') : '',
+            pose_offset: snapshot ? snapshot.pose_offset : null
+        });
+        _envEmitBus('camera', 'Adjusted habitat 3D camera', actor, {
+            reason: String(reason || 'manual 3d camera'),
+            mode: snapshot ? String(snapshot.mode || '') : '',
+            distance: snapshot ? Number(snapshot.distance || 0) : 0,
+            focus_key: snapshot ? String(snapshot.focus_key || '') : ''
+        });
+        _envRefreshLiveMirrorSurface();
+    }
+
+    function _env3DScheduleManualCameraCommit(reason, forceSync) {
+        if (_env3D.manualCommitTimer) clearTimeout(_env3D.manualCommitTimer);
+        _env3D.lastManualReason = String(reason || 'camera:manual');
+        _env3D.manualCommitTimer = setTimeout(function () {
+            _env3D.manualCommitTimer = 0;
+            _env3DCommitManualCamera(_env3D.lastManualReason || 'camera:manual', forceSync !== false);
+        }, forceSync ? 0 : 140);
+    }
+
+    function _env3DBindControlLifecycle(controls) {
+        if (!controls || controls._envopsLifecycleBound) return;
+        controls._envopsLifecycleBound = true;
+        controls.addEventListener('start', function () {
+            _env3D.manualControlActive = true;
+            if (_env3D.manualCommitTimer) {
+                clearTimeout(_env3D.manualCommitTimer);
+                _env3D.manualCommitTimer = 0;
+            }
+        });
+        controls.addEventListener('change', function () {
+            if (!_env3D.manualControlActive) return;
+            _env3DAbsorbCurrentCameraPose('camera:manual:change', false);
+        });
+        controls.addEventListener('end', function () {
+            _env3D.manualControlActive = false;
+            _env3DScheduleManualCameraCommit('camera:manual:end', true);
+        });
     }
 
     function _env3DApplyCameraRig(force) {
@@ -14757,6 +14880,8 @@
         _env3D.camera.position.copy(target.clone().add(offset));
         _env3D.camera.updateProjectionMatrix();
         _env3D.controls.update();
+        _env3DAbsorbCurrentCameraPose('camera:manual:wheel', false);
+        _env3DScheduleManualCameraCommit('camera:manual:wheel', false);
         return true;
     }
 
@@ -14793,6 +14918,7 @@
             _env3D.controls.enablePan = true;
             _env3D.controls.panSpeed = 0.6;
             _env3D.controls.rotateSpeed = 0.5;
+            _env3DBindControlLifecycle(_env3D.controls);
             _env3DBindWheelZoom(_env3D.renderer.domElement);
             _env3DApplyCameraRig(true);
             // Rebind ResizeObserver to new container
@@ -14864,6 +14990,7 @@
         controls.panSpeed = 0.6;
         controls.rotateSpeed = 0.5;
         _env3D.controls = controls;
+        _env3DBindControlLifecycle(controls);
         _env3DApplyCameraRig(true);
 
         // Ground plane
@@ -15172,7 +15299,7 @@
             }
         });
 
-        _env3DApplyCameraRig(false);
+        if (!_env3D.manualControlActive) _env3DApplyCameraRig(false);
         _env3D.controls.update();
         _env3D.renderer.render(_env3D.scene, _env3D.camera);
         _env3D.cssRenderer.render(_env3D.scene, _env3D.camera);
@@ -15226,7 +15353,12 @@
         _env3D.controls = null;
         _env3D.container = null;
         _env3D.rigMeta = null;
-        _env3D.poseOffset = { azimuth: 0, polar: 0, distanceScale: 1 };
+        _env3D.poseOffset = { azimuth: 0, polar: 0, distanceScale: 1, targetX: 0, targetY: 0, targetZ: 0 };
+        _env3D.manualControlActive = false;
+        if (_env3D.manualCommitTimer) {
+            clearTimeout(_env3D.manualCommitTimer);
+            _env3D.manualCommitTimer = 0;
+        }
     }
 
     function _env3DFocusObject(kind, id) {

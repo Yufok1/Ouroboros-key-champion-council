@@ -2027,6 +2027,37 @@ def _normalize_proxy_tool_args(tool_name: str, args: dict | None) -> dict:
         if changed:
             patched["model_id"] = normalized
 
+    if tool_name in ("env_spawn", "env_mutate"):
+        params_raw = patched.get("params")
+        if params_raw is None:
+            params_raw = {
+                key: value
+                for key, value in patched.items()
+                if key not in ("__source",)
+            }
+            if params_raw:
+                patched = {"params": params_raw}
+        if isinstance(params_raw, (dict, list)):
+            try:
+                patched["params"] = json.dumps(params_raw)
+            except Exception:
+                patched["params"] = str(params_raw)
+
+    if tool_name == "env_persist":
+        params_raw = patched.get("params")
+        if params_raw is None:
+            lifted = {}
+            for key in ("payload", "include_empty", "empty_only", "names"):
+                if key in patched:
+                    lifted[key] = patched.pop(key)
+            if lifted:
+                params_raw = lifted
+        if isinstance(params_raw, (dict, list)):
+            try:
+                patched["params"] = json.dumps(params_raw)
+            except Exception:
+                patched["params"] = str(params_raw)
+
     # Normalize CASCADE tool operation aliases + params encoding.
     if tool_name in ("cascade_system", "cascade_data", "cascade_record"):
         op = str(patched.get("operation", "") or "").strip().lower()
