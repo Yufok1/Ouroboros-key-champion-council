@@ -8277,6 +8277,115 @@
         if (secondaryEl) secondaryEl.textContent = _envScene.hud.secondary;
     }
 
+    function _envCorroborationFocusSummary() {
+        var focus = _envKernel.focus || {};
+        var payload = focus.payload && typeof focus.payload === 'object' ? focus.payload : null;
+        var label = String((payload && payload.label) || focus.label || focus.id || focus.kind || 'scene');
+        var kind = String((focus.kind || (payload && payload.kind) || 'scene'));
+        var id = String((focus.id || (payload && payload.id) || ''));
+        return {
+            key: kind && id ? (kind + '::' + id) : '',
+            kind: kind,
+            id: id,
+            label: label
+        };
+    }
+
+    function _envCorroborationLastAction() {
+        var recent = _envRecentBusEvents(1);
+        var event = Array.isArray(recent) && recent.length ? recent[0] : null;
+        if (!event) return {
+            kind: '',
+            actor: '',
+            body: '',
+            ts: 0
+        };
+        return {
+            kind: String(event.kind || event.channel || ''),
+            actor: String(event.actor || ''),
+            body: String(event.body || event.channel || ''),
+            ts: Number(event.ts || 0)
+        };
+    }
+
+    function _envBuildCorroborationState(renderTruth, layoutSnapshot) {
+        var render = renderTruth && typeof renderTruth === 'object' ? renderTruth : _envBuildRenderTruth();
+        var layout = layoutSnapshot && typeof layoutSnapshot === 'object' ? layoutSnapshot : _envBuildLayoutSnapshot();
+        var focus = _envCorroborationFocusSummary();
+        var scene = _envScene || {};
+        var camera3d = _env3DCameraPoseSnapshot();
+        var snapshotName = _envScenePrimarySnapshotName();
+        var lastAction = _envCorroborationLastAction();
+        var clipped = Array.isArray(layout.clipped) ? layout.clipped.slice(0, 4) : [];
+        var overlaps = Array.isArray(layout.overlaps) ? layout.overlaps.slice(0, 3) : [];
+        var chips = [
+            String(render.stage_mode || 'blank').toUpperCase(),
+            focus.label || 'scene',
+            String(camera3d.mode || _envSceneNormalizeCameraMode(scene.cameraMode || 'overview')),
+            (camera3d.distance ? (Number(camera3d.distance).toFixed(1) + 'm') : '0.0m')
+        ];
+        var notes = [];
+        if (snapshotName) notes.push('Snapshot ' + snapshotName);
+        if (lastAction.body) notes.push('Last ' + lastAction.body);
+        if (clipped.length) notes.push('Clipped ' + clipped.join(', '));
+        else notes.push('Layout clear');
+        if (overlaps.length) {
+            notes.push('Overlap ' + overlaps.map(function (item) {
+                return String(item.a || '') + '/' + String(item.b || '');
+            }).join(', '));
+        }
+        var narrative = focus.label
+            ? ('Viewing ' + focus.label + ' in ' + String(camera3d.mode || 'scene') + ' mode')
+            : ('Viewing environment in ' + String(render.stage_mode || 'blank') + ' mode');
+        if (camera3d.distance) narrative += ' at ' + Number(camera3d.distance).toFixed(1) + 'm';
+        return {
+            active: true,
+            stage_mode: String(render.stage_mode || ''),
+            snapshot: String(snapshotName || ''),
+            subject: focus,
+            camera: {
+                mode: String(camera3d.mode || _envSceneNormalizeCameraMode(scene.cameraMode || 'overview')),
+                distance: Number(camera3d.distance || 0),
+                azimuth: Number(camera3d.azimuth || 0),
+                polar: Number(camera3d.polar || 0),
+                focus_key: String(camera3d.focus_key || '')
+            },
+            last_action: lastAction,
+            layout: {
+                overlap_count: Number(layout.overlap_count || 0),
+                clipped_count: Number(layout.clipped_count || 0),
+                clipped: clipped,
+                overlaps: overlaps
+            },
+            chips: chips,
+            notes: notes,
+            narrative: narrative
+        };
+    }
+
+    function _envRenderCorroborationHtml(state) {
+        var view = state && typeof state === 'object' ? state : _envBuildCorroborationState();
+        var chips = Array.isArray(view.chips) ? view.chips : [];
+        var notes = Array.isArray(view.notes) ? view.notes : [];
+        return '<div class="envops-habitat-corroboration" id="envops-habitat-corroboration">' +
+            '<div class="envops-habitat-corroboration-head">' +
+                '<span class="envops-habitat-corroboration-kicker">LIVE CORROBORATION</span>' +
+                '<span class="envops-habitat-corroboration-subject">' + _esc(String(((view.subject || {}).label) || 'scene')) + '</span>' +
+            '</div>' +
+            '<div class="envops-habitat-corroboration-narrative">' + _esc(String(view.narrative || '')) + '</div>' +
+            '<div class="envops-habitat-corroboration-chips">' +
+                chips.map(function (chip) {
+                    return '<span class="envops-habitat-corroboration-chip">' + _esc(String(chip || '')) + '</span>';
+                }).join('') +
+            '</div>' +
+            '<div class="envops-habitat-corroboration-notes">' +
+                notes.map(function (note) {
+                    return '<div class="envops-habitat-corroboration-note">' + _esc(String(note || '')) + '</div>';
+                }).join('') +
+            '</div>' +
+        '</div>';
+    }
+
     function _envSceneFocusKey(focus) {
         if (!focus || !focus.kind) return '';
         return String(focus.kind || '') + '::' + String(focus.id || '');
@@ -16121,6 +16230,7 @@
         add('hud_cockpit', '.envops-habitat-scene-cockpit');
         add('hud_primary', '#envops-habitat-hud-primary');
         add('hud_secondary', '#envops-habitat-hud-secondary');
+        add('hud_corroboration', '#envops-habitat-corroboration');
         add('focus_card', '.envops-focus-card');
         return layers;
     }
@@ -16140,6 +16250,7 @@
             cockpit: document.querySelector('.envops-habitat-scene-cockpit'),
             hud_primary: document.getElementById('envops-habitat-hud-primary'),
             hud_secondary: document.getElementById('envops-habitat-hud-secondary'),
+            hud_corroboration: document.getElementById('envops-habitat-corroboration'),
             focus_card: document.querySelector('.envops-focus-card')
         };
         var rects = {};
@@ -16238,7 +16349,8 @@
                 bootstrap_error: String(_envSceneBootstrapState.error || '')
             },
             panel_active: !!_envHtmlPanelState.active,
-            inspector_active: !!_envInspectorState.active
+            inspector_active: !!_envInspectorState.active,
+            corroboration_active: !!document.getElementById('envops-habitat-corroboration')
         };
     }
 
@@ -16278,6 +16390,9 @@
         if (Array.isArray(_envMirrorState.habitatObjects)) surface.habitat_objects = _envCloneJson(_envMirrorState.habitatObjects, []);
         if (_envMirrorState.renderTruth) surface.render_truth = _envCloneJson(_envMirrorState.renderTruth, null);
         if (_envMirrorState.layoutSnapshot) surface.layout_snapshot = _envCloneJson(_envMirrorState.layoutSnapshot, null);
+        if (_envMirrorState.sharedState && _envMirrorState.sharedState.corroboration) {
+            surface.corroboration = _envCloneJson(_envMirrorState.sharedState.corroboration, null);
+        }
         return surface;
     }
 
@@ -16485,6 +16600,7 @@
         var navigation = shared.navigation && typeof shared.navigation === 'object' ? shared.navigation : {};
         var panel = shared.panel && typeof shared.panel === 'object' ? shared.panel : {};
         var inspector = shared.inspector && typeof shared.inspector === 'object' ? shared.inspector : {};
+        var corroboration = shared.corroboration && typeof shared.corroboration === 'object' ? shared.corroboration : {};
         var render = payload.render_truth && typeof payload.render_truth === 'object'
             ? payload.render_truth
             : (shared.render && typeof shared.render === 'object' ? shared.render : {});
@@ -16535,6 +16651,8 @@
             inspector.active ? 'inspector_on' : 'inspector_off',
             String(inspector.object_key || ''),
             String(inspector.kind || ''),
+            String((((corroboration.subject || {}).key) || '')),
+            String((((corroboration.last_action || {}).body) || '')),
             String(render.stage_mode || ''),
             String(render.blank_reason || ''),
             String(render.renderer_active || ''),
@@ -17628,6 +17746,7 @@
 
     function _envRenderHabitat(workflow, exec, sections, traces) {
         var hudCopy = _envHabitatHudCopy(workflow);
+        var corroboration = _envBuildCorroborationState();
         var replay = _envKernel.replay || {};
         var dominance = (_envScene && _envScene.dominance) || _envSceneDominanceContext();
         var failure = _envLatestFailureSurface(workflow, exec, traces);
@@ -17667,6 +17786,7 @@
             '<div class="envops-habitat-hud">' +
             '<div class="envops-habitat-hud-primary" id="envops-habitat-hud-primary">' + _esc(hudCopy.primary) + '</div>' +
             '<div class="envops-habitat-hud-secondary" id="envops-habitat-hud-secondary">' + _esc(hudCopy.secondary) + '</div>' +
+            _envRenderCorroborationHtml(corroboration) +
             '<div class="envops-habitat-dominance">' +
             '<span class="envops-habitat-dominance-chip mode-' + _esc(dominanceSummary.mode) + '">' + _esc(String(dominanceSummary.mode || 'ambient').toUpperCase()) + '</span>' +
             (dominanceSummary.anchorLabel ? '<span class="envops-habitat-dominance-path">' + _esc(dominanceSummary.anchorLabel) + '</span>' : '<span class="envops-habitat-dominance-path">No active anchor</span>') +
@@ -24193,6 +24313,7 @@
         var contractSnapshot = _envBuildContractSnapshot(currentWorkflow, currentExec, _envArtifactSections());
         var renderTruth = _envBuildRenderTruth();
         var layoutSnapshot = _envBuildLayoutSnapshot();
+        var corroborationState = _envBuildCorroborationState(renderTruth, layoutSnapshot);
         return {
             config_source: _envBus.source || 'defaults',
             focus: Object.assign({}, _envKernel.focus || {}),
@@ -24346,6 +24467,7 @@
             },
             render: renderTruth,
             layout: layoutSnapshot,
+            corroboration: corroborationState,
             navigation: _envSceneNavigationSnapshot(),
             panel: _envHtmlPanelSnapshot(),
             inspector: _envInspectorSnapshot(),
