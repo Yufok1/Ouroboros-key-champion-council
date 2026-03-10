@@ -2429,31 +2429,41 @@
             height: 100%;
         }
         .env3d-label-shell {
-            max-width: min(320px, 42vw);
+            max-width: min(168px, 26vw);
             pointer-events: auto;
         }
         .envops-scene-trigger {
             display: flex;
             flex-direction: column;
-            gap: 2px;
-            min-width: 128px;
-            max-width: 240px;
-            padding: 8px 10px;
-            border: 1px solid rgba(79, 255, 208, 0.28);
-            border-radius: 12px;
-            background: linear-gradient(180deg, rgba(8, 16, 26, 0.92), rgba(5, 10, 18, 0.98));
+            gap: 1px;
+            min-width: 0;
+            max-width: 132px;
+            padding: 4px 6px;
+            border: 1px solid rgba(79, 255, 208, 0.18);
+            border-radius: 10px;
+            background: linear-gradient(180deg, rgba(8, 16, 26, 0.76), rgba(5, 10, 18, 0.88));
             color: #e6f5ff;
-            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.34), 0 0 18px rgba(79, 255, 208, 0.12);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.22), 0 0 10px rgba(79, 255, 208, 0.06);
             text-align: left;
             text-transform: none;
             letter-spacing: 0;
+            opacity: 0.92;
         }
         .envops-scene-trigger:hover {
-            background: linear-gradient(180deg, rgba(10, 20, 32, 0.96), rgba(6, 12, 20, 0.98));
+            background: linear-gradient(180deg, rgba(10, 20, 32, 0.9), rgba(6, 12, 20, 0.95));
             color: #f6fffb;
         }
+        .envops-scene-trigger.active {
+            border-color: rgba(126, 255, 215, 0.42);
+            box-shadow: 0 0 0 1px rgba(126,255,215,0.18), 0 18px 32px rgba(0, 0, 0, 0.28), 0 0 18px rgba(126,255,215,0.18);
+            background: linear-gradient(180deg, rgba(10, 24, 30, 0.92), rgba(5, 14, 18, 0.96));
+            opacity: 1;
+        }
+        .envops-scene-trigger.ambient {
+            opacity: 0.42;
+        }
         .envops-scene-trigger-title {
-            font-size: 11px;
+            font-size: 9px;
             font-weight: 700;
             color: #f5fbff;
             white-space: nowrap;
@@ -2461,7 +2471,8 @@
             text-overflow: ellipsis;
         }
         .envops-scene-trigger-meta {
-            font-size: 9px;
+            display: none;
+            font-size: 8px;
             color: rgba(224, 242, 255, 0.72);
             line-height: 1.35;
             white-space: nowrap;
@@ -2469,11 +2480,18 @@
             text-overflow: ellipsis;
         }
         .envops-scene-trigger-badge {
-            margin-top: 4px;
-            font-size: 8px;
-            letter-spacing: 1.2px;
+            display: none;
+            margin-top: 2px;
+            font-size: 7px;
+            letter-spacing: 0.9px;
             text-transform: uppercase;
             color: #7effd7;
+        }
+        .envops-scene-trigger:hover .envops-scene-trigger-meta,
+        .envops-scene-trigger:hover .envops-scene-trigger-badge,
+        .envops-scene-trigger:focus-visible .envops-scene-trigger-meta,
+        .envops-scene-trigger:focus-visible .envops-scene-trigger-badge {
+            display: block;
         }
         .envops-scene-menu {
             display: flex;
@@ -2631,64 +2649,94 @@
         }
         .envops-inspector-shell {
             position: absolute;
-            z-index: 27;
+            z-index: 30;
             pointer-events: none;
         }
         .envops-inspector-shell.fallback {
             left: 14px;
             top: 14px;
-            width: min(260px, calc(100% - 28px));
+            width: min(320px, calc(100% - 28px));
         }
-        .envops-inspector-card {
+        .envops-focus-shell {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        .envops-focus-shell.fallback {
+            min-height: 160px;
+            border: 1px solid rgba(126, 255, 215, 0.18);
+            border-radius: 18px;
+            background: linear-gradient(180deg, rgba(8, 14, 21, 0.94), rgba(4, 8, 13, 0.98));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: rgba(224, 242, 255, 0.82);
+            pointer-events: auto;
+        }
+        .envops-focus-grid {
+            position: absolute;
+            inset: 0;
+            border-radius: 28px;
+            background:
+                radial-gradient(circle at center, rgba(126,255,215,0.10), transparent 30%),
+                radial-gradient(circle at center, rgba(102,184,255,0.08), transparent 48%),
+                linear-gradient(90deg, transparent 0, rgba(126,255,215,0.05) 50%, transparent 100%);
+            mask-image: radial-gradient(circle at center, rgba(0,0,0,0.9) 12%, transparent 72%);
+            opacity: 0.8;
+        }
+        .envops-focus-core {
+            position: absolute;
+            transform: translate(-50%, -54%);
+            width: min(220px, 42%);
+            min-width: 180px;
+        }
+        .envops-focus-core-ring {
+            position: absolute;
+            inset: -18px;
+            border-radius: 999px;
+            border: 1px solid rgba(126, 255, 215, 0.2);
+            box-shadow:
+                0 0 0 1px rgba(126,255,215,0.05),
+                0 0 28px rgba(102,184,255,0.14),
+                inset 0 0 30px rgba(126,255,215,0.04);
+            background:
+                radial-gradient(circle at center, rgba(126,255,215,0.06), transparent 62%);
+        }
+        .envops-focus-core-card {
             display: flex;
             flex-direction: column;
             gap: 8px;
-            max-height: min(46vh, 280px);
+            position: relative;
+            padding: 12px 14px;
             border: 1px solid rgba(126, 255, 215, 0.16);
-            border-radius: 14px;
+            border-radius: 18px;
             background: linear-gradient(180deg, rgba(8, 14, 21, 0.96), rgba(4, 8, 13, 0.985));
             box-shadow: 0 16px 34px rgba(0, 0, 0, 0.34), 0 0 18px rgba(79, 255, 208, 0.05);
             backdrop-filter: blur(10px);
             pointer-events: auto;
-            overflow: hidden;
         }
-        .envops-inspector-head {
-            display: flex;
-            align-items: flex-start;
-            justify-content: space-between;
-            gap: 8px;
-            padding: 10px 12px 0 12px;
-        }
-        .envops-inspector-copy {
-            min-width: 0;
-            flex: 1;
-        }
-        .envops-inspector-kicker {
+        .envops-focus-kicker {
             font-size: 8px;
-            letter-spacing: 1.2px;
+            letter-spacing: 1.6px;
             text-transform: uppercase;
-            color: rgba(126, 255, 215, 0.84);
-            margin-bottom: 4px;
+            color: rgba(126, 255, 215, 0.9);
         }
-        .envops-inspector-title {
-            font-size: 14px;
+        .envops-focus-title {
+            font-size: 15px;
             font-weight: 700;
             color: #f7fdff;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            line-height: 1.15;
         }
-        .envops-inspector-meta {
-            margin-top: 2px;
+        .envops-focus-subtitle {
             font-size: 10px;
-            color: rgba(224, 242, 255, 0.72);
             line-height: 1.4;
+            color: rgba(224, 242, 255, 0.72);
         }
-        .envops-inspector-metrics {
+        .envops-focus-metrics {
             display: flex;
             flex-wrap: wrap;
             gap: 6px;
-            padding: 0 12px;
         }
         .envops-inspector-metric {
             padding: 4px 8px;
@@ -2721,12 +2769,9 @@
             flex-wrap: wrap;
             gap: 6px;
         }
-        .envops-inspector-actions {
-            padding: 0 12px;
-        }
         .envops-inspector-actions button,
         .envops-inspector-actions-inline button {
-            padding: 4px 8px;
+            padding: 6px 10px;
             min-height: 0;
             font-size: 10px;
             line-height: 1.2;
@@ -2741,41 +2786,143 @@
             justify-content: center;
             font-size: 14px !important;
         }
-        .envops-inspector-sections {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            min-height: 0;
-            overflow: auto;
-            padding: 0 12px 12px 12px;
+        .envops-focus-actions {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 290px;
+            height: 220px;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
         }
-        .envops-inspector-section {
-            border: 1px solid rgba(255,255,255,0.06);
-            border-radius: 12px;
-            background: rgba(255,255,255,0.03);
+        .envops-focus-action-slot {
+            position: absolute;
+            pointer-events: auto;
+        }
+        .envops-focus-action-slot.slot-1 { left: 50%; top: 4px; transform: translate(-50%, 0); }
+        .envops-focus-action-slot.slot-2 { left: 10px; top: 50%; transform: translate(0, -50%); }
+        .envops-focus-action-slot.slot-3 { right: 10px; top: 50%; transform: translate(0, -50%); }
+        .envops-focus-action-slot.slot-4 { left: 50%; bottom: 8px; transform: translate(-50%, 0); }
+        .envops-focus-actions button {
+            min-width: 96px;
+            border-radius: 999px;
+            background: linear-gradient(180deg, rgba(10, 20, 30, 0.95), rgba(6, 12, 18, 0.98));
+            border-color: rgba(126, 255, 215, 0.18);
+            box-shadow: 0 8px 18px rgba(0,0,0,0.24), 0 0 16px rgba(126,255,215,0.06);
+        }
+        .envops-focus-actions button:not(.btn-dim) {
+            box-shadow: 0 0 0 1px rgba(126,255,215,0.18), 0 12px 24px rgba(0,0,0,0.28), 0 0 20px rgba(126,255,215,0.12);
+        }
+        .envops-focus-detail,
+        .envops-focus-rail {
+            position: absolute;
+            top: 14px;
+            bottom: 14px;
+            pointer-events: auto;
+            border: 1px solid rgba(126, 255, 215, 0.16);
+            border-radius: 18px;
+            background: linear-gradient(180deg, rgba(7, 14, 20, 0.95), rgba(4, 8, 12, 0.985));
+            box-shadow: 0 18px 34px rgba(0,0,0,0.34), 0 0 18px rgba(102,184,255,0.08);
+            backdrop-filter: blur(12px);
             overflow: hidden;
         }
-        .envops-inspector-section summary {
+        .envops-focus-detail {
+            width: min(330px, calc(100% - 220px));
             display: flex;
-            align-items: center;
+            flex-direction: column;
+        }
+        .envops-focus-shell.align-right .envops-focus-detail { right: 0; }
+        .envops-focus-shell.align-left .envops-focus-detail { left: 0; }
+        .envops-focus-detail-head {
+            display: flex;
+            align-items: flex-start;
             justify-content: space-between;
-            gap: 10px;
-            padding: 8px 10px;
-            cursor: pointer;
-            list-style: none;
-            font-size: 10px;
+            gap: 12px;
+            padding: 12px 14px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0));
+        }
+        .envops-focus-detail-kicker {
+            font-size: 8px;
+            letter-spacing: 1.3px;
+            text-transform: uppercase;
+            color: rgba(126,255,215,0.84);
+            margin-bottom: 4px;
+        }
+        .envops-focus-detail-title {
+            font-size: 13px;
             font-weight: 700;
-            color: #eef9ff;
-            background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.01));
+            color: #f8fdff;
         }
-        .envops-inspector-section summary::-webkit-details-marker {
-            display: none;
+        .envops-focus-detail-meta {
+            margin-top: 2px;
+            font-size: 10px;
+            color: rgba(224, 242, 255, 0.68);
+            line-height: 1.35;
         }
-        .envops-inspector-section-body {
-            padding: 10px;
+        .envops-focus-detail-body {
+            flex: 1;
+            min-height: 0;
+            overflow: auto;
+            padding: 12px 14px 14px 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .envops-focus-rail {
+            width: 156px;
+            display: flex;
+            flex-direction: column;
+        }
+        .envops-focus-shell.align-right .envops-focus-rail { left: 0; }
+        .envops-focus-shell.align-left .envops-focus-rail { right: 0; }
+        .envops-focus-rail-head {
+            padding: 12px 14px 8px 14px;
+            font-size: 9px;
+            letter-spacing: 1.4px;
+            text-transform: uppercase;
+            color: rgba(126,255,215,0.84);
+        }
+        .envops-focus-rail-body {
             display: flex;
             flex-direction: column;
             gap: 8px;
+            overflow: auto;
+            padding: 0 12px 12px 12px;
+        }
+        .envops-focus-section-chip {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 2px;
+            padding: 9px 10px;
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 12px;
+            background: rgba(255,255,255,0.03);
+            text-align: left;
+            text-transform: none;
+            letter-spacing: 0;
+            color: #edf9ff;
+        }
+        .envops-focus-section-chip:hover {
+            background: rgba(255,255,255,0.06);
+        }
+        .envops-focus-section-chip.active {
+            border-color: rgba(126,255,215,0.24);
+            background: linear-gradient(180deg, rgba(8, 18, 24, 0.9), rgba(6, 12, 18, 0.96));
+            box-shadow: inset 0 0 0 1px rgba(126,255,215,0.08), 0 0 16px rgba(102,184,255,0.08);
+        }
+        .envops-focus-section-title {
+            font-size: 10px;
+            font-weight: 700;
+            color: #f2fbff;
+        }
+        .envops-focus-section-meta {
+            font-size: 8px;
+            letter-spacing: 0.7px;
+            text-transform: uppercase;
+            color: rgba(126,255,215,0.8);
         }
         .envops-inspector-row {
             display: flex;
@@ -2793,10 +2940,6 @@
             color: rgba(224, 242, 255, 0.68);
             line-height: 1.45;
         }
-        .envops-inspector-shell.align-left .envops-inspector-card,
-        .envops-inspector-shell.align-right .envops-inspector-card {
-            transform-origin: top center;
-        }
         @media (max-width: 900px) {
             .envops-inspector-shell {
                 left: 14px !important;
@@ -2804,9 +2947,33 @@
                 width: auto !important;
                 top: auto !important;
                 bottom: 14px;
+                height: auto !important;
             }
-            .envops-inspector-card {
-                max-height: min(50vh, 320px);
+            .envops-focus-shell {
+                min-height: 420px;
+            }
+            .envops-focus-core {
+                left: 50% !important;
+                top: 96px !important;
+                width: min(240px, calc(100% - 28px));
+            }
+            .envops-focus-actions {
+                width: min(280px, calc(100% - 28px));
+                height: 150px;
+                top: 114px;
+            }
+            .envops-focus-detail,
+            .envops-focus-rail {
+                position: relative;
+                top: auto;
+                bottom: auto;
+                left: auto !important;
+                right: auto !important;
+                width: auto;
+                margin: 0 0 10px 0;
+            }
+            .envops-focus-rail {
+                margin-top: 180px;
             }
         }
         .envops-habitat-canvas {

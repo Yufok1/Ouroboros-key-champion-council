@@ -133,6 +133,7 @@
         source: '',
         openedTs: 0,
         anchor: null,
+        activeSection: '',
         lazy: {
             docs: { pending: false, loaded: false, error: '', query: '', results: [] },
             graph: { pending: false, loaded: false, error: '', component: '', result: null }
@@ -14890,6 +14891,7 @@
             source: String(_envInspectorState.source || ''),
             opened_ts: Number(_envInspectorState.openedTs || 0),
             anchor: _envCloneJson(_envInspectorState.anchor, null),
+            active_section: String(_envInspectorState.activeSection || ''),
             lazy: _envCloneJson(_envInspectorState.lazy, {})
         };
     }
@@ -14938,6 +14940,25 @@
         };
     }
 
+    function _envDefaultInspectorSectionKey(kind) {
+        var normalized = String(kind || '').toLowerCase();
+        if (normalized === 'npc') return 'agent';
+        if (normalized === 'slot') return 'slot-runtime';
+        if (normalized === 'node') return 'workflow-context';
+        if (normalized === 'workflow') return 'workflow-structure';
+        if (normalized === 'prop') return 'semantic-binding';
+        if (normalized === 'zone' || normalized === 'portal' || normalized === 'environment') return 'zone-contents';
+        if (normalized === 'actor') return 'actor-lane';
+        if (normalized === 'trace' || normalized === 'event' || normalized === 'sample' || normalized === 'replay') return 'runtime-detail';
+        return 'activity';
+    }
+
+    function _envInspectorSetActiveSection(sectionKey) {
+        _envInspectorState.activeSection = String(sectionKey || '').trim();
+        _envScheduleLiveSync('inspector:section', true);
+        renderEnvironmentView();
+    }
+
     function _envOpenInspectorForObject(obj, actor, source) {
         if (!obj || typeof obj !== 'object') return false;
         var objectKey = _envSceneObjectKey(obj);
@@ -14951,6 +14972,7 @@
         _envInspectorState.source = String(source || 'scene');
         _envInspectorState.openedTs = Date.now();
         _envInspectorState.anchor = _envInspectorAnchorForObject(obj);
+        _envInspectorState.activeSection = _envDefaultInspectorSectionKey(obj.kind);
         _envScheduleLiveSync('inspector:open', true);
         renderEnvironmentView();
         return true;
@@ -14965,6 +14987,8 @@
         _envInspectorState.actor = String(actor || _envManualActorId() || 'assistant');
         _envInspectorState.source = String(reason || 'close');
         _envInspectorState.anchor = null;
+        _envInspectorState.activeSection = '';
+        _envResetInspectorLazyState();
         _envScheduleLiveSync('inspector:close', true);
         renderEnvironmentView();
         return true;
@@ -15347,26 +15371,34 @@
             return true;
         }
         if (action === 'load-docs') {
+            _envInspectorState.activeSection = 'felixbag-docs';
             return _envInspectorLoadDocs(sourceObj);
         }
         if (action === 'load-graph') {
+            _envInspectorState.activeSection = 'cascade-relationships';
             return _envInspectorLoadGraph(sourceObj);
-        }
-        if (action === 'open-tab') {
-            var tabName = actionEl ? String(actionEl.getAttribute('data-env-inspector-tab') || '').trim() : '';
-            if (!tabName) return false;
-            _envOpenLinkedTab(tabName);
-            return true;
         }
         return false;
     }
 
-    function _envInspectorSection(title, bodyHtml, opts) {
+    function _envInspectorSection(sectionKey, title, bodyHtml, opts) {
         var cfg = opts && typeof opts === 'object' ? opts : {};
-        return '<details class="envops-inspector-section"' + (cfg.open ? ' open' : '') + '>' +
-            '<summary><span>' + _esc(String(title || 'Section')) + '</span><span>' + _esc(String(cfg.meta || '')) + '</span></summary>' +
-            '<div class="envops-inspector-section-body">' + String(bodyHtml || '<div class="envops-stage-empty">No data.</div>') + '</div>' +
-            '</details>';
+        return {
+            key: String(sectionKey || title || 'section').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'section',
+            title: String(title || 'Section'),
+            bodyHtml: String(bodyHtml || '<div class="envops-stage-empty">No data.</div>'),
+            meta: String(cfg.meta || ''),
+            tone: String(cfg.tone || 'neutral'),
+            open: !!cfg.open
+        };
+    }
+
+    function _envInspectorSectionButton(section, activeKey) {
+        var isActive = section && String(section.key || '') === String(activeKey || '');
+        return '<button type="button" class="envops-focus-section-chip' + (isActive ? ' active' : '') + '" data-env-inspector-section="' + _esc(String(section.key || 'section')) + '">' +
+            '<span class="envops-focus-section-title">' + _esc(String(section.title || 'Section')) + '</span>' +
+            (section && section.meta ? '<span class="envops-focus-section-meta">' + _esc(String(section.meta || '')) + '</span>' : '') +
+            '</button>';
     }
 
     function _envInspectorMetric(label, value) {
@@ -15441,29 +15473,29 @@
         var sections = [];
 
         if (kind === 'npc' && slotSummary) {
-            sections.push(_envInspectorSection('Agent', [
+            sections.push(_envInspectorSection('agent', 'Agent', [
                 _envInspectorMetric('Slot', slotSummary.slot),
                 _envInspectorMetric('Model', slotSummary.model),
                 _envInspectorMetric('Provider', slotSummary.provider),
                 _envInspectorMetric('Chat', slotSummary.supportsChat ? 'yes' : 'no')
-            ].join(''), { meta: slotSummary.provider || 'slot' }));
+            ].join(''), { meta: slotSummary.provider || 'slot', open: true }));
             actions.push(_envInspectorActionButton('chat', 'Chat', 'primary'));
             actions.push(_envInspectorActionButton('invoke-slot', 'Invoke'));
             actions.push(_envInspectorActionButton('focus-slot', 'Focus Slot'));
             var caps = Array.isArray(data.capabilities) ? data.capabilities : (Array.isArray(data.granted_tools) ? data.granted_tools : []);
             if (caps.length) {
-                sections.push(_envInspectorSection('Capabilities', '<div class="envops-chip-row">' + caps.slice(0, 12).map(function (cap) {
+                sections.push(_envInspectorSection('capabilities', 'Capabilities', '<div class="envops-chip-row">' + caps.slice(0, 12).map(function (cap) {
                     return '<span class="envops-chip">' + _esc(String(cap)) + '</span>';
                 }).join('') + '</div>', { meta: String(caps.length) + ' tools' }));
             }
         } else if (kind === 'slot' && slotSummary) {
-            sections.push(_envInspectorSection('Slot Runtime', [
+            sections.push(_envInspectorSection('slot-runtime', 'Slot Runtime', [
                 _envInspectorMetric('Slot', slotSummary.slot),
                 _envInspectorMetric('Model', slotSummary.model),
                 _envInspectorMetric('Provider', slotSummary.provider),
                 _envInspectorMetric('Context', slotSummary.contextWindow || '—'),
                 _envInspectorMetric('Max Output', slotSummary.maxOutput || '—')
-            ].join(''), { meta: slotSummary.provider || 'slot' }));
+            ].join(''), { meta: slotSummary.provider || 'slot', open: true }));
             actions.push(_envInspectorActionButton('chat', 'Chat', 'primary'));
             actions.push(_envInspectorActionButton('invoke-slot', 'Invoke'));
             actions.push(_envInspectorActionButton('slot-info', 'Info'));
@@ -15480,69 +15512,65 @@
                     if (String((edge || {}).from || '') === String(obj.id || '')) downstream.push(String((edge || {}).to || ''));
                 });
             }
-            sections.push(_envInspectorSection('Workflow Context', [
+            sections.push(_envInspectorSection('workflow-context', 'Workflow Context', [
                 _envInspectorMetric('Workflow', String((workflow || {}).name || (workflow || {}).id || '')),
                 _envInspectorMetric('Type', String((node || {}).type || 'node')),
                 _envInspectorMetric('Tool', String((node || {}).tool || (node || {}).tool_name || '—')),
                 _envInspectorMetric('Upstream', upstream.join(', ') || 'none'),
                 _envInspectorMetric('Downstream', downstream.join(', ') || 'none')
-            ].join(''), { meta: String((node || {}).tool || (node || {}).type || 'node') }));
+            ].join(''), { meta: String((node || {}).tool || (node || {}).type || 'node'), open: true }));
             actions.push(_envInspectorActionButton('execute-workflow', 'Execute', 'primary'));
             actions.push(_envInspectorActionButton('workflow-history', 'History'));
-            actions.push(_envInspectorActionButton('open-workflows', 'Workflows'));
             actions.push(_envInspectorActionButton('open-debug', 'Debug'));
         } else if (kind === 'workflow') {
             var wf = _envGetSelectedWorkflow() || _wfLoadedDef || {};
-            sections.push(_envInspectorSection('Workflow Structure', [
+            sections.push(_envInspectorSection('workflow-structure', 'Workflow Structure', [
                 _envInspectorMetric('Workflow', String(wf.name || wf.id || obj.id || 'workflow')),
                 _envInspectorMetric('Nodes', String(((_wfLoadedDef || {}).nodes || []).length || 0)),
                 _envInspectorMetric('Connections', String(((_wfLoadedDef || {}).connections || []).length || 0)),
                 _envInspectorMetric('History', String((_envRunHistoryState.rows || []).length || 0))
-            ].join(''), { meta: String(wf.id || obj.id || '') }));
+            ].join(''), { meta: String(wf.id || obj.id || ''), open: true }));
             actions.push(_envInspectorActionButton('execute-workflow', 'Execute', 'primary'));
             actions.push(_envInspectorActionButton('workflow-history', 'History'));
             actions.push(_envInspectorActionButton('export-interface', 'Export'));
-            actions.push(_envInspectorActionButton('open-workflows', 'Workflows'));
         } else if (kind === 'prop') {
             var binding = String(data.binding || data.system || data.workflow_id || data.workflowId || data.kind || '').trim();
             var bindingPreview = '';
             if (/workflow_list/i.test(binding) || /quest/i.test(String(obj.label || ''))) bindingPreview = String(_wfCatalog.length || 0) + ' workflows visible';
             else if (/memory/i.test(binding) || /well/i.test(String(obj.label || ''))) bindingPreview = String(((_envHealthState || {}).status || {}).bag_items || '—') + ' bag items';
-            sections.push(_envInspectorSection('Semantic Binding', [
+            sections.push(_envInspectorSection('semantic-binding', 'Semantic Binding', [
                 _envInspectorMetric('Binding', binding || 'unbound'),
                 _envInspectorMetric('Preview', bindingPreview || 'No live preview')
-            ].join(''), { meta: binding || 'prop' }));
-            actions.push(_envInspectorActionButton('edit-object', 'Edit', 'primary'));
+            ].join(''), { meta: binding || 'prop', open: true }));
             if (_envSceneObjectHasHtml(obj)) actions.push(_envInspectorActionButton('open-html', 'Open Panel'));
         } else if (kind === 'zone' || kind === 'portal' || kind === 'environment') {
             var contents = _envInspectorZoneContents(obj);
-            sections.push(_envInspectorSection('Zone Contents', contents.length
+            sections.push(_envInspectorSection('zone-contents', 'Zone Contents', contents.length
                 ? contents.map(function (item) { return '<div class="envops-inspector-row"><span>' + _esc(String(item.label || item.id || item.kind)) + '</span><span>' + _esc(String(item.kind || 'object')) + '</span></div>'; }).join('')
-                : '<div class="envops-stage-empty">No contained objects surfaced.</div>', { meta: String(contents.length) + ' objects' }));
-            actions.push(_envInspectorActionButton('edit-object', 'Edit', 'primary'));
+                : '<div class="envops-stage-empty">No contained objects surfaced.</div>', { meta: String(contents.length) + ' objects', open: true }));
             if (String(data.snapshot || '').trim()) actions.push(_envInspectorActionButton('snapshot-load', 'Load Snapshot'));
         } else if (kind === 'actor') {
             var actorSnap = _envActorSessionSnapshot(obj.id || '');
             var actorMeta = (actorSnap || {}).actor || {};
-            sections.push(_envInspectorSection('Actor Lane', [
+            sections.push(_envInspectorSection('actor-lane', 'Actor Lane', [
                 _envInspectorMetric('Role', String(actorMeta.role || 'actor')),
                 _envInspectorMetric('Session', String(actorMeta.session_id || '')),
                 _envInspectorMetric('Queue', String((actorSnap || {}).queue_depth || 0)),
                 _envInspectorMetric('Actions', String((((actorSnap || {}).counts) || {}).actions || 0))
-            ].join(''), { meta: String(actorMeta.label || obj.label || 'actor') }));
+            ].join(''), { meta: String(actorMeta.label || obj.label || 'actor'), open: true }));
             actions.push(_envInspectorActionButton('activate-actor', 'Activate', 'primary'));
         } else if (kind === 'trace' || kind === 'event' || kind === 'sample' || kind === 'replay') {
             var focusPayload = _envFocusPayload(_wfLoadedDef, _envCurrentExecution(), _envArtifactSections(), _envTraceRows(8));
-            sections.push(_envInspectorSection('Runtime Detail', _wfJsonBlock(String(kind || 'detail'), focusPayload.data || obj), { meta: String(kind || 'runtime') }));
+            sections.push(_envInspectorSection('runtime-detail', 'Runtime Detail', _wfJsonBlock(String(kind || 'detail'), focusPayload.data || obj), { meta: String(kind || 'runtime'), open: true }));
             if (kind === 'trace' || kind === 'event') actions.push(_envInspectorActionButton('open-debug', 'Open Debug', 'primary'));
         }
 
         if (summary.workflowRefs.length) {
-            sections.push(_envInspectorSection('Workflow References', summary.workflowRefs.map(function (ref) {
+            sections.push(_envInspectorSection('workflow-references', 'Workflow References', summary.workflowRefs.map(function (ref) {
                 return '<div class="envops-inspector-row"><span>' + _esc(String(ref.label || ref.id || 'node')) + '</span><span>' + _esc(String(ref.type || ref.tool || 'node')) + '</span></div>';
             }).join(''), { meta: String(summary.workflowRefs.length) + ' refs' }));
         }
-        sections.push(_envInspectorSection('Activity', summary.activity.length
+        sections.push(_envInspectorSection('activity', 'Activity', summary.activity.length
             ? summary.activity.map(function (row) {
                 return '<div class="envops-inspector-row"><span>' + _esc(String(row.tool || 'tool')) + '</span><span>' + _esc(String(row.when || 'now')) + '</span></div>' +
                     '<div class="envops-inspector-note">' + _esc(String(row.preview || row.actor || 'activity')) + '</div>';
@@ -15565,7 +15593,7 @@
                         '<div class="envops-inspector-note">' + _esc(String(doc.preview || '')) + '</div>';
                 }).join('')
                 : '<div class="envops-stage-empty">Use lazy load to query FelixBag docs for this object.</div>');
-        sections.push(_envInspectorSection('FelixBag Docs', docRows + '<div class="envops-inspector-actions-inline">' +
+        sections.push(_envInspectorSection('felixbag-docs', 'FelixBag Docs', docRows + '<div class="envops-inspector-actions-inline">' +
             _envInspectorActionButton('load-docs', docsLazy.pending ? 'Loading…' : 'Load Docs', docsLazy.pending ? 'dim' : 'primary') +
             _envInspectorActionButton('open-memory', 'Memory') +
             '</div>', { meta: docsLazy.loaded ? 'lazy' : 'cached' }));
@@ -15576,22 +15604,18 @@
                 ? '<div class="envops-stage-empty">' + _esc(String(graphLazy.error || 'graph lookup failed')) + '</div>'
                 : _wfJsonBlock('Cascade Graph', graphLazy.result || {}))
             : '<div class="envops-stage-empty">Lazy-load cascade graph relationships for this object when needed.</div>';
-        sections.push(_envInspectorSection('Cascade Relationships', graphBody + '<div class="envops-inspector-actions-inline">' +
+        sections.push(_envInspectorSection('cascade-relationships', 'Cascade Relationships', graphBody + '<div class="envops-inspector-actions-inline">' +
             _envInspectorActionButton('load-graph', graphLazy.pending ? 'Loading…' : 'Load Graph', graphLazy.pending ? 'dim' : 'primary') +
             '</div>', { meta: _envInspectorComponentForObject(obj) || 'kind:id' }));
 
-        sections.push(_envInspectorSection('Config Bindings', summary.configHits.length
+        sections.push(_envInspectorSection('config-bindings', 'Config Bindings', summary.configHits.length
             ? summary.configHits.map(function (hit) {
                 return '<div class="envops-inspector-row"><span>' + _esc(String(hit.path || 'config')) + '</span><span>' + _esc(String(hit.value || 'match')) + '</span></div>';
             }).join('')
             : '<div class="envops-stage-empty">No config bindings matched this object in the current env config.</div>', { meta: String(summary.configHits.length) + ' hits' }));
 
-        sections.push(_envInspectorSection('Raw Payload', _wfJsonBlock(String(obj.label || obj.id || obj.kind || 'object'), obj), { meta: 'raw' }));
+        sections.push(_envInspectorSection('raw-payload', 'Raw Payload', _wfJsonBlock(String(obj.label || obj.id || obj.kind || 'object'), obj), { meta: 'raw' }));
         var actionMarkup = actions.join('');
-        if (_envIsCustomSceneKind(kind) && actionMarkup.indexOf('data-env-inspector-action="edit-object"') < 0) {
-            actions.push(_envInspectorActionButton('edit-object', 'Edit'));
-        }
-        actionMarkup = actions.join('');
         if (_envIsCustomSceneKind(kind) && actionMarkup.indexOf('data-env-inspector-action="remove-object"') < 0) {
             actions.push(_envInspectorActionButton('remove-object', 'Remove'));
         }
@@ -15599,10 +15623,6 @@
         if (_envSceneObjectHasHtml(obj) && actionMarkup.indexOf('data-env-inspector-action="open-html"') < 0) {
             actions.push(_envInspectorActionButton('open-html', 'Panel'));
         }
-        var deepDive = kind === 'node' || kind === 'workflow' ? 'workflows'
-            : (kind === 'slot' || kind === 'npc' ? 'council'
-                : (kind === 'trace' || kind === 'event' || kind === 'sample' || kind === 'replay' ? 'debug' : 'memory'));
-        actions.push(_envInspectorActionButton('open-tab', 'Deep Dive', 'primary', ' data-env-inspector-tab="' + _esc(deepDive) + '"'));
         var seenActions = {};
         actions = actions.filter(function (actionHtml) {
             var match = String(actionHtml || '').match(/data-env-inspector-action="([^"]+)"/);
@@ -15611,47 +15631,82 @@
             seenActions[key] = true;
             return true;
         });
-        return { summary: summary, actions: actions.slice(0, 3), sections: sections };
+        return { summary: summary, actions: actions.slice(0, 4), sections: sections };
+    }
+
+    function _envInspectorResolveActiveSection(view) {
+        var sections = Array.isArray((view || {}).sections) ? view.sections : [];
+        if (!sections.length) return null;
+        var preferredKey = String(_envInspectorState.activeSection || '').trim();
+        var preferred = preferredKey ? sections.find(function (section) { return String((section || {}).key || '') === preferredKey; }) : null;
+        if (preferred) return preferred;
+        var defaultOpen = sections.find(function (section) { return !!(section && section.open); }) || null;
+        var fallback = defaultOpen || sections[0] || null;
+        if (fallback) _envInspectorState.activeSection = String(fallback.key || '');
+        return fallback;
     }
 
     function _envRenderInspectorPanel() {
         if (!_envInspectorState.active) return '';
         var obj = _envInspectorCurrentObject();
         if (!obj) {
-            return '<div class="envops-inspector-shell fallback"><div class="envops-inspector-card"><div class="envops-stage-empty">Inspector target no longer exists.</div></div></div>';
+            return '<div class="envops-inspector-shell fallback"><div class="envops-focus-shell fallback"><div class="envops-stage-empty">Focus target no longer exists.</div></div></div>';
         }
         _envInspectorState.anchor = _envInspectorAnchorForObject(obj) || _envInspectorState.anchor;
         var view = _envCollectInspectorView(obj);
+        var activeSection = _envInspectorResolveActiveSection(view);
         var anchor = _envInspectorState.anchor || null;
-        var width = Math.max(224, Math.min(260, Math.floor((_envScene.width || 0) * 0.22) || 244));
-        var left = 14;
-        var top = 14;
+        var shellWidth = Math.max(480, Math.min(680, Math.floor((_envScene.width || 0) * 0.54) || 560));
+        var shellHeight = Math.max(320, Math.min(420, Math.floor((_envScene.height || 0) * 0.42) || 360));
+        var safeTop = 18;
+        var safeBottom = 146;
+        var left = 18;
+        var top = safeTop;
         var alignClass = 'align-right';
+        var coreStyle = '';
         if (anchor && _envScene.width && _envScene.height) {
-            if (anchor.x > (_envScene.width * 0.58)) {
-                left = Math.max(12, Math.min((_envScene.width - width - 12), Math.round(anchor.x - width - 18)));
-                alignClass = 'align-left';
-            } else {
-                left = Math.max(12, Math.min((_envScene.width - width - 12), Math.round(anchor.x + 14)));
-                alignClass = 'align-right';
-            }
-            top = Math.max(12, Math.min(Math.max(12, (_envScene.height - 304)), Math.round(anchor.y - 20)));
+            alignClass = anchor.x > (_envScene.width * 0.5) ? 'align-left' : 'align-right';
+            left = Math.max(12, Math.min((_envScene.width - shellWidth - 12), Math.round(anchor.x - (shellWidth / 2))));
+            top = Math.max(safeTop, Math.min(Math.max(safeTop, (_envScene.height - shellHeight - safeBottom)), Math.round(anchor.y - (shellHeight * 0.48))));
+            coreStyle = 'left:' + String(Math.round(anchor.x - left)) + 'px;top:' + String(Math.round(anchor.y - top)) + 'px;';
+        } else {
+            coreStyle = 'left:50%;top:44%;';
         }
-        return '<div class="envops-inspector-shell ' + _esc(alignClass) + '" style="left:' + String(left) + 'px;top:' + String(top) + 'px;width:' + String(width) + 'px;">' +
-            '<div class="envops-inspector-card" data-env-inspector-root="1">' +
-            '<div class="envops-inspector-head">' +
-            '<div class="envops-inspector-copy">' +
-            '<div class="envops-inspector-kicker">' + _esc(String(obj.kind || 'object')) + '</div>' +
-            '<div class="envops-inspector-title">' + _esc(String(view.summary.title || obj.label || obj.id || obj.kind || 'object')) + '</div>' +
-            '<div class="envops-inspector-meta">' + _esc(String(view.summary.subtitle || (String(obj.kind || '').toUpperCase() + ' · ' + String(obj.id || '')))) + '</div>' +
+        var actionMarkup = (view.actions || []).map(function (actionHtml, idx) {
+            return '<div class="envops-focus-action-slot slot-' + String(idx + 1) + '">' + actionHtml + '</div>';
+        }).join('');
+        var sectionButtons = (view.sections || []).map(function (section) {
+            return _envInspectorSectionButton(section, activeSection ? activeSection.key : '');
+        }).join('');
+        var detailBody = activeSection ? String(activeSection.bodyHtml || '') : '<div class="envops-stage-empty">No active detail.</div>';
+        return '<div class="envops-inspector-shell ' + _esc(alignClass) + '" style="left:' + String(left) + 'px;top:' + String(top) + 'px;width:' + String(shellWidth) + 'px;height:' + String(shellHeight) + 'px;">' +
+            '<div class="envops-focus-shell ' + _esc(alignClass) + '" data-env-inspector-root="1">' +
+            '<div class="envops-focus-grid"></div>' +
+            '<div class="envops-focus-core" style="' + _esc(coreStyle) + '">' +
+            '<div class="envops-focus-core-ring"></div>' +
+            '<div class="envops-focus-core-card">' +
+            '<div class="envops-focus-kicker">' + _esc(String(obj.kind || 'object')) + '</div>' +
+            '<div class="envops-focus-title">' + _esc(String(view.summary.title || obj.label || obj.id || obj.kind || 'object')) + '</div>' +
+            '<div class="envops-focus-subtitle">' + _esc(String(view.summary.subtitle || (String(obj.kind || '').toUpperCase() + ' · ' + String(obj.id || '')))) + '</div>' +
+            (view.summary.metrics.length ? '<div class="envops-focus-metrics">' + view.summary.metrics.join('') + '</div>' : '') +
             '</div>' +
-            '<div class="envops-inspector-actions-inline">' +
-            '<button type="button" class="btn-dim envops-inspector-close" data-env-inspector-action="close-inspector" aria-label="Close inspector">×</button>' +
             '</div>' +
+            (actionMarkup ? '<div class="envops-focus-actions">' + actionMarkup + '</div>' : '') +
+            '<div class="envops-focus-detail">' +
+            '<div class="envops-focus-detail-head">' +
+            '<div>' +
+            '<div class="envops-focus-detail-kicker">Object Matrix</div>' +
+            '<div class="envops-focus-detail-title">' + _esc(String((activeSection && activeSection.title) || 'Details')) + '</div>' +
+            '<div class="envops-focus-detail-meta">' + _esc(String((activeSection && activeSection.meta) || String(obj.label || obj.kind || 'object'))) + '</div>' +
             '</div>' +
-            (view.summary.metrics.length ? '<div class="envops-inspector-metrics">' + view.summary.metrics.join('') + '</div>' : '') +
-            (view.actions.length ? '<div class="envops-inspector-actions">' + view.actions.join('') + '</div>' : '') +
-            '<div class="envops-inspector-sections">' + view.sections.join('') + '</div>' +
+            '<button type="button" class="btn-dim envops-inspector-close" data-env-inspector-action="close-inspector" aria-label="Close focus shell">×</button>' +
+            '</div>' +
+            '<div class="envops-focus-detail-body">' + detailBody + '</div>' +
+            '</div>' +
+            '<div class="envops-focus-rail">' +
+            '<div class="envops-focus-rail-head">Signals</div>' +
+            '<div class="envops-focus-rail-body">' + sectionButtons + '</div>' +
+            '</div>' +
             '</div>' +
             '</div>';
     }
@@ -15667,15 +15722,20 @@
             });
         }
         var interaction = _envSceneInteractionMeta(sourceObj);
+        var inspectorActive = !!_envInspectorState.active;
+        var isFocused = inspectorActive && String(_envInspectorState.objectKey || '') === objectKey;
         var badge = interaction.has_html
             ? 'panel'
             : (interaction.primary_action ? String(interaction.primary_action).replace(/_/g, ' ') : String(sourceObj.kind || 'object'));
         var meta = String(sourceObj.meta || '').trim()
             || (interaction.menu_item_count ? (String(interaction.menu_item_count) + ' menu items') : (interaction.primary_action || 'scene object'));
-        return '<button type="button" class="envops-scene-trigger kind-' + _esc(String(sourceObj.kind || 'object').toLowerCase()) + '" data-env-action="scene-object" data-env-object-key="' + _esc(objectKey) + '">' +
+        var triggerClass = 'envops-scene-trigger kind-' + _esc(String(sourceObj.kind || 'object').toLowerCase());
+        if (isFocused) triggerClass += ' active';
+        else if (inspectorActive) triggerClass += ' ambient';
+        return '<button type="button" class="' + triggerClass + '" data-env-action="scene-object" data-env-object-key="' + _esc(objectKey) + '">' +
             '<span class="envops-scene-trigger-title">' + _esc(String(sourceObj.label || sourceObj.kind || 'object')) + '</span>' +
-            '<span class="envops-scene-trigger-meta">' + _esc(meta) + '</span>' +
-            '<span class="envops-scene-trigger-badge">' + _esc(badge) + '</span>' +
+            (meta ? '<span class="envops-scene-trigger-meta">' + _esc(meta) + '</span>' : '') +
+            (badge ? '<span class="envops-scene-trigger-badge">' + _esc(badge) + '</span>' : '') +
             '</button>';
     }
 
@@ -23047,6 +23107,11 @@
                     return;
                 }
             }
+            var inspectorSectionEl = e.target.closest('[data-env-inspector-section]');
+            if (inspectorSectionEl) {
+                _envInspectorSetActiveSection(inspectorSectionEl.getAttribute('data-env-inspector-section') || '');
+                return;
+            }
             var actionEl = e.target.closest('[data-env-action]');
             if (actionEl) {
                 var action = actionEl.getAttribute('data-env-action') || '';
@@ -23668,6 +23733,7 @@
                 panel_active: !!_envHtmlPanelState.active,
                 inspector_active: !!_envInspectorState.active,
                 inspected_object_key: String(_envInspectorState.objectKey || ''),
+                inspected_section: String(_envInspectorState.activeSection || ''),
                 current_snapshot: String(_envNavigationState.currentSnapshot || ''),
                 snapshot_history_depth: Number((_envNavigationState.history || []).length || 0),
                 bootstrap: {
