@@ -124,31 +124,10 @@
         history: [],
         pendingLoad: null
     };
-    let _envInspectorState = {
-        active: false,
-        objectKey: '',
-        kind: '',
-        id: '',
-        actor: '',
-        source: '',
-        openedTs: 0,
-        anchor: null,
-        lazy: {
-            docs: { pending: false, loaded: false, error: '', query: '', results: [] },
-            graph: { pending: false, loaded: false, error: '', component: '', result: null }
-        }
-    };
     let _envWorkflowRouteState = {
         seq: 0,
         pendingByRequest: {},
         pendingByExecution: {}
-    };
-    let _envSceneBootstrapState = {
-        pending: false,
-        requestedTs: 0,
-        hydratedTs: 0,
-        lastSource: '',
-        error: ''
     };
     function _envDefaultConfig() {
         return {
@@ -10884,7 +10863,14 @@
             canvas.addEventListener('click', function (event) {
                 var hit = _envSceneHitTest(event.clientX, event.clientY);
                 if (!hit || !hit.obj) return;
-                _envSelectSceneObject(hit.obj, _envManualActorId(), 'habitat_scene');
+                if (_envExecuteSceneObject(hit.obj, 'habitat_scene', { actor: _envManualActorId() })) return;
+                var command = _envFocusCommandForKind(hit.obj.kind);
+                if (!command) return;
+                _envQueueControl(command, String(hit.obj.id || ''), _envManualActorId(), 'scene focus', {
+                    source: 'habitat_scene',
+                    kind: hit.obj.kind,
+                    label: hit.obj.label || hit.obj.kind || 'primitive'
+                });
             });
         }
         if (layer && !layer.dataset.envopsBound) {
@@ -11971,9 +11957,6 @@
         _envScene.trajectories = _envSceneBuildTrajectories(workflow, traces);
         _envScene.pulses = _envRecentBusEvents(6);
         _envScene.dirty = true;
-        if (_isEnvironmentTabActive() && _envCustomSceneObjectsNeedHydration()) {
-            _envEnsurePersistedSceneBootstrap('scene_sync', false);
-        }
 
         // === THREE.JS PIPELINE ===
         var container = document.getElementById('envops-habitat-shell');
@@ -13882,197 +13865,38 @@
     // ═══════════════════════════════════════════════════════════════
 
     var _envSpawnedObjects = [];  // array of spawned scene objects
-    var _envSystemSceneKinds = {
-        workflow: 1, actor: 1, node: 1, artifact: 1, trace: 1, event: 1, sample: 1,
-        branch: 1, replay: 1, recipe: 1, profile: 1, dispatch: 1, queued: 1, watch: 1,
-        doc: 1, slot: 1, execution: 1, district: 1
-    };
-
-    function _envIsCustomSceneKind(kind) {
-        var text = String(kind || '').trim().toLowerCase();
-        if (!text) return false;
-        return !_envSystemSceneKinds[text];
-    }
-
-    function _envSceneNumber(value, fallback, min, max) {
-        var num = Number(value);
-        if (!isFinite(num)) num = Number(fallback);
-        if (!isFinite(num)) num = 0;
-        if (typeof min === 'number') num = Math.max(min, num);
-        if (typeof max === 'number') num = Math.min(max, num);
-        return num;
-    }
-
-    function _envNormalizeSceneObjectRecord(params, existing) {
-        var p = params && typeof params === 'object' ? params : {};
-        var prev = existing && typeof existing === 'object' ? existing : null;
-        var prevData = prev ? _envObjectData(prev) : {};
-        var rawData = p.data && typeof p.data === 'object' && !Array.isArray(p.data) ? p.data : null;
-        var data = rawData ? _envCloneJson(rawData, {}) : _envCloneJson(prevData, {});
-        var rawActions = Array.isArray(p.actions)
-            ? p.actions
-            : (Array.isArray(((rawData || {}).actions)) ? (rawData || {}).actions : (prev ? prev.actions : []));
-        var rawItems = p.items !== undefined
-            ? p.items
-            : (((rawData || {}).items) !== undefined ? (rawData || {}).items : (prev ? prev.items : []));
-        var fallbackLabel = prev ? prev.label : '';
-        var fallbackMeta = prev ? prev.meta : '';
-        var fallbackState = prev ? prev.state : 'idle';
-        var fallbackCategory = prev ? prev.category : '';
-        return {
-            kind: String(p.kind || (prev ? prev.kind : 'spawned') || 'spawned'),
-            id: String(p.id || (prev ? prev.id : ('spawned-' + Date.now() + '-' + Math.floor(Math.random() * 9999)))),
-            label: String(p.label || p.name || (rawData || {}).label || (rawData || {}).name || fallbackLabel || (p.kind || (prev ? prev.kind : 'object') || 'object')),
-            meta: String(
-                p.meta !== undefined ? p.meta
-                    : (p.description !== undefined ? p.description
-                        : (((rawData || {}).meta !== undefined) ? (rawData || {}).meta
-                            : (((rawData || {}).description !== undefined) ? (rawData || {}).description
-                                : (((rawData || {}).note !== undefined) ? (rawData || {}).note : fallbackMeta))))
-            ),
-            state: String(p.state !== undefined ? p.state : (((rawData || {}).state !== undefined) ? (rawData || {}).state : fallbackState || 'idle')),
-            category: String(p.category || (rawData || {}).category || fallbackCategory || p.kind || (prev ? prev.kind : 'spawned') || 'spawned'),
-            x: _envSceneNumber(p.x, prev ? prev.x : ((rawData || {}).x !== undefined ? (rawData || {}).x : 50), 2, 98),
-            y: _envSceneNumber(p.y, prev ? prev.y : ((rawData || {}).y !== undefined ? (rawData || {}).y : 50), 2, 98),
-            scale: _envSceneNumber(p.scale, prev ? prev.scale : ((rawData || {}).scale !== undefined ? (rawData || {}).scale : 1), 0.3, 2.5),
-            tilt: _envSceneNumber(p.tilt, prev ? prev.tilt : ((rawData || {}).tilt !== undefined ? (rawData || {}).tilt : 0)),
-            spawned: true,
-            spawnedTs: Number((prev && prev.spawnedTs) || Date.now()),
-            data: data,
-            html: p.html !== undefined ? p.html : (((rawData || {}).html !== undefined) ? (rawData || {}).html : (prev ? prev.html : null)),
-            color: p.color !== undefined ? p.color : (((rawData || {}).color !== undefined) ? (rawData || {}).color : (prev ? prev.color : null)),
-            items: _envNormalizeSceneMenuItems(rawItems || []),
-            action: p.action !== undefined ? p.action : (((rawData || {}).action !== undefined) ? (rawData || {}).action : (prev ? prev.action : undefined)),
-            actions: Array.isArray(rawActions) ? _envCloneJson(rawActions, []) : [],
-            panelMode: String(
-                p.panelMode !== undefined ? p.panelMode
-                    : (p.panel_mode !== undefined ? p.panel_mode
-                        : (((rawData || {}).panel_mode !== undefined) ? (rawData || {}).panel_mode
-                            : (((rawData || {}).panelMode !== undefined) ? (rawData || {}).panelMode : (prev ? prev.panelMode : ''))))
-            ),
-            slot: p.slot !== undefined ? p.slot
-                : (((rawData || {}).slot !== undefined) ? (rawData || {}).slot
-                    : (((rawData || {}).slot_id !== undefined) ? (rawData || {}).slot_id
-                        : (((rawData || {}).slotId !== undefined) ? (rawData || {}).slotId : (prev ? prev.slot : undefined)))),
-            source: p.source || (rawData || {}).source || (prev ? prev.source : 'persisted')
-        };
-    }
-
-    function _envReplaceCustomSceneObjects(items, source) {
-        var nextItems = Array.isArray(items) ? items.filter(function (item) {
-            return item && _envIsCustomSceneKind(item.kind);
-        }) : [];
-        var normalized = nextItems.map(function (item) {
-            return _envNormalizeSceneObjectRecord(item, null);
-        });
-        var nextKeys = {};
-        normalized.forEach(function (item) {
-            nextKeys[_envSceneObjectKey(item)] = item;
-        });
-        var preserved = _envSpawnedObjects.filter(function (obj) {
-            return !_envIsCustomSceneKind(obj.kind);
-        });
-        var existingCustom = _envSpawnedObjects.filter(function (obj) {
-            return _envIsCustomSceneKind(obj.kind);
-        });
-        var changed = existingCustom.length !== normalized.length;
-        if (!changed) {
-            for (var i = 0; i < existingCustom.length; i++) {
-                var current = existingCustom[i];
-                var replacement = nextKeys[_envSceneObjectKey(current)] || null;
-                if (!replacement) { changed = true; break; }
-                if (JSON.stringify(current) !== JSON.stringify(replacement)) { changed = true; break; }
-            }
-        }
-        if (!changed) return false;
-        _envSpawnedObjects = preserved.concat(normalized);
-        _envSceneBootstrapState.hydratedTs = Date.now();
-        _envSceneBootstrapState.pending = false;
-        _envSceneBootstrapState.lastSource = String(source || 'replace');
-        _envSceneBootstrapState.error = '';
-        return true;
-    }
-
-    function _envCustomSceneObjectsNeedHydration() {
-        var custom = _envSpawnedObjects.filter(function (obj) {
-            return _envIsCustomSceneKind((obj || {}).kind);
-        });
-        if (!custom.length) return true;
-        for (var i = 0; i < custom.length; i++) {
-            var obj = custom[i] || {};
-            var kind = String(obj.kind || '').toLowerCase();
-            var label = String(obj.label || '').trim().toLowerCase();
-            var meta = String(obj.meta || '').trim();
-            var data = _envObjectData(obj);
-            var hasData = Object.keys(data || {}).length > 0;
-            var defaultPose = Math.abs(Number(obj.x || 0) - 50) < 0.001 && Math.abs(Number(obj.y || 0) - 50) < 0.001;
-            if ((!label || label === kind) && !meta && defaultPose && !obj.color && !hasData && !String(obj.html || '').trim()) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    function _envHydrateCustomSceneObjectsFromPayload(payload, toolName, source) {
-        if (!payload || typeof payload !== 'object') return false;
-        var changed = false;
-        var op = String(payload.operation || '').toLowerCase();
-        var opStatus = String(payload.operation_status || '').toLowerCase();
-        var query = String(payload.query || '').toLowerCase();
-        if (op === 'clear' || opStatus === 'cleared') {
-            changed = _envReplaceCustomSceneObjects([], source || 'env_clear') || changed;
-            _envSceneBootstrapState.hydratedTs = Date.now();
-            return changed;
-        }
-        var listLike = (toolName === 'env_read' && query === 'list') || (toolName === 'env_persist' && (op === 'load' || opStatus === 'loaded'));
-        if (Array.isArray(payload.objects)) {
-            if (listLike) changed = _envReplaceCustomSceneObjects(payload.objects, source || (toolName + ':objects')) || changed;
-            else {
-                payload.objects.forEach(function (item) {
-                    if (_envIsCustomSceneKind((item || {}).kind) && _envUpsertSpawnedObject(item)) changed = true;
-                });
-            }
-            _envSceneBootstrapState.pending = false;
-            _envSceneBootstrapState.hydratedTs = Date.now();
-            _envSceneBootstrapState.lastSource = String(source || toolName || 'env_objects');
-            _envSceneBootstrapState.error = '';
-        }
-        if (payload.object && _envIsCustomSceneKind(payload.object.kind)) {
-            if (_envUpsertSpawnedObject(payload.object)) changed = true;
-        }
-        if (payload.snapshot && Array.isArray(payload.snapshot.objects)) {
-            changed = _envReplaceCustomSceneObjects(payload.snapshot.objects, source || 'snapshot') || changed;
-            _envSceneBootstrapState.pending = false;
-            _envSceneBootstrapState.hydratedTs = Date.now();
-            _envSceneBootstrapState.lastSource = String(source || 'snapshot');
-            _envSceneBootstrapState.error = '';
-        }
-        return changed;
-    }
-
-    function _envEnsurePersistedSceneBootstrap(reason, force) {
-        if (!_wfSelectedId) return false;
-        if (_envSceneBootstrapState.pending) return false;
-        if (!force && Number(_envSceneBootstrapState.hydratedTs || 0) > 0) return false;
-        _envSceneBootstrapState.pending = true;
-        _envSceneBootstrapState.requestedTs = Date.now();
-        _envSceneBootstrapState.lastSource = String(reason || 'bootstrap');
-        _envSceneBootstrapState.error = '';
-        callTool('env_read', { query: 'list' }, 'env_read', {
-            sceneBootstrap: true,
-            sceneBootstrapReason: String(reason || 'bootstrap')
-        });
-        return true;
-    }
 
     function _envSpawnObject(params) {
-        var obj = _envNormalizeSceneObjectRecord(params || {}, null);
-        var id = String(obj.id || '');
-        var kind = String(obj.kind || 'spawned');
+        var p = params || {};
+        var id = String(p.id || ('spawned-' + Date.now() + '-' + Math.floor(Math.random() * 9999)));
+        var kind = String(p.kind || 'spawned');
         // Remove existing object with same id if present
         _envSpawnedObjects = _envSpawnedObjects.filter(function (obj) {
             return !(obj.kind === kind && obj.id === id);
         });
+        var obj = {
+            kind: kind,
+            id: id,
+            label: String(p.label || p.name || kind),
+            meta: String(p.meta || p.description || ''),
+            state: String(p.state || 'idle'),
+            category: String(p.category || kind),
+            x: Math.max(2, Math.min(98, Number(p.x || 50))),
+            y: Math.max(2, Math.min(98, Number(p.y || 50))),
+            scale: Math.max(0.3, Math.min(2.5, Number(p.scale || 1))),
+            tilt: Number(p.tilt || 0),
+            spawned: true,
+            spawnedTs: Date.now(),
+            data: p.data || null,
+            html: p.html || null,
+            color: p.color || null,
+            items: _envNormalizeSceneMenuItems(p.items || ((_envObjectData(p) || {}).items) || []),
+            action: p.action !== undefined ? p.action : ((_envObjectData(p) || {}).action),
+            actions: Array.isArray(p.actions) ? _envCloneJson(p.actions, []) : (Array.isArray(((_envObjectData(p) || {}).actions)) ? _envCloneJson(((_envObjectData(p) || {}).actions), []) : []),
+            panelMode: String(p.panelMode || p.panel_mode || ((_envObjectData(p) || {}).panel_mode) || ((_envObjectData(p) || {}).panelMode) || ''),
+            slot: p.slot !== undefined ? p.slot : (((_envObjectData(p) || {}).slot !== undefined) ? (_envObjectData(p) || {}).slot : (((_envObjectData(p) || {}).slot_id !== undefined) ? (_envObjectData(p) || {}).slot_id : (_envObjectData(p) || {}).slotId)),
+            source: p.source || null
+        };
         _envSpawnedObjects.push(obj);
         _envEmitBus('spawn', 'Spawned ' + kind + ' object: ' + obj.label, 'system', { kind: kind, id: id });
         _envLogAction('spawn', 'Spawned scene object: ' + obj.label, 'assistant', { kind: kind, id: id, x: obj.x, y: obj.y });
@@ -14096,10 +13920,22 @@
             if (!id && obj.kind === kind) { target = obj; break; }
         }
         if (!target) return null;
-        var next = _envNormalizeSceneObjectRecord(Object.assign({}, target, p), target);
-        Object.keys(next).forEach(function (key) {
-            target[key] = next[key];
-        });
+        if (p.label !== undefined) target.label = String(p.label);
+        if (p.meta !== undefined) target.meta = String(p.meta);
+        if (p.state !== undefined) target.state = String(p.state);
+        if (p.x !== undefined) target.x = Math.max(2, Math.min(98, Number(p.x)));
+        if (p.y !== undefined) target.y = Math.max(2, Math.min(98, Number(p.y)));
+        if (p.scale !== undefined) target.scale = Math.max(0.3, Math.min(2.5, Number(p.scale)));
+        if (p.tilt !== undefined) target.tilt = Number(p.tilt);
+        if (p.color !== undefined) target.color = p.color;
+        if (p.data !== undefined) target.data = p.data;
+        if (p.html !== undefined) target.html = p.html;
+        if (p.items !== undefined) target.items = _envNormalizeSceneMenuItems(p.items);
+        if (p.action !== undefined) target.action = p.action;
+        if (p.actions !== undefined) target.actions = Array.isArray(p.actions) ? _envCloneJson(p.actions, []) : [];
+        if (p.panelMode !== undefined || p.panel_mode !== undefined) target.panelMode = String(p.panelMode || p.panel_mode || '');
+        if (p.slot !== undefined) target.slot = p.slot;
+        if (p.source !== undefined) target.source = p.source;
         _envEmitBus('spawn', 'Mutated object: ' + target.label, 'system', { kind: target.kind, id: target.id });
         _envScheduleLiveSync('mutate:local', true);
         if (_env3D.inited) _envSyncHabitatScene();
@@ -14880,742 +14716,6 @@
             '</div>';
     }
 
-    function _envInspectorSnapshot() {
-        return {
-            active: !!_envInspectorState.active,
-            object_key: String(_envInspectorState.objectKey || ''),
-            kind: String(_envInspectorState.kind || ''),
-            id: String(_envInspectorState.id || ''),
-            actor: String(_envInspectorState.actor || ''),
-            source: String(_envInspectorState.source || ''),
-            opened_ts: Number(_envInspectorState.openedTs || 0),
-            anchor: _envCloneJson(_envInspectorState.anchor, null),
-            lazy: _envCloneJson(_envInspectorState.lazy, {})
-        };
-    }
-
-    function _envFindProjectedSceneItem(objectKey) {
-        var key = String(objectKey || '').trim();
-        if (!key) return null;
-        var items = Array.isArray(_envScene.pickables) ? _envScene.pickables : [];
-        for (var i = 0; i < items.length; i++) {
-            if (_envSceneObjectKey((items[i] || {}).obj) === key) return items[i];
-        }
-        return null;
-    }
-
-    function _envInspectorAnchorForObject(obj) {
-        var key = obj ? _envSceneObjectKey(obj) : '';
-        var shell = document.getElementById('envops-habitat-shell');
-        if (!shell) return null;
-        var shellRect = shell.getBoundingClientRect ? shell.getBoundingClientRect() : null;
-        var cssLabel = key && _env3D.cssLabels ? _env3D.cssLabels[key] : null;
-        var labelEl = cssLabel && cssLabel.element ? cssLabel.element : null;
-        if (labelEl && shellRect) {
-            var rect = labelEl.getBoundingClientRect();
-            return {
-                x: (rect.left - shellRect.left) + (rect.width / 2),
-                y: (rect.top - shellRect.top) + Math.max(0, rect.height / 2),
-                mode: 'label'
-            };
-        }
-        var pick = _envFindProjectedSceneItem(key);
-        if (pick) return { x: Number(pick.x || 0), y: Number(pick.y || 0), mode: 'scene' };
-        return null;
-    }
-
-    function _envInspectorCurrentObject() {
-        if (!_envInspectorState.active) return null;
-        return _envSceneObjectByKey(_envInspectorState.objectKey)
-            || _envSceneFindObject(_envInspectorState.kind, _envInspectorState.id)
-            || null;
-    }
-
-    function _envResetInspectorLazyState() {
-        _envInspectorState.lazy = {
-            docs: { pending: false, loaded: false, error: '', query: '', results: [] },
-            graph: { pending: false, loaded: false, error: '', component: '', result: null }
-        };
-    }
-
-    function _envOpenInspectorForObject(obj, actor, source) {
-        if (!obj || typeof obj !== 'object') return false;
-        var objectKey = _envSceneObjectKey(obj);
-        if (!objectKey) return false;
-        if (String(_envInspectorState.objectKey || '') !== objectKey) _envResetInspectorLazyState();
-        _envInspectorState.active = true;
-        _envInspectorState.objectKey = objectKey;
-        _envInspectorState.kind = String(obj.kind || '');
-        _envInspectorState.id = String(obj.id || '');
-        _envInspectorState.actor = String(actor || _envManualActorId() || 'assistant');
-        _envInspectorState.source = String(source || 'scene');
-        _envInspectorState.openedTs = Date.now();
-        _envInspectorState.anchor = _envInspectorAnchorForObject(obj);
-        _envScheduleLiveSync('inspector:open', true);
-        renderEnvironmentView();
-        return true;
-    }
-
-    function _envCloseInspector(actor, reason) {
-        if (!_envInspectorState.active) return false;
-        _envInspectorState.active = false;
-        _envInspectorState.objectKey = '';
-        _envInspectorState.kind = '';
-        _envInspectorState.id = '';
-        _envInspectorState.actor = String(actor || _envManualActorId() || 'assistant');
-        _envInspectorState.source = String(reason || 'close');
-        _envInspectorState.anchor = null;
-        _envScheduleLiveSync('inspector:close', true);
-        renderEnvironmentView();
-        return true;
-    }
-
-    function _envFocusSceneObject(obj, actor, source) {
-        if (!obj || typeof obj !== 'object') return false;
-        var actorName = String(actor || _envManualActorId() || 'assistant');
-        _envSetFocus(String(obj.kind || 'workflow'), String(obj.id || ''), actorName, obj);
-        _envEmitBus('focus', 'Scene focus · ' + String(obj.label || obj.id || obj.kind || 'object'), actorName, {
-            object_key: _envSceneObjectKey(obj),
-            kind: String(obj.kind || ''),
-            id: String(obj.id || ''),
-            source: String(source || 'scene')
-        });
-        _envScheduleLiveSync('focus:scene-object', true);
-        return true;
-    }
-
-    function _envSelectSceneObject(obj, actor, source) {
-        if (!obj || typeof obj !== 'object') return false;
-        _envFocusSceneObject(obj, actor, source || 'scene');
-        _envOpenInspectorForObject(obj, actor, source || 'scene');
-        return true;
-    }
-
-    function _envInspectorRecentActivity(obj, limit) {
-        var results = [];
-        var max = Math.max(1, Number(limit || 8));
-        var id = String((obj || {}).id || '').toLowerCase();
-        var label = String((obj || {}).label || '').toLowerCase();
-        var slotId = String(_envSceneResolveSlotId(obj) || '').trim();
-        for (var i = _activityLog.length - 1; i >= 0; i--) {
-            if (results.length >= max) break;
-            var event = _activityLog[i] || {};
-            var args = event.args || {};
-            var haystack = [
-                String(event.tool || ''),
-                String(event.error || ''),
-                String(event.result_preview || ''),
-                String(event.args_preview || ''),
-                String(args.id || ''),
-                String(args.target || ''),
-                String(args.target_id || ''),
-                String(args.kind || ''),
-                String(args.workflow_id || ''),
-                String(args.text || ''),
-                String(args.prompt || '')
-            ].join(' ').toLowerCase();
-            var slotMatch = slotId && (String(args.slot || '') === slotId || String(event._trace_target_slot || '') === slotId || String(event._trace_caller_slot || '') === slotId);
-            var textMatch = (id && haystack.indexOf(id) >= 0) || (label && label.length > 2 && haystack.indexOf(label) >= 0);
-            if (!slotMatch && !textMatch) continue;
-            results.push({
-                tool: String(event.tool || 'tool'),
-                when: event.time ? _fmtTimeAgo(event.time) : 'now',
-                actor: String(event.actor || event.source || 'system'),
-                preview: _envProductCollapseText(String(event.error || event.result_preview || event.args_preview || ''), 120)
-            });
-        }
-        return results;
-    }
-
-    function _envInspectorCachedDocs(obj, limit) {
-        var max = Math.max(1, Number(limit || 6));
-        var id = String((obj || {}).id || '').toLowerCase();
-        var label = String((obj || {}).label || '').toLowerCase();
-        return (_envDocState.results || []).filter(function (doc) {
-            var hay = [
-                String((doc || {}).key || ''),
-                String((doc || {}).path || ''),
-                String((doc || {}).preview || '')
-            ].join(' ').toLowerCase();
-            return (id && hay.indexOf(id) >= 0) || (label && label.length > 2 && hay.indexOf(label) >= 0);
-        }).slice(0, max);
-    }
-
-    function _envInspectorConfigBindings(obj, limit) {
-        var max = Math.max(1, Number(limit || 8));
-        var needles = [String((obj || {}).id || '').toLowerCase(), String((obj || {}).label || '').toLowerCase()].filter(function (item) { return item && item.length > 1; });
-        var hits = [];
-        function scan(value, path, depth) {
-            if (hits.length >= max || depth > 5 || value == null) return;
-            if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-                var text = String(value).toLowerCase();
-                if (needles.some(function (needle) { return text.indexOf(needle) >= 0; })) {
-                    hits.push({ path: String(path || 'config'), value: _envProductCollapseText(value, 96) });
-                }
-                return;
-            }
-            if (Array.isArray(value)) {
-                for (var i = 0; i < value.length; i++) scan(value[i], path + '[' + i + ']', depth + 1);
-                return;
-            }
-            if (typeof value === 'object') {
-                Object.keys(value).forEach(function (key) {
-                    scan(value[key], path ? (path + '.' + key) : key, depth + 1);
-                });
-            }
-        }
-        scan(_envConfig || {}, 'config', 0);
-        return hits;
-    }
-
-    function _envInspectorWorkflowRefs(obj) {
-        var workflow = _wfLoadedDef && String((_wfLoadedDef || {}).id || '') === String(_wfSelectedId || '') ? _wfLoadedDef : null;
-        if (!workflow || !Array.isArray(workflow.nodes)) return [];
-        var id = String((obj || {}).id || '');
-        var kind = String((obj || {}).kind || '').toLowerCase();
-        var slotId = String(_envSceneResolveSlotId(obj) || '');
-        return workflow.nodes.filter(function (node) {
-            if (!node || typeof node !== 'object') return false;
-            if (kind === 'node') return String(node.id || '') === id;
-            var hay = JSON.stringify(node || {}).toLowerCase();
-            if (slotId && hay.indexOf('"slot":' + slotId) >= 0) return true;
-            return id && hay.indexOf(id.toLowerCase()) >= 0;
-        }).slice(0, 8).map(function (node) {
-            return {
-                id: String(node.id || ''),
-                label: String(node.name || node.label || node.id || 'node'),
-                type: String(node.type || 'node'),
-                tool: String(node.tool || node.tool_name || '')
-            };
-        });
-    }
-
-    function _envInspectorZoneContents(obj) {
-        var centerX = Number((obj || {}).x || 0);
-        var centerY = Number((obj || {}).y || 0);
-        var radius = Math.max(8, Number((obj || {}).scale || 1) * 18);
-        return (_envSpawnedObjects || []).filter(function (other) {
-            if (!other || _envSceneObjectKey(other) === _envSceneObjectKey(obj)) return false;
-            var dx = Number(other.x || 0) - centerX;
-            var dy = Number(other.y || 0) - centerY;
-            return Math.sqrt(dx * dx + dy * dy) <= radius;
-        }).slice(0, 12);
-    }
-
-    function _envInspectorSlotMeta(slotId) {
-        var num = parseInt(String(slotId || '').trim(), 10);
-        if (isNaN(num) || typeof _getSlotData !== 'function') return null;
-        return _getSlotData(num);
-    }
-
-    function _envInspectorSlotSummary(slotMeta, slotId) {
-        if (!slotMeta) {
-            return {
-                slot: String(slotId || ''),
-                model: 'slot unavailable',
-                provider: '',
-                supportsChat: false,
-                contextWindow: '',
-                maxOutput: ''
-            };
-        }
-        return {
-            slot: String(slotId || ''),
-            model: String(slotMeta.model_source || slotMeta.model_id || slotMeta.name || 'vacant slot'),
-            provider: _providerLabel(_detectProvider(slotMeta)),
-            supportsChat: !!_slotSupportsAgentChat(slotMeta),
-            contextWindow: String(slotMeta.context_window || slotMeta.contextWindow || ''),
-            maxOutput: String(slotMeta.max_output || slotMeta.maxOutput || '')
-        };
-    }
-
-    function _envInspectorComponentForObject(obj) {
-        var data = _envObjectData(obj);
-        return String(data.graph_component || data.component || (String(obj.kind || '') + ':' + String(obj.id || '')) || '').trim();
-    }
-
-    function _envInspectorLazyDocsQuery(obj) {
-        var data = _envObjectData(obj);
-        return [
-            String(obj.label || ''),
-            String(obj.id || ''),
-            String((data && (data.description || data.meta || data.note)) || '')
-        ].filter(function (item) { return !!String(item || '').trim(); }).join(' ').trim();
-    }
-
-    function _envInspectorLoadDocs(obj) {
-        if (!obj) return false;
-        var query = _envInspectorLazyDocsQuery(obj);
-        if (!query) return false;
-        _envInspectorState.lazy.docs = { pending: true, loaded: false, error: '', query: query, results: [] };
-        callTool('bag_search_docs', { query: query, limit: 8, prefix: 'docs/' }, 'bag_search_docs', {
-            inspectorLazy: { objectKey: _envSceneObjectKey(obj), kind: 'docs', query: query }
-        });
-        renderEnvironmentView();
-        return true;
-    }
-
-    function _envInspectorLoadGraph(obj) {
-        if (!obj) return false;
-        var component = _envInspectorComponentForObject(obj);
-        if (!component) return false;
-        _envInspectorState.lazy.graph = { pending: true, loaded: false, error: '', component: component, result: null };
-        callTool('cascade_graph', {
-            operation: 'connections',
-            params: JSON.stringify({ component: component })
-        }, 'cascade_graph', {
-            inspectorLazy: { objectKey: _envSceneObjectKey(obj), kind: 'graph', component: component }
-        });
-        renderEnvironmentView();
-        return true;
-    }
-
-    function _envHandleInspectorToolResult(toolName, msg, rawText, pendingMeta) {
-        var lazyMeta = pendingMeta && pendingMeta.inspectorLazy ? pendingMeta.inspectorLazy : null;
-        if (!lazyMeta) return false;
-        if (!_envInspectorState.active || String(_envInspectorState.objectKey || '') !== String(lazyMeta.objectKey || '')) return false;
-        if (lazyMeta.kind === 'docs') {
-            if (msg && msg.error) {
-                _envInspectorState.lazy.docs = { pending: false, loaded: true, error: String(msg.error || 'doc search failed'), query: String(lazyMeta.query || ''), results: [] };
-            } else {
-                var docPayload = _normalizeToolPayload(rawText) || {};
-                _envInspectorState.lazy.docs = {
-                    pending: false,
-                    loaded: true,
-                    error: '',
-                    query: String(lazyMeta.query || ''),
-                    results: _envNormalizeDocResults(docPayload)
-                };
-            }
-            renderEnvironmentView();
-            return true;
-        }
-        if (lazyMeta.kind === 'graph') {
-            if (msg && msg.error) {
-                _envInspectorState.lazy.graph = { pending: false, loaded: true, error: String(msg.error || 'graph lookup failed'), component: String(lazyMeta.component || ''), result: null };
-            } else {
-                _envInspectorState.lazy.graph = {
-                    pending: false,
-                    loaded: true,
-                    error: '',
-                    component: String(lazyMeta.component || ''),
-                    result: _normalizeToolPayload(rawText) || rawText
-                };
-            }
-            renderEnvironmentView();
-            return true;
-        }
-        return false;
-    }
-
-    function _envInspectorWorkflowTarget(obj) {
-        var sourceObj = obj && typeof obj === 'object' ? obj : {};
-        var data = _envObjectData(sourceObj);
-        var kind = String(sourceObj.kind || '').toLowerCase();
-        if (kind === 'workflow') return String(sourceObj.id || _wfSelectedId || '').trim();
-        if (kind === 'node') return String(_wfSelectedId || data.workflow_id || data.workflowId || '').trim();
-        return String(data.workflow_id || data.workflowId || _wfSelectedId || '').trim();
-    }
-
-    function _envInspectorInvokePrompt(obj) {
-        var sourceObj = obj && typeof obj === 'object' ? obj : {};
-        var label = String(sourceObj.label || sourceObj.id || sourceObj.kind || 'this object').trim();
-        var kind = String(sourceObj.kind || 'object').toLowerCase();
-        if (kind === 'npc') return 'Respond in character as ' + label + '. Give your current role, mood, and immediate context in the environment.';
-        if (kind === 'slot') return 'Report your current model identity, provider, and readiness in one concise paragraph.';
-        return 'Describe your current role, status, and immediate context in the environment.';
-    }
-
-    function _envInspectorPrimaryDocKey(obj) {
-        var lazyDocs = (_envInspectorState.lazy || {}).docs || {};
-        if (lazyDocs.loaded && Array.isArray(lazyDocs.results) && lazyDocs.results.length) {
-            return String(((lazyDocs.results[0] || {}).key || (lazyDocs.results[0] || {}).path || '')).trim();
-        }
-        var cachedDocs = _envInspectorCachedDocs(obj, 1);
-        if (cachedDocs.length) return String((cachedDocs[0] || {}).key || (cachedDocs[0] || {}).path || '').trim();
-        return '';
-    }
-
-    function _envHandleInspectorAction(action, obj, actor, actionEl) {
-        var sourceObj = obj && typeof obj === 'object' ? obj : null;
-        var actorName = String(actor || _envManualActorId() || 'assistant');
-        var objectKey = sourceObj ? _envSceneObjectKey(sourceObj) : '';
-        var data = _envObjectData(sourceObj);
-        var slotId = _envSceneResolveSlotId(sourceObj);
-        var slotNum = parseInt(String(slotId || ''), 10);
-        var workflowId = _envInspectorWorkflowTarget(sourceObj);
-        var snapshotName = String(data.snapshot || data.snapshot_name || data.target_snapshot || '').trim();
-        if (action === 'close-inspector') {
-            return _envCloseInspector(actorName, 'inspector close');
-        }
-        if (!sourceObj) return false;
-        if (action === 'chat') {
-            return _envExecuteSceneAction({ type: 'open_agent_chat', slot: slotId }, sourceObj, 'inspector', { actor: actorName });
-        }
-        if (action === 'invoke-slot') {
-            if (isNaN(slotNum)) return false;
-            callTool('invoke_slot', {
-                slot: slotNum,
-                text: _envInspectorInvokePrompt(sourceObj)
-            }, 'invoke_slot', { inspectorAction: true, inspectorObjectKey: objectKey });
-            _envLogAction('tool', 'Inspector invoked slot ' + String(slotId || ''), actorName, { object_key: objectKey, slot: slotNum });
-            return true;
-        }
-        if (action === 'focus-slot') {
-            if (!String(slotId || '').trim()) return false;
-            _envQueueControl('focus_slot', String(slotId), actorName, 'inspector slot focus', { object_key: objectKey, source: 'inspector' });
-            return true;
-        }
-        if (action === 'slot-info') {
-            if (isNaN(slotNum)) return false;
-            callTool('slot_info', { slot: slotNum }, 'slot_info', { inspectorAction: true, inspectorObjectKey: objectKey });
-            return true;
-        }
-        if (action === 'clone-slot') {
-            if (isNaN(slotNum)) return false;
-            callTool('clone_slot', { slot: slotNum }, 'clone_slot', { inspectorAction: true, inspectorObjectKey: objectKey });
-            return true;
-        }
-        if (action === 'unplug-slot') {
-            if (isNaN(slotNum)) return false;
-            callTool('unplug_slot', { slot: slotNum }, 'unplug_slot', { inspectorAction: true, inspectorObjectKey: objectKey });
-            return true;
-        }
-        if (action === 'execute-workflow') {
-            if (!workflowId) return false;
-            callTool('workflow_execute', {
-                workflow_id: workflowId,
-                input_data: '{}'
-            }, 'workflow_execute', { inspectorAction: true, inspectorObjectKey: objectKey });
-            _envLogAction('route', 'Inspector executed workflow ' + workflowId, actorName, { object_key: objectKey, workflow_id: workflowId });
-            return true;
-        }
-        if (action === 'workflow-history') {
-            if (!workflowId) return false;
-            callTool('workflow_history', {
-                workflow_id: workflowId,
-                limit: String(_envComparisonConfig().historyLimit)
-            }, 'workflow_history', { inspectorAction: true, inspectorObjectKey: objectKey });
-            _envLogAction('runtime', 'Inspector requested workflow history ' + workflowId, actorName, { object_key: objectKey, workflow_id: workflowId });
-            return true;
-        }
-        if (action === 'export-interface') {
-            callTool('export_interface', {}, 'export_interface', { inspectorAction: true, inspectorObjectKey: objectKey });
-            return true;
-        }
-        if (action === 'open-workflows') {
-            _envOpenLinkedTab('workflows');
-            return true;
-        }
-        if (action === 'open-debug') {
-            _envOpenLinkedTab('debug');
-            return true;
-        }
-        if (action === 'open-memory') {
-            var docKey = _envInspectorPrimaryDocKey(sourceObj);
-            if (docKey) _envDocOpenInMemory(docKey, actorName);
-            else _envOpenLinkedTab('memory');
-            return true;
-        }
-        if (action === 'edit-object') {
-            _envOpenLinkedTab('tools');
-            _envLogAction('handoff', 'Inspector routed object edit to Tools', actorName, { object_key: objectKey, kind: String(sourceObj.kind || '') });
-            return true;
-        }
-        if (action === 'remove-object') {
-            if (!_envIsCustomSceneKind(sourceObj.kind)) return false;
-            callTool('env_remove', {
-                kind: String(sourceObj.kind || ''),
-                id: String(sourceObj.id || '')
-            }, 'env_remove', { inspectorAction: true, inspectorObjectKey: objectKey });
-            return true;
-        }
-        if (action === 'open-html') {
-            return _envOpenHtmlPanel(sourceObj, null, actorName, 'inspector');
-        }
-        if (action === 'snapshot-load') {
-            if (!snapshotName) return false;
-            return _envSceneQueueSnapshotLoad(snapshotName, {
-                actor: actorName,
-                sourceKey: objectKey,
-                label: String(sourceObj.label || sourceObj.id || snapshotName),
-                currentLabel: String(_envNavigationState.currentSnapshot || '')
-            });
-        }
-        if (action === 'activate-actor') {
-            _envActorSetActive(String(sourceObj.id || ''), actorName, 'inspector actor activate', false);
-            return true;
-        }
-        if (action === 'load-docs') {
-            return _envInspectorLoadDocs(sourceObj);
-        }
-        if (action === 'load-graph') {
-            return _envInspectorLoadGraph(sourceObj);
-        }
-        if (action === 'open-tab') {
-            var tabName = actionEl ? String(actionEl.getAttribute('data-env-inspector-tab') || '').trim() : '';
-            if (!tabName) return false;
-            _envOpenLinkedTab(tabName);
-            return true;
-        }
-        return false;
-    }
-
-    function _envInspectorSection(title, bodyHtml, opts) {
-        var cfg = opts && typeof opts === 'object' ? opts : {};
-        return '<details class="envops-inspector-section"' + (cfg.open === false ? '' : ' open') + '>' +
-            '<summary><span>' + _esc(String(title || 'Section')) + '</span><span>' + _esc(String(cfg.meta || '')) + '</span></summary>' +
-            '<div class="envops-inspector-section-body">' + String(bodyHtml || '<div class="envops-stage-empty">No data.</div>') + '</div>' +
-            '</details>';
-    }
-
-    function _envInspectorMetric(label, value) {
-        return '<div class="envops-inspector-metric"><span>' + _esc(String(label || 'metric')) + '</span><strong>' + _esc(String(value || '—')) + '</strong></div>';
-    }
-
-    function _envInspectorActionButton(action, label, tone, extraAttrs) {
-        return '<button type="button" class="' + (tone === 'primary' ? '' : 'btn-dim') + '" data-env-inspector-action="' + _esc(String(action || 'noop')) + '"' + String(extraAttrs || '') + '>' + _esc(String(label || action || 'ACTION')) + '</button>';
-    }
-
-    function _envInspectorObjectSummary(obj) {
-        var data = _envObjectData(obj);
-        var metrics = [
-            _envInspectorMetric('Kind', String(obj.kind || 'object')),
-            _envInspectorMetric('State', String(obj.state || 'idle')),
-            _envInspectorMetric('Position', Number(obj.x || 0).toFixed(1) + ', ' + Number(obj.y || 0).toFixed(1)),
-            _envInspectorMetric('Scale', Number(obj.scale || 1).toFixed(2)),
-            _envInspectorMetric('Tilt', Number(obj.tilt || 0).toFixed(1))
-        ];
-        if (obj.color) metrics.push(_envInspectorMetric('Color', String(obj.color || '')));
-        return {
-            title: String(obj.label || obj.kind || 'object'),
-            subtitle: String(obj.meta || data.description || data.note || obj.id || ''),
-            metrics: metrics,
-            activity: _envInspectorRecentActivity(obj, 6),
-            docs: _envInspectorCachedDocs(obj, 4),
-            configHits: _envInspectorConfigBindings(obj, 5),
-            workflowRefs: _envInspectorWorkflowRefs(obj)
-        };
-    }
-
-    function _envCollectInspectorView(obj) {
-        var summary = _envInspectorObjectSummary(obj);
-        var kind = String(obj.kind || '').toLowerCase();
-        var data = _envObjectData(obj);
-        var slotId = _envSceneResolveSlotId(obj);
-        var slotMeta = slotId ? _envInspectorSlotMeta(slotId) : null;
-        var slotSummary = slotId ? _envInspectorSlotSummary(slotMeta, slotId) : null;
-        var actions = [];
-        var sections = [];
-
-        if (kind === 'npc' && slotSummary) {
-            sections.push(_envInspectorSection('Agent', [
-                _envInspectorMetric('Slot', slotSummary.slot),
-                _envInspectorMetric('Model', slotSummary.model),
-                _envInspectorMetric('Provider', slotSummary.provider),
-                _envInspectorMetric('Chat', slotSummary.supportsChat ? 'yes' : 'no')
-            ].join(''), { meta: slotSummary.provider || 'slot' }));
-            actions.push(_envInspectorActionButton('chat', 'Chat', 'primary'));
-            actions.push(_envInspectorActionButton('invoke-slot', 'Invoke'));
-            actions.push(_envInspectorActionButton('focus-slot', 'Focus Slot'));
-            var caps = Array.isArray(data.capabilities) ? data.capabilities : (Array.isArray(data.granted_tools) ? data.granted_tools : []);
-            if (caps.length) {
-                sections.push(_envInspectorSection('Capabilities', '<div class="envops-chip-row">' + caps.slice(0, 12).map(function (cap) {
-                    return '<span class="envops-chip">' + _esc(String(cap)) + '</span>';
-                }).join('') + '</div>', { meta: String(caps.length) + ' tools' }));
-            }
-        } else if (kind === 'slot' && slotSummary) {
-            sections.push(_envInspectorSection('Slot Runtime', [
-                _envInspectorMetric('Slot', slotSummary.slot),
-                _envInspectorMetric('Model', slotSummary.model),
-                _envInspectorMetric('Provider', slotSummary.provider),
-                _envInspectorMetric('Context', slotSummary.contextWindow || '—'),
-                _envInspectorMetric('Max Output', slotSummary.maxOutput || '—')
-            ].join(''), { meta: slotSummary.provider || 'slot' }));
-            actions.push(_envInspectorActionButton('chat', 'Chat', 'primary'));
-            actions.push(_envInspectorActionButton('invoke-slot', 'Invoke'));
-            actions.push(_envInspectorActionButton('slot-info', 'Info'));
-            actions.push(_envInspectorActionButton('clone-slot', 'Clone'));
-            actions.push(_envInspectorActionButton('unplug-slot', 'Unplug'));
-        } else if (kind === 'node') {
-            var workflow = _wfLoadedDef && String((_wfLoadedDef || {}).id || '') === String(_wfSelectedId || '') ? _wfLoadedDef : null;
-            var node = workflow && Array.isArray(workflow.nodes) ? workflow.nodes.find(function (item) { return String((item || {}).id || '') === String(obj.id || ''); }) : null;
-            var upstream = [];
-            var downstream = [];
-            if (workflow && Array.isArray(workflow.connections)) {
-                workflow.connections.forEach(function (edge) {
-                    if (String((edge || {}).to || '') === String(obj.id || '')) upstream.push(String((edge || {}).from || ''));
-                    if (String((edge || {}).from || '') === String(obj.id || '')) downstream.push(String((edge || {}).to || ''));
-                });
-            }
-            sections.push(_envInspectorSection('Workflow Context', [
-                _envInspectorMetric('Workflow', String((workflow || {}).name || (workflow || {}).id || '')),
-                _envInspectorMetric('Type', String((node || {}).type || 'node')),
-                _envInspectorMetric('Tool', String((node || {}).tool || (node || {}).tool_name || '—')),
-                _envInspectorMetric('Upstream', upstream.join(', ') || 'none'),
-                _envInspectorMetric('Downstream', downstream.join(', ') || 'none')
-            ].join(''), { meta: String((node || {}).tool || (node || {}).type || 'node') }));
-            actions.push(_envInspectorActionButton('execute-workflow', 'Execute', 'primary'));
-            actions.push(_envInspectorActionButton('workflow-history', 'History'));
-            actions.push(_envInspectorActionButton('open-workflows', 'Workflows'));
-            actions.push(_envInspectorActionButton('open-debug', 'Debug'));
-        } else if (kind === 'workflow') {
-            var wf = _envGetSelectedWorkflow() || _wfLoadedDef || {};
-            sections.push(_envInspectorSection('Workflow Structure', [
-                _envInspectorMetric('Workflow', String(wf.name || wf.id || obj.id || 'workflow')),
-                _envInspectorMetric('Nodes', String(((_wfLoadedDef || {}).nodes || []).length || 0)),
-                _envInspectorMetric('Connections', String(((_wfLoadedDef || {}).connections || []).length || 0)),
-                _envInspectorMetric('History', String((_envRunHistoryState.rows || []).length || 0))
-            ].join(''), { meta: String(wf.id || obj.id || '') }));
-            actions.push(_envInspectorActionButton('execute-workflow', 'Execute', 'primary'));
-            actions.push(_envInspectorActionButton('workflow-history', 'History'));
-            actions.push(_envInspectorActionButton('export-interface', 'Export'));
-            actions.push(_envInspectorActionButton('open-workflows', 'Workflows'));
-        } else if (kind === 'prop') {
-            var binding = String(data.binding || data.system || data.workflow_id || data.workflowId || data.kind || '').trim();
-            var bindingPreview = '';
-            if (/workflow_list/i.test(binding) || /quest/i.test(String(obj.label || ''))) bindingPreview = String(_wfCatalog.length || 0) + ' workflows visible';
-            else if (/memory/i.test(binding) || /well/i.test(String(obj.label || ''))) bindingPreview = String(((_envHealthState || {}).status || {}).bag_items || '—') + ' bag items';
-            sections.push(_envInspectorSection('Semantic Binding', [
-                _envInspectorMetric('Binding', binding || 'unbound'),
-                _envInspectorMetric('Preview', bindingPreview || 'No live preview')
-            ].join(''), { meta: binding || 'prop' }));
-            actions.push(_envInspectorActionButton('edit-object', 'Edit', 'primary'));
-            if (_envSceneObjectHasHtml(obj)) actions.push(_envInspectorActionButton('open-html', 'Open Panel'));
-        } else if (kind === 'zone' || kind === 'portal' || kind === 'environment') {
-            var contents = _envInspectorZoneContents(obj);
-            sections.push(_envInspectorSection('Zone Contents', contents.length
-                ? contents.map(function (item) { return '<div class="envops-inspector-row"><span>' + _esc(String(item.label || item.id || item.kind)) + '</span><span>' + _esc(String(item.kind || 'object')) + '</span></div>'; }).join('')
-                : '<div class="envops-stage-empty">No contained objects surfaced.</div>', { meta: String(contents.length) + ' objects' }));
-            actions.push(_envInspectorActionButton('edit-object', 'Edit', 'primary'));
-            if (String(data.snapshot || '').trim()) actions.push(_envInspectorActionButton('snapshot-load', 'Load Snapshot'));
-        } else if (kind === 'actor') {
-            var actorSnap = _envActorSessionSnapshot(obj.id || '');
-            var actorMeta = (actorSnap || {}).actor || {};
-            sections.push(_envInspectorSection('Actor Lane', [
-                _envInspectorMetric('Role', String(actorMeta.role || 'actor')),
-                _envInspectorMetric('Session', String(actorMeta.session_id || '')),
-                _envInspectorMetric('Queue', String((actorSnap || {}).queue_depth || 0)),
-                _envInspectorMetric('Actions', String((((actorSnap || {}).counts) || {}).actions || 0))
-            ].join(''), { meta: String(actorMeta.label || obj.label || 'actor') }));
-            actions.push(_envInspectorActionButton('activate-actor', 'Activate', 'primary'));
-        } else if (kind === 'trace' || kind === 'event' || kind === 'sample' || kind === 'replay') {
-            var focusPayload = _envFocusPayload(_wfLoadedDef, _envCurrentExecution(), _envArtifactSections(), _envTraceRows(8));
-            sections.push(_envInspectorSection('Runtime Detail', _wfJsonBlock(String(kind || 'detail'), focusPayload.data || obj), { meta: String(kind || 'runtime') }));
-            if (kind === 'trace' || kind === 'event') actions.push(_envInspectorActionButton('open-debug', 'Open Debug', 'primary'));
-        }
-
-        if (summary.workflowRefs.length) {
-            sections.push(_envInspectorSection('Workflow References', summary.workflowRefs.map(function (ref) {
-                return '<div class="envops-inspector-row"><span>' + _esc(String(ref.label || ref.id || 'node')) + '</span><span>' + _esc(String(ref.type || ref.tool || 'node')) + '</span></div>';
-            }).join(''), { meta: String(summary.workflowRefs.length) + ' refs' }));
-        }
-        sections.push(_envInspectorSection('Activity', summary.activity.length
-            ? summary.activity.map(function (row) {
-                return '<div class="envops-inspector-row"><span>' + _esc(String(row.tool || 'tool')) + '</span><span>' + _esc(String(row.when || 'now')) + '</span></div>' +
-                    '<div class="envops-inspector-note">' + _esc(String(row.preview || row.actor || 'activity')) + '</div>';
-            }).join('')
-            : '<div class="envops-stage-empty">No recent activity matched this object yet.</div>', { meta: String(summary.activity.length) + ' events' }));
-
-        var docsLazy = _envInspectorState.lazy.docs || {};
-        var docRows = docsLazy.loaded
-            ? (docsLazy.error
-                ? '<div class="envops-stage-empty">' + _esc(String(docsLazy.error || 'doc lookup failed')) + '</div>'
-                : ((docsLazy.results || []).length
-                    ? (docsLazy.results || []).map(function (doc) {
-                        return '<div class="envops-inspector-row"><span>' + _esc(String(doc.key || doc.path || 'doc')) + '</span><span>' + _esc(String(doc.score !== undefined ? doc.score.toFixed(2) : 'doc')) + '</span></div>' +
-                            '<div class="envops-inspector-note">' + _esc(String(doc.preview || '')) + '</div>';
-                    }).join('')
-                    : '<div class="envops-stage-empty">No FelixBag doc matches surfaced for this object.</div>'))
-            : (summary.docs.length
-                ? summary.docs.map(function (doc) {
-                    return '<div class="envops-inspector-row"><span>' + _esc(String(doc.key || doc.path || 'doc')) + '</span><span>cached</span></div>' +
-                        '<div class="envops-inspector-note">' + _esc(String(doc.preview || '')) + '</div>';
-                }).join('')
-                : '<div class="envops-stage-empty">Use lazy load to query FelixBag docs for this object.</div>');
-        sections.push(_envInspectorSection('FelixBag Docs', docRows + '<div class="envops-inspector-actions-inline">' +
-            _envInspectorActionButton('load-docs', docsLazy.pending ? 'Loading…' : 'Load Docs', docsLazy.pending ? 'dim' : 'primary') +
-            _envInspectorActionButton('open-memory', 'Memory') +
-            '</div>', { meta: docsLazy.loaded ? 'lazy' : 'cached' }));
-
-        var graphLazy = _envInspectorState.lazy.graph || {};
-        var graphBody = graphLazy.loaded
-            ? (graphLazy.error
-                ? '<div class="envops-stage-empty">' + _esc(String(graphLazy.error || 'graph lookup failed')) + '</div>'
-                : _wfJsonBlock('Cascade Graph', graphLazy.result || {}))
-            : '<div class="envops-stage-empty">Lazy-load cascade graph relationships for this object when needed.</div>';
-        sections.push(_envInspectorSection('Cascade Relationships', graphBody + '<div class="envops-inspector-actions-inline">' +
-            _envInspectorActionButton('load-graph', graphLazy.pending ? 'Loading…' : 'Load Graph', graphLazy.pending ? 'dim' : 'primary') +
-            '</div>', { meta: _envInspectorComponentForObject(obj) || 'kind:id' }));
-
-        sections.push(_envInspectorSection('Config Bindings', summary.configHits.length
-            ? summary.configHits.map(function (hit) {
-                return '<div class="envops-inspector-row"><span>' + _esc(String(hit.path || 'config')) + '</span><span>' + _esc(String(hit.value || 'match')) + '</span></div>';
-            }).join('')
-            : '<div class="envops-stage-empty">No config bindings matched this object in the current env config.</div>', { meta: String(summary.configHits.length) + ' hits' }));
-
-        sections.push(_envInspectorSection('Raw Payload', _wfJsonBlock(String(obj.label || obj.id || obj.kind || 'object'), obj), { meta: 'raw' }));
-        var actionMarkup = actions.join('');
-        if (_envIsCustomSceneKind(kind) && actionMarkup.indexOf('data-env-inspector-action="edit-object"') < 0) {
-            actions.push(_envInspectorActionButton('edit-object', 'Edit'));
-        }
-        actionMarkup = actions.join('');
-        if (_envIsCustomSceneKind(kind) && actionMarkup.indexOf('data-env-inspector-action="remove-object"') < 0) {
-            actions.push(_envInspectorActionButton('remove-object', 'Remove'));
-        }
-        actionMarkup = actions.join('');
-        if (_envSceneObjectHasHtml(obj) && actionMarkup.indexOf('data-env-inspector-action="open-html"') < 0) {
-            actions.push(_envInspectorActionButton('open-html', 'Panel'));
-        }
-        var deepDive = kind === 'node' || kind === 'workflow' ? 'workflows'
-            : (kind === 'slot' || kind === 'npc' ? 'council'
-                : (kind === 'trace' || kind === 'event' || kind === 'sample' || kind === 'replay' ? 'debug' : 'memory'));
-        actions.push(_envInspectorActionButton('open-tab', 'Deep Dive', 'primary', ' data-env-inspector-tab="' + _esc(deepDive) + '"'));
-        return { summary: summary, actions: actions, sections: sections };
-    }
-
-    function _envRenderInspectorPanel() {
-        if (!_envInspectorState.active) return '';
-        var obj = _envInspectorCurrentObject();
-        if (!obj) {
-            return '<div class="envops-inspector-shell fallback"><div class="envops-inspector-card"><div class="envops-stage-empty">Inspector target no longer exists.</div></div></div>';
-        }
-        _envInspectorState.anchor = _envInspectorAnchorForObject(obj) || _envInspectorState.anchor;
-        var view = _envCollectInspectorView(obj);
-        var anchor = _envInspectorState.anchor || null;
-        var width = Math.max(320, Math.min(420, Math.floor((_envScene.width || 0) * 0.34) || 380));
-        var left = 18;
-        var top = 18;
-        var alignClass = 'align-right';
-        if (anchor && _envScene.width && _envScene.height) {
-            if (anchor.x > (_envScene.width * 0.58)) {
-                left = Math.max(16, Math.min((_envScene.width - width - 16), Math.round(anchor.x - width - 26)));
-                alignClass = 'align-left';
-            } else {
-                left = Math.max(16, Math.min((_envScene.width - width - 16), Math.round(anchor.x + 18)));
-                alignClass = 'align-right';
-            }
-            top = Math.max(16, Math.min(Math.max(16, (_envScene.height - 520)), Math.round(anchor.y - 36)));
-        }
-        return '<div class="envops-inspector-shell ' + _esc(alignClass) + '" style="left:' + String(left) + 'px;top:' + String(top) + 'px;width:' + String(width) + 'px;">' +
-            '<div class="envops-inspector-card" data-env-inspector-root="1">' +
-            '<div class="envops-inspector-head">' +
-            '<div class="envops-inspector-copy">' +
-            '<div class="envops-inspector-kicker">Object Inspector</div>' +
-            '<div class="envops-inspector-title">' + _esc(String(view.summary.title || obj.label || obj.id || obj.kind || 'object')) + '</div>' +
-            '<div class="envops-inspector-meta">' + _esc(String(view.summary.subtitle || (String(obj.kind || '').toUpperCase() + ' · ' + String(obj.id || '')))) + '</div>' +
-            '</div>' +
-            '<div class="envops-inspector-actions-inline">' +
-            _envInspectorActionButton('close-inspector', 'Close') +
-            '</div>' +
-            '</div>' +
-            '<div class="envops-inspector-metrics">' + view.summary.metrics.join('') + '</div>' +
-            '<div class="envops-inspector-actions">' + view.actions.join('') + '</div>' +
-            '<div class="envops-inspector-sections">' + view.sections.join('') + '</div>' +
-            '</div>' +
-            '</div>';
-    }
-
     function _env3DLabelMarkupForObject(obj) {
         var sourceObj = obj && typeof obj === 'object' ? obj : {};
         var objectKey = _env3DObjectKey(sourceObj);
@@ -15811,9 +14911,6 @@
                 _envClearSpawnedObjects();
                 changed = true;
             }
-            _envSceneBootstrapState.hydratedTs = 0;
-            _envSceneBootstrapState.pending = false;
-            _envSceneBootstrapState.lastSource = String(source || toolName || 'persist');
         }
 
         var removed = Array.isArray(effects.objects_removed) ? effects.objects_removed : [];
@@ -15845,17 +14942,8 @@
     function _envApplyEnvironmentPayload(payload, toolName, source) {
         var mirrored = _envStoreMirroredState(payload, toolName, source);
         var changed = _envApplyEnvironmentEffects(payload, toolName, source);
-        var hydrated = _envHydrateCustomSceneObjectsFromPayload(payload, toolName, source);
-        if (_envInspectorState.active && !_envInspectorCurrentObject()) {
-            _envCloseInspector('assistant', 'object removed');
-            changed = true;
-        }
-        if (_envHtmlPanelState.active && _envHtmlPanelState.objectKey && !_envSceneObjectByKey(_envHtmlPanelState.objectKey)) {
-            _envCloseHtmlPanel('assistant', 'object removed');
-            changed = true;
-        }
         return {
-            changed: !!(changed || hydrated),
+            changed: changed,
             mirrored: mirrored
         };
     }
@@ -15893,7 +14981,6 @@
         var focus = shared.focus && typeof shared.focus === 'object' ? shared.focus : {};
         var navigation = shared.navigation && typeof shared.navigation === 'object' ? shared.navigation : {};
         var panel = shared.panel && typeof shared.panel === 'object' ? shared.panel : {};
-        var inspector = shared.inspector && typeof shared.inspector === 'object' ? shared.inspector : {};
         return {
             synced_at: Number(live.synced_at || 0),
             workflow_id: String(scene.workflow_id || ((live.selected_workflow || {}).id) || ''),
@@ -15919,12 +15006,6 @@
             panel: {
                 active: !!panel.active,
                 object_key: String(panel.object_key || '')
-            },
-            inspector: {
-                active: !!inspector.active,
-                object_key: String(inspector.object_key || ''),
-                kind: String(inspector.kind || ''),
-                id: String(inspector.id || '')
             }
         };
     }
@@ -15964,7 +15045,6 @@
         var comparison = shared.comparison && typeof shared.comparison === 'object' ? shared.comparison : {};
         var navigation = shared.navigation && typeof shared.navigation === 'object' ? shared.navigation : {};
         var panel = shared.panel && typeof shared.panel === 'object' ? shared.panel : {};
-        var inspector = shared.inspector && typeof shared.inspector === 'object' ? shared.inspector : {};
         var camera = scene.camera && typeof scene.camera === 'object' ? scene.camera : {};
         var camera3d = scene.camera3d && typeof scene.camera3d === 'object' ? scene.camera3d : {};
         var workflow = payload.selected_workflow && typeof payload.selected_workflow === 'object' ? payload.selected_workflow : {};
@@ -16004,9 +15084,6 @@
             panel.active ? 'panel_on' : 'panel_off',
             String(panel.object_key || ''),
             String(panel.html_length || 0),
-            inspector.active ? 'inspector_on' : 'inspector_off',
-            String(inspector.object_key || ''),
-            String(inspector.kind || ''),
             String((Array.isArray(payload.habitat_objects) ? payload.habitat_objects.length : 0)),
             String(bus.seq || 0)
         ].join('|');
@@ -17107,7 +16184,6 @@
             ? ('offset ' + Number(camera.offsetX || 0).toFixed(1) + ',' + Number(camera.offsetY || 0).toFixed(1) + ' · zoom ' + Number(camera.zoomScale || 1).toFixed(2))
             : 'camera locked to rail';
         var scenePanelHtml = _envRenderSceneHtmlPanel();
-        var inspectorHtml = _envRenderInspectorPanel();
         var cameraModes = [
             { id: 'overview', label: 'Overview Cam' },
             { id: 'focus', label: 'Follow Focus' },
@@ -17124,7 +16200,6 @@
             '<div class="envops-habitat-shell envops-habitat-3d-container" id="envops-habitat-shell" style="position:relative;width:100%;height:100%;overflow:hidden;" data-env-camera-mode="' + _esc(cameraMode) + '" data-env-dominance-mode="' + _esc(String((dominance && dominance.mode) || 'ambient')) + '">' +
             '</div>' +
             scenePanelHtml +
-            inspectorHtml +
             '<div class="envops-habitat-hud">' +
             '<div class="envops-habitat-hud-primary" id="envops-habitat-hud-primary">' + _esc(hudCopy.primary) + '</div>' +
             '<div class="envops-habitat-hud-secondary" id="envops-habitat-hud-secondary">' + _esc(hudCopy.secondary) + '</div>' +
@@ -18437,10 +17512,6 @@
         if (['env_spawn', 'env_mutate', 'env_remove', 'env_read', 'env_control', 'env_persist'].indexOf(toolName) >= 0) {
             if (msg && msg.error && pendingMeta && pendingMeta.sceneSnapshotNav) {
                 _envNavigationState.pendingLoad = null;
-            }
-            if (msg && msg.error && pendingMeta && pendingMeta.sceneBootstrap) {
-                _envSceneBootstrapState.pending = false;
-                _envSceneBootstrapState.error = String(msg.error || 'scene bootstrap failed');
             }
             var rawEnvPayload = msg && !msg.error ? _envNormalizeEnvironmentPayload(msg.data) : null;
             var envPayload = msg && msg.error
@@ -19899,9 +18970,6 @@
             } catch (_eCache) { /* not a cached stub — continue normal routing */ }
         }
 
-        if (_envHandleInspectorToolResult(toolName, msg, text, pendingMeta)) {
-            return;
-        }
         handleEnvironmentToolResult(toolName, msg, text, pendingMeta);
 
         // Route to Memory tab if it's a memory tool
@@ -23000,13 +22068,6 @@
     if (envStageEl) {
         envStageEl.addEventListener('click', function (e) {
             var uiActor = _envManualActorId();
-            var inspectorActionEl = e.target.closest('[data-env-inspector-action]');
-            if (inspectorActionEl) {
-                var inspectorObj = _envInspectorCurrentObject();
-                if (_envHandleInspectorAction(inspectorActionEl.getAttribute('data-env-inspector-action') || '', inspectorObj, uiActor, inspectorActionEl)) {
-                    return;
-                }
-            }
             var actionEl = e.target.closest('[data-env-action]');
             if (actionEl) {
                 var action = actionEl.getAttribute('data-env-action') || '';
@@ -23021,7 +22082,7 @@
                 if (action === 'scene-object') {
                     var sceneObj = _envSceneObjectByKey(actionEl.getAttribute('data-env-object-key') || '');
                     if (!sceneObj) return;
-                    _envSelectSceneObject(sceneObj, uiActor, 'stage_dom');
+                    _envExecuteSceneObject(sceneObj, 'stage_dom', { actor: uiActor });
                     return;
                 }
                 if (action === 'scene-menu-item') {
@@ -23058,16 +22119,7 @@
                 }
             }
             var focusEl = e.target.closest('[data-env-focus-kind]');
-            if (!focusEl) {
-                if (_envInspectorState.active
-                    && !e.target.closest('[data-env-inspector-root]')
-                    && !e.target.closest('.envops-scene-panel')
-                    && !e.target.closest('[data-env-action="scene-object"]')
-                    && !e.target.closest('[data-env-action="scene-menu-item"]')) {
-                    _envCloseInspector(uiActor, 'click-away');
-                }
-                return;
-            }
+            if (!focusEl) return;
             var focusKind = focusEl.getAttribute('data-env-focus-kind') || 'workflow';
             var focusId = focusEl.getAttribute('data-env-focus-id') || '';
             var command = _envFocusCommandForKind(focusKind);
@@ -23075,19 +22127,6 @@
             _envQueueControl(command, focusId, uiActor, 'habitat focus', { kind: focusKind });
         });
     }
-
-    document.addEventListener('keydown', function (e) {
-        if (!e || e.key !== 'Escape' || !_isEnvironmentTabActive()) return;
-        if (_envHtmlPanelState.active) {
-            _envCloseHtmlPanel(_envManualActorId(), 'escape');
-            e.preventDefault();
-            return;
-        }
-        if (_envInspectorState.active) {
-            _envCloseInspector(_envManualActorId(), 'escape');
-            e.preventDefault();
-        }
-    });
 
     var envTraceEl = document.getElementById('envops-trace-list');
     if (envTraceEl) {
@@ -23626,17 +22665,8 @@
                 },
                 camera3d: _env3DCameraPoseSnapshot(),
                 panel_active: !!_envHtmlPanelState.active,
-                inspector_active: !!_envInspectorState.active,
-                inspected_object_key: String(_envInspectorState.objectKey || ''),
                 current_snapshot: String(_envNavigationState.currentSnapshot || ''),
                 snapshot_history_depth: Number((_envNavigationState.history || []).length || 0),
-                bootstrap: {
-                    pending: !!_envSceneBootstrapState.pending,
-                    hydrated_ts: Number(_envSceneBootstrapState.hydratedTs || 0),
-                    requested_ts: Number(_envSceneBootstrapState.requestedTs || 0),
-                    last_source: String(_envSceneBootstrapState.lastSource || ''),
-                    error: String(_envSceneBootstrapState.error || '')
-                },
                 viewport: {
                     width: Number(_envScene.width || 0),
                     height: Number(_envScene.height || 0)
@@ -23686,7 +22716,6 @@
             },
             navigation: _envSceneNavigationSnapshot(),
             panel: _envHtmlPanelSnapshot(),
-            inspector: _envInspectorSnapshot(),
             contracts: contractSnapshot
         };
     };
