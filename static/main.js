@@ -15694,7 +15694,7 @@
             var shell = document.getElementById('envops-habitat-shell');
             var shellW = shell ? shell.offsetWidth : 0;
             if (shellW > 0) {
-                var panelEdge = shellW - 354;
+                var panelEdge = shellW - 394;
                 var connY = Math.max(52, Math.min(ay, (shell ? shell.offsetHeight : 600) - 52));
                 connectorHtml = '<div class="envops-hud-connector" style="' + _esc(_envFocusLinkStyle(ax, ay, panelEdge, connY)) + '"></div>';
             }

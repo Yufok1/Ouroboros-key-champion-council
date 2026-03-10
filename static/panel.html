@@ -2820,7 +2820,7 @@
             right: 14px;
             top: 12px;
             bottom: 12px;
-            width: 340px;
+            width: 380px;
             display: flex;
             flex-direction: column;
             border: 1px solid rgba(126, 255, 215, 0.14);
@@ -2904,22 +2904,18 @@
         /* === HUD Section Strip (horizontal scroll) === */
         .envops-hud-sections {
             display: flex;
+            flex-wrap: wrap;
             gap: 4px;
             padding: 8px 14px;
-            overflow-x: auto;
-            overflow-y: hidden;
             flex-shrink: 0;
             border-bottom: 1px solid rgba(255,255,255,0.05);
-            scrollbar-width: none;
         }
-        .envops-hud-sections::-webkit-scrollbar { display: none; }
         .envops-hud-sections .envops-focus-section-chip {
             flex-direction: row;
             align-items: center;
             gap: 6px;
             padding: 5px 10px;
             white-space: nowrap;
-            flex-shrink: 0;
             width: auto;
         }
 
@@ -10868,7 +10864,7 @@
     <script src="/static/three.min.js"></script>
     <script src="/static/OrbitControls.js"></script>
     <script src="/static/CSS2DRenderer.js"></script>
-    <script src="/static/main.js?v=57"></script>
+    <script src="/static/main.js?v=58"></script>
 
     <!-- ═══════════════ DREAMER + GPU FLEET TAB JS ═══════════════ -->
     <script>
