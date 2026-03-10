@@ -15646,6 +15646,14 @@
         return fallback;
     }
 
+    function _envFocusLinkStyle(x1, y1, x2, y2) {
+        var dx = Number(x2 || 0) - Number(x1 || 0);
+        var dy = Number(y2 || 0) - Number(y1 || 0);
+        var length = Math.max(0, Math.sqrt((dx * dx) + (dy * dy)));
+        var angle = Math.atan2(dy, dx) * (180 / Math.PI);
+        return 'left:' + String(Math.round(Number(x1 || 0))) + 'px;top:' + String(Math.round(Number(y1 || 0))) + 'px;width:' + String(Math.round(length)) + 'px;transform:rotate(' + String(angle.toFixed(2)) + 'deg);';
+    }
+
     function _envRenderInspectorPanel() {
         if (!_envInspectorState.active) return '';
         var obj = _envInspectorCurrentObject();
@@ -15656,22 +15664,40 @@
         var view = _envCollectInspectorView(obj);
         var activeSection = _envInspectorResolveActiveSection(view);
         var anchor = _envInspectorState.anchor || null;
-        var shellWidth = Math.max(480, Math.min(680, Math.floor((_envScene.width || 0) * 0.54) || 560));
-        var shellHeight = Math.max(320, Math.min(420, Math.floor((_envScene.height || 0) * 0.42) || 360));
-        var safeTop = 18;
-        var safeBottom = 146;
-        var left = 18;
+        var viewportWidth = Number(_envScene.width || 0);
+        var viewportHeight = Number(_envScene.height || 0);
+        var shellWidth = Math.max(420, Math.min(560, Math.floor(viewportWidth * 0.46) || 480));
+        var shellHeight = Math.max(240, Math.min(320, Math.floor(viewportHeight * 0.34) || 280));
+        var safeTop = 48;
+        var safeBottom = 124;
+        var safeSide = 14;
+        var detailWidth = Math.max(220, Math.min(280, Math.floor(shellWidth * 0.42)));
+        var railWidth = 124;
+        var coreWidth = 168;
+        var coreHeight = 132;
+        var left = safeSide;
         var top = safeTop;
         var alignClass = 'align-right';
-        var coreStyle = '';
+        var coreX = Math.round(shellWidth / 2);
+        var coreY = Math.round(shellHeight / 2);
         if (anchor && _envScene.width && _envScene.height) {
             alignClass = anchor.x > (_envScene.width * 0.5) ? 'align-left' : 'align-right';
-            left = Math.max(12, Math.min((_envScene.width - shellWidth - 12), Math.round(anchor.x - (shellWidth / 2))));
-            top = Math.max(safeTop, Math.min(Math.max(safeTop, (_envScene.height - shellHeight - safeBottom)), Math.round(anchor.y - (shellHeight * 0.48))));
-            coreStyle = 'left:' + String(Math.round(anchor.x - left)) + 'px;top:' + String(Math.round(anchor.y - top)) + 'px;';
-        } else {
-            coreStyle = 'left:50%;top:44%;';
+            left = Math.max(safeSide, Math.min((viewportWidth - shellWidth - safeSide), Math.round(anchor.x - (shellWidth / 2))));
+            top = Math.max(safeTop, Math.min(Math.max(safeTop, (viewportHeight - shellHeight - safeBottom)), Math.round(anchor.y - (shellHeight / 2))));
+            coreX = Math.max(96, Math.min((shellWidth - 96), Math.round(anchor.x - left)));
+            coreY = Math.max(74, Math.min((shellHeight - 70), Math.round(anchor.y - top)));
         }
+        var detailLeft = alignClass === 'align-right'
+            ? Math.min((shellWidth - detailWidth - 8), Math.round(coreX + 88))
+            : Math.max(8, Math.round(coreX - detailWidth - 88));
+        var detailTop = Math.max(10, Math.min((shellHeight - 156), Math.round(coreY - 92)));
+        var detailBottom = 8;
+        var railLeft = alignClass === 'align-right'
+            ? Math.max(8, Math.round(coreX - railWidth - 88))
+            : Math.min((shellWidth - railWidth - 8), Math.round(coreX + 88));
+        var railTop = Math.max(16, Math.min((shellHeight - 182), Math.round(coreY - 64)));
+        var railBottom = 18;
+        var coreStyle = 'left:' + String(coreX) + 'px;top:' + String(coreY) + 'px;';
         var actionMarkup = (view.actions || []).map(function (actionHtml, idx) {
             return '<div class="envops-focus-action-slot slot-' + String(idx + 1) + '">' + actionHtml + '</div>';
         }).join('');
@@ -15679,9 +15705,21 @@
             return _envInspectorSectionButton(section, activeSection ? activeSection.key : '');
         }).join('');
         var detailBody = activeSection ? String(activeSection.bodyHtml || '') : '<div class="envops-stage-empty">No active detail.</div>';
+        var detailCenterY = detailTop + Math.round(((shellHeight - detailTop - detailBottom) / 2));
+        var railCenterY = railTop + Math.round(((shellHeight - railTop - railBottom) / 2));
+        var coreEdgeRight = coreX + Math.round(coreWidth / 2) - 10;
+        var coreEdgeLeft = coreX - Math.round(coreWidth / 2) + 10;
+        var linkToDetail = alignClass === 'align-right'
+            ? _envFocusLinkStyle(coreEdgeRight, coreY - 4, detailLeft, detailCenterY)
+            : _envFocusLinkStyle(coreEdgeLeft, coreY - 4, detailLeft + detailWidth, detailCenterY);
+        var linkToRail = alignClass === 'align-right'
+            ? _envFocusLinkStyle(coreEdgeLeft, coreY + 14, railLeft + railWidth, railCenterY)
+            : _envFocusLinkStyle(coreEdgeRight, coreY + 14, railLeft, railCenterY);
         return '<div class="envops-inspector-shell ' + _esc(alignClass) + '" style="left:' + String(left) + 'px;top:' + String(top) + 'px;width:' + String(shellWidth) + 'px;height:' + String(shellHeight) + 'px;">' +
             '<div class="envops-focus-shell ' + _esc(alignClass) + '" data-env-inspector-root="1">' +
             '<div class="envops-focus-grid"></div>' +
+            '<div class="envops-focus-link link-detail" style="' + _esc(linkToDetail) + '"></div>' +
+            '<div class="envops-focus-link link-rail" style="' + _esc(linkToRail) + '"></div>' +
             '<div class="envops-focus-core" style="' + _esc(coreStyle) + '">' +
             '<div class="envops-focus-core-ring"></div>' +
             '<div class="envops-focus-core-card">' +
@@ -15691,8 +15729,8 @@
             (view.summary.metrics.length ? '<div class="envops-focus-metrics">' + view.summary.metrics.join('') + '</div>' : '') +
             '</div>' +
             '</div>' +
-            (actionMarkup ? '<div class="envops-focus-actions">' + actionMarkup + '</div>' : '') +
-            '<div class="envops-focus-detail">' +
+            (actionMarkup ? '<div class="envops-focus-actions" style="' + _esc(coreStyle) + '">' + actionMarkup + '</div>' : '') +
+            '<div class="envops-focus-detail" style="left:' + String(detailLeft) + 'px;top:' + String(detailTop) + 'px;bottom:' + String(detailBottom) + 'px;width:' + String(detailWidth) + 'px;">' +
             '<div class="envops-focus-detail-head">' +
             '<div>' +
             '<div class="envops-focus-detail-kicker">Object Matrix</div>' +
@@ -15703,7 +15741,7 @@
             '</div>' +
             '<div class="envops-focus-detail-body">' + detailBody + '</div>' +
             '</div>' +
-            '<div class="envops-focus-rail">' +
+            '<div class="envops-focus-rail" style="left:' + String(railLeft) + 'px;top:' + String(railTop) + 'px;bottom:' + String(railBottom) + 'px;width:' + String(railWidth) + 'px;">' +
             '<div class="envops-focus-rail-head">Signals</div>' +
             '<div class="envops-focus-rail-body">' + sectionButtons + '</div>' +
             '</div>' +

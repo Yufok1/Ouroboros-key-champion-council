@@ -2429,7 +2429,7 @@
             height: 100%;
         }
         .env3d-label-shell {
-            max-width: min(168px, 26vw);
+            max-width: min(148px, 22vw);
             pointer-events: auto;
         }
         .envops-scene-trigger {
@@ -2437,17 +2437,18 @@
             flex-direction: column;
             gap: 1px;
             min-width: 0;
-            max-width: 132px;
-            padding: 4px 6px;
+            max-width: 118px;
+            padding: 3px 5px;
             border: 1px solid rgba(79, 255, 208, 0.18);
-            border-radius: 10px;
-            background: linear-gradient(180deg, rgba(8, 16, 26, 0.76), rgba(5, 10, 18, 0.88));
+            border-radius: 0;
+            clip-path: polygon(8px 0, calc(100% - 8px) 0, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 0 calc(100% - 8px), 0 8px);
+            background: linear-gradient(180deg, rgba(8, 16, 26, 0.64), rgba(5, 10, 18, 0.78));
             color: #e6f5ff;
-            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.22), 0 0 10px rgba(79, 255, 208, 0.06);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.16), 0 0 8px rgba(79, 255, 208, 0.04);
             text-align: left;
             text-transform: none;
             letter-spacing: 0;
-            opacity: 0.92;
+            opacity: 0.86;
         }
         .envops-scene-trigger:hover {
             background: linear-gradient(180deg, rgba(10, 20, 32, 0.9), rgba(6, 12, 20, 0.95));
@@ -2455,7 +2456,7 @@
         }
         .envops-scene-trigger.active {
             border-color: rgba(126, 255, 215, 0.42);
-            box-shadow: 0 0 0 1px rgba(126,255,215,0.18), 0 18px 32px rgba(0, 0, 0, 0.28), 0 0 18px rgba(126,255,215,0.18);
+            box-shadow: 0 0 0 1px rgba(126,255,215,0.18), 0 12px 24px rgba(0, 0, 0, 0.22), 0 0 12px rgba(126,255,215,0.12);
             background: linear-gradient(180deg, rgba(10, 24, 30, 0.92), rgba(5, 14, 18, 0.96));
             opacity: 1;
         }
@@ -2463,7 +2464,7 @@
             opacity: 0.42;
         }
         .envops-scene-trigger-title {
-            font-size: 9px;
+            font-size: 8px;
             font-weight: 700;
             color: #f5fbff;
             white-space: nowrap;
@@ -2662,11 +2663,13 @@
             width: 100%;
             height: 100%;
             pointer-events: none;
+            overflow: visible;
         }
         .envops-focus-shell.fallback {
             min-height: 160px;
             border: 1px solid rgba(126, 255, 215, 0.18);
-            border-radius: 18px;
+            border-radius: 0;
+            clip-path: polygon(14px 0, calc(100% - 14px) 0, 100% 14px, 100% calc(100% - 14px), calc(100% - 14px) 100%, 14px 100%, 0 calc(100% - 14px), 0 14px);
             background: linear-gradient(180deg, rgba(8, 14, 21, 0.94), rgba(4, 8, 13, 0.98));
             display: flex;
             align-items: center;
@@ -2677,42 +2680,42 @@
         .envops-focus-grid {
             position: absolute;
             inset: 0;
-            border-radius: 28px;
             background:
-                radial-gradient(circle at center, rgba(126,255,215,0.10), transparent 30%),
-                radial-gradient(circle at center, rgba(102,184,255,0.08), transparent 48%),
-                linear-gradient(90deg, transparent 0, rgba(126,255,215,0.05) 50%, transparent 100%);
-            mask-image: radial-gradient(circle at center, rgba(0,0,0,0.9) 12%, transparent 72%);
-            opacity: 0.8;
+                radial-gradient(circle at center, rgba(126,255,215,0.08), transparent 22%),
+                linear-gradient(90deg, transparent 0, rgba(126,255,215,0.06) 50%, transparent 100%),
+                linear-gradient(0deg, transparent 0, rgba(102,184,255,0.05) 50%, transparent 100%);
+            mask-image: radial-gradient(circle at center, rgba(0,0,0,0.88) 10%, transparent 60%);
+            opacity: 0.56;
         }
         .envops-focus-core {
             position: absolute;
-            transform: translate(-50%, -54%);
-            width: min(220px, 42%);
-            min-width: 180px;
+            transform: translate(-50%, -50%);
+            width: min(176px, 34%);
+            min-width: 152px;
         }
         .envops-focus-core-ring {
             position: absolute;
-            inset: -18px;
-            border-radius: 999px;
+            inset: -16px;
             border: 1px solid rgba(126, 255, 215, 0.2);
+            clip-path: polygon(18px 0, calc(100% - 18px) 0, 100% 18px, 100% calc(100% - 18px), calc(100% - 18px) 100%, 18px 100%, 0 calc(100% - 18px), 0 18px);
             box-shadow:
                 0 0 0 1px rgba(126,255,215,0.05),
-                0 0 28px rgba(102,184,255,0.14),
-                inset 0 0 30px rgba(126,255,215,0.04);
+                0 0 22px rgba(102,184,255,0.14),
+                inset 0 0 18px rgba(126,255,215,0.04);
             background:
-                radial-gradient(circle at center, rgba(126,255,215,0.06), transparent 62%);
+                radial-gradient(circle at center, rgba(126,255,215,0.04), transparent 66%);
         }
         .envops-focus-core-card {
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 6px;
             position: relative;
-            padding: 12px 14px;
+            padding: 10px 12px;
             border: 1px solid rgba(126, 255, 215, 0.16);
-            border-radius: 18px;
+            border-radius: 0;
+            clip-path: polygon(12px 0, calc(100% - 12px) 0, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0 calc(100% - 12px), 0 12px);
             background: linear-gradient(180deg, rgba(8, 14, 21, 0.96), rgba(4, 8, 13, 0.985));
-            box-shadow: 0 16px 34px rgba(0, 0, 0, 0.34), 0 0 18px rgba(79, 255, 208, 0.05);
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.30), 0 0 12px rgba(79, 255, 208, 0.04);
             backdrop-filter: blur(10px);
             pointer-events: auto;
         }
@@ -2723,13 +2726,13 @@
             color: rgba(126, 255, 215, 0.9);
         }
         .envops-focus-title {
-            font-size: 15px;
+            font-size: 13px;
             font-weight: 700;
             color: #f7fdff;
             line-height: 1.15;
         }
         .envops-focus-subtitle {
-            font-size: 10px;
+            font-size: 9px;
             line-height: 1.4;
             color: rgba(224, 242, 255, 0.72);
         }
@@ -2741,7 +2744,8 @@
         .envops-inspector-metric {
             padding: 4px 8px;
             border: 1px solid rgba(255,255,255,0.06);
-            border-radius: 999px;
+            border-radius: 0;
+            clip-path: polygon(8px 0, calc(100% - 8px) 0, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 0 calc(100% - 8px), 0 8px);
             background: rgba(255,255,255,0.035);
             display: flex;
             align-items: center;
@@ -2780,7 +2784,8 @@
             width: 24px;
             height: 24px;
             padding: 0 !important;
-            border-radius: 999px;
+            border-radius: 0;
+            clip-path: polygon(7px 0, calc(100% - 7px) 0, 100% 7px, 100% calc(100% - 7px), calc(100% - 7px) 100%, 7px 100%, 0 calc(100% - 7px), 0 7px);
             display: inline-flex;
             align-items: center;
             justify-content: center;
@@ -2788,10 +2793,8 @@
         }
         .envops-focus-actions {
             position: absolute;
-            left: 50%;
-            top: 50%;
-            width: 290px;
-            height: 220px;
+            width: 240px;
+            height: 180px;
             transform: translate(-50%, -50%);
             pointer-events: none;
         }
@@ -2799,40 +2802,45 @@
             position: absolute;
             pointer-events: auto;
         }
-        .envops-focus-action-slot.slot-1 { left: 50%; top: 4px; transform: translate(-50%, 0); }
-        .envops-focus-action-slot.slot-2 { left: 10px; top: 50%; transform: translate(0, -50%); }
-        .envops-focus-action-slot.slot-3 { right: 10px; top: 50%; transform: translate(0, -50%); }
-        .envops-focus-action-slot.slot-4 { left: 50%; bottom: 8px; transform: translate(-50%, 0); }
+        .envops-focus-action-slot.slot-1 { left: 50%; top: -8px; transform: translate(-50%, 0); }
+        .envops-focus-action-slot.slot-2 { left: -4px; top: 50%; transform: translate(0, -50%); }
+        .envops-focus-action-slot.slot-3 { right: -4px; top: 50%; transform: translate(0, -50%); }
+        .envops-focus-action-slot.slot-4 { left: 50%; bottom: -8px; transform: translate(-50%, 0); }
         .envops-focus-actions button {
-            min-width: 96px;
-            border-radius: 999px;
+            min-width: 88px;
+            border-radius: 0;
+            clip-path: polygon(10px 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 10px), calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px), 0 10px);
             background: linear-gradient(180deg, rgba(10, 20, 30, 0.95), rgba(6, 12, 18, 0.98));
             border-color: rgba(126, 255, 215, 0.18);
-            box-shadow: 0 8px 18px rgba(0,0,0,0.24), 0 0 16px rgba(126,255,215,0.06);
+            box-shadow: 0 6px 14px rgba(0,0,0,0.22), 0 0 12px rgba(126,255,215,0.06);
         }
         .envops-focus-actions button:not(.btn-dim) {
-            box-shadow: 0 0 0 1px rgba(126,255,215,0.18), 0 12px 24px rgba(0,0,0,0.28), 0 0 20px rgba(126,255,215,0.12);
+            box-shadow: 0 0 0 1px rgba(126,255,215,0.18), 0 10px 20px rgba(0,0,0,0.26), 0 0 16px rgba(126,255,215,0.10);
+        }
+        .envops-focus-link {
+            position: absolute;
+            height: 1px;
+            background: linear-gradient(90deg, rgba(102,184,255,0.12), rgba(126,255,215,0.72), rgba(102,184,255,0.12));
+            transform-origin: 0 50%;
+            box-shadow: 0 0 10px rgba(126,255,215,0.16);
+            opacity: 0.72;
         }
         .envops-focus-detail,
         .envops-focus-rail {
             position: absolute;
-            top: 14px;
-            bottom: 14px;
             pointer-events: auto;
             border: 1px solid rgba(126, 255, 215, 0.16);
-            border-radius: 18px;
+            border-radius: 0;
+            clip-path: polygon(14px 0, calc(100% - 14px) 0, 100% 14px, 100% calc(100% - 14px), calc(100% - 14px) 100%, 14px 100%, 0 calc(100% - 14px), 0 14px);
             background: linear-gradient(180deg, rgba(7, 14, 20, 0.95), rgba(4, 8, 12, 0.985));
-            box-shadow: 0 18px 34px rgba(0,0,0,0.34), 0 0 18px rgba(102,184,255,0.08);
+            box-shadow: 0 14px 28px rgba(0,0,0,0.30), 0 0 14px rgba(102,184,255,0.08);
             backdrop-filter: blur(12px);
             overflow: hidden;
         }
         .envops-focus-detail {
-            width: min(330px, calc(100% - 220px));
             display: flex;
             flex-direction: column;
         }
-        .envops-focus-shell.align-right .envops-focus-detail { right: 0; }
-        .envops-focus-shell.align-left .envops-focus-detail { left: 0; }
         .envops-focus-detail-head {
             display: flex;
             align-items: flex-start;
@@ -2870,12 +2878,9 @@
             gap: 10px;
         }
         .envops-focus-rail {
-            width: 156px;
             display: flex;
             flex-direction: column;
         }
-        .envops-focus-shell.align-right .envops-focus-rail { left: 0; }
-        .envops-focus-shell.align-left .envops-focus-rail { right: 0; }
         .envops-focus-rail-head {
             padding: 12px 14px 8px 14px;
             font-size: 9px;
@@ -2898,7 +2903,8 @@
             gap: 2px;
             padding: 9px 10px;
             border: 1px solid rgba(255,255,255,0.06);
-            border-radius: 12px;
+            border-radius: 0;
+            clip-path: polygon(9px 0, calc(100% - 9px) 0, 100% 9px, 100% calc(100% - 9px), calc(100% - 9px) 100%, 9px 100%, 0 calc(100% - 9px), 0 9px);
             background: rgba(255,255,255,0.03);
             text-align: left;
             text-transform: none;
@@ -2954,13 +2960,14 @@
             }
             .envops-focus-core {
                 left: 50% !important;
-                top: 96px !important;
+                top: 108px !important;
                 width: min(240px, calc(100% - 28px));
             }
             .envops-focus-actions {
                 width: min(280px, calc(100% - 28px));
                 height: 150px;
-                top: 114px;
+                top: 108px !important;
+                left: 50% !important;
             }
             .envops-focus-detail,
             .envops-focus-rail {
@@ -2974,6 +2981,9 @@
             }
             .envops-focus-rail {
                 margin-top: 180px;
+            }
+            .envops-focus-link {
+                display: none;
             }
         }
         .envops-habitat-canvas {
