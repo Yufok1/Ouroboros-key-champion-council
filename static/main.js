@@ -5915,6 +5915,37 @@
         return null;
     }
 
+    function _envCurrentLoadedWorkflow() {
+        return _wfLoadedDef && String((_wfLoadedDef || {}).id || '') === String(_wfSelectedId || '') ? _wfLoadedDef : null;
+    }
+
+    function _envScenePrimarySnapshotName() {
+        return String(((_envNavigationState.pendingLoad || {}).snapshot) || _envNavigationState.currentSnapshot || '').trim();
+    }
+
+    function _envSceneHasPrimarySurface() {
+        return !!(
+            (Array.isArray(_envSpawnedObjects) && _envSpawnedObjects.length)
+            || _envScenePrimarySnapshotName()
+        );
+    }
+
+    function _envUseScenePrimaryMode() {
+        return _envSceneHasPrimarySurface();
+    }
+
+    function _envPrimaryWorkflow() {
+        if (_envUseScenePrimaryMode()) return null;
+        return _envCurrentLoadedWorkflow();
+    }
+
+    function _envEnvironmentSelectedWorkflow() {
+        var loaded = _envPrimaryWorkflow();
+        if (loaded) return loaded;
+        if (_envUseScenePrimaryMode()) return null;
+        return _envGetSelectedWorkflow();
+    }
+
     function _envCurrentExecution() {
         if (!_wfLastExec || !_wfSelectedId) return null;
         return String(_wfLastExec.workflow_id || '') === String(_wfSelectedId) ? _wfLastExec : null;
@@ -11961,7 +11992,7 @@
     function _envSyncHabitatScene(workflow, exec, sections, traces, renderTarget) {
         _envScene.enabled = (((_envConfig || {}).scene || {}).enabled !== false);
         _envScene.renderTarget = String(renderTarget || (((_envConfig || {}).shell || {}).defaultRenderer || 'web3d'));
-        _envScene.workflowId = String((workflow && workflow.id) || _wfSelectedId || '');
+        _envScene.workflowId = String((workflow && workflow.id) || '');
         _envScene.executionId = String((exec && exec.execution_id) || '');
         _envScene.workflow = workflow || null;
         _envScene.exec = exec || null;
@@ -12471,10 +12502,16 @@
         var focus = _envKernel.focus || {};
         var replay = _envKernel.replay || {};
         var replaySummary = _envReplayCursorSummary();
+        var scenePrimary = !workflow && _envSceneHasPrimarySurface();
+        var snapshotName = _envScenePrimarySnapshotName();
         var primary = focus.label
             ? ('Focused: ' + String(focus.label))
-            : (workflow ? String(workflow.name || workflow.id || 'workflow') : 'Scene ready.');
-        var secondary = workflow
+            : (workflow
+                ? String(workflow.name || workflow.id || 'workflow')
+                : (scenePrimary
+                    ? (snapshotName ? ('Snapshot: ' + snapshotName) : 'Scene ready.')
+                    : 'Scene ready.'));
+        var secondary = workflow || scenePrimary
             ? 'Click a primitive to route focus through the shared ingress queue.'
             : 'Load a workflow-backed system to activate the habitat.';
         if (replaySummary) {
@@ -13629,19 +13666,21 @@
     }
 
     function _envHabitatObjects(workflow, exec, sections, traces) {
-        if (!workflow) return [];
         var visualMode = _envHabitatVisualMode();
         var plan = _envHabitatVisualPlan(visualMode);
         var activeActorId = String(_envActorActiveId() || '').trim();
-        var objects = [{
-            kind: 'workflow',
-            id: String(workflow.id || _wfSelectedId || 'workflow'),
-            label: String(workflow.name || workflow.id || 'workflow'),
-            meta: 'control core',
-            state: exec ? _wfNormalizeStatus(exec.status || 'pending') : 'idle',
-            category: 'workflow',
-            x: 50, y: 18, scale: 1.08, tilt: 0
-        }];
+        var objects = [];
+        if (workflow) {
+            objects.push({
+                kind: 'workflow',
+                id: String(workflow.id || _wfSelectedId || 'workflow'),
+                label: String(workflow.name || workflow.id || 'workflow'),
+                meta: 'control core',
+                state: exec ? _wfNormalizeStatus(exec.status || 'pending') : 'idle',
+                category: 'workflow',
+                x: 50, y: 18, scale: 1.08, tilt: 0
+            });
+        }
         _envActorCatalog().filter(function (actorLane, idx) {
             var actorId = String((actorLane || {}).id || ('actor-' + idx));
             var actorSnapshot = _envActorSessionSnapshot(actorId);
@@ -13667,7 +13706,7 @@
         });
         var lanes = { inputs: 14, agents: 34, tools: 54, control: 74, outputs: 88, other: 22 };
         var counts = {};
-        (workflow.nodes || []).slice(0, plan.nodeLimit).forEach(function (node) {
+        ((workflow && workflow.nodes) || []).slice(0, plan.nodeLimit).forEach(function (node) {
             var bucket = _envClassifyNodeType(node);
             counts[bucket] = (counts[bucket] || 0) + 1;
             var idx = counts[bucket] - 1;
@@ -16073,7 +16112,7 @@
             synced_from: 'environment_tab',
             reason: String(reason || 'render'),
             tab_active: _isEnvironmentTabActive(),
-            selected_workflow: _envCompactWorkflowMeta(_envGetSelectedWorkflow()),
+            selected_workflow: _envCompactWorkflowMeta(_envEnvironmentSelectedWorkflow()),
             current_execution: _envCompactExecutionMeta(_envCurrentExecution()),
             shared_state: _envCloneJson(sharedState, null),
             contracts: _envCloneJson(window.envopsGetContracts(), null),
@@ -17979,7 +18018,7 @@
     }
 
     function _envBuildContractSnapshot(workflow, exec, sections) {
-        var currentWorkflow = workflow || (_wfLoadedDef && String((_wfLoadedDef || {}).id || '') === String(_wfSelectedId || '') ? _wfLoadedDef : null);
+        var currentWorkflow = workflow || _envPrimaryWorkflow();
         var currentExec = exec || _envCurrentExecution();
         var artifactSections = Array.isArray(sections) ? sections : _envArtifactSections();
         var runtimePrimary = _envExecutionPrimaryPayload(currentExec);
@@ -18649,6 +18688,14 @@
         var configEl = document.getElementById('envops-config-panel');
         if (!listEl || !stageEl || !artifactsEl || !kernelEl) return;
 
+        var workflow = _envPrimaryWorkflow();
+        var scenePrimary = _envUseScenePrimaryMode();
+        if (!workflow && scenePrimary && _wfSelectedId && !_envWorkflowLoadState.pending) {
+            _wfSelectedId = '';
+            _wfDrill = { kind: 'workflow', nodeId: '', edgeIndex: -1, workflowId: '' };
+        }
+        var selected = _envEnvironmentSelectedWorkflow();
+
         if (countEl) countEl.textContent = String(_wfCatalog.length);
         listEl.innerHTML = _wfCatalog.length ? _wfCatalog.map(function (wf) {
             var active = wf.id === _wfSelectedId ? ' active' : '';
@@ -18663,9 +18710,6 @@
                 '</div>' +
                 '</div>';
         }).join('') : '<div class="envops-system-item" style="color:var(--text-dim);cursor:default;border-left-color:transparent;">No workflow-backed systems found yet. Refresh the catalog first.</div>';
-
-        var workflow = _wfLoadedDef && String(_wfLoadedDef.id || '') === String(_wfSelectedId || '') ? _wfLoadedDef : null;
-        var selected = _envGetSelectedWorkflow();
         var exec = _envCurrentExecution();
         var renderTargetEl = document.getElementById('envops-render-target');
         var packageModeEl = document.getElementById('envops-package-mode');
@@ -18673,8 +18717,8 @@
         var packageMode = String((packageModeEl && packageModeEl.value) || 'online');
         var status = exec ? _wfNormalizeStatus(exec.status || 'pending') : (workflow ? 'idle' : 'idle');
         _envRefreshReplayTrack((_envKernel.replay || {}).mode, true);
-        _envSetBadge(status, !workflow ? 'IDLE' : (exec ? status.toUpperCase() : 'READY'));
-        if (selectedEl) selectedEl.textContent = selected ? (selected.name || selected.id) : 'none';
+        _envSetBadge(status, scenePrimary ? 'SCENE' : (!workflow ? 'IDLE' : (exec ? status.toUpperCase() : 'READY')));
+        if (selectedEl) selectedEl.textContent = scenePrimary ? (_envScenePrimarySnapshotName() || 'scene') : (selected ? (selected.name || selected.id) : 'none');
         if (busEl) {
             try {
                 _envRenderBus();
@@ -18688,6 +18732,107 @@
             } catch (err) {
                 configEl.innerHTML = '<div class="envops-stage-empty">Environment config render failed: ' + _esc(String((err && err.message) || err || 'unknown error')) + '</div>';
             }
+        }
+
+        if (!workflow && scenePrimary) {
+            var sections = _envArtifactSections();
+            var traces = [];
+            var sceneSnapshotName = _envScenePrimarySnapshotName();
+            var sceneStatus = {
+                snapshot: sceneSnapshotName,
+                object_count: Number(((_envSpawnedObjects || []).length) || 0),
+                focus_kind: String(((_envKernel.focus || {}).kind) || ''),
+                focus_id: String(((_envKernel.focus || {}).id) || ''),
+                focus_label: String(((_envKernel.focus || {}).label) || ''),
+                camera_mode: String(_envSceneNormalizeCameraMode(_envScene.cameraMode || (((_envConfig || {}).scene || {}).defaultCameraMode) || 'overview')),
+                history_depth: Number((_envNavigationState.history || []).length || 0),
+                bootstrap: {
+                    pending: !!_envSceneBootstrapState.pending,
+                    hydrated_ts: Number(_envSceneBootstrapState.hydratedTs || 0),
+                    last_source: String(_envSceneBootstrapState.lastSource || ''),
+                    error: String(_envSceneBootstrapState.error || '')
+                }
+            };
+            var sceneHabitatHtml = _envRenderSafeHtml('habitat stage', function () {
+                return _envRenderHabitat(null, null, sections, traces);
+            });
+            if (!_envKernel.focus || !String((_envKernel.focus.id || ''))) {
+                _envKernel.focus = {
+                    kind: 'scene',
+                    id: sceneSnapshotName || 'scene',
+                    label: sceneSnapshotName || 'scene',
+                    actor: 'system',
+                    payload: null
+                };
+            }
+            _envRunHistoryState.workflowId = '';
+            _envRunHistoryState.pendingWorkflowId = '';
+            _envRunHistoryState.rows = [];
+            _envRunHistoryState.selectedExecutionId = '';
+            _envRunHistoryState.lastRequestedExecutionId = '';
+            _envRunHistoryState.lastRequestTs = 0;
+            _envRunHistoryState.refreshedTs = 0;
+            _envRunHistoryState.error = '';
+            _envHealthState.workflowId = '';
+            _envHealthState.pendingStatus = false;
+            _envHealthState.pendingHeartbeat = false;
+            _envHealthState.lastRequestTs = 0;
+            _envHealthState.refreshedTs = 0;
+            _envHealthState.status = null;
+            _envHealthState.heartbeat = null;
+            _envHealthState.statusError = '';
+            _envHealthState.heartbeatError = '';
+            if (focusStateEl) focusStateEl.textContent = String((_envKernel.focus && _envKernel.focus.kind) || 'scene');
+            var sceneFocusPayloadKindEl = document.getElementById('envops-focus-payload-kind');
+            if (sceneFocusPayloadKindEl) sceneFocusPayloadKindEl.textContent = 'scene';
+            stageEl.innerHTML =
+                '<div class="envops-stage-hero">' +
+                '<div>' +
+                '<div class="envops-stage-title">' + _esc(sceneSnapshotName || 'Environment Scene') + '</div>' +
+                '<div class="envops-stage-subtitle">Snapshot-backed environment shell using the champion runtime as spatial control plane. Renderer target: ' + _esc(renderTarget) + ' · Deployment mode: ' + _esc(packageMode) + '</div>' +
+                '</div>' +
+                '<div class="envops-links">' +
+                '<button class="btn-dim" onclick="_envOpenLinkedTab(\'workflows\')">OPEN WORKFLOWS</button>' +
+                '<button class="btn-dim" onclick="_envOpenLinkedTab(\'debug\')">OPEN DEBUG</button>' +
+                '<button class="btn-dim" onclick="_envOpenLinkedTab(\'memory\')">OPEN MEMORY</button>' +
+                '<button class="btn-dim" onclick="_envOpenLinkedTab(\'tools\')">OPEN TOOLS</button>' +
+                '</div>' +
+                '</div>' +
+                '<div class="envops-card-grid">' +
+                '<div class="envops-card"><div class="envops-card-label">Scene Snapshot</div><div class="envops-card-value">' + _esc(sceneSnapshotName || 'unspecified') + '</div></div>' +
+                '<div class="envops-card"><div class="envops-card-label">Persisted Objects</div><div class="envops-card-value">' + String(Number(((_envSpawnedObjects || []).length) || 0)) + ' staged</div></div>' +
+                '<div class="envops-card"><div class="envops-card-label">Navigation</div><div class="envops-card-value">history ' + String(Number((_envNavigationState.history || []).length || 0)) + '</div></div>' +
+                '<div class="envops-card"><div class="envops-card-label">Bootstrap</div><div class="envops-card-value">' + _esc(_envSceneBootstrapState.pending ? 'HYDRATING' : (_envSceneBootstrapState.hydratedTs ? 'READY' : 'IDLE')) + '</div></div>' +
+                '</div>' +
+                '<div class="envops-stage-shell">' +
+                sceneHabitatHtml +
+                '<div class="envops-focus-card">' +
+                '<div class="envops-panel-head" style="margin:-10px -12px 0 -12px;border-bottom:1px solid rgba(255,255,255,0.08);background:transparent;"><span>SCENE STATE</span><span>' + _esc(sceneSnapshotName || 'scene') + '</span></div>' +
+                _wfJsonBlock('Scene Payload', sceneStatus) +
+                '</div>' +
+                '</div>';
+            try {
+                _envSyncHabitatScene(null, null, sections, traces, renderTarget);
+            } catch (err) {
+                console.error('[envops] habitat sync failed', err);
+            }
+            try {
+                artifactsEl.innerHTML = _envRenderArtifactPanel(null, null, sections);
+            } catch (err) {
+                artifactsEl.innerHTML = _envRenderFailureHtml('product lens', err);
+            }
+            if (artifactCountEl) artifactCountEl.textContent = String(sections.length);
+            _envRenderTraceRows([]);
+            kernelEl.innerHTML = '<div class="envops-stage-empty">Scene-first mode active. Focus, camera, sampling, branching, and object interactions remain available from the theater while workflow selection stays unbound.</div>';
+            try {
+                _envRenderDocsPanel();
+            } catch (err) {
+                if (docsEl) docsEl.innerHTML = _envRenderFailureHtml('docs panel', err);
+            }
+            _envRenderLedger();
+            var sceneFocusPanel = document.getElementById('envops-focus-payload');
+            if (sceneFocusPanel) sceneFocusPanel.innerHTML = _wfJsonBlock('Scene Payload', sceneStatus);
+            return;
         }
 
         if (!workflow) {
@@ -23666,7 +23811,7 @@
     };
     window.envopsGetSharedState = function () {
         _envRefreshReplayTrack((_envKernel.replay || {}).mode, true);
-        var currentWorkflow = _wfLoadedDef && String((_wfLoadedDef || {}).id || '') === String(_wfSelectedId || '') ? _wfLoadedDef : null;
+        var currentWorkflow = _envPrimaryWorkflow();
         var currentExec = _envCurrentExecution();
         var latestHistory = ((_envRunHistoryState.rows || [])[0]) || null;
         var healthSnapshot = _envBuildHealthSnapshot(currentWorkflow, currentExec, _envTraceRows(_envHealthConfig().traceWindow));
@@ -23828,12 +23973,12 @@
         };
     };
     window.envopsGetHealthSnapshot = function () {
-        var workflow = _wfLoadedDef && String((_wfLoadedDef || {}).id || '') === String(_wfSelectedId || '') ? _wfLoadedDef : null;
+        var workflow = _envPrimaryWorkflow();
         return JSON.parse(JSON.stringify(_envBuildHealthSnapshot(workflow, _envCurrentExecution(), _envTraceRows(_envHealthConfig().traceWindow))));
     };
 
     window.envopsGetContracts = function () {
-        var workflow = _wfLoadedDef && String((_wfLoadedDef || {}).id || '') === String(_wfSelectedId || '') ? _wfLoadedDef : null;
+        var workflow = _envPrimaryWorkflow();
         return JSON.parse(JSON.stringify(_envBuildContractSnapshot(workflow, _envCurrentExecution(), _envArtifactSections())));
     };
 
