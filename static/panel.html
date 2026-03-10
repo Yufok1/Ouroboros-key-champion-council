@@ -2629,6 +2629,167 @@
             color: rgba(224, 242, 255, 0.74);
             background: rgba(255,255,255,0.02);
         }
+        .envops-inspector-shell {
+            position: absolute;
+            z-index: 27;
+            pointer-events: none;
+        }
+        .envops-inspector-shell.fallback {
+            left: 18px;
+            top: 18px;
+            width: min(420px, calc(100% - 36px));
+        }
+        .envops-inspector-card {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            max-height: min(78vh, 760px);
+            border: 1px solid rgba(126, 255, 215, 0.16);
+            border-radius: 18px;
+            background: linear-gradient(180deg, rgba(8, 14, 21, 0.96), rgba(4, 8, 13, 0.985));
+            box-shadow: 0 24px 56px rgba(0, 0, 0, 0.46), 0 0 32px rgba(79, 255, 208, 0.08);
+            backdrop-filter: blur(14px);
+            pointer-events: auto;
+            overflow: hidden;
+        }
+        .envops-inspector-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 14px 16px 0 16px;
+        }
+        .envops-inspector-copy {
+            min-width: 0;
+            flex: 1;
+        }
+        .envops-inspector-kicker {
+            font-size: 9px;
+            letter-spacing: 1.6px;
+            text-transform: uppercase;
+            color: rgba(126, 255, 215, 0.84);
+            margin-bottom: 6px;
+        }
+        .envops-inspector-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #f7fdff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .envops-inspector-meta {
+            margin-top: 4px;
+            font-size: 11px;
+            color: rgba(224, 242, 255, 0.72);
+            line-height: 1.4;
+        }
+        .envops-inspector-metrics {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+            padding: 0 16px;
+        }
+        .envops-inspector-metric {
+            padding: 8px 10px;
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 12px;
+            background: rgba(255,255,255,0.035);
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .envops-inspector-metric span {
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 1.1px;
+            color: rgba(224, 242, 255, 0.62);
+        }
+        .envops-inspector-metric strong {
+            font-size: 12px;
+            color: #f6fbff;
+            font-weight: 700;
+        }
+        .envops-inspector-actions,
+        .envops-inspector-actions-inline {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .envops-inspector-actions {
+            padding: 0 16px;
+        }
+        .envops-inspector-sections {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            min-height: 0;
+            overflow: auto;
+            padding: 0 16px 16px 16px;
+        }
+        .envops-inspector-section {
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 14px;
+            background: rgba(255,255,255,0.03);
+            overflow: hidden;
+        }
+        .envops-inspector-section summary {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 10px 12px;
+            cursor: pointer;
+            list-style: none;
+            font-size: 11px;
+            font-weight: 700;
+            color: #eef9ff;
+            background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.01));
+        }
+        .envops-inspector-section summary::-webkit-details-marker {
+            display: none;
+        }
+        .envops-inspector-section-body {
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .envops-inspector-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            font-size: 11px;
+            color: #ecf7ff;
+        }
+        .envops-inspector-row span:last-child {
+            color: rgba(224, 242, 255, 0.72);
+            text-align: right;
+        }
+        .envops-inspector-note {
+            font-size: 10px;
+            color: rgba(224, 242, 255, 0.68);
+            line-height: 1.45;
+        }
+        .envops-inspector-shell.align-left .envops-inspector-card,
+        .envops-inspector-shell.align-right .envops-inspector-card {
+            transform-origin: top center;
+        }
+        @media (max-width: 900px) {
+            .envops-inspector-shell {
+                left: 14px !important;
+                right: 14px;
+                width: auto !important;
+                top: auto !important;
+                bottom: 14px;
+            }
+            .envops-inspector-card {
+                max-height: min(62vh, 620px);
+            }
+            .envops-inspector-metrics {
+                grid-template-columns: minmax(0, 1fr);
+            }
+        }
         .envops-habitat-canvas {
             display: block;
             width: 100%;
@@ -10522,7 +10683,7 @@
     <script src="/static/three.min.js"></script>
     <script src="/static/OrbitControls.js"></script>
     <script src="/static/CSS2DRenderer.js"></script>
-    <script src="/static/main.js?v=53"></script>
+    <script src="/static/main.js?v=54"></script>
 
     <!-- ═══════════════ DREAMER + GPU FLEET TAB JS ═══════════════ -->
     <script>
