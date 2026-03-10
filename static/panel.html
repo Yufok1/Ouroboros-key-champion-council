@@ -2803,60 +2803,6 @@
             color: rgba(224, 242, 255, 0.68);
             line-height: 1.45;
         }
-        /* === HUD Core Chip === */
-        .envops-hud-chip {
-            position: absolute;
-            transform: translateY(-100%);
-            padding: 6px 10px;
-            border: 1px solid rgba(126, 255, 215, 0.28);
-            background: linear-gradient(180deg, rgba(8, 16, 24, 0.92), rgba(4, 10, 16, 0.96));
-            backdrop-filter: blur(8px);
-            box-shadow: 0 0 0 1px rgba(126,255,215,0.06), 0 8px 20px rgba(0,0,0,0.28), 0 0 14px rgba(126,255,215,0.12);
-            pointer-events: auto;
-            z-index: 12;
-            text-align: center;
-        }
-        .envops-hud-chip-kicker {
-            font-size: 7px;
-            letter-spacing: 1.8px;
-            text-transform: uppercase;
-            color: rgba(126, 255, 215, 0.88);
-        }
-        .envops-hud-chip-title {
-            font-size: 12px;
-            font-weight: 700;
-            color: #f4fcff;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            max-width: 100%;
-        }
-
-        /* === HUD Action Ring === */
-        .envops-hud-action {
-            position: absolute;
-            transform: translate(-50%, -50%);
-            pointer-events: auto;
-            z-index: 11;
-        }
-        .envops-hud-action button {
-            min-width: 0;
-            padding: 5px 12px;
-            font-size: 9px;
-            font-weight: 700;
-            letter-spacing: 0.4px;
-            border: 1px solid rgba(126, 255, 215, 0.22);
-            background: linear-gradient(180deg, rgba(8, 18, 28, 0.94), rgba(4, 10, 16, 0.97));
-            color: #e8f8ff;
-            box-shadow: 0 6px 14px rgba(0,0,0,0.24), 0 0 10px rgba(126,255,215,0.08);
-            backdrop-filter: blur(6px);
-            white-space: nowrap;
-        }
-        .envops-hud-action button:not(.btn-dim) {
-            border-color: rgba(126, 255, 215, 0.36);
-            box-shadow: 0 0 0 1px rgba(126,255,215,0.12), 0 8px 18px rgba(0,0,0,0.28), 0 0 14px rgba(126,255,215,0.14);
-        }
-
         /* === HUD Connector === */
         .envops-hud-connector {
             position: absolute;
@@ -2868,9 +2814,13 @@
             z-index: 10;
         }
 
-        /* === HUD Detail Panel (Right Rail) === */
+        /* === HUD Panel (Right Rail) === */
         .envops-hud-panel {
             position: absolute;
+            right: 14px;
+            top: 12px;
+            bottom: 12px;
+            width: 340px;
             display: flex;
             flex-direction: column;
             border: 1px solid rgba(126, 255, 215, 0.14);
@@ -2896,6 +2846,7 @@
         .envops-hud-panel-kicker {
             font-size: 8px;
             letter-spacing: 1.6px;
+            text-transform: uppercase;
             color: rgba(126, 255, 215, 0.84);
             margin-bottom: 2px;
         }
@@ -2935,6 +2886,19 @@
             gap: 6px;
             padding: 6px 14px;
             border-bottom: 1px solid rgba(255,255,255,0.04);
+        }
+
+        /* === HUD Actions Row === */
+        .envops-hud-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            padding: 6px 14px;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+        }
+        .envops-hud-actions button {
+            flex: 1 1 calc(50% - 6px);
+            min-width: 0;
         }
 
         /* === HUD Section Strip (horizontal scroll) === */
@@ -3002,16 +2966,14 @@
 
         /* === HUD Mobile Responsive === */
         @media (max-width: 900px) {
-            .envops-hud-chip { display: none; }
-            .envops-hud-action { display: none; }
             .envops-hud-connector { display: none; }
             .envops-hud-panel {
                 left: 8px !important;
                 right: 8px !important;
-                top: 48px !important;
+                top: auto !important;
                 bottom: 14px !important;
                 width: auto !important;
-                height: auto !important;
+                height: min(76vh, 600px) !important;
             }
         }
         .envops-habitat-canvas {
@@ -10906,7 +10868,7 @@
     <script src="/static/three.min.js"></script>
     <script src="/static/OrbitControls.js"></script>
     <script src="/static/CSS2DRenderer.js"></script>
-    <script src="/static/main.js?v=56"></script>
+    <script src="/static/main.js?v=57"></script>
 
     <!-- ═══════════════ DREAMER + GPU FLEET TAB JS ═══════════════ -->
     <script>

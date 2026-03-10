@@ -15685,94 +15685,51 @@
         var view = _envCollectInspectorView(obj);
         var activeSection = _envInspectorResolveActiveSection(view);
         var anchor = _envInspectorState.anchor || null;
-        var vw = Number(_envScene.width || 0);
-        var vh = Number(_envScene.height || 0);
 
-        // --- Anchor position (clamped) ---
-        var ax = anchor ? Math.round(anchor.x) : Math.round(vw * 0.4);
-        var ay = anchor ? Math.round(anchor.y) : Math.round(vh * 0.4);
-        ax = Math.max(80, Math.min(vw - 80, ax));
-        ay = Math.max(60, Math.min(vh - 80, ay));
+        // --- Connector line from anchor to panel right edge ---
+        var ax = anchor ? Math.round(anchor.x) : 0;
+        var ay = anchor ? Math.round(anchor.y) : 0;
+        var connectorHtml = '';
+        if (ax > 0 && ay > 0) {
+            var shell = document.getElementById('envops-habitat-shell');
+            var shellW = shell ? shell.offsetWidth : 0;
+            if (shellW > 0) {
+                var panelEdge = shellW - 354;
+                var connY = Math.max(52, Math.min(ay, (shell ? shell.offsetHeight : 600) - 52));
+                connectorHtml = '<div class="envops-hud-connector" style="' + _esc(_envFocusLinkStyle(ax, ay, panelEdge, connY)) + '"></div>';
+            }
+        }
 
-        // --- Core chip: centered on anchor ---
-        var chipW = Math.min(200, Math.max(140, Math.floor(vw * 0.16)));
-        var chipLeft = Math.round(ax - chipW / 2);
-        var chipTop = Math.round(ay - 28);
+        // --- Actions row ---
+        var actionMarkup = (view.actions || []).join('');
 
-        // --- Action ring: pills around core chip ---
-        var actionSlots = (view.actions || []).slice(0, 4);
-        var actionPositions = [
-            { x: ax, y: chipTop - 36 },
-            { x: ax + chipW / 2 + 14, y: ay },
-            { x: ax, y: ay + 36 },
-            { x: ax - chipW / 2 - 14, y: ay }
-        ];
-
-        // --- Detail panel: right rail ---
-        var panelW = Math.max(340, Math.min(400, Math.floor(vw * 0.32)));
-        var panelTop = 48;
-        var panelBottom = 18;
-        var panelLeft = Math.max(14, vw - panelW - 14);
-        var panelH = vh - panelTop - panelBottom;
-
-        // --- Connector line: anchor to panel left edge ---
-        var connY = Math.max(panelTop + 40, Math.min(panelTop + panelH - 40, ay));
-        var connectorStyle = _envFocusLinkStyle(ax, ay, panelLeft, connY);
-
-        // --- Build action ring HTML ---
-        var actionRingHtml = actionSlots.map(function(actionHtml, idx) {
-            var pos = actionPositions[idx] || actionPositions[0];
-            return '<div class="envops-hud-action" style="left:' + Math.round(pos.x) + 'px;top:' + Math.round(pos.y) + 'px;">' + actionHtml + '</div>';
-        }).join('');
-
-        // --- Build section strip (horizontal) ---
+        // --- Section strip ---
         var sectionStripHtml = (view.sections || []).map(function(section) {
             return _envInspectorSectionButton(section, activeSection ? activeSection.key : '');
         }).join('');
 
-        // --- Build detail body ---
+        // --- Detail body ---
         var detailBody = activeSection ? String(activeSection.bodyHtml || '') : '<div class="envops-stage-empty">Select a section.</div>';
 
-        // --- Summary metrics (compact) ---
+        // --- Metrics ---
         var metricsHtml = view.summary.metrics.length
             ? '<div class="envops-hud-metrics">' + view.summary.metrics.join('') + '</div>'
             : '';
 
-        // --- Assemble ---
         return '<div class="envops-inspector-shell" style="left:0;top:0;width:100%;height:100%;">' +
-
-            // Connector line
-            '<div class="envops-hud-connector" style="' + _esc(connectorStyle) + '"></div>' +
-
-            // Core chip (on the object)
-            '<div class="envops-hud-chip" style="left:' + chipLeft + 'px;top:' + chipTop + 'px;width:' + chipW + 'px;">' +
-                '<div class="envops-hud-chip-kicker">' + _esc(String(obj.kind || 'object')) + '</div>' +
-                '<div class="envops-hud-chip-title">' + _esc(String(view.summary.title || obj.label || obj.id || 'object')) + '</div>' +
-            '</div>' +
-
-            // Action ring
-            actionRingHtml +
-
-            // Detail panel (right rail)
-            '<div class="envops-hud-panel" data-env-inspector-root="1" style="left:' + panelLeft + 'px;top:' + panelTop + 'px;width:' + panelW + 'px;height:' + panelH + 'px;">' +
-
-                // Panel header
+            connectorHtml +
+            '<div class="envops-hud-panel" data-env-inspector-root="1">' +
                 '<div class="envops-hud-panel-head">' +
                     '<div class="envops-hud-panel-copy">' +
-                        '<div class="envops-hud-panel-kicker">' + _esc(String(obj.kind || 'object').toUpperCase()) + ' MATRIX</div>' +
+                        '<div class="envops-hud-panel-kicker">' + _esc(String(obj.kind || 'object').toUpperCase()) + '</div>' +
                         '<div class="envops-hud-panel-title">' + _esc(String(view.summary.title || obj.label || obj.id || 'object')) + '</div>' +
                         '<div class="envops-hud-panel-subtitle">' + _esc(String(view.summary.subtitle || '')) + '</div>' +
                     '</div>' +
-                    '<button type="button" class="envops-hud-close" data-env-inspector-action="close-inspector" aria-label="Close">x</button>' +
+                    '<button type="button" class="envops-hud-close" data-env-inspector-action="close-inspector" aria-label="Close">&times;</button>' +
                 '</div>' +
-
-                // Metrics row
                 metricsHtml +
-
-                // Section strip (horizontal scroll)
+                (actionMarkup ? '<div class="envops-hud-actions envops-inspector-actions">' + actionMarkup + '</div>' : '') +
                 '<div class="envops-hud-sections">' + sectionStripHtml + '</div>' +
-
-                // Detail body (scrollable, takes remaining height)
                 '<div class="envops-hud-body">' +
                     '<div class="envops-hud-body-head">' +
                         '<div class="envops-hud-body-title">' + _esc(String((activeSection && activeSection.title) || 'Details')) + '</div>' +
@@ -15780,7 +15737,6 @@
                     '</div>' +
                     '<div class="envops-hud-body-content">' + detailBody + '</div>' +
                 '</div>' +
-
             '</div>' +
         '</div>';
     }
