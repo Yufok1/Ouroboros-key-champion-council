@@ -2629,6 +2629,186 @@
             color: rgba(224, 242, 255, 0.74);
             background: rgba(255,255,255,0.02);
         }
+        .envops-inspector-shell {
+            position: absolute;
+            z-index: 27;
+            pointer-events: none;
+        }
+        .envops-inspector-shell.fallback {
+            left: 14px;
+            top: 14px;
+            width: min(260px, calc(100% - 28px));
+        }
+        .envops-inspector-card {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: min(46vh, 280px);
+            border: 1px solid rgba(126, 255, 215, 0.16);
+            border-radius: 14px;
+            background: linear-gradient(180deg, rgba(8, 14, 21, 0.96), rgba(4, 8, 13, 0.985));
+            box-shadow: 0 16px 34px rgba(0, 0, 0, 0.34), 0 0 18px rgba(79, 255, 208, 0.05);
+            backdrop-filter: blur(10px);
+            pointer-events: auto;
+            overflow: hidden;
+        }
+        .envops-inspector-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 10px 12px 0 12px;
+        }
+        .envops-inspector-copy {
+            min-width: 0;
+            flex: 1;
+        }
+        .envops-inspector-kicker {
+            font-size: 8px;
+            letter-spacing: 1.2px;
+            text-transform: uppercase;
+            color: rgba(126, 255, 215, 0.84);
+            margin-bottom: 4px;
+        }
+        .envops-inspector-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #f7fdff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .envops-inspector-meta {
+            margin-top: 2px;
+            font-size: 10px;
+            color: rgba(224, 242, 255, 0.72);
+            line-height: 1.4;
+        }
+        .envops-inspector-metrics {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            padding: 0 12px;
+        }
+        .envops-inspector-metric {
+            padding: 4px 8px;
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 999px;
+            background: rgba(255,255,255,0.035);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            min-width: 0;
+        }
+        .envops-inspector-metric span {
+            font-size: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.9px;
+            color: rgba(224, 242, 255, 0.62);
+        }
+        .envops-inspector-metric strong {
+            font-size: 10px;
+            color: #f6fbff;
+            font-weight: 700;
+            max-width: 112px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .envops-inspector-actions,
+        .envops-inspector-actions-inline {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .envops-inspector-actions {
+            padding: 0 12px;
+        }
+        .envops-inspector-actions button,
+        .envops-inspector-actions-inline button {
+            padding: 4px 8px;
+            min-height: 0;
+            font-size: 10px;
+            line-height: 1.2;
+        }
+        .envops-inspector-close {
+            width: 24px;
+            height: 24px;
+            padding: 0 !important;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px !important;
+        }
+        .envops-inspector-sections {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            min-height: 0;
+            overflow: auto;
+            padding: 0 12px 12px 12px;
+        }
+        .envops-inspector-section {
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 12px;
+            background: rgba(255,255,255,0.03);
+            overflow: hidden;
+        }
+        .envops-inspector-section summary {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 8px 10px;
+            cursor: pointer;
+            list-style: none;
+            font-size: 10px;
+            font-weight: 700;
+            color: #eef9ff;
+            background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.01));
+        }
+        .envops-inspector-section summary::-webkit-details-marker {
+            display: none;
+        }
+        .envops-inspector-section-body {
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .envops-inspector-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+            font-size: 10px;
+            color: #ecf7ff;
+        }
+        .envops-inspector-row span:last-child {
+            color: rgba(224, 242, 255, 0.72);
+            text-align: right;
+        }
+        .envops-inspector-note {
+            font-size: 9px;
+            color: rgba(224, 242, 255, 0.68);
+            line-height: 1.45;
+        }
+        .envops-inspector-shell.align-left .envops-inspector-card,
+        .envops-inspector-shell.align-right .envops-inspector-card {
+            transform-origin: top center;
+        }
+        @media (max-width: 900px) {
+            .envops-inspector-shell {
+                left: 14px !important;
+                right: 14px;
+                width: auto !important;
+                top: auto !important;
+                bottom: 14px;
+            }
+            .envops-inspector-card {
+                max-height: min(50vh, 320px);
+            }
+        }
         .envops-habitat-canvas {
             display: block;
             width: 100%;
@@ -10522,7 +10702,7 @@
     <script src="/static/three.min.js"></script>
     <script src="/static/OrbitControls.js"></script>
     <script src="/static/CSS2DRenderer.js"></script>
-    <script src="/static/main.js?v=53"></script>
+    <script src="/static/main.js?v=54"></script>
 
     <!-- ═══════════════ DREAMER + GPU FLEET TAB JS ═══════════════ -->
     <script>
