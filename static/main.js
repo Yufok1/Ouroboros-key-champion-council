@@ -82,6 +82,8 @@
         sharedState: null,
         contracts: null,
         habitatObjects: [],
+        renderTruth: null,
+        layoutSnapshot: null,
         stateExcerpt: null,
         refreshedTs: 0,
         lastTool: '',
@@ -150,6 +152,16 @@
         hydratedTs: 0,
         lastSource: '',
         error: ''
+    };
+    let _envRenderTruthState = {
+        stageMode: 'blank',
+        blankReason: 'uninitialized',
+        primaryReason: '',
+        renderTarget: '',
+        packageMode: '',
+        bundleVersion: '',
+        renderRevision: 0,
+        lastRenderTs: 0
     };
     function _envDefaultConfig() {
         return {
@@ -5923,10 +5935,27 @@
         return String(((_envNavigationState.pendingLoad || {}).snapshot) || _envNavigationState.currentSnapshot || '').trim();
     }
 
+    function _envKnownPersistedObjectCount() {
+        var counts = [];
+        if (Array.isArray(_envSpawnedObjects)) counts.push(Number(_envSpawnedObjects.length || 0));
+        var envRead = _envToolOutputs.env_read;
+        if (envRead && typeof envRead === 'object' && String(envRead.query || '').toLowerCase() === 'list') {
+            counts.push(Number(envRead.count || 0));
+        }
+        var excerptPersisted = (((_envMirrorState || {}).stateExcerpt || {}).persisted || {});
+        counts.push(Number(excerptPersisted.object_count || 0));
+        return counts.reduce(function (maxCount, value) {
+            var next = Number(value || 0);
+            return next > maxCount ? next : maxCount;
+        }, 0);
+    }
+
     function _envSceneHasPrimarySurface() {
         return !!(
-            (Array.isArray(_envSpawnedObjects) && _envSpawnedObjects.length)
+            _envKnownPersistedObjectCount()
             || _envScenePrimarySnapshotName()
+            || !!_envSceneBootstrapState.pending
+            || !!Number(_envSceneBootstrapState.hydratedTs || 0)
         );
     }
 
@@ -14091,7 +14120,6 @@
     }
 
     function _envEnsurePersistedSceneBootstrap(reason, force) {
-        if (!_wfSelectedId) return false;
         if (_envSceneBootstrapState.pending) return false;
         if (!force && Number(_envSceneBootstrapState.hydratedTs || 0) > 0) return false;
         _envSceneBootstrapState.pending = true;
@@ -15881,6 +15909,14 @@
                 null
             );
             _envMirrorState.habitatObjects = _envCloneJson((liveState && liveState.habitat_objects) || [], []);
+            _envMirrorState.renderTruth = _envCloneJson(
+                (liveState && (liveState.render_truth || ((liveState.shared_state || {}).render))) || null,
+                null
+            );
+            _envMirrorState.layoutSnapshot = _envCloneJson(
+                (liveState && (liveState.layout_snapshot || ((liveState.shared_state || {}).layout))) || null,
+                null
+            );
             if (!Object.prototype.hasOwnProperty.call(payload, 'state_excerpt')) {
                 _envMirrorState.stateExcerpt = _envLiveStateExcerpt(liveState);
             }
@@ -15896,6 +15932,14 @@
         }
         if (Object.prototype.hasOwnProperty.call(payload, 'habitat_objects')) {
             _envMirrorState.habitatObjects = _envCloneJson(payload.habitat_objects || [], []);
+            changed = true;
+        }
+        if (Object.prototype.hasOwnProperty.call(payload, 'render_truth')) {
+            _envMirrorState.renderTruth = _envCloneJson(payload.render_truth, null);
+            changed = true;
+        }
+        if (Object.prototype.hasOwnProperty.call(payload, 'layout_snapshot')) {
+            _envMirrorState.layoutSnapshot = _envCloneJson(payload.layout_snapshot, null);
             changed = true;
         }
         if (Object.prototype.hasOwnProperty.call(payload, 'state_excerpt')) {
@@ -15917,6 +15961,199 @@
 
     function _envCanPublishLiveSync() {
         return _isEnvironmentTabActive() || _envHasMountedHabitat();
+    }
+
+    function _envBundleVersion() {
+        var script = document.querySelector('script[src*="/static/main.js"]');
+        var src = script && script.getAttribute ? String(script.getAttribute('src') || '') : '';
+        var match = src.match(/[?&]v=([^&]+)/);
+        return match && match[1] ? String(match[1]) : '';
+    }
+
+    function _envRectSnapshotForElement(el) {
+        if (!el || typeof el.getBoundingClientRect !== 'function') return null;
+        var rect = el.getBoundingClientRect();
+        var style = typeof window.getComputedStyle === 'function' ? window.getComputedStyle(el) : null;
+        var visible = !!(rect.width > 0
+            && rect.height > 0
+            && (!style || (style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0')));
+        return {
+            left: Number(rect.left || 0),
+            top: Number(rect.top || 0),
+            right: Number(rect.right || 0),
+            bottom: Number(rect.bottom || 0),
+            width: Number(rect.width || 0),
+            height: Number(rect.height || 0),
+            visible: visible
+        };
+    }
+
+    function _envRectOffscreen(rect, viewport) {
+        if (!rect || !rect.visible) return false;
+        var vw = Number((viewport || {}).width || 0);
+        var vh = Number((viewport || {}).height || 0);
+        return rect.right <= 0 || rect.bottom <= 0 || rect.left >= vw || rect.top >= vh;
+    }
+
+    function _envRectClipped(rect, viewport) {
+        if (!rect || !rect.visible) return false;
+        var vw = Number((viewport || {}).width || 0);
+        var vh = Number((viewport || {}).height || 0);
+        return rect.left < 0 || rect.top < 0 || rect.right > vw || rect.bottom > vh;
+    }
+
+    function _envRectOverlapSummary(nameA, rectA, nameB, rectB) {
+        if (!rectA || !rectB || !rectA.visible || !rectB.visible) return null;
+        var left = Math.max(Number(rectA.left || 0), Number(rectB.left || 0));
+        var top = Math.max(Number(rectA.top || 0), Number(rectB.top || 0));
+        var right = Math.min(Number(rectA.right || 0), Number(rectB.right || 0));
+        var bottom = Math.min(Number(rectA.bottom || 0), Number(rectB.bottom || 0));
+        var width = Math.max(0, right - left);
+        var height = Math.max(0, bottom - top);
+        if (width <= 0 || height <= 0) return null;
+        return {
+            a: String(nameA || ''),
+            b: String(nameB || ''),
+            width: Number(width),
+            height: Number(height),
+            area: Number(width * height)
+        };
+    }
+
+    function _envMountedLayerNames() {
+        var layers = [];
+        function add(name, selector) {
+            if (document.querySelector(selector)) layers.push(name);
+        }
+        add('stage', '#envops-stage');
+        add('habitat_shell', '#envops-habitat-shell');
+        add('canvas_3d', '#envops-habitat-shell canvas');
+        add('css2d_labels', '.env3d-label-shell');
+        add('scene_panel', '.envops-scene-panel');
+        add('inspector_panel', '[data-env-inspector-root]');
+        add('hud_overlay_dock', '.envops-habitat-overlay-dock');
+        add('hud_cockpit', '.envops-habitat-scene-cockpit');
+        add('hud_primary', '#envops-habitat-hud-primary');
+        add('hud_secondary', '#envops-habitat-hud-secondary');
+        add('focus_card', '.envops-focus-card');
+        return layers;
+    }
+
+    function _envBuildLayoutSnapshot() {
+        var viewport = {
+            width: Number(window.innerWidth || ((document.documentElement || {}).clientWidth) || 0),
+            height: Number(window.innerHeight || ((document.documentElement || {}).clientHeight) || 0)
+        };
+        var rectTargets = {
+            stage: document.getElementById('envops-stage'),
+            habitat_shell: document.getElementById('envops-habitat-shell'),
+            canvas_3d: document.querySelector('#envops-habitat-shell canvas'),
+            scene_panel: document.querySelector('.envops-scene-panel'),
+            inspector: document.querySelector('[data-env-inspector-root]'),
+            overlay_dock: document.querySelector('.envops-habitat-overlay-dock'),
+            cockpit: document.querySelector('.envops-habitat-scene-cockpit'),
+            hud_primary: document.getElementById('envops-habitat-hud-primary'),
+            hud_secondary: document.getElementById('envops-habitat-hud-secondary'),
+            focus_card: document.querySelector('.envops-focus-card')
+        };
+        var rects = {};
+        Object.keys(rectTargets).forEach(function (key) {
+            rects[key] = _envRectSnapshotForElement(rectTargets[key]);
+        });
+        var labelNodes = Array.prototype.slice.call(document.querySelectorAll('.envops-scene-trigger')).slice(0, 12);
+        var labels = labelNodes.map(function (node) {
+            return {
+                object_key: String((node && node.getAttribute && node.getAttribute('data-env-object-key')) || ''),
+                title: _envProductCollapseText(String((node && node.innerText) || ''), 72),
+                rect: _envRectSnapshotForElement(node)
+            };
+        });
+        var overlapPairs = [
+            ['inspector', 'overlay_dock'],
+            ['inspector', 'cockpit'],
+            ['inspector', 'focus_card'],
+            ['scene_panel', 'overlay_dock'],
+            ['scene_panel', 'cockpit'],
+            ['scene_panel', 'inspector'],
+            ['overlay_dock', 'cockpit']
+        ];
+        var overlaps = overlapPairs.map(function (pair) {
+            return _envRectOverlapSummary(pair[0], rects[pair[0]], pair[1], rects[pair[1]]);
+        }).filter(Boolean);
+        var clipped = [];
+        var offscreen = [];
+        Object.keys(rects).forEach(function (key) {
+            var rect = rects[key];
+            if (!rect || !rect.visible) return;
+            if (_envRectClipped(rect, viewport)) clipped.push(key);
+            if (_envRectOffscreen(rect, viewport)) offscreen.push(key);
+        });
+        return {
+            captured_ts: Date.now(),
+            viewport: viewport,
+            mounted_layers: _envMountedLayerNames(),
+            rects: rects,
+            overlaps: overlaps,
+            overlap_count: Number(overlaps.length || 0),
+            clipped: clipped,
+            clipped_count: Number(clipped.length || 0),
+            offscreen: offscreen,
+            offscreen_count: Number(offscreen.length || 0),
+            label_count: Number(document.querySelectorAll('.env3d-label-shell').length || 0),
+            visible_trigger_count: Number(document.querySelectorAll('.envops-scene-trigger').length || 0),
+            labels: labels
+        };
+    }
+
+    function _envCommitRenderTruth(stageMode, blankReason, primaryReason, renderTarget, packageMode) {
+        _envRenderTruthState.stageMode = String(stageMode || 'blank');
+        _envRenderTruthState.blankReason = String(blankReason || '');
+        _envRenderTruthState.primaryReason = String(primaryReason || '');
+        _envRenderTruthState.renderTarget = String(renderTarget || '');
+        _envRenderTruthState.packageMode = String(packageMode || '');
+        _envRenderTruthState.bundleVersion = _envBundleVersion();
+        _envRenderTruthState.renderRevision = Number(_envRenderTruthState.renderRevision || 0) + 1;
+        _envRenderTruthState.lastRenderTs = Date.now();
+    }
+
+    function _envBuildRenderTruth() {
+        var stageEl = document.getElementById('envops-stage');
+        var habitatShell = document.getElementById('envops-habitat-shell');
+        var canvasEl = document.querySelector('#envops-habitat-shell canvas');
+        var mountedLayers = _envMountedLayerNames();
+        var stageText = _envProductCollapseText(String((stageEl && stageEl.innerText) || ''), 240);
+        return {
+            stage_mode: String(_envRenderTruthState.stageMode || 'blank'),
+            blank_reason: String(_envRenderTruthState.blankReason || ''),
+            primary_reason: String(_envRenderTruthState.primaryReason || ''),
+            render_target: String(_envRenderTruthState.renderTarget || ''),
+            package_mode: String(_envRenderTruthState.packageMode || ''),
+            bundle_version: String(_envRenderTruthState.bundleVersion || _envBundleVersion() || ''),
+            render_revision: Number(_envRenderTruthState.renderRevision || 0),
+            last_render_ts: Number(_envRenderTruthState.lastRenderTs || 0),
+            renderer_active: _env3D.inited ? 'web3d' : (habitatShell ? String(_envRenderTruthState.renderTarget || 'mounted') : 'none'),
+            habitat_mounted: !!habitatShell,
+            canvas_visible: !!(_envRectSnapshotForElement(canvasEl) || {}).visible,
+            css2d_labels_mounted: Number(document.querySelectorAll('.env3d-label-shell').length || 0),
+            mounted_layers: mountedLayers,
+            hud_layers: mountedLayers.filter(function (name) { return /^hud_/.test(name) || name === 'focus_card'; }),
+            stage_text: String(stageText || ''),
+            last_tool_applied: String(_envMirrorState.lastTool || ''),
+            last_tool_source: String(_envMirrorState.lastSource || ''),
+            focus: {
+                kind: String(((_envKernel.focus || {}).kind) || ''),
+                id: String(((_envKernel.focus || {}).id) || '')
+            },
+            scene: {
+                object_count: Number(((_envScene.objects || []).length) || 0),
+                pickable_count: Number(((_envScene.pickables || []).length) || 0),
+                current_snapshot: String(_envNavigationState.currentSnapshot || ''),
+                bootstrap_pending: !!_envSceneBootstrapState.pending,
+                bootstrap_error: String(_envSceneBootstrapState.error || '')
+            },
+            panel_active: !!_envHtmlPanelState.active,
+            inspector_active: !!_envInspectorState.active
+        };
     }
 
     function _envBuildLiveMirrorSurface() {
@@ -15953,6 +16190,8 @@
         if (_envMirrorState.sharedState) surface.shared_state = _envCloneJson(_envMirrorState.sharedState, null);
         if (_envMirrorState.contracts) surface.contracts = _envCloneJson(_envMirrorState.contracts, null);
         if (Array.isArray(_envMirrorState.habitatObjects)) surface.habitat_objects = _envCloneJson(_envMirrorState.habitatObjects, []);
+        if (_envMirrorState.renderTruth) surface.render_truth = _envCloneJson(_envMirrorState.renderTruth, null);
+        if (_envMirrorState.layoutSnapshot) surface.layout_snapshot = _envCloneJson(_envMirrorState.layoutSnapshot, null);
         return surface;
     }
 
@@ -16064,6 +16303,12 @@
         var navigation = shared.navigation && typeof shared.navigation === 'object' ? shared.navigation : {};
         var panel = shared.panel && typeof shared.panel === 'object' ? shared.panel : {};
         var inspector = shared.inspector && typeof shared.inspector === 'object' ? shared.inspector : {};
+        var render = (live.render_truth && typeof live.render_truth === 'object')
+            ? live.render_truth
+            : (shared.render && typeof shared.render === 'object' ? shared.render : {});
+        var layout = (live.layout_snapshot && typeof live.layout_snapshot === 'object')
+            ? live.layout_snapshot
+            : (shared.layout && typeof shared.layout === 'object' ? shared.layout : {});
         return {
             synced_at: Number(live.synced_at || 0),
             workflow_id: String(scene.workflow_id || ((live.selected_workflow || {}).id) || ''),
@@ -16095,6 +16340,17 @@
                 object_key: String(inspector.object_key || ''),
                 kind: String(inspector.kind || ''),
                 id: String(inspector.id || '')
+            },
+            render: {
+                stage_mode: String(render.stage_mode || ''),
+                blank_reason: String(render.blank_reason || ''),
+                renderer_active: String(render.renderer_active || ''),
+                render_revision: Number(render.render_revision || 0)
+            },
+            layout: {
+                overlap_count: Number(layout.overlap_count || 0),
+                clipped_count: Number(layout.clipped_count || 0),
+                offscreen_count: Number(layout.offscreen_count || 0)
             }
         };
     }
@@ -16106,6 +16362,12 @@
             return null;
         }
         var sharedState = window.envopsGetSharedState();
+        var renderTruth = typeof window.envopsGetRenderTruth === 'function'
+            ? window.envopsGetRenderTruth()
+            : ((sharedState && sharedState.render) || null);
+        var layoutSnapshot = typeof window.envopsGetLayoutSnapshot === 'function'
+            ? window.envopsGetLayoutSnapshot()
+            : ((sharedState && sharedState.layout) || null);
         return {
             version: 'env-live-v1',
             source: 'envops-browser',
@@ -16115,6 +16377,8 @@
             selected_workflow: _envCompactWorkflowMeta(_envEnvironmentSelectedWorkflow()),
             current_execution: _envCompactExecutionMeta(_envCurrentExecution()),
             shared_state: _envCloneJson(sharedState, null),
+            render_truth: _envCloneJson(renderTruth, null),
+            layout_snapshot: _envCloneJson(layoutSnapshot, null),
             contracts: _envCloneJson(window.envopsGetContracts(), null),
             habitat_objects: _envCloneJson(window.envopsGetHabitatObjects(), []),
             recent_bus: typeof window.envopsGetBusEvents === 'function'
@@ -16135,6 +16399,14 @@
         var navigation = shared.navigation && typeof shared.navigation === 'object' ? shared.navigation : {};
         var panel = shared.panel && typeof shared.panel === 'object' ? shared.panel : {};
         var inspector = shared.inspector && typeof shared.inspector === 'object' ? shared.inspector : {};
+        var render = payload.render_truth && typeof payload.render_truth === 'object'
+            ? payload.render_truth
+            : (shared.render && typeof shared.render === 'object' ? shared.render : {});
+        var layout = payload.layout_snapshot && typeof payload.layout_snapshot === 'object'
+            ? payload.layout_snapshot
+            : (shared.layout && typeof shared.layout === 'object' ? shared.layout : {});
+        var inspectorRect = (((layout.rects || {}).inspector) || {});
+        var scenePanelRect = (((layout.rects || {}).scene_panel) || {});
         var camera = scene.camera && typeof scene.camera === 'object' ? scene.camera : {};
         var camera3d = scene.camera3d && typeof scene.camera3d === 'object' ? scene.camera3d : {};
         var workflow = payload.selected_workflow && typeof payload.selected_workflow === 'object' ? payload.selected_workflow : {};
@@ -16177,6 +16449,17 @@
             inspector.active ? 'inspector_on' : 'inspector_off',
             String(inspector.object_key || ''),
             String(inspector.kind || ''),
+            String(render.stage_mode || ''),
+            String(render.blank_reason || ''),
+            String(render.renderer_active || ''),
+            String(render.render_revision || 0),
+            String(layout.overlap_count || 0),
+            String(layout.clipped_count || 0),
+            String(layout.offscreen_count || 0),
+            Number(inspectorRect.width || 0).toFixed(0),
+            Number(inspectorRect.height || 0).toFixed(0),
+            Number(scenePanelRect.width || 0).toFixed(0),
+            Number(scenePanelRect.height || 0).toFixed(0),
             String((Array.isArray(payload.habitat_objects) ? payload.habitat_objects.length : 0)),
             String(bus.seq || 0)
         ].join('|');
@@ -18832,6 +19115,8 @@
             _envRenderLedger();
             var sceneFocusPanel = document.getElementById('envops-focus-payload');
             if (sceneFocusPanel) sceneFocusPanel.innerHTML = _wfJsonBlock('Scene Payload', sceneStatus);
+            _envCommitRenderTruth('scene', '', 'scene_primary', renderTarget, packageMode);
+            if (_isEnvironmentTabActive()) _envScheduleLiveSync('render', false);
             return;
         }
 
@@ -18916,6 +19201,8 @@
                 _envRenderTraceRows(_envTraceRows(8));
                 _envRenderLedger();
                 _envRenderFocusPayloadPanel(null, null, [], []);
+                _envCommitRenderTruth('workflow', loadFailed ? 'definition_load_failed' : (loadPending ? 'definition_loading' : 'definition_pending'), 'workflow_selected', renderTarget, packageMode);
+                if (_isEnvironmentTabActive()) _envScheduleLiveSync('render', false);
                 return;
             }
             _envRunHistoryState.workflowId = '';
@@ -18957,6 +19244,8 @@
             _envRenderTraceRows([]);
             _envRenderLedger();
             _envRenderFocusPayloadPanel(null, null, [], []);
+            _envCommitRenderTruth('blank', 'no_primary_surface', 'none', renderTarget, packageMode);
+            if (_isEnvironmentTabActive()) _envScheduleLiveSync('render', false);
             return;
         }
 
@@ -19107,6 +19396,7 @@
         } catch (err) {
             if (configEl) configEl.innerHTML = _envRenderFailureHtml('config', err);
         }
+        _envCommitRenderTruth('workflow', '', 'workflow_loaded', renderTarget, packageMode);
         if (_isEnvironmentTabActive()) _envScheduleLiveSync('render', false);
     }
 
@@ -23809,6 +24099,12 @@
     window.envopsGetConfig = function () {
         return JSON.parse(JSON.stringify(_envConfig || {}));
     };
+    window.envopsGetRenderTruth = function () {
+        return JSON.parse(JSON.stringify(_envBuildRenderTruth()));
+    };
+    window.envopsGetLayoutSnapshot = function () {
+        return JSON.parse(JSON.stringify(_envBuildLayoutSnapshot()));
+    };
     window.envopsGetSharedState = function () {
         _envRefreshReplayTrack((_envKernel.replay || {}).mode, true);
         var currentWorkflow = _envPrimaryWorkflow();
@@ -23816,6 +24112,8 @@
         var latestHistory = ((_envRunHistoryState.rows || [])[0]) || null;
         var healthSnapshot = _envBuildHealthSnapshot(currentWorkflow, currentExec, _envTraceRows(_envHealthConfig().traceWindow));
         var contractSnapshot = _envBuildContractSnapshot(currentWorkflow, currentExec, _envArtifactSections());
+        var renderTruth = _envBuildRenderTruth();
+        var layoutSnapshot = _envBuildLayoutSnapshot();
         return {
             config_source: _envBus.source || 'defaults',
             focus: Object.assign({}, _envKernel.focus || {}),
@@ -23966,6 +24264,8 @@
                 count: Number(_envRecipeCatalog().length || 0),
                 ids: _envRecipeCatalog().map(function (recipe) { return String(recipe.id || ''); })
             },
+            render: renderTruth,
+            layout: layoutSnapshot,
             navigation: _envSceneNavigationSnapshot(),
             panel: _envHtmlPanelSnapshot(),
             inspector: _envInspectorSnapshot(),
