@@ -170,8 +170,29 @@
     let _envStageUiState = {
         opsRailScrollTop: 0,
         opsRailBottomGap: 0,
-        pendingSceneRender: false
+        pendingSceneRender: false,
+        opsRailInteractingUntil: 0,
+        opsRailInteractionTimer: 0
     };
+
+    function _envOpsRailInteractionActive() {
+        return Number(_envStageUiState.opsRailInteractingUntil || 0) > Date.now();
+    }
+
+    function _envMarkOpsRailInteraction() {
+        _envStageUiState.opsRailInteractingUntil = Date.now() + 900;
+        if (Number(_envStageUiState.opsRailInteractionTimer || 0)) {
+            clearTimeout(_envStageUiState.opsRailInteractionTimer);
+        }
+        _envStageUiState.opsRailInteractionTimer = setTimeout(function () {
+            _envStageUiState.opsRailInteractionTimer = 0;
+            _envStageUiState.opsRailInteractingUntil = 0;
+            if (_envStageUiState.pendingSceneRender) {
+                _envStageUiState.pendingSceneRender = false;
+                renderEnvironmentView();
+            }
+        }, 950);
+    }
 
     function _envRememberOpsRailScroll(rail) {
         var el = rail || document.getElementById('envops-habitat-ops-rail');
@@ -187,7 +208,14 @@
         if (!el || el.dataset.envopsScrollBound) return;
         el.dataset.envopsScrollBound = '1';
         el.addEventListener('scroll', function () {
+            _envMarkOpsRailInteraction();
             _envRememberOpsRailScroll(el);
+        }, { passive: true });
+        el.addEventListener('wheel', function () {
+            _envMarkOpsRailInteraction();
+        }, { passive: true });
+        el.addEventListener('pointerdown', function () {
+            _envMarkOpsRailInteraction();
         }, { passive: true });
         _envRememberOpsRailScroll(el);
     }
@@ -19839,7 +19867,7 @@
             if (String(_envDocState.contextKind || '') !== 'scene' || String(_envDocState.contextId || '') !== String(sceneContextId || 'scene')) {
                 _envRefreshDocs('scene switch', 'system', true);
             }
-            var preserveSceneStage = !!(_env3D.manualControlActive && stageEl.querySelector('#envops-habitat-shell'));
+            var preserveSceneStage = !!(((_env3D.manualControlActive || _envOpsRailInteractionActive()) && stageEl.querySelector('#envops-habitat-shell')));
             var sceneHabitatHtml = '';
             if (preserveSceneStage) {
                 _envStageUiState.pendingSceneRender = true;
