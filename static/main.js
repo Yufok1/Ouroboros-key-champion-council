@@ -19334,6 +19334,14 @@
     }
 
     function _envCurrentDocContext() {
+        if (_envUseScenePrimaryMode()) {
+            return {
+                kind: 'scene',
+                id: _envSceneDocContextId(),
+                query: _envSceneDocQuery(),
+                workflow: null
+            };
+        }
         var workflow = _wfLoadedDef && String(_wfLoadedDef.id || '') === String(_wfSelectedId || '') ? _wfLoadedDef : null;
         if (workflow) {
             return {
@@ -19341,14 +19349,6 @@
                 id: String(workflow.id || _wfSelectedId || ''),
                 query: _envWorkflowDocQuery(workflow),
                 workflow: workflow
-            };
-        }
-        if (_envUseScenePrimaryMode()) {
-            return {
-                kind: 'scene',
-                id: _envSceneDocContextId(),
-                query: _envSceneDocQuery(),
-                workflow: null
             };
         }
         return null;
