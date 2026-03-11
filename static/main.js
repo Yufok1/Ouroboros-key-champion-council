@@ -17110,6 +17110,26 @@
         var result = _envNormalizeEnvironmentPayload(event.result || {});
         if (!result) return false;
         var applied = _envApplyEnvironmentPayload(result, tool, 'activity');
+        if (tool === 'env_persist') {
+            var op = String(result.operation || '').toLowerCase();
+            var opStatus = String(result.operation_status || '').toLowerCase();
+            if (op === 'load' || opStatus === 'loaded') {
+                var loadedSnapshot = _envSceneSnapshotNameFromPayload(result, null);
+                if (loadedSnapshot) {
+                    _envSceneCommitSnapshotLoad(loadedSnapshot, null);
+                    if (!_envSpawnedObjects.length || _envCustomSceneObjectsNeedHydration()) {
+                        _envEnsurePersistedSceneBootstrap('activity load hydrate', true);
+                    }
+                    applied.changed = true;
+                }
+            } else if (op === 'clear' || opStatus === 'cleared') {
+                _envNavigationState.currentSnapshot = '';
+                _envNavigationState.history = [];
+                _envNavigationState.pendingLoad = null;
+                _envCloseHtmlPanel('assistant', 'scene cleared');
+                applied.changed = true;
+            }
+        }
         if (applied.changed || applied.mirrored) {
             if (event.source !== 'hydration' && applied.changed) {
                 _envScheduleLiveSync(tool + ':activity', true);
