@@ -12544,12 +12544,19 @@
         var channel = String(event.channel || '').toLowerCase();
         var eventKey = String(event.id || event.seq || '');
         var body = String(event.body || '').toLowerCase();
+        var payload = event.payload && typeof event.payload === 'object' ? event.payload : {};
+        var payloadTool = String(payload.tool || payload.tool_name || '').toLowerCase();
+        var docSearchNoise = channel === 'docs'
+            || /scanning related docs/.test(body)
+            || payloadTool === 'bag_search_docs'
+            || /bag_search_docs/.test(body);
         if (!eventKey) return;
 
         if (watch.autoSampleOnRuntime
             && (((_envConfig || {}).sampler || {}).autoCaptureOnRuntime)
             && !_envKernel.sampler.active
-            && ['runtime', 'tool', 'docs', 'export'].indexOf(channel) >= 0
+            && ['runtime', 'tool', 'export'].indexOf(channel) >= 0
+            && !docSearchNoise
             && !(channel === 'runtime' && /requested workflow history/.test(body))
             && watch.lastBusSampleKey !== eventKey) {
             watch.lastBusSampleKey = eventKey;
@@ -14513,9 +14520,10 @@
     function _envClearSceneWorkflowResidue(sceneSnapshotName) {
         var changed = false;
         var sceneLabel = String(sceneSnapshotName || _envScenePrimarySnapshotName() || 'scene');
+        var sceneContextId = String(_envSceneDocContextId() || sceneLabel || 'scene');
         var focus = _envKernel.focus && typeof _envKernel.focus === 'object' ? _envKernel.focus : null;
         var sceneDocContext = String(_envDocState.contextKind || '') === 'scene'
-            && String(_envDocState.contextId || '') === sceneLabel;
+            && String(_envDocState.contextId || '') === sceneContextId;
         var preserveSceneDocFocus = !!(sceneDocContext
             && focus
             && String(focus.kind || '').toLowerCase() === 'doc'
@@ -19287,8 +19295,15 @@
         var contextId = String(context.id || '');
         var query = String(context.query || '');
         if (!query) return;
+        var normalizedReason = String(reason || '').toLowerCase();
         var contextKey = contextKind + ':' + contextId;
-        if (!force && _envDocState.pendingSearch === contextKey) return;
+        if (_envDocState.pendingSearch === contextKey) return;
+        if (normalizedReason === 'scene switch'
+            && _envDocState.contextKind === contextKind
+            && _envDocState.contextId === contextId
+            && _envDocState.query === query) {
+            return;
+        }
         if (!force
             && _envDocState.contextKind === contextKind
             && _envDocState.contextId === contextId
@@ -19641,8 +19656,9 @@
             var sections = _envArtifactSections();
             var traces = [];
             var sceneSnapshotName = _envScenePrimarySnapshotName();
+            var sceneContextId = _envSceneDocContextId();
             _envClearSceneWorkflowResidue(sceneSnapshotName);
-            if (String(_envDocState.contextKind || '') !== 'scene' || String(_envDocState.contextId || '') !== String(sceneSnapshotName || '')) {
+            if (String(_envDocState.contextKind || '') !== 'scene' || String(_envDocState.contextId || '') !== String(sceneContextId || 'scene')) {
                 _envRefreshDocs('scene switch', 'system', true);
             }
             var sceneStatus = {
