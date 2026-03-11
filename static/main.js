@@ -8443,37 +8443,114 @@
         return '';
     }
 
+    function _envActivityOperationEntry(event) {
+        if (!_envIsOperationalActivityEvent(event)) return null;
+        var objectKey = _envActivityTargetKey(event);
+        var targetObj = objectKey ? _envSceneObjectByKey(objectKey) : null;
+        var targetKind = objectKey ? _envSceneKeyKind(objectKey) : '';
+        var targetId = objectKey && objectKey.indexOf('::') >= 0 ? objectKey.split('::').slice(1).join('::') : '';
+        var targetLabel = targetObj
+            ? String(targetObj.label || targetObj.id || objectKey)
+            : (objectKey ? _envSceneKeyLabel(objectKey) : '');
+        return {
+            id: String(event.activity_id || event.id || event.timestamp_ms || Date.now()),
+            tool: String(event.tool || ''),
+            actor: String(event.actor || event.client_id || event.source || 'system'),
+            source: String(event.source || ''),
+            object_key: objectKey,
+            target_kind: targetKind,
+            target_id: targetId,
+            target_label: targetLabel,
+            input_preview: _envActivityInputPreview(event),
+            result_preview: _envActivityResultPreview(event),
+            when: _fmtTimeAgo(Number(event.ts || event.timestamp_ms || Date.now())),
+            error: String(event.error || ''),
+            ts: Number(event.ts || event.timestamp_ms || Date.now())
+        };
+    }
+
+    function _envBusOperationTargetKey(event) {
+        var payload = event && event.payload && typeof event.payload === 'object' ? event.payload : {};
+        if (payload.object_key) return String(payload.object_key || '');
+        if (payload.focus_key) return String(payload.focus_key || '');
+        if (payload.kind && payload.id) return String(payload.kind || '') + '::' + String(payload.id || '');
+        if (payload.workflow_id) return 'workflow::' + String(payload.workflow_id || '');
+        if (payload.target && String(payload.target || '').indexOf('::') >= 0) return String(payload.target || '');
+        return '';
+    }
+
+    function _envBusOperationEntry(event) {
+        if (!event || !event.kind) return null;
+        var channel = String(event.channel || event.kind || '').toLowerCase();
+        if (channel === 'sample' || channel === 'system') return null;
+        var payload = event.payload && typeof event.payload === 'object' ? event.payload : {};
+        var objectKey = _envBusOperationTargetKey(event);
+        var targetObj = objectKey ? _envSceneObjectByKey(objectKey) : null;
+        var targetKind = objectKey ? _envSceneKeyKind(objectKey) : String(payload.kind || '');
+        var targetId = objectKey && objectKey.indexOf('::') >= 0
+            ? objectKey.split('::').slice(1).join('::')
+            : String(payload.id || '');
+        var targetLabel = targetObj
+            ? String(targetObj.label || targetObj.id || objectKey)
+            : (objectKey ? _envSceneKeyLabel(objectKey) : String(payload.label || payload.target || ''));
+        return {
+            id: String(event.id || event.seq || Date.now()),
+            tool: String(payload.action || event.kind || event.channel || ''),
+            actor: String(event.actor || 'system'),
+            source: 'bus',
+            object_key: objectKey,
+            target_kind: targetKind,
+            target_id: targetId,
+            target_label: targetLabel,
+            input_preview: _envActivityPreviewText(payload.reason || payload.note || payload.target || payload.command || payload.query || '', 180),
+            result_preview: _envActivityPreviewText(event.body || payload.summary || payload.status || '', 180),
+            when: _fmtTimeAgo(Number(event.ts || Date.now())),
+            error: '',
+            ts: Number(event.ts || Date.now())
+        };
+    }
+
+    function _envOperationEntryPriority(entry) {
+        if (!entry) return -999;
+        var score = 0;
+        var tool = String(entry.tool || '').toLowerCase();
+        var source = String(entry.source || '').toLowerCase();
+        var actor = String(entry.actor || '').toLowerCase();
+        if (entry.object_key) score += 60;
+        if (source === 'bus') score += 40;
+        if (actor === 'assistant') score += 24;
+        else if (actor === 'system') score += 12;
+        if (tool.indexOf('focus') >= 0) score += 32;
+        if (tool.indexOf('camera') >= 0) score += 30;
+        if (tool === 'env_control') score += 24;
+        if (tool === 'workflow_execute' || tool === 'invoke_slot' || tool === 'agent_chat') score += 18;
+        if (!entry.object_key && (tool === 'get_status' || tool === 'workflow_get' || tool === 'bag_search_docs')) score -= 36;
+        return score;
+    }
+
     function _envBuildOperationSnapshot(limit) {
         var take = Math.max(1, Math.min(8, Number(limit || 4)));
         var entries = [];
-        for (var i = _activityLog.length - 1; i >= 0 && entries.length < take; i--) {
-            var event = _activityLog[i] || null;
-            if (!_envIsOperationalActivityEvent(event)) continue;
-            var objectKey = _envActivityTargetKey(event);
-            var targetObj = objectKey ? _envSceneObjectByKey(objectKey) : null;
-            var targetKind = objectKey ? _envSceneKeyKind(objectKey) : '';
-            var targetId = objectKey && objectKey.indexOf('::') >= 0 ? objectKey.split('::').slice(1).join('::') : '';
-            var targetLabel = targetObj
-                ? String(targetObj.label || targetObj.id || objectKey)
-                : (objectKey ? _envSceneKeyLabel(objectKey) : '');
-            var actorLabel = String(event.actor || event.client_id || event.source || 'system');
-            var inputPreview = _envActivityInputPreview(event);
-            var resultPreview = _envActivityResultPreview(event);
-            entries.push({
-                id: String(event.activity_id || event.id || event.timestamp_ms || entries.length),
-                tool: String(event.tool || ''),
-                actor: actorLabel,
-                source: String(event.source || ''),
-                object_key: objectKey,
-                target_kind: targetKind,
-                target_id: targetId,
-                target_label: targetLabel,
-                input_preview: inputPreview,
-                result_preview: resultPreview,
-                when: _fmtTimeAgo(Number(event.ts || event.timestamp_ms || Date.now())),
-                error: String(event.error || '')
-            });
+        var seen = {};
+        for (var i = _activityLog.length - 1; i >= 0 && entries.length < (take * 4); i--) {
+            var activityEntry = _envActivityOperationEntry(_activityLog[i] || null);
+            if (!activityEntry || seen[activityEntry.id]) continue;
+            seen[activityEntry.id] = true;
+            entries.push(activityEntry);
         }
+        var busEvents = _envRecentBusEvents(take * 4);
+        for (var j = 0; j < busEvents.length && entries.length < (take * 8); j++) {
+            var busEntry = _envBusOperationEntry(busEvents[j] || null);
+            if (!busEntry || seen[busEntry.id]) continue;
+            seen[busEntry.id] = true;
+            entries.push(busEntry);
+        }
+        entries.sort(function (a, b) {
+            var scoreDelta = _envOperationEntryPriority(b) - _envOperationEntryPriority(a);
+            if (scoreDelta) return scoreDelta;
+            return Number(b.ts || 0) - Number(a.ts || 0);
+        });
+        entries = entries.slice(0, take);
         return {
             active: entries.length > 0,
             count: entries.length,
@@ -17111,12 +17188,13 @@
 
     function _env3DCameraPoseSnapshot() {
         if (!_env3D.camera) return null;
+        var rigMeta = _env3D.rigMeta && typeof _env3D.rigMeta === 'object' ? _env3D.rigMeta : {};
         var target = _env3D.controls && _env3D.controls.target ? _env3D.controls.target.clone() : new THREE.Vector3(0, 0, 0);
         var position = _env3D.camera.position ? _env3D.camera.position.clone() : new THREE.Vector3(0, 0, 0);
         var offset = position.clone().sub(target);
         var distance = Math.max(0, offset.length());
         return {
-            mode: String(_envSceneNormalizeCameraMode(_envScene.cameraMode || (((_envConfig || {}).scene || {}).defaultCameraMode) || 'overview')),
+            mode: String(rigMeta.mode || _envSceneNormalizeCameraMode(_envScene.cameraMode || (((_envConfig || {}).scene || {}).defaultCameraMode) || 'overview')),
             position: _env3DVectorSnapshot(position),
             target: _env3DVectorSnapshot(target),
             distance: Number(distance.toFixed(3)),
@@ -17134,9 +17212,9 @@
                 targetY: Number((_env3DPoseOffsetState().targetY || 0).toFixed(3)),
                 targetZ: Number((_env3DPoseOffsetState().targetZ || 0).toFixed(3))
             },
-            focus_key: String((((_env3D.rigMeta || {}).focus_key) || '')),
-            focus_kind: String((((_env3D.rigMeta || {}).focus_kind) || '')),
-            focus_id: String((((_env3D.rigMeta || {}).focus_id) || ''))
+            focus_key: String((rigMeta.focus_key) || ''),
+            focus_kind: String((rigMeta.focus_kind) || ''),
+            focus_id: String((rigMeta.focus_id) || '')
         };
     }
 
@@ -17178,13 +17256,18 @@
 
     function _env3DBaseCameraRig() {
         if (!_env3D.camera || !_env3D.controls) return null;
-        var mode = _envSceneNormalizeCameraMode(_envScene.cameraMode || (((_envConfig || {}).scene || {}).defaultCameraMode) || 'overview');
+        var requestedMode = _envSceneNormalizeCameraMode(_envScene.cameraMode || (((_envConfig || {}).scene || {}).defaultCameraMode) || 'overview');
+        var mode = requestedMode;
         var target = new THREE.Vector3(0, 0, 0);
         var position = new THREE.Vector3(0, 35, 50);
         var meta = { mode: mode, focus_key: '', focus_kind: '', focus_id: '' };
         var mesh = null;
-        if (mode === 'focus') mesh = _env3DResolveFocusMesh();
-        else if (mode === 'replay') mesh = _env3DResolveReplayMesh();
+        if (requestedMode === 'focus') mesh = _env3DResolveFocusMesh();
+        else if (requestedMode === 'replay') mesh = _env3DResolveReplayMesh();
+        if ((requestedMode === 'focus' || requestedMode === 'replay') && !mesh) {
+            mode = 'overview';
+            meta.mode = mode;
+        }
         if (mesh) {
             target.copy(mesh.position);
             target.y += (mesh.userData && mesh.userData.kind === 'workflow') ? 1.6 : 0.8;
