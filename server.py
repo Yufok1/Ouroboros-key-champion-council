@@ -4159,7 +4159,8 @@ async def _postprocess_tool_result(tool_name: str, args: dict, result: dict) -> 
     if tool_name in ("bag_tree", "file_tree") and isinstance(parsed, dict):
         tree = parsed.get("tree")
         doc_count = int(parsed.get("document_count", 0) or 0)
-        req_prefix = str(args.get("prefix", args.get("path", "")) or "")
+        req_prefix_raw = str(args.get("prefix", args.get("path", "")) or "")
+        req_prefix = _doc_decode_key(req_prefix_raw) if req_prefix_raw else ""
         if (not isinstance(tree, dict) or not tree) and doc_count == 0:
             try:
                 ls_args = {
@@ -4206,6 +4207,8 @@ async def _postprocess_tool_result(tool_name: str, args: dict, result: dict) -> 
                 parsed["tree"] = built
                 parsed["document_count"] = len(matching_items)
                 parsed["prefix"] = req_prefix
+                if tool_name == "file_tree":
+                    parsed["path"] = req_prefix
                 return {"result": {"content": [{"type": "text", "text": json.dumps(parsed)}]}}
             except Exception:
                 pass

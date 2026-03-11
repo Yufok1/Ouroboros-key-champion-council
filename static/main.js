@@ -5935,6 +5935,47 @@
         return _wfLoadedDef && String((_wfLoadedDef || {}).id || '') === String(_wfSelectedId || '') ? _wfLoadedDef : null;
     }
 
+    function _envWorkflowById(workflowId) {
+        var id = String(workflowId || '').trim();
+        if (!id) return null;
+        if (_wfLoadedDef && String((_wfLoadedDef || {}).id || '') === id) return _wfLoadedDef;
+        for (var i = 0; i < _wfCatalog.length; i++) {
+            if (String((_wfCatalog[i] || {}).id || '') === id) return _wfCatalog[i];
+        }
+        return null;
+    }
+
+    function _envActiveLaneFocus() {
+        var lane = _envActorLaneById(_envActorActiveId());
+        return lane && lane.focus && typeof lane.focus === 'object' ? lane.focus : null;
+    }
+
+    function _envFocusedWorkflowId() {
+        var focus = _envKernel.focus && typeof _envKernel.focus === 'object' ? _envKernel.focus : null;
+        var laneFocus = _envActiveLaneFocus();
+        var candidates = [focus, laneFocus];
+        for (var i = 0; i < candidates.length; i++) {
+            var entry = candidates[i];
+            if (!entry || typeof entry !== 'object') continue;
+            if (String(entry.kind || '').toLowerCase() !== 'workflow') continue;
+            var entryId = String(entry.id || '').trim();
+            if (entryId) return entryId;
+        }
+        return String(_wfSelectedId || '').trim();
+    }
+
+    function _envBindWorkflowContext(workflowId) {
+        var id = String(workflowId || '').trim();
+        if (!id) return '';
+        _wfSelectedId = id;
+        if (!_wfDrill || typeof _wfDrill !== 'object') {
+            _wfDrill = { kind: 'workflow', nodeId: '', edgeIndex: -1, workflowId: id };
+        } else {
+            _wfDrill.workflowId = id;
+        }
+        return id;
+    }
+
     function _envScenePrimarySnapshotName() {
         return String(
             ((_envNavigationState.pendingLoad || {}).snapshot)
@@ -7872,7 +7913,8 @@
         var replayCursor = String(Math.max(0, Number(((_envKernel.replay || {}).cursor) || 0)));
         var activeProfileId = String(((_envKernel.profile || {}).activeId) || (((_envConfig || {}).shell || {}).defaultProfile) || '').trim();
         var activeActorId = String(_envActorActiveId() || '').trim();
-        if (command === 'focus_workflow') return _envScene.workflowId ? ('workflow::' + _envScene.workflowId) : '';
+        var focusedWorkflowId = String(_envFocusedWorkflowId() || '').trim();
+        if (command === 'focus_workflow') return (targetId || focusedWorkflowId) ? ('workflow::' + String(targetId || focusedWorkflowId)) : '';
         if (command === 'focus_execution') return targetId ? ('execution::' + targetId) : (_envScene.executionId ? ('execution::' + _envScene.executionId) : '');
         if (command === 'focus_actor') return (targetId || activeActorId) ? ('actor::' + String(targetId || activeActorId)) : '';
         if (command === 'focus_district') return targetId ? ('district::' + targetId) : '';
@@ -7891,8 +7933,8 @@
         if (command === 'focus_replay' || command === 'toggle_replay' || command === 'replay_prev' || command === 'replay_next' || command === 'set_replay_mode') return 'replay::' + replayCursor;
         if (command === 'sample_now' || command === 'toggle_stream') return latestSample ? ('sample::' + String(latestSample.id || '')) : '';
         if (command === 'branch_snapshot') return latestBranch ? ('branch::' + String(latestBranch.id || '')) : '';
-        if (command === 'set_camera_mode') return _envScene.workflowId ? ('workflow::' + _envScene.workflowId) : '';
-        return _envScene.workflowId ? ('workflow::' + _envScene.workflowId) : '';
+        if (command === 'set_camera_mode') return focusedWorkflowId ? ('workflow::' + focusedWorkflowId) : '';
+        return focusedWorkflowId ? ('workflow::' + focusedWorkflowId) : '';
     }
 
     function _envSceneBuildTrajectories(workflow, traces) {
@@ -8282,9 +8324,15 @@
     function _envCorroborationFocusSummary() {
         var focus = _envKernel.focus || {};
         var payload = focus.payload && typeof focus.payload === 'object' ? focus.payload : null;
-        var label = String((payload && payload.label) || focus.label || focus.id || focus.kind || 'scene');
         var kind = String((focus.kind || (payload && payload.kind) || 'scene'));
         var id = String((focus.id || (payload && payload.id) || ''));
+        var label = String((payload && payload.label) || focus.label || focus.id || focus.kind || 'scene');
+        if (kind === 'workflow' && id) {
+            var workflowMeta = _envWorkflowById(id);
+            if (!label || label === 'workflow') label = String((workflowMeta && (workflowMeta.name || workflowMeta.id)) || id || 'workflow');
+        } else if (kind === 'scene' && (!label || label === 'scene')) {
+            label = String(_envScenePrimarySnapshotName() || id || 'scene');
+        }
         return {
             key: kind && id ? (kind + '::' + id) : '',
             kind: kind,
@@ -13154,6 +13202,11 @@
                 }
             }
         }
+        if (kind === 'workflow') {
+            var workflowMeta = _envWorkflowById(id || _wfSelectedId || '');
+            if (workflowMeta) return String(workflowMeta.name || workflowMeta.id || id || 'workflow');
+            if (String(id || '').trim()) return String(id || 'workflow');
+        }
         if (kind === 'artifact' && sections && sections[id]) return String(sections[id].title || ('artifact ' + id));
         if (kind === 'trace' && traces && traces[id]) return String(traces[id].tool || ('trace ' + id));
         if (kind === 'doc') {
@@ -13206,15 +13259,18 @@
     }
 
     function _envSetFocus(kind, id, actor, payload) {
+        var focusKind = String(kind || 'workflow');
+        var focusId = id === undefined || id === null ? '' : String(id);
+        if (focusKind === 'workflow' && focusId) _envBindWorkflowContext(focusId);
         var workflow = _wfLoadedDef && String(_wfLoadedDef.id || '') === String(_wfSelectedId || '') ? _wfLoadedDef : null;
         var traces = _envTraceRows(8);
         var sections = _envArtifactSections();
-        var label = _envFocusDescriptor(kind, id, workflow, sections, traces);
+        var label = _envFocusDescriptor(focusKind, focusId, workflow, sections, traces);
         var actorName = _envNormalizeActorId(actor || 'system') || 'system';
         var lane = _envActorEnsureLane(actorName);
         _envKernel.focus = {
-            kind: String(kind || 'workflow'),
-            id: id === undefined || id === null ? '' : String(id),
+            kind: focusKind,
+            id: focusId,
             label: label,
             actor: actorName,
             payload: payload || null
@@ -13223,15 +13279,15 @@
         lane.lastFocusTs = Date.now();
         lane.lastActiveTs = lane.lastFocusTs;
         if (actorName !== 'system') _envActorSetActive(actorName, actorName, 'focus shift', true);
-        if (kind === 'node' && id) _wfSelectNodeDrill(String(id));
-        else if (kind === 'workflow') _wfSelectWorkflowDrill();
-        else if (kind === 'trace' && traces[id] && traces[id].args && traces[id].args._workflow_node_id) _wfSelectNodeDrill(String(traces[id].args._workflow_node_id));
-        else if (kind === 'doc') _envDocRequestRead(id, actorName);
-        _envLogAction('focus', 'Focused ' + label + ' (' + String(kind || 'workflow') + ')', actorName, { kind: kind, id: id });
+        if (focusKind === 'node' && focusId) _wfSelectNodeDrill(String(focusId));
+        else if (focusKind === 'workflow') _wfSelectWorkflowDrill();
+        else if (focusKind === 'trace' && traces[focusId] && traces[focusId].args && traces[focusId].args._workflow_node_id) _wfSelectNodeDrill(String(traces[focusId].args._workflow_node_id));
+        else if (focusKind === 'doc') _envDocRequestRead(focusId, actorName);
+        _envLogAction('focus', 'Focused ' + label + ' (' + focusKind + ')', actorName, { kind: focusKind, id: focusId });
         // Drive three.js camera to follow focus
         if (_env3D.inited) {
             var cMode = _envSceneNormalizeCameraMode(_envScene.cameraMode || 'overview');
-            if (cMode === 'focus') _env3DFocusObject(kind, id);
+            if (cMode === 'focus') _env3DFocusObject(focusKind, focusId);
         }
         renderEnvironmentView();
     }
@@ -13264,6 +13320,39 @@
                 label: focus.label || String((((actorSnapshot || {}).actor) || {}).label || 'actor'),
                 kind: 'actor',
                 data: actorSnapshot
+            };
+        }
+        if (focus.kind === 'scene') {
+            var sceneWorkflowId = _envFocusedWorkflowId();
+            var sceneWorkflowMeta = sceneWorkflowId ? _envWorkflowById(sceneWorkflowId) : null;
+            var sceneHealth = _envBuildHealthSnapshot(sceneWorkflowMeta || workflow || null, exec, traces);
+            return {
+                label: focus.label || String(_envScenePrimarySnapshotName() || focus.id || 'scene'),
+                kind: 'scene',
+                data: {
+                    snapshot: String(_envScenePrimarySnapshotName() || focus.id || ''),
+                    navigation: {
+                        history_depth: Number((_envNavigationState.history || []).length || 0),
+                        pending_load: ((_envNavigationState || {}).pendingLoad) ? Object.assign({}, (_envNavigationState.pendingLoad || {})) : null
+                    },
+                    bootstrap: {
+                        pending: !!_envSceneBootstrapState.pending,
+                        hydrated_ts: Number(_envSceneBootstrapState.hydratedTs || 0),
+                        requested_ts: Number(_envSceneBootstrapState.requestedTs || 0),
+                        snapshot_name: String(_envSceneBootstrapState.snapshotName || ''),
+                        last_source: String(_envSceneBootstrapState.lastSource || ''),
+                        error: String(_envSceneBootstrapState.error || '')
+                    },
+                    workflow_context: sceneWorkflowId ? {
+                        id: String(sceneWorkflowId || ''),
+                        label: String((sceneWorkflowMeta && (sceneWorkflowMeta.name || sceneWorkflowMeta.id)) || sceneWorkflowId || 'workflow'),
+                        loaded: !!(sceneWorkflowMeta && Array.isArray(sceneWorkflowMeta.nodes)),
+                        history_count: Number((_envRunHistoryState.rows || []).length || 0),
+                        health_tone: String((sceneHealth || {}).tone || 'idle'),
+                        health_summary: String((sceneHealth || {}).summary || '')
+                    } : null,
+                    camera_mode: _envSceneNormalizeCameraMode(_envScene.cameraMode || (((_envConfig || {}).scene || {}).defaultCameraMode) || 'overview')
+                }
             };
         }
         if (focus.kind === 'node' && workflow && Array.isArray(workflow.nodes)) {
@@ -13360,7 +13449,23 @@
             var execPayload = _envHistoryExecutionById(focus.id) || focus.payload || exec || null;
             return { label: focus.label || 'execution', kind: 'execution', data: execPayload };
         }
-        return { label: workflow ? String(workflow.name || workflow.id || 'workflow') : 'workflow', kind: 'workflow', data: workflow || null };
+        var workflowPayload = workflow || _envWorkflowById(focus.id || _envFocusedWorkflowId());
+        var workflowHealth = _envBuildHealthSnapshot(workflowPayload || null, exec, traces);
+        return {
+            label: focus.label || String((workflowPayload && (workflowPayload.name || workflowPayload.id)) || focus.id || 'workflow'),
+            kind: 'workflow',
+            data: {
+                workflow: workflowPayload || (focus.id ? { id: String(focus.id || '') } : null),
+                execution: exec || null,
+                run_history_count: Number((_envRunHistoryState.rows || []).length || 0),
+                health: {
+                    tone: String((workflowHealth || {}).tone || 'idle'),
+                    summary: String((workflowHealth || {}).summary || ''),
+                    refreshed_ts: Number((_envHealthState || {}).refreshedTs || 0)
+                },
+                loaded: !!(workflowPayload && Array.isArray(workflowPayload.nodes))
+            }
+        };
     }
 
     function _envCreateBranch(actor, reason) {
@@ -13723,7 +13828,17 @@
             return;
         }
         if (command === 'focus_workflow') {
-            _envSetFocus('workflow', _wfSelectedId || targetId, actorName);
+            var workflowFocusId = String(targetId || _envFocusedWorkflowId() || _wfSelectedId || '').trim();
+            if (!workflowFocusId) {
+                _envSetBadge('failed', 'NO WF');
+                _envLogAction('control', 'Control command focus_workflow missing workflow target', actorName, { action: command, target: targetId });
+                renderEnvironmentView();
+                return;
+            }
+            _envSetFocus('workflow', workflowFocusId, actorName);
+            if (!_wfLoadedDef || String((_wfLoadedDef || {}).id || '') !== workflowFocusId) {
+                _wfRequestDefinition(workflowFocusId, 'Hydrating focused workflow context');
+            }
             return;
         }
         if (_envHandleCameraControlCommand(command, actorName, reason)) {
@@ -14522,14 +14637,18 @@
         var sceneLabel = String(sceneSnapshotName || _envScenePrimarySnapshotName() || 'scene');
         var sceneContextId = String(_envSceneDocContextId() || sceneLabel || 'scene');
         var focus = _envKernel.focus && typeof _envKernel.focus === 'object' ? _envKernel.focus : null;
+        var activeLaneFocus = _envActiveLaneFocus();
         var sceneDocContext = String(_envDocState.contextKind || '') === 'scene'
             && String(_envDocState.contextId || '') === sceneContextId;
         var preserveSceneDocFocus = !!(sceneDocContext
             && focus
             && String(focus.kind || '').toLowerCase() === 'doc'
             && _envDocResultById(focus.id));
+        var restoreLaneWorkflowFocus = !!(activeLaneFocus
+            && String(activeLaneFocus.kind || '').toLowerCase() === 'workflow'
+            && String(activeLaneFocus.id || '').trim());
         var staleFocusKinds = {
-            workflow: 1, node: 1, execution: 1, artifact: 1, trace: 1,
+            node: 1, execution: 1, artifact: 1, trace: 1,
             district: 1, dispatch: 1, queued: 1, watch: 1, recipe: 1, profile: 1
         };
         if (!preserveSceneDocFocus) staleFocusKinds.doc = 1;
@@ -14539,13 +14658,15 @@
             && String(focus.id || '') !== sceneLabel
             && (!String(focus.id || '').trim() || String(focus.id || '') === 'scene'));
         if (!focus || !String(focus.id || '').trim() || staleFocusKinds[String(focus.kind || '').toLowerCase()] || shouldPromoteSceneFocus) {
-            _envKernel.focus = {
-                kind: 'scene',
-                id: sceneLabel,
-                label: sceneLabel,
-                actor: 'system',
-                payload: null
-            };
+            _envKernel.focus = restoreLaneWorkflowFocus
+                ? Object.assign({}, activeLaneFocus || {})
+                : {
+                    kind: 'scene',
+                    id: sceneLabel,
+                    label: sceneLabel,
+                    actor: 'system',
+                    payload: null
+                };
             changed = true;
         }
         if (!_envInspectorState.active && !_envHtmlPanelState.active && !_envDocState.pendingRead) {
@@ -18855,7 +18976,7 @@
     }
 
     function _envBuildContractSnapshot(workflow, exec, sections) {
-        var currentWorkflow = workflow || _envPrimaryWorkflow();
+        var currentWorkflow = workflow || _envPrimaryWorkflow() || _envWorkflowById(_envFocusedWorkflowId() || _wfSelectedId);
         var currentExec = exec || _envCurrentExecution();
         var artifactSections = Array.isArray(sections) ? sections : _envArtifactSections();
         var runtimePrimary = _envExecutionPrimaryPayload(currentExec);
@@ -18871,8 +18992,8 @@
             workflow: {
                 selected_id: String(_wfSelectedId || ''),
                 loaded: !!currentWorkflow,
-                node_count: Number((((currentWorkflow || {}).nodes) || []).length || 0),
-                connection_count: Number((((currentWorkflow || {}).connections) || []).length || 0),
+                node_count: Number((((currentWorkflow || {}).nodes) || []).length || Number((currentWorkflow || {}).node_count || 0) || 0),
+                connection_count: Number((((currentWorkflow || {}).connections) || []).length || Number((currentWorkflow || {}).connection_count || 0) || 0),
                 resources: resourceChips
             },
             runtime: currentExec ? {
@@ -19607,7 +19728,11 @@
 
         var workflow = _envPrimaryWorkflow();
         var scenePrimary = _envUseScenePrimaryMode();
-        if (!workflow && scenePrimary && _wfSelectedId && !_envWorkflowLoadState.pending) {
+        var focusedWorkflowId = scenePrimary ? _envFocusedWorkflowId() : String(_wfSelectedId || '').trim();
+        if (!workflow && scenePrimary && focusedWorkflowId) {
+            _envBindWorkflowContext(focusedWorkflowId);
+        }
+        if (!workflow && scenePrimary && _wfSelectedId && !_envWorkflowLoadState.pending && String(_wfSelectedId || '') !== String(focusedWorkflowId || '')) {
             _wfSelectedId = '';
             _wfDrill = { kind: 'workflow', nodeId: '', edgeIndex: -1, workflowId: '' };
         }
@@ -19653,52 +19778,72 @@
 
         if (!workflow && scenePrimary) {
             _envEnsureSceneSnapshotIdentity('scene-primary', false);
-            var sections = _envArtifactSections();
-            var traces = [];
             var sceneSnapshotName = _envScenePrimarySnapshotName();
             var sceneContextId = _envSceneDocContextId();
             _envClearSceneWorkflowResidue(sceneSnapshotName);
+            var sceneWorkflowId = String(_envFocusedWorkflowId() || '').trim();
+            if (sceneWorkflowId) _envBindWorkflowContext(sceneWorkflowId);
+            var sceneExec = sceneWorkflowId ? _envCurrentExecution() : null;
+            var sceneWorkflowMeta = sceneWorkflowId ? _envWorkflowById(sceneWorkflowId) : null;
+            var traces = sceneWorkflowId ? _envTraceRows(8) : [];
+            var sections = _envArtifactSections();
             if (String(_envDocState.contextKind || '') !== 'scene' || String(_envDocState.contextId || '') !== String(sceneContextId || 'scene')) {
                 _envRefreshDocs('scene switch', 'system', true);
             }
-            var sceneStatus = {
-                snapshot: sceneSnapshotName,
-                object_count: Number(((_envSpawnedObjects || []).length) || 0),
-                focus_kind: String(((_envKernel.focus || {}).kind) || ''),
-                focus_id: String(((_envKernel.focus || {}).id) || ''),
-                focus_label: String(((_envKernel.focus || {}).label) || ''),
-                camera_mode: String(_envSceneNormalizeCameraMode(_envScene.cameraMode || (((_envConfig || {}).scene || {}).defaultCameraMode) || 'overview')),
-                history_depth: Number((_envNavigationState.history || []).length || 0),
-                bootstrap: {
-                    pending: !!_envSceneBootstrapState.pending,
-                    hydrated_ts: Number(_envSceneBootstrapState.hydratedTs || 0),
-                    last_source: String(_envSceneBootstrapState.lastSource || ''),
-                    error: String(_envSceneBootstrapState.error || '')
-                }
-            };
             var sceneHabitatHtml = _envRenderSafeHtml('habitat stage', function () {
-                return _envRenderHabitat(null, null, sections, traces);
+                return _envRenderHabitat(null, sceneExec, sections, traces);
             });
-            _envRunHistoryState.workflowId = '';
-            _envRunHistoryState.pendingWorkflowId = '';
-            _envRunHistoryState.rows = [];
-            _envRunHistoryState.selectedExecutionId = '';
-            _envRunHistoryState.lastRequestedExecutionId = '';
-            _envRunHistoryState.lastRequestTs = 0;
-            _envRunHistoryState.refreshedTs = 0;
-            _envRunHistoryState.error = '';
-            _envHealthState.workflowId = '';
-            _envHealthState.pendingStatus = false;
-            _envHealthState.pendingHeartbeat = false;
-            _envHealthState.lastRequestTs = 0;
-            _envHealthState.refreshedTs = 0;
-            _envHealthState.status = null;
-            _envHealthState.heartbeat = null;
-            _envHealthState.statusError = '';
-            _envHealthState.heartbeatError = '';
+            if (sceneWorkflowId) {
+                if (String(_envRunHistoryState.workflowId || '') !== sceneWorkflowId) {
+                    _envRunHistoryState.workflowId = sceneWorkflowId;
+                    _envRunHistoryState.pendingWorkflowId = '';
+                    _envRunHistoryState.rows = [];
+                    _envRunHistoryState.selectedExecutionId = '';
+                    _envRunHistoryState.lastRequestedExecutionId = '';
+                    _envRunHistoryState.lastRequestTs = 0;
+                    _envRunHistoryState.refreshedTs = 0;
+                    _envRunHistoryState.error = '';
+                    _envRequestRunHistory('scene workflow focus', false);
+                } else if (!_envRunHistoryState.rows.length
+                    && !_envRunHistoryState.pendingWorkflowId
+                    && !Number(_envRunHistoryState.refreshedTs || 0)
+                    && !String(_envRunHistoryState.error || '')) {
+                    _envRequestRunHistory('scene workflow focus', false);
+                }
+                if (String(_envHealthState.workflowId || '') !== sceneWorkflowId) {
+                    _envHealthState.workflowId = sceneWorkflowId;
+                    _envHealthState.pendingStatus = false;
+                    _envHealthState.pendingHeartbeat = false;
+                    _envHealthState.lastRequestTs = 0;
+                    _envHealthState.refreshedTs = 0;
+                    _envHealthState.status = null;
+                    _envHealthState.heartbeat = null;
+                    _envHealthState.statusError = '';
+                    _envHealthState.heartbeatError = '';
+                    _envRequestHealth('scene workflow focus', false);
+                } else if (!_envHealthState.refreshedTs && !_envHealthPending()) {
+                    _envRequestHealth('scene workflow focus', false);
+                }
+            } else {
+                _envRunHistoryState.workflowId = '';
+                _envRunHistoryState.pendingWorkflowId = '';
+                _envRunHistoryState.rows = [];
+                _envRunHistoryState.selectedExecutionId = '';
+                _envRunHistoryState.lastRequestedExecutionId = '';
+                _envRunHistoryState.lastRequestTs = 0;
+                _envRunHistoryState.refreshedTs = 0;
+                _envRunHistoryState.error = '';
+                _envHealthState.workflowId = '';
+                _envHealthState.pendingStatus = false;
+                _envHealthState.pendingHeartbeat = false;
+                _envHealthState.lastRequestTs = 0;
+                _envHealthState.refreshedTs = 0;
+                _envHealthState.status = null;
+                _envHealthState.heartbeat = null;
+                _envHealthState.statusError = '';
+                _envHealthState.heartbeatError = '';
+            }
             if (focusStateEl) focusStateEl.textContent = String((_envKernel.focus && _envKernel.focus.kind) || 'scene');
-            var sceneFocusPayloadKindEl = document.getElementById('envops-focus-payload-kind');
-            if (sceneFocusPayloadKindEl) sceneFocusPayloadKindEl.textContent = 'scene';
             stageEl.innerHTML =
                 '<div class="envops-stage-hero">' +
                 '<div>' +
@@ -19717,31 +19862,44 @@
                 '<div class="envops-card"><div class="envops-card-label">Persisted Objects</div><div class="envops-card-value">' + String(Number(((_envSpawnedObjects || []).length) || 0)) + ' staged</div></div>' +
                 '<div class="envops-card"><div class="envops-card-label">Navigation</div><div class="envops-card-value">history ' + String(Number((_envNavigationState.history || []).length || 0)) + '</div></div>' +
                 '<div class="envops-card"><div class="envops-card-label">Bootstrap</div><div class="envops-card-value">' + _esc(_envSceneBootstrapState.pending ? 'HYDRATING' : (_envSceneBootstrapState.hydratedTs ? 'READY' : 'IDLE')) + '</div></div>' +
+                (sceneWorkflowId
+                    ? ('<div class="envops-card"><div class="envops-card-label">Workflow Context</div><div class="envops-card-value">' + _esc((sceneWorkflowMeta && (sceneWorkflowMeta.name || sceneWorkflowMeta.id)) || sceneWorkflowId || 'workflow') + '</div></div>' +
+                        '<div class="envops-card"><div class="envops-card-label">Run History</div><div class="envops-card-value">' + String((_envRunHistoryState.rows || []).length) + ' cached</div></div>' +
+                        '<div class="envops-card"><div class="envops-card-label">Health Probe</div><div class="envops-card-value">' + _esc(_envHealthPending() ? 'REQUESTED' : ((_envHealthState.refreshedTs || 0) ? 'READY' : 'IDLE')) + '</div></div>')
+                    : '<div class="envops-card"><div class="envops-card-label">Workflow Context</div><div class="envops-card-value">UNBOUND</div></div>') +
                 '</div>' +
                 '<div class="envops-stage-shell">' +
                 sceneHabitatHtml +
                 '</div>';
             try {
-                _envSyncHabitatScene(null, null, sections, traces, renderTarget);
+                _envSyncHabitatScene(null, sceneExec, sections, traces, renderTarget);
+                _envScene.workflowId = String(sceneWorkflowId || '');
+                _envScene.workflow = sceneWorkflowMeta || null;
             } catch (err) {
                 console.error('[envops] habitat sync failed', err);
             }
             try {
-                artifactsEl.innerHTML = _envRenderArtifactPanel(null, null, sections);
+                artifactsEl.innerHTML = _envRenderArtifactPanel(null, sceneExec, sections);
             } catch (err) {
                 artifactsEl.innerHTML = _envRenderFailureHtml('product lens', err);
             }
             if (artifactCountEl) artifactCountEl.textContent = String(sections.length);
-            _envRenderTraceRows([]);
-            kernelEl.innerHTML = '<div class="envops-stage-empty">Scene-first mode active. Focus, camera, sampling, branching, and object interactions remain available from the theater while workflow selection stays unbound.</div>';
+            _envRenderTraceRows(sceneWorkflowId ? traces : []);
+            kernelEl.innerHTML = sceneWorkflowId
+                ? ('<div class="envops-stage-empty">Scene-first mode active. Workflow context is now bound to ' + _esc((sceneWorkflowMeta && (sceneWorkflowMeta.name || sceneWorkflowMeta.id)) || sceneWorkflowId || 'workflow') + ' for focus, traces, run history, and health surfaces while the scene shell stays primary.</div>')
+                : '<div class="envops-stage-empty">Scene-first mode active. Focus, camera, sampling, branching, and object interactions remain available from the theater while workflow selection stays unbound.</div>';
             try {
                 _envRenderDocsPanel();
             } catch (err) {
                 if (docsEl) docsEl.innerHTML = _envRenderFailureHtml('docs panel', err);
             }
             _envRenderLedger();
-            var sceneFocusPanel = document.getElementById('envops-focus-payload');
-            if (sceneFocusPanel) sceneFocusPanel.innerHTML = _wfJsonBlock('Scene Payload', sceneStatus);
+            try {
+                _envRenderFocusPayloadPanel(null, sceneExec, sections, traces);
+            } catch (err) {
+                var sceneFocusPanel = document.getElementById('envops-focus-payload');
+                if (sceneFocusPanel) sceneFocusPanel.innerHTML = _envRenderFailureHtml('focus payload', err);
+            }
             _envCommitRenderTruth('scene', '', 'scene_primary', renderTarget, packageMode);
             if (_isEnvironmentTabActive()) _envScheduleLiveSync('render', false);
             return;
@@ -24513,7 +24671,7 @@
                 return;
             }
             if (action === 'focus-workflow') {
-                _envQueueControl('focus_workflow', _wfSelectedId || '', uiActor, 'workflow focus');
+                _envQueueControl('focus_workflow', _envFocusedWorkflowId() || _wfSelectedId || '', uiActor, 'workflow focus');
                 return;
             }
             if (action === 'focus-district') {
