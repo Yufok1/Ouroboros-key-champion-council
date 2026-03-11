@@ -60,6 +60,8 @@
         heartbeatError: ''
     };
     let _envDocState = {
+        contextKind: '',
+        contextId: '',
         workflowId: '',
         query: '',
         pendingSearch: '',
@@ -13381,7 +13383,9 @@
     function _envCaptureSample(reason, actor) {
         var workflow = _wfLoadedDef && String(_wfLoadedDef.id || '') === String(_wfSelectedId || '') ? _wfLoadedDef : null;
         var exec = _envCurrentExecution();
-        if (!workflow) return;
+        var scenePrimary = !workflow && _envUseScenePrimaryMode();
+        var sceneSnapshotName = scenePrimary ? _envScenePrimarySnapshotName() : '';
+        if (!workflow && !scenePrimary) return;
         var actorName = _envNormalizeActorId(actor || 'system') || 'system';
         var nodeStates = exec && exec.node_states ? exec.node_states : {};
         var counts = { completed: 0, running: 0, failed: 0, pending: 0 };
@@ -13393,7 +13397,7 @@
         var sample = {
             id: _envActionId('sample'),
             seq: ((_envKernel.samples || [])[0] && Number((_envKernel.samples || [])[0].seq || 0) + 1) || 1,
-            workflow_id: String(workflow.id || _wfSelectedId || ''),
+            workflow_id: workflow ? String(workflow.id || _wfSelectedId || '') : '',
             execution_id: exec ? String(exec.execution_id || '') : '',
             status: exec ? _wfNormalizeStatus(exec.status || 'pending') : 'idle',
             focus: Object.assign({}, _envKernel.focus || {}),
@@ -13404,6 +13408,16 @@
             actor: actorName,
             ts: Date.now()
         };
+        if (scenePrimary) {
+            sample.context_kind = 'scene';
+            sample.context_id = String(sceneSnapshotName || 'scene');
+            sample.snapshot = String(sceneSnapshotName || '');
+            sample.object_count = Number(((_envSpawnedObjects || []).length) || 0);
+            sample.stage_mode = 'scene';
+        } else {
+            sample.context_kind = 'workflow';
+            sample.context_id = String(workflow.id || _wfSelectedId || '');
+        }
         _envKernel.samples.unshift(sample);
         if (_envKernel.samples.length > Math.max(8, Number((((_envConfig || {}).sampler || {}).maxSamples) || 48))) {
             _envKernel.samples.length = Math.max(8, Number((((_envConfig || {}).sampler || {}).maxSamples) || 48));
@@ -14500,10 +14514,17 @@
         var changed = false;
         var sceneLabel = String(sceneSnapshotName || _envScenePrimarySnapshotName() || 'scene');
         var focus = _envKernel.focus && typeof _envKernel.focus === 'object' ? _envKernel.focus : null;
+        var sceneDocContext = String(_envDocState.contextKind || '') === 'scene'
+            && String(_envDocState.contextId || '') === sceneLabel;
+        var preserveSceneDocFocus = !!(sceneDocContext
+            && focus
+            && String(focus.kind || '').toLowerCase() === 'doc'
+            && _envDocResultById(focus.id));
         var staleFocusKinds = {
             workflow: 1, node: 1, execution: 1, artifact: 1, trace: 1,
-            doc: 1, district: 1, dispatch: 1, queued: 1, watch: 1, recipe: 1, profile: 1
+            district: 1, dispatch: 1, queued: 1, watch: 1, recipe: 1, profile: 1
         };
+        if (!preserveSceneDocFocus) staleFocusKinds.doc = 1;
         var shouldPromoteSceneFocus = !!(focus
             && String(focus.kind || '').toLowerCase() === 'scene'
             && sceneLabel
@@ -14520,7 +14541,10 @@
             changed = true;
         }
         if (!_envInspectorState.active && !_envHtmlPanelState.active && !_envDocState.pendingRead) {
-            if (_envDocState.workflowId || _envDocState.query || _envDocState.pendingSearch || _envDocState.results.length || _envDocState.activeDocId || _envDocState.activeDocMeta || _envDocState.activeDocContent) {
+            var hasDocState = _envDocState.workflowId || _envDocState.contextKind || _envDocState.contextId || _envDocState.query || _envDocState.pendingSearch || _envDocState.results.length || _envDocState.activeDocId || _envDocState.activeDocMeta || _envDocState.activeDocContent;
+            if (hasDocState && !sceneDocContext) {
+                _envDocState.contextKind = '';
+                _envDocState.contextId = '';
                 _envDocState.workflowId = '';
                 _envDocState.query = '';
                 _envDocState.pendingSearch = '';
@@ -16921,6 +16945,8 @@
             String(camera3d.focus_key || ''),
             String(focus.kind || ''),
             String(focus.id || ''),
+            String(docs.context_kind || ''),
+            String(docs.context_id || ''),
             String(docs.active_doc || ''),
             String(docs.result_count || 0),
             String(health.tone || ''),
@@ -18849,6 +18875,8 @@
             }),
             tool_outputs: _envContractToolOutputs(),
             docs: {
+                context_kind: String((_envDocState.contextKind || '')),
+                context_id: String((_envDocState.contextId || '')),
                 result_count: Number(((_envDocState.results || []).length) || 0),
                 active_doc: String(_envDocState.activeDocId || ''),
                 pending_search: String(_envDocState.pendingSearch || ''),
@@ -19119,6 +19147,64 @@
         return parts.join(' ');
     }
 
+    function _envSceneDocContextId() {
+        return String(_envScenePrimarySnapshotName() || 'scene').trim();
+    }
+
+    function _envSceneDocQuery() {
+        if (!_envUseScenePrimaryMode()) return '';
+        var parts = [];
+        function pushPart(value) {
+            var text = String(value || '').trim();
+            if (!text) return;
+            if (parts.indexOf(text) === -1) parts.push(text);
+        }
+        var snapshotName = _envSceneDocContextId();
+        var focus = _envKernel.focus && typeof _envKernel.focus === 'object' ? _envKernel.focus : null;
+        pushPart(snapshotName);
+        pushPart('environment scene');
+        if (focus && String(focus.kind || '').toLowerCase() !== 'scene') {
+            pushPart(focus.kind);
+            pushPart(focus.id);
+            pushPart(focus.label);
+        }
+        (_envSpawnedObjects || []).slice(0, 18).forEach(function (obj) {
+            var data = obj && typeof obj.data === 'object' ? obj.data : {};
+            pushPart(obj && obj.kind);
+            pushPart(obj && obj.label);
+            pushPart(obj && obj.meta);
+            pushPart(data.system);
+            pushPart(data.role);
+            pushPart(data.workflow_id || data.linked_workflow || data.workflow);
+            pushPart(data.slot || data.slot_id || data.slot_name);
+            if (Array.isArray(data.capabilities)) {
+                data.capabilities.slice(0, 4).forEach(pushPart);
+            }
+        });
+        return parts.slice(0, 48).join(' ');
+    }
+
+    function _envCurrentDocContext() {
+        var workflow = _wfLoadedDef && String(_wfLoadedDef.id || '') === String(_wfSelectedId || '') ? _wfLoadedDef : null;
+        if (workflow) {
+            return {
+                kind: 'workflow',
+                id: String(workflow.id || _wfSelectedId || ''),
+                query: _envWorkflowDocQuery(workflow),
+                workflow: workflow
+            };
+        }
+        if (_envUseScenePrimaryMode()) {
+            return {
+                kind: 'scene',
+                id: _envSceneDocContextId(),
+                query: _envSceneDocQuery(),
+                workflow: null
+            };
+        }
+        return null;
+    }
+
     function _envNormalizeDocResults(payload) {
         var results = [];
         if (!payload || typeof payload !== 'object') return results;
@@ -19175,16 +19261,24 @@
     }
 
     function _envRefreshDocs(reason, actor, force) {
-        var workflow = _wfLoadedDef && String(_wfLoadedDef.id || '') === String(_wfSelectedId || '') ? _wfLoadedDef : null;
-        if (!workflow) return;
-        var workflowId = String(workflow.id || _wfSelectedId || '');
-        var query = _envWorkflowDocQuery(workflow);
+        var context = _envCurrentDocContext();
+        if (!context) return;
+        var contextKind = String(context.kind || '');
+        var contextId = String(context.id || '');
+        var query = String(context.query || '');
         if (!query) return;
-        if (!force && _envDocState.pendingSearch === workflowId) return;
-        if (!force && _envDocState.workflowId === workflowId && _envDocState.query === query && _envDocState.results.length) return;
-        _envDocState.workflowId = workflowId;
+        var contextKey = contextKind + ':' + contextId;
+        if (!force && _envDocState.pendingSearch === contextKey) return;
+        if (!force
+            && _envDocState.contextKind === contextKind
+            && _envDocState.contextId === contextId
+            && _envDocState.query === query
+            && _envDocState.results.length) return;
+        _envDocState.contextKind = contextKind;
+        _envDocState.contextId = contextId;
+        _envDocState.workflowId = contextKind === 'workflow' ? contextId : '';
         _envDocState.query = query;
-        _envDocState.pendingSearch = workflowId;
+        _envDocState.pendingSearch = contextKey;
         _envDocState.results = [];
         _envDocState.activeDocId = '';
         _envDocState.activeDocMeta = null;
@@ -19194,7 +19288,12 @@
             limit: Math.max(1, Number((((_envConfig || {}).docs || {}).searchLimit) || 8)),
             prefix: String((((_envConfig || {}).docs || {}).searchPrefix) || 'docs/')
         }, 'bag_search_docs');
-        _envLogAction('docs', 'Scanning related docs' + (reason ? ' · ' + reason : ''), actor || 'system', { workflow_id: workflowId, query: query });
+        _envLogAction('docs', 'Scanning related docs' + (reason ? ' · ' + reason : ''), actor || 'system', {
+            workflow_id: contextKind === 'workflow' ? contextId : '',
+            scene_id: contextKind === 'scene' ? contextId : '',
+            context_kind: contextKind,
+            query: query
+        });
     }
 
     function _envRenderDocsPanel() {
@@ -19203,11 +19302,11 @@
         if (!docsEl) return;
         if (countEl) countEl.textContent = String(_envDocState.results.length);
         if (_envDocState.pendingSearch) {
-            docsEl.innerHTML = '<div class="envops-stage-empty">Scanning FelixBag docs for the current system…</div>';
+            docsEl.innerHTML = '<div class="envops-stage-empty">Scanning FelixBag docs for the current environment context…</div>';
             return;
         }
         if (!_envDocState.results.length) {
-            docsEl.innerHTML = '<div class="envops-stage-empty">No related docs surfaced yet. Use SCAN DOCS after loading a system to pull matching FelixBag materials into the shell.</div>';
+            docsEl.innerHTML = '<div class="envops-stage-empty">No related docs surfaced yet. Use SCAN DOCS to pull matching FelixBag materials into the shell.</div>';
             return;
         }
         var listHtml = _envDocState.results.map(function (doc) {
@@ -19523,6 +19622,9 @@
             var traces = [];
             var sceneSnapshotName = _envScenePrimarySnapshotName();
             _envClearSceneWorkflowResidue(sceneSnapshotName);
+            if (String(_envDocState.contextKind || '') !== 'scene' || String(_envDocState.contextId || '') !== String(sceneSnapshotName || '')) {
+                _envRefreshDocs('scene switch', 'system', true);
+            }
             var sceneStatus = {
                 snapshot: sceneSnapshotName,
                 object_count: Number(((_envSpawnedObjects || []).length) || 0),
@@ -19762,7 +19864,9 @@
         if (!_envKernel.focus || String((_envKernel.focus.id || '')) === '' || (_envKernel.focus.kind === 'workflow' && String((_envKernel.focus.id || '')) !== String(workflow.id || _wfSelectedId || ''))) {
             _envKernel.focus = { kind: 'workflow', id: String(workflow.id || _wfSelectedId || ''), label: String(workflow.name || workflow.id || 'workflow'), actor: 'system', payload: null };
         }
-        if (String(_envDocState.workflowId || '') !== workflowId) {
+        if (String(_envDocState.contextKind || '') !== 'workflow' || String(_envDocState.contextId || '') !== workflowId) {
+            _envDocState.contextKind = 'workflow';
+            _envDocState.contextId = workflowId;
             _envDocState.workflowId = workflowId;
             _envDocState.query = '';
             _envDocState.pendingSearch = '';
@@ -24714,6 +24818,8 @@
                 }
             },
             docs: {
+                context_kind: String((_envDocState.contextKind || '')),
+                context_id: String((_envDocState.contextId || '')),
                 query: String((_envDocState.query || '')),
                 result_count: Number(((_envDocState.results || []).length) || 0),
                 active_doc: String(_envDocState.activeDocId || '')
