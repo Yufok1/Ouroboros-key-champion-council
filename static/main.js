@@ -179,6 +179,10 @@
         return Number(_envStageUiState.opsRailInteractingUntil || 0) > Date.now();
     }
 
+    function _envOpsRailPinned() {
+        return Number(_envStageUiState.opsRailScrollTop || 0) > 8;
+    }
+
     function _envMarkOpsRailInteraction() {
         _envStageUiState.opsRailInteractingUntil = Date.now() + 900;
         if (Number(_envStageUiState.opsRailInteractionTimer || 0)) {
@@ -19867,7 +19871,7 @@
             if (String(_envDocState.contextKind || '') !== 'scene' || String(_envDocState.contextId || '') !== String(sceneContextId || 'scene')) {
                 _envRefreshDocs('scene switch', 'system', true);
             }
-            var preserveSceneStage = !!(((_env3D.manualControlActive || _envOpsRailInteractionActive()) && stageEl.querySelector('#envops-habitat-shell')));
+            var preserveSceneStage = !!(((_env3D.manualControlActive || _envOpsRailInteractionActive() || _envOpsRailPinned()) && stageEl.querySelector('#envops-habitat-shell')));
             var sceneHabitatHtml = '';
             if (preserveSceneStage) {
                 _envStageUiState.pendingSceneRender = true;
