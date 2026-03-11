@@ -1,0 +1,7 @@
+{
+  "name": "champion-council-private",
+  "private": true,
+  "scripts": {
+    "compress-capsule": "node scripts/compress-capsule.js"
+  }
+}
