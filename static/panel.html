@@ -2429,16 +2429,16 @@
             height: 100%;
         }
         .env3d-label-shell {
-            max-width: min(148px, 22vw);
+            max-width: min(220px, 28vw);
             pointer-events: auto;
         }
         .envops-scene-trigger {
             display: flex;
             flex-direction: column;
-            gap: 1px;
+            gap: 3px;
             min-width: 0;
-            max-width: 118px;
-            padding: 3px 5px;
+            max-width: 168px;
+            padding: 6px 8px;
             border: 1px solid rgba(79, 255, 208, 0.18);
             border-radius: 0;
             background: linear-gradient(180deg, rgba(8, 16, 26, 0.64), rgba(5, 10, 18, 0.78));
@@ -2463,7 +2463,7 @@
             opacity: 0.42;
         }
         .envops-scene-trigger-title {
-            font-size: 8px;
+            font-size: 12px;
             font-weight: 700;
             color: #f5fbff;
             white-space: nowrap;
@@ -2472,7 +2472,7 @@
         }
         .envops-scene-trigger-meta {
             display: none;
-            font-size: 8px;
+            font-size: 12px;
             color: rgba(224, 242, 255, 0.72);
             line-height: 1.35;
             white-space: nowrap;
@@ -2482,7 +2482,7 @@
         .envops-scene-trigger-badge {
             display: none;
             margin-top: 2px;
-            font-size: 7px;
+            font-size: 12px;
             letter-spacing: 0.9px;
             text-transform: uppercase;
             color: #7effd7;
@@ -3176,6 +3176,115 @@
 
         .envops-habitat-op-history-item .when {
             color: var(--text-dim);
+        }
+
+        /* === Environment Readability Floor === */
+        .envops-grid :is(
+            .envops-panel-head,
+            .envops-system-meta,
+            .envops-stage-empty,
+            .envops-stage-subtitle,
+            .envops-chip,
+            .envops-card-label,
+            .envops-health-meta,
+            .envops-health-note,
+            .envops-health-card .k,
+            .envops-health-card .m,
+            .envops-health-chip .badge,
+            .envops-health-chip .meta,
+            .envops-health-chip .label,
+            .envops-input-label,
+            .envops-input,
+            .envops-select-wrap label,
+            .envops-select-note,
+            .envops-product-kicker,
+            .envops-product-meta,
+            .envops-product-preview,
+            .envops-product-metric .k,
+            .envops-product-metric .v,
+            .envops-product-chip,
+            .envops-artifact-card-head,
+            .envops-artifact-card-meta,
+            .envops-artifact-card-preview,
+            .envops-product-card-foot,
+            .envops-run-compare-meta,
+            .envops-run-compare-status,
+            .envops-run-history-chip .badge,
+            .envops-run-history-chip .meta,
+            .envops-run-history-chip .label,
+            .envops-run-card-kicker,
+            .envops-run-card-meta,
+            .envops-run-card-foot,
+            .envops-run-card-status,
+            .envops-run-card-preview,
+            .envops-trace-tool,
+            .envops-trace-time,
+            .envops-trace-meta,
+            .envops-trace-body,
+            .envops-scene-trigger-title,
+            .envops-scene-trigger-meta,
+            .envops-scene-trigger-badge,
+            .envops-scene-menu-label,
+            .envops-scene-menu-note,
+            .envops-scene-menu-target,
+            .envops-scene-panel-kicker,
+            .envops-scene-panel-meta,
+            .envops-focus-kicker,
+            .envops-focus-subtitle,
+            .envops-inspector-metric span,
+            .envops-inspector-metric strong,
+            .envops-inspector-actions button,
+            .envops-inspector-actions-inline button,
+            .envops-focus-detail-kicker,
+            .envops-focus-detail-meta,
+            .envops-focus-section-title,
+            .envops-focus-section-meta,
+            .envops-inspector-row,
+            .envops-inspector-note,
+            .envops-hud-panel-kicker,
+            .envops-hud-panel-subtitle,
+            .envops-hud-body-title,
+            .envops-hud-body-meta,
+            .envops-hud-empty,
+            .envops-habitat-hud-primary,
+            .envops-habitat-hud-secondary,
+            .envops-habitat-corroboration-kicker,
+            .envops-habitat-corroboration-subject,
+            .envops-habitat-corroboration-narrative,
+            .envops-habitat-corroboration-chip,
+            .envops-habitat-corroboration-note,
+            .envops-habitat-ops-head .k,
+            .envops-habitat-ops-head .v,
+            .envops-habitat-op-history-item,
+            .envops-habitat-dominance-chip,
+            .envops-habitat-dominance-target,
+            .envops-habitat-dominance-path,
+            .envops-habitat-status-chip .k,
+            .envops-habitat-status-mini .k,
+            .envops-habitat-scene-cockpit-head,
+            .envops-habitat-status-chip .v,
+            .envops-habitat-status-mini .v,
+            .envops-habitat-mode-card .h,
+            .envops-habitat-mode-card .v,
+            .envops-habitat-mode-card .m,
+            .envops-habitat-event-pill .h,
+            .envops-habitat-event-pill .v,
+            .envops-habitat-event-pill .m,
+            .envops-habitat-event-link
+        ) {
+            font-size: 12px;
+        }
+
+        .envops-grid :is(
+            .envops-system-title,
+            .envops-stage-title,
+            .envops-product-title,
+            .envops-run-card-title,
+            .envops-hud-panel-title,
+            .envops-focus-title,
+            .envops-focus-detail-title
+        ) {
+            font-size: 14px;
         }
 
         .envops-habitat-dominance {
@@ -11030,7 +11139,7 @@
     <script src="/static/three.min.js"></script>
     <script src="/static/OrbitControls.js"></script>
     <script src="/static/CSS2DRenderer.js"></script>
-    <script src="/static/main.js?v=62"></script>
+    <script src="/static/main.js?v=63"></script>
 
     <!-- ═══════════════ DREAMER + GPU FLEET TAB JS ═══════════════ -->
     <script>

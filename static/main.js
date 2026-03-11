@@ -167,6 +167,49 @@
         renderRevision: 0,
         lastRenderTs: 0
     };
+    let _envStageUiState = {
+        opsRailScrollTop: 0,
+        opsRailBottomGap: 0,
+        pendingSceneRender: false
+    };
+
+    function _envRememberOpsRailScroll(rail) {
+        var el = rail || document.getElementById('envops-habitat-ops-rail');
+        if (!el) return;
+        var maxScroll = Math.max(0, Number(el.scrollHeight || 0) - Number(el.clientHeight || 0));
+        var scrollTop = Math.max(0, Number(el.scrollTop || 0));
+        _envStageUiState.opsRailScrollTop = scrollTop;
+        _envStageUiState.opsRailBottomGap = Math.max(0, maxScroll - scrollTop);
+    }
+
+    function _envBindOpsRailScrollState(rail) {
+        var el = rail || document.getElementById('envops-habitat-ops-rail');
+        if (!el || el.dataset.envopsScrollBound) return;
+        el.dataset.envopsScrollBound = '1';
+        el.addEventListener('scroll', function () {
+            _envRememberOpsRailScroll(el);
+        }, { passive: true });
+        _envRememberOpsRailScroll(el);
+    }
+
+    function _envRestoreOpsRailScroll() {
+        var apply = function () {
+            var rail = document.getElementById('envops-habitat-ops-rail');
+            if (!rail) return;
+            _envBindOpsRailScrollState(rail);
+            var maxScroll = Math.max(0, Number(rail.scrollHeight || 0) - Number(rail.clientHeight || 0));
+            var desired = Math.max(0, Number(_envStageUiState.opsRailScrollTop || 0));
+            if (Number(_envStageUiState.opsRailBottomGap || 0) <= 24) {
+                desired = Math.max(0, maxScroll - Number(_envStageUiState.opsRailBottomGap || 0));
+            }
+            rail.scrollTop = Math.max(0, Math.min(maxScroll, desired));
+        };
+        if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+            window.requestAnimationFrame(apply);
+        } else {
+            setTimeout(apply, 0);
+        }
+    }
     function _envDefaultConfig() {
         return {
             version: '2026-03-07-envops-v27',
@@ -17612,6 +17655,12 @@
         controls.addEventListener('end', function () {
             _env3D.manualControlActive = false;
             _env3DScheduleManualCameraCommit('camera:manual:end', true);
+            if (_envStageUiState.pendingSceneRender) {
+                _envStageUiState.pendingSceneRender = false;
+                if (_isEnvironmentTabActive()) {
+                    renderEnvironmentView();
+                }
+            }
         });
     }
 
@@ -19790,9 +19839,16 @@
             if (String(_envDocState.contextKind || '') !== 'scene' || String(_envDocState.contextId || '') !== String(sceneContextId || 'scene')) {
                 _envRefreshDocs('scene switch', 'system', true);
             }
-            var sceneHabitatHtml = _envRenderSafeHtml('habitat stage', function () {
-                return _envRenderHabitat(null, sceneExec, sections, traces);
-            });
+            var preserveSceneStage = !!(_env3D.manualControlActive && stageEl.querySelector('#envops-habitat-shell'));
+            var sceneHabitatHtml = '';
+            if (preserveSceneStage) {
+                _envStageUiState.pendingSceneRender = true;
+                _envRememberOpsRailScroll();
+            } else {
+                sceneHabitatHtml = _envRenderSafeHtml('habitat stage', function () {
+                    return _envRenderHabitat(null, sceneExec, sections, traces);
+                });
+            }
             if (sceneWorkflowId) {
                 if (String(_envRunHistoryState.workflowId || '') !== sceneWorkflowId) {
                     _envRunHistoryState.workflowId = sceneWorkflowId;
@@ -19844,33 +19900,37 @@
                 _envHealthState.heartbeatError = '';
             }
             if (focusStateEl) focusStateEl.textContent = String((_envKernel.focus && _envKernel.focus.kind) || 'scene');
-            stageEl.innerHTML =
-                '<div class="envops-stage-hero">' +
-                '<div>' +
-                '<div class="envops-stage-title">' + _esc(sceneSnapshotName || 'Environment Scene') + '</div>' +
-                '<div class="envops-stage-subtitle">Snapshot-backed environment shell using the champion runtime as spatial control plane. Renderer target: ' + _esc(renderTarget) + ' · Deployment mode: ' + _esc(packageMode) + '</div>' +
-                '</div>' +
-                '<div class="envops-links">' +
-                '<button class="btn-dim" onclick="_envOpenLinkedTab(\'workflows\')">OPEN WORKFLOWS</button>' +
-                '<button class="btn-dim" onclick="_envOpenLinkedTab(\'debug\')">OPEN DEBUG</button>' +
-                '<button class="btn-dim" onclick="_envOpenLinkedTab(\'memory\')">OPEN MEMORY</button>' +
-                '<button class="btn-dim" onclick="_envOpenLinkedTab(\'tools\')">OPEN TOOLS</button>' +
-                '</div>' +
-                '</div>' +
-                '<div class="envops-card-grid">' +
-                '<div class="envops-card"><div class="envops-card-label">Scene Snapshot</div><div class="envops-card-value">' + _esc(sceneSnapshotName || 'unspecified') + '</div></div>' +
-                '<div class="envops-card"><div class="envops-card-label">Persisted Objects</div><div class="envops-card-value">' + String(Number(((_envSpawnedObjects || []).length) || 0)) + ' staged</div></div>' +
-                '<div class="envops-card"><div class="envops-card-label">Navigation</div><div class="envops-card-value">history ' + String(Number((_envNavigationState.history || []).length || 0)) + '</div></div>' +
-                '<div class="envops-card"><div class="envops-card-label">Bootstrap</div><div class="envops-card-value">' + _esc(_envSceneBootstrapState.pending ? 'HYDRATING' : (_envSceneBootstrapState.hydratedTs ? 'READY' : 'IDLE')) + '</div></div>' +
-                (sceneWorkflowId
-                    ? ('<div class="envops-card"><div class="envops-card-label">Workflow Context</div><div class="envops-card-value">' + _esc((sceneWorkflowMeta && (sceneWorkflowMeta.name || sceneWorkflowMeta.id)) || sceneWorkflowId || 'workflow') + '</div></div>' +
-                        '<div class="envops-card"><div class="envops-card-label">Run History</div><div class="envops-card-value">' + String((_envRunHistoryState.rows || []).length) + ' cached</div></div>' +
-                        '<div class="envops-card"><div class="envops-card-label">Health Probe</div><div class="envops-card-value">' + _esc(_envHealthPending() ? 'REQUESTED' : ((_envHealthState.refreshedTs || 0) ? 'READY' : 'IDLE')) + '</div></div>')
-                    : '<div class="envops-card"><div class="envops-card-label">Workflow Context</div><div class="envops-card-value">UNBOUND</div></div>') +
-                '</div>' +
-                '<div class="envops-stage-shell">' +
-                sceneHabitatHtml +
-                '</div>';
+            if (!preserveSceneStage) {
+                _envRememberOpsRailScroll();
+                stageEl.innerHTML =
+                    '<div class="envops-stage-hero">' +
+                    '<div>' +
+                    '<div class="envops-stage-title">' + _esc(sceneSnapshotName || 'Environment Scene') + '</div>' +
+                    '<div class="envops-stage-subtitle">Snapshot-backed environment shell using the champion runtime as spatial control plane. Renderer target: ' + _esc(renderTarget) + ' · Deployment mode: ' + _esc(packageMode) + '</div>' +
+                    '</div>' +
+                    '<div class="envops-links">' +
+                    '<button class="btn-dim" onclick="_envOpenLinkedTab(\'workflows\')">OPEN WORKFLOWS</button>' +
+                    '<button class="btn-dim" onclick="_envOpenLinkedTab(\'debug\')">OPEN DEBUG</button>' +
+                    '<button class="btn-dim" onclick="_envOpenLinkedTab(\'memory\')">OPEN MEMORY</button>' +
+                    '<button class="btn-dim" onclick="_envOpenLinkedTab(\'tools\')">OPEN TOOLS</button>' +
+                    '</div>' +
+                    '</div>' +
+                    '<div class="envops-card-grid">' +
+                    '<div class="envops-card"><div class="envops-card-label">Scene Snapshot</div><div class="envops-card-value">' + _esc(sceneSnapshotName || 'unspecified') + '</div></div>' +
+                    '<div class="envops-card"><div class="envops-card-label">Persisted Objects</div><div class="envops-card-value">' + String(Number(((_envSpawnedObjects || []).length) || 0)) + ' staged</div></div>' +
+                    '<div class="envops-card"><div class="envops-card-label">Navigation</div><div class="envops-card-value">history ' + String(Number((_envNavigationState.history || []).length || 0)) + '</div></div>' +
+                    '<div class="envops-card"><div class="envops-card-label">Bootstrap</div><div class="envops-card-value">' + _esc(_envSceneBootstrapState.pending ? 'HYDRATING' : (_envSceneBootstrapState.hydratedTs ? 'READY' : 'IDLE')) + '</div></div>' +
+                    (sceneWorkflowId
+                        ? ('<div class="envops-card"><div class="envops-card-label">Workflow Context</div><div class="envops-card-value">' + _esc((sceneWorkflowMeta && (sceneWorkflowMeta.name || sceneWorkflowMeta.id)) || sceneWorkflowId || 'workflow') + '</div></div>' +
+                            '<div class="envops-card"><div class="envops-card-label">Run History</div><div class="envops-card-value">' + String((_envRunHistoryState.rows || []).length) + ' cached</div></div>' +
+                            '<div class="envops-card"><div class="envops-card-label">Health Probe</div><div class="envops-card-value">' + _esc(_envHealthPending() ? 'REQUESTED' : ((_envHealthState.refreshedTs || 0) ? 'READY' : 'IDLE')) + '</div></div>')
+                        : '<div class="envops-card"><div class="envops-card-label">Workflow Context</div><div class="envops-card-value">UNBOUND</div></div>') +
+                    '</div>' +
+                    '<div class="envops-stage-shell">' +
+                    sceneHabitatHtml +
+                    '</div>';
+                _envRestoreOpsRailScroll();
+            }
             try {
                 _envSyncHabitatScene(null, sceneExec, sections, traces, renderTarget);
                 _envScene.workflowId = String(sceneWorkflowId || '');
