@@ -8341,6 +8341,122 @@
         };
     }
 
+    function _envCorroborationVisibleLabels(layoutSnapshot) {
+        var layout = layoutSnapshot && typeof layoutSnapshot === 'object' ? layoutSnapshot : _envBuildLayoutSnapshot();
+        var labels = Array.isArray(layout.labels) ? layout.labels : [];
+        var stageRect = layout.rects && typeof layout.rects === 'object' ? layout.rects.stage : null;
+        if (!labels.length || !stageRect || !stageRect.visible) return [];
+        var centerX = Number(stageRect.left || 0) + (Number(stageRect.width || 0) / 2);
+        var centerY = Number(stageRect.top || 0) + (Number(stageRect.height || 0) / 2);
+        return labels
+            .filter(function (label) {
+                return label
+                    && !label.hidden
+                    && !label.clipped
+                    && !label.offscreen
+                    && !String(label.invalid_reason || '').trim()
+                    && label.rect
+                    && Number(label.rect.width || 0) > 0
+                    && Number(label.rect.height || 0) > 0;
+            })
+            .map(function (label) {
+                var rect = label.rect || {};
+                var midX = Number(rect.left || 0) + (Number(rect.width || 0) / 2);
+                var midY = Number(rect.top || 0) + (Number(rect.height || 0) / 2);
+                var dist = Math.hypot(midX - centerX, midY - centerY);
+                return {
+                    object_key: String(label.object_key || ''),
+                    label: String(label.title || ''),
+                    distance: Number(dist || 0)
+                };
+            })
+            .sort(function (a, b) {
+                return Number(a.distance || 0) - Number(b.distance || 0);
+            })
+            .slice(0, 4);
+    }
+
+    function _envCorroborationResolvedSubject(renderTruth, layoutSnapshot) {
+        var render = renderTruth && typeof renderTruth === 'object' ? renderTruth : _envBuildRenderTruth();
+        var layout = layoutSnapshot && typeof layoutSnapshot === 'object' ? layoutSnapshot : _envBuildLayoutSnapshot();
+        var scene = _envScene || {};
+        var camera3d = _env3DCameraPoseSnapshot() || {};
+        var operations = _envBuildOperationSnapshot(4);
+        var visible = _envCorroborationVisibleLabels(layout);
+        if (_envInspectorState.active && String(_envInspectorState.objectKey || '').trim()) {
+            var inspectorKey = String(_envInspectorState.objectKey || '').trim();
+            return {
+                key: inspectorKey,
+                kind: _envSceneKeyKind(inspectorKey),
+                id: String(_envInspectorState.id || inspectorKey.split('::').slice(1).join('::')),
+                label: _envSceneKeyLabel(inspectorKey) || String(_envInspectorState.id || inspectorKey),
+                reason: 'inspector'
+            };
+        }
+        if (_envHtmlPanelState.active && String(_envHtmlPanelState.objectKey || '').trim()) {
+            var panelKey = String(_envHtmlPanelState.objectKey || '').trim();
+            return {
+                key: panelKey,
+                kind: _envSceneKeyKind(panelKey),
+                id: String(_envHtmlPanelState.objectId || panelKey.split('::').slice(1).join('::')),
+                label: _envSceneKeyLabel(panelKey) || String(_envHtmlPanelState.title || _envHtmlPanelState.objectId || panelKey),
+                reason: 'panel'
+            };
+        }
+        if (String(camera3d.focus_key || '').trim()) {
+            var cameraKey = String(camera3d.focus_key || '').trim();
+            return {
+                key: cameraKey,
+                kind: _envSceneKeyKind(cameraKey),
+                id: String(camera3d.focus_id || cameraKey.split('::').slice(1).join('::')),
+                label: _envSceneKeyLabel(cameraKey) || String(camera3d.focus_id || cameraKey),
+                reason: 'camera'
+            };
+        }
+        if (_envScene.hover && String(_envScene.hover.kind || '').trim() && String(_envScene.hover.id || '').trim()) {
+            var hoverKey = String(_envScene.hover.kind || '') + '::' + String(_envScene.hover.id || '');
+            return {
+                key: hoverKey,
+                kind: String(_envScene.hover.kind || ''),
+                id: String(_envScene.hover.id || ''),
+                label: String(_envScene.hover.label || _envScene.hover.id || hoverKey),
+                reason: 'hover'
+            };
+        }
+        if (operations.primary && String((operations.primary || {}).object_key || '').trim()) {
+            var opKey = String(operations.primary.object_key || '').trim();
+            return {
+                key: opKey,
+                kind: String(operations.primary.target_kind || _envSceneKeyKind(opKey)),
+                id: String(operations.primary.target_id || opKey.split('::').slice(1).join('::')),
+                label: String(operations.primary.target_label || _envSceneKeyLabel(opKey) || opKey),
+                reason: 'operation'
+            };
+        }
+        if (visible.length) {
+            return {
+                key: String(visible[0].object_key || ''),
+                kind: _envSceneKeyKind(String(visible[0].object_key || '')),
+                id: String(String(visible[0].object_key || '').split('::').slice(1).join('::')),
+                label: String(visible[0].label || 'scene'),
+                reason: 'visible'
+            };
+        }
+        if (String(render.stage_mode || '') === 'scene') {
+            var snapshotName = _envScenePrimarySnapshotName();
+            return {
+                key: snapshotName ? ('scene::' + snapshotName) : '',
+                kind: 'scene',
+                id: String(snapshotName || ''),
+                label: String(snapshotName || 'scene'),
+                reason: 'snapshot'
+            };
+        }
+        var fallback = _envCorroborationFocusSummary();
+        fallback.reason = 'kernel';
+        return fallback;
+    }
+
     function _envCorroborationLastAction() {
         var recent = _envRecentBusEvents(1);
         var event = Array.isArray(recent) && recent.length ? recent[0] : null;
@@ -8361,13 +8477,15 @@
     function _envBuildCorroborationState(renderTruth, layoutSnapshot) {
         var render = renderTruth && typeof renderTruth === 'object' ? renderTruth : _envBuildRenderTruth();
         var layout = layoutSnapshot && typeof layoutSnapshot === 'object' ? layoutSnapshot : _envBuildLayoutSnapshot();
-        var focus = _envCorroborationFocusSummary();
+        var focus = _envCorroborationResolvedSubject(render, layout);
+        var kernelFocus = _envCorroborationFocusSummary();
         var scene = _envScene || {};
         var camera3d = _env3DCameraPoseSnapshot() || {};
         var snapshotName = _envScenePrimarySnapshotName();
         var lastAction = _envCorroborationLastAction();
         var clipped = Array.isArray(layout.clipped) ? layout.clipped.slice(0, 4) : [];
         var overlaps = Array.isArray(layout.overlaps) ? layout.overlaps.slice(0, 3) : [];
+        var visibleLabels = _envCorroborationVisibleLabels(layout);
         var chips = [
             String(render.stage_mode || 'blank').toUpperCase(),
             focus.label || 'scene',
@@ -8376,7 +8494,10 @@
         ];
         var notes = [];
         if (snapshotName) notes.push('Snapshot ' + snapshotName);
+        if (focus.reason && focus.reason !== 'snapshot') notes.push('Subject via ' + String(focus.reason));
+        if (kernelFocus && kernelFocus.key && kernelFocus.key !== focus.key) notes.push('Kernel focus ' + String(kernelFocus.label || kernelFocus.id || kernelFocus.kind));
         if (lastAction.body) notes.push('Last ' + lastAction.body);
+        if (visibleLabels.length) notes.push('Visible ' + visibleLabels.map(function (item) { return String(item.label || ''); }).join(', '));
         if (clipped.length) notes.push('Clipped ' + clipped.join(', '));
         else notes.push('Layout clear');
         if (overlaps.length) {
@@ -8407,6 +8528,7 @@
                 clipped: clipped,
                 overlaps: overlaps
             },
+            visible_labels: visibleLabels,
             chips: chips,
             notes: notes,
             narrative: narrative
@@ -16751,6 +16873,7 @@
         var canvasEl = document.querySelector('#envops-habitat-shell canvas');
         var mountedLayers = _envMountedLayerNames();
         var stageText = _envProductCollapseText(String((stageEl && stageEl.innerText) || ''), 240);
+        var resolvedSubject = _envCorroborationResolvedSubject(null, null);
         return {
             stage_mode: String(_envRenderTruthState.stageMode || 'blank'),
             blank_reason: String(_envRenderTruthState.blankReason || ''),
@@ -16770,8 +16893,11 @@
             last_tool_applied: String(_envMirrorState.lastTool || ''),
             last_tool_source: String(_envMirrorState.lastSource || ''),
             focus: {
-                kind: String(((_envKernel.focus || {}).kind) || ''),
-                id: String(((_envKernel.focus || {}).id) || '')
+                kind: String((resolvedSubject || {}).kind || ''),
+                id: String((resolvedSubject || {}).id || ''),
+                key: String((resolvedSubject || {}).key || ''),
+                label: String((resolvedSubject || {}).label || ''),
+                reason: String((resolvedSubject || {}).reason || '')
             },
             scene: {
                 object_count: Number(((_envScene.objects || []).length) || 0),
