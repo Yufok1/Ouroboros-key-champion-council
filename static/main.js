@@ -16420,6 +16420,27 @@
         return rect.left < 0 || rect.top < 0 || rect.right > vw || rect.bottom > vh;
     }
 
+    function _envRectInvalidReason(rect, viewport) {
+        if (!rect) return 'missing_rect';
+        var keys = ['left', 'top', 'right', 'bottom', 'width', 'height'];
+        for (var i = 0; i < keys.length; i += 1) {
+            var value = Number(rect[keys[i]]);
+            if (!Number.isFinite(value)) return 'non_finite';
+        }
+        if (Number(rect.width || 0) < 0 || Number(rect.height || 0) < 0) return 'negative_size';
+        var vw = Math.max(1, Number((viewport || {}).width || 0));
+        var vh = Math.max(1, Number((viewport || {}).height || 0));
+        var limit = Math.max(vw, vh) * 8;
+        if (Math.abs(Number(rect.left || 0)) > limit
+            || Math.abs(Number(rect.top || 0)) > limit
+            || Math.abs(Number(rect.right || 0)) > limit
+            || Math.abs(Number(rect.bottom || 0)) > limit) {
+            return 'absurd_position';
+        }
+        if (Number(rect.width || 0) > vw * 2 || Number(rect.height || 0) > vh * 2) return 'absurd_size';
+        return '';
+    }
+
     function _envRectOverlapSummary(nameA, rectA, nameB, rectB) {
         if (!rectA || !rectB || !rectA.visible || !rectB.visible) return null;
         var left = Math.max(Number(rectA.left || 0), Number(rectB.left || 0));
@@ -16483,11 +16504,34 @@
             rects[key] = _envRectSnapshotForElement(rectTargets[key]);
         });
         var labelNodes = Array.prototype.slice.call(document.querySelectorAll('.envops-scene-trigger')).slice(0, 12);
-        var labels = labelNodes.map(function (node) {
+        var labelStats = {
+            total: Number(labelNodes.length || 0),
+            visible: 0,
+            hidden: 0,
+            invalid: 0,
+            clipped: 0,
+            offscreen: 0
+        };
+        var labels = labelNodes.map(function (node, idx) {
+            var rect = _envRectSnapshotForElement(node);
+            var invalidReason = _envRectInvalidReason(rect, viewport);
+            var clippedLabel = _envRectClipped(rect, viewport);
+            var offscreenLabel = _envRectOffscreen(rect, viewport);
+            var visible = !!(rect && rect.visible);
+            if (visible) labelStats.visible += 1;
+            else labelStats.hidden += 1;
+            if (invalidReason) labelStats.invalid += 1;
+            if (clippedLabel) labelStats.clipped += 1;
+            if (offscreenLabel) labelStats.offscreen += 1;
             return {
                 object_key: String((node && node.getAttribute && node.getAttribute('data-env-object-key')) || ''),
                 title: _envProductCollapseText(String((node && node.innerText) || ''), 72),
-                rect: _envRectSnapshotForElement(node)
+                index: Number(idx),
+                rect: rect,
+                hidden: !visible,
+                clipped: clippedLabel,
+                offscreen: offscreenLabel,
+                invalid_reason: invalidReason
             };
         });
         var overlapPairs = [
@@ -16510,6 +16554,13 @@
             if (_envRectClipped(rect, viewport)) clipped.push(key);
             if (_envRectOffscreen(rect, viewport)) offscreen.push(key);
         });
+        var invalid = [];
+        labels.forEach(function (label) {
+            var labelKey = String(label.object_key || ('label_' + String(label.index || 0)));
+            if (label.invalid_reason) invalid.push('label:' + labelKey + ':' + label.invalid_reason);
+            if (label.clipped) clipped.push('label:' + labelKey);
+            if (label.offscreen) offscreen.push('label:' + labelKey);
+        });
         return {
             captured_ts: Date.now(),
             viewport: viewport,
@@ -16517,12 +16568,15 @@
             rects: rects,
             overlaps: overlaps,
             overlap_count: Number(overlaps.length || 0),
+            invalid: invalid,
+            invalid_count: Number(invalid.length || 0),
             clipped: clipped,
             clipped_count: Number(clipped.length || 0),
             offscreen: offscreen,
             offscreen_count: Number(offscreen.length || 0),
             label_count: Number(document.querySelectorAll('.env3d-label-shell').length || 0),
             visible_trigger_count: Number(document.querySelectorAll('.envops-scene-trigger').length || 0),
+            label_stats: labelStats,
             labels: labels
         };
     }
