@@ -6,7 +6,11 @@
 (function () {
     const vscode = acquireVsCodeApi();
     const CATEGORIES = window.__CATEGORIES__ || {};
+    const DEFAULT_APP_MODE = String(window.__APP_MODE__ || 'development').toLowerCase();
+    const DEFAULT_MCP_POLICY = String(window.__MCP_EXTERNAL_POLICY__ || 'full').toLowerCase();
     let _state = {};
+    let _appMode = DEFAULT_APP_MODE === 'product' ? 'product' : 'development';
+    let _mcpExternalPolicy = DEFAULT_MCP_POLICY === 'closed' ? 'closed' : 'full';
     let _activityLog = [];
     const ACTIVITY_PAGE_SIZE = 100;
     const DEBUG_FEED_PAGE_SIZE = 120;
@@ -119,6 +123,9 @@
         title: '',
         subtitle: '',
         html: '',
+        src: '',
+        contentType: '',
+        sourceType: '',
         source: '',
         mode: '',
         openedTs: 0
@@ -1245,6 +1252,7 @@
                 case 'state':
                     var prevStatus = _state ? _state.serverStatus : '';
                     _state = msg;
+                    _applyRuntimeMode(msg.appMode || _appMode, msg.mcpPolicy || _mcpExternalPolicy);
                     if (msg.activityLog) {
                         // First state message hydrates the activity feed;
                         // subsequent syncs only update the backing array
@@ -1593,6 +1601,39 @@
     });
 
     // ── TAB NAVIGATION ──
+    function _setPrimaryTab(tabName) {
+        if (!tabName) return;
+        var btn = document.querySelector('.tab[data-tab="' + tabName + '"]');
+        if (btn && !btn.classList.contains('active')) {
+            btn.click();
+            return;
+        }
+        document.querySelectorAll('.tab').forEach(function (t) { t.classList.remove('active'); });
+        document.querySelectorAll('.content').forEach(function (c) { c.classList.remove('active'); });
+        var panel = document.getElementById('tab-' + tabName);
+        if (btn) btn.classList.add('active');
+        if (panel) panel.classList.add('active');
+    }
+
+    function _applyRuntimeMode(mode, mcpPolicy) {
+        _appMode = String(mode || 'development').toLowerCase() === 'product' ? 'product' : 'development';
+        _mcpExternalPolicy = String(mcpPolicy || 'full').toLowerCase() === 'closed' ? 'closed' : 'full';
+
+        var productVisible = { environment: true };
+        document.body.setAttribute('data-app-mode', _appMode);
+        document.body.setAttribute('data-mcp-policy', _mcpExternalPolicy);
+
+        document.querySelectorAll('.tab').forEach(function (tab) {
+            var tabName = String((tab.dataset || {}).tab || '').trim();
+            var visible = _appMode !== 'product' || !!productVisible[tabName];
+            tab.style.display = visible ? '' : 'none';
+        });
+
+        if (_appMode === 'product') {
+            _setPrimaryTab('environment');
+        }
+    }
+
     document.querySelectorAll('.tab').forEach(function (tab) {
         tab.addEventListener('click', function () {
             document.querySelectorAll('.tab').forEach(function (t) { t.classList.remove('active'); });
@@ -1653,6 +1694,7 @@
             }
         });
     });
+    _applyRuntimeMode(_appMode, _mcpExternalPolicy);
 
     // ── HEADER UPDATE ──
     function updateHeader(st) {
@@ -4352,6 +4394,7 @@
     var _pendingToolTabs = {}; // id -> agent chat tab key
     var _pendingToolMeta = {}; // id -> meta options (promises, suppression)
     var _pendingDiagnostics = {}; // id -> diagnostic key
+    var _toolPromptPrefills = {}; // tool -> { args, note, ts }
 
     function _stringifyArgValue(v) {
         if (typeof v === 'string') return v;
@@ -4586,6 +4629,66 @@
             return inner === null ? data.content[0].text : inner;
         }
         return data;
+    }
+
+    function _toolPromptDefaultArgs(toolName, overrideArgs) {
+        if (overrideArgs && typeof overrideArgs === 'object' && !Array.isArray(overrideArgs)) {
+            return _sanitizeToolArgs(toolName, overrideArgs);
+        }
+        var preset = _toolPromptPrefills[String(toolName || '').trim()];
+        if (preset && preset.args && typeof preset.args === 'object' && !Array.isArray(preset.args)) {
+            return _sanitizeToolArgs(toolName, preset.args);
+        }
+        return {};
+    }
+
+    function _toolPromptDefaultText(toolName, overrideArgs) {
+        try {
+            return JSON.stringify(_toolPromptDefaultArgs(toolName, overrideArgs), null, 2);
+        } catch (err) {
+            return '{}';
+        }
+    }
+
+    function _focusToolRegistryEntry(toolName) {
+        var name = String(toolName || '').trim();
+        if (!name) return;
+        var focusOnce = function () {
+            var row = document.querySelector('.tool-row-wrap[data-tool-name="' + name + '"]');
+            if (!row) return false;
+            try { row.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (ignored) { }
+            var detail = row.querySelector('.tool-detail');
+            var toggle = row.querySelector('.tool-row button[data-tool="' + name + '"]');
+            if (detail && toggle && !detail.classList.contains('visible')) {
+                detail.classList.add('visible');
+                toggle.textContent = 'HIDE';
+            }
+            return true;
+        };
+        if (!focusOnce()) setTimeout(focusOnce, 180);
+    }
+
+    function _queueToolPromptPrefill(toolName, args, note) {
+        var name = String(toolName || '').trim();
+        if (!name) return;
+        _toolPromptPrefills[name] = {
+            args: _sanitizeToolArgs(name, args || {}),
+            note: String(note || ''),
+            ts: Date.now()
+        };
+        _setPrimaryTab('tools');
+        if (Object.keys(_toolSchemas).length === 0) {
+            vscode.postMessage({ command: 'fetchToolSchemas' });
+        }
+        buildToolsRegistry();
+        _focusToolRegistryEntry(name);
+        var diagOut = document.getElementById('diag-output');
+        if (diagOut) {
+            var preset = _toolPromptPrefills[name];
+            var prefix = preset && preset.note ? (preset.note + '\n\n') : '';
+            diagOut.textContent = prefix + 'Ready to invoke ' + name + ' with prefilled arguments:\n' + _toolPromptDefaultText(name);
+        }
+        mpToast('Prefilled ' + name + ' for the selected surface node', 'info', 2600);
     }
 
     async function callToolAwaitParsed(name, args, routeAs, meta) {
@@ -5993,8 +6096,10 @@
     }
 
     function _envOpenLinkedTab(tabName) {
+        if (_appMode === 'product' && tabName !== 'environment') return false;
         var btn = document.querySelector('.tab[data-tab="' + tabName + '"]');
         if (btn) btn.click();
+        return !!btn;
     }
     window._envOpenLinkedTab = _envOpenLinkedTab;
 
@@ -7583,10 +7688,26 @@
         return _envSceneFindObject(text.slice(0, idx), text.slice(idx + 2));
     }
 
+    function _envSceneObjectPool() {
+        var pool = Array.isArray(_envScene.objects) ? _envScene.objects.slice() : [];
+        var seen = {};
+        pool.forEach(function (obj) {
+            var key = _envSceneObjectKey(obj);
+            if (key) seen[key] = true;
+        });
+        (_envSpawnedObjects || []).forEach(function (obj) {
+            var key = _envSceneObjectKey(obj);
+            if (!key || seen[key]) return;
+            seen[key] = true;
+            pool.push(obj);
+        });
+        return pool;
+    }
+
     function _envSceneFindObject(kind, id) {
         var desiredKind = String(kind || '').trim();
         var desiredId = String(id || '').trim();
-        return (_envScene.objects || []).find(function (obj) {
+        return _envSceneObjectPool().find(function (obj) {
             return String((obj && obj.kind) || '') === desiredKind && String((obj && obj.id) || '') === desiredId;
         }) || null;
     }
@@ -7994,6 +8115,12 @@
         if (command === 'focus_actor') return (targetId || activeActorId) ? ('actor::' + String(targetId || activeActorId)) : '';
         if (command === 'focus_district') return targetId ? ('district::' + targetId) : '';
         if (command === 'focus_node') return targetId ? ('node::' + targetId) : '';
+        if (command === 'focus_surface' || command === 'open_surface' || command === 'inspect_surface') {
+            var surfaceObj = _envResolveSurfaceObjectTarget(targetId);
+            return surfaceObj ? _envSceneObjectKey(surfaceObj) : '';
+        }
+        if (command === 'close_surface') return _envHtmlPanelState.objectKey ? String(_envHtmlPanelState.objectKey) : '';
+        if (command === 'close_inspector') return _envInspectorState.objectKey ? String(_envInspectorState.objectKey) : '';
         if (command === 'focus_doc' || command === 'open_doc_memory') return targetId ? ('doc::' + targetId) : '';
         if (command === 'focus_sample') return targetId ? ('sample::' + targetId) : (latestSample ? ('sample::' + String(latestSample.id || '')) : '');
         if (command === 'focus_branch') return targetId ? ('branch::' + targetId) : (latestBranch ? ('branch::' + String(latestBranch.id || '')) : '');
@@ -8008,7 +8135,28 @@
         if (command === 'focus_replay' || command === 'toggle_replay' || command === 'replay_prev' || command === 'replay_next' || command === 'set_replay_mode') return 'replay::' + replayCursor;
         if (command === 'sample_now' || command === 'toggle_stream') return latestSample ? ('sample::' + String(latestSample.id || '')) : '';
         if (command === 'branch_snapshot') return latestBranch ? ('branch::' + String(latestBranch.id || '')) : '';
-        if (command === 'set_camera_mode') return focusedWorkflowId ? ('workflow::' + focusedWorkflowId) : '';
+        if (command === 'set_camera_mode'
+            || command === 'camera_frame_overview'
+            || command === 'camera_frame_focus'
+            || command === 'camera_frame_replay'
+            || command === 'camera_orbit_left'
+            || command === 'camera_orbit_right'
+            || command === 'camera_tilt_up'
+            || command === 'camera_tilt_down'
+            || command === 'camera_dolly_in'
+            || command === 'camera_dolly_out'
+            || command === 'camera_pan_left'
+            || command === 'camera_pan_right'
+            || command === 'camera_pan_up'
+            || command === 'camera_pan_down'
+            || command === 'camera_pan_forward'
+            || command === 'camera_pan_back'
+            || command === 'camera_pose'
+            || command === 'camera_reset_pose') {
+            var currentFocus = _envKernel.focus || {};
+            if (currentFocus.kind && currentFocus.id) return String(currentFocus.kind) + '::' + String(currentFocus.id);
+            return focusedWorkflowId ? ('workflow::' + focusedWorkflowId) : '';
+        }
         return focusedWorkflowId ? ('workflow::' + focusedWorkflowId) : '';
     }
 
@@ -13041,7 +13189,6 @@
         _envRefreshReplayTrack(replay.mode, true);
         if (!replay.track.length) {
             _envSetBadge('failed', 'NO REPLAY');
-            renderEnvironmentView();
             return null;
         }
         var nextIndex = Math.max(0, Math.min(replay.track.length - 1, Number(index || 0)));
@@ -13067,7 +13214,6 @@
         _envRefreshReplayTrack(replay.mode, true);
         if (!replay.track.length) {
             _envSetBadge('failed', 'NO REPLAY');
-            renderEnvironmentView();
             return null;
         }
         var currentIndex = Number(replay.cursor || 0);
@@ -13282,6 +13428,12 @@
             if (workflowMeta) return String(workflowMeta.name || workflowMeta.id || id || 'workflow');
             if (String(id || '').trim()) return String(id || 'workflow');
         }
+        if (kind === 'panel') {
+            var panelObj = _envSceneFindObject('panel', id);
+            if (panelObj) return 'surface · ' + String(panelObj.label || panelObj.id || 'panel');
+            if (String(id || '').trim()) return 'surface · ' + String(id || 'panel');
+            return 'surface';
+        }
         if (kind === 'artifact' && sections && sections[id]) return String(sections[id].title || ('artifact ' + id));
         if (kind === 'trace' && traces && traces[id]) return String(traces[id].tool || ('trace ' + id));
         if (kind === 'doc') {
@@ -13429,6 +13581,33 @@
                     camera_mode: _envSceneNormalizeCameraMode(_envScene.cameraMode || (((_envConfig || {}).scene || {}).defaultCameraMode) || 'overview')
                 }
             };
+        }
+        if (focus.kind === 'panel') {
+            var panelObj = _envSceneFindObject('panel', focus.id)
+                || ((focus.payload && typeof focus.payload === 'object' && String((focus.payload.kind || '')).toLowerCase() === 'panel') ? focus.payload : null);
+            if (panelObj) {
+                var panelData = _envObjectData(panelObj);
+                var panelActions = _envSceneActionsForObject(panelObj);
+                return {
+                    label: focus.label || String(panelObj.label || panelObj.id || 'surface'),
+                    kind: 'panel',
+                    data: {
+                        object: panelObj,
+                        panel_mode: _envSceneObjectPanelMode(panelObj) || 'fullscreen',
+                        preview_url: _envSceneObjectPreviewUrl(panelObj),
+                        html_length: Number(String(panelObj.html || panelData.html || '').trim().length || 0),
+                        action_count: Number(panelActions.length || 0),
+                        source: String(panelObj.source || ''),
+                        bindings: {
+                            workflow_id: String(panelData.workflow_id || panelData.workflowId || ''),
+                            slot: String(_envSceneResolveSlotId(panelObj) || ''),
+                            snapshot: String(panelData.snapshot || ''),
+                            route: String(panelData.route || ''),
+                            target: String(panelData.target || panelData.url || panelObj.url || '')
+                        }
+                    }
+                };
+            }
         }
         if (focus.kind === 'node' && workflow && Array.isArray(workflow.nodes)) {
             var node = workflow.nodes.find(function (n) { return String(n.id || '') === String(focus.id || ''); }) || null;
@@ -13621,7 +13800,7 @@
         _envSetSamplerActive(!(_envKernel.sampler || {}).active, actor || 'system', 'manual sampler toggle', false);
     }
 
-    function _envHandleCameraControlCommand(command, actorName, reason) {
+    function _envHandleCameraControlCommand(command, targetId, actorName, reason) {
         var cameraMode = _envSceneNormalizeCameraMode(_envScene.cameraMode || (((_envConfig || {}).scene || {}).defaultCameraMode) || 'overview');
         var meta = {
             action: String(command || ''),
@@ -13674,6 +13853,32 @@
             if (_env3D.inited) _env3DAdjustPoseOffset({ distanceScaleFactor: 1.18 });
             else _envSceneApplyZoomFactor(0.93, '', 'camera dolly out');
             label = 'Dollied habitat camera out';
+        } else if (command === 'camera_pan_left') {
+            if (_env3D.inited) _env3DAdjustPoseOffset({ targetXDelta: -6 });
+            label = 'Shifted habitat framing left';
+        } else if (command === 'camera_pan_right') {
+            if (_env3D.inited) _env3DAdjustPoseOffset({ targetXDelta: 6 });
+            label = 'Shifted habitat framing right';
+        } else if (command === 'camera_pan_up') {
+            if (_env3D.inited) _env3DAdjustPoseOffset({ targetYDelta: 3 });
+            label = 'Shifted habitat framing up';
+        } else if (command === 'camera_pan_down') {
+            if (_env3D.inited) _env3DAdjustPoseOffset({ targetYDelta: -3 });
+            label = 'Shifted habitat framing down';
+        } else if (command === 'camera_pan_forward') {
+            if (_env3D.inited) _env3DAdjustPoseOffset({ targetZDelta: -6 });
+            label = 'Shifted habitat framing forward';
+        } else if (command === 'camera_pan_back') {
+            if (_env3D.inited) _env3DAdjustPoseOffset({ targetZDelta: 6 });
+            label = 'Shifted habitat framing back';
+        } else if (command === 'camera_pose') {
+            var poseInstruction = _envParseCameraPoseInstruction(targetId);
+            if (_env3D.inited) {
+                _env3DAdjustPoseOffset(poseInstruction || {});
+                _env3DApplyCameraRig(true);
+            }
+            meta.pose = poseInstruction || {};
+            label = 'Adjusted habitat camera pose';
         } else if (command === 'camera_reset_pose') {
             _envSceneResetCamera('', 'camera reset pose');
             _env3DResetPoseOffset();
@@ -13916,7 +14121,65 @@
             }
             return;
         }
-        if (_envHandleCameraControlCommand(command, actorName, reason)) {
+        if (_envHandleCameraControlCommand(command, targetId, actorName, reason)) {
+            return;
+        }
+        if (command === 'focus_surface') {
+            var focusSurfaceObj = _envResolveSurfaceObjectTarget(targetId);
+            if (!focusSurfaceObj) {
+                _envSetBadge('failed', 'NO SURFACE');
+                _envLogAction('control', 'Control command focus_surface missing surface target', actorName, { action: command, target: targetId });
+                renderEnvironmentView();
+                return;
+            }
+            if (_envMaybeRefreshPersistedSurfaceObject(focusSurfaceObj, command, actorName, reason)) return;
+            _envFocusSceneObject(focusSurfaceObj, actorName, 'control');
+            return;
+        }
+        if (command === 'inspect_surface') {
+            var inspectSurfaceObj = _envResolveSurfaceObjectTarget(targetId);
+            if (!inspectSurfaceObj) {
+                _envSetBadge('failed', 'NO SURFACE');
+                _envLogAction('control', 'Control command inspect_surface missing surface target', actorName, { action: command, target: targetId });
+                renderEnvironmentView();
+                return;
+            }
+            if (_envMaybeRefreshPersistedSurfaceObject(inspectSurfaceObj, command, actorName, reason)) return;
+            _envSelectSceneObject(inspectSurfaceObj, actorName, 'control');
+            return;
+        }
+        if (command === 'open_surface') {
+            var openSurfaceObj = _envResolveSurfaceObjectTarget(targetId);
+            if (!openSurfaceObj) {
+                _envSetBadge('failed', 'NO SURFACE');
+                _envLogAction('control', 'Control command open_surface missing surface target', actorName, { action: command, target: targetId });
+                renderEnvironmentView();
+                return;
+            }
+            if (_envMaybeRefreshPersistedSurfaceObject(openSurfaceObj, command, actorName, reason)) return;
+            _envFocusSceneObject(openSurfaceObj, actorName, 'control');
+            if (_envOpenPrimarySurfaceForObject(openSurfaceObj, actorName, 'control')) return;
+            _envSetBadge('failed', 'NO OPEN');
+            _envLogAction('control', 'Control command open_surface found no launchable surface action', actorName, {
+                action: command,
+                target: targetId,
+                object_key: _envSceneObjectKey(openSurfaceObj)
+            });
+            renderEnvironmentView();
+            return;
+        }
+        if (command === 'close_surface') {
+            if (_envCloseHtmlPanel(actorName, 'control close surface')) return;
+            _envSetBadge('failed', 'NO PANEL');
+            _envLogAction('control', 'Control command close_surface found no active surface panel', actorName, { action: command, target: targetId });
+            renderEnvironmentView();
+            return;
+        }
+        if (command === 'close_inspector') {
+            if (_envCloseInspector(actorName, 'control close inspector')) return;
+            _envSetBadge('failed', 'NO INSPECT');
+            _envLogAction('control', 'Control command close_inspector found no active inspector', actorName, { action: command, target: targetId });
+            renderEnvironmentView();
             return;
         }
         if (command === 'focus_node') {
@@ -14933,8 +15196,6 @@
     function _envSceneObjectPanelMode(obj) {
         var data = _envObjectData(obj);
         var mode = String((obj && (obj.panelMode || obj.panel_mode)) || data.panel_mode || data.panelMode || '').trim().toLowerCase();
-        if (!mode && _envSceneObjectMenuItems(obj).length) return 'fullscreen';
-        if (!mode && String((obj && obj.kind) || '').toLowerCase() === 'menu') return 'fullscreen';
         if (!mode && String((obj && obj.html) || '').trim()) return 'fullscreen';
         return mode;
     }
@@ -14943,8 +15204,75 @@
         if (!obj || typeof obj !== 'object') return false;
         var data = _envObjectData(obj);
         if (String(obj.html || data.html || '').trim()) return true;
-        if (_envSceneObjectMenuItems(obj).length) return true;
         return false;
+    }
+
+    function _envSceneObjectPreviewUrl(obj) {
+        if (!obj || typeof obj !== 'object') return '';
+        var data = _envObjectData(obj);
+        var direct = String(data.preview_url || data.previewUrl || data.url || data.href || obj.url || obj.href || '').trim();
+        if (direct) return direct;
+        var html = String(obj.html || data.html || '').trim();
+        if (!html) return '';
+        var match = html.match(/<iframe[^>]+src=['"]([^'"]+)['"]/i);
+        return match && match[1] ? String(match[1]).trim() : '';
+    }
+
+    function _envSceneObjectInlineHtml(obj) {
+        if (!obj || typeof obj !== 'object') return '';
+        var data = _envObjectData(obj);
+        return String(obj.html || data.html || '').trim();
+    }
+
+    function _envSceneObjectIsSurface(obj) {
+        if (!obj || typeof obj !== 'object') return false;
+        if (_envSceneObjectHasHtml(obj)) return true;
+        if (_envSceneObjectPreviewUrl(obj)) return true;
+        return String(obj.kind || '').trim().toLowerCase() === 'panel';
+    }
+
+    function _envResolveSurfaceObjectTarget(target) {
+        var text = String(target || '').trim();
+        var sceneObjects = _envSceneObjectPool();
+        if (text) {
+            var byKey = _envSceneFindObjectByKey(text);
+            if (_envSceneObjectIsSurface(byKey)) return byKey;
+            var byId = sceneObjects.find(function (obj) {
+                return String((obj && obj.id) || '') === text && _envSceneObjectIsSurface(obj);
+            }) || null;
+            if (byId) return byId;
+        }
+        if (_envHtmlPanelState.active && _envHtmlPanelState.objectKey) {
+            var activeObj = _envSceneFindObjectByKey(_envHtmlPanelState.objectKey);
+            if (_envSceneObjectIsSurface(activeObj)) return activeObj;
+        }
+        var focus = _envKernel.focus || {};
+        var focusedObj = _envSceneFindObject(String(focus.kind || ''), String(focus.id || ''));
+        if (_envSceneObjectIsSurface(focusedObj)) return focusedObj;
+        return sceneObjects.find(function (obj) {
+            return _envSceneObjectIsSurface(obj);
+        }) || null;
+    }
+
+    function _envMaybeRefreshPersistedSurfaceObject(obj, command, actorName, reason) {
+        if (!obj || typeof obj !== 'object') return false;
+        if (String(reason || '') === '__surface_hydrated__') return false;
+        if (!_envIsCustomSceneKind(obj.kind)) return false;
+        if (String(obj.source || '').toLowerCase() !== 'persisted') return false;
+        var kind = String(obj.kind || '').trim();
+        var id = String(obj.id || '').trim();
+        if (!kind || !id) return false;
+        callTool('env_read', {
+            query: 'object:' + kind + ':' + id
+        }, 'env_read', {
+            surfaceControlPending: {
+                command: String(command || ''),
+                targetId: id,
+                actor: String(actorName || 'assistant'),
+                reason: String(reason || '')
+            }
+        });
+        return true;
     }
 
     function _envSceneResolveSlotId(obj) {
@@ -15031,7 +15359,6 @@
             return _envNormalizeSceneAction(action, obj, idx);
         }).filter(function (action) { return !!action; });
         if (actions.length) return actions;
-        if (_envSceneObjectMenuItems(obj).length) return [{ type: 'open_html', label: 'open menu' }];
         var snapshot = String(data.snapshot || data.snapshot_name || data.snapshotName || '').trim();
         if (snapshot) return [{ type: 'snapshot_load', label: snapshot, snapshot: snapshot }];
         var workflowId = String(data.workflow_id || data.workflowId || '').trim();
@@ -15122,6 +15449,8 @@
             object_id: String(_envHtmlPanelState.objectId || ''),
             title: String(_envHtmlPanelState.title || ''),
             subtitle: String(_envHtmlPanelState.subtitle || ''),
+            content_type: String(_envHtmlPanelState.contentType || ''),
+            source_type: String(_envHtmlPanelState.sourceType || ''),
             source: String(_envHtmlPanelState.source || ''),
             mode: String(_envHtmlPanelState.mode || ''),
             opened_ts: Number(_envHtmlPanelState.openedTs || 0),
@@ -15149,58 +15478,57 @@
         return action;
     }
 
-    function _envRenderSceneMenuHtml(obj, items, options) {
-        var opts = options && typeof options === 'object' ? options : {};
-        var sourceObj = obj && typeof obj === 'object' ? obj : null;
-        var objectKey = String(opts.objectKey || (sourceObj ? _envSceneObjectKey(sourceObj) : ''));
-        var compact = !!opts.compact;
-        var rows = (items || []).map(function (item, idx) {
-            var icon = item.icon ? ('<span class="envops-scene-menu-icon">' + _esc(String(item.icon || '')) + '</span>') : '';
-            var note = item.note ? '<div class="envops-scene-menu-note">' + _esc(String(item.note || '')) + '</div>' : '';
-            return '<button type="button" class="envops-scene-menu-item' + (compact ? ' compact' : '') + '" data-env-action="scene-menu-item" data-env-object-key="' + _esc(objectKey) + '" data-env-menu-index="' + String(idx) + '">' +
-                '<span class="envops-scene-menu-main">' +
-                icon +
-                '<span class="envops-scene-menu-copy">' +
-                '<span class="envops-scene-menu-label">' + _esc(String(item.label || ('item ' + (idx + 1)))) + '</span>' +
-                note +
-                '</span>' +
-                '</span>' +
-                '<span class="envops-scene-menu-target">' + _esc(String(item.action || 'open').replace(/_/g, ' ')) + '</span>' +
-                '</button>';
-        }).join('');
-        if (!rows) return '<div class="envops-scene-panel-empty">No menu items configured.</div>';
-        return '<div class="envops-scene-menu' + (compact ? ' compact' : '') + '">' + rows + '</div>';
-    }
-
     function _envScenePanelHtmlForObject(obj, action) {
         var sourceObj = obj && typeof obj === 'object' ? obj : null;
         var actionSpec = action && typeof action === 'object' ? action : null;
-        var actionItems = actionSpec && Array.isArray(actionSpec.items) ? actionSpec.items : null;
-        if (actionItems && actionItems.length) {
-            return _envRenderSceneMenuHtml(sourceObj, actionItems, {
-                objectKey: sourceObj ? _envSceneObjectKey(sourceObj) : '',
-                compact: false
-            });
-        }
-        var menuItems = _envSceneObjectMenuItems(sourceObj);
-        if (menuItems.length) {
-            return _envRenderSceneMenuHtml(sourceObj, menuItems, {
-                objectKey: sourceObj ? _envSceneObjectKey(sourceObj) : '',
-                compact: false
-            });
-        }
         if (actionSpec && String(actionSpec.html || '').trim()) return String(actionSpec.html || '');
         if (sourceObj) {
-            var data = _envObjectData(sourceObj);
-            if (String(sourceObj.html || data.html || '').trim()) return String(sourceObj.html || data.html || '');
+            var inlineHtml = _envSceneObjectInlineHtml(sourceObj);
+            if (inlineHtml) return inlineHtml;
         }
         return '<div class="envops-scene-panel-empty">No fullscreen HTML surface is configured for this object yet.</div>';
+    }
+
+    function _envScenePanelSpecForObject(obj, action) {
+        var sourceObj = obj && typeof obj === 'object' ? obj : null;
+        var actionSpec = action && typeof action === 'object' ? action : null;
+        var inlineHtml = actionSpec && String(actionSpec.html || '').trim()
+            ? String(actionSpec.html || '').trim()
+            : _envSceneObjectInlineHtml(sourceObj);
+        var linkedUrl = '';
+        if (actionSpec && String(actionSpec.url || actionSpec.href || actionSpec.target || '').trim()) {
+            linkedUrl = String(actionSpec.url || actionSpec.href || actionSpec.target || '').trim();
+        } else {
+            linkedUrl = _envSceneObjectPreviewUrl(sourceObj);
+        }
+        if (inlineHtml) {
+            return {
+                html: inlineHtml,
+                src: '',
+                contentType: 'srcdoc',
+                sourceType: 'owned_html'
+            };
+        }
+        if (linkedUrl) {
+            return {
+                html: '',
+                src: linkedUrl,
+                contentType: 'iframe',
+                sourceType: 'linked_surface'
+            };
+        }
+        return {
+            html: _envScenePanelHtmlForObject(sourceObj, actionSpec),
+            src: '',
+            contentType: 'html',
+            sourceType: 'fallback_html'
+        };
     }
 
     function _envOpenHtmlPanel(obj, action, actor, source) {
         var sourceObj = obj && typeof obj === 'object' ? obj : null;
         var actionSpec = action && typeof action === 'object' ? action : null;
-        var html = _envScenePanelHtmlForObject(sourceObj, actionSpec);
+        var panelSpec = _envScenePanelSpecForObject(sourceObj, actionSpec);
         var data = _envObjectData(sourceObj);
         _envHtmlPanelState = {
             active: true,
@@ -15209,7 +15537,10 @@
             objectId: sourceObj ? String(sourceObj.id || '') : '',
             title: sourceObj ? String(sourceObj.label || sourceObj.kind || 'HTML surface') : String((actionSpec && actionSpec.label) || 'HTML surface'),
             subtitle: sourceObj ? String(sourceObj.meta || data.description || data.note || '') : String((actionSpec && actionSpec.note) || ''),
-            html: String(html || ''),
+            html: String(panelSpec.html || ''),
+            src: String(panelSpec.src || ''),
+            contentType: String(panelSpec.contentType || 'html'),
+            sourceType: String(panelSpec.sourceType || ''),
             source: String(source || 'scene'),
             mode: String((actionSpec && actionSpec.panel_mode) || _envSceneObjectPanelMode(sourceObj) || 'fullscreen'),
             openedTs: Date.now()
@@ -15239,6 +15570,9 @@
             title: '',
             subtitle: '',
             html: '',
+            src: '',
+            contentType: '',
+            sourceType: '',
             source: '',
             mode: '',
             openedTs: 0
@@ -15527,15 +15861,6 @@
         return _envExecuteSceneAction(actions[0], obj, source, context);
     }
 
-    function _envExecuteSceneMenuItem(obj, index, source, context) {
-        var items = _envSceneObjectMenuItems(obj);
-        var menuItem = items[Number(index || 0)] || null;
-        if (!menuItem) return false;
-        var action = _envSceneMenuActionFromItem(menuItem);
-        if (!action) return false;
-        return _envExecuteSceneAction(action, obj, source, context);
-    }
-
     function _envHandleWorkflowRouteResult(toolName, payload, pendingMeta) {
         var executionId = String((payload && payload.execution_id) || ((pendingMeta && pendingMeta.sceneWorkflowRoutePoll) ? pendingMeta.sceneWorkflowRoutePoll.execution_id : '') || '').trim();
         var entry = (pendingMeta && pendingMeta.sceneWorkflowRoute) || (executionId ? _envWorkflowRouteState.pendingByExecution[executionId] : null) || null;
@@ -15575,21 +15900,29 @@
         var historyDepth = Number(nav.history_depth || 0);
         var panelTitle = String(_envHtmlPanelState.title || 'HTML surface');
         var panelSubtitle = String(_envHtmlPanelState.subtitle || '');
-        return '<div class="envops-scene-panel-shell">' +
+        var bodyHtml = '';
+        if (String(_envHtmlPanelState.contentType || '') === 'srcdoc') {
+            bodyHtml = '<iframe sandbox="allow-scripts allow-forms allow-modals allow-popups allow-downloads" srcdoc="' + _esc(String(_envHtmlPanelState.html || '')) + '" title="' + _esc(panelTitle) + '"></iframe>';
+        } else if (String(_envHtmlPanelState.contentType || '') === 'iframe' && String(_envHtmlPanelState.src || '').trim()) {
+            bodyHtml = '<iframe src="' + _esc(String(_envHtmlPanelState.src || '')) + '" title="' + _esc(panelTitle) + '" loading="eager"></iframe>';
+        } else {
+            bodyHtml = String(_envHtmlPanelState.html || '');
+        }
+        return '<div class="envops-scene-panel-shell mode-' + _esc(String(_envHtmlPanelState.mode || 'fullscreen')) + '">' +
             '<div class="envops-scene-panel-backdrop" data-env-action="scene-close-panel"></div>' +
             '<div class="envops-scene-panel">' +
             '<div class="envops-scene-panel-head">' +
             '<div class="envops-scene-panel-copy">' +
-            '<div class="envops-scene-panel-kicker">Fullscreen Theater Surface</div>' +
+            '<div class="envops-scene-panel-kicker">Active Surface</div>' +
             '<div class="envops-scene-panel-title">' + _esc(panelTitle) + '</div>' +
-            '<div class="envops-scene-panel-meta">' + _esc(panelSubtitle || (_envHtmlPanelState.objectKind ? (_envHtmlPanelState.objectKind + ' · ' + _envHtmlPanelState.source) : _envHtmlPanelState.source || 'scene')) + '</div>' +
+            '<div class="envops-scene-panel-meta">' + _esc(panelSubtitle || (_envHtmlPanelState.objectKind ? (_envHtmlPanelState.objectKind + ' · ' + (_envHtmlPanelState.sourceType || _envHtmlPanelState.source)) : (_envHtmlPanelState.sourceType || _envHtmlPanelState.source || 'scene'))) + '</div>' +
             '</div>' +
             '<div class="envops-scene-panel-actions">' +
             (historyDepth > 0 ? '<button type="button" class="btn-dim" data-env-action="scene-nav-back">BACK</button>' : '') +
             '<button type="button" class="btn-dim" data-env-action="scene-close-panel">CLOSE</button>' +
             '</div>' +
             '</div>' +
-            '<div class="envops-scene-panel-body">' + String(_envHtmlPanelState.html || '') + '</div>' +
+            '<div class="envops-scene-panel-body">' + bodyHtml + '</div>' +
             '</div>' +
             '</div>';
     }
@@ -15674,6 +16007,7 @@
         var normalized = String(kind || '').toLowerCase();
         if (normalized === 'npc') return 'agent';
         if (normalized === 'slot') return 'slot-runtime';
+        if (normalized === 'panel') return 'surface-node';
         if (normalized === 'node') return 'workflow-context';
         if (normalized === 'workflow') return 'workflow-structure';
         if (normalized === 'prop') return 'semantic-binding';
@@ -15747,6 +16081,16 @@
         _envFocusSceneObject(obj, actor, source || 'scene');
         _envOpenInspectorForObject(obj, actor, source || 'scene');
         return true;
+    }
+
+    function _envOpenPrimarySurfaceForObject(obj, actor, source) {
+        if (!obj || typeof obj !== 'object') return false;
+        var actions = _envSceneActionsForObject(obj);
+        if (!actions.length) return false;
+        return !!_envExecuteSceneAction(actions[0], obj, source || 'scene_surface', {
+            actor: actor || 'assistant',
+            note: 'scene surface launch'
+        });
     }
 
     function _envInspectorRecentActivity(obj, limit) {
@@ -16076,8 +16420,22 @@
             return true;
         }
         if (action === 'edit-object') {
-            _envOpenLinkedTab('tools');
-            _envLogAction('handoff', 'Inspector routed object edit to Tools', actorName, { object_key: objectKey, kind: String(sourceObj.kind || '') });
+            _queueToolPromptPrefill('env_mutate', {
+                kind: String(sourceObj.kind || ''),
+                id: String(sourceObj.id || ''),
+                label: String(sourceObj.label || ''),
+                meta: String(sourceObj.meta || ''),
+                state: String(sourceObj.state || ''),
+                x: Number(sourceObj.x || 0),
+                y: Number(sourceObj.y || 0),
+                scale: Number(sourceObj.scale || 1),
+                tilt: Number(sourceObj.tilt || 0),
+                color: sourceObj.color || '',
+                panelMode: String(sourceObj.panelMode || data.panel_mode || data.panelMode || ''),
+                html: String(sourceObj.html || data.html || ''),
+                data: _envCloneJson(_envObjectData(sourceObj), {})
+            }, 'HTML/surface node edit');
+            _envLogAction('handoff', 'Inspector prefilled env_mutate for surface node', actorName, { object_key: objectKey, kind: String(sourceObj.kind || '') });
             return true;
         }
         if (action === 'remove-object') {
@@ -16165,6 +16523,13 @@
         } else if (kind === 'node') {
             metrics.push(_envInspectorMetric('Type', String(data.type || obj.state || 'node')));
             metrics.push(_envInspectorMetric('Tool', _envProductCollapseText(String(data.tool || data.tool_name || obj.id || 'node'), 16)));
+            metrics.push(_envInspectorMetric('State', String(obj.state || 'idle')));
+        } else if (kind === 'panel' || _envSceneObjectHasHtml(obj)) {
+            var panelMode = _envSceneObjectPanelMode(obj) || 'fullscreen';
+            var previewUrl = _envSceneObjectPreviewUrl(obj);
+            var html = String(obj.html || data.html || '').trim();
+            metrics.push(_envInspectorMetric('Mode', panelMode));
+            metrics.push(_envInspectorMetric('Source', previewUrl ? 'linked surface' : (html ? 'inline html' : 'surface')));
             metrics.push(_envInspectorMetric('State', String(obj.state || 'idle')));
         } else if (kind === 'prop') {
             metrics.push(_envInspectorMetric('Binding', _envProductCollapseText(String(data.binding || data.system || 'prop'), 18)));
@@ -16267,6 +16632,41 @@
             actions.push(_envInspectorActionButton('execute-workflow', 'Execute', 'primary'));
             actions.push(_envInspectorActionButton('workflow-history', 'History'));
             actions.push(_envInspectorActionButton('export-interface', 'Export'));
+        } else if (kind === 'panel' || _envSceneObjectHasHtml(obj)) {
+            var surfaceMode = _envSceneObjectPanelMode(obj) || 'fullscreen';
+            var surfacePreviewUrl = _envSceneObjectPreviewUrl(obj);
+            var surfaceHtml = String(obj.html || data.html || '').trim();
+            var surfaceActions = _envSceneActionsForObject(obj);
+            var surfaceBindings = {
+                workflow_id: String(data.workflow_id || data.workflowId || ''),
+                slot: String(_envSceneResolveSlotId(obj) || ''),
+                snapshot: String(data.snapshot || ''),
+                route: String(data.route || ''),
+                target: String(data.target || data.url || obj.url || '')
+            };
+            sections.push(_envInspectorSection('surface-node', 'Surface Node', [
+                _envInspectorMetric('Mode', surfaceMode),
+                _envInspectorMetric('Source', surfacePreviewUrl ? 'linked surface' : (surfaceHtml ? 'inline html' : 'surface')),
+                _envInspectorMetric('Preview URL', surfacePreviewUrl ? _envProductCollapseText(surfacePreviewUrl, 28) : '—'),
+                _envInspectorMetric('HTML Bytes', String(surfaceHtml.length || 0)),
+                _envInspectorMetric('Actions', String(surfaceActions.length || 0)),
+                _envInspectorMetric('Position', String(Math.round(Number(obj.x || 0))) + ', ' + String(Math.round(Number(obj.y || 0)))),
+                _envInspectorMetric('Scale', String(Number(obj.scale || 1).toFixed(2))),
+                _envInspectorMetric('Tilt', String(Number(obj.tilt || 0).toFixed(1)))
+            ].join(''), { meta: String(obj.kind || 'surface'), open: true }));
+            sections.push(_envInspectorSection('surface-contract', 'Surface Contract', _wfJsonBlock(String(obj.label || obj.id || 'surface'), {
+                kind: String(obj.kind || ''),
+                id: String(obj.id || ''),
+                label: String(obj.label || ''),
+                meta: String(obj.meta || ''),
+                panel_mode: surfaceMode,
+                preview_url: surfacePreviewUrl,
+                html_length: Number(surfaceHtml.length || 0),
+                action_count: Number(surfaceActions.length || 0),
+                bindings: surfaceBindings,
+                object_payload: obj
+            }), { meta: surfacePreviewUrl ? 'linked' : (surfaceHtml ? 'inline' : 'unbound') }));
+            actions.push(_envInspectorActionButton('open-html', 'Open Surface', 'primary'));
         } else if (kind === 'prop') {
             var binding = String(data.binding || data.system || data.workflow_id || data.workflowId || data.kind || '').trim();
             var bindingPreview = '';
@@ -16350,6 +16750,9 @@
 
         sections.push(_envInspectorSection('raw-payload', 'Raw Payload', _wfJsonBlock(String(obj.label || obj.id || obj.kind || 'object'), obj), { meta: 'raw' }));
         var actionMarkup = actions.join('');
+        if ((kind === 'panel' || _envSceneObjectHasHtml(obj)) && actionMarkup.indexOf('data-env-inspector-action="edit-object"') < 0) {
+            actions.push(_envInspectorActionButton('edit-object', 'Edit'));
+        }
         if (_envIsCustomSceneKind(kind) && actionMarkup.indexOf('data-env-inspector-action="remove-object"') < 0) {
             actions.push(_envInspectorActionButton('remove-object', 'Remove'));
         }
@@ -16457,17 +16860,33 @@
     function _env3DLabelMarkupForObject(obj) {
         var sourceObj = obj && typeof obj === 'object' ? obj : {};
         var objectKey = _env3DObjectKey(sourceObj);
-        var menuItems = _envSceneObjectMenuItems(sourceObj);
-        if (menuItems.length && String(sourceObj.kind || '').toLowerCase() === 'menu') {
-            return _envRenderSceneMenuHtml(sourceObj, menuItems, {
-                objectKey: objectKey,
-                compact: true
-            });
-        }
         var interaction = _envSceneInteractionMeta(sourceObj);
         var inspectorActive = !!_envInspectorState.active;
         var isFocused = inspectorActive && String(_envInspectorState.objectKey || '') === objectKey;
         if (isFocused) return '<span class="envops-scene-trigger-focus-proxy" aria-hidden="true"></span>';
+        if (interaction.has_html && String(sourceObj.kind || '').toLowerCase() === 'panel') {
+            var previewUrl = _envSceneObjectPreviewUrl(sourceObj);
+            var inlineHtml = _envSceneObjectInlineHtml(sourceObj);
+            var surfaceMeta = String(sourceObj.meta || '').trim()
+                || String(interaction.primary_action || 'web surface').replace(/_/g, ' ');
+            return '<div class="envops-scene-surface-card' + (inspectorActive ? ' ambient' : '') + '" data-env-object-key="' + _esc(objectKey) + '">' +
+                '<span class="envops-scene-surface-head">' +
+                '<span class="envops-scene-surface-title">' + _esc(String(sourceObj.label || sourceObj.kind || 'surface')) + '</span>' +
+                '<span class="envops-scene-surface-meta">' + _esc(surfaceMeta) + '</span>' +
+                '</span>' +
+                '<button type="button" class="envops-scene-surface-preview" data-env-action="scene-object" data-env-object-key="' + _esc(objectKey) + '">' +
+                (inlineHtml
+                    ? ('<iframe sandbox="allow-scripts allow-forms allow-modals allow-popups allow-downloads" srcdoc="' + _esc(inlineHtml) + '" title="' + _esc(String(sourceObj.label || 'surface preview')) + '" loading="lazy" tabindex="-1"></iframe>')
+                    : (previewUrl
+                        ? ('<iframe src="' + _esc(previewUrl) + '" title="' + _esc(String(sourceObj.label || 'surface preview')) + '" loading="lazy" tabindex="-1"></iframe>')
+                        : '<span class="envops-scene-surface-preview-empty">Surface preview unavailable</span>')) +
+                '</button>' +
+                '<span class="envops-scene-surface-foot">' +
+                '<button type="button" class="envops-scene-surface-settings" data-env-action="scene-object" data-env-object-key="' + _esc(objectKey) + '">Inspect</button>' +
+                '<button type="button" class="envops-scene-surface-settings" data-env-action="scene-open-surface" data-env-object-key="' + _esc(objectKey) + '">Fullscreen</button>' +
+                '</span>' +
+                '</div>';
+        }
         var badge = interaction.has_html
             ? 'panel'
             : (interaction.primary_action ? String(interaction.primary_action).replace(/_/g, ' ') : String(sourceObj.kind || 'object'));
@@ -17474,9 +17893,15 @@
         if (delta && delta.reset) {
             next = { azimuth: 0, polar: 0, distanceScale: 1, targetX: 0, targetY: 0, targetZ: 0 };
         }
+        if (delta && delta.azimuth !== undefined) next.azimuth = Number(delta.azimuth || 0);
+        if (delta && delta.polar !== undefined) next.polar = Number(delta.polar || 0);
+        if (delta && delta.distanceScale !== undefined) next.distanceScale = Math.max(0.2, Number(delta.distanceScale || 1));
         if (delta && delta.azimuthDelta !== undefined) next.azimuth += Number(delta.azimuthDelta || 0);
         if (delta && delta.polarDelta !== undefined) next.polar += Number(delta.polarDelta || 0);
         if (delta && delta.distanceScaleFactor !== undefined) next.distanceScale *= Math.max(0.2, Number(delta.distanceScaleFactor || 1));
+        if (delta && delta.targetXDelta !== undefined) next.targetX += Number(delta.targetXDelta || 0);
+        if (delta && delta.targetYDelta !== undefined) next.targetY += Number(delta.targetYDelta || 0);
+        if (delta && delta.targetZDelta !== undefined) next.targetZ += Number(delta.targetZDelta || 0);
         if (delta && delta.targetX !== undefined) next.targetX = Number(delta.targetX || 0);
         if (delta && delta.targetY !== undefined) next.targetY = Number(delta.targetY || 0);
         if (delta && delta.targetZ !== undefined) next.targetZ = Number(delta.targetZ || 0);
@@ -17488,6 +17913,34 @@
         next.targetZ = Math.max(-80, Math.min(80, next.targetZ));
         _env3D.poseOffset = next;
         return next;
+    }
+
+    function _envParseCameraPoseInstruction(raw) {
+        var text = String(raw || '').trim();
+        if (!text) return {};
+        var parsed = null;
+        try {
+            parsed = JSON.parse(text);
+        } catch (ignored) {
+            parsed = null;
+        }
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+            parsed = {};
+            text.split(',').forEach(function (part) {
+                var segment = String(part || '').trim();
+                if (!segment) return;
+                var idx = segment.indexOf('=');
+                if (idx < 0) idx = segment.indexOf(':');
+                if (idx < 0) return;
+                var key = String(segment.slice(0, idx) || '').trim();
+                var value = String(segment.slice(idx + 1) || '').trim();
+                if (!key) return;
+                if (/^(true|false)$/i.test(value)) parsed[key] = /^true$/i.test(value);
+                else if (/^-?\d+(?:\.\d+)?$/.test(value)) parsed[key] = Number(value);
+                else parsed[key] = value;
+            });
+        }
+        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
     }
 
     function _env3DCameraPoseSnapshot() {
@@ -18017,6 +18470,7 @@
         objects.forEach(function (obj) {
             var key = _env3DObjectKey(obj);
             newKeys[key] = true;
+            var interaction = _envSceneInteractionMeta(obj);
             var pos = _env3DXYZFromObject(obj);
             var scl = Number(obj.scale || 1);
             var color = _env3DKindColors[obj.kind] || 0x888888;
@@ -18036,7 +18490,7 @@
                     opacity: 0.9
                 });
                 mesh = new THREE.Mesh(geo, mat);
-                mesh.userData = { kind: obj.kind, id: obj.id, label: obj.label };
+                mesh.userData = { kind: obj.kind, id: obj.id, label: obj.label, hasHtml: interaction.has_html };
                 scene.add(mesh);
                 _env3D.meshes[key] = mesh;
 
@@ -18065,6 +18519,7 @@
             mesh.material.emissiveIntensity = isFocused ? 1.2 : (obj.state === 'running' ? 0.8 : (obj.state === 'failed' ? 1.0 : 0.3));
             mesh.material.opacity = isFocused ? 1.0 : 0.9;
             mesh.userData.focused = isFocused;
+            mesh.userData.hasHtml = interaction.has_html;
 
             // Update label text
             var cssLabel = _env3D.cssLabels[key];
@@ -18095,6 +18550,21 @@
         _env3DSyncRoutes(objects);
 
         _env3D.lastObjectHash = hash;
+    }
+
+    function _env3DUpdateLabelScale(mesh, cssLabel) {
+        if (!mesh || !cssLabel || !cssLabel.element || !_env3D.camera) return;
+        var root = cssLabel.element.firstElementChild;
+        if (!root) return;
+        if (mesh.userData && mesh.userData.kind === 'panel' && mesh.userData.hasHtml) {
+            var distance = Math.max(1, _env3D.camera.position.distanceTo(mesh.position));
+            var scale = 0.88 - ((distance - 18) * 0.0045);
+            if (mesh.userData.focused) scale += 0.06;
+            scale = Math.max(0.46, Math.min(0.88, scale));
+            cssLabel.element.style.setProperty('--env-surface-card-scale', scale.toFixed(3));
+        } else {
+            cssLabel.element.style.removeProperty('--env-surface-card-scale');
+        }
     }
 
     function _env3DSyncRoutes(objects) {
@@ -18190,6 +18660,7 @@
                 var settle = Math.max(0.001, Number(mesh.userData.baseScale || 1));
                 mesh.scale.lerp(new THREE.Vector3(settle, settle, settle), 0.18);
             }
+            _env3DUpdateLabelScale(mesh, _env3D.cssLabels[key]);
         });
 
         // Drift particles (slow upward float with soft wraparound)
@@ -18308,6 +18779,7 @@
         var habitatClasses = ['envops-habitat', 'mode-' + String((dominance && dominance.mode) || 'ambient'), 'failure-' + String((failure && failure.tone) || 'ok')];
         if (watch.autoFollowFailed || watch.autoBranchOnFailure || watch.autoSampleOnRuntime || watch.autoFocusLatestTrace) habitatClasses.push('watch-armed');
         if (((_envKernel.ingress || {}).processing)) habitatClasses.push('ingress-active');
+        if (_envHtmlPanelState.active) habitatClasses.push('surface-active');
         var shellStyle = _envSceneShellStyle(camera, dominance);
         var dominanceSummary = _envSceneDominanceSummary();
         var cameraOffset = (Math.abs(Number(camera.offsetX || 0)) > 0.25 || Math.abs(Number(camera.offsetY || 0)) > 0.25 || Math.abs(Number((camera.zoomScale || 1) - 1)) > 0.02)
@@ -18539,10 +19011,22 @@
              '<option value="camera_tilt_down">camera_tilt_down</option>' +
              '<option value="camera_dolly_in">camera_dolly_in</option>' +
              '<option value="camera_dolly_out">camera_dolly_out</option>' +
+             '<option value="camera_pan_left">camera_pan_left</option>' +
+             '<option value="camera_pan_right">camera_pan_right</option>' +
+             '<option value="camera_pan_up">camera_pan_up</option>' +
+             '<option value="camera_pan_down">camera_pan_down</option>' +
+             '<option value="camera_pan_forward">camera_pan_forward</option>' +
+             '<option value="camera_pan_back">camera_pan_back</option>' +
+             '<option value="camera_pose">camera_pose</option>' +
              '<option value="camera_reset_pose">camera_reset_pose</option>' +
              '<option value="focus_replay">focus_replay</option>' +
              '<option value="branch_snapshot">branch_snapshot</option>' +
              '<option value="focus_workflow">focus_workflow</option>' +
+             '<option value="focus_surface">focus_surface</option>' +
+             '<option value="inspect_surface">inspect_surface</option>' +
+             '<option value="open_surface">open_surface</option>' +
+             '<option value="close_surface">close_surface</option>' +
+             '<option value="close_inspector">close_inspector</option>' +
              '<option value="focus_district">focus_district</option>' +
              '<option value="focus_node">focus_node</option>' +
              '<option value="focus_recipe">focus_recipe</option>' +
@@ -18774,7 +19258,8 @@
         if (k === 'dispatch') return 'focus_dispatch';
         if (k === 'queued') return 'focus_queued';
         if (k === 'watch') return 'focus_watch';
-        if (k === 'slot' || k === 'npc' || k === 'chatbot' || k === 'service' || k === 'panel') return 'focus_slot';
+        if (k === 'panel') return 'focus_surface';
+        if (k === 'slot' || k === 'npc' || k === 'chatbot' || k === 'service') return 'focus_slot';
         return '';
     }
 
@@ -19699,7 +20184,8 @@
             _envLiveSyncState.queued = false;
             _envRefreshLiveMirrorSurface();
             if (requeueSync) _envScheduleLiveSync('queued', false);
-            if (_isEnvironmentTabActive()) renderEnvironmentView();
+            // A sync acknowledgement only updates mirror bookkeeping; rerendering
+            // here creates an avoidable render -> sync -> ack churn loop.
             return;
         }
         if (toolName === 'env_health_status' || toolName === 'env_health_heartbeat') {
@@ -19739,6 +20225,16 @@
                 _envToolOutputs[toolName] = _envCloneJson(envPayload, envPayload);
             }
             var envApplied = envPayload ? _envApplyEnvironmentPayload(envPayload, toolName, 'tool') : { changed: false, mirrored: false };
+            if (!msg.error && toolName === 'env_read' && pendingMeta && pendingMeta.surfaceControlPending) {
+                var pendingSurface = pendingMeta.surfaceControlPending || {};
+                _envExecuteControlCommand(
+                    String(pendingSurface.command || ''),
+                    String(pendingSurface.targetId || ''),
+                    String(pendingSurface.actor || 'assistant'),
+                    '__surface_hydrated__'
+                );
+                return;
+            }
             if (!msg.error && toolName !== 'env_read' && toolName !== 'env_persist') {
                 _envScheduleLiveSync(toolName, !!envApplied.changed);
             } else if (!msg.error && toolName === 'env_persist' && envApplied.changed) {
@@ -19838,6 +20334,9 @@
         var packageModeEl = document.getElementById('envops-package-mode');
         var renderTarget = String((renderTargetEl && renderTargetEl.value) || (((_envConfig || {}).shell || {}).defaultRenderer || 'web3d'));
         var packageMode = String((packageModeEl && packageModeEl.value) || 'online');
+        if (!workflow && !scenePrimary && !_wfSelectedId && String(renderTarget || '').toLowerCase() === 'web3d') {
+            scenePrimary = true;
+        }
         var status = exec ? _wfNormalizeStatus(exec.status || 'pending') : (workflow ? 'idle' : 'idle');
         _envRefreshReplayTrack((_envKernel.replay || {}).mode, true);
         _envSetBadge(status, scenePrimary ? 'SCENE' : (!workflow ? 'IDLE' : (exec ? status.toUpperCase() : 'READY')));
@@ -21591,6 +22090,7 @@
                 var schema = hasSchemas ? _toolSchemas[toolName] : null;
                 var row = document.createElement('div');
                 row.className = 'tool-row-wrap';
+                row.setAttribute('data-tool-name', toolName);
 
                 // Tool header row
                 var hdr = document.createElement('div');
@@ -21749,10 +22249,11 @@
     }
 
     function promptToolCall(toolName) {
-        var argsStr = prompt('Arguments (JSON):', '{}');
+        var argsStr = prompt('Arguments (JSON):', _toolPromptDefaultText(toolName));
         if (argsStr === null) return;
         try {
             var args = JSON.parse(argsStr);
+            delete _toolPromptPrefills[String(toolName || '').trim()];
             callTool(toolName, args);
         } catch (err) {
             alert('Invalid JSON');
@@ -24331,7 +24832,6 @@
             var uiActor = _envManualActorId();
             if (!_wfSelectedId) {
                 _envSetBadge('failed', 'NO SYSTEM');
-                renderEnvironmentView();
                 return;
             }
             _envLogAction('load', 'Requested workflow definition load', uiActor, { workflow_id: _wfSelectedId });
@@ -24345,7 +24845,6 @@
             var uiActor = _envManualActorId();
             if (!_wfSelectedId) {
                 _envSetBadge('failed', 'NO SYSTEM');
-                renderEnvironmentView();
                 return;
             }
             var inputEl = document.getElementById('envops-input');
@@ -24355,7 +24854,6 @@
                     JSON.parse(inputStr);
                 } catch (err) {
                     _envSetBadge('failed', 'BAD INPUT');
-                    renderEnvironmentView();
                     return;
                 }
             }
@@ -24474,10 +24972,10 @@
                     _envSelectSceneObject(sceneObj, uiActor, 'stage_dom');
                     return;
                 }
-                if (action === 'scene-menu-item') {
-                    var menuObj = _envSceneObjectByKey(actionEl.getAttribute('data-env-object-key') || '');
-                    if (!menuObj) return;
-                    _envExecuteSceneMenuItem(menuObj, actionEl.getAttribute('data-env-menu-index') || '0', 'stage_menu', { actor: uiActor });
+                if (action === 'scene-open-surface') {
+                    var surfaceObj = _envSceneObjectByKey(actionEl.getAttribute('data-env-object-key') || '');
+                    if (!surfaceObj) return;
+                    _envOpenPrimarySurfaceForObject(surfaceObj, uiActor, 'stage_dom');
                     return;
                 }
                 if (action === 'refresh-health') {
@@ -24512,8 +25010,7 @@
                 if (_envInspectorState.active
                     && !e.target.closest('[data-env-inspector-root]')
                     && !e.target.closest('.envops-scene-panel')
-                    && !e.target.closest('[data-env-action="scene-object"]')
-                    && !e.target.closest('[data-env-action="scene-menu-item"]')) {
+                    && !e.target.closest('[data-env-action="scene-object"]')) {
                     _envCloseInspector(uiActor, 'click-away');
                 }
                 return;
@@ -24952,6 +25449,25 @@
     };
     window.envopsSetCameraMode = function (mode, actor) {
         _envQueueControl('set_camera_mode', mode || 'overview', actor || 'assistant', 'external habitat camera');
+    };
+    window.envopsFocusSurface = function (surfaceIdOrKey, actor) {
+        _envQueueControl('focus_surface', surfaceIdOrKey === undefined || surfaceIdOrKey === null ? '' : String(surfaceIdOrKey), actor || 'assistant', 'external surface focus');
+    };
+    window.envopsInspectSurface = function (surfaceIdOrKey, actor) {
+        _envQueueControl('inspect_surface', surfaceIdOrKey === undefined || surfaceIdOrKey === null ? '' : String(surfaceIdOrKey), actor || 'assistant', 'external surface inspect');
+    };
+    window.envopsOpenSurface = function (surfaceIdOrKey, actor) {
+        _envQueueControl('open_surface', surfaceIdOrKey === undefined || surfaceIdOrKey === null ? '' : String(surfaceIdOrKey), actor || 'assistant', 'external surface open');
+    };
+    window.envopsCloseSurface = function (actor) {
+        _envQueueControl('close_surface', '', actor || 'assistant', 'external surface close');
+    };
+    window.envopsCloseInspector = function (actor) {
+        _envQueueControl('close_inspector', '', actor || 'assistant', 'external inspector close');
+    };
+    window.envopsCameraPose = function (pose, actor, note) {
+        var payload = typeof pose === 'string' ? pose : JSON.stringify(pose || {});
+        _envQueueControl('camera_pose', payload, actor || 'assistant', note || 'external camera pose');
     };
     window.envopsToggleIngress = function (actor) {
         if (_envKernel.ingress.active) _envStopIngressLoop(true);

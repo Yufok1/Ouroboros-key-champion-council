@@ -15,10 +15,11 @@ import subprocess
 import shutil
 import threading
 import mimetypes
+import tempfile
 from pathlib import Path
 from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
-from urllib.parse import urlparse, urlsplit, urlunsplit, unquote
+from urllib.parse import urlparse, urlsplit, urlunsplit, unquote, parse_qsl
 
 import uvicorn
 import httpx
@@ -1128,11 +1129,171 @@ def _broadcast_agent_inner_calls(tool_name: str, result, duration_ms: int, sourc
 
 # --- Configuration ---
 MCP_PORT = int(os.environ.get("MCP_PORT", "8765"))
-WEB_PORT = 7860
+WEB_HOST = (os.environ.get("WEB_HOST", "0.0.0.0") or "0.0.0.0").strip() or "0.0.0.0"
+WEB_PORT = int(os.environ.get("WEB_PORT", "7860"))
 CAPSULE_PATH = Path("capsule/champion_gen8.py")
 MCP_BASE = f"http://127.0.0.1:{MCP_PORT}"
 _MCP_TOOL_TIMEOUT_SECONDS = max(8, int(os.environ.get("MCP_TOOL_TIMEOUT_SECONDS", "180")))
 HF_ROUTER_BASE = os.environ.get("HF_ROUTER_BASE", "https://router.huggingface.co").rstrip("/")
+APP_MODE = str(os.environ.get("APP_MODE", "development") or "development").strip().lower()
+if APP_MODE not in ("development", "product"):
+    APP_MODE = "development"
+MCP_EXTERNAL_POLICY = str(
+    os.environ.get("MCP_EXTERNAL_POLICY", "closed" if APP_MODE == "product" else "full")
+    or ("closed" if APP_MODE == "product" else "full")
+).strip().lower()
+if MCP_EXTERNAL_POLICY not in ("full", "guided", "closed"):
+    MCP_EXTERNAL_POLICY = "closed" if APP_MODE == "product" else "full"
+
+_PRODUCT_BUNDLE_PROFILES = {
+    "environment_product": {
+        "label": "Environment Product",
+        "description": "Package the environment theater as the primary product surface with its backing seed state.",
+        "default_app_mode": "product",
+        "default_mcp_external_policy": "closed",
+        "include_runtime_shell": True,
+        "include_live_mirror": True,
+        "include_visual_evidence": True,
+        "include_activity_log": False,
+        "include_workflow_history": False,
+    },
+    "interface_product": {
+        "label": "Interface Product",
+        "description": "Package the interface/panel shell with packaged state and environment surfaces for product delivery.",
+        "default_app_mode": "product",
+        "default_mcp_external_policy": "closed",
+        "include_runtime_shell": True,
+        "include_live_mirror": True,
+        "include_visual_evidence": False,
+        "include_activity_log": False,
+        "include_workflow_history": False,
+    },
+    "agent_api_service": {
+        "label": "Agent API Service",
+        "description": "Package the council, workflows, and service state for an agent/API-oriented runtime.",
+        "default_app_mode": "development",
+        "default_mcp_external_policy": "guided",
+        "include_runtime_shell": True,
+        "include_live_mirror": False,
+        "include_visual_evidence": False,
+        "include_activity_log": False,
+        "include_workflow_history": True,
+    },
+    "research_capsule": {
+        "label": "Research Capsule",
+        "description": "Package the runtime with extra live evidence and recent provenance surfaces for reconstruction.",
+        "default_app_mode": "development",
+        "default_mcp_external_policy": "full",
+        "include_runtime_shell": True,
+        "include_live_mirror": True,
+        "include_visual_evidence": True,
+        "include_activity_log": True,
+        "include_workflow_history": True,
+    },
+}
+
+_PRODUCT_BUNDLE_RUNTIME_COPY_SOURCES = (
+    "server.py",
+    "persistence.py",
+    "run_local.ps1",
+    "README.md",
+    "requirements.txt",
+    "package.json",
+    "Dockerfile",
+    "static",
+    "scripts",
+    "capsule/capsule.gz",
+)
+
+_GUIDED_EXTERNAL_MCP_TOOLS = frozenset({
+    "env_read",
+    "env_control",
+    "workflow_execute",
+    "workflow_status",
+    "workflow_history",
+    "get_status",
+    "heartbeat",
+    "get_cached",
+})
+
+_ENV_CONTROL_PROXY_COMMANDS = frozenset({
+    "focus_surface",
+    "inspect_surface",
+    "open_surface",
+    "close_surface",
+    "close_inspector",
+    "camera_pan_left",
+    "camera_pan_right",
+    "camera_pan_up",
+    "camera_pan_down",
+    "camera_pan_forward",
+    "camera_pan_back",
+    "camera_pose",
+})
+
+
+def _external_mcp_blocked() -> bool:
+    return MCP_EXTERNAL_POLICY == "closed"
+
+
+def _external_mcp_allowed_tools() -> set[str] | None:
+    if MCP_EXTERNAL_POLICY == "full":
+        return None
+    if MCP_EXTERNAL_POLICY == "guided":
+        return set(_GUIDED_EXTERNAL_MCP_TOOLS)
+    return set()
+
+
+def _external_mcp_policy_note() -> str:
+    if MCP_EXTERNAL_POLICY == "guided":
+        tools = ", ".join(sorted(_GUIDED_EXTERNAL_MCP_TOOLS))
+        return f" External MCP policy: guided. Allowed tools: {tools}."
+    if MCP_EXTERNAL_POLICY == "closed":
+        return " External MCP policy: closed."
+    return ""
+
+
+def _filter_external_mcp_tools_list(tools_list: list[dict]) -> list[dict]:
+    allowed = _external_mcp_allowed_tools()
+    if allowed is None:
+        return tools_list
+    return [tool for tool in tools_list if str((tool or {}).get("name") or "") in allowed]
+
+
+def _external_mcp_policy_violation(method: str, params: dict | None) -> dict | None:
+    if MCP_EXTERNAL_POLICY == "full":
+        return None
+
+    m = str(method or "").strip()
+    p = params if isinstance(params, dict) else {}
+
+    if m == "initialize" or m.startswith("notifications/") or m == "tools/list":
+        return None
+
+    if m == "tools/call":
+        tool_name = str(p.get("name") or "").strip()
+        allowed = _external_mcp_allowed_tools() or set()
+        if tool_name and tool_name in allowed:
+            return None
+        return {
+            "code": -32004,
+            "message": f"Tool '{tool_name or 'unknown'}' is not available under external MCP policy '{MCP_EXTERNAL_POLICY}'",
+            "data": {
+                "app_mode": APP_MODE,
+                "mcp_external_policy": MCP_EXTERNAL_POLICY,
+                "allowed_tools": sorted(list(allowed)),
+                "requested_tool": tool_name,
+            },
+        }
+
+    return {
+        "code": -32005,
+        "message": f"Method '{m or 'unknown'}' is not available under external MCP policy '{MCP_EXTERNAL_POLICY}'",
+        "data": {
+            "app_mode": APP_MODE,
+            "mcp_external_policy": MCP_EXTERNAL_POLICY,
+        },
+    }
 
 
 def _hf_router_token(explicit: str | None = None) -> str | None:
@@ -2583,6 +2744,26 @@ _AGENT_LOCAL_TOOL_SPECS = {
             },
             "required": ["revision"]
         }
+    },
+    "product_bundle_profiles": {
+        "description": "List canonical product bundle export profiles for the current shell runtime.",
+        "inputSchema": {"type": "object", "properties": {}}
+    },
+    "product_bundle_export": {
+        "description": "Export a product bundle using the current persistence snapshot, environment state, and optional runtime shell copy.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "profile": {"type": "string", "description": "Bundle profile: environment_product|interface_product|agent_api_service|research_capsule"},
+                "bundle_name": {"type": "string", "description": "Optional friendly name used in the bundle directory and manifest"},
+                "include_runtime_shell": {"type": "boolean", "description": "Override whether the current shell/runtime files are copied into the bundle"},
+                "app_mode": {"type": "string", "description": "Optional launch default override: development|product"},
+                "mcp_external_policy": {"type": "string", "description": "Optional launch default override: full|guided|closed"},
+                "include_activity_log": {"type": "boolean", "description": "Include the recent in-memory activity log even if the selected profile normally omits it"},
+                "include_workflow_history": {"type": "boolean", "description": "Include recent workflow execution history even if the selected profile normally omits it"},
+                "workflow_history_limit": {"type": "integer", "description": "Maximum workflow history rows to capture when included"}
+            }
+        }
     }
 }
 
@@ -2669,6 +2850,571 @@ def _agent_augment_tools_list(tools: list[dict]) -> list[dict]:
         if name not in seen:
             merged.append(fixed)
     return merged
+
+
+def _coerce_flag(value, default: bool = False) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    text = str(value).strip().lower()
+    if not text:
+        return default
+    if text in ("1", "true", "yes", "on"):
+        return True
+    if text in ("0", "false", "no", "off"):
+        return False
+    return default
+
+
+def _product_bundle_slug(value: str) -> str:
+    out = []
+    last_dash = False
+    for ch in str(value or "").strip().lower():
+        if ch.isalnum():
+            out.append(ch)
+            last_dash = False
+            continue
+        if not last_dash:
+            out.append("-")
+            last_dash = True
+    slug = "".join(out).strip("-")
+    return slug or "bundle"
+
+
+def _product_bundle_rel(path: Path, bundle_root: Path) -> str:
+    return path.relative_to(bundle_root).as_posix()
+
+
+def _product_bundle_write_json(path: Path, payload) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+async def _product_bundle_resolve_cached_payload(payload):
+    current = payload
+    for _ in range(4):
+        if not isinstance(current, dict):
+            return current
+        cache_id = str(current.get("_cached", "") or "").strip()
+        if not cache_id:
+            return current
+        cached_raw = await _call_tool("get_cached", {"cache_id": cache_id})
+        parsed = _parse_mcp_result((cached_raw or {}).get("result") if isinstance(cached_raw, dict) else None)
+        if parsed is None:
+            return current
+        current = parsed
+    return current
+
+
+def _product_bundle_profiles_payload() -> dict:
+    profiles = []
+    for name, spec in _PRODUCT_BUNDLE_PROFILES.items():
+        row = dict(spec)
+        row["name"] = name
+        profiles.append(row)
+    return {
+        "profiles": profiles,
+        "count": len(profiles),
+        "notes": {
+            "canonical_state": ["seed_state", "environment/shared_state", "environment/contracts", "environment/habitat_objects"],
+            "auxiliary_state": ["environment/live", "environment/render_truth", "environment/layout_snapshot", "environment/activity_log", "environment/workflow_history"],
+            "secrets_policy": "Provider tokens and API keys are not exported. Reconfigure them in the target environment.",
+            "capsule_policy": "The protected capsule is exported only as capsule/capsule.gz when the runtime shell is copied.",
+        },
+    }
+
+
+def _product_bundle_copy_path(src: Path, dest: Path) -> None:
+    if src.is_dir():
+        shutil.copytree(
+            src,
+            dest,
+            dirs_exist_ok=True,
+            ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo"),
+        )
+        return
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src, dest)
+
+
+async def _product_bundle_collect_seed_state(bundle_root: Path) -> dict:
+    seed_dir = bundle_root / "seed_state"
+    seed_dir.mkdir(parents=True, exist_ok=True)
+    copied_files: list[str] = []
+    warnings: list[str] = []
+    tmpdir = Path(tempfile.mkdtemp(prefix="cc_bundle_seed_"))
+    try:
+        state_files = await persistence._collect_state_files(_call_tool, tmpdir)
+        if not isinstance(state_files, dict) or not state_files:
+            warnings.append("No state files were captured from the current runtime snapshot.")
+            return {
+                "path": _product_bundle_rel(seed_dir, bundle_root),
+                "files": copied_files,
+                "count": 0,
+                "warnings": warnings,
+            }
+        for name, src in state_files.items():
+            src_path = src if isinstance(src, Path) else Path(str(src))
+            if not src_path.exists():
+                warnings.append(f"State file missing after snapshot: {name}")
+                continue
+            rel = persistence.LOCAL_LAYOUT.get(name, Path(name))
+            dest = seed_dir / rel
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src_path, dest)
+            copied_files.append(_product_bundle_rel(dest, bundle_root))
+        return {
+            "path": _product_bundle_rel(seed_dir, bundle_root),
+            "files": copied_files,
+            "count": len(copied_files),
+            "warnings": warnings,
+        }
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+async def _product_bundle_collect_environment(
+    bundle_root: Path,
+    profile_spec: dict,
+    include_activity_log: bool,
+    include_workflow_history: bool,
+    workflow_history_limit: int,
+) -> dict:
+    env_dir = bundle_root / "environment"
+    env_dir.mkdir(parents=True, exist_ok=True)
+    files: list[str] = []
+    warnings: list[str] = []
+    captured_queries: list[str] = []
+
+    requests: list[tuple[str, str, dict]] = [
+        ("snapshot", "env_read", {"query": "snapshot"}),
+        ("scene_objects", "env_read", {"query": "list"}),
+        ("snapshot_index", "env_persist", {"operation": "list"}),
+    ]
+
+    if profile_spec.get("include_live_mirror"):
+        requests.extend([
+            ("live", "env_read", {"query": "live"}),
+            ("shared_state", "env_read", {"query": "shared_state"}),
+            ("contracts", "env_read", {"query": "contracts"}),
+            ("habitat_objects", "env_read", {"query": "habitat_objects"}),
+        ])
+
+    for label, tool_name, tool_args in requests:
+        payload = await persistence._call_capsule_tool(_call_tool, tool_name, tool_args)
+        if payload is None:
+            warnings.append(f"{tool_name} returned no payload for {label}.")
+            continue
+        payload = await _product_bundle_resolve_cached_payload(payload)
+        out_path = env_dir / f"{label}.json"
+        _product_bundle_write_json(out_path, payload)
+        files.append(_product_bundle_rel(out_path, bundle_root))
+        captured_queries.append(label)
+        if label == "live" and isinstance(payload, dict) and profile_spec.get("include_visual_evidence"):
+            for child_key in ("render_truth", "layout_snapshot", "corroboration", "recent_bus"):
+                if child_key not in payload:
+                    continue
+                child_path = env_dir / f"{child_key}.json"
+                _product_bundle_write_json(child_path, payload.get(child_key))
+                files.append(_product_bundle_rel(child_path, bundle_root))
+
+    status_payload = persistence.status() if hasattr(persistence, "status") else {"available": persistence.is_available()}
+    status_path = env_dir / "persistence_status.json"
+    _product_bundle_write_json(status_path, status_payload)
+    files.append(_product_bundle_rel(status_path, bundle_root))
+
+    if include_activity_log:
+        activity_payload = {
+            "count": len(_activity_log),
+            "events": list(_activity_log),
+        }
+        activity_path = env_dir / "activity_log.json"
+        _product_bundle_write_json(activity_path, activity_payload)
+        files.append(_product_bundle_rel(activity_path, bundle_root))
+
+    if include_workflow_history:
+        rows = await _workflow_proxy_history(workflow_id=None, limit=workflow_history_limit)
+        workflow_payload = {
+            "count": len(rows),
+            "history": rows,
+            "executions": rows,
+        }
+        workflow_path = env_dir / "workflow_history.json"
+        _product_bundle_write_json(workflow_path, workflow_payload)
+        files.append(_product_bundle_rel(workflow_path, bundle_root))
+
+    return {
+        "path": _product_bundle_rel(env_dir, bundle_root),
+        "files": files,
+        "count": len(files),
+        "captured_queries": captured_queries,
+        "warnings": warnings,
+    }
+
+
+def _product_bundle_copy_runtime_shell(bundle_root: Path) -> dict:
+    runtime_dir = bundle_root / "runtime_shell"
+    runtime_dir.mkdir(parents=True, exist_ok=True)
+    copied_entries: list[str] = []
+    warnings: list[str] = []
+
+    for rel_text in _PRODUCT_BUNDLE_RUNTIME_COPY_SOURCES:
+        src = Path(rel_text)
+        if not src.exists():
+            warnings.append(f"Runtime source missing: {rel_text}")
+            continue
+        dest = runtime_dir / rel_text
+        _product_bundle_copy_path(src, dest)
+        copied_entries.append(_product_bundle_rel(dest, bundle_root))
+
+    return {
+        "path": _product_bundle_rel(runtime_dir, bundle_root),
+        "entries": copied_entries,
+        "count": len(copied_entries),
+        "warnings": warnings,
+    }
+
+
+def _product_bundle_provider_descriptor(source: str) -> dict:
+    src = str(source or "").strip()
+    if not src:
+        return {"kind": "unknown", "is_remote": False}
+    if not _is_remote_model_source(src):
+        return {
+            "kind": "local_model",
+            "is_remote": False,
+            "model_id": src,
+            "requires_external_secret": False,
+        }
+
+    parts = urlsplit(src)
+    query = dict(parse_qsl(parts.query, keep_blank_values=True))
+    segments = [seg for seg in (parts.path or "").split("/") if seg]
+    kind = "openai_compatible"
+    router_provider = None
+    if "hf-router" in segments:
+        kind = "huggingface_router"
+        idx = segments.index("hf-router")
+        if idx + 1 < len(segments):
+            candidate = segments[idx + 1]
+            if candidate and candidate != "v1":
+                router_provider = candidate
+
+    return {
+        "kind": kind,
+        "is_remote": True,
+        "scheme": parts.scheme,
+        "host": parts.hostname,
+        "port": parts.port,
+        "path": parts.path,
+        "query": query,
+        "model": query.get("model") or None,
+        "router_provider": router_provider,
+        "local_loopback": str(parts.hostname or "").strip().lower() in ("127.0.0.1", "localhost"),
+        "requires_external_secret": kind == "openai_compatible",
+    }
+
+
+async def _product_bundle_collect_document_history(bundle_root: Path) -> dict:
+    ctx_dir = bundle_root / "development_context"
+    ctx_dir.mkdir(parents=True, exist_ok=True)
+    out_path = ctx_dir / "document_history.json"
+    warnings: list[str] = []
+    payload = await persistence._call_capsule_tool(
+        _call_tool,
+        "file_list",
+        {"path": "docs/", "include_checkpoints": False, "limit": 1000},
+    )
+    payload = await _product_bundle_resolve_cached_payload(payload)
+    items = payload.get("items") if isinstance(payload, dict) else []
+    if not isinstance(items, list):
+        items = []
+
+    documents = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        doc_path = str(item.get("key") or item.get("path") or "").strip()
+        if not doc_path:
+            continue
+        versions_payload = await persistence._call_capsule_tool(
+            _call_tool,
+            "file_versions",
+            {"path": doc_path, "limit": 250},
+        )
+        versions_payload = await _product_bundle_resolve_cached_payload(versions_payload)
+        if not isinstance(versions_payload, dict):
+            versions_payload = {"count": 0, "checkpoints": []}
+            warnings.append(f"Could not resolve file_versions for {doc_path}.")
+        documents.append({
+            "path": doc_path,
+            "type": item.get("type"),
+            "version": item.get("version"),
+            "size": item.get("size"),
+            "modified": item.get("modified"),
+            "preview": item.get("preview"),
+            "history": versions_payload,
+        })
+
+    _product_bundle_write_json(out_path, {
+        "path_prefix": "docs/",
+        "doc_count": len(documents),
+        "documents": documents,
+    })
+    return {
+        "path": _product_bundle_rel(out_path, bundle_root),
+        "doc_count": len(documents),
+        "warnings": warnings,
+    }
+
+
+async def _product_bundle_collect_slot_provider_metadata(bundle_root: Path) -> dict:
+    ctx_dir = bundle_root / "development_context"
+    ctx_dir.mkdir(parents=True, exist_ok=True)
+    out_path = ctx_dir / "slot_provider_metadata.json"
+    warnings: list[str] = []
+    payload = await persistence._call_capsule_tool(_call_tool, "list_slots", {})
+    payload = await _product_bundle_resolve_cached_payload(payload)
+
+    all_ids = payload.get("all_ids") if isinstance(payload, dict) else []
+    total = payload.get("total") if isinstance(payload, dict) else 0
+    if not isinstance(all_ids, list):
+        all_ids = []
+    try:
+        total = int(total or len(all_ids))
+    except Exception:
+        total = len(all_ids)
+
+    slots = []
+    for idx in range(total):
+        info_payload = await persistence._call_capsule_tool(_call_tool, "slot_info", {"slot": idx})
+        info_payload = await _product_bundle_resolve_cached_payload(info_payload)
+        if not isinstance(info_payload, dict):
+            warnings.append(f"Could not resolve slot_info for slot {idx}.")
+            continue
+
+        slot_name = str(info_payload.get("name") or (all_ids[idx] if idx < len(all_ids) else f"slot_{idx}") or f"slot_{idx}")
+        source = str(
+            info_payload.get("source")
+            or info_payload.get("model_source")
+            or info_payload.get("model_id")
+            or info_payload.get("model")
+            or ""
+        ).strip()
+        plugged = bool(info_payload.get("plugged")) or bool(source)
+        if not plugged:
+            continue
+
+        normalized_source = source
+        if source:
+            normalized_source, _ = _normalize_remote_provider_model_id(source)
+        provider = _product_bundle_provider_descriptor(normalized_source or source)
+        restore_strategy = "plug_model" if provider.get("is_remote") else "hub_plug"
+        slots.append({
+            "slot": idx,
+            "name": slot_name,
+            "plugged": plugged,
+            "status": info_payload.get("status"),
+            "type": info_payload.get("type"),
+            "model_type": info_payload.get("model_type"),
+            "source": source or None,
+            "normalized_source": normalized_source or None,
+            "provider": provider,
+            "restore": {
+                "strategy": restore_strategy,
+                "preferred_slot_index": idx,
+                "slot_name": slot_name,
+                "model_id": normalized_source or source or None,
+            },
+            "slot_info": info_payload,
+        })
+
+    _product_bundle_write_json(out_path, {
+        "slot_count": len(slots),
+        "slots": slots,
+    })
+    return {
+        "path": _product_bundle_rel(out_path, bundle_root),
+        "slot_count": len(slots),
+        "warnings": warnings,
+    }
+
+
+async def _product_bundle_collect_development_context(bundle_root: Path) -> dict:
+    doc_history = await _product_bundle_collect_document_history(bundle_root)
+    slot_metadata = await _product_bundle_collect_slot_provider_metadata(bundle_root)
+    warnings = []
+    warnings.extend(doc_history.get("warnings", []))
+    warnings.extend(slot_metadata.get("warnings", []))
+    return {
+        "path": "development_context",
+        "document_history": doc_history,
+        "slot_provider_metadata": slot_metadata,
+        "warnings": warnings,
+    }
+
+
+async def _product_bundle_export(args: dict | None = None) -> dict:
+    args = args or {}
+    profile_name = str(args.get("profile", "environment_product") or "environment_product").strip().lower()
+    profile_spec = _PRODUCT_BUNDLE_PROFILES.get(profile_name)
+    if not profile_spec:
+        return {
+            "error": f"Unknown profile: {profile_name}",
+            "available_profiles": sorted(_PRODUCT_BUNDLE_PROFILES.keys()),
+        }
+
+    bundle_name = str(args.get("bundle_name", "") or profile_spec.get("label") or profile_name).strip()
+    bundle_slug = _product_bundle_slug(bundle_name)
+    timestamp_token = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+    export_root = Path("exports") / "product-bundles"
+    export_root.mkdir(parents=True, exist_ok=True)
+    bundle_root = export_root / f"{timestamp_token}-{bundle_slug}"
+    suffix = 2
+    while bundle_root.exists():
+        bundle_root = export_root / f"{timestamp_token}-{bundle_slug}-{suffix}"
+        suffix += 1
+    bundle_root.mkdir(parents=True, exist_ok=False)
+
+    include_runtime_shell = _coerce_flag(
+        args.get("include_runtime_shell"),
+        default=bool(profile_spec.get("include_runtime_shell", True)),
+    )
+    include_activity_log = _coerce_flag(
+        args.get("include_activity_log"),
+        default=bool(profile_spec.get("include_activity_log", False)),
+    )
+    include_workflow_history = _coerce_flag(
+        args.get("include_workflow_history"),
+        default=bool(profile_spec.get("include_workflow_history", False)),
+    )
+    try:
+        workflow_history_limit = int(args.get("workflow_history_limit", 200) or 200)
+    except Exception:
+        workflow_history_limit = 200
+    workflow_history_limit = max(10, min(workflow_history_limit, 5000))
+
+    app_mode = str(args.get("app_mode", "") or profile_spec.get("default_app_mode") or APP_MODE).strip().lower()
+    if app_mode not in ("development", "product"):
+        app_mode = str(profile_spec.get("default_app_mode") or APP_MODE)
+
+    mcp_external_policy = str(
+        args.get("mcp_external_policy", "")
+        or profile_spec.get("default_mcp_external_policy")
+        or MCP_EXTERNAL_POLICY
+    ).strip().lower()
+    if mcp_external_policy not in ("full", "guided", "closed"):
+        mcp_external_policy = str(profile_spec.get("default_mcp_external_policy") or MCP_EXTERNAL_POLICY)
+
+    seed_state = await _product_bundle_collect_seed_state(bundle_root)
+    environment_capture = await _product_bundle_collect_environment(
+        bundle_root=bundle_root,
+        profile_spec=profile_spec,
+        include_activity_log=include_activity_log,
+        include_workflow_history=include_workflow_history,
+        workflow_history_limit=workflow_history_limit,
+    )
+    development_context = await _product_bundle_collect_development_context(bundle_root)
+    runtime_shell = None
+    if include_runtime_shell:
+        runtime_shell = _product_bundle_copy_runtime_shell(bundle_root)
+
+    warnings = []
+    warnings.extend(seed_state.get("warnings", []))
+    warnings.extend(environment_capture.get("warnings", []))
+    warnings.extend(development_context.get("warnings", []))
+    if isinstance(runtime_shell, dict):
+        warnings.extend(runtime_shell.get("warnings", []))
+
+    manifest = {
+        "bundle_version": 1,
+        "bundle_name": bundle_name,
+        "bundle_slug": bundle_slug,
+        "profile": {"name": profile_name, **profile_spec},
+        "exported_at": datetime.utcnow().isoformat() + "Z",
+        "launch_defaults": {
+            "app_mode": app_mode,
+            "mcp_external_policy": mcp_external_policy,
+        },
+        "source_runtime": {
+            "web_host": WEB_HOST,
+            "web_port": WEB_PORT,
+            "mcp_port": MCP_PORT,
+            "app_mode": APP_MODE,
+            "mcp_external_policy": MCP_EXTERNAL_POLICY,
+            "persistence": persistence.status() if hasattr(persistence, "status") else {"available": persistence.is_available()},
+        },
+        "seed_state": seed_state,
+        "environment": environment_capture,
+        "development_context": development_context,
+        "runtime_shell": runtime_shell,
+        "policies": {
+            "secrets": "Provider tokens and API keys are not exported. Configure them in the target environment.",
+            "capsule": "The protected capsule source is not copied directly. Runtime shell copies capsule/capsule.gz only.",
+        },
+        "warnings": warnings,
+    }
+    manifest_path = bundle_root / "product_manifest.json"
+    _product_bundle_write_json(manifest_path, manifest)
+
+    return {
+        "status": "ok",
+        "bundle_dir": str(bundle_root.resolve()),
+        "bundle_manifest": str(manifest_path.resolve()),
+        "profile": profile_name,
+        "seed_state_count": int(seed_state.get("count", 0) or 0),
+        "environment_file_count": int(environment_capture.get("count", 0) or 0),
+        "document_history_count": int((development_context.get("document_history") or {}).get("doc_count", 0) or 0),
+        "slot_provider_metadata_count": int((development_context.get("slot_provider_metadata") or {}).get("slot_count", 0) or 0),
+        "runtime_shell_count": int((runtime_shell or {}).get("count", 0) or 0),
+        "warnings": warnings,
+    }
+
+
+async def _product_bundle_local_tool(tool_name: str, args: dict | None = None) -> dict | None:
+    args = args or {}
+    if tool_name == "product_bundle_profiles":
+        return _product_bundle_profiles_payload()
+    if tool_name == "product_bundle_export":
+        return await _product_bundle_export(args)
+    return None
+
+
+def _env_control_local_proxy_payload(args: dict | None = None) -> dict | None:
+    args = args or {}
+    command = str(args.get("command", "") or "").strip()
+    if command not in _ENV_CONTROL_PROXY_COMMANDS:
+        return None
+    target_id = str(args.get("target_id", "") or "").strip()
+    actor = str(args.get("actor", "assistant") or "assistant").strip() or "assistant"
+    payload = {
+        "status": "ok",
+        "summary": f"Dispatched environment control command {command}",
+        "normalized_args": {
+            "command": command,
+            "target_id": target_id,
+            "actor": actor,
+        },
+        "delta": {
+            "command": command,
+            "target_id": target_id,
+        },
+        "environment_effects": {},
+        "operation": "env_control",
+        "operation_status": "dispatched",
+        "command": command,
+        "target_id": target_id,
+        "target": target_id,
+        "actor": actor,
+    }
+    if command.startswith("camera_"):
+        payload["environment_effects"]["camera_action"] = command
+    elif command in ("focus_surface", "inspect_surface", "open_surface", "close_surface", "close_inspector"):
+        payload["environment_effects"]["surface_action"] = command
+    return payload
 
 
 def _agent_session_snapshot(args: dict | None = None) -> dict:
@@ -5195,6 +5941,9 @@ async def _workflow_call_local_proxy_tool(tool_name: str, args: dict, source: st
                 promote_after_restore=bool(args.get("promote_after_restore", False)),
             )
         return {"error": "restore_state_revision not supported by persistence adapter"}
+    product_bundle_payload = await _product_bundle_local_tool(tool_name, args)
+    if product_bundle_payload is not None:
+        return product_bundle_payload
     if tool_name == "workflow_status":
         execution_id = str(args.get("execution_id", "") or "").strip()
         if not execution_id:
@@ -6006,6 +6755,22 @@ async def proxy_tool_call(tool_name: str, request: Request):
             return JSONResponse(status_code=503, content=payload)
         return {"result": {"content": [{"type": "text", "text": json.dumps(payload)}], "isError": False}}
 
+    env_control_proxy_payload = _env_control_local_proxy_payload(body if isinstance(body, dict) else {})
+    if env_control_proxy_payload is not None:
+        err_msg = env_control_proxy_payload.get("error") if isinstance(env_control_proxy_payload, dict) else None
+        _broadcast_activity(tool_name, body if isinstance(body, dict) else {}, env_control_proxy_payload, 0, err_msg, source=source, client_id=client_id)
+        if err_msg:
+            return JSONResponse(status_code=400, content=env_control_proxy_payload)
+        return {"result": {"content": [{"type": "text", "text": json.dumps(env_control_proxy_payload)}], "isError": False}}
+
+    product_bundle_payload = await _product_bundle_local_tool(tool_name, body if isinstance(body, dict) else {})
+    if product_bundle_payload is not None:
+        err_msg = product_bundle_payload.get("error") if isinstance(product_bundle_payload, dict) else None
+        _broadcast_activity(tool_name, body if isinstance(body, dict) else {}, product_bundle_payload, 0, err_msg, source=source, client_id=client_id)
+        if err_msg:
+            return JSONResponse(status_code=400, content=product_bundle_payload)
+        return {"result": {"content": [{"type": "text", "text": json.dumps(product_bundle_payload)}], "isError": False}}
+
     if tool_name == "workflow_status":
         args = body if isinstance(body, dict) else {}
         execution_id = str(args.get("execution_id", "") or "").strip()
@@ -6339,6 +7104,8 @@ async def health(request: Request):
         "mcp_port": MCP_PORT,
         "mcp_session": _mcp_session is not None,
         "persistence": persistence.is_available(),
+        "app_mode": APP_MODE,
+        "mcp_external_policy": MCP_EXTERNAL_POLICY,
         "timestamp": datetime.utcnow().isoformat(),
     }
     cap = _runtime_capacity_snapshot()
@@ -6878,18 +7645,28 @@ async def activity_log_route():
 
 @app.get("/", response_class=HTMLResponse)
 async def landing():
-    return Path("static/index.html").read_text()
+    return Path("static/index.html").read_text(encoding="utf-8")
 
 
 @app.get("/privacy", response_class=HTMLResponse)
 @app.get("/privacy-policy", response_class=HTMLResponse)
 async def privacy_policy():
-    return Path("static/privacy.html").read_text()
+    return Path("static/privacy.html").read_text(encoding="utf-8")
 
 
 @app.get("/panel", response_class=HTMLResponse)
 async def control_panel():
-    content = Path("static/panel.html").read_text()
+    content = Path("static/panel.html").read_text(encoding="utf-8")
+    runtime_boot = (
+        "<script>"
+        f"window.__APP_MODE__ = {json.dumps(APP_MODE)};"
+        f"window.__MCP_EXTERNAL_POLICY__ = {json.dumps(MCP_EXTERNAL_POLICY)};"
+        "</script>"
+    )
+    if "</head>" in content:
+        content = content.replace("</head>", runtime_boot + "\n</head>", 1)
+    else:
+        content = runtime_boot + "\n" + content
     return HTMLResponse(content=content, headers={
         "Cache-Control": "no-cache, no-store, must-revalidate",
         "Pragma": "no-cache",
@@ -6913,6 +7690,16 @@ async def mcp_sse_proxy(request: Request):
     We rewrite it to our public /mcp/messages/ route so the external
     client POSTs back through us.
     """
+    if _external_mcp_blocked():
+        return JSONResponse(
+            status_code=403,
+            content={
+                "error": "External MCP is disabled for this runtime",
+                "app_mode": APP_MODE,
+                "mcp_external_policy": MCP_EXTERNAL_POLICY,
+            },
+        )
+
     # Build the public base URL from the incoming request
     proto = request.headers.get("x-forwarded-proto", request.url.scheme)
     host = request.headers.get("x-forwarded-host") or request.headers.get("host", request.url.netloc)
@@ -7066,12 +7853,73 @@ async def mcp_sse_proxy(request: Request):
 @app.post("/mcp/messages")
 async def mcp_message_proxy(request: Request):
     """Proxy JSON-RPC messages from external client to capsule MCP server."""
+    if _external_mcp_blocked():
+        return JSONResponse(
+            status_code=403,
+            content={
+                "error": "External MCP is disabled for this runtime",
+                "app_mode": APP_MODE,
+                "mcp_external_policy": MCP_EXTERNAL_POLICY,
+            },
+        )
     session_id = request.query_params.get("session_id", "")
     body = await request.body()
     body = _normalize_mcp_jsonrpc_payload(body)
     content_type = request.headers.get("content-type", "application/json")
     _mcp_client_id = _extract_client_id(request)
     print(f"[MCP-PROXY] POST /mcp/message(s) session_id={session_id} client={_mcp_client_id} len={len(body)}")
+
+    rpc_payload = None
+    try:
+        rpc_payload = json.loads(body)
+    except Exception:
+        rpc_payload = None
+
+    if MCP_EXTERNAL_POLICY != "full" and isinstance(rpc_payload, dict):
+        if str(rpc_payload.get("method") or "") in ("initialize", "tools/list"):
+            handled = await _handle_streamable_rpc(rpc_payload, _mcp_client_id)
+            if handled is None:
+                return Response(status_code=202)
+            return JSONResponse(status_code=200, content=handled)
+
+    if MCP_EXTERNAL_POLICY != "full" and isinstance(rpc_payload, (dict, list)):
+        rpc_items = [rpc_payload] if isinstance(rpc_payload, dict) else [item for item in rpc_payload if isinstance(item, dict)]
+        violations = []
+        for item in rpc_items:
+            method = str(item.get("method") or "")
+            params = item.get("params", {})
+            if isinstance(params, str):
+                try:
+                    params = json.loads(params)
+                except Exception:
+                    params = {}
+            if not isinstance(params, dict):
+                params = {}
+            violation = _external_mcp_policy_violation(method, params)
+            if violation:
+                violations.append({"id": item.get("id"), **violation})
+
+        if violations:
+            if isinstance(rpc_payload, dict) and rpc_payload.get("id") is not None:
+                first = violations[0]
+                return JSONResponse(
+                    status_code=200,
+                    content=_rpc_error(
+                        rpc_payload.get("id"),
+                        first.get("code", -32004),
+                        first.get("message", "Blocked by external MCP policy"),
+                        first.get("data"),
+                    ),
+                )
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "error": violations[0].get("message") or "Blocked by external MCP policy",
+                    "violations": violations,
+                    "app_mode": APP_MODE,
+                    "mcp_external_policy": MCP_EXTERNAL_POLICY,
+                },
+            )
 
     # Extract tools/call payload(s) for activity tracking (single or batch).
     rpc_calls = [
@@ -7080,12 +7928,7 @@ async def mcp_message_proxy(request: Request):
     ]
 
     # Local proxy tools should work even for SSE-only MCP clients.
-    _local_proxy_tools = {
-        "agent_delegate", "agent_chat_inject", "agent_chat_sessions",
-        "agent_chat_result", "agent_chat_purge", "workflow_execute", "workflow_status", "workflow_history",
-        "hf_cache_status", "hf_cache_clear", "capsule_restart",
-        "persist_status", "persist_restore_revision",
-    }
+    _local_proxy_tools = _workflow_local_proxy_tool_names()
     if len(rpc_calls) == 1 and rpc_calls[0].get("tool") in _local_proxy_tools:
         call = rpc_calls[0]
         rpc_obj = {
@@ -7410,6 +8253,17 @@ async def mcp_streamable_http(request: Request):
     Accepts JSON-RPC requests and responds synchronously using the
     persistent internal MCP session (same one /api/tool uses).
     """
+    if _external_mcp_blocked():
+        return JSONResponse(
+            status_code=403,
+            content=_rpc_error(
+                None,
+                -32003,
+                "External MCP is disabled for this runtime",
+                {"app_mode": APP_MODE, "mcp_external_policy": MCP_EXTERNAL_POLICY},
+            ),
+        )
+
     body_bytes = await request.body()
     if not body_bytes:
         return JSONResponse(status_code=400, content={"error": "Empty body"})
@@ -7456,6 +8310,10 @@ async def _handle_streamable_rpc(obj: dict, client_id: str) -> dict | None:
     if not isinstance(params, dict):
         params = {}
 
+    violation = _external_mcp_policy_violation(method, params)
+    if violation:
+        return _rpc_error(rpc_id, violation.get("code", -32004), violation.get("message", "Blocked by external MCP policy"), violation.get("data"))
+
     # ── initialize ──
     if method == "initialize":
         session = await _ensure_session()
@@ -7476,7 +8334,7 @@ async def _handle_streamable_rpc(obj: dict, client_id: str) -> dict | None:
                     "prompts": {"listChanged": False},
                 },
                 "serverInfo": {"name": "champion-council", "version": "0.8.9"},
-                "instructions": _capsule_instructions or _fallback_instructions,
+                "instructions": (_capsule_instructions or _fallback_instructions) + _external_mcp_policy_note(),
             },
         }
 
@@ -7499,6 +8357,7 @@ async def _handle_streamable_rpc(obj: dict, client_id: str) -> dict | None:
                     td["inputSchema"] = schema if isinstance(schema, dict) else (schema.model_dump() if hasattr(schema, "model_dump") else {})
                 tools_list.append(td)
             tools_list = _agent_augment_tools_list(tools_list)
+            tools_list = _filter_external_mcp_tools_list(tools_list)
             return {"jsonrpc": "2.0", "id": rpc_id, "result": {"tools": tools_list}}
         except Exception as e:
             await _disconnect_mcp()
@@ -7636,6 +8495,22 @@ async def _handle_streamable_rpc(obj: dict, client_id: str) -> dict | None:
             if err_msg:
                 return _rpc_error(rpc_id, -32603, err_msg, payload)
             return {"jsonrpc": "2.0", "id": rpc_id, "result": {"content": [{"type": "text", "text": json.dumps(payload)}], "isError": False}}
+
+        env_control_proxy_payload = _env_control_local_proxy_payload(args)
+        if env_control_proxy_payload is not None:
+            err_msg = env_control_proxy_payload.get("error") if isinstance(env_control_proxy_payload, dict) else None
+            _broadcast_activity(tool_name, args, env_control_proxy_payload, 0, err_msg, source="external", client_id=client_id)
+            if err_msg:
+                return _rpc_error(rpc_id, -32603, err_msg, env_control_proxy_payload)
+            return {"jsonrpc": "2.0", "id": rpc_id, "result": {"content": [{"type": "text", "text": json.dumps(env_control_proxy_payload)}], "isError": False}}
+
+        product_bundle_payload = await _product_bundle_local_tool(tool_name, args)
+        if product_bundle_payload is not None:
+            err_msg = product_bundle_payload.get("error") if isinstance(product_bundle_payload, dict) else None
+            _broadcast_activity(tool_name, args, product_bundle_payload, 0, err_msg, source="external", client_id=client_id)
+            if err_msg:
+                return _rpc_error(rpc_id, -32603, err_msg, product_bundle_payload)
+            return {"jsonrpc": "2.0", "id": rpc_id, "result": {"content": [{"type": "text", "text": json.dumps(product_bundle_payload)}], "isError": False}}
 
         if tool_name == "workflow_status":
             execution_id = str(args.get("execution_id", "") or "").strip()
@@ -7918,4 +8793,4 @@ def _rpc_error(rpc_id, code: int, message: str, data=None) -> dict:
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=WEB_PORT)
+    uvicorn.run(app, host=WEB_HOST, port=WEB_PORT)

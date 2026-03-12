@@ -2429,8 +2429,101 @@
             height: 100%;
         }
         .env3d-label-shell {
-            max-width: min(220px, 28vw);
+            max-width: 176px;
             pointer-events: auto;
+        }
+        .envops-scene-surface-card {
+            width: 156px;
+            max-width: 156px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding: 6px;
+            border: 1px solid rgba(79, 255, 208, 0.18);
+            border-radius: 12px;
+            background: linear-gradient(180deg, rgba(8, 16, 26, 0.88), rgba(5, 10, 18, 0.94));
+            box-shadow: 0 8px 18px rgba(0, 0, 0, 0.24), 0 0 10px rgba(79, 255, 208, 0.06);
+            transform: scale(var(--env-surface-card-scale, 0.84));
+            transform-origin: center bottom;
+        }
+        .envops-scene-surface-card.ambient {
+            opacity: 0.5;
+        }
+        .envops-scene-surface-head {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            padding: 0 2px;
+            text-align: left;
+            color: #eef8ff;
+        }
+        .envops-scene-surface-foot {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            align-items: baseline;
+        }
+        .envops-scene-surface-title {
+            font-size: calc(12px / var(--env-surface-card-scale, 1));
+            font-weight: 700;
+            color: #f5fbff;
+            line-height: 1.2;
+        }
+        .envops-scene-surface-meta {
+            font-size: calc(12px / var(--env-surface-card-scale, 1));
+            line-height: 1.35;
+            color: rgba(224, 242, 255, 0.72);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .envops-scene-surface-preview {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 4 / 3;
+            overflow: hidden;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.08);
+            background: #ffffff;
+            box-shadow: inset 0 0 0 1px rgba(0,0,0,0.02);
+            padding: 0;
+        }
+        .envops-scene-surface-preview iframe {
+            width: 400%;
+            height: 400%;
+            border: 0;
+            display: block;
+            pointer-events: none;
+            background: #ffffff;
+            transform: scale(0.25);
+            transform-origin: top left;
+        }
+        .envops-scene-surface-preview-empty {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px;
+            color: #203040;
+            font-size: calc(12px / var(--env-surface-card-scale, 1));
+            text-align: center;
+        }
+        .envops-scene-surface-foot {
+            gap: 6px;
+            align-items: stretch;
+        }
+        .envops-scene-surface-settings {
+            flex: 1;
+            padding: 4px 7px;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.04);
+            color: #e6f5ff;
+            font-size: calc(12px / var(--env-surface-card-scale, 1));
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
         }
         .envops-scene-trigger {
             display: flex;
@@ -2493,86 +2586,15 @@
         .envops-scene-trigger:focus-visible .envops-scene-trigger-badge {
             display: block;
         }
-        .envops-scene-menu {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            width: min(100%, 680px);
-        }
-        .envops-scene-menu.compact {
-            gap: 6px;
-            width: min(280px, 42vw);
-        }
-        .envops-scene-menu-item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            width: 100%;
-            padding: 12px 14px;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 14px;
-            background: linear-gradient(180deg, rgba(10, 18, 28, 0.96), rgba(7, 12, 20, 0.98));
-            color: #edf8ff;
-            text-align: left;
-            text-transform: none;
-            letter-spacing: 0;
-            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
-        }
-        .envops-scene-menu-item.compact {
-            padding: 8px 10px;
-            border-radius: 12px;
-        }
-        .envops-scene-menu-item:hover {
-            background: linear-gradient(180deg, rgba(14, 24, 36, 0.98), rgba(8, 14, 22, 0.98));
-            color: #ffffff;
-        }
-        .envops-scene-menu-main {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            min-width: 0;
-            flex: 1;
-        }
-        .envops-scene-menu-copy {
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-            min-width: 0;
-            flex: 1;
-        }
-        .envops-scene-menu-icon {
-            font-size: 18px;
-            line-height: 1;
-        }
-        .envops-scene-menu-label {
-            font-size: 12px;
-            font-weight: 700;
-            color: #f8fdff;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .envops-scene-menu-note {
-            font-size: 10px;
-            color: rgba(224, 242, 255, 0.72);
-            line-height: 1.35;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .envops-scene-menu-target {
-            font-size: 8px;
-            letter-spacing: 1.2px;
-            text-transform: uppercase;
-            color: #7effd7;
-            white-space: nowrap;
-        }
         .envops-scene-panel-shell {
             position: absolute;
             inset: 0;
-            z-index: 26;
+            z-index: 40;
             pointer-events: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
         }
         .envops-scene-panel-backdrop {
             position: absolute;
@@ -2582,13 +2604,17 @@
             pointer-events: auto;
         }
         .envops-scene-panel {
-            position: absolute;
-            inset: 18px;
+            position: relative;
+            inset: auto;
+            width: min(1120px, calc(100% - 96px));
+            height: min(78vh, 860px);
+            max-height: calc(100% - 48px);
             display: flex;
             flex-direction: column;
-            border: 1px solid rgba(126, 255, 215, 0.14);
-            background: linear-gradient(180deg, rgba(8, 14, 21, 0.96), rgba(4, 8, 13, 0.98));
-            box-shadow: 0 22px 56px rgba(0, 0, 0, 0.42), 0 0 36px rgba(79, 255, 208, 0.08);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 18px;
+            background: rgba(10, 14, 19, 0.96);
+            box-shadow: 0 22px 56px rgba(0, 0, 0, 0.42);
             pointer-events: auto;
             overflow: hidden;
         }
@@ -2597,9 +2623,9 @@
             align-items: flex-start;
             justify-content: space-between;
             gap: 16px;
-            padding: 14px 16px;
+            padding: 10px 12px;
             border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-            background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0));
+            background: rgba(9, 13, 18, 0.92);
         }
         .envops-scene-panel-copy {
             min-width: 0;
@@ -2633,13 +2659,18 @@
             flex: 1;
             min-height: 0;
             overflow: auto;
-            padding: 16px;
+            padding: 0;
             color: var(--text);
+            background: #ffffff;
         }
         .envops-scene-panel-body iframe,
         .envops-scene-panel-body video,
         .envops-scene-panel-body img {
+            width: 100%;
+            height: 100%;
             max-width: 100%;
+            display: block;
+            border: 0;
         }
         .envops-scene-panel-empty {
             padding: 18px;
@@ -3005,6 +3036,14 @@
             pointer-events: none;
             z-index: 28;
         }
+        .envops-habitat.surface-active .envops-habitat-overlay-dock,
+        .envops-habitat.surface-active .envops-habitat-hud,
+        .envops-habitat.surface-active .envops-habitat-ops-rail,
+        .envops-habitat.surface-active .envops-habitat-scene-cockpit,
+        .envops-habitat.surface-active .env3d-label-shell {
+            opacity: 0;
+            pointer-events: none;
+        }
 
         .envops-habitat-hud-primary {
             color: var(--accent);
@@ -3224,9 +3263,6 @@
             .envops-scene-trigger-title,
             .envops-scene-trigger-meta,
             .envops-scene-trigger-badge,
-            .envops-scene-menu-label,
-            .envops-scene-menu-note,
-            .envops-scene-menu-target,
             .envops-scene-panel-kicker,
             .envops-scene-panel-meta,
             .envops-focus-kicker,
@@ -11139,7 +11175,7 @@
     <script src="/static/three.min.js"></script>
     <script src="/static/OrbitControls.js"></script>
     <script src="/static/CSS2DRenderer.js"></script>
-    <script src="/static/main.js?v=63"></script>
+    <script src="/static/main.js?v=67"></script>
 
     <!-- ═══════════════ DREAMER + GPU FLEET TAB JS ═══════════════ -->
     <script>

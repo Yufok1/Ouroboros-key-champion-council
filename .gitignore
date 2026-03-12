@@ -7,6 +7,8 @@ __pycache__/
 .env.*
 
 # Root runtime artifacts
+data/
+exports/
 capsule/.bag_state.json
 capsule/.mcp_server.log
 capsule/.relay_center.cmd

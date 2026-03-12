@@ -979,6 +979,8 @@
                 toolCounts: { enabled: totalTools, total: totalTools },
                 port: originPort,
                 mcpPort: healthResp.mcp_port || 8766,
+                appMode: healthResp.app_mode || 'development',
+                mcpPolicy: healthResp.mcp_external_policy || 'full',
                 uptime: uptimeMs,
                 categories: _cachedCategories,
                 version: healthResp.version || '0.8.9'
