@@ -1,0 +1,271 @@
+{
+  "pack_id": "kenney-mini-market",
+  "name": "Kenney Mini Market",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "Kenney Mini Market free 3D models from Kenney.",
+  "base_url": "/static/assets/packs/kenney-mini-market/",
+  "assets": [
+    {
+      "id": "bottle-return",
+      "file": "bottle-return.glb",
+      "name": "Bottle Return",
+      "category": "bottle",
+      "tags": [
+        "bottle",
+        "return",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cash-register",
+      "file": "cash-register.glb",
+      "name": "Cash Register",
+      "category": "cash",
+      "tags": [
+        "cash",
+        "register",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "character-employee",
+      "file": "character-employee.glb",
+      "name": "Character Employee",
+      "category": "character",
+      "tags": [
+        "character",
+        "employee",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "column",
+      "file": "column.glb",
+      "name": "Column",
+      "category": "column",
+      "tags": [
+        "column",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "display-bread",
+      "file": "display-bread.glb",
+      "name": "Display Bread",
+      "category": "display",
+      "tags": [
+        "display",
+        "bread",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "display-fruit",
+      "file": "display-fruit.glb",
+      "name": "Display Fruit",
+      "category": "display",
+      "tags": [
+        "display",
+        "fruit",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fence",
+      "file": "fence.glb",
+      "name": "Fence",
+      "category": "fence",
+      "tags": [
+        "fence",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fence-door-rotate",
+      "file": "fence-door-rotate.glb",
+      "name": "Fence Door Rotate",
+      "category": "fence",
+      "tags": [
+        "fence",
+        "door",
+        "rotate",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "floor",
+      "file": "floor.glb",
+      "name": "Floor",
+      "category": "floor",
+      "tags": [
+        "floor",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "freezer",
+      "file": "freezer.glb",
+      "name": "Freezer",
+      "category": "freezer",
+      "tags": [
+        "freezer",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "freezers-standing",
+      "file": "freezers-standing.glb",
+      "name": "Freezers Standing",
+      "category": "freezers",
+      "tags": [
+        "freezers",
+        "standing",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "shelf-bags",
+      "file": "shelf-bags.glb",
+      "name": "Shelf Bags",
+      "category": "shelf",
+      "tags": [
+        "shelf",
+        "bags",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "shelf-boxes",
+      "file": "shelf-boxes.glb",
+      "name": "Shelf Boxes",
+      "category": "shelf",
+      "tags": [
+        "shelf",
+        "boxes",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "shelf-end",
+      "file": "shelf-end.glb",
+      "name": "Shelf End",
+      "category": "shelf",
+      "tags": [
+        "shelf",
+        "end",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "shopping-basket",
+      "file": "shopping-basket.glb",
+      "name": "Shopping Basket",
+      "category": "shopping",
+      "tags": [
+        "shopping",
+        "basket",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "shopping-cart",
+      "file": "shopping-cart.glb",
+      "name": "Shopping Cart",
+      "category": "shopping",
+      "tags": [
+        "shopping",
+        "cart",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall",
+      "file": "wall.glb",
+      "name": "Wall",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-corner",
+      "file": "wall-corner.glb",
+      "name": "Wall Corner",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "corner",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-door-rotate",
+      "file": "wall-door-rotate.glb",
+      "name": "Wall Door Rotate",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "door",
+        "rotate",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-window",
+      "file": "wall-window.glb",
+      "name": "Wall Window",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "window",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    }
+  ]
+}

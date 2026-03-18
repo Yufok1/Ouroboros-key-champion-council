@@ -1,0 +1,2280 @@
+{
+  "pack_id": "kenney-marble-kit",
+  "name": "Kenney Marble Kit",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "Kenney Marble Kit free 3D models from Kenney.",
+  "base_url": "/static/assets/packs/kenney-marble-kit/",
+  "assets": [
+    {
+      "id": "banner",
+      "file": "banner.glb",
+      "name": "Banner",
+      "category": "banner",
+      "tags": [
+        "banner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "banner-double",
+      "file": "banner-double.glb",
+      "name": "Banner Double",
+      "category": "banner",
+      "tags": [
+        "banner",
+        "double",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "banner-double-high",
+      "file": "banner-double-high.glb",
+      "name": "Banner Double High",
+      "category": "banner",
+      "tags": [
+        "banner",
+        "double",
+        "high",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "banner-hanging",
+      "file": "banner-hanging.glb",
+      "name": "Banner Hanging",
+      "category": "banner",
+      "tags": [
+        "banner",
+        "hanging",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "banner-hanging-double",
+      "file": "banner-hanging-double.glb",
+      "name": "Banner Hanging Double",
+      "category": "banner",
+      "tags": [
+        "banner",
+        "hanging",
+        "double",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "banner-hanging-double-high",
+      "file": "banner-hanging-double-high.glb",
+      "name": "Banner Hanging Double High",
+      "category": "banner",
+      "tags": [
+        "banner",
+        "hanging",
+        "double",
+        "high",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "banner-hanging-high",
+      "file": "banner-hanging-high.glb",
+      "name": "Banner Hanging High",
+      "category": "banner",
+      "tags": [
+        "banner",
+        "hanging",
+        "high",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "banner-high",
+      "file": "banner-high.glb",
+      "name": "Banner High",
+      "category": "banner",
+      "tags": [
+        "banner",
+        "high",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bend",
+      "file": "bend.glb",
+      "name": "Bend",
+      "category": "bend",
+      "tags": [
+        "bend",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bend-large",
+      "file": "bend-large.glb",
+      "name": "Bend Large",
+      "category": "bend",
+      "tags": [
+        "bend",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bend-medium",
+      "file": "bend-medium.glb",
+      "name": "Bend Medium",
+      "category": "bend",
+      "tags": [
+        "bend",
+        "medium",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bend-solid-large",
+      "file": "bend-solid-large.glb",
+      "name": "Bend Solid Large",
+      "category": "bend",
+      "tags": [
+        "bend",
+        "solid",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bend-solid-medium",
+      "file": "bend-solid-medium.glb",
+      "name": "Bend Solid Medium",
+      "category": "bend",
+      "tags": [
+        "bend",
+        "solid",
+        "medium",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bump-a",
+      "file": "bump-a.glb",
+      "name": "Bump A",
+      "category": "bump",
+      "tags": [
+        "bump",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bump-b",
+      "file": "bump-b.glb",
+      "name": "Bump B",
+      "category": "bump",
+      "tags": [
+        "bump",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bump-c",
+      "file": "bump-c.glb",
+      "name": "Bump C",
+      "category": "bump",
+      "tags": [
+        "bump",
+        "c",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bump-d",
+      "file": "bump-d.glb",
+      "name": "Bump D",
+      "category": "bump",
+      "tags": [
+        "bump",
+        "d",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bump-solid-a",
+      "file": "bump-solid-a.glb",
+      "name": "Bump Solid A",
+      "category": "bump",
+      "tags": [
+        "bump",
+        "solid",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bump-solid-b",
+      "file": "bump-solid-b.glb",
+      "name": "Bump Solid B",
+      "category": "bump",
+      "tags": [
+        "bump",
+        "solid",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bump-solid-c",
+      "file": "bump-solid-c.glb",
+      "name": "Bump Solid C",
+      "category": "bump",
+      "tags": [
+        "bump",
+        "solid",
+        "c",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bump-solid-d",
+      "file": "bump-solid-d.glb",
+      "name": "Bump Solid D",
+      "category": "bump",
+      "tags": [
+        "bump",
+        "solid",
+        "d",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "corner",
+      "file": "corner.glb",
+      "name": "Corner",
+      "category": "corner",
+      "tags": [
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "corner-solid",
+      "file": "corner-solid.glb",
+      "name": "Corner Solid",
+      "category": "corner",
+      "tags": [
+        "corner",
+        "solid",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cross",
+      "file": "cross.glb",
+      "name": "Cross",
+      "category": "cross",
+      "tags": [
+        "cross",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "curve",
+      "file": "curve.glb",
+      "name": "Curve",
+      "category": "curve",
+      "tags": [
+        "curve",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "curve-large",
+      "file": "curve-large.glb",
+      "name": "Curve Large",
+      "category": "curve",
+      "tags": [
+        "curve",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "curve-solid",
+      "file": "curve-solid.glb",
+      "name": "Curve Solid",
+      "category": "curve",
+      "tags": [
+        "curve",
+        "solid",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "curve-solid-large",
+      "file": "curve-solid-large.glb",
+      "name": "Curve Solid Large",
+      "category": "curve",
+      "tags": [
+        "curve",
+        "solid",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "curve-wide",
+      "file": "curve-wide.glb",
+      "name": "Curve Wide",
+      "category": "curve",
+      "tags": [
+        "curve",
+        "wide",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "curve-wide-large",
+      "file": "curve-wide-large.glb",
+      "name": "Curve Wide Large",
+      "category": "curve",
+      "tags": [
+        "curve",
+        "wide",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "curve-wide-medium",
+      "file": "curve-wide-medium.glb",
+      "name": "Curve Wide Medium",
+      "category": "curve",
+      "tags": [
+        "curve",
+        "wide",
+        "medium",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "curve-wide-solid-large",
+      "file": "curve-wide-solid-large.glb",
+      "name": "Curve Wide Solid Large",
+      "category": "curve",
+      "tags": [
+        "curve",
+        "wide",
+        "solid",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "curve-wide-solid-medium",
+      "file": "curve-wide-solid-medium.glb",
+      "name": "Curve Wide Solid Medium",
+      "category": "curve",
+      "tags": [
+        "curve",
+        "wide",
+        "solid",
+        "medium",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "end-hole-rounded",
+      "file": "end-hole-rounded.glb",
+      "name": "End Hole Rounded",
+      "category": "end",
+      "tags": [
+        "end",
+        "hole",
+        "rounded",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "end-hole-square",
+      "file": "end-hole-square.glb",
+      "name": "End Hole Square",
+      "category": "end",
+      "tags": [
+        "end",
+        "hole",
+        "square",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "end-rounded",
+      "file": "end-rounded.glb",
+      "name": "End Rounded",
+      "category": "end",
+      "tags": [
+        "end",
+        "rounded",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "end-square",
+      "file": "end-square.glb",
+      "name": "End Square",
+      "category": "end",
+      "tags": [
+        "end",
+        "square",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fan-four",
+      "file": "fan-four.glb",
+      "name": "Fan Four",
+      "category": "fan",
+      "tags": [
+        "fan",
+        "four",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fan-simple-four",
+      "file": "fan-simple-four.glb",
+      "name": "Fan Simple Four",
+      "category": "fan",
+      "tags": [
+        "fan",
+        "simple",
+        "four",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fan-simple-two",
+      "file": "fan-simple-two.glb",
+      "name": "Fan Simple Two",
+      "category": "fan",
+      "tags": [
+        "fan",
+        "simple",
+        "two",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fan-standing-four",
+      "file": "fan-standing-four.glb",
+      "name": "Fan Standing Four",
+      "category": "fan",
+      "tags": [
+        "fan",
+        "standing",
+        "four",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fan-standing-two",
+      "file": "fan-standing-two.glb",
+      "name": "Fan Standing Two",
+      "category": "fan",
+      "tags": [
+        "fan",
+        "standing",
+        "two",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fan-two",
+      "file": "fan-two.glb",
+      "name": "Fan Two",
+      "category": "fan",
+      "tags": [
+        "fan",
+        "two",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "funnel",
+      "file": "funnel.glb",
+      "name": "Funnel",
+      "category": "funnel",
+      "tags": [
+        "funnel",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "funnel-long",
+      "file": "funnel-long.glb",
+      "name": "Funnel Long",
+      "category": "funnel",
+      "tags": [
+        "funnel",
+        "long",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "helix-half-left",
+      "file": "helix-half-left.glb",
+      "name": "Helix Half Left",
+      "category": "helix",
+      "tags": [
+        "helix",
+        "half",
+        "left",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "helix-half-right",
+      "file": "helix-half-right.glb",
+      "name": "Helix Half Right",
+      "category": "helix",
+      "tags": [
+        "helix",
+        "half",
+        "right",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "helix-large-half-left",
+      "file": "helix-large-half-left.glb",
+      "name": "Helix Large Half Left",
+      "category": "helix",
+      "tags": [
+        "helix",
+        "large",
+        "half",
+        "left",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "helix-large-half-right",
+      "file": "helix-large-half-right.glb",
+      "name": "Helix Large Half Right",
+      "category": "helix",
+      "tags": [
+        "helix",
+        "large",
+        "half",
+        "right",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "helix-large-left",
+      "file": "helix-large-left.glb",
+      "name": "Helix Large Left",
+      "category": "helix",
+      "tags": [
+        "helix",
+        "large",
+        "left",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "helix-large-quarter-left",
+      "file": "helix-large-quarter-left.glb",
+      "name": "Helix Large Quarter Left",
+      "category": "helix",
+      "tags": [
+        "helix",
+        "large",
+        "quarter",
+        "left",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "helix-large-quarter-right",
+      "file": "helix-large-quarter-right.glb",
+      "name": "Helix Large Quarter Right",
+      "category": "helix",
+      "tags": [
+        "helix",
+        "large",
+        "quarter",
+        "right",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "helix-large-right",
+      "file": "helix-large-right.glb",
+      "name": "Helix Large Right",
+      "category": "helix",
+      "tags": [
+        "helix",
+        "large",
+        "right",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "helix-left",
+      "file": "helix-left.glb",
+      "name": "Helix Left",
+      "category": "helix",
+      "tags": [
+        "helix",
+        "left",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "helix-quarter-left",
+      "file": "helix-quarter-left.glb",
+      "name": "Helix Quarter Left",
+      "category": "helix",
+      "tags": [
+        "helix",
+        "quarter",
+        "left",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "helix-quarter-right",
+      "file": "helix-quarter-right.glb",
+      "name": "Helix Quarter Right",
+      "category": "helix",
+      "tags": [
+        "helix",
+        "quarter",
+        "right",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "helix-right",
+      "file": "helix-right.glb",
+      "name": "Helix Right",
+      "category": "helix",
+      "tags": [
+        "helix",
+        "right",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "marble-center-butterfly-high",
+      "file": "marble-center-butterfly-high.glb",
+      "name": "Marble Center Butterfly High",
+      "category": "marble",
+      "tags": [
+        "marble",
+        "center",
+        "butterfly",
+        "high",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "marble-center-butterfly-low",
+      "file": "marble-center-butterfly-low.glb",
+      "name": "Marble Center Butterfly Low",
+      "category": "marble",
+      "tags": [
+        "marble",
+        "center",
+        "butterfly",
+        "low",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "marble-center-high",
+      "file": "marble-center-high.glb",
+      "name": "Marble Center High",
+      "category": "marble",
+      "tags": [
+        "marble",
+        "center",
+        "high",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "marble-center-low",
+      "file": "marble-center-low.glb",
+      "name": "Marble Center Low",
+      "category": "marble",
+      "tags": [
+        "marble",
+        "center",
+        "low",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "marble-high",
+      "file": "marble-high.glb",
+      "name": "Marble High",
+      "category": "marble",
+      "tags": [
+        "marble",
+        "high",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "marble-low",
+      "file": "marble-low.glb",
+      "name": "Marble Low",
+      "category": "marble",
+      "tags": [
+        "marble",
+        "low",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ramp-end-a",
+      "file": "ramp-end-a.glb",
+      "name": "Ramp End A",
+      "category": "ramp",
+      "tags": [
+        "ramp",
+        "end",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ramp-end-b",
+      "file": "ramp-end-b.glb",
+      "name": "Ramp End B",
+      "category": "ramp",
+      "tags": [
+        "ramp",
+        "end",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ramp-end-c",
+      "file": "ramp-end-c.glb",
+      "name": "Ramp End C",
+      "category": "ramp",
+      "tags": [
+        "ramp",
+        "end",
+        "c",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ramp-end-d",
+      "file": "ramp-end-d.glb",
+      "name": "Ramp End D",
+      "category": "ramp",
+      "tags": [
+        "ramp",
+        "end",
+        "d",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ramp-end-solid-a",
+      "file": "ramp-end-solid-a.glb",
+      "name": "Ramp End Solid A",
+      "category": "ramp",
+      "tags": [
+        "ramp",
+        "end",
+        "solid",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ramp-end-solid-b",
+      "file": "ramp-end-solid-b.glb",
+      "name": "Ramp End Solid B",
+      "category": "ramp",
+      "tags": [
+        "ramp",
+        "end",
+        "solid",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ramp-end-solid-c",
+      "file": "ramp-end-solid-c.glb",
+      "name": "Ramp End Solid C",
+      "category": "ramp",
+      "tags": [
+        "ramp",
+        "end",
+        "solid",
+        "c",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ramp-end-solid-d",
+      "file": "ramp-end-solid-d.glb",
+      "name": "Ramp End Solid D",
+      "category": "ramp",
+      "tags": [
+        "ramp",
+        "end",
+        "solid",
+        "d",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ramp-long-a",
+      "file": "ramp-long-a.glb",
+      "name": "Ramp Long A",
+      "category": "ramp",
+      "tags": [
+        "ramp",
+        "long",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ramp-long-b",
+      "file": "ramp-long-b.glb",
+      "name": "Ramp Long B",
+      "category": "ramp",
+      "tags": [
+        "ramp",
+        "long",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ramp-long-c",
+      "file": "ramp-long-c.glb",
+      "name": "Ramp Long C",
+      "category": "ramp",
+      "tags": [
+        "ramp",
+        "long",
+        "c",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ramp-long-d",
+      "file": "ramp-long-d.glb",
+      "name": "Ramp Long D",
+      "category": "ramp",
+      "tags": [
+        "ramp",
+        "long",
+        "d",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ramp-long-solid-a",
+      "file": "ramp-long-solid-a.glb",
+      "name": "Ramp Long Solid A",
+      "category": "ramp",
+      "tags": [
+        "ramp",
+        "long",
+        "solid",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ramp-long-solid-b",
+      "file": "ramp-long-solid-b.glb",
+      "name": "Ramp Long Solid B",
+      "category": "ramp",
+      "tags": [
+        "ramp",
+        "long",
+        "solid",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ramp-long-solid-c",
+      "file": "ramp-long-solid-c.glb",
+      "name": "Ramp Long Solid C",
+      "category": "ramp",
+      "tags": [
+        "ramp",
+        "long",
+        "solid",
+        "c",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ramp-long-solid-d",
+      "file": "ramp-long-solid-d.glb",
+      "name": "Ramp Long Solid D",
+      "category": "ramp",
+      "tags": [
+        "ramp",
+        "long",
+        "solid",
+        "d",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ramp-start-a",
+      "file": "ramp-start-a.glb",
+      "name": "Ramp Start A",
+      "category": "ramp",
+      "tags": [
+        "ramp",
+        "start",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ramp-start-b",
+      "file": "ramp-start-b.glb",
+      "name": "Ramp Start B",
+      "category": "ramp",
+      "tags": [
+        "ramp",
+        "start",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ramp-start-c",
+      "file": "ramp-start-c.glb",
+      "name": "Ramp Start C",
+      "category": "ramp",
+      "tags": [
+        "ramp",
+        "start",
+        "c",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ramp-start-d",
+      "file": "ramp-start-d.glb",
+      "name": "Ramp Start D",
+      "category": "ramp",
+      "tags": [
+        "ramp",
+        "start",
+        "d",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ramp-start-solid-a",
+      "file": "ramp-start-solid-a.glb",
+      "name": "Ramp Start Solid A",
+      "category": "ramp",
+      "tags": [
+        "ramp",
+        "start",
+        "solid",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ramp-start-solid-b",
+      "file": "ramp-start-solid-b.glb",
+      "name": "Ramp Start Solid B",
+      "category": "ramp",
+      "tags": [
+        "ramp",
+        "start",
+        "solid",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ramp-start-solid-c",
+      "file": "ramp-start-solid-c.glb",
+      "name": "Ramp Start Solid C",
+      "category": "ramp",
+      "tags": [
+        "ramp",
+        "start",
+        "solid",
+        "c",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ramp-start-solid-d",
+      "file": "ramp-start-solid-d.glb",
+      "name": "Ramp Start Solid D",
+      "category": "ramp",
+      "tags": [
+        "ramp",
+        "start",
+        "solid",
+        "d",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "s-curve-left",
+      "file": "s-curve-left.glb",
+      "name": "S Curve Left",
+      "category": "s",
+      "tags": [
+        "s",
+        "curve",
+        "left",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "s-curve-left-large",
+      "file": "s-curve-left-large.glb",
+      "name": "S Curve Left Large",
+      "category": "s",
+      "tags": [
+        "s",
+        "curve",
+        "left",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "s-curve-right",
+      "file": "s-curve-right.glb",
+      "name": "S Curve Right",
+      "category": "s",
+      "tags": [
+        "s",
+        "curve",
+        "right",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "s-curve-right-large",
+      "file": "s-curve-right-large.glb",
+      "name": "S Curve Right Large",
+      "category": "s",
+      "tags": [
+        "s",
+        "curve",
+        "right",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "s-curve-short-left-a",
+      "file": "s-curve-short-left-a.glb",
+      "name": "S Curve Short Left A",
+      "category": "s",
+      "tags": [
+        "s",
+        "curve",
+        "short",
+        "left",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "s-curve-short-left-b",
+      "file": "s-curve-short-left-b.glb",
+      "name": "S Curve Short Left B",
+      "category": "s",
+      "tags": [
+        "s",
+        "curve",
+        "short",
+        "left",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "s-curve-short-left-c",
+      "file": "s-curve-short-left-c.glb",
+      "name": "S Curve Short Left C",
+      "category": "s",
+      "tags": [
+        "s",
+        "curve",
+        "short",
+        "left",
+        "c",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "slant-a",
+      "file": "slant-a.glb",
+      "name": "Slant A",
+      "category": "slant",
+      "tags": [
+        "slant",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "slant-b",
+      "file": "slant-b.glb",
+      "name": "Slant B",
+      "category": "slant",
+      "tags": [
+        "slant",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "slant-c",
+      "file": "slant-c.glb",
+      "name": "Slant C",
+      "category": "slant",
+      "tags": [
+        "slant",
+        "c",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "slant-d",
+      "file": "slant-d.glb",
+      "name": "Slant D",
+      "category": "slant",
+      "tags": [
+        "slant",
+        "d",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "slant-long-a",
+      "file": "slant-long-a.glb",
+      "name": "Slant Long A",
+      "category": "slant",
+      "tags": [
+        "slant",
+        "long",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "slant-long-b",
+      "file": "slant-long-b.glb",
+      "name": "Slant Long B",
+      "category": "slant",
+      "tags": [
+        "slant",
+        "long",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "slant-long-c",
+      "file": "slant-long-c.glb",
+      "name": "Slant Long C",
+      "category": "slant",
+      "tags": [
+        "slant",
+        "long",
+        "c",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "slant-long-d",
+      "file": "slant-long-d.glb",
+      "name": "Slant Long D",
+      "category": "slant",
+      "tags": [
+        "slant",
+        "long",
+        "d",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "slant-solid-a",
+      "file": "slant-solid-a.glb",
+      "name": "Slant Solid A",
+      "category": "slant",
+      "tags": [
+        "slant",
+        "solid",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "slant-solid-b",
+      "file": "slant-solid-b.glb",
+      "name": "Slant Solid B",
+      "category": "slant",
+      "tags": [
+        "slant",
+        "solid",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "slant-solid-c",
+      "file": "slant-solid-c.glb",
+      "name": "Slant Solid C",
+      "category": "slant",
+      "tags": [
+        "slant",
+        "solid",
+        "c",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "slant-solid-d",
+      "file": "slant-solid-d.glb",
+      "name": "Slant Solid D",
+      "category": "slant",
+      "tags": [
+        "slant",
+        "solid",
+        "d",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "slant-solid-long-a",
+      "file": "slant-solid-long-a.glb",
+      "name": "Slant Solid Long A",
+      "category": "slant",
+      "tags": [
+        "slant",
+        "solid",
+        "long",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "slant-solid-long-b",
+      "file": "slant-solid-long-b.glb",
+      "name": "Slant Solid Long B",
+      "category": "slant",
+      "tags": [
+        "slant",
+        "solid",
+        "long",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "slant-solid-long-c",
+      "file": "slant-solid-long-c.glb",
+      "name": "Slant Solid Long C",
+      "category": "slant",
+      "tags": [
+        "slant",
+        "solid",
+        "long",
+        "c",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "slant-solid-long-d",
+      "file": "slant-solid-long-d.glb",
+      "name": "Slant Solid Long D",
+      "category": "slant",
+      "tags": [
+        "slant",
+        "solid",
+        "long",
+        "d",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "split",
+      "file": "split.glb",
+      "name": "Split",
+      "category": "split",
+      "tags": [
+        "split",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "split-double",
+      "file": "split-double.glb",
+      "name": "Split Double",
+      "category": "split",
+      "tags": [
+        "split",
+        "double",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "split-double-sides",
+      "file": "split-double-sides.glb",
+      "name": "Split Double Sides",
+      "category": "split",
+      "tags": [
+        "split",
+        "double",
+        "sides",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "split-double-sides-solid",
+      "file": "split-double-sides-solid.glb",
+      "name": "Split Double Sides Solid",
+      "category": "split",
+      "tags": [
+        "split",
+        "double",
+        "sides",
+        "solid",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "split-double-solid",
+      "file": "split-double-solid.glb",
+      "name": "Split Double Solid",
+      "category": "split",
+      "tags": [
+        "split",
+        "double",
+        "solid",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "split-large-left",
+      "file": "split-large-left.glb",
+      "name": "Split Large Left",
+      "category": "split",
+      "tags": [
+        "split",
+        "large",
+        "left",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "split-large-right",
+      "file": "split-large-right.glb",
+      "name": "Split Large Right",
+      "category": "split",
+      "tags": [
+        "split",
+        "large",
+        "right",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "split-large-solid-left",
+      "file": "split-large-solid-left.glb",
+      "name": "Split Large Solid Left",
+      "category": "split",
+      "tags": [
+        "split",
+        "large",
+        "solid",
+        "left",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "split-large-solid-right",
+      "file": "split-large-solid-right.glb",
+      "name": "Split Large Solid Right",
+      "category": "split",
+      "tags": [
+        "split",
+        "large",
+        "solid",
+        "right",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "split-left",
+      "file": "split-left.glb",
+      "name": "Split Left",
+      "category": "split",
+      "tags": [
+        "split",
+        "left",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "split-right",
+      "file": "split-right.glb",
+      "name": "Split Right",
+      "category": "split",
+      "tags": [
+        "split",
+        "right",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "split-solid-left",
+      "file": "split-solid-left.glb",
+      "name": "Split Solid Left",
+      "category": "split",
+      "tags": [
+        "split",
+        "solid",
+        "left",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "split-solid-right",
+      "file": "split-solid-right.glb",
+      "name": "Split Solid Right",
+      "category": "split",
+      "tags": [
+        "split",
+        "solid",
+        "right",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "straight",
+      "file": "straight.glb",
+      "name": "Straight",
+      "category": "straight",
+      "tags": [
+        "straight",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "straight-hole",
+      "file": "straight-hole.glb",
+      "name": "Straight Hole",
+      "category": "straight",
+      "tags": [
+        "straight",
+        "hole",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "straight-wide",
+      "file": "straight-wide.glb",
+      "name": "Straight Wide",
+      "category": "straight",
+      "tags": [
+        "straight",
+        "wide",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "straight-wide-hole",
+      "file": "straight-wide-hole.glb",
+      "name": "Straight Wide Hole",
+      "category": "straight",
+      "tags": [
+        "straight",
+        "wide",
+        "hole",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "support-color-four-bottom",
+      "file": "support-color-four-bottom.glb",
+      "name": "Support Color Four Bottom",
+      "category": "support",
+      "tags": [
+        "support",
+        "color",
+        "four",
+        "bottom",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "support-color-four-middle",
+      "file": "support-color-four-middle.glb",
+      "name": "Support Color Four Middle",
+      "category": "support",
+      "tags": [
+        "support",
+        "color",
+        "four",
+        "middle",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "support-color-four-top",
+      "file": "support-color-four-top.glb",
+      "name": "Support Color Four Top",
+      "category": "support",
+      "tags": [
+        "support",
+        "color",
+        "four",
+        "top",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "support-color-four-top-double",
+      "file": "support-color-four-top-double.glb",
+      "name": "Support Color Four Top Double",
+      "category": "support",
+      "tags": [
+        "support",
+        "color",
+        "four",
+        "top",
+        "double",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "support-color-single-bottom",
+      "file": "support-color-single-bottom.glb",
+      "name": "Support Color Single Bottom",
+      "category": "support",
+      "tags": [
+        "support",
+        "color",
+        "single",
+        "bottom",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "support-color-single-middle",
+      "file": "support-color-single-middle.glb",
+      "name": "Support Color Single Middle",
+      "category": "support",
+      "tags": [
+        "support",
+        "color",
+        "single",
+        "middle",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "support-color-single-top",
+      "file": "support-color-single-top.glb",
+      "name": "Support Color Single Top",
+      "category": "support",
+      "tags": [
+        "support",
+        "color",
+        "single",
+        "top",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "support-color-single-top-double",
+      "file": "support-color-single-top-double.glb",
+      "name": "Support Color Single Top Double",
+      "category": "support",
+      "tags": [
+        "support",
+        "color",
+        "single",
+        "top",
+        "double",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "support-color-two-bottom",
+      "file": "support-color-two-bottom.glb",
+      "name": "Support Color Two Bottom",
+      "category": "support",
+      "tags": [
+        "support",
+        "color",
+        "two",
+        "bottom",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "support-color-two-middle",
+      "file": "support-color-two-middle.glb",
+      "name": "Support Color Two Middle",
+      "category": "support",
+      "tags": [
+        "support",
+        "color",
+        "two",
+        "middle",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "support-color-two-top",
+      "file": "support-color-two-top.glb",
+      "name": "Support Color Two Top",
+      "category": "support",
+      "tags": [
+        "support",
+        "color",
+        "two",
+        "top",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "support-color-two-top-double",
+      "file": "support-color-two-top-double.glb",
+      "name": "Support Color Two Top Double",
+      "category": "support",
+      "tags": [
+        "support",
+        "color",
+        "two",
+        "top",
+        "double",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "support-four-bottom",
+      "file": "support-four-bottom.glb",
+      "name": "Support Four Bottom",
+      "category": "support",
+      "tags": [
+        "support",
+        "four",
+        "bottom",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "support-four-middle",
+      "file": "support-four-middle.glb",
+      "name": "Support Four Middle",
+      "category": "support",
+      "tags": [
+        "support",
+        "four",
+        "middle",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "support-four-top",
+      "file": "support-four-top.glb",
+      "name": "Support Four Top",
+      "category": "support",
+      "tags": [
+        "support",
+        "four",
+        "top",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "support-four-top-double",
+      "file": "support-four-top-double.glb",
+      "name": "Support Four Top Double",
+      "category": "support",
+      "tags": [
+        "support",
+        "four",
+        "top",
+        "double",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "support-single-bottom",
+      "file": "support-single-bottom.glb",
+      "name": "Support Single Bottom",
+      "category": "support",
+      "tags": [
+        "support",
+        "single",
+        "bottom",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "support-single-middle",
+      "file": "support-single-middle.glb",
+      "name": "Support Single Middle",
+      "category": "support",
+      "tags": [
+        "support",
+        "single",
+        "middle",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "support-single-top",
+      "file": "support-single-top.glb",
+      "name": "Support Single Top",
+      "category": "support",
+      "tags": [
+        "support",
+        "single",
+        "top",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "support-single-top-double",
+      "file": "support-single-top-double.glb",
+      "name": "Support Single Top Double",
+      "category": "support",
+      "tags": [
+        "support",
+        "single",
+        "top",
+        "double",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "support-two-bottom",
+      "file": "support-two-bottom.glb",
+      "name": "Support Two Bottom",
+      "category": "support",
+      "tags": [
+        "support",
+        "two",
+        "bottom",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "support-two-middle",
+      "file": "support-two-middle.glb",
+      "name": "Support Two Middle",
+      "category": "support",
+      "tags": [
+        "support",
+        "two",
+        "middle",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "support-two-top",
+      "file": "support-two-top.glb",
+      "name": "Support Two Top",
+      "category": "support",
+      "tags": [
+        "support",
+        "two",
+        "top",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "support-two-top-double",
+      "file": "support-two-top-double.glb",
+      "name": "Support Two Top Double",
+      "category": "support",
+      "tags": [
+        "support",
+        "two",
+        "top",
+        "double",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree",
+      "file": "tree.glb",
+      "name": "Tree",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-large",
+      "file": "tree-large.glb",
+      "name": "Tree Large",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "large",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-tall",
+      "file": "tree-tall.glb",
+      "name": "Tree Tall",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "tall",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-tall-large",
+      "file": "tree-tall-large.glb",
+      "name": "Tree Tall Large",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "tall",
+        "large",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tunnel",
+      "file": "tunnel.glb",
+      "name": "Tunnel",
+      "category": "tunnel",
+      "tags": [
+        "tunnel",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wave-a",
+      "file": "wave-a.glb",
+      "name": "Wave A",
+      "category": "wave",
+      "tags": [
+        "wave",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wave-b",
+      "file": "wave-b.glb",
+      "name": "Wave B",
+      "category": "wave",
+      "tags": [
+        "wave",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wave-c",
+      "file": "wave-c.glb",
+      "name": "Wave C",
+      "category": "wave",
+      "tags": [
+        "wave",
+        "c",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wave-solid-a",
+      "file": "wave-solid-a.glb",
+      "name": "Wave Solid A",
+      "category": "wave",
+      "tags": [
+        "wave",
+        "solid",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wave-solid-b",
+      "file": "wave-solid-b.glb",
+      "name": "Wave Solid B",
+      "category": "wave",
+      "tags": [
+        "wave",
+        "solid",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wave-solid-c",
+      "file": "wave-solid-c.glb",
+      "name": "Wave Solid C",
+      "category": "wave",
+      "tags": [
+        "wave",
+        "solid",
+        "c",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    }
+  ]
+}

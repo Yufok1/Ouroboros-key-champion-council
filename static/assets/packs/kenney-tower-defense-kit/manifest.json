@@ -1,0 +1,2339 @@
+{
+  "pack_id": "kenney-tower-defense-kit",
+  "name": "Kenney Tower Defense Kit",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "Kenney Tower Defense Kit free 3D models from Kenney.",
+  "base_url": "/static/assets/packs/kenney-tower-defense-kit/",
+  "assets": [
+    {
+      "id": "detail-crystal",
+      "file": "detail-crystal.glb",
+      "name": "Detail Crystal",
+      "category": "detail",
+      "tags": [
+        "detail",
+        "crystal",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "detail-crystal-large",
+      "file": "detail-crystal-large.glb",
+      "name": "Detail Crystal Large",
+      "category": "detail",
+      "tags": [
+        "detail",
+        "crystal",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "detail-dirt",
+      "file": "detail-dirt.glb",
+      "name": "Detail Dirt",
+      "category": "detail",
+      "tags": [
+        "detail",
+        "dirt",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "detail-dirt-large",
+      "file": "detail-dirt-large.glb",
+      "name": "Detail Dirt Large",
+      "category": "detail",
+      "tags": [
+        "detail",
+        "dirt",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "detail-rocks",
+      "file": "detail-rocks.glb",
+      "name": "Detail Rocks",
+      "category": "detail",
+      "tags": [
+        "detail",
+        "rocks",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "detail-rocks-large",
+      "file": "detail-rocks-large.glb",
+      "name": "Detail Rocks Large",
+      "category": "detail",
+      "tags": [
+        "detail",
+        "rocks",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "detail-tree",
+      "file": "detail-tree.glb",
+      "name": "Detail Tree",
+      "category": "detail",
+      "tags": [
+        "detail",
+        "tree",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "detail-tree-large",
+      "file": "detail-tree-large.glb",
+      "name": "Detail Tree Large",
+      "category": "detail",
+      "tags": [
+        "detail",
+        "tree",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "enemy-ufo-a",
+      "file": "enemy-ufo-a.glb",
+      "name": "Enemy Ufo A",
+      "category": "enemy",
+      "tags": [
+        "enemy",
+        "ufo",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "enemy-ufo-a-weapon",
+      "file": "enemy-ufo-a-weapon.glb",
+      "name": "Enemy Ufo A Weapon",
+      "category": "enemy",
+      "tags": [
+        "enemy",
+        "ufo",
+        "a",
+        "weapon",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "enemy-ufo-b",
+      "file": "enemy-ufo-b.glb",
+      "name": "Enemy Ufo B",
+      "category": "enemy",
+      "tags": [
+        "enemy",
+        "ufo",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "enemy-ufo-b-weapon",
+      "file": "enemy-ufo-b-weapon.glb",
+      "name": "Enemy Ufo B Weapon",
+      "category": "enemy",
+      "tags": [
+        "enemy",
+        "ufo",
+        "b",
+        "weapon",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "enemy-ufo-beam",
+      "file": "enemy-ufo-beam.glb",
+      "name": "Enemy Ufo Beam",
+      "category": "enemy",
+      "tags": [
+        "enemy",
+        "ufo",
+        "beam",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "enemy-ufo-beam-burst",
+      "file": "enemy-ufo-beam-burst.glb",
+      "name": "Enemy Ufo Beam Burst",
+      "category": "enemy",
+      "tags": [
+        "enemy",
+        "ufo",
+        "beam",
+        "burst",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "enemy-ufo-c",
+      "file": "enemy-ufo-c.glb",
+      "name": "Enemy Ufo C",
+      "category": "enemy",
+      "tags": [
+        "enemy",
+        "ufo",
+        "c",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "enemy-ufo-c-weapon",
+      "file": "enemy-ufo-c-weapon.glb",
+      "name": "Enemy Ufo C Weapon",
+      "category": "enemy",
+      "tags": [
+        "enemy",
+        "ufo",
+        "c",
+        "weapon",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "enemy-ufo-d",
+      "file": "enemy-ufo-d.glb",
+      "name": "Enemy Ufo D",
+      "category": "enemy",
+      "tags": [
+        "enemy",
+        "ufo",
+        "d",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "enemy-ufo-d-weapon",
+      "file": "enemy-ufo-d-weapon.glb",
+      "name": "Enemy Ufo D Weapon",
+      "category": "enemy",
+      "tags": [
+        "enemy",
+        "ufo",
+        "d",
+        "weapon",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "selection-a",
+      "file": "selection-a.glb",
+      "name": "Selection A",
+      "category": "selection",
+      "tags": [
+        "selection",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "selection-b",
+      "file": "selection-b.glb",
+      "name": "Selection B",
+      "category": "selection",
+      "tags": [
+        "selection",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-detail-crystal",
+      "file": "snow-detail-crystal.glb",
+      "name": "Snow Detail Crystal",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "detail",
+        "crystal",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-detail-crystal-large",
+      "file": "snow-detail-crystal-large.glb",
+      "name": "Snow Detail Crystal Large",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "detail",
+        "crystal",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-detail-dirt",
+      "file": "snow-detail-dirt.glb",
+      "name": "Snow Detail Dirt",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "detail",
+        "dirt",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-detail-dirt-large",
+      "file": "snow-detail-dirt-large.glb",
+      "name": "Snow Detail Dirt Large",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "detail",
+        "dirt",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-detail-rocks",
+      "file": "snow-detail-rocks.glb",
+      "name": "Snow Detail Rocks",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "detail",
+        "rocks",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-detail-rocks-large",
+      "file": "snow-detail-rocks-large.glb",
+      "name": "Snow Detail Rocks Large",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "detail",
+        "rocks",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-detail-tree",
+      "file": "snow-detail-tree.glb",
+      "name": "Snow Detail Tree",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "detail",
+        "tree",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-detail-tree-large",
+      "file": "snow-detail-tree-large.glb",
+      "name": "Snow Detail Tree Large",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "detail",
+        "tree",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-tile",
+      "file": "snow-tile.glb",
+      "name": "Snow Tile",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "tile",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-tile-bump",
+      "file": "snow-tile-bump.glb",
+      "name": "Snow Tile Bump",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "tile",
+        "bump",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-tile-corner-inner",
+      "file": "snow-tile-corner-inner.glb",
+      "name": "Snow Tile Corner Inner",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "tile",
+        "corner",
+        "inner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-tile-corner-large",
+      "file": "snow-tile-corner-large.glb",
+      "name": "Snow Tile Corner Large",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "tile",
+        "corner",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-tile-corner-outer",
+      "file": "snow-tile-corner-outer.glb",
+      "name": "Snow Tile Corner Outer",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "tile",
+        "corner",
+        "outer",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-tile-corner-round",
+      "file": "snow-tile-corner-round.glb",
+      "name": "Snow Tile Corner Round",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "tile",
+        "corner",
+        "round",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-tile-corner-square",
+      "file": "snow-tile-corner-square.glb",
+      "name": "Snow Tile Corner Square",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "tile",
+        "corner",
+        "square",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-tile-crossing",
+      "file": "snow-tile-crossing.glb",
+      "name": "Snow Tile Crossing",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "tile",
+        "crossing",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-tile-crystal",
+      "file": "snow-tile-crystal.glb",
+      "name": "Snow Tile Crystal",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "tile",
+        "crystal",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-tile-dirt",
+      "file": "snow-tile-dirt.glb",
+      "name": "Snow Tile Dirt",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "tile",
+        "dirt",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-tile-end",
+      "file": "snow-tile-end.glb",
+      "name": "Snow Tile End",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "tile",
+        "end",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-tile-end-round",
+      "file": "snow-tile-end-round.glb",
+      "name": "Snow Tile End Round",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "tile",
+        "end",
+        "round",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-tile-hill",
+      "file": "snow-tile-hill.glb",
+      "name": "Snow Tile Hill",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "tile",
+        "hill",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-tile-river-bridge",
+      "file": "snow-tile-river-bridge.glb",
+      "name": "Snow Tile River Bridge",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "tile",
+        "river",
+        "bridge",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-tile-river-corner",
+      "file": "snow-tile-river-corner.glb",
+      "name": "Snow Tile River Corner",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "tile",
+        "river",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-tile-river-slope",
+      "file": "snow-tile-river-slope.glb",
+      "name": "Snow Tile River Slope",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "tile",
+        "river",
+        "slope",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-tile-river-slope-large",
+      "file": "snow-tile-river-slope-large.glb",
+      "name": "Snow Tile River Slope Large",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "tile",
+        "river",
+        "slope",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-tile-river-straight",
+      "file": "snow-tile-river-straight.glb",
+      "name": "Snow Tile River Straight",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "tile",
+        "river",
+        "straight",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-tile-river-transition",
+      "file": "snow-tile-river-transition.glb",
+      "name": "Snow Tile River Transition",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "tile",
+        "river",
+        "transition",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-tile-river-waterfall",
+      "file": "snow-tile-river-waterfall.glb",
+      "name": "Snow Tile River Waterfall",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "tile",
+        "river",
+        "waterfall",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-tile-rock",
+      "file": "snow-tile-rock.glb",
+      "name": "Snow Tile Rock",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "tile",
+        "rock",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-tile-slope",
+      "file": "snow-tile-slope.glb",
+      "name": "Snow Tile Slope",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "tile",
+        "slope",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-tile-spawn",
+      "file": "snow-tile-spawn.glb",
+      "name": "Snow Tile Spawn",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "tile",
+        "spawn",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-tile-spawn-end",
+      "file": "snow-tile-spawn-end.glb",
+      "name": "Snow Tile Spawn End",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "tile",
+        "spawn",
+        "end",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-tile-spawn-end-round",
+      "file": "snow-tile-spawn-end-round.glb",
+      "name": "Snow Tile Spawn End Round",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "tile",
+        "spawn",
+        "end",
+        "round",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-tile-spawn-round",
+      "file": "snow-tile-spawn-round.glb",
+      "name": "Snow Tile Spawn Round",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "tile",
+        "spawn",
+        "round",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-tile-split",
+      "file": "snow-tile-split.glb",
+      "name": "Snow Tile Split",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "tile",
+        "split",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-tile-straight",
+      "file": "snow-tile-straight.glb",
+      "name": "Snow Tile Straight",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "tile",
+        "straight",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-tile-straight-slope",
+      "file": "snow-tile-straight-slope.glb",
+      "name": "Snow Tile Straight Slope",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "tile",
+        "straight",
+        "slope",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-tile-straight-slope-large",
+      "file": "snow-tile-straight-slope-large.glb",
+      "name": "Snow Tile Straight Slope Large",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "tile",
+        "straight",
+        "slope",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-tile-transition",
+      "file": "snow-tile-transition.glb",
+      "name": "Snow Tile Transition",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "tile",
+        "transition",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-tile-tree",
+      "file": "snow-tile-tree.glb",
+      "name": "Snow Tile Tree",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "tile",
+        "tree",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-tile-tree-double",
+      "file": "snow-tile-tree-double.glb",
+      "name": "Snow Tile Tree Double",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "tile",
+        "tree",
+        "double",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-tile-tree-quad",
+      "file": "snow-tile-tree-quad.glb",
+      "name": "Snow Tile Tree Quad",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "tile",
+        "tree",
+        "quad",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-tile-wide-corner",
+      "file": "snow-tile-wide-corner.glb",
+      "name": "Snow Tile Wide Corner",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "tile",
+        "wide",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-tile-wide-split",
+      "file": "snow-tile-wide-split.glb",
+      "name": "Snow Tile Wide Split",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "tile",
+        "wide",
+        "split",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-tile-wide-straight",
+      "file": "snow-tile-wide-straight.glb",
+      "name": "Snow Tile Wide Straight",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "tile",
+        "wide",
+        "straight",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-tile-wide-transition",
+      "file": "snow-tile-wide-transition.glb",
+      "name": "Snow Tile Wide Transition",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "tile",
+        "wide",
+        "transition",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-wood-structure",
+      "file": "snow-wood-structure.glb",
+      "name": "Snow Wood Structure",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "wood",
+        "structure",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-wood-structure-high",
+      "file": "snow-wood-structure-high.glb",
+      "name": "Snow Wood Structure High",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "wood",
+        "structure",
+        "high",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-wood-structure-high-part",
+      "file": "snow-wood-structure-high-part.glb",
+      "name": "Snow Wood Structure High Part",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "wood",
+        "structure",
+        "high",
+        "part",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-wood-structure-part",
+      "file": "snow-wood-structure-part.glb",
+      "name": "Snow Wood Structure Part",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "wood",
+        "structure",
+        "part",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spawn-round",
+      "file": "spawn-round.glb",
+      "name": "Spawn Round",
+      "category": "spawn",
+      "tags": [
+        "spawn",
+        "round",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spawn-square",
+      "file": "spawn-square.glb",
+      "name": "Spawn Square",
+      "category": "spawn",
+      "tags": [
+        "spawn",
+        "square",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tile",
+      "file": "tile.glb",
+      "name": "Tile",
+      "category": "tile",
+      "tags": [
+        "tile",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tile-bump",
+      "file": "tile-bump.glb",
+      "name": "Tile Bump",
+      "category": "tile",
+      "tags": [
+        "tile",
+        "bump",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tile-corner-inner",
+      "file": "tile-corner-inner.glb",
+      "name": "Tile Corner Inner",
+      "category": "tile",
+      "tags": [
+        "tile",
+        "corner",
+        "inner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tile-corner-large",
+      "file": "tile-corner-large.glb",
+      "name": "Tile Corner Large",
+      "category": "tile",
+      "tags": [
+        "tile",
+        "corner",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tile-corner-outer",
+      "file": "tile-corner-outer.glb",
+      "name": "Tile Corner Outer",
+      "category": "tile",
+      "tags": [
+        "tile",
+        "corner",
+        "outer",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tile-corner-round",
+      "file": "tile-corner-round.glb",
+      "name": "Tile Corner Round",
+      "category": "tile",
+      "tags": [
+        "tile",
+        "corner",
+        "round",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tile-corner-square",
+      "file": "tile-corner-square.glb",
+      "name": "Tile Corner Square",
+      "category": "tile",
+      "tags": [
+        "tile",
+        "corner",
+        "square",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tile-crossing",
+      "file": "tile-crossing.glb",
+      "name": "Tile Crossing",
+      "category": "tile",
+      "tags": [
+        "tile",
+        "crossing",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tile-crystal",
+      "file": "tile-crystal.glb",
+      "name": "Tile Crystal",
+      "category": "tile",
+      "tags": [
+        "tile",
+        "crystal",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tile-dirt",
+      "file": "tile-dirt.glb",
+      "name": "Tile Dirt",
+      "category": "tile",
+      "tags": [
+        "tile",
+        "dirt",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tile-end",
+      "file": "tile-end.glb",
+      "name": "Tile End",
+      "category": "tile",
+      "tags": [
+        "tile",
+        "end",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tile-end-round",
+      "file": "tile-end-round.glb",
+      "name": "Tile End Round",
+      "category": "tile",
+      "tags": [
+        "tile",
+        "end",
+        "round",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tile-hill",
+      "file": "tile-hill.glb",
+      "name": "Tile Hill",
+      "category": "tile",
+      "tags": [
+        "tile",
+        "hill",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tile-river-bridge",
+      "file": "tile-river-bridge.glb",
+      "name": "Tile River Bridge",
+      "category": "tile",
+      "tags": [
+        "tile",
+        "river",
+        "bridge",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tile-river-corner",
+      "file": "tile-river-corner.glb",
+      "name": "Tile River Corner",
+      "category": "tile",
+      "tags": [
+        "tile",
+        "river",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tile-river-slope",
+      "file": "tile-river-slope.glb",
+      "name": "Tile River Slope",
+      "category": "tile",
+      "tags": [
+        "tile",
+        "river",
+        "slope",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tile-river-slope-large",
+      "file": "tile-river-slope-large.glb",
+      "name": "Tile River Slope Large",
+      "category": "tile",
+      "tags": [
+        "tile",
+        "river",
+        "slope",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tile-river-straight",
+      "file": "tile-river-straight.glb",
+      "name": "Tile River Straight",
+      "category": "tile",
+      "tags": [
+        "tile",
+        "river",
+        "straight",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tile-river-transition",
+      "file": "tile-river-transition.glb",
+      "name": "Tile River Transition",
+      "category": "tile",
+      "tags": [
+        "tile",
+        "river",
+        "transition",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tile-river-waterfall",
+      "file": "tile-river-waterfall.glb",
+      "name": "Tile River Waterfall",
+      "category": "tile",
+      "tags": [
+        "tile",
+        "river",
+        "waterfall",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tile-rock",
+      "file": "tile-rock.glb",
+      "name": "Tile Rock",
+      "category": "tile",
+      "tags": [
+        "tile",
+        "rock",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tile-slope",
+      "file": "tile-slope.glb",
+      "name": "Tile Slope",
+      "category": "tile",
+      "tags": [
+        "tile",
+        "slope",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tile-spawn",
+      "file": "tile-spawn.glb",
+      "name": "Tile Spawn",
+      "category": "tile",
+      "tags": [
+        "tile",
+        "spawn",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tile-spawn-end",
+      "file": "tile-spawn-end.glb",
+      "name": "Tile Spawn End",
+      "category": "tile",
+      "tags": [
+        "tile",
+        "spawn",
+        "end",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tile-spawn-end-round",
+      "file": "tile-spawn-end-round.glb",
+      "name": "Tile Spawn End Round",
+      "category": "tile",
+      "tags": [
+        "tile",
+        "spawn",
+        "end",
+        "round",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tile-spawn-round",
+      "file": "tile-spawn-round.glb",
+      "name": "Tile Spawn Round",
+      "category": "tile",
+      "tags": [
+        "tile",
+        "spawn",
+        "round",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tile-split",
+      "file": "tile-split.glb",
+      "name": "Tile Split",
+      "category": "tile",
+      "tags": [
+        "tile",
+        "split",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tile-straight",
+      "file": "tile-straight.glb",
+      "name": "Tile Straight",
+      "category": "tile",
+      "tags": [
+        "tile",
+        "straight",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tile-straight-slope",
+      "file": "tile-straight-slope.glb",
+      "name": "Tile Straight Slope",
+      "category": "tile",
+      "tags": [
+        "tile",
+        "straight",
+        "slope",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tile-straight-slope-large",
+      "file": "tile-straight-slope-large.glb",
+      "name": "Tile Straight Slope Large",
+      "category": "tile",
+      "tags": [
+        "tile",
+        "straight",
+        "slope",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tile-transition",
+      "file": "tile-transition.glb",
+      "name": "Tile Transition",
+      "category": "tile",
+      "tags": [
+        "tile",
+        "transition",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tile-tree",
+      "file": "tile-tree.glb",
+      "name": "Tile Tree",
+      "category": "tile",
+      "tags": [
+        "tile",
+        "tree",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tile-tree-double",
+      "file": "tile-tree-double.glb",
+      "name": "Tile Tree Double",
+      "category": "tile",
+      "tags": [
+        "tile",
+        "tree",
+        "double",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tile-tree-quad",
+      "file": "tile-tree-quad.glb",
+      "name": "Tile Tree Quad",
+      "category": "tile",
+      "tags": [
+        "tile",
+        "tree",
+        "quad",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tile-wide-corner",
+      "file": "tile-wide-corner.glb",
+      "name": "Tile Wide Corner",
+      "category": "tile",
+      "tags": [
+        "tile",
+        "wide",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tile-wide-split",
+      "file": "tile-wide-split.glb",
+      "name": "Tile Wide Split",
+      "category": "tile",
+      "tags": [
+        "tile",
+        "wide",
+        "split",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tile-wide-straight",
+      "file": "tile-wide-straight.glb",
+      "name": "Tile Wide Straight",
+      "category": "tile",
+      "tags": [
+        "tile",
+        "wide",
+        "straight",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tile-wide-transition",
+      "file": "tile-wide-transition.glb",
+      "name": "Tile Wide Transition",
+      "category": "tile",
+      "tags": [
+        "tile",
+        "wide",
+        "transition",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-round-base",
+      "file": "tower-round-base.glb",
+      "name": "Tower Round Base",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "round",
+        "base",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-round-bottom-a",
+      "file": "tower-round-bottom-a.glb",
+      "name": "Tower Round Bottom A",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "round",
+        "bottom",
+        "a",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-round-bottom-b",
+      "file": "tower-round-bottom-b.glb",
+      "name": "Tower Round Bottom B",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "round",
+        "bottom",
+        "b",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-round-bottom-c",
+      "file": "tower-round-bottom-c.glb",
+      "name": "Tower Round Bottom C",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "round",
+        "bottom",
+        "c",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-round-build-a",
+      "file": "tower-round-build-a.glb",
+      "name": "Tower Round Build A",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "round",
+        "build",
+        "a",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-round-build-b",
+      "file": "tower-round-build-b.glb",
+      "name": "Tower Round Build B",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "round",
+        "build",
+        "b",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-round-build-c",
+      "file": "tower-round-build-c.glb",
+      "name": "Tower Round Build C",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "round",
+        "build",
+        "c",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-round-build-d",
+      "file": "tower-round-build-d.glb",
+      "name": "Tower Round Build D",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "round",
+        "build",
+        "d",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-round-build-e",
+      "file": "tower-round-build-e.glb",
+      "name": "Tower Round Build E",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "round",
+        "build",
+        "e",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-round-build-f",
+      "file": "tower-round-build-f.glb",
+      "name": "Tower Round Build F",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "round",
+        "build",
+        "f",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-round-crystals",
+      "file": "tower-round-crystals.glb",
+      "name": "Tower Round Crystals",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "round",
+        "crystals",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-round-middle-a",
+      "file": "tower-round-middle-a.glb",
+      "name": "Tower Round Middle A",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "round",
+        "middle",
+        "a",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-round-middle-b",
+      "file": "tower-round-middle-b.glb",
+      "name": "Tower Round Middle B",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "round",
+        "middle",
+        "b",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-round-middle-c",
+      "file": "tower-round-middle-c.glb",
+      "name": "Tower Round Middle C",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "round",
+        "middle",
+        "c",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-round-roof-a",
+      "file": "tower-round-roof-a.glb",
+      "name": "Tower Round Roof A",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "round",
+        "roof",
+        "a",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-round-roof-b",
+      "file": "tower-round-roof-b.glb",
+      "name": "Tower Round Roof B",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "round",
+        "roof",
+        "b",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-round-roof-c",
+      "file": "tower-round-roof-c.glb",
+      "name": "Tower Round Roof C",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "round",
+        "roof",
+        "c",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-round-top-a",
+      "file": "tower-round-top-a.glb",
+      "name": "Tower Round Top A",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "round",
+        "top",
+        "a",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-round-top-b",
+      "file": "tower-round-top-b.glb",
+      "name": "Tower Round Top B",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "round",
+        "top",
+        "b",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-round-top-c",
+      "file": "tower-round-top-c.glb",
+      "name": "Tower Round Top C",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "round",
+        "top",
+        "c",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-square-bottom-a",
+      "file": "tower-square-bottom-a.glb",
+      "name": "Tower Square Bottom A",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "square",
+        "bottom",
+        "a",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-square-bottom-b",
+      "file": "tower-square-bottom-b.glb",
+      "name": "Tower Square Bottom B",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "square",
+        "bottom",
+        "b",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-square-bottom-c",
+      "file": "tower-square-bottom-c.glb",
+      "name": "Tower Square Bottom C",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "square",
+        "bottom",
+        "c",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-square-build-a",
+      "file": "tower-square-build-a.glb",
+      "name": "Tower Square Build A",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "square",
+        "build",
+        "a",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-square-build-b",
+      "file": "tower-square-build-b.glb",
+      "name": "Tower Square Build B",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "square",
+        "build",
+        "b",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-square-build-c",
+      "file": "tower-square-build-c.glb",
+      "name": "Tower Square Build C",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "square",
+        "build",
+        "c",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-square-build-d",
+      "file": "tower-square-build-d.glb",
+      "name": "Tower Square Build D",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "square",
+        "build",
+        "d",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-square-build-e",
+      "file": "tower-square-build-e.glb",
+      "name": "Tower Square Build E",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "square",
+        "build",
+        "e",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-square-build-f",
+      "file": "tower-square-build-f.glb",
+      "name": "Tower Square Build F",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "square",
+        "build",
+        "f",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-square-middle-a",
+      "file": "tower-square-middle-a.glb",
+      "name": "Tower Square Middle A",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "square",
+        "middle",
+        "a",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-square-middle-b",
+      "file": "tower-square-middle-b.glb",
+      "name": "Tower Square Middle B",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "square",
+        "middle",
+        "b",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-square-middle-c",
+      "file": "tower-square-middle-c.glb",
+      "name": "Tower Square Middle C",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "square",
+        "middle",
+        "c",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-square-roof-a",
+      "file": "tower-square-roof-a.glb",
+      "name": "Tower Square Roof A",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "square",
+        "roof",
+        "a",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-square-roof-b",
+      "file": "tower-square-roof-b.glb",
+      "name": "Tower Square Roof B",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "square",
+        "roof",
+        "b",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-square-roof-c",
+      "file": "tower-square-roof-c.glb",
+      "name": "Tower Square Roof C",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "square",
+        "roof",
+        "c",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-square-top-a",
+      "file": "tower-square-top-a.glb",
+      "name": "Tower Square Top A",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "square",
+        "top",
+        "a",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-square-top-b",
+      "file": "tower-square-top-b.glb",
+      "name": "Tower Square Top B",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "square",
+        "top",
+        "b",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-square-top-c",
+      "file": "tower-square-top-c.glb",
+      "name": "Tower Square Top C",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "square",
+        "top",
+        "c",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "weapon-ammo-arrow",
+      "file": "weapon-ammo-arrow.glb",
+      "name": "Weapon Ammo Arrow",
+      "category": "weapon",
+      "tags": [
+        "weapon",
+        "ammo",
+        "arrow",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "weapon-ammo-boulder",
+      "file": "weapon-ammo-boulder.glb",
+      "name": "Weapon Ammo Boulder",
+      "category": "weapon",
+      "tags": [
+        "weapon",
+        "ammo",
+        "boulder",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "weapon-ammo-bullet",
+      "file": "weapon-ammo-bullet.glb",
+      "name": "Weapon Ammo Bullet",
+      "category": "weapon",
+      "tags": [
+        "weapon",
+        "ammo",
+        "bullet",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "weapon-ammo-cannonball",
+      "file": "weapon-ammo-cannonball.glb",
+      "name": "Weapon Ammo Cannonball",
+      "category": "weapon",
+      "tags": [
+        "weapon",
+        "ammo",
+        "cannonball",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "weapon-ballista",
+      "file": "weapon-ballista.glb",
+      "name": "Weapon Ballista",
+      "category": "weapon",
+      "tags": [
+        "weapon",
+        "ballista",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "weapon-cannon",
+      "file": "weapon-cannon.glb",
+      "name": "Weapon Cannon",
+      "category": "weapon",
+      "tags": [
+        "weapon",
+        "cannon",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "weapon-catapult",
+      "file": "weapon-catapult.glb",
+      "name": "Weapon Catapult",
+      "category": "weapon",
+      "tags": [
+        "weapon",
+        "catapult",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "weapon-turret",
+      "file": "weapon-turret.glb",
+      "name": "Weapon Turret",
+      "category": "weapon",
+      "tags": [
+        "weapon",
+        "turret",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wood-structure",
+      "file": "wood-structure.glb",
+      "name": "Wood Structure",
+      "category": "wood",
+      "tags": [
+        "wood",
+        "structure",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wood-structure-high",
+      "file": "wood-structure-high.glb",
+      "name": "Wood Structure High",
+      "category": "wood",
+      "tags": [
+        "wood",
+        "structure",
+        "high",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wood-structure-high-part",
+      "file": "wood-structure-high-part.glb",
+      "name": "Wood Structure High Part",
+      "category": "wood",
+      "tags": [
+        "wood",
+        "structure",
+        "high",
+        "part",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wood-structure-part",
+      "file": "wood-structure-part.glb",
+      "name": "Wood Structure Part",
+      "category": "wood",
+      "tags": [
+        "wood",
+        "structure",
+        "part",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    }
+  ]
+}

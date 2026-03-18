@@ -1,0 +1,1479 @@
+{
+  "pack_id": "kenney-retro-medieval-kit",
+  "name": "Kenney Retro Medieval Kit",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "Kenney Retro Medieval Kit free 3D models from Kenney.",
+  "base_url": "/static/assets/packs/kenney-retro-medieval-kit/",
+  "assets": [
+    {
+      "id": "barrels",
+      "file": "barrels.glb",
+      "name": "Barrels",
+      "category": "barrels",
+      "tags": [
+        "barrels",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "battlement",
+      "file": "battlement.glb",
+      "name": "Battlement",
+      "category": "battlement",
+      "tags": [
+        "battlement",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "battlement-corner-inner",
+      "file": "battlement-corner-inner.glb",
+      "name": "Battlement Corner Inner",
+      "category": "battlement",
+      "tags": [
+        "battlement",
+        "corner",
+        "inner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "battlement-corner-outer",
+      "file": "battlement-corner-outer.glb",
+      "name": "Battlement Corner Outer",
+      "category": "battlement",
+      "tags": [
+        "battlement",
+        "corner",
+        "outer",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "battlement-half",
+      "file": "battlement-half.glb",
+      "name": "Battlement Half",
+      "category": "battlement",
+      "tags": [
+        "battlement",
+        "half",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bricks",
+      "file": "bricks.glb",
+      "name": "Bricks",
+      "category": "bricks",
+      "tags": [
+        "bricks",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "column",
+      "file": "column.glb",
+      "name": "Column",
+      "category": "column",
+      "tags": [
+        "column",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "column-damaged",
+      "file": "column-damaged.glb",
+      "name": "Column Damaged",
+      "category": "column",
+      "tags": [
+        "column",
+        "damaged",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "column-paint",
+      "file": "column-paint.glb",
+      "name": "Column Paint",
+      "category": "column",
+      "tags": [
+        "column",
+        "paint",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "column-paint-damaged",
+      "file": "column-paint-damaged.glb",
+      "name": "Column Paint Damaged",
+      "category": "column",
+      "tags": [
+        "column",
+        "paint",
+        "damaged",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "column-wood",
+      "file": "column-wood.glb",
+      "name": "Column Wood",
+      "category": "column",
+      "tags": [
+        "column",
+        "wood",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "detail-barrel",
+      "file": "detail-barrel.glb",
+      "name": "Detail Barrel",
+      "category": "detail",
+      "tags": [
+        "detail",
+        "barrel",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "detail-crate",
+      "file": "detail-crate.glb",
+      "name": "Detail Crate",
+      "category": "detail",
+      "tags": [
+        "detail",
+        "crate",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "detail-crate-ropes",
+      "file": "detail-crate-ropes.glb",
+      "name": "Detail Crate Ropes",
+      "category": "detail",
+      "tags": [
+        "detail",
+        "crate",
+        "ropes",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "detail-crate-small",
+      "file": "detail-crate-small.glb",
+      "name": "Detail Crate Small",
+      "category": "detail",
+      "tags": [
+        "detail",
+        "crate",
+        "small",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "dock-corner",
+      "file": "dock-corner.glb",
+      "name": "Dock Corner",
+      "category": "dock",
+      "tags": [
+        "dock",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "dock-side",
+      "file": "dock-side.glb",
+      "name": "Dock Side",
+      "category": "dock",
+      "tags": [
+        "dock",
+        "side",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fence",
+      "file": "fence.glb",
+      "name": "Fence",
+      "category": "fence",
+      "tags": [
+        "fence",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fence-top",
+      "file": "fence-top.glb",
+      "name": "Fence Top",
+      "category": "fence",
+      "tags": [
+        "fence",
+        "top",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fence-wood",
+      "file": "fence-wood.glb",
+      "name": "Fence Wood",
+      "category": "fence",
+      "tags": [
+        "fence",
+        "wood",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "floor",
+      "file": "floor.glb",
+      "name": "Floor",
+      "category": "floor",
+      "tags": [
+        "floor",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "floor-flat",
+      "file": "floor-flat.glb",
+      "name": "Floor Flat",
+      "category": "floor",
+      "tags": [
+        "floor",
+        "flat",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "floor-stairs",
+      "file": "floor-stairs.glb",
+      "name": "Floor Stairs",
+      "category": "floor",
+      "tags": [
+        "floor",
+        "stairs",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "floor-stairs-corner-inner",
+      "file": "floor-stairs-corner-inner.glb",
+      "name": "Floor Stairs Corner Inner",
+      "category": "floor",
+      "tags": [
+        "floor",
+        "stairs",
+        "corner",
+        "inner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "floor-stairs-corner-outer",
+      "file": "floor-stairs-corner-outer.glb",
+      "name": "Floor Stairs Corner Outer",
+      "category": "floor",
+      "tags": [
+        "floor",
+        "stairs",
+        "corner",
+        "outer",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "floor-steps",
+      "file": "floor-steps.glb",
+      "name": "Floor Steps",
+      "category": "floor",
+      "tags": [
+        "floor",
+        "steps",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "floor-steps-corner-inner",
+      "file": "floor-steps-corner-inner.glb",
+      "name": "Floor Steps Corner Inner",
+      "category": "floor",
+      "tags": [
+        "floor",
+        "steps",
+        "corner",
+        "inner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "floor-steps-corner-outer",
+      "file": "floor-steps-corner-outer.glb",
+      "name": "Floor Steps Corner Outer",
+      "category": "floor",
+      "tags": [
+        "floor",
+        "steps",
+        "corner",
+        "outer",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ladder",
+      "file": "ladder.glb",
+      "name": "Ladder",
+      "category": "ladder",
+      "tags": [
+        "ladder",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "overhang",
+      "file": "overhang.glb",
+      "name": "Overhang",
+      "category": "overhang",
+      "tags": [
+        "overhang",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "overhang-fence",
+      "file": "overhang-fence.glb",
+      "name": "Overhang Fence",
+      "category": "overhang",
+      "tags": [
+        "overhang",
+        "fence",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "overhang-round",
+      "file": "overhang-round.glb",
+      "name": "Overhang Round",
+      "category": "overhang",
+      "tags": [
+        "overhang",
+        "round",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "overhang-round-railing",
+      "file": "overhang-round-railing.glb",
+      "name": "Overhang Round Railing",
+      "category": "overhang",
+      "tags": [
+        "overhang",
+        "round",
+        "railing",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pulley",
+      "file": "pulley.glb",
+      "name": "Pulley",
+      "category": "pulley",
+      "tags": [
+        "pulley",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pulley-crate",
+      "file": "pulley-crate.glb",
+      "name": "Pulley Crate",
+      "category": "pulley",
+      "tags": [
+        "pulley",
+        "crate",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roof",
+      "file": "roof.glb",
+      "name": "Roof",
+      "category": "roof",
+      "tags": [
+        "roof",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roof-corner",
+      "file": "roof-corner.glb",
+      "name": "Roof Corner",
+      "category": "roof",
+      "tags": [
+        "roof",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roof-edge",
+      "file": "roof-edge.glb",
+      "name": "Roof Edge",
+      "category": "roof",
+      "tags": [
+        "roof",
+        "edge",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roof-high-side",
+      "file": "roof-high-side.glb",
+      "name": "Roof High Side",
+      "category": "roof",
+      "tags": [
+        "roof",
+        "high",
+        "side",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roof-high-side-corner",
+      "file": "roof-high-side-corner.glb",
+      "name": "Roof High Side Corner",
+      "category": "roof",
+      "tags": [
+        "roof",
+        "high",
+        "side",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roof-high-side-corner-inner",
+      "file": "roof-high-side-corner-inner.glb",
+      "name": "Roof High Side Corner Inner",
+      "category": "roof",
+      "tags": [
+        "roof",
+        "high",
+        "side",
+        "corner",
+        "inner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roof-side",
+      "file": "roof-side.glb",
+      "name": "Roof Side",
+      "category": "roof",
+      "tags": [
+        "roof",
+        "side",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roof-side-corner",
+      "file": "roof-side-corner.glb",
+      "name": "Roof Side Corner",
+      "category": "roof",
+      "tags": [
+        "roof",
+        "side",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roof-side-corner-inner",
+      "file": "roof-side-corner-inner.glb",
+      "name": "Roof Side Corner Inner",
+      "category": "roof",
+      "tags": [
+        "roof",
+        "side",
+        "corner",
+        "inner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stairs-corner",
+      "file": "stairs-corner.glb",
+      "name": "Stairs Corner",
+      "category": "stairs",
+      "tags": [
+        "stairs",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stairs-stone",
+      "file": "stairs-stone.glb",
+      "name": "Stairs Stone",
+      "category": "stairs",
+      "tags": [
+        "stairs",
+        "stone",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stairs-wood",
+      "file": "stairs-wood.glb",
+      "name": "Stairs Wood",
+      "category": "stairs",
+      "tags": [
+        "stairs",
+        "wood",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure",
+      "file": "structure.glb",
+      "name": "Structure",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure-cross",
+      "file": "structure-cross.glb",
+      "name": "Structure Cross",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "cross",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure-pole",
+      "file": "structure-pole.glb",
+      "name": "Structure Pole",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "pole",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure-poles",
+      "file": "structure-poles.glb",
+      "name": "Structure Poles",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "poles",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure-wall",
+      "file": "structure-wall.glb",
+      "name": "Structure Wall",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "wall",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure-wall-cross",
+      "file": "structure-wall-cross.glb",
+      "name": "Structure Wall Cross",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "wall",
+        "cross",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower",
+      "file": "tower.glb",
+      "name": "Tower",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-base",
+      "file": "tower-base.glb",
+      "name": "Tower Base",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "base",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-edge",
+      "file": "tower-edge.glb",
+      "name": "Tower Edge",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "edge",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-paint",
+      "file": "tower-paint.glb",
+      "name": "Tower Paint",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "paint",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-paint-base",
+      "file": "tower-paint-base.glb",
+      "name": "Tower Paint Base",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "paint",
+        "base",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-top",
+      "file": "tower-top.glb",
+      "name": "Tower Top",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "top",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-large",
+      "file": "tree-large.glb",
+      "name": "Tree Large",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "large",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-shrub",
+      "file": "tree-shrub.glb",
+      "name": "Tree Shrub",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "shrub",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall",
+      "file": "wall.glb",
+      "name": "Wall",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-detail",
+      "file": "wall-detail.glb",
+      "name": "Wall Detail",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "detail",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-door",
+      "file": "wall-door.glb",
+      "name": "Wall Door",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "door",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-flat-gate",
+      "file": "wall-flat-gate.glb",
+      "name": "Wall Flat Gate",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "flat",
+        "gate",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-fortified",
+      "file": "wall-fortified.glb",
+      "name": "Wall Fortified",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "fortified",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-fortified-door",
+      "file": "wall-fortified-door.glb",
+      "name": "Wall Fortified Door",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "fortified",
+        "door",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-fortified-gate",
+      "file": "wall-fortified-gate.glb",
+      "name": "Wall Fortified Gate",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "fortified",
+        "gate",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-fortified-gate-half",
+      "file": "wall-fortified-gate-half.glb",
+      "name": "Wall Fortified Gate Half",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "fortified",
+        "gate",
+        "half",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-fortified-half",
+      "file": "wall-fortified-half.glb",
+      "name": "Wall Fortified Half",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "fortified",
+        "half",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-fortified-paint",
+      "file": "wall-fortified-paint.glb",
+      "name": "Wall Fortified Paint",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "fortified",
+        "paint",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-fortified-paint-door",
+      "file": "wall-fortified-paint-door.glb",
+      "name": "Wall Fortified Paint Door",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "fortified",
+        "paint",
+        "door",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-fortified-paint-gate",
+      "file": "wall-fortified-paint-gate.glb",
+      "name": "Wall Fortified Paint Gate",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "fortified",
+        "paint",
+        "gate",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-fortified-paint-half",
+      "file": "wall-fortified-paint-half.glb",
+      "name": "Wall Fortified Paint Half",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "fortified",
+        "paint",
+        "half",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-fortified-paint-window",
+      "file": "wall-fortified-paint-window.glb",
+      "name": "Wall Fortified Paint Window",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "fortified",
+        "paint",
+        "window",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-fortified-window",
+      "file": "wall-fortified-window.glb",
+      "name": "Wall Fortified Window",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "fortified",
+        "window",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-gate",
+      "file": "wall-gate.glb",
+      "name": "Wall Gate",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "gate",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-gate-half",
+      "file": "wall-gate-half.glb",
+      "name": "Wall Gate Half",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "gate",
+        "half",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-half",
+      "file": "wall-half.glb",
+      "name": "Wall Half",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "half",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-low",
+      "file": "wall-low.glb",
+      "name": "Wall Low",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "low",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-paint",
+      "file": "wall-paint.glb",
+      "name": "Wall Paint",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "paint",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-paint-detail",
+      "file": "wall-paint-detail.glb",
+      "name": "Wall Paint Detail",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "paint",
+        "detail",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-paint-door",
+      "file": "wall-paint-door.glb",
+      "name": "Wall Paint Door",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "paint",
+        "door",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-paint-flat",
+      "file": "wall-paint-flat.glb",
+      "name": "Wall Paint Flat",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "paint",
+        "flat",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-paint-gate",
+      "file": "wall-paint-gate.glb",
+      "name": "Wall Paint Gate",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "paint",
+        "gate",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-paint-half",
+      "file": "wall-paint-half.glb",
+      "name": "Wall Paint Half",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "paint",
+        "half",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-paint-window",
+      "file": "wall-paint-window.glb",
+      "name": "Wall Paint Window",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "paint",
+        "window",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-pane",
+      "file": "wall-pane.glb",
+      "name": "Wall Pane",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "pane",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-pane-door",
+      "file": "wall-pane-door.glb",
+      "name": "Wall Pane Door",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "pane",
+        "door",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-pane-paint",
+      "file": "wall-pane-paint.glb",
+      "name": "Wall Pane Paint",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "pane",
+        "paint",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-pane-paint-door",
+      "file": "wall-pane-paint-door.glb",
+      "name": "Wall Pane Paint Door",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "pane",
+        "paint",
+        "door",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-pane-paint-window",
+      "file": "wall-pane-paint-window.glb",
+      "name": "Wall Pane Paint Window",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "pane",
+        "paint",
+        "window",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-pane-painted-wood",
+      "file": "wall-pane-painted-wood.glb",
+      "name": "Wall Pane Painted Wood",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "pane",
+        "painted",
+        "wood",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-pane-painted-wood-door",
+      "file": "wall-pane-painted-wood-door.glb",
+      "name": "Wall Pane Painted Wood Door",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "pane",
+        "painted",
+        "wood",
+        "door",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-pane-painted-wood-window",
+      "file": "wall-pane-painted-wood-window.glb",
+      "name": "Wall Pane Painted Wood Window",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "pane",
+        "painted",
+        "wood",
+        "window",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-pane-window",
+      "file": "wall-pane-window.glb",
+      "name": "Wall Pane Window",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "pane",
+        "window",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-pane-wood",
+      "file": "wall-pane-wood.glb",
+      "name": "Wall Pane Wood",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "pane",
+        "wood",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-pane-wood-door",
+      "file": "wall-pane-wood-door.glb",
+      "name": "Wall Pane Wood Door",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "pane",
+        "wood",
+        "door",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-pane-wood-window",
+      "file": "wall-pane-wood-window.glb",
+      "name": "Wall Pane Wood Window",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "pane",
+        "wood",
+        "window",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-window",
+      "file": "wall-window.glb",
+      "name": "Wall Window",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "window",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "water",
+      "file": "water.glb",
+      "name": "Water",
+      "category": "water",
+      "tags": [
+        "water",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wood-floor",
+      "file": "wood-floor.glb",
+      "name": "Wood Floor",
+      "category": "wood",
+      "tags": [
+        "wood",
+        "floor",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wood-floor-half",
+      "file": "wood-floor-half.glb",
+      "name": "Wood Floor Half",
+      "category": "wood",
+      "tags": [
+        "wood",
+        "floor",
+        "half",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wood-floor-quarter",
+      "file": "wood-floor-quarter.glb",
+      "name": "Wood Floor Quarter",
+      "category": "wood",
+      "tags": [
+        "wood",
+        "floor",
+        "quarter",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wood-floor-railing",
+      "file": "wood-floor-railing.glb",
+      "name": "Wood Floor Railing",
+      "category": "wood",
+      "tags": [
+        "wood",
+        "floor",
+        "railing",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    }
+  ]
+}

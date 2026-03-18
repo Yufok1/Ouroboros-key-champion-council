@@ -1,0 +1,1362 @@
+{
+  "pack_id": "kenney-holiday-kit",
+  "name": "Kenney Holiday Kit",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "Kenney Holiday Kit free 3D models from Kenney.",
+  "base_url": "/static/assets/packs/kenney-holiday-kit/",
+  "assets": [
+    {
+      "id": "bench",
+      "file": "bench.glb",
+      "name": "Bench",
+      "category": "bench",
+      "tags": [
+        "bench",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bench-short",
+      "file": "bench-short.glb",
+      "name": "Bench Short",
+      "category": "bench",
+      "tags": [
+        "bench",
+        "short",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cabin-corner",
+      "file": "cabin-corner.glb",
+      "name": "Cabin Corner",
+      "category": "cabin",
+      "tags": [
+        "cabin",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cabin-corner-bottom",
+      "file": "cabin-corner-bottom.glb",
+      "name": "Cabin Corner Bottom",
+      "category": "cabin",
+      "tags": [
+        "cabin",
+        "corner",
+        "bottom",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cabin-corner-logs",
+      "file": "cabin-corner-logs.glb",
+      "name": "Cabin Corner Logs",
+      "category": "cabin",
+      "tags": [
+        "cabin",
+        "corner",
+        "logs",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cabin-door-rotate",
+      "file": "cabin-door-rotate.glb",
+      "name": "Cabin Door Rotate",
+      "category": "cabin",
+      "tags": [
+        "cabin",
+        "door",
+        "rotate",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cabin-doorway",
+      "file": "cabin-doorway.glb",
+      "name": "Cabin Doorway",
+      "category": "cabin",
+      "tags": [
+        "cabin",
+        "doorway",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cabin-doorway-center",
+      "file": "cabin-doorway-center.glb",
+      "name": "Cabin Doorway Center",
+      "category": "cabin",
+      "tags": [
+        "cabin",
+        "doorway",
+        "center",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cabin-doorway-left",
+      "file": "cabin-doorway-left.glb",
+      "name": "Cabin Doorway Left",
+      "category": "cabin",
+      "tags": [
+        "cabin",
+        "doorway",
+        "left",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cabin-doorway-right",
+      "file": "cabin-doorway-right.glb",
+      "name": "Cabin Doorway Right",
+      "category": "cabin",
+      "tags": [
+        "cabin",
+        "doorway",
+        "right",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cabin-fence",
+      "file": "cabin-fence.glb",
+      "name": "Cabin Fence",
+      "category": "cabin",
+      "tags": [
+        "cabin",
+        "fence",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cabin-overhang-door-rotate",
+      "file": "cabin-overhang-door-rotate.glb",
+      "name": "Cabin Overhang Door Rotate",
+      "category": "cabin",
+      "tags": [
+        "cabin",
+        "overhang",
+        "door",
+        "rotate",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cabin-overhang-doorway",
+      "file": "cabin-overhang-doorway.glb",
+      "name": "Cabin Overhang Doorway",
+      "category": "cabin",
+      "tags": [
+        "cabin",
+        "overhang",
+        "doorway",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cabin-roof",
+      "file": "cabin-roof.glb",
+      "name": "Cabin Roof",
+      "category": "cabin",
+      "tags": [
+        "cabin",
+        "roof",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cabin-roof-chimney",
+      "file": "cabin-roof-chimney.glb",
+      "name": "Cabin Roof Chimney",
+      "category": "cabin",
+      "tags": [
+        "cabin",
+        "roof",
+        "chimney",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cabin-roof-corner",
+      "file": "cabin-roof-corner.glb",
+      "name": "Cabin Roof Corner",
+      "category": "cabin",
+      "tags": [
+        "cabin",
+        "roof",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cabin-roof-dormer",
+      "file": "cabin-roof-dormer.glb",
+      "name": "Cabin Roof Dormer",
+      "category": "cabin",
+      "tags": [
+        "cabin",
+        "roof",
+        "dormer",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cabin-roof-point",
+      "file": "cabin-roof-point.glb",
+      "name": "Cabin Roof Point",
+      "category": "cabin",
+      "tags": [
+        "cabin",
+        "roof",
+        "point",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cabin-roof-snow",
+      "file": "cabin-roof-snow.glb",
+      "name": "Cabin Roof Snow",
+      "category": "cabin",
+      "tags": [
+        "cabin",
+        "roof",
+        "snow",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cabin-roof-snow-chimney",
+      "file": "cabin-roof-snow-chimney.glb",
+      "name": "Cabin Roof Snow Chimney",
+      "category": "cabin",
+      "tags": [
+        "cabin",
+        "roof",
+        "snow",
+        "chimney",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cabin-roof-snow-corner",
+      "file": "cabin-roof-snow-corner.glb",
+      "name": "Cabin Roof Snow Corner",
+      "category": "cabin",
+      "tags": [
+        "cabin",
+        "roof",
+        "snow",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cabin-roof-snow-dormer",
+      "file": "cabin-roof-snow-dormer.glb",
+      "name": "Cabin Roof Snow Dormer",
+      "category": "cabin",
+      "tags": [
+        "cabin",
+        "roof",
+        "snow",
+        "dormer",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cabin-roof-snow-point",
+      "file": "cabin-roof-snow-point.glb",
+      "name": "Cabin Roof Snow Point",
+      "category": "cabin",
+      "tags": [
+        "cabin",
+        "roof",
+        "snow",
+        "point",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cabin-roof-top",
+      "file": "cabin-roof-top.glb",
+      "name": "Cabin Roof Top",
+      "category": "cabin",
+      "tags": [
+        "cabin",
+        "roof",
+        "top",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cabin-wall",
+      "file": "cabin-wall.glb",
+      "name": "Cabin Wall",
+      "category": "cabin",
+      "tags": [
+        "cabin",
+        "wall",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cabin-wall-low",
+      "file": "cabin-wall-low.glb",
+      "name": "Cabin Wall Low",
+      "category": "cabin",
+      "tags": [
+        "cabin",
+        "wall",
+        "low",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cabin-wall-roof",
+      "file": "cabin-wall-roof.glb",
+      "name": "Cabin Wall Roof",
+      "category": "cabin",
+      "tags": [
+        "cabin",
+        "wall",
+        "roof",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cabin-wall-roof-center",
+      "file": "cabin-wall-roof-center.glb",
+      "name": "Cabin Wall Roof Center",
+      "category": "cabin",
+      "tags": [
+        "cabin",
+        "wall",
+        "roof",
+        "center",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cabin-wall-wreath",
+      "file": "cabin-wall-wreath.glb",
+      "name": "Cabin Wall Wreath",
+      "category": "cabin",
+      "tags": [
+        "cabin",
+        "wall",
+        "wreath",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cabin-window-a",
+      "file": "cabin-window-a.glb",
+      "name": "Cabin Window A",
+      "category": "cabin",
+      "tags": [
+        "cabin",
+        "window",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cabin-window-b",
+      "file": "cabin-window-b.glb",
+      "name": "Cabin Window B",
+      "category": "cabin",
+      "tags": [
+        "cabin",
+        "window",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cabin-window-c",
+      "file": "cabin-window-c.glb",
+      "name": "Cabin Window C",
+      "category": "cabin",
+      "tags": [
+        "cabin",
+        "window",
+        "c",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cabin-window-large",
+      "file": "cabin-window-large.glb",
+      "name": "Cabin Window Large",
+      "category": "cabin",
+      "tags": [
+        "cabin",
+        "window",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "candy-cane-green",
+      "file": "candy-cane-green.glb",
+      "name": "Candy Cane Green",
+      "category": "candy",
+      "tags": [
+        "candy",
+        "cane",
+        "green",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "candy-cane-red",
+      "file": "candy-cane-red.glb",
+      "name": "Candy Cane Red",
+      "category": "candy",
+      "tags": [
+        "candy",
+        "cane",
+        "red",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "festivus-pole",
+      "file": "festivus-pole.glb",
+      "name": "Festivus Pole",
+      "category": "festivus",
+      "tags": [
+        "festivus",
+        "pole",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "floor-stone",
+      "file": "floor-stone.glb",
+      "name": "Floor Stone",
+      "category": "floor",
+      "tags": [
+        "floor",
+        "stone",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "floor-wood",
+      "file": "floor-wood.glb",
+      "name": "Floor Wood",
+      "category": "floor",
+      "tags": [
+        "floor",
+        "wood",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "floor-wood-snow",
+      "file": "floor-wood-snow.glb",
+      "name": "Floor Wood Snow",
+      "category": "floor",
+      "tags": [
+        "floor",
+        "wood",
+        "snow",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "gingerbread-man",
+      "file": "gingerbread-man.glb",
+      "name": "Gingerbread Man",
+      "category": "gingerbread",
+      "tags": [
+        "gingerbread",
+        "man",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "gingerbread-woman",
+      "file": "gingerbread-woman.glb",
+      "name": "Gingerbread Woman",
+      "category": "gingerbread",
+      "tags": [
+        "gingerbread",
+        "woman",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "hanukkah-dreidel",
+      "file": "hanukkah-dreidel.glb",
+      "name": "Hanukkah Dreidel",
+      "category": "hanukkah",
+      "tags": [
+        "hanukkah",
+        "dreidel",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "hanukkah-menorah",
+      "file": "hanukkah-menorah.glb",
+      "name": "Hanukkah Menorah",
+      "category": "hanukkah",
+      "tags": [
+        "hanukkah",
+        "menorah",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "hanukkah-menorah-candles",
+      "file": "hanukkah-menorah-candles.glb",
+      "name": "Hanukkah Menorah Candles",
+      "category": "hanukkah",
+      "tags": [
+        "hanukkah",
+        "menorah",
+        "candles",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "kwanzaa-kikombe",
+      "file": "kwanzaa-kikombe.glb",
+      "name": "Kwanzaa Kikombe",
+      "category": "kwanzaa",
+      "tags": [
+        "kwanzaa",
+        "kikombe",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "kwanzaa-kinara",
+      "file": "kwanzaa-kinara.glb",
+      "name": "Kwanzaa Kinara",
+      "category": "kwanzaa",
+      "tags": [
+        "kwanzaa",
+        "kinara",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "kwanzaa-kinara-alternative",
+      "file": "kwanzaa-kinara-alternative.glb",
+      "name": "Kwanzaa Kinara Alternative",
+      "category": "kwanzaa",
+      "tags": [
+        "kwanzaa",
+        "kinara",
+        "alternative",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "lantern",
+      "file": "lantern.glb",
+      "name": "Lantern",
+      "category": "lantern",
+      "tags": [
+        "lantern",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "lantern-hanging",
+      "file": "lantern-hanging.glb",
+      "name": "Lantern Hanging",
+      "category": "lantern",
+      "tags": [
+        "lantern",
+        "hanging",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "lights-colored",
+      "file": "lights-colored.glb",
+      "name": "Lights Colored",
+      "category": "lights",
+      "tags": [
+        "lights",
+        "colored",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "lights-green",
+      "file": "lights-green.glb",
+      "name": "Lights Green",
+      "category": "lights",
+      "tags": [
+        "lights",
+        "green",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "lights-red",
+      "file": "lights-red.glb",
+      "name": "Lights Red",
+      "category": "lights",
+      "tags": [
+        "lights",
+        "red",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "nutcracker",
+      "file": "nutcracker.glb",
+      "name": "Nutcracker",
+      "category": "nutcracker",
+      "tags": [
+        "nutcracker",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "present-a-cube",
+      "file": "present-a-cube.glb",
+      "name": "Present A Cube",
+      "category": "present",
+      "tags": [
+        "present",
+        "a",
+        "cube",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "present-a-rectangle",
+      "file": "present-a-rectangle.glb",
+      "name": "Present A Rectangle",
+      "category": "present",
+      "tags": [
+        "present",
+        "a",
+        "rectangle",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "present-a-round",
+      "file": "present-a-round.glb",
+      "name": "Present A Round",
+      "category": "present",
+      "tags": [
+        "present",
+        "a",
+        "round",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "present-b-cube",
+      "file": "present-b-cube.glb",
+      "name": "Present B Cube",
+      "category": "present",
+      "tags": [
+        "present",
+        "b",
+        "cube",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "present-b-rectangle",
+      "file": "present-b-rectangle.glb",
+      "name": "Present B Rectangle",
+      "category": "present",
+      "tags": [
+        "present",
+        "b",
+        "rectangle",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "present-b-round",
+      "file": "present-b-round.glb",
+      "name": "Present B Round",
+      "category": "present",
+      "tags": [
+        "present",
+        "b",
+        "round",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "reindeer",
+      "file": "reindeer.glb",
+      "name": "Reindeer",
+      "category": "reindeer",
+      "tags": [
+        "reindeer",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rocks-large",
+      "file": "rocks-large.glb",
+      "name": "Rocks Large",
+      "category": "terrain",
+      "tags": [
+        "rocks",
+        "large",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rocks-medium",
+      "file": "rocks-medium.glb",
+      "name": "Rocks Medium",
+      "category": "terrain",
+      "tags": [
+        "rocks",
+        "medium",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rocks-small",
+      "file": "rocks-small.glb",
+      "name": "Rocks Small",
+      "category": "terrain",
+      "tags": [
+        "rocks",
+        "small",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "sled",
+      "file": "sled.glb",
+      "name": "Sled",
+      "category": "sled",
+      "tags": [
+        "sled",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "sled-long",
+      "file": "sled-long.glb",
+      "name": "Sled Long",
+      "category": "sled",
+      "tags": [
+        "sled",
+        "long",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-bunker",
+      "file": "snow-bunker.glb",
+      "name": "Snow Bunker",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "bunker",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-flat",
+      "file": "snow-flat.glb",
+      "name": "Snow Flat",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "flat",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-flat-large",
+      "file": "snow-flat-large.glb",
+      "name": "Snow Flat Large",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "flat",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snow-pile",
+      "file": "snow-pile.glb",
+      "name": "Snow Pile",
+      "category": "snow",
+      "tags": [
+        "snow",
+        "pile",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snowflake-a",
+      "file": "snowflake-a.glb",
+      "name": "Snowflake A",
+      "category": "snowflake",
+      "tags": [
+        "snowflake",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snowflake-b",
+      "file": "snowflake-b.glb",
+      "name": "Snowflake B",
+      "category": "snowflake",
+      "tags": [
+        "snowflake",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snowflake-c",
+      "file": "snowflake-c.glb",
+      "name": "Snowflake C",
+      "category": "snowflake",
+      "tags": [
+        "snowflake",
+        "c",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snowman",
+      "file": "snowman.glb",
+      "name": "Snowman",
+      "category": "snowman",
+      "tags": [
+        "snowman",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "snowman-hat",
+      "file": "snowman-hat.glb",
+      "name": "Snowman Hat",
+      "category": "snowman",
+      "tags": [
+        "snowman",
+        "hat",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "sock-green",
+      "file": "sock-green.glb",
+      "name": "Sock Green",
+      "category": "sock",
+      "tags": [
+        "sock",
+        "green",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "sock-green-cane",
+      "file": "sock-green-cane.glb",
+      "name": "Sock Green Cane",
+      "category": "sock",
+      "tags": [
+        "sock",
+        "green",
+        "cane",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "sock-red",
+      "file": "sock-red.glb",
+      "name": "Sock Red",
+      "category": "sock",
+      "tags": [
+        "sock",
+        "red",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "sock-red-cane",
+      "file": "sock-red-cane.glb",
+      "name": "Sock Red Cane",
+      "category": "sock",
+      "tags": [
+        "sock",
+        "red",
+        "cane",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "train-locomotive",
+      "file": "train-locomotive.glb",
+      "name": "Train Locomotive",
+      "category": "train",
+      "tags": [
+        "train",
+        "locomotive",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "train-tender",
+      "file": "train-tender.glb",
+      "name": "Train Tender",
+      "category": "train",
+      "tags": [
+        "train",
+        "tender",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "train-wagon",
+      "file": "train-wagon.glb",
+      "name": "Train Wagon",
+      "category": "train",
+      "tags": [
+        "train",
+        "wagon",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "train-wagon-flat",
+      "file": "train-wagon-flat.glb",
+      "name": "Train Wagon Flat",
+      "category": "train",
+      "tags": [
+        "train",
+        "wagon",
+        "flat",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "train-wagon-flat-short",
+      "file": "train-wagon-flat-short.glb",
+      "name": "Train Wagon Flat Short",
+      "category": "train",
+      "tags": [
+        "train",
+        "wagon",
+        "flat",
+        "short",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "train-wagon-logs",
+      "file": "train-wagon-logs.glb",
+      "name": "Train Wagon Logs",
+      "category": "train",
+      "tags": [
+        "train",
+        "wagon",
+        "logs",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "train-wagon-short",
+      "file": "train-wagon-short.glb",
+      "name": "Train Wagon Short",
+      "category": "train",
+      "tags": [
+        "train",
+        "wagon",
+        "short",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "trainset-rail-bend",
+      "file": "trainset-rail-bend.glb",
+      "name": "Trainset Rail Bend",
+      "category": "trainset",
+      "tags": [
+        "trainset",
+        "rail",
+        "bend",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "trainset-rail-corner",
+      "file": "trainset-rail-corner.glb",
+      "name": "Trainset Rail Corner",
+      "category": "trainset",
+      "tags": [
+        "trainset",
+        "rail",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "trainset-rail-detailed-bend",
+      "file": "trainset-rail-detailed-bend.glb",
+      "name": "Trainset Rail Detailed Bend",
+      "category": "trainset",
+      "tags": [
+        "trainset",
+        "rail",
+        "detailed",
+        "bend",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "trainset-rail-detailed-corner",
+      "file": "trainset-rail-detailed-corner.glb",
+      "name": "Trainset Rail Detailed Corner",
+      "category": "trainset",
+      "tags": [
+        "trainset",
+        "rail",
+        "detailed",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "trainset-rail-detailed-straight",
+      "file": "trainset-rail-detailed-straight.glb",
+      "name": "Trainset Rail Detailed Straight",
+      "category": "trainset",
+      "tags": [
+        "trainset",
+        "rail",
+        "detailed",
+        "straight",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "trainset-rail-straight",
+      "file": "trainset-rail-straight.glb",
+      "name": "Trainset Rail Straight",
+      "category": "trainset",
+      "tags": [
+        "trainset",
+        "rail",
+        "straight",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree",
+      "file": "tree.glb",
+      "name": "Tree",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-decorated",
+      "file": "tree-decorated.glb",
+      "name": "Tree Decorated",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "decorated",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-decorated-snow",
+      "file": "tree-decorated-snow.glb",
+      "name": "Tree Decorated Snow",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "decorated",
+        "snow",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-snow-a",
+      "file": "tree-snow-a.glb",
+      "name": "Tree Snow A",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "snow",
+        "a",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-snow-b",
+      "file": "tree-snow-b.glb",
+      "name": "Tree Snow B",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "snow",
+        "b",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-snow-c",
+      "file": "tree-snow-c.glb",
+      "name": "Tree Snow C",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "snow",
+        "c",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wreath",
+      "file": "wreath.glb",
+      "name": "Wreath",
+      "category": "wreath",
+      "tags": [
+        "wreath",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wreath-decorated",
+      "file": "wreath-decorated.glb",
+      "name": "Wreath Decorated",
+      "category": "wreath",
+      "tags": [
+        "wreath",
+        "decorated",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    }
+  ]
+}

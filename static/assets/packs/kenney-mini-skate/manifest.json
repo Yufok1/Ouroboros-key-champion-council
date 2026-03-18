@@ -1,0 +1,271 @@
+{
+  "pack_id": "kenney-mini-skate",
+  "name": "Kenney Mini Skate",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "Kenney Mini Skate free 3D models from Kenney.",
+  "base_url": "/static/assets/packs/kenney-mini-skate/",
+  "assets": [
+    {
+      "id": "bowl-corner-inner",
+      "file": "bowl-corner-inner.glb",
+      "name": "Bowl Corner Inner",
+      "category": "bowl",
+      "tags": [
+        "bowl",
+        "corner",
+        "inner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bowl-corner-outer",
+      "file": "bowl-corner-outer.glb",
+      "name": "Bowl Corner Outer",
+      "category": "bowl",
+      "tags": [
+        "bowl",
+        "corner",
+        "outer",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bowl-side",
+      "file": "bowl-side.glb",
+      "name": "Bowl Side",
+      "category": "bowl",
+      "tags": [
+        "bowl",
+        "side",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "character-skate-boy",
+      "file": "character-skate-boy.glb",
+      "name": "Character Skate Boy",
+      "category": "character",
+      "tags": [
+        "character",
+        "skate",
+        "boy",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "character-skate-girl",
+      "file": "character-skate-girl.glb",
+      "name": "Character Skate Girl",
+      "category": "character",
+      "tags": [
+        "character",
+        "skate",
+        "girl",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "floor-concrete",
+      "file": "floor-concrete.glb",
+      "name": "Floor Concrete",
+      "category": "floor",
+      "tags": [
+        "floor",
+        "concrete",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "floor-wood",
+      "file": "floor-wood.glb",
+      "name": "Floor Wood",
+      "category": "floor",
+      "tags": [
+        "floor",
+        "wood",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "half-pipe",
+      "file": "half-pipe.glb",
+      "name": "Half Pipe",
+      "category": "half",
+      "tags": [
+        "half",
+        "pipe",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "obstacle-box",
+      "file": "obstacle-box.glb",
+      "name": "Obstacle Box",
+      "category": "obstacle",
+      "tags": [
+        "obstacle",
+        "box",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "obstacle-end",
+      "file": "obstacle-end.glb",
+      "name": "Obstacle End",
+      "category": "obstacle",
+      "tags": [
+        "obstacle",
+        "end",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "obstacle-middle",
+      "file": "obstacle-middle.glb",
+      "name": "Obstacle Middle",
+      "category": "obstacle",
+      "tags": [
+        "obstacle",
+        "middle",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pallet",
+      "file": "pallet.glb",
+      "name": "Pallet",
+      "category": "pallet",
+      "tags": [
+        "pallet",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rail-curve",
+      "file": "rail-curve.glb",
+      "name": "Rail Curve",
+      "category": "rail",
+      "tags": [
+        "rail",
+        "curve",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rail-high",
+      "file": "rail-high.glb",
+      "name": "Rail High",
+      "category": "rail",
+      "tags": [
+        "rail",
+        "high",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rail-low",
+      "file": "rail-low.glb",
+      "name": "Rail Low",
+      "category": "rail",
+      "tags": [
+        "rail",
+        "low",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rail-slope",
+      "file": "rail-slope.glb",
+      "name": "Rail Slope",
+      "category": "rail",
+      "tags": [
+        "rail",
+        "slope",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "skateboard",
+      "file": "skateboard.glb",
+      "name": "Skateboard",
+      "category": "skateboard",
+      "tags": [
+        "skateboard",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "steps",
+      "file": "steps.glb",
+      "name": "Steps",
+      "category": "steps",
+      "tags": [
+        "steps",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure-platform",
+      "file": "structure-platform.glb",
+      "name": "Structure Platform",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "platform",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure-wood",
+      "file": "structure-wood.glb",
+      "name": "Structure Wood",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "wood",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    }
+  ]
+}

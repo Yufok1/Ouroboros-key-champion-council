@@ -1,0 +1,1990 @@
+{
+  "pack_id": "kenney-space-kit",
+  "name": "Kenney Space Kit",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "153 low-poly space models from Kenney.",
+  "base_url": "/static/assets/packs/kenney-space-kit/",
+  "assets": [
+    {
+      "id": "alien",
+      "file": "alien.glb",
+      "name": "Alien",
+      "category": "alien",
+      "tags": [
+        "alien",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "astronauta",
+      "file": "astronautA.glb",
+      "name": "AstronautA",
+      "category": "astronauta",
+      "tags": [
+        "astronauta",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "astronautb",
+      "file": "astronautB.glb",
+      "name": "AstronautB",
+      "category": "astronautb",
+      "tags": [
+        "astronautb",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "barrel",
+      "file": "barrel.glb",
+      "name": "Barrel",
+      "category": "barrel",
+      "tags": [
+        "barrel",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "barrels",
+      "file": "barrels.glb",
+      "name": "Barrels",
+      "category": "barrels",
+      "tags": [
+        "barrels",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "barrels-rail",
+      "file": "barrels_rail.glb",
+      "name": "Barrels Rail",
+      "category": "barrels",
+      "tags": [
+        "barrels",
+        "rail",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bones",
+      "file": "bones.glb",
+      "name": "Bones",
+      "category": "bones",
+      "tags": [
+        "bones",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "chimney",
+      "file": "chimney.glb",
+      "name": "Chimney",
+      "category": "chimney",
+      "tags": [
+        "chimney",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "chimney-detailed",
+      "file": "chimney_detailed.glb",
+      "name": "Chimney Detailed",
+      "category": "chimney",
+      "tags": [
+        "chimney",
+        "detailed",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "corridor",
+      "file": "corridor.glb",
+      "name": "Corridor",
+      "category": "corridor",
+      "tags": [
+        "corridor",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "corridor-corner",
+      "file": "corridor_corner.glb",
+      "name": "Corridor Corner",
+      "category": "corridor",
+      "tags": [
+        "corridor",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "corridor-cornerround",
+      "file": "corridor_cornerRound.glb",
+      "name": "Corridor CornerRound",
+      "category": "corridor",
+      "tags": [
+        "corridor",
+        "cornerround",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "corridor-cornerroundwindow",
+      "file": "corridor_cornerRoundWindow.glb",
+      "name": "Corridor CornerRoundWindow",
+      "category": "corridor",
+      "tags": [
+        "corridor",
+        "cornerroundwindow",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "corridor-cross",
+      "file": "corridor_cross.glb",
+      "name": "Corridor Cross",
+      "category": "corridor",
+      "tags": [
+        "corridor",
+        "cross",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "corridor-detailed",
+      "file": "corridor_detailed.glb",
+      "name": "Corridor Detailed",
+      "category": "corridor",
+      "tags": [
+        "corridor",
+        "detailed",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "corridor-end",
+      "file": "corridor_end.glb",
+      "name": "Corridor End",
+      "category": "corridor",
+      "tags": [
+        "corridor",
+        "end",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "corridor-open",
+      "file": "corridor_open.glb",
+      "name": "Corridor Open",
+      "category": "corridor",
+      "tags": [
+        "corridor",
+        "open",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "corridor-roof",
+      "file": "corridor_roof.glb",
+      "name": "Corridor Roof",
+      "category": "corridor",
+      "tags": [
+        "corridor",
+        "roof",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "corridor-split",
+      "file": "corridor_split.glb",
+      "name": "Corridor Split",
+      "category": "corridor",
+      "tags": [
+        "corridor",
+        "split",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "corridor-wall",
+      "file": "corridor_wall.glb",
+      "name": "Corridor Wall",
+      "category": "corridor",
+      "tags": [
+        "corridor",
+        "wall",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "corridor-wallcorner",
+      "file": "corridor_wallCorner.glb",
+      "name": "Corridor WallCorner",
+      "category": "corridor",
+      "tags": [
+        "corridor",
+        "wallcorner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "corridor-window",
+      "file": "corridor_window.glb",
+      "name": "Corridor Window",
+      "category": "corridor",
+      "tags": [
+        "corridor",
+        "window",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "corridor-windowclosed",
+      "file": "corridor_windowClosed.glb",
+      "name": "Corridor WindowClosed",
+      "category": "corridor",
+      "tags": [
+        "corridor",
+        "windowclosed",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "craft-cargoa",
+      "file": "craft_cargoA.glb",
+      "name": "Craft CargoA",
+      "category": "craft",
+      "tags": [
+        "craft",
+        "cargoa",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "craft-cargob",
+      "file": "craft_cargoB.glb",
+      "name": "Craft CargoB",
+      "category": "craft",
+      "tags": [
+        "craft",
+        "cargob",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "craft-miner",
+      "file": "craft_miner.glb",
+      "name": "Craft Miner",
+      "category": "craft",
+      "tags": [
+        "craft",
+        "miner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "craft-racer",
+      "file": "craft_racer.glb",
+      "name": "Craft Racer",
+      "category": "craft",
+      "tags": [
+        "craft",
+        "racer",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "craft-speedera",
+      "file": "craft_speederA.glb",
+      "name": "Craft SpeederA",
+      "category": "craft",
+      "tags": [
+        "craft",
+        "speedera",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "craft-speederb",
+      "file": "craft_speederB.glb",
+      "name": "Craft SpeederB",
+      "category": "craft",
+      "tags": [
+        "craft",
+        "speederb",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "craft-speederc",
+      "file": "craft_speederC.glb",
+      "name": "Craft SpeederC",
+      "category": "craft",
+      "tags": [
+        "craft",
+        "speederc",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "craft-speederd",
+      "file": "craft_speederD.glb",
+      "name": "Craft SpeederD",
+      "category": "craft",
+      "tags": [
+        "craft",
+        "speederd",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "crater",
+      "file": "crater.glb",
+      "name": "Crater",
+      "category": "crater",
+      "tags": [
+        "crater",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "craterlarge",
+      "file": "craterLarge.glb",
+      "name": "CraterLarge",
+      "category": "craterlarge",
+      "tags": [
+        "craterlarge",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "desk-chair",
+      "file": "desk_chair.glb",
+      "name": "Desk Chair",
+      "category": "desk",
+      "tags": [
+        "desk",
+        "chair",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "desk-chairarms",
+      "file": "desk_chairArms.glb",
+      "name": "Desk ChairArms",
+      "category": "desk",
+      "tags": [
+        "desk",
+        "chairarms",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "desk-chairstool",
+      "file": "desk_chairStool.glb",
+      "name": "Desk ChairStool",
+      "category": "desk",
+      "tags": [
+        "desk",
+        "chairstool",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "desk-computer",
+      "file": "desk_computer.glb",
+      "name": "Desk Computer",
+      "category": "desk",
+      "tags": [
+        "desk",
+        "computer",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "desk-computercorner",
+      "file": "desk_computerCorner.glb",
+      "name": "Desk ComputerCorner",
+      "category": "desk",
+      "tags": [
+        "desk",
+        "computercorner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "desk-computerscreen",
+      "file": "desk_computerScreen.glb",
+      "name": "Desk ComputerScreen",
+      "category": "desk",
+      "tags": [
+        "desk",
+        "computerscreen",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "gate-complex",
+      "file": "gate_complex.glb",
+      "name": "Gate Complex",
+      "category": "gate",
+      "tags": [
+        "gate",
+        "complex",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "gate-simple",
+      "file": "gate_simple.glb",
+      "name": "Gate Simple",
+      "category": "gate",
+      "tags": [
+        "gate",
+        "simple",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "hangar-largea",
+      "file": "hangar_largeA.glb",
+      "name": "Hangar LargeA",
+      "category": "hangar",
+      "tags": [
+        "hangar",
+        "largea",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "hangar-largeb",
+      "file": "hangar_largeB.glb",
+      "name": "Hangar LargeB",
+      "category": "hangar",
+      "tags": [
+        "hangar",
+        "largeb",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "hangar-rounda",
+      "file": "hangar_roundA.glb",
+      "name": "Hangar RoundA",
+      "category": "hangar",
+      "tags": [
+        "hangar",
+        "rounda",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "hangar-roundb",
+      "file": "hangar_roundB.glb",
+      "name": "Hangar RoundB",
+      "category": "hangar",
+      "tags": [
+        "hangar",
+        "roundb",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "hangar-roundglass",
+      "file": "hangar_roundGlass.glb",
+      "name": "Hangar RoundGlass",
+      "category": "hangar",
+      "tags": [
+        "hangar",
+        "roundglass",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "hangar-smalla",
+      "file": "hangar_smallA.glb",
+      "name": "Hangar SmallA",
+      "category": "hangar",
+      "tags": [
+        "hangar",
+        "smalla",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "hangar-smallb",
+      "file": "hangar_smallB.glb",
+      "name": "Hangar SmallB",
+      "category": "hangar",
+      "tags": [
+        "hangar",
+        "smallb",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "machine-barrel",
+      "file": "machine_barrel.glb",
+      "name": "Machine Barrel",
+      "category": "machine",
+      "tags": [
+        "machine",
+        "barrel",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "machine-barrellarge",
+      "file": "machine_barrelLarge.glb",
+      "name": "Machine BarrelLarge",
+      "category": "machine",
+      "tags": [
+        "machine",
+        "barrellarge",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "machine-generator",
+      "file": "machine_generator.glb",
+      "name": "Machine Generator",
+      "category": "machine",
+      "tags": [
+        "machine",
+        "generator",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "machine-generatorlarge",
+      "file": "machine_generatorLarge.glb",
+      "name": "Machine GeneratorLarge",
+      "category": "machine",
+      "tags": [
+        "machine",
+        "generatorlarge",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "machine-wireless",
+      "file": "machine_wireless.glb",
+      "name": "Machine Wireless",
+      "category": "machine",
+      "tags": [
+        "machine",
+        "wireless",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "machine-wirelesscable",
+      "file": "machine_wirelessCable.glb",
+      "name": "Machine WirelessCable",
+      "category": "machine",
+      "tags": [
+        "machine",
+        "wirelesscable",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "meteor",
+      "file": "meteor.glb",
+      "name": "Meteor",
+      "category": "meteor",
+      "tags": [
+        "meteor",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "meteor-detailed",
+      "file": "meteor_detailed.glb",
+      "name": "Meteor Detailed",
+      "category": "meteor",
+      "tags": [
+        "meteor",
+        "detailed",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "meteor-half",
+      "file": "meteor_half.glb",
+      "name": "Meteor Half",
+      "category": "meteor",
+      "tags": [
+        "meteor",
+        "half",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "monorail-trackcornerlarge",
+      "file": "monorail_trackCornerLarge.glb",
+      "name": "Monorail TrackCornerLarge",
+      "category": "monorail",
+      "tags": [
+        "monorail",
+        "trackcornerlarge",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "monorail-trackcornersmall",
+      "file": "monorail_trackCornerSmall.glb",
+      "name": "Monorail TrackCornerSmall",
+      "category": "monorail",
+      "tags": [
+        "monorail",
+        "trackcornersmall",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "monorail-trackslope",
+      "file": "monorail_trackSlope.glb",
+      "name": "Monorail TrackSlope",
+      "category": "monorail",
+      "tags": [
+        "monorail",
+        "trackslope",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "monorail-trackstraight",
+      "file": "monorail_trackStraight.glb",
+      "name": "Monorail TrackStraight",
+      "category": "monorail",
+      "tags": [
+        "monorail",
+        "trackstraight",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "monorail-tracksupport",
+      "file": "monorail_trackSupport.glb",
+      "name": "Monorail TrackSupport",
+      "category": "monorail",
+      "tags": [
+        "monorail",
+        "tracksupport",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "monorail-tracksupportcorner",
+      "file": "monorail_trackSupportCorner.glb",
+      "name": "Monorail TrackSupportCorner",
+      "category": "monorail",
+      "tags": [
+        "monorail",
+        "tracksupportcorner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "monorail-trainbox",
+      "file": "monorail_trainBox.glb",
+      "name": "Monorail TrainBox",
+      "category": "monorail",
+      "tags": [
+        "monorail",
+        "trainbox",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "monorail-traincargo",
+      "file": "monorail_trainCargo.glb",
+      "name": "Monorail TrainCargo",
+      "category": "monorail",
+      "tags": [
+        "monorail",
+        "traincargo",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "monorail-trainend",
+      "file": "monorail_trainEnd.glb",
+      "name": "Monorail TrainEnd",
+      "category": "monorail",
+      "tags": [
+        "monorail",
+        "trainend",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "monorail-trainflat",
+      "file": "monorail_trainFlat.glb",
+      "name": "Monorail TrainFlat",
+      "category": "monorail",
+      "tags": [
+        "monorail",
+        "trainflat",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "monorail-trainfront",
+      "file": "monorail_trainFront.glb",
+      "name": "Monorail TrainFront",
+      "category": "monorail",
+      "tags": [
+        "monorail",
+        "trainfront",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "monorail-trainpassenger",
+      "file": "monorail_trainPassenger.glb",
+      "name": "Monorail TrainPassenger",
+      "category": "monorail",
+      "tags": [
+        "monorail",
+        "trainpassenger",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pipe-corner",
+      "file": "pipe_corner.glb",
+      "name": "Pipe Corner",
+      "category": "pipe",
+      "tags": [
+        "pipe",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pipe-cornerdiagonal",
+      "file": "pipe_cornerDiagonal.glb",
+      "name": "Pipe CornerDiagonal",
+      "category": "pipe",
+      "tags": [
+        "pipe",
+        "cornerdiagonal",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pipe-cornerround",
+      "file": "pipe_cornerRound.glb",
+      "name": "Pipe CornerRound",
+      "category": "pipe",
+      "tags": [
+        "pipe",
+        "cornerround",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pipe-cornerroundlarge",
+      "file": "pipe_cornerRoundLarge.glb",
+      "name": "Pipe CornerRoundLarge",
+      "category": "pipe",
+      "tags": [
+        "pipe",
+        "cornerroundlarge",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pipe-cross",
+      "file": "pipe_cross.glb",
+      "name": "Pipe Cross",
+      "category": "pipe",
+      "tags": [
+        "pipe",
+        "cross",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pipe-end",
+      "file": "pipe_end.glb",
+      "name": "Pipe End",
+      "category": "pipe",
+      "tags": [
+        "pipe",
+        "end",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pipe-entrance",
+      "file": "pipe_entrance.glb",
+      "name": "Pipe Entrance",
+      "category": "pipe",
+      "tags": [
+        "pipe",
+        "entrance",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pipe-open",
+      "file": "pipe_open.glb",
+      "name": "Pipe Open",
+      "category": "pipe",
+      "tags": [
+        "pipe",
+        "open",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pipe-ramplarge",
+      "file": "pipe_rampLarge.glb",
+      "name": "Pipe RampLarge",
+      "category": "pipe",
+      "tags": [
+        "pipe",
+        "ramplarge",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pipe-rampsmall",
+      "file": "pipe_rampSmall.glb",
+      "name": "Pipe RampSmall",
+      "category": "pipe",
+      "tags": [
+        "pipe",
+        "rampsmall",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pipe-ring",
+      "file": "pipe_ring.glb",
+      "name": "Pipe Ring",
+      "category": "pipe",
+      "tags": [
+        "pipe",
+        "ring",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pipe-ringhigh",
+      "file": "pipe_ringHigh.glb",
+      "name": "Pipe RingHigh",
+      "category": "pipe",
+      "tags": [
+        "pipe",
+        "ringhigh",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pipe-ringhighend",
+      "file": "pipe_ringHighEnd.glb",
+      "name": "Pipe RingHighEnd",
+      "category": "pipe",
+      "tags": [
+        "pipe",
+        "ringhighend",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pipe-ringsupport",
+      "file": "pipe_ringSupport.glb",
+      "name": "Pipe RingSupport",
+      "category": "pipe",
+      "tags": [
+        "pipe",
+        "ringsupport",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pipe-split",
+      "file": "pipe_split.glb",
+      "name": "Pipe Split",
+      "category": "pipe",
+      "tags": [
+        "pipe",
+        "split",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pipe-straight",
+      "file": "pipe_straight.glb",
+      "name": "Pipe Straight",
+      "category": "pipe",
+      "tags": [
+        "pipe",
+        "straight",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pipe-supporthigh",
+      "file": "pipe_supportHigh.glb",
+      "name": "Pipe SupportHigh",
+      "category": "pipe",
+      "tags": [
+        "pipe",
+        "supporthigh",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pipe-supportlow",
+      "file": "pipe_supportLow.glb",
+      "name": "Pipe SupportLow",
+      "category": "pipe",
+      "tags": [
+        "pipe",
+        "supportlow",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "platform-center",
+      "file": "platform_center.glb",
+      "name": "Platform Center",
+      "category": "platform",
+      "tags": [
+        "platform",
+        "center",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "platform-corner",
+      "file": "platform_corner.glb",
+      "name": "Platform Corner",
+      "category": "platform",
+      "tags": [
+        "platform",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "platform-corneropen",
+      "file": "platform_cornerOpen.glb",
+      "name": "Platform CornerOpen",
+      "category": "platform",
+      "tags": [
+        "platform",
+        "corneropen",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "platform-cornerround",
+      "file": "platform_cornerRound.glb",
+      "name": "Platform CornerRound",
+      "category": "platform",
+      "tags": [
+        "platform",
+        "cornerround",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "platform-end",
+      "file": "platform_end.glb",
+      "name": "Platform End",
+      "category": "platform",
+      "tags": [
+        "platform",
+        "end",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "platform-high",
+      "file": "platform_high.glb",
+      "name": "Platform High",
+      "category": "platform",
+      "tags": [
+        "platform",
+        "high",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "platform-large",
+      "file": "platform_large.glb",
+      "name": "Platform Large",
+      "category": "platform",
+      "tags": [
+        "platform",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "platform-long",
+      "file": "platform_long.glb",
+      "name": "Platform Long",
+      "category": "platform",
+      "tags": [
+        "platform",
+        "long",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "platform-low",
+      "file": "platform_low.glb",
+      "name": "Platform Low",
+      "category": "platform",
+      "tags": [
+        "platform",
+        "low",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "platform-side",
+      "file": "platform_side.glb",
+      "name": "Platform Side",
+      "category": "platform",
+      "tags": [
+        "platform",
+        "side",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "platform-small",
+      "file": "platform_small.glb",
+      "name": "Platform Small",
+      "category": "platform",
+      "tags": [
+        "platform",
+        "small",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "platform-smalldiagonal",
+      "file": "platform_smallDiagonal.glb",
+      "name": "Platform SmallDiagonal",
+      "category": "platform",
+      "tags": [
+        "platform",
+        "smalldiagonal",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "platform-straight",
+      "file": "platform_straight.glb",
+      "name": "Platform Straight",
+      "category": "platform",
+      "tags": [
+        "platform",
+        "straight",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rail",
+      "file": "rail.glb",
+      "name": "Rail",
+      "category": "rail",
+      "tags": [
+        "rail",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rail-corner",
+      "file": "rail_corner.glb",
+      "name": "Rail Corner",
+      "category": "rail",
+      "tags": [
+        "rail",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rail-end",
+      "file": "rail_end.glb",
+      "name": "Rail End",
+      "category": "rail",
+      "tags": [
+        "rail",
+        "end",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rail-middle",
+      "file": "rail_middle.glb",
+      "name": "Rail Middle",
+      "category": "rail",
+      "tags": [
+        "rail",
+        "middle",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rock",
+      "file": "rock.glb",
+      "name": "Rock",
+      "category": "terrain",
+      "tags": [
+        "rock",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rock-crystals",
+      "file": "rock_crystals.glb",
+      "name": "Rock Crystals",
+      "category": "terrain",
+      "tags": [
+        "rock",
+        "crystals",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rock-crystalslargea",
+      "file": "rock_crystalsLargeA.glb",
+      "name": "Rock CrystalsLargeA",
+      "category": "terrain",
+      "tags": [
+        "rock",
+        "crystalslargea",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rock-crystalslargeb",
+      "file": "rock_crystalsLargeB.glb",
+      "name": "Rock CrystalsLargeB",
+      "category": "terrain",
+      "tags": [
+        "rock",
+        "crystalslargeb",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rock-largea",
+      "file": "rock_largeA.glb",
+      "name": "Rock LargeA",
+      "category": "terrain",
+      "tags": [
+        "rock",
+        "largea",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rock-largeb",
+      "file": "rock_largeB.glb",
+      "name": "Rock LargeB",
+      "category": "terrain",
+      "tags": [
+        "rock",
+        "largeb",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rocket-basea",
+      "file": "rocket_baseA.glb",
+      "name": "Rocket BaseA",
+      "category": "rocket",
+      "tags": [
+        "rocket",
+        "basea",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rocket-baseb",
+      "file": "rocket_baseB.glb",
+      "name": "Rocket BaseB",
+      "category": "rocket",
+      "tags": [
+        "rocket",
+        "baseb",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rocket-finsa",
+      "file": "rocket_finsA.glb",
+      "name": "Rocket FinsA",
+      "category": "rocket",
+      "tags": [
+        "rocket",
+        "finsa",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rocket-finsb",
+      "file": "rocket_finsB.glb",
+      "name": "Rocket FinsB",
+      "category": "rocket",
+      "tags": [
+        "rocket",
+        "finsb",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rocket-fuela",
+      "file": "rocket_fuelA.glb",
+      "name": "Rocket FuelA",
+      "category": "rocket",
+      "tags": [
+        "rocket",
+        "fuela",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rocket-fuelb",
+      "file": "rocket_fuelB.glb",
+      "name": "Rocket FuelB",
+      "category": "rocket",
+      "tags": [
+        "rocket",
+        "fuelb",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rocket-sidesa",
+      "file": "rocket_sidesA.glb",
+      "name": "Rocket SidesA",
+      "category": "rocket",
+      "tags": [
+        "rocket",
+        "sidesa",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rocket-sidesb",
+      "file": "rocket_sidesB.glb",
+      "name": "Rocket SidesB",
+      "category": "rocket",
+      "tags": [
+        "rocket",
+        "sidesb",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rocket-topa",
+      "file": "rocket_topA.glb",
+      "name": "Rocket TopA",
+      "category": "rocket",
+      "tags": [
+        "rocket",
+        "topa",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rocket-topb",
+      "file": "rocket_topB.glb",
+      "name": "Rocket TopB",
+      "category": "rocket",
+      "tags": [
+        "rocket",
+        "topb",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rocks-smalla",
+      "file": "rocks_smallA.glb",
+      "name": "Rocks SmallA",
+      "category": "terrain",
+      "tags": [
+        "rocks",
+        "smalla",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rocks-smallb",
+      "file": "rocks_smallB.glb",
+      "name": "Rocks SmallB",
+      "category": "terrain",
+      "tags": [
+        "rocks",
+        "smallb",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rover",
+      "file": "rover.glb",
+      "name": "Rover",
+      "category": "rover",
+      "tags": [
+        "rover",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "satellitedish",
+      "file": "satelliteDish.glb",
+      "name": "SatelliteDish",
+      "category": "satellitedish",
+      "tags": [
+        "satellitedish",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "satellitedish-detailed",
+      "file": "satelliteDish_detailed.glb",
+      "name": "SatelliteDish Detailed",
+      "category": "satellitedish",
+      "tags": [
+        "satellitedish",
+        "detailed",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "satellitedish-large",
+      "file": "satelliteDish_large.glb",
+      "name": "SatelliteDish Large",
+      "category": "satellitedish",
+      "tags": [
+        "satellitedish",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stairs",
+      "file": "stairs.glb",
+      "name": "Stairs",
+      "category": "stairs",
+      "tags": [
+        "stairs",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stairs-corner",
+      "file": "stairs_corner.glb",
+      "name": "Stairs Corner",
+      "category": "stairs",
+      "tags": [
+        "stairs",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stairs-short",
+      "file": "stairs_short.glb",
+      "name": "Stairs Short",
+      "category": "stairs",
+      "tags": [
+        "stairs",
+        "short",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure",
+      "file": "structure.glb",
+      "name": "Structure",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure-closed",
+      "file": "structure_closed.glb",
+      "name": "Structure Closed",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "closed",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure-detailed",
+      "file": "structure_detailed.glb",
+      "name": "Structure Detailed",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "detailed",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure-diagonal",
+      "file": "structure_diagonal.glb",
+      "name": "Structure Diagonal",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "diagonal",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "supports-high",
+      "file": "supports_high.glb",
+      "name": "Supports High",
+      "category": "supports",
+      "tags": [
+        "supports",
+        "high",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "supports-low",
+      "file": "supports_low.glb",
+      "name": "Supports Low",
+      "category": "supports",
+      "tags": [
+        "supports",
+        "low",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "terrain",
+      "file": "terrain.glb",
+      "name": "Terrain",
+      "category": "terrain",
+      "tags": [
+        "terrain",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "terrain-ramp",
+      "file": "terrain_ramp.glb",
+      "name": "Terrain Ramp",
+      "category": "terrain",
+      "tags": [
+        "terrain",
+        "ramp",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "terrain-ramplarge",
+      "file": "terrain_rampLarge.glb",
+      "name": "Terrain RampLarge",
+      "category": "terrain",
+      "tags": [
+        "terrain",
+        "ramplarge",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "terrain-ramplarge-detailed",
+      "file": "terrain_rampLarge_detailed.glb",
+      "name": "Terrain RampLarge Detailed",
+      "category": "terrain",
+      "tags": [
+        "terrain",
+        "ramplarge",
+        "detailed",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "terrain-roadcorner",
+      "file": "terrain_roadCorner.glb",
+      "name": "Terrain RoadCorner",
+      "category": "terrain",
+      "tags": [
+        "terrain",
+        "roadcorner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "terrain-roadcross",
+      "file": "terrain_roadCross.glb",
+      "name": "Terrain RoadCross",
+      "category": "terrain",
+      "tags": [
+        "terrain",
+        "roadcross",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "terrain-roadend",
+      "file": "terrain_roadEnd.glb",
+      "name": "Terrain RoadEnd",
+      "category": "terrain",
+      "tags": [
+        "terrain",
+        "roadend",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "terrain-roadsplit",
+      "file": "terrain_roadSplit.glb",
+      "name": "Terrain RoadSplit",
+      "category": "terrain",
+      "tags": [
+        "terrain",
+        "roadsplit",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "terrain-roadstraight",
+      "file": "terrain_roadStraight.glb",
+      "name": "Terrain RoadStraight",
+      "category": "terrain",
+      "tags": [
+        "terrain",
+        "roadstraight",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "terrain-side",
+      "file": "terrain_side.glb",
+      "name": "Terrain Side",
+      "category": "terrain",
+      "tags": [
+        "terrain",
+        "side",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "terrain-sidecliff",
+      "file": "terrain_sideCliff.glb",
+      "name": "Terrain SideCliff",
+      "category": "terrain",
+      "tags": [
+        "terrain",
+        "sidecliff",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "terrain-sidecorner",
+      "file": "terrain_sideCorner.glb",
+      "name": "Terrain SideCorner",
+      "category": "terrain",
+      "tags": [
+        "terrain",
+        "sidecorner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "terrain-sidecornerinner",
+      "file": "terrain_sideCornerInner.glb",
+      "name": "Terrain SideCornerInner",
+      "category": "terrain",
+      "tags": [
+        "terrain",
+        "sidecornerinner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "terrain-sideend",
+      "file": "terrain_sideEnd.glb",
+      "name": "Terrain SideEnd",
+      "category": "terrain",
+      "tags": [
+        "terrain",
+        "sideend",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "turret-double",
+      "file": "turret_double.glb",
+      "name": "Turret Double",
+      "category": "turret",
+      "tags": [
+        "turret",
+        "double",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "turret-single",
+      "file": "turret_single.glb",
+      "name": "Turret Single",
+      "category": "turret",
+      "tags": [
+        "turret",
+        "single",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "weapon-gun",
+      "file": "weapon_gun.glb",
+      "name": "Weapon Gun",
+      "category": "weapon",
+      "tags": [
+        "weapon",
+        "gun",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "weapon-rifle",
+      "file": "weapon_rifle.glb",
+      "name": "Weapon Rifle",
+      "category": "weapon",
+      "tags": [
+        "weapon",
+        "rifle",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    }
+  ]
+}

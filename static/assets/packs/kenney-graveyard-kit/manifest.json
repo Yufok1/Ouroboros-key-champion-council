@@ -1,0 +1,1209 @@
+{
+  "pack_id": "kenney-graveyard-kit",
+  "name": "Kenney Graveyard Kit",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "Kenney Graveyard Kit free 3D models from Kenney.",
+  "base_url": "/static/assets/packs/kenney-graveyard-kit/",
+  "assets": [
+    {
+      "id": "altar-stone",
+      "file": "altar-stone.glb",
+      "name": "Altar Stone",
+      "category": "altar",
+      "tags": [
+        "altar",
+        "stone",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "altar-wood",
+      "file": "altar-wood.glb",
+      "name": "Altar Wood",
+      "category": "altar",
+      "tags": [
+        "altar",
+        "wood",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bench",
+      "file": "bench.glb",
+      "name": "Bench",
+      "category": "bench",
+      "tags": [
+        "bench",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bench-damaged",
+      "file": "bench-damaged.glb",
+      "name": "Bench Damaged",
+      "category": "bench",
+      "tags": [
+        "bench",
+        "damaged",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "border-pillar",
+      "file": "border-pillar.glb",
+      "name": "Border Pillar",
+      "category": "border",
+      "tags": [
+        "border",
+        "pillar",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "brick-wall",
+      "file": "brick-wall.glb",
+      "name": "Brick Wall",
+      "category": "brick",
+      "tags": [
+        "brick",
+        "wall",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "brick-wall-curve",
+      "file": "brick-wall-curve.glb",
+      "name": "Brick Wall Curve",
+      "category": "brick",
+      "tags": [
+        "brick",
+        "wall",
+        "curve",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "brick-wall-curve-small",
+      "file": "brick-wall-curve-small.glb",
+      "name": "Brick Wall Curve Small",
+      "category": "brick",
+      "tags": [
+        "brick",
+        "wall",
+        "curve",
+        "small",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "brick-wall-end",
+      "file": "brick-wall-end.glb",
+      "name": "Brick Wall End",
+      "category": "brick",
+      "tags": [
+        "brick",
+        "wall",
+        "end",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "candle",
+      "file": "candle.glb",
+      "name": "Candle",
+      "category": "candle",
+      "tags": [
+        "candle",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "candle-multiple",
+      "file": "candle-multiple.glb",
+      "name": "Candle Multiple",
+      "category": "candle",
+      "tags": [
+        "candle",
+        "multiple",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "character-ghost",
+      "file": "character-ghost.glb",
+      "name": "Character Ghost",
+      "category": "character",
+      "tags": [
+        "character",
+        "ghost",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "character-keeper",
+      "file": "character-keeper.glb",
+      "name": "Character Keeper",
+      "category": "character",
+      "tags": [
+        "character",
+        "keeper",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "character-skeleton",
+      "file": "character-skeleton.glb",
+      "name": "Character Skeleton",
+      "category": "character",
+      "tags": [
+        "character",
+        "skeleton",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "character-vampire",
+      "file": "character-vampire.glb",
+      "name": "Character Vampire",
+      "category": "character",
+      "tags": [
+        "character",
+        "vampire",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "character-zombie",
+      "file": "character-zombie.glb",
+      "name": "Character Zombie",
+      "category": "character",
+      "tags": [
+        "character",
+        "zombie",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coffin",
+      "file": "coffin.glb",
+      "name": "Coffin",
+      "category": "coffin",
+      "tags": [
+        "coffin",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coffin-old",
+      "file": "coffin-old.glb",
+      "name": "Coffin Old",
+      "category": "coffin",
+      "tags": [
+        "coffin",
+        "old",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "column-large",
+      "file": "column-large.glb",
+      "name": "Column Large",
+      "category": "column",
+      "tags": [
+        "column",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cross",
+      "file": "cross.glb",
+      "name": "Cross",
+      "category": "cross",
+      "tags": [
+        "cross",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cross-column",
+      "file": "cross-column.glb",
+      "name": "Cross Column",
+      "category": "cross",
+      "tags": [
+        "cross",
+        "column",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cross-wood",
+      "file": "cross-wood.glb",
+      "name": "Cross Wood",
+      "category": "cross",
+      "tags": [
+        "cross",
+        "wood",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "crypt",
+      "file": "crypt.glb",
+      "name": "Crypt",
+      "category": "crypt",
+      "tags": [
+        "crypt",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "crypt-a",
+      "file": "crypt-a.glb",
+      "name": "Crypt A",
+      "category": "crypt",
+      "tags": [
+        "crypt",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "crypt-b",
+      "file": "crypt-b.glb",
+      "name": "Crypt B",
+      "category": "crypt",
+      "tags": [
+        "crypt",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "crypt-door",
+      "file": "crypt-door.glb",
+      "name": "Crypt Door",
+      "category": "crypt",
+      "tags": [
+        "crypt",
+        "door",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "crypt-large",
+      "file": "crypt-large.glb",
+      "name": "Crypt Large",
+      "category": "crypt",
+      "tags": [
+        "crypt",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "crypt-large-door",
+      "file": "crypt-large-door.glb",
+      "name": "Crypt Large Door",
+      "category": "crypt",
+      "tags": [
+        "crypt",
+        "large",
+        "door",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "crypt-large-roof",
+      "file": "crypt-large-roof.glb",
+      "name": "Crypt Large Roof",
+      "category": "crypt",
+      "tags": [
+        "crypt",
+        "large",
+        "roof",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "crypt-small",
+      "file": "crypt-small.glb",
+      "name": "Crypt Small",
+      "category": "crypt",
+      "tags": [
+        "crypt",
+        "small",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "crypt-small-roof",
+      "file": "crypt-small-roof.glb",
+      "name": "Crypt Small Roof",
+      "category": "crypt",
+      "tags": [
+        "crypt",
+        "small",
+        "roof",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "debris",
+      "file": "debris.glb",
+      "name": "Debris",
+      "category": "debris",
+      "tags": [
+        "debris",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "debris-wood",
+      "file": "debris-wood.glb",
+      "name": "Debris Wood",
+      "category": "debris",
+      "tags": [
+        "debris",
+        "wood",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "detail-bowl",
+      "file": "detail-bowl.glb",
+      "name": "Detail Bowl",
+      "category": "detail",
+      "tags": [
+        "detail",
+        "bowl",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "detail-chalice",
+      "file": "detail-chalice.glb",
+      "name": "Detail Chalice",
+      "category": "detail",
+      "tags": [
+        "detail",
+        "chalice",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "detail-plate",
+      "file": "detail-plate.glb",
+      "name": "Detail Plate",
+      "category": "detail",
+      "tags": [
+        "detail",
+        "plate",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fence",
+      "file": "fence.glb",
+      "name": "Fence",
+      "category": "fence",
+      "tags": [
+        "fence",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fence-damaged",
+      "file": "fence-damaged.glb",
+      "name": "Fence Damaged",
+      "category": "fence",
+      "tags": [
+        "fence",
+        "damaged",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fence-gate",
+      "file": "fence-gate.glb",
+      "name": "Fence Gate",
+      "category": "fence",
+      "tags": [
+        "fence",
+        "gate",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fire-basket",
+      "file": "fire-basket.glb",
+      "name": "Fire Basket",
+      "category": "fire",
+      "tags": [
+        "fire",
+        "basket",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "grave",
+      "file": "grave.glb",
+      "name": "Grave",
+      "category": "grave",
+      "tags": [
+        "grave",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "grave-border",
+      "file": "grave-border.glb",
+      "name": "Grave Border",
+      "category": "grave",
+      "tags": [
+        "grave",
+        "border",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "gravestone-bevel",
+      "file": "gravestone-bevel.glb",
+      "name": "Gravestone Bevel",
+      "category": "gravestone",
+      "tags": [
+        "gravestone",
+        "bevel",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "gravestone-broken",
+      "file": "gravestone-broken.glb",
+      "name": "Gravestone Broken",
+      "category": "gravestone",
+      "tags": [
+        "gravestone",
+        "broken",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "gravestone-cross",
+      "file": "gravestone-cross.glb",
+      "name": "Gravestone Cross",
+      "category": "gravestone",
+      "tags": [
+        "gravestone",
+        "cross",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "gravestone-cross-large",
+      "file": "gravestone-cross-large.glb",
+      "name": "Gravestone Cross Large",
+      "category": "gravestone",
+      "tags": [
+        "gravestone",
+        "cross",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "gravestone-debris",
+      "file": "gravestone-debris.glb",
+      "name": "Gravestone Debris",
+      "category": "gravestone",
+      "tags": [
+        "gravestone",
+        "debris",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "gravestone-decorative",
+      "file": "gravestone-decorative.glb",
+      "name": "Gravestone Decorative",
+      "category": "gravestone",
+      "tags": [
+        "gravestone",
+        "decorative",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "gravestone-roof",
+      "file": "gravestone-roof.glb",
+      "name": "Gravestone Roof",
+      "category": "gravestone",
+      "tags": [
+        "gravestone",
+        "roof",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "gravestone-round",
+      "file": "gravestone-round.glb",
+      "name": "Gravestone Round",
+      "category": "gravestone",
+      "tags": [
+        "gravestone",
+        "round",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "gravestone-wide",
+      "file": "gravestone-wide.glb",
+      "name": "Gravestone Wide",
+      "category": "gravestone",
+      "tags": [
+        "gravestone",
+        "wide",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "hay-bale",
+      "file": "hay-bale.glb",
+      "name": "Hay Bale",
+      "category": "hay",
+      "tags": [
+        "hay",
+        "bale",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "hay-bale-bundled",
+      "file": "hay-bale-bundled.glb",
+      "name": "Hay Bale Bundled",
+      "category": "hay",
+      "tags": [
+        "hay",
+        "bale",
+        "bundled",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "iron-fence",
+      "file": "iron-fence.glb",
+      "name": "Iron Fence",
+      "category": "iron",
+      "tags": [
+        "iron",
+        "fence",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "iron-fence-bar",
+      "file": "iron-fence-bar.glb",
+      "name": "Iron Fence Bar",
+      "category": "iron",
+      "tags": [
+        "iron",
+        "fence",
+        "bar",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "iron-fence-border",
+      "file": "iron-fence-border.glb",
+      "name": "Iron Fence Border",
+      "category": "iron",
+      "tags": [
+        "iron",
+        "fence",
+        "border",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "iron-fence-border-column",
+      "file": "iron-fence-border-column.glb",
+      "name": "Iron Fence Border Column",
+      "category": "iron",
+      "tags": [
+        "iron",
+        "fence",
+        "border",
+        "column",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "iron-fence-border-curve",
+      "file": "iron-fence-border-curve.glb",
+      "name": "Iron Fence Border Curve",
+      "category": "iron",
+      "tags": [
+        "iron",
+        "fence",
+        "border",
+        "curve",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "iron-fence-border-gate",
+      "file": "iron-fence-border-gate.glb",
+      "name": "Iron Fence Border Gate",
+      "category": "iron",
+      "tags": [
+        "iron",
+        "fence",
+        "border",
+        "gate",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "iron-fence-curve",
+      "file": "iron-fence-curve.glb",
+      "name": "Iron Fence Curve",
+      "category": "iron",
+      "tags": [
+        "iron",
+        "fence",
+        "curve",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "iron-fence-damaged",
+      "file": "iron-fence-damaged.glb",
+      "name": "Iron Fence Damaged",
+      "category": "iron",
+      "tags": [
+        "iron",
+        "fence",
+        "damaged",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "lantern-candle",
+      "file": "lantern-candle.glb",
+      "name": "Lantern Candle",
+      "category": "lantern",
+      "tags": [
+        "lantern",
+        "candle",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "lantern-glass",
+      "file": "lantern-glass.glb",
+      "name": "Lantern Glass",
+      "category": "lantern",
+      "tags": [
+        "lantern",
+        "glass",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "lightpost-all",
+      "file": "lightpost-all.glb",
+      "name": "Lightpost All",
+      "category": "lightpost",
+      "tags": [
+        "lightpost",
+        "all",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "lightpost-double",
+      "file": "lightpost-double.glb",
+      "name": "Lightpost Double",
+      "category": "lightpost",
+      "tags": [
+        "lightpost",
+        "double",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "lightpost-single",
+      "file": "lightpost-single.glb",
+      "name": "Lightpost Single",
+      "category": "lightpost",
+      "tags": [
+        "lightpost",
+        "single",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pillar-large",
+      "file": "pillar-large.glb",
+      "name": "Pillar Large",
+      "category": "pillar",
+      "tags": [
+        "pillar",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pillar-obelisk",
+      "file": "pillar-obelisk.glb",
+      "name": "Pillar Obelisk",
+      "category": "pillar",
+      "tags": [
+        "pillar",
+        "obelisk",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pillar-small",
+      "file": "pillar-small.glb",
+      "name": "Pillar Small",
+      "category": "pillar",
+      "tags": [
+        "pillar",
+        "small",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pillar-square",
+      "file": "pillar-square.glb",
+      "name": "Pillar Square",
+      "category": "pillar",
+      "tags": [
+        "pillar",
+        "square",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pine",
+      "file": "pine.glb",
+      "name": "Pine",
+      "category": "pine",
+      "tags": [
+        "pine",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pine-crooked",
+      "file": "pine-crooked.glb",
+      "name": "Pine Crooked",
+      "category": "pine",
+      "tags": [
+        "pine",
+        "crooked",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pine-fall",
+      "file": "pine-fall.glb",
+      "name": "Pine Fall",
+      "category": "pine",
+      "tags": [
+        "pine",
+        "fall",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pine-fall-crooked",
+      "file": "pine-fall-crooked.glb",
+      "name": "Pine Fall Crooked",
+      "category": "pine",
+      "tags": [
+        "pine",
+        "fall",
+        "crooked",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pumpkin",
+      "file": "pumpkin.glb",
+      "name": "Pumpkin",
+      "category": "pumpkin",
+      "tags": [
+        "pumpkin",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pumpkin-carved",
+      "file": "pumpkin-carved.glb",
+      "name": "Pumpkin Carved",
+      "category": "pumpkin",
+      "tags": [
+        "pumpkin",
+        "carved",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pumpkin-tall",
+      "file": "pumpkin-tall.glb",
+      "name": "Pumpkin Tall",
+      "category": "pumpkin",
+      "tags": [
+        "pumpkin",
+        "tall",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pumpkin-tall-carved",
+      "file": "pumpkin-tall-carved.glb",
+      "name": "Pumpkin Tall Carved",
+      "category": "pumpkin",
+      "tags": [
+        "pumpkin",
+        "tall",
+        "carved",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road",
+      "file": "road.glb",
+      "name": "Road",
+      "category": "road",
+      "tags": [
+        "road",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rocks",
+      "file": "rocks.glb",
+      "name": "Rocks",
+      "category": "terrain",
+      "tags": [
+        "rocks",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rocks-tall",
+      "file": "rocks-tall.glb",
+      "name": "Rocks Tall",
+      "category": "terrain",
+      "tags": [
+        "rocks",
+        "tall",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "shovel",
+      "file": "shovel.glb",
+      "name": "Shovel",
+      "category": "shovel",
+      "tags": [
+        "shovel",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "shovel-dirt",
+      "file": "shovel-dirt.glb",
+      "name": "Shovel Dirt",
+      "category": "shovel",
+      "tags": [
+        "shovel",
+        "dirt",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stone-wall",
+      "file": "stone-wall.glb",
+      "name": "Stone Wall",
+      "category": "terrain",
+      "tags": [
+        "stone",
+        "wall",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stone-wall-column",
+      "file": "stone-wall-column.glb",
+      "name": "Stone Wall Column",
+      "category": "terrain",
+      "tags": [
+        "stone",
+        "wall",
+        "column",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stone-wall-curve",
+      "file": "stone-wall-curve.glb",
+      "name": "Stone Wall Curve",
+      "category": "terrain",
+      "tags": [
+        "stone",
+        "wall",
+        "curve",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stone-wall-damaged",
+      "file": "stone-wall-damaged.glb",
+      "name": "Stone Wall Damaged",
+      "category": "terrain",
+      "tags": [
+        "stone",
+        "wall",
+        "damaged",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "trunk",
+      "file": "trunk.glb",
+      "name": "Trunk",
+      "category": "trunk",
+      "tags": [
+        "trunk",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "trunk-long",
+      "file": "trunk-long.glb",
+      "name": "Trunk Long",
+      "category": "trunk",
+      "tags": [
+        "trunk",
+        "long",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "urn-round",
+      "file": "urn-round.glb",
+      "name": "Urn Round",
+      "category": "urn",
+      "tags": [
+        "urn",
+        "round",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "urn-square",
+      "file": "urn-square.glb",
+      "name": "Urn Square",
+      "category": "urn",
+      "tags": [
+        "urn",
+        "square",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    }
+  ]
+}

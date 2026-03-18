@@ -1,0 +1,538 @@
+{
+  "pack_id": "kenney-modular-dungeon-kit",
+  "name": "Kenney Modular Dungeon Kit",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "40 modular dungeon models from Kenney.",
+  "base_url": "/static/assets/packs/kenney-modular-dungeon-kit/",
+  "assets": [
+    {
+      "id": "corridor",
+      "file": "corridor.glb",
+      "name": "Corridor",
+      "category": "corridor",
+      "tags": [
+        "corridor",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "corridor-corner",
+      "file": "corridor-corner.glb",
+      "name": "Corridor Corner",
+      "category": "corridor",
+      "tags": [
+        "corridor",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "corridor-end",
+      "file": "corridor-end.glb",
+      "name": "Corridor End",
+      "category": "corridor",
+      "tags": [
+        "corridor",
+        "end",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "corridor-intersection",
+      "file": "corridor-intersection.glb",
+      "name": "Corridor Intersection",
+      "category": "corridor",
+      "tags": [
+        "corridor",
+        "intersection",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "corridor-junction",
+      "file": "corridor-junction.glb",
+      "name": "Corridor Junction",
+      "category": "corridor",
+      "tags": [
+        "corridor",
+        "junction",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "corridor-transition",
+      "file": "corridor-transition.glb",
+      "name": "Corridor Transition",
+      "category": "corridor",
+      "tags": [
+        "corridor",
+        "transition",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "corridor-wide",
+      "file": "corridor-wide.glb",
+      "name": "Corridor Wide",
+      "category": "corridor",
+      "tags": [
+        "corridor",
+        "wide",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "corridor-wide-corner",
+      "file": "corridor-wide-corner.glb",
+      "name": "Corridor Wide Corner",
+      "category": "corridor",
+      "tags": [
+        "corridor",
+        "wide",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "corridor-wide-end",
+      "file": "corridor-wide-end.glb",
+      "name": "Corridor Wide End",
+      "category": "corridor",
+      "tags": [
+        "corridor",
+        "wide",
+        "end",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "corridor-wide-intersection",
+      "file": "corridor-wide-intersection.glb",
+      "name": "Corridor Wide Intersection",
+      "category": "corridor",
+      "tags": [
+        "corridor",
+        "wide",
+        "intersection",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "corridor-wide-junction",
+      "file": "corridor-wide-junction.glb",
+      "name": "Corridor Wide Junction",
+      "category": "corridor",
+      "tags": [
+        "corridor",
+        "wide",
+        "junction",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "gate",
+      "file": "gate.glb",
+      "name": "Gate",
+      "category": "gate",
+      "tags": [
+        "gate",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "gate-door",
+      "file": "gate-door.glb",
+      "name": "Gate Door",
+      "category": "gate",
+      "tags": [
+        "gate",
+        "door",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "gate-door-window",
+      "file": "gate-door-window.glb",
+      "name": "Gate Door Window",
+      "category": "gate",
+      "tags": [
+        "gate",
+        "door",
+        "window",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "gate-metal-bars",
+      "file": "gate-metal-bars.glb",
+      "name": "Gate Metal Bars",
+      "category": "gate",
+      "tags": [
+        "gate",
+        "metal",
+        "bars",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "room-corner",
+      "file": "room-corner.glb",
+      "name": "Room Corner",
+      "category": "room",
+      "tags": [
+        "room",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "room-large",
+      "file": "room-large.glb",
+      "name": "Room Large",
+      "category": "room",
+      "tags": [
+        "room",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "room-large-variation",
+      "file": "room-large-variation.glb",
+      "name": "Room Large Variation",
+      "category": "room",
+      "tags": [
+        "room",
+        "large",
+        "variation",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "room-small",
+      "file": "room-small.glb",
+      "name": "Room Small",
+      "category": "room",
+      "tags": [
+        "room",
+        "small",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "room-small-variation",
+      "file": "room-small-variation.glb",
+      "name": "Room Small Variation",
+      "category": "room",
+      "tags": [
+        "room",
+        "small",
+        "variation",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "room-wide",
+      "file": "room-wide.glb",
+      "name": "Room Wide",
+      "category": "room",
+      "tags": [
+        "room",
+        "wide",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "room-wide-variation",
+      "file": "room-wide-variation.glb",
+      "name": "Room Wide Variation",
+      "category": "room",
+      "tags": [
+        "room",
+        "wide",
+        "variation",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stairs",
+      "file": "stairs.glb",
+      "name": "Stairs",
+      "category": "stairs",
+      "tags": [
+        "stairs",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stairs-wide",
+      "file": "stairs-wide.glb",
+      "name": "Stairs Wide",
+      "category": "stairs",
+      "tags": [
+        "stairs",
+        "wide",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "template-corner",
+      "file": "template-corner.glb",
+      "name": "Template Corner",
+      "category": "template",
+      "tags": [
+        "template",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "template-detail",
+      "file": "template-detail.glb",
+      "name": "Template Detail",
+      "category": "template",
+      "tags": [
+        "template",
+        "detail",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "template-floor",
+      "file": "template-floor.glb",
+      "name": "Template Floor",
+      "category": "template",
+      "tags": [
+        "template",
+        "floor",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "template-floor-big",
+      "file": "template-floor-big.glb",
+      "name": "Template Floor Big",
+      "category": "template",
+      "tags": [
+        "template",
+        "floor",
+        "big",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "template-floor-detail",
+      "file": "template-floor-detail.glb",
+      "name": "Template Floor Detail",
+      "category": "template",
+      "tags": [
+        "template",
+        "floor",
+        "detail",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "template-floor-detail-a",
+      "file": "template-floor-detail-a.glb",
+      "name": "Template Floor Detail A",
+      "category": "template",
+      "tags": [
+        "template",
+        "floor",
+        "detail",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "template-floor-layer",
+      "file": "template-floor-layer.glb",
+      "name": "Template Floor Layer",
+      "category": "template",
+      "tags": [
+        "template",
+        "floor",
+        "layer",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "template-floor-layer-hole",
+      "file": "template-floor-layer-hole.glb",
+      "name": "Template Floor Layer Hole",
+      "category": "template",
+      "tags": [
+        "template",
+        "floor",
+        "layer",
+        "hole",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "template-floor-layer-raised",
+      "file": "template-floor-layer-raised.glb",
+      "name": "Template Floor Layer Raised",
+      "category": "template",
+      "tags": [
+        "template",
+        "floor",
+        "layer",
+        "raised",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "template-wall",
+      "file": "template-wall.glb",
+      "name": "Template Wall",
+      "category": "template",
+      "tags": [
+        "template",
+        "wall",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "template-wall-corner",
+      "file": "template-wall-corner.glb",
+      "name": "Template Wall Corner",
+      "category": "template",
+      "tags": [
+        "template",
+        "wall",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "template-wall-detail-a",
+      "file": "template-wall-detail-a.glb",
+      "name": "Template Wall Detail A",
+      "category": "template",
+      "tags": [
+        "template",
+        "wall",
+        "detail",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "template-wall-half",
+      "file": "template-wall-half.glb",
+      "name": "Template Wall Half",
+      "category": "template",
+      "tags": [
+        "template",
+        "wall",
+        "half",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "template-wall-stairs",
+      "file": "template-wall-stairs.glb",
+      "name": "Template Wall Stairs",
+      "category": "template",
+      "tags": [
+        "template",
+        "wall",
+        "stairs",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "template-wall-top",
+      "file": "template-wall-top.glb",
+      "name": "Template Wall Top",
+      "category": "template",
+      "tags": [
+        "template",
+        "wall",
+        "top",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    }
+  ]
+}

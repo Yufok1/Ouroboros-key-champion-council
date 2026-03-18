@@ -1,0 +1,328 @@
+{
+  "pack_id": "kenney-mini-dungeon",
+  "name": "Kenney Mini Dungeon",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "Kenney Mini Dungeon free 3D models from Kenney.",
+  "base_url": "/static/assets/packs/kenney-mini-dungeon/",
+  "assets": [
+    {
+      "id": "banner",
+      "file": "banner.glb",
+      "name": "Banner",
+      "category": "banner",
+      "tags": [
+        "banner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "barrel",
+      "file": "barrel.glb",
+      "name": "Barrel",
+      "category": "barrel",
+      "tags": [
+        "barrel",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "character-human",
+      "file": "character-human.glb",
+      "name": "Character Human",
+      "category": "character",
+      "tags": [
+        "character",
+        "human",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "character-orc",
+      "file": "character-orc.glb",
+      "name": "Character Orc",
+      "category": "character",
+      "tags": [
+        "character",
+        "orc",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "chest",
+      "file": "chest.glb",
+      "name": "Chest",
+      "category": "chest",
+      "tags": [
+        "chest",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coin",
+      "file": "coin.glb",
+      "name": "Coin",
+      "category": "coin",
+      "tags": [
+        "coin",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "column",
+      "file": "column.glb",
+      "name": "Column",
+      "category": "column",
+      "tags": [
+        "column",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "dirt",
+      "file": "dirt.glb",
+      "name": "Dirt",
+      "category": "dirt",
+      "tags": [
+        "dirt",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "floor",
+      "file": "floor.glb",
+      "name": "Floor",
+      "category": "floor",
+      "tags": [
+        "floor",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "floor-detail",
+      "file": "floor-detail.glb",
+      "name": "Floor Detail",
+      "category": "floor",
+      "tags": [
+        "floor",
+        "detail",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "gate",
+      "file": "gate.glb",
+      "name": "Gate",
+      "category": "gate",
+      "tags": [
+        "gate",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rocks",
+      "file": "rocks.glb",
+      "name": "Rocks",
+      "category": "terrain",
+      "tags": [
+        "rocks",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "shield-rectangle",
+      "file": "shield-rectangle.glb",
+      "name": "Shield Rectangle",
+      "category": "shield",
+      "tags": [
+        "shield",
+        "rectangle",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "shield-round",
+      "file": "shield-round.glb",
+      "name": "Shield Round",
+      "category": "shield",
+      "tags": [
+        "shield",
+        "round",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stairs",
+      "file": "stairs.glb",
+      "name": "Stairs",
+      "category": "stairs",
+      "tags": [
+        "stairs",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stones",
+      "file": "stones.glb",
+      "name": "Stones",
+      "category": "terrain",
+      "tags": [
+        "stones",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "trap",
+      "file": "trap.glb",
+      "name": "Trap",
+      "category": "trap",
+      "tags": [
+        "trap",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall",
+      "file": "wall.glb",
+      "name": "Wall",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-half",
+      "file": "wall-half.glb",
+      "name": "Wall Half",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "half",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-narrow",
+      "file": "wall-narrow.glb",
+      "name": "Wall Narrow",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "narrow",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-opening",
+      "file": "wall-opening.glb",
+      "name": "Wall Opening",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "opening",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "weapon-spear",
+      "file": "weapon-spear.glb",
+      "name": "Weapon Spear",
+      "category": "weapon",
+      "tags": [
+        "weapon",
+        "spear",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "weapon-sword",
+      "file": "weapon-sword.glb",
+      "name": "Weapon Sword",
+      "category": "weapon",
+      "tags": [
+        "weapon",
+        "sword",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wood-structure",
+      "file": "wood-structure.glb",
+      "name": "Wood Structure",
+      "category": "wood",
+      "tags": [
+        "wood",
+        "structure",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wood-support",
+      "file": "wood-support.glb",
+      "name": "Wood Support",
+      "category": "wood",
+      "tags": [
+        "wood",
+        "support",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    }
+  ]
+}

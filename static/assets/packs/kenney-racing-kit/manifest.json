@@ -1,0 +1,1358 @@
+{
+  "pack_id": "kenney-racing-kit",
+  "name": "Kenney Racing Kit",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "Kenney Racing Kit free 3D models from Kenney.",
+  "base_url": "/static/assets/packs/kenney-racing-kit/",
+  "assets": [
+    {
+      "id": "bannertowergreen",
+      "file": "bannerTowerGreen.glb",
+      "name": "BannerTowerGreen",
+      "category": "bannertowergreen",
+      "tags": [
+        "bannertowergreen",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bannertowerred",
+      "file": "bannerTowerRed.glb",
+      "name": "BannerTowerRed",
+      "category": "bannertowerred",
+      "tags": [
+        "bannertowerred",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "barrierred",
+      "file": "barrierRed.glb",
+      "name": "BarrierRed",
+      "category": "barrierred",
+      "tags": [
+        "barrierred",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "barrierwall",
+      "file": "barrierWall.glb",
+      "name": "BarrierWall",
+      "category": "barrierwall",
+      "tags": [
+        "barrierwall",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "barrierwhite",
+      "file": "barrierWhite.glb",
+      "name": "BarrierWhite",
+      "category": "barrierwhite",
+      "tags": [
+        "barrierwhite",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "billboard",
+      "file": "billboard.glb",
+      "name": "Billboard",
+      "category": "billboard",
+      "tags": [
+        "billboard",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "billboarddouble-exclusive",
+      "file": "billboardDouble_exclusive.glb",
+      "name": "BillboardDouble Exclusive",
+      "category": "billboarddouble",
+      "tags": [
+        "billboarddouble",
+        "exclusive",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "billboardlow",
+      "file": "billboardLow.glb",
+      "name": "BillboardLow",
+      "category": "billboardlow",
+      "tags": [
+        "billboardlow",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "billboardlower",
+      "file": "billboardLower.glb",
+      "name": "BillboardLower",
+      "category": "billboardlower",
+      "tags": [
+        "billboardlower",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "camera-exclusive",
+      "file": "camera_exclusive.glb",
+      "name": "Camera Exclusive",
+      "category": "camera",
+      "tags": [
+        "camera",
+        "exclusive",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fencecurved",
+      "file": "fenceCurved.glb",
+      "name": "FenceCurved",
+      "category": "fencecurved",
+      "tags": [
+        "fencecurved",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fencestraight",
+      "file": "fenceStraight.glb",
+      "name": "FenceStraight",
+      "category": "fencestraight",
+      "tags": [
+        "fencestraight",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "flagcheckers",
+      "file": "flagCheckers.glb",
+      "name": "FlagCheckers",
+      "category": "flagcheckers",
+      "tags": [
+        "flagcheckers",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "flagcheckerssmall",
+      "file": "flagCheckersSmall.glb",
+      "name": "FlagCheckersSmall",
+      "category": "flagcheckerssmall",
+      "tags": [
+        "flagcheckerssmall",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "flaggreen",
+      "file": "flagGreen.glb",
+      "name": "FlagGreen",
+      "category": "flaggreen",
+      "tags": [
+        "flaggreen",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "flagred",
+      "file": "flagRed.glb",
+      "name": "FlagRed",
+      "category": "flagred",
+      "tags": [
+        "flagred",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "flagtankco",
+      "file": "flagTankco.glb",
+      "name": "FlagTankco",
+      "category": "flagtankco",
+      "tags": [
+        "flagtankco",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "grandstand",
+      "file": "grandStand.glb",
+      "name": "GrandStand",
+      "category": "grandstand",
+      "tags": [
+        "grandstand",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "grandstandawning",
+      "file": "grandStandAwning.glb",
+      "name": "GrandStandAwning",
+      "category": "grandstandawning",
+      "tags": [
+        "grandstandawning",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "grandstandcovered",
+      "file": "grandStandCovered.glb",
+      "name": "GrandStandCovered",
+      "category": "grandstandcovered",
+      "tags": [
+        "grandstandcovered",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "grandstandcoveredround",
+      "file": "grandStandCoveredRound.glb",
+      "name": "GrandStandCoveredRound",
+      "category": "grandstandcoveredround",
+      "tags": [
+        "grandstandcoveredround",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "grandstandround",
+      "file": "grandStandRound.glb",
+      "name": "GrandStandRound",
+      "category": "grandstandround",
+      "tags": [
+        "grandstandround",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "grass",
+      "file": "grass.glb",
+      "name": "Grass",
+      "category": "vegetation",
+      "tags": [
+        "grass",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "lightcolored",
+      "file": "lightColored.glb",
+      "name": "LightColored",
+      "category": "lightcolored",
+      "tags": [
+        "lightcolored",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "lightpost-exclusive",
+      "file": "lightPost_exclusive.glb",
+      "name": "LightPost Exclusive",
+      "category": "lightpost",
+      "tags": [
+        "lightpost",
+        "exclusive",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "lightpostlarge",
+      "file": "lightPostLarge.glb",
+      "name": "LightPostLarge",
+      "category": "lightpostlarge",
+      "tags": [
+        "lightpostlarge",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "lightpostmodern",
+      "file": "lightPostModern.glb",
+      "name": "LightPostModern",
+      "category": "lightpostmodern",
+      "tags": [
+        "lightpostmodern",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "lightred",
+      "file": "lightRed.glb",
+      "name": "LightRed",
+      "category": "lightred",
+      "tags": [
+        "lightred",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "lightreddouble",
+      "file": "lightRedDouble.glb",
+      "name": "LightRedDouble",
+      "category": "lightreddouble",
+      "tags": [
+        "lightreddouble",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "overhead",
+      "file": "overhead.glb",
+      "name": "Overhead",
+      "category": "overhead",
+      "tags": [
+        "overhead",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "overheadlights",
+      "file": "overheadLights.glb",
+      "name": "OverheadLights",
+      "category": "overheadlights",
+      "tags": [
+        "overheadlights",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "overheadround",
+      "file": "overheadRound.glb",
+      "name": "OverheadRound",
+      "category": "overheadround",
+      "tags": [
+        "overheadround",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "overheadroundcolored",
+      "file": "overheadRoundColored.glb",
+      "name": "OverheadRoundColored",
+      "category": "overheadroundcolored",
+      "tags": [
+        "overheadroundcolored",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pitsgarage",
+      "file": "pitsGarage.glb",
+      "name": "PitsGarage",
+      "category": "pitsgarage",
+      "tags": [
+        "pitsgarage",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pitsgarageclosed",
+      "file": "pitsGarageClosed.glb",
+      "name": "PitsGarageClosed",
+      "category": "pitsgarageclosed",
+      "tags": [
+        "pitsgarageclosed",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pitsgaragecorner",
+      "file": "pitsGarageCorner.glb",
+      "name": "PitsGarageCorner",
+      "category": "pitsgaragecorner",
+      "tags": [
+        "pitsgaragecorner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pitsoffice",
+      "file": "pitsOffice.glb",
+      "name": "PitsOffice",
+      "category": "pitsoffice",
+      "tags": [
+        "pitsoffice",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pitsofficecorner",
+      "file": "pitsOfficeCorner.glb",
+      "name": "PitsOfficeCorner",
+      "category": "pitsofficecorner",
+      "tags": [
+        "pitsofficecorner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pitsofficeroof",
+      "file": "pitsOfficeRoof.glb",
+      "name": "PitsOfficeRoof",
+      "category": "pitsofficeroof",
+      "tags": [
+        "pitsofficeroof",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pylon",
+      "file": "pylon.glb",
+      "name": "Pylon",
+      "category": "pylon",
+      "tags": [
+        "pylon",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "racecargreen",
+      "file": "raceCarGreen.glb",
+      "name": "RaceCarGreen",
+      "category": "racecargreen",
+      "tags": [
+        "racecargreen",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "racecarorange",
+      "file": "raceCarOrange.glb",
+      "name": "RaceCarOrange",
+      "category": "racecarorange",
+      "tags": [
+        "racecarorange",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "racecarred",
+      "file": "raceCarRed.glb",
+      "name": "RaceCarRed",
+      "category": "racecarred",
+      "tags": [
+        "racecarred",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "racecarwhite",
+      "file": "raceCarWhite.glb",
+      "name": "RaceCarWhite",
+      "category": "racecarwhite",
+      "tags": [
+        "racecarwhite",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "radarequipment",
+      "file": "radarEquipment.glb",
+      "name": "RadarEquipment",
+      "category": "radarequipment",
+      "tags": [
+        "radarequipment",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rail",
+      "file": "rail.glb",
+      "name": "Rail",
+      "category": "rail",
+      "tags": [
+        "rail",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "raildouble",
+      "file": "railDouble.glb",
+      "name": "RailDouble",
+      "category": "raildouble",
+      "tags": [
+        "raildouble",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ramp",
+      "file": "ramp.glb",
+      "name": "Ramp",
+      "category": "ramp",
+      "tags": [
+        "ramp",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadbump",
+      "file": "roadBump.glb",
+      "name": "RoadBump",
+      "category": "roadbump",
+      "tags": [
+        "roadbump",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadcornerbridgelarge",
+      "file": "roadCornerBridgeLarge.glb",
+      "name": "RoadCornerBridgeLarge",
+      "category": "roadcornerbridgelarge",
+      "tags": [
+        "roadcornerbridgelarge",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadcornerbridgelarger",
+      "file": "roadCornerBridgeLarger.glb",
+      "name": "RoadCornerBridgeLarger",
+      "category": "roadcornerbridgelarger",
+      "tags": [
+        "roadcornerbridgelarger",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadcornerbridgesmall",
+      "file": "roadCornerBridgeSmall.glb",
+      "name": "RoadCornerBridgeSmall",
+      "category": "roadcornerbridgesmall",
+      "tags": [
+        "roadcornerbridgesmall",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadcornerlarge",
+      "file": "roadCornerLarge.glb",
+      "name": "RoadCornerLarge",
+      "category": "roadcornerlarge",
+      "tags": [
+        "roadcornerlarge",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadcornerlargeborder",
+      "file": "roadCornerLargeBorder.glb",
+      "name": "RoadCornerLargeBorder",
+      "category": "roadcornerlargeborder",
+      "tags": [
+        "roadcornerlargeborder",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadcornerlargeborderinner",
+      "file": "roadCornerLargeBorderInner.glb",
+      "name": "RoadCornerLargeBorderInner",
+      "category": "roadcornerlargeborderinner",
+      "tags": [
+        "roadcornerlargeborderinner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadcornerlarger",
+      "file": "roadCornerLarger.glb",
+      "name": "RoadCornerLarger",
+      "category": "roadcornerlarger",
+      "tags": [
+        "roadcornerlarger",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadcornerlargerborder",
+      "file": "roadCornerLargerBorder.glb",
+      "name": "RoadCornerLargerBorder",
+      "category": "roadcornerlargerborder",
+      "tags": [
+        "roadcornerlargerborder",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadcornerlargerborderinner",
+      "file": "roadCornerLargerBorderInner.glb",
+      "name": "RoadCornerLargerBorderInner",
+      "category": "roadcornerlargerborderinner",
+      "tags": [
+        "roadcornerlargerborderinner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadcornerlargersand",
+      "file": "roadCornerLargerSand.glb",
+      "name": "RoadCornerLargerSand",
+      "category": "roadcornerlargersand",
+      "tags": [
+        "roadcornerlargersand",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadcornerlargersandinner",
+      "file": "roadCornerLargerSandInner.glb",
+      "name": "RoadCornerLargerSandInner",
+      "category": "roadcornerlargersandinner",
+      "tags": [
+        "roadcornerlargersandinner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadcornerlargerwall",
+      "file": "roadCornerLargerWall.glb",
+      "name": "RoadCornerLargerWall",
+      "category": "roadcornerlargerwall",
+      "tags": [
+        "roadcornerlargerwall",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadcornerlargerwallinner",
+      "file": "roadCornerLargerWallInner.glb",
+      "name": "RoadCornerLargerWallInner",
+      "category": "roadcornerlargerwallinner",
+      "tags": [
+        "roadcornerlargerwallinner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadcornerlargesand",
+      "file": "roadCornerLargeSand.glb",
+      "name": "RoadCornerLargeSand",
+      "category": "roadcornerlargesand",
+      "tags": [
+        "roadcornerlargesand",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadcornerlargesandinner",
+      "file": "roadCornerLargeSandInner.glb",
+      "name": "RoadCornerLargeSandInner",
+      "category": "roadcornerlargesandinner",
+      "tags": [
+        "roadcornerlargesandinner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadcornerlargewall",
+      "file": "roadCornerLargeWall.glb",
+      "name": "RoadCornerLargeWall",
+      "category": "roadcornerlargewall",
+      "tags": [
+        "roadcornerlargewall",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadcornerlargewallinner",
+      "file": "roadCornerLargeWallInner.glb",
+      "name": "RoadCornerLargeWallInner",
+      "category": "roadcornerlargewallinner",
+      "tags": [
+        "roadcornerlargewallinner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadcornersmall",
+      "file": "roadCornerSmall.glb",
+      "name": "RoadCornerSmall",
+      "category": "roadcornersmall",
+      "tags": [
+        "roadcornersmall",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadcornersmallborder",
+      "file": "roadCornerSmallBorder.glb",
+      "name": "RoadCornerSmallBorder",
+      "category": "roadcornersmallborder",
+      "tags": [
+        "roadcornersmallborder",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadcornersmallsand",
+      "file": "roadCornerSmallSand.glb",
+      "name": "RoadCornerSmallSand",
+      "category": "roadcornersmallsand",
+      "tags": [
+        "roadcornersmallsand",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadcornersmallsquare",
+      "file": "roadCornerSmallSquare.glb",
+      "name": "RoadCornerSmallSquare",
+      "category": "roadcornersmallsquare",
+      "tags": [
+        "roadcornersmallsquare",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadcornersmallwall",
+      "file": "roadCornerSmallWall.glb",
+      "name": "RoadCornerSmallWall",
+      "category": "roadcornersmallwall",
+      "tags": [
+        "roadcornersmallwall",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadcrossing",
+      "file": "roadCrossing.glb",
+      "name": "RoadCrossing",
+      "category": "roadcrossing",
+      "tags": [
+        "roadcrossing",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadcurved",
+      "file": "roadCurved.glb",
+      "name": "RoadCurved",
+      "category": "roadcurved",
+      "tags": [
+        "roadcurved",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadcurvedsplit",
+      "file": "roadCurvedSplit.glb",
+      "name": "RoadCurvedSplit",
+      "category": "roadcurvedsplit",
+      "tags": [
+        "roadcurvedsplit",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadend",
+      "file": "roadEnd.glb",
+      "name": "RoadEnd",
+      "category": "roadend",
+      "tags": [
+        "roadend",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadpitentry",
+      "file": "roadPitEntry.glb",
+      "name": "RoadPitEntry",
+      "category": "roadpitentry",
+      "tags": [
+        "roadpitentry",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadpitgarage",
+      "file": "roadPitGarage.glb",
+      "name": "RoadPitGarage",
+      "category": "roadpitgarage",
+      "tags": [
+        "roadpitgarage",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadpitstraight",
+      "file": "roadPitStraight.glb",
+      "name": "RoadPitStraight",
+      "category": "roadpitstraight",
+      "tags": [
+        "roadpitstraight",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadpitstraightlong",
+      "file": "roadPitStraightLong.glb",
+      "name": "RoadPitStraightLong",
+      "category": "roadpitstraightlong",
+      "tags": [
+        "roadpitstraightlong",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadramp",
+      "file": "roadRamp.glb",
+      "name": "RoadRamp",
+      "category": "roadramp",
+      "tags": [
+        "roadramp",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadramplong",
+      "file": "roadRampLong.glb",
+      "name": "RoadRampLong",
+      "category": "roadramplong",
+      "tags": [
+        "roadramplong",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadramplongcurved",
+      "file": "roadRampLongCurved.glb",
+      "name": "RoadRampLongCurved",
+      "category": "roadramplongcurved",
+      "tags": [
+        "roadramplongcurved",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadramplongcurvedwall",
+      "file": "roadRampLongCurvedWall.glb",
+      "name": "RoadRampLongCurvedWall",
+      "category": "roadramplongcurvedwall",
+      "tags": [
+        "roadramplongcurvedwall",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadramplongwall",
+      "file": "roadRampLongWall.glb",
+      "name": "RoadRampLongWall",
+      "category": "roadramplongwall",
+      "tags": [
+        "roadramplongwall",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadrampwall",
+      "file": "roadRampWall.glb",
+      "name": "RoadRampWall",
+      "category": "roadrampwall",
+      "tags": [
+        "roadrampwall",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadside",
+      "file": "roadSide.glb",
+      "name": "RoadSide",
+      "category": "roadside",
+      "tags": [
+        "roadside",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadsplit",
+      "file": "roadSplit.glb",
+      "name": "RoadSplit",
+      "category": "roadsplit",
+      "tags": [
+        "roadsplit",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadsplitlarge",
+      "file": "roadSplitLarge.glb",
+      "name": "RoadSplitLarge",
+      "category": "roadsplitlarge",
+      "tags": [
+        "roadsplitlarge",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadsplitlarger",
+      "file": "roadSplitLarger.glb",
+      "name": "RoadSplitLarger",
+      "category": "roadsplitlarger",
+      "tags": [
+        "roadsplitlarger",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadsplitround",
+      "file": "roadSplitRound.glb",
+      "name": "RoadSplitRound",
+      "category": "roadsplitround",
+      "tags": [
+        "roadsplitround",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadsplitroundlarge",
+      "file": "roadSplitRoundLarge.glb",
+      "name": "RoadSplitRoundLarge",
+      "category": "roadsplitroundlarge",
+      "tags": [
+        "roadsplitroundlarge",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadsplitsmall",
+      "file": "roadSplitSmall.glb",
+      "name": "RoadSplitSmall",
+      "category": "roadsplitsmall",
+      "tags": [
+        "roadsplitsmall",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadstart",
+      "file": "roadStart.glb",
+      "name": "RoadStart",
+      "category": "roadstart",
+      "tags": [
+        "roadstart",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadstartpositions",
+      "file": "roadStartPositions.glb",
+      "name": "RoadStartPositions",
+      "category": "roadstartpositions",
+      "tags": [
+        "roadstartpositions",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadstraight",
+      "file": "roadStraight.glb",
+      "name": "RoadStraight",
+      "category": "roadstraight",
+      "tags": [
+        "roadstraight",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadstraightarrow",
+      "file": "roadStraightArrow.glb",
+      "name": "RoadStraightArrow",
+      "category": "roadstraightarrow",
+      "tags": [
+        "roadstraightarrow",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadstraightbridge",
+      "file": "roadStraightBridge.glb",
+      "name": "RoadStraightBridge",
+      "category": "roadstraightbridge",
+      "tags": [
+        "roadstraightbridge",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadstraightbridgemid",
+      "file": "roadStraightBridgeMid.glb",
+      "name": "RoadStraightBridgeMid",
+      "category": "roadstraightbridgemid",
+      "tags": [
+        "roadstraightbridgemid",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadstraightbridgestart",
+      "file": "roadStraightBridgeStart.glb",
+      "name": "RoadStraightBridgeStart",
+      "category": "roadstraightbridgestart",
+      "tags": [
+        "roadstraightbridgestart",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadstraightlong",
+      "file": "roadStraightLong.glb",
+      "name": "RoadStraightLong",
+      "category": "roadstraightlong",
+      "tags": [
+        "roadstraightlong",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadstraightlongbump",
+      "file": "roadStraightLongBump.glb",
+      "name": "RoadStraightLongBump",
+      "category": "roadstraightlongbump",
+      "tags": [
+        "roadstraightlongbump",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadstraightlongbumpround",
+      "file": "roadStraightLongBumpRound.glb",
+      "name": "RoadStraightLongBumpRound",
+      "category": "roadstraightlongbumpround",
+      "tags": [
+        "roadstraightlongbumpround",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadstraightlongmid",
+      "file": "roadStraightLongMid.glb",
+      "name": "RoadStraightLongMid",
+      "category": "roadstraightlongmid",
+      "tags": [
+        "roadstraightlongmid",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roadstraightskew",
+      "file": "roadStraightSkew.glb",
+      "name": "RoadStraightSkew",
+      "category": "roadstraightskew",
+      "tags": [
+        "roadstraightskew",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tent",
+      "file": "tent.glb",
+      "name": "Tent",
+      "category": "tent",
+      "tags": [
+        "tent",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tentclosed",
+      "file": "tentClosed.glb",
+      "name": "TentClosed",
+      "category": "tentclosed",
+      "tags": [
+        "tentclosed",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tentclosedlong",
+      "file": "tentClosedLong.glb",
+      "name": "TentClosedLong",
+      "category": "tentclosedlong",
+      "tags": [
+        "tentclosedlong",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tentlong",
+      "file": "tentLong.glb",
+      "name": "TentLong",
+      "category": "tentlong",
+      "tags": [
+        "tentlong",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tentroof",
+      "file": "tentRoof.glb",
+      "name": "TentRoof",
+      "category": "tentroof",
+      "tags": [
+        "tentroof",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tentroofdouble",
+      "file": "tentRoofDouble.glb",
+      "name": "TentRoofDouble",
+      "category": "tentroofdouble",
+      "tags": [
+        "tentroofdouble",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "treelarge",
+      "file": "treeLarge.glb",
+      "name": "TreeLarge",
+      "category": "treelarge",
+      "tags": [
+        "treelarge",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "treesmall",
+      "file": "treeSmall.glb",
+      "name": "TreeSmall",
+      "category": "treesmall",
+      "tags": [
+        "treesmall",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    }
+  ]
+}

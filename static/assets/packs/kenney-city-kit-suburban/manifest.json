@@ -1,0 +1,575 @@
+{
+  "pack_id": "kenney-city-kit-suburban",
+  "name": "Kenney City Kit Suburban",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "40 suburban building models from Kenney.",
+  "base_url": "/static/assets/packs/kenney-city-kit-suburban/",
+  "assets": [
+    {
+      "id": "building-type-a",
+      "file": "building-type-a.glb",
+      "name": "Building Type A",
+      "category": "structure",
+      "tags": [
+        "building",
+        "type",
+        "a",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-type-b",
+      "file": "building-type-b.glb",
+      "name": "Building Type B",
+      "category": "structure",
+      "tags": [
+        "building",
+        "type",
+        "b",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-type-c",
+      "file": "building-type-c.glb",
+      "name": "Building Type C",
+      "category": "structure",
+      "tags": [
+        "building",
+        "type",
+        "c",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-type-d",
+      "file": "building-type-d.glb",
+      "name": "Building Type D",
+      "category": "structure",
+      "tags": [
+        "building",
+        "type",
+        "d",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-type-e",
+      "file": "building-type-e.glb",
+      "name": "Building Type E",
+      "category": "structure",
+      "tags": [
+        "building",
+        "type",
+        "e",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-type-f",
+      "file": "building-type-f.glb",
+      "name": "Building Type F",
+      "category": "structure",
+      "tags": [
+        "building",
+        "type",
+        "f",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-type-g",
+      "file": "building-type-g.glb",
+      "name": "Building Type G",
+      "category": "structure",
+      "tags": [
+        "building",
+        "type",
+        "g",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-type-h",
+      "file": "building-type-h.glb",
+      "name": "Building Type H",
+      "category": "structure",
+      "tags": [
+        "building",
+        "type",
+        "h",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-type-i",
+      "file": "building-type-i.glb",
+      "name": "Building Type I",
+      "category": "structure",
+      "tags": [
+        "building",
+        "type",
+        "i",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-type-j",
+      "file": "building-type-j.glb",
+      "name": "Building Type J",
+      "category": "structure",
+      "tags": [
+        "building",
+        "type",
+        "j",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-type-k",
+      "file": "building-type-k.glb",
+      "name": "Building Type K",
+      "category": "structure",
+      "tags": [
+        "building",
+        "type",
+        "k",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-type-l",
+      "file": "building-type-l.glb",
+      "name": "Building Type L",
+      "category": "structure",
+      "tags": [
+        "building",
+        "type",
+        "l",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-type-m",
+      "file": "building-type-m.glb",
+      "name": "Building Type M",
+      "category": "structure",
+      "tags": [
+        "building",
+        "type",
+        "m",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-type-n",
+      "file": "building-type-n.glb",
+      "name": "Building Type N",
+      "category": "structure",
+      "tags": [
+        "building",
+        "type",
+        "n",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-type-o",
+      "file": "building-type-o.glb",
+      "name": "Building Type O",
+      "category": "structure",
+      "tags": [
+        "building",
+        "type",
+        "o",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-type-p",
+      "file": "building-type-p.glb",
+      "name": "Building Type P",
+      "category": "structure",
+      "tags": [
+        "building",
+        "type",
+        "p",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-type-q",
+      "file": "building-type-q.glb",
+      "name": "Building Type Q",
+      "category": "structure",
+      "tags": [
+        "building",
+        "type",
+        "q",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-type-r",
+      "file": "building-type-r.glb",
+      "name": "Building Type R",
+      "category": "structure",
+      "tags": [
+        "building",
+        "type",
+        "r",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-type-s",
+      "file": "building-type-s.glb",
+      "name": "Building Type S",
+      "category": "structure",
+      "tags": [
+        "building",
+        "type",
+        "s",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-type-t",
+      "file": "building-type-t.glb",
+      "name": "Building Type T",
+      "category": "structure",
+      "tags": [
+        "building",
+        "type",
+        "t",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-type-u",
+      "file": "building-type-u.glb",
+      "name": "Building Type U",
+      "category": "structure",
+      "tags": [
+        "building",
+        "type",
+        "u",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "driveway-long",
+      "file": "driveway-long.glb",
+      "name": "Driveway Long",
+      "category": "driveway",
+      "tags": [
+        "driveway",
+        "long",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "driveway-short",
+      "file": "driveway-short.glb",
+      "name": "Driveway Short",
+      "category": "driveway",
+      "tags": [
+        "driveway",
+        "short",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fence",
+      "file": "fence.glb",
+      "name": "Fence",
+      "category": "fence",
+      "tags": [
+        "fence",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fence-1x2",
+      "file": "fence-1x2.glb",
+      "name": "Fence 1x2",
+      "category": "fence",
+      "tags": [
+        "fence",
+        "1x2",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fence-1x3",
+      "file": "fence-1x3.glb",
+      "name": "Fence 1x3",
+      "category": "fence",
+      "tags": [
+        "fence",
+        "1x3",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fence-1x4",
+      "file": "fence-1x4.glb",
+      "name": "Fence 1x4",
+      "category": "fence",
+      "tags": [
+        "fence",
+        "1x4",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fence-2x2",
+      "file": "fence-2x2.glb",
+      "name": "Fence 2x2",
+      "category": "fence",
+      "tags": [
+        "fence",
+        "2x2",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fence-2x3",
+      "file": "fence-2x3.glb",
+      "name": "Fence 2x3",
+      "category": "fence",
+      "tags": [
+        "fence",
+        "2x3",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fence-3x2",
+      "file": "fence-3x2.glb",
+      "name": "Fence 3x2",
+      "category": "fence",
+      "tags": [
+        "fence",
+        "3x2",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fence-3x3",
+      "file": "fence-3x3.glb",
+      "name": "Fence 3x3",
+      "category": "fence",
+      "tags": [
+        "fence",
+        "3x3",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fence-low",
+      "file": "fence-low.glb",
+      "name": "Fence Low",
+      "category": "fence",
+      "tags": [
+        "fence",
+        "low",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "path-long",
+      "file": "path-long.glb",
+      "name": "Path Long",
+      "category": "path",
+      "tags": [
+        "path",
+        "long",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "path-short",
+      "file": "path-short.glb",
+      "name": "Path Short",
+      "category": "path",
+      "tags": [
+        "path",
+        "short",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "path-stones-long",
+      "file": "path-stones-long.glb",
+      "name": "Path Stones Long",
+      "category": "path",
+      "tags": [
+        "path",
+        "stones",
+        "long",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "path-stones-messy",
+      "file": "path-stones-messy.glb",
+      "name": "Path Stones Messy",
+      "category": "path",
+      "tags": [
+        "path",
+        "stones",
+        "messy",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "path-stones-short",
+      "file": "path-stones-short.glb",
+      "name": "Path Stones Short",
+      "category": "path",
+      "tags": [
+        "path",
+        "stones",
+        "short",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "planter",
+      "file": "planter.glb",
+      "name": "Planter",
+      "category": "planter",
+      "tags": [
+        "planter",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-large",
+      "file": "tree-large.glb",
+      "name": "Tree Large",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "large",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-small",
+      "file": "tree-small.glb",
+      "name": "Tree Small",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "small",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    }
+  ]
+}

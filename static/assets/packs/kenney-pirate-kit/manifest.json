@@ -1,0 +1,983 @@
+{
+  "pack_id": "kenney-pirate-kit",
+  "name": "Kenney Pirate Kit",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "Kenney Pirate Kit free 3D models from Kenney.",
+  "base_url": "/static/assets/packs/kenney-pirate-kit/",
+  "assets": [
+    {
+      "id": "barrel",
+      "file": "barrel.glb",
+      "name": "Barrel",
+      "category": "barrel",
+      "tags": [
+        "barrel",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "boat-row-large",
+      "file": "boat-row-large.glb",
+      "name": "Boat Row Large",
+      "category": "boat",
+      "tags": [
+        "boat",
+        "row",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "boat-row-small",
+      "file": "boat-row-small.glb",
+      "name": "Boat Row Small",
+      "category": "boat",
+      "tags": [
+        "boat",
+        "row",
+        "small",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bottle",
+      "file": "bottle.glb",
+      "name": "Bottle",
+      "category": "bottle",
+      "tags": [
+        "bottle",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bottle-large",
+      "file": "bottle-large.glb",
+      "name": "Bottle Large",
+      "category": "bottle",
+      "tags": [
+        "bottle",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cannon",
+      "file": "cannon.glb",
+      "name": "Cannon",
+      "category": "cannon",
+      "tags": [
+        "cannon",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cannon-ball",
+      "file": "cannon-ball.glb",
+      "name": "Cannon Ball",
+      "category": "cannon",
+      "tags": [
+        "cannon",
+        "ball",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cannon-mobile",
+      "file": "cannon-mobile.glb",
+      "name": "Cannon Mobile",
+      "category": "cannon",
+      "tags": [
+        "cannon",
+        "mobile",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "castle-door",
+      "file": "castle-door.glb",
+      "name": "Castle Door",
+      "category": "structure",
+      "tags": [
+        "castle",
+        "door",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "castle-gate",
+      "file": "castle-gate.glb",
+      "name": "Castle Gate",
+      "category": "structure",
+      "tags": [
+        "castle",
+        "gate",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "castle-wall",
+      "file": "castle-wall.glb",
+      "name": "Castle Wall",
+      "category": "structure",
+      "tags": [
+        "castle",
+        "wall",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "castle-window",
+      "file": "castle-window.glb",
+      "name": "Castle Window",
+      "category": "structure",
+      "tags": [
+        "castle",
+        "window",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "chest",
+      "file": "chest.glb",
+      "name": "Chest",
+      "category": "chest",
+      "tags": [
+        "chest",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "crate",
+      "file": "crate.glb",
+      "name": "Crate",
+      "category": "crate",
+      "tags": [
+        "crate",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "crate-bottles",
+      "file": "crate-bottles.glb",
+      "name": "Crate Bottles",
+      "category": "crate",
+      "tags": [
+        "crate",
+        "bottles",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "flag",
+      "file": "flag.glb",
+      "name": "Flag",
+      "category": "flag",
+      "tags": [
+        "flag",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "flag-high",
+      "file": "flag-high.glb",
+      "name": "Flag High",
+      "category": "flag",
+      "tags": [
+        "flag",
+        "high",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "flag-high-pennant",
+      "file": "flag-high-pennant.glb",
+      "name": "Flag High Pennant",
+      "category": "flag",
+      "tags": [
+        "flag",
+        "high",
+        "pennant",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "flag-pennant",
+      "file": "flag-pennant.glb",
+      "name": "Flag Pennant",
+      "category": "flag",
+      "tags": [
+        "flag",
+        "pennant",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "flag-pirate",
+      "file": "flag-pirate.glb",
+      "name": "Flag Pirate",
+      "category": "flag",
+      "tags": [
+        "flag",
+        "pirate",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "flag-pirate-high",
+      "file": "flag-pirate-high.glb",
+      "name": "Flag Pirate High",
+      "category": "flag",
+      "tags": [
+        "flag",
+        "pirate",
+        "high",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "flag-pirate-high-pennant",
+      "file": "flag-pirate-high-pennant.glb",
+      "name": "Flag Pirate High Pennant",
+      "category": "flag",
+      "tags": [
+        "flag",
+        "pirate",
+        "high",
+        "pennant",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "flag-pirate-pennant",
+      "file": "flag-pirate-pennant.glb",
+      "name": "Flag Pirate Pennant",
+      "category": "flag",
+      "tags": [
+        "flag",
+        "pirate",
+        "pennant",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "grass",
+      "file": "grass.glb",
+      "name": "Grass",
+      "category": "vegetation",
+      "tags": [
+        "grass",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "grass-patch",
+      "file": "grass-patch.glb",
+      "name": "Grass Patch",
+      "category": "vegetation",
+      "tags": [
+        "grass",
+        "patch",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "grass-plant",
+      "file": "grass-plant.glb",
+      "name": "Grass Plant",
+      "category": "vegetation",
+      "tags": [
+        "grass",
+        "plant",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "hole",
+      "file": "hole.glb",
+      "name": "Hole",
+      "category": "hole",
+      "tags": [
+        "hole",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "mast",
+      "file": "mast.glb",
+      "name": "Mast",
+      "category": "mast",
+      "tags": [
+        "mast",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "mast-ropes",
+      "file": "mast-ropes.glb",
+      "name": "Mast Ropes",
+      "category": "mast",
+      "tags": [
+        "mast",
+        "ropes",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "palm-bend",
+      "file": "palm-bend.glb",
+      "name": "Palm Bend",
+      "category": "palm",
+      "tags": [
+        "palm",
+        "bend",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "palm-detailed-bend",
+      "file": "palm-detailed-bend.glb",
+      "name": "Palm Detailed Bend",
+      "category": "palm",
+      "tags": [
+        "palm",
+        "detailed",
+        "bend",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "palm-detailed-straight",
+      "file": "palm-detailed-straight.glb",
+      "name": "Palm Detailed Straight",
+      "category": "palm",
+      "tags": [
+        "palm",
+        "detailed",
+        "straight",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "palm-straight",
+      "file": "palm-straight.glb",
+      "name": "Palm Straight",
+      "category": "palm",
+      "tags": [
+        "palm",
+        "straight",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "patch-grass",
+      "file": "patch-grass.glb",
+      "name": "Patch Grass",
+      "category": "patch",
+      "tags": [
+        "patch",
+        "grass",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "patch-grass-foliage",
+      "file": "patch-grass-foliage.glb",
+      "name": "Patch Grass Foliage",
+      "category": "patch",
+      "tags": [
+        "patch",
+        "grass",
+        "foliage",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "patch-sand",
+      "file": "patch-sand.glb",
+      "name": "Patch Sand",
+      "category": "patch",
+      "tags": [
+        "patch",
+        "sand",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "patch-sand-foliage",
+      "file": "patch-sand-foliage.glb",
+      "name": "Patch Sand Foliage",
+      "category": "patch",
+      "tags": [
+        "patch",
+        "sand",
+        "foliage",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "platform",
+      "file": "platform.glb",
+      "name": "Platform",
+      "category": "platform",
+      "tags": [
+        "platform",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "platform-planks",
+      "file": "platform-planks.glb",
+      "name": "Platform Planks",
+      "category": "platform",
+      "tags": [
+        "platform",
+        "planks",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rocks-a",
+      "file": "rocks-a.glb",
+      "name": "Rocks A",
+      "category": "terrain",
+      "tags": [
+        "rocks",
+        "a",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rocks-b",
+      "file": "rocks-b.glb",
+      "name": "Rocks B",
+      "category": "terrain",
+      "tags": [
+        "rocks",
+        "b",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rocks-c",
+      "file": "rocks-c.glb",
+      "name": "Rocks C",
+      "category": "terrain",
+      "tags": [
+        "rocks",
+        "c",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rocks-sand-a",
+      "file": "rocks-sand-a.glb",
+      "name": "Rocks Sand A",
+      "category": "terrain",
+      "tags": [
+        "rocks",
+        "sand",
+        "a",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rocks-sand-b",
+      "file": "rocks-sand-b.glb",
+      "name": "Rocks Sand B",
+      "category": "terrain",
+      "tags": [
+        "rocks",
+        "sand",
+        "b",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rocks-sand-c",
+      "file": "rocks-sand-c.glb",
+      "name": "Rocks Sand C",
+      "category": "terrain",
+      "tags": [
+        "rocks",
+        "sand",
+        "c",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ship-ghost",
+      "file": "ship-ghost.glb",
+      "name": "Ship Ghost",
+      "category": "ship",
+      "tags": [
+        "ship",
+        "ghost",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ship-large",
+      "file": "ship-large.glb",
+      "name": "Ship Large",
+      "category": "ship",
+      "tags": [
+        "ship",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ship-medium",
+      "file": "ship-medium.glb",
+      "name": "Ship Medium",
+      "category": "ship",
+      "tags": [
+        "ship",
+        "medium",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ship-pirate-large",
+      "file": "ship-pirate-large.glb",
+      "name": "Ship Pirate Large",
+      "category": "ship",
+      "tags": [
+        "ship",
+        "pirate",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ship-pirate-medium",
+      "file": "ship-pirate-medium.glb",
+      "name": "Ship Pirate Medium",
+      "category": "ship",
+      "tags": [
+        "ship",
+        "pirate",
+        "medium",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ship-pirate-small",
+      "file": "ship-pirate-small.glb",
+      "name": "Ship Pirate Small",
+      "category": "ship",
+      "tags": [
+        "ship",
+        "pirate",
+        "small",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ship-small",
+      "file": "ship-small.glb",
+      "name": "Ship Small",
+      "category": "ship",
+      "tags": [
+        "ship",
+        "small",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ship-wreck",
+      "file": "ship-wreck.glb",
+      "name": "Ship Wreck",
+      "category": "ship",
+      "tags": [
+        "ship",
+        "wreck",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure",
+      "file": "structure.glb",
+      "name": "Structure",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure-fence",
+      "file": "structure-fence.glb",
+      "name": "Structure Fence",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "fence",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure-fence-sides",
+      "file": "structure-fence-sides.glb",
+      "name": "Structure Fence Sides",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "fence",
+        "sides",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure-platform",
+      "file": "structure-platform.glb",
+      "name": "Structure Platform",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "platform",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure-platform-dock",
+      "file": "structure-platform-dock.glb",
+      "name": "Structure Platform Dock",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "platform",
+        "dock",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure-platform-dock-small",
+      "file": "structure-platform-dock-small.glb",
+      "name": "Structure Platform Dock Small",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "platform",
+        "dock",
+        "small",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure-platform-small",
+      "file": "structure-platform-small.glb",
+      "name": "Structure Platform Small",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "platform",
+        "small",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure-roof",
+      "file": "structure-roof.glb",
+      "name": "Structure Roof",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "roof",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tool-paddle",
+      "file": "tool-paddle.glb",
+      "name": "Tool Paddle",
+      "category": "tool",
+      "tags": [
+        "tool",
+        "paddle",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tool-shovel",
+      "file": "tool-shovel.glb",
+      "name": "Tool Shovel",
+      "category": "tool",
+      "tags": [
+        "tool",
+        "shovel",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-base",
+      "file": "tower-base.glb",
+      "name": "Tower Base",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "base",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-base-door",
+      "file": "tower-base-door.glb",
+      "name": "Tower Base Door",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "base",
+        "door",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-complete-large",
+      "file": "tower-complete-large.glb",
+      "name": "Tower Complete Large",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "complete",
+        "large",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-complete-small",
+      "file": "tower-complete-small.glb",
+      "name": "Tower Complete Small",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "complete",
+        "small",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-middle",
+      "file": "tower-middle.glb",
+      "name": "Tower Middle",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "middle",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-middle-windows",
+      "file": "tower-middle-windows.glb",
+      "name": "Tower Middle Windows",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "middle",
+        "windows",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-roof",
+      "file": "tower-roof.glb",
+      "name": "Tower Roof",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "roof",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-top",
+      "file": "tower-top.glb",
+      "name": "Tower Top",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "top",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-watch",
+      "file": "tower-watch.glb",
+      "name": "Tower Watch",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "watch",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    }
+  ]
+}

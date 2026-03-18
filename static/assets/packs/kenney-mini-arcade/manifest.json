@@ -1,0 +1,270 @@
+{
+  "pack_id": "kenney-mini-arcade",
+  "name": "Kenney Mini Arcade",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "Kenney Mini Arcade free 3D models from Kenney.",
+  "base_url": "/static/assets/packs/kenney-mini-arcade/",
+  "assets": [
+    {
+      "id": "air-hockey",
+      "file": "air-hockey.glb",
+      "name": "Air Hockey",
+      "category": "air",
+      "tags": [
+        "air",
+        "hockey",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "arcade-machine",
+      "file": "arcade-machine.glb",
+      "name": "Arcade Machine",
+      "category": "arcade",
+      "tags": [
+        "arcade",
+        "machine",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "basketball-game",
+      "file": "basketball-game.glb",
+      "name": "Basketball Game",
+      "category": "basketball",
+      "tags": [
+        "basketball",
+        "game",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cash-register",
+      "file": "cash-register.glb",
+      "name": "Cash Register",
+      "category": "cash",
+      "tags": [
+        "cash",
+        "register",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "character-employee",
+      "file": "character-employee.glb",
+      "name": "Character Employee",
+      "category": "character",
+      "tags": [
+        "character",
+        "employee",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "character-gamer",
+      "file": "character-gamer.glb",
+      "name": "Character Gamer",
+      "category": "character",
+      "tags": [
+        "character",
+        "gamer",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "claw-machine",
+      "file": "claw-machine.glb",
+      "name": "Claw Machine",
+      "category": "claw",
+      "tags": [
+        "claw",
+        "machine",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "column",
+      "file": "column.glb",
+      "name": "Column",
+      "category": "column",
+      "tags": [
+        "column",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "dance-machine",
+      "file": "dance-machine.glb",
+      "name": "Dance Machine",
+      "category": "dance",
+      "tags": [
+        "dance",
+        "machine",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "floor",
+      "file": "floor.glb",
+      "name": "Floor",
+      "category": "floor",
+      "tags": [
+        "floor",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "gambling-machine",
+      "file": "gambling-machine.glb",
+      "name": "Gambling Machine",
+      "category": "gambling",
+      "tags": [
+        "gambling",
+        "machine",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pinball",
+      "file": "pinball.glb",
+      "name": "Pinball",
+      "category": "pinball",
+      "tags": [
+        "pinball",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "prize-wheel",
+      "file": "prize-wheel.glb",
+      "name": "Prize Wheel",
+      "category": "prize",
+      "tags": [
+        "prize",
+        "wheel",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "prizes",
+      "file": "prizes.glb",
+      "name": "Prizes",
+      "category": "prizes",
+      "tags": [
+        "prizes",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ticket-machine",
+      "file": "ticket-machine.glb",
+      "name": "Ticket Machine",
+      "category": "ticket",
+      "tags": [
+        "ticket",
+        "machine",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "vending-machine",
+      "file": "vending-machine.glb",
+      "name": "Vending Machine",
+      "category": "vending",
+      "tags": [
+        "vending",
+        "machine",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall",
+      "file": "wall.glb",
+      "name": "Wall",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-corner",
+      "file": "wall-corner.glb",
+      "name": "Wall Corner",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "corner",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-door-rotate",
+      "file": "wall-door-rotate.glb",
+      "name": "Wall Door Rotate",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "door",
+        "rotate",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-window",
+      "file": "wall-window.glb",
+      "name": "Wall Window",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "window",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    }
+  ]
+}

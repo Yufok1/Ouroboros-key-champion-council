@@ -1,0 +1,830 @@
+{
+  "pack_id": "kenney-conveyor-kit",
+  "name": "Kenney Conveyor Kit",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "Kenney Conveyor Kit free 3D models from Kenney.",
+  "base_url": "/static/assets/packs/kenney-conveyor-kit/",
+  "assets": [
+    {
+      "id": "arrow",
+      "file": "arrow.glb",
+      "name": "Arrow",
+      "category": "arrow",
+      "tags": [
+        "arrow",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "arrow-basic",
+      "file": "arrow-basic.glb",
+      "name": "Arrow Basic",
+      "category": "arrow",
+      "tags": [
+        "arrow",
+        "basic",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "box-large",
+      "file": "box-large.glb",
+      "name": "Box Large",
+      "category": "box",
+      "tags": [
+        "box",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "box-long",
+      "file": "box-long.glb",
+      "name": "Box Long",
+      "category": "box",
+      "tags": [
+        "box",
+        "long",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "box-small",
+      "file": "box-small.glb",
+      "name": "Box Small",
+      "category": "box",
+      "tags": [
+        "box",
+        "small",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "box-wide",
+      "file": "box-wide.glb",
+      "name": "Box Wide",
+      "category": "box",
+      "tags": [
+        "box",
+        "wide",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "conveyor",
+      "file": "conveyor.glb",
+      "name": "Conveyor",
+      "category": "conveyor",
+      "tags": [
+        "conveyor",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "conveyor-bars",
+      "file": "conveyor-bars.glb",
+      "name": "Conveyor Bars",
+      "category": "conveyor",
+      "tags": [
+        "conveyor",
+        "bars",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "conveyor-bars-fence",
+      "file": "conveyor-bars-fence.glb",
+      "name": "Conveyor Bars Fence",
+      "category": "conveyor",
+      "tags": [
+        "conveyor",
+        "bars",
+        "fence",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "conveyor-bars-high",
+      "file": "conveyor-bars-high.glb",
+      "name": "Conveyor Bars High",
+      "category": "conveyor",
+      "tags": [
+        "conveyor",
+        "bars",
+        "high",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "conveyor-bars-sides",
+      "file": "conveyor-bars-sides.glb",
+      "name": "Conveyor Bars Sides",
+      "category": "conveyor",
+      "tags": [
+        "conveyor",
+        "bars",
+        "sides",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "conveyor-bars-stripe",
+      "file": "conveyor-bars-stripe.glb",
+      "name": "Conveyor Bars Stripe",
+      "category": "conveyor",
+      "tags": [
+        "conveyor",
+        "bars",
+        "stripe",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "conveyor-bars-stripe-fence",
+      "file": "conveyor-bars-stripe-fence.glb",
+      "name": "Conveyor Bars Stripe Fence",
+      "category": "conveyor",
+      "tags": [
+        "conveyor",
+        "bars",
+        "stripe",
+        "fence",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "conveyor-bars-stripe-high",
+      "file": "conveyor-bars-stripe-high.glb",
+      "name": "Conveyor Bars Stripe High",
+      "category": "conveyor",
+      "tags": [
+        "conveyor",
+        "bars",
+        "stripe",
+        "high",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "conveyor-bars-stripe-side",
+      "file": "conveyor-bars-stripe-side.glb",
+      "name": "Conveyor Bars Stripe Side",
+      "category": "conveyor",
+      "tags": [
+        "conveyor",
+        "bars",
+        "stripe",
+        "side",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "conveyor-long",
+      "file": "conveyor-long.glb",
+      "name": "Conveyor Long",
+      "category": "conveyor",
+      "tags": [
+        "conveyor",
+        "long",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "conveyor-long-sides",
+      "file": "conveyor-long-sides.glb",
+      "name": "Conveyor Long Sides",
+      "category": "conveyor",
+      "tags": [
+        "conveyor",
+        "long",
+        "sides",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "conveyor-long-stripe",
+      "file": "conveyor-long-stripe.glb",
+      "name": "Conveyor Long Stripe",
+      "category": "conveyor",
+      "tags": [
+        "conveyor",
+        "long",
+        "stripe",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "conveyor-long-stripe-sides",
+      "file": "conveyor-long-stripe-sides.glb",
+      "name": "Conveyor Long Stripe Sides",
+      "category": "conveyor",
+      "tags": [
+        "conveyor",
+        "long",
+        "stripe",
+        "sides",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "conveyor-sides",
+      "file": "conveyor-sides.glb",
+      "name": "Conveyor Sides",
+      "category": "conveyor",
+      "tags": [
+        "conveyor",
+        "sides",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "conveyor-stripe",
+      "file": "conveyor-stripe.glb",
+      "name": "Conveyor Stripe",
+      "category": "conveyor",
+      "tags": [
+        "conveyor",
+        "stripe",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "conveyor-stripe-sides",
+      "file": "conveyor-stripe-sides.glb",
+      "name": "Conveyor Stripe Sides",
+      "category": "conveyor",
+      "tags": [
+        "conveyor",
+        "stripe",
+        "sides",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cover",
+      "file": "cover.glb",
+      "name": "Cover",
+      "category": "cover",
+      "tags": [
+        "cover",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cover-bar",
+      "file": "cover-bar.glb",
+      "name": "Cover Bar",
+      "category": "cover",
+      "tags": [
+        "cover",
+        "bar",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cover-corner",
+      "file": "cover-corner.glb",
+      "name": "Cover Corner",
+      "category": "cover",
+      "tags": [
+        "cover",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cover-hopper",
+      "file": "cover-hopper.glb",
+      "name": "Cover Hopper",
+      "category": "cover",
+      "tags": [
+        "cover",
+        "hopper",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cover-stripe",
+      "file": "cover-stripe.glb",
+      "name": "Cover Stripe",
+      "category": "cover",
+      "tags": [
+        "cover",
+        "stripe",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cover-stripe-bar",
+      "file": "cover-stripe-bar.glb",
+      "name": "Cover Stripe Bar",
+      "category": "cover",
+      "tags": [
+        "cover",
+        "stripe",
+        "bar",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cover-stripe-corner",
+      "file": "cover-stripe-corner.glb",
+      "name": "Cover Stripe Corner",
+      "category": "cover",
+      "tags": [
+        "cover",
+        "stripe",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cover-stripe-hopper",
+      "file": "cover-stripe-hopper.glb",
+      "name": "Cover Stripe Hopper",
+      "category": "cover",
+      "tags": [
+        "cover",
+        "stripe",
+        "hopper",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cover-stripe-top",
+      "file": "cover-stripe-top.glb",
+      "name": "Cover Stripe Top",
+      "category": "cover",
+      "tags": [
+        "cover",
+        "stripe",
+        "top",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cover-stripe-window",
+      "file": "cover-stripe-window.glb",
+      "name": "Cover Stripe Window",
+      "category": "cover",
+      "tags": [
+        "cover",
+        "stripe",
+        "window",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cover-top",
+      "file": "cover-top.glb",
+      "name": "Cover Top",
+      "category": "cover",
+      "tags": [
+        "cover",
+        "top",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cover-window",
+      "file": "cover-window.glb",
+      "name": "Cover Window",
+      "category": "cover",
+      "tags": [
+        "cover",
+        "window",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "door",
+      "file": "door.glb",
+      "name": "Door",
+      "category": "door",
+      "tags": [
+        "door",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "door-wide-closed",
+      "file": "door-wide-closed.glb",
+      "name": "Door Wide Closed",
+      "category": "door",
+      "tags": [
+        "door",
+        "wide",
+        "closed",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "door-wide-half",
+      "file": "door-wide-half.glb",
+      "name": "Door Wide Half",
+      "category": "door",
+      "tags": [
+        "door",
+        "wide",
+        "half",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "door-wide-open",
+      "file": "door-wide-open.glb",
+      "name": "Door Wide Open",
+      "category": "door",
+      "tags": [
+        "door",
+        "wide",
+        "open",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "floor",
+      "file": "floor.glb",
+      "name": "Floor",
+      "category": "floor",
+      "tags": [
+        "floor",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "floor-large",
+      "file": "floor-large.glb",
+      "name": "Floor Large",
+      "category": "floor",
+      "tags": [
+        "floor",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "robot-arm-a",
+      "file": "robot-arm-a.glb",
+      "name": "Robot Arm A",
+      "category": "robot",
+      "tags": [
+        "robot",
+        "arm",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "robot-arm-b",
+      "file": "robot-arm-b.glb",
+      "name": "Robot Arm B",
+      "category": "robot",
+      "tags": [
+        "robot",
+        "arm",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "scanner-high",
+      "file": "scanner-high.glb",
+      "name": "Scanner High",
+      "category": "scanner",
+      "tags": [
+        "scanner",
+        "high",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "scanner-low",
+      "file": "scanner-low.glb",
+      "name": "Scanner Low",
+      "category": "scanner",
+      "tags": [
+        "scanner",
+        "low",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure-corner-inner",
+      "file": "structure-corner-inner.glb",
+      "name": "Structure Corner Inner",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "corner",
+        "inner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure-corner-outer",
+      "file": "structure-corner-outer.glb",
+      "name": "Structure Corner Outer",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "corner",
+        "outer",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure-doorway",
+      "file": "structure-doorway.glb",
+      "name": "Structure Doorway",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "doorway",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure-doorway-wide",
+      "file": "structure-doorway-wide.glb",
+      "name": "Structure Doorway Wide",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "doorway",
+        "wide",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure-high",
+      "file": "structure-high.glb",
+      "name": "Structure High",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "high",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure-medium",
+      "file": "structure-medium.glb",
+      "name": "Structure Medium",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "medium",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure-short",
+      "file": "structure-short.glb",
+      "name": "Structure Short",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "short",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure-tall",
+      "file": "structure-tall.glb",
+      "name": "Structure Tall",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "tall",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure-wall",
+      "file": "structure-wall.glb",
+      "name": "Structure Wall",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "wall",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure-window",
+      "file": "structure-window.glb",
+      "name": "Structure Window",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "window",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure-window-wide",
+      "file": "structure-window-wide.glb",
+      "name": "Structure Window Wide",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "window",
+        "wide",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure-yellow-high",
+      "file": "structure-yellow-high.glb",
+      "name": "Structure Yellow High",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "yellow",
+        "high",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure-yellow-medium",
+      "file": "structure-yellow-medium.glb",
+      "name": "Structure Yellow Medium",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "yellow",
+        "medium",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure-yellow-short",
+      "file": "structure-yellow-short.glb",
+      "name": "Structure Yellow Short",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "yellow",
+        "short",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure-yellow-tall",
+      "file": "structure-yellow-tall.glb",
+      "name": "Structure Yellow Tall",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "yellow",
+        "tall",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "top",
+      "file": "top.glb",
+      "name": "Top",
+      "category": "top",
+      "tags": [
+        "top",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "top-large",
+      "file": "top-large.glb",
+      "name": "Top Large",
+      "category": "top",
+      "tags": [
+        "top",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    }
+  ]
+}

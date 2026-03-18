@@ -1,0 +1,605 @@
+{
+  "pack_id": "kenney-city-kit-commercial",
+  "name": "Kenney City Kit Commercial",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "41 low-poly city/commercial models from Kenney.",
+  "base_url": "/static/assets/packs/kenney-city-kit-commercial/",
+  "assets": [
+    {
+      "id": "building-a",
+      "file": "building-a.glb",
+      "name": "Building A",
+      "category": "structure",
+      "tags": [
+        "building",
+        "a",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-b",
+      "file": "building-b.glb",
+      "name": "Building B",
+      "category": "structure",
+      "tags": [
+        "building",
+        "b",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-c",
+      "file": "building-c.glb",
+      "name": "Building C",
+      "category": "structure",
+      "tags": [
+        "building",
+        "c",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-d",
+      "file": "building-d.glb",
+      "name": "Building D",
+      "category": "structure",
+      "tags": [
+        "building",
+        "d",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-e",
+      "file": "building-e.glb",
+      "name": "Building E",
+      "category": "structure",
+      "tags": [
+        "building",
+        "e",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-f",
+      "file": "building-f.glb",
+      "name": "Building F",
+      "category": "structure",
+      "tags": [
+        "building",
+        "f",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-g",
+      "file": "building-g.glb",
+      "name": "Building G",
+      "category": "structure",
+      "tags": [
+        "building",
+        "g",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-h",
+      "file": "building-h.glb",
+      "name": "Building H",
+      "category": "structure",
+      "tags": [
+        "building",
+        "h",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-i",
+      "file": "building-i.glb",
+      "name": "Building I",
+      "category": "structure",
+      "tags": [
+        "building",
+        "i",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-j",
+      "file": "building-j.glb",
+      "name": "Building J",
+      "category": "structure",
+      "tags": [
+        "building",
+        "j",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-k",
+      "file": "building-k.glb",
+      "name": "Building K",
+      "category": "structure",
+      "tags": [
+        "building",
+        "k",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-l",
+      "file": "building-l.glb",
+      "name": "Building L",
+      "category": "structure",
+      "tags": [
+        "building",
+        "l",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-m",
+      "file": "building-m.glb",
+      "name": "Building M",
+      "category": "structure",
+      "tags": [
+        "building",
+        "m",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-n",
+      "file": "building-n.glb",
+      "name": "Building N",
+      "category": "structure",
+      "tags": [
+        "building",
+        "n",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-skyscraper-a",
+      "file": "building-skyscraper-a.glb",
+      "name": "Building Skyscraper A",
+      "category": "structure",
+      "tags": [
+        "building",
+        "skyscraper",
+        "a",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-skyscraper-b",
+      "file": "building-skyscraper-b.glb",
+      "name": "Building Skyscraper B",
+      "category": "structure",
+      "tags": [
+        "building",
+        "skyscraper",
+        "b",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-skyscraper-c",
+      "file": "building-skyscraper-c.glb",
+      "name": "Building Skyscraper C",
+      "category": "structure",
+      "tags": [
+        "building",
+        "skyscraper",
+        "c",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-skyscraper-d",
+      "file": "building-skyscraper-d.glb",
+      "name": "Building Skyscraper D",
+      "category": "structure",
+      "tags": [
+        "building",
+        "skyscraper",
+        "d",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-skyscraper-e",
+      "file": "building-skyscraper-e.glb",
+      "name": "Building Skyscraper E",
+      "category": "structure",
+      "tags": [
+        "building",
+        "skyscraper",
+        "e",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "detail-awning",
+      "file": "detail-awning.glb",
+      "name": "Detail Awning",
+      "category": "detail",
+      "tags": [
+        "detail",
+        "awning",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "detail-awning-wide",
+      "file": "detail-awning-wide.glb",
+      "name": "Detail Awning Wide",
+      "category": "detail",
+      "tags": [
+        "detail",
+        "awning",
+        "wide",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "detail-overhang",
+      "file": "detail-overhang.glb",
+      "name": "Detail Overhang",
+      "category": "detail",
+      "tags": [
+        "detail",
+        "overhang",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "detail-overhang-wide",
+      "file": "detail-overhang-wide.glb",
+      "name": "Detail Overhang Wide",
+      "category": "detail",
+      "tags": [
+        "detail",
+        "overhang",
+        "wide",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "detail-parasol-a",
+      "file": "detail-parasol-a.glb",
+      "name": "Detail Parasol A",
+      "category": "detail",
+      "tags": [
+        "detail",
+        "parasol",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "detail-parasol-b",
+      "file": "detail-parasol-b.glb",
+      "name": "Detail Parasol B",
+      "category": "detail",
+      "tags": [
+        "detail",
+        "parasol",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "low-detail-building-a",
+      "file": "low-detail-building-a.glb",
+      "name": "Low Detail Building A",
+      "category": "low",
+      "tags": [
+        "low",
+        "detail",
+        "building",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "low-detail-building-b",
+      "file": "low-detail-building-b.glb",
+      "name": "Low Detail Building B",
+      "category": "low",
+      "tags": [
+        "low",
+        "detail",
+        "building",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "low-detail-building-c",
+      "file": "low-detail-building-c.glb",
+      "name": "Low Detail Building C",
+      "category": "low",
+      "tags": [
+        "low",
+        "detail",
+        "building",
+        "c",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "low-detail-building-d",
+      "file": "low-detail-building-d.glb",
+      "name": "Low Detail Building D",
+      "category": "low",
+      "tags": [
+        "low",
+        "detail",
+        "building",
+        "d",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "low-detail-building-e",
+      "file": "low-detail-building-e.glb",
+      "name": "Low Detail Building E",
+      "category": "low",
+      "tags": [
+        "low",
+        "detail",
+        "building",
+        "e",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "low-detail-building-f",
+      "file": "low-detail-building-f.glb",
+      "name": "Low Detail Building F",
+      "category": "low",
+      "tags": [
+        "low",
+        "detail",
+        "building",
+        "f",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "low-detail-building-g",
+      "file": "low-detail-building-g.glb",
+      "name": "Low Detail Building G",
+      "category": "low",
+      "tags": [
+        "low",
+        "detail",
+        "building",
+        "g",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "low-detail-building-h",
+      "file": "low-detail-building-h.glb",
+      "name": "Low Detail Building H",
+      "category": "low",
+      "tags": [
+        "low",
+        "detail",
+        "building",
+        "h",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "low-detail-building-i",
+      "file": "low-detail-building-i.glb",
+      "name": "Low Detail Building I",
+      "category": "low",
+      "tags": [
+        "low",
+        "detail",
+        "building",
+        "i",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "low-detail-building-j",
+      "file": "low-detail-building-j.glb",
+      "name": "Low Detail Building J",
+      "category": "low",
+      "tags": [
+        "low",
+        "detail",
+        "building",
+        "j",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "low-detail-building-k",
+      "file": "low-detail-building-k.glb",
+      "name": "Low Detail Building K",
+      "category": "low",
+      "tags": [
+        "low",
+        "detail",
+        "building",
+        "k",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "low-detail-building-l",
+      "file": "low-detail-building-l.glb",
+      "name": "Low Detail Building L",
+      "category": "low",
+      "tags": [
+        "low",
+        "detail",
+        "building",
+        "l",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "low-detail-building-m",
+      "file": "low-detail-building-m.glb",
+      "name": "Low Detail Building M",
+      "category": "low",
+      "tags": [
+        "low",
+        "detail",
+        "building",
+        "m",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "low-detail-building-n",
+      "file": "low-detail-building-n.glb",
+      "name": "Low Detail Building N",
+      "category": "low",
+      "tags": [
+        "low",
+        "detail",
+        "building",
+        "n",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "low-detail-building-wide-a",
+      "file": "low-detail-building-wide-a.glb",
+      "name": "Low Detail Building Wide A",
+      "category": "low",
+      "tags": [
+        "low",
+        "detail",
+        "building",
+        "wide",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "low-detail-building-wide-b",
+      "file": "low-detail-building-wide-b.glb",
+      "name": "Low Detail Building Wide B",
+      "category": "low",
+      "tags": [
+        "low",
+        "detail",
+        "building",
+        "wide",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    }
+  ]
+}

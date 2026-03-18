@@ -1,0 +1,537 @@
+{
+  "pack_id": "kenney-blaster-kit",
+  "name": "Kenney Blaster Kit",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "Kenney Blaster Kit free 3D models from Kenney.",
+  "base_url": "/static/assets/packs/kenney-blaster-kit/",
+  "assets": [
+    {
+      "id": "blaster-a",
+      "file": "blaster-a.glb",
+      "name": "Blaster A",
+      "category": "blaster",
+      "tags": [
+        "blaster",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "blaster-b",
+      "file": "blaster-b.glb",
+      "name": "Blaster B",
+      "category": "blaster",
+      "tags": [
+        "blaster",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "blaster-c",
+      "file": "blaster-c.glb",
+      "name": "Blaster C",
+      "category": "blaster",
+      "tags": [
+        "blaster",
+        "c",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "blaster-d",
+      "file": "blaster-d.glb",
+      "name": "Blaster D",
+      "category": "blaster",
+      "tags": [
+        "blaster",
+        "d",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "blaster-e",
+      "file": "blaster-e.glb",
+      "name": "Blaster E",
+      "category": "blaster",
+      "tags": [
+        "blaster",
+        "e",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "blaster-f",
+      "file": "blaster-f.glb",
+      "name": "Blaster F",
+      "category": "blaster",
+      "tags": [
+        "blaster",
+        "f",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "blaster-g",
+      "file": "blaster-g.glb",
+      "name": "Blaster G",
+      "category": "blaster",
+      "tags": [
+        "blaster",
+        "g",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "blaster-h",
+      "file": "blaster-h.glb",
+      "name": "Blaster H",
+      "category": "blaster",
+      "tags": [
+        "blaster",
+        "h",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "blaster-i",
+      "file": "blaster-i.glb",
+      "name": "Blaster I",
+      "category": "blaster",
+      "tags": [
+        "blaster",
+        "i",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "blaster-j",
+      "file": "blaster-j.glb",
+      "name": "Blaster J",
+      "category": "blaster",
+      "tags": [
+        "blaster",
+        "j",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "blaster-k",
+      "file": "blaster-k.glb",
+      "name": "Blaster K",
+      "category": "blaster",
+      "tags": [
+        "blaster",
+        "k",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "blaster-l",
+      "file": "blaster-l.glb",
+      "name": "Blaster L",
+      "category": "blaster",
+      "tags": [
+        "blaster",
+        "l",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "blaster-m",
+      "file": "blaster-m.glb",
+      "name": "Blaster M",
+      "category": "blaster",
+      "tags": [
+        "blaster",
+        "m",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "blaster-n",
+      "file": "blaster-n.glb",
+      "name": "Blaster N",
+      "category": "blaster",
+      "tags": [
+        "blaster",
+        "n",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "blaster-o",
+      "file": "blaster-o.glb",
+      "name": "Blaster O",
+      "category": "blaster",
+      "tags": [
+        "blaster",
+        "o",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "blaster-p",
+      "file": "blaster-p.glb",
+      "name": "Blaster P",
+      "category": "blaster",
+      "tags": [
+        "blaster",
+        "p",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "blaster-q",
+      "file": "blaster-q.glb",
+      "name": "Blaster Q",
+      "category": "blaster",
+      "tags": [
+        "blaster",
+        "q",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "blaster-r",
+      "file": "blaster-r.glb",
+      "name": "Blaster R",
+      "category": "blaster",
+      "tags": [
+        "blaster",
+        "r",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bullet-foam",
+      "file": "bullet-foam.glb",
+      "name": "Bullet Foam",
+      "category": "bullet",
+      "tags": [
+        "bullet",
+        "foam",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bullet-foam-thick",
+      "file": "bullet-foam-thick.glb",
+      "name": "Bullet Foam Thick",
+      "category": "bullet",
+      "tags": [
+        "bullet",
+        "foam",
+        "thick",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bullet-foam-tip",
+      "file": "bullet-foam-tip.glb",
+      "name": "Bullet Foam Tip",
+      "category": "bullet",
+      "tags": [
+        "bullet",
+        "foam",
+        "tip",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bullet-foam-tip-thick",
+      "file": "bullet-foam-tip-thick.glb",
+      "name": "Bullet Foam Tip Thick",
+      "category": "bullet",
+      "tags": [
+        "bullet",
+        "foam",
+        "tip",
+        "thick",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "clip-large",
+      "file": "clip-large.glb",
+      "name": "Clip Large",
+      "category": "clip",
+      "tags": [
+        "clip",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "clip-small",
+      "file": "clip-small.glb",
+      "name": "Clip Small",
+      "category": "clip",
+      "tags": [
+        "clip",
+        "small",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "crate-medium",
+      "file": "crate-medium.glb",
+      "name": "Crate Medium",
+      "category": "crate",
+      "tags": [
+        "crate",
+        "medium",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "crate-small",
+      "file": "crate-small.glb",
+      "name": "Crate Small",
+      "category": "crate",
+      "tags": [
+        "crate",
+        "small",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "crate-wide",
+      "file": "crate-wide.glb",
+      "name": "Crate Wide",
+      "category": "crate",
+      "tags": [
+        "crate",
+        "wide",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "grenade-a",
+      "file": "grenade-a.glb",
+      "name": "Grenade A",
+      "category": "grenade",
+      "tags": [
+        "grenade",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "grenade-b",
+      "file": "grenade-b.glb",
+      "name": "Grenade B",
+      "category": "grenade",
+      "tags": [
+        "grenade",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "scope-large-a",
+      "file": "scope-large-a.glb",
+      "name": "Scope Large A",
+      "category": "scope",
+      "tags": [
+        "scope",
+        "large",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "scope-large-b",
+      "file": "scope-large-b.glb",
+      "name": "Scope Large B",
+      "category": "scope",
+      "tags": [
+        "scope",
+        "large",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "scope-small",
+      "file": "scope-small.glb",
+      "name": "Scope Small",
+      "category": "scope",
+      "tags": [
+        "scope",
+        "small",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "silencer-larger",
+      "file": "silencer-larger.glb",
+      "name": "Silencer Larger",
+      "category": "silencer",
+      "tags": [
+        "silencer",
+        "larger",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "silencer-small",
+      "file": "silencer-small.glb",
+      "name": "Silencer Small",
+      "category": "silencer",
+      "tags": [
+        "silencer",
+        "small",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "smoke",
+      "file": "smoke.glb",
+      "name": "Smoke",
+      "category": "smoke",
+      "tags": [
+        "smoke",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "target-detail",
+      "file": "target-detail.glb",
+      "name": "Target Detail",
+      "category": "target",
+      "tags": [
+        "target",
+        "detail",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "target-fragment-large",
+      "file": "target-fragment-large.glb",
+      "name": "Target Fragment Large",
+      "category": "target",
+      "tags": [
+        "target",
+        "fragment",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "target-fragment-small",
+      "file": "target-fragment-small.glb",
+      "name": "Target Fragment Small",
+      "category": "target",
+      "tags": [
+        "target",
+        "fragment",
+        "small",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "target-large",
+      "file": "target-large.glb",
+      "name": "Target Large",
+      "category": "target",
+      "tags": [
+        "target",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "target-small",
+      "file": "target-small.glb",
+      "name": "Target Small",
+      "category": "target",
+      "tags": [
+        "target",
+        "small",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    }
+  ]
+}

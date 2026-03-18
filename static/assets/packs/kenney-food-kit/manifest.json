@@ -1,0 +1,2546 @@
+{
+  "pack_id": "kenney-food-kit",
+  "name": "Kenney Food Kit",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "Kenney Food Kit free 3D models from Kenney.",
+  "base_url": "/static/assets/packs/kenney-food-kit/",
+  "assets": [
+    {
+      "id": "advocado-half",
+      "file": "advocado-half.glb",
+      "name": "Advocado Half",
+      "category": "advocado",
+      "tags": [
+        "advocado",
+        "half",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "apple",
+      "file": "apple.glb",
+      "name": "Apple",
+      "category": "apple",
+      "tags": [
+        "apple",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "apple-half",
+      "file": "apple-half.glb",
+      "name": "Apple Half",
+      "category": "apple",
+      "tags": [
+        "apple",
+        "half",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "avocado",
+      "file": "avocado.glb",
+      "name": "Avocado",
+      "category": "avocado",
+      "tags": [
+        "avocado",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bacon",
+      "file": "bacon.glb",
+      "name": "Bacon",
+      "category": "bacon",
+      "tags": [
+        "bacon",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bacon-raw",
+      "file": "bacon-raw.glb",
+      "name": "Bacon Raw",
+      "category": "bacon",
+      "tags": [
+        "bacon",
+        "raw",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bag",
+      "file": "bag.glb",
+      "name": "Bag",
+      "category": "bag",
+      "tags": [
+        "bag",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bag-flat",
+      "file": "bag-flat.glb",
+      "name": "Bag Flat",
+      "category": "bag",
+      "tags": [
+        "bag",
+        "flat",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "banana",
+      "file": "banana.glb",
+      "name": "Banana",
+      "category": "banana",
+      "tags": [
+        "banana",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "barrel",
+      "file": "barrel.glb",
+      "name": "Barrel",
+      "category": "barrel",
+      "tags": [
+        "barrel",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "beet",
+      "file": "beet.glb",
+      "name": "Beet",
+      "category": "beet",
+      "tags": [
+        "beet",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bottle-ketchup",
+      "file": "bottle-ketchup.glb",
+      "name": "Bottle Ketchup",
+      "category": "bottle",
+      "tags": [
+        "bottle",
+        "ketchup",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bottle-musterd",
+      "file": "bottle-musterd.glb",
+      "name": "Bottle Musterd",
+      "category": "bottle",
+      "tags": [
+        "bottle",
+        "musterd",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bottle-oil",
+      "file": "bottle-oil.glb",
+      "name": "Bottle Oil",
+      "category": "bottle",
+      "tags": [
+        "bottle",
+        "oil",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bowl",
+      "file": "bowl.glb",
+      "name": "Bowl",
+      "category": "bowl",
+      "tags": [
+        "bowl",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bowl-broth",
+      "file": "bowl-broth.glb",
+      "name": "Bowl Broth",
+      "category": "bowl",
+      "tags": [
+        "bowl",
+        "broth",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bowl-cereal",
+      "file": "bowl-cereal.glb",
+      "name": "Bowl Cereal",
+      "category": "bowl",
+      "tags": [
+        "bowl",
+        "cereal",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bowl-soup",
+      "file": "bowl-soup.glb",
+      "name": "Bowl Soup",
+      "category": "bowl",
+      "tags": [
+        "bowl",
+        "soup",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bread",
+      "file": "bread.glb",
+      "name": "Bread",
+      "category": "bread",
+      "tags": [
+        "bread",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "broccoli",
+      "file": "broccoli.glb",
+      "name": "Broccoli",
+      "category": "broccoli",
+      "tags": [
+        "broccoli",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "burger",
+      "file": "burger.glb",
+      "name": "Burger",
+      "category": "burger",
+      "tags": [
+        "burger",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "burger-cheese",
+      "file": "burger-cheese.glb",
+      "name": "Burger Cheese",
+      "category": "burger",
+      "tags": [
+        "burger",
+        "cheese",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "burger-cheese-double",
+      "file": "burger-cheese-double.glb",
+      "name": "Burger Cheese Double",
+      "category": "burger",
+      "tags": [
+        "burger",
+        "cheese",
+        "double",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "burger-double",
+      "file": "burger-double.glb",
+      "name": "Burger Double",
+      "category": "burger",
+      "tags": [
+        "burger",
+        "double",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cabbage",
+      "file": "cabbage.glb",
+      "name": "Cabbage",
+      "category": "cabbage",
+      "tags": [
+        "cabbage",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cake",
+      "file": "cake.glb",
+      "name": "Cake",
+      "category": "cake",
+      "tags": [
+        "cake",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cake-birthday",
+      "file": "cake-birthday.glb",
+      "name": "Cake Birthday",
+      "category": "cake",
+      "tags": [
+        "cake",
+        "birthday",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cake-slicer",
+      "file": "cake-slicer.glb",
+      "name": "Cake Slicer",
+      "category": "cake",
+      "tags": [
+        "cake",
+        "slicer",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "can",
+      "file": "can.glb",
+      "name": "Can",
+      "category": "can",
+      "tags": [
+        "can",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "can-open",
+      "file": "can-open.glb",
+      "name": "Can Open",
+      "category": "can",
+      "tags": [
+        "can",
+        "open",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "can-small",
+      "file": "can-small.glb",
+      "name": "Can Small",
+      "category": "can",
+      "tags": [
+        "can",
+        "small",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "candy-bar",
+      "file": "candy-bar.glb",
+      "name": "Candy Bar",
+      "category": "candy",
+      "tags": [
+        "candy",
+        "bar",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "candy-bar-wrapper",
+      "file": "candy-bar-wrapper.glb",
+      "name": "Candy Bar Wrapper",
+      "category": "candy",
+      "tags": [
+        "candy",
+        "bar",
+        "wrapper",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "carrot",
+      "file": "carrot.glb",
+      "name": "Carrot",
+      "category": "carrot",
+      "tags": [
+        "carrot",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "carton",
+      "file": "carton.glb",
+      "name": "Carton",
+      "category": "carton",
+      "tags": [
+        "carton",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "carton-small",
+      "file": "carton-small.glb",
+      "name": "Carton Small",
+      "category": "carton",
+      "tags": [
+        "carton",
+        "small",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cauliflower",
+      "file": "cauliflower.glb",
+      "name": "Cauliflower",
+      "category": "cauliflower",
+      "tags": [
+        "cauliflower",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "celery-stick",
+      "file": "celery-stick.glb",
+      "name": "Celery Stick",
+      "category": "celery",
+      "tags": [
+        "celery",
+        "stick",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cheese",
+      "file": "cheese.glb",
+      "name": "Cheese",
+      "category": "cheese",
+      "tags": [
+        "cheese",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cheese-cut",
+      "file": "cheese-cut.glb",
+      "name": "Cheese Cut",
+      "category": "cheese",
+      "tags": [
+        "cheese",
+        "cut",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cheese-slicer",
+      "file": "cheese-slicer.glb",
+      "name": "Cheese Slicer",
+      "category": "cheese",
+      "tags": [
+        "cheese",
+        "slicer",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cherries",
+      "file": "cherries.glb",
+      "name": "Cherries",
+      "category": "cherries",
+      "tags": [
+        "cherries",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "chinese",
+      "file": "chinese.glb",
+      "name": "Chinese",
+      "category": "chinese",
+      "tags": [
+        "chinese",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "chocolate",
+      "file": "chocolate.glb",
+      "name": "Chocolate",
+      "category": "chocolate",
+      "tags": [
+        "chocolate",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "chocolate-wrapper",
+      "file": "chocolate-wrapper.glb",
+      "name": "Chocolate Wrapper",
+      "category": "chocolate",
+      "tags": [
+        "chocolate",
+        "wrapper",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "chopstic-decorative",
+      "file": "chopstic-decorative.glb",
+      "name": "Chopstic Decorative",
+      "category": "chopstic",
+      "tags": [
+        "chopstic",
+        "decorative",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "chopstick",
+      "file": "chopstick.glb",
+      "name": "Chopstick",
+      "category": "chopstick",
+      "tags": [
+        "chopstick",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cocktail",
+      "file": "cocktail.glb",
+      "name": "Cocktail",
+      "category": "cocktail",
+      "tags": [
+        "cocktail",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coconut",
+      "file": "coconut.glb",
+      "name": "Coconut",
+      "category": "coconut",
+      "tags": [
+        "coconut",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coconut-half",
+      "file": "coconut-half.glb",
+      "name": "Coconut Half",
+      "category": "coconut",
+      "tags": [
+        "coconut",
+        "half",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cookie",
+      "file": "cookie.glb",
+      "name": "Cookie",
+      "category": "cookie",
+      "tags": [
+        "cookie",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cookie-chocolate",
+      "file": "cookie-chocolate.glb",
+      "name": "Cookie Chocolate",
+      "category": "cookie",
+      "tags": [
+        "cookie",
+        "chocolate",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cooking-fork",
+      "file": "cooking-fork.glb",
+      "name": "Cooking Fork",
+      "category": "cooking",
+      "tags": [
+        "cooking",
+        "fork",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cooking-knife",
+      "file": "cooking-knife.glb",
+      "name": "Cooking Knife",
+      "category": "cooking",
+      "tags": [
+        "cooking",
+        "knife",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cooking-knife-chopping",
+      "file": "cooking-knife-chopping.glb",
+      "name": "Cooking Knife Chopping",
+      "category": "cooking",
+      "tags": [
+        "cooking",
+        "knife",
+        "chopping",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cooking-spatula",
+      "file": "cooking-spatula.glb",
+      "name": "Cooking Spatula",
+      "category": "cooking",
+      "tags": [
+        "cooking",
+        "spatula",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cooking-spoon",
+      "file": "cooking-spoon.glb",
+      "name": "Cooking Spoon",
+      "category": "cooking",
+      "tags": [
+        "cooking",
+        "spoon",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "corn",
+      "file": "corn.glb",
+      "name": "Corn",
+      "category": "corn",
+      "tags": [
+        "corn",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "corn-dog",
+      "file": "corn-dog.glb",
+      "name": "Corn Dog",
+      "category": "corn",
+      "tags": [
+        "corn",
+        "dog",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "croissant",
+      "file": "croissant.glb",
+      "name": "Croissant",
+      "category": "croissant",
+      "tags": [
+        "croissant",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cup",
+      "file": "cup.glb",
+      "name": "Cup",
+      "category": "cup",
+      "tags": [
+        "cup",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cup-coffee",
+      "file": "cup-coffee.glb",
+      "name": "Cup Coffee",
+      "category": "cup",
+      "tags": [
+        "cup",
+        "coffee",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cup-saucer",
+      "file": "cup-saucer.glb",
+      "name": "Cup Saucer",
+      "category": "cup",
+      "tags": [
+        "cup",
+        "saucer",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cup-tea",
+      "file": "cup-tea.glb",
+      "name": "Cup Tea",
+      "category": "cup",
+      "tags": [
+        "cup",
+        "tea",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cupcake",
+      "file": "cupcake.glb",
+      "name": "Cupcake",
+      "category": "cupcake",
+      "tags": [
+        "cupcake",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cutting-board",
+      "file": "cutting-board.glb",
+      "name": "Cutting Board",
+      "category": "cutting",
+      "tags": [
+        "cutting",
+        "board",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cutting-board-japanese",
+      "file": "cutting-board-japanese.glb",
+      "name": "Cutting Board Japanese",
+      "category": "cutting",
+      "tags": [
+        "cutting",
+        "board",
+        "japanese",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cutting-board-round",
+      "file": "cutting-board-round.glb",
+      "name": "Cutting Board Round",
+      "category": "cutting",
+      "tags": [
+        "cutting",
+        "board",
+        "round",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "dim-sum",
+      "file": "dim-sum.glb",
+      "name": "Dim Sum",
+      "category": "dim",
+      "tags": [
+        "dim",
+        "sum",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "donut",
+      "file": "donut.glb",
+      "name": "Donut",
+      "category": "donut",
+      "tags": [
+        "donut",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "donut-chocolate",
+      "file": "donut-chocolate.glb",
+      "name": "Donut Chocolate",
+      "category": "donut",
+      "tags": [
+        "donut",
+        "chocolate",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "donut-sprinkles",
+      "file": "donut-sprinkles.glb",
+      "name": "Donut Sprinkles",
+      "category": "donut",
+      "tags": [
+        "donut",
+        "sprinkles",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "egg",
+      "file": "egg.glb",
+      "name": "Egg",
+      "category": "egg",
+      "tags": [
+        "egg",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "egg-cooked",
+      "file": "egg-cooked.glb",
+      "name": "Egg Cooked",
+      "category": "egg",
+      "tags": [
+        "egg",
+        "cooked",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "egg-cup",
+      "file": "egg-cup.glb",
+      "name": "Egg Cup",
+      "category": "egg",
+      "tags": [
+        "egg",
+        "cup",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "egg-half",
+      "file": "egg-half.glb",
+      "name": "Egg Half",
+      "category": "egg",
+      "tags": [
+        "egg",
+        "half",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "eggplant",
+      "file": "eggplant.glb",
+      "name": "Eggplant",
+      "category": "eggplant",
+      "tags": [
+        "eggplant",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fish",
+      "file": "fish.glb",
+      "name": "Fish",
+      "category": "fish",
+      "tags": [
+        "fish",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fish-bones",
+      "file": "fish-bones.glb",
+      "name": "Fish Bones",
+      "category": "fish",
+      "tags": [
+        "fish",
+        "bones",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "frappe",
+      "file": "frappe.glb",
+      "name": "Frappe",
+      "category": "frappe",
+      "tags": [
+        "frappe",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fries",
+      "file": "fries.glb",
+      "name": "Fries",
+      "category": "fries",
+      "tags": [
+        "fries",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fries-empty",
+      "file": "fries-empty.glb",
+      "name": "Fries Empty",
+      "category": "fries",
+      "tags": [
+        "fries",
+        "empty",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "frikandel-speciaal",
+      "file": "frikandel-speciaal.glb",
+      "name": "Frikandel Speciaal",
+      "category": "frikandel",
+      "tags": [
+        "frikandel",
+        "speciaal",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "frying-pan",
+      "file": "frying-pan.glb",
+      "name": "Frying Pan",
+      "category": "frying",
+      "tags": [
+        "frying",
+        "pan",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "frying-pan-lid",
+      "file": "frying-pan-lid.glb",
+      "name": "Frying Pan Lid",
+      "category": "frying",
+      "tags": [
+        "frying",
+        "pan",
+        "lid",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ginger-bread",
+      "file": "ginger-bread.glb",
+      "name": "Ginger Bread",
+      "category": "ginger",
+      "tags": [
+        "ginger",
+        "bread",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ginger-bread-cutter",
+      "file": "ginger-bread-cutter.glb",
+      "name": "Ginger Bread Cutter",
+      "category": "ginger",
+      "tags": [
+        "ginger",
+        "bread",
+        "cutter",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "glass",
+      "file": "glass.glb",
+      "name": "Glass",
+      "category": "glass",
+      "tags": [
+        "glass",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "glass-wine",
+      "file": "glass-wine.glb",
+      "name": "Glass Wine",
+      "category": "glass",
+      "tags": [
+        "glass",
+        "wine",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "grapes",
+      "file": "grapes.glb",
+      "name": "Grapes",
+      "category": "grapes",
+      "tags": [
+        "grapes",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "honey",
+      "file": "honey.glb",
+      "name": "Honey",
+      "category": "honey",
+      "tags": [
+        "honey",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "hot-dog",
+      "file": "hot-dog.glb",
+      "name": "Hot Dog",
+      "category": "hot",
+      "tags": [
+        "hot",
+        "dog",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "hot-dog-raw",
+      "file": "hot-dog-raw.glb",
+      "name": "Hot Dog Raw",
+      "category": "hot",
+      "tags": [
+        "hot",
+        "dog",
+        "raw",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ice-cream",
+      "file": "ice-cream.glb",
+      "name": "Ice Cream",
+      "category": "ice",
+      "tags": [
+        "ice",
+        "cream",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ice-cream-cne",
+      "file": "ice-cream-cne.glb",
+      "name": "Ice Cream Cne",
+      "category": "ice",
+      "tags": [
+        "ice",
+        "cream",
+        "cne",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ice-cream-cup",
+      "file": "ice-cream-cup.glb",
+      "name": "Ice Cream Cup",
+      "category": "ice",
+      "tags": [
+        "ice",
+        "cream",
+        "cup",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ice-cream-scoop-chocolate",
+      "file": "ice-cream-scoop-chocolate.glb",
+      "name": "Ice Cream Scoop Chocolate",
+      "category": "ice",
+      "tags": [
+        "ice",
+        "cream",
+        "scoop",
+        "chocolate",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ice-cream-scoop-mint",
+      "file": "ice-cream-scoop-mint.glb",
+      "name": "Ice Cream Scoop Mint",
+      "category": "ice",
+      "tags": [
+        "ice",
+        "cream",
+        "scoop",
+        "mint",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "knife-block",
+      "file": "knife-block.glb",
+      "name": "Knife Block",
+      "category": "knife",
+      "tags": [
+        "knife",
+        "block",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "leek",
+      "file": "leek.glb",
+      "name": "Leek",
+      "category": "leek",
+      "tags": [
+        "leek",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "lemon",
+      "file": "lemon.glb",
+      "name": "Lemon",
+      "category": "lemon",
+      "tags": [
+        "lemon",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "lemon-half",
+      "file": "lemon-half.glb",
+      "name": "Lemon Half",
+      "category": "lemon",
+      "tags": [
+        "lemon",
+        "half",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "loaf",
+      "file": "loaf.glb",
+      "name": "Loaf",
+      "category": "loaf",
+      "tags": [
+        "loaf",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "loaf-baguette",
+      "file": "loaf-baguette.glb",
+      "name": "Loaf Baguette",
+      "category": "loaf",
+      "tags": [
+        "loaf",
+        "baguette",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "loaf-round",
+      "file": "loaf-round.glb",
+      "name": "Loaf Round",
+      "category": "loaf",
+      "tags": [
+        "loaf",
+        "round",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "lollypop",
+      "file": "lollypop.glb",
+      "name": "Lollypop",
+      "category": "lollypop",
+      "tags": [
+        "lollypop",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "maki-roe",
+      "file": "maki-roe.glb",
+      "name": "Maki Roe",
+      "category": "maki",
+      "tags": [
+        "maki",
+        "roe",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "maki-salmon",
+      "file": "maki-salmon.glb",
+      "name": "Maki Salmon",
+      "category": "maki",
+      "tags": [
+        "maki",
+        "salmon",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "maki-vegetable",
+      "file": "maki-vegetable.glb",
+      "name": "Maki Vegetable",
+      "category": "maki",
+      "tags": [
+        "maki",
+        "vegetable",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "meat-cooked",
+      "file": "meat-cooked.glb",
+      "name": "Meat Cooked",
+      "category": "meat",
+      "tags": [
+        "meat",
+        "cooked",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "meat-patty",
+      "file": "meat-patty.glb",
+      "name": "Meat Patty",
+      "category": "meat",
+      "tags": [
+        "meat",
+        "patty",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "meat-raw",
+      "file": "meat-raw.glb",
+      "name": "Meat Raw",
+      "category": "meat",
+      "tags": [
+        "meat",
+        "raw",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "meat-ribs",
+      "file": "meat-ribs.glb",
+      "name": "Meat Ribs",
+      "category": "meat",
+      "tags": [
+        "meat",
+        "ribs",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "meat-sausage",
+      "file": "meat-sausage.glb",
+      "name": "Meat Sausage",
+      "category": "meat",
+      "tags": [
+        "meat",
+        "sausage",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "meat-tenderizer",
+      "file": "meat-tenderizer.glb",
+      "name": "Meat Tenderizer",
+      "category": "meat",
+      "tags": [
+        "meat",
+        "tenderizer",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "mincemeat-pie",
+      "file": "mincemeat-pie.glb",
+      "name": "Mincemeat Pie",
+      "category": "mincemeat",
+      "tags": [
+        "mincemeat",
+        "pie",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "mortar",
+      "file": "mortar.glb",
+      "name": "Mortar",
+      "category": "mortar",
+      "tags": [
+        "mortar",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "mortar-pestle",
+      "file": "mortar-pestle.glb",
+      "name": "Mortar Pestle",
+      "category": "mortar",
+      "tags": [
+        "mortar",
+        "pestle",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "muffin",
+      "file": "muffin.glb",
+      "name": "Muffin",
+      "category": "muffin",
+      "tags": [
+        "muffin",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "mug",
+      "file": "mug.glb",
+      "name": "Mug",
+      "category": "mug",
+      "tags": [
+        "mug",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "mushroom",
+      "file": "mushroom.glb",
+      "name": "Mushroom",
+      "category": "vegetation",
+      "tags": [
+        "mushroom",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "mushroom-half",
+      "file": "mushroom-half.glb",
+      "name": "Mushroom Half",
+      "category": "vegetation",
+      "tags": [
+        "mushroom",
+        "half",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "mussel",
+      "file": "mussel.glb",
+      "name": "Mussel",
+      "category": "mussel",
+      "tags": [
+        "mussel",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "mussel-open",
+      "file": "mussel-open.glb",
+      "name": "Mussel Open",
+      "category": "mussel",
+      "tags": [
+        "mussel",
+        "open",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "onion",
+      "file": "onion.glb",
+      "name": "Onion",
+      "category": "onion",
+      "tags": [
+        "onion",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "onion-half",
+      "file": "onion-half.glb",
+      "name": "Onion Half",
+      "category": "onion",
+      "tags": [
+        "onion",
+        "half",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "orange",
+      "file": "orange.glb",
+      "name": "Orange",
+      "category": "orange",
+      "tags": [
+        "orange",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pan",
+      "file": "pan.glb",
+      "name": "Pan",
+      "category": "pan",
+      "tags": [
+        "pan",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pan-stew",
+      "file": "pan-stew.glb",
+      "name": "Pan Stew",
+      "category": "pan",
+      "tags": [
+        "pan",
+        "stew",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pancakes",
+      "file": "pancakes.glb",
+      "name": "Pancakes",
+      "category": "pancakes",
+      "tags": [
+        "pancakes",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "paprika",
+      "file": "paprika.glb",
+      "name": "Paprika",
+      "category": "paprika",
+      "tags": [
+        "paprika",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "paprika-slice",
+      "file": "paprika-slice.glb",
+      "name": "Paprika Slice",
+      "category": "paprika",
+      "tags": [
+        "paprika",
+        "slice",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "peanut-butter",
+      "file": "peanut-butter.glb",
+      "name": "Peanut Butter",
+      "category": "peanut",
+      "tags": [
+        "peanut",
+        "butter",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pear",
+      "file": "pear.glb",
+      "name": "Pear",
+      "category": "pear",
+      "tags": [
+        "pear",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pear-half",
+      "file": "pear-half.glb",
+      "name": "Pear Half",
+      "category": "pear",
+      "tags": [
+        "pear",
+        "half",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pepper",
+      "file": "pepper.glb",
+      "name": "Pepper",
+      "category": "pepper",
+      "tags": [
+        "pepper",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pepper-mill",
+      "file": "pepper-mill.glb",
+      "name": "Pepper Mill",
+      "category": "pepper",
+      "tags": [
+        "pepper",
+        "mill",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pie",
+      "file": "pie.glb",
+      "name": "Pie",
+      "category": "pie",
+      "tags": [
+        "pie",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pineapple",
+      "file": "pineapple.glb",
+      "name": "Pineapple",
+      "category": "pineapple",
+      "tags": [
+        "pineapple",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pizza",
+      "file": "pizza.glb",
+      "name": "Pizza",
+      "category": "pizza",
+      "tags": [
+        "pizza",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pizza-box",
+      "file": "pizza-box.glb",
+      "name": "Pizza Box",
+      "category": "pizza",
+      "tags": [
+        "pizza",
+        "box",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pizza-cutter",
+      "file": "pizza-cutter.glb",
+      "name": "Pizza Cutter",
+      "category": "pizza",
+      "tags": [
+        "pizza",
+        "cutter",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "plate",
+      "file": "plate.glb",
+      "name": "Plate",
+      "category": "plate",
+      "tags": [
+        "plate",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "plate-broken",
+      "file": "plate-broken.glb",
+      "name": "Plate Broken",
+      "category": "plate",
+      "tags": [
+        "plate",
+        "broken",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "plate-deep",
+      "file": "plate-deep.glb",
+      "name": "Plate Deep",
+      "category": "plate",
+      "tags": [
+        "plate",
+        "deep",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "plate-dinner",
+      "file": "plate-dinner.glb",
+      "name": "Plate Dinner",
+      "category": "plate",
+      "tags": [
+        "plate",
+        "dinner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "plate-rectangle",
+      "file": "plate-rectangle.glb",
+      "name": "Plate Rectangle",
+      "category": "plate",
+      "tags": [
+        "plate",
+        "rectangle",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "plate-sauerkraut",
+      "file": "plate-sauerkraut.glb",
+      "name": "Plate Sauerkraut",
+      "category": "plate",
+      "tags": [
+        "plate",
+        "sauerkraut",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "popsicle",
+      "file": "popsicle.glb",
+      "name": "Popsicle",
+      "category": "popsicle",
+      "tags": [
+        "popsicle",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "popsicle-chocolate",
+      "file": "popsicle-chocolate.glb",
+      "name": "Popsicle Chocolate",
+      "category": "popsicle",
+      "tags": [
+        "popsicle",
+        "chocolate",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "popsicle-stick",
+      "file": "popsicle-stick.glb",
+      "name": "Popsicle Stick",
+      "category": "popsicle",
+      "tags": [
+        "popsicle",
+        "stick",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pot",
+      "file": "pot.glb",
+      "name": "Pot",
+      "category": "pot",
+      "tags": [
+        "pot",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pot-lid",
+      "file": "pot-lid.glb",
+      "name": "Pot Lid",
+      "category": "pot",
+      "tags": [
+        "pot",
+        "lid",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pot-stew",
+      "file": "pot-stew.glb",
+      "name": "Pot Stew",
+      "category": "pot",
+      "tags": [
+        "pot",
+        "stew",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pot-stew-lid",
+      "file": "pot-stew-lid.glb",
+      "name": "Pot Stew Lid",
+      "category": "pot",
+      "tags": [
+        "pot",
+        "stew",
+        "lid",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pudding",
+      "file": "pudding.glb",
+      "name": "Pudding",
+      "category": "pudding",
+      "tags": [
+        "pudding",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pumpkin",
+      "file": "pumpkin.glb",
+      "name": "Pumpkin",
+      "category": "pumpkin",
+      "tags": [
+        "pumpkin",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pumpkin-basic",
+      "file": "pumpkin-basic.glb",
+      "name": "Pumpkin Basic",
+      "category": "pumpkin",
+      "tags": [
+        "pumpkin",
+        "basic",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "radish",
+      "file": "radish.glb",
+      "name": "Radish",
+      "category": "radish",
+      "tags": [
+        "radish",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rice-ball",
+      "file": "rice-ball.glb",
+      "name": "Rice Ball",
+      "category": "rice",
+      "tags": [
+        "rice",
+        "ball",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rollingpin",
+      "file": "rollingPin.glb",
+      "name": "RollingPin",
+      "category": "rollingpin",
+      "tags": [
+        "rollingpin",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "salad",
+      "file": "salad.glb",
+      "name": "Salad",
+      "category": "salad",
+      "tags": [
+        "salad",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "sandwich",
+      "file": "sandwich.glb",
+      "name": "Sandwich",
+      "category": "sandwich",
+      "tags": [
+        "sandwich",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "sausage",
+      "file": "sausage.glb",
+      "name": "Sausage",
+      "category": "sausage",
+      "tags": [
+        "sausage",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "sausage-half",
+      "file": "sausage-half.glb",
+      "name": "Sausage Half",
+      "category": "sausage",
+      "tags": [
+        "sausage",
+        "half",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "shaker-pepper",
+      "file": "shaker-pepper.glb",
+      "name": "Shaker Pepper",
+      "category": "shaker",
+      "tags": [
+        "shaker",
+        "pepper",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "shaker-salt",
+      "file": "shaker-salt.glb",
+      "name": "Shaker Salt",
+      "category": "shaker",
+      "tags": [
+        "shaker",
+        "salt",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "skewer",
+      "file": "skewer.glb",
+      "name": "Skewer",
+      "category": "skewer",
+      "tags": [
+        "skewer",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "skewer-vegetables",
+      "file": "skewer-vegetables.glb",
+      "name": "Skewer Vegetables",
+      "category": "skewer",
+      "tags": [
+        "skewer",
+        "vegetables",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "soda",
+      "file": "soda.glb",
+      "name": "Soda",
+      "category": "soda",
+      "tags": [
+        "soda",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "soda-bottle",
+      "file": "soda-bottle.glb",
+      "name": "Soda Bottle",
+      "category": "soda",
+      "tags": [
+        "soda",
+        "bottle",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "soda-can",
+      "file": "soda-can.glb",
+      "name": "Soda Can",
+      "category": "soda",
+      "tags": [
+        "soda",
+        "can",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "soda-can-crushed",
+      "file": "soda-can-crushed.glb",
+      "name": "Soda Can Crushed",
+      "category": "soda",
+      "tags": [
+        "soda",
+        "can",
+        "crushed",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "soda-glass",
+      "file": "soda-glass.glb",
+      "name": "Soda Glass",
+      "category": "soda",
+      "tags": [
+        "soda",
+        "glass",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "soy",
+      "file": "soy.glb",
+      "name": "Soy",
+      "category": "soy",
+      "tags": [
+        "soy",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "steamer",
+      "file": "steamer.glb",
+      "name": "Steamer",
+      "category": "steamer",
+      "tags": [
+        "steamer",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "strawberry",
+      "file": "strawberry.glb",
+      "name": "Strawberry",
+      "category": "strawberry",
+      "tags": [
+        "strawberry",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "styrofoam",
+      "file": "styrofoam.glb",
+      "name": "Styrofoam",
+      "category": "styrofoam",
+      "tags": [
+        "styrofoam",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "styrofoam-dinner",
+      "file": "styrofoam-dinner.glb",
+      "name": "Styrofoam Dinner",
+      "category": "styrofoam",
+      "tags": [
+        "styrofoam",
+        "dinner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "sub",
+      "file": "sub.glb",
+      "name": "Sub",
+      "category": "sub",
+      "tags": [
+        "sub",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "sundae",
+      "file": "sundae.glb",
+      "name": "Sundae",
+      "category": "sundae",
+      "tags": [
+        "sundae",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "sushi-egg",
+      "file": "sushi-egg.glb",
+      "name": "Sushi Egg",
+      "category": "sushi",
+      "tags": [
+        "sushi",
+        "egg",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "sushi-salmon",
+      "file": "sushi-salmon.glb",
+      "name": "Sushi Salmon",
+      "category": "sushi",
+      "tags": [
+        "sushi",
+        "salmon",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "taco",
+      "file": "taco.glb",
+      "name": "Taco",
+      "category": "taco",
+      "tags": [
+        "taco",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tajine",
+      "file": "tajine.glb",
+      "name": "Tajine",
+      "category": "tajine",
+      "tags": [
+        "tajine",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tajine-lid",
+      "file": "tajine-lid.glb",
+      "name": "Tajine Lid",
+      "category": "tajine",
+      "tags": [
+        "tajine",
+        "lid",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tomato",
+      "file": "tomato.glb",
+      "name": "Tomato",
+      "category": "tomato",
+      "tags": [
+        "tomato",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tomato-slice",
+      "file": "tomato-slice.glb",
+      "name": "Tomato Slice",
+      "category": "tomato",
+      "tags": [
+        "tomato",
+        "slice",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "turkey",
+      "file": "turkey.glb",
+      "name": "Turkey",
+      "category": "turkey",
+      "tags": [
+        "turkey",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "utensil-fork",
+      "file": "utensil-fork.glb",
+      "name": "Utensil Fork",
+      "category": "utensil",
+      "tags": [
+        "utensil",
+        "fork",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "utensil-knife",
+      "file": "utensil-knife.glb",
+      "name": "Utensil Knife",
+      "category": "utensil",
+      "tags": [
+        "utensil",
+        "knife",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "utensil-spoon",
+      "file": "utensil-spoon.glb",
+      "name": "Utensil Spoon",
+      "category": "utensil",
+      "tags": [
+        "utensil",
+        "spoon",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "waffle",
+      "file": "waffle.glb",
+      "name": "Waffle",
+      "category": "waffle",
+      "tags": [
+        "waffle",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "watermelon",
+      "file": "watermelon.glb",
+      "name": "Watermelon",
+      "category": "watermelon",
+      "tags": [
+        "watermelon",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "whipped-cream",
+      "file": "whipped-cream.glb",
+      "name": "Whipped Cream",
+      "category": "whipped",
+      "tags": [
+        "whipped",
+        "cream",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "whisk",
+      "file": "whisk.glb",
+      "name": "Whisk",
+      "category": "whisk",
+      "tags": [
+        "whisk",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "whole-ham",
+      "file": "whole-ham.glb",
+      "name": "Whole Ham",
+      "category": "whole",
+      "tags": [
+        "whole",
+        "ham",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wholer-ham",
+      "file": "wholer-ham.glb",
+      "name": "Wholer Ham",
+      "category": "wholer",
+      "tags": [
+        "wholer",
+        "ham",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wine-red",
+      "file": "wine-red.glb",
+      "name": "Wine Red",
+      "category": "wine",
+      "tags": [
+        "wine",
+        "red",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wine-white",
+      "file": "wine-white.glb",
+      "name": "Wine White",
+      "category": "wine",
+      "tags": [
+        "wine",
+        "white",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    }
+  ]
+}

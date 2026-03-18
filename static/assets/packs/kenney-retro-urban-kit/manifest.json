@@ -1,0 +1,1829 @@
+{
+  "pack_id": "kenney-retro-urban-kit",
+  "name": "Kenney Retro Urban Kit",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "Kenney Retro Urban Kit free 3D models from Kenney.",
+  "base_url": "/static/assets/packs/kenney-retro-urban-kit/",
+  "assets": [
+    {
+      "id": "balcony-ladder-bottom",
+      "file": "balcony-ladder-bottom.glb",
+      "name": "Balcony Ladder Bottom",
+      "category": "balcony",
+      "tags": [
+        "balcony",
+        "ladder",
+        "bottom",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "balcony-ladder-top",
+      "file": "balcony-ladder-top.glb",
+      "name": "Balcony Ladder Top",
+      "category": "balcony",
+      "tags": [
+        "balcony",
+        "ladder",
+        "top",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "balcony-type-a",
+      "file": "balcony-type-a.glb",
+      "name": "Balcony Type A",
+      "category": "balcony",
+      "tags": [
+        "balcony",
+        "type",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-corner",
+      "file": "cliff-corner.glb",
+      "name": "Cliff Corner",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-side",
+      "file": "cliff-side.glb",
+      "name": "Cliff Side",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "side",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "detail-awning-small",
+      "file": "detail-awning-small.glb",
+      "name": "Detail Awning Small",
+      "category": "detail",
+      "tags": [
+        "detail",
+        "awning",
+        "small",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "detail-awning-wide",
+      "file": "detail-awning-wide.glb",
+      "name": "Detail Awning Wide",
+      "category": "detail",
+      "tags": [
+        "detail",
+        "awning",
+        "wide",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "detail-barrier-strong-damaged",
+      "file": "detail-barrier-strong-damaged.glb",
+      "name": "Detail Barrier Strong Damaged",
+      "category": "detail",
+      "tags": [
+        "detail",
+        "barrier",
+        "strong",
+        "damaged",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "detail-barrier-strong-type-a",
+      "file": "detail-barrier-strong-type-a.glb",
+      "name": "Detail Barrier Strong Type A",
+      "category": "detail",
+      "tags": [
+        "detail",
+        "barrier",
+        "strong",
+        "type",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "detail-barrier-strong-type-b",
+      "file": "detail-barrier-strong-type-b.glb",
+      "name": "Detail Barrier Strong Type B",
+      "category": "detail",
+      "tags": [
+        "detail",
+        "barrier",
+        "strong",
+        "type",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "detail-barrier-type-a",
+      "file": "detail-barrier-type-a.glb",
+      "name": "Detail Barrier Type A",
+      "category": "detail",
+      "tags": [
+        "detail",
+        "barrier",
+        "type",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "detail-barrier-type-b",
+      "file": "detail-barrier-type-b.glb",
+      "name": "Detail Barrier Type B",
+      "category": "detail",
+      "tags": [
+        "detail",
+        "barrier",
+        "type",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "detail-beam",
+      "file": "detail-beam.glb",
+      "name": "Detail Beam",
+      "category": "detail",
+      "tags": [
+        "detail",
+        "beam",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "detail-bench",
+      "file": "detail-bench.glb",
+      "name": "Detail Bench",
+      "category": "detail",
+      "tags": [
+        "detail",
+        "bench",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "detail-block",
+      "file": "detail-block.glb",
+      "name": "Detail Block",
+      "category": "detail",
+      "tags": [
+        "detail",
+        "block",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "detail-bricks-type-a",
+      "file": "detail-bricks-type-a.glb",
+      "name": "Detail Bricks Type A",
+      "category": "detail",
+      "tags": [
+        "detail",
+        "bricks",
+        "type",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "detail-bricks-type-b",
+      "file": "detail-bricks-type-b.glb",
+      "name": "Detail Bricks Type B",
+      "category": "detail",
+      "tags": [
+        "detail",
+        "bricks",
+        "type",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "detail-cables-type-a",
+      "file": "detail-cables-type-a.glb",
+      "name": "Detail Cables Type A",
+      "category": "detail",
+      "tags": [
+        "detail",
+        "cables",
+        "type",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "detail-cables-type-b",
+      "file": "detail-cables-type-b.glb",
+      "name": "Detail Cables Type B",
+      "category": "detail",
+      "tags": [
+        "detail",
+        "cables",
+        "type",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "detail-dumpster-closed",
+      "file": "detail-dumpster-closed.glb",
+      "name": "Detail Dumpster Closed",
+      "category": "detail",
+      "tags": [
+        "detail",
+        "dumpster",
+        "closed",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "detail-dumpster-open",
+      "file": "detail-dumpster-open.glb",
+      "name": "Detail Dumpster Open",
+      "category": "detail",
+      "tags": [
+        "detail",
+        "dumpster",
+        "open",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "detail-light-double",
+      "file": "detail-light-double.glb",
+      "name": "Detail Light Double",
+      "category": "detail",
+      "tags": [
+        "detail",
+        "light",
+        "double",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "detail-light-single",
+      "file": "detail-light-single.glb",
+      "name": "Detail Light Single",
+      "category": "detail",
+      "tags": [
+        "detail",
+        "light",
+        "single",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "detail-light-traffic",
+      "file": "detail-light-traffic.glb",
+      "name": "Detail Light Traffic",
+      "category": "detail",
+      "tags": [
+        "detail",
+        "light",
+        "traffic",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "door-type-a",
+      "file": "door-type-a.glb",
+      "name": "Door Type A",
+      "category": "door",
+      "tags": [
+        "door",
+        "type",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "door-type-b",
+      "file": "door-type-b.glb",
+      "name": "Door Type B",
+      "category": "door",
+      "tags": [
+        "door",
+        "type",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "grass",
+      "file": "grass.glb",
+      "name": "Grass",
+      "category": "vegetation",
+      "tags": [
+        "grass",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "grass-corner",
+      "file": "grass-corner.glb",
+      "name": "Grass Corner",
+      "category": "vegetation",
+      "tags": [
+        "grass",
+        "corner",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "grass-corner-inner",
+      "file": "grass-corner-inner.glb",
+      "name": "Grass Corner Inner",
+      "category": "vegetation",
+      "tags": [
+        "grass",
+        "corner",
+        "inner",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "grass-hill",
+      "file": "grass-hill.glb",
+      "name": "Grass Hill",
+      "category": "vegetation",
+      "tags": [
+        "grass",
+        "hill",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pallet",
+      "file": "pallet.glb",
+      "name": "Pallet",
+      "category": "pallet",
+      "tags": [
+        "pallet",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pallet-small",
+      "file": "pallet-small.glb",
+      "name": "Pallet Small",
+      "category": "pallet",
+      "tags": [
+        "pallet",
+        "small",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "planks",
+      "file": "planks.glb",
+      "name": "Planks",
+      "category": "planks",
+      "tags": [
+        "planks",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-asphalt-center",
+      "file": "road-asphalt-center.glb",
+      "name": "Road Asphalt Center",
+      "category": "road",
+      "tags": [
+        "road",
+        "asphalt",
+        "center",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-asphalt-corner",
+      "file": "road-asphalt-corner.glb",
+      "name": "Road Asphalt Corner",
+      "category": "road",
+      "tags": [
+        "road",
+        "asphalt",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-asphalt-corner-inner",
+      "file": "road-asphalt-corner-inner.glb",
+      "name": "Road Asphalt Corner Inner",
+      "category": "road",
+      "tags": [
+        "road",
+        "asphalt",
+        "corner",
+        "inner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-asphalt-corner-outer",
+      "file": "road-asphalt-corner-outer.glb",
+      "name": "Road Asphalt Corner Outer",
+      "category": "road",
+      "tags": [
+        "road",
+        "asphalt",
+        "corner",
+        "outer",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-asphalt-damaged",
+      "file": "road-asphalt-damaged.glb",
+      "name": "Road Asphalt Damaged",
+      "category": "road",
+      "tags": [
+        "road",
+        "asphalt",
+        "damaged",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-asphalt-pavement",
+      "file": "road-asphalt-pavement.glb",
+      "name": "Road Asphalt Pavement",
+      "category": "road",
+      "tags": [
+        "road",
+        "asphalt",
+        "pavement",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-asphalt-side",
+      "file": "road-asphalt-side.glb",
+      "name": "Road Asphalt Side",
+      "category": "road",
+      "tags": [
+        "road",
+        "asphalt",
+        "side",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-asphalt-straight",
+      "file": "road-asphalt-straight.glb",
+      "name": "Road Asphalt Straight",
+      "category": "road",
+      "tags": [
+        "road",
+        "asphalt",
+        "straight",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-dirt-center",
+      "file": "road-dirt-center.glb",
+      "name": "Road Dirt Center",
+      "category": "road",
+      "tags": [
+        "road",
+        "dirt",
+        "center",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-dirt-corner",
+      "file": "road-dirt-corner.glb",
+      "name": "Road Dirt Corner",
+      "category": "road",
+      "tags": [
+        "road",
+        "dirt",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-dirt-corner-inner",
+      "file": "road-dirt-corner-inner.glb",
+      "name": "Road Dirt Corner Inner",
+      "category": "road",
+      "tags": [
+        "road",
+        "dirt",
+        "corner",
+        "inner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-dirt-corner-outer",
+      "file": "road-dirt-corner-outer.glb",
+      "name": "Road Dirt Corner Outer",
+      "category": "road",
+      "tags": [
+        "road",
+        "dirt",
+        "corner",
+        "outer",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-dirt-damaged",
+      "file": "road-dirt-damaged.glb",
+      "name": "Road Dirt Damaged",
+      "category": "road",
+      "tags": [
+        "road",
+        "dirt",
+        "damaged",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-dirt-pavement",
+      "file": "road-dirt-pavement.glb",
+      "name": "Road Dirt Pavement",
+      "category": "road",
+      "tags": [
+        "road",
+        "dirt",
+        "pavement",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-dirt-side",
+      "file": "road-dirt-side.glb",
+      "name": "Road Dirt Side",
+      "category": "road",
+      "tags": [
+        "road",
+        "dirt",
+        "side",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-dirt-straight",
+      "file": "road-dirt-straight.glb",
+      "name": "Road Dirt Straight",
+      "category": "road",
+      "tags": [
+        "road",
+        "dirt",
+        "straight",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-dirt-tile",
+      "file": "road-dirt-tile.glb",
+      "name": "Road Dirt Tile",
+      "category": "road",
+      "tags": [
+        "road",
+        "dirt",
+        "tile",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roof-metal-poles",
+      "file": "roof-metal-poles.glb",
+      "name": "Roof Metal Poles",
+      "category": "roof",
+      "tags": [
+        "roof",
+        "metal",
+        "poles",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roof-metal-type-a",
+      "file": "roof-metal-type-a.glb",
+      "name": "Roof Metal Type A",
+      "category": "roof",
+      "tags": [
+        "roof",
+        "metal",
+        "type",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roof-metal-type-b",
+      "file": "roof-metal-type-b.glb",
+      "name": "Roof Metal Type B",
+      "category": "roof",
+      "tags": [
+        "roof",
+        "metal",
+        "type",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "scaffolding-floor",
+      "file": "scaffolding-floor.glb",
+      "name": "Scaffolding Floor",
+      "category": "scaffolding",
+      "tags": [
+        "scaffolding",
+        "floor",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "scaffolding-poles",
+      "file": "scaffolding-poles.glb",
+      "name": "Scaffolding Poles",
+      "category": "scaffolding",
+      "tags": [
+        "scaffolding",
+        "poles",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "scaffolding-structure",
+      "file": "scaffolding-structure.glb",
+      "name": "Scaffolding Structure",
+      "category": "scaffolding",
+      "tags": [
+        "scaffolding",
+        "structure",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-large",
+      "file": "tree-large.glb",
+      "name": "Tree Large",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "large",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-park-large",
+      "file": "tree-park-large.glb",
+      "name": "Tree Park Large",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "park",
+        "large",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-park-pine-large",
+      "file": "tree-park-pine-large.glb",
+      "name": "Tree Park Pine Large",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "park",
+        "pine",
+        "large",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-pine-large",
+      "file": "tree-pine-large.glb",
+      "name": "Tree Pine Large",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "pine",
+        "large",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-pine-small",
+      "file": "tree-pine-small.glb",
+      "name": "Tree Pine Small",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "pine",
+        "small",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-shrub",
+      "file": "tree-shrub.glb",
+      "name": "Tree Shrub",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "shrub",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-small",
+      "file": "tree-small.glb",
+      "name": "Tree Small",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "small",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "truck-flat",
+      "file": "truck-flat.glb",
+      "name": "Truck Flat",
+      "category": "truck",
+      "tags": [
+        "truck",
+        "flat",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "truck-green",
+      "file": "truck-green.glb",
+      "name": "Truck Green",
+      "category": "truck",
+      "tags": [
+        "truck",
+        "green",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "truck-green-cargo",
+      "file": "truck-green-cargo.glb",
+      "name": "Truck Green Cargo",
+      "category": "truck",
+      "tags": [
+        "truck",
+        "green",
+        "cargo",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "truck-grey",
+      "file": "truck-grey.glb",
+      "name": "Truck Grey",
+      "category": "truck",
+      "tags": [
+        "truck",
+        "grey",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "truck-grey-cargo",
+      "file": "truck-grey-cargo.glb",
+      "name": "Truck Grey Cargo",
+      "category": "truck",
+      "tags": [
+        "truck",
+        "grey",
+        "cargo",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-a",
+      "file": "wall-a.glb",
+      "name": "Wall A",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "a",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-a-column",
+      "file": "wall-a-column.glb",
+      "name": "Wall A Column",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "a",
+        "column",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-a-column-painted",
+      "file": "wall-a-column-painted.glb",
+      "name": "Wall A Column Painted",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "a",
+        "column",
+        "painted",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-a-corner",
+      "file": "wall-a-corner.glb",
+      "name": "Wall A Corner",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "a",
+        "corner",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-a-corner-painted",
+      "file": "wall-a-corner-painted.glb",
+      "name": "Wall A Corner Painted",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "a",
+        "corner",
+        "painted",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-a-detail",
+      "file": "wall-a-detail.glb",
+      "name": "Wall A Detail",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "a",
+        "detail",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-a-detail-painted",
+      "file": "wall-a-detail-painted.glb",
+      "name": "Wall A Detail Painted",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "a",
+        "detail",
+        "painted",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-a-diagonal",
+      "file": "wall-a-diagonal.glb",
+      "name": "Wall A Diagonal",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "a",
+        "diagonal",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-a-door",
+      "file": "wall-a-door.glb",
+      "name": "Wall A Door",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "a",
+        "door",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-a-flat",
+      "file": "wall-a-flat.glb",
+      "name": "Wall A Flat",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "a",
+        "flat",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-a-flat-garage",
+      "file": "wall-a-flat-garage.glb",
+      "name": "Wall A Flat Garage",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "a",
+        "flat",
+        "garage",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-a-flat-painted",
+      "file": "wall-a-flat-painted.glb",
+      "name": "Wall A Flat Painted",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "a",
+        "flat",
+        "painted",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-a-flat-window",
+      "file": "wall-a-flat-window.glb",
+      "name": "Wall A Flat Window",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "a",
+        "flat",
+        "window",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-a-garage",
+      "file": "wall-a-garage.glb",
+      "name": "Wall A Garage",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "a",
+        "garage",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-a-low",
+      "file": "wall-a-low.glb",
+      "name": "Wall A Low",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "a",
+        "low",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-a-low-painted",
+      "file": "wall-a-low-painted.glb",
+      "name": "Wall A Low Painted",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "a",
+        "low",
+        "painted",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-a-open",
+      "file": "wall-a-open.glb",
+      "name": "Wall A Open",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "a",
+        "open",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-a-painted",
+      "file": "wall-a-painted.glb",
+      "name": "Wall A Painted",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "a",
+        "painted",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-a-painted-diagonal",
+      "file": "wall-a-painted-diagonal.glb",
+      "name": "Wall A Painted Diagonal",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "a",
+        "painted",
+        "diagonal",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-a-roof",
+      "file": "wall-a-roof.glb",
+      "name": "Wall A Roof",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "a",
+        "roof",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-a-roof-detailed",
+      "file": "wall-a-roof-detailed.glb",
+      "name": "Wall A Roof Detailed",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "a",
+        "roof",
+        "detailed",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-a-roof-slant",
+      "file": "wall-a-roof-slant.glb",
+      "name": "Wall A Roof Slant",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "a",
+        "roof",
+        "slant",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-a-roof-slant-detailed",
+      "file": "wall-a-roof-slant-detailed.glb",
+      "name": "Wall A Roof Slant Detailed",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "a",
+        "roof",
+        "slant",
+        "detailed",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-a-window",
+      "file": "wall-a-window.glb",
+      "name": "Wall A Window",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "a",
+        "window",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-b",
+      "file": "wall-b.glb",
+      "name": "Wall B",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "b",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-b-column",
+      "file": "wall-b-column.glb",
+      "name": "Wall B Column",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "b",
+        "column",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-b-corner",
+      "file": "wall-b-corner.glb",
+      "name": "Wall B Corner",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "b",
+        "corner",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-b-detail-painted",
+      "file": "wall-b-detail-painted.glb",
+      "name": "Wall B Detail Painted",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "b",
+        "detail",
+        "painted",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-b-diagonal",
+      "file": "wall-b-diagonal.glb",
+      "name": "Wall B Diagonal",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "b",
+        "diagonal",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-b-door",
+      "file": "wall-b-door.glb",
+      "name": "Wall B Door",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "b",
+        "door",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-b-flat",
+      "file": "wall-b-flat.glb",
+      "name": "Wall B Flat",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "b",
+        "flat",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-b-flat-garage",
+      "file": "wall-b-flat-garage.glb",
+      "name": "Wall B Flat Garage",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "b",
+        "flat",
+        "garage",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-b-flat-window",
+      "file": "wall-b-flat-window.glb",
+      "name": "Wall B Flat Window",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "b",
+        "flat",
+        "window",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-b-garage",
+      "file": "wall-b-garage.glb",
+      "name": "Wall B Garage",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "b",
+        "garage",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-b-low",
+      "file": "wall-b-low.glb",
+      "name": "Wall B Low",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "b",
+        "low",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-b-open",
+      "file": "wall-b-open.glb",
+      "name": "Wall B Open",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "b",
+        "open",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-b-roof",
+      "file": "wall-b-roof.glb",
+      "name": "Wall B Roof",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "b",
+        "roof",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-b-roof-detailed",
+      "file": "wall-b-roof-detailed.glb",
+      "name": "Wall B Roof Detailed",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "b",
+        "roof",
+        "detailed",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-b-roof-slant",
+      "file": "wall-b-roof-slant.glb",
+      "name": "Wall B Roof Slant",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "b",
+        "roof",
+        "slant",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-b-roof-slant-detailed",
+      "file": "wall-b-roof-slant-detailed.glb",
+      "name": "Wall B Roof Slant Detailed",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "b",
+        "roof",
+        "slant",
+        "detailed",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-b-window",
+      "file": "wall-b-window.glb",
+      "name": "Wall B Window",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "b",
+        "window",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-broken-type-a",
+      "file": "wall-broken-type-a.glb",
+      "name": "Wall Broken Type A",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "broken",
+        "type",
+        "a",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-broken-type-b",
+      "file": "wall-broken-type-b.glb",
+      "name": "Wall Broken Type B",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "broken",
+        "type",
+        "b",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-c-flat",
+      "file": "wall-c-flat.glb",
+      "name": "Wall C Flat",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "c",
+        "flat",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-c-flat-low",
+      "file": "wall-c-flat-low.glb",
+      "name": "Wall C Flat Low",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "c",
+        "flat",
+        "low",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-fence",
+      "file": "wall-fence.glb",
+      "name": "Wall Fence",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "fence",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-steps-type-a",
+      "file": "wall-steps-type-a.glb",
+      "name": "Wall Steps Type A",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "steps",
+        "type",
+        "a",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-steps-type-b",
+      "file": "wall-steps-type-b.glb",
+      "name": "Wall Steps Type B",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "steps",
+        "type",
+        "b",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-type-a",
+      "file": "wall-type-a.glb",
+      "name": "Wall Type A",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "type",
+        "a",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-type-b",
+      "file": "wall-type-b.glb",
+      "name": "Wall Type B",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "type",
+        "b",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "window-small-type-a",
+      "file": "window-small-type-a.glb",
+      "name": "Window Small Type A",
+      "category": "window",
+      "tags": [
+        "window",
+        "small",
+        "type",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "window-small-type-b",
+      "file": "window-small-type-b.glb",
+      "name": "Window Small Type B",
+      "category": "window",
+      "tags": [
+        "window",
+        "small",
+        "type",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "window-wide-type-a",
+      "file": "window-wide-type-a.glb",
+      "name": "Window Wide Type A",
+      "category": "window",
+      "tags": [
+        "window",
+        "wide",
+        "type",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "window-wide-type-b",
+      "file": "window-wide-type-b.glb",
+      "name": "Window Wide Type B",
+      "category": "window",
+      "tags": [
+        "window",
+        "wide",
+        "type",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "window-wide-type-c",
+      "file": "window-wide-type-c.glb",
+      "name": "Window Wide Type C",
+      "category": "window",
+      "tags": [
+        "window",
+        "wide",
+        "type",
+        "c",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "window-wide-type-d",
+      "file": "window-wide-type-d.glb",
+      "name": "Window Wide Type D",
+      "category": "window",
+      "tags": [
+        "window",
+        "wide",
+        "type",
+        "d",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    }
+  ]
+}

@@ -1,0 +1,1548 @@
+{
+  "pack_id": "kenney-train-kit",
+  "name": "Kenney Train Kit",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "Kenney Train Kit free 3D models from Kenney.",
+  "base_url": "/static/assets/packs/kenney-train-kit/",
+  "assets": [
+    {
+      "id": "railroad-corner-large",
+      "file": "railroad-corner-large.glb",
+      "name": "Railroad Corner Large",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "corner",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-corner-large-ramp",
+      "file": "railroad-corner-large-ramp.glb",
+      "name": "Railroad Corner Large Ramp",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "corner",
+        "large",
+        "ramp",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-corner-small",
+      "file": "railroad-corner-small.glb",
+      "name": "Railroad Corner Small",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "corner",
+        "small",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-corner-small-ramp",
+      "file": "railroad-corner-small-ramp.glb",
+      "name": "Railroad Corner Small Ramp",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "corner",
+        "small",
+        "ramp",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-curve",
+      "file": "railroad-curve.glb",
+      "name": "Railroad Curve",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "curve",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-damaged-corner-large",
+      "file": "railroad-damaged-corner-large.glb",
+      "name": "Railroad Damaged Corner Large",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "damaged",
+        "corner",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-damaged-corner-large-ramp",
+      "file": "railroad-damaged-corner-large-ramp.glb",
+      "name": "Railroad Damaged Corner Large Ramp",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "damaged",
+        "corner",
+        "large",
+        "ramp",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-damaged-corner-small",
+      "file": "railroad-damaged-corner-small.glb",
+      "name": "Railroad Damaged Corner Small",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "damaged",
+        "corner",
+        "small",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-damaged-corner-small-ramp",
+      "file": "railroad-damaged-corner-small-ramp.glb",
+      "name": "Railroad Damaged Corner Small Ramp",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "damaged",
+        "corner",
+        "small",
+        "ramp",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-damaged-curve",
+      "file": "railroad-damaged-curve.glb",
+      "name": "Railroad Damaged Curve",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "damaged",
+        "curve",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-damaged-straight",
+      "file": "railroad-damaged-straight.glb",
+      "name": "Railroad Damaged Straight",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "damaged",
+        "straight",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-damaged-straight-bend",
+      "file": "railroad-damaged-straight-bend.glb",
+      "name": "Railroad Damaged Straight Bend",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "damaged",
+        "straight",
+        "bend",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-damaged-straight-bend-large",
+      "file": "railroad-damaged-straight-bend-large.glb",
+      "name": "Railroad Damaged Straight Bend Large",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "damaged",
+        "straight",
+        "bend",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-damaged-straight-bump-down",
+      "file": "railroad-damaged-straight-bump-down.glb",
+      "name": "Railroad Damaged Straight Bump Down",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "damaged",
+        "straight",
+        "bump",
+        "down",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-damaged-straight-bump-up",
+      "file": "railroad-damaged-straight-bump-up.glb",
+      "name": "Railroad Damaged Straight Bump Up",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "damaged",
+        "straight",
+        "bump",
+        "up",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-damaged-straight-hill-beginning",
+      "file": "railroad-damaged-straight-hill-beginning.glb",
+      "name": "Railroad Damaged Straight Hill Beginning",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "damaged",
+        "straight",
+        "hill",
+        "beginning",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-damaged-straight-hill-complete",
+      "file": "railroad-damaged-straight-hill-complete.glb",
+      "name": "Railroad Damaged Straight Hill Complete",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "damaged",
+        "straight",
+        "hill",
+        "complete",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-damaged-straight-hill-complete-half",
+      "file": "railroad-damaged-straight-hill-complete-half.glb",
+      "name": "Railroad Damaged Straight Hill Complete Half",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "damaged",
+        "straight",
+        "hill",
+        "complete",
+        "half",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-damaged-straight-hill-end",
+      "file": "railroad-damaged-straight-hill-end.glb",
+      "name": "Railroad Damaged Straight Hill End",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "damaged",
+        "straight",
+        "hill",
+        "end",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-damaged-straight-skew-left",
+      "file": "railroad-damaged-straight-skew-left.glb",
+      "name": "Railroad Damaged Straight Skew Left",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "damaged",
+        "straight",
+        "skew",
+        "left",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-damaged-straight-skew-left-side",
+      "file": "railroad-damaged-straight-skew-left-side.glb",
+      "name": "Railroad Damaged Straight Skew Left Side",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "damaged",
+        "straight",
+        "skew",
+        "left",
+        "side",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-damaged-straight-skew-right",
+      "file": "railroad-damaged-straight-skew-right.glb",
+      "name": "Railroad Damaged Straight Skew Right",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "damaged",
+        "straight",
+        "skew",
+        "right",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-damaged-straight-skew-right-side",
+      "file": "railroad-damaged-straight-skew-right-side.glb",
+      "name": "Railroad Damaged Straight Skew Right Side",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "damaged",
+        "straight",
+        "skew",
+        "right",
+        "side",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-rail-corner-large",
+      "file": "railroad-rail-corner-large.glb",
+      "name": "Railroad Rail Corner Large",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "rail",
+        "corner",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-rail-corner-large-ramp",
+      "file": "railroad-rail-corner-large-ramp.glb",
+      "name": "Railroad Rail Corner Large Ramp",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "rail",
+        "corner",
+        "large",
+        "ramp",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-rail-corner-small",
+      "file": "railroad-rail-corner-small.glb",
+      "name": "Railroad Rail Corner Small",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "rail",
+        "corner",
+        "small",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-rail-corner-small-ramp",
+      "file": "railroad-rail-corner-small-ramp.glb",
+      "name": "Railroad Rail Corner Small Ramp",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "rail",
+        "corner",
+        "small",
+        "ramp",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-rail-curve",
+      "file": "railroad-rail-curve.glb",
+      "name": "Railroad Rail Curve",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "rail",
+        "curve",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-rail-straight",
+      "file": "railroad-rail-straight.glb",
+      "name": "Railroad Rail Straight",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "rail",
+        "straight",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-rail-straight-bend",
+      "file": "railroad-rail-straight-bend.glb",
+      "name": "Railroad Rail Straight Bend",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "rail",
+        "straight",
+        "bend",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-rail-straight-bend-large",
+      "file": "railroad-rail-straight-bend-large.glb",
+      "name": "Railroad Rail Straight Bend Large",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "rail",
+        "straight",
+        "bend",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-rail-straight-bump-down",
+      "file": "railroad-rail-straight-bump-down.glb",
+      "name": "Railroad Rail Straight Bump Down",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "rail",
+        "straight",
+        "bump",
+        "down",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-rail-straight-bump-up",
+      "file": "railroad-rail-straight-bump-up.glb",
+      "name": "Railroad Rail Straight Bump Up",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "rail",
+        "straight",
+        "bump",
+        "up",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-rail-straight-hill-beginning",
+      "file": "railroad-rail-straight-hill-beginning.glb",
+      "name": "Railroad Rail Straight Hill Beginning",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "rail",
+        "straight",
+        "hill",
+        "beginning",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-rail-straight-hill-complete",
+      "file": "railroad-rail-straight-hill-complete.glb",
+      "name": "Railroad Rail Straight Hill Complete",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "rail",
+        "straight",
+        "hill",
+        "complete",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-rail-straight-hill-complete-half",
+      "file": "railroad-rail-straight-hill-complete-half.glb",
+      "name": "Railroad Rail Straight Hill Complete Half",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "rail",
+        "straight",
+        "hill",
+        "complete",
+        "half",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-rail-straight-hill-end",
+      "file": "railroad-rail-straight-hill-end.glb",
+      "name": "Railroad Rail Straight Hill End",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "rail",
+        "straight",
+        "hill",
+        "end",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-rail-straight-skew-left",
+      "file": "railroad-rail-straight-skew-left.glb",
+      "name": "Railroad Rail Straight Skew Left",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "rail",
+        "straight",
+        "skew",
+        "left",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-rail-straight-skew-left-side",
+      "file": "railroad-rail-straight-skew-left-side.glb",
+      "name": "Railroad Rail Straight Skew Left Side",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "rail",
+        "straight",
+        "skew",
+        "left",
+        "side",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-rail-straight-skew-right",
+      "file": "railroad-rail-straight-skew-right.glb",
+      "name": "Railroad Rail Straight Skew Right",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "rail",
+        "straight",
+        "skew",
+        "right",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-rail-straight-skew-right-side",
+      "file": "railroad-rail-straight-skew-right-side.glb",
+      "name": "Railroad Rail Straight Skew Right Side",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "rail",
+        "straight",
+        "skew",
+        "right",
+        "side",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-straight",
+      "file": "railroad-straight.glb",
+      "name": "Railroad Straight",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "straight",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-straight-bend",
+      "file": "railroad-straight-bend.glb",
+      "name": "Railroad Straight Bend",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "straight",
+        "bend",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-straight-bend-large",
+      "file": "railroad-straight-bend-large.glb",
+      "name": "Railroad Straight Bend Large",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "straight",
+        "bend",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-straight-bump-down",
+      "file": "railroad-straight-bump-down.glb",
+      "name": "Railroad Straight Bump Down",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "straight",
+        "bump",
+        "down",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-straight-bump-up",
+      "file": "railroad-straight-bump-up.glb",
+      "name": "Railroad Straight Bump Up",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "straight",
+        "bump",
+        "up",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-straight-hill-beginning",
+      "file": "railroad-straight-hill-beginning.glb",
+      "name": "Railroad Straight Hill Beginning",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "straight",
+        "hill",
+        "beginning",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-straight-hill-complete",
+      "file": "railroad-straight-hill-complete.glb",
+      "name": "Railroad Straight Hill Complete",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "straight",
+        "hill",
+        "complete",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-straight-hill-complete-half",
+      "file": "railroad-straight-hill-complete-half.glb",
+      "name": "Railroad Straight Hill Complete Half",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "straight",
+        "hill",
+        "complete",
+        "half",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-straight-hill-end",
+      "file": "railroad-straight-hill-end.glb",
+      "name": "Railroad Straight Hill End",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "straight",
+        "hill",
+        "end",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-straight-skew-left",
+      "file": "railroad-straight-skew-left.glb",
+      "name": "Railroad Straight Skew Left",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "straight",
+        "skew",
+        "left",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-straight-skew-left-side",
+      "file": "railroad-straight-skew-left-side.glb",
+      "name": "Railroad Straight Skew Left Side",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "straight",
+        "skew",
+        "left",
+        "side",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-straight-skew-right",
+      "file": "railroad-straight-skew-right.glb",
+      "name": "Railroad Straight Skew Right",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "straight",
+        "skew",
+        "right",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "railroad-straight-skew-right-side",
+      "file": "railroad-straight-skew-right-side.glb",
+      "name": "Railroad Straight Skew Right Side",
+      "category": "railroad",
+      "tags": [
+        "railroad",
+        "straight",
+        "skew",
+        "right",
+        "side",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spline-segment",
+      "file": "spline-segment.glb",
+      "name": "Spline Segment",
+      "category": "spline",
+      "tags": [
+        "spline",
+        "segment",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spline-track",
+      "file": "spline-track.glb",
+      "name": "Spline Track",
+      "category": "spline",
+      "tags": [
+        "spline",
+        "track",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spline-track-damaged",
+      "file": "spline-track-damaged.glb",
+      "name": "Spline Track Damaged",
+      "category": "spline",
+      "tags": [
+        "spline",
+        "track",
+        "damaged",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track",
+      "file": "track.glb",
+      "name": "Track",
+      "category": "track",
+      "tags": [
+        "track",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-detailed",
+      "file": "track-detailed.glb",
+      "name": "Track Detailed",
+      "category": "track",
+      "tags": [
+        "track",
+        "detailed",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-single",
+      "file": "track-single.glb",
+      "name": "Track Single",
+      "category": "track",
+      "tags": [
+        "track",
+        "single",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-single-detailed",
+      "file": "track-single-detailed.glb",
+      "name": "Track Single Detailed",
+      "category": "track",
+      "tags": [
+        "track",
+        "single",
+        "detailed",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "train-carriage-box",
+      "file": "train-carriage-box.glb",
+      "name": "Train Carriage Box",
+      "category": "train",
+      "tags": [
+        "train",
+        "carriage",
+        "box",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "train-carriage-coal",
+      "file": "train-carriage-coal.glb",
+      "name": "Train Carriage Coal",
+      "category": "train",
+      "tags": [
+        "train",
+        "carriage",
+        "coal",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "train-carriage-container-blue",
+      "file": "train-carriage-container-blue.glb",
+      "name": "Train Carriage Container Blue",
+      "category": "train",
+      "tags": [
+        "train",
+        "carriage",
+        "container",
+        "blue",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "train-carriage-container-green",
+      "file": "train-carriage-container-green.glb",
+      "name": "Train Carriage Container Green",
+      "category": "train",
+      "tags": [
+        "train",
+        "carriage",
+        "container",
+        "green",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "train-carriage-container-red",
+      "file": "train-carriage-container-red.glb",
+      "name": "Train Carriage Container Red",
+      "category": "train",
+      "tags": [
+        "train",
+        "carriage",
+        "container",
+        "red",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "train-carriage-dirt",
+      "file": "train-carriage-dirt.glb",
+      "name": "Train Carriage Dirt",
+      "category": "train",
+      "tags": [
+        "train",
+        "carriage",
+        "dirt",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "train-carriage-flatbed",
+      "file": "train-carriage-flatbed.glb",
+      "name": "Train Carriage Flatbed",
+      "category": "train",
+      "tags": [
+        "train",
+        "carriage",
+        "flatbed",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "train-carriage-flatbed-wood",
+      "file": "train-carriage-flatbed-wood.glb",
+      "name": "Train Carriage Flatbed Wood",
+      "category": "train",
+      "tags": [
+        "train",
+        "carriage",
+        "flatbed",
+        "wood",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "train-carriage-lumber",
+      "file": "train-carriage-lumber.glb",
+      "name": "Train Carriage Lumber",
+      "category": "train",
+      "tags": [
+        "train",
+        "carriage",
+        "lumber",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "train-carriage-tank",
+      "file": "train-carriage-tank.glb",
+      "name": "Train Carriage Tank",
+      "category": "train",
+      "tags": [
+        "train",
+        "carriage",
+        "tank",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "train-carriage-tank-large",
+      "file": "train-carriage-tank-large.glb",
+      "name": "Train Carriage Tank Large",
+      "category": "train",
+      "tags": [
+        "train",
+        "carriage",
+        "tank",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "train-carriage-wood",
+      "file": "train-carriage-wood.glb",
+      "name": "Train Carriage Wood",
+      "category": "train",
+      "tags": [
+        "train",
+        "carriage",
+        "wood",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "train-connector",
+      "file": "train-connector.glb",
+      "name": "Train Connector",
+      "category": "train",
+      "tags": [
+        "train",
+        "connector",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "train-diesel-a",
+      "file": "train-diesel-a.glb",
+      "name": "Train Diesel A",
+      "category": "train",
+      "tags": [
+        "train",
+        "diesel",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "train-diesel-b",
+      "file": "train-diesel-b.glb",
+      "name": "Train Diesel B",
+      "category": "train",
+      "tags": [
+        "train",
+        "diesel",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "train-diesel-box-a",
+      "file": "train-diesel-box-a.glb",
+      "name": "Train Diesel Box A",
+      "category": "train",
+      "tags": [
+        "train",
+        "diesel",
+        "box",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "train-diesel-box-b",
+      "file": "train-diesel-box-b.glb",
+      "name": "Train Diesel Box B",
+      "category": "train",
+      "tags": [
+        "train",
+        "diesel",
+        "box",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "train-diesel-box-c",
+      "file": "train-diesel-box-c.glb",
+      "name": "Train Diesel Box C",
+      "category": "train",
+      "tags": [
+        "train",
+        "diesel",
+        "box",
+        "c",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "train-diesel-c",
+      "file": "train-diesel-c.glb",
+      "name": "Train Diesel C",
+      "category": "train",
+      "tags": [
+        "train",
+        "diesel",
+        "c",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "train-electric-bullet-a",
+      "file": "train-electric-bullet-a.glb",
+      "name": "Train Electric Bullet A",
+      "category": "train",
+      "tags": [
+        "train",
+        "electric",
+        "bullet",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "train-electric-bullet-b",
+      "file": "train-electric-bullet-b.glb",
+      "name": "Train Electric Bullet B",
+      "category": "train",
+      "tags": [
+        "train",
+        "electric",
+        "bullet",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "train-electric-bullet-c",
+      "file": "train-electric-bullet-c.glb",
+      "name": "Train Electric Bullet C",
+      "category": "train",
+      "tags": [
+        "train",
+        "electric",
+        "bullet",
+        "c",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "train-electric-city-a",
+      "file": "train-electric-city-a.glb",
+      "name": "Train Electric City A",
+      "category": "train",
+      "tags": [
+        "train",
+        "electric",
+        "city",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "train-electric-city-b",
+      "file": "train-electric-city-b.glb",
+      "name": "Train Electric City B",
+      "category": "train",
+      "tags": [
+        "train",
+        "electric",
+        "city",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "train-electric-city-c",
+      "file": "train-electric-city-c.glb",
+      "name": "Train Electric City C",
+      "category": "train",
+      "tags": [
+        "train",
+        "electric",
+        "city",
+        "c",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "train-electric-double-a",
+      "file": "train-electric-double-a.glb",
+      "name": "Train Electric Double A",
+      "category": "train",
+      "tags": [
+        "train",
+        "electric",
+        "double",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "train-electric-double-b",
+      "file": "train-electric-double-b.glb",
+      "name": "Train Electric Double B",
+      "category": "train",
+      "tags": [
+        "train",
+        "electric",
+        "double",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "train-electric-double-c",
+      "file": "train-electric-double-c.glb",
+      "name": "Train Electric Double C",
+      "category": "train",
+      "tags": [
+        "train",
+        "electric",
+        "double",
+        "c",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "train-electric-square-a",
+      "file": "train-electric-square-a.glb",
+      "name": "Train Electric Square A",
+      "category": "train",
+      "tags": [
+        "train",
+        "electric",
+        "square",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "train-electric-square-b",
+      "file": "train-electric-square-b.glb",
+      "name": "Train Electric Square B",
+      "category": "train",
+      "tags": [
+        "train",
+        "electric",
+        "square",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "train-electric-square-c",
+      "file": "train-electric-square-c.glb",
+      "name": "Train Electric Square C",
+      "category": "train",
+      "tags": [
+        "train",
+        "electric",
+        "square",
+        "c",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "train-electric-subway-a",
+      "file": "train-electric-subway-a.glb",
+      "name": "Train Electric Subway A",
+      "category": "train",
+      "tags": [
+        "train",
+        "electric",
+        "subway",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "train-electric-subway-b",
+      "file": "train-electric-subway-b.glb",
+      "name": "Train Electric Subway B",
+      "category": "train",
+      "tags": [
+        "train",
+        "electric",
+        "subway",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "train-electric-subway-c",
+      "file": "train-electric-subway-c.glb",
+      "name": "Train Electric Subway C",
+      "category": "train",
+      "tags": [
+        "train",
+        "electric",
+        "subway",
+        "c",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "train-locomotive-a",
+      "file": "train-locomotive-a.glb",
+      "name": "Train Locomotive A",
+      "category": "train",
+      "tags": [
+        "train",
+        "locomotive",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "train-locomotive-b",
+      "file": "train-locomotive-b.glb",
+      "name": "Train Locomotive B",
+      "category": "train",
+      "tags": [
+        "train",
+        "locomotive",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "train-locomotive-c",
+      "file": "train-locomotive-c.glb",
+      "name": "Train Locomotive C",
+      "category": "train",
+      "tags": [
+        "train",
+        "locomotive",
+        "c",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "train-locomotive-passenger-a",
+      "file": "train-locomotive-passenger-a.glb",
+      "name": "Train Locomotive Passenger A",
+      "category": "train",
+      "tags": [
+        "train",
+        "locomotive",
+        "passenger",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "train-locomotive-passenger-b",
+      "file": "train-locomotive-passenger-b.glb",
+      "name": "Train Locomotive Passenger B",
+      "category": "train",
+      "tags": [
+        "train",
+        "locomotive",
+        "passenger",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "train-tram-classic",
+      "file": "train-tram-classic.glb",
+      "name": "Train Tram Classic",
+      "category": "train",
+      "tags": [
+        "train",
+        "tram",
+        "classic",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "train-tram-modern",
+      "file": "train-tram-modern.glb",
+      "name": "Train Tram Modern",
+      "category": "train",
+      "tags": [
+        "train",
+        "tram",
+        "modern",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "train-tram-round",
+      "file": "train-tram-round.glb",
+      "name": "Train Tram Round",
+      "category": "train",
+      "tags": [
+        "train",
+        "tram",
+        "round",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    }
+  ]
+}

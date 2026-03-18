@@ -1,0 +1,1009 @@
+{
+  "pack_id": "kenney-city-kit-roads",
+  "name": "Kenney City Kit Roads",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "70 road and city tile models from Kenney.",
+  "base_url": "/static/assets/packs/kenney-city-kit-roads/",
+  "assets": [
+    {
+      "id": "bridge-pillar",
+      "file": "bridge-pillar.glb",
+      "name": "Bridge Pillar",
+      "category": "structure",
+      "tags": [
+        "bridge",
+        "pillar",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bridge-pillar-wide",
+      "file": "bridge-pillar-wide.glb",
+      "name": "Bridge Pillar Wide",
+      "category": "structure",
+      "tags": [
+        "bridge",
+        "pillar",
+        "wide",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "construction-barrier",
+      "file": "construction-barrier.glb",
+      "name": "Construction Barrier",
+      "category": "construction",
+      "tags": [
+        "construction",
+        "barrier",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "construction-cone",
+      "file": "construction-cone.glb",
+      "name": "Construction Cone",
+      "category": "construction",
+      "tags": [
+        "construction",
+        "cone",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "construction-light",
+      "file": "construction-light.glb",
+      "name": "Construction Light",
+      "category": "construction",
+      "tags": [
+        "construction",
+        "light",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "light-curved",
+      "file": "light-curved.glb",
+      "name": "Light Curved",
+      "category": "light",
+      "tags": [
+        "light",
+        "curved",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "light-curved-cross",
+      "file": "light-curved-cross.glb",
+      "name": "Light Curved Cross",
+      "category": "light",
+      "tags": [
+        "light",
+        "curved",
+        "cross",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "light-curved-double",
+      "file": "light-curved-double.glb",
+      "name": "Light Curved Double",
+      "category": "light",
+      "tags": [
+        "light",
+        "curved",
+        "double",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "light-square",
+      "file": "light-square.glb",
+      "name": "Light Square",
+      "category": "light",
+      "tags": [
+        "light",
+        "square",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "light-square-cross",
+      "file": "light-square-cross.glb",
+      "name": "Light Square Cross",
+      "category": "light",
+      "tags": [
+        "light",
+        "square",
+        "cross",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "light-square-double",
+      "file": "light-square-double.glb",
+      "name": "Light Square Double",
+      "category": "light",
+      "tags": [
+        "light",
+        "square",
+        "double",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-bend",
+      "file": "road-bend.glb",
+      "name": "Road Bend",
+      "category": "road",
+      "tags": [
+        "road",
+        "bend",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-bend-barrier",
+      "file": "road-bend-barrier.glb",
+      "name": "Road Bend Barrier",
+      "category": "road",
+      "tags": [
+        "road",
+        "bend",
+        "barrier",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-bend-sidewalk",
+      "file": "road-bend-sidewalk.glb",
+      "name": "Road Bend Sidewalk",
+      "category": "road",
+      "tags": [
+        "road",
+        "bend",
+        "sidewalk",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-bend-square",
+      "file": "road-bend-square.glb",
+      "name": "Road Bend Square",
+      "category": "road",
+      "tags": [
+        "road",
+        "bend",
+        "square",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-bend-square-barrier",
+      "file": "road-bend-square-barrier.glb",
+      "name": "Road Bend Square Barrier",
+      "category": "road",
+      "tags": [
+        "road",
+        "bend",
+        "square",
+        "barrier",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-bridge",
+      "file": "road-bridge.glb",
+      "name": "Road Bridge",
+      "category": "road",
+      "tags": [
+        "road",
+        "bridge",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-crossing",
+      "file": "road-crossing.glb",
+      "name": "Road Crossing",
+      "category": "road",
+      "tags": [
+        "road",
+        "crossing",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-crossroad",
+      "file": "road-crossroad.glb",
+      "name": "Road Crossroad",
+      "category": "road",
+      "tags": [
+        "road",
+        "crossroad",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-crossroad-barrier",
+      "file": "road-crossroad-barrier.glb",
+      "name": "Road Crossroad Barrier",
+      "category": "road",
+      "tags": [
+        "road",
+        "crossroad",
+        "barrier",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-crossroad-line",
+      "file": "road-crossroad-line.glb",
+      "name": "Road Crossroad Line",
+      "category": "road",
+      "tags": [
+        "road",
+        "crossroad",
+        "line",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-crossroad-path",
+      "file": "road-crossroad-path.glb",
+      "name": "Road Crossroad Path",
+      "category": "road",
+      "tags": [
+        "road",
+        "crossroad",
+        "path",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-curve",
+      "file": "road-curve.glb",
+      "name": "Road Curve",
+      "category": "road",
+      "tags": [
+        "road",
+        "curve",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-curve-barrier",
+      "file": "road-curve-barrier.glb",
+      "name": "Road Curve Barrier",
+      "category": "road",
+      "tags": [
+        "road",
+        "curve",
+        "barrier",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-curve-intersection",
+      "file": "road-curve-intersection.glb",
+      "name": "Road Curve Intersection",
+      "category": "road",
+      "tags": [
+        "road",
+        "curve",
+        "intersection",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-curve-intersection-barrier",
+      "file": "road-curve-intersection-barrier.glb",
+      "name": "Road Curve Intersection Barrier",
+      "category": "road",
+      "tags": [
+        "road",
+        "curve",
+        "intersection",
+        "barrier",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-curve-pavement",
+      "file": "road-curve-pavement.glb",
+      "name": "Road Curve Pavement",
+      "category": "road",
+      "tags": [
+        "road",
+        "curve",
+        "pavement",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-driveway-double",
+      "file": "road-driveway-double.glb",
+      "name": "Road Driveway Double",
+      "category": "road",
+      "tags": [
+        "road",
+        "driveway",
+        "double",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-driveway-double-barrier",
+      "file": "road-driveway-double-barrier.glb",
+      "name": "Road Driveway Double Barrier",
+      "category": "road",
+      "tags": [
+        "road",
+        "driveway",
+        "double",
+        "barrier",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-driveway-single",
+      "file": "road-driveway-single.glb",
+      "name": "Road Driveway Single",
+      "category": "road",
+      "tags": [
+        "road",
+        "driveway",
+        "single",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-driveway-single-barrier",
+      "file": "road-driveway-single-barrier.glb",
+      "name": "Road Driveway Single Barrier",
+      "category": "road",
+      "tags": [
+        "road",
+        "driveway",
+        "single",
+        "barrier",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-end",
+      "file": "road-end.glb",
+      "name": "Road End",
+      "category": "road",
+      "tags": [
+        "road",
+        "end",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-end-barrier",
+      "file": "road-end-barrier.glb",
+      "name": "Road End Barrier",
+      "category": "road",
+      "tags": [
+        "road",
+        "end",
+        "barrier",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-end-round",
+      "file": "road-end-round.glb",
+      "name": "Road End Round",
+      "category": "road",
+      "tags": [
+        "road",
+        "end",
+        "round",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-end-round-barrier",
+      "file": "road-end-round-barrier.glb",
+      "name": "Road End Round Barrier",
+      "category": "road",
+      "tags": [
+        "road",
+        "end",
+        "round",
+        "barrier",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-intersection",
+      "file": "road-intersection.glb",
+      "name": "Road Intersection",
+      "category": "road",
+      "tags": [
+        "road",
+        "intersection",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-intersection-barrier",
+      "file": "road-intersection-barrier.glb",
+      "name": "Road Intersection Barrier",
+      "category": "road",
+      "tags": [
+        "road",
+        "intersection",
+        "barrier",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-intersection-line",
+      "file": "road-intersection-line.glb",
+      "name": "Road Intersection Line",
+      "category": "road",
+      "tags": [
+        "road",
+        "intersection",
+        "line",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-intersection-path",
+      "file": "road-intersection-path.glb",
+      "name": "Road Intersection Path",
+      "category": "road",
+      "tags": [
+        "road",
+        "intersection",
+        "path",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-roundabout",
+      "file": "road-roundabout.glb",
+      "name": "Road Roundabout",
+      "category": "road",
+      "tags": [
+        "road",
+        "roundabout",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-roundabout-barrier",
+      "file": "road-roundabout-barrier.glb",
+      "name": "Road Roundabout Barrier",
+      "category": "road",
+      "tags": [
+        "road",
+        "roundabout",
+        "barrier",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-side",
+      "file": "road-side.glb",
+      "name": "Road Side",
+      "category": "road",
+      "tags": [
+        "road",
+        "side",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-side-barrier",
+      "file": "road-side-barrier.glb",
+      "name": "Road Side Barrier",
+      "category": "road",
+      "tags": [
+        "road",
+        "side",
+        "barrier",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-side-entry",
+      "file": "road-side-entry.glb",
+      "name": "Road Side Entry",
+      "category": "road",
+      "tags": [
+        "road",
+        "side",
+        "entry",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-side-entry-barrier",
+      "file": "road-side-entry-barrier.glb",
+      "name": "Road Side Entry Barrier",
+      "category": "road",
+      "tags": [
+        "road",
+        "side",
+        "entry",
+        "barrier",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-side-exit",
+      "file": "road-side-exit.glb",
+      "name": "Road Side Exit",
+      "category": "road",
+      "tags": [
+        "road",
+        "side",
+        "exit",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-side-exit-barrier",
+      "file": "road-side-exit-barrier.glb",
+      "name": "Road Side Exit Barrier",
+      "category": "road",
+      "tags": [
+        "road",
+        "side",
+        "exit",
+        "barrier",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-slant",
+      "file": "road-slant.glb",
+      "name": "Road Slant",
+      "category": "road",
+      "tags": [
+        "road",
+        "slant",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-slant-barrier",
+      "file": "road-slant-barrier.glb",
+      "name": "Road Slant Barrier",
+      "category": "road",
+      "tags": [
+        "road",
+        "slant",
+        "barrier",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-slant-curve",
+      "file": "road-slant-curve.glb",
+      "name": "Road Slant Curve",
+      "category": "road",
+      "tags": [
+        "road",
+        "slant",
+        "curve",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-slant-curve-barrier",
+      "file": "road-slant-curve-barrier.glb",
+      "name": "Road Slant Curve Barrier",
+      "category": "road",
+      "tags": [
+        "road",
+        "slant",
+        "curve",
+        "barrier",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-slant-flat",
+      "file": "road-slant-flat.glb",
+      "name": "Road Slant Flat",
+      "category": "road",
+      "tags": [
+        "road",
+        "slant",
+        "flat",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-slant-flat-curve",
+      "file": "road-slant-flat-curve.glb",
+      "name": "Road Slant Flat Curve",
+      "category": "road",
+      "tags": [
+        "road",
+        "slant",
+        "flat",
+        "curve",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-slant-flat-high",
+      "file": "road-slant-flat-high.glb",
+      "name": "Road Slant Flat High",
+      "category": "road",
+      "tags": [
+        "road",
+        "slant",
+        "flat",
+        "high",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-slant-high",
+      "file": "road-slant-high.glb",
+      "name": "Road Slant High",
+      "category": "road",
+      "tags": [
+        "road",
+        "slant",
+        "high",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-slant-high-barrier",
+      "file": "road-slant-high-barrier.glb",
+      "name": "Road Slant High Barrier",
+      "category": "road",
+      "tags": [
+        "road",
+        "slant",
+        "high",
+        "barrier",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-split",
+      "file": "road-split.glb",
+      "name": "Road Split",
+      "category": "road",
+      "tags": [
+        "road",
+        "split",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-split-barrier",
+      "file": "road-split-barrier.glb",
+      "name": "Road Split Barrier",
+      "category": "road",
+      "tags": [
+        "road",
+        "split",
+        "barrier",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-square",
+      "file": "road-square.glb",
+      "name": "Road Square",
+      "category": "road",
+      "tags": [
+        "road",
+        "square",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-square-barrier",
+      "file": "road-square-barrier.glb",
+      "name": "Road Square Barrier",
+      "category": "road",
+      "tags": [
+        "road",
+        "square",
+        "barrier",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-straight",
+      "file": "road-straight.glb",
+      "name": "Road Straight",
+      "category": "road",
+      "tags": [
+        "road",
+        "straight",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-straight-barrier",
+      "file": "road-straight-barrier.glb",
+      "name": "Road Straight Barrier",
+      "category": "road",
+      "tags": [
+        "road",
+        "straight",
+        "barrier",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-straight-barrier-end",
+      "file": "road-straight-barrier-end.glb",
+      "name": "Road Straight Barrier End",
+      "category": "road",
+      "tags": [
+        "road",
+        "straight",
+        "barrier",
+        "end",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-straight-barrier-half",
+      "file": "road-straight-barrier-half.glb",
+      "name": "Road Straight Barrier Half",
+      "category": "road",
+      "tags": [
+        "road",
+        "straight",
+        "barrier",
+        "half",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "road-straight-half",
+      "file": "road-straight-half.glb",
+      "name": "Road Straight Half",
+      "category": "road",
+      "tags": [
+        "road",
+        "straight",
+        "half",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "sign-highway",
+      "file": "sign-highway.glb",
+      "name": "Sign Highway",
+      "category": "sign",
+      "tags": [
+        "sign",
+        "highway",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "sign-highway-detailed",
+      "file": "sign-highway-detailed.glb",
+      "name": "Sign Highway Detailed",
+      "category": "sign",
+      "tags": [
+        "sign",
+        "highway",
+        "detailed",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "sign-highway-wide",
+      "file": "sign-highway-wide.glb",
+      "name": "Sign Highway Wide",
+      "category": "sign",
+      "tags": [
+        "sign",
+        "highway",
+        "wide",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tile-high",
+      "file": "tile-high.glb",
+      "name": "Tile High",
+      "category": "tile",
+      "tags": [
+        "tile",
+        "high",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tile-low",
+      "file": "tile-low.glb",
+      "name": "Tile Low",
+      "category": "tile",
+      "tags": [
+        "tile",
+        "low",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tile-slant",
+      "file": "tile-slant.glb",
+      "name": "Tile Slant",
+      "category": "tile",
+      "tags": [
+        "tile",
+        "slant",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tile-slanthigh",
+      "file": "tile-slantHigh.glb",
+      "name": "Tile SlantHigh",
+      "category": "tile",
+      "tags": [
+        "tile",
+        "slanthigh",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    }
+  ]
+}

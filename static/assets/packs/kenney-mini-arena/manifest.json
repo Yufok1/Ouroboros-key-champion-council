@@ -1,0 +1,291 @@
+{
+  "pack_id": "kenney-mini-arena",
+  "name": "Kenney Mini Arena",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "20 arena and combat mini models from Kenney.",
+  "base_url": "/static/assets/packs/kenney-mini-arena/",
+  "assets": [
+    {
+      "id": "banner",
+      "file": "banner.glb",
+      "name": "Banner",
+      "category": "banner",
+      "tags": [
+        "banner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block",
+      "file": "block.glb",
+      "name": "Block",
+      "category": "block",
+      "tags": [
+        "block",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "border-corner",
+      "file": "border-corner.glb",
+      "name": "Border Corner",
+      "category": "border",
+      "tags": [
+        "border",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "border-straight",
+      "file": "border-straight.glb",
+      "name": "Border Straight",
+      "category": "border",
+      "tags": [
+        "border",
+        "straight",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bricks",
+      "file": "bricks.glb",
+      "name": "Bricks",
+      "category": "bricks",
+      "tags": [
+        "bricks",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "character-soldier",
+      "file": "character-soldier.glb",
+      "name": "Character Soldier",
+      "category": "character",
+      "tags": [
+        "character",
+        "soldier",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "column",
+      "file": "column.glb",
+      "name": "Column",
+      "category": "column",
+      "tags": [
+        "column",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "column-damaged",
+      "file": "column-damaged.glb",
+      "name": "Column Damaged",
+      "category": "column",
+      "tags": [
+        "column",
+        "damaged",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "floor",
+      "file": "floor.glb",
+      "name": "Floor",
+      "category": "floor",
+      "tags": [
+        "floor",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "floor-detail",
+      "file": "floor-detail.glb",
+      "name": "Floor Detail",
+      "category": "floor",
+      "tags": [
+        "floor",
+        "detail",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stairs",
+      "file": "stairs.glb",
+      "name": "Stairs",
+      "category": "stairs",
+      "tags": [
+        "stairs",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stairs-corner",
+      "file": "stairs-corner.glb",
+      "name": "Stairs Corner",
+      "category": "stairs",
+      "tags": [
+        "stairs",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stairs-corner-inner",
+      "file": "stairs-corner-inner.glb",
+      "name": "Stairs Corner Inner",
+      "category": "stairs",
+      "tags": [
+        "stairs",
+        "corner",
+        "inner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "statue",
+      "file": "statue.glb",
+      "name": "Statue",
+      "category": "statue",
+      "tags": [
+        "statue",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree",
+      "file": "tree.glb",
+      "name": "Tree",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "trophy",
+      "file": "trophy.glb",
+      "name": "Trophy",
+      "category": "trophy",
+      "tags": [
+        "trophy",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall",
+      "file": "wall.glb",
+      "name": "Wall",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-corner",
+      "file": "wall-corner.glb",
+      "name": "Wall Corner",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "corner",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-gate",
+      "file": "wall-gate.glb",
+      "name": "Wall Gate",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "gate",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "weapon-rack",
+      "file": "weapon-rack.glb",
+      "name": "Weapon Rack",
+      "category": "weapon",
+      "tags": [
+        "weapon",
+        "rack",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "weapon-spear",
+      "file": "weapon-spear.glb",
+      "name": "Weapon Spear",
+      "category": "weapon",
+      "tags": [
+        "weapon",
+        "spear",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "weapon-sword",
+      "file": "weapon-sword.glb",
+      "name": "Weapon Sword",
+      "category": "weapon",
+      "tags": [
+        "weapon",
+        "sword",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    }
+  ]
+}

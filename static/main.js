@@ -176,7 +176,8 @@
         hydratedTs: 0,
         snapshotName: '',
         lastSource: '',
-        error: ''
+        error: '',
+        _priorFocus: null
     };
     let _envRenderTruthState = {
         stageMode: 'blank',
@@ -15213,6 +15214,7 @@
             _envEmitBus('control', 'Cleared profile kit: ' + clearKitKey, actorName, { action: command, profile_kit: clearKitKey, removed: removedCount });
             _envSetBadge('running', 'KIT CLR');
             _envScene.dirty = true;
+            _envRefreshLiveMirrorSurface();
             renderEnvironmentView();
             return;
         }
@@ -16312,20 +16314,41 @@
     function _envHydrateCustomSceneObjectsFromPayload(payload, toolName, source) {
         if (!payload || typeof payload !== 'object') return false;
         var changed = false;
+        var restoredFocus = false;
         var op = String(payload.operation || '').toLowerCase();
         var opStatus = String(payload.operation_status || '').toLowerCase();
         var query = String(payload.query || '').toLowerCase();
         var snapshotName = _envSceneSnapshotNameFromPayload(payload, null);
+        var finalizeHydration = function () {
+            var priorFocus = _envSceneBootstrapState._priorFocus;
+            var restoreSnapshot = String(snapshotName || _envSceneBootstrapState.snapshotName || _envNavigationState.currentSnapshot || '').trim();
+            if (priorFocus) {
+                _envSceneBootstrapState._priorFocus = null;
+                if (restoreSnapshot
+                    && String(priorFocus.kind || '').toLowerCase() === 'scene'
+                    && String(priorFocus.id || '').trim()) {
+                    _envSetFocus('scene', String(priorFocus.id || '').trim(), 'system', { reason: 'bootstrap_recovery' });
+                    restoredFocus = true;
+                }
+            }
+            if (changed || restoredFocus) {
+                _envRefreshLiveMirrorSurface();
+            }
+            return changed;
+        };
         if (op === 'clear' || opStatus === 'cleared') {
             changed = _envReplaceCustomSceneObjects([], source || 'env_clear') || changed;
+            _envSceneBootstrapState.pending = false;
             _envSceneBootstrapState.hydratedTs = Date.now();
             _envSceneBootstrapState.snapshotName = '';
+            _envSceneBootstrapState.lastSource = String(source || toolName || 'env_clear');
+            _envSceneBootstrapState.error = '';
             _envNavigationState.currentSnapshot = '';
             _envNavigationState.history = [];
             _envNavigationState.pendingLoad = null;
             _envCloseHtmlPanel('assistant', 'scene cleared');
             changed = _envClearSceneWorkflowResidue('') || changed;
-            return changed;
+            return finalizeHydration();
         }
         var listLike = (toolName === 'env_read' && query === 'list') || (toolName === 'env_persist' && (op === 'load' || opStatus === 'loaded'));
         if (Array.isArray(payload.objects)) {
@@ -16357,18 +16380,22 @@
             _envSceneBootstrapState.snapshotName = snapshotName;
             if (!_envNavigationState.currentSnapshot) _envNavigationState.currentSnapshot = snapshotName;
         }
-        return changed;
+        return finalizeHydration();
     }
 
     function _envEnsurePersistedSceneBootstrap(reason, force) {
         if (_envSceneBootstrapState.pending) return false;
         if (!force && Number(_envSceneBootstrapState.hydratedTs || 0) > 0) return false;
+        var priorFocus = _envKernel.focus
+            ? { kind: _envKernel.focus.kind, id: _envKernel.focus.id }
+            : null;
         var snapshotName = String(_envScenePrimarySnapshotName() || _envNavigationState.currentSnapshot || _envSceneBootstrapState.snapshotName || '').trim();
         var bootstrapQuery = snapshotName ? 'snapshot' : 'list';
         _envSceneBootstrapState.pending = true;
         _envSceneBootstrapState.requestedTs = Date.now();
         _envSceneBootstrapState.lastSource = String(reason || 'bootstrap');
         _envSceneBootstrapState.error = '';
+        _envSceneBootstrapState._priorFocus = priorFocus;
         callTool('env_read', { query: bootstrapQuery }, 'env_read', {
             sceneBootstrap: true,
             sceneBootstrapReason: String(reason || 'bootstrap'),
@@ -16530,6 +16557,7 @@
             _env3DRemoveSceneObjectMesh(meshKey);
             if (_env3D.inited) _envSyncHabitatScene();
             else renderEnvironmentView();
+            _envRefreshLiveMirrorSurface();
         }
         return removed;
     }
@@ -19208,7 +19236,7 @@
         var labels = labelNodes.map(function (node, idx) {
             var rect = _envRectSnapshotForElement(node);
             var invalidReason = _envRectInvalidReason(rect, viewport);
-            var clippedLabel = _envRectClipped(rect, viewport);
+            var clippedLabel = _envRectClipped(rect, viewport, 12);
             var offscreenLabel = _envRectOffscreen(rect, viewport);
             var visible = !!(rect && rect.visible);
             if (visible) labelStats.visible += 1;
@@ -19403,6 +19431,18 @@
 
     _envRefreshLiveMirrorSurface();
 
+    // Recover persisted scene hydration after reconnect/hidden-tab resumes.
+    document.addEventListener('visibilitychange', function () {
+        if (document.hidden) return;
+        if (Number(_envSceneBootstrapState.hydratedTs || 0) <= 0) return;
+        var staleSec = (Date.now() - Number(_envSceneBootstrapState.hydratedTs || 0)) / 1000;
+        if (staleSec <= 30) return;
+        _envSceneBootstrapState.hydratedTs = 0;
+        _envSceneBootstrapState.pending = false;
+        _envSceneBootstrapState.error = '';
+        _envEnsurePersistedSceneBootstrap('visibility_recovery', false);
+    });
+
     function _envLooksLikeSceneObjectPayload(payload) {
         var obj = payload && typeof payload === 'object' && !Array.isArray(payload) ? payload : null;
         if (!obj) return false;
@@ -19505,6 +19545,7 @@
             _envCloseHtmlPanel('assistant', 'object removed');
             changed = true;
         }
+        if (changed) _envRefreshLiveMirrorSurface();
         return {
             changed: !!(changed || hydrated),
             mirrored: mirrored
@@ -21106,7 +21147,7 @@
                 sunDirection: [8, 18, 10],
                 distortionScale: 0.85,
                 size: 160,
-                alpha: 0.72,
+                alpha: 0.55,
                 y: 32
             },
             terrain: { maxDisplacement: 0, opacity: 0 }
@@ -21143,7 +21184,7 @@
             render: {
                 themeBase: 'photoreal_underwater',
                 fogColor: 0x143a44,
-                fogDensity: 0.014,
+                fogDensity: 0.009,
                 bloom: { strength: 0.01, threshold: 0.99 }
             },
             strata: {
@@ -21468,7 +21509,7 @@
 
     function _env3DSeabedColorForFamily(family) {
         var key = String(family || '').trim().toLowerCase();
-        if (key === 'underwater') return 0xA38C62;
+        if (key === 'underwater') return 0x8B7B55;
         if (key === 'coastal') return 0x6B5B3B;
         if (key === 'volcanic') return 0x2A2220;
         return 0x5A4A3A;
@@ -21484,7 +21525,7 @@
     function _env3DCreateSeabed(config) {
         if (typeof THREE === 'undefined' || typeof THREE.PlaneGeometry !== 'function') return null;
         var cfg = config && typeof config === 'object' ? config : {};
-        var geo = new THREE.PlaneGeometry(100, 100, 40, 40);
+        var geo = new THREE.PlaneGeometry(100, 100, 64, 64);
         geo.rotateX(-Math.PI / 2);
         var positions = geo.attributes.position.array;
         for (var i = 0; i < positions.length / 3; i++) {
@@ -21493,19 +21534,20 @@
             var radial = Math.sqrt((px * px) + (pz * pz));
             var edgeFade = 1 - Math.pow(Math.max(0, Math.min(1, radial / 50)), 3);
             var n = _env3DValueNoise2D(px * 0.7, pz * 0.7);
-            positions[i * 3 + 1] -= n * 0.8 * edgeFade;
+            var n2 = _env3DValueNoise2D(px * 2.4, pz * 2.4);
+            positions[i * 3 + 1] -= (n * 0.6 + n2 * 0.35) * edgeFade;
         }
         geo.computeVertexNormals();
         var mesh = new THREE.Mesh(
             geo,
             new THREE.MeshStandardMaterial({
                 color: _env3DSeabedColorForFamily(cfg.family),
-                roughness: 0.95,
+                roughness: 0.88,
                 metalness: 0.05,
                 emissive: 0x2e2416,
-                emissiveIntensity: 0.28,
-                transparent: true,
-                opacity: 0.96,
+                emissiveIntensity: 0.18,
+                transparent: false,
+                opacity: 1.0,
                 side: THREE.DoubleSide
             })
         );
@@ -21810,14 +21852,28 @@
     function _env3DApplyWorldProfile(profileId) {
         var key = String(profileId || '').trim();
         if (!key) {
+            if (_env3D._cameraAnimFrame) {
+                cancelAnimationFrame(_env3D._cameraAnimFrame);
+                _env3D._cameraAnimFrame = null;
+            }
+            if (_env3D.manualCommitTimer) {
+                clearTimeout(_env3D.manualCommitTimer);
+                _env3D.manualCommitTimer = 0;
+            }
             _env3DDisposeSeabed();
             _env3DDisposeCeiling();
             _env3DDisposeVolumeIndicator();
             _env3D.activeWorldProfile = null;
             _env3D._lastCameraPreset = '';
             _env3D.strata = { surfaceLevel: 0, waterLevel: null, seabedLevel: null, ceilingLevel: null };
+            _env3DResetPoseOffset();
             _env3DApplyTheme(_envThemeId);
-            return false;
+            if (_env3D.camera && _env3D.controls) {
+                _envScene.cameraMode = 'overview';
+                _env3DApplyCameraRig(true);
+                _env3DCommitManualCamera('camera:profile_clear', true);
+            }
+            return true;
         }
         var profile = _envWorldProfiles[key];
         if (!profile || !profile.render || !profile.render.themeBase || !_envThemes[profile.render.themeBase]) return false;
@@ -21971,9 +22027,11 @@
             return data && String(data.profile_kit || '').trim() === key;
         });
         toRemove.forEach(function (obj) {
+            _envRemoveObject(obj.kind, obj.id);
             callTool('env_remove', { kind: obj.kind, id: obj.id });
         });
         _env3DUpdateWorldProfileControl();
+        _envRefreshLiveMirrorSurface();
         _env3DScheduleProfileKitControlRefresh(500);
         var kit = _envWorldProfileKits[key];
         if (typeof mpToast === 'function') {
@@ -22253,6 +22311,23 @@
         return _env3DKindFilterVisible(String(key || '').split('::')[0] || '');
     }
 
+    var _env3DLabelWorldPos = null;
+
+    function _env3DLabelOpacityForMesh(mesh) {
+        if (!_env3D.camera || !mesh || !_env3D.activeWorldProfile) return 1;
+        var profile = _envWorldProfiles && _envWorldProfiles[_env3D.activeWorldProfile]
+            ? _envWorldProfiles[_env3D.activeWorldProfile]
+            : null;
+        if (String((profile && profile.family) || '').trim().toLowerCase() !== 'underwater') return 1;
+        if (typeof THREE === 'undefined' || typeof THREE.Vector3 !== 'function') return 1;
+        if (!_env3DLabelWorldPos) _env3DLabelWorldPos = new THREE.Vector3();
+        mesh.getWorldPosition(_env3DLabelWorldPos);
+        var dist = _env3D.camera.position.distanceTo(_env3DLabelWorldPos);
+        if (dist <= 20) return 1;
+        if (dist >= 35) return 0.2;
+        return 1 - (((dist - 20) / 15) * 0.8);
+    }
+
     function _env3DApplyLabelMode() {
         var mode = String(_env3D.labelMode || 'full').trim().toLowerCase();
         var keys = Object.keys(_env3D.cssLabels || {});
@@ -22262,6 +22337,7 @@
             if (!cssLabel || !cssLabel.element) continue;
             cssLabel.element.classList.toggle('env3d-label-mode-half', mode === 'half');
             cssLabel.visible = _env3DLabelVisibleForKey(key);
+            cssLabel.element.style.opacity = String(_env3DLabelOpacityForMesh(_env3D.meshes[key]));
         }
         var indicator = document.querySelector('[data-env-label-mode]');
         if (indicator) indicator.textContent = mode || 'full';
@@ -22327,6 +22403,7 @@
             var label = _env3D.cssLabels[key];
             if (!label || !label.element) continue;
             label.visible = visible && String(_env3D.labelMode || 'full').trim().toLowerCase() !== 'hidden';
+            label.element.style.opacity = String(_env3DLabelOpacityForMesh(_env3D.meshes[key]));
         }
     }
 
@@ -22573,15 +22650,15 @@
                 azimuth = 0.58;
                 polar = 1.18;
             } else if (presetId === 'submerged') {
-                target[1] = seabedLevel + ((waterLevel - seabedLevel) * 0.34);
-                distance = 24;
-                azimuth = 0.62;
-                polar = 1.24;
-            } else if (presetId === 'seabed') {
-                target[1] = seabedLevel + 2.5;
+                target[1] = seabedLevel + ((waterLevel - seabedLevel) * 0.28);
                 distance = 22;
-                azimuth = 0.82;
-                polar = 1.14;
+                azimuth = 0.55;
+                polar = 1.32;
+            } else if (presetId === 'seabed') {
+                target[1] = seabedLevel + 1.5;
+                distance = 18;
+                azimuth = 0.72;
+                polar = 1.45;
             }
         }
         return {
@@ -22596,6 +22673,8 @@
         var preset = _env3DResolvedCameraPreset(presetId);
         if (!preset || !_env3D.camera || !_env3D.controls) return false;
         durationMs = Math.max(0, Number(durationMs) || 800);
+        _envScene.cameraMode = 'overview';
+        _env3DResetPoseOffset();
         _env3D._lastCameraPreset = String(presetId || '');
         _env3DUpdateWorldProfileControl();
         if (_env3D._cameraAnimFrame) {
@@ -25950,6 +26029,7 @@
                 _env3D.cssLabels[key] = cssLabel;
                 cssLabel.element.classList.toggle('env3d-label-mode-half', String(_env3D.labelMode || 'full').trim().toLowerCase() === 'half');
                 cssLabel.visible = _env3DLabelVisibleForKey(key);
+                cssLabel.element.style.opacity = String(_env3DLabelOpacityForMesh(mesh));
             }
 
             if (mesh.userData.visualType === 'primitive') {
@@ -26027,6 +26107,7 @@
                 activeLabel.element.setAttribute('data-env-agent', _env3DIsAgentKind(obj.kind) ? 'true' : 'false');
                 activeLabel.element.classList.toggle('env3d-label-mode-half', String(_env3D.labelMode || 'full').trim().toLowerCase() === 'half');
                 activeLabel.visible = kindVisible && String(_env3D.labelMode || 'full').trim().toLowerCase() !== 'hidden';
+                activeLabel.element.style.opacity = String(_env3DLabelOpacityForMesh(mesh));
                 activeLabel.position.set(0, mesh.userData.labelHeight, 0);
             }
         });

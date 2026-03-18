@@ -1,0 +1,640 @@
+{
+  "pack_id": "kenney-watercraft-kit",
+  "name": "Kenney Watercraft Kit",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "Kenney Watercraft Kit free 3D models from Kenney.",
+  "base_url": "/static/assets/packs/kenney-watercraft-kit/",
+  "assets": [
+    {
+      "id": "arrow",
+      "file": "arrow.glb",
+      "name": "Arrow",
+      "category": "arrow",
+      "tags": [
+        "arrow",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "arrow-standing",
+      "file": "arrow-standing.glb",
+      "name": "Arrow Standing",
+      "category": "arrow",
+      "tags": [
+        "arrow",
+        "standing",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "boat-fan",
+      "file": "boat-fan.glb",
+      "name": "Boat Fan",
+      "category": "boat",
+      "tags": [
+        "boat",
+        "fan",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "boat-fishing-small",
+      "file": "boat-fishing-small.glb",
+      "name": "Boat Fishing Small",
+      "category": "boat",
+      "tags": [
+        "boat",
+        "fishing",
+        "small",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "boat-house-a",
+      "file": "boat-house-a.glb",
+      "name": "Boat House A",
+      "category": "boat",
+      "tags": [
+        "boat",
+        "house",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "boat-house-b",
+      "file": "boat-house-b.glb",
+      "name": "Boat House B",
+      "category": "boat",
+      "tags": [
+        "boat",
+        "house",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "boat-house-c",
+      "file": "boat-house-c.glb",
+      "name": "Boat House C",
+      "category": "boat",
+      "tags": [
+        "boat",
+        "house",
+        "c",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "boat-house-d",
+      "file": "boat-house-d.glb",
+      "name": "Boat House D",
+      "category": "boat",
+      "tags": [
+        "boat",
+        "house",
+        "d",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "boat-row-large",
+      "file": "boat-row-large.glb",
+      "name": "Boat Row Large",
+      "category": "boat",
+      "tags": [
+        "boat",
+        "row",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "boat-row-small",
+      "file": "boat-row-small.glb",
+      "name": "Boat Row Small",
+      "category": "boat",
+      "tags": [
+        "boat",
+        "row",
+        "small",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "boat-sail-a",
+      "file": "boat-sail-a.glb",
+      "name": "Boat Sail A",
+      "category": "boat",
+      "tags": [
+        "boat",
+        "sail",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "boat-sail-b",
+      "file": "boat-sail-b.glb",
+      "name": "Boat Sail B",
+      "category": "boat",
+      "tags": [
+        "boat",
+        "sail",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "boat-speed-a",
+      "file": "boat-speed-a.glb",
+      "name": "Boat Speed A",
+      "category": "boat",
+      "tags": [
+        "boat",
+        "speed",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "boat-speed-b",
+      "file": "boat-speed-b.glb",
+      "name": "Boat Speed B",
+      "category": "boat",
+      "tags": [
+        "boat",
+        "speed",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "boat-speed-c",
+      "file": "boat-speed-c.glb",
+      "name": "Boat Speed C",
+      "category": "boat",
+      "tags": [
+        "boat",
+        "speed",
+        "c",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "boat-speed-d",
+      "file": "boat-speed-d.glb",
+      "name": "Boat Speed D",
+      "category": "boat",
+      "tags": [
+        "boat",
+        "speed",
+        "d",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "boat-speed-e",
+      "file": "boat-speed-e.glb",
+      "name": "Boat Speed E",
+      "category": "boat",
+      "tags": [
+        "boat",
+        "speed",
+        "e",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "boat-speed-f",
+      "file": "boat-speed-f.glb",
+      "name": "Boat Speed F",
+      "category": "boat",
+      "tags": [
+        "boat",
+        "speed",
+        "f",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "boat-speed-g",
+      "file": "boat-speed-g.glb",
+      "name": "Boat Speed G",
+      "category": "boat",
+      "tags": [
+        "boat",
+        "speed",
+        "g",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "boat-speed-h",
+      "file": "boat-speed-h.glb",
+      "name": "Boat Speed H",
+      "category": "boat",
+      "tags": [
+        "boat",
+        "speed",
+        "h",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "boat-speed-i",
+      "file": "boat-speed-i.glb",
+      "name": "Boat Speed I",
+      "category": "boat",
+      "tags": [
+        "boat",
+        "speed",
+        "i",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "boat-speed-j",
+      "file": "boat-speed-j.glb",
+      "name": "Boat Speed J",
+      "category": "boat",
+      "tags": [
+        "boat",
+        "speed",
+        "j",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "boat-tow-a",
+      "file": "boat-tow-a.glb",
+      "name": "Boat Tow A",
+      "category": "boat",
+      "tags": [
+        "boat",
+        "tow",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "boat-tow-b",
+      "file": "boat-tow-b.glb",
+      "name": "Boat Tow B",
+      "category": "boat",
+      "tags": [
+        "boat",
+        "tow",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "boat-tug-a",
+      "file": "boat-tug-a.glb",
+      "name": "Boat Tug A",
+      "category": "boat",
+      "tags": [
+        "boat",
+        "tug",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "boat-tug-b",
+      "file": "boat-tug-b.glb",
+      "name": "Boat Tug B",
+      "category": "boat",
+      "tags": [
+        "boat",
+        "tug",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "boat-tug-c",
+      "file": "boat-tug-c.glb",
+      "name": "Boat Tug C",
+      "category": "boat",
+      "tags": [
+        "boat",
+        "tug",
+        "c",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "buoy",
+      "file": "buoy.glb",
+      "name": "Buoy",
+      "category": "buoy",
+      "tags": [
+        "buoy",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "buoy-flag",
+      "file": "buoy-flag.glb",
+      "name": "Buoy Flag",
+      "category": "buoy",
+      "tags": [
+        "buoy",
+        "flag",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cargo-container-a",
+      "file": "cargo-container-a.glb",
+      "name": "Cargo Container A",
+      "category": "cargo",
+      "tags": [
+        "cargo",
+        "container",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cargo-container-b",
+      "file": "cargo-container-b.glb",
+      "name": "Cargo Container B",
+      "category": "cargo",
+      "tags": [
+        "cargo",
+        "container",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cargo-container-c",
+      "file": "cargo-container-c.glb",
+      "name": "Cargo Container C",
+      "category": "cargo",
+      "tags": [
+        "cargo",
+        "container",
+        "c",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cargo-pile-a",
+      "file": "cargo-pile-a.glb",
+      "name": "Cargo Pile A",
+      "category": "cargo",
+      "tags": [
+        "cargo",
+        "pile",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cargo-pile-b",
+      "file": "cargo-pile-b.glb",
+      "name": "Cargo Pile B",
+      "category": "cargo",
+      "tags": [
+        "cargo",
+        "pile",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "gate",
+      "file": "gate.glb",
+      "name": "Gate",
+      "category": "gate",
+      "tags": [
+        "gate",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "gate-finish",
+      "file": "gate-finish.glb",
+      "name": "Gate Finish",
+      "category": "gate",
+      "tags": [
+        "gate",
+        "finish",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ramp",
+      "file": "ramp.glb",
+      "name": "Ramp",
+      "category": "ramp",
+      "tags": [
+        "ramp",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ramp-wide",
+      "file": "ramp-wide.glb",
+      "name": "Ramp Wide",
+      "category": "ramp",
+      "tags": [
+        "ramp",
+        "wide",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ship-cargo-a",
+      "file": "ship-cargo-a.glb",
+      "name": "Ship Cargo A",
+      "category": "ship",
+      "tags": [
+        "ship",
+        "cargo",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ship-cargo-b",
+      "file": "ship-cargo-b.glb",
+      "name": "Ship Cargo B",
+      "category": "ship",
+      "tags": [
+        "ship",
+        "cargo",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ship-cargo-c",
+      "file": "ship-cargo-c.glb",
+      "name": "Ship Cargo C",
+      "category": "ship",
+      "tags": [
+        "ship",
+        "cargo",
+        "c",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ship-large",
+      "file": "ship-large.glb",
+      "name": "Ship Large",
+      "category": "ship",
+      "tags": [
+        "ship",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ship-ocean-liner",
+      "file": "ship-ocean-liner.glb",
+      "name": "Ship Ocean Liner",
+      "category": "ship",
+      "tags": [
+        "ship",
+        "ocean",
+        "liner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ship-ocean-liner-small",
+      "file": "ship-ocean-liner-small.glb",
+      "name": "Ship Ocean Liner Small",
+      "category": "ship",
+      "tags": [
+        "ship",
+        "ocean",
+        "liner",
+        "small",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ship-small",
+      "file": "ship-small.glb",
+      "name": "Ship Small",
+      "category": "ship",
+      "tags": [
+        "ship",
+        "small",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ship-small-ghost",
+      "file": "ship-small-ghost.glb",
+      "name": "Ship Small Ghost",
+      "category": "ship",
+      "tags": [
+        "ship",
+        "small",
+        "ghost",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    }
+  ]
+}

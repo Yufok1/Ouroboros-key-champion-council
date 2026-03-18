@@ -27,3 +27,18 @@ AGENT_ONBOARDING.md
 # Keep self-deploy tree out of the private Space repo
 self_deploy/
 
+# Claude Code local state
+.claude/
+
+# Capsule ephemeral
+capsule/.asset_cache/
+bag_export.json
+
+# Spawned quine children
+children/
+
+# One-off scripts (ingestion helpers already ran)
+scripts/
+
+# Diagram scratch
+merril.d2/

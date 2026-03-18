@@ -1,0 +1,4563 @@
+{
+  "pack_id": "kenney-nature-kit",
+  "name": "Kenney Nature Kit",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "329 low-poly nature models from Kenney.",
+  "base_url": "/static/assets/packs/kenney-nature-kit/",
+  "assets": [
+    {
+      "id": "bed",
+      "file": "bed.glb",
+      "name": "Bed",
+      "category": "bed",
+      "tags": [
+        "bed",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bed-floor",
+      "file": "bed_floor.glb",
+      "name": "Bed Floor",
+      "category": "bed",
+      "tags": [
+        "bed",
+        "floor",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bridge-center-stone",
+      "file": "bridge_center_stone.glb",
+      "name": "Bridge Center Stone",
+      "category": "structure",
+      "tags": [
+        "bridge",
+        "center",
+        "stone",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bridge-center-stoneround",
+      "file": "bridge_center_stoneRound.glb",
+      "name": "Bridge Center StoneRound",
+      "category": "structure",
+      "tags": [
+        "bridge",
+        "center",
+        "stoneround",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bridge-center-wood",
+      "file": "bridge_center_wood.glb",
+      "name": "Bridge Center Wood",
+      "category": "structure",
+      "tags": [
+        "bridge",
+        "center",
+        "wood",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bridge-center-woodround",
+      "file": "bridge_center_woodRound.glb",
+      "name": "Bridge Center WoodRound",
+      "category": "structure",
+      "tags": [
+        "bridge",
+        "center",
+        "woodround",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bridge-side-stone",
+      "file": "bridge_side_stone.glb",
+      "name": "Bridge Side Stone",
+      "category": "structure",
+      "tags": [
+        "bridge",
+        "side",
+        "stone",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bridge-side-stoneround",
+      "file": "bridge_side_stoneRound.glb",
+      "name": "Bridge Side StoneRound",
+      "category": "structure",
+      "tags": [
+        "bridge",
+        "side",
+        "stoneround",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bridge-side-wood",
+      "file": "bridge_side_wood.glb",
+      "name": "Bridge Side Wood",
+      "category": "structure",
+      "tags": [
+        "bridge",
+        "side",
+        "wood",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bridge-side-woodround",
+      "file": "bridge_side_woodRound.glb",
+      "name": "Bridge Side WoodRound",
+      "category": "structure",
+      "tags": [
+        "bridge",
+        "side",
+        "woodround",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bridge-stone",
+      "file": "bridge_stone.glb",
+      "name": "Bridge Stone",
+      "category": "structure",
+      "tags": [
+        "bridge",
+        "stone",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bridge-stonenarrow",
+      "file": "bridge_stoneNarrow.glb",
+      "name": "Bridge StoneNarrow",
+      "category": "structure",
+      "tags": [
+        "bridge",
+        "stonenarrow",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bridge-stoneround",
+      "file": "bridge_stoneRound.glb",
+      "name": "Bridge StoneRound",
+      "category": "structure",
+      "tags": [
+        "bridge",
+        "stoneround",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bridge-stoneroundnarrow",
+      "file": "bridge_stoneRoundNarrow.glb",
+      "name": "Bridge StoneRoundNarrow",
+      "category": "structure",
+      "tags": [
+        "bridge",
+        "stoneroundnarrow",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bridge-wood",
+      "file": "bridge_wood.glb",
+      "name": "Bridge Wood",
+      "category": "structure",
+      "tags": [
+        "bridge",
+        "wood",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bridge-woodnarrow",
+      "file": "bridge_woodNarrow.glb",
+      "name": "Bridge WoodNarrow",
+      "category": "structure",
+      "tags": [
+        "bridge",
+        "woodnarrow",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bridge-woodround",
+      "file": "bridge_woodRound.glb",
+      "name": "Bridge WoodRound",
+      "category": "structure",
+      "tags": [
+        "bridge",
+        "woodround",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bridge-woodroundnarrow",
+      "file": "bridge_woodRoundNarrow.glb",
+      "name": "Bridge WoodRoundNarrow",
+      "category": "structure",
+      "tags": [
+        "bridge",
+        "woodroundnarrow",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cactus-short",
+      "file": "cactus_short.glb",
+      "name": "Cactus Short",
+      "category": "cactus",
+      "tags": [
+        "cactus",
+        "short",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cactus-tall",
+      "file": "cactus_tall.glb",
+      "name": "Cactus Tall",
+      "category": "cactus",
+      "tags": [
+        "cactus",
+        "tall",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "campfire-bricks",
+      "file": "campfire_bricks.glb",
+      "name": "Campfire Bricks",
+      "category": "campfire",
+      "tags": [
+        "campfire",
+        "bricks",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "campfire-logs",
+      "file": "campfire_logs.glb",
+      "name": "Campfire Logs",
+      "category": "campfire",
+      "tags": [
+        "campfire",
+        "logs",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "campfire-planks",
+      "file": "campfire_planks.glb",
+      "name": "Campfire Planks",
+      "category": "campfire",
+      "tags": [
+        "campfire",
+        "planks",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "campfire-stones",
+      "file": "campfire_stones.glb",
+      "name": "Campfire Stones",
+      "category": "campfire",
+      "tags": [
+        "campfire",
+        "stones",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "canoe",
+      "file": "canoe.glb",
+      "name": "Canoe",
+      "category": "canoe",
+      "tags": [
+        "canoe",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "canoe-paddle",
+      "file": "canoe_paddle.glb",
+      "name": "Canoe Paddle",
+      "category": "canoe",
+      "tags": [
+        "canoe",
+        "paddle",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-block-rock",
+      "file": "cliff_block_rock.glb",
+      "name": "Cliff Block Rock",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "block",
+        "rock",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-block-stone",
+      "file": "cliff_block_stone.glb",
+      "name": "Cliff Block Stone",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "block",
+        "stone",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-blockcave-rock",
+      "file": "cliff_blockCave_rock.glb",
+      "name": "Cliff BlockCave Rock",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "blockcave",
+        "rock",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-blockcave-stone",
+      "file": "cliff_blockCave_stone.glb",
+      "name": "Cliff BlockCave Stone",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "blockcave",
+        "stone",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-blockdiagonal-rock",
+      "file": "cliff_blockDiagonal_rock.glb",
+      "name": "Cliff BlockDiagonal Rock",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "blockdiagonal",
+        "rock",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-blockdiagonal-stone",
+      "file": "cliff_blockDiagonal_stone.glb",
+      "name": "Cliff BlockDiagonal Stone",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "blockdiagonal",
+        "stone",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-blockhalf-rock",
+      "file": "cliff_blockHalf_rock.glb",
+      "name": "Cliff BlockHalf Rock",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "blockhalf",
+        "rock",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-blockhalf-stone",
+      "file": "cliff_blockHalf_stone.glb",
+      "name": "Cliff BlockHalf Stone",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "blockhalf",
+        "stone",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-blockquarter-rock",
+      "file": "cliff_blockQuarter_rock.glb",
+      "name": "Cliff BlockQuarter Rock",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "blockquarter",
+        "rock",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-blockquarter-stone",
+      "file": "cliff_blockQuarter_stone.glb",
+      "name": "Cliff BlockQuarter Stone",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "blockquarter",
+        "stone",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-blockslope-rock",
+      "file": "cliff_blockSlope_rock.glb",
+      "name": "Cliff BlockSlope Rock",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "blockslope",
+        "rock",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-blockslope-stone",
+      "file": "cliff_blockSlope_stone.glb",
+      "name": "Cliff BlockSlope Stone",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "blockslope",
+        "stone",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-blockslopehalfwalls-rock",
+      "file": "cliff_blockSlopeHalfWalls_rock.glb",
+      "name": "Cliff BlockSlopeHalfWalls Rock",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "blockslopehalfwalls",
+        "rock",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-blockslopehalfwalls-stone",
+      "file": "cliff_blockSlopeHalfWalls_stone.glb",
+      "name": "Cliff BlockSlopeHalfWalls Stone",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "blockslopehalfwalls",
+        "stone",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-blockslopewalls-rock",
+      "file": "cliff_blockSlopeWalls_rock.glb",
+      "name": "Cliff BlockSlopeWalls Rock",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "blockslopewalls",
+        "rock",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-blockslopewalls-stone",
+      "file": "cliff_blockSlopeWalls_stone.glb",
+      "name": "Cliff BlockSlopeWalls Stone",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "blockslopewalls",
+        "stone",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-cave-rock",
+      "file": "cliff_cave_rock.glb",
+      "name": "Cliff Cave Rock",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "cave",
+        "rock",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-cave-stone",
+      "file": "cliff_cave_stone.glb",
+      "name": "Cliff Cave Stone",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "cave",
+        "stone",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-corner-rock",
+      "file": "cliff_corner_rock.glb",
+      "name": "Cliff Corner Rock",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "corner",
+        "rock",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-corner-stone",
+      "file": "cliff_corner_stone.glb",
+      "name": "Cliff Corner Stone",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "corner",
+        "stone",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-cornerinner-rock",
+      "file": "cliff_cornerInner_rock.glb",
+      "name": "Cliff CornerInner Rock",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "cornerinner",
+        "rock",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-cornerinner-stone",
+      "file": "cliff_cornerInner_stone.glb",
+      "name": "Cliff CornerInner Stone",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "cornerinner",
+        "stone",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-cornerinnerlarge-rock",
+      "file": "cliff_cornerInnerLarge_rock.glb",
+      "name": "Cliff CornerInnerLarge Rock",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "cornerinnerlarge",
+        "rock",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-cornerinnerlarge-stone",
+      "file": "cliff_cornerInnerLarge_stone.glb",
+      "name": "Cliff CornerInnerLarge Stone",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "cornerinnerlarge",
+        "stone",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-cornerinnertop-rock",
+      "file": "cliff_cornerInnerTop_rock.glb",
+      "name": "Cliff CornerInnerTop Rock",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "cornerinnertop",
+        "rock",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-cornerinnertop-stone",
+      "file": "cliff_cornerInnerTop_stone.glb",
+      "name": "Cliff CornerInnerTop Stone",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "cornerinnertop",
+        "stone",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-cornerlarge-rock",
+      "file": "cliff_cornerLarge_rock.glb",
+      "name": "Cliff CornerLarge Rock",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "cornerlarge",
+        "rock",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-cornerlarge-stone",
+      "file": "cliff_cornerLarge_stone.glb",
+      "name": "Cliff CornerLarge Stone",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "cornerlarge",
+        "stone",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-cornertop-rock",
+      "file": "cliff_cornerTop_rock.glb",
+      "name": "Cliff CornerTop Rock",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "cornertop",
+        "rock",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-cornertop-stone",
+      "file": "cliff_cornerTop_stone.glb",
+      "name": "Cliff CornerTop Stone",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "cornertop",
+        "stone",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-diagonal-rock",
+      "file": "cliff_diagonal_rock.glb",
+      "name": "Cliff Diagonal Rock",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "diagonal",
+        "rock",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-diagonal-stone",
+      "file": "cliff_diagonal_stone.glb",
+      "name": "Cliff Diagonal Stone",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "diagonal",
+        "stone",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-half-rock",
+      "file": "cliff_half_rock.glb",
+      "name": "Cliff Half Rock",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "half",
+        "rock",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-half-stone",
+      "file": "cliff_half_stone.glb",
+      "name": "Cliff Half Stone",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "half",
+        "stone",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-halfcorner-rock",
+      "file": "cliff_halfCorner_rock.glb",
+      "name": "Cliff HalfCorner Rock",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "halfcorner",
+        "rock",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-halfcorner-stone",
+      "file": "cliff_halfCorner_stone.glb",
+      "name": "Cliff HalfCorner Stone",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "halfcorner",
+        "stone",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-halfcornerinner-rock",
+      "file": "cliff_halfCornerInner_rock.glb",
+      "name": "Cliff HalfCornerInner Rock",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "halfcornerinner",
+        "rock",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-halfcornerinner-stone",
+      "file": "cliff_halfCornerInner_stone.glb",
+      "name": "Cliff HalfCornerInner Stone",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "halfcornerinner",
+        "stone",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-large-rock",
+      "file": "cliff_large_rock.glb",
+      "name": "Cliff Large Rock",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "large",
+        "rock",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-large-stone",
+      "file": "cliff_large_stone.glb",
+      "name": "Cliff Large Stone",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "large",
+        "stone",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-rock",
+      "file": "cliff_rock.glb",
+      "name": "Cliff Rock",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "rock",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-steps-rock",
+      "file": "cliff_steps_rock.glb",
+      "name": "Cliff Steps Rock",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "steps",
+        "rock",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-steps-stone",
+      "file": "cliff_steps_stone.glb",
+      "name": "Cliff Steps Stone",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "steps",
+        "stone",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-stepscorner-rock",
+      "file": "cliff_stepsCorner_rock.glb",
+      "name": "Cliff StepsCorner Rock",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "stepscorner",
+        "rock",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-stepscorner-stone",
+      "file": "cliff_stepsCorner_stone.glb",
+      "name": "Cliff StepsCorner Stone",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "stepscorner",
+        "stone",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-stepscornerinner-rock",
+      "file": "cliff_stepsCornerInner_rock.glb",
+      "name": "Cliff StepsCornerInner Rock",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "stepscornerinner",
+        "rock",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-stepscornerinner-stone",
+      "file": "cliff_stepsCornerInner_stone.glb",
+      "name": "Cliff StepsCornerInner Stone",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "stepscornerinner",
+        "stone",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-stone",
+      "file": "cliff_stone.glb",
+      "name": "Cliff Stone",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "stone",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-top-rock",
+      "file": "cliff_top_rock.glb",
+      "name": "Cliff Top Rock",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "top",
+        "rock",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-top-stone",
+      "file": "cliff_top_stone.glb",
+      "name": "Cliff Top Stone",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "top",
+        "stone",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-topdiagonal-rock",
+      "file": "cliff_topDiagonal_rock.glb",
+      "name": "Cliff TopDiagonal Rock",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "topdiagonal",
+        "rock",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-topdiagonal-stone",
+      "file": "cliff_topDiagonal_stone.glb",
+      "name": "Cliff TopDiagonal Stone",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "topdiagonal",
+        "stone",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-waterfall-rock",
+      "file": "cliff_waterfall_rock.glb",
+      "name": "Cliff Waterfall Rock",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "waterfall",
+        "rock",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-waterfall-stone",
+      "file": "cliff_waterfall_stone.glb",
+      "name": "Cliff Waterfall Stone",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "waterfall",
+        "stone",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-waterfalltop-rock",
+      "file": "cliff_waterfallTop_rock.glb",
+      "name": "Cliff WaterfallTop Rock",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "waterfalltop",
+        "rock",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cliff-waterfalltop-stone",
+      "file": "cliff_waterfallTop_stone.glb",
+      "name": "Cliff WaterfallTop Stone",
+      "category": "cliff",
+      "tags": [
+        "cliff",
+        "waterfalltop",
+        "stone",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "crop-carrot",
+      "file": "crop_carrot.glb",
+      "name": "Crop Carrot",
+      "category": "crop",
+      "tags": [
+        "crop",
+        "carrot",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "crop-melon",
+      "file": "crop_melon.glb",
+      "name": "Crop Melon",
+      "category": "crop",
+      "tags": [
+        "crop",
+        "melon",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "crop-pumpkin",
+      "file": "crop_pumpkin.glb",
+      "name": "Crop Pumpkin",
+      "category": "crop",
+      "tags": [
+        "crop",
+        "pumpkin",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "crop-turnip",
+      "file": "crop_turnip.glb",
+      "name": "Crop Turnip",
+      "category": "crop",
+      "tags": [
+        "crop",
+        "turnip",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "crops-bamboostagea",
+      "file": "crops_bambooStageA.glb",
+      "name": "Crops BambooStageA",
+      "category": "crops",
+      "tags": [
+        "crops",
+        "bamboostagea",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "crops-bamboostageb",
+      "file": "crops_bambooStageB.glb",
+      "name": "Crops BambooStageB",
+      "category": "crops",
+      "tags": [
+        "crops",
+        "bamboostageb",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "crops-cornstagea",
+      "file": "crops_cornStageA.glb",
+      "name": "Crops CornStageA",
+      "category": "crops",
+      "tags": [
+        "crops",
+        "cornstagea",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "crops-cornstageb",
+      "file": "crops_cornStageB.glb",
+      "name": "Crops CornStageB",
+      "category": "crops",
+      "tags": [
+        "crops",
+        "cornstageb",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "crops-cornstagec",
+      "file": "crops_cornStageC.glb",
+      "name": "Crops CornStageC",
+      "category": "crops",
+      "tags": [
+        "crops",
+        "cornstagec",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "crops-cornstaged",
+      "file": "crops_cornStageD.glb",
+      "name": "Crops CornStageD",
+      "category": "crops",
+      "tags": [
+        "crops",
+        "cornstaged",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "crops-dirtdoublerow",
+      "file": "crops_dirtDoubleRow.glb",
+      "name": "Crops DirtDoubleRow",
+      "category": "crops",
+      "tags": [
+        "crops",
+        "dirtdoublerow",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "crops-dirtdoublerowcorner",
+      "file": "crops_dirtDoubleRowCorner.glb",
+      "name": "Crops DirtDoubleRowCorner",
+      "category": "crops",
+      "tags": [
+        "crops",
+        "dirtdoublerowcorner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "crops-dirtdoublerowend",
+      "file": "crops_dirtDoubleRowEnd.glb",
+      "name": "Crops DirtDoubleRowEnd",
+      "category": "crops",
+      "tags": [
+        "crops",
+        "dirtdoublerowend",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "crops-dirtrow",
+      "file": "crops_dirtRow.glb",
+      "name": "Crops DirtRow",
+      "category": "crops",
+      "tags": [
+        "crops",
+        "dirtrow",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "crops-dirtrowcorner",
+      "file": "crops_dirtRowCorner.glb",
+      "name": "Crops DirtRowCorner",
+      "category": "crops",
+      "tags": [
+        "crops",
+        "dirtrowcorner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "crops-dirtrowend",
+      "file": "crops_dirtRowEnd.glb",
+      "name": "Crops DirtRowEnd",
+      "category": "crops",
+      "tags": [
+        "crops",
+        "dirtrowend",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "crops-dirtsingle",
+      "file": "crops_dirtSingle.glb",
+      "name": "Crops DirtSingle",
+      "category": "crops",
+      "tags": [
+        "crops",
+        "dirtsingle",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "crops-leafsstagea",
+      "file": "crops_leafsStageA.glb",
+      "name": "Crops LeafsStageA",
+      "category": "crops",
+      "tags": [
+        "crops",
+        "leafsstagea",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "crops-leafsstageb",
+      "file": "crops_leafsStageB.glb",
+      "name": "Crops LeafsStageB",
+      "category": "crops",
+      "tags": [
+        "crops",
+        "leafsstageb",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "crops-wheatstagea",
+      "file": "crops_wheatStageA.glb",
+      "name": "Crops WheatStageA",
+      "category": "crops",
+      "tags": [
+        "crops",
+        "wheatstagea",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "crops-wheatstageb",
+      "file": "crops_wheatStageB.glb",
+      "name": "Crops WheatStageB",
+      "category": "crops",
+      "tags": [
+        "crops",
+        "wheatstageb",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fence-bend",
+      "file": "fence_bend.glb",
+      "name": "Fence Bend",
+      "category": "fence",
+      "tags": [
+        "fence",
+        "bend",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fence-bendcenter",
+      "file": "fence_bendCenter.glb",
+      "name": "Fence BendCenter",
+      "category": "fence",
+      "tags": [
+        "fence",
+        "bendcenter",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fence-corner",
+      "file": "fence_corner.glb",
+      "name": "Fence Corner",
+      "category": "fence",
+      "tags": [
+        "fence",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fence-gate",
+      "file": "fence_gate.glb",
+      "name": "Fence Gate",
+      "category": "fence",
+      "tags": [
+        "fence",
+        "gate",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fence-planks",
+      "file": "fence_planks.glb",
+      "name": "Fence Planks",
+      "category": "fence",
+      "tags": [
+        "fence",
+        "planks",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fence-planksdouble",
+      "file": "fence_planksDouble.glb",
+      "name": "Fence PlanksDouble",
+      "category": "fence",
+      "tags": [
+        "fence",
+        "planksdouble",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fence-simple",
+      "file": "fence_simple.glb",
+      "name": "Fence Simple",
+      "category": "fence",
+      "tags": [
+        "fence",
+        "simple",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fence-simplecenter",
+      "file": "fence_simpleCenter.glb",
+      "name": "Fence SimpleCenter",
+      "category": "fence",
+      "tags": [
+        "fence",
+        "simplecenter",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fence-simplediagonal",
+      "file": "fence_simpleDiagonal.glb",
+      "name": "Fence SimpleDiagonal",
+      "category": "fence",
+      "tags": [
+        "fence",
+        "simplediagonal",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fence-simplediagonalcenter",
+      "file": "fence_simpleDiagonalCenter.glb",
+      "name": "Fence SimpleDiagonalCenter",
+      "category": "fence",
+      "tags": [
+        "fence",
+        "simplediagonalcenter",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fence-simplehigh",
+      "file": "fence_simpleHigh.glb",
+      "name": "Fence SimpleHigh",
+      "category": "fence",
+      "tags": [
+        "fence",
+        "simplehigh",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fence-simplelow",
+      "file": "fence_simpleLow.glb",
+      "name": "Fence SimpleLow",
+      "category": "fence",
+      "tags": [
+        "fence",
+        "simplelow",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "flower-purplea",
+      "file": "flower_purpleA.glb",
+      "name": "Flower PurpleA",
+      "category": "vegetation",
+      "tags": [
+        "flower",
+        "purplea",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "flower-purpleb",
+      "file": "flower_purpleB.glb",
+      "name": "Flower PurpleB",
+      "category": "vegetation",
+      "tags": [
+        "flower",
+        "purpleb",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "flower-purplec",
+      "file": "flower_purpleC.glb",
+      "name": "Flower PurpleC",
+      "category": "vegetation",
+      "tags": [
+        "flower",
+        "purplec",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "flower-reda",
+      "file": "flower_redA.glb",
+      "name": "Flower RedA",
+      "category": "vegetation",
+      "tags": [
+        "flower",
+        "reda",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "flower-redb",
+      "file": "flower_redB.glb",
+      "name": "Flower RedB",
+      "category": "vegetation",
+      "tags": [
+        "flower",
+        "redb",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "flower-redc",
+      "file": "flower_redC.glb",
+      "name": "Flower RedC",
+      "category": "vegetation",
+      "tags": [
+        "flower",
+        "redc",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "flower-yellowa",
+      "file": "flower_yellowA.glb",
+      "name": "Flower YellowA",
+      "category": "vegetation",
+      "tags": [
+        "flower",
+        "yellowa",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "flower-yellowb",
+      "file": "flower_yellowB.glb",
+      "name": "Flower YellowB",
+      "category": "vegetation",
+      "tags": [
+        "flower",
+        "yellowb",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "flower-yellowc",
+      "file": "flower_yellowC.glb",
+      "name": "Flower YellowC",
+      "category": "vegetation",
+      "tags": [
+        "flower",
+        "yellowc",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "grass",
+      "file": "grass.glb",
+      "name": "Grass",
+      "category": "vegetation",
+      "tags": [
+        "grass",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "grass-large",
+      "file": "grass_large.glb",
+      "name": "Grass Large",
+      "category": "vegetation",
+      "tags": [
+        "grass",
+        "large",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "grass-leafs",
+      "file": "grass_leafs.glb",
+      "name": "Grass Leafs",
+      "category": "vegetation",
+      "tags": [
+        "grass",
+        "leafs",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "grass-leafslarge",
+      "file": "grass_leafsLarge.glb",
+      "name": "Grass LeafsLarge",
+      "category": "vegetation",
+      "tags": [
+        "grass",
+        "leafslarge",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ground-grass",
+      "file": "ground_grass.glb",
+      "name": "Ground Grass",
+      "category": "terrain",
+      "tags": [
+        "ground",
+        "grass",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ground-pathbend",
+      "file": "ground_pathBend.glb",
+      "name": "Ground PathBend",
+      "category": "terrain",
+      "tags": [
+        "ground",
+        "pathbend",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ground-pathbendbank",
+      "file": "ground_pathBendBank.glb",
+      "name": "Ground PathBendBank",
+      "category": "terrain",
+      "tags": [
+        "ground",
+        "pathbendbank",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ground-pathcorner",
+      "file": "ground_pathCorner.glb",
+      "name": "Ground PathCorner",
+      "category": "terrain",
+      "tags": [
+        "ground",
+        "pathcorner",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ground-pathcornersmall",
+      "file": "ground_pathCornerSmall.glb",
+      "name": "Ground PathCornerSmall",
+      "category": "terrain",
+      "tags": [
+        "ground",
+        "pathcornersmall",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ground-pathcross",
+      "file": "ground_pathCross.glb",
+      "name": "Ground PathCross",
+      "category": "terrain",
+      "tags": [
+        "ground",
+        "pathcross",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ground-pathend",
+      "file": "ground_pathEnd.glb",
+      "name": "Ground PathEnd",
+      "category": "terrain",
+      "tags": [
+        "ground",
+        "pathend",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ground-pathendclosed",
+      "file": "ground_pathEndClosed.glb",
+      "name": "Ground PathEndClosed",
+      "category": "terrain",
+      "tags": [
+        "ground",
+        "pathendclosed",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ground-pathopen",
+      "file": "ground_pathOpen.glb",
+      "name": "Ground PathOpen",
+      "category": "terrain",
+      "tags": [
+        "ground",
+        "pathopen",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ground-pathrocks",
+      "file": "ground_pathRocks.glb",
+      "name": "Ground PathRocks",
+      "category": "terrain",
+      "tags": [
+        "ground",
+        "pathrocks",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ground-pathside",
+      "file": "ground_pathSide.glb",
+      "name": "Ground PathSide",
+      "category": "terrain",
+      "tags": [
+        "ground",
+        "pathside",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ground-pathsideopen",
+      "file": "ground_pathSideOpen.glb",
+      "name": "Ground PathSideOpen",
+      "category": "terrain",
+      "tags": [
+        "ground",
+        "pathsideopen",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ground-pathsplit",
+      "file": "ground_pathSplit.glb",
+      "name": "Ground PathSplit",
+      "category": "terrain",
+      "tags": [
+        "ground",
+        "pathsplit",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ground-pathstraight",
+      "file": "ground_pathStraight.glb",
+      "name": "Ground PathStraight",
+      "category": "terrain",
+      "tags": [
+        "ground",
+        "pathstraight",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ground-pathtile",
+      "file": "ground_pathTile.glb",
+      "name": "Ground PathTile",
+      "category": "terrain",
+      "tags": [
+        "ground",
+        "pathtile",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ground-riverbend",
+      "file": "ground_riverBend.glb",
+      "name": "Ground RiverBend",
+      "category": "terrain",
+      "tags": [
+        "ground",
+        "riverbend",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ground-riverbendbank",
+      "file": "ground_riverBendBank.glb",
+      "name": "Ground RiverBendBank",
+      "category": "terrain",
+      "tags": [
+        "ground",
+        "riverbendbank",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ground-rivercorner",
+      "file": "ground_riverCorner.glb",
+      "name": "Ground RiverCorner",
+      "category": "terrain",
+      "tags": [
+        "ground",
+        "rivercorner",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ground-rivercornersmall",
+      "file": "ground_riverCornerSmall.glb",
+      "name": "Ground RiverCornerSmall",
+      "category": "terrain",
+      "tags": [
+        "ground",
+        "rivercornersmall",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ground-rivercross",
+      "file": "ground_riverCross.glb",
+      "name": "Ground RiverCross",
+      "category": "terrain",
+      "tags": [
+        "ground",
+        "rivercross",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ground-riverend",
+      "file": "ground_riverEnd.glb",
+      "name": "Ground RiverEnd",
+      "category": "terrain",
+      "tags": [
+        "ground",
+        "riverend",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ground-riverendclosed",
+      "file": "ground_riverEndClosed.glb",
+      "name": "Ground RiverEndClosed",
+      "category": "terrain",
+      "tags": [
+        "ground",
+        "riverendclosed",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ground-riveropen",
+      "file": "ground_riverOpen.glb",
+      "name": "Ground RiverOpen",
+      "category": "terrain",
+      "tags": [
+        "ground",
+        "riveropen",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ground-riverrocks",
+      "file": "ground_riverRocks.glb",
+      "name": "Ground RiverRocks",
+      "category": "terrain",
+      "tags": [
+        "ground",
+        "riverrocks",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ground-riverside",
+      "file": "ground_riverSide.glb",
+      "name": "Ground RiverSide",
+      "category": "terrain",
+      "tags": [
+        "ground",
+        "riverside",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ground-riversideopen",
+      "file": "ground_riverSideOpen.glb",
+      "name": "Ground RiverSideOpen",
+      "category": "terrain",
+      "tags": [
+        "ground",
+        "riversideopen",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ground-riversplit",
+      "file": "ground_riverSplit.glb",
+      "name": "Ground RiverSplit",
+      "category": "terrain",
+      "tags": [
+        "ground",
+        "riversplit",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ground-riverstraight",
+      "file": "ground_riverStraight.glb",
+      "name": "Ground RiverStraight",
+      "category": "terrain",
+      "tags": [
+        "ground",
+        "riverstraight",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ground-rivertile",
+      "file": "ground_riverTile.glb",
+      "name": "Ground RiverTile",
+      "category": "terrain",
+      "tags": [
+        "ground",
+        "rivertile",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "hanging-moss",
+      "file": "hanging_moss.glb",
+      "name": "Hanging Moss",
+      "category": "hanging",
+      "tags": [
+        "hanging",
+        "moss",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "lily-large",
+      "file": "lily_large.glb",
+      "name": "Lily Large",
+      "category": "lily",
+      "tags": [
+        "lily",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "lily-small",
+      "file": "lily_small.glb",
+      "name": "Lily Small",
+      "category": "lily",
+      "tags": [
+        "lily",
+        "small",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "log",
+      "file": "log.glb",
+      "name": "Log",
+      "category": "log",
+      "tags": [
+        "log",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "log-large",
+      "file": "log_large.glb",
+      "name": "Log Large",
+      "category": "log",
+      "tags": [
+        "log",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "log-stack",
+      "file": "log_stack.glb",
+      "name": "Log Stack",
+      "category": "log",
+      "tags": [
+        "log",
+        "stack",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "log-stacklarge",
+      "file": "log_stackLarge.glb",
+      "name": "Log StackLarge",
+      "category": "log",
+      "tags": [
+        "log",
+        "stacklarge",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "mushroom-red",
+      "file": "mushroom_red.glb",
+      "name": "Mushroom Red",
+      "category": "vegetation",
+      "tags": [
+        "mushroom",
+        "red",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "mushroom-redgroup",
+      "file": "mushroom_redGroup.glb",
+      "name": "Mushroom RedGroup",
+      "category": "vegetation",
+      "tags": [
+        "mushroom",
+        "redgroup",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "mushroom-redtall",
+      "file": "mushroom_redTall.glb",
+      "name": "Mushroom RedTall",
+      "category": "vegetation",
+      "tags": [
+        "mushroom",
+        "redtall",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "mushroom-tan",
+      "file": "mushroom_tan.glb",
+      "name": "Mushroom Tan",
+      "category": "vegetation",
+      "tags": [
+        "mushroom",
+        "tan",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "mushroom-tangroup",
+      "file": "mushroom_tanGroup.glb",
+      "name": "Mushroom TanGroup",
+      "category": "vegetation",
+      "tags": [
+        "mushroom",
+        "tangroup",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "mushroom-tantall",
+      "file": "mushroom_tanTall.glb",
+      "name": "Mushroom TanTall",
+      "category": "vegetation",
+      "tags": [
+        "mushroom",
+        "tantall",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "path-stone",
+      "file": "path_stone.glb",
+      "name": "Path Stone",
+      "category": "path",
+      "tags": [
+        "path",
+        "stone",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "path-stonecircle",
+      "file": "path_stoneCircle.glb",
+      "name": "Path StoneCircle",
+      "category": "path",
+      "tags": [
+        "path",
+        "stonecircle",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "path-stonecorner",
+      "file": "path_stoneCorner.glb",
+      "name": "Path StoneCorner",
+      "category": "path",
+      "tags": [
+        "path",
+        "stonecorner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "path-stoneend",
+      "file": "path_stoneEnd.glb",
+      "name": "Path StoneEnd",
+      "category": "path",
+      "tags": [
+        "path",
+        "stoneend",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "path-wood",
+      "file": "path_wood.glb",
+      "name": "Path Wood",
+      "category": "path",
+      "tags": [
+        "path",
+        "wood",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "path-woodcorner",
+      "file": "path_woodCorner.glb",
+      "name": "Path WoodCorner",
+      "category": "path",
+      "tags": [
+        "path",
+        "woodcorner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "path-woodend",
+      "file": "path_woodEnd.glb",
+      "name": "Path WoodEnd",
+      "category": "path",
+      "tags": [
+        "path",
+        "woodend",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "plant-bush",
+      "file": "plant_bush.glb",
+      "name": "Plant Bush",
+      "category": "vegetation",
+      "tags": [
+        "plant",
+        "bush",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "plant-bushdetailed",
+      "file": "plant_bushDetailed.glb",
+      "name": "Plant BushDetailed",
+      "category": "vegetation",
+      "tags": [
+        "plant",
+        "bushdetailed",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "plant-bushlarge",
+      "file": "plant_bushLarge.glb",
+      "name": "Plant BushLarge",
+      "category": "vegetation",
+      "tags": [
+        "plant",
+        "bushlarge",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "plant-bushlargetriangle",
+      "file": "plant_bushLargeTriangle.glb",
+      "name": "Plant BushLargeTriangle",
+      "category": "vegetation",
+      "tags": [
+        "plant",
+        "bushlargetriangle",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "plant-bushsmall",
+      "file": "plant_bushSmall.glb",
+      "name": "Plant BushSmall",
+      "category": "vegetation",
+      "tags": [
+        "plant",
+        "bushsmall",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "plant-bushtriangle",
+      "file": "plant_bushTriangle.glb",
+      "name": "Plant BushTriangle",
+      "category": "vegetation",
+      "tags": [
+        "plant",
+        "bushtriangle",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "plant-flatshort",
+      "file": "plant_flatShort.glb",
+      "name": "Plant FlatShort",
+      "category": "vegetation",
+      "tags": [
+        "plant",
+        "flatshort",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "plant-flattall",
+      "file": "plant_flatTall.glb",
+      "name": "Plant FlatTall",
+      "category": "vegetation",
+      "tags": [
+        "plant",
+        "flattall",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "platform-beach",
+      "file": "platform_beach.glb",
+      "name": "Platform Beach",
+      "category": "platform",
+      "tags": [
+        "platform",
+        "beach",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "platform-grass",
+      "file": "platform_grass.glb",
+      "name": "Platform Grass",
+      "category": "platform",
+      "tags": [
+        "platform",
+        "grass",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "platform-stone",
+      "file": "platform_stone.glb",
+      "name": "Platform Stone",
+      "category": "platform",
+      "tags": [
+        "platform",
+        "stone",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pot-large",
+      "file": "pot_large.glb",
+      "name": "Pot Large",
+      "category": "pot",
+      "tags": [
+        "pot",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pot-small",
+      "file": "pot_small.glb",
+      "name": "Pot Small",
+      "category": "pot",
+      "tags": [
+        "pot",
+        "small",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rock-largea",
+      "file": "rock_largeA.glb",
+      "name": "Rock LargeA",
+      "category": "terrain",
+      "tags": [
+        "rock",
+        "largea",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rock-largeb",
+      "file": "rock_largeB.glb",
+      "name": "Rock LargeB",
+      "category": "terrain",
+      "tags": [
+        "rock",
+        "largeb",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rock-largec",
+      "file": "rock_largeC.glb",
+      "name": "Rock LargeC",
+      "category": "terrain",
+      "tags": [
+        "rock",
+        "largec",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rock-larged",
+      "file": "rock_largeD.glb",
+      "name": "Rock LargeD",
+      "category": "terrain",
+      "tags": [
+        "rock",
+        "larged",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rock-largee",
+      "file": "rock_largeE.glb",
+      "name": "Rock LargeE",
+      "category": "terrain",
+      "tags": [
+        "rock",
+        "largee",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rock-largef",
+      "file": "rock_largeF.glb",
+      "name": "Rock LargeF",
+      "category": "terrain",
+      "tags": [
+        "rock",
+        "largef",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rock-smalla",
+      "file": "rock_smallA.glb",
+      "name": "Rock SmallA",
+      "category": "terrain",
+      "tags": [
+        "rock",
+        "smalla",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rock-smallb",
+      "file": "rock_smallB.glb",
+      "name": "Rock SmallB",
+      "category": "terrain",
+      "tags": [
+        "rock",
+        "smallb",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rock-smallc",
+      "file": "rock_smallC.glb",
+      "name": "Rock SmallC",
+      "category": "terrain",
+      "tags": [
+        "rock",
+        "smallc",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rock-smalld",
+      "file": "rock_smallD.glb",
+      "name": "Rock SmallD",
+      "category": "terrain",
+      "tags": [
+        "rock",
+        "smalld",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rock-smalle",
+      "file": "rock_smallE.glb",
+      "name": "Rock SmallE",
+      "category": "terrain",
+      "tags": [
+        "rock",
+        "smalle",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rock-smallf",
+      "file": "rock_smallF.glb",
+      "name": "Rock SmallF",
+      "category": "terrain",
+      "tags": [
+        "rock",
+        "smallf",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rock-smallflata",
+      "file": "rock_smallFlatA.glb",
+      "name": "Rock SmallFlatA",
+      "category": "terrain",
+      "tags": [
+        "rock",
+        "smallflata",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rock-smallflatb",
+      "file": "rock_smallFlatB.glb",
+      "name": "Rock SmallFlatB",
+      "category": "terrain",
+      "tags": [
+        "rock",
+        "smallflatb",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rock-smallflatc",
+      "file": "rock_smallFlatC.glb",
+      "name": "Rock SmallFlatC",
+      "category": "terrain",
+      "tags": [
+        "rock",
+        "smallflatc",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rock-smallg",
+      "file": "rock_smallG.glb",
+      "name": "Rock SmallG",
+      "category": "terrain",
+      "tags": [
+        "rock",
+        "smallg",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rock-smallh",
+      "file": "rock_smallH.glb",
+      "name": "Rock SmallH",
+      "category": "terrain",
+      "tags": [
+        "rock",
+        "smallh",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rock-smalli",
+      "file": "rock_smallI.glb",
+      "name": "Rock SmallI",
+      "category": "terrain",
+      "tags": [
+        "rock",
+        "smalli",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rock-smalltopa",
+      "file": "rock_smallTopA.glb",
+      "name": "Rock SmallTopA",
+      "category": "terrain",
+      "tags": [
+        "rock",
+        "smalltopa",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rock-smalltopb",
+      "file": "rock_smallTopB.glb",
+      "name": "Rock SmallTopB",
+      "category": "terrain",
+      "tags": [
+        "rock",
+        "smalltopb",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rock-talla",
+      "file": "rock_tallA.glb",
+      "name": "Rock TallA",
+      "category": "terrain",
+      "tags": [
+        "rock",
+        "talla",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rock-tallb",
+      "file": "rock_tallB.glb",
+      "name": "Rock TallB",
+      "category": "terrain",
+      "tags": [
+        "rock",
+        "tallb",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rock-tallc",
+      "file": "rock_tallC.glb",
+      "name": "Rock TallC",
+      "category": "terrain",
+      "tags": [
+        "rock",
+        "tallc",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rock-talld",
+      "file": "rock_tallD.glb",
+      "name": "Rock TallD",
+      "category": "terrain",
+      "tags": [
+        "rock",
+        "talld",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rock-talle",
+      "file": "rock_tallE.glb",
+      "name": "Rock TallE",
+      "category": "terrain",
+      "tags": [
+        "rock",
+        "talle",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rock-tallf",
+      "file": "rock_tallF.glb",
+      "name": "Rock TallF",
+      "category": "terrain",
+      "tags": [
+        "rock",
+        "tallf",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rock-tallg",
+      "file": "rock_tallG.glb",
+      "name": "Rock TallG",
+      "category": "terrain",
+      "tags": [
+        "rock",
+        "tallg",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rock-tallh",
+      "file": "rock_tallH.glb",
+      "name": "Rock TallH",
+      "category": "terrain",
+      "tags": [
+        "rock",
+        "tallh",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rock-talli",
+      "file": "rock_tallI.glb",
+      "name": "Rock TallI",
+      "category": "terrain",
+      "tags": [
+        "rock",
+        "talli",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rock-tallj",
+      "file": "rock_tallJ.glb",
+      "name": "Rock TallJ",
+      "category": "terrain",
+      "tags": [
+        "rock",
+        "tallj",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "sign",
+      "file": "sign.glb",
+      "name": "Sign",
+      "category": "sign",
+      "tags": [
+        "sign",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "statue-block",
+      "file": "statue_block.glb",
+      "name": "Statue Block",
+      "category": "statue",
+      "tags": [
+        "statue",
+        "block",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "statue-column",
+      "file": "statue_column.glb",
+      "name": "Statue Column",
+      "category": "statue",
+      "tags": [
+        "statue",
+        "column",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "statue-columndamaged",
+      "file": "statue_columnDamaged.glb",
+      "name": "Statue ColumnDamaged",
+      "category": "statue",
+      "tags": [
+        "statue",
+        "columndamaged",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "statue-head",
+      "file": "statue_head.glb",
+      "name": "Statue Head",
+      "category": "statue",
+      "tags": [
+        "statue",
+        "head",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "statue-obelisk",
+      "file": "statue_obelisk.glb",
+      "name": "Statue Obelisk",
+      "category": "statue",
+      "tags": [
+        "statue",
+        "obelisk",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "statue-ring",
+      "file": "statue_ring.glb",
+      "name": "Statue Ring",
+      "category": "statue",
+      "tags": [
+        "statue",
+        "ring",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stone-largea",
+      "file": "stone_largeA.glb",
+      "name": "Stone LargeA",
+      "category": "terrain",
+      "tags": [
+        "stone",
+        "largea",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stone-largeb",
+      "file": "stone_largeB.glb",
+      "name": "Stone LargeB",
+      "category": "terrain",
+      "tags": [
+        "stone",
+        "largeb",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stone-largec",
+      "file": "stone_largeC.glb",
+      "name": "Stone LargeC",
+      "category": "terrain",
+      "tags": [
+        "stone",
+        "largec",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stone-larged",
+      "file": "stone_largeD.glb",
+      "name": "Stone LargeD",
+      "category": "terrain",
+      "tags": [
+        "stone",
+        "larged",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stone-largee",
+      "file": "stone_largeE.glb",
+      "name": "Stone LargeE",
+      "category": "terrain",
+      "tags": [
+        "stone",
+        "largee",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stone-largef",
+      "file": "stone_largeF.glb",
+      "name": "Stone LargeF",
+      "category": "terrain",
+      "tags": [
+        "stone",
+        "largef",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stone-smalla",
+      "file": "stone_smallA.glb",
+      "name": "Stone SmallA",
+      "category": "terrain",
+      "tags": [
+        "stone",
+        "smalla",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stone-smallb",
+      "file": "stone_smallB.glb",
+      "name": "Stone SmallB",
+      "category": "terrain",
+      "tags": [
+        "stone",
+        "smallb",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stone-smallc",
+      "file": "stone_smallC.glb",
+      "name": "Stone SmallC",
+      "category": "terrain",
+      "tags": [
+        "stone",
+        "smallc",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stone-smalld",
+      "file": "stone_smallD.glb",
+      "name": "Stone SmallD",
+      "category": "terrain",
+      "tags": [
+        "stone",
+        "smalld",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stone-smalle",
+      "file": "stone_smallE.glb",
+      "name": "Stone SmallE",
+      "category": "terrain",
+      "tags": [
+        "stone",
+        "smalle",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stone-smallf",
+      "file": "stone_smallF.glb",
+      "name": "Stone SmallF",
+      "category": "terrain",
+      "tags": [
+        "stone",
+        "smallf",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stone-smallflata",
+      "file": "stone_smallFlatA.glb",
+      "name": "Stone SmallFlatA",
+      "category": "terrain",
+      "tags": [
+        "stone",
+        "smallflata",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stone-smallflatb",
+      "file": "stone_smallFlatB.glb",
+      "name": "Stone SmallFlatB",
+      "category": "terrain",
+      "tags": [
+        "stone",
+        "smallflatb",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stone-smallflatc",
+      "file": "stone_smallFlatC.glb",
+      "name": "Stone SmallFlatC",
+      "category": "terrain",
+      "tags": [
+        "stone",
+        "smallflatc",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stone-smallg",
+      "file": "stone_smallG.glb",
+      "name": "Stone SmallG",
+      "category": "terrain",
+      "tags": [
+        "stone",
+        "smallg",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stone-smallh",
+      "file": "stone_smallH.glb",
+      "name": "Stone SmallH",
+      "category": "terrain",
+      "tags": [
+        "stone",
+        "smallh",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stone-smalli",
+      "file": "stone_smallI.glb",
+      "name": "Stone SmallI",
+      "category": "terrain",
+      "tags": [
+        "stone",
+        "smalli",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stone-smalltopa",
+      "file": "stone_smallTopA.glb",
+      "name": "Stone SmallTopA",
+      "category": "terrain",
+      "tags": [
+        "stone",
+        "smalltopa",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stone-smalltopb",
+      "file": "stone_smallTopB.glb",
+      "name": "Stone SmallTopB",
+      "category": "terrain",
+      "tags": [
+        "stone",
+        "smalltopb",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stone-talla",
+      "file": "stone_tallA.glb",
+      "name": "Stone TallA",
+      "category": "terrain",
+      "tags": [
+        "stone",
+        "talla",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stone-tallb",
+      "file": "stone_tallB.glb",
+      "name": "Stone TallB",
+      "category": "terrain",
+      "tags": [
+        "stone",
+        "tallb",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stone-tallc",
+      "file": "stone_tallC.glb",
+      "name": "Stone TallC",
+      "category": "terrain",
+      "tags": [
+        "stone",
+        "tallc",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stone-talld",
+      "file": "stone_tallD.glb",
+      "name": "Stone TallD",
+      "category": "terrain",
+      "tags": [
+        "stone",
+        "talld",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stone-talle",
+      "file": "stone_tallE.glb",
+      "name": "Stone TallE",
+      "category": "terrain",
+      "tags": [
+        "stone",
+        "talle",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stone-tallf",
+      "file": "stone_tallF.glb",
+      "name": "Stone TallF",
+      "category": "terrain",
+      "tags": [
+        "stone",
+        "tallf",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stone-tallg",
+      "file": "stone_tallG.glb",
+      "name": "Stone TallG",
+      "category": "terrain",
+      "tags": [
+        "stone",
+        "tallg",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stone-tallh",
+      "file": "stone_tallH.glb",
+      "name": "Stone TallH",
+      "category": "terrain",
+      "tags": [
+        "stone",
+        "tallh",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stone-talli",
+      "file": "stone_tallI.glb",
+      "name": "Stone TallI",
+      "category": "terrain",
+      "tags": [
+        "stone",
+        "talli",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stone-tallj",
+      "file": "stone_tallJ.glb",
+      "name": "Stone TallJ",
+      "category": "terrain",
+      "tags": [
+        "stone",
+        "tallj",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stump-old",
+      "file": "stump_old.glb",
+      "name": "Stump Old",
+      "category": "stump",
+      "tags": [
+        "stump",
+        "old",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stump-oldtall",
+      "file": "stump_oldTall.glb",
+      "name": "Stump OldTall",
+      "category": "stump",
+      "tags": [
+        "stump",
+        "oldtall",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stump-round",
+      "file": "stump_round.glb",
+      "name": "Stump Round",
+      "category": "stump",
+      "tags": [
+        "stump",
+        "round",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stump-rounddetailed",
+      "file": "stump_roundDetailed.glb",
+      "name": "Stump RoundDetailed",
+      "category": "stump",
+      "tags": [
+        "stump",
+        "rounddetailed",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stump-square",
+      "file": "stump_square.glb",
+      "name": "Stump Square",
+      "category": "stump",
+      "tags": [
+        "stump",
+        "square",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stump-squaredetailed",
+      "file": "stump_squareDetailed.glb",
+      "name": "Stump SquareDetailed",
+      "category": "stump",
+      "tags": [
+        "stump",
+        "squaredetailed",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stump-squaredetailedwide",
+      "file": "stump_squareDetailedWide.glb",
+      "name": "Stump SquareDetailedWide",
+      "category": "stump",
+      "tags": [
+        "stump",
+        "squaredetailedwide",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tent-detailedclosed",
+      "file": "tent_detailedClosed.glb",
+      "name": "Tent DetailedClosed",
+      "category": "tent",
+      "tags": [
+        "tent",
+        "detailedclosed",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tent-detailedopen",
+      "file": "tent_detailedOpen.glb",
+      "name": "Tent DetailedOpen",
+      "category": "tent",
+      "tags": [
+        "tent",
+        "detailedopen",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tent-smallclosed",
+      "file": "tent_smallClosed.glb",
+      "name": "Tent SmallClosed",
+      "category": "tent",
+      "tags": [
+        "tent",
+        "smallclosed",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tent-smallopen",
+      "file": "tent_smallOpen.glb",
+      "name": "Tent SmallOpen",
+      "category": "tent",
+      "tags": [
+        "tent",
+        "smallopen",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-blocks",
+      "file": "tree_blocks.glb",
+      "name": "Tree Blocks",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "blocks",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-blocks-dark",
+      "file": "tree_blocks_dark.glb",
+      "name": "Tree Blocks Dark",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "blocks",
+        "dark",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-blocks-fall",
+      "file": "tree_blocks_fall.glb",
+      "name": "Tree Blocks Fall",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "blocks",
+        "fall",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-cone",
+      "file": "tree_cone.glb",
+      "name": "Tree Cone",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "cone",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-cone-dark",
+      "file": "tree_cone_dark.glb",
+      "name": "Tree Cone Dark",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "cone",
+        "dark",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-cone-fall",
+      "file": "tree_cone_fall.glb",
+      "name": "Tree Cone Fall",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "cone",
+        "fall",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-default",
+      "file": "tree_default.glb",
+      "name": "Tree Default",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "default",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-default-dark",
+      "file": "tree_default_dark.glb",
+      "name": "Tree Default Dark",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "default",
+        "dark",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-default-fall",
+      "file": "tree_default_fall.glb",
+      "name": "Tree Default Fall",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "default",
+        "fall",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-detailed",
+      "file": "tree_detailed.glb",
+      "name": "Tree Detailed",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "detailed",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-detailed-dark",
+      "file": "tree_detailed_dark.glb",
+      "name": "Tree Detailed Dark",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "detailed",
+        "dark",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-detailed-fall",
+      "file": "tree_detailed_fall.glb",
+      "name": "Tree Detailed Fall",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "detailed",
+        "fall",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-fat",
+      "file": "tree_fat.glb",
+      "name": "Tree Fat",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "fat",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-fat-darkh",
+      "file": "tree_fat_darkh.glb",
+      "name": "Tree Fat Darkh",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "fat",
+        "darkh",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-fat-fall",
+      "file": "tree_fat_fall.glb",
+      "name": "Tree Fat Fall",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "fat",
+        "fall",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-oak",
+      "file": "tree_oak.glb",
+      "name": "Tree Oak",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "oak",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-oak-dark",
+      "file": "tree_oak_dark.glb",
+      "name": "Tree Oak Dark",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "oak",
+        "dark",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-oak-fall",
+      "file": "tree_oak_fall.glb",
+      "name": "Tree Oak Fall",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "oak",
+        "fall",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-palm",
+      "file": "tree_palm.glb",
+      "name": "Tree Palm",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "palm",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-palmbend",
+      "file": "tree_palmBend.glb",
+      "name": "Tree PalmBend",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "palmbend",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-palmdetailedshort",
+      "file": "tree_palmDetailedShort.glb",
+      "name": "Tree PalmDetailedShort",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "palmdetailedshort",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-palmdetailedtall",
+      "file": "tree_palmDetailedTall.glb",
+      "name": "Tree PalmDetailedTall",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "palmdetailedtall",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-palmshort",
+      "file": "tree_palmShort.glb",
+      "name": "Tree PalmShort",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "palmshort",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-palmtall",
+      "file": "tree_palmTall.glb",
+      "name": "Tree PalmTall",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "palmtall",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-pinedefaulta",
+      "file": "tree_pineDefaultA.glb",
+      "name": "Tree PineDefaultA",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "pinedefaulta",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-pinedefaultb",
+      "file": "tree_pineDefaultB.glb",
+      "name": "Tree PineDefaultB",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "pinedefaultb",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-pinegrounda",
+      "file": "tree_pineGroundA.glb",
+      "name": "Tree PineGroundA",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "pinegrounda",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-pinegroundb",
+      "file": "tree_pineGroundB.glb",
+      "name": "Tree PineGroundB",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "pinegroundb",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-pinerounda",
+      "file": "tree_pineRoundA.glb",
+      "name": "Tree PineRoundA",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "pinerounda",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-pineroundb",
+      "file": "tree_pineRoundB.glb",
+      "name": "Tree PineRoundB",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "pineroundb",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-pineroundc",
+      "file": "tree_pineRoundC.glb",
+      "name": "Tree PineRoundC",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "pineroundc",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-pineroundd",
+      "file": "tree_pineRoundD.glb",
+      "name": "Tree PineRoundD",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "pineroundd",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-pinerounde",
+      "file": "tree_pineRoundE.glb",
+      "name": "Tree PineRoundE",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "pinerounde",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-pineroundf",
+      "file": "tree_pineRoundF.glb",
+      "name": "Tree PineRoundF",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "pineroundf",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-pinesmalla",
+      "file": "tree_pineSmallA.glb",
+      "name": "Tree PineSmallA",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "pinesmalla",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-pinesmallb",
+      "file": "tree_pineSmallB.glb",
+      "name": "Tree PineSmallB",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "pinesmallb",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-pinesmallc",
+      "file": "tree_pineSmallC.glb",
+      "name": "Tree PineSmallC",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "pinesmallc",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-pinesmalld",
+      "file": "tree_pineSmallD.glb",
+      "name": "Tree PineSmallD",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "pinesmalld",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-pinetalla",
+      "file": "tree_pineTallA.glb",
+      "name": "Tree PineTallA",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "pinetalla",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-pinetalla-detailed",
+      "file": "tree_pineTallA_detailed.glb",
+      "name": "Tree PineTallA Detailed",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "pinetalla",
+        "detailed",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-pinetallb",
+      "file": "tree_pineTallB.glb",
+      "name": "Tree PineTallB",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "pinetallb",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-pinetallb-detailed",
+      "file": "tree_pineTallB_detailed.glb",
+      "name": "Tree PineTallB Detailed",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "pinetallb",
+        "detailed",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-pinetallc",
+      "file": "tree_pineTallC.glb",
+      "name": "Tree PineTallC",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "pinetallc",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-pinetallc-detailed",
+      "file": "tree_pineTallC_detailed.glb",
+      "name": "Tree PineTallC Detailed",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "pinetallc",
+        "detailed",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-pinetalld",
+      "file": "tree_pineTallD.glb",
+      "name": "Tree PineTallD",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "pinetalld",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-pinetalld-detailed",
+      "file": "tree_pineTallD_detailed.glb",
+      "name": "Tree PineTallD Detailed",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "pinetalld",
+        "detailed",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-plateau",
+      "file": "tree_plateau.glb",
+      "name": "Tree Plateau",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "plateau",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-plateau-dark",
+      "file": "tree_plateau_dark.glb",
+      "name": "Tree Plateau Dark",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "plateau",
+        "dark",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-plateau-fall",
+      "file": "tree_plateau_fall.glb",
+      "name": "Tree Plateau Fall",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "plateau",
+        "fall",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-simple",
+      "file": "tree_simple.glb",
+      "name": "Tree Simple",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "simple",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-simple-dark",
+      "file": "tree_simple_dark.glb",
+      "name": "Tree Simple Dark",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "simple",
+        "dark",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-simple-fall",
+      "file": "tree_simple_fall.glb",
+      "name": "Tree Simple Fall",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "simple",
+        "fall",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-small",
+      "file": "tree_small.glb",
+      "name": "Tree Small",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "small",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-small-dark",
+      "file": "tree_small_dark.glb",
+      "name": "Tree Small Dark",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "small",
+        "dark",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-small-fall",
+      "file": "tree_small_fall.glb",
+      "name": "Tree Small Fall",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "small",
+        "fall",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-tall",
+      "file": "tree_tall.glb",
+      "name": "Tree Tall",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "tall",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-tall-dark",
+      "file": "tree_tall_dark.glb",
+      "name": "Tree Tall Dark",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "tall",
+        "dark",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-tall-fall",
+      "file": "tree_tall_fall.glb",
+      "name": "Tree Tall Fall",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "tall",
+        "fall",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-thin",
+      "file": "tree_thin.glb",
+      "name": "Tree Thin",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "thin",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-thin-dark",
+      "file": "tree_thin_dark.glb",
+      "name": "Tree Thin Dark",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "thin",
+        "dark",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-thin-fall",
+      "file": "tree_thin_fall.glb",
+      "name": "Tree Thin Fall",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "thin",
+        "fall",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    }
+  ]
+}

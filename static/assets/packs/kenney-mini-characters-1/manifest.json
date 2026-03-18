@@ -1,0 +1,365 @@
+{
+  "pack_id": "kenney-mini-characters-1",
+  "name": "Kenney Mini Characters 1",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "25 mini character models from Kenney.",
+  "base_url": "/static/assets/packs/kenney-mini-characters-1/",
+  "assets": [
+    {
+      "id": "aid-cane",
+      "file": "aid-cane.glb",
+      "name": "Aid Cane",
+      "category": "aid",
+      "tags": [
+        "aid",
+        "cane",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "aid-cane-blind",
+      "file": "aid-cane-blind.glb",
+      "name": "Aid Cane Blind",
+      "category": "aid",
+      "tags": [
+        "aid",
+        "cane",
+        "blind",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "aid-cane-low-vision",
+      "file": "aid-cane-low-vision.glb",
+      "name": "Aid Cane Low Vision",
+      "category": "aid",
+      "tags": [
+        "aid",
+        "cane",
+        "low",
+        "vision",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "aid-crutch",
+      "file": "aid-crutch.glb",
+      "name": "Aid Crutch",
+      "category": "aid",
+      "tags": [
+        "aid",
+        "crutch",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "aid-defibrillator-green",
+      "file": "aid-defibrillator-green.glb",
+      "name": "Aid Defibrillator Green",
+      "category": "aid",
+      "tags": [
+        "aid",
+        "defibrillator",
+        "green",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "aid-defibrillator-red",
+      "file": "aid-defibrillator-red.glb",
+      "name": "Aid Defibrillator Red",
+      "category": "aid",
+      "tags": [
+        "aid",
+        "defibrillator",
+        "red",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "aid-glasses",
+      "file": "aid-glasses.glb",
+      "name": "Aid Glasses",
+      "category": "aid",
+      "tags": [
+        "aid",
+        "glasses",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "aid-hearing",
+      "file": "aid_hearing.glb",
+      "name": "Aid Hearing",
+      "category": "aid",
+      "tags": [
+        "aid",
+        "hearing",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "aid-mask",
+      "file": "aid-mask.glb",
+      "name": "Aid Mask",
+      "category": "aid",
+      "tags": [
+        "aid",
+        "mask",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "aid-sunglasses",
+      "file": "aid-sunglasses.glb",
+      "name": "Aid Sunglasses",
+      "category": "aid",
+      "tags": [
+        "aid",
+        "sunglasses",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "character-female-a",
+      "file": "character-female-a.glb",
+      "name": "Character Female A",
+      "category": "character",
+      "tags": [
+        "character",
+        "female",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "character-female-b",
+      "file": "character-female-b.glb",
+      "name": "Character Female B",
+      "category": "character",
+      "tags": [
+        "character",
+        "female",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "character-female-c",
+      "file": "character-female-c.glb",
+      "name": "Character Female C",
+      "category": "character",
+      "tags": [
+        "character",
+        "female",
+        "c",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "character-female-d",
+      "file": "character-female-d.glb",
+      "name": "Character Female D",
+      "category": "character",
+      "tags": [
+        "character",
+        "female",
+        "d",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "character-female-e",
+      "file": "character-female-e.glb",
+      "name": "Character Female E",
+      "category": "character",
+      "tags": [
+        "character",
+        "female",
+        "e",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "character-female-f",
+      "file": "character-female-f.glb",
+      "name": "Character Female F",
+      "category": "character",
+      "tags": [
+        "character",
+        "female",
+        "f",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "character-male-a",
+      "file": "character-male-a.glb",
+      "name": "Character Male A",
+      "category": "character",
+      "tags": [
+        "character",
+        "male",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "character-male-b",
+      "file": "character-male-b.glb",
+      "name": "Character Male B",
+      "category": "character",
+      "tags": [
+        "character",
+        "male",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "character-male-c",
+      "file": "character-male-c.glb",
+      "name": "Character Male C",
+      "category": "character",
+      "tags": [
+        "character",
+        "male",
+        "c",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "character-male-d",
+      "file": "character-male-d.glb",
+      "name": "Character Male D",
+      "category": "character",
+      "tags": [
+        "character",
+        "male",
+        "d",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "character-male-e",
+      "file": "character-male-e.glb",
+      "name": "Character Male E",
+      "category": "character",
+      "tags": [
+        "character",
+        "male",
+        "e",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "character-male-f",
+      "file": "character-male-f.glb",
+      "name": "Character Male F",
+      "category": "character",
+      "tags": [
+        "character",
+        "male",
+        "f",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wheelchair",
+      "file": "wheelchair.glb",
+      "name": "Wheelchair",
+      "category": "wheelchair",
+      "tags": [
+        "wheelchair",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wheelchair-deluxe",
+      "file": "wheelchair-deluxe.glb",
+      "name": "Wheelchair Deluxe",
+      "category": "wheelchair",
+      "tags": [
+        "wheelchair",
+        "deluxe",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wheelchair-power",
+      "file": "wheelchair-power.glb",
+      "name": "Wheelchair Power",
+      "category": "wheelchair",
+      "tags": [
+        "wheelchair",
+        "power",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wheelchair-power-deluxe",
+      "file": "wheelchair-power-deluxe.glb",
+      "name": "Wheelchair Power Deluxe",
+      "category": "wheelchair",
+      "tags": [
+        "wheelchair",
+        "power",
+        "deluxe",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    }
+  ]
+}

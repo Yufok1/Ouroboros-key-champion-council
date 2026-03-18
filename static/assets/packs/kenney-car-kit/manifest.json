@@ -1,0 +1,663 @@
+{
+  "pack_id": "kenney-car-kit",
+  "name": "Kenney Car Kit",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "Kenney Car Kit free 3D models from Kenney.",
+  "base_url": "/static/assets/packs/kenney-car-kit/",
+  "assets": [
+    {
+      "id": "ambulance",
+      "file": "ambulance.glb",
+      "name": "Ambulance",
+      "category": "ambulance",
+      "tags": [
+        "ambulance",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "box",
+      "file": "box.glb",
+      "name": "Box",
+      "category": "box",
+      "tags": [
+        "box",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cone",
+      "file": "cone.glb",
+      "name": "Cone",
+      "category": "cone",
+      "tags": [
+        "cone",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cone-flat",
+      "file": "cone-flat.glb",
+      "name": "Cone Flat",
+      "category": "cone",
+      "tags": [
+        "cone",
+        "flat",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "debris-bolt",
+      "file": "debris-bolt.glb",
+      "name": "Debris Bolt",
+      "category": "debris",
+      "tags": [
+        "debris",
+        "bolt",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "debris-bumper",
+      "file": "debris-bumper.glb",
+      "name": "Debris Bumper",
+      "category": "debris",
+      "tags": [
+        "debris",
+        "bumper",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "debris-door",
+      "file": "debris-door.glb",
+      "name": "Debris Door",
+      "category": "debris",
+      "tags": [
+        "debris",
+        "door",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "debris-door-window",
+      "file": "debris-door-window.glb",
+      "name": "Debris Door Window",
+      "category": "debris",
+      "tags": [
+        "debris",
+        "door",
+        "window",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "debris-drivetrain",
+      "file": "debris-drivetrain.glb",
+      "name": "Debris Drivetrain",
+      "category": "debris",
+      "tags": [
+        "debris",
+        "drivetrain",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "debris-drivetrain-axle",
+      "file": "debris-drivetrain-axle.glb",
+      "name": "Debris Drivetrain Axle",
+      "category": "debris",
+      "tags": [
+        "debris",
+        "drivetrain",
+        "axle",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "debris-nut",
+      "file": "debris-nut.glb",
+      "name": "Debris Nut",
+      "category": "debris",
+      "tags": [
+        "debris",
+        "nut",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "debris-plate-a",
+      "file": "debris-plate-a.glb",
+      "name": "Debris Plate A",
+      "category": "debris",
+      "tags": [
+        "debris",
+        "plate",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "debris-plate-b",
+      "file": "debris-plate-b.glb",
+      "name": "Debris Plate B",
+      "category": "debris",
+      "tags": [
+        "debris",
+        "plate",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "debris-plate-small-a",
+      "file": "debris-plate-small-a.glb",
+      "name": "Debris Plate Small A",
+      "category": "debris",
+      "tags": [
+        "debris",
+        "plate",
+        "small",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "debris-plate-small-b",
+      "file": "debris-plate-small-b.glb",
+      "name": "Debris Plate Small B",
+      "category": "debris",
+      "tags": [
+        "debris",
+        "plate",
+        "small",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "debris-spoiler-a",
+      "file": "debris-spoiler-a.glb",
+      "name": "Debris Spoiler A",
+      "category": "debris",
+      "tags": [
+        "debris",
+        "spoiler",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "debris-spoiler-b",
+      "file": "debris-spoiler-b.glb",
+      "name": "Debris Spoiler B",
+      "category": "debris",
+      "tags": [
+        "debris",
+        "spoiler",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "debris-tire",
+      "file": "debris-tire.glb",
+      "name": "Debris Tire",
+      "category": "debris",
+      "tags": [
+        "debris",
+        "tire",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "delivery",
+      "file": "delivery.glb",
+      "name": "Delivery",
+      "category": "delivery",
+      "tags": [
+        "delivery",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "delivery-flat",
+      "file": "delivery-flat.glb",
+      "name": "Delivery Flat",
+      "category": "delivery",
+      "tags": [
+        "delivery",
+        "flat",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "firetruck",
+      "file": "firetruck.glb",
+      "name": "Firetruck",
+      "category": "firetruck",
+      "tags": [
+        "firetruck",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "garbage-truck",
+      "file": "garbage-truck.glb",
+      "name": "Garbage Truck",
+      "category": "garbage",
+      "tags": [
+        "garbage",
+        "truck",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "hatchback-sports",
+      "file": "hatchback-sports.glb",
+      "name": "Hatchback Sports",
+      "category": "hatchback",
+      "tags": [
+        "hatchback",
+        "sports",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "kart-oobi",
+      "file": "kart-oobi.glb",
+      "name": "Kart Oobi",
+      "category": "kart",
+      "tags": [
+        "kart",
+        "oobi",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "kart-oodi",
+      "file": "kart-oodi.glb",
+      "name": "Kart Oodi",
+      "category": "kart",
+      "tags": [
+        "kart",
+        "oodi",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "kart-ooli",
+      "file": "kart-ooli.glb",
+      "name": "Kart Ooli",
+      "category": "kart",
+      "tags": [
+        "kart",
+        "ooli",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "kart-oopi",
+      "file": "kart-oopi.glb",
+      "name": "Kart Oopi",
+      "category": "kart",
+      "tags": [
+        "kart",
+        "oopi",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "kart-oozi",
+      "file": "kart-oozi.glb",
+      "name": "Kart Oozi",
+      "category": "kart",
+      "tags": [
+        "kart",
+        "oozi",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "police",
+      "file": "police.glb",
+      "name": "Police",
+      "category": "police",
+      "tags": [
+        "police",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "race",
+      "file": "race.glb",
+      "name": "Race",
+      "category": "race",
+      "tags": [
+        "race",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "race-future",
+      "file": "race-future.glb",
+      "name": "Race Future",
+      "category": "race",
+      "tags": [
+        "race",
+        "future",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "sedan",
+      "file": "sedan.glb",
+      "name": "Sedan",
+      "category": "sedan",
+      "tags": [
+        "sedan",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "sedan-sports",
+      "file": "sedan-sports.glb",
+      "name": "Sedan Sports",
+      "category": "sedan",
+      "tags": [
+        "sedan",
+        "sports",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "suv",
+      "file": "suv.glb",
+      "name": "Suv",
+      "category": "suv",
+      "tags": [
+        "suv",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "suv-luxury",
+      "file": "suv-luxury.glb",
+      "name": "Suv Luxury",
+      "category": "suv",
+      "tags": [
+        "suv",
+        "luxury",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "taxi",
+      "file": "taxi.glb",
+      "name": "Taxi",
+      "category": "taxi",
+      "tags": [
+        "taxi",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tractor",
+      "file": "tractor.glb",
+      "name": "Tractor",
+      "category": "tractor",
+      "tags": [
+        "tractor",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tractor-police",
+      "file": "tractor-police.glb",
+      "name": "Tractor Police",
+      "category": "tractor",
+      "tags": [
+        "tractor",
+        "police",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tractor-shovel",
+      "file": "tractor-shovel.glb",
+      "name": "Tractor Shovel",
+      "category": "tractor",
+      "tags": [
+        "tractor",
+        "shovel",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "truck",
+      "file": "truck.glb",
+      "name": "Truck",
+      "category": "truck",
+      "tags": [
+        "truck",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "truck-flat",
+      "file": "truck-flat.glb",
+      "name": "Truck Flat",
+      "category": "truck",
+      "tags": [
+        "truck",
+        "flat",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "van",
+      "file": "van.glb",
+      "name": "Van",
+      "category": "van",
+      "tags": [
+        "van",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wheel-dark",
+      "file": "wheel-dark.glb",
+      "name": "Wheel Dark",
+      "category": "wheel",
+      "tags": [
+        "wheel",
+        "dark",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wheel-default",
+      "file": "wheel-default.glb",
+      "name": "Wheel Default",
+      "category": "wheel",
+      "tags": [
+        "wheel",
+        "default",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wheel-racing",
+      "file": "wheel-racing.glb",
+      "name": "Wheel Racing",
+      "category": "wheel",
+      "tags": [
+        "wheel",
+        "racing",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wheel-tractor-back",
+      "file": "wheel-tractor-back.glb",
+      "name": "Wheel Tractor Back",
+      "category": "wheel",
+      "tags": [
+        "wheel",
+        "tractor",
+        "back",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wheel-tractor-dark-back",
+      "file": "wheel-tractor-dark-back.glb",
+      "name": "Wheel Tractor Dark Back",
+      "category": "wheel",
+      "tags": [
+        "wheel",
+        "tractor",
+        "dark",
+        "back",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wheel-tractor-dark-front",
+      "file": "wheel-tractor-dark-front.glb",
+      "name": "Wheel Tractor Dark Front",
+      "category": "wheel",
+      "tags": [
+        "wheel",
+        "tractor",
+        "dark",
+        "front",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wheel-tractor-front",
+      "file": "wheel-tractor-front.glb",
+      "name": "Wheel Tractor Front",
+      "category": "wheel",
+      "tags": [
+        "wheel",
+        "tractor",
+        "front",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wheel-truck",
+      "file": "wheel-truck.glb",
+      "name": "Wheel Truck",
+      "category": "wheel",
+      "tags": [
+        "wheel",
+        "truck",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    }
+  ]
+}

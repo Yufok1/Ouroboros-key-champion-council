@@ -1,0 +1,1333 @@
+{
+  "pack_id": "kenney-space-station-kit",
+  "name": "Kenney Space Station Kit",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "Kenney Space Station Kit free 3D models from Kenney.",
+  "base_url": "/static/assets/packs/kenney-space-station-kit/",
+  "assets": [
+    {
+      "id": "balcony-floor",
+      "file": "balcony-floor.glb",
+      "name": "Balcony Floor",
+      "category": "balcony",
+      "tags": [
+        "balcony",
+        "floor",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "balcony-floor-center",
+      "file": "balcony-floor-center.glb",
+      "name": "Balcony Floor Center",
+      "category": "balcony",
+      "tags": [
+        "balcony",
+        "floor",
+        "center",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "balcony-floor-corner",
+      "file": "balcony-floor-corner.glb",
+      "name": "Balcony Floor Corner",
+      "category": "balcony",
+      "tags": [
+        "balcony",
+        "floor",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "balcony-rail",
+      "file": "balcony-rail.glb",
+      "name": "Balcony Rail",
+      "category": "balcony",
+      "tags": [
+        "balcony",
+        "rail",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "balcony-rail-center",
+      "file": "balcony-rail-center.glb",
+      "name": "Balcony Rail Center",
+      "category": "balcony",
+      "tags": [
+        "balcony",
+        "rail",
+        "center",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "balcony-rail-corner",
+      "file": "balcony-rail-corner.glb",
+      "name": "Balcony Rail Corner",
+      "category": "balcony",
+      "tags": [
+        "balcony",
+        "rail",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bed-double",
+      "file": "bed-double.glb",
+      "name": "Bed Double",
+      "category": "bed",
+      "tags": [
+        "bed",
+        "double",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bed-double-cover",
+      "file": "bed-double-cover.glb",
+      "name": "Bed Double Cover",
+      "category": "bed",
+      "tags": [
+        "bed",
+        "double",
+        "cover",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bed-single",
+      "file": "bed-single.glb",
+      "name": "Bed Single",
+      "category": "bed",
+      "tags": [
+        "bed",
+        "single",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bed-single-cover",
+      "file": "bed-single-cover.glb",
+      "name": "Bed Single Cover",
+      "category": "bed",
+      "tags": [
+        "bed",
+        "single",
+        "cover",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "chair",
+      "file": "chair.glb",
+      "name": "Chair",
+      "category": "chair",
+      "tags": [
+        "chair",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "chair-armrest",
+      "file": "chair-armrest.glb",
+      "name": "Chair Armrest",
+      "category": "chair",
+      "tags": [
+        "chair",
+        "armrest",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "chair-armrest-headrest",
+      "file": "chair-armrest-headrest.glb",
+      "name": "Chair Armrest Headrest",
+      "category": "chair",
+      "tags": [
+        "chair",
+        "armrest",
+        "headrest",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "chair-cushion",
+      "file": "chair-cushion.glb",
+      "name": "Chair Cushion",
+      "category": "chair",
+      "tags": [
+        "chair",
+        "cushion",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "chair-cushion-headrest",
+      "file": "chair-cushion-headrest.glb",
+      "name": "Chair Cushion Headrest",
+      "category": "chair",
+      "tags": [
+        "chair",
+        "cushion",
+        "headrest",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "chair-headrest",
+      "file": "chair-headrest.glb",
+      "name": "Chair Headrest",
+      "category": "chair",
+      "tags": [
+        "chair",
+        "headrest",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "computer",
+      "file": "computer.glb",
+      "name": "Computer",
+      "category": "computer",
+      "tags": [
+        "computer",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "computer-screen",
+      "file": "computer-screen.glb",
+      "name": "Computer Screen",
+      "category": "computer",
+      "tags": [
+        "computer",
+        "screen",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "computer-system",
+      "file": "computer-system.glb",
+      "name": "Computer System",
+      "category": "computer",
+      "tags": [
+        "computer",
+        "system",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "computer-wide",
+      "file": "computer-wide.glb",
+      "name": "Computer Wide",
+      "category": "computer",
+      "tags": [
+        "computer",
+        "wide",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "container",
+      "file": "container.glb",
+      "name": "Container",
+      "category": "container",
+      "tags": [
+        "container",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "container-flat",
+      "file": "container-flat.glb",
+      "name": "Container Flat",
+      "category": "container",
+      "tags": [
+        "container",
+        "flat",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "container-flat-open",
+      "file": "container-flat-open.glb",
+      "name": "Container Flat Open",
+      "category": "container",
+      "tags": [
+        "container",
+        "flat",
+        "open",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "container-tall",
+      "file": "container-tall.glb",
+      "name": "Container Tall",
+      "category": "container",
+      "tags": [
+        "container",
+        "tall",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "container-wide",
+      "file": "container-wide.glb",
+      "name": "Container Wide",
+      "category": "container",
+      "tags": [
+        "container",
+        "wide",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "display-wall",
+      "file": "display-wall.glb",
+      "name": "Display Wall",
+      "category": "display",
+      "tags": [
+        "display",
+        "wall",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "display-wall-wide",
+      "file": "display-wall-wide.glb",
+      "name": "Display Wall Wide",
+      "category": "display",
+      "tags": [
+        "display",
+        "wall",
+        "wide",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "door-double",
+      "file": "door-double.glb",
+      "name": "Door Double",
+      "category": "door",
+      "tags": [
+        "door",
+        "double",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "door-double-closed",
+      "file": "door-double-closed.glb",
+      "name": "Door Double Closed",
+      "category": "door",
+      "tags": [
+        "door",
+        "double",
+        "closed",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "door-double-half",
+      "file": "door-double-half.glb",
+      "name": "Door Double Half",
+      "category": "door",
+      "tags": [
+        "door",
+        "double",
+        "half",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "door-single",
+      "file": "door-single.glb",
+      "name": "Door Single",
+      "category": "door",
+      "tags": [
+        "door",
+        "single",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "door-single-closed",
+      "file": "door-single-closed.glb",
+      "name": "Door Single Closed",
+      "category": "door",
+      "tags": [
+        "door",
+        "single",
+        "closed",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "door-single-half",
+      "file": "door-single-half.glb",
+      "name": "Door Single Half",
+      "category": "door",
+      "tags": [
+        "door",
+        "single",
+        "half",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "floor",
+      "file": "floor.glb",
+      "name": "Floor",
+      "category": "floor",
+      "tags": [
+        "floor",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "floor-corner",
+      "file": "floor-corner.glb",
+      "name": "Floor Corner",
+      "category": "floor",
+      "tags": [
+        "floor",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "floor-detail",
+      "file": "floor-detail.glb",
+      "name": "Floor Detail",
+      "category": "floor",
+      "tags": [
+        "floor",
+        "detail",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "floor-panel",
+      "file": "floor-panel.glb",
+      "name": "Floor Panel",
+      "category": "floor",
+      "tags": [
+        "floor",
+        "panel",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "floor-panel-corner",
+      "file": "floor-panel-corner.glb",
+      "name": "Floor Panel Corner",
+      "category": "floor",
+      "tags": [
+        "floor",
+        "panel",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "floor-panel-end",
+      "file": "floor-panel-end.glb",
+      "name": "Floor Panel End",
+      "category": "floor",
+      "tags": [
+        "floor",
+        "panel",
+        "end",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "floor-panel-straight",
+      "file": "floor-panel-straight.glb",
+      "name": "Floor Panel Straight",
+      "category": "floor",
+      "tags": [
+        "floor",
+        "panel",
+        "straight",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pipe",
+      "file": "pipe.glb",
+      "name": "Pipe",
+      "category": "pipe",
+      "tags": [
+        "pipe",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pipe-bend",
+      "file": "pipe-bend.glb",
+      "name": "Pipe Bend",
+      "category": "pipe",
+      "tags": [
+        "pipe",
+        "bend",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pipe-bend-diagonal",
+      "file": "pipe-bend-diagonal.glb",
+      "name": "Pipe Bend Diagonal",
+      "category": "pipe",
+      "tags": [
+        "pipe",
+        "bend",
+        "diagonal",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pipe-end",
+      "file": "pipe-end.glb",
+      "name": "Pipe End",
+      "category": "pipe",
+      "tags": [
+        "pipe",
+        "end",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pipe-end-colored",
+      "file": "pipe-end-colored.glb",
+      "name": "Pipe End Colored",
+      "category": "pipe",
+      "tags": [
+        "pipe",
+        "end",
+        "colored",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pipe-ring",
+      "file": "pipe-ring.glb",
+      "name": "Pipe Ring",
+      "category": "pipe",
+      "tags": [
+        "pipe",
+        "ring",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pipe-ring-colored",
+      "file": "pipe-ring-colored.glb",
+      "name": "Pipe Ring Colored",
+      "category": "pipe",
+      "tags": [
+        "pipe",
+        "ring",
+        "colored",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rail",
+      "file": "rail.glb",
+      "name": "Rail",
+      "category": "rail",
+      "tags": [
+        "rail",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rail-narrow",
+      "file": "rail-narrow.glb",
+      "name": "Rail Narrow",
+      "category": "rail",
+      "tags": [
+        "rail",
+        "narrow",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rocks",
+      "file": "rocks.glb",
+      "name": "Rocks",
+      "category": "terrain",
+      "tags": [
+        "rocks",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "skip",
+      "file": "skip.glb",
+      "name": "Skip",
+      "category": "skip",
+      "tags": [
+        "skip",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "skip-rocks",
+      "file": "skip-rocks.glb",
+      "name": "Skip Rocks",
+      "category": "skip",
+      "tags": [
+        "skip",
+        "rocks",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stairs",
+      "file": "stairs.glb",
+      "name": "Stairs",
+      "category": "stairs",
+      "tags": [
+        "stairs",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stairs-corner",
+      "file": "stairs-corner.glb",
+      "name": "Stairs Corner",
+      "category": "stairs",
+      "tags": [
+        "stairs",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stairs-corner-inner",
+      "file": "stairs-corner-inner.glb",
+      "name": "Stairs Corner Inner",
+      "category": "stairs",
+      "tags": [
+        "stairs",
+        "corner",
+        "inner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stairs-handrail",
+      "file": "stairs-handrail.glb",
+      "name": "Stairs Handrail",
+      "category": "stairs",
+      "tags": [
+        "stairs",
+        "handrail",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stairs-handrail-single",
+      "file": "stairs-handrail-single.glb",
+      "name": "Stairs Handrail Single",
+      "category": "stairs",
+      "tags": [
+        "stairs",
+        "handrail",
+        "single",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stairs-ramp",
+      "file": "stairs-ramp.glb",
+      "name": "Stairs Ramp",
+      "category": "stairs",
+      "tags": [
+        "stairs",
+        "ramp",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stairs-small-center",
+      "file": "stairs-small-center.glb",
+      "name": "Stairs Small Center",
+      "category": "stairs",
+      "tags": [
+        "stairs",
+        "small",
+        "center",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stairs-small-corner",
+      "file": "stairs-small-corner.glb",
+      "name": "Stairs Small Corner",
+      "category": "stairs",
+      "tags": [
+        "stairs",
+        "small",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stairs-small-corner-inner",
+      "file": "stairs-small-corner-inner.glb",
+      "name": "Stairs Small Corner Inner",
+      "category": "stairs",
+      "tags": [
+        "stairs",
+        "small",
+        "corner",
+        "inner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stairs-small-edge",
+      "file": "stairs-small-edge.glb",
+      "name": "Stairs Small Edge",
+      "category": "stairs",
+      "tags": [
+        "stairs",
+        "small",
+        "edge",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stairs-small-edge-handrail",
+      "file": "stairs-small-edge-handrail.glb",
+      "name": "Stairs Small Edge Handrail",
+      "category": "stairs",
+      "tags": [
+        "stairs",
+        "small",
+        "edge",
+        "handrail",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stairs-small-edges",
+      "file": "stairs-small-edges.glb",
+      "name": "Stairs Small Edges",
+      "category": "stairs",
+      "tags": [
+        "stairs",
+        "small",
+        "edges",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stairs-small-edges-handrail",
+      "file": "stairs-small-edges-handrail.glb",
+      "name": "Stairs Small Edges Handrail",
+      "category": "stairs",
+      "tags": [
+        "stairs",
+        "small",
+        "edges",
+        "handrail",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure",
+      "file": "structure.glb",
+      "name": "Structure",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure-barrier",
+      "file": "structure-barrier.glb",
+      "name": "Structure Barrier",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "barrier",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure-barrier-high",
+      "file": "structure-barrier-high.glb",
+      "name": "Structure Barrier High",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "barrier",
+        "high",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure-panel",
+      "file": "structure-panel.glb",
+      "name": "Structure Panel",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "panel",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "table",
+      "file": "table.glb",
+      "name": "Table",
+      "category": "table",
+      "tags": [
+        "table",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "table-display",
+      "file": "table-display.glb",
+      "name": "Table Display",
+      "category": "table",
+      "tags": [
+        "table",
+        "display",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "table-display-planet",
+      "file": "table-display-planet.glb",
+      "name": "Table Display Planet",
+      "category": "table",
+      "tags": [
+        "table",
+        "display",
+        "planet",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "table-display-small",
+      "file": "table-display-small.glb",
+      "name": "Table Display Small",
+      "category": "table",
+      "tags": [
+        "table",
+        "display",
+        "small",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "table-inset",
+      "file": "table-inset.glb",
+      "name": "Table Inset",
+      "category": "table",
+      "tags": [
+        "table",
+        "inset",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "table-inset-small",
+      "file": "table-inset-small.glb",
+      "name": "Table Inset Small",
+      "category": "table",
+      "tags": [
+        "table",
+        "inset",
+        "small",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "table-large",
+      "file": "table-large.glb",
+      "name": "Table Large",
+      "category": "table",
+      "tags": [
+        "table",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall",
+      "file": "wall.glb",
+      "name": "Wall",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-banner",
+      "file": "wall-banner.glb",
+      "name": "Wall Banner",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "banner",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-corner",
+      "file": "wall-corner.glb",
+      "name": "Wall Corner",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "corner",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-corner-banner",
+      "file": "wall-corner-banner.glb",
+      "name": "Wall Corner Banner",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "corner",
+        "banner",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-corner-round",
+      "file": "wall-corner-round.glb",
+      "name": "Wall Corner Round",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "corner",
+        "round",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-corner-round-banner",
+      "file": "wall-corner-round-banner.glb",
+      "name": "Wall Corner Round Banner",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "corner",
+        "round",
+        "banner",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-detail",
+      "file": "wall-detail.glb",
+      "name": "Wall Detail",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "detail",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-door",
+      "file": "wall-door.glb",
+      "name": "Wall Door",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "door",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-door-banner",
+      "file": "wall-door-banner.glb",
+      "name": "Wall Door Banner",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "door",
+        "banner",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-door-center",
+      "file": "wall-door-center.glb",
+      "name": "Wall Door Center",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "door",
+        "center",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-door-edge",
+      "file": "wall-door-edge.glb",
+      "name": "Wall Door Edge",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "door",
+        "edge",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-door-edge-banner",
+      "file": "wall-door-edge-banner.glb",
+      "name": "Wall Door Edge Banner",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "door",
+        "edge",
+        "banner",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-door-wide",
+      "file": "wall-door-wide.glb",
+      "name": "Wall Door Wide",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "door",
+        "wide",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-door-wide-banner",
+      "file": "wall-door-wide-banner.glb",
+      "name": "Wall Door Wide Banner",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "door",
+        "wide",
+        "banner",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-pillar",
+      "file": "wall-pillar.glb",
+      "name": "Wall Pillar",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "pillar",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-pillar-banner",
+      "file": "wall-pillar-banner.glb",
+      "name": "Wall Pillar Banner",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "pillar",
+        "banner",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-switch",
+      "file": "wall-switch.glb",
+      "name": "Wall Switch",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "switch",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-window",
+      "file": "wall-window.glb",
+      "name": "Wall Window",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "window",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-window-banner",
+      "file": "wall-window-banner.glb",
+      "name": "Wall Window Banner",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "window",
+        "banner",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-window-frame",
+      "file": "wall-window-frame.glb",
+      "name": "Wall Window Frame",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "window",
+        "frame",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-window-shutters",
+      "file": "wall-window-shutters.glb",
+      "name": "Wall Window Shutters",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "window",
+        "shutters",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    }
+  ]
+}

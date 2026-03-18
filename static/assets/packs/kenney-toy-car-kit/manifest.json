@@ -1,0 +1,2471 @@
+{
+  "pack_id": "kenney-toy-car-kit",
+  "name": "Kenney Toy Car Kit",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "Kenney Toy Car Kit free 3D models from Kenney.",
+  "base_url": "/static/assets/packs/kenney-toy-car-kit/",
+  "assets": [
+    {
+      "id": "gate",
+      "file": "gate.glb",
+      "name": "Gate",
+      "category": "gate",
+      "tags": [
+        "gate",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "gate-finish",
+      "file": "gate-finish.glb",
+      "name": "Gate Finish",
+      "category": "gate",
+      "tags": [
+        "gate",
+        "finish",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "item-banana",
+      "file": "item-banana.glb",
+      "name": "Item Banana",
+      "category": "item",
+      "tags": [
+        "item",
+        "banana",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "item-box",
+      "file": "item-box.glb",
+      "name": "Item Box",
+      "category": "item",
+      "tags": [
+        "item",
+        "box",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "item-coin-bronze",
+      "file": "item-coin-bronze.glb",
+      "name": "Item Coin Bronze",
+      "category": "item",
+      "tags": [
+        "item",
+        "coin",
+        "bronze",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "item-coin-gold",
+      "file": "item-coin-gold.glb",
+      "name": "Item Coin Gold",
+      "category": "item",
+      "tags": [
+        "item",
+        "coin",
+        "gold",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "item-coin-silver",
+      "file": "item-coin-silver.glb",
+      "name": "Item Coin Silver",
+      "category": "item",
+      "tags": [
+        "item",
+        "coin",
+        "silver",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "item-cone",
+      "file": "item-cone.glb",
+      "name": "Item Cone",
+      "category": "item",
+      "tags": [
+        "item",
+        "cone",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "smoke",
+      "file": "smoke.glb",
+      "name": "Smoke",
+      "category": "smoke",
+      "tags": [
+        "smoke",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "supports",
+      "file": "supports.glb",
+      "name": "Supports",
+      "category": "supports",
+      "tags": [
+        "supports",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "supports-clamp",
+      "file": "supports-clamp.glb",
+      "name": "Supports Clamp",
+      "category": "supports",
+      "tags": [
+        "supports",
+        "clamp",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "supports-diagonal",
+      "file": "supports-diagonal.glb",
+      "name": "Supports Diagonal",
+      "category": "supports",
+      "tags": [
+        "supports",
+        "diagonal",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "supports-wide",
+      "file": "supports-wide.glb",
+      "name": "Supports Wide",
+      "category": "supports",
+      "tags": [
+        "supports",
+        "wide",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "supports-wide-clamp",
+      "file": "supports-wide-clamp.glb",
+      "name": "Supports Wide Clamp",
+      "category": "supports",
+      "tags": [
+        "supports",
+        "wide",
+        "clamp",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "supports-wide-diagonal",
+      "file": "supports-wide-diagonal.glb",
+      "name": "Supports Wide Diagonal",
+      "category": "supports",
+      "tags": [
+        "supports",
+        "wide",
+        "diagonal",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-narrow",
+      "file": "track-narrow.glb",
+      "name": "Track Narrow",
+      "category": "track",
+      "tags": [
+        "track",
+        "narrow",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-narrow-cap-back",
+      "file": "track-narrow-cap-back.glb",
+      "name": "Track Narrow Cap Back",
+      "category": "track",
+      "tags": [
+        "track",
+        "narrow",
+        "cap",
+        "back",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-narrow-cap-front",
+      "file": "track-narrow-cap-front.glb",
+      "name": "Track Narrow Cap Front",
+      "category": "track",
+      "tags": [
+        "track",
+        "narrow",
+        "cap",
+        "front",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-narrow-corner-large",
+      "file": "track-narrow-corner-large.glb",
+      "name": "Track Narrow Corner Large",
+      "category": "track",
+      "tags": [
+        "track",
+        "narrow",
+        "corner",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-narrow-corner-large-ramp",
+      "file": "track-narrow-corner-large-ramp.glb",
+      "name": "Track Narrow Corner Large Ramp",
+      "category": "track",
+      "tags": [
+        "track",
+        "narrow",
+        "corner",
+        "large",
+        "ramp",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-narrow-corner-small",
+      "file": "track-narrow-corner-small.glb",
+      "name": "Track Narrow Corner Small",
+      "category": "track",
+      "tags": [
+        "track",
+        "narrow",
+        "corner",
+        "small",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-narrow-corner-small-ramp",
+      "file": "track-narrow-corner-small-ramp.glb",
+      "name": "Track Narrow Corner Small Ramp",
+      "category": "track",
+      "tags": [
+        "track",
+        "narrow",
+        "corner",
+        "small",
+        "ramp",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-narrow-curve",
+      "file": "track-narrow-curve.glb",
+      "name": "Track Narrow Curve",
+      "category": "track",
+      "tags": [
+        "track",
+        "narrow",
+        "curve",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-narrow-looping",
+      "file": "track-narrow-looping.glb",
+      "name": "Track Narrow Looping",
+      "category": "track",
+      "tags": [
+        "track",
+        "narrow",
+        "looping",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-narrow-straight",
+      "file": "track-narrow-straight.glb",
+      "name": "Track Narrow Straight",
+      "category": "track",
+      "tags": [
+        "track",
+        "narrow",
+        "straight",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-narrow-straight-bend",
+      "file": "track-narrow-straight-bend.glb",
+      "name": "Track Narrow Straight Bend",
+      "category": "track",
+      "tags": [
+        "track",
+        "narrow",
+        "straight",
+        "bend",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-narrow-straight-bend-large",
+      "file": "track-narrow-straight-bend-large.glb",
+      "name": "Track Narrow Straight Bend Large",
+      "category": "track",
+      "tags": [
+        "track",
+        "narrow",
+        "straight",
+        "bend",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-narrow-straight-bump-down",
+      "file": "track-narrow-straight-bump-down.glb",
+      "name": "Track Narrow Straight Bump Down",
+      "category": "track",
+      "tags": [
+        "track",
+        "narrow",
+        "straight",
+        "bump",
+        "down",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-narrow-straight-bump-up",
+      "file": "track-narrow-straight-bump-up.glb",
+      "name": "Track Narrow Straight Bump Up",
+      "category": "track",
+      "tags": [
+        "track",
+        "narrow",
+        "straight",
+        "bump",
+        "up",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-narrow-straight-hill-beginning",
+      "file": "track-narrow-straight-hill-beginning.glb",
+      "name": "Track Narrow Straight Hill Beginning",
+      "category": "track",
+      "tags": [
+        "track",
+        "narrow",
+        "straight",
+        "hill",
+        "beginning",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-narrow-straight-hill-complete",
+      "file": "track-narrow-straight-hill-complete.glb",
+      "name": "Track Narrow Straight Hill Complete",
+      "category": "track",
+      "tags": [
+        "track",
+        "narrow",
+        "straight",
+        "hill",
+        "complete",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-narrow-straight-hill-complete-half",
+      "file": "track-narrow-straight-hill-complete-half.glb",
+      "name": "Track Narrow Straight Hill Complete Half",
+      "category": "track",
+      "tags": [
+        "track",
+        "narrow",
+        "straight",
+        "hill",
+        "complete",
+        "half",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-narrow-straight-hill-end",
+      "file": "track-narrow-straight-hill-end.glb",
+      "name": "Track Narrow Straight Hill End",
+      "category": "track",
+      "tags": [
+        "track",
+        "narrow",
+        "straight",
+        "hill",
+        "end",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-narrow-straight-skew-left",
+      "file": "track-narrow-straight-skew-left.glb",
+      "name": "Track Narrow Straight Skew Left",
+      "category": "track",
+      "tags": [
+        "track",
+        "narrow",
+        "straight",
+        "skew",
+        "left",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-narrow-straight-skew-left-side",
+      "file": "track-narrow-straight-skew-left-side.glb",
+      "name": "Track Narrow Straight Skew Left Side",
+      "category": "track",
+      "tags": [
+        "track",
+        "narrow",
+        "straight",
+        "skew",
+        "left",
+        "side",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-narrow-straight-skew-right",
+      "file": "track-narrow-straight-skew-right.glb",
+      "name": "Track Narrow Straight Skew Right",
+      "category": "track",
+      "tags": [
+        "track",
+        "narrow",
+        "straight",
+        "skew",
+        "right",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-narrow-straight-skew-right-side",
+      "file": "track-narrow-straight-skew-right-side.glb",
+      "name": "Track Narrow Straight Skew Right Side",
+      "category": "track",
+      "tags": [
+        "track",
+        "narrow",
+        "straight",
+        "skew",
+        "right",
+        "side",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-road-narrow",
+      "file": "track-road-narrow.glb",
+      "name": "Track Road Narrow",
+      "category": "track",
+      "tags": [
+        "track",
+        "road",
+        "narrow",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-road-narrow-cap-back",
+      "file": "track-road-narrow-cap-back.glb",
+      "name": "Track Road Narrow Cap Back",
+      "category": "track",
+      "tags": [
+        "track",
+        "road",
+        "narrow",
+        "cap",
+        "back",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-road-narrow-cap-front",
+      "file": "track-road-narrow-cap-front.glb",
+      "name": "Track Road Narrow Cap Front",
+      "category": "track",
+      "tags": [
+        "track",
+        "road",
+        "narrow",
+        "cap",
+        "front",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-road-narrow-corner-large",
+      "file": "track-road-narrow-corner-large.glb",
+      "name": "Track Road Narrow Corner Large",
+      "category": "track",
+      "tags": [
+        "track",
+        "road",
+        "narrow",
+        "corner",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-road-narrow-corner-large-ramp",
+      "file": "track-road-narrow-corner-large-ramp.glb",
+      "name": "Track Road Narrow Corner Large Ramp",
+      "category": "track",
+      "tags": [
+        "track",
+        "road",
+        "narrow",
+        "corner",
+        "large",
+        "ramp",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-road-narrow-corner-small",
+      "file": "track-road-narrow-corner-small.glb",
+      "name": "Track Road Narrow Corner Small",
+      "category": "track",
+      "tags": [
+        "track",
+        "road",
+        "narrow",
+        "corner",
+        "small",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-road-narrow-corner-small-ramp",
+      "file": "track-road-narrow-corner-small-ramp.glb",
+      "name": "Track Road Narrow Corner Small Ramp",
+      "category": "track",
+      "tags": [
+        "track",
+        "road",
+        "narrow",
+        "corner",
+        "small",
+        "ramp",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-road-narrow-curve",
+      "file": "track-road-narrow-curve.glb",
+      "name": "Track Road Narrow Curve",
+      "category": "track",
+      "tags": [
+        "track",
+        "road",
+        "narrow",
+        "curve",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-road-narrow-looping",
+      "file": "track-road-narrow-looping.glb",
+      "name": "Track Road Narrow Looping",
+      "category": "track",
+      "tags": [
+        "track",
+        "road",
+        "narrow",
+        "looping",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-road-narrow-straight",
+      "file": "track-road-narrow-straight.glb",
+      "name": "Track Road Narrow Straight",
+      "category": "track",
+      "tags": [
+        "track",
+        "road",
+        "narrow",
+        "straight",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-road-narrow-straight-bend",
+      "file": "track-road-narrow-straight-bend.glb",
+      "name": "Track Road Narrow Straight Bend",
+      "category": "track",
+      "tags": [
+        "track",
+        "road",
+        "narrow",
+        "straight",
+        "bend",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-road-narrow-straight-bend-large",
+      "file": "track-road-narrow-straight-bend-large.glb",
+      "name": "Track Road Narrow Straight Bend Large",
+      "category": "track",
+      "tags": [
+        "track",
+        "road",
+        "narrow",
+        "straight",
+        "bend",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-road-narrow-straight-bump-down",
+      "file": "track-road-narrow-straight-bump-down.glb",
+      "name": "Track Road Narrow Straight Bump Down",
+      "category": "track",
+      "tags": [
+        "track",
+        "road",
+        "narrow",
+        "straight",
+        "bump",
+        "down",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-road-narrow-straight-bump-up",
+      "file": "track-road-narrow-straight-bump-up.glb",
+      "name": "Track Road Narrow Straight Bump Up",
+      "category": "track",
+      "tags": [
+        "track",
+        "road",
+        "narrow",
+        "straight",
+        "bump",
+        "up",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-road-narrow-straight-hill-beginning",
+      "file": "track-road-narrow-straight-hill-beginning.glb",
+      "name": "Track Road Narrow Straight Hill Beginning",
+      "category": "track",
+      "tags": [
+        "track",
+        "road",
+        "narrow",
+        "straight",
+        "hill",
+        "beginning",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-road-narrow-straight-hill-complete",
+      "file": "track-road-narrow-straight-hill-complete.glb",
+      "name": "Track Road Narrow Straight Hill Complete",
+      "category": "track",
+      "tags": [
+        "track",
+        "road",
+        "narrow",
+        "straight",
+        "hill",
+        "complete",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-road-narrow-straight-hill-complete-half",
+      "file": "track-road-narrow-straight-hill-complete-half.glb",
+      "name": "Track Road Narrow Straight Hill Complete Half",
+      "category": "track",
+      "tags": [
+        "track",
+        "road",
+        "narrow",
+        "straight",
+        "hill",
+        "complete",
+        "half",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-road-narrow-straight-hill-end",
+      "file": "track-road-narrow-straight-hill-end.glb",
+      "name": "Track Road Narrow Straight Hill End",
+      "category": "track",
+      "tags": [
+        "track",
+        "road",
+        "narrow",
+        "straight",
+        "hill",
+        "end",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-road-narrow-straight-skew-left",
+      "file": "track-road-narrow-straight-skew-left.glb",
+      "name": "Track Road Narrow Straight Skew Left",
+      "category": "track",
+      "tags": [
+        "track",
+        "road",
+        "narrow",
+        "straight",
+        "skew",
+        "left",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-road-narrow-straight-skew-left-side",
+      "file": "track-road-narrow-straight-skew-left-side.glb",
+      "name": "Track Road Narrow Straight Skew Left Side",
+      "category": "track",
+      "tags": [
+        "track",
+        "road",
+        "narrow",
+        "straight",
+        "skew",
+        "left",
+        "side",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-road-narrow-straight-skew-right",
+      "file": "track-road-narrow-straight-skew-right.glb",
+      "name": "Track Road Narrow Straight Skew Right",
+      "category": "track",
+      "tags": [
+        "track",
+        "road",
+        "narrow",
+        "straight",
+        "skew",
+        "right",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-road-narrow-straight-skew-right-side",
+      "file": "track-road-narrow-straight-skew-right-side.glb",
+      "name": "Track Road Narrow Straight Skew Right Side",
+      "category": "track",
+      "tags": [
+        "track",
+        "road",
+        "narrow",
+        "straight",
+        "skew",
+        "right",
+        "side",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-road-wide",
+      "file": "track-road-wide.glb",
+      "name": "Track Road Wide",
+      "category": "track",
+      "tags": [
+        "track",
+        "road",
+        "wide",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-road-wide-cap-back",
+      "file": "track-road-wide-cap-back.glb",
+      "name": "Track Road Wide Cap Back",
+      "category": "track",
+      "tags": [
+        "track",
+        "road",
+        "wide",
+        "cap",
+        "back",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-road-wide-cap-front",
+      "file": "track-road-wide-cap-front.glb",
+      "name": "Track Road Wide Cap Front",
+      "category": "track",
+      "tags": [
+        "track",
+        "road",
+        "wide",
+        "cap",
+        "front",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-road-wide-corner-large",
+      "file": "track-road-wide-corner-large.glb",
+      "name": "Track Road Wide Corner Large",
+      "category": "track",
+      "tags": [
+        "track",
+        "road",
+        "wide",
+        "corner",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-road-wide-corner-large-ramp",
+      "file": "track-road-wide-corner-large-ramp.glb",
+      "name": "Track Road Wide Corner Large Ramp",
+      "category": "track",
+      "tags": [
+        "track",
+        "road",
+        "wide",
+        "corner",
+        "large",
+        "ramp",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-road-wide-corner-small",
+      "file": "track-road-wide-corner-small.glb",
+      "name": "Track Road Wide Corner Small",
+      "category": "track",
+      "tags": [
+        "track",
+        "road",
+        "wide",
+        "corner",
+        "small",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-road-wide-corner-small-ramp",
+      "file": "track-road-wide-corner-small-ramp.glb",
+      "name": "Track Road Wide Corner Small Ramp",
+      "category": "track",
+      "tags": [
+        "track",
+        "road",
+        "wide",
+        "corner",
+        "small",
+        "ramp",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-road-wide-curve",
+      "file": "track-road-wide-curve.glb",
+      "name": "Track Road Wide Curve",
+      "category": "track",
+      "tags": [
+        "track",
+        "road",
+        "wide",
+        "curve",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-road-wide-straight",
+      "file": "track-road-wide-straight.glb",
+      "name": "Track Road Wide Straight",
+      "category": "track",
+      "tags": [
+        "track",
+        "road",
+        "wide",
+        "straight",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-road-wide-straight-bend",
+      "file": "track-road-wide-straight-bend.glb",
+      "name": "Track Road Wide Straight Bend",
+      "category": "track",
+      "tags": [
+        "track",
+        "road",
+        "wide",
+        "straight",
+        "bend",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-road-wide-straight-bend-large",
+      "file": "track-road-wide-straight-bend-large.glb",
+      "name": "Track Road Wide Straight Bend Large",
+      "category": "track",
+      "tags": [
+        "track",
+        "road",
+        "wide",
+        "straight",
+        "bend",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-road-wide-straight-bump-down",
+      "file": "track-road-wide-straight-bump-down.glb",
+      "name": "Track Road Wide Straight Bump Down",
+      "category": "track",
+      "tags": [
+        "track",
+        "road",
+        "wide",
+        "straight",
+        "bump",
+        "down",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-road-wide-straight-bump-up",
+      "file": "track-road-wide-straight-bump-up.glb",
+      "name": "Track Road Wide Straight Bump Up",
+      "category": "track",
+      "tags": [
+        "track",
+        "road",
+        "wide",
+        "straight",
+        "bump",
+        "up",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-road-wide-straight-hill-beginning",
+      "file": "track-road-wide-straight-hill-beginning.glb",
+      "name": "Track Road Wide Straight Hill Beginning",
+      "category": "track",
+      "tags": [
+        "track",
+        "road",
+        "wide",
+        "straight",
+        "hill",
+        "beginning",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-road-wide-straight-hill-complete",
+      "file": "track-road-wide-straight-hill-complete.glb",
+      "name": "Track Road Wide Straight Hill Complete",
+      "category": "track",
+      "tags": [
+        "track",
+        "road",
+        "wide",
+        "straight",
+        "hill",
+        "complete",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-road-wide-straight-hill-complete-half",
+      "file": "track-road-wide-straight-hill-complete-half.glb",
+      "name": "Track Road Wide Straight Hill Complete Half",
+      "category": "track",
+      "tags": [
+        "track",
+        "road",
+        "wide",
+        "straight",
+        "hill",
+        "complete",
+        "half",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-road-wide-straight-hill-end",
+      "file": "track-road-wide-straight-hill-end.glb",
+      "name": "Track Road Wide Straight Hill End",
+      "category": "track",
+      "tags": [
+        "track",
+        "road",
+        "wide",
+        "straight",
+        "hill",
+        "end",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-road-wide-straight-skew-left",
+      "file": "track-road-wide-straight-skew-left.glb",
+      "name": "Track Road Wide Straight Skew Left",
+      "category": "track",
+      "tags": [
+        "track",
+        "road",
+        "wide",
+        "straight",
+        "skew",
+        "left",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-road-wide-straight-skew-left-side",
+      "file": "track-road-wide-straight-skew-left-side.glb",
+      "name": "Track Road Wide Straight Skew Left Side",
+      "category": "track",
+      "tags": [
+        "track",
+        "road",
+        "wide",
+        "straight",
+        "skew",
+        "left",
+        "side",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-road-wide-straight-skew-right",
+      "file": "track-road-wide-straight-skew-right.glb",
+      "name": "Track Road Wide Straight Skew Right",
+      "category": "track",
+      "tags": [
+        "track",
+        "road",
+        "wide",
+        "straight",
+        "skew",
+        "right",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-road-wide-straight-skew-right-side",
+      "file": "track-road-wide-straight-skew-right-side.glb",
+      "name": "Track Road Wide Straight Skew Right Side",
+      "category": "track",
+      "tags": [
+        "track",
+        "road",
+        "wide",
+        "straight",
+        "skew",
+        "right",
+        "side",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-striped-narrow",
+      "file": "track-striped-narrow.glb",
+      "name": "Track Striped Narrow",
+      "category": "track",
+      "tags": [
+        "track",
+        "striped",
+        "narrow",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-striped-narrow-cap-back",
+      "file": "track-striped-narrow-cap-back.glb",
+      "name": "Track Striped Narrow Cap Back",
+      "category": "track",
+      "tags": [
+        "track",
+        "striped",
+        "narrow",
+        "cap",
+        "back",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-striped-narrow-cap-front",
+      "file": "track-striped-narrow-cap-front.glb",
+      "name": "Track Striped Narrow Cap Front",
+      "category": "track",
+      "tags": [
+        "track",
+        "striped",
+        "narrow",
+        "cap",
+        "front",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-striped-narrow-corner-large",
+      "file": "track-striped-narrow-corner-large.glb",
+      "name": "Track Striped Narrow Corner Large",
+      "category": "track",
+      "tags": [
+        "track",
+        "striped",
+        "narrow",
+        "corner",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-striped-narrow-corner-large-ramp",
+      "file": "track-striped-narrow-corner-large-ramp.glb",
+      "name": "Track Striped Narrow Corner Large Ramp",
+      "category": "track",
+      "tags": [
+        "track",
+        "striped",
+        "narrow",
+        "corner",
+        "large",
+        "ramp",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-striped-narrow-corner-small",
+      "file": "track-striped-narrow-corner-small.glb",
+      "name": "Track Striped Narrow Corner Small",
+      "category": "track",
+      "tags": [
+        "track",
+        "striped",
+        "narrow",
+        "corner",
+        "small",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-striped-narrow-corner-small-ramp",
+      "file": "track-striped-narrow-corner-small-ramp.glb",
+      "name": "Track Striped Narrow Corner Small Ramp",
+      "category": "track",
+      "tags": [
+        "track",
+        "striped",
+        "narrow",
+        "corner",
+        "small",
+        "ramp",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-striped-narrow-curve",
+      "file": "track-striped-narrow-curve.glb",
+      "name": "Track Striped Narrow Curve",
+      "category": "track",
+      "tags": [
+        "track",
+        "striped",
+        "narrow",
+        "curve",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-striped-narrow-looping",
+      "file": "track-striped-narrow-looping.glb",
+      "name": "Track Striped Narrow Looping",
+      "category": "track",
+      "tags": [
+        "track",
+        "striped",
+        "narrow",
+        "looping",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-striped-narrow-straight",
+      "file": "track-striped-narrow-straight.glb",
+      "name": "Track Striped Narrow Straight",
+      "category": "track",
+      "tags": [
+        "track",
+        "striped",
+        "narrow",
+        "straight",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-striped-narrow-straight-bend",
+      "file": "track-striped-narrow-straight-bend.glb",
+      "name": "Track Striped Narrow Straight Bend",
+      "category": "track",
+      "tags": [
+        "track",
+        "striped",
+        "narrow",
+        "straight",
+        "bend",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-striped-narrow-straight-bend-large",
+      "file": "track-striped-narrow-straight-bend-large.glb",
+      "name": "Track Striped Narrow Straight Bend Large",
+      "category": "track",
+      "tags": [
+        "track",
+        "striped",
+        "narrow",
+        "straight",
+        "bend",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-striped-narrow-straight-bump-down",
+      "file": "track-striped-narrow-straight-bump-down.glb",
+      "name": "Track Striped Narrow Straight Bump Down",
+      "category": "track",
+      "tags": [
+        "track",
+        "striped",
+        "narrow",
+        "straight",
+        "bump",
+        "down",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-striped-narrow-straight-bump-up",
+      "file": "track-striped-narrow-straight-bump-up.glb",
+      "name": "Track Striped Narrow Straight Bump Up",
+      "category": "track",
+      "tags": [
+        "track",
+        "striped",
+        "narrow",
+        "straight",
+        "bump",
+        "up",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-striped-narrow-straight-hill-beginning",
+      "file": "track-striped-narrow-straight-hill-beginning.glb",
+      "name": "Track Striped Narrow Straight Hill Beginning",
+      "category": "track",
+      "tags": [
+        "track",
+        "striped",
+        "narrow",
+        "straight",
+        "hill",
+        "beginning",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-striped-narrow-straight-hill-complete",
+      "file": "track-striped-narrow-straight-hill-complete.glb",
+      "name": "Track Striped Narrow Straight Hill Complete",
+      "category": "track",
+      "tags": [
+        "track",
+        "striped",
+        "narrow",
+        "straight",
+        "hill",
+        "complete",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-striped-narrow-straight-hill-complete-half",
+      "file": "track-striped-narrow-straight-hill-complete-half.glb",
+      "name": "Track Striped Narrow Straight Hill Complete Half",
+      "category": "track",
+      "tags": [
+        "track",
+        "striped",
+        "narrow",
+        "straight",
+        "hill",
+        "complete",
+        "half",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-striped-narrow-straight-hill-end",
+      "file": "track-striped-narrow-straight-hill-end.glb",
+      "name": "Track Striped Narrow Straight Hill End",
+      "category": "track",
+      "tags": [
+        "track",
+        "striped",
+        "narrow",
+        "straight",
+        "hill",
+        "end",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-striped-narrow-straight-skew-left",
+      "file": "track-striped-narrow-straight-skew-left.glb",
+      "name": "Track Striped Narrow Straight Skew Left",
+      "category": "track",
+      "tags": [
+        "track",
+        "striped",
+        "narrow",
+        "straight",
+        "skew",
+        "left",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-striped-narrow-straight-skew-left-side",
+      "file": "track-striped-narrow-straight-skew-left-side.glb",
+      "name": "Track Striped Narrow Straight Skew Left Side",
+      "category": "track",
+      "tags": [
+        "track",
+        "striped",
+        "narrow",
+        "straight",
+        "skew",
+        "left",
+        "side",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-striped-narrow-straight-skew-right",
+      "file": "track-striped-narrow-straight-skew-right.glb",
+      "name": "Track Striped Narrow Straight Skew Right",
+      "category": "track",
+      "tags": [
+        "track",
+        "striped",
+        "narrow",
+        "straight",
+        "skew",
+        "right",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-striped-narrow-straight-skew-right-side",
+      "file": "track-striped-narrow-straight-skew-right-side.glb",
+      "name": "Track Striped Narrow Straight Skew Right Side",
+      "category": "track",
+      "tags": [
+        "track",
+        "striped",
+        "narrow",
+        "straight",
+        "skew",
+        "right",
+        "side",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-striped-wide",
+      "file": "track-striped-wide.glb",
+      "name": "Track Striped Wide",
+      "category": "track",
+      "tags": [
+        "track",
+        "striped",
+        "wide",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-striped-wide-cap-back",
+      "file": "track-striped-wide-cap-back.glb",
+      "name": "Track Striped Wide Cap Back",
+      "category": "track",
+      "tags": [
+        "track",
+        "striped",
+        "wide",
+        "cap",
+        "back",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-striped-wide-cap-front",
+      "file": "track-striped-wide-cap-front.glb",
+      "name": "Track Striped Wide Cap Front",
+      "category": "track",
+      "tags": [
+        "track",
+        "striped",
+        "wide",
+        "cap",
+        "front",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-striped-wide-corner-large",
+      "file": "track-striped-wide-corner-large.glb",
+      "name": "Track Striped Wide Corner Large",
+      "category": "track",
+      "tags": [
+        "track",
+        "striped",
+        "wide",
+        "corner",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-striped-wide-corner-large-ramp",
+      "file": "track-striped-wide-corner-large-ramp.glb",
+      "name": "Track Striped Wide Corner Large Ramp",
+      "category": "track",
+      "tags": [
+        "track",
+        "striped",
+        "wide",
+        "corner",
+        "large",
+        "ramp",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-striped-wide-corner-small",
+      "file": "track-striped-wide-corner-small.glb",
+      "name": "Track Striped Wide Corner Small",
+      "category": "track",
+      "tags": [
+        "track",
+        "striped",
+        "wide",
+        "corner",
+        "small",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-striped-wide-corner-small-ramp",
+      "file": "track-striped-wide-corner-small-ramp.glb",
+      "name": "Track Striped Wide Corner Small Ramp",
+      "category": "track",
+      "tags": [
+        "track",
+        "striped",
+        "wide",
+        "corner",
+        "small",
+        "ramp",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-striped-wide-curve",
+      "file": "track-striped-wide-curve.glb",
+      "name": "Track Striped Wide Curve",
+      "category": "track",
+      "tags": [
+        "track",
+        "striped",
+        "wide",
+        "curve",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-striped-wide-straight",
+      "file": "track-striped-wide-straight.glb",
+      "name": "Track Striped Wide Straight",
+      "category": "track",
+      "tags": [
+        "track",
+        "striped",
+        "wide",
+        "straight",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-striped-wide-straight-bend",
+      "file": "track-striped-wide-straight-bend.glb",
+      "name": "Track Striped Wide Straight Bend",
+      "category": "track",
+      "tags": [
+        "track",
+        "striped",
+        "wide",
+        "straight",
+        "bend",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-striped-wide-straight-bend-large",
+      "file": "track-striped-wide-straight-bend-large.glb",
+      "name": "Track Striped Wide Straight Bend Large",
+      "category": "track",
+      "tags": [
+        "track",
+        "striped",
+        "wide",
+        "straight",
+        "bend",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-striped-wide-straight-bump-down",
+      "file": "track-striped-wide-straight-bump-down.glb",
+      "name": "Track Striped Wide Straight Bump Down",
+      "category": "track",
+      "tags": [
+        "track",
+        "striped",
+        "wide",
+        "straight",
+        "bump",
+        "down",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-striped-wide-straight-bump-up",
+      "file": "track-striped-wide-straight-bump-up.glb",
+      "name": "Track Striped Wide Straight Bump Up",
+      "category": "track",
+      "tags": [
+        "track",
+        "striped",
+        "wide",
+        "straight",
+        "bump",
+        "up",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-striped-wide-straight-hill-beginning",
+      "file": "track-striped-wide-straight-hill-beginning.glb",
+      "name": "Track Striped Wide Straight Hill Beginning",
+      "category": "track",
+      "tags": [
+        "track",
+        "striped",
+        "wide",
+        "straight",
+        "hill",
+        "beginning",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-striped-wide-straight-hill-complete",
+      "file": "track-striped-wide-straight-hill-complete.glb",
+      "name": "Track Striped Wide Straight Hill Complete",
+      "category": "track",
+      "tags": [
+        "track",
+        "striped",
+        "wide",
+        "straight",
+        "hill",
+        "complete",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-striped-wide-straight-hill-complete-half",
+      "file": "track-striped-wide-straight-hill-complete-half.glb",
+      "name": "Track Striped Wide Straight Hill Complete Half",
+      "category": "track",
+      "tags": [
+        "track",
+        "striped",
+        "wide",
+        "straight",
+        "hill",
+        "complete",
+        "half",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-striped-wide-straight-hill-end",
+      "file": "track-striped-wide-straight-hill-end.glb",
+      "name": "Track Striped Wide Straight Hill End",
+      "category": "track",
+      "tags": [
+        "track",
+        "striped",
+        "wide",
+        "straight",
+        "hill",
+        "end",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-striped-wide-straight-skew-left",
+      "file": "track-striped-wide-straight-skew-left.glb",
+      "name": "Track Striped Wide Straight Skew Left",
+      "category": "track",
+      "tags": [
+        "track",
+        "striped",
+        "wide",
+        "straight",
+        "skew",
+        "left",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-striped-wide-straight-skew-left-side",
+      "file": "track-striped-wide-straight-skew-left-side.glb",
+      "name": "Track Striped Wide Straight Skew Left Side",
+      "category": "track",
+      "tags": [
+        "track",
+        "striped",
+        "wide",
+        "straight",
+        "skew",
+        "left",
+        "side",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-striped-wide-straight-skew-right",
+      "file": "track-striped-wide-straight-skew-right.glb",
+      "name": "Track Striped Wide Straight Skew Right",
+      "category": "track",
+      "tags": [
+        "track",
+        "striped",
+        "wide",
+        "straight",
+        "skew",
+        "right",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-striped-wide-straight-skew-right-side",
+      "file": "track-striped-wide-straight-skew-right-side.glb",
+      "name": "Track Striped Wide Straight Skew Right Side",
+      "category": "track",
+      "tags": [
+        "track",
+        "striped",
+        "wide",
+        "straight",
+        "skew",
+        "right",
+        "side",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-wide",
+      "file": "track-wide.glb",
+      "name": "Track Wide",
+      "category": "track",
+      "tags": [
+        "track",
+        "wide",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-wide-cap-back",
+      "file": "track-wide-cap-back.glb",
+      "name": "Track Wide Cap Back",
+      "category": "track",
+      "tags": [
+        "track",
+        "wide",
+        "cap",
+        "back",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-wide-cap-front",
+      "file": "track-wide-cap-front.glb",
+      "name": "Track Wide Cap Front",
+      "category": "track",
+      "tags": [
+        "track",
+        "wide",
+        "cap",
+        "front",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-wide-corner-large",
+      "file": "track-wide-corner-large.glb",
+      "name": "Track Wide Corner Large",
+      "category": "track",
+      "tags": [
+        "track",
+        "wide",
+        "corner",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-wide-corner-large-ramp",
+      "file": "track-wide-corner-large-ramp.glb",
+      "name": "Track Wide Corner Large Ramp",
+      "category": "track",
+      "tags": [
+        "track",
+        "wide",
+        "corner",
+        "large",
+        "ramp",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-wide-corner-small",
+      "file": "track-wide-corner-small.glb",
+      "name": "Track Wide Corner Small",
+      "category": "track",
+      "tags": [
+        "track",
+        "wide",
+        "corner",
+        "small",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-wide-corner-small-ramp",
+      "file": "track-wide-corner-small-ramp.glb",
+      "name": "Track Wide Corner Small Ramp",
+      "category": "track",
+      "tags": [
+        "track",
+        "wide",
+        "corner",
+        "small",
+        "ramp",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-wide-curve",
+      "file": "track-wide-curve.glb",
+      "name": "Track Wide Curve",
+      "category": "track",
+      "tags": [
+        "track",
+        "wide",
+        "curve",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-wide-straight",
+      "file": "track-wide-straight.glb",
+      "name": "Track Wide Straight",
+      "category": "track",
+      "tags": [
+        "track",
+        "wide",
+        "straight",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-wide-straight-bend",
+      "file": "track-wide-straight-bend.glb",
+      "name": "Track Wide Straight Bend",
+      "category": "track",
+      "tags": [
+        "track",
+        "wide",
+        "straight",
+        "bend",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-wide-straight-bend-large",
+      "file": "track-wide-straight-bend-large.glb",
+      "name": "Track Wide Straight Bend Large",
+      "category": "track",
+      "tags": [
+        "track",
+        "wide",
+        "straight",
+        "bend",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-wide-straight-bump-down",
+      "file": "track-wide-straight-bump-down.glb",
+      "name": "Track Wide Straight Bump Down",
+      "category": "track",
+      "tags": [
+        "track",
+        "wide",
+        "straight",
+        "bump",
+        "down",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-wide-straight-bump-up",
+      "file": "track-wide-straight-bump-up.glb",
+      "name": "Track Wide Straight Bump Up",
+      "category": "track",
+      "tags": [
+        "track",
+        "wide",
+        "straight",
+        "bump",
+        "up",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-wide-straight-hill-beginning",
+      "file": "track-wide-straight-hill-beginning.glb",
+      "name": "Track Wide Straight Hill Beginning",
+      "category": "track",
+      "tags": [
+        "track",
+        "wide",
+        "straight",
+        "hill",
+        "beginning",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-wide-straight-hill-complete",
+      "file": "track-wide-straight-hill-complete.glb",
+      "name": "Track Wide Straight Hill Complete",
+      "category": "track",
+      "tags": [
+        "track",
+        "wide",
+        "straight",
+        "hill",
+        "complete",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-wide-straight-hill-complete-half",
+      "file": "track-wide-straight-hill-complete-half.glb",
+      "name": "Track Wide Straight Hill Complete Half",
+      "category": "track",
+      "tags": [
+        "track",
+        "wide",
+        "straight",
+        "hill",
+        "complete",
+        "half",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-wide-straight-hill-end",
+      "file": "track-wide-straight-hill-end.glb",
+      "name": "Track Wide Straight Hill End",
+      "category": "track",
+      "tags": [
+        "track",
+        "wide",
+        "straight",
+        "hill",
+        "end",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-wide-straight-skew-left",
+      "file": "track-wide-straight-skew-left.glb",
+      "name": "Track Wide Straight Skew Left",
+      "category": "track",
+      "tags": [
+        "track",
+        "wide",
+        "straight",
+        "skew",
+        "left",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-wide-straight-skew-left-side",
+      "file": "track-wide-straight-skew-left-side.glb",
+      "name": "Track Wide Straight Skew Left Side",
+      "category": "track",
+      "tags": [
+        "track",
+        "wide",
+        "straight",
+        "skew",
+        "left",
+        "side",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-wide-straight-skew-right",
+      "file": "track-wide-straight-skew-right.glb",
+      "name": "Track Wide Straight Skew Right",
+      "category": "track",
+      "tags": [
+        "track",
+        "wide",
+        "straight",
+        "skew",
+        "right",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "track-wide-straight-skew-right-side",
+      "file": "track-wide-straight-skew-right-side.glb",
+      "name": "Track Wide Straight Skew Right Side",
+      "category": "track",
+      "tags": [
+        "track",
+        "wide",
+        "straight",
+        "skew",
+        "right",
+        "side",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree",
+      "file": "tree.glb",
+      "name": "Tree",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-pine",
+      "file": "tree-pine.glb",
+      "name": "Tree Pine",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "pine",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "vehicle-drag-racer",
+      "file": "vehicle-drag-racer.glb",
+      "name": "Vehicle Drag Racer",
+      "category": "vehicle",
+      "tags": [
+        "vehicle",
+        "drag",
+        "racer",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "vehicle-monster-truck",
+      "file": "vehicle-monster-truck.glb",
+      "name": "Vehicle Monster Truck",
+      "category": "vehicle",
+      "tags": [
+        "vehicle",
+        "monster",
+        "truck",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "vehicle-racer",
+      "file": "vehicle-racer.glb",
+      "name": "Vehicle Racer",
+      "category": "vehicle",
+      "tags": [
+        "vehicle",
+        "racer",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "vehicle-racer-low",
+      "file": "vehicle-racer-low.glb",
+      "name": "Vehicle Racer Low",
+      "category": "vehicle",
+      "tags": [
+        "vehicle",
+        "racer",
+        "low",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "vehicle-speedster",
+      "file": "vehicle-speedster.glb",
+      "name": "Vehicle Speedster",
+      "category": "vehicle",
+      "tags": [
+        "vehicle",
+        "speedster",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "vehicle-suv",
+      "file": "vehicle-suv.glb",
+      "name": "Vehicle Suv",
+      "category": "vehicle",
+      "tags": [
+        "vehicle",
+        "suv",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "vehicle-truck",
+      "file": "vehicle-truck.glb",
+      "name": "Vehicle Truck",
+      "category": "vehicle",
+      "tags": [
+        "vehicle",
+        "truck",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "vehicle-vintage-racer",
+      "file": "vehicle-vintage-racer.glb",
+      "name": "Vehicle Vintage Racer",
+      "category": "vehicle",
+      "tags": [
+        "vehicle",
+        "vintage",
+        "racer",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wheel-large",
+      "file": "wheel-large.glb",
+      "name": "Wheel Large",
+      "category": "wheel",
+      "tags": [
+        "wheel",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wheel-medium",
+      "file": "wheel-medium.glb",
+      "name": "Wheel Medium",
+      "category": "wheel",
+      "tags": [
+        "wheel",
+        "medium",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wheel-small",
+      "file": "wheel-small.glb",
+      "name": "Wheel Small",
+      "category": "wheel",
+      "tags": [
+        "wheel",
+        "small",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    }
+  ]
+}

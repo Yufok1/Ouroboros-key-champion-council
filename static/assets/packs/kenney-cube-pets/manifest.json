@@ -1,0 +1,205 @@
+{
+  "pack_id": "kenney-cube-pets",
+  "name": "Kenney Cube Pets",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "Kenney Cube Pets free 3D models from Kenney.",
+  "base_url": "/static/assets/packs/kenney-cube-pets/",
+  "assets": [
+    {
+      "id": "animal-bunny",
+      "file": "animal-bunny.glb",
+      "name": "Animal Bunny",
+      "category": "animal",
+      "tags": [
+        "animal",
+        "bunny",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "animal-cat",
+      "file": "animal-cat.glb",
+      "name": "Animal Cat",
+      "category": "animal",
+      "tags": [
+        "animal",
+        "cat",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "animal-caterpillar",
+      "file": "animal-caterpillar.glb",
+      "name": "Animal Caterpillar",
+      "category": "animal",
+      "tags": [
+        "animal",
+        "caterpillar",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "animal-chick",
+      "file": "animal-chick.glb",
+      "name": "Animal Chick",
+      "category": "animal",
+      "tags": [
+        "animal",
+        "chick",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "animal-cow",
+      "file": "animal-cow.glb",
+      "name": "Animal Cow",
+      "category": "animal",
+      "tags": [
+        "animal",
+        "cow",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "animal-dog",
+      "file": "animal-dog.glb",
+      "name": "Animal Dog",
+      "category": "animal",
+      "tags": [
+        "animal",
+        "dog",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "animal-elephant",
+      "file": "animal-elephant.glb",
+      "name": "Animal Elephant",
+      "category": "animal",
+      "tags": [
+        "animal",
+        "elephant",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "animal-fish",
+      "file": "animal-fish.glb",
+      "name": "Animal Fish",
+      "category": "animal",
+      "tags": [
+        "animal",
+        "fish",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "animal-giraffe",
+      "file": "animal-giraffe.glb",
+      "name": "Animal Giraffe",
+      "category": "animal",
+      "tags": [
+        "animal",
+        "giraffe",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "animal-hog",
+      "file": "animal-hog.glb",
+      "name": "Animal Hog",
+      "category": "animal",
+      "tags": [
+        "animal",
+        "hog",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "animal-lion",
+      "file": "animal-lion.glb",
+      "name": "Animal Lion",
+      "category": "animal",
+      "tags": [
+        "animal",
+        "lion",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "animal-monkey",
+      "file": "animal-monkey.glb",
+      "name": "Animal Monkey",
+      "category": "animal",
+      "tags": [
+        "animal",
+        "monkey",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "animal-parrot",
+      "file": "animal-parrot.glb",
+      "name": "Animal Parrot",
+      "category": "animal",
+      "tags": [
+        "animal",
+        "parrot",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "animal-pig",
+      "file": "animal-pig.glb",
+      "name": "Animal Pig",
+      "category": "animal",
+      "tags": [
+        "animal",
+        "pig",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "animal-tiger",
+      "file": "animal-tiger.glb",
+      "name": "Animal Tiger",
+      "category": "animal",
+      "tags": [
+        "animal",
+        "tiger",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    }
+  ]
+}

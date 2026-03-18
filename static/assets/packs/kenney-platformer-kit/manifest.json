@@ -1,0 +1,2172 @@
+{
+  "pack_id": "kenney-platformer-kit",
+  "name": "Kenney Platformer Kit",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "Kenney Platformer Kit free 3D models from Kenney.",
+  "base_url": "/static/assets/packs/kenney-platformer-kit/",
+  "assets": [
+    {
+      "id": "arrow",
+      "file": "arrow.glb",
+      "name": "Arrow",
+      "category": "arrow",
+      "tags": [
+        "arrow",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "arrows",
+      "file": "arrows.glb",
+      "name": "Arrows",
+      "category": "arrows",
+      "tags": [
+        "arrows",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "barrel",
+      "file": "barrel.glb",
+      "name": "Barrel",
+      "category": "barrel",
+      "tags": [
+        "barrel",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-grass",
+      "file": "block-grass.glb",
+      "name": "Block Grass",
+      "category": "block",
+      "tags": [
+        "block",
+        "grass",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-grass-corner",
+      "file": "block-grass-corner.glb",
+      "name": "Block Grass Corner",
+      "category": "block",
+      "tags": [
+        "block",
+        "grass",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-grass-corner-low",
+      "file": "block-grass-corner-low.glb",
+      "name": "Block Grass Corner Low",
+      "category": "block",
+      "tags": [
+        "block",
+        "grass",
+        "corner",
+        "low",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-grass-corner-overhang",
+      "file": "block-grass-corner-overhang.glb",
+      "name": "Block Grass Corner Overhang",
+      "category": "block",
+      "tags": [
+        "block",
+        "grass",
+        "corner",
+        "overhang",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-grass-corner-overhang-low",
+      "file": "block-grass-corner-overhang-low.glb",
+      "name": "Block Grass Corner Overhang Low",
+      "category": "block",
+      "tags": [
+        "block",
+        "grass",
+        "corner",
+        "overhang",
+        "low",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-grass-curve",
+      "file": "block-grass-curve.glb",
+      "name": "Block Grass Curve",
+      "category": "block",
+      "tags": [
+        "block",
+        "grass",
+        "curve",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-grass-curve-half",
+      "file": "block-grass-curve-half.glb",
+      "name": "Block Grass Curve Half",
+      "category": "block",
+      "tags": [
+        "block",
+        "grass",
+        "curve",
+        "half",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-grass-curve-low",
+      "file": "block-grass-curve-low.glb",
+      "name": "Block Grass Curve Low",
+      "category": "block",
+      "tags": [
+        "block",
+        "grass",
+        "curve",
+        "low",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-grass-edge",
+      "file": "block-grass-edge.glb",
+      "name": "Block Grass Edge",
+      "category": "block",
+      "tags": [
+        "block",
+        "grass",
+        "edge",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-grass-hexagon",
+      "file": "block-grass-hexagon.glb",
+      "name": "Block Grass Hexagon",
+      "category": "block",
+      "tags": [
+        "block",
+        "grass",
+        "hexagon",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-grass-large",
+      "file": "block-grass-large.glb",
+      "name": "Block Grass Large",
+      "category": "block",
+      "tags": [
+        "block",
+        "grass",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-grass-large-slope",
+      "file": "block-grass-large-slope.glb",
+      "name": "Block Grass Large Slope",
+      "category": "block",
+      "tags": [
+        "block",
+        "grass",
+        "large",
+        "slope",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-grass-large-slope-narrow",
+      "file": "block-grass-large-slope-narrow.glb",
+      "name": "Block Grass Large Slope Narrow",
+      "category": "block",
+      "tags": [
+        "block",
+        "grass",
+        "large",
+        "slope",
+        "narrow",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-grass-large-slope-steep",
+      "file": "block-grass-large-slope-steep.glb",
+      "name": "Block Grass Large Slope Steep",
+      "category": "block",
+      "tags": [
+        "block",
+        "grass",
+        "large",
+        "slope",
+        "steep",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-grass-large-slope-steep-narrow",
+      "file": "block-grass-large-slope-steep-narrow.glb",
+      "name": "Block Grass Large Slope Steep Narrow",
+      "category": "block",
+      "tags": [
+        "block",
+        "grass",
+        "large",
+        "slope",
+        "steep",
+        "narrow",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-grass-large-tall",
+      "file": "block-grass-large-tall.glb",
+      "name": "Block Grass Large Tall",
+      "category": "block",
+      "tags": [
+        "block",
+        "grass",
+        "large",
+        "tall",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-grass-long",
+      "file": "block-grass-long.glb",
+      "name": "Block Grass Long",
+      "category": "block",
+      "tags": [
+        "block",
+        "grass",
+        "long",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-grass-low",
+      "file": "block-grass-low.glb",
+      "name": "Block Grass Low",
+      "category": "block",
+      "tags": [
+        "block",
+        "grass",
+        "low",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-grass-low-hexagon",
+      "file": "block-grass-low-hexagon.glb",
+      "name": "Block Grass Low Hexagon",
+      "category": "block",
+      "tags": [
+        "block",
+        "grass",
+        "low",
+        "hexagon",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-grass-low-large",
+      "file": "block-grass-low-large.glb",
+      "name": "Block Grass Low Large",
+      "category": "block",
+      "tags": [
+        "block",
+        "grass",
+        "low",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-grass-low-long",
+      "file": "block-grass-low-long.glb",
+      "name": "Block Grass Low Long",
+      "category": "block",
+      "tags": [
+        "block",
+        "grass",
+        "low",
+        "long",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-grass-low-narrow",
+      "file": "block-grass-low-narrow.glb",
+      "name": "Block Grass Low Narrow",
+      "category": "block",
+      "tags": [
+        "block",
+        "grass",
+        "low",
+        "narrow",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-grass-narrow",
+      "file": "block-grass-narrow.glb",
+      "name": "Block Grass Narrow",
+      "category": "block",
+      "tags": [
+        "block",
+        "grass",
+        "narrow",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-grass-overhang-corner",
+      "file": "block-grass-overhang-corner.glb",
+      "name": "Block Grass Overhang Corner",
+      "category": "block",
+      "tags": [
+        "block",
+        "grass",
+        "overhang",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-grass-overhang-edge",
+      "file": "block-grass-overhang-edge.glb",
+      "name": "Block Grass Overhang Edge",
+      "category": "block",
+      "tags": [
+        "block",
+        "grass",
+        "overhang",
+        "edge",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-grass-overhang-hexagon",
+      "file": "block-grass-overhang-hexagon.glb",
+      "name": "Block Grass Overhang Hexagon",
+      "category": "block",
+      "tags": [
+        "block",
+        "grass",
+        "overhang",
+        "hexagon",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-grass-overhang-large",
+      "file": "block-grass-overhang-large.glb",
+      "name": "Block Grass Overhang Large",
+      "category": "block",
+      "tags": [
+        "block",
+        "grass",
+        "overhang",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-grass-overhang-large-slope",
+      "file": "block-grass-overhang-large-slope.glb",
+      "name": "Block Grass Overhang Large Slope",
+      "category": "block",
+      "tags": [
+        "block",
+        "grass",
+        "overhang",
+        "large",
+        "slope",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-grass-overhang-large-slope-narrow",
+      "file": "block-grass-overhang-large-slope-narrow.glb",
+      "name": "Block Grass Overhang Large Slope Narrow",
+      "category": "block",
+      "tags": [
+        "block",
+        "grass",
+        "overhang",
+        "large",
+        "slope",
+        "narrow",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-grass-overhang-large-slope-steep",
+      "file": "block-grass-overhang-large-slope-steep.glb",
+      "name": "Block Grass Overhang Large Slope Steep",
+      "category": "block",
+      "tags": [
+        "block",
+        "grass",
+        "overhang",
+        "large",
+        "slope",
+        "steep",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-grass-overhang-large-slope-steep-narrow",
+      "file": "block-grass-overhang-large-slope-steep-narrow.glb",
+      "name": "Block Grass Overhang Large Slope Steep Narrow",
+      "category": "block",
+      "tags": [
+        "block",
+        "grass",
+        "overhang",
+        "large",
+        "slope",
+        "steep",
+        "narrow",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-grass-overhang-large-tall",
+      "file": "block-grass-overhang-large-tall.glb",
+      "name": "Block Grass Overhang Large Tall",
+      "category": "block",
+      "tags": [
+        "block",
+        "grass",
+        "overhang",
+        "large",
+        "tall",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-grass-overhang-long",
+      "file": "block-grass-overhang-long.glb",
+      "name": "Block Grass Overhang Long",
+      "category": "block",
+      "tags": [
+        "block",
+        "grass",
+        "overhang",
+        "long",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-grass-overhang-low",
+      "file": "block-grass-overhang-low.glb",
+      "name": "Block Grass Overhang Low",
+      "category": "block",
+      "tags": [
+        "block",
+        "grass",
+        "overhang",
+        "low",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-grass-overhang-low-hexagon",
+      "file": "block-grass-overhang-low-hexagon.glb",
+      "name": "Block Grass Overhang Low Hexagon",
+      "category": "block",
+      "tags": [
+        "block",
+        "grass",
+        "overhang",
+        "low",
+        "hexagon",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-grass-overhang-low-large",
+      "file": "block-grass-overhang-low-large.glb",
+      "name": "Block Grass Overhang Low Large",
+      "category": "block",
+      "tags": [
+        "block",
+        "grass",
+        "overhang",
+        "low",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-grass-overhang-low-long",
+      "file": "block-grass-overhang-low-long.glb",
+      "name": "Block Grass Overhang Low Long",
+      "category": "block",
+      "tags": [
+        "block",
+        "grass",
+        "overhang",
+        "low",
+        "long",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-grass-overhang-low-narrow",
+      "file": "block-grass-overhang-low-narrow.glb",
+      "name": "Block Grass Overhang Low Narrow",
+      "category": "block",
+      "tags": [
+        "block",
+        "grass",
+        "overhang",
+        "low",
+        "narrow",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-grass-overhang-narrow",
+      "file": "block-grass-overhang-narrow.glb",
+      "name": "Block Grass Overhang Narrow",
+      "category": "block",
+      "tags": [
+        "block",
+        "grass",
+        "overhang",
+        "narrow",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-moving",
+      "file": "block-moving.glb",
+      "name": "Block Moving",
+      "category": "block",
+      "tags": [
+        "block",
+        "moving",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-moving-blue",
+      "file": "block-moving-blue.glb",
+      "name": "Block Moving Blue",
+      "category": "block",
+      "tags": [
+        "block",
+        "moving",
+        "blue",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-moving-large",
+      "file": "block-moving-large.glb",
+      "name": "Block Moving Large",
+      "category": "block",
+      "tags": [
+        "block",
+        "moving",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-snow",
+      "file": "block-snow.glb",
+      "name": "Block Snow",
+      "category": "block",
+      "tags": [
+        "block",
+        "snow",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-snow-corner",
+      "file": "block-snow-corner.glb",
+      "name": "Block Snow Corner",
+      "category": "block",
+      "tags": [
+        "block",
+        "snow",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-snow-corner-low",
+      "file": "block-snow-corner-low.glb",
+      "name": "Block Snow Corner Low",
+      "category": "block",
+      "tags": [
+        "block",
+        "snow",
+        "corner",
+        "low",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-snow-corner-overhang",
+      "file": "block-snow-corner-overhang.glb",
+      "name": "Block Snow Corner Overhang",
+      "category": "block",
+      "tags": [
+        "block",
+        "snow",
+        "corner",
+        "overhang",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-snow-corner-overhang-low",
+      "file": "block-snow-corner-overhang-low.glb",
+      "name": "Block Snow Corner Overhang Low",
+      "category": "block",
+      "tags": [
+        "block",
+        "snow",
+        "corner",
+        "overhang",
+        "low",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-snow-curve",
+      "file": "block-snow-curve.glb",
+      "name": "Block Snow Curve",
+      "category": "block",
+      "tags": [
+        "block",
+        "snow",
+        "curve",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-snow-curve-half",
+      "file": "block-snow-curve-half.glb",
+      "name": "Block Snow Curve Half",
+      "category": "block",
+      "tags": [
+        "block",
+        "snow",
+        "curve",
+        "half",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-snow-curve-low",
+      "file": "block-snow-curve-low.glb",
+      "name": "Block Snow Curve Low",
+      "category": "block",
+      "tags": [
+        "block",
+        "snow",
+        "curve",
+        "low",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-snow-edge",
+      "file": "block-snow-edge.glb",
+      "name": "Block Snow Edge",
+      "category": "block",
+      "tags": [
+        "block",
+        "snow",
+        "edge",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-snow-hexagon",
+      "file": "block-snow-hexagon.glb",
+      "name": "Block Snow Hexagon",
+      "category": "block",
+      "tags": [
+        "block",
+        "snow",
+        "hexagon",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-snow-large",
+      "file": "block-snow-large.glb",
+      "name": "Block Snow Large",
+      "category": "block",
+      "tags": [
+        "block",
+        "snow",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-snow-large-slope",
+      "file": "block-snow-large-slope.glb",
+      "name": "Block Snow Large Slope",
+      "category": "block",
+      "tags": [
+        "block",
+        "snow",
+        "large",
+        "slope",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-snow-large-slope-narrow",
+      "file": "block-snow-large-slope-narrow.glb",
+      "name": "Block Snow Large Slope Narrow",
+      "category": "block",
+      "tags": [
+        "block",
+        "snow",
+        "large",
+        "slope",
+        "narrow",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-snow-large-slope-steep",
+      "file": "block-snow-large-slope-steep.glb",
+      "name": "Block Snow Large Slope Steep",
+      "category": "block",
+      "tags": [
+        "block",
+        "snow",
+        "large",
+        "slope",
+        "steep",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-snow-large-slope-steep-narrow",
+      "file": "block-snow-large-slope-steep-narrow.glb",
+      "name": "Block Snow Large Slope Steep Narrow",
+      "category": "block",
+      "tags": [
+        "block",
+        "snow",
+        "large",
+        "slope",
+        "steep",
+        "narrow",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-snow-large-tall",
+      "file": "block-snow-large-tall.glb",
+      "name": "Block Snow Large Tall",
+      "category": "block",
+      "tags": [
+        "block",
+        "snow",
+        "large",
+        "tall",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-snow-long",
+      "file": "block-snow-long.glb",
+      "name": "Block Snow Long",
+      "category": "block",
+      "tags": [
+        "block",
+        "snow",
+        "long",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-snow-low",
+      "file": "block-snow-low.glb",
+      "name": "Block Snow Low",
+      "category": "block",
+      "tags": [
+        "block",
+        "snow",
+        "low",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-snow-low-hexagon",
+      "file": "block-snow-low-hexagon.glb",
+      "name": "Block Snow Low Hexagon",
+      "category": "block",
+      "tags": [
+        "block",
+        "snow",
+        "low",
+        "hexagon",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-snow-low-large",
+      "file": "block-snow-low-large.glb",
+      "name": "Block Snow Low Large",
+      "category": "block",
+      "tags": [
+        "block",
+        "snow",
+        "low",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-snow-low-long",
+      "file": "block-snow-low-long.glb",
+      "name": "Block Snow Low Long",
+      "category": "block",
+      "tags": [
+        "block",
+        "snow",
+        "low",
+        "long",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-snow-low-narrow",
+      "file": "block-snow-low-narrow.glb",
+      "name": "Block Snow Low Narrow",
+      "category": "block",
+      "tags": [
+        "block",
+        "snow",
+        "low",
+        "narrow",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-snow-narrow",
+      "file": "block-snow-narrow.glb",
+      "name": "Block Snow Narrow",
+      "category": "block",
+      "tags": [
+        "block",
+        "snow",
+        "narrow",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-snow-overhang-corner",
+      "file": "block-snow-overhang-corner.glb",
+      "name": "Block Snow Overhang Corner",
+      "category": "block",
+      "tags": [
+        "block",
+        "snow",
+        "overhang",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-snow-overhang-edge",
+      "file": "block-snow-overhang-edge.glb",
+      "name": "Block Snow Overhang Edge",
+      "category": "block",
+      "tags": [
+        "block",
+        "snow",
+        "overhang",
+        "edge",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-snow-overhang-hexagon",
+      "file": "block-snow-overhang-hexagon.glb",
+      "name": "Block Snow Overhang Hexagon",
+      "category": "block",
+      "tags": [
+        "block",
+        "snow",
+        "overhang",
+        "hexagon",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-snow-overhang-large",
+      "file": "block-snow-overhang-large.glb",
+      "name": "Block Snow Overhang Large",
+      "category": "block",
+      "tags": [
+        "block",
+        "snow",
+        "overhang",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-snow-overhang-large-slope",
+      "file": "block-snow-overhang-large-slope.glb",
+      "name": "Block Snow Overhang Large Slope",
+      "category": "block",
+      "tags": [
+        "block",
+        "snow",
+        "overhang",
+        "large",
+        "slope",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-snow-overhang-large-slope-narrow",
+      "file": "block-snow-overhang-large-slope-narrow.glb",
+      "name": "Block Snow Overhang Large Slope Narrow",
+      "category": "block",
+      "tags": [
+        "block",
+        "snow",
+        "overhang",
+        "large",
+        "slope",
+        "narrow",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-snow-overhang-large-slope-steep",
+      "file": "block-snow-overhang-large-slope-steep.glb",
+      "name": "Block Snow Overhang Large Slope Steep",
+      "category": "block",
+      "tags": [
+        "block",
+        "snow",
+        "overhang",
+        "large",
+        "slope",
+        "steep",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-snow-overhang-large-slope-steep-narrow",
+      "file": "block-snow-overhang-large-slope-steep-narrow.glb",
+      "name": "Block Snow Overhang Large Slope Steep Narrow",
+      "category": "block",
+      "tags": [
+        "block",
+        "snow",
+        "overhang",
+        "large",
+        "slope",
+        "steep",
+        "narrow",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-snow-overhang-large-tall",
+      "file": "block-snow-overhang-large-tall.glb",
+      "name": "Block Snow Overhang Large Tall",
+      "category": "block",
+      "tags": [
+        "block",
+        "snow",
+        "overhang",
+        "large",
+        "tall",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-snow-overhang-long",
+      "file": "block-snow-overhang-long.glb",
+      "name": "Block Snow Overhang Long",
+      "category": "block",
+      "tags": [
+        "block",
+        "snow",
+        "overhang",
+        "long",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-snow-overhang-low",
+      "file": "block-snow-overhang-low.glb",
+      "name": "Block Snow Overhang Low",
+      "category": "block",
+      "tags": [
+        "block",
+        "snow",
+        "overhang",
+        "low",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-snow-overhang-low-hexagon",
+      "file": "block-snow-overhang-low-hexagon.glb",
+      "name": "Block Snow Overhang Low Hexagon",
+      "category": "block",
+      "tags": [
+        "block",
+        "snow",
+        "overhang",
+        "low",
+        "hexagon",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-snow-overhang-low-large",
+      "file": "block-snow-overhang-low-large.glb",
+      "name": "Block Snow Overhang Low Large",
+      "category": "block",
+      "tags": [
+        "block",
+        "snow",
+        "overhang",
+        "low",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-snow-overhang-low-long",
+      "file": "block-snow-overhang-low-long.glb",
+      "name": "Block Snow Overhang Low Long",
+      "category": "block",
+      "tags": [
+        "block",
+        "snow",
+        "overhang",
+        "low",
+        "long",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-snow-overhang-low-narrow",
+      "file": "block-snow-overhang-low-narrow.glb",
+      "name": "Block Snow Overhang Low Narrow",
+      "category": "block",
+      "tags": [
+        "block",
+        "snow",
+        "overhang",
+        "low",
+        "narrow",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-snow-overhang-narrow",
+      "file": "block-snow-overhang-narrow.glb",
+      "name": "Block Snow Overhang Narrow",
+      "category": "block",
+      "tags": [
+        "block",
+        "snow",
+        "overhang",
+        "narrow",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bomb",
+      "file": "bomb.glb",
+      "name": "Bomb",
+      "category": "bomb",
+      "tags": [
+        "bomb",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "brick",
+      "file": "brick.glb",
+      "name": "Brick",
+      "category": "brick",
+      "tags": [
+        "brick",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "button-round",
+      "file": "button-round.glb",
+      "name": "Button Round",
+      "category": "button",
+      "tags": [
+        "button",
+        "round",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "button-square",
+      "file": "button-square.glb",
+      "name": "Button Square",
+      "category": "button",
+      "tags": [
+        "button",
+        "square",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "character-oobi",
+      "file": "character-oobi.glb",
+      "name": "Character Oobi",
+      "category": "character",
+      "tags": [
+        "character",
+        "oobi",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "character-oodi",
+      "file": "character-oodi.glb",
+      "name": "Character Oodi",
+      "category": "character",
+      "tags": [
+        "character",
+        "oodi",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "character-ooli",
+      "file": "character-ooli.glb",
+      "name": "Character Ooli",
+      "category": "character",
+      "tags": [
+        "character",
+        "ooli",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "character-oopi",
+      "file": "character-oopi.glb",
+      "name": "Character Oopi",
+      "category": "character",
+      "tags": [
+        "character",
+        "oopi",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "character-oozi",
+      "file": "character-oozi.glb",
+      "name": "Character Oozi",
+      "category": "character",
+      "tags": [
+        "character",
+        "oozi",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "chest",
+      "file": "chest.glb",
+      "name": "Chest",
+      "category": "chest",
+      "tags": [
+        "chest",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coin-bronze",
+      "file": "coin-bronze.glb",
+      "name": "Coin Bronze",
+      "category": "coin",
+      "tags": [
+        "coin",
+        "bronze",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coin-gold",
+      "file": "coin-gold.glb",
+      "name": "Coin Gold",
+      "category": "coin",
+      "tags": [
+        "coin",
+        "gold",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coin-silver",
+      "file": "coin-silver.glb",
+      "name": "Coin Silver",
+      "category": "coin",
+      "tags": [
+        "coin",
+        "silver",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "conveyor-belt",
+      "file": "conveyor-belt.glb",
+      "name": "Conveyor Belt",
+      "category": "conveyor",
+      "tags": [
+        "conveyor",
+        "belt",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "crate",
+      "file": "crate.glb",
+      "name": "Crate",
+      "category": "crate",
+      "tags": [
+        "crate",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "crate-item",
+      "file": "crate-item.glb",
+      "name": "Crate Item",
+      "category": "crate",
+      "tags": [
+        "crate",
+        "item",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "crate-item-strong",
+      "file": "crate-item-strong.glb",
+      "name": "Crate Item Strong",
+      "category": "crate",
+      "tags": [
+        "crate",
+        "item",
+        "strong",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "crate-strong",
+      "file": "crate-strong.glb",
+      "name": "Crate Strong",
+      "category": "crate",
+      "tags": [
+        "crate",
+        "strong",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "door-large-open",
+      "file": "door-large-open.glb",
+      "name": "Door Large Open",
+      "category": "door",
+      "tags": [
+        "door",
+        "large",
+        "open",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "door-open",
+      "file": "door-open.glb",
+      "name": "Door Open",
+      "category": "door",
+      "tags": [
+        "door",
+        "open",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "door-rotate",
+      "file": "door-rotate.glb",
+      "name": "Door Rotate",
+      "category": "door",
+      "tags": [
+        "door",
+        "rotate",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "door-rotate-large",
+      "file": "door-rotate-large.glb",
+      "name": "Door Rotate Large",
+      "category": "door",
+      "tags": [
+        "door",
+        "rotate",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fence-broken",
+      "file": "fence-broken.glb",
+      "name": "Fence Broken",
+      "category": "fence",
+      "tags": [
+        "fence",
+        "broken",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fence-corner",
+      "file": "fence-corner.glb",
+      "name": "Fence Corner",
+      "category": "fence",
+      "tags": [
+        "fence",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fence-corner-curved",
+      "file": "fence-corner-curved.glb",
+      "name": "Fence Corner Curved",
+      "category": "fence",
+      "tags": [
+        "fence",
+        "corner",
+        "curved",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fence-low-broken",
+      "file": "fence-low-broken.glb",
+      "name": "Fence Low Broken",
+      "category": "fence",
+      "tags": [
+        "fence",
+        "low",
+        "broken",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fence-low-corner",
+      "file": "fence-low-corner.glb",
+      "name": "Fence Low Corner",
+      "category": "fence",
+      "tags": [
+        "fence",
+        "low",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fence-low-corner-curved",
+      "file": "fence-low-corner-curved.glb",
+      "name": "Fence Low Corner Curved",
+      "category": "fence",
+      "tags": [
+        "fence",
+        "low",
+        "corner",
+        "curved",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fence-low-straight",
+      "file": "fence-low-straight.glb",
+      "name": "Fence Low Straight",
+      "category": "fence",
+      "tags": [
+        "fence",
+        "low",
+        "straight",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fence-rope",
+      "file": "fence-rope.glb",
+      "name": "Fence Rope",
+      "category": "fence",
+      "tags": [
+        "fence",
+        "rope",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fence-straight",
+      "file": "fence-straight.glb",
+      "name": "Fence Straight",
+      "category": "fence",
+      "tags": [
+        "fence",
+        "straight",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "flag",
+      "file": "flag.glb",
+      "name": "Flag",
+      "category": "flag",
+      "tags": [
+        "flag",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "flowers",
+      "file": "flowers.glb",
+      "name": "Flowers",
+      "category": "vegetation",
+      "tags": [
+        "flowers",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "flowers-tall",
+      "file": "flowers-tall.glb",
+      "name": "Flowers Tall",
+      "category": "vegetation",
+      "tags": [
+        "flowers",
+        "tall",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "grass",
+      "file": "grass.glb",
+      "name": "Grass",
+      "category": "vegetation",
+      "tags": [
+        "grass",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "heart",
+      "file": "heart.glb",
+      "name": "Heart",
+      "category": "heart",
+      "tags": [
+        "heart",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "hedge",
+      "file": "hedge.glb",
+      "name": "Hedge",
+      "category": "hedge",
+      "tags": [
+        "hedge",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "hedge-corner",
+      "file": "hedge-corner.glb",
+      "name": "Hedge Corner",
+      "category": "hedge",
+      "tags": [
+        "hedge",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "jewel",
+      "file": "jewel.glb",
+      "name": "Jewel",
+      "category": "jewel",
+      "tags": [
+        "jewel",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "key",
+      "file": "key.glb",
+      "name": "Key",
+      "category": "key",
+      "tags": [
+        "key",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ladder",
+      "file": "ladder.glb",
+      "name": "Ladder",
+      "category": "ladder",
+      "tags": [
+        "ladder",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ladder-broken",
+      "file": "ladder-broken.glb",
+      "name": "Ladder Broken",
+      "category": "ladder",
+      "tags": [
+        "ladder",
+        "broken",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ladder-long",
+      "file": "ladder-long.glb",
+      "name": "Ladder Long",
+      "category": "ladder",
+      "tags": [
+        "ladder",
+        "long",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "lever",
+      "file": "lever.glb",
+      "name": "Lever",
+      "category": "lever",
+      "tags": [
+        "lever",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "lock",
+      "file": "lock.glb",
+      "name": "Lock",
+      "category": "lock",
+      "tags": [
+        "lock",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "mushrooms",
+      "file": "mushrooms.glb",
+      "name": "Mushrooms",
+      "category": "vegetation",
+      "tags": [
+        "mushrooms",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pipe",
+      "file": "pipe.glb",
+      "name": "Pipe",
+      "category": "pipe",
+      "tags": [
+        "pipe",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "plant",
+      "file": "plant.glb",
+      "name": "Plant",
+      "category": "vegetation",
+      "tags": [
+        "plant",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "platform",
+      "file": "platform.glb",
+      "name": "Platform",
+      "category": "platform",
+      "tags": [
+        "platform",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "platform-fortified",
+      "file": "platform-fortified.glb",
+      "name": "Platform Fortified",
+      "category": "platform",
+      "tags": [
+        "platform",
+        "fortified",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "platform-overhang",
+      "file": "platform-overhang.glb",
+      "name": "Platform Overhang",
+      "category": "platform",
+      "tags": [
+        "platform",
+        "overhang",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "platform-ramp",
+      "file": "platform-ramp.glb",
+      "name": "Platform Ramp",
+      "category": "platform",
+      "tags": [
+        "platform",
+        "ramp",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "poles",
+      "file": "poles.glb",
+      "name": "Poles",
+      "category": "poles",
+      "tags": [
+        "poles",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rocks",
+      "file": "rocks.glb",
+      "name": "Rocks",
+      "category": "terrain",
+      "tags": [
+        "rocks",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "saw",
+      "file": "saw.glb",
+      "name": "Saw",
+      "category": "saw",
+      "tags": [
+        "saw",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "sign",
+      "file": "sign.glb",
+      "name": "Sign",
+      "category": "sign",
+      "tags": [
+        "sign",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spike-block",
+      "file": "spike-block.glb",
+      "name": "Spike Block",
+      "category": "spike",
+      "tags": [
+        "spike",
+        "block",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spike-block-wide",
+      "file": "spike-block-wide.glb",
+      "name": "Spike Block Wide",
+      "category": "spike",
+      "tags": [
+        "spike",
+        "block",
+        "wide",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spring",
+      "file": "spring.glb",
+      "name": "Spring",
+      "category": "spring",
+      "tags": [
+        "spring",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "star",
+      "file": "star.glb",
+      "name": "Star",
+      "category": "star",
+      "tags": [
+        "star",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stones",
+      "file": "stones.glb",
+      "name": "Stones",
+      "category": "terrain",
+      "tags": [
+        "stones",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "trap-spikes",
+      "file": "trap-spikes.glb",
+      "name": "Trap Spikes",
+      "category": "trap",
+      "tags": [
+        "trap",
+        "spikes",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "trap-spikes-large",
+      "file": "trap-spikes-large.glb",
+      "name": "Trap Spikes Large",
+      "category": "trap",
+      "tags": [
+        "trap",
+        "spikes",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree",
+      "file": "tree.glb",
+      "name": "Tree",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-pine",
+      "file": "tree-pine.glb",
+      "name": "Tree Pine",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "pine",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-pine-small",
+      "file": "tree-pine-small.glb",
+      "name": "Tree Pine Small",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "pine",
+        "small",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-pine-snow",
+      "file": "tree-pine-snow.glb",
+      "name": "Tree Pine Snow",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "pine",
+        "snow",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-pine-snow-small",
+      "file": "tree-pine-snow-small.glb",
+      "name": "Tree Pine Snow Small",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "pine",
+        "snow",
+        "small",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-snow",
+      "file": "tree-snow.glb",
+      "name": "Tree Snow",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "snow",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    }
+  ]
+}

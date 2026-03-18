@@ -1,0 +1,2744 @@
+{
+  "pack_id": "kenney-coaster-kit",
+  "name": "Kenney Coaster Kit",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "Kenney Coaster Kit free 3D models from Kenney.",
+  "base_url": "/static/assets/packs/kenney-coaster-kit/",
+  "assets": [
+    {
+      "id": "bench",
+      "file": "bench.glb",
+      "name": "Bench",
+      "category": "bench",
+      "tags": [
+        "bench",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-flume-cap-back",
+      "file": "coaster-flume-cap-back.glb",
+      "name": "Coaster Flume Cap Back",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "flume",
+        "cap",
+        "back",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-flume-cap-front",
+      "file": "coaster-flume-cap-front.glb",
+      "name": "Coaster Flume Cap Front",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "flume",
+        "cap",
+        "front",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-flume-corner-large",
+      "file": "coaster-flume-corner-large.glb",
+      "name": "Coaster Flume Corner Large",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "flume",
+        "corner",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-flume-corner-large-ramp",
+      "file": "coaster-flume-corner-large-ramp.glb",
+      "name": "Coaster Flume Corner Large Ramp",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "flume",
+        "corner",
+        "large",
+        "ramp",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-flume-corner-small",
+      "file": "coaster-flume-corner-small.glb",
+      "name": "Coaster Flume Corner Small",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "flume",
+        "corner",
+        "small",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-flume-corner-small-ramp",
+      "file": "coaster-flume-corner-small-ramp.glb",
+      "name": "Coaster Flume Corner Small Ramp",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "flume",
+        "corner",
+        "small",
+        "ramp",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-flume-curve",
+      "file": "coaster-flume-curve.glb",
+      "name": "Coaster Flume Curve",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "flume",
+        "curve",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-flume-looping",
+      "file": "coaster-flume-looping.glb",
+      "name": "Coaster Flume Looping",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "flume",
+        "looping",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-flume-segment",
+      "file": "coaster-flume-segment.glb",
+      "name": "Coaster Flume Segment",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "flume",
+        "segment",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-flume-straight",
+      "file": "coaster-flume-straight.glb",
+      "name": "Coaster Flume Straight",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "flume",
+        "straight",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-flume-straight-bend",
+      "file": "coaster-flume-straight-bend.glb",
+      "name": "Coaster Flume Straight Bend",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "flume",
+        "straight",
+        "bend",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-flume-straight-bend-large",
+      "file": "coaster-flume-straight-bend-large.glb",
+      "name": "Coaster Flume Straight Bend Large",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "flume",
+        "straight",
+        "bend",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-flume-straight-bump-down",
+      "file": "coaster-flume-straight-bump-down.glb",
+      "name": "Coaster Flume Straight Bump Down",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "flume",
+        "straight",
+        "bump",
+        "down",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-flume-straight-bump-up",
+      "file": "coaster-flume-straight-bump-up.glb",
+      "name": "Coaster Flume Straight Bump Up",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "flume",
+        "straight",
+        "bump",
+        "up",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-flume-straight-hill-beginning",
+      "file": "coaster-flume-straight-hill-beginning.glb",
+      "name": "Coaster Flume Straight Hill Beginning",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "flume",
+        "straight",
+        "hill",
+        "beginning",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-flume-straight-hill-complete",
+      "file": "coaster-flume-straight-hill-complete.glb",
+      "name": "Coaster Flume Straight Hill Complete",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "flume",
+        "straight",
+        "hill",
+        "complete",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-flume-straight-hill-complete-half",
+      "file": "coaster-flume-straight-hill-complete-half.glb",
+      "name": "Coaster Flume Straight Hill Complete Half",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "flume",
+        "straight",
+        "hill",
+        "complete",
+        "half",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-flume-straight-hill-end",
+      "file": "coaster-flume-straight-hill-end.glb",
+      "name": "Coaster Flume Straight Hill End",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "flume",
+        "straight",
+        "hill",
+        "end",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-flume-straight-skew-left",
+      "file": "coaster-flume-straight-skew-left.glb",
+      "name": "Coaster Flume Straight Skew Left",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "flume",
+        "straight",
+        "skew",
+        "left",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-flume-straight-skew-left-side",
+      "file": "coaster-flume-straight-skew-left-side.glb",
+      "name": "Coaster Flume Straight Skew Left Side",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "flume",
+        "straight",
+        "skew",
+        "left",
+        "side",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-flume-straight-skew-right",
+      "file": "coaster-flume-straight-skew-right.glb",
+      "name": "Coaster Flume Straight Skew Right",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "flume",
+        "straight",
+        "skew",
+        "right",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-flume-straight-skew-right-side",
+      "file": "coaster-flume-straight-skew-right-side.glb",
+      "name": "Coaster Flume Straight Skew Right Side",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "flume",
+        "straight",
+        "skew",
+        "right",
+        "side",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-flume-track",
+      "file": "coaster-flume-track.glb",
+      "name": "Coaster Flume Track",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "flume",
+        "track",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-hanging-cap-back",
+      "file": "coaster-hanging-cap-back.glb",
+      "name": "Coaster Hanging Cap Back",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "hanging",
+        "cap",
+        "back",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-hanging-cap-front",
+      "file": "coaster-hanging-cap-front.glb",
+      "name": "Coaster Hanging Cap Front",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "hanging",
+        "cap",
+        "front",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-hanging-corner-large",
+      "file": "coaster-hanging-corner-large.glb",
+      "name": "Coaster Hanging Corner Large",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "hanging",
+        "corner",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-hanging-corner-large-ramp",
+      "file": "coaster-hanging-corner-large-ramp.glb",
+      "name": "Coaster Hanging Corner Large Ramp",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "hanging",
+        "corner",
+        "large",
+        "ramp",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-hanging-corner-small",
+      "file": "coaster-hanging-corner-small.glb",
+      "name": "Coaster Hanging Corner Small",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "hanging",
+        "corner",
+        "small",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-hanging-corner-small-ramp",
+      "file": "coaster-hanging-corner-small-ramp.glb",
+      "name": "Coaster Hanging Corner Small Ramp",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "hanging",
+        "corner",
+        "small",
+        "ramp",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-hanging-curve",
+      "file": "coaster-hanging-curve.glb",
+      "name": "Coaster Hanging Curve",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "hanging",
+        "curve",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-hanging-looping",
+      "file": "coaster-hanging-looping.glb",
+      "name": "Coaster Hanging Looping",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "hanging",
+        "looping",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-hanging-segment",
+      "file": "coaster-hanging-segment.glb",
+      "name": "Coaster Hanging Segment",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "hanging",
+        "segment",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-hanging-straight",
+      "file": "coaster-hanging-straight.glb",
+      "name": "Coaster Hanging Straight",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "hanging",
+        "straight",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-hanging-straight-bend",
+      "file": "coaster-hanging-straight-bend.glb",
+      "name": "Coaster Hanging Straight Bend",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "hanging",
+        "straight",
+        "bend",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-hanging-straight-bend-large",
+      "file": "coaster-hanging-straight-bend-large.glb",
+      "name": "Coaster Hanging Straight Bend Large",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "hanging",
+        "straight",
+        "bend",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-hanging-straight-bump-down",
+      "file": "coaster-hanging-straight-bump-down.glb",
+      "name": "Coaster Hanging Straight Bump Down",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "hanging",
+        "straight",
+        "bump",
+        "down",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-hanging-straight-bump-up",
+      "file": "coaster-hanging-straight-bump-up.glb",
+      "name": "Coaster Hanging Straight Bump Up",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "hanging",
+        "straight",
+        "bump",
+        "up",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-hanging-straight-hill-beginning",
+      "file": "coaster-hanging-straight-hill-beginning.glb",
+      "name": "Coaster Hanging Straight Hill Beginning",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "hanging",
+        "straight",
+        "hill",
+        "beginning",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-hanging-straight-hill-complete",
+      "file": "coaster-hanging-straight-hill-complete.glb",
+      "name": "Coaster Hanging Straight Hill Complete",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "hanging",
+        "straight",
+        "hill",
+        "complete",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-hanging-straight-hill-complete-half",
+      "file": "coaster-hanging-straight-hill-complete-half.glb",
+      "name": "Coaster Hanging Straight Hill Complete Half",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "hanging",
+        "straight",
+        "hill",
+        "complete",
+        "half",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-hanging-straight-hill-end",
+      "file": "coaster-hanging-straight-hill-end.glb",
+      "name": "Coaster Hanging Straight Hill End",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "hanging",
+        "straight",
+        "hill",
+        "end",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-hanging-straight-skew-left",
+      "file": "coaster-hanging-straight-skew-left.glb",
+      "name": "Coaster Hanging Straight Skew Left",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "hanging",
+        "straight",
+        "skew",
+        "left",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-hanging-straight-skew-left-side",
+      "file": "coaster-hanging-straight-skew-left-side.glb",
+      "name": "Coaster Hanging Straight Skew Left Side",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "hanging",
+        "straight",
+        "skew",
+        "left",
+        "side",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-hanging-straight-skew-right",
+      "file": "coaster-hanging-straight-skew-right.glb",
+      "name": "Coaster Hanging Straight Skew Right",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "hanging",
+        "straight",
+        "skew",
+        "right",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-hanging-straight-skew-right-side",
+      "file": "coaster-hanging-straight-skew-right-side.glb",
+      "name": "Coaster Hanging Straight Skew Right Side",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "hanging",
+        "straight",
+        "skew",
+        "right",
+        "side",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-hanging-track",
+      "file": "coaster-hanging-track.glb",
+      "name": "Coaster Hanging Track",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "hanging",
+        "track",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-monorail-cap-back",
+      "file": "coaster-monorail-cap-back.glb",
+      "name": "Coaster Monorail Cap Back",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "monorail",
+        "cap",
+        "back",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-monorail-cap-front",
+      "file": "coaster-monorail-cap-front.glb",
+      "name": "Coaster Monorail Cap Front",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "monorail",
+        "cap",
+        "front",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-monorail-corner-large",
+      "file": "coaster-monorail-corner-large.glb",
+      "name": "Coaster Monorail Corner Large",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "monorail",
+        "corner",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-monorail-corner-large-ramp",
+      "file": "coaster-monorail-corner-large-ramp.glb",
+      "name": "Coaster Monorail Corner Large Ramp",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "monorail",
+        "corner",
+        "large",
+        "ramp",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-monorail-corner-small",
+      "file": "coaster-monorail-corner-small.glb",
+      "name": "Coaster Monorail Corner Small",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "monorail",
+        "corner",
+        "small",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-monorail-corner-small-ramp",
+      "file": "coaster-monorail-corner-small-ramp.glb",
+      "name": "Coaster Monorail Corner Small Ramp",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "monorail",
+        "corner",
+        "small",
+        "ramp",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-monorail-curve",
+      "file": "coaster-monorail-curve.glb",
+      "name": "Coaster Monorail Curve",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "monorail",
+        "curve",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-monorail-looping",
+      "file": "coaster-monorail-looping.glb",
+      "name": "Coaster Monorail Looping",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "monorail",
+        "looping",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-monorail-segment",
+      "file": "coaster-monorail-segment.glb",
+      "name": "Coaster Monorail Segment",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "monorail",
+        "segment",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-monorail-straight",
+      "file": "coaster-monorail-straight.glb",
+      "name": "Coaster Monorail Straight",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "monorail",
+        "straight",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-monorail-straight-bend",
+      "file": "coaster-monorail-straight-bend.glb",
+      "name": "Coaster Monorail Straight Bend",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "monorail",
+        "straight",
+        "bend",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-monorail-straight-bend-large",
+      "file": "coaster-monorail-straight-bend-large.glb",
+      "name": "Coaster Monorail Straight Bend Large",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "monorail",
+        "straight",
+        "bend",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-monorail-straight-bump-down",
+      "file": "coaster-monorail-straight-bump-down.glb",
+      "name": "Coaster Monorail Straight Bump Down",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "monorail",
+        "straight",
+        "bump",
+        "down",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-monorail-straight-bump-up",
+      "file": "coaster-monorail-straight-bump-up.glb",
+      "name": "Coaster Monorail Straight Bump Up",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "monorail",
+        "straight",
+        "bump",
+        "up",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-monorail-straight-hill-beginning",
+      "file": "coaster-monorail-straight-hill-beginning.glb",
+      "name": "Coaster Monorail Straight Hill Beginning",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "monorail",
+        "straight",
+        "hill",
+        "beginning",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-monorail-straight-hill-complete",
+      "file": "coaster-monorail-straight-hill-complete.glb",
+      "name": "Coaster Monorail Straight Hill Complete",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "monorail",
+        "straight",
+        "hill",
+        "complete",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-monorail-straight-hill-complete-half",
+      "file": "coaster-monorail-straight-hill-complete-half.glb",
+      "name": "Coaster Monorail Straight Hill Complete Half",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "monorail",
+        "straight",
+        "hill",
+        "complete",
+        "half",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-monorail-straight-hill-end",
+      "file": "coaster-monorail-straight-hill-end.glb",
+      "name": "Coaster Monorail Straight Hill End",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "monorail",
+        "straight",
+        "hill",
+        "end",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-monorail-straight-skew-left",
+      "file": "coaster-monorail-straight-skew-left.glb",
+      "name": "Coaster Monorail Straight Skew Left",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "monorail",
+        "straight",
+        "skew",
+        "left",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-monorail-straight-skew-left-side",
+      "file": "coaster-monorail-straight-skew-left-side.glb",
+      "name": "Coaster Monorail Straight Skew Left Side",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "monorail",
+        "straight",
+        "skew",
+        "left",
+        "side",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-monorail-straight-skew-right",
+      "file": "coaster-monorail-straight-skew-right.glb",
+      "name": "Coaster Monorail Straight Skew Right",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "monorail",
+        "straight",
+        "skew",
+        "right",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-monorail-straight-skew-right-side",
+      "file": "coaster-monorail-straight-skew-right-side.glb",
+      "name": "Coaster Monorail Straight Skew Right Side",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "monorail",
+        "straight",
+        "skew",
+        "right",
+        "side",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-monorail-track",
+      "file": "coaster-monorail-track.glb",
+      "name": "Coaster Monorail Track",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "monorail",
+        "track",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-mouse-cap-back",
+      "file": "coaster-mouse-cap-back.glb",
+      "name": "Coaster Mouse Cap Back",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "mouse",
+        "cap",
+        "back",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-mouse-cap-front",
+      "file": "coaster-mouse-cap-front.glb",
+      "name": "Coaster Mouse Cap Front",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "mouse",
+        "cap",
+        "front",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-mouse-corner-large",
+      "file": "coaster-mouse-corner-large.glb",
+      "name": "Coaster Mouse Corner Large",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "mouse",
+        "corner",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-mouse-corner-large-ramp",
+      "file": "coaster-mouse-corner-large-ramp.glb",
+      "name": "Coaster Mouse Corner Large Ramp",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "mouse",
+        "corner",
+        "large",
+        "ramp",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-mouse-corner-small",
+      "file": "coaster-mouse-corner-small.glb",
+      "name": "Coaster Mouse Corner Small",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "mouse",
+        "corner",
+        "small",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-mouse-corner-small-ramp",
+      "file": "coaster-mouse-corner-small-ramp.glb",
+      "name": "Coaster Mouse Corner Small Ramp",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "mouse",
+        "corner",
+        "small",
+        "ramp",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-mouse-curve",
+      "file": "coaster-mouse-curve.glb",
+      "name": "Coaster Mouse Curve",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "mouse",
+        "curve",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-mouse-looping",
+      "file": "coaster-mouse-looping.glb",
+      "name": "Coaster Mouse Looping",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "mouse",
+        "looping",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-mouse-segment",
+      "file": "coaster-mouse-segment.glb",
+      "name": "Coaster Mouse Segment",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "mouse",
+        "segment",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-mouse-straight",
+      "file": "coaster-mouse-straight.glb",
+      "name": "Coaster Mouse Straight",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "mouse",
+        "straight",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-mouse-straight-bend",
+      "file": "coaster-mouse-straight-bend.glb",
+      "name": "Coaster Mouse Straight Bend",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "mouse",
+        "straight",
+        "bend",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-mouse-straight-bend-large",
+      "file": "coaster-mouse-straight-bend-large.glb",
+      "name": "Coaster Mouse Straight Bend Large",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "mouse",
+        "straight",
+        "bend",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-mouse-straight-bump-down",
+      "file": "coaster-mouse-straight-bump-down.glb",
+      "name": "Coaster Mouse Straight Bump Down",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "mouse",
+        "straight",
+        "bump",
+        "down",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-mouse-straight-bump-up",
+      "file": "coaster-mouse-straight-bump-up.glb",
+      "name": "Coaster Mouse Straight Bump Up",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "mouse",
+        "straight",
+        "bump",
+        "up",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-mouse-straight-hill-beginning",
+      "file": "coaster-mouse-straight-hill-beginning.glb",
+      "name": "Coaster Mouse Straight Hill Beginning",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "mouse",
+        "straight",
+        "hill",
+        "beginning",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-mouse-straight-hill-complete",
+      "file": "coaster-mouse-straight-hill-complete.glb",
+      "name": "Coaster Mouse Straight Hill Complete",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "mouse",
+        "straight",
+        "hill",
+        "complete",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-mouse-straight-hill-complete-half",
+      "file": "coaster-mouse-straight-hill-complete-half.glb",
+      "name": "Coaster Mouse Straight Hill Complete Half",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "mouse",
+        "straight",
+        "hill",
+        "complete",
+        "half",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-mouse-straight-hill-end",
+      "file": "coaster-mouse-straight-hill-end.glb",
+      "name": "Coaster Mouse Straight Hill End",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "mouse",
+        "straight",
+        "hill",
+        "end",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-mouse-straight-skew-left",
+      "file": "coaster-mouse-straight-skew-left.glb",
+      "name": "Coaster Mouse Straight Skew Left",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "mouse",
+        "straight",
+        "skew",
+        "left",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-mouse-straight-skew-left-side",
+      "file": "coaster-mouse-straight-skew-left-side.glb",
+      "name": "Coaster Mouse Straight Skew Left Side",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "mouse",
+        "straight",
+        "skew",
+        "left",
+        "side",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-mouse-straight-skew-right",
+      "file": "coaster-mouse-straight-skew-right.glb",
+      "name": "Coaster Mouse Straight Skew Right",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "mouse",
+        "straight",
+        "skew",
+        "right",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-mouse-straight-skew-right-side",
+      "file": "coaster-mouse-straight-skew-right-side.glb",
+      "name": "Coaster Mouse Straight Skew Right Side",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "mouse",
+        "straight",
+        "skew",
+        "right",
+        "side",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-mouse-track",
+      "file": "coaster-mouse-track.glb",
+      "name": "Coaster Mouse Track",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "mouse",
+        "track",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-steel-cap-back",
+      "file": "coaster-steel-cap-back.glb",
+      "name": "Coaster Steel Cap Back",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "steel",
+        "cap",
+        "back",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-steel-cap-front",
+      "file": "coaster-steel-cap-front.glb",
+      "name": "Coaster Steel Cap Front",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "steel",
+        "cap",
+        "front",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-steel-corner-large",
+      "file": "coaster-steel-corner-large.glb",
+      "name": "Coaster Steel Corner Large",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "steel",
+        "corner",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-steel-corner-large-ramp",
+      "file": "coaster-steel-corner-large-ramp.glb",
+      "name": "Coaster Steel Corner Large Ramp",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "steel",
+        "corner",
+        "large",
+        "ramp",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-steel-corner-small",
+      "file": "coaster-steel-corner-small.glb",
+      "name": "Coaster Steel Corner Small",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "steel",
+        "corner",
+        "small",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-steel-corner-small-ramp",
+      "file": "coaster-steel-corner-small-ramp.glb",
+      "name": "Coaster Steel Corner Small Ramp",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "steel",
+        "corner",
+        "small",
+        "ramp",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-steel-curve",
+      "file": "coaster-steel-curve.glb",
+      "name": "Coaster Steel Curve",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "steel",
+        "curve",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-steel-looping",
+      "file": "coaster-steel-looping.glb",
+      "name": "Coaster Steel Looping",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "steel",
+        "looping",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-steel-segment",
+      "file": "coaster-steel-segment.glb",
+      "name": "Coaster Steel Segment",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "steel",
+        "segment",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-steel-straight",
+      "file": "coaster-steel-straight.glb",
+      "name": "Coaster Steel Straight",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "steel",
+        "straight",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-steel-straight-bend",
+      "file": "coaster-steel-straight-bend.glb",
+      "name": "Coaster Steel Straight Bend",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "steel",
+        "straight",
+        "bend",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-steel-straight-bend-large",
+      "file": "coaster-steel-straight-bend-large.glb",
+      "name": "Coaster Steel Straight Bend Large",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "steel",
+        "straight",
+        "bend",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-steel-straight-bump-down",
+      "file": "coaster-steel-straight-bump-down.glb",
+      "name": "Coaster Steel Straight Bump Down",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "steel",
+        "straight",
+        "bump",
+        "down",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-steel-straight-bump-up",
+      "file": "coaster-steel-straight-bump-up.glb",
+      "name": "Coaster Steel Straight Bump Up",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "steel",
+        "straight",
+        "bump",
+        "up",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-steel-straight-hill-beginning",
+      "file": "coaster-steel-straight-hill-beginning.glb",
+      "name": "Coaster Steel Straight Hill Beginning",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "steel",
+        "straight",
+        "hill",
+        "beginning",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-steel-straight-hill-complete",
+      "file": "coaster-steel-straight-hill-complete.glb",
+      "name": "Coaster Steel Straight Hill Complete",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "steel",
+        "straight",
+        "hill",
+        "complete",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-steel-straight-hill-complete-half",
+      "file": "coaster-steel-straight-hill-complete-half.glb",
+      "name": "Coaster Steel Straight Hill Complete Half",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "steel",
+        "straight",
+        "hill",
+        "complete",
+        "half",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-steel-straight-hill-end",
+      "file": "coaster-steel-straight-hill-end.glb",
+      "name": "Coaster Steel Straight Hill End",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "steel",
+        "straight",
+        "hill",
+        "end",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-steel-straight-skew-left",
+      "file": "coaster-steel-straight-skew-left.glb",
+      "name": "Coaster Steel Straight Skew Left",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "steel",
+        "straight",
+        "skew",
+        "left",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-steel-straight-skew-left-side",
+      "file": "coaster-steel-straight-skew-left-side.glb",
+      "name": "Coaster Steel Straight Skew Left Side",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "steel",
+        "straight",
+        "skew",
+        "left",
+        "side",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-steel-straight-skew-right",
+      "file": "coaster-steel-straight-skew-right.glb",
+      "name": "Coaster Steel Straight Skew Right",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "steel",
+        "straight",
+        "skew",
+        "right",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-steel-straight-skew-right-side",
+      "file": "coaster-steel-straight-skew-right-side.glb",
+      "name": "Coaster Steel Straight Skew Right Side",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "steel",
+        "straight",
+        "skew",
+        "right",
+        "side",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-steel-track",
+      "file": "coaster-steel-track.glb",
+      "name": "Coaster Steel Track",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "steel",
+        "track",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-train",
+      "file": "coaster-train.glb",
+      "name": "Coaster Train",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "train",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-train-front",
+      "file": "coaster-train-front.glb",
+      "name": "Coaster Train Front",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "train",
+        "front",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-train-hanging",
+      "file": "coaster-train-hanging.glb",
+      "name": "Coaster Train Hanging",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "train",
+        "hanging",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-train-safety",
+      "file": "coaster-train-safety.glb",
+      "name": "Coaster Train Safety",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "train",
+        "safety",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-train-wooden",
+      "file": "coaster-train-wooden.glb",
+      "name": "Coaster Train Wooden",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "train",
+        "wooden",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-wood-corner-large",
+      "file": "coaster-wood-corner-large.glb",
+      "name": "Coaster Wood Corner Large",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "wood",
+        "corner",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-wood-corner-large-ramp",
+      "file": "coaster-wood-corner-large-ramp.glb",
+      "name": "Coaster Wood Corner Large Ramp",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "wood",
+        "corner",
+        "large",
+        "ramp",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-wood-corner-small",
+      "file": "coaster-wood-corner-small.glb",
+      "name": "Coaster Wood Corner Small",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "wood",
+        "corner",
+        "small",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-wood-corner-small-ramp",
+      "file": "coaster-wood-corner-small-ramp.glb",
+      "name": "Coaster Wood Corner Small Ramp",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "wood",
+        "corner",
+        "small",
+        "ramp",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-wood-curve",
+      "file": "coaster-wood-curve.glb",
+      "name": "Coaster Wood Curve",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "wood",
+        "curve",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-wood-looping",
+      "file": "coaster-wood-looping.glb",
+      "name": "Coaster Wood Looping",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "wood",
+        "looping",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-wood-segment",
+      "file": "coaster-wood-segment.glb",
+      "name": "Coaster Wood Segment",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "wood",
+        "segment",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-wood-straight",
+      "file": "coaster-wood-straight.glb",
+      "name": "Coaster Wood Straight",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "wood",
+        "straight",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-wood-straight-bend",
+      "file": "coaster-wood-straight-bend.glb",
+      "name": "Coaster Wood Straight Bend",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "wood",
+        "straight",
+        "bend",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-wood-straight-bend-large",
+      "file": "coaster-wood-straight-bend-large.glb",
+      "name": "Coaster Wood Straight Bend Large",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "wood",
+        "straight",
+        "bend",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-wood-straight-bump-down",
+      "file": "coaster-wood-straight-bump-down.glb",
+      "name": "Coaster Wood Straight Bump Down",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "wood",
+        "straight",
+        "bump",
+        "down",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-wood-straight-bump-up",
+      "file": "coaster-wood-straight-bump-up.glb",
+      "name": "Coaster Wood Straight Bump Up",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "wood",
+        "straight",
+        "bump",
+        "up",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-wood-straight-hill-beginning",
+      "file": "coaster-wood-straight-hill-beginning.glb",
+      "name": "Coaster Wood Straight Hill Beginning",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "wood",
+        "straight",
+        "hill",
+        "beginning",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-wood-straight-hill-complete",
+      "file": "coaster-wood-straight-hill-complete.glb",
+      "name": "Coaster Wood Straight Hill Complete",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "wood",
+        "straight",
+        "hill",
+        "complete",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-wood-straight-hill-complete-half",
+      "file": "coaster-wood-straight-hill-complete-half.glb",
+      "name": "Coaster Wood Straight Hill Complete Half",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "wood",
+        "straight",
+        "hill",
+        "complete",
+        "half",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-wood-straight-hill-end",
+      "file": "coaster-wood-straight-hill-end.glb",
+      "name": "Coaster Wood Straight Hill End",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "wood",
+        "straight",
+        "hill",
+        "end",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-wood-straight-skew-left",
+      "file": "coaster-wood-straight-skew-left.glb",
+      "name": "Coaster Wood Straight Skew Left",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "wood",
+        "straight",
+        "skew",
+        "left",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-wood-straight-skew-left-side",
+      "file": "coaster-wood-straight-skew-left-side.glb",
+      "name": "Coaster Wood Straight Skew Left Side",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "wood",
+        "straight",
+        "skew",
+        "left",
+        "side",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-wood-straight-skew-right",
+      "file": "coaster-wood-straight-skew-right.glb",
+      "name": "Coaster Wood Straight Skew Right",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "wood",
+        "straight",
+        "skew",
+        "right",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-wood-straight-skew-right-side",
+      "file": "coaster-wood-straight-skew-right-side.glb",
+      "name": "Coaster Wood Straight Skew Right Side",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "wood",
+        "straight",
+        "skew",
+        "right",
+        "side",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coaster-wood-track",
+      "file": "coaster-wood-track.glb",
+      "name": "Coaster Wood Track",
+      "category": "coaster",
+      "tags": [
+        "coaster",
+        "wood",
+        "track",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "flowers",
+      "file": "flowers.glb",
+      "name": "Flowers",
+      "category": "vegetation",
+      "tags": [
+        "flowers",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "grass",
+      "file": "grass.glb",
+      "name": "Grass",
+      "category": "vegetation",
+      "tags": [
+        "grass",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "park-entrance",
+      "file": "park-entrance.glb",
+      "name": "Park Entrance",
+      "category": "park",
+      "tags": [
+        "park",
+        "entrance",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "path-corner",
+      "file": "path-corner.glb",
+      "name": "Path Corner",
+      "category": "path",
+      "tags": [
+        "path",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "path-crossing",
+      "file": "path-crossing.glb",
+      "name": "Path Crossing",
+      "category": "path",
+      "tags": [
+        "path",
+        "crossing",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "path-exit",
+      "file": "path-exit.glb",
+      "name": "Path Exit",
+      "category": "path",
+      "tags": [
+        "path",
+        "exit",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "path-split",
+      "file": "path-split.glb",
+      "name": "Path Split",
+      "category": "path",
+      "tags": [
+        "path",
+        "split",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "path-steps",
+      "file": "path-steps.glb",
+      "name": "Path Steps",
+      "category": "path",
+      "tags": [
+        "path",
+        "steps",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "path-straight",
+      "file": "path-straight.glb",
+      "name": "Path Straight",
+      "category": "path",
+      "tags": [
+        "path",
+        "straight",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "queue-corner",
+      "file": "queue-corner.glb",
+      "name": "Queue Corner",
+      "category": "queue",
+      "tags": [
+        "queue",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "queue-crossing",
+      "file": "queue-crossing.glb",
+      "name": "Queue Crossing",
+      "category": "queue",
+      "tags": [
+        "queue",
+        "crossing",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "queue-entrance",
+      "file": "queue-entrance.glb",
+      "name": "Queue Entrance",
+      "category": "queue",
+      "tags": [
+        "queue",
+        "entrance",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "queue-split",
+      "file": "queue-split.glb",
+      "name": "Queue Split",
+      "category": "queue",
+      "tags": [
+        "queue",
+        "split",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "queue-steps",
+      "file": "queue-steps.glb",
+      "name": "Queue Steps",
+      "category": "queue",
+      "tags": [
+        "queue",
+        "steps",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "queue-straight",
+      "file": "queue-straight.glb",
+      "name": "Queue Straight",
+      "category": "queue",
+      "tags": [
+        "queue",
+        "straight",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ride-entrance",
+      "file": "ride-entrance.glb",
+      "name": "Ride Entrance",
+      "category": "ride",
+      "tags": [
+        "ride",
+        "entrance",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ride-exit",
+      "file": "ride-exit.glb",
+      "name": "Ride Exit",
+      "category": "ride",
+      "tags": [
+        "ride",
+        "exit",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stall-drinks",
+      "file": "stall-drinks.glb",
+      "name": "Stall Drinks",
+      "category": "stall",
+      "tags": [
+        "stall",
+        "drinks",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stall-food",
+      "file": "stall-food.glb",
+      "name": "Stall Food",
+      "category": "stall",
+      "tags": [
+        "stall",
+        "food",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stall-information",
+      "file": "stall-information.glb",
+      "name": "Stall Information",
+      "category": "stall",
+      "tags": [
+        "stall",
+        "information",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stall-toilets",
+      "file": "stall-toilets.glb",
+      "name": "Stall Toilets",
+      "category": "stall",
+      "tags": [
+        "stall",
+        "toilets",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "station",
+      "file": "station.glb",
+      "name": "Station",
+      "category": "station",
+      "tags": [
+        "station",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "station-fence",
+      "file": "station-fence.glb",
+      "name": "Station Fence",
+      "category": "station",
+      "tags": [
+        "station",
+        "fence",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "station-gate",
+      "file": "station-gate.glb",
+      "name": "Station Gate",
+      "category": "station",
+      "tags": [
+        "station",
+        "gate",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "support-large",
+      "file": "support-large.glb",
+      "name": "Support Large",
+      "category": "support",
+      "tags": [
+        "support",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "support-large-bottom",
+      "file": "support-large-bottom.glb",
+      "name": "Support Large Bottom",
+      "category": "support",
+      "tags": [
+        "support",
+        "large",
+        "bottom",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "support-large-horizontal",
+      "file": "support-large-horizontal.glb",
+      "name": "Support Large Horizontal",
+      "category": "support",
+      "tags": [
+        "support",
+        "large",
+        "horizontal",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "support-large-horizontal-ring",
+      "file": "support-large-horizontal-ring.glb",
+      "name": "Support Large Horizontal Ring",
+      "category": "support",
+      "tags": [
+        "support",
+        "large",
+        "horizontal",
+        "ring",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "support-large-skew",
+      "file": "support-large-skew.glb",
+      "name": "Support Large Skew",
+      "category": "support",
+      "tags": [
+        "support",
+        "large",
+        "skew",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "support-large-skew-bottom",
+      "file": "support-large-skew-bottom.glb",
+      "name": "Support Large Skew Bottom",
+      "category": "support",
+      "tags": [
+        "support",
+        "large",
+        "skew",
+        "bottom",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "support-small",
+      "file": "support-small.glb",
+      "name": "Support Small",
+      "category": "support",
+      "tags": [
+        "support",
+        "small",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "support-small-bottom",
+      "file": "support-small-bottom.glb",
+      "name": "Support Small Bottom",
+      "category": "support",
+      "tags": [
+        "support",
+        "small",
+        "bottom",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "support-small-horizontal",
+      "file": "support-small-horizontal.glb",
+      "name": "Support Small Horizontal",
+      "category": "support",
+      "tags": [
+        "support",
+        "small",
+        "horizontal",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "support-small-horizontal-ring",
+      "file": "support-small-horizontal-ring.glb",
+      "name": "Support Small Horizontal Ring",
+      "category": "support",
+      "tags": [
+        "support",
+        "small",
+        "horizontal",
+        "ring",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "support-small-skew",
+      "file": "support-small-skew.glb",
+      "name": "Support Small Skew",
+      "category": "support",
+      "tags": [
+        "support",
+        "small",
+        "skew",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "support-small-skew-bottom",
+      "file": "support-small-skew-bottom.glb",
+      "name": "Support Small Skew Bottom",
+      "category": "support",
+      "tags": [
+        "support",
+        "small",
+        "skew",
+        "bottom",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "train-log-flume",
+      "file": "train-log-flume.glb",
+      "name": "Train Log Flume",
+      "category": "train",
+      "tags": [
+        "train",
+        "log",
+        "flume",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "train-monorail",
+      "file": "train-monorail.glb",
+      "name": "Train Monorail",
+      "category": "train",
+      "tags": [
+        "train",
+        "monorail",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "trash",
+      "file": "trash.glb",
+      "name": "Trash",
+      "category": "trash",
+      "tags": [
+        "trash",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree",
+      "file": "tree.glb",
+      "name": "Tree",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-large",
+      "file": "tree-large.glb",
+      "name": "Tree Large",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "large",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    }
+  ]
+}

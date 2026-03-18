@@ -1,0 +1,355 @@
+{
+  "pack_id": "kenney-city-kit-industrial",
+  "name": "Kenney City Kit Industrial",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "Kenney City Kit Industrial free 3D models from Kenney.",
+  "base_url": "/static/assets/packs/kenney-city-kit-industrial/",
+  "assets": [
+    {
+      "id": "building-a",
+      "file": "building-a.glb",
+      "name": "Building A",
+      "category": "structure",
+      "tags": [
+        "building",
+        "a",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-b",
+      "file": "building-b.glb",
+      "name": "Building B",
+      "category": "structure",
+      "tags": [
+        "building",
+        "b",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-c",
+      "file": "building-c.glb",
+      "name": "Building C",
+      "category": "structure",
+      "tags": [
+        "building",
+        "c",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-d",
+      "file": "building-d.glb",
+      "name": "Building D",
+      "category": "structure",
+      "tags": [
+        "building",
+        "d",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-e",
+      "file": "building-e.glb",
+      "name": "Building E",
+      "category": "structure",
+      "tags": [
+        "building",
+        "e",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-f",
+      "file": "building-f.glb",
+      "name": "Building F",
+      "category": "structure",
+      "tags": [
+        "building",
+        "f",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-g",
+      "file": "building-g.glb",
+      "name": "Building G",
+      "category": "structure",
+      "tags": [
+        "building",
+        "g",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-h",
+      "file": "building-h.glb",
+      "name": "Building H",
+      "category": "structure",
+      "tags": [
+        "building",
+        "h",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-i",
+      "file": "building-i.glb",
+      "name": "Building I",
+      "category": "structure",
+      "tags": [
+        "building",
+        "i",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-j",
+      "file": "building-j.glb",
+      "name": "Building J",
+      "category": "structure",
+      "tags": [
+        "building",
+        "j",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-k",
+      "file": "building-k.glb",
+      "name": "Building K",
+      "category": "structure",
+      "tags": [
+        "building",
+        "k",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-l",
+      "file": "building-l.glb",
+      "name": "Building L",
+      "category": "structure",
+      "tags": [
+        "building",
+        "l",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-m",
+      "file": "building-m.glb",
+      "name": "Building M",
+      "category": "structure",
+      "tags": [
+        "building",
+        "m",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-n",
+      "file": "building-n.glb",
+      "name": "Building N",
+      "category": "structure",
+      "tags": [
+        "building",
+        "n",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-o",
+      "file": "building-o.glb",
+      "name": "Building O",
+      "category": "structure",
+      "tags": [
+        "building",
+        "o",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-p",
+      "file": "building-p.glb",
+      "name": "Building P",
+      "category": "structure",
+      "tags": [
+        "building",
+        "p",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-q",
+      "file": "building-q.glb",
+      "name": "Building Q",
+      "category": "structure",
+      "tags": [
+        "building",
+        "q",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-r",
+      "file": "building-r.glb",
+      "name": "Building R",
+      "category": "structure",
+      "tags": [
+        "building",
+        "r",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-s",
+      "file": "building-s.glb",
+      "name": "Building S",
+      "category": "structure",
+      "tags": [
+        "building",
+        "s",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-t",
+      "file": "building-t.glb",
+      "name": "Building T",
+      "category": "structure",
+      "tags": [
+        "building",
+        "t",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "chimney-basic",
+      "file": "chimney-basic.glb",
+      "name": "Chimney Basic",
+      "category": "chimney",
+      "tags": [
+        "chimney",
+        "basic",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "chimney-large",
+      "file": "chimney-large.glb",
+      "name": "Chimney Large",
+      "category": "chimney",
+      "tags": [
+        "chimney",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "chimney-medium",
+      "file": "chimney-medium.glb",
+      "name": "Chimney Medium",
+      "category": "chimney",
+      "tags": [
+        "chimney",
+        "medium",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "chimney-small",
+      "file": "chimney-small.glb",
+      "name": "Chimney Small",
+      "category": "chimney",
+      "tags": [
+        "chimney",
+        "small",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "detail-tank",
+      "file": "detail-tank.glb",
+      "name": "Detail Tank",
+      "category": "detail",
+      "tags": [
+        "detail",
+        "tank",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    }
+  ]
+}

@@ -1,0 +1,1768 @@
+{
+  "pack_id": "kenney-minigolf-kit",
+  "name": "Kenney Minigolf Kit",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "Kenney Minigolf Kit free 3D models from Kenney.",
+  "base_url": "/static/assets/packs/kenney-minigolf-kit/",
+  "assets": [
+    {
+      "id": "ball-blue",
+      "file": "ball-blue.glb",
+      "name": "Ball Blue",
+      "category": "ball",
+      "tags": [
+        "ball",
+        "blue",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ball-green",
+      "file": "ball-green.glb",
+      "name": "Ball Green",
+      "category": "ball",
+      "tags": [
+        "ball",
+        "green",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ball-red",
+      "file": "ball-red.glb",
+      "name": "Ball Red",
+      "category": "ball",
+      "tags": [
+        "ball",
+        "red",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block",
+      "file": "block.glb",
+      "name": "Block",
+      "category": "block",
+      "tags": [
+        "block",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "block-borders",
+      "file": "block-borders.glb",
+      "name": "Block Borders",
+      "category": "block",
+      "tags": [
+        "block",
+        "borders",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bump",
+      "file": "bump.glb",
+      "name": "Bump",
+      "category": "bump",
+      "tags": [
+        "bump",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bump-down",
+      "file": "bump-down.glb",
+      "name": "Bump Down",
+      "category": "bump",
+      "tags": [
+        "bump",
+        "down",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bump-down-walls",
+      "file": "bump-down-walls.glb",
+      "name": "Bump Down Walls",
+      "category": "bump",
+      "tags": [
+        "bump",
+        "down",
+        "walls",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bump-walls",
+      "file": "bump-walls.glb",
+      "name": "Bump Walls",
+      "category": "bump",
+      "tags": [
+        "bump",
+        "walls",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "castle",
+      "file": "castle.glb",
+      "name": "Castle",
+      "category": "structure",
+      "tags": [
+        "castle",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "club-blue",
+      "file": "club-blue.glb",
+      "name": "Club Blue",
+      "category": "club",
+      "tags": [
+        "club",
+        "blue",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "club-green",
+      "file": "club-green.glb",
+      "name": "Club Green",
+      "category": "club",
+      "tags": [
+        "club",
+        "green",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "club-red",
+      "file": "club-red.glb",
+      "name": "Club Red",
+      "category": "club",
+      "tags": [
+        "club",
+        "red",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "corner",
+      "file": "corner.glb",
+      "name": "Corner",
+      "category": "corner",
+      "tags": [
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "crest",
+      "file": "crest.glb",
+      "name": "Crest",
+      "category": "crest",
+      "tags": [
+        "crest",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "end",
+      "file": "end.glb",
+      "name": "End",
+      "category": "end",
+      "tags": [
+        "end",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "flag-blue",
+      "file": "flag-blue.glb",
+      "name": "Flag Blue",
+      "category": "flag",
+      "tags": [
+        "flag",
+        "blue",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "flag-green",
+      "file": "flag-green.glb",
+      "name": "Flag Green",
+      "category": "flag",
+      "tags": [
+        "flag",
+        "green",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "flag-large-blue",
+      "file": "flag-large-blue.glb",
+      "name": "Flag Large Blue",
+      "category": "flag",
+      "tags": [
+        "flag",
+        "large",
+        "blue",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "flag-large-green",
+      "file": "flag-large-green.glb",
+      "name": "Flag Large Green",
+      "category": "flag",
+      "tags": [
+        "flag",
+        "large",
+        "green",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "flag-large-red",
+      "file": "flag-large-red.glb",
+      "name": "Flag Large Red",
+      "category": "flag",
+      "tags": [
+        "flag",
+        "large",
+        "red",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "flag-red",
+      "file": "flag-red.glb",
+      "name": "Flag Red",
+      "category": "flag",
+      "tags": [
+        "flag",
+        "red",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "gap",
+      "file": "gap.glb",
+      "name": "Gap",
+      "category": "gap",
+      "tags": [
+        "gap",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "hill-corner",
+      "file": "hill-corner.glb",
+      "name": "Hill Corner",
+      "category": "hill",
+      "tags": [
+        "hill",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "hill-round",
+      "file": "hill-round.glb",
+      "name": "Hill Round",
+      "category": "hill",
+      "tags": [
+        "hill",
+        "round",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "hill-square",
+      "file": "hill-square.glb",
+      "name": "Hill Square",
+      "category": "hill",
+      "tags": [
+        "hill",
+        "square",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "hole-open",
+      "file": "hole-open.glb",
+      "name": "Hole Open",
+      "category": "hole",
+      "tags": [
+        "hole",
+        "open",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "hole-round",
+      "file": "hole-round.glb",
+      "name": "Hole Round",
+      "category": "hole",
+      "tags": [
+        "hole",
+        "round",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "hole-square",
+      "file": "hole-square.glb",
+      "name": "Hole Square",
+      "category": "hole",
+      "tags": [
+        "hole",
+        "square",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "inner-corner",
+      "file": "inner-corner.glb",
+      "name": "Inner Corner",
+      "category": "inner",
+      "tags": [
+        "inner",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "narrow-block",
+      "file": "narrow-block.glb",
+      "name": "Narrow Block",
+      "category": "narrow",
+      "tags": [
+        "narrow",
+        "block",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "narrow-round",
+      "file": "narrow-round.glb",
+      "name": "Narrow Round",
+      "category": "narrow",
+      "tags": [
+        "narrow",
+        "round",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "narrow-square",
+      "file": "narrow-square.glb",
+      "name": "Narrow Square",
+      "category": "narrow",
+      "tags": [
+        "narrow",
+        "square",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "obstacle-block",
+      "file": "obstacle-block.glb",
+      "name": "Obstacle Block",
+      "category": "obstacle",
+      "tags": [
+        "obstacle",
+        "block",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "obstacle-diamond",
+      "file": "obstacle-diamond.glb",
+      "name": "Obstacle Diamond",
+      "category": "obstacle",
+      "tags": [
+        "obstacle",
+        "diamond",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "obstacle-triangle",
+      "file": "obstacle-triangle.glb",
+      "name": "Obstacle Triangle",
+      "category": "obstacle",
+      "tags": [
+        "obstacle",
+        "triangle",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "open",
+      "file": "open.glb",
+      "name": "Open",
+      "category": "open",
+      "tags": [
+        "open",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ramp",
+      "file": "ramp.glb",
+      "name": "Ramp",
+      "category": "ramp",
+      "tags": [
+        "ramp",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ramp-high",
+      "file": "ramp-high.glb",
+      "name": "Ramp High",
+      "category": "ramp",
+      "tags": [
+        "ramp",
+        "high",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ramp-large",
+      "file": "ramp-large.glb",
+      "name": "Ramp Large",
+      "category": "ramp",
+      "tags": [
+        "ramp",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ramp-large-side",
+      "file": "ramp-large-side.glb",
+      "name": "Ramp Large Side",
+      "category": "ramp",
+      "tags": [
+        "ramp",
+        "large",
+        "side",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ramp-low",
+      "file": "ramp-low.glb",
+      "name": "Ramp Low",
+      "category": "ramp",
+      "tags": [
+        "ramp",
+        "low",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ramp-medium",
+      "file": "ramp-medium.glb",
+      "name": "Ramp Medium",
+      "category": "ramp",
+      "tags": [
+        "ramp",
+        "medium",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ramp-sharp",
+      "file": "ramp-sharp.glb",
+      "name": "Ramp Sharp",
+      "category": "ramp",
+      "tags": [
+        "ramp",
+        "sharp",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ramp-side",
+      "file": "ramp-side.glb",
+      "name": "Ramp Side",
+      "category": "ramp",
+      "tags": [
+        "ramp",
+        "side",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ramp-square",
+      "file": "ramp-square.glb",
+      "name": "Ramp Square",
+      "category": "ramp",
+      "tags": [
+        "ramp",
+        "square",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "round-corner-a",
+      "file": "round-corner-a.glb",
+      "name": "Round Corner A",
+      "category": "round",
+      "tags": [
+        "round",
+        "corner",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "round-corner-b",
+      "file": "round-corner-b.glb",
+      "name": "Round Corner B",
+      "category": "round",
+      "tags": [
+        "round",
+        "corner",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "round-corner-c",
+      "file": "round-corner-c.glb",
+      "name": "Round Corner C",
+      "category": "round",
+      "tags": [
+        "round",
+        "corner",
+        "c",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "round-large-corner",
+      "file": "round-large-corner.glb",
+      "name": "Round Large Corner",
+      "category": "round",
+      "tags": [
+        "round",
+        "large",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "round-large-corner-open",
+      "file": "round-large-corner-open.glb",
+      "name": "Round Large Corner Open",
+      "category": "round",
+      "tags": [
+        "round",
+        "large",
+        "corner",
+        "open",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "side",
+      "file": "side.glb",
+      "name": "Side",
+      "category": "side",
+      "tags": [
+        "side",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "skew-corner",
+      "file": "skew-corner.glb",
+      "name": "Skew Corner",
+      "category": "skew",
+      "tags": [
+        "skew",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "skew-large-corner",
+      "file": "skew-large-corner.glb",
+      "name": "Skew Large Corner",
+      "category": "skew",
+      "tags": [
+        "skew",
+        "large",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "skew-large-corner-open",
+      "file": "skew-large-corner-open.glb",
+      "name": "Skew Large Corner Open",
+      "category": "skew",
+      "tags": [
+        "skew",
+        "large",
+        "corner",
+        "open",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spline-concave",
+      "file": "spline-concave.glb",
+      "name": "Spline Concave",
+      "category": "spline",
+      "tags": [
+        "spline",
+        "concave",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spline-concave-cap-back",
+      "file": "spline-concave-cap-back.glb",
+      "name": "Spline Concave Cap Back",
+      "category": "spline",
+      "tags": [
+        "spline",
+        "concave",
+        "cap",
+        "back",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spline-concave-cap-front",
+      "file": "spline-concave-cap-front.glb",
+      "name": "Spline Concave Cap Front",
+      "category": "spline",
+      "tags": [
+        "spline",
+        "concave",
+        "cap",
+        "front",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spline-concave-corner-large",
+      "file": "spline-concave-corner-large.glb",
+      "name": "Spline Concave Corner Large",
+      "category": "spline",
+      "tags": [
+        "spline",
+        "concave",
+        "corner",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spline-concave-corner-large-ramp",
+      "file": "spline-concave-corner-large-ramp.glb",
+      "name": "Spline Concave Corner Large Ramp",
+      "category": "spline",
+      "tags": [
+        "spline",
+        "concave",
+        "corner",
+        "large",
+        "ramp",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spline-concave-corner-small",
+      "file": "spline-concave-corner-small.glb",
+      "name": "Spline Concave Corner Small",
+      "category": "spline",
+      "tags": [
+        "spline",
+        "concave",
+        "corner",
+        "small",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spline-concave-corner-small-ramp",
+      "file": "spline-concave-corner-small-ramp.glb",
+      "name": "Spline Concave Corner Small Ramp",
+      "category": "spline",
+      "tags": [
+        "spline",
+        "concave",
+        "corner",
+        "small",
+        "ramp",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spline-concave-curve",
+      "file": "spline-concave-curve.glb",
+      "name": "Spline Concave Curve",
+      "category": "spline",
+      "tags": [
+        "spline",
+        "concave",
+        "curve",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spline-concave-looping",
+      "file": "spline-concave-looping.glb",
+      "name": "Spline Concave Looping",
+      "category": "spline",
+      "tags": [
+        "spline",
+        "concave",
+        "looping",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spline-concave-straight",
+      "file": "spline-concave-straight.glb",
+      "name": "Spline Concave Straight",
+      "category": "spline",
+      "tags": [
+        "spline",
+        "concave",
+        "straight",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spline-concave-straight-bend",
+      "file": "spline-concave-straight-bend.glb",
+      "name": "Spline Concave Straight Bend",
+      "category": "spline",
+      "tags": [
+        "spline",
+        "concave",
+        "straight",
+        "bend",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spline-concave-straight-bend-large",
+      "file": "spline-concave-straight-bend-large.glb",
+      "name": "Spline Concave Straight Bend Large",
+      "category": "spline",
+      "tags": [
+        "spline",
+        "concave",
+        "straight",
+        "bend",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spline-concave-straight-bump-down",
+      "file": "spline-concave-straight-bump-down.glb",
+      "name": "Spline Concave Straight Bump Down",
+      "category": "spline",
+      "tags": [
+        "spline",
+        "concave",
+        "straight",
+        "bump",
+        "down",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spline-concave-straight-bump-up",
+      "file": "spline-concave-straight-bump-up.glb",
+      "name": "Spline Concave Straight Bump Up",
+      "category": "spline",
+      "tags": [
+        "spline",
+        "concave",
+        "straight",
+        "bump",
+        "up",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spline-concave-straight-hill-beginning",
+      "file": "spline-concave-straight-hill-beginning.glb",
+      "name": "Spline Concave Straight Hill Beginning",
+      "category": "spline",
+      "tags": [
+        "spline",
+        "concave",
+        "straight",
+        "hill",
+        "beginning",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spline-concave-straight-hill-complete",
+      "file": "spline-concave-straight-hill-complete.glb",
+      "name": "Spline Concave Straight Hill Complete",
+      "category": "spline",
+      "tags": [
+        "spline",
+        "concave",
+        "straight",
+        "hill",
+        "complete",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spline-concave-straight-hill-complete-half",
+      "file": "spline-concave-straight-hill-complete-half.glb",
+      "name": "Spline Concave Straight Hill Complete Half",
+      "category": "spline",
+      "tags": [
+        "spline",
+        "concave",
+        "straight",
+        "hill",
+        "complete",
+        "half",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spline-concave-straight-hill-end",
+      "file": "spline-concave-straight-hill-end.glb",
+      "name": "Spline Concave Straight Hill End",
+      "category": "spline",
+      "tags": [
+        "spline",
+        "concave",
+        "straight",
+        "hill",
+        "end",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spline-concave-straight-skew-left",
+      "file": "spline-concave-straight-skew-left.glb",
+      "name": "Spline Concave Straight Skew Left",
+      "category": "spline",
+      "tags": [
+        "spline",
+        "concave",
+        "straight",
+        "skew",
+        "left",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spline-concave-straight-skew-left-side",
+      "file": "spline-concave-straight-skew-left-side.glb",
+      "name": "Spline Concave Straight Skew Left Side",
+      "category": "spline",
+      "tags": [
+        "spline",
+        "concave",
+        "straight",
+        "skew",
+        "left",
+        "side",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spline-concave-straight-skew-right",
+      "file": "spline-concave-straight-skew-right.glb",
+      "name": "Spline Concave Straight Skew Right",
+      "category": "spline",
+      "tags": [
+        "spline",
+        "concave",
+        "straight",
+        "skew",
+        "right",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spline-concave-straight-skew-right-side",
+      "file": "spline-concave-straight-skew-right-side.glb",
+      "name": "Spline Concave Straight Skew Right Side",
+      "category": "spline",
+      "tags": [
+        "spline",
+        "concave",
+        "straight",
+        "skew",
+        "right",
+        "side",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spline-default",
+      "file": "spline-default.glb",
+      "name": "Spline Default",
+      "category": "spline",
+      "tags": [
+        "spline",
+        "default",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spline-default-cap-back",
+      "file": "spline-default-cap-back.glb",
+      "name": "Spline Default Cap Back",
+      "category": "spline",
+      "tags": [
+        "spline",
+        "default",
+        "cap",
+        "back",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spline-default-cap-front",
+      "file": "spline-default-cap-front.glb",
+      "name": "Spline Default Cap Front",
+      "category": "spline",
+      "tags": [
+        "spline",
+        "default",
+        "cap",
+        "front",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spline-default-corner-large",
+      "file": "spline-default-corner-large.glb",
+      "name": "Spline Default Corner Large",
+      "category": "spline",
+      "tags": [
+        "spline",
+        "default",
+        "corner",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spline-default-corner-large-ramp",
+      "file": "spline-default-corner-large-ramp.glb",
+      "name": "Spline Default Corner Large Ramp",
+      "category": "spline",
+      "tags": [
+        "spline",
+        "default",
+        "corner",
+        "large",
+        "ramp",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spline-default-corner-small",
+      "file": "spline-default-corner-small.glb",
+      "name": "Spline Default Corner Small",
+      "category": "spline",
+      "tags": [
+        "spline",
+        "default",
+        "corner",
+        "small",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spline-default-corner-small-ramp",
+      "file": "spline-default-corner-small-ramp.glb",
+      "name": "Spline Default Corner Small Ramp",
+      "category": "spline",
+      "tags": [
+        "spline",
+        "default",
+        "corner",
+        "small",
+        "ramp",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spline-default-curve",
+      "file": "spline-default-curve.glb",
+      "name": "Spline Default Curve",
+      "category": "spline",
+      "tags": [
+        "spline",
+        "default",
+        "curve",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spline-default-looping",
+      "file": "spline-default-looping.glb",
+      "name": "Spline Default Looping",
+      "category": "spline",
+      "tags": [
+        "spline",
+        "default",
+        "looping",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spline-default-straight",
+      "file": "spline-default-straight.glb",
+      "name": "Spline Default Straight",
+      "category": "spline",
+      "tags": [
+        "spline",
+        "default",
+        "straight",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spline-default-straight-bend",
+      "file": "spline-default-straight-bend.glb",
+      "name": "Spline Default Straight Bend",
+      "category": "spline",
+      "tags": [
+        "spline",
+        "default",
+        "straight",
+        "bend",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spline-default-straight-bend-large",
+      "file": "spline-default-straight-bend-large.glb",
+      "name": "Spline Default Straight Bend Large",
+      "category": "spline",
+      "tags": [
+        "spline",
+        "default",
+        "straight",
+        "bend",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spline-default-straight-bump-down",
+      "file": "spline-default-straight-bump-down.glb",
+      "name": "Spline Default Straight Bump Down",
+      "category": "spline",
+      "tags": [
+        "spline",
+        "default",
+        "straight",
+        "bump",
+        "down",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spline-default-straight-bump-up",
+      "file": "spline-default-straight-bump-up.glb",
+      "name": "Spline Default Straight Bump Up",
+      "category": "spline",
+      "tags": [
+        "spline",
+        "default",
+        "straight",
+        "bump",
+        "up",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spline-default-straight-hill-beginning",
+      "file": "spline-default-straight-hill-beginning.glb",
+      "name": "Spline Default Straight Hill Beginning",
+      "category": "spline",
+      "tags": [
+        "spline",
+        "default",
+        "straight",
+        "hill",
+        "beginning",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spline-default-straight-hill-complete",
+      "file": "spline-default-straight-hill-complete.glb",
+      "name": "Spline Default Straight Hill Complete",
+      "category": "spline",
+      "tags": [
+        "spline",
+        "default",
+        "straight",
+        "hill",
+        "complete",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spline-default-straight-hill-complete-half",
+      "file": "spline-default-straight-hill-complete-half.glb",
+      "name": "Spline Default Straight Hill Complete Half",
+      "category": "spline",
+      "tags": [
+        "spline",
+        "default",
+        "straight",
+        "hill",
+        "complete",
+        "half",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spline-default-straight-hill-end",
+      "file": "spline-default-straight-hill-end.glb",
+      "name": "Spline Default Straight Hill End",
+      "category": "spline",
+      "tags": [
+        "spline",
+        "default",
+        "straight",
+        "hill",
+        "end",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spline-default-straight-skew-left",
+      "file": "spline-default-straight-skew-left.glb",
+      "name": "Spline Default Straight Skew Left",
+      "category": "spline",
+      "tags": [
+        "spline",
+        "default",
+        "straight",
+        "skew",
+        "left",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spline-default-straight-skew-left-side",
+      "file": "spline-default-straight-skew-left-side.glb",
+      "name": "Spline Default Straight Skew Left Side",
+      "category": "spline",
+      "tags": [
+        "spline",
+        "default",
+        "straight",
+        "skew",
+        "left",
+        "side",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spline-default-straight-skew-right",
+      "file": "spline-default-straight-skew-right.glb",
+      "name": "Spline Default Straight Skew Right",
+      "category": "spline",
+      "tags": [
+        "spline",
+        "default",
+        "straight",
+        "skew",
+        "right",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "spline-default-straight-skew-right-side",
+      "file": "spline-default-straight-skew-right-side.glb",
+      "name": "Spline Default Straight Skew Right Side",
+      "category": "spline",
+      "tags": [
+        "spline",
+        "default",
+        "straight",
+        "skew",
+        "right",
+        "side",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "split",
+      "file": "split.glb",
+      "name": "Split",
+      "category": "split",
+      "tags": [
+        "split",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "split-start",
+      "file": "split-start.glb",
+      "name": "Split Start",
+      "category": "split",
+      "tags": [
+        "split",
+        "start",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "split-t",
+      "file": "split-t.glb",
+      "name": "Split T",
+      "category": "split",
+      "tags": [
+        "split",
+        "t",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "split-walls-to-open",
+      "file": "split-walls-to-open.glb",
+      "name": "Split Walls To Open",
+      "category": "split",
+      "tags": [
+        "split",
+        "walls",
+        "to",
+        "open",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "square-corner-a",
+      "file": "square-corner-a.glb",
+      "name": "Square Corner A",
+      "category": "square",
+      "tags": [
+        "square",
+        "corner",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "start",
+      "file": "start.glb",
+      "name": "Start",
+      "category": "start",
+      "tags": [
+        "start",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "straight",
+      "file": "straight.glb",
+      "name": "Straight",
+      "category": "straight",
+      "tags": [
+        "straight",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure-gate",
+      "file": "structure-gate.glb",
+      "name": "Structure Gate",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "gate",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure-gate-building",
+      "file": "structure-gate-building.glb",
+      "name": "Structure Gate Building",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "gate",
+        "building",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure-gate-wide",
+      "file": "structure-gate-wide.glb",
+      "name": "Structure Gate Wide",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "gate",
+        "wide",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure-gates",
+      "file": "structure-gates.glb",
+      "name": "Structure Gates",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "gates",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure-windmill",
+      "file": "structure-windmill.glb",
+      "name": "Structure Windmill",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "windmill",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "support",
+      "file": "support.glb",
+      "name": "Support",
+      "category": "support",
+      "tags": [
+        "support",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "support-bottom",
+      "file": "support-bottom.glb",
+      "name": "Support Bottom",
+      "category": "support",
+      "tags": [
+        "support",
+        "bottom",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "support-low",
+      "file": "support-low.glb",
+      "name": "Support Low",
+      "category": "support",
+      "tags": [
+        "support",
+        "low",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "support-low-bottom",
+      "file": "support-low-bottom.glb",
+      "name": "Support Low Bottom",
+      "category": "support",
+      "tags": [
+        "support",
+        "low",
+        "bottom",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "supports",
+      "file": "supports.glb",
+      "name": "Supports",
+      "category": "supports",
+      "tags": [
+        "supports",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "supports-bottom",
+      "file": "supports-bottom.glb",
+      "name": "Supports Bottom",
+      "category": "supports",
+      "tags": [
+        "supports",
+        "bottom",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "supports-low",
+      "file": "supports-low.glb",
+      "name": "Supports Low",
+      "category": "supports",
+      "tags": [
+        "supports",
+        "low",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "supports-low-bottom",
+      "file": "supports-low-bottom.glb",
+      "name": "Supports Low Bottom",
+      "category": "supports",
+      "tags": [
+        "supports",
+        "low",
+        "bottom",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tunnel-double",
+      "file": "tunnel-double.glb",
+      "name": "Tunnel Double",
+      "category": "tunnel",
+      "tags": [
+        "tunnel",
+        "double",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tunnel-narrow",
+      "file": "tunnel-narrow.glb",
+      "name": "Tunnel Narrow",
+      "category": "tunnel",
+      "tags": [
+        "tunnel",
+        "narrow",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tunnel-wide",
+      "file": "tunnel-wide.glb",
+      "name": "Tunnel Wide",
+      "category": "tunnel",
+      "tags": [
+        "tunnel",
+        "wide",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-left",
+      "file": "wall-left.glb",
+      "name": "Wall Left",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "left",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-right",
+      "file": "wall-right.glb",
+      "name": "Wall Right",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "right",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "walls-to-open",
+      "file": "walls-to-open.glb",
+      "name": "Walls To Open",
+      "category": "structure",
+      "tags": [
+        "walls",
+        "to",
+        "open",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "windmill",
+      "file": "windmill.glb",
+      "name": "Windmill",
+      "category": "windmill",
+      "tags": [
+        "windmill",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    }
+  ]
+}

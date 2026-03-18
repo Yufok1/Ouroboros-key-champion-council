@@ -1,0 +1,1080 @@
+{
+  "pack_id": "kenney-survival-kit",
+  "name": "Kenney Survival Kit",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "Kenney Survival Kit free 3D models from Kenney.",
+  "base_url": "/static/assets/packs/kenney-survival-kit/",
+  "assets": [
+    {
+      "id": "barrel",
+      "file": "barrel.glb",
+      "name": "Barrel",
+      "category": "barrel",
+      "tags": [
+        "barrel",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "barrel-open",
+      "file": "barrel-open.glb",
+      "name": "Barrel Open",
+      "category": "barrel",
+      "tags": [
+        "barrel",
+        "open",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bedroll",
+      "file": "bedroll.glb",
+      "name": "Bedroll",
+      "category": "bedroll",
+      "tags": [
+        "bedroll",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bedroll-frame",
+      "file": "bedroll-frame.glb",
+      "name": "Bedroll Frame",
+      "category": "bedroll",
+      "tags": [
+        "bedroll",
+        "frame",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bedroll-packed",
+      "file": "bedroll-packed.glb",
+      "name": "Bedroll Packed",
+      "category": "bedroll",
+      "tags": [
+        "bedroll",
+        "packed",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bottle",
+      "file": "bottle.glb",
+      "name": "Bottle",
+      "category": "bottle",
+      "tags": [
+        "bottle",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bottle-large",
+      "file": "bottle-large.glb",
+      "name": "Bottle Large",
+      "category": "bottle",
+      "tags": [
+        "bottle",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "box",
+      "file": "box.glb",
+      "name": "Box",
+      "category": "box",
+      "tags": [
+        "box",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "box-large",
+      "file": "box-large.glb",
+      "name": "Box Large",
+      "category": "box",
+      "tags": [
+        "box",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "box-large-open",
+      "file": "box-large-open.glb",
+      "name": "Box Large Open",
+      "category": "box",
+      "tags": [
+        "box",
+        "large",
+        "open",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "box-open",
+      "file": "box-open.glb",
+      "name": "Box Open",
+      "category": "box",
+      "tags": [
+        "box",
+        "open",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bucket",
+      "file": "bucket.glb",
+      "name": "Bucket",
+      "category": "bucket",
+      "tags": [
+        "bucket",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "campfire-fishing-stand",
+      "file": "campfire-fishing-stand.glb",
+      "name": "Campfire Fishing Stand",
+      "category": "campfire",
+      "tags": [
+        "campfire",
+        "fishing",
+        "stand",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "campfire-pit",
+      "file": "campfire-pit.glb",
+      "name": "Campfire Pit",
+      "category": "campfire",
+      "tags": [
+        "campfire",
+        "pit",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "campfire-stand",
+      "file": "campfire-stand.glb",
+      "name": "Campfire Stand",
+      "category": "campfire",
+      "tags": [
+        "campfire",
+        "stand",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "chest",
+      "file": "chest.glb",
+      "name": "Chest",
+      "category": "chest",
+      "tags": [
+        "chest",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fence",
+      "file": "fence.glb",
+      "name": "Fence",
+      "category": "fence",
+      "tags": [
+        "fence",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fence-doorway",
+      "file": "fence-doorway.glb",
+      "name": "Fence Doorway",
+      "category": "fence",
+      "tags": [
+        "fence",
+        "doorway",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fence-fortified",
+      "file": "fence-fortified.glb",
+      "name": "Fence Fortified",
+      "category": "fence",
+      "tags": [
+        "fence",
+        "fortified",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fish",
+      "file": "fish.glb",
+      "name": "Fish",
+      "category": "fish",
+      "tags": [
+        "fish",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "fish-large",
+      "file": "fish-large.glb",
+      "name": "Fish Large",
+      "category": "fish",
+      "tags": [
+        "fish",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "floor",
+      "file": "floor.glb",
+      "name": "Floor",
+      "category": "floor",
+      "tags": [
+        "floor",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "floor-hole",
+      "file": "floor-hole.glb",
+      "name": "Floor Hole",
+      "category": "floor",
+      "tags": [
+        "floor",
+        "hole",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "floor-old",
+      "file": "floor-old.glb",
+      "name": "Floor Old",
+      "category": "floor",
+      "tags": [
+        "floor",
+        "old",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "grass",
+      "file": "grass.glb",
+      "name": "Grass",
+      "category": "vegetation",
+      "tags": [
+        "grass",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "grass-large",
+      "file": "grass-large.glb",
+      "name": "Grass Large",
+      "category": "vegetation",
+      "tags": [
+        "grass",
+        "large",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "metal-panel",
+      "file": "metal-panel.glb",
+      "name": "Metal Panel",
+      "category": "metal",
+      "tags": [
+        "metal",
+        "panel",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "metal-panel-narrow",
+      "file": "metal-panel-narrow.glb",
+      "name": "Metal Panel Narrow",
+      "category": "metal",
+      "tags": [
+        "metal",
+        "panel",
+        "narrow",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "metal-panel-screws",
+      "file": "metal-panel-screws.glb",
+      "name": "Metal Panel Screws",
+      "category": "metal",
+      "tags": [
+        "metal",
+        "panel",
+        "screws",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "metal-panel-screws-half",
+      "file": "metal-panel-screws-half.glb",
+      "name": "Metal Panel Screws Half",
+      "category": "metal",
+      "tags": [
+        "metal",
+        "panel",
+        "screws",
+        "half",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "metal-panel-screws-narrow",
+      "file": "metal-panel-screws-narrow.glb",
+      "name": "Metal Panel Screws Narrow",
+      "category": "metal",
+      "tags": [
+        "metal",
+        "panel",
+        "screws",
+        "narrow",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "patch-grass",
+      "file": "patch-grass.glb",
+      "name": "Patch Grass",
+      "category": "patch",
+      "tags": [
+        "patch",
+        "grass",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "patch-grass-large",
+      "file": "patch-grass-large.glb",
+      "name": "Patch Grass Large",
+      "category": "patch",
+      "tags": [
+        "patch",
+        "grass",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "resource-planks",
+      "file": "resource-planks.glb",
+      "name": "Resource Planks",
+      "category": "resource",
+      "tags": [
+        "resource",
+        "planks",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "resource-stone",
+      "file": "resource-stone.glb",
+      "name": "Resource Stone",
+      "category": "resource",
+      "tags": [
+        "resource",
+        "stone",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "resource-stone-large",
+      "file": "resource-stone-large.glb",
+      "name": "Resource Stone Large",
+      "category": "resource",
+      "tags": [
+        "resource",
+        "stone",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "resource-wood",
+      "file": "resource-wood.glb",
+      "name": "Resource Wood",
+      "category": "resource",
+      "tags": [
+        "resource",
+        "wood",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rock-a",
+      "file": "rock-a.glb",
+      "name": "Rock A",
+      "category": "terrain",
+      "tags": [
+        "rock",
+        "a",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rock-b",
+      "file": "rock-b.glb",
+      "name": "Rock B",
+      "category": "terrain",
+      "tags": [
+        "rock",
+        "b",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rock-c",
+      "file": "rock-c.glb",
+      "name": "Rock C",
+      "category": "terrain",
+      "tags": [
+        "rock",
+        "c",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rock-flat",
+      "file": "rock-flat.glb",
+      "name": "Rock Flat",
+      "category": "terrain",
+      "tags": [
+        "rock",
+        "flat",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rock-flat-grass",
+      "file": "rock-flat-grass.glb",
+      "name": "Rock Flat Grass",
+      "category": "terrain",
+      "tags": [
+        "rock",
+        "flat",
+        "grass",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rock-sand-a",
+      "file": "rock-sand-a.glb",
+      "name": "Rock Sand A",
+      "category": "terrain",
+      "tags": [
+        "rock",
+        "sand",
+        "a",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rock-sand-b",
+      "file": "rock-sand-b.glb",
+      "name": "Rock Sand B",
+      "category": "terrain",
+      "tags": [
+        "rock",
+        "sand",
+        "b",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rock-sand-c",
+      "file": "rock-sand-c.glb",
+      "name": "Rock Sand C",
+      "category": "terrain",
+      "tags": [
+        "rock",
+        "sand",
+        "c",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "signpost",
+      "file": "signpost.glb",
+      "name": "Signpost",
+      "category": "signpost",
+      "tags": [
+        "signpost",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "signpost-single",
+      "file": "signpost-single.glb",
+      "name": "Signpost Single",
+      "category": "signpost",
+      "tags": [
+        "signpost",
+        "single",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure",
+      "file": "structure.glb",
+      "name": "Structure",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure-canvas",
+      "file": "structure-canvas.glb",
+      "name": "Structure Canvas",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "canvas",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure-floor",
+      "file": "structure-floor.glb",
+      "name": "Structure Floor",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "floor",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure-metal",
+      "file": "structure-metal.glb",
+      "name": "Structure Metal",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "metal",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure-metal-doorway",
+      "file": "structure-metal-doorway.glb",
+      "name": "Structure Metal Doorway",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "metal",
+        "doorway",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure-metal-floor",
+      "file": "structure-metal-floor.glb",
+      "name": "Structure Metal Floor",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "metal",
+        "floor",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure-metal-roof",
+      "file": "structure-metal-roof.glb",
+      "name": "Structure Metal Roof",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "metal",
+        "roof",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure-metal-wall",
+      "file": "structure-metal-wall.glb",
+      "name": "Structure Metal Wall",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "metal",
+        "wall",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "structure-roof",
+      "file": "structure-roof.glb",
+      "name": "Structure Roof",
+      "category": "structure",
+      "tags": [
+        "structure",
+        "roof",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tent",
+      "file": "tent.glb",
+      "name": "Tent",
+      "category": "tent",
+      "tags": [
+        "tent",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tent-canvas",
+      "file": "tent-canvas.glb",
+      "name": "Tent Canvas",
+      "category": "tent",
+      "tags": [
+        "tent",
+        "canvas",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tent-canvas-half",
+      "file": "tent-canvas-half.glb",
+      "name": "Tent Canvas Half",
+      "category": "tent",
+      "tags": [
+        "tent",
+        "canvas",
+        "half",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tool-axe",
+      "file": "tool-axe.glb",
+      "name": "Tool Axe",
+      "category": "tool",
+      "tags": [
+        "tool",
+        "axe",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tool-axe-upgraded",
+      "file": "tool-axe-upgraded.glb",
+      "name": "Tool Axe Upgraded",
+      "category": "tool",
+      "tags": [
+        "tool",
+        "axe",
+        "upgraded",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tool-hammer",
+      "file": "tool-hammer.glb",
+      "name": "Tool Hammer",
+      "category": "tool",
+      "tags": [
+        "tool",
+        "hammer",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tool-hammer-upgraded",
+      "file": "tool-hammer-upgraded.glb",
+      "name": "Tool Hammer Upgraded",
+      "category": "tool",
+      "tags": [
+        "tool",
+        "hammer",
+        "upgraded",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tool-hoe",
+      "file": "tool-hoe.glb",
+      "name": "Tool Hoe",
+      "category": "tool",
+      "tags": [
+        "tool",
+        "hoe",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tool-hoe-upgraded",
+      "file": "tool-hoe-upgraded.glb",
+      "name": "Tool Hoe Upgraded",
+      "category": "tool",
+      "tags": [
+        "tool",
+        "hoe",
+        "upgraded",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tool-pickaxe",
+      "file": "tool-pickaxe.glb",
+      "name": "Tool Pickaxe",
+      "category": "tool",
+      "tags": [
+        "tool",
+        "pickaxe",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tool-pickaxe-upgraded",
+      "file": "tool-pickaxe-upgraded.glb",
+      "name": "Tool Pickaxe Upgraded",
+      "category": "tool",
+      "tags": [
+        "tool",
+        "pickaxe",
+        "upgraded",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tool-shovel",
+      "file": "tool-shovel.glb",
+      "name": "Tool Shovel",
+      "category": "tool",
+      "tags": [
+        "tool",
+        "shovel",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tool-shovel-upgraded",
+      "file": "tool-shovel-upgraded.glb",
+      "name": "Tool Shovel Upgraded",
+      "category": "tool",
+      "tags": [
+        "tool",
+        "shovel",
+        "upgraded",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree",
+      "file": "tree.glb",
+      "name": "Tree",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-autumn",
+      "file": "tree-autumn.glb",
+      "name": "Tree Autumn",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "autumn",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-autumn-tall",
+      "file": "tree-autumn-tall.glb",
+      "name": "Tree Autumn Tall",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "autumn",
+        "tall",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-autumn-trunk",
+      "file": "tree-autumn-trunk.glb",
+      "name": "Tree Autumn Trunk",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "autumn",
+        "trunk",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-log",
+      "file": "tree-log.glb",
+      "name": "Tree Log",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "log",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-log-small",
+      "file": "tree-log-small.glb",
+      "name": "Tree Log Small",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "log",
+        "small",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-tall",
+      "file": "tree-tall.glb",
+      "name": "Tree Tall",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "tall",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-trunk",
+      "file": "tree-trunk.glb",
+      "name": "Tree Trunk",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "trunk",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "workbench",
+      "file": "workbench.glb",
+      "name": "Workbench",
+      "category": "workbench",
+      "tags": [
+        "workbench",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "workbench-anvil",
+      "file": "workbench-anvil.glb",
+      "name": "Workbench Anvil",
+      "category": "workbench",
+      "tags": [
+        "workbench",
+        "anvil",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "workbench-grind",
+      "file": "workbench-grind.glb",
+      "name": "Workbench Grind",
+      "category": "workbench",
+      "tags": [
+        "workbench",
+        "grind",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    }
+  ]
+}

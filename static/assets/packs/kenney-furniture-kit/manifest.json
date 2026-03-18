@@ -1,0 +1,1691 @@
+{
+  "pack_id": "kenney-furniture-kit",
+  "name": "Kenney Furniture Kit",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "140 low-poly furniture models from Kenney.",
+  "base_url": "/static/assets/packs/kenney-furniture-kit/",
+  "assets": [
+    {
+      "id": "bathroomcabinet",
+      "file": "bathroomCabinet.glb",
+      "name": "BathroomCabinet",
+      "category": "bathroomcabinet",
+      "tags": [
+        "bathroomcabinet",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bathroomcabinetdrawer",
+      "file": "bathroomCabinetDrawer.glb",
+      "name": "BathroomCabinetDrawer",
+      "category": "bathroomcabinetdrawer",
+      "tags": [
+        "bathroomcabinetdrawer",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bathroommirror",
+      "file": "bathroomMirror.glb",
+      "name": "BathroomMirror",
+      "category": "bathroommirror",
+      "tags": [
+        "bathroommirror",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bathroomsink",
+      "file": "bathroomSink.glb",
+      "name": "BathroomSink",
+      "category": "bathroomsink",
+      "tags": [
+        "bathroomsink",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bathroomsinksquare",
+      "file": "bathroomSinkSquare.glb",
+      "name": "BathroomSinkSquare",
+      "category": "bathroomsinksquare",
+      "tags": [
+        "bathroomsinksquare",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bathtub",
+      "file": "bathtub.glb",
+      "name": "Bathtub",
+      "category": "bathtub",
+      "tags": [
+        "bathtub",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bear",
+      "file": "bear.glb",
+      "name": "Bear",
+      "category": "bear",
+      "tags": [
+        "bear",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bedbunk",
+      "file": "bedBunk.glb",
+      "name": "BedBunk",
+      "category": "bedbunk",
+      "tags": [
+        "bedbunk",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "beddouble",
+      "file": "bedDouble.glb",
+      "name": "BedDouble",
+      "category": "beddouble",
+      "tags": [
+        "beddouble",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bedsingle",
+      "file": "bedSingle.glb",
+      "name": "BedSingle",
+      "category": "bedsingle",
+      "tags": [
+        "bedsingle",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bench",
+      "file": "bench.glb",
+      "name": "Bench",
+      "category": "bench",
+      "tags": [
+        "bench",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "benchcushion",
+      "file": "benchCushion.glb",
+      "name": "BenchCushion",
+      "category": "benchcushion",
+      "tags": [
+        "benchcushion",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "benchcushionlow",
+      "file": "benchCushionLow.glb",
+      "name": "BenchCushionLow",
+      "category": "benchcushionlow",
+      "tags": [
+        "benchcushionlow",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bookcaseclosed",
+      "file": "bookcaseClosed.glb",
+      "name": "BookcaseClosed",
+      "category": "bookcaseclosed",
+      "tags": [
+        "bookcaseclosed",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bookcasecloseddoors",
+      "file": "bookcaseClosedDoors.glb",
+      "name": "BookcaseClosedDoors",
+      "category": "bookcasecloseddoors",
+      "tags": [
+        "bookcasecloseddoors",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bookcaseclosedwide",
+      "file": "bookcaseClosedWide.glb",
+      "name": "BookcaseClosedWide",
+      "category": "bookcaseclosedwide",
+      "tags": [
+        "bookcaseclosedwide",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bookcaseopen",
+      "file": "bookcaseOpen.glb",
+      "name": "BookcaseOpen",
+      "category": "bookcaseopen",
+      "tags": [
+        "bookcaseopen",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bookcaseopenlow",
+      "file": "bookcaseOpenLow.glb",
+      "name": "BookcaseOpenLow",
+      "category": "bookcaseopenlow",
+      "tags": [
+        "bookcaseopenlow",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "books",
+      "file": "books.glb",
+      "name": "Books",
+      "category": "books",
+      "tags": [
+        "books",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cabinetbed",
+      "file": "cabinetBed.glb",
+      "name": "CabinetBed",
+      "category": "cabinetbed",
+      "tags": [
+        "cabinetbed",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cabinetbeddrawer",
+      "file": "cabinetBedDrawer.glb",
+      "name": "CabinetBedDrawer",
+      "category": "cabinetbeddrawer",
+      "tags": [
+        "cabinetbeddrawer",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cabinetbeddrawertable",
+      "file": "cabinetBedDrawerTable.glb",
+      "name": "CabinetBedDrawerTable",
+      "category": "cabinetbeddrawertable",
+      "tags": [
+        "cabinetbeddrawertable",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cabinettelevision",
+      "file": "cabinetTelevision.glb",
+      "name": "CabinetTelevision",
+      "category": "cabinettelevision",
+      "tags": [
+        "cabinettelevision",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cabinettelevisiondoors",
+      "file": "cabinetTelevisionDoors.glb",
+      "name": "CabinetTelevisionDoors",
+      "category": "cabinettelevisiondoors",
+      "tags": [
+        "cabinettelevisiondoors",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cardboardboxclosed",
+      "file": "cardboardBoxClosed.glb",
+      "name": "CardboardBoxClosed",
+      "category": "cardboardboxclosed",
+      "tags": [
+        "cardboardboxclosed",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "cardboardboxopen",
+      "file": "cardboardBoxOpen.glb",
+      "name": "CardboardBoxOpen",
+      "category": "cardboardboxopen",
+      "tags": [
+        "cardboardboxopen",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ceilingfan",
+      "file": "ceilingFan.glb",
+      "name": "CeilingFan",
+      "category": "ceilingfan",
+      "tags": [
+        "ceilingfan",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "chair",
+      "file": "chair.glb",
+      "name": "Chair",
+      "category": "chair",
+      "tags": [
+        "chair",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "chaircushion",
+      "file": "chairCushion.glb",
+      "name": "ChairCushion",
+      "category": "chaircushion",
+      "tags": [
+        "chaircushion",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "chairdesk",
+      "file": "chairDesk.glb",
+      "name": "ChairDesk",
+      "category": "chairdesk",
+      "tags": [
+        "chairdesk",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "chairmoderncushion",
+      "file": "chairModernCushion.glb",
+      "name": "ChairModernCushion",
+      "category": "chairmoderncushion",
+      "tags": [
+        "chairmoderncushion",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "chairmodernframecushion",
+      "file": "chairModernFrameCushion.glb",
+      "name": "ChairModernFrameCushion",
+      "category": "chairmodernframecushion",
+      "tags": [
+        "chairmodernframecushion",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "chairrounded",
+      "file": "chairRounded.glb",
+      "name": "ChairRounded",
+      "category": "chairrounded",
+      "tags": [
+        "chairrounded",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coatrack",
+      "file": "coatRack.glb",
+      "name": "CoatRack",
+      "category": "coatrack",
+      "tags": [
+        "coatrack",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "coatrackstanding",
+      "file": "coatRackStanding.glb",
+      "name": "CoatRackStanding",
+      "category": "coatrackstanding",
+      "tags": [
+        "coatrackstanding",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "computerkeyboard",
+      "file": "computerKeyboard.glb",
+      "name": "ComputerKeyboard",
+      "category": "computerkeyboard",
+      "tags": [
+        "computerkeyboard",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "computermouse",
+      "file": "computerMouse.glb",
+      "name": "ComputerMouse",
+      "category": "computermouse",
+      "tags": [
+        "computermouse",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "computerscreen",
+      "file": "computerScreen.glb",
+      "name": "ComputerScreen",
+      "category": "computerscreen",
+      "tags": [
+        "computerscreen",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "desk",
+      "file": "desk.glb",
+      "name": "Desk",
+      "category": "desk",
+      "tags": [
+        "desk",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "deskcorner",
+      "file": "deskCorner.glb",
+      "name": "DeskCorner",
+      "category": "deskcorner",
+      "tags": [
+        "deskcorner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "doorway",
+      "file": "doorway.glb",
+      "name": "Doorway",
+      "category": "doorway",
+      "tags": [
+        "doorway",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "doorwayfront",
+      "file": "doorwayFront.glb",
+      "name": "DoorwayFront",
+      "category": "doorwayfront",
+      "tags": [
+        "doorwayfront",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "doorwayopen",
+      "file": "doorwayOpen.glb",
+      "name": "DoorwayOpen",
+      "category": "doorwayopen",
+      "tags": [
+        "doorwayopen",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "dryer",
+      "file": "dryer.glb",
+      "name": "Dryer",
+      "category": "dryer",
+      "tags": [
+        "dryer",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "floorcorner",
+      "file": "floorCorner.glb",
+      "name": "FloorCorner",
+      "category": "floorcorner",
+      "tags": [
+        "floorcorner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "floorcornerround",
+      "file": "floorCornerRound.glb",
+      "name": "FloorCornerRound",
+      "category": "floorcornerround",
+      "tags": [
+        "floorcornerround",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "floorfull",
+      "file": "floorFull.glb",
+      "name": "FloorFull",
+      "category": "floorfull",
+      "tags": [
+        "floorfull",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "floorhalf",
+      "file": "floorHalf.glb",
+      "name": "FloorHalf",
+      "category": "floorhalf",
+      "tags": [
+        "floorhalf",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "hoodlarge",
+      "file": "hoodLarge.glb",
+      "name": "HoodLarge",
+      "category": "hoodlarge",
+      "tags": [
+        "hoodlarge",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "hoodmodern",
+      "file": "hoodModern.glb",
+      "name": "HoodModern",
+      "category": "hoodmodern",
+      "tags": [
+        "hoodmodern",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "kitchenbar",
+      "file": "kitchenBar.glb",
+      "name": "KitchenBar",
+      "category": "kitchenbar",
+      "tags": [
+        "kitchenbar",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "kitchenbarend",
+      "file": "kitchenBarEnd.glb",
+      "name": "KitchenBarEnd",
+      "category": "kitchenbarend",
+      "tags": [
+        "kitchenbarend",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "kitchenblender",
+      "file": "kitchenBlender.glb",
+      "name": "KitchenBlender",
+      "category": "kitchenblender",
+      "tags": [
+        "kitchenblender",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "kitchencabinet",
+      "file": "kitchenCabinet.glb",
+      "name": "KitchenCabinet",
+      "category": "kitchencabinet",
+      "tags": [
+        "kitchencabinet",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "kitchencabinetcornerinner",
+      "file": "kitchenCabinetCornerInner.glb",
+      "name": "KitchenCabinetCornerInner",
+      "category": "kitchencabinetcornerinner",
+      "tags": [
+        "kitchencabinetcornerinner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "kitchencabinetcornerround",
+      "file": "kitchenCabinetCornerRound.glb",
+      "name": "KitchenCabinetCornerRound",
+      "category": "kitchencabinetcornerround",
+      "tags": [
+        "kitchencabinetcornerround",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "kitchencabinetdrawer",
+      "file": "kitchenCabinetDrawer.glb",
+      "name": "KitchenCabinetDrawer",
+      "category": "kitchencabinetdrawer",
+      "tags": [
+        "kitchencabinetdrawer",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "kitchencabinetupper",
+      "file": "kitchenCabinetUpper.glb",
+      "name": "KitchenCabinetUpper",
+      "category": "kitchencabinetupper",
+      "tags": [
+        "kitchencabinetupper",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "kitchencabinetuppercorner",
+      "file": "kitchenCabinetUpperCorner.glb",
+      "name": "KitchenCabinetUpperCorner",
+      "category": "kitchencabinetuppercorner",
+      "tags": [
+        "kitchencabinetuppercorner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "kitchencabinetupperdouble",
+      "file": "kitchenCabinetUpperDouble.glb",
+      "name": "KitchenCabinetUpperDouble",
+      "category": "kitchencabinetupperdouble",
+      "tags": [
+        "kitchencabinetupperdouble",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "kitchencabinetupperlow",
+      "file": "kitchenCabinetUpperLow.glb",
+      "name": "KitchenCabinetUpperLow",
+      "category": "kitchencabinetupperlow",
+      "tags": [
+        "kitchencabinetupperlow",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "kitchencoffeemachine",
+      "file": "kitchenCoffeeMachine.glb",
+      "name": "KitchenCoffeeMachine",
+      "category": "kitchencoffeemachine",
+      "tags": [
+        "kitchencoffeemachine",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "kitchenfridge",
+      "file": "kitchenFridge.glb",
+      "name": "KitchenFridge",
+      "category": "kitchenfridge",
+      "tags": [
+        "kitchenfridge",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "kitchenfridgebuiltin",
+      "file": "kitchenFridgeBuiltIn.glb",
+      "name": "KitchenFridgeBuiltIn",
+      "category": "kitchenfridgebuiltin",
+      "tags": [
+        "kitchenfridgebuiltin",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "kitchenfridgelarge",
+      "file": "kitchenFridgeLarge.glb",
+      "name": "KitchenFridgeLarge",
+      "category": "kitchenfridgelarge",
+      "tags": [
+        "kitchenfridgelarge",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "kitchenfridgesmall",
+      "file": "kitchenFridgeSmall.glb",
+      "name": "KitchenFridgeSmall",
+      "category": "kitchenfridgesmall",
+      "tags": [
+        "kitchenfridgesmall",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "kitchenmicrowave",
+      "file": "kitchenMicrowave.glb",
+      "name": "KitchenMicrowave",
+      "category": "kitchenmicrowave",
+      "tags": [
+        "kitchenmicrowave",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "kitchensink",
+      "file": "kitchenSink.glb",
+      "name": "KitchenSink",
+      "category": "kitchensink",
+      "tags": [
+        "kitchensink",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "kitchenstove",
+      "file": "kitchenStove.glb",
+      "name": "KitchenStove",
+      "category": "kitchenstove",
+      "tags": [
+        "kitchenstove",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "kitchenstoveelectric",
+      "file": "kitchenStoveElectric.glb",
+      "name": "KitchenStoveElectric",
+      "category": "kitchenstoveelectric",
+      "tags": [
+        "kitchenstoveelectric",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "lamproundfloor",
+      "file": "lampRoundFloor.glb",
+      "name": "LampRoundFloor",
+      "category": "lamproundfloor",
+      "tags": [
+        "lamproundfloor",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "lamproundtable",
+      "file": "lampRoundTable.glb",
+      "name": "LampRoundTable",
+      "category": "lamproundtable",
+      "tags": [
+        "lamproundtable",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "lampsquareceiling",
+      "file": "lampSquareCeiling.glb",
+      "name": "LampSquareCeiling",
+      "category": "lampsquareceiling",
+      "tags": [
+        "lampsquareceiling",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "lampsquarefloor",
+      "file": "lampSquareFloor.glb",
+      "name": "LampSquareFloor",
+      "category": "lampsquarefloor",
+      "tags": [
+        "lampsquarefloor",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "lampsquaretable",
+      "file": "lampSquareTable.glb",
+      "name": "LampSquareTable",
+      "category": "lampsquaretable",
+      "tags": [
+        "lampsquaretable",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "lampwall",
+      "file": "lampWall.glb",
+      "name": "LampWall",
+      "category": "lampwall",
+      "tags": [
+        "lampwall",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "laptop",
+      "file": "laptop.glb",
+      "name": "Laptop",
+      "category": "laptop",
+      "tags": [
+        "laptop",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "loungechair",
+      "file": "loungeChair.glb",
+      "name": "LoungeChair",
+      "category": "loungechair",
+      "tags": [
+        "loungechair",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "loungechairrelax",
+      "file": "loungeChairRelax.glb",
+      "name": "LoungeChairRelax",
+      "category": "loungechairrelax",
+      "tags": [
+        "loungechairrelax",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "loungedesignchair",
+      "file": "loungeDesignChair.glb",
+      "name": "LoungeDesignChair",
+      "category": "loungedesignchair",
+      "tags": [
+        "loungedesignchair",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "loungedesignsofa",
+      "file": "loungeDesignSofa.glb",
+      "name": "LoungeDesignSofa",
+      "category": "loungedesignsofa",
+      "tags": [
+        "loungedesignsofa",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "loungedesignsofacorner",
+      "file": "loungeDesignSofaCorner.glb",
+      "name": "LoungeDesignSofaCorner",
+      "category": "loungedesignsofacorner",
+      "tags": [
+        "loungedesignsofacorner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "loungesofa",
+      "file": "loungeSofa.glb",
+      "name": "LoungeSofa",
+      "category": "loungesofa",
+      "tags": [
+        "loungesofa",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "loungesofacorner",
+      "file": "loungeSofaCorner.glb",
+      "name": "LoungeSofaCorner",
+      "category": "loungesofacorner",
+      "tags": [
+        "loungesofacorner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "loungesofalong",
+      "file": "loungeSofaLong.glb",
+      "name": "LoungeSofaLong",
+      "category": "loungesofalong",
+      "tags": [
+        "loungesofalong",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "loungesofaottoman",
+      "file": "loungeSofaOttoman.glb",
+      "name": "LoungeSofaOttoman",
+      "category": "loungesofaottoman",
+      "tags": [
+        "loungesofaottoman",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "paneling",
+      "file": "paneling.glb",
+      "name": "Paneling",
+      "category": "paneling",
+      "tags": [
+        "paneling",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pillow",
+      "file": "pillow.glb",
+      "name": "Pillow",
+      "category": "pillow",
+      "tags": [
+        "pillow",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pillowblue",
+      "file": "pillowBlue.glb",
+      "name": "PillowBlue",
+      "category": "pillowblue",
+      "tags": [
+        "pillowblue",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pillowbluelong",
+      "file": "pillowBlueLong.glb",
+      "name": "PillowBlueLong",
+      "category": "pillowbluelong",
+      "tags": [
+        "pillowbluelong",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pillowlong",
+      "file": "pillowLong.glb",
+      "name": "PillowLong",
+      "category": "pillowlong",
+      "tags": [
+        "pillowlong",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "plantsmall1",
+      "file": "plantSmall1.glb",
+      "name": "PlantSmall1",
+      "category": "plantsmall1",
+      "tags": [
+        "plantsmall1",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "plantsmall2",
+      "file": "plantSmall2.glb",
+      "name": "PlantSmall2",
+      "category": "plantsmall2",
+      "tags": [
+        "plantsmall2",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "plantsmall3",
+      "file": "plantSmall3.glb",
+      "name": "PlantSmall3",
+      "category": "plantsmall3",
+      "tags": [
+        "plantsmall3",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "pottedplant",
+      "file": "pottedPlant.glb",
+      "name": "PottedPlant",
+      "category": "pottedplant",
+      "tags": [
+        "pottedplant",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "radio",
+      "file": "radio.glb",
+      "name": "Radio",
+      "category": "radio",
+      "tags": [
+        "radio",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rugdoormat",
+      "file": "rugDoormat.glb",
+      "name": "RugDoormat",
+      "category": "rugdoormat",
+      "tags": [
+        "rugdoormat",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rugrectangle",
+      "file": "rugRectangle.glb",
+      "name": "RugRectangle",
+      "category": "rugrectangle",
+      "tags": [
+        "rugrectangle",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ruground",
+      "file": "rugRound.glb",
+      "name": "RugRound",
+      "category": "ruground",
+      "tags": [
+        "ruground",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rugrounded",
+      "file": "rugRounded.glb",
+      "name": "RugRounded",
+      "category": "rugrounded",
+      "tags": [
+        "rugrounded",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rugsquare",
+      "file": "rugSquare.glb",
+      "name": "RugSquare",
+      "category": "rugsquare",
+      "tags": [
+        "rugsquare",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "shower",
+      "file": "shower.glb",
+      "name": "Shower",
+      "category": "shower",
+      "tags": [
+        "shower",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "showerround",
+      "file": "showerRound.glb",
+      "name": "ShowerRound",
+      "category": "showerround",
+      "tags": [
+        "showerround",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "sidetable",
+      "file": "sideTable.glb",
+      "name": "SideTable",
+      "category": "sidetable",
+      "tags": [
+        "sidetable",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "sidetabledrawers",
+      "file": "sideTableDrawers.glb",
+      "name": "SideTableDrawers",
+      "category": "sidetabledrawers",
+      "tags": [
+        "sidetabledrawers",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "speaker",
+      "file": "speaker.glb",
+      "name": "Speaker",
+      "category": "speaker",
+      "tags": [
+        "speaker",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "speakersmall",
+      "file": "speakerSmall.glb",
+      "name": "SpeakerSmall",
+      "category": "speakersmall",
+      "tags": [
+        "speakersmall",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stairs",
+      "file": "stairs.glb",
+      "name": "Stairs",
+      "category": "stairs",
+      "tags": [
+        "stairs",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stairscorner",
+      "file": "stairsCorner.glb",
+      "name": "StairsCorner",
+      "category": "stairscorner",
+      "tags": [
+        "stairscorner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stairsopen",
+      "file": "stairsOpen.glb",
+      "name": "StairsOpen",
+      "category": "stairsopen",
+      "tags": [
+        "stairsopen",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stairsopensingle",
+      "file": "stairsOpenSingle.glb",
+      "name": "StairsOpenSingle",
+      "category": "stairsopensingle",
+      "tags": [
+        "stairsopensingle",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stoolbar",
+      "file": "stoolBar.glb",
+      "name": "StoolBar",
+      "category": "stoolbar",
+      "tags": [
+        "stoolbar",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stoolbarsquare",
+      "file": "stoolBarSquare.glb",
+      "name": "StoolBarSquare",
+      "category": "stoolbarsquare",
+      "tags": [
+        "stoolbarsquare",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "table",
+      "file": "table.glb",
+      "name": "Table",
+      "category": "table",
+      "tags": [
+        "table",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tablecloth",
+      "file": "tableCloth.glb",
+      "name": "TableCloth",
+      "category": "tablecloth",
+      "tags": [
+        "tablecloth",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tablecoffee",
+      "file": "tableCoffee.glb",
+      "name": "TableCoffee",
+      "category": "tablecoffee",
+      "tags": [
+        "tablecoffee",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tablecoffeeglass",
+      "file": "tableCoffeeGlass.glb",
+      "name": "TableCoffeeGlass",
+      "category": "tablecoffeeglass",
+      "tags": [
+        "tablecoffeeglass",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tablecoffeeglasssquare",
+      "file": "tableCoffeeGlassSquare.glb",
+      "name": "TableCoffeeGlassSquare",
+      "category": "tablecoffeeglasssquare",
+      "tags": [
+        "tablecoffeeglasssquare",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tablecoffeesquare",
+      "file": "tableCoffeeSquare.glb",
+      "name": "TableCoffeeSquare",
+      "category": "tablecoffeesquare",
+      "tags": [
+        "tablecoffeesquare",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tablecross",
+      "file": "tableCross.glb",
+      "name": "TableCross",
+      "category": "tablecross",
+      "tags": [
+        "tablecross",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tablecrosscloth",
+      "file": "tableCrossCloth.glb",
+      "name": "TableCrossCloth",
+      "category": "tablecrosscloth",
+      "tags": [
+        "tablecrosscloth",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tableglass",
+      "file": "tableGlass.glb",
+      "name": "TableGlass",
+      "category": "tableglass",
+      "tags": [
+        "tableglass",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tableround",
+      "file": "tableRound.glb",
+      "name": "TableRound",
+      "category": "tableround",
+      "tags": [
+        "tableround",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "televisionantenna",
+      "file": "televisionAntenna.glb",
+      "name": "TelevisionAntenna",
+      "category": "televisionantenna",
+      "tags": [
+        "televisionantenna",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "televisionmodern",
+      "file": "televisionModern.glb",
+      "name": "TelevisionModern",
+      "category": "televisionmodern",
+      "tags": [
+        "televisionmodern",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "televisionvintage",
+      "file": "televisionVintage.glb",
+      "name": "TelevisionVintage",
+      "category": "televisionvintage",
+      "tags": [
+        "televisionvintage",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "toaster",
+      "file": "toaster.glb",
+      "name": "Toaster",
+      "category": "toaster",
+      "tags": [
+        "toaster",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "toilet",
+      "file": "toilet.glb",
+      "name": "Toilet",
+      "category": "toilet",
+      "tags": [
+        "toilet",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "toiletsquare",
+      "file": "toiletSquare.glb",
+      "name": "ToiletSquare",
+      "category": "toiletsquare",
+      "tags": [
+        "toiletsquare",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "trashcan",
+      "file": "trashcan.glb",
+      "name": "Trashcan",
+      "category": "trashcan",
+      "tags": [
+        "trashcan",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall",
+      "file": "wall.glb",
+      "name": "Wall",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wallcorner",
+      "file": "wallCorner.glb",
+      "name": "WallCorner",
+      "category": "wallcorner",
+      "tags": [
+        "wallcorner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wallcornerrond",
+      "file": "wallCornerRond.glb",
+      "name": "WallCornerRond",
+      "category": "wallcornerrond",
+      "tags": [
+        "wallcornerrond",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "walldoorway",
+      "file": "wallDoorway.glb",
+      "name": "WallDoorway",
+      "category": "walldoorway",
+      "tags": [
+        "walldoorway",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "walldoorwaywide",
+      "file": "wallDoorwayWide.glb",
+      "name": "WallDoorwayWide",
+      "category": "walldoorwaywide",
+      "tags": [
+        "walldoorwaywide",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wallhalf",
+      "file": "wallHalf.glb",
+      "name": "WallHalf",
+      "category": "wallhalf",
+      "tags": [
+        "wallhalf",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wallwindow",
+      "file": "wallWindow.glb",
+      "name": "WallWindow",
+      "category": "wallwindow",
+      "tags": [
+        "wallwindow",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wallwindowslide",
+      "file": "wallWindowSlide.glb",
+      "name": "WallWindowSlide",
+      "category": "wallwindowslide",
+      "tags": [
+        "wallwindowslide",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "washer",
+      "file": "washer.glb",
+      "name": "Washer",
+      "category": "washer",
+      "tags": [
+        "washer",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "washerdryerstacked",
+      "file": "washerDryerStacked.glb",
+      "name": "WasherDryerStacked",
+      "category": "washerdryerstacked",
+      "tags": [
+        "washerdryerstacked",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    }
+  ]
+}

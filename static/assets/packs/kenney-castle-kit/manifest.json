@@ -1,0 +1,1115 @@
+{
+  "pack_id": "kenney-castle-kit",
+  "name": "Kenney Castle Kit",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "Kenney Castle Kit free 3D models from Kenney.",
+  "base_url": "/static/assets/packs/kenney-castle-kit/",
+  "assets": [
+    {
+      "id": "bridge-draw",
+      "file": "bridge-draw.glb",
+      "name": "Bridge Draw",
+      "category": "structure",
+      "tags": [
+        "bridge",
+        "draw",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bridge-straight",
+      "file": "bridge-straight.glb",
+      "name": "Bridge Straight",
+      "category": "structure",
+      "tags": [
+        "bridge",
+        "straight",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "bridge-straight-pillar",
+      "file": "bridge-straight-pillar.glb",
+      "name": "Bridge Straight Pillar",
+      "category": "structure",
+      "tags": [
+        "bridge",
+        "straight",
+        "pillar",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "door",
+      "file": "door.glb",
+      "name": "Door",
+      "category": "door",
+      "tags": [
+        "door",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "flag",
+      "file": "flag.glb",
+      "name": "Flag",
+      "category": "flag",
+      "tags": [
+        "flag",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "flag-banner-long",
+      "file": "flag-banner-long.glb",
+      "name": "Flag Banner Long",
+      "category": "flag",
+      "tags": [
+        "flag",
+        "banner",
+        "long",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "flag-banner-short",
+      "file": "flag-banner-short.glb",
+      "name": "Flag Banner Short",
+      "category": "flag",
+      "tags": [
+        "flag",
+        "banner",
+        "short",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "flag-pennant",
+      "file": "flag-pennant.glb",
+      "name": "Flag Pennant",
+      "category": "flag",
+      "tags": [
+        "flag",
+        "pennant",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "flag-wide",
+      "file": "flag-wide.glb",
+      "name": "Flag Wide",
+      "category": "flag",
+      "tags": [
+        "flag",
+        "wide",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "gate",
+      "file": "gate.glb",
+      "name": "Gate",
+      "category": "gate",
+      "tags": [
+        "gate",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ground",
+      "file": "ground.glb",
+      "name": "Ground",
+      "category": "terrain",
+      "tags": [
+        "ground",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "ground-hills",
+      "file": "ground-hills.glb",
+      "name": "Ground Hills",
+      "category": "terrain",
+      "tags": [
+        "ground",
+        "hills",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "metal-gate",
+      "file": "metal-gate.glb",
+      "name": "Metal Gate",
+      "category": "metal",
+      "tags": [
+        "metal",
+        "gate",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rocks-large",
+      "file": "rocks-large.glb",
+      "name": "Rocks Large",
+      "category": "terrain",
+      "tags": [
+        "rocks",
+        "large",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "rocks-small",
+      "file": "rocks-small.glb",
+      "name": "Rocks Small",
+      "category": "terrain",
+      "tags": [
+        "rocks",
+        "small",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "siege-ballista",
+      "file": "siege-ballista.glb",
+      "name": "Siege Ballista",
+      "category": "siege",
+      "tags": [
+        "siege",
+        "ballista",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "siege-ballista-demolished",
+      "file": "siege-ballista-demolished.glb",
+      "name": "Siege Ballista Demolished",
+      "category": "siege",
+      "tags": [
+        "siege",
+        "ballista",
+        "demolished",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "siege-catapult",
+      "file": "siege-catapult.glb",
+      "name": "Siege Catapult",
+      "category": "siege",
+      "tags": [
+        "siege",
+        "catapult",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "siege-catapult-demolished",
+      "file": "siege-catapult-demolished.glb",
+      "name": "Siege Catapult Demolished",
+      "category": "siege",
+      "tags": [
+        "siege",
+        "catapult",
+        "demolished",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "siege-ram",
+      "file": "siege-ram.glb",
+      "name": "Siege Ram",
+      "category": "siege",
+      "tags": [
+        "siege",
+        "ram",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "siege-ram-demolished",
+      "file": "siege-ram-demolished.glb",
+      "name": "Siege Ram Demolished",
+      "category": "siege",
+      "tags": [
+        "siege",
+        "ram",
+        "demolished",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "siege-tower",
+      "file": "siege-tower.glb",
+      "name": "Siege Tower",
+      "category": "siege",
+      "tags": [
+        "siege",
+        "tower",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "siege-tower-demolished",
+      "file": "siege-tower-demolished.glb",
+      "name": "Siege Tower Demolished",
+      "category": "siege",
+      "tags": [
+        "siege",
+        "tower",
+        "demolished",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "siege-trebuchet",
+      "file": "siege-trebuchet.glb",
+      "name": "Siege Trebuchet",
+      "category": "siege",
+      "tags": [
+        "siege",
+        "trebuchet",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "siege-trebuchet-demolished",
+      "file": "siege-trebuchet-demolished.glb",
+      "name": "Siege Trebuchet Demolished",
+      "category": "siege",
+      "tags": [
+        "siege",
+        "trebuchet",
+        "demolished",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stairs-stone",
+      "file": "stairs-stone.glb",
+      "name": "Stairs Stone",
+      "category": "stairs",
+      "tags": [
+        "stairs",
+        "stone",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stairs-stone-square",
+      "file": "stairs-stone-square.glb",
+      "name": "Stairs Stone Square",
+      "category": "stairs",
+      "tags": [
+        "stairs",
+        "stone",
+        "square",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-base",
+      "file": "tower-base.glb",
+      "name": "Tower Base",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "base",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-hexagon-base",
+      "file": "tower-hexagon-base.glb",
+      "name": "Tower Hexagon Base",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "hexagon",
+        "base",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-hexagon-mid",
+      "file": "tower-hexagon-mid.glb",
+      "name": "Tower Hexagon Mid",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "hexagon",
+        "mid",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-hexagon-roof",
+      "file": "tower-hexagon-roof.glb",
+      "name": "Tower Hexagon Roof",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "hexagon",
+        "roof",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-hexagon-roof-secondary",
+      "file": "tower-hexagon-roof-secondary.glb",
+      "name": "Tower Hexagon Roof Secondary",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "hexagon",
+        "roof",
+        "secondary",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-hexagon-top",
+      "file": "tower-hexagon-top.glb",
+      "name": "Tower Hexagon Top",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "hexagon",
+        "top",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-hexagon-top-wood",
+      "file": "tower-hexagon-top-wood.glb",
+      "name": "Tower Hexagon Top Wood",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "hexagon",
+        "top",
+        "wood",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-slant-roof",
+      "file": "tower-slant-roof.glb",
+      "name": "Tower Slant Roof",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "slant",
+        "roof",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-square",
+      "file": "tower-square.glb",
+      "name": "Tower Square",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "square",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-square-arch",
+      "file": "tower-square-arch.glb",
+      "name": "Tower Square Arch",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "square",
+        "arch",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-square-base",
+      "file": "tower-square-base.glb",
+      "name": "Tower Square Base",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "square",
+        "base",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-square-base-border",
+      "file": "tower-square-base-border.glb",
+      "name": "Tower Square Base Border",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "square",
+        "base",
+        "border",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-square-base-color",
+      "file": "tower-square-base-color.glb",
+      "name": "Tower Square Base Color",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "square",
+        "base",
+        "color",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-square-mid",
+      "file": "tower-square-mid.glb",
+      "name": "Tower Square Mid",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "square",
+        "mid",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-square-mid-color",
+      "file": "tower-square-mid-color.glb",
+      "name": "Tower Square Mid Color",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "square",
+        "mid",
+        "color",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-square-mid-door",
+      "file": "tower-square-mid-door.glb",
+      "name": "Tower Square Mid Door",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "square",
+        "mid",
+        "door",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-square-mid-open",
+      "file": "tower-square-mid-open.glb",
+      "name": "Tower Square Mid Open",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "square",
+        "mid",
+        "open",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-square-mid-open-simple",
+      "file": "tower-square-mid-open-simple.glb",
+      "name": "Tower Square Mid Open Simple",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "square",
+        "mid",
+        "open",
+        "simple",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-square-mid-windows",
+      "file": "tower-square-mid-windows.glb",
+      "name": "Tower Square Mid Windows",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "square",
+        "mid",
+        "windows",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-square-roof",
+      "file": "tower-square-roof.glb",
+      "name": "Tower Square Roof",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "square",
+        "roof",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-square-top",
+      "file": "tower-square-top.glb",
+      "name": "Tower Square Top",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "square",
+        "top",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-square-top-color",
+      "file": "tower-square-top-color.glb",
+      "name": "Tower Square Top Color",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "square",
+        "top",
+        "color",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-square-top-roof",
+      "file": "tower-square-top-roof.glb",
+      "name": "Tower Square Top Roof",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "square",
+        "top",
+        "roof",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-square-top-roof-high",
+      "file": "tower-square-top-roof-high.glb",
+      "name": "Tower Square Top Roof High",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "square",
+        "top",
+        "roof",
+        "high",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-square-top-roof-high-windows",
+      "file": "tower-square-top-roof-high-windows.glb",
+      "name": "Tower Square Top Roof High Windows",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "square",
+        "top",
+        "roof",
+        "high",
+        "windows",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-square-top-roof-rounded",
+      "file": "tower-square-top-roof-rounded.glb",
+      "name": "Tower Square Top Roof Rounded",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "square",
+        "top",
+        "roof",
+        "rounded",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tower-top",
+      "file": "tower-top.glb",
+      "name": "Tower Top",
+      "category": "structure",
+      "tags": [
+        "tower",
+        "top",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-large",
+      "file": "tree-large.glb",
+      "name": "Tree Large",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "large",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-log",
+      "file": "tree-log.glb",
+      "name": "Tree Log",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "log",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-small",
+      "file": "tree-small.glb",
+      "name": "Tree Small",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "small",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "tree-trunk",
+      "file": "tree-trunk.glb",
+      "name": "Tree Trunk",
+      "category": "vegetation",
+      "tags": [
+        "tree",
+        "trunk",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall",
+      "file": "wall.glb",
+      "name": "Wall",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-corner",
+      "file": "wall-corner.glb",
+      "name": "Wall Corner",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "corner",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-corner-half",
+      "file": "wall-corner-half.glb",
+      "name": "Wall Corner Half",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "corner",
+        "half",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-corner-half-tower",
+      "file": "wall-corner-half-tower.glb",
+      "name": "Wall Corner Half Tower",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "corner",
+        "half",
+        "tower",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-corner-slant",
+      "file": "wall-corner-slant.glb",
+      "name": "Wall Corner Slant",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "corner",
+        "slant",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-doorway",
+      "file": "wall-doorway.glb",
+      "name": "Wall Doorway",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "doorway",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-half",
+      "file": "wall-half.glb",
+      "name": "Wall Half",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "half",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-half-modular",
+      "file": "wall-half-modular.glb",
+      "name": "Wall Half Modular",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "half",
+        "modular",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-narrow",
+      "file": "wall-narrow.glb",
+      "name": "Wall Narrow",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "narrow",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-narrow-corner",
+      "file": "wall-narrow-corner.glb",
+      "name": "Wall Narrow Corner",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "narrow",
+        "corner",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-narrow-gate",
+      "file": "wall-narrow-gate.glb",
+      "name": "Wall Narrow Gate",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "narrow",
+        "gate",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-narrow-stairs",
+      "file": "wall-narrow-stairs.glb",
+      "name": "Wall Narrow Stairs",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "narrow",
+        "stairs",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-narrow-stairs-rail",
+      "file": "wall-narrow-stairs-rail.glb",
+      "name": "Wall Narrow Stairs Rail",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "narrow",
+        "stairs",
+        "rail",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-narrow-wood",
+      "file": "wall-narrow-wood.glb",
+      "name": "Wall Narrow Wood",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "narrow",
+        "wood",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-narrow-wood-fence",
+      "file": "wall-narrow-wood-fence.glb",
+      "name": "Wall Narrow Wood Fence",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "narrow",
+        "wood",
+        "fence",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-pillar",
+      "file": "wall-pillar.glb",
+      "name": "Wall Pillar",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "pillar",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-stud",
+      "file": "wall-stud.glb",
+      "name": "Wall Stud",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "stud",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "wall-to-narrow",
+      "file": "wall-to-narrow.glb",
+      "name": "Wall To Narrow",
+      "category": "structure",
+      "tags": [
+        "wall",
+        "to",
+        "narrow",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    }
+  ]
+}

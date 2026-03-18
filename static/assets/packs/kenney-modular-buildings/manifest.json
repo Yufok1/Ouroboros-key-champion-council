@@ -1,0 +1,1624 @@
+{
+  "pack_id": "kenney-modular-buildings",
+  "name": "Kenney Modular Buildings",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "100 modular city building models from Kenney.",
+  "base_url": "/static/assets/packs/kenney-modular-buildings/",
+  "assets": [
+    {
+      "id": "building-block",
+      "file": "building-block.glb",
+      "name": "Building Block",
+      "category": "structure",
+      "tags": [
+        "building",
+        "block",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-corner",
+      "file": "building-corner.glb",
+      "name": "Building Corner",
+      "category": "structure",
+      "tags": [
+        "building",
+        "corner",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-corner-bottom",
+      "file": "building-corner-bottom.glb",
+      "name": "Building Corner Bottom",
+      "category": "structure",
+      "tags": [
+        "building",
+        "corner",
+        "bottom",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-corner-top",
+      "file": "building-corner-top.glb",
+      "name": "Building Corner Top",
+      "category": "structure",
+      "tags": [
+        "building",
+        "corner",
+        "top",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-corner-window",
+      "file": "building-corner-window.glb",
+      "name": "Building Corner Window",
+      "category": "structure",
+      "tags": [
+        "building",
+        "corner",
+        "window",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-corner-window-middle",
+      "file": "building-corner-window-middle.glb",
+      "name": "Building Corner Window Middle",
+      "category": "structure",
+      "tags": [
+        "building",
+        "corner",
+        "window",
+        "middle",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-corner-window-narrow",
+      "file": "building-corner-window-narrow.glb",
+      "name": "Building Corner Window Narrow",
+      "category": "structure",
+      "tags": [
+        "building",
+        "corner",
+        "window",
+        "narrow",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-corner-window-sill",
+      "file": "building-corner-window-sill.glb",
+      "name": "Building Corner Window Sill",
+      "category": "structure",
+      "tags": [
+        "building",
+        "corner",
+        "window",
+        "sill",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-corner-window-top-round",
+      "file": "building-corner-window-top-round.glb",
+      "name": "Building Corner Window Top Round",
+      "category": "structure",
+      "tags": [
+        "building",
+        "corner",
+        "window",
+        "top",
+        "round",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-corner-window-top-square",
+      "file": "building-corner-window-top-square.glb",
+      "name": "Building Corner Window Top Square",
+      "category": "structure",
+      "tags": [
+        "building",
+        "corner",
+        "window",
+        "top",
+        "square",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-door",
+      "file": "building-door.glb",
+      "name": "Building Door",
+      "category": "structure",
+      "tags": [
+        "building",
+        "door",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-door-window",
+      "file": "building-door-window.glb",
+      "name": "Building Door Window",
+      "category": "structure",
+      "tags": [
+        "building",
+        "door",
+        "window",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-door-window-narrow",
+      "file": "building-door-window-narrow.glb",
+      "name": "Building Door Window Narrow",
+      "category": "structure",
+      "tags": [
+        "building",
+        "door",
+        "window",
+        "narrow",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-edges-door",
+      "file": "building-edges-door.glb",
+      "name": "Building Edges Door",
+      "category": "structure",
+      "tags": [
+        "building",
+        "edges",
+        "door",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-sample-house-a",
+      "file": "building-sample-house-a.glb",
+      "name": "Building Sample House A",
+      "category": "structure",
+      "tags": [
+        "building",
+        "sample",
+        "house",
+        "a",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-sample-house-b",
+      "file": "building-sample-house-b.glb",
+      "name": "Building Sample House B",
+      "category": "structure",
+      "tags": [
+        "building",
+        "sample",
+        "house",
+        "b",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-sample-house-c",
+      "file": "building-sample-house-c.glb",
+      "name": "Building Sample House C",
+      "category": "structure",
+      "tags": [
+        "building",
+        "sample",
+        "house",
+        "c",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-sample-tower-a",
+      "file": "building-sample-tower-a.glb",
+      "name": "Building Sample Tower A",
+      "category": "structure",
+      "tags": [
+        "building",
+        "sample",
+        "tower",
+        "a",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-sample-tower-b",
+      "file": "building-sample-tower-b.glb",
+      "name": "Building Sample Tower B",
+      "category": "structure",
+      "tags": [
+        "building",
+        "sample",
+        "tower",
+        "b",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-sample-tower-c",
+      "file": "building-sample-tower-c.glb",
+      "name": "Building Sample Tower C",
+      "category": "structure",
+      "tags": [
+        "building",
+        "sample",
+        "tower",
+        "c",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-sample-tower-d",
+      "file": "building-sample-tower-d.glb",
+      "name": "Building Sample Tower D",
+      "category": "structure",
+      "tags": [
+        "building",
+        "sample",
+        "tower",
+        "d",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-steps-narrow",
+      "file": "building-steps-narrow.glb",
+      "name": "Building Steps Narrow",
+      "category": "structure",
+      "tags": [
+        "building",
+        "steps",
+        "narrow",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-steps-narrow-windows",
+      "file": "building-steps-narrow-windows.glb",
+      "name": "Building Steps Narrow Windows",
+      "category": "structure",
+      "tags": [
+        "building",
+        "steps",
+        "narrow",
+        "windows",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-steps-narrow-windows-round",
+      "file": "building-steps-narrow-windows-round.glb",
+      "name": "Building Steps Narrow Windows Round",
+      "category": "structure",
+      "tags": [
+        "building",
+        "steps",
+        "narrow",
+        "windows",
+        "round",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-steps-wide",
+      "file": "building-steps-wide.glb",
+      "name": "Building Steps Wide",
+      "category": "structure",
+      "tags": [
+        "building",
+        "steps",
+        "wide",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-window",
+      "file": "building-window.glb",
+      "name": "Building Window",
+      "category": "structure",
+      "tags": [
+        "building",
+        "window",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-window-awnings",
+      "file": "building-window-awnings.glb",
+      "name": "Building Window Awnings",
+      "category": "structure",
+      "tags": [
+        "building",
+        "window",
+        "awnings",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-window-balcony",
+      "file": "building-window-balcony.glb",
+      "name": "Building Window Balcony",
+      "category": "structure",
+      "tags": [
+        "building",
+        "window",
+        "balcony",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-window-door-window",
+      "file": "building-window-door-window.glb",
+      "name": "Building Window Door Window",
+      "category": "structure",
+      "tags": [
+        "building",
+        "window",
+        "door",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-window-door-window-round",
+      "file": "building-window-door-window-round.glb",
+      "name": "Building Window Door Window Round",
+      "category": "structure",
+      "tags": [
+        "building",
+        "window",
+        "door",
+        "round",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-window-large",
+      "file": "building-window-large.glb",
+      "name": "Building Window Large",
+      "category": "structure",
+      "tags": [
+        "building",
+        "window",
+        "large",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-window-large-left",
+      "file": "building-window-large-left.glb",
+      "name": "Building Window Large Left",
+      "category": "structure",
+      "tags": [
+        "building",
+        "window",
+        "large",
+        "left",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-window-large-middle",
+      "file": "building-window-large-middle.glb",
+      "name": "Building Window Large Middle",
+      "category": "structure",
+      "tags": [
+        "building",
+        "window",
+        "large",
+        "middle",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-window-large-right",
+      "file": "building-window-large-right.glb",
+      "name": "Building Window Large Right",
+      "category": "structure",
+      "tags": [
+        "building",
+        "window",
+        "large",
+        "right",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-window-left",
+      "file": "building-window-left.glb",
+      "name": "Building Window Left",
+      "category": "structure",
+      "tags": [
+        "building",
+        "window",
+        "left",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-window-left-sill",
+      "file": "building-window-left-sill.glb",
+      "name": "Building Window Left Sill",
+      "category": "structure",
+      "tags": [
+        "building",
+        "window",
+        "left",
+        "sill",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-window-right",
+      "file": "building-window-right.glb",
+      "name": "Building Window Right",
+      "category": "structure",
+      "tags": [
+        "building",
+        "window",
+        "right",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-window-right-sill",
+      "file": "building-window-right-sill.glb",
+      "name": "Building Window Right Sill",
+      "category": "structure",
+      "tags": [
+        "building",
+        "window",
+        "right",
+        "sill",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-window-sill",
+      "file": "building-window-sill.glb",
+      "name": "Building Window Sill",
+      "category": "structure",
+      "tags": [
+        "building",
+        "window",
+        "sill",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-window-wide",
+      "file": "building-window-wide.glb",
+      "name": "Building Window Wide",
+      "category": "structure",
+      "tags": [
+        "building",
+        "window",
+        "wide",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-window-wide-sill",
+      "file": "building-window-wide-sill.glb",
+      "name": "Building Window Wide Sill",
+      "category": "structure",
+      "tags": [
+        "building",
+        "window",
+        "wide",
+        "sill",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-windows",
+      "file": "building-windows.glb",
+      "name": "Building Windows",
+      "category": "structure",
+      "tags": [
+        "building",
+        "windows",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-windows-high-middle",
+      "file": "building-windows-high-middle.glb",
+      "name": "Building Windows High Middle",
+      "category": "structure",
+      "tags": [
+        "building",
+        "windows",
+        "high",
+        "middle",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-windows-high-top-round",
+      "file": "building-windows-high-top-round.glb",
+      "name": "Building Windows High Top Round",
+      "category": "structure",
+      "tags": [
+        "building",
+        "windows",
+        "high",
+        "top",
+        "round",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-windows-high-top-square",
+      "file": "building-windows-high-top-square.glb",
+      "name": "Building Windows High Top Square",
+      "category": "structure",
+      "tags": [
+        "building",
+        "windows",
+        "high",
+        "top",
+        "square",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-windows-round",
+      "file": "building-windows-round.glb",
+      "name": "Building Windows Round",
+      "category": "structure",
+      "tags": [
+        "building",
+        "windows",
+        "round",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-windows-sills",
+      "file": "building-windows-sills.glb",
+      "name": "Building Windows Sills",
+      "category": "structure",
+      "tags": [
+        "building",
+        "windows",
+        "sills",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-windows-sills-round",
+      "file": "building-windows-sills-round.glb",
+      "name": "Building Windows Sills Round",
+      "category": "structure",
+      "tags": [
+        "building",
+        "windows",
+        "sills",
+        "round",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "detail-ac-a",
+      "file": "detail-ac-a.glb",
+      "name": "Detail Ac A",
+      "category": "detail",
+      "tags": [
+        "detail",
+        "ac",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "detail-ac-b",
+      "file": "detail-ac-b.glb",
+      "name": "Detail Ac B",
+      "category": "detail",
+      "tags": [
+        "detail",
+        "ac",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "door-brown",
+      "file": "door-brown.glb",
+      "name": "Door Brown",
+      "category": "door",
+      "tags": [
+        "door",
+        "brown",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "door-brown-glass",
+      "file": "door-brown-glass.glb",
+      "name": "Door Brown Glass",
+      "category": "door",
+      "tags": [
+        "door",
+        "brown",
+        "glass",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "door-brown-window",
+      "file": "door-brown-window.glb",
+      "name": "Door Brown Window",
+      "category": "door",
+      "tags": [
+        "door",
+        "brown",
+        "window",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "door-white",
+      "file": "door-white.glb",
+      "name": "Door White",
+      "category": "door",
+      "tags": [
+        "door",
+        "white",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "door-white-glass",
+      "file": "door-white-glass.glb",
+      "name": "Door White Glass",
+      "category": "door",
+      "tags": [
+        "door",
+        "white",
+        "glass",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "door-white-window",
+      "file": "door-white-window.glb",
+      "name": "Door White Window",
+      "category": "door",
+      "tags": [
+        "door",
+        "white",
+        "window",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roof-flat-awning-a",
+      "file": "roof-flat-awning-a.glb",
+      "name": "Roof Flat Awning A",
+      "category": "roof",
+      "tags": [
+        "roof",
+        "flat",
+        "awning",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roof-flat-awning-b",
+      "file": "roof-flat-awning-b.glb",
+      "name": "Roof Flat Awning B",
+      "category": "roof",
+      "tags": [
+        "roof",
+        "flat",
+        "awning",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roof-flat-awning-c",
+      "file": "roof-flat-awning-c.glb",
+      "name": "Roof Flat Awning C",
+      "category": "roof",
+      "tags": [
+        "roof",
+        "flat",
+        "awning",
+        "c",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roof-flat-border-center",
+      "file": "roof-flat-border-center.glb",
+      "name": "Roof Flat Border Center",
+      "category": "roof",
+      "tags": [
+        "roof",
+        "flat",
+        "border",
+        "center",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roof-flat-border-center-corner",
+      "file": "roof-flat-border-center-corner.glb",
+      "name": "Roof Flat Border Center Corner",
+      "category": "roof",
+      "tags": [
+        "roof",
+        "flat",
+        "border",
+        "center",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roof-flat-border-corner",
+      "file": "roof-flat-border-corner.glb",
+      "name": "Roof Flat Border Corner",
+      "category": "roof",
+      "tags": [
+        "roof",
+        "flat",
+        "border",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roof-flat-border-corner-slanted",
+      "file": "roof-flat-border-corner-slanted.glb",
+      "name": "Roof Flat Border Corner Slanted",
+      "category": "roof",
+      "tags": [
+        "roof",
+        "flat",
+        "border",
+        "corner",
+        "slanted",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roof-flat-border-corner-slanted-passage",
+      "file": "roof-flat-border-corner-slanted-passage.glb",
+      "name": "Roof Flat Border Corner Slanted Passage",
+      "category": "roof",
+      "tags": [
+        "roof",
+        "flat",
+        "border",
+        "corner",
+        "slanted",
+        "passage",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roof-flat-border-end",
+      "file": "roof-flat-border-end.glb",
+      "name": "Roof Flat Border End",
+      "category": "roof",
+      "tags": [
+        "roof",
+        "flat",
+        "border",
+        "end",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roof-flat-border-side",
+      "file": "roof-flat-border-side.glb",
+      "name": "Roof Flat Border Side",
+      "category": "roof",
+      "tags": [
+        "roof",
+        "flat",
+        "border",
+        "side",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roof-flat-border-straight",
+      "file": "roof-flat-border-straight.glb",
+      "name": "Roof Flat Border Straight",
+      "category": "roof",
+      "tags": [
+        "roof",
+        "flat",
+        "border",
+        "straight",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roof-flat-center",
+      "file": "roof-flat-center.glb",
+      "name": "Roof Flat Center",
+      "category": "roof",
+      "tags": [
+        "roof",
+        "flat",
+        "center",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roof-flat-corner",
+      "file": "roof-flat-corner.glb",
+      "name": "Roof Flat Corner",
+      "category": "roof",
+      "tags": [
+        "roof",
+        "flat",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roof-flat-corner-high",
+      "file": "roof-flat-corner-high.glb",
+      "name": "Roof Flat Corner High",
+      "category": "roof",
+      "tags": [
+        "roof",
+        "flat",
+        "corner",
+        "high",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roof-flat-detail-a",
+      "file": "roof-flat-detail-a.glb",
+      "name": "Roof Flat Detail A",
+      "category": "roof",
+      "tags": [
+        "roof",
+        "flat",
+        "detail",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roof-flat-detail-b",
+      "file": "roof-flat-detail-b.glb",
+      "name": "Roof Flat Detail B",
+      "category": "roof",
+      "tags": [
+        "roof",
+        "flat",
+        "detail",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roof-flat-detail-c",
+      "file": "roof-flat-detail-c.glb",
+      "name": "Roof Flat Detail C",
+      "category": "roof",
+      "tags": [
+        "roof",
+        "flat",
+        "detail",
+        "c",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roof-flat-detail-d",
+      "file": "roof-flat-detail-d.glb",
+      "name": "Roof Flat Detail D",
+      "category": "roof",
+      "tags": [
+        "roof",
+        "flat",
+        "detail",
+        "d",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roof-flat-top",
+      "file": "roof-flat-top.glb",
+      "name": "Roof Flat Top",
+      "category": "roof",
+      "tags": [
+        "roof",
+        "flat",
+        "top",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roof-gable",
+      "file": "roof-gable.glb",
+      "name": "Roof Gable",
+      "category": "roof",
+      "tags": [
+        "roof",
+        "gable",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roof-gable-corner",
+      "file": "roof-gable-corner.glb",
+      "name": "Roof Gable Corner",
+      "category": "roof",
+      "tags": [
+        "roof",
+        "gable",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roof-gable-end",
+      "file": "roof-gable-end.glb",
+      "name": "Roof Gable End",
+      "category": "roof",
+      "tags": [
+        "roof",
+        "gable",
+        "end",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roof-slanted",
+      "file": "roof-slanted.glb",
+      "name": "Roof Slanted",
+      "category": "roof",
+      "tags": [
+        "roof",
+        "slanted",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roof-slanted-corner-a",
+      "file": "roof-slanted-corner-a.glb",
+      "name": "Roof Slanted Corner A",
+      "category": "roof",
+      "tags": [
+        "roof",
+        "slanted",
+        "corner",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roof-slanted-corner-b",
+      "file": "roof-slanted-corner-b.glb",
+      "name": "Roof Slanted Corner B",
+      "category": "roof",
+      "tags": [
+        "roof",
+        "slanted",
+        "corner",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roof-slanted-corner-c",
+      "file": "roof-slanted-corner-c.glb",
+      "name": "Roof Slanted Corner C",
+      "category": "roof",
+      "tags": [
+        "roof",
+        "slanted",
+        "corner",
+        "c",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roof-slanted-corner-inner",
+      "file": "roof-slanted-corner-inner.glb",
+      "name": "Roof Slanted Corner Inner",
+      "category": "roof",
+      "tags": [
+        "roof",
+        "slanted",
+        "corner",
+        "inner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roof-slanted-detail",
+      "file": "roof-slanted-detail.glb",
+      "name": "Roof Slanted Detail",
+      "category": "roof",
+      "tags": [
+        "roof",
+        "slanted",
+        "detail",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roof-slanted-flat",
+      "file": "roof-slanted-flat.glb",
+      "name": "Roof Slanted Flat",
+      "category": "roof",
+      "tags": [
+        "roof",
+        "slanted",
+        "flat",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "roof-slanted-window",
+      "file": "roof-slanted-window.glb",
+      "name": "Roof Slanted Window",
+      "category": "roof",
+      "tags": [
+        "roof",
+        "slanted",
+        "window",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "window-brown",
+      "file": "window-brown.glb",
+      "name": "Window Brown",
+      "category": "window",
+      "tags": [
+        "window",
+        "brown",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "window-brown-detailed",
+      "file": "window-brown-detailed.glb",
+      "name": "Window Brown Detailed",
+      "category": "window",
+      "tags": [
+        "window",
+        "brown",
+        "detailed",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "window-brown-large",
+      "file": "window-brown-large.glb",
+      "name": "Window Brown Large",
+      "category": "window",
+      "tags": [
+        "window",
+        "brown",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "window-brown-narrow",
+      "file": "window-brown-narrow.glb",
+      "name": "Window Brown Narrow",
+      "category": "window",
+      "tags": [
+        "window",
+        "brown",
+        "narrow",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "window-brown-round-low",
+      "file": "window-brown-round-low.glb",
+      "name": "Window Brown Round Low",
+      "category": "window",
+      "tags": [
+        "window",
+        "brown",
+        "round",
+        "low",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "window-brown-round-middle",
+      "file": "window-brown-round-middle.glb",
+      "name": "Window Brown Round Middle",
+      "category": "window",
+      "tags": [
+        "window",
+        "brown",
+        "round",
+        "middle",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "window-brown-round-narrow",
+      "file": "window-brown-round-narrow.glb",
+      "name": "Window Brown Round Narrow",
+      "category": "window",
+      "tags": [
+        "window",
+        "brown",
+        "round",
+        "narrow",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "window-brown-round-top",
+      "file": "window-brown-round-top.glb",
+      "name": "Window Brown Round Top",
+      "category": "window",
+      "tags": [
+        "window",
+        "brown",
+        "round",
+        "top",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "window-brown-round-wide",
+      "file": "window-brown-round-wide.glb",
+      "name": "Window Brown Round Wide",
+      "category": "window",
+      "tags": [
+        "window",
+        "brown",
+        "round",
+        "wide",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "window-brown-tall",
+      "file": "window-brown-tall.glb",
+      "name": "Window Brown Tall",
+      "category": "window",
+      "tags": [
+        "window",
+        "brown",
+        "tall",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "window-brown-wide",
+      "file": "window-brown-wide.glb",
+      "name": "Window Brown Wide",
+      "category": "window",
+      "tags": [
+        "window",
+        "brown",
+        "wide",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "window-white",
+      "file": "window-white.glb",
+      "name": "Window White",
+      "category": "window",
+      "tags": [
+        "window",
+        "white",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "window-white-detailed",
+      "file": "window-white-detailed.glb",
+      "name": "Window White Detailed",
+      "category": "window",
+      "tags": [
+        "window",
+        "white",
+        "detailed",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "window-white-large",
+      "file": "window-white-large.glb",
+      "name": "Window White Large",
+      "category": "window",
+      "tags": [
+        "window",
+        "white",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "window-white-narrow",
+      "file": "window-white-narrow.glb",
+      "name": "Window White Narrow",
+      "category": "window",
+      "tags": [
+        "window",
+        "white",
+        "narrow",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "window-white-round-low",
+      "file": "window-white-round-low.glb",
+      "name": "Window White Round Low",
+      "category": "window",
+      "tags": [
+        "window",
+        "white",
+        "round",
+        "low",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "window-white-round-middle",
+      "file": "window-white-round-middle.glb",
+      "name": "Window White Round Middle",
+      "category": "window",
+      "tags": [
+        "window",
+        "white",
+        "round",
+        "middle",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "window-white-round-narrow",
+      "file": "window-white-round-narrow.glb",
+      "name": "Window White Round Narrow",
+      "category": "window",
+      "tags": [
+        "window",
+        "white",
+        "round",
+        "narrow",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "window-white-round-top",
+      "file": "window-white-round-top.glb",
+      "name": "Window White Round Top",
+      "category": "window",
+      "tags": [
+        "window",
+        "white",
+        "round",
+        "top",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "window-white-round-wide",
+      "file": "window-white-round-wide.glb",
+      "name": "Window White Round Wide",
+      "category": "window",
+      "tags": [
+        "window",
+        "white",
+        "round",
+        "wide",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "window-white-tall",
+      "file": "window-white-tall.glb",
+      "name": "Window White Tall",
+      "category": "window",
+      "tags": [
+        "window",
+        "white",
+        "tall",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "window-white-wide",
+      "file": "window-white-wide.glb",
+      "name": "Window White Wide",
+      "category": "window",
+      "tags": [
+        "window",
+        "white",
+        "wide",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    }
+  ]
+}

@@ -1,0 +1,972 @@
+{
+  "pack_id": "kenney-hexagon-kit",
+  "name": "Kenney Hexagon Kit",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "Kenney Hexagon Kit free 3D models from Kenney.",
+  "base_url": "/static/assets/packs/kenney-hexagon-kit/",
+  "assets": [
+    {
+      "id": "bridge",
+      "file": "bridge.glb",
+      "name": "Bridge",
+      "category": "structure",
+      "tags": [
+        "bridge",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-archery",
+      "file": "building-archery.glb",
+      "name": "Building Archery",
+      "category": "structure",
+      "tags": [
+        "building",
+        "archery",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-cabin",
+      "file": "building-cabin.glb",
+      "name": "Building Cabin",
+      "category": "structure",
+      "tags": [
+        "building",
+        "cabin",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-castle",
+      "file": "building-castle.glb",
+      "name": "Building Castle",
+      "category": "structure",
+      "tags": [
+        "building",
+        "castle",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-dock",
+      "file": "building-dock.glb",
+      "name": "Building Dock",
+      "category": "structure",
+      "tags": [
+        "building",
+        "dock",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-farm",
+      "file": "building-farm.glb",
+      "name": "Building Farm",
+      "category": "structure",
+      "tags": [
+        "building",
+        "farm",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-house",
+      "file": "building-house.glb",
+      "name": "Building House",
+      "category": "structure",
+      "tags": [
+        "building",
+        "house",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-market",
+      "file": "building-market.glb",
+      "name": "Building Market",
+      "category": "structure",
+      "tags": [
+        "building",
+        "market",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-mill",
+      "file": "building-mill.glb",
+      "name": "Building Mill",
+      "category": "structure",
+      "tags": [
+        "building",
+        "mill",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-mine",
+      "file": "building-mine.glb",
+      "name": "Building Mine",
+      "category": "structure",
+      "tags": [
+        "building",
+        "mine",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-port",
+      "file": "building-port.glb",
+      "name": "Building Port",
+      "category": "structure",
+      "tags": [
+        "building",
+        "port",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-sheep",
+      "file": "building-sheep.glb",
+      "name": "Building Sheep",
+      "category": "structure",
+      "tags": [
+        "building",
+        "sheep",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-smelter",
+      "file": "building-smelter.glb",
+      "name": "Building Smelter",
+      "category": "structure",
+      "tags": [
+        "building",
+        "smelter",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-tower",
+      "file": "building-tower.glb",
+      "name": "Building Tower",
+      "category": "structure",
+      "tags": [
+        "building",
+        "tower",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-village",
+      "file": "building-village.glb",
+      "name": "Building Village",
+      "category": "structure",
+      "tags": [
+        "building",
+        "village",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-wall",
+      "file": "building-wall.glb",
+      "name": "Building Wall",
+      "category": "structure",
+      "tags": [
+        "building",
+        "wall",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-walls",
+      "file": "building-walls.glb",
+      "name": "Building Walls",
+      "category": "structure",
+      "tags": [
+        "building",
+        "walls",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-watermill",
+      "file": "building-watermill.glb",
+      "name": "Building Watermill",
+      "category": "structure",
+      "tags": [
+        "building",
+        "watermill",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "building-wizard-tower",
+      "file": "building-wizard-tower.glb",
+      "name": "Building Wizard Tower",
+      "category": "structure",
+      "tags": [
+        "building",
+        "wizard",
+        "tower",
+        "kenney",
+        "structure"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "dirt",
+      "file": "dirt.glb",
+      "name": "Dirt",
+      "category": "dirt",
+      "tags": [
+        "dirt",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "dirt-lumber",
+      "file": "dirt-lumber.glb",
+      "name": "Dirt Lumber",
+      "category": "dirt",
+      "tags": [
+        "dirt",
+        "lumber",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "grass",
+      "file": "grass.glb",
+      "name": "Grass",
+      "category": "vegetation",
+      "tags": [
+        "grass",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "grass-forest",
+      "file": "grass-forest.glb",
+      "name": "Grass Forest",
+      "category": "vegetation",
+      "tags": [
+        "grass",
+        "forest",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "grass-hill",
+      "file": "grass-hill.glb",
+      "name": "Grass Hill",
+      "category": "vegetation",
+      "tags": [
+        "grass",
+        "hill",
+        "kenney",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "path-corner",
+      "file": "path-corner.glb",
+      "name": "Path Corner",
+      "category": "path",
+      "tags": [
+        "path",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "path-corner-sharp",
+      "file": "path-corner-sharp.glb",
+      "name": "Path Corner Sharp",
+      "category": "path",
+      "tags": [
+        "path",
+        "corner",
+        "sharp",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "path-crossing",
+      "file": "path-crossing.glb",
+      "name": "Path Crossing",
+      "category": "path",
+      "tags": [
+        "path",
+        "crossing",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "path-end",
+      "file": "path-end.glb",
+      "name": "Path End",
+      "category": "path",
+      "tags": [
+        "path",
+        "end",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "path-intersectiona",
+      "file": "path-intersectionA.glb",
+      "name": "Path IntersectionA",
+      "category": "path",
+      "tags": [
+        "path",
+        "intersectiona",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "path-intersectionb",
+      "file": "path-intersectionB.glb",
+      "name": "Path IntersectionB",
+      "category": "path",
+      "tags": [
+        "path",
+        "intersectionb",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "path-intersectionc",
+      "file": "path-intersectionC.glb",
+      "name": "Path IntersectionC",
+      "category": "path",
+      "tags": [
+        "path",
+        "intersectionc",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "path-intersectiond",
+      "file": "path-intersectionD.glb",
+      "name": "Path IntersectionD",
+      "category": "path",
+      "tags": [
+        "path",
+        "intersectiond",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "path-intersectione",
+      "file": "path-intersectionE.glb",
+      "name": "Path IntersectionE",
+      "category": "path",
+      "tags": [
+        "path",
+        "intersectione",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "path-intersectionf",
+      "file": "path-intersectionF.glb",
+      "name": "Path IntersectionF",
+      "category": "path",
+      "tags": [
+        "path",
+        "intersectionf",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "path-intersectiong",
+      "file": "path-intersectionG.glb",
+      "name": "Path IntersectionG",
+      "category": "path",
+      "tags": [
+        "path",
+        "intersectiong",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "path-intersectionh",
+      "file": "path-intersectionH.glb",
+      "name": "Path IntersectionH",
+      "category": "path",
+      "tags": [
+        "path",
+        "intersectionh",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "path-square",
+      "file": "path-square.glb",
+      "name": "Path Square",
+      "category": "path",
+      "tags": [
+        "path",
+        "square",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "path-square-end",
+      "file": "path-square-end.glb",
+      "name": "Path Square End",
+      "category": "path",
+      "tags": [
+        "path",
+        "square",
+        "end",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "path-start",
+      "file": "path-start.glb",
+      "name": "Path Start",
+      "category": "path",
+      "tags": [
+        "path",
+        "start",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "path-straight",
+      "file": "path-straight.glb",
+      "name": "Path Straight",
+      "category": "path",
+      "tags": [
+        "path",
+        "straight",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "river-corner",
+      "file": "river-corner.glb",
+      "name": "River Corner",
+      "category": "river",
+      "tags": [
+        "river",
+        "corner",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "river-corner-sharp",
+      "file": "river-corner-sharp.glb",
+      "name": "River Corner Sharp",
+      "category": "river",
+      "tags": [
+        "river",
+        "corner",
+        "sharp",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "river-crossing",
+      "file": "river-crossing.glb",
+      "name": "River Crossing",
+      "category": "river",
+      "tags": [
+        "river",
+        "crossing",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "river-end",
+      "file": "river-end.glb",
+      "name": "River End",
+      "category": "river",
+      "tags": [
+        "river",
+        "end",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "river-intersectiona",
+      "file": "river-intersectionA.glb",
+      "name": "River IntersectionA",
+      "category": "river",
+      "tags": [
+        "river",
+        "intersectiona",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "river-intersectionb",
+      "file": "river-intersectionB.glb",
+      "name": "River IntersectionB",
+      "category": "river",
+      "tags": [
+        "river",
+        "intersectionb",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "river-intersectionc",
+      "file": "river-intersectionC.glb",
+      "name": "River IntersectionC",
+      "category": "river",
+      "tags": [
+        "river",
+        "intersectionc",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "river-intersectiond",
+      "file": "river-intersectionD.glb",
+      "name": "River IntersectionD",
+      "category": "river",
+      "tags": [
+        "river",
+        "intersectiond",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "river-intersectione",
+      "file": "river-intersectionE.glb",
+      "name": "River IntersectionE",
+      "category": "river",
+      "tags": [
+        "river",
+        "intersectione",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "river-intersectionf",
+      "file": "river-intersectionF.glb",
+      "name": "River IntersectionF",
+      "category": "river",
+      "tags": [
+        "river",
+        "intersectionf",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "river-intersectiong",
+      "file": "river-intersectionG.glb",
+      "name": "River IntersectionG",
+      "category": "river",
+      "tags": [
+        "river",
+        "intersectiong",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "river-intersectionh",
+      "file": "river-intersectionH.glb",
+      "name": "River IntersectionH",
+      "category": "river",
+      "tags": [
+        "river",
+        "intersectionh",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "river-start",
+      "file": "river-start.glb",
+      "name": "River Start",
+      "category": "river",
+      "tags": [
+        "river",
+        "start",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "river-straight",
+      "file": "river-straight.glb",
+      "name": "River Straight",
+      "category": "river",
+      "tags": [
+        "river",
+        "straight",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "sand",
+      "file": "sand.glb",
+      "name": "Sand",
+      "category": "sand",
+      "tags": [
+        "sand",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "sand-desert",
+      "file": "sand-desert.glb",
+      "name": "Sand Desert",
+      "category": "sand",
+      "tags": [
+        "sand",
+        "desert",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "sand-rocks",
+      "file": "sand-rocks.glb",
+      "name": "Sand Rocks",
+      "category": "sand",
+      "tags": [
+        "sand",
+        "rocks",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stone",
+      "file": "stone.glb",
+      "name": "Stone",
+      "category": "terrain",
+      "tags": [
+        "stone",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stone-hill",
+      "file": "stone-hill.glb",
+      "name": "Stone Hill",
+      "category": "terrain",
+      "tags": [
+        "stone",
+        "hill",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stone-mountain",
+      "file": "stone-mountain.glb",
+      "name": "Stone Mountain",
+      "category": "terrain",
+      "tags": [
+        "stone",
+        "mountain",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "stone-rocks",
+      "file": "stone-rocks.glb",
+      "name": "Stone Rocks",
+      "category": "terrain",
+      "tags": [
+        "stone",
+        "rocks",
+        "kenney",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "unit-house",
+      "file": "unit-house.glb",
+      "name": "Unit House",
+      "category": "unit",
+      "tags": [
+        "unit",
+        "house",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "unit-mansion",
+      "file": "unit-mansion.glb",
+      "name": "Unit Mansion",
+      "category": "unit",
+      "tags": [
+        "unit",
+        "mansion",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "unit-mill",
+      "file": "unit-mill.glb",
+      "name": "Unit Mill",
+      "category": "unit",
+      "tags": [
+        "unit",
+        "mill",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "unit-ship",
+      "file": "unit-ship.glb",
+      "name": "Unit Ship",
+      "category": "unit",
+      "tags": [
+        "unit",
+        "ship",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "unit-ship-large",
+      "file": "unit-ship-large.glb",
+      "name": "Unit Ship Large",
+      "category": "unit",
+      "tags": [
+        "unit",
+        "ship",
+        "large",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "unit-tower",
+      "file": "unit-tower.glb",
+      "name": "Unit Tower",
+      "category": "unit",
+      "tags": [
+        "unit",
+        "tower",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "unit-tree",
+      "file": "unit-tree.glb",
+      "name": "Unit Tree",
+      "category": "unit",
+      "tags": [
+        "unit",
+        "tree",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "unit-wall-tower",
+      "file": "unit-wall-tower.glb",
+      "name": "Unit Wall Tower",
+      "category": "unit",
+      "tags": [
+        "unit",
+        "wall",
+        "tower",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "water",
+      "file": "water.glb",
+      "name": "Water",
+      "category": "water",
+      "tags": [
+        "water",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "water-island",
+      "file": "water-island.glb",
+      "name": "Water Island",
+      "category": "water",
+      "tags": [
+        "water",
+        "island",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "water-rocks",
+      "file": "water-rocks.glb",
+      "name": "Water Rocks",
+      "category": "water",
+      "tags": [
+        "water",
+        "rocks",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    }
+  ]
+}

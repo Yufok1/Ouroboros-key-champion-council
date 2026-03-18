@@ -1857,6 +1857,7 @@ def _workflow_local_proxy_tool_names() -> set[str]:
         "agent_chat_result", "agent_chat_purge", "workflow_execute", "workflow_status", "workflow_history",
         "hf_cache_status", "hf_cache_clear", "capsule_restart",
         "persist_status", "persist_restore_revision",
+        "env_control",
     }
     try:
         if isinstance(_AGENT_LOCAL_TOOL_SPECS, dict):

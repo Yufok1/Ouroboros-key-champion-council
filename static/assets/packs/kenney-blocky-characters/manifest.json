@@ -1,0 +1,244 @@
+{
+  "pack_id": "kenney-blocky-characters",
+  "name": "Kenney Blocky Characters",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "20 blocky animated character models from Kenney.",
+  "base_url": "/static/assets/packs/kenney-blocky-characters/",
+  "assets": [
+    {
+      "id": "character-a",
+      "file": "character-a.glb",
+      "name": "Character A",
+      "category": "character",
+      "tags": [
+        "character",
+        "a",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "character-b",
+      "file": "character-b.glb",
+      "name": "Character B",
+      "category": "character",
+      "tags": [
+        "character",
+        "b",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "character-c",
+      "file": "character-c.glb",
+      "name": "Character C",
+      "category": "character",
+      "tags": [
+        "character",
+        "c",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "character-d",
+      "file": "character-d.glb",
+      "name": "Character D",
+      "category": "character",
+      "tags": [
+        "character",
+        "d",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "character-e",
+      "file": "character-e.glb",
+      "name": "Character E",
+      "category": "character",
+      "tags": [
+        "character",
+        "e",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "character-f",
+      "file": "character-f.glb",
+      "name": "Character F",
+      "category": "character",
+      "tags": [
+        "character",
+        "f",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "character-g",
+      "file": "character-g.glb",
+      "name": "Character G",
+      "category": "character",
+      "tags": [
+        "character",
+        "g",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "character-h",
+      "file": "character-h.glb",
+      "name": "Character H",
+      "category": "character",
+      "tags": [
+        "character",
+        "h",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "character-i",
+      "file": "character-i.glb",
+      "name": "Character I",
+      "category": "character",
+      "tags": [
+        "character",
+        "i",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "character-j",
+      "file": "character-j.glb",
+      "name": "Character J",
+      "category": "character",
+      "tags": [
+        "character",
+        "j",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "character-k",
+      "file": "character-k.glb",
+      "name": "Character K",
+      "category": "character",
+      "tags": [
+        "character",
+        "k",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "character-l",
+      "file": "character-l.glb",
+      "name": "Character L",
+      "category": "character",
+      "tags": [
+        "character",
+        "l",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "character-m",
+      "file": "character-m.glb",
+      "name": "Character M",
+      "category": "character",
+      "tags": [
+        "character",
+        "m",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "character-n",
+      "file": "character-n.glb",
+      "name": "Character N",
+      "category": "character",
+      "tags": [
+        "character",
+        "n",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "character-o",
+      "file": "character-o.glb",
+      "name": "Character O",
+      "category": "character",
+      "tags": [
+        "character",
+        "o",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "character-p",
+      "file": "character-p.glb",
+      "name": "Character P",
+      "category": "character",
+      "tags": [
+        "character",
+        "p",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "character-q",
+      "file": "character-q.glb",
+      "name": "Character Q",
+      "category": "character",
+      "tags": [
+        "character",
+        "q",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    },
+    {
+      "id": "character-r",
+      "file": "character-r.glb",
+      "name": "Character R",
+      "category": "character",
+      "tags": [
+        "character",
+        "r",
+        "kenney"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    }
+  ]
+}
