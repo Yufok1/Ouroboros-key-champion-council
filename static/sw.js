@@ -1,4 +1,4 @@
-var CACHE_NAME = 'champion-council-v126g';
+var CACHE_NAME = 'champion-council-v127b';
 var STATIC_ASSETS = [
     '/',
     '/static/panel.html',
@@ -12,7 +12,7 @@ var STATIC_ASSETS = [
     '/static/GLTFLoader.js',
     '/static/RGBELoader.js',
     '/static/Water.js',
-    '/static/main.js?v=126g',
+    '/static/main.js?v=127b',
     '/static/manifest.json',
     '/static/icon.svg',
     '/static/assets/packs/index.json',

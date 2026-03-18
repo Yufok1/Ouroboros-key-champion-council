@@ -21152,6 +21152,173 @@
                 y: 32
             },
             terrain: { maxDisplacement: 0, opacity: 0 }
+        },
+        photoreal_swamp: {
+            name: 'Swamp',
+            type: 'world',
+            bg: 0x3a4a30, fog: 0.012, ground: 0x2a3520,
+            grid1: 0x405030, grid2: 0x203018, gridOp: 0.10,
+            particleOp: 0,
+            amb: [0x556644, 0.45], hemi: [0xaabb88, 0x223311, 0.5],
+            dir: [0xddd8c0, 0.7], point: [0x000000, 0],
+            particle: [0xffffff, 0],
+            css: ['#4a5a38', 'rgba(74,90,56,0.18)', 'rgba(10,14,8,0.84)', 'rgba(6,8,4,0.92)', 'rgba(255,255,255,0.04)', '#0e1408', '#3a4a30'],
+            bloom: { strength: 0.06, radius: 0.3, threshold: 0.96 },
+            hdri: '/static/assets/hdri/fouriesburg_mountain_cloudy_1k.hdr',
+            water: {
+                enabled: true,
+                color: 0x1a2a10,
+                sunColor: 0x889966,
+                sunDirection: [10, 12, 8],
+                distortionScale: 1.5,
+                size: 120,
+                alpha: 0.75,
+                y: -0.3
+            },
+            terrain: { maxDisplacement: 0, opacity: 0 }
+        },
+        photoreal_cave: {
+            name: 'Cave',
+            type: 'world',
+            bg: 0x0a0a08, fog: 0.04, ground: 0x1a1814,
+            grid1: 0x2a2520, grid2: 0x151210, gridOp: 0.08,
+            particleOp: 0,
+            amb: [0x332e28, 0.3], hemi: [0x443e38, 0x0a0808, 0.3],
+            dir: [0xffddaa, 0.4], point: [0xffaa44, 0.6],
+            particle: [0xffffff, 0],
+            css: ['#2a2520', 'rgba(42,37,32,0.18)', 'rgba(6,5,4,0.84)', 'rgba(4,3,2,0.92)', 'rgba(255,255,255,0.04)', '#080604', '#1a1814'],
+            bloom: { strength: 0.02, radius: 0.3, threshold: 0.99 },
+            water: { enabled: false },
+            terrain: { maxDisplacement: 0, opacity: 0 }
+        },
+        photoreal_alpine: {
+            name: 'Alpine',
+            type: 'world',
+            bg: 0xc8d8e8, fog: 0.005, ground: 0xe8e8f0,
+            grid1: 0x8898a8, grid2: 0x607080, gridOp: 0.10,
+            particleOp: 0,
+            amb: [0x99aacc, 0.5], hemi: [0xeef4ff, 0x667788, 0.6],
+            dir: [0xfff8f0, 1.0], point: [0x000000, 0],
+            particle: [0xffffff, 0],
+            css: ['#a0b8d0', 'rgba(160,184,208,0.18)', 'rgba(10,14,20,0.84)', 'rgba(6,8,12,0.92)', 'rgba(255,255,255,0.04)', '#0e1218', '#c8d8e8'],
+            bloom: { strength: 0.12, radius: 0.3, threshold: 0.94 },
+            hdri: '/static/assets/hdri/drakensberg_solitary_mountain_puresky_1k.hdr',
+            water: { enabled: false },
+            terrain: { maxDisplacement: 0, opacity: 0 }
+        },
+        photoreal_volcanic: {
+            name: 'Volcanic',
+            type: 'world',
+            bg: 0x1a0e08, fog: 0.008, ground: 0x2a1a10,
+            grid1: 0x3a2010, grid2: 0x1a0e08, gridOp: 0.12,
+            particleOp: 0,
+            amb: [0x443322, 0.4], hemi: [0xff6622, 0x1a0808, 0.4],
+            dir: [0xffaa44, 1.2], point: [0xff4400, 0.5],
+            particle: [0xffffff, 0],
+            css: ['#3a2010', 'rgba(58,32,16,0.18)', 'rgba(14,8,4,0.84)', 'rgba(8,4,2,0.92)', 'rgba(255,255,255,0.04)', '#0a0604', '#1a0e08'],
+            bloom: { strength: 0.30, radius: 0.4, threshold: 0.90 },
+            hdri: '/static/assets/hdri/the_sky_is_on_fire_1k.hdr',
+            water: { enabled: false },
+            terrain: { maxDisplacement: 0, opacity: 0 }
+        },
+        photoreal_desert: {
+            name: 'Desert',
+            type: 'world',
+            bg: 0xd4a574, fog: 0.004, ground: 0xc2956b,
+            grid1: 0xa08060, grid2: 0x705040, gridOp: 0.12,
+            particleOp: 0,
+            amb: [0xaa9988, 0.5], hemi: [0xffeedd, 0x554433, 0.7],
+            dir: [0xfff0d0, 1.4], point: [0x000000, 0],
+            particle: [0xffffff, 0],
+            css: ['#d4a574', 'rgba(212,165,116,0.18)', 'rgba(18,12,8,0.84)', 'rgba(10,7,4,0.92)', 'rgba(255,255,255,0.04)', '#1a1208', '#c2956b'],
+            bloom: { strength: 0.10, radius: 0.3, threshold: 0.95 },
+            hdri: '/static/assets/hdri/the_sky_is_on_fire_1k.hdr',
+            water: { enabled: false },
+            terrain: { maxDisplacement: 0, opacity: 0 }
+        },
+        photoreal_jungle: {
+            name: 'Jungle',
+            type: 'world',
+            bg: 0x2a4a20, fog: 0.015, ground: 0x1a3010,
+            grid1: 0x305020, grid2: 0x182a10, gridOp: 0.08,
+            particleOp: 0,
+            amb: [0x446633, 0.5], hemi: [0x88cc55, 0x112208, 0.5],
+            dir: [0xfff5c0, 0.8], point: [0x000000, 0],
+            particle: [0xffffff, 0],
+            css: ['#3a5a28', 'rgba(58,90,40,0.18)', 'rgba(8,14,6,0.84)', 'rgba(4,8,2,0.92)', 'rgba(255,255,255,0.04)', '#0c1406', '#2a4a20'],
+            bloom: { strength: 0.08, radius: 0.3, threshold: 0.95 },
+            hdri: '/static/assets/hdri/xanderklinge_1k.hdr',
+            water: { enabled: false },
+            terrain: { maxDisplacement: 0, opacity: 0 }
+        },
+        photoreal_steppe: {
+            name: 'Steppe',
+            type: 'world',
+            bg: 0x8a9a70, fog: 0.003, ground: 0x7a8a60,
+            grid1: 0x607050, grid2: 0x405030, gridOp: 0.12,
+            particleOp: 0,
+            amb: [0x889977, 0.5], hemi: [0xddddbb, 0x445533, 0.6],
+            dir: [0xfff8e0, 1.2], point: [0x000000, 0],
+            particle: [0xffffff, 0],
+            css: ['#8a9a70', 'rgba(138,154,112,0.18)', 'rgba(12,14,8,0.84)', 'rgba(8,10,4,0.92)', 'rgba(255,255,255,0.04)', '#0e1208', '#7a8a60'],
+            bloom: { strength: 0.08, radius: 0.3, threshold: 0.95 },
+            hdri: '/static/assets/hdri/kloofendal_48d_partly_cloudy_1k.hdr',
+            water: { enabled: false },
+            terrain: { maxDisplacement: 0, opacity: 0 }
+        },
+        photoreal_historical: {
+            name: 'Historical',
+            type: 'world',
+            bg: 0x8898a8, fog: 0.005, ground: 0x6a7060,
+            grid1: 0x607060, grid2: 0x404840, gridOp: 0.14,
+            particleOp: 0,
+            amb: [0x889888, 0.5], hemi: [0xddeedd, 0x445544, 0.6],
+            dir: [0xfff8e8, 1.1], point: [0x000000, 0],
+            particle: [0xffffff, 0],
+            css: ['#7a8a78', 'rgba(122,138,120,0.18)', 'rgba(10,12,10,0.84)', 'rgba(6,8,6,0.92)', 'rgba(255,255,255,0.04)', '#0e120e', '#8898a8'],
+            bloom: { strength: 0.10, radius: 0.3, threshold: 0.94 },
+            hdri: '/static/assets/hdri/kloofendal_48d_partly_cloudy_1k.hdr',
+            water: { enabled: false },
+            terrain: { maxDisplacement: 0, opacity: 0 }
+        },
+        photoreal_alien: {
+            name: 'Alien',
+            type: 'world',
+            bg: 0x0a0a14, fog: 0.006, ground: 0x1a1a2a,
+            grid1: 0x2a2a4a, grid2: 0x0a0a1a, gridOp: 0.10,
+            particleOp: 0,
+            amb: [0x334466, 0.4], hemi: [0x6688cc, 0x0a0a1a, 0.4],
+            dir: [0xccddff, 0.8], point: [0x4466aa, 0.4],
+            particle: [0xffffff, 0],
+            css: ['#2a2a4a', 'rgba(42,42,74,0.18)', 'rgba(4,4,10,0.84)', 'rgba(2,2,6,0.92)', 'rgba(255,255,255,0.04)', '#06060e', '#0a0a14'],
+            bloom: { strength: 0.20, radius: 0.4, threshold: 0.92 },
+            hdri: '/static/assets/hdri/satara_night_1k.hdr',
+            water: { enabled: false },
+            terrain: { maxDisplacement: 0, opacity: 0 }
+        },
+        photoreal_temperate: {
+            name: 'Temperate Coast',
+            type: 'world',
+            bg: 0x88aacc, fog: 0.004, ground: 0x5a7040,
+            grid1: 0x608050, grid2: 0x405030, gridOp: 0.14,
+            particleOp: 0,
+            amb: [0x778866, 0.5], hemi: [0xddeeff, 0x445533, 0.6],
+            dir: [0xfff8e0, 1.1], point: [0x000000, 0],
+            particle: [0xffffff, 0],
+            css: ['#6a9a50', 'rgba(106,154,80,0.18)', 'rgba(10,14,8,0.84)', 'rgba(6,8,4,0.92)', 'rgba(255,255,255,0.04)', '#0e1408', '#88aacc'],
+            bloom: { strength: 0.12, radius: 0.3, threshold: 0.93 },
+            hdri: '/static/assets/hdri/kloofendal_48d_partly_cloudy_1k.hdr',
+            water: {
+                enabled: true,
+                color: 0x003322,
+                sunColor: 0xffffff,
+                sunDirection: [18, 25, 12],
+                distortionScale: 3.0,
+                size: 120,
+                alpha: 0.88,
+                y: -0.2
+            },
+            terrain: { maxDisplacement: 0, opacity: 0 }
         }
     };
 
@@ -21207,7 +21374,7 @@
             name: 'Volcanic Coast',
             family: 'volcanic',
             render: {
-                themeBase: 'photoreal_island',
+                themeBase: 'photoreal_volcanic',
                 fogColor: 0x2a1810,
                 fogDensity: 0.012,
                 bloom: { strength: 0.25, threshold: 0.92 }
@@ -21231,7 +21398,7 @@
             name: 'Karst Cave',
             family: 'cave',
             render: {
-                themeBase: 'photoreal_island',
+                themeBase: 'photoreal_cave',
                 fogColor: 0x120e0a,
                 fogDensity: 0.04,
                 bloom: { strength: 0.02, threshold: 0.99 }
@@ -21249,6 +21416,190 @@
             },
             camera: {
                 presets: ['overview', 'cavern']
+            }
+        },
+        murky_bayou: {
+            name: 'Murky Bayou',
+            family: 'swamp',
+            render: {
+                themeBase: 'photoreal_swamp',
+                fogColor: 0x2a3520,
+                fogDensity: 0.014
+            },
+            strata: {
+                surfaceLevel: 0,
+                waterLevel: -0.3,
+                seabedLevel: -4,
+                ceilingLevel: null
+            },
+            volumes: [],
+            ecology: {
+                suggestedCategories: ['vegetation', 'structures', 'props'],
+                suggestedTags: ['swamp', 'marsh', 'bayou', 'moss', 'wetland']
+            },
+            camera: {
+                presets: ['overview', 'shoreline']
+            }
+        },
+        frozen_summit: {
+            name: 'Frozen Summit',
+            family: 'alpine',
+            render: {
+                themeBase: 'photoreal_alpine',
+                fogColor: 0xa0b0c8,
+                fogDensity: 0.006
+            },
+            strata: {
+                surfaceLevel: 0,
+                waterLevel: null,
+                seabedLevel: -6,
+                ceilingLevel: null
+            },
+            volumes: [],
+            ecology: {
+                suggestedCategories: ['rocks', 'structures', 'vegetation'],
+                suggestedTags: ['alpine', 'ice', 'snow', 'summit', 'mountain']
+            },
+            camera: {
+                presets: ['overview', 'summit', 'cliffside']
+            }
+        },
+        sand_dunes: {
+            name: 'Sand Dunes',
+            family: 'desert',
+            render: {
+                themeBase: 'photoreal_desert',
+                fogColor: 0xc8a070,
+                fogDensity: 0.004
+            },
+            strata: {
+                surfaceLevel: 0,
+                waterLevel: null,
+                seabedLevel: -6,
+                ceilingLevel: null
+            },
+            volumes: [],
+            ecology: {
+                suggestedCategories: ['rocks', 'structures', 'historical'],
+                suggestedTags: ['desert', 'sand', 'arid', 'egyptian', 'temple']
+            },
+            camera: {
+                presets: ['overview', 'cliffside', 'summit']
+            }
+        },
+        dense_jungle: {
+            name: 'Dense Jungle',
+            family: 'jungle',
+            render: {
+                themeBase: 'photoreal_jungle',
+                fogColor: 0x1a3010,
+                fogDensity: 0.018
+            },
+            strata: {
+                surfaceLevel: 0,
+                waterLevel: null,
+                seabedLevel: -4,
+                ceilingLevel: null
+            },
+            volumes: [],
+            ecology: {
+                suggestedCategories: ['vegetation', 'terrain', 'structures'],
+                suggestedTags: ['jungle', 'tropical', 'forest', 'dense', 'canopy']
+            },
+            camera: {
+                presets: ['overview', 'orbit']
+            }
+        },
+        open_steppe: {
+            name: 'Open Steppe',
+            family: 'steppe',
+            render: {
+                themeBase: 'photoreal_steppe',
+                fogColor: 0x7a8a60,
+                fogDensity: 0.003
+            },
+            strata: {
+                surfaceLevel: 0,
+                waterLevel: null,
+                seabedLevel: -4,
+                ceilingLevel: null
+            },
+            volumes: [],
+            ecology: {
+                suggestedCategories: ['vegetation', 'rocks', 'props'],
+                suggestedTags: ['steppe', 'grassland', 'plains', 'open']
+            },
+            camera: {
+                presets: ['overview', 'orbit']
+            }
+        },
+        ancient_ruins: {
+            name: 'Ancient Ruins',
+            family: 'historical',
+            render: {
+                themeBase: 'photoreal_historical',
+                fogColor: 0x607060,
+                fogDensity: 0.006
+            },
+            strata: {
+                surfaceLevel: 0,
+                waterLevel: null,
+                seabedLevel: -4,
+                ceilingLevel: null
+            },
+            volumes: [],
+            ecology: {
+                suggestedCategories: ['architecture', 'historical', 'props', 'vegetation'],
+                suggestedTags: ['ruins', 'historical', 'classical', 'medieval', 'cultural']
+            },
+            camera: {
+                presets: ['overview', 'orbit']
+            }
+        },
+        moon_surface: {
+            name: 'Moon Surface',
+            family: 'alien',
+            render: {
+                themeBase: 'photoreal_alien',
+                fogColor: 0x0a0a14,
+                fogDensity: 0.004
+            },
+            strata: {
+                surfaceLevel: 0,
+                waterLevel: null,
+                seabedLevel: -8,
+                ceilingLevel: null
+            },
+            volumes: [],
+            ecology: {
+                suggestedCategories: ['terrain', 'rocks', 'props'],
+                suggestedTags: ['alien', 'moon', 'extraterrestrial', 'space', 'asteroid']
+            },
+            camera: {
+                presets: ['overview', 'orbit']
+            }
+        },
+        harbor_town: {
+            name: 'Harbor Town',
+            family: 'temperate',
+            render: {
+                themeBase: 'photoreal_temperate',
+                fogColor: 0x607860,
+                fogDensity: 0.005
+            },
+            strata: {
+                surfaceLevel: 0,
+                waterLevel: -0.2,
+                seabedLevel: -8,
+                ceilingLevel: null
+            },
+            volumes: [],
+            ecology: {
+                suggestedCategories: ['ships', 'structures', 'props'],
+                suggestedTags: ['temperate', 'harbor', 'town', 'coastal']
+            },
+            camera: {
+                presets: ['overview', 'shoreline', 'orbit']
             }
         }
     };
@@ -21300,6 +21651,156 @@
                 { pack: 'polyhaven-models-1k', asset: 'namaqualand-boulder-03', worldX: -8, worldZ: 8, tilt: -23, heightOffset: -4, scale: 1.0, label: 'Cave Boulder 2' },
                 { pack: 'polyhaven-models-1k', asset: 'coast-rocks-01', worldX: 15, worldZ: 10, tilt: 69, heightOffset: -6, scale: 0.9, label: 'Rock Formation' },
                 { pack: 'polyhaven-models-1k', asset: 'treasure-chest', worldX: 0, worldZ: -2, tilt: 0, heightOffset: -7, scale: 1.0, label: 'Hidden Chest' }
+            ]
+        },
+        murky_bayou: {
+            name: 'Murky Bayou Kit',
+            description: 'Swamp scene with dead trees, roots, moss, docks, and boats',
+            items: [
+                { pack: 'polyhaven-models-1k', asset: 'root-cluster-01', worldX: -12, worldZ: -6, tilt: 0, heightOffset: -0.5, scale: 1.2, label: 'Root Cluster' },
+                { pack: 'polyhaven-models-1k', asset: 'dead-tree-trunk', worldX: -18, worldZ: 4, tilt: 15, heightOffset: 0, scale: 1.0, label: 'Dead Tree' },
+                { pack: 'polyhaven-models-1k', asset: 'dead-tree-trunk-02', worldX: 14, worldZ: -10, tilt: -20, heightOffset: 0, scale: 1.0, label: 'Dead Tree 2' },
+                { pack: 'os3a-momuspark', asset: 'bush-01-art', worldX: -8, worldZ: 8, tilt: 0, heightOffset: 0, scale: 1.0, label: 'Swamp Bush' },
+                { pack: 'os3a-momuspark', asset: 'bush-02-art', worldX: 6, worldZ: 12, tilt: 0, heightOffset: 0, scale: 0.9, label: 'Marsh Shrub' },
+                { pack: 'os3a-momuspark', asset: 'log-01-art', worldX: 3, worldZ: -4, tilt: 45, heightOffset: -0.3, scale: 1.0, label: 'Fallen Log' },
+                { pack: 'os3a-momuspark', asset: 'mushroom-01-art', worldX: -5, worldZ: 2, tilt: 0, heightOffset: 0, scale: 0.8, label: 'Swamp Mushroom' },
+                { pack: 'kenney-nature-kit', asset: 'lily-large', worldX: 0, worldZ: -8, tilt: 0, heightOffset: -0.3, scale: 1.0, label: 'Lily Pad' },
+                { pack: 'kenney-nature-kit', asset: 'bridge-wood', worldX: 10, worldZ: 0, tilt: 0, heightOffset: 0, scale: 1.0, label: 'Wooden Bridge' },
+                { pack: 'kenney-pirate-kit', asset: 'boat-row-small', worldX: -15, worldZ: -12, tilt: -10, heightOffset: -0.3, scale: 1.0, label: 'Swamp Skiff' },
+                { pack: 'kenney-pirate-kit', asset: 'structure-platform-dock', worldX: 8, worldZ: 6, tilt: 0, heightOffset: 0, scale: 1.0, label: 'Dock' },
+                { pack: 'kenney-nature-kit', asset: 'cliff-waterfall-rock', worldX: -22, worldZ: -2, tilt: 30, heightOffset: 0, scale: 1.0, label: 'Mossy Rock' }
+            ]
+        },
+        frozen_summit: {
+            name: 'Frozen Summit Kit',
+            description: 'Alpine scene with snow, pines, rocks, and survival camp',
+            items: [
+                { pack: 'kenney-nature-kit', asset: 'tree-pinedefaulta', worldX: -18, worldZ: -8, tilt: 0, heightOffset: 0, scale: 1.2, label: 'Pine 1' },
+                { pack: 'kenney-nature-kit', asset: 'tree-pinedefaultb', worldX: -14, worldZ: 10, tilt: 0, heightOffset: 0, scale: 1.0, label: 'Pine 2' },
+                { pack: 'kenney-nature-kit', asset: 'tree-pinedefaulta', worldX: 16, worldZ: -6, tilt: 0, heightOffset: 0, scale: 0.9, label: 'Pine 3' },
+                { pack: 'polyhaven-heavy-1k', asset: 'pine-tree-01', worldX: -8, worldZ: 14, tilt: 0, heightOffset: 0, scale: 0.8, label: 'Alpine Pine' },
+                { pack: 'polyhaven-heavy-1k', asset: 'fir-tree-01', worldX: 12, worldZ: 8, tilt: 0, heightOffset: 0, scale: 0.7, label: 'Fir Tree' },
+                { pack: 'kenney-nature-kit', asset: 'rock-largea', worldX: 20, worldZ: -12, tilt: 23, heightOffset: 0, scale: 1.5, label: 'Summit Rock' },
+                { pack: 'kenney-nature-kit', asset: 'rock-talla', worldX: -22, worldZ: 5, tilt: 0, heightOffset: 0, scale: 1.0, label: 'Tall Rock' },
+                { pack: 'kenney-tower-defense-kit', asset: 'detail-crystal-large', worldX: 8, worldZ: -4, tilt: 0, heightOffset: 0, scale: 1.2, label: 'Ice Crystal' },
+                { pack: 'kenney-tower-defense-kit', asset: 'detail-crystal', worldX: 5, worldZ: -2, tilt: 15, heightOffset: 0, scale: 1.0, label: 'Small Crystal' },
+                { pack: 'kenney-survival-kit', asset: 'tent', worldX: 0, worldZ: 3, tilt: 0, heightOffset: 0, scale: 1.0, label: 'Camp Tent' },
+                { pack: 'kenney-survival-kit', asset: 'campfire-pit', worldX: 3, worldZ: 5, tilt: 0, heightOffset: 0, scale: 1.0, label: 'Campfire' },
+                { pack: 'kenney-survival-kit', asset: 'chest', worldX: -3, worldZ: 4, tilt: 0, heightOffset: 0, scale: 1.0, label: 'Supply Chest' }
+            ]
+        },
+        sand_dunes: {
+            name: 'Sand Dunes Kit',
+            description: 'Desert temple scene with Egyptian architecture and props',
+            items: [
+                { pack: 'os3a-tomb-chaser', asset: 'column-art', worldX: -10, worldZ: -5, tilt: 0, heightOffset: 0, scale: 1.0, label: 'Temple Column 1' },
+                { pack: 'os3a-tomb-chaser', asset: 'column-art', worldX: -10, worldZ: 5, tilt: 0, heightOffset: 0, scale: 1.0, label: 'Temple Column 2' },
+                { pack: 'os3a-tomb-chaser', asset: 'door-art', worldX: -10, worldZ: 0, tilt: 0, heightOffset: 0, scale: 1.0, label: 'Temple Door' },
+                { pack: 'os3a-tomb-chaser', asset: 'godanubis-art', worldX: -14, worldZ: -4, tilt: 0, heightOffset: 0, scale: 1.0, label: 'Anubis Statue' },
+                { pack: 'os3a-tomb-chaser', asset: 'godra-art', worldX: -14, worldZ: 4, tilt: 0, heightOffset: 0, scale: 1.0, label: 'Ra Statue' },
+                { pack: 'os3a-tomb-chaser', asset: 'godbastet-art', worldX: -18, worldZ: 0, tilt: 0, heightOffset: 0, scale: 1.0, label: 'Bastet Statue' },
+                { pack: 'os3a-tomb-chaser', asset: 'firetorch01-art', worldX: -12, worldZ: -3, tilt: 0, heightOffset: 2, scale: 1.0, label: 'Torch 1' },
+                { pack: 'os3a-tomb-chaser', asset: 'firetorch02-art', worldX: -12, worldZ: 3, tilt: 0, heightOffset: 2, scale: 1.0, label: 'Torch 2' },
+                { pack: 'os3a-crystal-crossroads', asset: 'floor-sand-large', worldX: 0, worldZ: 0, tilt: 0, heightOffset: -0.1, scale: 2.0, label: 'Sand Floor' },
+                { pack: 'os3a-crystal-crossroads', asset: 'dune-sand', worldX: 15, worldZ: -8, tilt: 0, heightOffset: 0, scale: 1.5, label: 'Dune' },
+                { pack: 'kenney-nature-kit', asset: 'cactus-tall', worldX: 20, worldZ: 5, tilt: 0, heightOffset: 0, scale: 1.0, label: 'Cactus' },
+                { pack: 'kenney-nature-kit', asset: 'tree-palmdetailedtall', worldX: 18, worldZ: -12, tilt: 0, heightOffset: 0, scale: 1.0, label: 'Desert Palm' },
+                { pack: 'polyhaven-models-1k', asset: 'quiver-tree-01', worldX: -5, worldZ: 15, tilt: 0, heightOffset: 0, scale: 1.0, label: 'Quiver Tree' }
+            ]
+        },
+        dense_jungle: {
+            name: 'Dense Jungle Kit',
+            description: 'Tropical jungle with dense vegetation, bridges, and ruins',
+            items: [
+                { pack: 'os3a-avatar-garden', asset: 'tree01', worldX: -15, worldZ: -8, tilt: 0, heightOffset: 0, scale: 1.0, label: 'Jungle Tree 1' },
+                { pack: 'os3a-avatar-garden', asset: 'tree02', worldX: 12, worldZ: -12, tilt: 0, heightOffset: 0, scale: 1.2, label: 'Jungle Tree 2' },
+                { pack: 'os3a-avatar-garden', asset: 'tree03', worldX: -20, worldZ: 8, tilt: 0, heightOffset: 0, scale: 0.9, label: 'Jungle Tree 3' },
+                { pack: 'os3a-avatar-garden', asset: 'basepalmtree01', worldX: 18, worldZ: 5, tilt: 0, heightOffset: 0, scale: 1.0, label: 'Palm Tree' },
+                { pack: 'os3a-avatar-garden', asset: 'bush01', worldX: -6, worldZ: -3, tilt: 0, heightOffset: 0, scale: 1.0, label: 'Bush 1' },
+                { pack: 'os3a-avatar-garden', asset: 'bush03', worldX: 4, worldZ: 6, tilt: 0, heightOffset: 0, scale: 0.8, label: 'Bush 2' },
+                { pack: 'os3a-avatar-garden', asset: 'bush05', worldX: -10, worldZ: 12, tilt: 0, heightOffset: 0, scale: 1.1, label: 'Bush 3' },
+                { pack: 'os3a-avatar-garden', asset: 'flower01', worldX: 2, worldZ: -6, tilt: 0, heightOffset: 0, scale: 0.7, label: 'Tropical Flower' },
+                { pack: 'os3a-avatar-garden', asset: 'brush01', worldX: -3, worldZ: 4, tilt: 0, heightOffset: 0, scale: 0.8, label: 'Undergrowth' },
+                { pack: 'os3a-avatar-garden', asset: 'bridge01', worldX: 0, worldZ: 0, tilt: 0, heightOffset: 1, scale: 1.0, label: 'Jungle Bridge' },
+                { pack: 'polyhaven-models-1k', asset: 'fern-02', worldX: 8, worldZ: -8, tilt: 0, heightOffset: 0, scale: 1.5, label: 'Fern' },
+                { pack: 'polyhaven-models-1k', asset: 'root-cluster-01', worldX: -14, worldZ: -14, tilt: 0, heightOffset: 0, scale: 1.0, label: 'Root Cluster' },
+                { pack: 'polyhaven-heavy-1k', asset: 'jacaranda-tree', worldX: 22, worldZ: -4, tilt: 0, heightOffset: 0, scale: 0.6, label: 'Jacaranda' },
+                { pack: 'polyhaven-models-1k', asset: 'island-tree-01', worldX: -22, worldZ: -2, tilt: 0, heightOffset: 0, scale: 1.0, label: 'Island Tree' }
+            ]
+        },
+        open_steppe: {
+            name: 'Open Steppe Kit',
+            description: 'Wide grassland with scattered rocks, flowers, and camp',
+            items: [
+                { pack: 'polyhaven-models-1k', asset: 'grass-medium-01', worldX: -8, worldZ: -5, tilt: 0, heightOffset: 0, scale: 1.0, label: 'Grass Patch 1' },
+                { pack: 'polyhaven-models-1k', asset: 'grass-medium-02', worldX: 6, worldZ: -10, tilt: 0, heightOffset: 0, scale: 1.2, label: 'Grass Patch 2' },
+                { pack: 'polyhaven-models-1k', asset: 'grass-medium-01', worldX: -15, worldZ: 8, tilt: 30, heightOffset: 0, scale: 0.9, label: 'Grass Patch 3' },
+                { pack: 'polyhaven-models-1k', asset: 'flower-gazania', worldX: 3, worldZ: 4, tilt: 0, heightOffset: 0, scale: 1.0, label: 'Wildflowers' },
+                { pack: 'polyhaven-models-1k', asset: 'namaqualand-boulder-02', worldX: 18, worldZ: -6, tilt: 17, heightOffset: 0, scale: 1.0, label: 'Steppe Boulder' },
+                { pack: 'polyhaven-models-1k', asset: 'namaqualand-boulder-04', worldX: -20, worldZ: -12, tilt: -23, heightOffset: 0, scale: 0.8, label: 'Field Stone' },
+                { pack: 'kenney-nature-kit', asset: 'tree-pinedefaulta', worldX: 22, worldZ: 8, tilt: 0, heightOffset: 0, scale: 1.0, label: 'Lone Pine' },
+                { pack: 'polyhaven-models-1k', asset: 'shrub-01', worldX: -12, worldZ: 14, tilt: 0, heightOffset: 0, scale: 1.0, label: 'Shrub' },
+                { pack: 'kenney-survival-kit', asset: 'tent-canvas', worldX: 0, worldZ: 0, tilt: 0, heightOffset: 0, scale: 1.0, label: 'Nomad Tent' },
+                { pack: 'kenney-survival-kit', asset: 'campfire-stand', worldX: 3, worldZ: 2, tilt: 0, heightOffset: 0, scale: 1.0, label: 'Campfire' },
+                { pack: 'kenney-survival-kit', asset: 'barrel', worldX: -2, worldZ: 1, tilt: 0, heightOffset: 0, scale: 1.0, label: 'Supply Barrel' },
+                { pack: 'polyhaven-models-1k', asset: 'crystalline-iceplant', worldX: 10, worldZ: 12, tilt: 0, heightOffset: 0, scale: 1.0, label: 'Ice Plant' }
+            ]
+        },
+        ancient_ruins: {
+            name: 'Ancient Ruins Kit',
+            description: 'Classical ruins with columns, statues, and cultural props from multiple civilizations',
+            items: [
+                { pack: 'os3a-ca-world', asset: 'column-01', worldX: -10, worldZ: -6, tilt: 0, heightOffset: 0, scale: 1.0, label: 'Greek Column 1' },
+                { pack: 'os3a-ca-world', asset: 'column-01', worldX: -10, worldZ: 6, tilt: 0, heightOffset: 0, scale: 1.0, label: 'Greek Column 2' },
+                { pack: 'os3a-ca-world', asset: 'door-01', worldX: -10, worldZ: 0, tilt: 0, heightOffset: 0, scale: 1.0, label: 'Classical Door' },
+                { pack: 'os3a-ca-world', asset: 'avatarbust-01', worldX: -14, worldZ: -4, tilt: 0, heightOffset: 1, scale: 1.0, label: 'Bust' },
+                { pack: 'polyhaven-models-1k', asset: 'marble-bust-01', worldX: -14, worldZ: 4, tilt: 0, heightOffset: 1, scale: 1.0, label: 'Marble Bust' },
+                { pack: 'polyhaven-models-1k', asset: 'horse-statue-01', worldX: -18, worldZ: 0, tilt: 0, heightOffset: 0, scale: 0.8, label: 'Horse Statue' },
+                { pack: 'os3a-lunar-year', asset: 'column', worldX: 8, worldZ: -8, tilt: 0, heightOffset: 0, scale: 1.0, label: 'East Asian Column' },
+                { pack: 'os3a-lunar-year', asset: 'dragon', worldX: 8, worldZ: 8, tilt: 0, heightOffset: 1, scale: 0.8, label: 'Dragon Statue' },
+                { pack: 'os3a-lunar-year', asset: 'lamp01', worldX: 10, worldZ: -4, tilt: 0, heightOffset: 0, scale: 1.0, label: 'Lantern' },
+                { pack: 'os3a-medieval-fair', asset: 'cart', worldX: 15, worldZ: 0, tilt: -10, heightOffset: 0, scale: 1.0, label: 'Market Cart' },
+                { pack: 'os3a-medieval-fair', asset: 'barrel', worldX: 17, worldZ: 3, tilt: 0, heightOffset: 0, scale: 1.0, label: 'Barrel' },
+                { pack: 'kenney-nature-kit', asset: 'statue-column', worldX: -5, worldZ: -14, tilt: 0, heightOffset: 0, scale: 1.0, label: 'Broken Column' },
+                { pack: 'kenney-nature-kit', asset: 'statue-obelisk', worldX: 5, worldZ: -14, tilt: 0, heightOffset: 0, scale: 1.0, label: 'Obelisk' },
+                { pack: 'os3a-momuspark', asset: 'str-fountain-01-art', worldX: 0, worldZ: 0, tilt: 0, heightOffset: 0, scale: 1.0, label: 'Fountain' }
+            ]
+        },
+        moon_surface: {
+            name: 'Moon Surface Kit',
+            description: 'Alien landscape with asteroids, crystals, and space equipment',
+            items: [
+                { pack: 'polyhaven-models-1k', asset: 'moon-rock-01', worldX: -12, worldZ: -8, tilt: 0, heightOffset: 0, scale: 1.5, label: 'Moon Rock 1' },
+                { pack: 'polyhaven-models-1k', asset: 'moon-rock-03', worldX: 15, worldZ: -5, tilt: 23, heightOffset: 0, scale: 1.2, label: 'Moon Rock 2' },
+                { pack: 'polyhaven-models-1k', asset: 'moon-rock-05', worldX: -8, worldZ: 10, tilt: -17, heightOffset: 0, scale: 1.0, label: 'Moon Rock 3' },
+                { pack: 'polyhaven-models-1k', asset: 'moon-rock-07', worldX: 20, worldZ: 8, tilt: 40, heightOffset: 0, scale: 0.8, label: 'Moon Rock 4' },
+                { pack: 'nasa-planetary', asset: 'bennu-1-1', worldX: -20, worldZ: -14, tilt: 0, heightOffset: 3, scale: 0.3, label: 'Bennu Asteroid' },
+                { pack: 'nasa-planetary', asset: 'vesta-1-100', worldX: 18, worldZ: -14, tilt: 15, heightOffset: 2, scale: 0.2, label: 'Vesta' },
+                { pack: 'nasa-planetary', asset: 'eros-1-10', worldX: 0, worldZ: -18, tilt: -30, heightOffset: 4, scale: 0.3, label: 'Eros' },
+                { pack: 'os3a-crystal-crossroads', asset: 'crystal-cluster', worldX: -5, worldZ: 4, tilt: 0, heightOffset: 0, scale: 1.0, label: 'Crystal Cluster' },
+                { pack: 'os3a-crystal-crossroads', asset: 'crystal-small-01', worldX: 8, worldZ: 2, tilt: 15, heightOffset: 0, scale: 1.2, label: 'Crystal Shard' },
+                { pack: 'os3a-crystal-crossroads', asset: 'crystal-small-03', worldX: -3, worldZ: -6, tilt: -10, heightOffset: 0, scale: 1.0, label: 'Crystal Fragment' },
+                { pack: 'kenney-space-kit', asset: 'alien', worldX: 5, worldZ: 6, tilt: 0, heightOffset: 0, scale: 1.0, label: 'Alien Figure' },
+                { pack: 'kenney-space-kit', asset: 'rock-crystals', worldX: -15, worldZ: 14, tilt: 0, heightOffset: 0, scale: 1.0, label: 'Rock Crystals' },
+                { pack: 'nasa-planetary', asset: 'osiris-rex', worldX: 0, worldZ: 15, tilt: 0, heightOffset: 5, scale: 0.4, label: 'OSIRIS-REx' }
+            ]
+        },
+        harbor_town: {
+            name: 'Harbor Town Kit',
+            description: 'Coastal settlement with buildings, docks, ships, and market',
+            items: [
+                { pack: 'kenney-city-kit-suburban', asset: 'building-type-a', worldX: -12, worldZ: 5, tilt: 0, heightOffset: 0, scale: 1.0, label: 'House 1' },
+                { pack: 'kenney-city-kit-suburban', asset: 'building-type-b', worldX: -8, worldZ: 8, tilt: 0, heightOffset: 0, scale: 1.0, label: 'House 2' },
+                { pack: 'kenney-city-kit-suburban', asset: 'building-type-c', worldX: -4, worldZ: 5, tilt: 0, heightOffset: 0, scale: 1.0, label: 'Shop' },
+                { pack: 'polyhaven-models-1k', asset: 'modular-wooden-pier', worldX: 10, worldZ: -5, tilt: 0, heightOffset: 0, scale: 1.0, label: 'Pier' },
+                { pack: 'kenney-watercraft-kit', asset: 'boat-fishing-small', worldX: 15, worldZ: -8, tilt: -20, heightOffset: -0.5, scale: 1.0, label: 'Fishing Boat' },
+                { pack: 'kenney-watercraft-kit', asset: 'boat-sail-a', worldX: 22, worldZ: -12, tilt: 10, heightOffset: -0.3, scale: 1.0, label: 'Sailboat' },
+                { pack: 'polyhaven-models-1k', asset: 'ship-pinnace', worldX: 28, worldZ: -6, tilt: -5, heightOffset: -0.3, scale: 0.8, label: 'Pinnace' },
+                { pack: 'kenney-pirate-kit', asset: 'barrel', worldX: 12, worldZ: -2, tilt: 0, heightOffset: 0, scale: 1.0, label: 'Dock Barrel' },
+                { pack: 'kenney-pirate-kit', asset: 'crate', worldX: 14, worldZ: -2, tilt: 0, heightOffset: 0, scale: 1.0, label: 'Crate' },
+                { pack: 'polyhaven-models-1k', asset: 'lateral-sea-marker', worldX: 20, worldZ: -18, tilt: 0, heightOffset: 0, scale: 1.0, label: 'Sea Marker' },
+                { pack: 'kenney-fantasy-town-kit', asset: 'stall-green', worldX: -6, worldZ: -4, tilt: 0, heightOffset: 0, scale: 1.0, label: 'Market Stall' },
+                { pack: 'kenney-fantasy-town-kit', asset: 'fountain-center', worldX: -8, worldZ: 0, tilt: 0, heightOffset: 0, scale: 1.0, label: 'Town Fountain' }
             ]
         }
     };
@@ -21513,13 +22014,23 @@
         if (key === 'underwater') return 0x8B7B55;
         if (key === 'coastal') return 0x6B5B3B;
         if (key === 'volcanic') return 0x2A2220;
+        if (key === 'swamp') return 0x2A3520;
+        if (key === 'alpine') return 0xC8D0D8;
+        if (key === 'desert') return 0xC2956B;
+        if (key === 'jungle') return 0x1A3010;
+        if (key === 'steppe') return 0x7A8A60;
+        if (key === 'historical') return 0x6A7060;
+        if (key === 'alien') return 0x1A1A2A;
+        if (key === 'temperate') return 0x5A7040;
         return 0x5A4A3A;
     }
 
     function _env3DCeilingColorForFamily(family) {
         var key = String(family || '').trim().toLowerCase();
-        if (key === 'cave') return 0x3A3530;
+        if (key === 'cave') return 0x1A1814;
         if (key === 'underwater') return 0x2B3B35;
+        if (key === 'jungle') return 0x1A3010;
+        if (key === 'swamp') return 0x2A3520;
         return 0x3A3A38;
     }
 
@@ -22661,6 +23172,47 @@
                 distance = 18;
                 azimuth = 0.72;
                 polar = 1.45;
+            }
+        }
+        if (family === 'desert') {
+            if (presetId === 'overview') {
+                distance = 35;
+                azimuth = 0.50;
+                polar = 1.10;
+            } else if (presetId === 'summit') {
+                target[1] = 8;
+                distance = 25;
+                azimuth = 0.80;
+                polar = 0.90;
+            }
+        }
+        if (family === 'alpine') {
+            if (presetId === 'summit') {
+                target[1] = 10;
+                distance = 30;
+                azimuth = 0.70;
+                polar = 0.85;
+            }
+        }
+        if (family === 'jungle') {
+            if (presetId === 'overview') {
+                distance = 30;
+                azimuth = 0.40;
+                polar = 1.15;
+            }
+        }
+        if (family === 'alien') {
+            if (presetId === 'overview') {
+                distance = 40;
+                azimuth = 0.60;
+                polar = 1.05;
+            }
+        }
+        if (family === 'historical') {
+            if (presetId === 'overview') {
+                distance = 35;
+                azimuth = 0.50;
+                polar = 1.10;
             }
         }
         return {
