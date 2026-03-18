@@ -1,0 +1,171 @@
+{
+  "pack_id": "smithsonian-underwater-structure",
+  "name": "Smithsonian Underwater Structure",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "Smithsonian Underwater Structure generated asset pack manifest.",
+  "base_url": "/static/assets/packs/smithsonian-underwater-structure/",
+  "assets": [
+    {
+      "id": "corallium-sp",
+      "file": "corallium-sp.glb",
+      "name": "Corallium Sp",
+      "category": "corallium",
+      "tags": [
+        "corallium",
+        "sp",
+        "smithsonian",
+        "underwater",
+        "marine",
+        "coral",
+        "hydrocoral",
+        "structure",
+        "cc0"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "smithsonian",
+        "license": "CC0"
+      }
+    },
+    {
+      "id": "crypthelia-viridis",
+      "file": "crypthelia-viridis.glb",
+      "name": "Crypthelia Viridis",
+      "category": "crypthelia",
+      "tags": [
+        "crypthelia",
+        "viridis",
+        "smithsonian",
+        "underwater",
+        "marine",
+        "coral",
+        "hydrocoral",
+        "structure",
+        "cc0"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "smithsonian",
+        "license": "CC0"
+      }
+    },
+    {
+      "id": "distichopora-violacea",
+      "file": "distichopora-violacea.glb",
+      "name": "Distichopora Violacea",
+      "category": "distichopora",
+      "tags": [
+        "distichopora",
+        "violacea",
+        "smithsonian",
+        "underwater",
+        "marine",
+        "coral",
+        "hydrocoral",
+        "structure",
+        "cc0"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "smithsonian",
+        "license": "CC0"
+      }
+    },
+    {
+      "id": "leiopathes-sp",
+      "file": "leiopathes-sp.glb",
+      "name": "Leiopathes Sp",
+      "category": "leiopathes",
+      "tags": [
+        "leiopathes",
+        "sp",
+        "smithsonian",
+        "underwater",
+        "marine",
+        "coral",
+        "hydrocoral",
+        "structure",
+        "cc0"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "smithsonian",
+        "license": "CC0"
+      }
+    },
+    {
+      "id": "stylaster-alaskanus",
+      "file": "stylaster-alaskanus.glb",
+      "name": "Stylaster Alaskanus",
+      "category": "stylaster",
+      "tags": [
+        "stylaster",
+        "alaskanus",
+        "smithsonian",
+        "underwater",
+        "marine",
+        "coral",
+        "hydrocoral",
+        "structure",
+        "cc0"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "smithsonian",
+        "license": "CC0"
+      }
+    },
+    {
+      "id": "stylaster-brochi",
+      "file": "stylaster-brochi.glb",
+      "name": "Stylaster Brochi",
+      "category": "stylaster",
+      "tags": [
+        "stylaster",
+        "brochi",
+        "smithsonian",
+        "underwater",
+        "marine",
+        "coral",
+        "hydrocoral",
+        "structure",
+        "cc0"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "smithsonian",
+        "license": "CC0"
+      }
+    },
+    {
+      "id": "stylaster-verrillii",
+      "file": "stylaster-verrillii.glb",
+      "name": "Stylaster Verrillii",
+      "category": "stylaster",
+      "tags": [
+        "stylaster",
+        "verrillii",
+        "smithsonian",
+        "underwater",
+        "marine",
+        "coral",
+        "hydrocoral",
+        "structure",
+        "cc0"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "smithsonian",
+        "license": "CC0"
+      }
+    }
+  ]
+}

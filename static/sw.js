@@ -18,7 +18,13 @@ var STATIC_ASSETS = [
     '/static/assets/packs/index.json',
     '/static/assets/waternormals.jpg',
     '/static/assets/hdri/kloofendal_48d_partly_cloudy_1k.hdr',
-    '/static/assets/hdri/the_sky_is_on_fire_1k.hdr'
+    '/static/assets/hdri/the_sky_is_on_fire_1k.hdr',
+    '/static/assets/hdri/dalkey_view_1k.hdr',
+    '/static/assets/hdri/aristea_wreck_1k.hdr',
+    '/static/assets/hdri/fouriesburg_mountain_cloudy_1k.hdr',
+    '/static/assets/hdri/drakensberg_solitary_mountain_puresky_1k.hdr',
+    '/static/assets/hdri/xanderklinge_1k.hdr',
+    '/static/assets/hdri/satara_night_1k.hdr'
 ];
 
 self.addEventListener('install', function (event) {

@@ -1,0 +1,29 @@
+{
+  "pack_id": "polyhaven-jungle-trees",
+  "name": "Poly Haven Jungle Trees",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "Poly Haven Jungle Trees generated asset pack manifest.",
+  "base_url": "/static/assets/packs/polyhaven-jungle-trees/",
+  "assets": [
+    {
+      "id": "jacaranda-tree-jacaranda-tree-2k",
+      "file": "jacaranda_tree/jacaranda_tree_2k.gltf",
+      "name": "Jacaranda Tree 2k",
+      "category": "jacaranda-tree",
+      "tags": [
+        "jacaranda",
+        "tree",
+        "2k",
+        "polyhaven",
+        "jacaranda-tree",
+        "jungle",
+        "tropical",
+        "canopy",
+        "cc0"
+      ],
+      "kind": "prop",
+      "scale_hint": 1
+    }
+  ]
+}

@@ -1,0 +1,152 @@
+{
+  "pack_id": "smithsonian-underwater-accent",
+  "name": "Smithsonian Underwater Accent",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "Smithsonian Underwater Accent generated asset pack manifest.",
+  "base_url": "/static/assets/packs/smithsonian-underwater-accent/",
+  "assets": [
+    {
+      "id": "cypraecassis-rufa",
+      "file": "cypraecassis-rufa.glb",
+      "name": "Cypraecassis Rufa",
+      "category": "cypraecassis",
+      "tags": [
+        "cypraecassis",
+        "rufa",
+        "smithsonian",
+        "underwater",
+        "marine",
+        "fauna",
+        "reef",
+        "cc0",
+        "shell"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "smithsonian",
+        "license": "CC0"
+      }
+    },
+    {
+      "id": "diodon-hystrix",
+      "file": "diodon-hystrix.glb",
+      "name": "Diodon Hystrix",
+      "category": "diodon",
+      "tags": [
+        "diodon",
+        "hystrix",
+        "smithsonian",
+        "underwater",
+        "marine",
+        "fauna",
+        "reef",
+        "cc0",
+        "porcupinefish",
+        "fish"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "smithsonian",
+        "license": "CC0"
+      }
+    },
+    {
+      "id": "linckia-laevigata",
+      "file": "linckia-laevigata.glb",
+      "name": "Linckia Laevigata",
+      "category": "linckia",
+      "tags": [
+        "linckia",
+        "laevigata",
+        "smithsonian",
+        "underwater",
+        "marine",
+        "fauna",
+        "reef",
+        "cc0",
+        "starfish"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "smithsonian",
+        "license": "CC0"
+      }
+    },
+    {
+      "id": "panulirus-longipes",
+      "file": "panulirus-longipes.glb",
+      "name": "Panulirus Longipes",
+      "category": "panulirus",
+      "tags": [
+        "panulirus",
+        "longipes",
+        "smithsonian",
+        "underwater",
+        "marine",
+        "fauna",
+        "reef",
+        "cc0",
+        "lobster",
+        "crustacean"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "smithsonian",
+        "license": "CC0"
+      }
+    },
+    {
+      "id": "phyllopteryx-taeniolatus",
+      "file": "phyllopteryx-taeniolatus.glb",
+      "name": "Phyllopteryx Taeniolatus",
+      "category": "phyllopteryx",
+      "tags": [
+        "phyllopteryx",
+        "taeniolatus",
+        "smithsonian",
+        "underwater",
+        "marine",
+        "fauna",
+        "reef",
+        "cc0",
+        "seadragon",
+        "fish"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "smithsonian",
+        "license": "CC0"
+      }
+    },
+    {
+      "id": "tridacna-sp",
+      "file": "tridacna-sp.glb",
+      "name": "Tridacna Sp",
+      "category": "tridacna",
+      "tags": [
+        "tridacna",
+        "sp",
+        "smithsonian",
+        "underwater",
+        "marine",
+        "fauna",
+        "reef",
+        "cc0",
+        "clam",
+        "shell"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "smithsonian",
+        "license": "CC0"
+      }
+    }
+  ]
+}

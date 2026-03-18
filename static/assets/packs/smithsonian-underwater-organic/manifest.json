@@ -1,0 +1,186 @@
+{
+  "pack_id": "smithsonian-underwater-organic",
+  "name": "Smithsonian Underwater Organic",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "Smithsonian Underwater Organic generated asset pack manifest.",
+  "base_url": "/static/assets/packs/smithsonian-underwater-organic/",
+  "assets": [
+    {
+      "id": "echinopora-reflexa",
+      "file": "echinopora-reflexa.glb",
+      "name": "Echinopora Reflexa",
+      "category": "echinopora",
+      "tags": [
+        "echinopora",
+        "reflexa",
+        "smithsonian",
+        "underwater",
+        "marine",
+        "coral",
+        "organic",
+        "cc0"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "smithsonian",
+        "license": "CC0"
+      }
+    },
+    {
+      "id": "gemmipora-brassica",
+      "file": "gemmipora-brassica.glb",
+      "name": "Gemmipora Brassica",
+      "category": "gemmipora",
+      "tags": [
+        "gemmipora",
+        "brassica",
+        "smithsonian",
+        "underwater",
+        "marine",
+        "coral",
+        "organic",
+        "cc0"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "smithsonian",
+        "license": "CC0"
+      }
+    },
+    {
+      "id": "herpetolithus-crassus",
+      "file": "herpetolithus-crassus.glb",
+      "name": "Herpetolithus Crassus",
+      "category": "herpetolithus",
+      "tags": [
+        "herpetolithus",
+        "crassus",
+        "smithsonian",
+        "underwater",
+        "marine",
+        "coral",
+        "organic",
+        "cc0"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "smithsonian",
+        "license": "CC0"
+      }
+    },
+    {
+      "id": "manopora-caliculata",
+      "file": "manopora-caliculata.glb",
+      "name": "Manopora Caliculata",
+      "category": "manopora",
+      "tags": [
+        "manopora",
+        "caliculata",
+        "smithsonian",
+        "underwater",
+        "marine",
+        "coral",
+        "organic",
+        "cc0"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "smithsonian",
+        "license": "CC0"
+      }
+    },
+    {
+      "id": "manopora-capitata",
+      "file": "manopora-capitata.glb",
+      "name": "Manopora Capitata",
+      "category": "manopora",
+      "tags": [
+        "manopora",
+        "capitata",
+        "smithsonian",
+        "underwater",
+        "marine",
+        "coral",
+        "organic",
+        "cc0"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "smithsonian",
+        "license": "CC0"
+      }
+    },
+    {
+      "id": "manopora-digitata",
+      "file": "manopora-digitata.glb",
+      "name": "Manopora Digitata",
+      "category": "manopora",
+      "tags": [
+        "manopora",
+        "digitata",
+        "smithsonian",
+        "underwater",
+        "marine",
+        "coral",
+        "organic",
+        "cc0"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "smithsonian",
+        "license": "CC0"
+      }
+    },
+    {
+      "id": "pavona-cactus",
+      "file": "pavona-cactus.glb",
+      "name": "Pavona Cactus",
+      "category": "pavona",
+      "tags": [
+        "pavona",
+        "cactus",
+        "smithsonian",
+        "underwater",
+        "marine",
+        "coral",
+        "organic",
+        "cc0"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "smithsonian",
+        "license": "CC0"
+      }
+    },
+    {
+      "id": "psammocora-columna",
+      "file": "psammocora-columna.glb",
+      "name": "Psammocora Columna",
+      "category": "psammocora",
+      "tags": [
+        "psammocora",
+        "columna",
+        "smithsonian",
+        "underwater",
+        "marine",
+        "coral",
+        "organic",
+        "cc0"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "smithsonian",
+        "license": "CC0"
+      }
+    }
+  ]
+}

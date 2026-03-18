@@ -1,0 +1,478 @@
+{
+  "pack_id": "smithsonian-coral-reef",
+  "name": "Smithsonian Coral Reef",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "Smithsonian Coral Reef generated asset pack manifest.",
+  "base_url": "/static/assets/packs/smithsonian-coral-reef/",
+  "assets": [
+    {
+      "id": "acropora-cervicornis",
+      "file": "acropora-cervicornis.glb",
+      "name": "Acropora Cervicornis",
+      "category": "acropora",
+      "tags": [
+        "acropora",
+        "cervicornis",
+        "smithsonian",
+        "underwater",
+        "marine",
+        "coral",
+        "reef",
+        "cc0",
+        "branching"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "smithsonian",
+        "license": "CC0"
+      }
+    },
+    {
+      "id": "acropora-digitifera",
+      "file": "acropora-digitifera.glb",
+      "name": "Acropora Digitifera",
+      "category": "acropora",
+      "tags": [
+        "acropora",
+        "digitifera",
+        "smithsonian",
+        "underwater",
+        "marine",
+        "coral",
+        "reef",
+        "cc0",
+        "branching"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "smithsonian",
+        "license": "CC0"
+      }
+    },
+    {
+      "id": "acropora-palmata",
+      "file": "acropora-palmata.glb",
+      "name": "Acropora Palmata",
+      "category": "acropora",
+      "tags": [
+        "acropora",
+        "palmata",
+        "smithsonian",
+        "underwater",
+        "marine",
+        "coral",
+        "reef",
+        "cc0",
+        "branching"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "smithsonian",
+        "license": "CC0"
+      }
+    },
+    {
+      "id": "acropora-secale",
+      "file": "acropora-secale.glb",
+      "name": "Acropora Secale",
+      "category": "acropora",
+      "tags": [
+        "acropora",
+        "secale",
+        "smithsonian",
+        "underwater",
+        "marine",
+        "coral",
+        "reef",
+        "cc0",
+        "branching"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "smithsonian",
+        "license": "CC0"
+      }
+    },
+    {
+      "id": "agaricia-speciosa",
+      "file": "agaricia-speciosa.glb",
+      "name": "Agaricia Speciosa",
+      "category": "agaricia",
+      "tags": [
+        "agaricia",
+        "speciosa",
+        "smithsonian",
+        "underwater",
+        "marine",
+        "coral",
+        "reef",
+        "cc0",
+        "plate"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "smithsonian",
+        "license": "CC0"
+      }
+    },
+    {
+      "id": "astraea-coronata",
+      "file": "astraea-coronata.glb",
+      "name": "Astraea Coronata",
+      "category": "astraea",
+      "tags": [
+        "astraea",
+        "coronata",
+        "smithsonian",
+        "underwater",
+        "marine",
+        "coral",
+        "reef",
+        "cc0",
+        "boulder",
+        "brain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "smithsonian",
+        "license": "CC0"
+      }
+    },
+    {
+      "id": "diploastrea-heliopora",
+      "file": "diploastrea-heliopora.glb",
+      "name": "Diploastrea Heliopora",
+      "category": "diploastrea",
+      "tags": [
+        "diploastrea",
+        "heliopora",
+        "smithsonian",
+        "underwater",
+        "marine",
+        "coral",
+        "reef",
+        "cc0",
+        "boulder",
+        "brain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "smithsonian",
+        "license": "CC0"
+      }
+    },
+    {
+      "id": "diploria-labyrinthiformis",
+      "file": "diploria-labyrinthiformis.glb",
+      "name": "Diploria Labyrinthiformis",
+      "category": "diploria",
+      "tags": [
+        "diploria",
+        "labyrinthiformis",
+        "smithsonian",
+        "underwater",
+        "marine",
+        "coral",
+        "reef",
+        "cc0",
+        "boulder",
+        "brain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "smithsonian",
+        "license": "CC0"
+      }
+    },
+    {
+      "id": "favia-fragum",
+      "file": "favia-fragum.glb",
+      "name": "Favia Fragum",
+      "category": "favia",
+      "tags": [
+        "favia",
+        "fragum",
+        "smithsonian",
+        "underwater",
+        "marine",
+        "coral",
+        "reef",
+        "cc0",
+        "boulder",
+        "brain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "smithsonian",
+        "license": "CC0"
+      }
+    },
+    {
+      "id": "leptoseris-cucullata",
+      "file": "leptoseris-cucullata.glb",
+      "name": "Leptoseris Cucullata",
+      "category": "leptoseris",
+      "tags": [
+        "leptoseris",
+        "cucullata",
+        "smithsonian",
+        "underwater",
+        "marine",
+        "coral",
+        "reef",
+        "cc0",
+        "plate"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "smithsonian",
+        "license": "CC0"
+      }
+    },
+    {
+      "id": "meandrina-meandrites",
+      "file": "meandrina-meandrites.glb",
+      "name": "Meandrina Meandrites",
+      "category": "meandrina",
+      "tags": [
+        "meandrina",
+        "meandrites",
+        "smithsonian",
+        "underwater",
+        "marine",
+        "coral",
+        "reef",
+        "cc0",
+        "boulder",
+        "brain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "smithsonian",
+        "license": "CC0"
+      }
+    },
+    {
+      "id": "millepora-alcicornis",
+      "file": "millepora-alcicornis.glb",
+      "name": "Millepora Alcicornis",
+      "category": "millepora",
+      "tags": [
+        "millepora",
+        "alcicornis",
+        "smithsonian",
+        "underwater",
+        "marine",
+        "coral",
+        "reef",
+        "cc0",
+        "boulder",
+        "brain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "smithsonian",
+        "license": "CC0"
+      }
+    },
+    {
+      "id": "montipora-danae",
+      "file": "montipora-danae.glb",
+      "name": "Montipora Danae",
+      "category": "montipora",
+      "tags": [
+        "montipora",
+        "danae",
+        "smithsonian",
+        "underwater",
+        "marine",
+        "coral",
+        "reef",
+        "cc0",
+        "plate"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "smithsonian",
+        "license": "CC0"
+      }
+    },
+    {
+      "id": "pavonia-decussata",
+      "file": "pavonia-decussata.glb",
+      "name": "Pavonia Decussata",
+      "category": "pavonia",
+      "tags": [
+        "pavonia",
+        "decussata",
+        "smithsonian",
+        "underwater",
+        "marine",
+        "coral",
+        "reef",
+        "cc0",
+        "plate"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "smithsonian",
+        "license": "CC0"
+      }
+    },
+    {
+      "id": "pocillopora-damicornis",
+      "file": "pocillopora-damicornis.glb",
+      "name": "Pocillopora Damicornis",
+      "category": "pocillopora",
+      "tags": [
+        "pocillopora",
+        "damicornis",
+        "smithsonian",
+        "underwater",
+        "marine",
+        "coral",
+        "reef",
+        "cc0",
+        "branching"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "smithsonian",
+        "license": "CC0"
+      }
+    },
+    {
+      "id": "pocillopora-meandrina",
+      "file": "pocillopora-meandrina.glb",
+      "name": "Pocillopora Meandrina",
+      "category": "pocillopora",
+      "tags": [
+        "pocillopora",
+        "meandrina",
+        "smithsonian",
+        "underwater",
+        "marine",
+        "coral",
+        "reef",
+        "cc0",
+        "branching"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "smithsonian",
+        "license": "CC0"
+      }
+    },
+    {
+      "id": "pocillopora-molokensis",
+      "file": "pocillopora-molokensis.glb",
+      "name": "Pocillopora Molokensis",
+      "category": "pocillopora",
+      "tags": [
+        "pocillopora",
+        "molokensis",
+        "smithsonian",
+        "underwater",
+        "marine",
+        "coral",
+        "reef",
+        "cc0",
+        "branching"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "smithsonian",
+        "license": "CC0"
+      }
+    },
+    {
+      "id": "porites-lobata",
+      "file": "porites-lobata.glb",
+      "name": "Porites Lobata",
+      "category": "porites",
+      "tags": [
+        "porites",
+        "lobata",
+        "smithsonian",
+        "underwater",
+        "marine",
+        "coral",
+        "reef",
+        "cc0",
+        "boulder",
+        "brain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "smithsonian",
+        "license": "CC0"
+      }
+    },
+    {
+      "id": "pseudodiploria-strigosa",
+      "file": "pseudodiploria-strigosa.glb",
+      "name": "Pseudodiploria Strigosa",
+      "category": "pseudodiploria",
+      "tags": [
+        "pseudodiploria",
+        "strigosa",
+        "smithsonian",
+        "underwater",
+        "marine",
+        "coral",
+        "reef",
+        "cc0",
+        "boulder",
+        "brain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "smithsonian",
+        "license": "CC0"
+      }
+    },
+    {
+      "id": "seriatopora-hystrix",
+      "file": "seriatopora-hystrix.glb",
+      "name": "Seriatopora Hystrix",
+      "category": "seriatopora",
+      "tags": [
+        "seriatopora",
+        "hystrix",
+        "smithsonian",
+        "underwater",
+        "marine",
+        "coral",
+        "reef",
+        "cc0",
+        "branching"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "smithsonian",
+        "license": "CC0"
+      }
+    }
+  ]
+}

@@ -46,6 +46,11 @@
     "/static/assets/packs/kenney-train-kit/manifest.json",
     "/static/assets/packs/kenney-watercraft-kit/manifest.json",
     "/static/assets/packs/polyhaven-heavy-1k/manifest.json",
-    "/static/assets/packs/polyhaven-models-1k/manifest.json"
+    "/static/assets/packs/polyhaven-jungle-trees/manifest.json",
+    "/static/assets/packs/polyhaven-models-1k/manifest.json",
+    "/static/assets/packs/smithsonian-coral-reef/manifest.json",
+    "/static/assets/packs/smithsonian-underwater-accent/manifest.json",
+    "/static/assets/packs/smithsonian-underwater-organic/manifest.json",
+    "/static/assets/packs/smithsonian-underwater-structure/manifest.json"
   ]
 }
