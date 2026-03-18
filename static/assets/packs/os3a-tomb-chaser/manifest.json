@@ -1,0 +1,1279 @@
+{
+  "pack_id": "os3a-tomb-chaser",
+  "name": "OS3A Tomb Chaser",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "OS3A Tomb Chaser generated asset pack manifest.",
+  "base_url": "/static/assets/packs/os3a-tomb-chaser/",
+  "assets": [
+    {
+      "id": "coins-art",
+      "file": "Coins_Art.glb",
+      "name": "Coins Art",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "coins",
+        "desert",
+        "egyptian",
+        "historical",
+        "os3a",
+        "props",
+        "temple"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "column-art",
+      "file": "Column_Art.glb",
+      "name": "Column Art",
+      "category": "architecture",
+      "tags": [
+        "architecture",
+        "cc0",
+        "column",
+        "desert",
+        "egyptian",
+        "historical",
+        "os3a",
+        "temple"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "door-art",
+      "file": "Door_Art.glb",
+      "name": "Door Art",
+      "category": "architecture",
+      "tags": [
+        "architecture",
+        "cc0",
+        "desert",
+        "door",
+        "egyptian",
+        "historical",
+        "os3a",
+        "temple"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "firetorch01-art",
+      "file": "FireTorch01_Art.glb",
+      "name": "FireTorch01 Art",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "desert",
+        "egyptian",
+        "firetorch01",
+        "historical",
+        "os3a",
+        "props",
+        "temple"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "firetorch02-art",
+      "file": "FireTorch02_Art.glb",
+      "name": "FireTorch02 Art",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "desert",
+        "egyptian",
+        "firetorch02",
+        "historical",
+        "os3a",
+        "props",
+        "temple"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "firetorch03-art",
+      "file": "FireTorch03_Art.glb",
+      "name": "FireTorch03 Art",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "desert",
+        "egyptian",
+        "firetorch03",
+        "historical",
+        "os3a",
+        "props",
+        "temple"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "gem01-art",
+      "file": "Gem01_Art.glb",
+      "name": "Gem01 Art",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "desert",
+        "egyptian",
+        "gem01",
+        "historical",
+        "os3a",
+        "props",
+        "temple"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "gem02-art",
+      "file": "Gem02_Art.glb",
+      "name": "Gem02 Art",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "desert",
+        "egyptian",
+        "gem02",
+        "historical",
+        "os3a",
+        "props",
+        "temple"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "gem03-art",
+      "file": "Gem03_Art.glb",
+      "name": "Gem03 Art",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "desert",
+        "egyptian",
+        "gem03",
+        "historical",
+        "os3a",
+        "props",
+        "temple"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "ghostarmature",
+      "file": "GhostArmature.glb",
+      "name": "GhostArmature",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "desert",
+        "egyptian",
+        "ghostarmature",
+        "historical",
+        "os3a",
+        "temple"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "godanubis-art",
+      "file": "GodAnubis_Art.glb",
+      "name": "GodAnubis Art",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "cultural",
+        "desert",
+        "egyptian",
+        "godanubis",
+        "historical",
+        "os3a",
+        "religious",
+        "temple"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "godbastet-art",
+      "file": "GodBastet_Art.glb",
+      "name": "GodBastet Art",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "cultural",
+        "desert",
+        "egyptian",
+        "godbastet",
+        "historical",
+        "os3a",
+        "religious",
+        "temple"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "godra-art",
+      "file": "GodRa_Art.glb",
+      "name": "GodRa Art",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "cultural",
+        "desert",
+        "egyptian",
+        "godra",
+        "historical",
+        "os3a",
+        "religious",
+        "temple"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "interiorembelisher01-art",
+      "file": "InteriorEmbelisher01_Art.glb",
+      "name": "InteriorEmbelisher01 Art",
+      "category": "architecture",
+      "tags": [
+        "architecture",
+        "cc0",
+        "desert",
+        "egyptian",
+        "historical",
+        "interiorembelisher01",
+        "os3a",
+        "temple"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "interiorembelisher02-art",
+      "file": "InteriorEmbelisher02_Art.glb",
+      "name": "InteriorEmbelisher02 Art",
+      "category": "architecture",
+      "tags": [
+        "architecture",
+        "cc0",
+        "desert",
+        "egyptian",
+        "historical",
+        "interiorembelisher02",
+        "os3a",
+        "temple"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "jar01-art",
+      "file": "Jar01_Art.glb",
+      "name": "Jar01 Art",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "desert",
+        "egyptian",
+        "historical",
+        "jar01",
+        "os3a",
+        "props",
+        "temple"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "jar02-art",
+      "file": "Jar02_Art.glb",
+      "name": "Jar02 Art",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "desert",
+        "egyptian",
+        "historical",
+        "jar02",
+        "os3a",
+        "props",
+        "temple"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "lance-art",
+      "file": "Lance_Art.glb",
+      "name": "Lance Art",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "desert",
+        "egyptian",
+        "historical",
+        "lance",
+        "os3a",
+        "props",
+        "temple"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "layout-floor01",
+      "file": "Layout_Floor01.glb",
+      "name": "Layout Floor01",
+      "category": "architecture",
+      "tags": [
+        "architecture",
+        "cc0",
+        "desert",
+        "egyptian",
+        "floor01",
+        "historical",
+        "layout",
+        "os3a",
+        "temple"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "layout-floor02",
+      "file": "Layout_Floor02.glb",
+      "name": "Layout Floor02",
+      "category": "architecture",
+      "tags": [
+        "architecture",
+        "cc0",
+        "desert",
+        "egyptian",
+        "floor02",
+        "historical",
+        "layout",
+        "os3a",
+        "temple"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "layout-floor03",
+      "file": "Layout_Floor03.glb",
+      "name": "Layout Floor03",
+      "category": "architecture",
+      "tags": [
+        "architecture",
+        "cc0",
+        "desert",
+        "egyptian",
+        "floor03",
+        "historical",
+        "layout",
+        "os3a",
+        "temple"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "layout-floor04",
+      "file": "Layout_Floor04.glb",
+      "name": "Layout Floor04",
+      "category": "architecture",
+      "tags": [
+        "architecture",
+        "cc0",
+        "desert",
+        "egyptian",
+        "floor04",
+        "historical",
+        "layout",
+        "os3a",
+        "temple"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "layout-floor05",
+      "file": "Layout_Floor05.glb",
+      "name": "Layout Floor05",
+      "category": "architecture",
+      "tags": [
+        "architecture",
+        "cc0",
+        "desert",
+        "egyptian",
+        "floor05",
+        "historical",
+        "layout",
+        "os3a",
+        "temple"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "leaderboard-art",
+      "file": "Leaderboard_Art.glb",
+      "name": "Leaderboard Art",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "desert",
+        "egyptian",
+        "historical",
+        "leaderboard",
+        "os3a",
+        "temple"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "oasis-art",
+      "file": "Oasis_Art.glb",
+      "name": "Oasis Art",
+      "category": "terrain",
+      "tags": [
+        "cc0",
+        "desert",
+        "egyptian",
+        "historical",
+        "oasis",
+        "os3a",
+        "temple"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "obelisk-art",
+      "file": "Obelisk_Art.glb",
+      "name": "Obelisk Art",
+      "category": "architecture",
+      "tags": [
+        "cc0",
+        "desert",
+        "egyptian",
+        "historical",
+        "obelisk",
+        "os3a",
+        "temple"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "palmtree-art",
+      "file": "PalmTree_Art.glb",
+      "name": "PalmTree Art",
+      "category": "vegetation",
+      "tags": [
+        "cc0",
+        "desert",
+        "egyptian",
+        "historical",
+        "os3a",
+        "palmtree",
+        "temple"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "platform-art",
+      "file": "Platform_Art.glb",
+      "name": "Platform Art",
+      "category": "architecture",
+      "tags": [
+        "cc0",
+        "desert",
+        "egyptian",
+        "historical",
+        "os3a",
+        "platform",
+        "temple"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "platformbeams-art",
+      "file": "PlatformBeams_Art.glb",
+      "name": "PlatformBeams Art",
+      "category": "architecture",
+      "tags": [
+        "cc0",
+        "desert",
+        "egyptian",
+        "historical",
+        "os3a",
+        "platformbeams",
+        "temple"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "podium-art",
+      "file": "Podium_Art.glb",
+      "name": "Podium Art",
+      "category": "architecture",
+      "tags": [
+        "cc0",
+        "desert",
+        "egyptian",
+        "historical",
+        "os3a",
+        "podium",
+        "temple"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "polygonalmindlogo-art",
+      "file": "PolygonalMindLogo_Art.glb",
+      "name": "PolygonalMindLogo Art",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "desert",
+        "egyptian",
+        "historical",
+        "os3a",
+        "polygonalmindlogo",
+        "temple"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "sandmount-art",
+      "file": "SandMount_Art.glb",
+      "name": "SandMount Art",
+      "category": "terrain",
+      "tags": [
+        "cc0",
+        "desert",
+        "egyptian",
+        "historical",
+        "os3a",
+        "sandmount",
+        "temple"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "spiderweb-art",
+      "file": "Spiderweb_Art.glb",
+      "name": "Spiderweb Art",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "desert",
+        "egyptian",
+        "historical",
+        "os3a",
+        "spiderweb",
+        "temple"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "templearch01-art",
+      "file": "TempleArch01_Art.glb",
+      "name": "TempleArch01 Art",
+      "category": "architecture",
+      "tags": [
+        "architecture",
+        "cc0",
+        "desert",
+        "egyptian",
+        "historical",
+        "os3a",
+        "temple",
+        "templearch01"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "templearch02-art",
+      "file": "TempleArch02_Art.glb",
+      "name": "TempleArch02 Art",
+      "category": "architecture",
+      "tags": [
+        "architecture",
+        "cc0",
+        "desert",
+        "egyptian",
+        "historical",
+        "os3a",
+        "temple",
+        "templearch02"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "templeembelisher01-art",
+      "file": "TempleEmbelisher01_Art.glb",
+      "name": "TempleEmbelisher01 Art",
+      "category": "architecture",
+      "tags": [
+        "architecture",
+        "cc0",
+        "desert",
+        "egyptian",
+        "historical",
+        "os3a",
+        "temple",
+        "templeembelisher01"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "templeembelisher02-art",
+      "file": "TempleEmbelisher02_Art.glb",
+      "name": "TempleEmbelisher02 Art",
+      "category": "architecture",
+      "tags": [
+        "architecture",
+        "cc0",
+        "desert",
+        "egyptian",
+        "historical",
+        "os3a",
+        "temple",
+        "templeembelisher02"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "templeembelisher03-art",
+      "file": "TempleEmbelisher03_Art.glb",
+      "name": "TempleEmbelisher03 Art",
+      "category": "architecture",
+      "tags": [
+        "architecture",
+        "cc0",
+        "desert",
+        "egyptian",
+        "historical",
+        "os3a",
+        "temple",
+        "templeembelisher03"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "templefloor01-art",
+      "file": "TempleFloor01_Art.glb",
+      "name": "TempleFloor01 Art",
+      "category": "architecture",
+      "tags": [
+        "architecture",
+        "cc0",
+        "desert",
+        "egyptian",
+        "historical",
+        "os3a",
+        "temple",
+        "templefloor01"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "templefloor01-cut",
+      "file": "TempleFloor01_Cut.glb",
+      "name": "TempleFloor01 Cut",
+      "category": "architecture",
+      "tags": [
+        "architecture",
+        "cc0",
+        "cut",
+        "desert",
+        "egyptian",
+        "historical",
+        "os3a",
+        "temple",
+        "templefloor01"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "templefloor01-cut-001",
+      "file": "TempleFloor01_Cut.001.glb",
+      "name": "TempleFloor01 Cut.001",
+      "category": "architecture",
+      "tags": [
+        "architecture",
+        "cc0",
+        "cut-001",
+        "desert",
+        "egyptian",
+        "historical",
+        "os3a",
+        "temple",
+        "templefloor01"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "templefloor02-art",
+      "file": "TempleFloor02_Art.glb",
+      "name": "TempleFloor02 Art",
+      "category": "architecture",
+      "tags": [
+        "architecture",
+        "cc0",
+        "desert",
+        "egyptian",
+        "historical",
+        "os3a",
+        "temple",
+        "templefloor02"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "templefloor02-cut",
+      "file": "TempleFloor02_Cut.glb",
+      "name": "TempleFloor02 Cut",
+      "category": "architecture",
+      "tags": [
+        "architecture",
+        "cc0",
+        "cut",
+        "desert",
+        "egyptian",
+        "historical",
+        "os3a",
+        "temple",
+        "templefloor02"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "templefloor02-cut-001",
+      "file": "TempleFloor02_Cut.001.glb",
+      "name": "TempleFloor02 Cut.001",
+      "category": "architecture",
+      "tags": [
+        "architecture",
+        "cc0",
+        "cut-001",
+        "desert",
+        "egyptian",
+        "historical",
+        "os3a",
+        "temple",
+        "templefloor02"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "templefloor03-art",
+      "file": "TempleFloor03_Art.glb",
+      "name": "TempleFloor03 Art",
+      "category": "architecture",
+      "tags": [
+        "architecture",
+        "cc0",
+        "desert",
+        "egyptian",
+        "historical",
+        "os3a",
+        "temple",
+        "templefloor03"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "templefloor03-cut",
+      "file": "TempleFloor03_Cut.glb",
+      "name": "TempleFloor03 Cut",
+      "category": "architecture",
+      "tags": [
+        "architecture",
+        "cc0",
+        "cut",
+        "desert",
+        "egyptian",
+        "historical",
+        "os3a",
+        "temple",
+        "templefloor03"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "templefloor03-cut-001",
+      "file": "TempleFloor03_Cut.001.glb",
+      "name": "TempleFloor03 Cut.001",
+      "category": "architecture",
+      "tags": [
+        "architecture",
+        "cc0",
+        "cut-001",
+        "desert",
+        "egyptian",
+        "historical",
+        "os3a",
+        "temple",
+        "templefloor03"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "templefloor04-art",
+      "file": "TempleFloor04_Art.glb",
+      "name": "TempleFloor04 Art",
+      "category": "architecture",
+      "tags": [
+        "architecture",
+        "cc0",
+        "desert",
+        "egyptian",
+        "historical",
+        "os3a",
+        "temple",
+        "templefloor04"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "templefloor04-cut",
+      "file": "TempleFloor04_Cut.glb",
+      "name": "TempleFloor04 Cut",
+      "category": "architecture",
+      "tags": [
+        "architecture",
+        "cc0",
+        "cut",
+        "desert",
+        "egyptian",
+        "historical",
+        "os3a",
+        "temple",
+        "templefloor04"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "templefloor04-cut-001",
+      "file": "TempleFloor04_Cut.001.glb",
+      "name": "TempleFloor04 Cut.001",
+      "category": "architecture",
+      "tags": [
+        "architecture",
+        "cc0",
+        "cut-001",
+        "desert",
+        "egyptian",
+        "historical",
+        "os3a",
+        "temple",
+        "templefloor04"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "torch-art",
+      "file": "Torch_Art.glb",
+      "name": "Torch Art",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "desert",
+        "egyptian",
+        "historical",
+        "os3a",
+        "props",
+        "temple",
+        "torch"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "trap-art",
+      "file": "Trap_Art.glb",
+      "name": "Trap Art",
+      "category": "architecture",
+      "tags": [
+        "cc0",
+        "desert",
+        "egyptian",
+        "historical",
+        "os3a",
+        "temple",
+        "trap"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "wall01-art",
+      "file": "Wall01_Art.glb",
+      "name": "Wall01 Art",
+      "category": "architecture",
+      "tags": [
+        "architecture",
+        "cc0",
+        "desert",
+        "egyptian",
+        "historical",
+        "os3a",
+        "temple",
+        "wall01"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "wall02-art",
+      "file": "Wall02_Art.glb",
+      "name": "Wall02 Art",
+      "category": "architecture",
+      "tags": [
+        "architecture",
+        "cc0",
+        "desert",
+        "egyptian",
+        "historical",
+        "os3a",
+        "temple",
+        "wall02"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    },
+    {
+      "id": "wall03-art",
+      "file": "Wall03_Art.glb",
+      "name": "Wall03 Art",
+      "category": "architecture",
+      "tags": [
+        "architecture",
+        "cc0",
+        "desert",
+        "egyptian",
+        "historical",
+        "os3a",
+        "temple",
+        "wall03"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-tomb-chaser-1"
+      }
+    }
+  ]
+}

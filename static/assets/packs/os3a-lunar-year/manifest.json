@@ -1,0 +1,1206 @@
+{
+  "pack_id": "os3a-lunar-year",
+  "name": "OS3A Lunar Year",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "OS3A Lunar Year generated asset pack manifest.",
+  "base_url": "/static/assets/packs/os3a-lunar-year/",
+  "assets": [
+    {
+      "id": "archbanner",
+      "file": "ArchBanner.glb",
+      "name": "ArchBanner",
+      "category": "historical",
+      "tags": [
+        "archbanner",
+        "cc0",
+        "chinese",
+        "cultural",
+        "east_asian",
+        "historical",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    },
+    {
+      "id": "banner",
+      "file": "Banner.glb",
+      "name": "Banner",
+      "category": "historical",
+      "tags": [
+        "banner",
+        "cc0",
+        "chinese",
+        "cultural",
+        "east_asian",
+        "historical",
+        "os3a",
+        "props"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    },
+    {
+      "id": "bell",
+      "file": "Bell.glb",
+      "name": "Bell",
+      "category": "historical",
+      "tags": [
+        "bell",
+        "cc0",
+        "chinese",
+        "cultural",
+        "decorative",
+        "east_asian",
+        "historical",
+        "os3a",
+        "religious"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    },
+    {
+      "id": "bellstructure",
+      "file": "BellStructure.glb",
+      "name": "BellStructure",
+      "category": "historical",
+      "tags": [
+        "bellstructure",
+        "cc0",
+        "chinese",
+        "cultural",
+        "decorative",
+        "east_asian",
+        "historical",
+        "os3a",
+        "religious"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    },
+    {
+      "id": "buildingbase",
+      "file": "BuildingBase.glb",
+      "name": "BuildingBase",
+      "category": "architecture",
+      "tags": [
+        "architecture",
+        "buildingbase",
+        "cc0",
+        "chinese",
+        "cultural",
+        "east_asian",
+        "historical",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    },
+    {
+      "id": "carpet01",
+      "file": "Carpet01.glb",
+      "name": "Carpet01",
+      "category": "historical",
+      "tags": [
+        "carpet01",
+        "cc0",
+        "chinese",
+        "cultural",
+        "east_asian",
+        "historical",
+        "os3a",
+        "props"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    },
+    {
+      "id": "carpet02",
+      "file": "Carpet02.glb",
+      "name": "Carpet02",
+      "category": "historical",
+      "tags": [
+        "carpet02",
+        "cc0",
+        "chinese",
+        "cultural",
+        "east_asian",
+        "historical",
+        "os3a",
+        "props"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    },
+    {
+      "id": "column",
+      "file": "Column.glb",
+      "name": "Column",
+      "category": "architecture",
+      "tags": [
+        "architecture",
+        "cc0",
+        "chinese",
+        "column",
+        "cultural",
+        "east_asian",
+        "historical",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    },
+    {
+      "id": "columnbase",
+      "file": "ColumnBase.glb",
+      "name": "ColumnBase",
+      "category": "architecture",
+      "tags": [
+        "architecture",
+        "cc0",
+        "chinese",
+        "columnbase",
+        "cultural",
+        "east_asian",
+        "historical",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    },
+    {
+      "id": "cushion",
+      "file": "Cushion.glb",
+      "name": "Cushion",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "chinese",
+        "cultural",
+        "cushion",
+        "east_asian",
+        "historical",
+        "os3a",
+        "props"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    },
+    {
+      "id": "door",
+      "file": "Door.glb",
+      "name": "Door",
+      "category": "architecture",
+      "tags": [
+        "architecture",
+        "cc0",
+        "chinese",
+        "cultural",
+        "door",
+        "east_asian",
+        "historical",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    },
+    {
+      "id": "dragon",
+      "file": "Dragon.glb",
+      "name": "Dragon",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "chinese",
+        "cultural",
+        "decorative",
+        "dragon",
+        "east_asian",
+        "historical",
+        "os3a",
+        "religious"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    },
+    {
+      "id": "drum",
+      "file": "Drum.glb",
+      "name": "Drum",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "chinese",
+        "cultural",
+        "decorative",
+        "drum",
+        "east_asian",
+        "historical",
+        "os3a",
+        "religious"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    },
+    {
+      "id": "entrancestairs",
+      "file": "EntranceStairs.glb",
+      "name": "EntranceStairs",
+      "category": "architecture",
+      "tags": [
+        "cc0",
+        "chinese",
+        "cultural",
+        "east_asian",
+        "entrancestairs",
+        "historical",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    },
+    {
+      "id": "fence01",
+      "file": "Fence01.glb",
+      "name": "Fence01",
+      "category": "architecture",
+      "tags": [
+        "architecture",
+        "cc0",
+        "chinese",
+        "cultural",
+        "east_asian",
+        "fence01",
+        "historical",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    },
+    {
+      "id": "fence02",
+      "file": "Fence02.glb",
+      "name": "Fence02",
+      "category": "architecture",
+      "tags": [
+        "architecture",
+        "cc0",
+        "chinese",
+        "cultural",
+        "east_asian",
+        "fence02",
+        "historical",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    },
+    {
+      "id": "floor01",
+      "file": "Floor01.glb",
+      "name": "Floor01",
+      "category": "architecture",
+      "tags": [
+        "cc0",
+        "chinese",
+        "cultural",
+        "east_asian",
+        "floor01",
+        "historical",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    },
+    {
+      "id": "floor02",
+      "file": "Floor02.glb",
+      "name": "Floor02",
+      "category": "architecture",
+      "tags": [
+        "cc0",
+        "chinese",
+        "cultural",
+        "east_asian",
+        "floor02",
+        "historical",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    },
+    {
+      "id": "interiorlight01",
+      "file": "InteriorLight01.glb",
+      "name": "InteriorLight01",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "chinese",
+        "cultural",
+        "decorative",
+        "east_asian",
+        "historical",
+        "interiorlight01",
+        "os3a",
+        "religious"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    },
+    {
+      "id": "interiorlight02",
+      "file": "InteriorLight02.glb",
+      "name": "InteriorLight02",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "chinese",
+        "cultural",
+        "decorative",
+        "east_asian",
+        "historical",
+        "interiorlight02",
+        "os3a",
+        "religious"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    },
+    {
+      "id": "interiorlight03",
+      "file": "InteriorLight03.glb",
+      "name": "InteriorLight03",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "chinese",
+        "cultural",
+        "decorative",
+        "east_asian",
+        "historical",
+        "interiorlight03",
+        "os3a",
+        "religious"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    },
+    {
+      "id": "interiorlight04",
+      "file": "InteriorLight04.glb",
+      "name": "InteriorLight04",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "chinese",
+        "cultural",
+        "decorative",
+        "east_asian",
+        "historical",
+        "interiorlight04",
+        "os3a",
+        "religious"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    },
+    {
+      "id": "interiorlight05",
+      "file": "InteriorLight05.glb",
+      "name": "InteriorLight05",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "chinese",
+        "cultural",
+        "decorative",
+        "east_asian",
+        "historical",
+        "interiorlight05",
+        "os3a",
+        "religious"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    },
+    {
+      "id": "interiorlight06",
+      "file": "InteriorLight06.glb",
+      "name": "InteriorLight06",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "chinese",
+        "cultural",
+        "decorative",
+        "east_asian",
+        "historical",
+        "interiorlight06",
+        "os3a",
+        "religious"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    },
+    {
+      "id": "lamp01",
+      "file": "Lamp01.glb",
+      "name": "Lamp01",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "chinese",
+        "cultural",
+        "decorative",
+        "east_asian",
+        "historical",
+        "lamp01",
+        "os3a",
+        "religious"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    },
+    {
+      "id": "lamp02",
+      "file": "Lamp02.glb",
+      "name": "Lamp02",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "chinese",
+        "cultural",
+        "decorative",
+        "east_asian",
+        "historical",
+        "lamp02",
+        "os3a",
+        "religious"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    },
+    {
+      "id": "lamp03",
+      "file": "Lamp03.glb",
+      "name": "Lamp03",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "chinese",
+        "cultural",
+        "decorative",
+        "east_asian",
+        "historical",
+        "lamp03",
+        "os3a",
+        "religious"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    },
+    {
+      "id": "lamp04",
+      "file": "Lamp04.glb",
+      "name": "Lamp04",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "chinese",
+        "cultural",
+        "decorative",
+        "east_asian",
+        "historical",
+        "lamp04",
+        "os3a",
+        "religious"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    },
+    {
+      "id": "lampwreath",
+      "file": "LampWreath.glb",
+      "name": "LampWreath",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "chinese",
+        "cultural",
+        "decorative",
+        "east_asian",
+        "historical",
+        "lampwreath",
+        "os3a",
+        "religious"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    },
+    {
+      "id": "lunaryeartile",
+      "file": "LunarYearTile.glb",
+      "name": "LunarYearTile",
+      "category": "terrain",
+      "tags": [
+        "cc0",
+        "chinese",
+        "cultural",
+        "east_asian",
+        "historical",
+        "lunaryeartile",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    },
+    {
+      "id": "mainaltar",
+      "file": "MainAltar.glb",
+      "name": "MainAltar",
+      "category": "architecture",
+      "tags": [
+        "cc0",
+        "chinese",
+        "cultural",
+        "east_asian",
+        "historical",
+        "mainaltar",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    },
+    {
+      "id": "outterlamp",
+      "file": "OutterLamp.glb",
+      "name": "OutterLamp",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "chinese",
+        "cultural",
+        "decorative",
+        "east_asian",
+        "historical",
+        "os3a",
+        "outterlamp",
+        "religious"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    },
+    {
+      "id": "panel",
+      "file": "Panel.glb",
+      "name": "Panel",
+      "category": "architecture",
+      "tags": [
+        "cc0",
+        "chinese",
+        "cultural",
+        "east_asian",
+        "historical",
+        "os3a",
+        "panel"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    },
+    {
+      "id": "portal",
+      "file": "Portal.glb",
+      "name": "Portal",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "chinese",
+        "cultural",
+        "east_asian",
+        "historical",
+        "os3a",
+        "portal"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    },
+    {
+      "id": "portalfade01",
+      "file": "PortalFade01.glb",
+      "name": "PortalFade01",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "chinese",
+        "cultural",
+        "east_asian",
+        "historical",
+        "os3a",
+        "portalfade01"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    },
+    {
+      "id": "portalfade02",
+      "file": "PortalFade02.glb",
+      "name": "PortalFade02",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "chinese",
+        "cultural",
+        "east_asian",
+        "historical",
+        "os3a",
+        "portalfade02"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    },
+    {
+      "id": "poster01",
+      "file": "Poster01.glb",
+      "name": "Poster01",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "chinese",
+        "cultural",
+        "east_asian",
+        "historical",
+        "os3a",
+        "poster01",
+        "props"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    },
+    {
+      "id": "poster02",
+      "file": "Poster02.glb",
+      "name": "Poster02",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "chinese",
+        "cultural",
+        "east_asian",
+        "historical",
+        "os3a",
+        "poster02",
+        "props"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    },
+    {
+      "id": "robewreath",
+      "file": "RobeWreath.glb",
+      "name": "RobeWreath",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "chinese",
+        "cultural",
+        "east_asian",
+        "historical",
+        "os3a",
+        "robewreath"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    },
+    {
+      "id": "rock01",
+      "file": "Rock01.glb",
+      "name": "Rock01",
+      "category": "terrain",
+      "tags": [
+        "cc0",
+        "chinese",
+        "cultural",
+        "east_asian",
+        "historical",
+        "os3a",
+        "rock01"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    },
+    {
+      "id": "rock02",
+      "file": "Rock02.glb",
+      "name": "Rock02",
+      "category": "terrain",
+      "tags": [
+        "cc0",
+        "chinese",
+        "cultural",
+        "east_asian",
+        "historical",
+        "os3a",
+        "rock02"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    },
+    {
+      "id": "roomdoor",
+      "file": "RoomDoor.glb",
+      "name": "RoomDoor",
+      "category": "architecture",
+      "tags": [
+        "architecture",
+        "cc0",
+        "chinese",
+        "cultural",
+        "east_asian",
+        "historical",
+        "os3a",
+        "roomdoor"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    },
+    {
+      "id": "roomfloor",
+      "file": "RoomFloor.glb",
+      "name": "RoomFloor",
+      "category": "architecture",
+      "tags": [
+        "architecture",
+        "cc0",
+        "chinese",
+        "cultural",
+        "east_asian",
+        "historical",
+        "os3a",
+        "roomfloor"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    },
+    {
+      "id": "roomroof",
+      "file": "RoomRoof.glb",
+      "name": "RoomRoof",
+      "category": "architecture",
+      "tags": [
+        "architecture",
+        "cc0",
+        "chinese",
+        "cultural",
+        "east_asian",
+        "historical",
+        "os3a",
+        "roomroof"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    },
+    {
+      "id": "roomroofbeam",
+      "file": "RoomRoofBeam.glb",
+      "name": "RoomRoofBeam",
+      "category": "architecture",
+      "tags": [
+        "architecture",
+        "cc0",
+        "chinese",
+        "cultural",
+        "east_asian",
+        "historical",
+        "os3a",
+        "roomroofbeam"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    },
+    {
+      "id": "roomwall01",
+      "file": "RoomWall01.glb",
+      "name": "RoomWall01",
+      "category": "architecture",
+      "tags": [
+        "architecture",
+        "cc0",
+        "chinese",
+        "cultural",
+        "east_asian",
+        "historical",
+        "os3a",
+        "roomwall01"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    },
+    {
+      "id": "signbook",
+      "file": "Signbook.glb",
+      "name": "Signbook",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "chinese",
+        "cultural",
+        "east_asian",
+        "historical",
+        "os3a",
+        "props",
+        "signbook"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    },
+    {
+      "id": "table01",
+      "file": "Table01.glb",
+      "name": "Table01",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "chinese",
+        "cultural",
+        "east_asian",
+        "historical",
+        "os3a",
+        "props",
+        "table01"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    },
+    {
+      "id": "table02",
+      "file": "Table02.glb",
+      "name": "Table02",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "chinese",
+        "cultural",
+        "east_asian",
+        "historical",
+        "os3a",
+        "props",
+        "table02"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    },
+    {
+      "id": "terrainfloor",
+      "file": "TerrainFloor.glb",
+      "name": "TerrainFloor",
+      "category": "terrain",
+      "tags": [
+        "cc0",
+        "chinese",
+        "cultural",
+        "east_asian",
+        "historical",
+        "os3a",
+        "terrainfloor"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    },
+    {
+      "id": "tigerlogo",
+      "file": "TigerLogo.glb",
+      "name": "TigerLogo",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "chinese",
+        "cultural",
+        "east_asian",
+        "historical",
+        "os3a",
+        "tigerlogo"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    },
+    {
+      "id": "upperlights02",
+      "file": "UpperLights02.glb",
+      "name": "UpperLights02",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "chinese",
+        "cultural",
+        "east_asian",
+        "historical",
+        "os3a",
+        "upperlights02"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-lunar-year"
+      }
+    }
+  ]
+}

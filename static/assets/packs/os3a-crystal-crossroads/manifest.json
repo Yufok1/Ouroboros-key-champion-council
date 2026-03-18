@@ -1,0 +1,1292 @@
+{
+  "pack_id": "os3a-crystal-crossroads",
+  "name": "OS3A Crystal Crossroads",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "OS3A Crystal Crossroads generated asset pack manifest.",
+  "base_url": "/static/assets/packs/os3a-crystal-crossroads/",
+  "assets": [
+    {
+      "id": "arc",
+      "file": "Arc.glb",
+      "name": "Arc",
+      "category": "structure",
+      "tags": [
+        "arc",
+        "architecture",
+        "cc0",
+        "historical",
+        "os3a",
+        "ruins"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "column-regular",
+      "file": "Column_Regular.glb",
+      "name": "Column Regular",
+      "category": "structure",
+      "tags": [
+        "architecture",
+        "cc0",
+        "column",
+        "historical",
+        "os3a",
+        "regular",
+        "ruins"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "column-smallbroken-01",
+      "file": "Column_SmallBroken_01.glb",
+      "name": "Column SmallBroken 01",
+      "category": "structure",
+      "tags": [
+        "architecture",
+        "cc0",
+        "column",
+        "historical",
+        "os3a",
+        "ruins",
+        "smallbroken"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "crystal-base",
+      "file": "Crystal_Base.glb",
+      "name": "Crystal Base",
+      "category": "terrain",
+      "tags": [
+        "alien",
+        "base",
+        "cave",
+        "cc0",
+        "crystal",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "crystal-cluster",
+      "file": "Crystal_Cluster.glb",
+      "name": "Crystal Cluster",
+      "category": "terrain",
+      "tags": [
+        "alien",
+        "cave",
+        "cc0",
+        "cluster",
+        "crystal",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "crystal-clustersurrounded",
+      "file": "Crystal_ClusterSurrounded.glb",
+      "name": "Crystal ClusterSurrounded",
+      "category": "terrain",
+      "tags": [
+        "alien",
+        "cave",
+        "cc0",
+        "clustersurrounded",
+        "crystal",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "crystal-small-01",
+      "file": "Crystal_Small_01.glb",
+      "name": "Crystal Small 01",
+      "category": "terrain",
+      "tags": [
+        "alien",
+        "cave",
+        "cc0",
+        "crystal",
+        "os3a",
+        "small"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "crystal-small-02",
+      "file": "Crystal_Small_02.glb",
+      "name": "Crystal Small 02",
+      "category": "terrain",
+      "tags": [
+        "alien",
+        "cave",
+        "cc0",
+        "crystal",
+        "os3a",
+        "small"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "crystal-small-03",
+      "file": "Crystal_Small_03.glb",
+      "name": "Crystal Small 03",
+      "category": "terrain",
+      "tags": [
+        "alien",
+        "cave",
+        "cc0",
+        "crystal",
+        "os3a",
+        "small"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "crystal-small-04",
+      "file": "Crystal_Small_04.glb",
+      "name": "Crystal Small 04",
+      "category": "terrain",
+      "tags": [
+        "alien",
+        "cave",
+        "cc0",
+        "crystal",
+        "os3a",
+        "small"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "dune-sand",
+      "file": "Dune_Sand.glb",
+      "name": "Dune Sand",
+      "category": "terrain",
+      "tags": [
+        "cc0",
+        "desert",
+        "dune",
+        "os3a",
+        "sand"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "floor-sand-large",
+      "file": "Floor_Sand_Large.glb",
+      "name": "Floor Sand Large",
+      "category": "terrain",
+      "tags": [
+        "cc0",
+        "desert",
+        "floor",
+        "large",
+        "os3a",
+        "sand"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "floor-sand-medium",
+      "file": "Floor_Sand_Medium.glb",
+      "name": "Floor Sand Medium",
+      "category": "terrain",
+      "tags": [
+        "cc0",
+        "desert",
+        "floor",
+        "medium",
+        "os3a",
+        "sand"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "floor-sand-small",
+      "file": "Floor_Sand_Small.glb",
+      "name": "Floor Sand Small",
+      "category": "terrain",
+      "tags": [
+        "cc0",
+        "desert",
+        "floor",
+        "os3a",
+        "sand",
+        "small"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "floor-tiles-large",
+      "file": "Floor_Tiles_Large.glb",
+      "name": "Floor Tiles Large",
+      "category": "structure",
+      "tags": [
+        "architecture",
+        "cc0",
+        "floor",
+        "historical",
+        "large",
+        "os3a",
+        "ruins",
+        "tiles"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "floor-tiles-medium",
+      "file": "Floor_Tiles_Medium.glb",
+      "name": "Floor Tiles Medium",
+      "category": "structure",
+      "tags": [
+        "architecture",
+        "cc0",
+        "floor",
+        "historical",
+        "medium",
+        "os3a",
+        "ruins",
+        "tiles"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "floor-tiles-small",
+      "file": "Floor_Tiles_Small.glb",
+      "name": "Floor Tiles Small",
+      "category": "structure",
+      "tags": [
+        "architecture",
+        "cc0",
+        "floor",
+        "historical",
+        "os3a",
+        "ruins",
+        "small",
+        "tiles"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "flowerpot-large-01",
+      "file": "FlowerPot_Large_01.glb",
+      "name": "FlowerPot Large 01",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "decorative",
+        "flowerpot",
+        "large",
+        "os3a",
+        "props"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "flowerpot-large-02",
+      "file": "FlowerPot_Large_02.glb",
+      "name": "FlowerPot Large 02",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "decorative",
+        "flowerpot",
+        "large",
+        "os3a",
+        "props"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "flowerpot-large-03",
+      "file": "FlowerPot_Large_03.glb",
+      "name": "FlowerPot Large 03",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "decorative",
+        "flowerpot",
+        "large",
+        "os3a",
+        "props"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "flowerpot-narrow-01",
+      "file": "FlowerPot_Narrow_01.glb",
+      "name": "FlowerPot Narrow 01",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "decorative",
+        "flowerpot",
+        "narrow",
+        "os3a",
+        "props"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "flowerpot-small-01",
+      "file": "FlowerPot_Small_01.glb",
+      "name": "FlowerPot Small 01",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "decorative",
+        "flowerpot",
+        "os3a",
+        "props",
+        "small"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "flowerpot-small-02",
+      "file": "FlowerPot_Small_02.glb",
+      "name": "FlowerPot Small 02",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "decorative",
+        "flowerpot",
+        "os3a",
+        "props",
+        "small"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "flowerpot-small-03",
+      "file": "FlowerPot_Small_03.glb",
+      "name": "FlowerPot Small 03",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "decorative",
+        "flowerpot",
+        "os3a",
+        "props",
+        "small"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "pattern-cube",
+      "file": "Pattern_Cube.glb",
+      "name": "Pattern Cube",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "cube",
+        "os3a",
+        "pattern"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "pattern-cylinder",
+      "file": "Pattern_Cylinder.glb",
+      "name": "Pattern Cylinder",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "cylinder",
+        "os3a",
+        "pattern"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "pattern-solar",
+      "file": "Pattern_Solar.glb",
+      "name": "Pattern Solar",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "os3a",
+        "pattern",
+        "solar"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "pictureframe-01",
+      "file": "PictureFrame_01.glb",
+      "name": "PictureFrame 01",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "os3a",
+        "pictureframe"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "pictureframe-regular",
+      "file": "PictureFrame_Regular.glb",
+      "name": "PictureFrame Regular",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "os3a",
+        "pictureframe",
+        "regular"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "pictureframe-vertical",
+      "file": "PictureFrame_Vertical.glb",
+      "name": "PictureFrame Vertical",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "os3a",
+        "pictureframe",
+        "vertical"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "platform-03",
+      "file": "Platform_03.glb",
+      "name": "Platform 03",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "os3a",
+        "platform"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "platform-stairs-01",
+      "file": "Platform_Stairs_01.glb",
+      "name": "Platform Stairs 01",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "os3a",
+        "platform",
+        "stairs"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "platform-stairs-02",
+      "file": "Platform_Stairs_02.glb",
+      "name": "Platform Stairs 02",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "os3a",
+        "platform",
+        "stairs"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "platform-stairs-03",
+      "file": "Platform_Stairs_03.glb",
+      "name": "Platform Stairs 03",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "os3a",
+        "platform",
+        "stairs"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "platform-stairs-04",
+      "file": "Platform_Stairs_04.glb",
+      "name": "Platform Stairs 04",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "os3a",
+        "platform",
+        "stairs"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "platform-stairsplatform",
+      "file": "Platform_StairsPlatform.glb",
+      "name": "Platform StairsPlatform",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "os3a",
+        "platform",
+        "stairsplatform"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "platform-step",
+      "file": "Platform_Step.glb",
+      "name": "Platform Step",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "os3a",
+        "platform",
+        "step"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "propellant",
+      "file": "Propellant.glb",
+      "name": "Propellant",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "os3a",
+        "propellant"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "roof-01",
+      "file": "Roof_01.glb",
+      "name": "Roof 01",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "os3a",
+        "roof"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "roof-hole-01",
+      "file": "Roof_Hole_01.glb",
+      "name": "Roof Hole 01",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "hole",
+        "os3a",
+        "roof"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "scifi-antenna",
+      "file": "SciFi_Antenna.glb",
+      "name": "SciFi Antenna",
+      "category": "props",
+      "tags": [
+        "antenna",
+        "cc0",
+        "os3a",
+        "scifi"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "scifi-battery",
+      "file": "SciFi_Battery.glb",
+      "name": "SciFi Battery",
+      "category": "props",
+      "tags": [
+        "battery",
+        "cc0",
+        "os3a",
+        "scifi"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "scifi-battery-capsule01",
+      "file": "SciFi_Battery_Capsule01.glb",
+      "name": "SciFi Battery Capsule01",
+      "category": "props",
+      "tags": [
+        "battery",
+        "capsule01",
+        "cc0",
+        "os3a",
+        "scifi"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "scifi-battery-capsule02",
+      "file": "SciFi_Battery_Capsule02.glb",
+      "name": "SciFi Battery Capsule02",
+      "category": "props",
+      "tags": [
+        "battery",
+        "capsule02",
+        "cc0",
+        "os3a",
+        "scifi"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "scifi-bridge",
+      "file": "SciFi_Bridge.glb",
+      "name": "SciFi Bridge",
+      "category": "props",
+      "tags": [
+        "bridge",
+        "cc0",
+        "os3a",
+        "scifi"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "scifi-capsule",
+      "file": "SciFi_Capsule.glb",
+      "name": "SciFi Capsule",
+      "category": "props",
+      "tags": [
+        "capsule",
+        "cc0",
+        "os3a",
+        "scifi"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "scifi-drone",
+      "file": "SciFi_Drone.glb",
+      "name": "SciFi Drone",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "drone",
+        "os3a",
+        "scifi"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "scifi-glassscreen",
+      "file": "SciFi_GlassScreen.glb",
+      "name": "SciFi GlassScreen",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "glassscreen",
+        "os3a",
+        "scifi"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "scifi-machine",
+      "file": "SciFi_Machine.glb",
+      "name": "SciFi Machine",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "machine",
+        "os3a",
+        "scifi"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "scifi-pictureframe",
+      "file": "SciFi_PictureFrame.glb",
+      "name": "SciFi PictureFrame",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "os3a",
+        "pictureframe",
+        "scifi"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "scifi-platformstairs-support",
+      "file": "SciFi_PlatformStairs_Support.glb",
+      "name": "SciFi PlatformStairs Support",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "os3a",
+        "platformstairs",
+        "scifi",
+        "support"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "scifi-plug",
+      "file": "SciFi_Plug.glb",
+      "name": "SciFi Plug",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "os3a",
+        "plug",
+        "scifi"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "scifi-stairs-16b",
+      "file": "SciFi_Stairs_16B.glb",
+      "name": "SciFi Stairs 16B",
+      "category": "props",
+      "tags": [
+        "16b",
+        "cc0",
+        "os3a",
+        "scifi",
+        "stairs"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "scifi-stairs-32",
+      "file": "SciFi_Stairs_32.glb",
+      "name": "SciFi Stairs 32",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "os3a",
+        "scifi",
+        "stairs"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "scifi-wall-circle",
+      "file": "SciFi_Wall_Circle.glb",
+      "name": "SciFi Wall Circle",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "circle",
+        "os3a",
+        "scifi",
+        "wall"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "stairs",
+      "file": "Stairs.glb",
+      "name": "Stairs",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "os3a",
+        "stairs"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "vase-broken",
+      "file": "Vase_Broken.glb",
+      "name": "Vase Broken",
+      "category": "props",
+      "tags": [
+        "broken",
+        "cc0",
+        "decorative",
+        "os3a",
+        "props",
+        "vase"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "vase-large",
+      "file": "Vase_Large.glb",
+      "name": "Vase Large",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "decorative",
+        "large",
+        "os3a",
+        "props",
+        "vase"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "vase-mid",
+      "file": "Vase_Mid.glb",
+      "name": "Vase Mid",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "decorative",
+        "mid",
+        "os3a",
+        "props",
+        "vase"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "vase-small",
+      "file": "Vase_Small.glb",
+      "name": "Vase Small",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "decorative",
+        "os3a",
+        "props",
+        "small",
+        "vase"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "wall-01",
+      "file": "Wall_01.glb",
+      "name": "Wall 01",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "os3a",
+        "structure",
+        "wall"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "wall-broken-01",
+      "file": "Wall_Broken_01.glb",
+      "name": "Wall Broken 01",
+      "category": "props",
+      "tags": [
+        "broken",
+        "cc0",
+        "os3a",
+        "structure",
+        "wall"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "wall-cornerbroken",
+      "file": "Wall_CornerBroken.glb",
+      "name": "Wall CornerBroken",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "cornerbroken",
+        "os3a",
+        "structure",
+        "wall"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    },
+    {
+      "id": "wall-small-01",
+      "file": "Wall_Small_01.glb",
+      "name": "Wall Small 01",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "os3a",
+        "small",
+        "structure",
+        "wall"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-crystal-crossroads"
+      }
+    }
+  ]
+}

@@ -1,0 +1,209 @@
+{
+  "pack_id": "nasa-planetary",
+  "name": "NASA Planetary Bodies",
+  "version": "1.0.0",
+  "license": "public-domain",
+  "description": "NASA Planetary Bodies generated asset pack manifest.",
+  "base_url": "/static/assets/packs/nasa-planetary/",
+  "assets": [
+    {
+      "id": "arrokoth",
+      "file": "Arrokoth.glb",
+      "name": "Arrokoth",
+      "category": "terrain",
+      "tags": [
+        "alien",
+        "arrokoth",
+        "extraterrestrial",
+        "nasa",
+        "public_domain",
+        "space",
+        "trans_neptunian"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "nasa",
+        "license": "Public Domain",
+        "provenance": "https://nasa3d.arc.nasa.gov/models"
+      }
+    },
+    {
+      "id": "bennu-1-1",
+      "file": "Bennu_1_1.glb",
+      "name": "Bennu 1 1",
+      "category": "terrain",
+      "tags": [
+        "alien",
+        "asteroid",
+        "bennu",
+        "extraterrestrial",
+        "nasa",
+        "public_domain",
+        "space"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "nasa",
+        "license": "Public Domain",
+        "provenance": "https://nasa3d.arc.nasa.gov/models"
+      }
+    },
+    {
+      "id": "ceres-1-1000",
+      "file": "Ceres_1_1000.glb",
+      "name": "Ceres 1 1000",
+      "category": "terrain",
+      "tags": [
+        "alien",
+        "ceres",
+        "dwarf_planet",
+        "extraterrestrial",
+        "nasa",
+        "public_domain",
+        "space"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "nasa",
+        "license": "Public Domain",
+        "provenance": "https://nasa3d.arc.nasa.gov/models"
+      }
+    },
+    {
+      "id": "eris-1-2326",
+      "file": "Eris_1_2326.glb",
+      "name": "Eris 1 2326",
+      "category": "terrain",
+      "tags": [
+        "alien",
+        "dwarf_planet",
+        "eris",
+        "extraterrestrial",
+        "nasa",
+        "public_domain",
+        "space"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "nasa",
+        "license": "Public Domain",
+        "provenance": "https://nasa3d.arc.nasa.gov/models"
+      }
+    },
+    {
+      "id": "eros-1-10",
+      "file": "Eros_1_10.glb",
+      "name": "Eros 1 10",
+      "category": "terrain",
+      "tags": [
+        "alien",
+        "asteroid",
+        "eros",
+        "extraterrestrial",
+        "nasa",
+        "public_domain",
+        "space"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "nasa",
+        "license": "Public Domain",
+        "provenance": "https://nasa3d.arc.nasa.gov/models"
+      }
+    },
+    {
+      "id": "itokawa-1-1",
+      "file": "Itokawa_1_1.glb",
+      "name": "Itokawa 1 1",
+      "category": "terrain",
+      "tags": [
+        "alien",
+        "asteroid",
+        "extraterrestrial",
+        "itokawa",
+        "nasa",
+        "public_domain",
+        "space"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "nasa",
+        "license": "Public Domain",
+        "provenance": "https://nasa3d.arc.nasa.gov/models"
+      }
+    },
+    {
+      "id": "makemake-1-1430",
+      "file": "Makemake_1_1430.glb",
+      "name": "Makemake 1 1430",
+      "category": "terrain",
+      "tags": [
+        "alien",
+        "dwarf_planet",
+        "extraterrestrial",
+        "makemake",
+        "nasa",
+        "public_domain",
+        "space"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "nasa",
+        "license": "Public Domain",
+        "provenance": "https://nasa3d.arc.nasa.gov/models"
+      }
+    },
+    {
+      "id": "osiris-rex",
+      "file": "Osiris_Rex.glb",
+      "name": "Osiris Rex",
+      "category": "vehicles",
+      "tags": [
+        "alien",
+        "extraterrestrial",
+        "nasa",
+        "osiris",
+        "public_domain",
+        "rex",
+        "space",
+        "spacecraft"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "nasa",
+        "license": "Public Domain",
+        "provenance": "https://nasa3d.arc.nasa.gov/models"
+      }
+    },
+    {
+      "id": "vesta-1-100",
+      "file": "Vesta_1_100.glb",
+      "name": "Vesta 1 100",
+      "category": "terrain",
+      "tags": [
+        "alien",
+        "asteroid",
+        "extraterrestrial",
+        "nasa",
+        "public_domain",
+        "space",
+        "vesta"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "nasa",
+        "license": "Public Domain",
+        "provenance": "https://nasa3d.arc.nasa.gov/models"
+      }
+    }
+  ]
+}

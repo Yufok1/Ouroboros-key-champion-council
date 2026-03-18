@@ -1,0 +1,1472 @@
+{
+  "pack_id": "os3a-ca-world",
+  "name": "OS3A CA World",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "OS3A CA World generated asset pack manifest.",
+  "base_url": "/static/assets/packs/os3a-ca-world/",
+  "assets": [
+    {
+      "id": "avatarbust-01",
+      "file": "AvatarBust_01.glb",
+      "name": "AvatarBust 01",
+      "category": "props",
+      "tags": [
+        "avatarbust",
+        "cc0",
+        "classical",
+        "historical",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "bench-01",
+      "file": "Bench_01.glb",
+      "name": "Bench 01",
+      "category": "props",
+      "tags": [
+        "bench",
+        "cc0",
+        "classical",
+        "historical",
+        "os3a",
+        "props",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "bench-02",
+      "file": "Bench_02.glb",
+      "name": "Bench 02",
+      "category": "props",
+      "tags": [
+        "bench",
+        "cc0",
+        "classical",
+        "historical",
+        "os3a",
+        "props",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "bench-03",
+      "file": "Bench_03.glb",
+      "name": "Bench 03",
+      "category": "props",
+      "tags": [
+        "bench",
+        "cc0",
+        "classical",
+        "historical",
+        "os3a",
+        "props",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "bin-01",
+      "file": "Bin_01.glb",
+      "name": "Bin 01",
+      "category": "props",
+      "tags": [
+        "bin",
+        "cc0",
+        "classical",
+        "historical",
+        "os3a",
+        "props",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "caio-whale-01",
+      "file": "CAIO_Whale_01.glb",
+      "name": "CAIO Whale 01",
+      "category": "fauna",
+      "tags": [
+        "caio",
+        "cc0",
+        "classical",
+        "historical",
+        "os3a",
+        "whale"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "carpet-01",
+      "file": "Carpet_01.glb",
+      "name": "Carpet 01",
+      "category": "props",
+      "tags": [
+        "carpet",
+        "cc0",
+        "classical",
+        "historical",
+        "os3a",
+        "props",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "carpet-02",
+      "file": "Carpet_02.glb",
+      "name": "Carpet 02",
+      "category": "props",
+      "tags": [
+        "carpet",
+        "cc0",
+        "classical",
+        "historical",
+        "os3a",
+        "props",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "carpet-03",
+      "file": "Carpet_03.glb",
+      "name": "Carpet 03",
+      "category": "props",
+      "tags": [
+        "carpet",
+        "cc0",
+        "classical",
+        "historical",
+        "os3a",
+        "props",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "column-01",
+      "file": "Column_01.glb",
+      "name": "Column 01",
+      "category": "architecture",
+      "tags": [
+        "architecture",
+        "cc0",
+        "classical",
+        "column",
+        "historical",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "column-base-01",
+      "file": "Column_Base_01.glb",
+      "name": "Column Base 01",
+      "category": "architecture",
+      "tags": [
+        "architecture",
+        "base",
+        "cc0",
+        "classical",
+        "column",
+        "historical",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "column-base-02",
+      "file": "Column_Base_02.glb",
+      "name": "Column Base 02",
+      "category": "architecture",
+      "tags": [
+        "architecture",
+        "base",
+        "cc0",
+        "classical",
+        "column",
+        "historical",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "cryptoavatar-logo-2d",
+      "file": "CryptoAvatar_Logo_2D.glb",
+      "name": "CryptoAvatar Logo 2D",
+      "category": "props",
+      "tags": [
+        "2d",
+        "cc0",
+        "classical",
+        "cryptoavatar",
+        "historical",
+        "logo",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "cryptoavatar-logo-2d-low",
+      "file": "CryptoAvatar_Logo_2D_low.glb",
+      "name": "CryptoAvatar Logo 2D Low",
+      "category": "props",
+      "tags": [
+        "2d",
+        "cc0",
+        "classical",
+        "cryptoavatar",
+        "historical",
+        "logo",
+        "low",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "curtain-01",
+      "file": "Curtain_01.glb",
+      "name": "Curtain 01",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "classical",
+        "curtain",
+        "historical",
+        "os3a",
+        "props",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "curtain-02",
+      "file": "Curtain_02.glb",
+      "name": "Curtain 02",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "classical",
+        "curtain",
+        "historical",
+        "os3a",
+        "props",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "curtain-bar-01",
+      "file": "Curtain_Bar_01.glb",
+      "name": "Curtain Bar 01",
+      "category": "props",
+      "tags": [
+        "bar",
+        "cc0",
+        "classical",
+        "curtain",
+        "historical",
+        "os3a",
+        "props",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "decor-01-greek",
+      "file": "Decor_01_Greek.glb",
+      "name": "Decor 01 Greek",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "classical",
+        "cultural",
+        "decor",
+        "greek",
+        "historical",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "decor-02-greek",
+      "file": "Decor_02_Greek.glb",
+      "name": "Decor 02 Greek",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "classical",
+        "cultural",
+        "decor",
+        "greek",
+        "historical",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "door-01",
+      "file": "Door_01.glb",
+      "name": "Door 01",
+      "category": "architecture",
+      "tags": [
+        "architecture",
+        "cc0",
+        "classical",
+        "door",
+        "historical",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "door-02",
+      "file": "Door_02.glb",
+      "name": "Door 02",
+      "category": "architecture",
+      "tags": [
+        "architecture",
+        "cc0",
+        "classical",
+        "door",
+        "historical",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "floor-01",
+      "file": "Floor_01.glb",
+      "name": "Floor 01",
+      "category": "architecture",
+      "tags": [
+        "cc0",
+        "classical",
+        "floor",
+        "historical",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "floor-02",
+      "file": "Floor_02.glb",
+      "name": "Floor 02",
+      "category": "architecture",
+      "tags": [
+        "cc0",
+        "classical",
+        "floor",
+        "historical",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "head-logo-01",
+      "file": "Head_logo_01.glb",
+      "name": "Head Logo 01",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "classical",
+        "head",
+        "historical",
+        "logo",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "land",
+      "file": "LAND.glb",
+      "name": "LAND",
+      "category": "terrain",
+      "tags": [
+        "cc0",
+        "classical",
+        "historical",
+        "land",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "launch-building-coon-barrier-1",
+      "file": "Launch_Building_Coon_Barrier_1.glb",
+      "name": "Launch Building Coon Barrier 1",
+      "category": "props",
+      "tags": [
+        "barrier",
+        "building",
+        "cc0",
+        "classical",
+        "coon",
+        "historical",
+        "launch",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "launch-building-coon-building",
+      "file": "Launch_Building_Coon_Building.glb",
+      "name": "Launch Building Coon Building",
+      "category": "props",
+      "tags": [
+        "building",
+        "cc0",
+        "classical",
+        "coon",
+        "historical",
+        "launch",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "launch-building-coon-exterior-joint1-001",
+      "file": "Launch_Building_Coon_Exterior_Joint1.001.glb",
+      "name": "Launch Building Coon Exterior Joint1.001",
+      "category": "props",
+      "tags": [
+        "building",
+        "cc0",
+        "classical",
+        "coon",
+        "exterior",
+        "historical",
+        "joint1-001",
+        "launch",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "launch-building-coon-stairs",
+      "file": "Launch_Building_Coon_Stairs.glb",
+      "name": "Launch Building Coon Stairs",
+      "category": "props",
+      "tags": [
+        "building",
+        "cc0",
+        "classical",
+        "coon",
+        "historical",
+        "launch",
+        "os3a",
+        "stairs"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "launch-building-exterior-roof",
+      "file": "Launch_Building_Exterior_Roof.glb",
+      "name": "Launch Building Exterior Roof",
+      "category": "props",
+      "tags": [
+        "building",
+        "cc0",
+        "classical",
+        "exterior",
+        "historical",
+        "launch",
+        "os3a",
+        "roof"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "light-floor-01",
+      "file": "Light_Floor_01.glb",
+      "name": "Light Floor 01",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "classical",
+        "floor",
+        "historical",
+        "light",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "light-hall-01",
+      "file": "Light_Hall_01.glb",
+      "name": "Light Hall 01",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "classical",
+        "hall",
+        "historical",
+        "light",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "light-rail-01",
+      "file": "Light_Rail_01.glb",
+      "name": "Light Rail 01",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "classical",
+        "historical",
+        "light",
+        "os3a",
+        "rail"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "light-rail-01-adon-01",
+      "file": "Light_Rail_01_AdOn_01.glb",
+      "name": "Light Rail 01 AdOn 01",
+      "category": "props",
+      "tags": [
+        "adon",
+        "cc0",
+        "classical",
+        "historical",
+        "light",
+        "os3a",
+        "rail"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "light-stair-01",
+      "file": "Light_Stair_01.glb",
+      "name": "Light Stair 01",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "classical",
+        "historical",
+        "light",
+        "os3a",
+        "stair"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "light-streetlight-01",
+      "file": "Light_Streetlight_01.glb",
+      "name": "Light Streetlight 01",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "classical",
+        "historical",
+        "light",
+        "os3a",
+        "streetlight"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "links-frames-big-cryptoavatars",
+      "file": "Links_Frames_Big_CryptoAvatars.glb",
+      "name": "Links Frames Big CryptoAvatars",
+      "category": "props",
+      "tags": [
+        "big",
+        "cc0",
+        "classical",
+        "cryptoavatars",
+        "frames",
+        "historical",
+        "links",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "links-frames-big-polygonalmind",
+      "file": "Links_Frames_Big_PolygonalMind.glb",
+      "name": "Links Frames Big PolygonalMind",
+      "category": "props",
+      "tags": [
+        "big",
+        "cc0",
+        "classical",
+        "frames",
+        "historical",
+        "links",
+        "os3a",
+        "polygonalmind"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "polygonalplush-01",
+      "file": "PolygonalPlush_01.glb",
+      "name": "PolygonalPlush 01",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "classical",
+        "historical",
+        "os3a",
+        "polygonalplush"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "pot-01",
+      "file": "Pot_01.glb",
+      "name": "Pot 01",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "classical",
+        "historical",
+        "os3a",
+        "pot",
+        "props",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "pot-02",
+      "file": "Pot_02.glb",
+      "name": "Pot 02",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "classical",
+        "historical",
+        "os3a",
+        "pot",
+        "props",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "railing-01",
+      "file": "Railing_01.glb",
+      "name": "Railing 01",
+      "category": "architecture",
+      "tags": [
+        "cc0",
+        "classical",
+        "historical",
+        "os3a",
+        "railing"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "railing-02",
+      "file": "Railing_02.glb",
+      "name": "Railing 02",
+      "category": "architecture",
+      "tags": [
+        "cc0",
+        "classical",
+        "historical",
+        "os3a",
+        "railing"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "rock-01",
+      "file": "Rock_01.glb",
+      "name": "Rock 01",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "classical",
+        "historical",
+        "os3a",
+        "rock",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "rock-02",
+      "file": "Rock_02.glb",
+      "name": "Rock 02",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "classical",
+        "historical",
+        "os3a",
+        "rock",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "rock-03",
+      "file": "Rock_03.glb",
+      "name": "Rock 03",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "classical",
+        "historical",
+        "os3a",
+        "rock",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "shelf-01-a",
+      "file": "Shelf_01_a.glb",
+      "name": "Shelf 01 A",
+      "category": "architecture",
+      "tags": [
+        "a",
+        "cc0",
+        "classical",
+        "historical",
+        "os3a",
+        "shelf"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "shelf-02-a",
+      "file": "Shelf_02_a.glb",
+      "name": "Shelf 02 A",
+      "category": "architecture",
+      "tags": [
+        "a",
+        "cc0",
+        "classical",
+        "historical",
+        "os3a",
+        "shelf"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "shelf-03-a",
+      "file": "Shelf_03_a.glb",
+      "name": "Shelf 03 A",
+      "category": "architecture",
+      "tags": [
+        "a",
+        "cc0",
+        "classical",
+        "historical",
+        "os3a",
+        "shelf"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "shelf-04-a",
+      "file": "Shelf_04_a.glb",
+      "name": "Shelf 04 A",
+      "category": "architecture",
+      "tags": [
+        "a",
+        "cc0",
+        "classical",
+        "historical",
+        "os3a",
+        "shelf"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "shelf-05-a",
+      "file": "Shelf_05_a.glb",
+      "name": "Shelf 05 A",
+      "category": "architecture",
+      "tags": [
+        "a",
+        "cc0",
+        "classical",
+        "historical",
+        "os3a",
+        "shelf"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "shelf-06-a",
+      "file": "Shelf_06_a.glb",
+      "name": "Shelf 06 A",
+      "category": "architecture",
+      "tags": [
+        "a",
+        "cc0",
+        "classical",
+        "historical",
+        "os3a",
+        "shelf"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "sign-07-exit",
+      "file": "Sign_07_Exit.glb",
+      "name": "Sign 07 Exit",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "classical",
+        "exit",
+        "historical",
+        "os3a",
+        "props",
+        "sign",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "sign-book-001",
+      "file": "Sign_book.001.glb",
+      "name": "Sign Book.001",
+      "category": "props",
+      "tags": [
+        "book-001",
+        "cc0",
+        "classical",
+        "historical",
+        "os3a",
+        "props",
+        "sign",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "stairs-02",
+      "file": "Stairs_02.glb",
+      "name": "Stairs 02",
+      "category": "architecture",
+      "tags": [
+        "cc0",
+        "classical",
+        "historical",
+        "os3a",
+        "stairs"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "stairs-hall-01-fountain-water",
+      "file": "Stairs_Hall_01_Fountain_Water.glb",
+      "name": "Stairs Hall 01 Fountain Water",
+      "category": "architecture",
+      "tags": [
+        "cc0",
+        "classical",
+        "fountain",
+        "hall",
+        "historical",
+        "os3a",
+        "stairs",
+        "water"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "step-01",
+      "file": "Step_01.glb",
+      "name": "Step 01",
+      "category": "architecture",
+      "tags": [
+        "cc0",
+        "classical",
+        "historical",
+        "os3a",
+        "step"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "step-01-corner",
+      "file": "Step_01_Corner.glb",
+      "name": "Step 01 Corner",
+      "category": "architecture",
+      "tags": [
+        "cc0",
+        "classical",
+        "corner",
+        "historical",
+        "os3a",
+        "step"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "step-02",
+      "file": "Step_02.glb",
+      "name": "Step 02",
+      "category": "architecture",
+      "tags": [
+        "cc0",
+        "classical",
+        "historical",
+        "os3a",
+        "step"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "stool-01",
+      "file": "Stool_01.glb",
+      "name": "Stool 01",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "classical",
+        "historical",
+        "os3a",
+        "props",
+        "stool",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "wall-01",
+      "file": "Wall_01.glb",
+      "name": "Wall 01",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "classical",
+        "historical",
+        "os3a",
+        "structure",
+        "wall"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "wall-01-corner",
+      "file": "Wall_01_Corner.glb",
+      "name": "Wall 01 Corner",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "classical",
+        "corner",
+        "historical",
+        "os3a",
+        "structure",
+        "wall"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "wall-01-door",
+      "file": "Wall_01_Door.glb",
+      "name": "Wall 01 Door",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "classical",
+        "door",
+        "historical",
+        "os3a",
+        "structure",
+        "wall"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "wall-01-window",
+      "file": "Wall_01_Window.glb",
+      "name": "Wall 01 Window",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "classical",
+        "historical",
+        "os3a",
+        "structure",
+        "wall",
+        "window"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "wall-02",
+      "file": "Wall_02.glb",
+      "name": "Wall 02",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "classical",
+        "historical",
+        "os3a",
+        "structure",
+        "wall"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "wall-02-corner",
+      "file": "Wall_02_Corner.glb",
+      "name": "Wall 02 Corner",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "classical",
+        "corner",
+        "historical",
+        "os3a",
+        "structure",
+        "wall"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "window-01",
+      "file": "Window_01.glb",
+      "name": "Window 01",
+      "category": "architecture",
+      "tags": [
+        "cc0",
+        "classical",
+        "historical",
+        "os3a",
+        "window"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    },
+    {
+      "id": "window-02",
+      "file": "Window_02.glb",
+      "name": "Window 02",
+      "category": "architecture",
+      "tags": [
+        "cc0",
+        "classical",
+        "historical",
+        "os3a",
+        "window"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-ca-world"
+      }
+    }
+  ]
+}

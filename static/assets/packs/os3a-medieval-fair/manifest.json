@@ -1,0 +1,796 @@
+{
+  "pack_id": "os3a-medieval-fair",
+  "name": "OS3A Medieval Fair",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "OS3A Medieval Fair generated asset pack manifest.",
+  "base_url": "/static/assets/packs/os3a-medieval-fair/",
+  "assets": [
+    {
+      "id": "balloon-interactible-red",
+      "file": "Balloon_Interactible_Red.glb",
+      "name": "Balloon Interactible Red",
+      "category": "historical",
+      "tags": [
+        "balloon",
+        "cc0",
+        "historical",
+        "interactible",
+        "market",
+        "medieval",
+        "os3a",
+        "red",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-medieval-fair"
+      }
+    },
+    {
+      "id": "balloon-interactible-yellow",
+      "file": "Balloon_Interactible_Yellow.glb",
+      "name": "Balloon Interactible Yellow",
+      "category": "historical",
+      "tags": [
+        "balloon",
+        "cc0",
+        "historical",
+        "interactible",
+        "market",
+        "medieval",
+        "os3a",
+        "urban",
+        "yellow"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-medieval-fair"
+      }
+    },
+    {
+      "id": "barrel",
+      "file": "Barrel.glb",
+      "name": "Barrel",
+      "category": "historical",
+      "tags": [
+        "barrel",
+        "cc0",
+        "historical",
+        "market",
+        "medieval",
+        "os3a",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-medieval-fair"
+      }
+    },
+    {
+      "id": "barrel-beer-mountain",
+      "file": "Barrel_Beer_Mountain.glb",
+      "name": "Barrel Beer Mountain",
+      "category": "historical",
+      "tags": [
+        "barrel",
+        "beer",
+        "cc0",
+        "historical",
+        "market",
+        "medieval",
+        "mountain",
+        "os3a",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-medieval-fair"
+      }
+    },
+    {
+      "id": "beer",
+      "file": "Beer.glb",
+      "name": "Beer",
+      "category": "historical",
+      "tags": [
+        "beer",
+        "cc0",
+        "historical",
+        "market",
+        "medieval",
+        "os3a",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-medieval-fair"
+      }
+    },
+    {
+      "id": "boardcutout",
+      "file": "BoardCutout.glb",
+      "name": "BoardCutout",
+      "category": "structure",
+      "tags": [
+        "boardcutout",
+        "cc0",
+        "historical",
+        "market",
+        "medieval",
+        "os3a",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-medieval-fair"
+      }
+    },
+    {
+      "id": "booth-food01",
+      "file": "Booth_Food01.glb",
+      "name": "Booth Food01",
+      "category": "structure",
+      "tags": [
+        "booth",
+        "cc0",
+        "food01",
+        "historical",
+        "market",
+        "medieval",
+        "os3a",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-medieval-fair"
+      }
+    },
+    {
+      "id": "booth-food02",
+      "file": "Booth_Food02.glb",
+      "name": "Booth Food02",
+      "category": "structure",
+      "tags": [
+        "booth",
+        "cc0",
+        "food02",
+        "historical",
+        "market",
+        "medieval",
+        "os3a",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-medieval-fair"
+      }
+    },
+    {
+      "id": "booth-pretzelgame",
+      "file": "Booth_Pretzelgame.glb",
+      "name": "Booth Pretzelgame",
+      "category": "structure",
+      "tags": [
+        "booth",
+        "cc0",
+        "historical",
+        "market",
+        "medieval",
+        "os3a",
+        "pretzelgame",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-medieval-fair"
+      }
+    },
+    {
+      "id": "booth-wearables",
+      "file": "Booth_Wearables.glb",
+      "name": "Booth Wearables",
+      "category": "structure",
+      "tags": [
+        "booth",
+        "cc0",
+        "historical",
+        "market",
+        "medieval",
+        "os3a",
+        "urban",
+        "wearables"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-medieval-fair"
+      }
+    },
+    {
+      "id": "cart",
+      "file": "Cart.glb",
+      "name": "Cart",
+      "category": "structure",
+      "tags": [
+        "cart",
+        "cc0",
+        "historical",
+        "market",
+        "medieval",
+        "os3a",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-medieval-fair"
+      }
+    },
+    {
+      "id": "centerplatform",
+      "file": "CenterPlatform.glb",
+      "name": "CenterPlatform",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "centerplatform",
+        "historical",
+        "market",
+        "medieval",
+        "os3a",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-medieval-fair"
+      }
+    },
+    {
+      "id": "coin-polygonalmind",
+      "file": "Coin_PolygonalMind.glb",
+      "name": "Coin PolygonalMind",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "coin",
+        "historical",
+        "market",
+        "medieval",
+        "os3a",
+        "polygonalmind",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-medieval-fair"
+      }
+    },
+    {
+      "id": "entranceboard",
+      "file": "EntranceBoard.glb",
+      "name": "EntranceBoard",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "entranceboard",
+        "historical",
+        "market",
+        "medieval",
+        "os3a",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-medieval-fair"
+      }
+    },
+    {
+      "id": "fair-entry",
+      "file": "Fair_Entry.glb",
+      "name": "Fair Entry",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "entry",
+        "fair",
+        "historical",
+        "market",
+        "medieval",
+        "os3a",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-medieval-fair"
+      }
+    },
+    {
+      "id": "fair-flags-line",
+      "file": "Fair_Flags_Line.glb",
+      "name": "Fair Flags Line",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "fair",
+        "flags",
+        "historical",
+        "line",
+        "market",
+        "medieval",
+        "os3a",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-medieval-fair"
+      }
+    },
+    {
+      "id": "fairsecondaryentrance",
+      "file": "FairSecondaryEntrance.glb",
+      "name": "FairSecondaryEntrance",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "fairsecondaryentrance",
+        "historical",
+        "market",
+        "medieval",
+        "os3a",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-medieval-fair"
+      }
+    },
+    {
+      "id": "floor",
+      "file": "Floor.glb",
+      "name": "Floor",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "floor",
+        "historical",
+        "market",
+        "medieval",
+        "os3a",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-medieval-fair"
+      }
+    },
+    {
+      "id": "lamp",
+      "file": "Lamp.glb",
+      "name": "Lamp",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "historical",
+        "lamp",
+        "market",
+        "medieval",
+        "os3a",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-medieval-fair"
+      }
+    },
+    {
+      "id": "outdoorbathroom",
+      "file": "OutdoorBathroom.glb",
+      "name": "OutdoorBathroom",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "historical",
+        "market",
+        "medieval",
+        "os3a",
+        "outdoorbathroom",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-medieval-fair"
+      }
+    },
+    {
+      "id": "pants",
+      "file": "Pants.glb",
+      "name": "Pants",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "historical",
+        "market",
+        "medieval",
+        "os3a",
+        "pants",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-medieval-fair"
+      }
+    },
+    {
+      "id": "path",
+      "file": "Path.glb",
+      "name": "Path",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "historical",
+        "market",
+        "medieval",
+        "os3a",
+        "path",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-medieval-fair"
+      }
+    },
+    {
+      "id": "pretzel",
+      "file": "Pretzel.glb",
+      "name": "Pretzel",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "historical",
+        "market",
+        "medieval",
+        "os3a",
+        "pretzel",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-medieval-fair"
+      }
+    },
+    {
+      "id": "roof",
+      "file": "Roof.glb",
+      "name": "Roof",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "historical",
+        "market",
+        "medieval",
+        "os3a",
+        "roof",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-medieval-fair"
+      }
+    },
+    {
+      "id": "sausage",
+      "file": "Sausage.glb",
+      "name": "Sausage",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "historical",
+        "market",
+        "medieval",
+        "os3a",
+        "sausage",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-medieval-fair"
+      }
+    },
+    {
+      "id": "signbook",
+      "file": "Signbook.glb",
+      "name": "Signbook",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "historical",
+        "market",
+        "medieval",
+        "os3a",
+        "signbook",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-medieval-fair"
+      }
+    },
+    {
+      "id": "signpost",
+      "file": "SignPost.glb",
+      "name": "SignPost",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "historical",
+        "market",
+        "medieval",
+        "os3a",
+        "signpost",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-medieval-fair"
+      }
+    },
+    {
+      "id": "smallbarrel-art",
+      "file": "SmallBarrel_Art.glb",
+      "name": "SmallBarrel Art",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "historical",
+        "market",
+        "medieval",
+        "os3a",
+        "smallbarrel",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-medieval-fair"
+      }
+    },
+    {
+      "id": "speaker",
+      "file": "Speaker.glb",
+      "name": "Speaker",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "historical",
+        "market",
+        "medieval",
+        "os3a",
+        "speaker",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-medieval-fair"
+      }
+    },
+    {
+      "id": "speakerpost",
+      "file": "SpeakerPost.glb",
+      "name": "SpeakerPost",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "historical",
+        "market",
+        "medieval",
+        "os3a",
+        "speakerpost",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-medieval-fair"
+      }
+    },
+    {
+      "id": "stagebackground",
+      "file": "StageBackground.glb",
+      "name": "StageBackground",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "historical",
+        "market",
+        "medieval",
+        "os3a",
+        "stagebackground",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-medieval-fair"
+      }
+    },
+    {
+      "id": "tabern",
+      "file": "Tabern.glb",
+      "name": "Tabern",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "historical",
+        "market",
+        "medieval",
+        "os3a",
+        "tabern",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-medieval-fair"
+      }
+    },
+    {
+      "id": "table-dessert",
+      "file": "Table_Dessert.glb",
+      "name": "Table Dessert",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "dessert",
+        "historical",
+        "market",
+        "medieval",
+        "os3a",
+        "table",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-medieval-fair"
+      }
+    },
+    {
+      "id": "table-dinner",
+      "file": "Table_Dinner.glb",
+      "name": "Table Dinner",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "dinner",
+        "historical",
+        "market",
+        "medieval",
+        "os3a",
+        "table",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-medieval-fair"
+      }
+    },
+    {
+      "id": "woodplatform",
+      "file": "WoodPlatform.glb",
+      "name": "WoodPlatform",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "historical",
+        "market",
+        "medieval",
+        "os3a",
+        "urban",
+        "woodplatform"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-medieval-fair"
+      }
+    }
+  ]
+}

@@ -1,0 +1,2387 @@
+{
+  "pack_id": "os3a-avatar-garden",
+  "name": "OS3A Avatar Garden",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "OS3A Avatar Garden generated asset pack manifest.",
+  "base_url": "/static/assets/packs/os3a-avatar-garden/",
+  "assets": [
+    {
+      "id": "avatarpedestal01",
+      "file": "AvatarPedestal01.glb",
+      "name": "AvatarPedestal01",
+      "category": "structure",
+      "tags": [
+        "avatarpedestal01",
+        "cc0",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "basepalmtree01",
+      "file": "BasePalmTree01.glb",
+      "name": "BasePalmTree01",
+      "category": "vegetation",
+      "tags": [
+        "basepalmtree01",
+        "cc0",
+        "forest",
+        "jungle",
+        "os3a",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "blackhole01",
+      "file": "BlackHole01.glb",
+      "name": "BlackHole01",
+      "category": "atmosphere",
+      "tags": [
+        "blackhole01",
+        "cc0",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "bridge01",
+      "file": "Bridge01.glb",
+      "name": "Bridge01",
+      "category": "structure",
+      "tags": [
+        "bridge01",
+        "cc0",
+        "os3a",
+        "structure",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "brush01",
+      "file": "Brush01.glb",
+      "name": "Brush01",
+      "category": "vegetation",
+      "tags": [
+        "brush01",
+        "cc0",
+        "forest",
+        "jungle",
+        "os3a",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "bush01",
+      "file": "Bush01.glb",
+      "name": "Bush01",
+      "category": "vegetation",
+      "tags": [
+        "bush01",
+        "cc0",
+        "forest",
+        "jungle",
+        "os3a",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "bush02",
+      "file": "Bush02.glb",
+      "name": "Bush02",
+      "category": "vegetation",
+      "tags": [
+        "bush02",
+        "cc0",
+        "forest",
+        "jungle",
+        "os3a",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "bush03",
+      "file": "Bush03.glb",
+      "name": "Bush03",
+      "category": "vegetation",
+      "tags": [
+        "bush03",
+        "cc0",
+        "forest",
+        "jungle",
+        "os3a",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "bush04",
+      "file": "Bush04.glb",
+      "name": "Bush04",
+      "category": "vegetation",
+      "tags": [
+        "bush04",
+        "cc0",
+        "forest",
+        "jungle",
+        "os3a",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "bush05",
+      "file": "Bush05.glb",
+      "name": "Bush05",
+      "category": "vegetation",
+      "tags": [
+        "bush05",
+        "cc0",
+        "forest",
+        "jungle",
+        "os3a",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "bush06",
+      "file": "Bush06.glb",
+      "name": "Bush06",
+      "category": "vegetation",
+      "tags": [
+        "bush06",
+        "cc0",
+        "forest",
+        "jungle",
+        "os3a",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "bush07",
+      "file": "Bush07.glb",
+      "name": "Bush07",
+      "category": "vegetation",
+      "tags": [
+        "bush07",
+        "cc0",
+        "forest",
+        "jungle",
+        "os3a",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "bush08",
+      "file": "Bush08.glb",
+      "name": "Bush08",
+      "category": "vegetation",
+      "tags": [
+        "bush08",
+        "cc0",
+        "forest",
+        "jungle",
+        "os3a",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "bush09",
+      "file": "Bush09.glb",
+      "name": "Bush09",
+      "category": "vegetation",
+      "tags": [
+        "bush09",
+        "cc0",
+        "forest",
+        "jungle",
+        "os3a",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "button01",
+      "file": "Button01.glb",
+      "name": "Button01",
+      "category": "props",
+      "tags": [
+        "button01",
+        "cc0",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "button02",
+      "file": "Button02.glb",
+      "name": "Button02",
+      "category": "props",
+      "tags": [
+        "button02",
+        "cc0",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "buttonr01",
+      "file": "ButtonR01.glb",
+      "name": "ButtonR01",
+      "category": "props",
+      "tags": [
+        "buttonr01",
+        "cc0",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "buttonr02",
+      "file": "ButtonR02.glb",
+      "name": "ButtonR02",
+      "category": "props",
+      "tags": [
+        "buttonr02",
+        "cc0",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "buttonr03",
+      "file": "ButtonR03.glb",
+      "name": "ButtonR03",
+      "category": "props",
+      "tags": [
+        "buttonr03",
+        "cc0",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "cloud01",
+      "file": "Cloud01.glb",
+      "name": "Cloud01",
+      "category": "atmosphere",
+      "tags": [
+        "atmosphere",
+        "cc0",
+        "cloud01",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "cloud02",
+      "file": "Cloud02.glb",
+      "name": "Cloud02",
+      "category": "atmosphere",
+      "tags": [
+        "atmosphere",
+        "cc0",
+        "cloud02",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "cloud03",
+      "file": "Cloud03.glb",
+      "name": "Cloud03",
+      "category": "atmosphere",
+      "tags": [
+        "atmosphere",
+        "cc0",
+        "cloud03",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "cloud04",
+      "file": "Cloud04.glb",
+      "name": "Cloud04",
+      "category": "atmosphere",
+      "tags": [
+        "atmosphere",
+        "cc0",
+        "cloud04",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "dialoguebubble01",
+      "file": "DialogueBubble01.glb",
+      "name": "DialogueBubble01",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "dialoguebubble01",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "dock01",
+      "file": "Dock01.glb",
+      "name": "Dock01",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "dock01",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "flower01",
+      "file": "Flower01.glb",
+      "name": "Flower01",
+      "category": "vegetation",
+      "tags": [
+        "cc0",
+        "flower01",
+        "forest",
+        "jungle",
+        "os3a",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "flower02",
+      "file": "Flower02.glb",
+      "name": "Flower02",
+      "category": "vegetation",
+      "tags": [
+        "cc0",
+        "flower02",
+        "forest",
+        "jungle",
+        "os3a",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "flower03",
+      "file": "Flower03.glb",
+      "name": "Flower03",
+      "category": "vegetation",
+      "tags": [
+        "cc0",
+        "flower03",
+        "forest",
+        "jungle",
+        "os3a",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "flower04",
+      "file": "Flower04.glb",
+      "name": "Flower04",
+      "category": "vegetation",
+      "tags": [
+        "cc0",
+        "flower04",
+        "forest",
+        "jungle",
+        "os3a",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "flower05",
+      "file": "Flower05.glb",
+      "name": "Flower05",
+      "category": "vegetation",
+      "tags": [
+        "cc0",
+        "flower05",
+        "forest",
+        "jungle",
+        "os3a",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "flower06",
+      "file": "Flower06.glb",
+      "name": "Flower06",
+      "category": "vegetation",
+      "tags": [
+        "cc0",
+        "flower06",
+        "forest",
+        "jungle",
+        "os3a",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "flower07",
+      "file": "Flower07.glb",
+      "name": "Flower07",
+      "category": "vegetation",
+      "tags": [
+        "cc0",
+        "flower07",
+        "forest",
+        "jungle",
+        "os3a",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "flower08",
+      "file": "Flower08.glb",
+      "name": "Flower08",
+      "category": "vegetation",
+      "tags": [
+        "cc0",
+        "flower08",
+        "forest",
+        "jungle",
+        "os3a",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "grass01",
+      "file": "Grass01.glb",
+      "name": "Grass01",
+      "category": "vegetation",
+      "tags": [
+        "cc0",
+        "forest",
+        "grass01",
+        "jungle",
+        "os3a",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "grass02",
+      "file": "Grass02.glb",
+      "name": "Grass02",
+      "category": "vegetation",
+      "tags": [
+        "cc0",
+        "forest",
+        "grass02",
+        "jungle",
+        "os3a",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "grass03",
+      "file": "Grass03.glb",
+      "name": "Grass03",
+      "category": "vegetation",
+      "tags": [
+        "cc0",
+        "forest",
+        "grass03",
+        "jungle",
+        "os3a",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "grass04",
+      "file": "Grass04.glb",
+      "name": "Grass04",
+      "category": "vegetation",
+      "tags": [
+        "cc0",
+        "forest",
+        "grass04",
+        "jungle",
+        "os3a",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "groundplatform01",
+      "file": "GroundPlatform01.glb",
+      "name": "GroundPlatform01",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "groundplatform01",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "informationstand01",
+      "file": "InformationStand01.glb",
+      "name": "InformationStand01",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "informationstand01",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "informativepanel01",
+      "file": "InformativePanel01.glb",
+      "name": "InformativePanel01",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "informativepanel01",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "logopolygonal01",
+      "file": "LogoPolygonal01.glb",
+      "name": "LogoPolygonal01",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "logopolygonal01",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "mountain01",
+      "file": "Mountain01.glb",
+      "name": "Mountain01",
+      "category": "terrain",
+      "tags": [
+        "cc0",
+        "mountain01",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "mountain02",
+      "file": "Mountain02.glb",
+      "name": "Mountain02",
+      "category": "terrain",
+      "tags": [
+        "cc0",
+        "mountain02",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "mountain03",
+      "file": "Mountain03.glb",
+      "name": "Mountain03",
+      "category": "terrain",
+      "tags": [
+        "cc0",
+        "mountain03",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "mountain04",
+      "file": "Mountain04.glb",
+      "name": "Mountain04",
+      "category": "terrain",
+      "tags": [
+        "cc0",
+        "mountain04",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "mountain05",
+      "file": "Mountain05.glb",
+      "name": "Mountain05",
+      "category": "terrain",
+      "tags": [
+        "cc0",
+        "mountain05",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "newavatarsplatform01",
+      "file": "NewAvatarsPlatform01.glb",
+      "name": "NewAvatarsPlatform01",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "newavatarsplatform01",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "painteasel01",
+      "file": "PaintEasel01.glb",
+      "name": "PaintEasel01",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "os3a",
+        "painteasel01"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "painteasel02",
+      "file": "PaintEasel02.glb",
+      "name": "PaintEasel02",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "os3a",
+        "painteasel02"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "painteasel03",
+      "file": "PaintEasel03.glb",
+      "name": "PaintEasel03",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "os3a",
+        "painteasel03"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "palette01",
+      "file": "Palette01.glb",
+      "name": "Palette01",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "os3a",
+        "palette01"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "palmtree02",
+      "file": "PalmTree02.glb",
+      "name": "PalmTree02",
+      "category": "vegetation",
+      "tags": [
+        "cc0",
+        "forest",
+        "jungle",
+        "os3a",
+        "palmtree02",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "palmtree03",
+      "file": "PalmTree03.glb",
+      "name": "PalmTree03",
+      "category": "vegetation",
+      "tags": [
+        "cc0",
+        "forest",
+        "jungle",
+        "os3a",
+        "palmtree03",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "palmtree04",
+      "file": "PalmTree04.glb",
+      "name": "PalmTree04",
+      "category": "vegetation",
+      "tags": [
+        "cc0",
+        "forest",
+        "jungle",
+        "os3a",
+        "palmtree04",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "planetstardust01",
+      "file": "PlanetStardust01.glb",
+      "name": "PlanetStardust01",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "os3a",
+        "planetstardust01"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "portal01",
+      "file": "Portal01.glb",
+      "name": "Portal01",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "os3a",
+        "portal01"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "portal02",
+      "file": "Portal02.glb",
+      "name": "Portal02",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "os3a",
+        "portal02"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "portal03",
+      "file": "Portal03.glb",
+      "name": "Portal03",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "os3a",
+        "portal03"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "portaleffect01",
+      "file": "PortalEffect01.glb",
+      "name": "PortalEffect01",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "os3a",
+        "portaleffect01"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "portaleffect02",
+      "file": "PortalEffect02.glb",
+      "name": "PortalEffect02",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "os3a",
+        "portaleffect02"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "portalstones01",
+      "file": "PortalStones01.glb",
+      "name": "PortalStones01",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "os3a",
+        "portalstones01"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "portalthumbnail01",
+      "file": "PortalThumbnail01.glb",
+      "name": "PortalThumbnail01",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "os3a",
+        "portalthumbnail01"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "portalthumbnail02",
+      "file": "PortalThumbnail02.glb",
+      "name": "PortalThumbnail02",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "os3a",
+        "portalthumbnail02"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "portalthumbnail03",
+      "file": "PortalThumbnail03.glb",
+      "name": "PortalThumbnail03",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "os3a",
+        "portalthumbnail03"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "riverfoam01",
+      "file": "RiverFoam01.glb",
+      "name": "RiverFoam01",
+      "category": "terrain",
+      "tags": [
+        "cc0",
+        "os3a",
+        "riverfoam01"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "round01",
+      "file": "Round01.glb",
+      "name": "Round01",
+      "category": "terrain",
+      "tags": [
+        "cc0",
+        "os3a",
+        "round01"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "round02",
+      "file": "Round02.glb",
+      "name": "Round02",
+      "category": "terrain",
+      "tags": [
+        "cc0",
+        "os3a",
+        "round02"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "shell01",
+      "file": "Shell01.glb",
+      "name": "Shell01",
+      "category": "terrain",
+      "tags": [
+        "cc0",
+        "os3a",
+        "shell01"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "signarrow01",
+      "file": "SignArrow01.glb",
+      "name": "SignArrow01",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "os3a",
+        "signarrow01"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "signarrow02",
+      "file": "SignArrow02.glb",
+      "name": "SignArrow02",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "os3a",
+        "signarrow02"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "signarrow03",
+      "file": "SignArrow03.glb",
+      "name": "SignArrow03",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "os3a",
+        "signarrow03"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "signbase01",
+      "file": "SignBase01.glb",
+      "name": "SignBase01",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "os3a",
+        "signbase01"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "smallgrass01",
+      "file": "SmallGrass01.glb",
+      "name": "SmallGrass01",
+      "category": "vegetation",
+      "tags": [
+        "cc0",
+        "forest",
+        "jungle",
+        "os3a",
+        "smallgrass01",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "standalone01",
+      "file": "StandAlone01.glb",
+      "name": "StandAlone01",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "os3a",
+        "standalone01"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "standalone02",
+      "file": "StandAlone02.glb",
+      "name": "StandAlone02",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "os3a",
+        "standalone02"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "standalone03",
+      "file": "StandAlone03.glb",
+      "name": "StandAlone03",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "os3a",
+        "standalone03"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "standanimals01",
+      "file": "StandAnimals01.glb",
+      "name": "StandAnimals01",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "os3a",
+        "standanimals01"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "standarc01",
+      "file": "StandArc01.glb",
+      "name": "StandArc01",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "os3a",
+        "standarc01"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "standarc02",
+      "file": "StandArc02.glb",
+      "name": "StandArc02",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "os3a",
+        "standarc02"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "standbrick01",
+      "file": "StandBrick01.glb",
+      "name": "StandBrick01",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "os3a",
+        "standbrick01"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "standchristmas01",
+      "file": "StandChristmas01.glb",
+      "name": "StandChristmas01",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "os3a",
+        "standchristmas01"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "standcolumn01",
+      "file": "StandColumn01.glb",
+      "name": "StandColumn01",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "os3a",
+        "standcolumn01"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "standcolumn02",
+      "file": "StandColumn02.glb",
+      "name": "StandColumn02",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "os3a",
+        "standcolumn02"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "standcolumn03",
+      "file": "StandColumn03.glb",
+      "name": "StandColumn03",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "os3a",
+        "standcolumn03"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "standcolumn04",
+      "file": "StandColumn04.glb",
+      "name": "StandColumn04",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "os3a",
+        "standcolumn04"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "standcolumn05",
+      "file": "StandColumn05.glb",
+      "name": "StandColumn05",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "os3a",
+        "standcolumn05"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "standcolumn06",
+      "file": "StandColumn06.glb",
+      "name": "StandColumn06",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "os3a",
+        "standcolumn06"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "standcylinder01",
+      "file": "StandCylinder01.glb",
+      "name": "StandCylinder01",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "os3a",
+        "standcylinder01"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "standfood01",
+      "file": "StandFood01.glb",
+      "name": "StandFood01",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "os3a",
+        "standfood01"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "standfood02",
+      "file": "StandFood02.glb",
+      "name": "StandFood02",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "os3a",
+        "standfood02"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "standhumanoid01",
+      "file": "StandHumanoid01.glb",
+      "name": "StandHumanoid01",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "os3a",
+        "standhumanoid01"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "standothers01",
+      "file": "StandOthers01.glb",
+      "name": "StandOthers01",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "os3a",
+        "standothers01"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "standothers02",
+      "file": "StandOthers02.glb",
+      "name": "StandOthers02",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "os3a",
+        "standothers02"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "standpedestal01",
+      "file": "StandPedestal01.glb",
+      "name": "StandPedestal01",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "os3a",
+        "standpedestal01"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "standspace01",
+      "file": "StandSpace01.glb",
+      "name": "StandSpace01",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "os3a",
+        "standspace01"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "standspace02",
+      "file": "StandSpace02.glb",
+      "name": "StandSpace02",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "os3a",
+        "standspace02"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "standspooky01",
+      "file": "StandSpooky01.glb",
+      "name": "StandSpooky01",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "os3a",
+        "standspooky01"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "standtheeye01",
+      "file": "StandTheEye01.glb",
+      "name": "StandTheEye01",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "os3a",
+        "standtheeye01"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "standthings01",
+      "file": "StandThings01.glb",
+      "name": "StandThings01",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "os3a",
+        "standthings01"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "star01",
+      "file": "Star01.glb",
+      "name": "Star01",
+      "category": "atmosphere",
+      "tags": [
+        "cc0",
+        "os3a",
+        "star01"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "stone01",
+      "file": "Stone01.glb",
+      "name": "Stone01",
+      "category": "terrain",
+      "tags": [
+        "cc0",
+        "os3a",
+        "stone01",
+        "structure",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "stone02",
+      "file": "Stone02.glb",
+      "name": "Stone02",
+      "category": "terrain",
+      "tags": [
+        "cc0",
+        "os3a",
+        "stone02",
+        "structure",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "stone03",
+      "file": "Stone03.glb",
+      "name": "Stone03",
+      "category": "terrain",
+      "tags": [
+        "cc0",
+        "os3a",
+        "stone03",
+        "structure",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "stone04",
+      "file": "Stone04.glb",
+      "name": "Stone04",
+      "category": "terrain",
+      "tags": [
+        "cc0",
+        "os3a",
+        "stone04",
+        "structure",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "stone05",
+      "file": "Stone05.glb",
+      "name": "Stone05",
+      "category": "terrain",
+      "tags": [
+        "cc0",
+        "os3a",
+        "stone05",
+        "structure",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "sunflare01",
+      "file": "Sunflare01.glb",
+      "name": "Sunflare01",
+      "category": "atmosphere",
+      "tags": [
+        "cc0",
+        "os3a",
+        "sunflare01"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "terraingrass01",
+      "file": "TerrainGrass01.glb",
+      "name": "TerrainGrass01",
+      "category": "terrain",
+      "tags": [
+        "cc0",
+        "os3a",
+        "terraingrass01"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "terrainground01",
+      "file": "TerrainGround01.glb",
+      "name": "TerrainGround01",
+      "category": "terrain",
+      "tags": [
+        "cc0",
+        "os3a",
+        "terrainground01"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "terraingroundgrass01",
+      "file": "TerrainGroundGrass01.glb",
+      "name": "TerrainGroundGrass01",
+      "category": "terrain",
+      "tags": [
+        "cc0",
+        "os3a",
+        "terraingroundgrass01"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "terraingroundright01",
+      "file": "TerrainGroundRight01.glb",
+      "name": "TerrainGroundRight01",
+      "category": "terrain",
+      "tags": [
+        "cc0",
+        "os3a",
+        "terraingroundright01"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "terrainsand01",
+      "file": "TerrainSand01.glb",
+      "name": "TerrainSand01",
+      "category": "terrain",
+      "tags": [
+        "cc0",
+        "os3a",
+        "terrainsand01"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "terrainwater01",
+      "file": "TerrainWater01.glb",
+      "name": "TerrainWater01",
+      "category": "terrain",
+      "tags": [
+        "cc0",
+        "os3a",
+        "terrainwater01"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "transitionefect-01",
+      "file": "TransitionEfect_01.glb",
+      "name": "TransitionEfect 01",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "os3a",
+        "transitionefect"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "tree01",
+      "file": "Tree01.glb",
+      "name": "Tree01",
+      "category": "vegetation",
+      "tags": [
+        "cc0",
+        "forest",
+        "jungle",
+        "os3a",
+        "tree01",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "tree02",
+      "file": "Tree02.glb",
+      "name": "Tree02",
+      "category": "vegetation",
+      "tags": [
+        "cc0",
+        "forest",
+        "jungle",
+        "os3a",
+        "tree02",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "tree03",
+      "file": "Tree03.glb",
+      "name": "Tree03",
+      "category": "vegetation",
+      "tags": [
+        "cc0",
+        "forest",
+        "jungle",
+        "os3a",
+        "tree03",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "tree04",
+      "file": "Tree04.glb",
+      "name": "Tree04",
+      "category": "vegetation",
+      "tags": [
+        "cc0",
+        "forest",
+        "jungle",
+        "os3a",
+        "tree04",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "trunk01",
+      "file": "Trunk01.glb",
+      "name": "Trunk01",
+      "category": "vegetation",
+      "tags": [
+        "cc0",
+        "os3a",
+        "trunk01"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "waterfallfoam01",
+      "file": "WaterfallFoam01.glb",
+      "name": "WaterfallFoam01",
+      "category": "terrain",
+      "tags": [
+        "cc0",
+        "os3a",
+        "waterfallfoam01"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "woodenplank01",
+      "file": "WoodenPlank01.glb",
+      "name": "WoodenPlank01",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "os3a",
+        "woodenplank01"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "woodenplank02",
+      "file": "WoodenPlank02.glb",
+      "name": "WoodenPlank02",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "os3a",
+        "woodenplank02"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "woodenplank03",
+      "file": "WoodenPlank03.glb",
+      "name": "WoodenPlank03",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "os3a",
+        "woodenplank03"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "woodenplank04",
+      "file": "WoodenPlank04.glb",
+      "name": "WoodenPlank04",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "os3a",
+        "woodenplank04"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "woodenplank05",
+      "file": "WoodenPlank05.glb",
+      "name": "WoodenPlank05",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "os3a",
+        "woodenplank05"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "woodenplank06",
+      "file": "WoodenPlank06.glb",
+      "name": "WoodenPlank06",
+      "category": "structure",
+      "tags": [
+        "cc0",
+        "os3a",
+        "woodenplank06"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    },
+    {
+      "id": "worldgear01",
+      "file": "WorldGear01.glb",
+      "name": "WorldGear01",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "os3a",
+        "worldgear01"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-avatar-garden"
+      }
+    }
+  ]
+}

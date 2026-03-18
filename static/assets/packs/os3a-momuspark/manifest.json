@@ -1,0 +1,1439 @@
+{
+  "pack_id": "os3a-momuspark",
+  "name": "OS3A Momus Park",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "description": "OS3A Momus Park generated asset pack manifest.",
+  "base_url": "/static/assets/packs/os3a-momuspark/",
+  "assets": [
+    {
+      "id": "bench-01-art",
+      "file": "Bench_01_Art.glb",
+      "name": "Bench 01 Art",
+      "category": "historical",
+      "tags": [
+        "bench",
+        "cc0",
+        "historical",
+        "os3a",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "brick-step-01-art",
+      "file": "Brick_Step_01_Art.glb",
+      "name": "Brick Step 01 Art",
+      "category": "historical",
+      "tags": [
+        "brick",
+        "cc0",
+        "historical",
+        "os3a",
+        "step",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "bush-01-art",
+      "file": "Bush_01_Art.glb",
+      "name": "Bush 01 Art",
+      "category": "vegetation",
+      "tags": [
+        "bush",
+        "cc0",
+        "os3a",
+        "swamp",
+        "temperate",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "bush-02-art",
+      "file": "Bush_02_Art.glb",
+      "name": "Bush 02 Art",
+      "category": "vegetation",
+      "tags": [
+        "bush",
+        "cc0",
+        "os3a",
+        "swamp",
+        "temperate",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "bush-03-art",
+      "file": "Bush_03_art.glb",
+      "name": "Bush 03 Art",
+      "category": "vegetation",
+      "tags": [
+        "bush",
+        "cc0",
+        "os3a",
+        "swamp",
+        "temperate",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "butterfly",
+      "file": "Butterfly.glb",
+      "name": "Butterfly",
+      "category": "fauna",
+      "tags": [
+        "butterfly",
+        "cc0",
+        "fauna",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "deerarmature",
+      "file": "DeerArmature.glb",
+      "name": "DeerArmature",
+      "category": "fauna",
+      "tags": [
+        "cc0",
+        "deerarmature",
+        "fauna",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "eyes-haunted-01-art",
+      "file": "eyes_haunted_01_Art.glb",
+      "name": "Eyes Haunted 01 Art",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "eyes",
+        "haunted",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "eyes-haunted-02-art",
+      "file": "eyes_haunted_02_Art.glb",
+      "name": "Eyes Haunted 02 Art",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "eyes",
+        "haunted",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "eyes-haunted-03-art",
+      "file": "eyes_haunted_03_Art.glb",
+      "name": "Eyes Haunted 03 Art",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "eyes",
+        "haunted",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "eyes-haunted-04-art",
+      "file": "eyes_haunted_04_Art.glb",
+      "name": "Eyes Haunted 04 Art",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "eyes",
+        "haunted",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "eyes-haunted-05-art",
+      "file": "eyes_haunted_05_Art.glb",
+      "name": "Eyes Haunted 05 Art",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "eyes",
+        "haunted",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "fence-01-art",
+      "file": "Fence_01_Art.glb",
+      "name": "Fence 01 Art",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "fence",
+        "historical",
+        "os3a",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "fence-01-post-art",
+      "file": "Fence_01_Post_Art.glb",
+      "name": "Fence 01 Post Art",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "fence",
+        "historical",
+        "os3a",
+        "post",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "floating-island-01-art",
+      "file": "Floating_Island_01_Art.glb",
+      "name": "Floating Island 01 Art",
+      "category": "terrain",
+      "tags": [
+        "cc0",
+        "floating",
+        "historical",
+        "island",
+        "os3a",
+        "ruins"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "floating-island-02-art",
+      "file": "Floating_Island_02_Art.glb",
+      "name": "Floating Island 02 Art",
+      "category": "terrain",
+      "tags": [
+        "cc0",
+        "floating",
+        "historical",
+        "island",
+        "os3a",
+        "ruins"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "floating-island-3-art",
+      "file": "Floating_Island_3_Art.glb",
+      "name": "Floating Island 3 Art",
+      "category": "terrain",
+      "tags": [
+        "cc0",
+        "floating",
+        "historical",
+        "island",
+        "os3a",
+        "ruins"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "floating-island-4-art",
+      "file": "Floating_Island_4_Art.glb",
+      "name": "Floating Island 4 Art",
+      "category": "terrain",
+      "tags": [
+        "cc0",
+        "floating",
+        "historical",
+        "island",
+        "os3a",
+        "ruins"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "flower-01-a",
+      "file": "Flower_01_a.glb",
+      "name": "Flower 01 A",
+      "category": "vegetation",
+      "tags": [
+        "a",
+        "cc0",
+        "flower",
+        "os3a",
+        "swamp",
+        "temperate",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "flower-01-b",
+      "file": "Flower_01_b.glb",
+      "name": "Flower 01 B",
+      "category": "vegetation",
+      "tags": [
+        "b",
+        "cc0",
+        "flower",
+        "os3a",
+        "swamp",
+        "temperate",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "flower-02-a-art",
+      "file": "Flower_02_a_Art.glb",
+      "name": "Flower 02 A Art",
+      "category": "vegetation",
+      "tags": [
+        "a",
+        "cc0",
+        "flower",
+        "os3a",
+        "swamp",
+        "temperate",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "flower-02-b-art",
+      "file": "Flower_02_b_Art.glb",
+      "name": "Flower 02 B Art",
+      "category": "vegetation",
+      "tags": [
+        "b",
+        "cc0",
+        "flower",
+        "os3a",
+        "swamp",
+        "temperate",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "flower-03-a",
+      "file": "Flower_03_a.glb",
+      "name": "Flower 03 A",
+      "category": "vegetation",
+      "tags": [
+        "a",
+        "cc0",
+        "flower",
+        "os3a",
+        "swamp",
+        "temperate",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "flower-03-b",
+      "file": "Flower_03_b.glb",
+      "name": "Flower 03 B",
+      "category": "vegetation",
+      "tags": [
+        "b",
+        "cc0",
+        "flower",
+        "os3a",
+        "swamp",
+        "temperate",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "grass-01-a",
+      "file": "Grass_01_a.glb",
+      "name": "Grass 01 A",
+      "category": "vegetation",
+      "tags": [
+        "a",
+        "cc0",
+        "grass",
+        "os3a",
+        "swamp",
+        "temperate",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "grass-01-b",
+      "file": "Grass_01_b.glb",
+      "name": "Grass 01 B",
+      "category": "vegetation",
+      "tags": [
+        "b",
+        "cc0",
+        "grass",
+        "os3a",
+        "swamp",
+        "temperate",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "land-floor",
+      "file": "LAND_Floor.glb",
+      "name": "LAND Floor",
+      "category": "terrain",
+      "tags": [
+        "cc0",
+        "floor",
+        "land",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "log-01-art",
+      "file": "Log_01_Art.glb",
+      "name": "Log 01 Art",
+      "category": "vegetation",
+      "tags": [
+        "cc0",
+        "log",
+        "os3a",
+        "swamp",
+        "temperate",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "momus-collection-sign-01",
+      "file": "Momus_collection_sign_01.glb",
+      "name": "Momus Collection Sign 01",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "collection",
+        "momus",
+        "os3a",
+        "sign"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "momus-logo-top",
+      "file": "MOMUS_Logo_Top.glb",
+      "name": "MOMUS Logo Top",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "logo",
+        "momus",
+        "os3a",
+        "top"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "mountainlion",
+      "file": "MountainLion.glb",
+      "name": "MountainLion",
+      "category": "fauna",
+      "tags": [
+        "cc0",
+        "fauna",
+        "mountainlion",
+        "os3a"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "mushroom-01-art",
+      "file": "Mushroom_01_Art.glb",
+      "name": "Mushroom 01 Art",
+      "category": "vegetation",
+      "tags": [
+        "cc0",
+        "mushroom",
+        "os3a",
+        "swamp",
+        "temperate",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "mushroom-02-art",
+      "file": "Mushroom_02_Art.glb",
+      "name": "Mushroom 02 Art",
+      "category": "vegetation",
+      "tags": [
+        "cc0",
+        "mushroom",
+        "os3a",
+        "swamp",
+        "temperate",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "owl",
+      "file": "Owl.glb",
+      "name": "Owl",
+      "category": "fauna",
+      "tags": [
+        "cc0",
+        "fauna",
+        "os3a",
+        "owl"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "path-01-art",
+      "file": "Path_01_Art.glb",
+      "name": "Path 01 Art",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "historical",
+        "os3a",
+        "path",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "path-02-art",
+      "file": "Path_02_Art.glb",
+      "name": "Path 02 Art",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "historical",
+        "os3a",
+        "path",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "path-03-art",
+      "file": "Path_03_Art.glb",
+      "name": "Path 03 Art",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "historical",
+        "os3a",
+        "path",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "path-04-art",
+      "file": "Path_04_Art.glb",
+      "name": "Path 04 Art",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "historical",
+        "os3a",
+        "path",
+        "urban"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "pigarmature",
+      "file": "PigArmature.glb",
+      "name": "PigArmature",
+      "category": "fauna",
+      "tags": [
+        "cc0",
+        "os3a",
+        "pigarmature"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "rock-01-art",
+      "file": "Rock_01_Art.glb",
+      "name": "Rock 01 Art",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "os3a",
+        "rock",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "rock-02-art",
+      "file": "Rock_02_Art.glb",
+      "name": "Rock 02 Art",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "os3a",
+        "rock",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "rock-03-art",
+      "file": "Rock_03_Art.glb",
+      "name": "Rock 03 Art",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "os3a",
+        "rock",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "rock-04-art",
+      "file": "Rock_04_Art.glb",
+      "name": "Rock 04 Art",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "os3a",
+        "rock",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "rock-05-art",
+      "file": "Rock_05_Art.glb",
+      "name": "Rock 05 Art",
+      "category": "props",
+      "tags": [
+        "cc0",
+        "os3a",
+        "rock",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "root-01-art",
+      "file": "Root_01_Art.glb",
+      "name": "Root 01 Art",
+      "category": "vegetation",
+      "tags": [
+        "cc0",
+        "os3a",
+        "root"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "root-02-art",
+      "file": "Root_02_Art.glb",
+      "name": "Root 02 Art",
+      "category": "vegetation",
+      "tags": [
+        "cc0",
+        "os3a",
+        "root"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "shelter-art",
+      "file": "Shelter_Art.glb",
+      "name": "Shelter Art",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "os3a",
+        "shelter"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "signal-01-art",
+      "file": "Signal_01_Art.glb",
+      "name": "Signal 01 Art",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "os3a",
+        "signal"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "signal-02-art",
+      "file": "Signal_02_Art.glb",
+      "name": "Signal 02 Art",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "os3a",
+        "signal"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "skydoor-art",
+      "file": "Skydoor_Art.glb",
+      "name": "Skydoor Art",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "os3a",
+        "skydoor"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "statue-greek-01-art",
+      "file": "Statue_greek_01_Art.glb",
+      "name": "Statue Greek 01 Art",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "greek",
+        "os3a",
+        "statue"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "statue-greek-02-art",
+      "file": "Statue_greek_02_Art.glb",
+      "name": "Statue Greek 02 Art",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "greek",
+        "os3a",
+        "statue"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "str-amphitheater-01-art",
+      "file": "Str_Amphitheater_01_Art.glb",
+      "name": "Str Amphitheater 01 Art",
+      "category": "historical",
+      "tags": [
+        "amphitheater",
+        "cc0",
+        "os3a",
+        "str"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "str-column-04-art",
+      "file": "Str_Column_04_Art.glb",
+      "name": "Str Column 04 Art",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "column",
+        "os3a",
+        "str"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "str-fountain-01-art",
+      "file": "Str_Fountain_01_Art.glb",
+      "name": "Str Fountain 01 Art",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "fountain",
+        "os3a",
+        "str"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "str-ruins-01-art",
+      "file": "Str_Ruins_01_Art.glb",
+      "name": "Str Ruins 01 Art",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "os3a",
+        "ruins",
+        "str"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "str-ruins-02-art",
+      "file": "Str_Ruins_02_Art.glb",
+      "name": "Str Ruins 02 Art",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "os3a",
+        "ruins",
+        "str"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "str-ruins-03-art",
+      "file": "Str_Ruins_03_Art.glb",
+      "name": "Str Ruins 03 Art",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "os3a",
+        "ruins",
+        "str"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "str-ruins-05-art",
+      "file": "Str_Ruins_05_Art.glb",
+      "name": "Str Ruins 05 Art",
+      "category": "historical",
+      "tags": [
+        "cc0",
+        "os3a",
+        "ruins",
+        "str"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "terrain-amount-01-art",
+      "file": "Terrain_Amount_01_Art.glb",
+      "name": "Terrain Amount 01 Art",
+      "category": "terrain",
+      "tags": [
+        "amount",
+        "cc0",
+        "os3a",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "terrain-amount-02-art",
+      "file": "Terrain_Amount_02_Art.glb",
+      "name": "Terrain Amount 02 Art",
+      "category": "terrain",
+      "tags": [
+        "amount",
+        "cc0",
+        "os3a",
+        "terrain"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "tree-01-art",
+      "file": "Tree_01_Art.glb",
+      "name": "Tree 01 Art",
+      "category": "vegetation",
+      "tags": [
+        "cc0",
+        "os3a",
+        "swamp",
+        "temperate",
+        "tree",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "tree-02-art",
+      "file": "Tree_02_Art.glb",
+      "name": "Tree 02 Art",
+      "category": "vegetation",
+      "tags": [
+        "cc0",
+        "os3a",
+        "swamp",
+        "temperate",
+        "tree",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "tree-03-art",
+      "file": "Tree_03_Art.glb",
+      "name": "Tree 03 Art",
+      "category": "vegetation",
+      "tags": [
+        "cc0",
+        "os3a",
+        "swamp",
+        "temperate",
+        "tree",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "tree-04-art",
+      "file": "Tree_04_Art.glb",
+      "name": "Tree 04 Art",
+      "category": "vegetation",
+      "tags": [
+        "cc0",
+        "os3a",
+        "swamp",
+        "temperate",
+        "tree",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "tree-trunk-01-art",
+      "file": "Tree_Trunk_01_Art.glb",
+      "name": "Tree Trunk 01 Art",
+      "category": "vegetation",
+      "tags": [
+        "cc0",
+        "os3a",
+        "swamp",
+        "temperate",
+        "tree",
+        "trunk",
+        "vegetation"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "water-fall-01-art",
+      "file": "Water_Fall_01_Art.glb",
+      "name": "Water Fall 01 Art",
+      "category": "terrain",
+      "tags": [
+        "cc0",
+        "fall",
+        "os3a",
+        "water"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "water-fall-01-art-001",
+      "file": "Water_Fall_01_Art.001.glb",
+      "name": "Water Fall 01 Art.001",
+      "category": "terrain",
+      "tags": [
+        "art-001",
+        "cc0",
+        "fall",
+        "os3a",
+        "water"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "water-fall-02-art",
+      "file": "Water_Fall_02_Art.glb",
+      "name": "Water Fall 02 Art",
+      "category": "terrain",
+      "tags": [
+        "cc0",
+        "fall",
+        "os3a",
+        "water"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "water-fx-2-art",
+      "file": "Water_FX_2_Art.glb",
+      "name": "Water FX 2 Art",
+      "category": "terrain",
+      "tags": [
+        "cc0",
+        "fx",
+        "os3a",
+        "water"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "water-plane-art",
+      "file": "Water_plane_Art.glb",
+      "name": "Water Plane Art",
+      "category": "terrain",
+      "tags": [
+        "cc0",
+        "os3a",
+        "plane",
+        "water"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    },
+    {
+      "id": "water-pond-01-art",
+      "file": "Water_Pond_01_Art.glb",
+      "name": "Water Pond 01 Art",
+      "category": "terrain",
+      "tags": [
+        "cc0",
+        "os3a",
+        "pond",
+        "water"
+      ],
+      "kind": "prop",
+      "scale_hint": 1,
+      "data": {
+        "source": "os3a",
+        "license": "CC0",
+        "collection": "pm-momuspark"
+      }
+    }
+  ]
+}
