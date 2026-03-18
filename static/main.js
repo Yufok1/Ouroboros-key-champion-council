@@ -20149,7 +20149,7 @@
     }
 
     function _env3DAccentHex() {
-        var theme = _envThemes && _envThemes[_envThemeId];
+        var theme = _env3DResolvedTheme(_envThemeId);
         var accent = theme && theme.css ? theme.css[0] : '#7c9cff';
         return _env3DHexFromColor(accent, _env3DKindColors.portal || 0x7c9cff);
     }
@@ -21018,20 +21018,18 @@
     // ═══════════════════════════════════════════════════════════════
     //  css array: [accent, card_border, card_bg_from, card_bg_to, card_glow, stage_bg, canvas_bg]
 
-    var _envThemeId = (function () {
-        try { return localStorage.getItem('env_theme') || 'default'; } catch (e) { return 'default'; }
-    })();
+    var _envThemeId = 'default';
 
     var _envThemes = {
         default: {
-            name: 'Default', bg: 0x0a0a1a, fog: 0.012, ground: 0x0d0d24,
-            grid1: 0x1a1a3e, grid2: 0x111128, gridOp: 0.4,
-            amb: [0x334466, 0.6], hemi: [0x4488ff, 0x0a0a1a, 0.5],
-            dir: [0xffffff, 0.8], point: [0x00ff88, 0.6],
-            particle: [0x4488ff, 0.4],
-            css: ['#4fffd0', 'rgba(79,255,208,0.18)', 'rgba(8,16,26,0.88)', 'rgba(5,10,18,0.94)', 'rgba(79,255,208,0.06)', '#111114', '#0a0a1a'],
-            bloom: { strength: 0.6, radius: 0.4, threshold: 0.85 },
-            terrain: { maxDisplacement: 1.2 }
+            name: 'Default', bg: 0x1b2128, fog: 0.0025, ground: 0x2a3138,
+            grid1: 0x8295a8, grid2: 0x4b5864, gridOp: 0.42,
+            amb: [0xffffff, 0.62], hemi: [0xf6f8fb, 0x68717a, 0.52],
+            dir: [0xffffff, 1.18], point: [0xffffff, 0],
+            particle: [0xffffff, 0],
+            css: ['#9ab2c9', 'rgba(154,178,201,0.16)', 'rgba(10,13,16,0.9)', 'rgba(8,10,13,0.95)', 'rgba(154,178,201,0.04)', '#12161a', '#1b2128'],
+            bloom: { strength: 0.05, radius: 0.18, threshold: 0.98 },
+            terrain: { maxDisplacement: 0.4, opacity: 0.92 }
         },
         tron_legacy: {
             name: 'TRON: Legacy', bg: 0x050505, fog: 0.008, ground: 0x080808,
@@ -21309,7 +21307,34 @@
         }
     };
 
-    var _envThemeKeys = Object.keys(_envThemes);
+    function _env3DResolvedTheme(themeId) {
+        var theme = (_envThemes && _envThemes[themeId]) || (_envThemes && _envThemes['default']) || null;
+        if (!theme || theme.type !== 'world') return theme;
+        return {
+            name: theme.name,
+            type: theme.type,
+            bg: Number(theme.bg || 0x1f252c),
+            fog: Math.min(Math.max(Number(theme.fog || 0.003), 0), 0.004),
+            ground: Number(theme.ground || 0x2d343c),
+            grid1: Number(theme.grid1 || 0x6c7b88),
+            grid2: Number(theme.grid2 || 0x3c4750),
+            gridOp: Math.max(0.18, Number(theme.gridOp || 0.18)),
+            particleOp: 0,
+            amb: [0xffffff, 0.62],
+            hemi: [0xf6f8fb, 0x68717a, 0.52],
+            dir: [0xffffff, 1.18],
+            point: [0xffffff, 0],
+            particle: [0xffffff, 0],
+            css: _envCloneJson(theme.css || [], []),
+            bloom: {
+                strength: Math.min(Number(theme.bloom && theme.bloom.strength !== undefined ? theme.bloom.strength : 0.04), 0.08),
+                radius: Math.min(Number(theme.bloom && theme.bloom.radius !== undefined ? theme.bloom.radius : 0.2), 0.24),
+                threshold: Math.max(Number(theme.bloom && theme.bloom.threshold !== undefined ? theme.bloom.threshold : 0.98), 0.96)
+            },
+            water: theme.water && typeof theme.water === 'object' ? _envCloneJson(theme.water, theme.water) : null,
+            terrain: theme.terrain && typeof theme.terrain === 'object' ? _envCloneJson(theme.terrain, theme.terrain) : { maxDisplacement: 0, opacity: 0 }
+        };
+    }
 
     var _envWorldProfiles = {
         island_cove: {
@@ -22154,8 +22179,9 @@
     }
 
     function _env3DApplyTheme(themeId, options) {
-        var t = _envThemes[themeId];
-        if (!t) return;
+        var sourceTheme = _envThemes[themeId];
+        if (!sourceTheme) return;
+        var t = _env3DResolvedTheme(themeId);
         var opts = options && typeof options === 'object' ? options : {};
         _envThemeId = themeId;
         if (!opts.preserveProfile) {
@@ -22167,7 +22193,7 @@
             _env3D.strata = { surfaceLevel: 0, waterLevel: null, seabedLevel: null, ceilingLevel: null };
         }
         var s = _env3D.scene;
-        var isWorldTheme = t.type === 'world';
+        var isWorldTheme = sourceTheme.type === 'world';
         if (s) {
             s.background = new THREE.Color(t.bg);
             s.fog = new THREE.FogExp2(t.bg, t.fog);
@@ -22255,11 +22281,9 @@
                 _env3DApplyPortalState(mesh, mesh.userData.state || 'idle', !!mesh.userData.focused, 0);
             }
         });
-        _env3DUpdateThemePicker();
         _env3DUpdateWaterLevelControl();
         _env3DUpdateWorldProfileControl();
         _envRefreshLiveMirrorSurface();
-        try { localStorage.setItem('env_theme', themeId); } catch (e) {}
     }
 
     function _env3DApplyProfileRenderOverrides(profile) {
@@ -22268,8 +22292,9 @@
         if (!s || !render) return;
         s.environment = null;
         if (render.fogColor !== undefined || render.fogDensity !== undefined) {
-            var fogColor = render.fogColor !== undefined ? render.fogColor : ((_envThemes[_envThemeId] || {}).bg || 0x0a0a1a);
-            var fogDensity = render.fogDensity !== undefined ? render.fogDensity : ((_envThemes[_envThemeId] || {}).fog || 0.01);
+            var theme = _env3DResolvedTheme(_envThemeId) || {};
+            var fogColor = theme.bg !== undefined ? theme.bg : 0x0a0a1a;
+            var fogDensity = render.fogDensity !== undefined ? Math.min(Number(render.fogDensity || 0), 0.004) : Number(theme.fog || 0.003);
             s.fog = new THREE.FogExp2(fogColor, fogDensity);
             s.background = new THREE.Color(fogColor);
         }
@@ -22597,19 +22622,6 @@
         }
         var wrap = document.createElement('div');
         wrap.className = 'env-theme-stack';
-        var bar = document.createElement('div');
-        bar.className = 'env-theme-picker';
-        _envThemeKeys.forEach(function (key) {
-            var t = _envThemes[key];
-            var dot = document.createElement('div');
-            dot.className = 'env-theme-dot' + (key === _envThemeId ? ' active' : '');
-            dot.dataset.themeId = key;
-            dot.title = t.name;
-            dot.style.background = t.css[0];
-            dot.addEventListener('click', function () { _env3DApplyTheme(key); });
-            bar.appendChild(dot);
-        });
-        wrap.appendChild(bar);
         var profileControl = document.createElement('div');
         profileControl.className = 'env-theme-profile-control';
         var profileOptions = ['<option value="">None</option>'];
@@ -22695,7 +22707,7 @@
         }
         wrap.appendChild(waterControl);
         container.appendChild(wrap);
-        _env3D.themePicker = bar;
+        _env3D.themePicker = null;
         _env3D.themePickerWrap = wrap;
         _env3D.worldProfileControl = profileControl;
         _env3D.worldProfileSelect = profileSelect;
@@ -22716,18 +22728,7 @@
     }
 
     function _env3DUpdateThemePicker() {
-        if (!_env3D.themePicker) return;
-        var dots = _env3D.themePicker.querySelectorAll('.env-theme-dot');
-        for (var i = 0; i < dots.length; i++) {
-            if (dots[i].dataset.themeId === _envThemeId) dots[i].classList.add('active');
-            else dots[i].classList.remove('active');
-        }
-    }
-
-    function _env3DCycleTheme(dir) {
-        var idx = _envThemeKeys.indexOf(_envThemeId);
-        idx = (idx + (dir || 1) + _envThemeKeys.length) % _envThemeKeys.length;
-        _env3DApplyTheme(_envThemeKeys[idx]);
+        return;
     }
 
     function _env3DKindFilterVisible(kind) {
@@ -22839,14 +22840,12 @@
         }
     }
 
-    // Keyboard cycling: [ and ] when Environment tab is active
+    // Keyboard shortcuts when Environment tab is active
     (function () {
         document.addEventListener('keydown', function (e) {
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
             if (!_isEnvironmentTabActive || !_isEnvironmentTabActive()) return;
-            if (e.key === ']') { e.preventDefault(); _env3DCycleTheme(1); }
-            else if (e.key === '[') { e.preventDefault(); _env3DCycleTheme(-1); }
-            else if (e.key === 'l' || e.key === 'L') { e.preventDefault(); _env3DCycleLabelMode(); }
+            if (e.key === 'l' || e.key === 'L') { e.preventDefault(); _env3DCycleLabelMode(); }
             else if (e.key === 'k' || e.key === 'K') {
                 e.preventDefault();
                 _env3D.kindFilterOpen = !_env3D.kindFilterOpen;
@@ -24462,7 +24461,7 @@
             heightGeo.rotateX(-Math.PI / 2);
             var positions = heightGeo.attributes.position.array;
             var colors = new Float32Array(positions.length);
-            var theme = _envThemes[_envThemeId] || _envThemes['default'];
+            var theme = _env3DResolvedTheme(_envThemeId) || _envThemes['default'];
             var lowColor = new THREE.Color((theme && theme.ground) || 0x0d0d24);
             var midColor = lowColor.clone().lerp(new THREE.Color(_env3DAccentHex()), 0.35);
             var highColor = lowColor.clone().lerp(new THREE.Color(0xffffff), 0.65);
@@ -26072,7 +26071,7 @@
         geo.rotateX(-Math.PI / 2);
         var positions = geo.attributes.position.array;
         var colors = new Float32Array(positions.length);
-        var theme = _envThemes[_envThemeId] || _envThemes['default'];
+        var theme = _env3DResolvedTheme(_envThemeId) || _envThemes['default'];
         var terrainCfg = (theme && theme.terrain && typeof theme.terrain === 'object') ? theme.terrain : {};
         var groundColor = new THREE.Color((theme && theme.ground) || 0x0d0d24);
         var maxDisplacementValue = terrainCfg.maxDisplacement !== undefined ? terrainCfg.maxDisplacement : 0.6;
@@ -29148,7 +29147,7 @@
     }
 
     function _envWorldViewerThemeSnapshot() {
-        var theme = (_envThemes && _envThemes[_envThemeId]) || (_envThemes && _envThemes['default']) || {};
+        var theme = _env3DResolvedTheme(_envThemeId) || ((_envThemes && _envThemes['default']) || {});
         return {
             id: String(_envThemeId || 'default'),
             name: String(theme.name || _envThemeId || 'default'),
