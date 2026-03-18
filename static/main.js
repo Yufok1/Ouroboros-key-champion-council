@@ -15198,6 +15198,7 @@
             _envEmitBus('control', 'Applied profile kit: ' + kitKey, actorName, { action: command, profile_kit: kitKey });
             _envSetBadge('running', 'KIT ' + kitKey.toUpperCase());
             _envScene.dirty = true;
+            _envRefreshLiveMirrorSurface();
             renderEnvironmentView();
             return;
         }
@@ -22011,6 +22012,7 @@
             appliedCount += 1;
         });
         _env3DUpdateWorldProfileControl();
+        _envRefreshLiveMirrorSurface();
         _env3DScheduleProfileKitControlRefresh(500);
         if (typeof mpToast === 'function') {
             mpToast('Applied ' + String(kit.name || key) + ': ' + appliedCount + ' objects', 'info', 2500);
