@@ -60,7 +60,7 @@
   },
   "actors": {
     "defaultActiveId": "assistant",
-    "restoreFocusOnActivate": true,
+    "restoreFocusOnActivate": false,
     "maxVisible": 6,
     "roster": [
       {

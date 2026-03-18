@@ -1,6 +1,7 @@
 // ══════════════════════════════════════════════════════════════
 // Champion Council - Webview Main Script
 // Loaded as a separate file to avoid template literal escaping hell
+// Frontend bundle v90
 // ══════════════════════════════════════════════════════════════
 
 (function () {
@@ -115,6 +116,7 @@
         successCount: 0
     };
     let _envAppliedContractTokens = {};
+    let _envPanelPreviousFocus = null;
     let _envHtmlPanelState = {
         active: false,
         objectKey: '',
@@ -128,7 +130,16 @@
         sourceType: '',
         source: '',
         mode: '',
-        openedTs: 0
+        openedTs: 0,
+        bridgeState: {
+            activeTab: '',
+            activeSection: '',
+            lastCommand: '',
+            lastTarget: '',
+            lastOk: false,
+            lastTs: 0,
+            scrollY: 0
+        }
     };
     let _envNavigationState = {
         currentSnapshot: '',
@@ -145,6 +156,9 @@
         openedTs: 0,
         anchor: null,
         activeSection: '',
+        mechanicsEditKey: '',
+        characterEditKey: '',
+        waypointEditKey: '',
         lazy: {
             docs: { pending: false, loaded: false, error: '', query: '', results: [] },
             graph: { pending: false, loaded: false, error: '', component: '', result: null }
@@ -179,8 +193,183 @@
         opsRailBottomGap: 0,
         pendingSceneRender: false,
         opsRailInteractingUntil: 0,
-        opsRailInteractionTimer: 0
+        opsRailInteractionTimer: 0,
+        lastRenderTs: 0,
+        renderThrottleTimer: 0,
+        renderThrottleMs: 2500,
+        forceStageRebuild: false,
+        lastUserClickTs: 0,
+        spawnFormOpen: false,
+        registerLocalModelOpen: false,
+        hfSearchQuery: '',
+        hfSearchBusy: false,
+        hfSearchStatus: '',
+        hfDownloadBusy: false,
+        hfDownloadStatus: '',
+        overlayPanels: (function () {
+            try {
+                var raw = localStorage.getItem('env_stage_overlay_panels');
+                var parsed = raw ? JSON.parse(raw) : null;
+                return parsed && typeof parsed === 'object' ? parsed : {};
+            } catch (e) {
+                return {};
+            }
+        })(),
+        overlayDrag: null
     };
+
+    function _envOverlayPanelLabels() {
+        return {
+            hud: 'HUD',
+            cockpit: 'Controls',
+            ops: 'Operations'
+        };
+    }
+
+    function _envNormalizeOverlayPanelState(raw) {
+        var state = raw && typeof raw === 'object' ? raw : {};
+        return {
+            minimized: !!state.minimized,
+            x: isFinite(Number(state.x)) ? Number(state.x) : null,
+            y: isFinite(Number(state.y)) ? Number(state.y) : null
+        };
+    }
+
+    function _envOverlayPanelState(panelId) {
+        var key = String(panelId || '').trim();
+        if (!key) return _envNormalizeOverlayPanelState(null);
+        var panels = _envStageUiState.overlayPanels && typeof _envStageUiState.overlayPanels === 'object'
+            ? _envStageUiState.overlayPanels
+            : {};
+        if (!Object.prototype.hasOwnProperty.call(panels, key)) {
+            panels[key] = _envNormalizeOverlayPanelState(null);
+            _envStageUiState.overlayPanels = panels;
+        }
+        return _envNormalizeOverlayPanelState(panels[key]);
+    }
+
+    function _envSetOverlayPanelState(panelId, patch) {
+        var key = String(panelId || '').trim();
+        if (!key) return;
+        var panels = _envStageUiState.overlayPanels && typeof _envStageUiState.overlayPanels === 'object'
+            ? _envStageUiState.overlayPanels
+            : {};
+        var next = Object.assign({}, _envOverlayPanelState(key), patch || {});
+        panels[key] = _envNormalizeOverlayPanelState(next);
+        _envStageUiState.overlayPanels = panels;
+        try {
+            localStorage.setItem('env_stage_overlay_panels', JSON.stringify(panels));
+        } catch (e) { }
+    }
+
+    function _envRenderOverlayRestoreTray() {
+        var labels = _envOverlayPanelLabels();
+        var minimized = Object.keys(labels).filter(function (key) {
+            return !!_envOverlayPanelState(key).minimized;
+        });
+        if (!minimized.length) return '';
+        return '<div class="envops-overlay-restore-tray" id="envops-overlay-restore-tray">' +
+            minimized.map(function (key) {
+                return '<button type="button" class="envops-overlay-restore-chip" data-env-action="restore-overlay-panel" data-env-overlay-id="' + _esc(key) + '">' +
+                    'Show ' + _esc(String(labels[key] || key)) +
+                '</button>';
+            }).join('') +
+        '</div>';
+    }
+
+    function _envApplyOverlayPanelLayout(panelId, el, root) {
+        if (!el) return;
+        var state = _envOverlayPanelState(panelId);
+        el.classList.add('envops-overlay-panel');
+        el.dataset.envOverlayId = String(panelId || '');
+        el.classList.toggle('minimized', !!state.minimized);
+        if (state.x === null || state.y === null) {
+            el.style.left = '';
+            el.style.top = '';
+            el.style.right = '';
+            el.style.bottom = '';
+            return;
+        }
+        var rootRect = root && typeof root.getBoundingClientRect === 'function' ? root.getBoundingClientRect() : null;
+        var panelRect = typeof el.getBoundingClientRect === 'function' ? el.getBoundingClientRect() : null;
+        var maxX = rootRect && panelRect ? Math.max(0, rootRect.width - panelRect.width) : Number(state.x || 0);
+        var maxY = rootRect && panelRect ? Math.max(0, rootRect.height - panelRect.height) : Number(state.y || 0);
+        var x = Math.max(0, Math.min(maxX, Number(state.x || 0)));
+        var y = Math.max(0, Math.min(maxY, Number(state.y || 0)));
+        el.style.left = String(x) + 'px';
+        el.style.top = String(y) + 'px';
+        el.style.right = 'auto';
+        el.style.bottom = 'auto';
+    }
+
+    function _envBindOverlayPanel(panelId, selector) {
+        var root = document.querySelector('#envops-stage .envops-habitat-scene');
+        var el = document.querySelector(selector);
+        if (!root || !el) return;
+        _envApplyOverlayPanelLayout(panelId, el, root);
+        var handle = el.querySelector('[data-env-overlay-handle]');
+        if (!handle || handle.dataset.envOverlayDragBound) return;
+        handle.dataset.envOverlayDragBound = '1';
+        handle.addEventListener('pointerdown', function (event) {
+            if (!event || event.button !== 0) return;
+            if (event.target && typeof event.target.closest === 'function' && event.target.closest('button, input, select, textarea, [data-env-action]')) return;
+            var rootRect = root.getBoundingClientRect();
+            var panelRect = el.getBoundingClientRect();
+            _envStageUiState.overlayDrag = {
+                panelId: panelId,
+                pointerId: event.pointerId,
+                root: root,
+                el: el,
+                startOffsetX: event.clientX - panelRect.left,
+                startOffsetY: event.clientY - panelRect.top,
+                rootRect: rootRect
+            };
+            el.classList.add('dragging');
+            if (typeof handle.setPointerCapture === 'function') {
+                try { handle.setPointerCapture(event.pointerId); } catch (e) { }
+            }
+            event.preventDefault();
+            event.stopPropagation();
+        });
+    }
+
+    document.addEventListener('pointermove', function (event) {
+        var drag = _envStageUiState.overlayDrag;
+        if (!drag || !drag.el || drag.pointerId !== event.pointerId) return;
+        var panelRect = drag.el.getBoundingClientRect();
+        var maxX = Math.max(0, drag.rootRect.width - panelRect.width);
+        var maxY = Math.max(0, drag.rootRect.height - panelRect.height);
+        var nextX = Math.max(0, Math.min(maxX, event.clientX - drag.rootRect.left - drag.startOffsetX));
+        var nextY = Math.max(0, Math.min(maxY, event.clientY - drag.rootRect.top - drag.startOffsetY));
+        drag.el.style.left = String(nextX) + 'px';
+        drag.el.style.top = String(nextY) + 'px';
+        drag.el.style.right = 'auto';
+        drag.el.style.bottom = 'auto';
+    }, true);
+
+    document.addEventListener('pointerup', function (event) {
+        var drag = _envStageUiState.overlayDrag;
+        if (!drag || drag.pointerId !== event.pointerId) return;
+        drag.el.classList.remove('dragging');
+        var left = parseFloat(drag.el.style.left || '');
+        var top = parseFloat(drag.el.style.top || '');
+        _envSetOverlayPanelState(drag.panelId, { x: isFinite(left) ? left : null, y: isFinite(top) ? top : null });
+        _envStageUiState.overlayDrag = null;
+    }, true);
+
+    function _envBindHabitatOverlayPanels() {
+        _envBindOverlayPanel('hud', '.envops-habitat-hud');
+        _envBindOverlayPanel('cockpit', '.envops-habitat-scene-cockpit');
+        _envBindOverlayPanel('ops', '#envops-habitat-ops-rail');
+    }
+
+    // Track user clicks so renderEnvironmentView can distinguish
+    // user-initiated renders from background event churn
+    (function () {
+        document.addEventListener('click', function () {
+            _envStageUiState.lastUserClickTs = Date.now();
+        }, { capture: true, passive: true });
+    })();
 
     function _envOpsRailInteractionActive() {
         return Number(_envStageUiState.opsRailInteractingUntil || 0) > Date.now();
@@ -230,6 +419,7 @@
         }, { passive: true });
         _envRememberOpsRailScroll(el);
     }
+
 
     function _envRestoreOpsRailScroll() {
         var apply = function () {
@@ -287,7 +477,7 @@
             },
             actors: {
                 defaultActiveId: 'assistant',
-                restoreFocusOnActivate: true,
+                restoreFocusOnActivate: false,
                 maxVisible: 6,
                 roster: [
                     { id: 'user', label: 'Operator', role: 'human', tone: 'manual', note: 'Manual cockpit lane for direct human control.' },
@@ -883,12 +1073,295 @@
     var _identityClaims = []; // { platform, identity, proof }
     var _identityBadges = {}; // pubkey -> [{ platform, identity, proof }, ...]
 
-    // ── NIP-A0: VOICE NOTE STATE ──
-    var _voiceNoteRecording = false;
-    var _voiceNoteMediaRecorder = null;
-    var _voiceNoteChunks = [];
-    var _voiceNoteTimer = null;
-    var _voiceNoteStartTime = 0;
+    // ── NIP-A0: SHARED AUDIO CAPTURE STATE ──
+    function _createAudioCaptureState(label) {
+        return {
+            label: String(label || 'audio'),
+            recording: false,
+            mediaRecorder: null,
+            chunks: [],
+            timer: null,
+            startTime: 0,
+            stream: null,
+            mimeType: 'audio/webm',
+            afterStop: null,
+            ownerKey: ''
+        };
+    }
+    var _voiceNoteCapture = _createAudioCaptureState('voice-note');
+    var _achatVoiceCapture = _createAudioCaptureState('achat-voice');
+
+    function _audioCapturePreferredMimeType() {
+        try {
+            if (typeof MediaRecorder === 'undefined' || typeof MediaRecorder.isTypeSupported !== 'function') {
+                return 'audio/webm';
+            }
+            var candidates = [
+                'audio/webm;codecs=opus',
+                'audio/webm',
+                'audio/mp4',
+                'audio/ogg;codecs=opus',
+                'audio/ogg'
+            ];
+            for (var i = 0; i < candidates.length; i++) {
+                if (MediaRecorder.isTypeSupported(candidates[i])) return candidates[i];
+            }
+        } catch (err) { }
+        return 'audio/webm';
+    }
+
+    function _audioCaptureFormatFromMimeType(mimeType) {
+        var text = String(mimeType || '').toLowerCase();
+        if (text.indexOf('mpeg') >= 0 || text.indexOf('mp3') >= 0) return 'mp3';
+        if (text.indexOf('wav') >= 0 || text.indexOf('wave') >= 0) return 'wav';
+        if (text.indexOf('ogg') >= 0) return 'ogg';
+        if (text.indexOf('mp4') >= 0 || text.indexOf('aac') >= 0 || text.indexOf('m4a') >= 0) return 'mp4';
+        return 'webm';
+    }
+
+    function _audioCaptureFormatDuration(seconds) {
+        var total = Math.max(0, parseInt(seconds, 10) || 0);
+        return Math.floor(total / 60) + ':' + ('0' + (total % 60)).slice(-2);
+    }
+
+    function _audioCaptureFormatBytes(bytes) {
+        var total = Math.max(0, Number(bytes) || 0);
+        if (!total) return '0 B';
+        if (total >= 1024 * 1024) return (total / (1024 * 1024)).toFixed(2) + ' MB';
+        if (total >= 1024) return (total / 1024).toFixed(1) + ' KB';
+        return String(total) + ' B';
+    }
+
+    function _audioCaptureClearTimer(state) {
+        if (!state || !state.timer) return;
+        clearInterval(state.timer);
+        state.timer = null;
+    }
+
+    function _audioCaptureStopTracks(stream) {
+        try {
+            if (stream && typeof stream.getTracks === 'function') {
+                stream.getTracks().forEach(function (track) {
+                    try { track.stop(); } catch (err) { }
+                });
+            }
+        } catch (err) { }
+    }
+
+    function _audioCaptureOtherSessionActive(state) {
+        return (!!(_voiceNoteCapture && _voiceNoteCapture.recording && _voiceNoteCapture !== state) ||
+            !!(_achatVoiceCapture && _achatVoiceCapture.recording && _achatVoiceCapture !== state));
+    }
+
+    function _audioCaptureRuntimeInfo() {
+        var loc = window.location || {};
+        var host = String(loc.hostname || '').trim().toLowerCase();
+        var protocol = String(loc.protocol || '').trim().toLowerCase();
+        var origin = String(loc.origin || '').trim();
+        var secureOrigin = !!window.isSecureContext || protocol === 'https:' || host === 'localhost' || host === '127.0.0.1';
+        return {
+            origin: origin || '(unknown origin)',
+            protocol: protocol || '',
+            host: host || '',
+            secure_origin: !!secureOrigin,
+            media_devices: !!(navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function'),
+            media_recorder: typeof MediaRecorder !== 'undefined',
+            can_direct_capture: !!(secureOrigin && navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function' && typeof MediaRecorder !== 'undefined'),
+            shim_runtime: !!window.__vsCodeShimInstalled
+        };
+    }
+
+    async function _audioCaptureStart(state, options) {
+        if (!state) throw new Error('Missing audio capture state.');
+        if (state.recording) return state;
+        if (_audioCaptureOtherSessionActive(state)) {
+            throw new Error('Another audio capture is already active.');
+        }
+        var runtime = _audioCaptureRuntimeInfo();
+        if (!runtime.media_devices) {
+            throw new Error('Microphone capture is unavailable in this runtime.');
+        }
+        if (!runtime.media_recorder) {
+            throw new Error('MediaRecorder is unavailable in this runtime.');
+        }
+        if (!runtime.secure_origin) {
+            throw new Error('Microphone capture requires a secure origin. Current origin: ' + runtime.origin + '. Use audio-file import on this tab instead.');
+        }
+
+        var stream;
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch (err) {
+            var msg = String(err && err.message ? err.message : err || 'Microphone access failed.');
+            if (/security|origin/i.test(msg)) {
+                throw new Error('Microphone capture is blocked by the current browser security origin (' + runtime.origin + '). Use audio-file import on this tab instead.');
+            }
+            throw err;
+        }
+        var preferredMime = _audioCapturePreferredMimeType();
+        var recorder;
+        try {
+            recorder = preferredMime ? new MediaRecorder(stream, { mimeType: preferredMime }) : new MediaRecorder(stream);
+        } catch (err) {
+            recorder = new MediaRecorder(stream);
+        }
+
+        state.stream = stream;
+        state.mediaRecorder = recorder;
+        state.chunks = [];
+        state.startTime = Date.now();
+        state.recording = true;
+        state.mimeType = String(recorder.mimeType || preferredMime || 'audio/webm');
+        state.afterStop = null;
+
+        recorder.ondataavailable = function (event) {
+            if (event && event.data && event.data.size > 0) state.chunks.push(event.data);
+        };
+        recorder.onstop = function () {
+            var stoppedAt = Date.now();
+            var durationSecs = Math.max(0, Math.floor((stoppedAt - state.startTime) / 1000));
+            var mimeType = String(state.mimeType || recorder.mimeType || preferredMime || 'audio/webm');
+            var blob = null;
+            try {
+                blob = new Blob(state.chunks || [], { type: mimeType });
+            } catch (err) {
+                blob = null;
+            }
+            var ownerKey = String(state.ownerKey || '');
+            var afterStop = state.afterStop;
+            var result = {
+                blob: blob,
+                mimeType: mimeType,
+                format: _audioCaptureFormatFromMimeType(mimeType),
+                durationSecs: durationSecs,
+                durationLabel: _audioCaptureFormatDuration(durationSecs),
+                bytes: blob && blob.size ? blob.size : 0,
+                name: 'voice-capture-' + stoppedAt + '.' + _audioCaptureFormatFromMimeType(mimeType),
+                ownerKey: ownerKey
+            };
+            _audioCaptureClearTimer(state);
+            _audioCaptureStopTracks(state.stream);
+            state.recording = false;
+            state.mediaRecorder = null;
+            state.stream = null;
+            state.startTime = 0;
+            state.afterStop = null;
+            state.chunks = [];
+            state.ownerKey = '';
+            if (options && typeof options.onStop === 'function') {
+                try { options.onStop(result, state); } catch (err) { }
+            }
+            if (typeof afterStop === 'function') afterStop(result);
+        };
+
+        recorder.start();
+        if (options && typeof options.onStart === 'function') {
+            try { options.onStart(state); } catch (err) { }
+        }
+        if (options && typeof options.onTick === 'function') {
+            _audioCaptureClearTimer(state);
+            state.timer = setInterval(function () {
+                if (!state.recording) return;
+                try {
+                    options.onTick(Math.max(0, Math.floor((Date.now() - state.startTime) / 1000)), state);
+                } catch (err) { }
+            }, 1000);
+        }
+        return state;
+    }
+
+    function _audioCaptureCancel(state) {
+        if (!state) return;
+        state.afterStop = null;
+        if (state.mediaRecorder && state.mediaRecorder.state !== 'inactive') {
+            state.mediaRecorder.stop();
+            return;
+        }
+        _audioCaptureClearTimer(state);
+        _audioCaptureStopTracks(state.stream);
+        state.recording = false;
+        state.mediaRecorder = null;
+        state.stream = null;
+        state.startTime = 0;
+        state.chunks = [];
+        state.ownerKey = '';
+    }
+
+    function _audioCaptureFinalize(state, onReady, onError) {
+        if (!state || !state.mediaRecorder) {
+            if (typeof onError === 'function') onError(new Error('No active audio capture.'));
+            return;
+        }
+        state.afterStop = function (result) {
+            if (!result || !result.blob || !result.bytes) {
+                if (typeof onError === 'function') onError(new Error('No audio captured.'));
+                return;
+            }
+            var reader = new FileReader();
+            reader.onload = function () {
+                var dataUrl = String(reader.result || '');
+                var commaIdx = dataUrl.indexOf(',');
+                result.dataUrl = dataUrl;
+                result.base64 = commaIdx >= 0 ? dataUrl.slice(commaIdx + 1) : '';
+                if (typeof onReady === 'function') onReady(result);
+            };
+            reader.onerror = function () {
+                if (typeof onError === 'function') onError(new Error('Failed to read recorded audio.'));
+            };
+            reader.readAsDataURL(result.blob);
+        };
+        if (state.mediaRecorder.state !== 'inactive') {
+            state.mediaRecorder.stop();
+        } else if (typeof state.afterStop === 'function') {
+            var afterStop = state.afterStop;
+            state.afterStop = null;
+            afterStop(null);
+        }
+    }
+
+    function _audioCaptureImportFile(ownerKey, onReady, onError) {
+        var picker = document.createElement('input');
+        picker.type = 'file';
+        picker.accept = 'audio/*,.mp3,.wav,.m4a,.ogg,.webm,.aac,.flac';
+        picker.style.display = 'none';
+        picker.addEventListener('change', function () {
+            var file = picker.files && picker.files[0] ? picker.files[0] : null;
+            if (!picker.parentNode) {
+                // no-op
+            } else {
+                picker.parentNode.removeChild(picker);
+            }
+            if (!file) {
+                if (typeof onError === 'function') onError(new Error('No audio file selected.'));
+                return;
+            }
+            var reader = new FileReader();
+            reader.onload = function () {
+                var dataUrl = String(reader.result || '');
+                var commaIdx = dataUrl.indexOf(',');
+                var mimeType = String(file.type || 'audio/' + _audioCaptureFormatFromMimeType(file.name || 'audio.webm'));
+                var result = {
+                    blob: file,
+                    dataUrl: dataUrl,
+                    base64: commaIdx >= 0 ? dataUrl.slice(commaIdx + 1) : '',
+                    mimeType: mimeType,
+                    format: _audioCaptureFormatFromMimeType(mimeType || file.name || 'audio.webm'),
+                    durationSecs: 0,
+                    durationLabel: '0:00',
+                    bytes: Number(file.size) || 0,
+                    name: String(file.name || ('audio-import.' + _audioCaptureFormatFromMimeType(mimeType))),
+                    ownerKey: String(ownerKey || '')
+                };
+                if (typeof onReady === 'function') onReady(result);
+            };
+            reader.onerror = function () {
+                if (typeof onError === 'function') onError(new Error('Failed to read the selected audio file.'));
+            };
+            reader.readAsDataURL(file);
+        }, { once: true });
+        document.body.appendChild(picker);
+        picker.click();
+    }
 
     // ── NIP-53: VOICE ROOM STATE ──
     let _voiceRooms = [];
@@ -1244,10 +1717,46 @@
         };
     })();
 
+    function _envSurfaceBridgeStateSnapshot() {
+        var state = _envHtmlPanelState.bridgeState && typeof _envHtmlPanelState.bridgeState === 'object'
+            ? _envHtmlPanelState.bridgeState
+            : {};
+        return {
+            active_tab: String(state.activeTab || ''),
+            active_section: String(state.activeSection || ''),
+            last_command: String(state.lastCommand || ''),
+            last_target: String(state.lastTarget || ''),
+            last_ok: !!state.lastOk,
+            last_ts: Number(state.lastTs || 0),
+            scroll_y: Number(state.scrollY || 0)
+        };
+    }
+
+    function _envHandleSurfaceBridgeMessage(msg) {
+        var payload = msg && typeof msg === 'object' ? msg : null;
+        if (!payload || payload.__env_surface_bridge__ !== 'cc:v1' || payload.direction !== 'surface_to_shell') return false;
+        var activeKey = String(_envHtmlPanelState.objectKey || '').trim();
+        var payloadKey = String(payload.objectKey || '').trim();
+        if (!activeKey || !payloadKey || payloadKey !== activeKey) return true;
+        var state = payload.state && typeof payload.state === 'object' ? payload.state : {};
+        _envHtmlPanelState.bridgeState = {
+            activeTab: String(state.activeTab || ''),
+            activeSection: String(state.activeSection || ''),
+            lastCommand: String(payload.type || payload.command || ''),
+            lastTarget: String(payload.target || ''),
+            lastOk: !!payload.ok,
+            lastTs: Date.now(),
+            scrollY: Number(state.scrollY || 0)
+        };
+        _envScheduleLiveSync('panel:bridge', true);
+        return true;
+    }
+
     // ── MESSAGE HANDLER ──
     window.addEventListener('message', function (e) {
         var msg = e.data;
         try {
+            if (_envHandleSurfaceBridgeMessage(msg)) return;
             switch (msg.type) {
                 case 'state':
                     var prevStatus = _state ? _state.serverStatus : '';
@@ -1867,19 +2376,332 @@
         return /^slot[_\-\s]?\d+$/.test(v) || v === 'empty' || v === 'vacant';
     }
 
+    function _slotPrimarySource(slot) {
+        var raw = slot && typeof slot === 'object' ? slot : {};
+        return String(
+            raw.source
+            || raw.model_source
+            || raw.model_id
+            || raw.model
+            || raw.model_name
+            || raw._model_source
+            || ''
+        ).trim();
+    }
+
+    function _slotParseIndex(slot, fallbackIndex) {
+        var raw = slot && typeof slot === 'object' ? slot : {};
+        var candidates = [raw.slot, raw.index, raw.slot_index, raw.slotId, raw.id];
+        for (var i = 0; i < candidates.length; i++) {
+            var value = candidates[i];
+            if (typeof value === 'number' && isFinite(value)) return value;
+            var text = String(value || '').trim();
+            if (!text) continue;
+            if (/^\d+$/.test(text)) return parseInt(text, 10);
+            var match = text.match(/(?:^|[_:\-\s])(\d+)$/);
+            if (match) return parseInt(match[1], 10);
+        }
+        return typeof fallbackIndex === 'number' && isFinite(fallbackIndex) ? fallbackIndex : -1;
+    }
+
+    function _slotDisplayLabel(slot, fallbackIndex) {
+        var raw = slot && typeof slot === 'object' ? slot : {};
+        var slotIndex = _slotParseIndex(raw, fallbackIndex);
+        var visualState = _getSlotVisualState(raw);
+        var rawName = String(raw.slot_name || raw.name || '').trim();
+        if (visualState !== 'empty' && rawName && !_isDefaultSlotName(rawName) && !/^https?:\/\//i.test(rawName)) {
+            return rawName;
+        }
+        if (slotIndex >= 0) return 'slot ' + String(slotIndex + 1);
+        return rawName || 'slot';
+    }
+
+    function _slotDisplayModel(slot) {
+        var raw = slot && typeof slot === 'object' ? slot : {};
+        var source = _slotPrimarySource(raw);
+        if (source) return source;
+        var rawName = String(raw.slot_name || raw.name || '').trim();
+        if (_getSlotVisualState(raw) !== 'empty' && rawName && !_isDefaultSlotName(rawName) && !/^https?:\/\//i.test(rawName)) {
+            return rawName;
+        }
+        return '';
+    }
+
+    function _slotUniqueStrings(items) {
+        var seen = {};
+        var out = [];
+        (Array.isArray(items) ? items : []).forEach(function (item) {
+            var text = String(item || '').trim();
+            var key = text.toLowerCase();
+            if (!text || seen[key]) return;
+            seen[key] = true;
+            out.push(text);
+        });
+        return out;
+    }
+
+    function _slotProviderDisplayLabel(descriptor) {
+        var info = descriptor && typeof descriptor === 'object' ? descriptor : {};
+        if (!info.kind || info.kind === 'unknown') return '';
+        if (!info.is_remote) return 'LOCAL';
+        if (info.kind === 'huggingface_router') {
+            var routerProvider = String(info.router_provider || '').trim();
+            return routerProvider ? ('HF ' + routerProvider.replace(/[_-]+/g, ' ').toUpperCase()) : 'HF ROUTER';
+        }
+        var host = String(info.host || '').trim().toLowerCase();
+        if (host.indexOf('anthropic') >= 0) return 'ANTHROPIC';
+        if (host.indexOf('openai') >= 0) return 'OPENAI-COMPATIBLE';
+        if (host.indexOf('google') >= 0 || host.indexOf('gemini') >= 0) return 'GOOGLE';
+        if (info.local_loopback) return 'LOOPBACK REMOTE';
+        return host ? host.toUpperCase() : 'REMOTE';
+    }
+
+    function _slotProviderDescriptor(slot) {
+        var src = _slotPrimarySource(slot);
+        if (!src) {
+            return {
+                kind: 'unknown',
+                is_remote: false,
+                model_id: '',
+                requires_external_secret: false,
+                display_label: ''
+            };
+        }
+        if (!/^https?:\/\//i.test(src)) {
+            return {
+                kind: 'local_model',
+                is_remote: false,
+                model_id: src,
+                requires_external_secret: false,
+                display_label: 'LOCAL'
+            };
+        }
+        var descriptor = {
+            kind: 'openai_compatible',
+            is_remote: true,
+            scheme: '',
+            host: '',
+            port: '',
+            path: '',
+            query: {},
+            model: '',
+            model_id: '',
+            router_provider: '',
+            local_loopback: false,
+            requires_external_secret: true,
+            display_label: 'REMOTE'
+        };
+        try {
+            var parsed = new URL(src, window.location.origin);
+            var segments = String(parsed.pathname || '').split('/').filter(function (segment) { return !!segment; });
+            var query = {};
+            parsed.searchParams.forEach(function (value, key) {
+                query[key] = value;
+            });
+            descriptor.scheme = String(parsed.protocol || '').replace(/:$/, '');
+            descriptor.host = String(parsed.hostname || '');
+            descriptor.port = String(parsed.port || '');
+            descriptor.path = String(parsed.pathname || '');
+            descriptor.query = query;
+            descriptor.model = String(query.model || '');
+            descriptor.model_id = descriptor.model || src;
+            descriptor.local_loopback = /^(127\.0\.0\.1|localhost)$/i.test(String(parsed.hostname || '').trim());
+            if (segments.indexOf('hf-router') >= 0) {
+                descriptor.kind = 'huggingface_router';
+                var routerIdx = segments.indexOf('hf-router');
+                if (routerIdx >= 0 && segments[routerIdx + 1] && segments[routerIdx + 1] !== 'v1') {
+                    descriptor.router_provider = String(segments[routerIdx + 1] || '');
+                }
+                descriptor.requires_external_secret = false;
+            }
+        } catch (err) {
+            descriptor.model_id = src;
+        }
+        descriptor.display_label = _slotProviderDisplayLabel(descriptor);
+        return descriptor;
+    }
+
+    function _slotCapabilityProfile(slot, providerDescriptor) {
+        var raw = slot && typeof slot === 'object' ? slot : {};
+        var visualState = _getSlotVisualState(raw);
+        var source = _slotPrimarySource(raw).toLowerCase();
+        var modelType = String(raw.model_type || raw.type || raw.task || raw.pipeline_tag || '').toLowerCase();
+        var label = String(raw.slot_name || raw.name || '').toLowerCase();
+        var signals = [source, modelType, label].join(' ');
+        var provider = providerDescriptor && typeof providerDescriptor === 'object' ? providerDescriptor : _slotProviderDescriptor(raw);
+        if (!source && visualState === 'empty') {
+            return {
+                binding_class: 'unbound_slot',
+                runtime_class: 'vacant',
+                invocation_class: 'unbound',
+                modality_families: [],
+                supported_tasks: [],
+                output_modes: [],
+                supports_agent_chat: false,
+                supports_vision_input: false,
+                supports_audio_input: false,
+                supports_voice_output: false,
+                supports_embeddings: false,
+                supports_image_generation: false,
+                verification_status: 'unverified',
+                facility_candidates: []
+            };
+        }
+
+        var isRemote = !!provider.is_remote;
+        var families = [];
+        var tasks = [];
+        var outputs = [];
+        var facilities = [];
+        var runtimeClass = isRemote ? 'remote_text_runtime' : 'local_text_runtime';
+        var bindingClass = isRemote ? 'remote_provider_binding' : 'local_model_binding';
+        var invocationClass = _slotSupportsAgentChat(raw) ? 'chat_completion' : 'text_generation';
+        var supportsChat = _slotSupportsAgentChat(raw);
+
+        if (/(embed|feature[-_ ]?extract|sentence[-_ ]?transformer|bge|e5-|gte-|nomic[-_ ]embed|snowflake[-_ ]arctic[-_ ]embed)/.test(signals)) {
+            runtimeClass = isRemote ? 'remote_embedding_runtime' : 'local_embedding_runtime';
+            invocationClass = 'embedding';
+            supportsChat = false;
+            families.push('text');
+            tasks.push('feature_extraction', 'embeddings');
+            outputs.push('vector');
+            facilities.push('retrieval_analyst', 'environment_operator');
+        } else if (/(rerank|cross[-_ ]encoder|colbert)/.test(signals)) {
+            runtimeClass = isRemote ? 'remote_embedding_runtime' : 'local_embedding_runtime';
+            invocationClass = 'rerank';
+            supportsChat = false;
+            families.push('text');
+            tasks.push('reranking');
+            outputs.push('scores');
+            facilities.push('retrieval_analyst');
+        } else if (/(text[-_ ]to[-_ ]speech|speech[-_ ]synthesis|\btts\b|\bkokoro\b|\bbark\b|\bparler\b|\bxtts\b)/.test(signals)) {
+            runtimeClass = isRemote ? 'remote_media_runtime' : 'local_media_runtime';
+            invocationClass = 'text_to_speech';
+            supportsChat = false;
+            families.push('text', 'audio', 'speech');
+            tasks.push('text_to_speech');
+            outputs.push('audio');
+            facilities.push('voice_agent', 'npc_agent');
+        } else if (/(automatic[-_ ]speech[-_ ]recognition|speech[-_ ]to[-_ ]text|\basr\b|transcrib|whisper|wav2vec|seamless)/.test(signals)) {
+            runtimeClass = isRemote ? 'remote_media_runtime' : 'local_media_runtime';
+            invocationClass = 'automatic_speech_recognition';
+            supportsChat = false;
+            families.push('audio', 'speech');
+            tasks.push('automatic_speech_recognition');
+            outputs.push('transcript');
+            facilities.push('voice_agent', 'perception_agent', 'gm_referee');
+        } else if (/(text[-_ ]to[-_ ]image|diffusion|sdxl|stable[-_ ]diffusion|\bflux\b|image[-_ ]generation|imagegen)/.test(signals)) {
+            runtimeClass = isRemote ? 'remote_media_runtime' : 'local_media_runtime';
+            invocationClass = 'text_to_image';
+            supportsChat = false;
+            families.push('image', 'visual');
+            tasks.push('text_to_image');
+            outputs.push('image', 'artifact');
+            facilities.push('world_builder', 'environment_operator', 'gm_referee');
+        } else if (/(vision|vlm|multimodal|image[-_ ]text[-_ ]to[-_ ]text|visual[-_ ]question|llava|qwen2?-vl|idefics|paligemma|minicpm-v|phi[-_ ]?3[-_ ]vision|internvl)/.test(signals)) {
+            runtimeClass = isRemote ? 'remote_multimodal_runtime' : 'local_multimodal_runtime';
+            invocationClass = 'image_text_to_text';
+            supportsChat = true;
+            families.push('vision', 'image', 'text');
+            tasks.push('image_text_to_text', 'vision_language');
+            outputs.push('text');
+            facilities.push('npc_agent', 'perception_agent', 'vision_analyst', 'gm_referee');
+        } else if (/(classif|moderation|detector|tagger)/.test(signals)) {
+            runtimeClass = isRemote ? 'remote_media_runtime' : 'local_media_runtime';
+            invocationClass = 'classification';
+            supportsChat = false;
+            families.push('text');
+            tasks.push('classification');
+            outputs.push('labels');
+            facilities.push('environment_operator', 'perception_agent');
+        } else {
+            families.push('text');
+            tasks.push(supportsChat ? 'chat_completion' : 'text_generation');
+            outputs.push('text');
+            facilities.push('npc_agent', 'gm_referee', 'environment_operator');
+            if (/(code|coder|programmer)/.test(signals)) facilities.push('builder_agent');
+        }
+
+        if (visualState === 'plugging') {
+            bindingClass = 'pending_slot_binding';
+        }
+
+        return {
+            binding_class: bindingClass,
+            runtime_class: runtimeClass,
+            invocation_class: invocationClass,
+            modality_families: _slotUniqueStrings(families),
+            supported_tasks: _slotUniqueStrings(tasks),
+            output_modes: _slotUniqueStrings(outputs),
+            supports_agent_chat: !!supportsChat,
+            supports_vision_input: families.indexOf('vision') >= 0,
+            supports_audio_input: invocationClass === 'automatic_speech_recognition',
+            supports_voice_output: invocationClass === 'text_to_speech',
+            supports_embeddings: invocationClass === 'embedding',
+            supports_image_generation: invocationClass === 'text_to_image',
+            verification_status: 'unverified',
+            facility_candidates: _slotUniqueStrings(facilities)
+        };
+    }
+
+    function _slotContractSummary(slot, fallbackIndex) {
+        var raw = slot && typeof slot === 'object' ? slot : {};
+        var slotIndex = _slotParseIndex(raw, fallbackIndex);
+        var providerBinding = _slotProviderDescriptor(raw);
+        var capabilityProfile = _slotCapabilityProfile(raw, providerBinding);
+        return {
+            slot: slotIndex >= 0 ? String(slotIndex) : '',
+            label: _slotDisplayLabel(raw, slotIndex),
+            model: _slotDisplayModel(raw) || 'vacant slot',
+            model_source: _slotPrimarySource(raw),
+            visualState: _getSlotVisualState(raw),
+            provider: String(providerBinding.display_label || ''),
+            provider_binding: providerBinding,
+            capability_profile: capabilityProfile,
+            facility_candidates: _slotUniqueStrings(capabilityProfile.facility_candidates || []),
+            supportsChat: !!capabilityProfile.supports_agent_chat,
+            contextWindow: String(raw.context_window || raw.contextWindow || ''),
+            maxOutput: String(raw.max_output || raw.maxOutput || '')
+        };
+    }
+
+    function _normalizeSlotRecord(slot, fallbackIndex) {
+        var raw = slot && typeof slot === 'object' ? slot : {};
+        var normalized = {};
+        for (var key in raw) {
+            if (Object.prototype.hasOwnProperty.call(raw, key)) normalized[key] = raw[key];
+        }
+        var slotIndex = _slotParseIndex(raw, fallbackIndex);
+        if (slotIndex >= 0) normalized.slot = slotIndex;
+        if (!String(normalized.name || normalized.slot_name || '').trim()) {
+            normalized.name = slotIndex >= 0 ? ('slot_' + slotIndex) : 'slot';
+        }
+        if (!String(normalized.model_source || '').trim()) {
+            var source = _slotPrimarySource(raw);
+            if (source) normalized.model_source = source;
+        }
+        if (!String(normalized.model_id || '').trim() && normalized.model_source && !/^https?:\/\//i.test(String(normalized.model_source || ''))) {
+            normalized.model_id = String(normalized.model_source || '');
+        }
+        if (normalized.plugged === undefined) {
+            normalized.plugged = _getSlotVisualState(normalized) === 'plugged';
+        }
+        if (!String(normalized.status || '').trim()) {
+            normalized.status = normalized.plugged ? 'ready' : 'empty';
+        }
+        return normalized;
+    }
+
     function _getSlotVisualState(slot) {
         var rawStatus = String(slot && slot.status ? slot.status : '').trim().toLowerCase();
-        var hasModel = !!(slot && (slot.model_id || slot.model || slot.model_name || slot.model_source || slot._model_source));
-        var hasNamedTarget = !!(slot && slot.name) && !_isDefaultSlotName(slot.name);
+        var hasModel = !!_slotPrimarySource(slot);
+        var explicitlyPlugged = !!(slot && slot.plugged === true);
 
         if (rawStatus === 'loading' || rawStatus === 'plugging' || rawStatus === 'initializing' || rawStatus === 'starting' || rawStatus === 'pending') {
             return 'plugging';
         }
-        if (hasModel || rawStatus === 'ready' || rawStatus === 'plugged' || rawStatus === 'occupied' || rawStatus === 'active' || rawStatus === 'online' || rawStatus === 'running') {
+        if (hasModel || explicitlyPlugged || rawStatus === 'ready' || rawStatus === 'plugged' || rawStatus === 'occupied' || rawStatus === 'active' || rawStatus === 'online' || rawStatus === 'running') {
             return 'plugged';
-        }
-        if (hasNamedTarget && slot.plugged !== false) {
-            return 'plugging';
         }
         return 'empty';
     }
@@ -1897,9 +2719,9 @@
     function _normalizeSlotsArrayPayload(raw) {
         var d = raw;
         // Prefer explicit slots array (postprocessed shape)
-        if (d && Array.isArray(d.slots)) return d.slots;
+        if (d && Array.isArray(d.slots)) return d.slots.map(function (slot, idx) { return _normalizeSlotRecord(slot, idx); });
         // Already array
-        if (Array.isArray(d)) return d;
+        if (Array.isArray(d)) return d.map(function (slot, idx) { return _normalizeSlotRecord(slot, idx); });
 
         // Compact list_slots shape from external MCP calls:
         // { total, all_ids:[slot_0,...], ... }
@@ -1924,7 +2746,7 @@
                         type: null
                     });
                 }
-                return out;
+                return out.map(function (slot, idx) { return _normalizeSlotRecord(slot, idx); });
             }
         }
 
@@ -1955,19 +2777,19 @@
             var ui = parseInt(unpKeys[uk]);
             var us = slotsArr[ui];
             var unpInfo = _unpluggingSlots[unpKeys[uk]];
-            var unpStale = unpInfo && (now_unp - unpInfo.startTime) > 120000;
+            var unpStale = unpInfo && (now_unp - unpInfo.startTime) > 600000;
             if (!us || _getSlotVisualState(us) === 'empty' || unpStale) {
                 delete _unpluggingSlots[unpKeys[uk]];
             }
         }
 
         // ── PHANTOM PLUGGING FIX ──
-        // 1) Staleness timeout: clear plugging entries older than 120s
+        // 1) Staleness timeout: clear plugging entries older than 10 minutes
         var now = Date.now();
         var staleKeys = Object.keys(_pluggingSlots);
         for (var sk = 0; sk < staleKeys.length; sk++) {
             var sInfo = _pluggingSlots[staleKeys[sk]];
-            if (sInfo && (now - sInfo.startTime) > 120000) {
+            if (sInfo && (now - sInfo.startTime) > 600000) {
                 delete _pluggingSlots[staleKeys[sk]];
             }
         }
@@ -2254,7 +3076,8 @@
     // ══════════════════════════════════════════════════════════════
 
     function _detectProvider(slot) {
-        var src = String(slot.model_source || slot.model_id || slot.name || '').toLowerCase();
+        var raw = slot && typeof slot === 'object' ? slot : {};
+        var src = String(_slotPrimarySource(raw) || ((_getSlotVisualState(raw) !== 'empty' && raw.name) ? raw.name : '') || '').toLowerCase();
         if (src.indexOf('anthropic') >= 0 || src.indexOf('claude') >= 0) return 'anthropic';
         if (src.indexOf('openai') >= 0 || src.indexOf('gpt') >= 0 || src.indexOf('chatgpt') >= 0) return 'openai';
         if (src.indexOf('google') >= 0 || src.indexOf('gemini') >= 0) return 'google';
@@ -2310,8 +3133,9 @@
         var slot = _getSlotData(idx);
         if (!slot) return;
 
+        var slotSummary = _slotContractSummary(slot, idx);
         var provider = _detectProvider(slot);
-        var modelLabel = slot.model_source || slot.model_id || slot.name || 'VACANT';
+        var modelLabel = slotSummary.model;
         var modelType = slot.model_type || slot.type || 'unknown';
 
         // Identity header
@@ -3137,7 +3961,7 @@
         if (!event) return;
 
         // Reduce feed noise from background orchestration and polling.
-        if (ACTIVITY_SILENT_TOOLS.indexOf(event.tool) >= 0 && event.source !== 'agent-inner') {
+        if (ACTIVITY_SILENT_TOOLS.indexOf(event.tool) >= 0 && event.source !== 'agent-inner' && event.source !== 'agent-debug') {
             return;
         }
 
@@ -4586,7 +5410,7 @@
         return id;
     }
 
-    var TOOL_AWAIT_TIMEOUT_MS = 60000; // 60s default timeout for awaited tool calls
+    var TOOL_AWAIT_TIMEOUT_MS = 600000; // 10m default timeout for awaited tool calls
     function callToolAwait(name, args, routeAs, meta) {
         return new Promise(function (resolve, reject) {
             var m = {};
@@ -6097,6 +6921,12 @@
 
     function _envOpenLinkedTab(tabName) {
         if (_appMode === 'product' && tabName !== 'environment') return false;
+        // Suppress navigation away from Environment tab when it is active
+        var envTab = document.querySelector('.tab[data-tab="environment"]');
+        if (envTab && envTab.classList.contains('active')) {
+            _envLogAction('control', 'Retained Environment tab (suppressed switch to ' + tabName + ')', 'system', { suppressedTab: tabName });
+            return false;
+        }
         var btn = document.querySelector('.tab[data-tab="' + tabName + '"]');
         if (btn) btn.click();
         return !!btn;
@@ -6191,6 +7021,10 @@
 
     function _envUseScenePrimaryMode() {
         return _envSceneHasPrimarySurface();
+    }
+
+    function _envSceneShouldRenderCustomOnly() {
+        return _envUseScenePrimaryMode() && _envKnownPersistedObjectCount() > 0;
     }
 
     function _envPrimaryWorkflow() {
@@ -7689,17 +8523,24 @@
     }
 
     function _envSceneObjectPool() {
-        var pool = Array.isArray(_envScene.objects) ? _envScene.objects.slice() : [];
-        var seen = {};
-        pool.forEach(function (obj) {
-            var key = _envSceneObjectKey(obj);
-            if (key) seen[key] = true;
-        });
+        var spawnedByKey = {};
         (_envSpawnedObjects || []).forEach(function (obj) {
+            var key = _envSceneObjectKey(obj);
+            if (key) spawnedByKey[key] = obj;
+        });
+        var pool = [];
+        var seen = {};
+        (Array.isArray(_envScene.objects) ? _envScene.objects : []).forEach(function (obj) {
             var key = _envSceneObjectKey(obj);
             if (!key || seen[key]) return;
             seen[key] = true;
-            pool.push(obj);
+            pool.push(spawnedByKey[key] || obj);
+        });
+        Object.keys(spawnedByKey).forEach(function (key) {
+            if (!seen[key]) {
+                seen[key] = true;
+                pool.push(spawnedByKey[key]);
+            }
         });
         return pool;
     }
@@ -8120,6 +8961,11 @@
             return surfaceObj ? _envSceneObjectKey(surfaceObj) : '';
         }
         if (command === 'close_surface') return _envHtmlPanelState.objectKey ? String(_envHtmlPanelState.objectKey) : '';
+        if (command === 'surface_tab' || command === 'surface_scroll' || command === 'surface_action'
+            || command === 'surface_click' || command === 'surface_input' || command === 'surface_submit') {
+            var bridgeEnvelope = _envSurfaceBridgeEnvelope(command, targetId);
+            return String(bridgeEnvelope.objectKey || _envHtmlPanelState.objectKey || '');
+        }
         if (command === 'close_inspector') return _envInspectorState.objectKey ? String(_envInspectorState.objectKey) : '';
         if (command === 'focus_doc' || command === 'open_doc_memory') return targetId ? ('doc::' + targetId) : '';
         if (command === 'focus_sample') return targetId ? ('sample::' + targetId) : (latestSample ? ('sample::' + String(latestSample.id || '')) : '');
@@ -8642,7 +9488,7 @@
         var notes = Array.isArray(view.notes) ? view.notes : [];
         return '<div class="envops-habitat-corroboration" id="envops-habitat-corroboration">' +
             '<div class="envops-habitat-corroboration-head">' +
-                '<span class="envops-habitat-corroboration-kicker">LIVE CORROBORATION</span>' +
+                '<span class="envops-habitat-corroboration-kicker">LIVE MIRROR · SECONDARY</span>' +
                 '<span class="envops-habitat-corroboration-subject">' + _esc(String(((view.subject || {}).label) || 'scene')) + '</span>' +
             '</div>' +
             '<div class="envops-habitat-corroboration-narrative">' + _esc(String(view.narrative || '')) + '</div>' +
@@ -8832,10 +9678,44 @@
         };
     }
 
+    function _envRenderHabitatSpawnForm() {
+        if (!_envStageUiState.spawnFormOpen) {
+            return '<div class="envops-inspector-actions-inline" style="margin-top:2px;">' +
+                '<button type="button" class="btn-dim" data-env-action="toggle-spawn-object-form">Spawn Object</button>' +
+            '</div>';
+        }
+        return '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.08);display:grid;gap:8px;">' +
+            '<div class="envops-inspector-actions-inline" style="justify-content:space-between;">' +
+                '<span class="envops-kernel-note">Create custom scene objects without leaving the habitat.</span>' +
+                '<button type="button" class="btn-dim" data-env-action="toggle-spawn-object-form">Close</button>' +
+            '</div>' +
+            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
+                _envInspectorEditorSelect('envops-spawn-kind', 'Kind', 'prop', [
+                    { value: 'prop', label: 'Prop' },
+                    { value: 'zone', label: 'Zone' },
+                    { value: 'panel', label: 'Panel' },
+                    { value: 'vegetation_patch', label: 'Vegetation Patch' },
+                    { value: 'npc', label: 'NPC' }
+                ]) +
+                _envInspectorEditorField('envops-spawn-label', 'Label', '', 'text', '', 'New object') +
+                _envInspectorEditorField('envops-spawn-x', 'Scene X', '50', 'number', ' step="1" min="2" max="98"') +
+                _envInspectorEditorField('envops-spawn-y', 'Scene Y', '50', 'number', ' step="1" min="2" max="98"') +
+            '</div>' +
+            '<div class="envops-inspector-actions-inline">' +
+                '<button type="button" data-env-action="spawn-scene-object">Create</button>' +
+            '</div>' +
+        '</div>';
+    }
+
     function _envRenderOperationsRail(snapshot) {
         var view = snapshot && typeof snapshot === 'object' ? snapshot : _envBuildOperationSnapshot(4);
-        if (!view.active || !view.primary) return '';
-        var primary = view.primary;
+        var primary = (view && view.primary) ? view.primary : {
+            tool: 'scene',
+            actor: 'assistant',
+            when: 'ready',
+            input_preview: 'Spawn and edit custom habitat objects from here.',
+            result_preview: 'No recent operation yet.'
+        };
         var sourceFocusKind = String(primary.source || '').toLowerCase() === 'external' ? 'actor' : '';
         var sourceFocusId = sourceFocusKind ? 'assistant' : '';
         var targetAttrs = primary.object_key
@@ -8856,9 +9736,14 @@
         }).join('');
         return '<div class="envops-habitat-ops-rail" id="envops-habitat-ops-rail">' +
             '<div class="envops-habitat-ops-head">' +
-                '<span class="k">LIVE OPS</span>' +
-                '<span class="v">' + _esc(String(primary.tool || 'tool')) + '</span>' +
+                '<span class="k envops-overlay-panel-handle" data-env-overlay-handle>LIVE OPS</span>' +
+                '<div class="envops-overlay-panel-actions">' +
+                    '<span class="v">' + _esc(String(primary.tool || 'tool')) + '</span>' +
+                    '<button type="button" class="btn-dim envops-overlay-mini-btn" data-env-action="reset-overlay-panel" data-env-overlay-id="ops" title="Reset panel position">↺</button>' +
+                    '<button type="button" class="btn-dim envops-overlay-mini-btn" data-env-action="toggle-overlay-panel" data-env-overlay-id="ops" title="Minimize panel">–</button>' +
+                '</div>' +
             '</div>' +
+            _envRenderHabitatSpawnForm() +
             '<div class="envops-habitat-event-route">' +
                 '<button type="button" class="envops-habitat-event-pill source"' + sourceAttrs + '>' +
                     '<span class="h">source</span>' +
@@ -11557,6 +12442,8 @@
             canvas.addEventListener('click', function (event) {
                 var hit = _envSceneHitTest(event.clientX, event.clientY);
                 if (!hit || !hit.obj) return;
+                event.preventDefault();
+                event.stopPropagation();
                 _envSelectSceneObject(hit.obj, _envManualActorId(), 'habitat_scene');
             });
         }
@@ -12652,8 +13539,9 @@
         var container = document.getElementById('envops-habitat-shell');
         if (!container) return;
         if (typeof THREE !== 'undefined') {
+            var renderObjects = _envSceneObjectPool();
             _env3DInit(container);
-            _env3DSyncObjects(_envScene.objects);
+            _env3DSyncObjects(renderObjects);
             _env3DResize();
             // Restart anim loop if it stopped (tab was inactive)
             if (_env3D.inited && !_env3D.animId) {
@@ -13511,8 +14399,8 @@
         else if (focusKind === 'trace' && traces[focusId] && traces[focusId].args && traces[focusId].args._workflow_node_id) _wfSelectNodeDrill(String(traces[focusId].args._workflow_node_id));
         else if (focusKind === 'doc') _envDocRequestRead(focusId, actorName);
         _envLogAction('focus', 'Focused ' + label + ' (' + focusKind + ')', actorName, { kind: focusKind, id: focusId });
-        // Drive three.js camera to follow focus
-        if (_env3D.inited) {
+        // Drive three.js camera to follow focus — suppress when panel owns attention
+        if (_env3D.inited && !_envHtmlPanelState.active) {
             var cMode = _envSceneNormalizeCameraMode(_envScene.cameraMode || 'overview');
             if (cMode === 'focus') _env3DFocusObject(focusKind, focusId);
         }
@@ -14175,6 +15063,19 @@
             renderEnvironmentView();
             return;
         }
+        if (command === 'surface_tab' || command === 'surface_scroll' || command === 'surface_action'
+            || command === 'surface_click' || command === 'surface_input' || command === 'surface_submit') {
+            if (_envDispatchSurfaceBridgeCommand(command, targetId, actorName, reason)) return;
+            _envSetBadge('failed', 'NO BRIDGE');
+            _envLogAction('control', 'Control command ' + command + ' found no active owned surface bridge', actorName, {
+                action: command,
+                target: targetId,
+                panel_active: !!_envHtmlPanelState.active,
+                content_type: String(_envHtmlPanelState.contentType || '')
+            });
+            renderEnvironmentView();
+            return;
+        }
         if (command === 'close_inspector') {
             if (_envCloseInspector(actorName, 'control close inspector')) return;
             _envSetBadge('failed', 'NO INSPECT');
@@ -14264,6 +15165,70 @@
             var slotMeta = isNaN(slotNum) ? null : (_getSlotData ? _getSlotData(slotNum) : null);
             _envSetFocus('slot', slotId, actorName, slotMeta);
             _envLogAction('control', 'Focus slot ' + slotId + (slotMeta ? (' (' + String(slotMeta.name || 'slot') + ')') : ''), actorName, { action: command, target: slotId, slot: slotMeta });
+            renderEnvironmentView();
+            return;
+        }
+        if (command === 'set_world_profile') {
+            var wpKey = targetId;
+            if (wpKey && !_envWorldProfiles[wpKey]) {
+                _envSetBadge('failed', 'NO WORLD PROFILE');
+                _envLogAction('control', 'set_world_profile: unknown profile "' + wpKey + '"', actorName, { action: command, target: targetId });
+                renderEnvironmentView();
+                return;
+            }
+            _env3DApplyWorldProfile(wpKey);
+            _envLogAction('control', wpKey ? ('Applied world profile: ' + wpKey) : 'Cleared world profile', actorName, { action: command, target: targetId });
+            _envEmitBus('control', wpKey ? ('Applied world profile: ' + wpKey) : 'Cleared world profile', actorName, { action: command, world_profile: wpKey });
+            _envSetBadge('running', wpKey ? ('WP ' + wpKey.toUpperCase()) : 'WP CLEAR');
+            _envScene.dirty = true;
+            renderEnvironmentView();
+            return;
+        }
+        if (command === 'apply_profile_kit') {
+            var kitKey = targetId;
+            if (!kitKey || !_envWorldProfileKits[kitKey]) {
+                _envSetBadge('failed', 'NO KIT');
+                _envLogAction('control', 'apply_profile_kit: unknown kit "' + (kitKey || '') + '"', actorName, { action: command, target: targetId });
+                renderEnvironmentView();
+                return;
+            }
+            _env3DApplyProfileKit(kitKey);
+            _envLogAction('control', 'Applied profile kit: ' + kitKey, actorName, { action: command, target: targetId });
+            _envEmitBus('control', 'Applied profile kit: ' + kitKey, actorName, { action: command, profile_kit: kitKey });
+            _envSetBadge('running', 'KIT ' + kitKey.toUpperCase());
+            _envScene.dirty = true;
+            renderEnvironmentView();
+            return;
+        }
+        if (command === 'clear_profile_kit') {
+            var clearKitKey = targetId;
+            if (!clearKitKey || !_envWorldProfileKits[clearKitKey]) {
+                _envSetBadge('failed', 'NO KIT');
+                _envLogAction('control', 'clear_profile_kit: unknown or missing kit "' + (clearKitKey || '') + '"', actorName, { action: command, target: targetId });
+                renderEnvironmentView();
+                return;
+            }
+            var removedCount = _env3DClearProfileKit(clearKitKey);
+            _envLogAction('control', 'Cleared profile kit: ' + clearKitKey + ' (' + removedCount + ' removed)', actorName, { action: command, target: targetId, removed: removedCount });
+            _envEmitBus('control', 'Cleared profile kit: ' + clearKitKey, actorName, { action: command, profile_kit: clearKitKey, removed: removedCount });
+            _envSetBadge('running', 'KIT CLR');
+            _envScene.dirty = true;
+            renderEnvironmentView();
+            return;
+        }
+        if (command === 'set_camera_preset') {
+            var cpKey = targetId;
+            if (!cpKey || !_env3DCameraPresets[cpKey]) {
+                _envSetBadge('failed', 'NO PRESET');
+                _envLogAction('control', 'set_camera_preset: unknown preset "' + (cpKey || '') + '"', actorName, { action: command, target: targetId });
+                renderEnvironmentView();
+                return;
+            }
+            _env3DAnimateCameraToPreset(cpKey, 800);
+            _envLogAction('control', 'Camera preset: ' + cpKey, actorName, { action: command, target: targetId });
+            _envEmitBus('control', 'Camera preset: ' + cpKey, actorName, { action: command, camera_preset: cpKey });
+            _envSetBadge('running', 'CAM ' + cpKey.toUpperCase());
+            _envScene.dirty = true;
             renderEnvironmentView();
             return;
         }
@@ -14511,7 +15476,10 @@
         var visualMode = _envHabitatVisualMode();
         var plan = _envHabitatVisualPlan(visualMode);
         var activeActorId = String(_envActorActiveId() || '').trim();
+        sections = Array.isArray(sections) ? sections : [];
+        traces = Array.isArray(traces) ? traces : [];
         var objects = [];
+        if (_envSceneShouldRenderCustomOnly()) return objects;
         if (workflow) {
             objects.push({
                 kind: 'workflow',
@@ -14728,12 +15696,17 @@
                 }
                 slotArr = _normalizeSlotsArrayPayload(slotRaw);
             } catch (e) { slotArr = []; }
-            var slotPlugged = slotArr.filter(function (s) { return s && s.plugged; });
-            var slotVisible = slotPlugged.length ? slotPlugged : slotArr.filter(function (s) { return s && s.name && !_isDefaultSlotName(s.name); });
+            var slotActive = slotArr.filter(function (s) {
+                var visualState = _getSlotVisualState(s);
+                return visualState === 'plugged' || visualState === 'plugging';
+            });
+            var slotVisible = slotActive.length ? slotActive : slotArr.slice(0, Math.min(4, plan.slotLimit));
             if (!slotVisible.length && slotArr.length) slotVisible = slotArr.slice(0, Math.min(4, plan.slotLimit));
             slotVisible.slice(0, plan.slotLimit).forEach(function (slot, idx) {
                 var slotIndex = typeof slot.slot === 'number' ? slot.slot : idx;
-                var isPlugged = !!(slot.plugged || slot.model_source || slot.model_id);
+                var slotSummary = _slotContractSummary(slot, slotIndex);
+                var slotState = String(slotSummary.visualState || 'empty');
+                var isPlugged = slotState === 'plugged';
                 // Read medium from agent config (localStorage) if available
                 var slotMedium = 'slot';
                 try {
@@ -14745,14 +15718,62 @@
                     }
                 } catch (e) {}
                 var objKind = slotMedium !== 'slot' ? slotMedium : 'slot';
+                var providerBinding = slotSummary.provider_binding || {};
+                var capabilityProfile = slotSummary.capability_profile || {};
+                var slotMeta = 'vacant slot';
+                if (slotState === 'plugging') {
+                    slotMeta = 'binding pending';
+                } else if (isPlugged) {
+                    var providerText = String(slotSummary.provider || 'LOCAL');
+                    var runtimeText = String(capabilityProfile.runtime_class || 'runtime').replace(/_/g, ' ');
+                    slotMeta = providerText + ' · ' + runtimeText;
+                }
                 objects.push({
                     kind: objKind,
                     id: String(slotIndex),
-                    label: String(slot.name || ('slot ' + slotIndex)),
-                    meta: isPlugged ? String(slot.model_source || slot.model_id || 'plugged model') : 'vacant slot',
-                    state: isPlugged ? 'running' : 'idle',
+                    label: String(slotSummary.label || ('slot ' + (slotIndex + 1))),
+                    meta: slotMeta,
+                    state: slotState === 'empty' ? 'idle' : 'running',
                     category: 'council ' + objKind,
-                    x: 72 + (idx % 3) * 8, y: 38 + Math.floor(idx / 3) * 10, scale: 0.78, tilt: 8 - idx * 3
+                    x: 72 + (idx % 3) * 8,
+                    y: 38 + Math.floor(idx / 3) * 10,
+                    scale: 0.78,
+                    tilt: 8 - idx * 3,
+                    slot: slotIndex,
+                    data: {
+                        semantics_family: 'agent_runtime_slot',
+                        slot_id: String(slotSummary.slot || slotIndex),
+                        binding_state: slotState,
+                        model: String(slotSummary.model || ''),
+                        model_source: String(slotSummary.model_source || ''),
+                        provider_binding: providerBinding,
+                        capability_profile: capabilityProfile,
+                        facility_candidates: _slotUniqueStrings(slotSummary.facility_candidates || []),
+                        bindings: {
+                            slot: {
+                                id: String(slotSummary.slot || slotIndex),
+                                medium: String(slotMedium || 'slot')
+                            },
+                            provider: {
+                                kind: String(providerBinding.kind || ''),
+                                display_label: String(providerBinding.display_label || ''),
+                                model_id: String(providerBinding.model_id || providerBinding.model || '')
+                            }
+                        },
+                        content: {
+                            primary_model: String(slotSummary.model || ''),
+                            output_modes: _slotUniqueStrings(capabilityProfile.output_modes || [])
+                        },
+                        observation: {
+                            supports_agent_chat: !!capabilityProfile.supports_agent_chat,
+                            modality_families: _slotUniqueStrings(capabilityProfile.modality_families || []),
+                            supported_tasks: _slotUniqueStrings(capabilityProfile.supported_tasks || [])
+                        },
+                        packaging: {
+                            export_role: 'slot_runtime',
+                            verification_status: String(capabilityProfile.verification_status || 'unverified')
+                        }
+                    }
                 });
             });
         }
@@ -14785,10 +15806,327 @@
         return num;
     }
 
+    function _envSceneStringOrNull(value, fallback) {
+        if (value === undefined) return fallback === undefined ? null : fallback;
+        if (value === null) return null;
+        var text = String(value).trim();
+        return text ? text : null;
+    }
+
+    function _envNormalizeSceneAppearanceRecord(sources) {
+        var normalized = {
+            color: null,
+            geometry: 'box',
+            asset_ref: null,
+            lod_levels: null,
+            material: null
+        };
+        var list = Array.isArray(sources) ? sources : [sources];
+        list.forEach(function (source) {
+            if (!source || typeof source !== 'object' || Array.isArray(source)) return;
+            if (Object.prototype.hasOwnProperty.call(source, 'color')) {
+                normalized.color = _envSceneStringOrNull(source.color, normalized.color);
+            }
+            if (Object.prototype.hasOwnProperty.call(source, 'geometry')) {
+                normalized.geometry = _envSceneStringOrNull(source.geometry, normalized.geometry) || 'box';
+            }
+            var assetRef = source.asset_ref !== undefined ? source.asset_ref : source.assetRef;
+            if (assetRef !== undefined) {
+                normalized.asset_ref = _envSceneStringOrNull(assetRef, normalized.asset_ref);
+            }
+            var lodLevels = source.lod_levels !== undefined ? source.lod_levels : source.lodLevels;
+            if (lodLevels !== undefined) normalized.lod_levels = _envCloneJson(lodLevels, null);
+            if (source.material !== undefined) {
+                normalized.material = (source.material && typeof source.material === 'object')
+                    ? _envCloneJson(source.material, null)
+                    : _envSceneStringOrNull(source.material, normalized.material);
+            }
+        });
+        if (!normalized.geometry) normalized.geometry = 'box';
+        return normalized;
+    }
+
+    function _envNormalizeSceneDirection2(value, fallback) {
+        var source = Array.isArray(value) ? value : fallback;
+        var x = Number(source && source.length > 0 ? source[0] : 1);
+        var z = Number(source && source.length > 1 ? source[1] : 0);
+        if (!isFinite(x)) x = 1;
+        if (!isFinite(z)) z = 0;
+        var len = Math.sqrt((x * x) + (z * z));
+        if (len < 0.0001) return [1, 0];
+        return [x / len, z / len];
+    }
+
+    function _envNormalizeSceneMechanics(sources) {
+        var normalized = {
+            family: null,
+            wind: {
+                enabled: false,
+                strength: 0.5,
+                frequency: 1.0,
+                direction: [1, 0]
+            },
+            reaction: {
+                enabled: false,
+                radius: 2.0,
+                strength: 0.8,
+                recovery: 3.0
+            },
+            lod: {
+                near: 20,
+                mid: 50,
+                far: 100
+            }
+        };
+        var sawValue = false;
+        var list = Array.isArray(sources) ? sources : [sources];
+        list.forEach(function (source) {
+            if (!source || typeof source !== 'object' || Array.isArray(source)) return;
+            if (source.family !== undefined) {
+                normalized.family = _envSceneStringOrNull(source.family, normalized.family);
+                if (normalized.family) sawValue = true;
+            }
+            if (source.wind && typeof source.wind === 'object' && !Array.isArray(source.wind)) {
+                var wind = source.wind;
+                if (wind.enabled !== undefined) normalized.wind.enabled = wind.enabled !== false;
+                if (wind.strength !== undefined) normalized.wind.strength = _envSceneNumber(wind.strength, normalized.wind.strength, 0, 1.5);
+                if (wind.frequency !== undefined) normalized.wind.frequency = _envSceneNumber(wind.frequency, normalized.wind.frequency, 0.05, 8);
+                if (wind.direction !== undefined) normalized.wind.direction = _envNormalizeSceneDirection2(wind.direction, normalized.wind.direction);
+                sawValue = true;
+            }
+            if (source.reaction && typeof source.reaction === 'object' && !Array.isArray(source.reaction)) {
+                var reaction = source.reaction;
+                if (reaction.enabled !== undefined) normalized.reaction.enabled = reaction.enabled !== false;
+                if (reaction.radius !== undefined) normalized.reaction.radius = _envSceneNumber(reaction.radius, normalized.reaction.radius, 0.2, 20);
+                if (reaction.strength !== undefined) normalized.reaction.strength = _envSceneNumber(reaction.strength, normalized.reaction.strength, 0, 2);
+                if (reaction.recovery !== undefined) normalized.reaction.recovery = _envSceneNumber(reaction.recovery, normalized.reaction.recovery, 0.1, 20);
+                sawValue = true;
+            }
+            if (source.lod && typeof source.lod === 'object' && !Array.isArray(source.lod)) {
+                var lod = source.lod;
+                if (lod.near !== undefined) normalized.lod.near = _envSceneNumber(lod.near, normalized.lod.near, 2, 300);
+                if (lod.mid !== undefined) normalized.lod.mid = _envSceneNumber(lod.mid, normalized.lod.mid, normalized.lod.near + 1, 400);
+                if (lod.far !== undefined) normalized.lod.far = _envSceneNumber(lod.far, normalized.lod.far, normalized.lod.mid + 1, 600);
+                sawValue = true;
+            }
+        });
+        if (!normalized.family) {
+            if (normalized.wind.enabled || normalized.reaction.enabled) normalized.family = 'foliage';
+            else if (sawValue) normalized.family = 'prop';
+        }
+        if (!sawValue && !normalized.family) return null;
+        if (normalized.lod.mid < normalized.lod.near) normalized.lod.mid = normalized.lod.near;
+        if (normalized.lod.far < normalized.lod.mid) normalized.lod.far = normalized.lod.mid;
+        return normalized;
+    }
+
+    function _envNormalizeSceneCharacter(sources, kind) {
+        var normalized = {
+            archetype: null,
+            asset_ref: null,
+            sprite_ref: null,
+            anim_set: null,
+            voice: null,
+            behavior: 'idle',
+            equipment: [],
+            scale: 1.0,
+            clip_map: null,
+            sprite_layout: null
+        };
+        var sawValue = false;
+        var list = Array.isArray(sources) ? sources : [sources];
+        list.forEach(function (source) {
+            if (!source || typeof source !== 'object' || Array.isArray(source)) return;
+            if (source.archetype !== undefined) {
+                normalized.archetype = _envSceneStringOrNull(source.archetype, normalized.archetype);
+                if (normalized.archetype) sawValue = true;
+            }
+            var assetRef = source.asset_ref !== undefined ? source.asset_ref : source.assetRef;
+            if (assetRef !== undefined) {
+                normalized.asset_ref = _envSceneStringOrNull(assetRef, normalized.asset_ref);
+                if (normalized.asset_ref) sawValue = true;
+            }
+            var spriteRef = source.sprite_ref !== undefined ? source.sprite_ref : source.spriteRef;
+            if (spriteRef !== undefined) {
+                normalized.sprite_ref = _envSceneStringOrNull(spriteRef, normalized.sprite_ref);
+                if (normalized.sprite_ref) sawValue = true;
+            }
+            var animSet = source.anim_set !== undefined ? source.anim_set : source.animSet;
+            if (animSet !== undefined) {
+                normalized.anim_set = _envSceneStringOrNull(animSet, normalized.anim_set);
+                if (normalized.anim_set) sawValue = true;
+            }
+            if (source.voice !== undefined) {
+                normalized.voice = _envSceneStringOrNull(source.voice, normalized.voice);
+                if (normalized.voice) sawValue = true;
+            }
+            if (source.behavior !== undefined) {
+                normalized.behavior = _envSceneStringOrNull(source.behavior, normalized.behavior) || 'idle';
+                sawValue = true;
+            }
+            if (source.equipment !== undefined) {
+                normalized.equipment = Array.isArray(source.equipment)
+                    ? source.equipment.map(function (item) { return String(item || '').trim(); }).filter(function (item) { return !!item; })
+                    : [];
+                sawValue = true;
+            }
+            if (source.scale !== undefined) {
+                normalized.scale = _envSceneNumber(source.scale, normalized.scale, 0.2, 6);
+                sawValue = true;
+            }
+            if (source.clip_map && typeof source.clip_map === 'object' && !Array.isArray(source.clip_map)) {
+                normalized.clip_map = _envCloneJson(source.clip_map, {});
+                sawValue = true;
+            } else if (source.clipMap && typeof source.clipMap === 'object' && !Array.isArray(source.clipMap)) {
+                normalized.clip_map = _envCloneJson(source.clipMap, {});
+                sawValue = true;
+            }
+            if (source.sprite_layout && typeof source.sprite_layout === 'object' && !Array.isArray(source.sprite_layout)) {
+                normalized.sprite_layout = _envCloneJson(source.sprite_layout, {});
+                sawValue = true;
+            } else if (source.spriteLayout && typeof source.spriteLayout === 'object' && !Array.isArray(source.spriteLayout)) {
+                normalized.sprite_layout = _envCloneJson(source.spriteLayout, {});
+                sawValue = true;
+            }
+        });
+        if (!normalized.archetype && sawValue) {
+            normalized.archetype = (String(kind || '').trim().toLowerCase() === 'npc') ? 'custom' : 'custom';
+        }
+        if (!normalized.anim_set && sawValue) normalized.anim_set = 'humanoid';
+        if (!sawValue && !normalized.archetype && !normalized.asset_ref && !normalized.sprite_ref) return null;
+        return normalized;
+    }
+
+    function _envSceneCollisionTokenList(value) {
+        if (Array.isArray(value)) {
+            return value.map(function (item) { return String(item || '').trim().toLowerCase(); }).filter(function (item) { return !!item; });
+        }
+        if (value === undefined || value === null) return [];
+        return String(value)
+            .split(/[\s,|/]+/)
+            .map(function (item) { return String(item || '').trim().toLowerCase(); })
+            .filter(function (item) { return !!item; });
+    }
+
+    function _envSceneStructuralCollisionHint(source) {
+        var obj = source && typeof source === 'object' ? source : {};
+        var data = _envObjectData(obj);
+        var appearance = obj && obj.appearance && typeof obj.appearance === 'object' && !Array.isArray(obj.appearance)
+            ? obj.appearance
+            : {};
+        var tags = []
+            .concat(_envSceneCollisionTokenList(obj.tags))
+            .concat(_envSceneCollisionTokenList(data.tags))
+            .concat(_envSceneCollisionTokenList(data.keywords))
+            .concat(_envSceneCollisionTokenList(data.structural_tags))
+            .concat(_envSceneCollisionTokenList(data.structuralTags));
+        var haystack = [
+            obj.kind,
+            obj.category,
+            obj.id,
+            obj.label,
+            obj.meta,
+            data.kind,
+            data.category,
+            data.role,
+            data.family,
+            data.type,
+            data.asset_ref,
+            data.assetRef,
+            appearance.asset_ref,
+            appearance.assetRef
+        ].concat(tags).join(' ').toLowerCase();
+        return [
+            'wall', 'building', 'structure', 'arena', 'gate', 'door', 'fence', 'tower',
+            'column', 'pillar', 'stair', 'stairs', 'barricade', 'arch', 'bridge',
+            'cliff', 'rockface', 'rock-face', 'boulder', 'statue', 'obelisk',
+            'armory', 'barracks', 'ludus'
+        ].some(function (token) {
+            return haystack.indexOf(token) >= 0;
+        });
+    }
+
+    function _envDefaultCollisionPolicyForObject(source) {
+        var obj = source && typeof source === 'object' ? source : {};
+        var kind = String((obj && obj.kind) || '').trim().toLowerCase();
+        if (
+            kind === 'vegetation_patch' || kind === 'zone' || kind === 'decal'
+            || kind === 'tile' || kind === 'substrate' || kind === 'marker'
+            || kind === 'npc' || kind === 'actor' || kind === 'slot'
+            || kind === 'chatbot' || kind === 'service'
+        ) {
+            return 'none';
+        }
+        if (
+            kind === 'room' || kind === 'portal' || kind === 'panel'
+            || kind === 'menu' || kind === 'wall' || kind === 'building'
+            || kind === 'structure'
+        ) {
+            return 'bounds';
+        }
+        if (_envSceneStructuralCollisionHint(obj)) return 'bounds';
+        return 'none';
+    }
+
+    function _envNormalizeSceneCollisionPolicy(value, fallback, source) {
+        var defaultPolicy = _envDefaultCollisionPolicyForObject(source);
+        var text = String(value !== undefined ? value : (fallback !== undefined ? fallback : defaultPolicy)).trim().toLowerCase();
+        if (!text) return defaultPolicy;
+        if (text === 'bvh' || text === 'none') return text;
+        return 'bounds';
+    }
+
+    var _envDefaultKindAssets = {
+        npc: '/static/assets/npc.glb',
+        actor: '/static/assets/npc.glb',
+        slot: '/static/assets/terminal.glb',
+        chatbot: '/static/assets/chatbot.glb',
+        prop: '/static/assets/crate.glb',
+        workflow: '/static/assets/gear.glb',
+        artifact: '/static/assets/crystal.glb',
+        panel: '/static/assets/screen.glb',
+        service: '/static/assets/server.glb',
+        marker: '/static/assets/pin.glb'
+    };
+
+    function _envSceneAppearanceForObject(obj) {
+        var data = _envObjectData(obj);
+        var result = _envNormalizeSceneAppearanceRecord([
+            data && data.appearance,
+            obj && obj.appearance,
+            {
+                color: obj ? obj.color : undefined,
+                geometry: obj ? obj.geometry : undefined,
+                asset_ref: obj ? obj.asset_ref : undefined,
+                lod_levels: obj ? obj.lod_levels : undefined,
+                material: obj ? obj.material : undefined
+            }
+        ]);
+        if (!result.asset_ref
+            && obj && obj.kind
+            && _envDefaultKindAssets[obj.kind]
+            && result.geometry === 'box') {
+            result.asset_ref = _envDefaultKindAssets[obj.kind];
+        }
+        return result;
+    }
+
+    function _envSceneCharacterForObject(obj) {
+        var data = _envObjectData(obj);
+        if (obj && obj.character && typeof obj.character === 'object' && !Array.isArray(obj.character)) {
+            return obj.character;
+        }
+        if (data && data.character && typeof data.character === 'object' && !Array.isArray(data.character)) {
+            return data.character;
+        }
+        return null;
+    }
+
     function _envNormalizeSceneObjectRecord(params, existing) {
         var p = params && typeof params === 'object' ? params : {};
         var prev = existing && typeof existing === 'object' ? existing : null;
         var prevData = prev ? _envObjectData(prev) : {};
+        var kind = String(p.kind || (prev ? prev.kind : 'spawned') || 'spawned');
         var rawData = p.data && typeof p.data === 'object' && !Array.isArray(p.data) ? p.data : null;
         var data = rawData ? _envCloneJson(rawData, {}) : _envCloneJson(prevData, {});
         var rawActions = Array.isArray(p.actions)
@@ -14797,12 +16135,99 @@
         var rawItems = p.items !== undefined
             ? p.items
             : (((rawData || {}).items) !== undefined ? (rawData || {}).items : (prev ? prev.items : []));
+        var rawAppearance = p.appearance && typeof p.appearance === 'object' && !Array.isArray(p.appearance) ? p.appearance : null;
+        var dataAppearance = (rawData || {}).appearance && typeof (rawData || {}).appearance === 'object' && !Array.isArray((rawData || {}).appearance)
+            ? (rawData || {}).appearance
+            : null;
+        var prevAppearance = prev && prev.appearance && typeof prev.appearance === 'object' && !Array.isArray(prev.appearance)
+            ? prev.appearance
+            : null;
+        var characterCleared = (Object.prototype.hasOwnProperty.call(p, 'character') && p.character === null)
+            || (rawData && Object.prototype.hasOwnProperty.call(rawData, 'character') && rawData.character === null);
+        var character = characterCleared ? null : _envNormalizeSceneCharacter([
+            prev ? prev.character : null,
+            (rawData || {}).character,
+            p.character
+        ], kind);
+        if (character) data.character = _envCloneJson(character, null);
+        else if (data && Object.prototype.hasOwnProperty.call(data, 'character')) delete data.character;
+        var explicitAppearanceAssetRef = !!(
+            (rawAppearance && ((rawAppearance.asset_ref !== undefined && rawAppearance.asset_ref !== null && String(rawAppearance.asset_ref).trim())
+                || (rawAppearance.assetRef !== undefined && rawAppearance.assetRef !== null && String(rawAppearance.assetRef).trim())))
+            || (dataAppearance && ((dataAppearance.asset_ref !== undefined && dataAppearance.asset_ref !== null && String(dataAppearance.asset_ref).trim())
+                || (dataAppearance.assetRef !== undefined && dataAppearance.assetRef !== null && String(dataAppearance.assetRef).trim())))
+            || ((rawData || {}).asset_ref !== undefined && (rawData || {}).asset_ref !== null && String((rawData || {}).asset_ref).trim())
+            || ((rawData || {}).assetRef !== undefined && (rawData || {}).assetRef !== null && String((rawData || {}).assetRef).trim())
+            || (p.asset_ref !== undefined && p.asset_ref !== null && String(p.asset_ref).trim())
+            || (p.assetRef !== undefined && p.assetRef !== null && String(p.assetRef).trim())
+        );
+        var characterAppearanceOverride = (!explicitAppearanceAssetRef && character && character.asset_ref)
+            ? { asset_ref: character.asset_ref }
+            : null;
+        var appearance = _envNormalizeSceneAppearanceRecord([
+            prevAppearance,
+            {
+                color: prev ? prev.color : undefined,
+                geometry: prev ? prev.geometry : undefined,
+                asset_ref: prev ? prev.asset_ref : undefined,
+                lod_levels: prev ? prev.lod_levels : undefined,
+                material: prev ? prev.material : undefined
+            },
+            dataAppearance,
+            {
+                color: (rawData || {}).color,
+                geometry: (rawData || {}).geometry,
+                asset_ref: (rawData || {}).asset_ref !== undefined ? (rawData || {}).asset_ref : (rawData || {}).assetRef,
+                lod_levels: (rawData || {}).lod_levels !== undefined ? (rawData || {}).lod_levels : (rawData || {}).lodLevels,
+                material: (rawData || {}).material
+            },
+            characterAppearanceOverride,
+            rawAppearance,
+            {
+                color: p.color,
+                geometry: p.geometry,
+                asset_ref: p.asset_ref !== undefined ? p.asset_ref : p.assetRef,
+                lod_levels: p.lod_levels !== undefined ? p.lod_levels : p.lodLevels,
+                material: p.material
+            }
+        ]);
+        var collisionSource = {
+            kind: kind,
+            id: String(p.id || (prev ? prev.id : '')),
+            label: String(p.label || p.name || (rawData || {}).label || (rawData || {}).name || (prev ? prev.label : '') || kind),
+            meta: String(
+                p.meta !== undefined ? p.meta
+                    : (p.description !== undefined ? p.description
+                        : (((rawData || {}).meta !== undefined) ? (rawData || {}).meta
+                            : (((rawData || {}).description !== undefined) ? (rawData || {}).description : (prev ? prev.meta : ''))))
+            ),
+            category: String(p.category || (rawData || {}).category || (prev ? prev.category : '') || ''),
+            tags: p.tags !== undefined ? p.tags : (((rawData || {}).tags !== undefined) ? (rawData || {}).tags : (prev ? prev.tags : undefined)),
+            data: data,
+            appearance: appearance
+        };
+        var collisionPolicy = _envNormalizeSceneCollisionPolicy(
+            p.collision_policy !== undefined ? p.collision_policy : (p.collisionPolicy !== undefined ? p.collisionPolicy : undefined),
+            (rawData || {}).collision_policy !== undefined ? (rawData || {}).collision_policy
+                : ((rawData || {}).collisionPolicy !== undefined ? (rawData || {}).collisionPolicy
+                    : (prev ? (prev.collision_policy !== undefined ? prev.collision_policy : prev.collisionPolicy) : undefined)),
+            collisionSource
+        );
+        var mechanicsCleared = (Object.prototype.hasOwnProperty.call(p, 'mechanics') && p.mechanics === null)
+            || (rawData && Object.prototype.hasOwnProperty.call(rawData, 'mechanics') && rawData.mechanics === null);
+        var mechanics = mechanicsCleared ? null : _envNormalizeSceneMechanics([
+            prev ? prev.mechanics : null,
+            (rawData || {}).mechanics,
+            p.mechanics
+        ]);
+        if (mechanics) data.mechanics = _envCloneJson(mechanics, null);
+        else if (data && Object.prototype.hasOwnProperty.call(data, 'mechanics')) delete data.mechanics;
         var fallbackLabel = prev ? prev.label : '';
         var fallbackMeta = prev ? prev.meta : '';
         var fallbackState = prev ? prev.state : 'idle';
         var fallbackCategory = prev ? prev.category : '';
         return {
-            kind: String(p.kind || (prev ? prev.kind : 'spawned') || 'spawned'),
+            kind: kind,
             id: String(p.id || (prev ? prev.id : ('spawned-' + Date.now() + '-' + Math.floor(Math.random() * 9999)))),
             label: String(p.label || p.name || (rawData || {}).label || (rawData || {}).name || fallbackLabel || (p.kind || (prev ? prev.kind : 'object') || 'object')),
             meta: String(
@@ -14821,8 +16246,12 @@
             spawned: true,
             spawnedTs: Number((prev && prev.spawnedTs) || Date.now()),
             data: data,
+            appearance: appearance,
+            collision_policy: collisionPolicy,
+            mechanics: mechanics,
+            character: character,
             html: p.html !== undefined ? p.html : (((rawData || {}).html !== undefined) ? (rawData || {}).html : (prev ? prev.html : null)),
-            color: p.color !== undefined ? p.color : (((rawData || {}).color !== undefined) ? (rawData || {}).color : (prev ? prev.color : null)),
+            color: appearance.color,
             items: _envNormalizeSceneMenuItems(rawItems || []),
             action: p.action !== undefined ? p.action : (((rawData || {}).action !== undefined) ? (rawData || {}).action : (prev ? prev.action : undefined)),
             actions: Array.isArray(rawActions) ? _envCloneJson(rawActions, []) : [],
@@ -14876,23 +16305,8 @@
     }
 
     function _envCustomSceneObjectsNeedHydration() {
-        var custom = _envSpawnedObjects.filter(function (obj) {
-            return _envIsCustomSceneKind((obj || {}).kind);
-        });
-        if (!custom.length) return true;
-        for (var i = 0; i < custom.length; i++) {
-            var obj = custom[i] || {};
-            var kind = String(obj.kind || '').toLowerCase();
-            var label = String(obj.label || '').trim().toLowerCase();
-            var meta = String(obj.meta || '').trim();
-            var data = _envObjectData(obj);
-            var hasData = Object.keys(data || {}).length > 0;
-            var defaultPose = Math.abs(Number(obj.x || 0) - 50) < 0.001 && Math.abs(Number(obj.y || 0) - 50) < 0.001;
-            if ((!label || label === kind) && !meta && defaultPose && !obj.color && !hasData && !String(obj.html || '').trim()) {
-                return true;
-            }
-        }
-        return false;
+        if (_envSceneBootstrapState.pending) return false;
+        return Number(_envSceneBootstrapState.hydratedTs || 0) <= 0;
     }
 
     function _envHydrateCustomSceneObjectsFromPayload(payload, toolName, source) {
@@ -14906,6 +16320,11 @@
             changed = _envReplaceCustomSceneObjects([], source || 'env_clear') || changed;
             _envSceneBootstrapState.hydratedTs = Date.now();
             _envSceneBootstrapState.snapshotName = '';
+            _envNavigationState.currentSnapshot = '';
+            _envNavigationState.history = [];
+            _envNavigationState.pendingLoad = null;
+            _envCloseHtmlPanel('assistant', 'scene cleared');
+            changed = _envClearSceneWorkflowResidue('') || changed;
             return changed;
         }
         var listLike = (toolName === 'env_read' && query === 'list') || (toolName === 'env_persist' && (op === 'load' || opStatus === 'loaded'));
@@ -14944,13 +16363,17 @@
     function _envEnsurePersistedSceneBootstrap(reason, force) {
         if (_envSceneBootstrapState.pending) return false;
         if (!force && Number(_envSceneBootstrapState.hydratedTs || 0) > 0) return false;
+        var snapshotName = String(_envScenePrimarySnapshotName() || _envNavigationState.currentSnapshot || _envSceneBootstrapState.snapshotName || '').trim();
+        var bootstrapQuery = snapshotName ? 'snapshot' : 'list';
         _envSceneBootstrapState.pending = true;
         _envSceneBootstrapState.requestedTs = Date.now();
         _envSceneBootstrapState.lastSource = String(reason || 'bootstrap');
         _envSceneBootstrapState.error = '';
-        callTool('env_read', { query: 'list' }, 'env_read', {
+        callTool('env_read', { query: bootstrapQuery }, 'env_read', {
             sceneBootstrap: true,
-            sceneBootstrapReason: String(reason || 'bootstrap')
+            sceneBootstrapReason: String(reason || 'bootstrap'),
+            sceneBootstrapQuery: bootstrapQuery,
+            sceneBootstrapSnapshot: snapshotName
         });
         return true;
     }
@@ -14975,6 +16398,8 @@
         var sceneLabel = String(sceneSnapshotName || _envScenePrimarySnapshotName() || 'scene');
         var sceneContextId = String(_envSceneDocContextId() || sceneLabel || 'scene');
         var focus = _envKernel.focus && typeof _envKernel.focus === 'object' ? _envKernel.focus : null;
+        var focusKind = String((focus && focus.kind) || '').toLowerCase();
+        var focusId = String((focus && focus.id) || '').trim();
         var activeLaneFocus = _envActiveLaneFocus();
         var sceneDocContext = String(_envDocState.contextKind || '') === 'scene'
             && String(_envDocState.contextId || '') === sceneContextId;
@@ -14995,7 +16420,14 @@
             && sceneLabel
             && String(focus.id || '') !== sceneLabel
             && (!String(focus.id || '').trim() || String(focus.id || '') === 'scene'));
-        if (!focus || !String(focus.id || '').trim() || staleFocusKinds[String(focus.kind || '').toLowerCase()] || shouldPromoteSceneFocus) {
+        var staleSceneObjectFocus = !!(focus
+            && focusKind
+            && focusKind !== 'scene'
+            && focusKind !== 'workflow'
+            && focusKind !== 'doc'
+            && focusKind !== 'panel'
+            && !_envSceneFindObject(focus.kind, focus.id));
+        if (!focus || !focusId || staleFocusKinds[focusKind] || shouldPromoteSceneFocus || staleSceneObjectFocus) {
             _envKernel.focus = restoreLaneWorkflowFocus
                 ? Object.assign({}, activeLaneFocus || {})
                 : {
@@ -15005,6 +16437,19 @@
                     actor: 'system',
                     payload: null
                 };
+            _envActorCatalog().forEach(function (lane) {
+                var laneFocus = lane && lane.focus && typeof lane.focus === 'object' ? lane.focus : null;
+                if (!laneFocus) return;
+                var laneKind = String(laneFocus.kind || '').toLowerCase();
+                var laneId = String(laneFocus.id || '').trim();
+                if (!laneKind) return;
+                if (focusKind && laneKind === focusKind && laneId === focusId) {
+                    lane.focus = Object.assign({}, _envKernel.focus || {});
+                    lane.lastFocusTs = Date.now();
+                    lane.lastActiveTs = lane.lastFocusTs;
+                    changed = true;
+                }
+            });
             changed = true;
         }
         if (!_envInspectorState.active && !_envHtmlPanelState.active && !_envDocState.pendingRead) {
@@ -15082,16 +16527,7 @@
             _envScheduleLiveSync('remove:local', true);
             // Clean up three.js mesh if present
             var meshKey = String(kind) + '::' + String(id);
-            if (_env3D.meshes[meshKey]) {
-                _env3D.scene.remove(_env3D.meshes[meshKey]);
-                _env3D.meshes[meshKey].geometry.dispose();
-                _env3D.meshes[meshKey].material.dispose();
-                delete _env3D.meshes[meshKey];
-            }
-            if (_env3D.cssLabels[meshKey]) {
-                _env3D.scene.remove(_env3D.cssLabels[meshKey]);
-                delete _env3D.cssLabels[meshKey];
-            }
+            _env3DRemoveSceneObjectMesh(meshKey);
             if (_env3D.inited) _envSyncHabitatScene();
             else renderEnvironmentView();
         }
@@ -15101,16 +16537,7 @@
     function _envClearSpawnedObjects() {
         _envSpawnedObjects.forEach(function (obj) {
             var meshKey = String(obj.kind) + '::' + String(obj.id);
-            if (_env3D.meshes[meshKey]) {
-                _env3D.scene.remove(_env3D.meshes[meshKey]);
-                _env3D.meshes[meshKey].geometry.dispose();
-                _env3D.meshes[meshKey].material.dispose();
-                delete _env3D.meshes[meshKey];
-            }
-            if (_env3D.cssLabels[meshKey]) {
-                _env3D.scene.remove(_env3D.cssLabels[meshKey]);
-                delete _env3D.cssLabels[meshKey];
-            }
+            _env3DRemoveSceneObjectMesh(meshKey);
         });
         _envSpawnedObjects = [];
         if (_env3D.inited) _envSyncHabitatScene();
@@ -15128,6 +16555,8 @@
                 x: obj.x,
                 y: obj.y,
                 scale: obj.scale,
+                appearance: _envCloneJson(obj.appearance, null),
+                collision_policy: String(obj.collision_policy || 'bounds'),
                 spawned: true,
                 interaction: _envSceneInteractionMeta(obj)
             };
@@ -15273,6 +16702,23 @@
             }
         });
         return true;
+    }
+
+    function _envResolveHydratedSurfaceReplayObject(pendingSurface, envPayload) {
+        var payloadObj = envPayload && typeof envPayload === 'object' && envPayload.object && typeof envPayload.object === 'object'
+            ? envPayload.object
+            : null;
+        var fallbackId = pendingSurface && pendingSurface.targetId !== undefined && pendingSurface.targetId !== null
+            ? String(pendingSurface.targetId || '').trim()
+            : '';
+        var payloadKind = payloadObj ? String(payloadObj.kind || '').trim() : '';
+        var payloadId = payloadObj ? String(payloadObj.id || '').trim() : '';
+        var desiredId = payloadId || fallbackId;
+        if (!desiredId) return null;
+        var desiredKind = payloadKind || 'panel';
+        return _envSceneFindObject(desiredKind, desiredId)
+            || _envSceneFindObject('panel', desiredId)
+            || (payloadObj && _envSceneObjectIsSurface(payloadObj) ? payloadObj : null);
     }
 
     function _envSceneResolveSlotId(obj) {
@@ -15454,8 +16900,163 @@
             source: String(_envHtmlPanelState.source || ''),
             mode: String(_envHtmlPanelState.mode || ''),
             opened_ts: Number(_envHtmlPanelState.openedTs || 0),
-            html_length: Number(String(_envHtmlPanelState.html || '').length || 0)
+            html_length: Number(String(_envHtmlPanelState.html || '').length || 0),
+            bridge_state: _envSurfaceBridgeStateSnapshot()
         };
+    }
+
+    function _envSurfaceBridgeParseTarget(rawTarget) {
+        var raw = rawTarget === undefined || rawTarget === null ? '' : String(rawTarget);
+        var trimmed = raw.trim();
+        var parsed = null;
+        if (trimmed && trimmed.charAt(0) === '{') {
+            try {
+                parsed = JSON.parse(trimmed);
+            } catch (ignored) { }
+        }
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) parsed = {};
+        return {
+            raw: trimmed,
+            surface: String(parsed.surface || parsed.surface_id || parsed.surfaceId || parsed.object_key || parsed.objectKey || '').trim(),
+            action: String(parsed.action || parsed.name || '').trim(),
+            target: String(parsed.target || '').trim(),
+            tab: String(parsed.tab || '').trim(),
+            section: String(parsed.section || '').trim(),
+            selector: String(parsed.selector || '').trim(),
+            value: parsed.value === undefined || parsed.value === null ? '' : String(parsed.value),
+            checked: parsed.checked === undefined || parsed.checked === null ? null : !!parsed.checked,
+            align: String(parsed.align || '').trim(),
+            behavior: String(parsed.behavior || '').trim()
+        };
+    }
+
+    function _envActiveSurfaceFrame() {
+        var panelBody = document.querySelector('.envops-scene-panel-body');
+        if (!panelBody) return null;
+        return panelBody.querySelector('iframe[data-env-surface-frame="1"]');
+    }
+
+    function _envSurfaceBridgeEnvelope(command, target) {
+        var parsed = _envSurfaceBridgeParseTarget(target);
+        var activeKey = String(_envHtmlPanelState.objectKey || '').trim();
+        var activeId = String(_envHtmlPanelState.objectId || '').trim();
+        var surfaceToken = parsed.surface || '';
+        var surfaceObj = surfaceToken
+            ? (_envResolveSurfaceObjectTarget(surfaceToken) || _envSceneObjectByKey(surfaceToken))
+            : (_envHtmlPanelState.active ? (_envSceneObjectByKey(activeKey) || _envResolveSurfaceObjectTarget(activeId || activeKey)) : null);
+        var objectKey = surfaceObj ? _envSceneObjectKey(surfaceObj) : activeKey;
+        var objectId = surfaceObj ? String(surfaceObj.id || '') : activeId;
+        var objectLabel = surfaceObj ? String(surfaceObj.label || surfaceObj.id || 'surface') : String(_envHtmlPanelState.title || 'surface');
+        var targetToken = parsed.target
+            || (((command === 'surface_click' || command === 'surface_input' || command === 'surface_submit')
+                && !parsed.selector && !parsed.section && !parsed.tab)
+                ? parsed.raw
+                : '');
+        var tab = parsed.tab || (command === 'surface_tab' && !parsed.target && !parsed.selector && !parsed.section ? parsed.raw : '');
+        var section = parsed.section || (command === 'surface_scroll' && !parsed.selector && !parsed.target ? parsed.raw : '');
+        var selector = parsed.selector || '';
+        if (!selector && targetToken && /^[#.[]/.test(targetToken)) selector = targetToken;
+        return {
+            raw: parsed.raw,
+            command: String(command || ''),
+            object: surfaceObj,
+            objectKey: objectKey,
+            objectId: objectId,
+            objectLabel: objectLabel,
+            action: parsed.action || (command === 'surface_action' ? parsed.raw : ''),
+            target: targetToken,
+            tab: tab,
+            section: section,
+            selector: selector,
+            value: parsed.value,
+            checked: parsed.checked,
+            align: parsed.align || 'start',
+            behavior: parsed.behavior || 'smooth'
+        };
+    }
+
+    function _envDispatchSurfaceBridgeCommand(command, target, actorName, reason) {
+        if (!_envHtmlPanelState.active) return false;
+        if (String(_envHtmlPanelState.contentType || '') !== 'srcdoc') return false;
+        var envelope = _envSurfaceBridgeEnvelope(command, target);
+        var activeKey = String(_envHtmlPanelState.objectKey || '').trim();
+        if (!activeKey) return false;
+        if (envelope.objectKey && envelope.objectKey !== activeKey) return false;
+        var frame = _envActiveSurfaceFrame();
+        if (!frame || !frame.contentWindow) return false;
+        try {
+            frame.contentWindow.postMessage({
+                __env_surface_bridge__: 'cc:v1',
+                direction: 'shell_to_surface',
+                command: String(command || ''),
+                objectKey: activeKey,
+                objectId: String(_envHtmlPanelState.objectId || ''),
+                action: String(envelope.action || ''),
+                target: String(envelope.target || ''),
+                tab: String(envelope.tab || ''),
+                section: String(envelope.section || ''),
+                selector: String(envelope.selector || ''),
+                value: String(envelope.value || ''),
+                checked: envelope.checked === null ? '' : String(!!envelope.checked),
+                align: String(envelope.align || 'start'),
+                behavior: String(envelope.behavior || 'smooth')
+            }, '*');
+        } catch (err) {
+            _envLogAction('surface', 'Surface bridge dispatch failed', actorName || 'assistant', {
+                command: String(command || ''),
+                object_key: activeKey,
+                error: String((err && err.message) || err || 'dispatch failed')
+            });
+            return false;
+        }
+        _envSetBadge('ready', 'SURFACE');
+        _envLogAction('surface', 'Dispatched surface bridge command ' + String(command || ''), actorName || 'assistant', {
+            object_key: activeKey,
+            action: String(envelope.action || ''),
+            target: String(envelope.target || envelope.tab || envelope.section || envelope.selector || ''),
+            reason: String(reason || '')
+        });
+        _envEmitBus('surface', 'Dispatched surface bridge command ' + String(command || ''), actorName || 'assistant', {
+            object_key: activeKey,
+            action: String(envelope.action || ''),
+            target: String(envelope.target || envelope.tab || envelope.section || envelope.selector || '')
+        });
+        return true;
+    }
+
+    function _envBuildOwnedSurfaceBridgeScript(objectKey) {
+        var keyJson = JSON.stringify(String(objectKey || ''));
+        return '<script>(function(){' +
+            'var SURFACE_KEY=' + keyJson + ';' +
+            'function all(sel){try{return Array.prototype.slice.call(document.querySelectorAll(sel));}catch(_){return[];}}' +
+            'function first(sel){try{return document.querySelector(sel);}catch(_){return null;}}' +
+            'function attrMatch(nodes,name,value){value=String(value||"");for(var i=0;i<nodes.length;i++){var node=nodes[i];if(String(node.getAttribute(name)||"")===value)return node;}return null;}' +
+            'function setTab(tab){var key=String(tab||"").trim();if(!key)return false;var buttons=all("[data-tab]");var sections=all("[data-section]");var btn=attrMatch(buttons,"data-tab",key);var matched=false;sections.forEach(function(sec){var on=String(sec.getAttribute("data-section")||"")===key;if(sec.classList){if(on)sec.classList.add("active");else sec.classList.remove("active");}matched=matched||on;});buttons.forEach(function(node){var on=String(node.getAttribute("data-tab")||"")===key;if(node.classList){if(on)node.classList.add("active");else node.classList.remove("active");}if(on)node.setAttribute("aria-selected","true");else node.removeAttribute("aria-selected");});if(btn&&btn.focus){try{btn.focus({preventScroll:true});}catch(_){try{btn.focus();}catch(_2){}}}return matched||!!btn;}' +
+            'function resolve(msg){if(msg.selector){var sel=first(String(msg.selector||""));if(sel)return sel;}if(msg.section){var sec=attrMatch(all("[data-section]"),"data-section",msg.section)||document.getElementById(String(msg.section||""));if(sec)return sec;}if(msg.target){var target=String(msg.target||"");var byTab=attrMatch(all("[data-tab]"),"data-tab",target);if(byTab)return byTab;var bySection=attrMatch(all("[data-section]"),"data-section",target);if(bySection)return bySection;var byAction=attrMatch(all("[data-surface-action]"),"data-surface-action",target);if(byAction)return byAction;var byName=first("[name=\\"" + target.replace(/"/g,"\\\\\\"") + "\\"]");if(byName)return byName;var byId=document.getElementById(target);if(byId)return byId;}return null;}' +
+            'function scrollRoot(){return document.scrollingElement||document.documentElement||document.body||null;}' +
+            'function scrollOffset(root){var node=root||scrollRoot();if(!node)return 0;return Number(window.pageYOffset||node.scrollTop||document.documentElement&&document.documentElement.scrollTop||document.body&&document.body.scrollTop||0);}' +
+            'function scrollViewport(root){var node=root||scrollRoot();return Number(window.innerHeight||node&&node.clientHeight||document.documentElement&&document.documentElement.clientHeight||document.body&&document.body.clientHeight||0);}' +
+            'function scroll(msg){var target=resolve(msg);var root=scrollRoot();if(!target||!root)return false;var rect=target.getBoundingClientRect();var current=scrollOffset(root);var align=String(msg.align||"start");var viewport=scrollViewport(root);var targetTop=current+Number(rect.top||0);var targetHeight=Number(rect.height||target.offsetHeight||0);var top=targetTop;if(align==="center")top=targetTop-Math.max(0,(viewport-targetHeight)/2);else if(align==="end")top=targetTop-Math.max(0,viewport-targetHeight);top=Math.max(0,Math.round(top));try{window.scrollTo({top:top,behavior:String(msg.behavior||"smooth")});return true;}catch(_){try{root.scrollTop=top;return true;}catch(_2){return false;}}}' +
+            'function focusNoScroll(target){if(!target||!target.focus)return;try{target.focus({preventScroll:true});return;}catch(_){}try{target.focus();}catch(_2){}}' +
+            'function clickTarget(msg){var target=resolve(msg);if(!target)return false;try{focusNoScroll(target);if(target.click)target.click();return true;}catch(_){return false;}}' +
+            'function inputValue(msg){var target=resolve(msg);if(!target)return false;try{if(typeof msg.checked==="string"&&msg.checked!==""){var checked=String(msg.checked)==="true";if("checked" in target)target.checked=checked;}if(!(typeof msg.value==="string"&&msg.value===""&&("checked" in target))){if("value" in target)target.value=String(msg.value||"");else target.textContent=String(msg.value||"");}focusNoScroll(target);if(target.dispatchEvent){target.dispatchEvent(new Event("input",{bubbles:true}));target.dispatchEvent(new Event("change",{bubbles:true}));}return true;}catch(_){return false;}}' +
+            'function submitTarget(msg){var target=resolve(msg);if(!target)return false;try{if(target.tagName==="FORM"){if(target.requestSubmit)target.requestSubmit();else if(target.submit)target.submit();return true;}var form=target.form||(target.closest?target.closest("form"):null);if(form){if(form.requestSubmit)form.requestSubmit(target);else if(target.click)target.click();else if(form.submit)form.submit();return true;}if(target.click)target.click();return true;}catch(_){return false;}}' +
+            'function invokeAction(action,target,msg){var name=String(action||"").trim();if(!name)return false;if(name==="tab")return setTab(target||msg.tab||msg.section||"");if(name==="scroll")return scroll(msg);if(name==="click")return clickTarget(msg);if(name==="input")return inputValue(msg);if(name==="submit")return submitTarget(msg);var nodes=all("[data-surface-action]");for(var i=0;i<nodes.length;i++){var node=nodes[i];if(String(node.getAttribute("data-surface-action")||"")!==name)continue;var nodeTarget=String(node.getAttribute("data-surface-target")||"");if(target&&nodeTarget&&nodeTarget!==String(target))continue;try{node.click();return true;}catch(_){}}return false;}' +
+            'function state(){var activeTab=first("[data-tab].active")||first("[data-tab][aria-selected=\\"true\\"]");var activeSection=first("[data-section].active");var root=scrollRoot();return{activeTab:String(activeTab&&activeTab.getAttribute("data-tab")||""),activeSection:String(activeSection&&activeSection.getAttribute("data-section")||activeSection&&activeSection.id||""),scrollY:scrollOffset(root)};}' +
+            'function report(command,ok,target){try{parent.postMessage({__env_surface_bridge__:"cc:v1",direction:"surface_to_shell",type:String(command||"surface_state"),ok:!!ok,objectKey:SURFACE_KEY,target:String(target||""),state:state()},"*");}catch(_){}}' +
+            'window.addEventListener("message",function(event){var msg=event&&event.data&&typeof event.data==="object"?event.data:null;if(!msg||msg.__env_surface_bridge__!=="cc:v1"||msg.direction!=="shell_to_surface")return;if(msg.objectKey&&String(msg.objectKey)!==SURFACE_KEY)return;var handled=false;if(msg.command==="surface_tab"){handled=setTab(msg.tab||msg.target||"");}else if(msg.command==="surface_scroll"){if(msg.tab)handled=setTab(msg.tab);handled=scroll(msg)||handled;}else if(msg.command==="surface_action"){handled=invokeAction(msg.action||"",msg.target||"",msg);if(!handled&&msg.tab)handled=setTab(msg.tab);}else if(msg.command==="surface_click"){handled=clickTarget(msg);}else if(msg.command==="surface_input"){handled=inputValue(msg);}else if(msg.command==="surface_submit"){handled=submitTarget(msg);}report(String(msg.command||""),handled,String(msg.target||msg.tab||msg.section||msg.selector||""));});' +
+            'document.addEventListener("click",function(event){var tabEl=event.target&&event.target.closest?event.target.closest("[data-surface-tab]"):null;if(tabEl){event.preventDefault();setTab(tabEl.getAttribute("data-surface-tab")||"");report("surface_state",true,String(tabEl.getAttribute("data-surface-tab")||""));return;}var scrollEl=event.target&&event.target.closest?event.target.closest("[data-surface-scroll]"):null;if(scrollEl){event.preventDefault();scroll({selector:String(scrollEl.getAttribute("data-surface-scroll")||""),behavior:String(scrollEl.getAttribute("data-surface-behavior")||"smooth"),align:String(scrollEl.getAttribute("data-surface-align")||"start")});report("surface_state",true,String(scrollEl.getAttribute("data-surface-scroll")||""));return;}});' +
+            'window.addEventListener("load",function(){report("surface_state",true,"load");});' +
+            '})();<\/script>';
+    }
+
+    function _envWrapOwnedSurfaceHtml(html, objectKey) {
+        var content = String(html || '');
+        if (!content.trim()) return '';
+        if (content.indexOf('__env_surface_bridge__') >= 0) return content;
+        var bridge = _envBuildOwnedSurfaceBridgeScript(objectKey);
+        if (/<\/body>/i.test(content)) return content.replace(/<\/body>/i, bridge + '</body>');
+        return content + bridge;
     }
 
     function _envSceneMenuActionFromItem(item) {
@@ -15543,8 +17144,31 @@
             sourceType: String(panelSpec.sourceType || ''),
             source: String(source || 'scene'),
             mode: String((actionSpec && actionSpec.panel_mode) || _envSceneObjectPanelMode(sourceObj) || 'fullscreen'),
-            openedTs: Date.now()
+            openedTs: Date.now(),
+            bridgeState: {
+                activeTab: '',
+                activeSection: '',
+                lastCommand: '',
+                lastTarget: '',
+                lastOk: false,
+                lastTs: 0,
+                scrollY: 0
+            }
         };
+        // Panel possession: save previous focus and shift to panel
+        _envPanelPreviousFocus = _envKernel.focus ? Object.assign({}, _envKernel.focus) : null;
+        var panelActorName = _envNormalizeActorId(actor || 'assistant') || 'assistant';
+        _envKernel.focus = {
+            kind: 'panel',
+            id: String(_envHtmlPanelState.objectKey || ''),
+            label: String(_envHtmlPanelState.title || 'HTML panel'),
+            actor: panelActorName,
+            payload: null
+        };
+        var panelLane = _envActorEnsureLane(panelActorName);
+        panelLane.focus = Object.assign({}, _envKernel.focus);
+        panelLane.lastFocusTs = Date.now();
+        panelLane.lastActiveTs = panelLane.lastFocusTs;
         _envLogAction('surface', 'Opened scene HTML panel', actor || 'assistant', {
             object_key: String(_envHtmlPanelState.objectKey || ''),
             source: String(source || 'scene'),
@@ -15555,6 +17179,8 @@
             mode: String(_envHtmlPanelState.mode || 'fullscreen')
         });
         _envScheduleLiveSync('panel:open', true);
+        // Refresh docs to match panel content instead of stale scene context
+        try { _envRefreshDocs('panel open', panelActorName, true); } catch (e) { }
         renderEnvironmentView();
         return true;
     }
@@ -15575,8 +17201,35 @@
             sourceType: '',
             source: '',
             mode: '',
-            openedTs: 0
+            openedTs: 0,
+            bridgeState: {
+                activeTab: '',
+                activeSection: '',
+                lastCommand: '',
+                lastTarget: '',
+                lastOk: false,
+                lastTs: 0,
+                scrollY: 0
+            }
         };
+        // Restore focus to previous state (or scene) when panel closes
+        var closeActorName = _envNormalizeActorId(actor || 'assistant') || 'assistant';
+        if (_envPanelPreviousFocus && _envPanelPreviousFocus.kind) {
+            _envKernel.focus = Object.assign({}, _envPanelPreviousFocus);
+        } else {
+            var sceneSnap = _envScenePrimarySnapshotName() || '';
+            _envKernel.focus = {
+                kind: 'scene',
+                id: sceneSnap,
+                label: sceneSnap || 'scene',
+                actor: closeActorName,
+                payload: null
+            };
+        }
+        _envPanelPreviousFocus = null;
+        var closeLane = _envActorEnsureLane(closeActorName);
+        closeLane.focus = Object.assign({}, _envKernel.focus);
+        closeLane.lastFocusTs = Date.now();
         _envLogAction('surface', 'Closed scene HTML panel', actor || 'assistant', {
             object_key: String(previous.object_key || ''),
             reason: String(reason || 'scene panel close')
@@ -15586,6 +17239,8 @@
             reason: String(reason || 'scene panel close')
         });
         _envScheduleLiveSync('panel:close', true);
+        // Refresh docs back to scene context
+        try { _envRefreshDocs('panel close', closeActorName, true); } catch (e) { }
         renderEnvironmentView();
         return true;
     }
@@ -15609,6 +17264,8 @@
         var snapshot = String(snapshotName || '').trim();
         if (!snapshot) return false;
         var navMeta = pendingMeta && pendingMeta.sceneSnapshotNav ? pendingMeta.sceneSnapshotNav : (_envNavigationState.pendingLoad || null);
+        var actorName = (navMeta && navMeta.actor) || 'assistant';
+        var needsHydration = !_envSpawnedObjects.length || _envCustomSceneObjectsNeedHydration();
         if (navMeta && navMeta.back) {
             var history = (_envNavigationState.history || []).slice();
             if (history.length && String((history[history.length - 1] || {}).snapshot || '') === snapshot) history.pop();
@@ -15630,9 +17287,14 @@
         _envNavigationState.currentSnapshot = snapshot;
         _envSceneBootstrapState.snapshotName = snapshot;
         _envNavigationState.pendingLoad = null;
-        _envCloseHtmlPanel((navMeta && navMeta.actor) || 'assistant', 'snapshot load');
+        _envCloseHtmlPanel(actorName, 'snapshot load');
+        _envStageUiState.forceStageRebuild = true;
+        if (needsHydration) _envEnsurePersistedSceneBootstrap('snapshot_load', true);
+        _envSetFocus('scene', snapshot, actorName, {
+            reason: 'snapshot_load',
+            snapshot: snapshot
+        });
         _envScheduleLiveSync('snapshot:load', true);
-        renderEnvironmentView();
         return true;
     }
 
@@ -15800,6 +17462,26 @@
         if (actionType === 'open_html') {
             return _envOpenHtmlPanel(sourceObj, actionSpec, actorName, source || 'scene');
         }
+        if (actionType === 'surface_tab' || actionType === 'surface_scroll' || actionType === 'surface_action'
+            || actionType === 'surface_click' || actionType === 'surface_input' || actionType === 'surface_submit') {
+            return _envDispatchSurfaceBridgeCommand(
+                actionType,
+                JSON.stringify({
+                    surface: sourceObj ? String(sourceObj.id || _envSceneObjectKey(sourceObj) || '') : '',
+                    action: String(actionSpec.command || actionSpec.label || ''),
+                    target: String(actionSpec.target || ''),
+                    tab: String(actionSpec.tab || ''),
+                    section: String(actionSpec.section || ''),
+                    selector: String(actionSpec.selector || ''),
+                    value: actionSpec.value === undefined || actionSpec.value === null ? '' : String(actionSpec.value),
+                    checked: actionSpec.checked === undefined ? null : !!actionSpec.checked,
+                    align: String(actionSpec.align || ''),
+                    behavior: String(actionSpec.behavior || '')
+                }),
+                actorName,
+                source || 'scene'
+            );
+        }
         if (actionType === 'snapshot_load') {
             var snapshot = String(actionSpec.snapshot || actionSpec.target || '').trim();
             if (!snapshot) return false;
@@ -15902,7 +17584,7 @@
         var panelSubtitle = String(_envHtmlPanelState.subtitle || '');
         var bodyHtml = '';
         if (String(_envHtmlPanelState.contentType || '') === 'srcdoc') {
-            bodyHtml = '<iframe sandbox="allow-scripts allow-forms allow-modals allow-popups allow-downloads" srcdoc="' + _esc(String(_envHtmlPanelState.html || '')) + '" title="' + _esc(panelTitle) + '"></iframe>';
+            bodyHtml = '<iframe class="envops-scene-panel-frame" data-env-surface-frame="1" sandbox="allow-scripts allow-forms allow-modals allow-popups allow-downloads" srcdoc="' + _esc(_envWrapOwnedSurfaceHtml(String(_envHtmlPanelState.html || ''), String(_envHtmlPanelState.objectKey || ''))) + '" title="' + _esc(panelTitle) + '"></iframe>';
         } else if (String(_envHtmlPanelState.contentType || '') === 'iframe' && String(_envHtmlPanelState.src || '').trim()) {
             bodyHtml = '<iframe src="' + _esc(String(_envHtmlPanelState.src || '')) + '" title="' + _esc(panelTitle) + '" loading="eager"></iframe>';
         } else {
@@ -16027,7 +17709,12 @@
         if (!obj || typeof obj !== 'object') return false;
         var objectKey = _envSceneObjectKey(obj);
         if (!objectKey) return false;
-        if (String(_envInspectorState.objectKey || '') !== objectKey) _envResetInspectorLazyState();
+        if (String(_envInspectorState.objectKey || '') !== objectKey) {
+            _envResetInspectorLazyState();
+            _envInspectorState.mechanicsEditKey = '';
+            _envInspectorState.characterEditKey = '';
+            _envInspectorState.waypointEditKey = '';
+        }
         _envInspectorState.active = true;
         _envInspectorState.objectKey = objectKey;
         _envInspectorState.kind = String(obj.kind || '');
@@ -16052,6 +17739,9 @@
         _envInspectorState.source = String(reason || 'close');
         _envInspectorState.anchor = null;
         _envInspectorState.activeSection = '';
+        _envInspectorState.mechanicsEditKey = '';
+        _envInspectorState.characterEditKey = '';
+        _envInspectorState.waypointEditKey = '';
         _envResetInspectorLazyState();
         _envScheduleLiveSync('inspector:close', true);
         renderEnvironmentView();
@@ -16218,16 +17908,25 @@
                 provider: '',
                 supportsChat: false,
                 contextWindow: '',
-                maxOutput: ''
+                maxOutput: '',
+                visualState: 'empty',
+                providerBinding: { kind: 'unknown', display_label: '' },
+                capabilityProfile: { invocation_class: 'unbound', runtime_class: 'vacant', modality_families: [], supported_tasks: [], output_modes: [], facility_candidates: [] },
+                facilityCandidates: []
             };
         }
+        var slotSummary = _slotContractSummary(slotMeta, parseInt(String(slotId || ''), 10));
         return {
             slot: String(slotId || ''),
-            model: String(slotMeta.model_source || slotMeta.model_id || slotMeta.name || 'vacant slot'),
-            provider: _providerLabel(_detectProvider(slotMeta)),
-            supportsChat: !!_slotSupportsAgentChat(slotMeta),
-            contextWindow: String(slotMeta.context_window || slotMeta.contextWindow || ''),
-            maxOutput: String(slotMeta.max_output || slotMeta.maxOutput || '')
+            model: String(slotSummary.model || 'vacant slot'),
+            provider: String(slotSummary.provider || ''),
+            supportsChat: !!slotSummary.supportsChat,
+            contextWindow: String(slotSummary.contextWindow || ''),
+            maxOutput: String(slotSummary.maxOutput || ''),
+            visualState: String(slotSummary.visualState || 'empty'),
+            providerBinding: slotSummary.provider_binding || {},
+            capabilityProfile: slotSummary.capability_profile || {},
+            facilityCandidates: _slotUniqueStrings(slotSummary.facility_candidates || [])
         };
     }
 
@@ -16433,9 +18132,122 @@
                 color: sourceObj.color || '',
                 panelMode: String(sourceObj.panelMode || data.panel_mode || data.panelMode || ''),
                 html: String(sourceObj.html || data.html || ''),
-                data: _envCloneJson(_envObjectData(sourceObj), {})
+                data: _envCloneJson(_envObjectData(sourceObj), {}),
+                appearance: _envCloneJson(sourceObj.appearance || _envSceneAppearanceForObject(sourceObj), {}),
+                mechanics: _envCloneJson(sourceObj.mechanics || null, null),
+                character: _envCloneJson(sourceObj.character || _envSceneCharacterForObject(sourceObj) || null, null)
             }, 'HTML/surface node edit');
             _envLogAction('handoff', 'Inspector prefilled env_mutate for surface node', actorName, { object_key: objectKey, kind: String(sourceObj.kind || '') });
+            return true;
+        }
+        if (action === 'edit-mechanics') {
+            _envInspectorState.mechanicsEditKey = objectKey;
+            _envInspectorState.activeSection = 'mechanics';
+            renderEnvironmentView();
+            return true;
+        }
+        if (action === 'cancel-mechanics-edit') {
+            _envInspectorState.mechanicsEditKey = '';
+            renderEnvironmentView();
+            return true;
+        }
+        if (action === 'save-mechanics') {
+            var family = String(((document.getElementById('envops-mechanics-family') || {}).value || '')).trim();
+            var windEnabled = !!((document.getElementById('envops-mechanics-wind-enabled') || {}).checked);
+            var reactionEnabled = !!((document.getElementById('envops-mechanics-reaction-enabled') || {}).checked);
+            var nextMechanics = {
+                family: family || null,
+                wind: {
+                    enabled: windEnabled,
+                    strength: Number(((document.getElementById('envops-mechanics-wind-strength') || {}).value || 0.5)),
+                    frequency: Number(((document.getElementById('envops-mechanics-wind-frequency') || {}).value || 1)),
+                    direction: [
+                        Number(((document.getElementById('envops-mechanics-wind-dir-x') || {}).value || 1)),
+                        Number(((document.getElementById('envops-mechanics-wind-dir-z') || {}).value || 0))
+                    ]
+                },
+                reaction: {
+                    enabled: reactionEnabled,
+                    radius: Number(((document.getElementById('envops-mechanics-reaction-radius') || {}).value || 2)),
+                    strength: Number(((document.getElementById('envops-mechanics-reaction-strength') || {}).value || 0.8)),
+                    recovery: Number(((document.getElementById('envops-mechanics-reaction-recovery') || {}).value || 3))
+                },
+                lod: {
+                    near: Number(((document.getElementById('envops-mechanics-lod-near') || {}).value || 20)),
+                    mid: Number(((document.getElementById('envops-mechanics-lod-mid') || {}).value || 50)),
+                    far: Number(((document.getElementById('envops-mechanics-lod-far') || {}).value || 100))
+                }
+            };
+            var shouldClearMechanics = !nextMechanics.family && !nextMechanics.wind.enabled && !nextMechanics.reaction.enabled;
+            var mechanicsPayload = shouldClearMechanics ? null : nextMechanics;
+            _envInspectorState.mechanicsEditKey = '';
+            _envUpsertSpawnedObject({
+                kind: String(sourceObj.kind || ''),
+                id: String(sourceObj.id || ''),
+                mechanics: mechanicsPayload
+            });
+            callTool('env_mutate', {
+                kind: String(sourceObj.kind || ''),
+                id: String(sourceObj.id || ''),
+                mechanics: mechanicsPayload
+            }, 'env_mutate', { inspectorAction: true, inspectorObjectKey: objectKey });
+            return true;
+        }
+        if (action === 'edit-character') {
+            _envInspectorState.characterEditKey = objectKey;
+            _envInspectorState.activeSection = 'character';
+            renderEnvironmentView();
+            return true;
+        }
+        if (action === 'cancel-character-edit') {
+            _envInspectorState.characterEditKey = '';
+            renderEnvironmentView();
+            return true;
+        }
+        if (action === 'save-character') {
+            var currentCharacter = _envCloneJson(sourceObj.character || _envSceneCharacterForObject(sourceObj) || {}, {});
+            currentCharacter.archetype = String(((document.getElementById('envops-character-archetype') || {}).value || '')).trim() || null;
+            currentCharacter.asset_ref = String(((document.getElementById('envops-character-asset-ref') || {}).value || '')).trim() || null;
+            currentCharacter.sprite_ref = String(((document.getElementById('envops-character-sprite-ref') || {}).value || '')).trim() || null;
+            currentCharacter.anim_set = String(((document.getElementById('envops-character-anim-set') || {}).value || '')).trim() || null;
+            currentCharacter.behavior = String(((document.getElementById('envops-character-behavior') || {}).value || 'idle')).trim() || 'idle';
+            currentCharacter.voice = String(((document.getElementById('envops-character-voice') || {}).value || '')).trim() || null;
+            currentCharacter.scale = Number(((document.getElementById('envops-character-scale') || {}).value || currentCharacter.scale || 1));
+            var equipmentText = String(((document.getElementById('envops-character-equipment') || {}).value || '')).trim();
+            currentCharacter.equipment = equipmentText ? equipmentText.split(',').map(function (item) {
+                return String(item || '').trim();
+            }).filter(function (item) { return !!item; }) : [];
+            _envInspectorState.characterEditKey = '';
+            _envUpsertSpawnedObject({
+                kind: String(sourceObj.kind || ''),
+                id: String(sourceObj.id || ''),
+                character: currentCharacter
+            });
+            callTool('env_mutate', {
+                kind: String(sourceObj.kind || ''),
+                id: String(sourceObj.id || ''),
+                character: currentCharacter
+            }, 'env_mutate', { inspectorAction: true, inspectorObjectKey: objectKey });
+            return true;
+        }
+        if (action === 'toggle-waypoint-capture') {
+            _envInspectorState.waypointEditKey = _envInspectorState.waypointEditKey === objectKey ? '' : objectKey;
+            renderEnvironmentView();
+            return true;
+        }
+        if (action === 'clear-waypoints') {
+            var nextData = _envCloneJson(data, {});
+            nextData.waypoints = [];
+            _envUpsertSpawnedObject({
+                kind: String(sourceObj.kind || ''),
+                id: String(sourceObj.id || ''),
+                data: nextData
+            });
+            callTool('env_mutate', {
+                kind: String(sourceObj.kind || ''),
+                id: String(sourceObj.id || ''),
+                data: nextData
+            }, 'env_mutate', { inspectorAction: true, inspectorObjectKey: objectKey });
             return true;
         }
         if (action === 'remove-object') {
@@ -16501,6 +18313,36 @@
         return '<button type="button" class="' + (tone === 'primary' ? '' : 'btn-dim') + '" data-env-inspector-action="' + _esc(String(action || 'noop')) + '"' + String(extraAttrs || '') + '>' + _esc(String(label || action || 'ACTION')) + '</button>';
     }
 
+    function _envInspectorEditorField(id, label, value, type, extraAttrs, placeholder) {
+        return '<label style="display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--text-dim);">' +
+            '<span>' + _esc(String(label || 'Field')) + '</span>' +
+            '<input id="' + _esc(String(id || 'envops-editor-field')) + '" type="' + _esc(String(type || 'text')) + '" value="' + _esc(value === undefined || value === null ? '' : String(value)) + '"' +
+            (placeholder ? ' placeholder="' + _esc(String(placeholder || '')) + '"' : '') +
+            ' style="width:100%;padding:7px 8px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.03);color:var(--text);border-radius:8px;"' + String(extraAttrs || '') + ' />' +
+        '</label>';
+    }
+
+    function _envInspectorEditorSelect(id, label, value, options) {
+        var opts = Array.isArray(options) ? options : [];
+        return '<label style="display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--text-dim);">' +
+            '<span>' + _esc(String(label || 'Field')) + '</span>' +
+            '<select id="' + _esc(String(id || 'envops-editor-select')) + '" style="width:100%;padding:7px 8px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.03);color:var(--text);border-radius:8px;">' +
+            opts.map(function (option) {
+                var optValue = option && option.value !== undefined ? option.value : option;
+                var optLabel = option && option.label !== undefined ? option.label : option;
+                return '<option value="' + _esc(String(optValue || '')) + '"' + (String(optValue || '') === String(value || '') ? ' selected' : '') + '>' + _esc(String(optLabel || '')) + '</option>';
+            }).join('') +
+            '</select>' +
+        '</label>';
+    }
+
+    function _envInspectorEditorToggle(id, label, checked) {
+        return '<label style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text);padding:6px 0;">' +
+            '<input id="' + _esc(String(id || 'envops-editor-toggle')) + '" type="checkbox"' + (checked ? ' checked' : '') + ' />' +
+            '<span>' + _esc(String(label || 'Enabled')) + '</span>' +
+        '</label>';
+    }
+
     function _envInspectorObjectSummary(obj) {
         var data = _envObjectData(obj);
         var kind = String(obj.kind || '').toLowerCase();
@@ -16514,8 +18356,8 @@
             metrics.push(_envInspectorMetric('State', String(obj.state || 'idle')));
         } else if (kind === 'slot' && slotSummary) {
             metrics.push(_envInspectorMetric('Slot', slotSummary.slot));
-            metrics.push(_envInspectorMetric('Provider', slotSummary.provider || 'local'));
-            metrics.push(_envInspectorMetric('State', String(obj.state || 'ready')));
+            metrics.push(_envInspectorMetric('Provider', slotSummary.provider || '—'));
+            metrics.push(_envInspectorMetric('State', String(slotSummary.visualState || obj.state || 'ready')));
         } else if (kind === 'workflow') {
             metrics.push(_envInspectorMetric('Nodes', String(((_wfLoadedDef || {}).nodes || []).length || 0)));
             metrics.push(_envInspectorMetric('Runs', String((_envRunHistoryState.rows || []).length || 0)));
@@ -16564,7 +18406,20 @@
     function _envCollectInspectorView(obj) {
         var summary = _envInspectorObjectSummary(obj);
         var kind = String(obj.kind || '').toLowerCase();
+        var objectKey = _envSceneObjectKey(obj);
         var data = _envObjectData(obj);
+        var mechanics = obj && obj.mechanics && typeof obj.mechanics === 'object' && !Array.isArray(obj.mechanics)
+            ? obj.mechanics
+            : null;
+        var character = _envSceneCharacterForObject(obj);
+        if (!character && (kind === 'npc' || kind === 'actor')) {
+            character = _envNormalizeSceneCharacter([{
+                archetype: 'custom',
+                asset_ref: String((_envSceneAppearanceForObject(obj) || {}).asset_ref || ''),
+                anim_set: 'humanoid',
+                behavior: 'idle'
+            }], kind);
+        }
         var slotId = _envSceneResolveSlotId(obj);
         var slotMeta = slotId ? _envInspectorSlotMeta(slotId) : null;
         var slotSummary = slotId ? _envInspectorSlotSummary(slotMeta, slotId) : null;
@@ -16575,13 +18430,15 @@
             sections.push(_envInspectorSection('agent', 'Agent', [
                 _envInspectorMetric('Slot', slotSummary.slot),
                 _envInspectorMetric('Model', slotSummary.model),
-                _envInspectorMetric('Provider', slotSummary.provider),
+                _envInspectorMetric('Provider', slotSummary.provider || '—'),
                 _envInspectorMetric('Chat', slotSummary.supportsChat ? 'yes' : 'no')
             ].join(''), { meta: slotSummary.provider || 'slot', open: true }));
             actions.push(_envInspectorActionButton('chat', 'Chat', 'primary'));
             actions.push(_envInspectorActionButton('invoke-slot', 'Invoke'));
             actions.push(_envInspectorActionButton('focus-slot', 'Focus Slot'));
             var caps = Array.isArray(data.capabilities) ? data.capabilities : (Array.isArray(data.granted_tools) ? data.granted_tools : []);
+            var slotCaps = _slotUniqueStrings(((slotSummary.capabilityProfile || {}).supported_tasks || []).concat((slotSummary.capabilityProfile || {}).modality_families || []));
+            caps = _slotUniqueStrings(caps.concat(slotCaps));
             if (caps.length) {
                 sections.push(_envInspectorSection('capabilities', 'Capabilities', '<div class="envops-chip-row">' + caps.slice(0, 12).map(function (cap) {
                     return '<span class="envops-chip">' + _esc(String(cap)) + '</span>';
@@ -16591,10 +18448,28 @@
             sections.push(_envInspectorSection('slot-runtime', 'Slot Runtime', [
                 _envInspectorMetric('Slot', slotSummary.slot),
                 _envInspectorMetric('Model', slotSummary.model),
-                _envInspectorMetric('Provider', slotSummary.provider),
+                _envInspectorMetric('Provider', slotSummary.provider || '—'),
+                _envInspectorMetric('State', slotSummary.visualState || 'empty'),
                 _envInspectorMetric('Context', slotSummary.contextWindow || '—'),
                 _envInspectorMetric('Max Output', slotSummary.maxOutput || '—')
             ].join(''), { meta: slotSummary.provider || 'slot', open: true }));
+            var slotProfile = slotSummary.capabilityProfile || {};
+            var providerBinding = slotSummary.providerBinding || {};
+            sections.push(_envInspectorSection('provider-binding', 'Provider Binding', [
+                _envInspectorMetric('Binding', String(slotProfile.binding_class || 'unbound')),
+                _envInspectorMetric('Provider Kind', String(providerBinding.kind || 'unknown')),
+                _envInspectorMetric('Model ID', _envProductCollapseText(String(providerBinding.model_id || providerBinding.model || slotSummary.model || '—'), 22)),
+                _envInspectorMetric('Remote', providerBinding.is_remote ? 'yes' : 'no'),
+                _envInspectorMetric('Secret', providerBinding.requires_external_secret ? 'external' : 'none')
+            ].join(''), { meta: String(providerBinding.display_label || providerBinding.kind || 'provider') }));
+            var slotChips = _slotUniqueStrings((slotProfile.modality_families || []).concat(slotProfile.supported_tasks || []).concat(slotSummary.facilityCandidates || []));
+            if (slotChips.length) {
+                sections.push(_envInspectorSection('capability-contract', 'Capability Contract', '<div class="envops-chip-row">' + slotChips.slice(0, 16).map(function (cap) {
+                    return '<span class="envops-chip">' + _esc(String(cap)) + '</span>';
+                }).join('') + '</div>', {
+                    meta: String(slotProfile.runtime_class || slotProfile.invocation_class || 'capability')
+                }));
+            }
             actions.push(_envInspectorActionButton('chat', 'Chat', 'primary'));
             actions.push(_envInspectorActionButton('invoke-slot', 'Invoke'));
             actions.push(_envInspectorActionButton('slot-info', 'Info'));
@@ -16699,6 +18574,142 @@
             if (kind === 'trace' || kind === 'event') actions.push(_envInspectorActionButton('open-debug', 'Open Debug', 'primary'));
         }
 
+        if ((mechanics && mechanics.family) || _envIsCustomSceneKind(kind)) {
+            mechanics = mechanics || {
+                family: null,
+                wind: { enabled: false, strength: 0.5, frequency: 1, direction: [1, 0] },
+                reaction: { enabled: false, radius: 2, strength: 0.8, recovery: 3 },
+                lod: { near: 20, mid: 50, far: 100 }
+            };
+            var mechanicsEditing = String(_envInspectorState.mechanicsEditKey || '') === objectKey;
+            var mechanicRows = mechanics.family ? [
+                _envInspectorMetric('Family', String(mechanics.family || '—'))
+            ] : ['<div class="envops-stage-empty">No mechanics configured yet. Use the editor to add wind, reaction, and LOD controls.</div>'];
+            if (mechanics.wind && mechanics.wind.enabled) {
+                mechanicRows.push(_envInspectorMetric('Wind', String(Number(mechanics.wind.strength || 0).toFixed(2))));
+                mechanicRows.push(_envInspectorMetric('Frequency', String(Number(mechanics.wind.frequency || 0).toFixed(2))));
+                mechanicRows.push(_envInspectorMetric(
+                    'Direction',
+                    String(Number(((mechanics.wind.direction || [1, 0])[0]) || 0).toFixed(2)) + ', ' + String(Number(((mechanics.wind.direction || [1, 0])[1]) || 0).toFixed(2))
+                ));
+            }
+            if (mechanics.reaction && mechanics.reaction.enabled) {
+                mechanicRows.push(_envInspectorMetric('Reaction', String(Number(mechanics.reaction.radius || 0).toFixed(1)) + 'm'));
+                mechanicRows.push(_envInspectorMetric('Push', String(Number(mechanics.reaction.strength || 0).toFixed(2))));
+                mechanicRows.push(_envInspectorMetric('Recovery', String(Number(mechanics.reaction.recovery || 0).toFixed(1)) + 's'));
+            }
+            if (mechanics.lod) {
+                mechanicRows.push(_envInspectorMetric(
+                    'LOD',
+                    String(Number(mechanics.lod.near || 0).toFixed(0)) + '/' + String(Number(mechanics.lod.mid || 0).toFixed(0)) + '/' + String(Number(mechanics.lod.far || 0).toFixed(0))
+                ));
+            }
+            var mechanicsBody = mechanicRows.join('');
+            if (_envIsCustomSceneKind(kind)) {
+                if (mechanicsEditing) {
+                    mechanicsBody = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">' +
+                        _envInspectorEditorSelect('envops-mechanics-family', 'Family', mechanics.family || '', [
+                            { value: '', label: 'None' },
+                            { value: 'foliage', label: 'Foliage' },
+                            { value: 'prop', label: 'Prop' },
+                            { value: 'ambient_fx', label: 'Ambient FX' },
+                            { value: 'surface', label: 'Surface' }
+                        ]) +
+                        _envInspectorEditorToggle('envops-mechanics-wind-enabled', 'Wind Enabled', !!(mechanics.wind && mechanics.wind.enabled)) +
+                        _envInspectorEditorField('envops-mechanics-wind-strength', 'Wind Strength', Number((mechanics.wind || {}).strength || 0.5).toFixed(2), 'number', ' step="0.05" min="0" max="1.5"') +
+                        _envInspectorEditorField('envops-mechanics-wind-frequency', 'Wind Frequency', Number((mechanics.wind || {}).frequency || 1).toFixed(2), 'number', ' step="0.05" min="0.05" max="8"') +
+                        _envInspectorEditorField('envops-mechanics-wind-dir-x', 'Wind Dir X', Number((((mechanics.wind || {}).direction || [1, 0])[0]) || 1).toFixed(2), 'number', ' step="0.1" min="-1" max="1"') +
+                        _envInspectorEditorField('envops-mechanics-wind-dir-z', 'Wind Dir Z', Number((((mechanics.wind || {}).direction || [1, 0])[1]) || 0).toFixed(2), 'number', ' step="0.1" min="-1" max="1"') +
+                        _envInspectorEditorToggle('envops-mechanics-reaction-enabled', 'Reaction Enabled', !!(mechanics.reaction && mechanics.reaction.enabled)) +
+                        _envInspectorEditorField('envops-mechanics-reaction-radius', 'Reaction Radius', Number((mechanics.reaction || {}).radius || 2).toFixed(1), 'number', ' step="0.1" min="0.2" max="20"') +
+                        _envInspectorEditorField('envops-mechanics-reaction-strength', 'Reaction Push', Number((mechanics.reaction || {}).strength || 0.8).toFixed(2), 'number', ' step="0.05" min="0" max="2"') +
+                        _envInspectorEditorField('envops-mechanics-reaction-recovery', 'Recovery', Number((mechanics.reaction || {}).recovery || 3).toFixed(1), 'number', ' step="0.1" min="0.1" max="20"') +
+                        _envInspectorEditorField('envops-mechanics-lod-near', 'LOD Near', Number((mechanics.lod || {}).near || 20).toFixed(0), 'number', ' step="1" min="2" max="300"') +
+                        _envInspectorEditorField('envops-mechanics-lod-mid', 'LOD Mid', Number((mechanics.lod || {}).mid || 50).toFixed(0), 'number', ' step="1" min="3" max="400"') +
+                        _envInspectorEditorField('envops-mechanics-lod-far', 'LOD Far', Number((mechanics.lod || {}).far || 100).toFixed(0), 'number', ' step="1" min="4" max="600"') +
+                        '</div><div class="envops-inspector-actions-inline">' +
+                        _envInspectorActionButton('save-mechanics', 'Save', 'primary') +
+                        _envInspectorActionButton('cancel-mechanics-edit', 'Cancel') +
+                        '</div>';
+                } else {
+                    mechanicsBody += '<div class="envops-inspector-actions-inline">' +
+                        _envInspectorActionButton('edit-mechanics', 'Edit Mechanics', 'primary') +
+                        '</div>';
+                }
+            }
+            sections.push(_envInspectorSection('mechanics', 'Mechanics', mechanicsBody, {
+                meta: String(mechanics.family || 'behavior')
+            }));
+        }
+
+        if (character && typeof character === 'object') {
+            var characterEditing = String(_envInspectorState.characterEditKey || '') === objectKey;
+            var waypointCapture = String(_envInspectorState.waypointEditKey || '') === objectKey;
+            var sceneWaypoints = Array.isArray(data.waypoints) ? data.waypoints : [];
+            var characterBody = [
+                _envInspectorMetric('Archetype', character.archetype || '—'),
+                _envInspectorMetric('Model', character.asset_ref || 'default'),
+                _envInspectorMetric('Anim Set', character.anim_set || '—'),
+                _envInspectorMetric('Behavior', character.behavior || 'idle'),
+                _envInspectorMetric('Voice', character.voice || '—')
+            ].join('');
+            if (_envIsCustomSceneKind(kind)) {
+                if (characterEditing) {
+                    characterBody = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">' +
+                        _envInspectorEditorSelect('envops-character-archetype', 'Archetype', character.archetype || 'custom', [
+                            { value: 'custom', label: 'Custom' },
+                            { value: 'wizard', label: 'Wizard' },
+                            { value: 'warrior', label: 'Warrior' },
+                            { value: 'dragon', label: 'Dragon' },
+                            { value: 'creature', label: 'Creature' },
+                            { value: 'civilian', label: 'Civilian' }
+                        ]) +
+                        _envInspectorEditorSelect('envops-character-anim-set', 'Anim Set', character.anim_set || 'humanoid', [
+                            { value: 'humanoid', label: 'Humanoid' },
+                            { value: 'quadruped', label: 'Quadruped' },
+                            { value: 'flying', label: 'Flying' },
+                            { value: 'custom', label: 'Custom' }
+                        ]) +
+                        _envInspectorEditorField('envops-character-asset-ref', 'Model URL', character.asset_ref || '', 'text', '', '/static/assets/npc.glb') +
+                        _envInspectorEditorField('envops-character-sprite-ref', 'Sprite Sheet', character.sprite_ref || '', 'text', '', '/static/assets/character.png') +
+                        _envInspectorEditorSelect('envops-character-behavior', 'Behavior', character.behavior || 'idle', [
+                            { value: 'idle', label: 'Idle' },
+                            { value: 'patrol', label: 'Patrol' },
+                            { value: 'wander', label: 'Wander' },
+                            { value: 'follow', label: 'Follow' },
+                            { value: 'guard', label: 'Guard' }
+                        ]) +
+                        _envInspectorEditorField('envops-character-voice', 'Voice', character.voice || '', 'text') +
+                        _envInspectorEditorField('envops-character-scale', 'Character Scale', Number(character.scale || 1).toFixed(2), 'number', ' step="0.05" min="0.2" max="6"') +
+                        _envInspectorEditorField('envops-character-equipment', 'Equipment', Array.isArray(character.equipment) ? character.equipment.join(', ') : '', 'text', '', 'staff, satchel') +
+                        '</div><div class="envops-inspector-actions-inline">' +
+                        _envInspectorActionButton('save-character', 'Save', 'primary') +
+                        _envInspectorActionButton('cancel-character-edit', 'Cancel') +
+                        '</div>';
+                } else {
+                    characterBody += '<div class="envops-inspector-actions-inline">' +
+                        _envInspectorActionButton('edit-character', 'Edit Character', 'primary') +
+                        '</div>';
+                }
+            }
+            if (String(character.behavior || 'idle').toLowerCase() === 'patrol') {
+                characterBody += '<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.08);">' +
+                    '<div class="envops-inspector-note">' + _esc(waypointCapture ? 'Waypoint capture active. Click the ground in the 3D scene to append patrol points.' : 'Waypoints are stored in scene-space (0–100) and loop through the locomotion queue.') + '</div>' +
+                    (sceneWaypoints.length
+                        ? sceneWaypoints.map(function (point, idx) {
+                            return '<div class="envops-inspector-row"><span>WP ' + String(idx + 1) + '</span><span>' + _esc(String(Number(point.x || 0).toFixed(1)) + ', ' + String(Number(point.y || 0).toFixed(1))) + '</span></div>';
+                        }).join('')
+                        : '<div class="envops-stage-empty">No patrol waypoints yet.</div>') +
+                    '<div class="envops-inspector-actions-inline">' +
+                    _envInspectorActionButton('toggle-waypoint-capture', waypointCapture ? 'Stop Capture' : 'Capture Waypoints', waypointCapture ? 'primary' : 'dim') +
+                    _envInspectorActionButton('clear-waypoints', 'Clear Waypoints') +
+                    '</div></div>';
+            }
+            sections.push(_envInspectorSection('character', 'Character', characterBody, {
+                meta: String(character.archetype || 'character')
+            }));
+        }
+
         if (summary.workflowRefs.length) {
             sections.push(_envInspectorSection('workflow-references', 'Workflow References', summary.workflowRefs.map(function (ref) {
                 return '<div class="envops-inspector-row"><span>' + _esc(String(ref.label || ref.id || 'node')) + '</span><span>' + _esc(String(ref.type || ref.tool || 'node')) + '</span></div>';
@@ -16750,7 +18761,7 @@
 
         sections.push(_envInspectorSection('raw-payload', 'Raw Payload', _wfJsonBlock(String(obj.label || obj.id || obj.kind || 'object'), obj), { meta: 'raw' }));
         var actionMarkup = actions.join('');
-        if ((kind === 'panel' || _envSceneObjectHasHtml(obj)) && actionMarkup.indexOf('data-env-inspector-action="edit-object"') < 0) {
+        if (_envIsCustomSceneKind(kind) && actionMarkup.indexOf('data-env-inspector-action="edit-object"') < 0) {
             actions.push(_envInspectorActionButton('edit-object', 'Edit'));
         }
         if (_envIsCustomSceneKind(kind) && actionMarkup.indexOf('data-env-inspector-action="remove-object"') < 0) {
@@ -16768,7 +18779,7 @@
             seenActions[key] = true;
             return true;
         });
-        return { summary: summary, actions: actions.slice(0, 4), sections: sections };
+        return { summary: summary, actions: actions.slice(0, 6), sections: sections };
     }
 
     function _envInspectorResolveActiveSection(view) {
@@ -16793,6 +18804,7 @@
 
     function _envRenderInspectorPanel() {
         if (!_envInspectorState.active) return '';
+        _envRefreshSceneAudit(false);
         var obj = _envInspectorCurrentObject();
         if (!obj) {
             return '<div class="envops-inspector-shell fallback"><div class="envops-hud-empty">Focus target no longer exists.</div></div>';
@@ -16831,6 +18843,7 @@
         var metricsHtml = view.summary.metrics.length
             ? '<div class="envops-hud-metrics">' + view.summary.metrics.join('') + '</div>'
             : '';
+        var sceneAuditHtml = _envRenderSceneAuditWarningsHtml('hud');
 
         return '<div class="envops-inspector-shell" style="left:0;top:0;width:100%;height:100%;">' +
             connectorHtml +
@@ -16844,6 +18857,7 @@
                     '<button type="button" class="envops-hud-close" data-env-inspector-action="close-inspector" aria-label="Close">&times;</button>' +
                 '</div>' +
                 metricsHtml +
+                sceneAuditHtml +
                 (actionMarkup ? '<div class="envops-hud-actions envops-inspector-actions">' + actionMarkup + '</div>' : '') +
                 '<div class="envops-hud-sections">' + sectionStripHtml + '</div>' +
                 '<div class="envops-hud-body">' +
@@ -16882,8 +18896,8 @@
                         : '<span class="envops-scene-surface-preview-empty">Surface preview unavailable</span>')) +
                 '</button>' +
                 '<span class="envops-scene-surface-foot">' +
-                '<button type="button" class="envops-scene-surface-settings" data-env-action="scene-object" data-env-object-key="' + _esc(objectKey) + '">Inspect</button>' +
-                '<button type="button" class="envops-scene-surface-settings" data-env-action="scene-open-surface" data-env-object-key="' + _esc(objectKey) + '">Fullscreen</button>' +
+                '<button type="button" class="envops-scene-surface-settings" data-surface-button="inspect" data-env-action="scene-object" data-env-object-key="' + _esc(objectKey) + '" aria-label="Inspect surface" title="Inspect surface"><span class="envops-scene-surface-settings-label">Inspect</span></button>' +
+                '<button type="button" class="envops-scene-surface-settings" data-surface-button="open" data-env-action="scene-open-surface" data-env-object-key="' + _esc(objectKey) + '" aria-label="Open surface fullscreen" title="Open surface fullscreen"><span class="envops-scene-surface-settings-label">Fullscreen</span></button>' +
                 '</span>' +
                 '</div>';
         }
@@ -16893,10 +18907,14 @@
         var meta = String(sourceObj.meta || '').trim()
             || (interaction.menu_item_count ? (String(interaction.menu_item_count) + ' menu items') : (interaction.primary_action || 'scene object'));
         var triggerClass = 'envops-scene-trigger kind-' + _esc(String(sourceObj.kind || 'object').toLowerCase());
+        var showStateChip = _env3DIsAgentKind(String(sourceObj.kind || ''));
         if (isFocused) triggerClass += ' active';
         else if (inspectorActive) triggerClass += ' ambient';
         return '<button type="button" class="' + triggerClass + '" data-env-action="scene-object" data-env-object-key="' + _esc(objectKey) + '">' +
-            '<span class="envops-scene-trigger-title">' + _esc(String(sourceObj.label || sourceObj.kind || 'object')) + '</span>' +
+            '<span class="envops-scene-trigger-title">' +
+                (showStateChip ? '<span class="env-agent-state-chip" aria-hidden="true"></span>' : '') +
+                '<span class="envops-scene-trigger-title-text">' + _esc(String(sourceObj.label || sourceObj.kind || 'object')) + '</span>' +
+            '</span>' +
             (meta ? '<span class="envops-scene-trigger-meta">' + _esc(meta) + '</span>' : '') +
             (badge ? '<span class="envops-scene-trigger-badge">' + _esc(badge) + '</span>' : '') +
             '</button>';
@@ -16906,6 +18924,30 @@
         var payload = _normalizeToolPayload(raw);
         if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
         return payload;
+    }
+
+    function _envToolCarriesEnvironmentPayload(toolName, payload) {
+        var tool = String(toolName || '');
+        if ([
+            'env_spawn', 'env_mutate', 'env_remove', 'env_read', 'env_control', 'env_persist',
+            'workstation_bind', 'workstation_unbind', 'workstation_list',
+            'facility_create', 'facility_list', 'facility_bind', 'facility_activate'
+        ].indexOf(tool) >= 0) return true;
+        if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return false;
+        return !!(
+            payload.environment_effects ||
+            payload.state_excerpt ||
+            payload.command ||
+            payload.operation ||
+            payload.delta ||
+            payload.object ||
+            payload.objects ||
+            payload.snapshot ||
+            payload.live ||
+            payload.shared_state ||
+            payload.contracts ||
+            payload.habitat_objects
+        );
     }
 
     function _envUpsertSpawnedObject(params) {
@@ -17060,11 +19102,12 @@
         return rect.right <= 0 || rect.bottom <= 0 || rect.left >= vw || rect.top >= vh;
     }
 
-    function _envRectClipped(rect, viewport) {
+    function _envRectClipped(rect, viewport, tolerance) {
         if (!rect || !rect.visible) return false;
         var vw = Number((viewport || {}).width || 0);
         var vh = Number((viewport || {}).height || 0);
-        return rect.left < 0 || rect.top < 0 || rect.right > vw || rect.bottom > vh;
+        var t = Math.max(0, Number(tolerance) || 0);
+        return rect.left < -t || rect.top < -t || rect.right > vw + t || rect.bottom > vh + t;
     }
 
     function _envRectInvalidReason(rect, viewport) {
@@ -17123,7 +19166,9 @@
         add('hud_secondary', '#envops-habitat-hud-secondary');
         add('hud_corroboration', '#envops-habitat-corroboration');
         add('hud_operations', '#envops-habitat-ops-rail');
-        add('focus_card', '.envops-focus-card');
+        add('kind_filter', '[data-env-action="toggle-kind-panel"]');
+        // Sample the inspector focus card mounted beside the habitat stage; broader selectors also match offscreen cards elsewhere.
+        add('focus_card', '#envops-stage .envops-stage-shell > .envops-focus-card');
         return layers;
     }
 
@@ -17144,7 +19189,8 @@
             hud_secondary: document.getElementById('envops-habitat-hud-secondary'),
             hud_corroboration: document.getElementById('envops-habitat-corroboration'),
             hud_operations: document.getElementById('envops-habitat-ops-rail'),
-            focus_card: document.querySelector('.envops-focus-card')
+            // The stage-shell selector avoids sampling hidden/offscreen focus cards rendered by other environment panels.
+            focus_card: document.querySelector('#envops-stage .envops-stage-shell > .envops-focus-card')
         };
         var rects = {};
         Object.keys(rectTargets).forEach(function (key) {
@@ -17184,7 +19230,6 @@
         var overlapPairs = [
             ['inspector', 'overlay_dock'],
             ['inspector', 'cockpit'],
-            ['inspector', 'focus_card'],
             ['scene_panel', 'overlay_dock'],
             ['scene_panel', 'cockpit'],
             ['scene_panel', 'inspector'],
@@ -17193,12 +19238,21 @@
         var overlaps = overlapPairs.map(function (pair) {
             return _envRectOverlapSummary(pair[0], rects[pair[0]], pair[1], rects[pair[1]]);
         }).filter(Boolean);
+        var _belowFoldLayers = { focus_card: true };
         var clipped = [];
         var offscreen = [];
         Object.keys(rects).forEach(function (key) {
+            if (_belowFoldLayers[key]) return;
             var rect = rects[key];
             if (!rect || !rect.visible) return;
-            if (_envRectClipped(rect, viewport)) clipped.push(key);
+            var skipClip = false;
+            if (key === 'stage') {
+                var stageEl = rectTargets[key];
+                var stageOF = stageEl ? getComputedStyle(stageEl).overflowY : '';
+                if (stageOF === 'auto' || stageOF === 'scroll') skipClip = true;
+            }
+            var clipTolerance = (key === 'habitat_shell' || key === 'canvas_3d') ? 8 : 0;
+            if (!skipClip && _envRectClipped(rect, viewport, clipTolerance)) clipped.push(key);
             if (_envRectOffscreen(rect, viewport)) offscreen.push(key);
         });
         var invalid = [];
@@ -17245,6 +19299,8 @@
         var canvasEl = document.querySelector('#envops-habitat-shell canvas');
         var mountedLayers = _envMountedLayerNames();
         var stageText = _envProductCollapseText(String((stageEl && stageEl.innerText) || ''), 240);
+        var activeProfileId = String(_env3D.activeWorldProfile || '');
+        var activeProfile = activeProfileId && _envWorldProfiles[activeProfileId] ? _envWorldProfiles[activeProfileId] : null;
         return {
             stage_mode: String(_envRenderTruthState.stageMode || 'blank'),
             blank_reason: String(_envRenderTruthState.blankReason || ''),
@@ -17259,7 +19315,7 @@
             canvas_visible: !!(_envRectSnapshotForElement(canvasEl) || {}).visible,
             css2d_labels_mounted: Number(document.querySelectorAll('.env3d-label-shell').length || 0),
             mounted_layers: mountedLayers,
-            hud_layers: mountedLayers.filter(function (name) { return /^hud_/.test(name) || name === 'focus_card'; }),
+            hud_layers: mountedLayers.filter(function (name) { return /^hud_/.test(name); }),
             stage_text: String(stageText || ''),
             last_tool_applied: String(_envMirrorState.lastTool || ''),
             last_tool_source: String(_envMirrorState.lastSource || ''),
@@ -17270,10 +19326,29 @@
             scene: {
                 object_count: Number(((_envScene.objects || []).length) || 0),
                 pickable_count: Number(((_envScene.pickables || []).length) || 0),
+                habitat_3d_count: Number(Object.keys(_env3D.meshes || {}).length || 0),
+                trigger_count: Number(Object.keys(_env3D.triggers || {}).length || 0),
                 current_snapshot: _envScenePrimarySnapshotName(),
                 bootstrap_pending: !!_envSceneBootstrapState.pending,
                 bootstrap_error: String(_envSceneBootstrapState.error || '')
             },
+            world_profile: {
+                active: activeProfileId,
+                family: String((activeProfile && activeProfile.family) || ''),
+                strata: _env3D.strata ? {
+                    surfaceLevel: _env3D.strata.surfaceLevel,
+                    waterLevel: _env3D.strata.waterLevel,
+                    seabedLevel: _env3D.strata.seabedLevel,
+                    ceilingLevel: _env3D.strata.ceilingLevel
+                } : null,
+                meshes: {
+                    seabed: !!_env3D.seabedMesh,
+                    ceiling: !!_env3D.ceilingMesh,
+                    water: !!_env3D.waterMesh,
+                    volumeIndicator: !!_env3D.volumeIndicator
+                }
+            },
+            camera_preset: String(_env3D._lastCameraPreset || ''),
             panel_active: !!_envHtmlPanelState.active,
             inspector_active: !!_envInspectorState.active,
             corroboration_active: !!document.getElementById('envops-habitat-corroboration')
@@ -17328,6 +19403,41 @@
 
     _envRefreshLiveMirrorSurface();
 
+    function _envLooksLikeSceneObjectPayload(payload) {
+        var obj = payload && typeof payload === 'object' && !Array.isArray(payload) ? payload : null;
+        if (!obj) return false;
+        if (!(obj.kind || obj.id || obj.label)) return false;
+        return obj.x !== undefined
+            || obj.y !== undefined
+            || obj.scale !== undefined
+            || obj.tilt !== undefined
+            || obj.state !== undefined
+            || obj.meta !== undefined
+            || obj.color !== undefined
+            || obj.data !== undefined
+            || obj.appearance !== undefined
+            || obj.mechanics !== undefined
+            || obj.character !== undefined
+            || obj.html !== undefined
+            || obj.actions !== undefined
+            || obj.items !== undefined
+            || obj.category !== undefined
+            || obj.source !== undefined;
+    }
+
+    function _envFallbackSceneObjectFromPayload(payload) {
+        if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
+        if (payload.object && typeof payload.object === 'object' && !Array.isArray(payload.object)) {
+            return payload.object;
+        }
+        if (_envLooksLikeSceneObjectPayload(payload.params)) return payload.params;
+        var normalized = payload.normalized_args && typeof payload.normalized_args === 'object'
+            ? payload.normalized_args
+            : {};
+        if (_envLooksLikeSceneObjectPayload(normalized.params)) return normalized.params;
+        return _envLooksLikeSceneObjectPayload(payload) ? payload : null;
+    }
+
     function _envApplyEnvironmentEffects(payload, toolName, source) {
         if (!payload || typeof payload !== 'object') return false;
         var effects = payload.environment_effects && typeof payload.environment_effects === 'object'
@@ -17338,9 +19448,7 @@
 
         var changed = false;
         var actor = String((((payload.normalized_args || {}).actor) || 'assistant'));
-        var fallbackObject = payload.object && typeof payload.object === 'object'
-            ? payload.object
-            : ((payload.kind || payload.id || payload.label) ? payload : null);
+        var fallbackObject = _envFallbackSceneObjectFromPayload(payload);
 
         if (payload.operation === 'env_persist' && (payload.operation_status === 'loaded' || payload.operation_status === 'cleared')) {
             if (_envSpawnedObjects.length) {
@@ -17370,8 +19478,15 @@
             if (_envRemoveObject(fallbackObject.kind, fallbackObject.id)) changed = true;
         }
         if (payload.command) {
-            _envExecuteControlCommand(payload.command, payload.target_id || payload.target || '', actor, payload.summary || '');
-            changed = true;
+            var commandName = String(payload.command || '').trim();
+            _envExecuteControlCommand(commandName, payload.target_id || payload.target || '', actor, payload.summary || '');
+            var nonRenderingSurfaceCommand = commandName === 'surface_tab'
+                || commandName === 'surface_scroll'
+                || commandName === 'surface_action'
+                || commandName === 'surface_click'
+                || commandName === 'surface_input'
+                || commandName === 'surface_submit';
+            if (!nonRenderingSurfaceCommand) changed = true;
         }
 
         if (token) _envRememberAppliedToken(token);
@@ -17725,14 +19840,28 @@
         return objects;
     };
 
-    // Activity event handler for env_spawn/env_mutate/env_remove tool calls
+    // Activity event handler for environment-bearing tool calls
     function _envHandleActivityToolEvent(event) {
         if (!event || !event.tool) return false;
         var tool = String(event.tool || '');
-        if (['env_spawn', 'env_mutate', 'env_remove', 'env_read', 'env_control', 'env_persist'].indexOf(tool) < 0) return false;
         var result = _envNormalizeEnvironmentPayload(event.result || {});
         if (!result) return false;
+        if (!_envToolCarriesEnvironmentPayload(tool, result)) return false;
+        if (tool !== 'get_cached'
+            && result._cached
+            && !_envFallbackSceneObjectFromPayload(result)
+            && !(result.environment_effects && Object.keys(result.environment_effects || {}).length)
+            && !Array.isArray(result.objects)
+            && !result.snapshot) {
+            var activityCacheId = String(result._cached || '').trim();
+            if (activityCacheId) {
+                callTool('get_cached', { cache_id: activityCacheId }, tool, {
+                    activityCacheReplay: true
+                });
+            }
+        }
         var applied = _envApplyEnvironmentPayload(result, tool, 'activity');
+        var skipHydrationSyncRender = false;
         if (tool === 'env_persist') {
             var op = String(result.operation || '').toLowerCase();
             var opStatus = String(result.operation_status || '').toLowerCase();
@@ -17751,8 +19880,15 @@
                 _envNavigationState.pendingLoad = null;
                 _envCloseHtmlPanel('assistant', 'scene cleared');
                 applied.changed = true;
+            } else if ((op === 'sync_live' || opStatus === 'sync_live')
+                && event.source === 'hydration'
+                && !applied.changed) {
+                // The mirrored live state is already refreshed by _envStoreMirroredState.
+                // Re-rendering here recreates srcdoc surface iframes and stomps bridge state.
+                skipHydrationSyncRender = true;
             }
         }
+        if (skipHydrationSyncRender) return true;
         if (applied.changed || applied.mirrored) {
             if (event.source !== 'hydration' && applied.changed) {
                 _envScheduleLiveSync(tool + ':activity', true);
@@ -17772,24 +19908,114 @@
         scene: null,
         camera: null,
         renderer: null,
+        composer: null,
+        bloomPass: null,
         cssRenderer: null,
         controls: null,
         groundPlane: null,
         gridHelper: null,
+        waterMesh: null,
+        waterNormalTexture: null,
+        waterLevelOverrides: (function () {
+            try {
+                var raw = localStorage.getItem('env_theme_water_levels');
+                var parsed = raw ? JSON.parse(raw) : null;
+                return parsed && typeof parsed === 'object' ? parsed : {};
+            } catch (e) {
+                return {};
+            }
+        })(),
+        activeWorldProfile: null,
+        strata: { surfaceLevel: 0, waterLevel: null, seabedLevel: null, ceilingLevel: null },
+        waterLevelControl: null,
+        waterLevelControlValue: null,
+        seabedLevelControl: null,
+        seabedLevelControlValue: null,
+        worldProfileControl: null,
+        worldProfileSelect: null,
+        strataIndicators: null,
+        seabedMesh: null,
+        ceilingMesh: null,
+        volumeIndicator: null,
+        _cameraAnimFrame: null,
+        _lastCameraPreset: '',
+        _profileKitRefreshTimer: null,
+        themePickerWrap: null,
         meshes: {},        // keyed by kind::id
         cssLabels: {},     // CSS2DObject labels keyed by kind::id
         lineMeshes: [],    // route/trajectory lines
         particleSystem: null,
+        hdriRenderTarget: null,
+        hdriUrl: '',
+        hdriRequestToken: 0,
         clock: null,
         container: null,
         animId: null,
         resizeObserver: null,
         lastObjectHash: '',
+        navGrid: null,
+        navGridSize: 50,
+        navHash: '',
+        assetCache: {},
+        assetLoader: null,
+        portalTexture: null,
+        crashDummyTexture: null,
+        influenceMap: null,
+        influenceData: null,
+        influenceMapSize: 0,
+        influenceUseFloat: false,
+        agentSpriteAtlas: null,
+        agentSpriteTexture: null,
+        agentSpriteMaps: null,
+        spriteSheetCache: {},
+        triggers: {},
+        tileGrid: {},
+        waypointLines: {},
+        raycaster: null,
+        mouse: null,
+        selectedMesh: null,
+        selectedOverlayEl: null,
+        transformControls: null,
+        terrain: null,
+        assetPackBootstrapped: false,
+        labelMode: 'full',
+        kindFilter: {},
+        kindFilterOpen: false,
         rigMeta: null,
         poseOffset: { azimuth: 0, polar: 0, distanceScale: 1, targetX: 0, targetY: 0, targetZ: 0 },
         manualControlActive: false,
         manualCommitTimer: 0,
         lastManualReason: ''
+    };
+
+    var _envSceneAudit = {
+        warnings: [],
+        signature: '',
+        timestamp: 0,
+        previewWarnings: [],
+        previewSignature: '',
+        previewTimestamp: 0
+    };
+
+    var _envAssetPacks = [];
+    var _envUserAssetPackStorageKey = 'champion_user_asset_pack';
+    var _envPackIndexPromise = null;
+    var _envAssetBrowserState = {
+        expanded: false,
+        packFilter: '',
+        categoryFilter: '',
+        localModelOpen: false,
+        hubQuery: '',
+        hubStatus: '',
+        hubBusy: false,
+        packsLoading: 0
+    };
+    var _envPwaState = {
+        initialized: false,
+        available: false,
+        dismissed: false,
+        installed: false,
+        deferredPrompt: null
     };
 
     var _env3DKindColors = {
@@ -17812,9 +20038,15 @@
         npc:       0xffaa44,
         chatbot:   0x44bbff,
         service:   0x99aa99,
+        zone:      0x4f8f72,
+        decal:     0xff4444,
+        tile:      0x7d8791,
+        substrate: 0xaa44ff,
+        vegetation_patch: 0x4a7c3f,
         panel:     0x44ffaa,
         menu:      0xffd166,
         portal:    0x7c9cff,
+        room:      0x7b8794,
         environment: 0x66ffd9
     };
 
@@ -17822,10 +20054,2305 @@
         running:   0x00ff88,
         completed: 0x224422,
         failed:    0xff4444,
+        learning:  0x8844ff,
         idle:      0x111122,
         pending:   0x222233,
         queued:    0x333344
     };
+
+    var _env3DTileMaterials = {
+        stone:  { color: 0x7d8791, roughness: 0.85, metalness: 0.08, emissive: 0x000000, emissiveIntensity: 0, opacity: 1.0 },
+        sand:   { color: 0xb89c67, roughness: 0.92, metalness: 0.04, emissive: 0x000000, emissiveIntensity: 0, opacity: 1.0 },
+        wood:   { color: 0x7f5734, roughness: 0.70, metalness: 0.08, emissive: 0x000000, emissiveIntensity: 0, opacity: 1.0 },
+        metal:  { color: 0x888898, roughness: 0.30, metalness: 0.80, emissive: 0x000000, emissiveIntensity: 0, opacity: 1.0 },
+        glass:  { color: 0xaaddff, roughness: 0.05, metalness: 0.10, emissive: 0x112244, emissiveIntensity: 0.1, opacity: 0.74 },
+        lava:   { color: 0xff3300, roughness: 0.60, metalness: 0.20, emissive: 0xff2200, emissiveIntensity: 0.8, opacity: 1.0 },
+        ice:    { color: 0xcceeff, roughness: 0.10, metalness: 0.05, emissive: 0x88bbff, emissiveIntensity: 0.15, opacity: 0.88 },
+        energy: { color: 0x00ffaa, roughness: 0.20, metalness: 0.60, emissive: 0x00ff88, emissiveIntensity: 0.6, opacity: 0.92 },
+        crash_dummy: { color: 0xf1c40f, roughness: 0.68, metalness: 0.06, emissive: 0x111111, emissiveIntensity: 0.02, opacity: 1.0 }
+    };
+
+    var _envRoomMaterials = {
+        stone: null,
+        sand: null,
+        wood: null
+    };
+
+    var _env3DAgentStateColors = {
+        idle: 0xcccccc,
+        running: 0x00ff88,
+        failed: 0xff4444,
+        learning: 0x8844ff,
+        completed: 0xa6f7cb,
+        pending: 0xaeb8c8,
+        queued: 0xb9bfd2
+    };
+
+    var _envAgentSpriteTiles = ['llm', 'embedding', 'asr', 'tts', 'vlm'];
+
+    function _env3DMarkSharedResource(resource) {
+        if (resource && typeof resource === 'object') {
+            resource.userData = resource.userData || {};
+            resource.userData.envSharedResource = true;
+        }
+        return resource;
+    }
+
+    function _env3DHexFromColor(value, fallback) {
+        if (value === undefined || value === null || value === '') return Number(fallback || 0);
+        try {
+            return new THREE.Color(value).getHex();
+        } catch (err) {}
+        var text = String(value || '').trim().replace(/^#/, '');
+        if (!text) return Number(fallback || 0);
+        var parsed = parseInt(text, 16);
+        return isFinite(parsed) ? parsed : Number(fallback || 0);
+    }
+
+    function _env3DAccentHex() {
+        var theme = _envThemes && _envThemes[_envThemeId];
+        var accent = theme && theme.css ? theme.css[0] : '#7c9cff';
+        return _env3DHexFromColor(accent, _env3DKindColors.portal || 0x7c9cff);
+    }
+
+    function _env3DClampNumber(value, fallback, min, max) {
+        var hasValue = value !== undefined && value !== null && value !== '';
+        var n = Number(hasValue ? value : fallback);
+        if (!isFinite(n)) n = Number(fallback || 0);
+        if (min !== undefined) n = Math.max(Number(min), n);
+        if (max !== undefined) n = Math.min(Number(max), n);
+        return n;
+    }
+
+    function _env3DNormalizePatternKey(value) {
+        var text = String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '_');
+        if (!text) return '';
+        if (text === 'crash_dummy' || text === 'crash_test' || text === 'crash_test_dummy' || text === 'crashdummy' || text === 'crashtestdummy') {
+            return 'crash_dummy';
+        }
+        return text;
+    }
+
+    function _env3DExtractMaterialStyle(source) {
+        if (source === undefined || source === null) return {};
+        if (typeof source === 'string' || typeof source === 'number') return { material: String(source) };
+        if (typeof source !== 'object' || Array.isArray(source)) return {};
+        var style = {};
+        [
+            'material', 'pattern', 'skin', 'texture', 'color', 'roughness', 'metalness',
+            'emissive', 'emissive_intensity', 'emissiveIntensity', 'opacity',
+            'double_sided', 'doubleSided'
+        ].forEach(function (key) {
+            if (source[key] !== undefined) style[key] = source[key];
+        });
+        return style;
+    }
+
+    function _env3DPrimitiveMaterialSource(obj, appearance) {
+        var data = _envObjectData(obj);
+        var style = Object.assign({}, _env3DExtractMaterialStyle(data));
+        var appearanceStyle = _env3DExtractMaterialStyle(appearance && appearance.material !== undefined ? appearance.material : null);
+        Object.keys(appearanceStyle).forEach(function (key) {
+            style[key] = appearanceStyle[key];
+        });
+        if (appearance && appearance.color && style.color === undefined) style.color = appearance.color;
+        var fallbackVisual = _env3DNormalizePatternKey(data.fallback_visual !== undefined ? data.fallback_visual : data.fallbackVisual);
+        if (fallbackVisual === 'crash_dummy') {
+            if (style.material === undefined || style.material === null || style.material === '') style.material = 'crash_dummy';
+            if (style.pattern === undefined || style.pattern === null || style.pattern === '') style.pattern = 'crash_dummy';
+            if (style.color === undefined || style.color === null || style.color === '') style.color = '#f1c40f';
+        }
+        return style;
+    }
+
+    function _env3DResolveProceduralMaterial(data, fallbackColor) {
+        var source = data && typeof data === 'object' && !Array.isArray(data) ? data : {};
+        var materialKey = _env3DNormalizePatternKey(source.material || 'stone') || 'stone';
+        var base = _env3DTileMaterials[materialKey];
+        if (!base) {
+            materialKey = 'custom';
+            base = {
+                color: Number(fallbackColor || 0x7d8791),
+                roughness: 0.6,
+                metalness: 0.2,
+                emissive: 0x000000,
+                emissiveIntensity: 0,
+                opacity: 1.0
+            };
+        }
+        var hasExplicitEmissive = Object.prototype.hasOwnProperty.call(source, 'emissive');
+        var resolvedEmissive = hasExplicitEmissive
+            ? (source.emissive == null || source.emissive === '' ? 0x000000 : _env3DHexFromColor(source.emissive, base.emissive))
+            : Number(base.emissive || 0);
+        var resolvedOpacity = _env3DClampNumber(source.opacity, base.opacity, 0.08, 1);
+        var patternKey = _env3DNormalizePatternKey(
+            source.pattern !== undefined ? source.pattern
+                : (source.skin !== undefined ? source.skin
+                    : (source.texture !== undefined ? source.texture : ''))
+        );
+        if (!patternKey && materialKey === 'crash_dummy') patternKey = 'crash_dummy';
+        return {
+            key: materialKey,
+            color: materialKey === 'custom'
+                ? _env3DHexFromColor(source.color || fallbackColor || '', Number(base.color || fallbackColor || 0x7d8791))
+                : _env3DHexFromColor(source.color || '', Number(base.color || fallbackColor || 0x7d8791)),
+            roughness: _env3DClampNumber(source.roughness, base.roughness, 0, 1),
+            metalness: _env3DClampNumber(source.metalness, base.metalness, 0, 1),
+            emissive: resolvedEmissive,
+            emissiveIntensity: _env3DClampNumber(
+                source.emissive_intensity,
+                hasExplicitEmissive && (source.emissive == null || source.emissive === '') ? 0 : base.emissiveIntensity,
+                0,
+                2
+            ),
+            opacity: resolvedOpacity,
+            transparent: resolvedOpacity < 0.999 || materialKey === 'glass' || materialKey === 'ice' || materialKey === 'energy',
+            side: source.double_sided || source.doubleSided ? THREE.DoubleSide : THREE.FrontSide,
+            pattern: patternKey,
+            map: _env3DResolvePatternTexture(patternKey),
+            preserveMapColors: patternKey === 'crash_dummy'
+        };
+    }
+
+    function _env3DCreateProceduralMaterial(config, useVertexColors) {
+        var material = new THREE.MeshStandardMaterial({
+            color: Number(config.preserveMapColors ? 0xffffff : (config.color || 0x7d8791)),
+            emissive: Number(config.emissive || 0x000000),
+            emissiveIntensity: Number(config.emissiveIntensity || 0),
+            roughness: _env3DClampNumber(config.roughness, 0.6, 0, 1),
+            metalness: _env3DClampNumber(config.metalness, 0.2, 0, 1),
+            transparent: !!config.transparent,
+            opacity: _env3DClampNumber(config.opacity, 1, 0.08, 1),
+            side: config.side || THREE.FrontSide,
+            vertexColors: !!useVertexColors,
+            map: config.map || null
+        });
+        if (material.map) material.needsUpdate = true;
+        return material;
+    }
+
+    function _env3DApplyResolvedMaterialConfig(material, config) {
+        if (!material || !config) return;
+        var desiredMap = config.map || null;
+        if (material.map !== desiredMap) {
+            if (material.map && !(material.map.userData && material.map.userData.envSharedResource) && typeof material.map.dispose === 'function') {
+                material.map.dispose();
+            }
+            material.map = desiredMap;
+            material.needsUpdate = true;
+        }
+        if (material.color && typeof material.color.setHex === 'function') {
+            material.color.setHex(config.preserveMapColors ? 0xffffff : Number(config.color || 0x7d8791));
+        }
+        if ('roughness' in material) material.roughness = _env3DClampNumber(config.roughness, 0.6, 0, 1);
+        if ('metalness' in material) material.metalness = _env3DClampNumber(config.metalness, 0.2, 0, 1);
+        if ('transparent' in material) material.transparent = !!config.transparent;
+        if ('opacity' in material) material.opacity = _env3DClampNumber(config.opacity, 1, 0.08, 1);
+        if ('side' in material) material.side = config.side || THREE.FrontSide;
+        if ('depthWrite' in material) material.depthWrite = _env3DClampNumber(config.opacity, 1, 0.08, 1) >= 0.999;
+    }
+
+    function _env3DWorldBoundsVector4() {
+        return new THREE.Vector4(-40, -20, 40, 20);
+    }
+
+    function _env3DMechanicsForObject(obj) {
+        if (obj && obj.mechanics && typeof obj.mechanics === 'object' && !Array.isArray(obj.mechanics)) {
+            return obj.mechanics;
+        }
+        var data = _envObjectData(obj);
+        return _envNormalizeSceneMechanics(data && data.mechanics ? [data.mechanics] : []);
+    }
+
+    function _env3DCreateGrassBlade(width, height, verticalSegments) {
+        var bladeWidth = _env3DClampNumber(width, 0.1, 0.03, 1);
+        var bladeHeight = _env3DClampNumber(height, 0.8, 0.2, 4);
+        var segments = Math.max(1, Math.min(8, Math.round(Number(verticalSegments || 4))));
+        var geo = new THREE.PlaneGeometry(bladeWidth, bladeHeight, 1, segments);
+        geo.translate(0, bladeHeight * 0.5, 0);
+        return geo;
+    }
+
+    function _env3DCreateGrassMaterial(baseColor) {
+        var base = new THREE.Color(baseColor || 0x4a7c3f);
+        var tip = base.clone().lerp(new THREE.Color(0xa8d97a), 0.45);
+        var material = new THREE.ShaderMaterial({
+            uniforms: {
+                uTime: { value: 0 },
+                uWindDir: { value: new THREE.Vector2(1.0, 0.0) },
+                uWindStrength: { value: 0.5 },
+                uWindFrequency: { value: 1.0 },
+                uPushStrength: { value: 1.0 },
+                uInfluenceMap: { value: null },
+                uInfluenceMapSize: { value: 64.0 },
+                uWorldBounds: { value: _env3DWorldBoundsVector4() },
+                uInfluenceFloat: { value: 1.0 },
+                uBaseColor: { value: base },
+                uTipColor: { value: tip }
+            },
+            vertexShader: [
+                'uniform float uTime;',
+                'uniform vec2 uWindDir;',
+                'uniform float uWindStrength;',
+                'uniform float uWindFrequency;',
+                'uniform float uPushStrength;',
+                'uniform sampler2D uInfluenceMap;',
+                'uniform vec4 uWorldBounds;',
+                'uniform float uInfluenceFloat;',
+                'varying float vHeight;',
+                'void main() {',
+                '    vHeight = uv.y;',
+                '    vec4 instanceLocal = instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);',
+                '    vec3 worldPos = (modelMatrix * instanceLocal).xyz;',
+                '    vec2 mapUV = (worldPos.xz - uWorldBounds.xy) / (uWorldBounds.zw - uWorldBounds.xy);',
+                '    mapUV = clamp(mapUV, 0.0, 1.0);',
+                '    vec4 rawInfluence = texture2D(uInfluenceMap, mapUV);',
+                '    vec4 influence = uInfluenceFloat > 0.5',
+                '        ? rawInfluence',
+                '        : vec4((rawInfluence.rg * 2.0) - 1.0, rawInfluence.b, rawInfluence.a);',
+                '    float phase = dot(worldPos.xz, vec2(0.11, 0.17));',
+                '    float sway = sin((uTime * 2.5 * uWindFrequency) + phase * 0.8)',
+                '        * cos((uTime * 1.75 * uWindFrequency) + phase * 1.3);',
+                '    float bendAmount = vHeight * vHeight * uWindStrength;',
+                '    vec3 windOffset = vec3(uWindDir.x * sway * bendAmount, 0.0, uWindDir.y * sway * bendAmount);',
+                '    vec3 pushOffset = vec3(influence.r, 0.0, influence.g) * influence.b * uPushStrength * vHeight * vHeight * 2.0;',
+                '    vec3 displaced = position + windOffset + pushOffset;',
+                '    vec4 worldFinal = modelMatrix * (instanceMatrix * vec4(displaced, 1.0));',
+                '    gl_Position = projectionMatrix * viewMatrix * worldFinal;',
+                '}'
+            ].join('\n'),
+            fragmentShader: [
+                'uniform vec3 uBaseColor;',
+                'uniform vec3 uTipColor;',
+                'varying float vHeight;',
+                'void main() {',
+                '    vec3 color = mix(uBaseColor, uTipColor, clamp(vHeight, 0.0, 1.0));',
+                '    color += vec3(vHeight * 0.08 - 0.03);',
+                '    gl_FragColor = vec4(color, 1.0);',
+                '}'
+            ].join('\n'),
+            side: THREE.DoubleSide,
+            transparent: false
+        });
+        material.userData = Object.assign({}, material.userData || {}, {
+            vegetationMaterial: true
+        });
+        return material;
+    }
+
+    function _env3DVegetationConfigFromObject(obj, mechanics) {
+        var data = _envObjectData(obj);
+        var scale = Math.max(0.4, Number((obj && obj.scale) || 1));
+        var totalCount = Math.round(_env3DClampNumber(
+            data.count !== undefined ? data.count : (data.instance_count !== undefined ? data.instance_count : data.instances),
+            500,
+            64,
+            3000
+        ));
+        var patchRadius = _env3DClampNumber(data.radius, scale * 5, 0.8, 30);
+        var nearCount = Math.max(24, Math.round(totalCount * 0.5));
+        var midCount = Math.max(18, Math.round(totalCount * 0.3));
+        var farCount = Math.max(12, Math.max(0, totalCount - nearCount - midCount));
+        var lod = mechanics && mechanics.lod ? mechanics.lod : null;
+        return {
+            totalCount: totalCount,
+            patchRadius: patchRadius,
+            nearCount: nearCount,
+            midCount: midCount,
+            farCount: farCount,
+            near: lod && lod.near ? Number(lod.near) : 20,
+            mid: lod && lod.mid ? Number(lod.mid) : 50,
+            far: lod && lod.far ? Number(lod.far) : 100
+        };
+    }
+
+    function _env3DCreateVegetationRingMesh(count, innerRadius, outerRadius, bladeWidth, bladeHeight, segments, color, ringName) {
+        var mesh = new THREE.InstancedMesh(
+            _env3DCreateGrassBlade(bladeWidth, bladeHeight, segments),
+            _env3DCreateGrassMaterial(color),
+            Math.max(1, Number(count || 1))
+        );
+        var dummy = new THREE.Object3D();
+        var inner = Math.max(0, Number(innerRadius || 0));
+        var outer = Math.max(inner + 0.01, Number(outerRadius || inner + 0.25));
+        for (var i = 0; i < mesh.count; i++) {
+            var angle = Math.random() * Math.PI * 2;
+            var radius = Math.sqrt((Math.random() * ((outer * outer) - (inner * inner))) + (inner * inner));
+            dummy.position.set(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
+            dummy.rotation.set(0, Math.random() * Math.PI, 0);
+            var bladeScale = 0.65 + (Math.random() * 0.75);
+            dummy.scale.set(1, bladeScale, 1);
+            dummy.updateMatrix();
+            mesh.setMatrixAt(i, dummy.matrix);
+        }
+        mesh.instanceMatrix.needsUpdate = true;
+        mesh.frustumCulled = false;
+        mesh.castShadow = false;
+        mesh.receiveShadow = false;
+        mesh.userData = Object.assign({}, mesh.userData || {}, {
+            vegetationRing: true,
+            ringName: String(ringName || 'ring'),
+            maxCount: mesh.count
+        });
+        return mesh;
+    }
+
+    function _env3DCreateVegetationPatch(obj, appearance, mechanics) {
+        var cfg = _env3DVegetationConfigFromObject(obj, mechanics);
+        var baseColor = appearance && appearance.color ? appearance.color : (_env3DKindColors.vegetation_patch || 0x4a7c3f);
+        var group = new THREE.Group();
+        var nearOuter = cfg.patchRadius * 0.42;
+        var midOuter = cfg.patchRadius * 0.76;
+        var farOuter = cfg.patchRadius;
+        var nearRing = _env3DCreateVegetationRingMesh(cfg.nearCount, 0, nearOuter, 0.1, 0.9, 4, baseColor, 'near');
+        var midRing = _env3DCreateVegetationRingMesh(cfg.midCount, nearOuter * 0.65, midOuter, 0.1, 0.68, 2, baseColor, 'mid');
+        var farRing = _env3DCreateVegetationRingMesh(cfg.farCount, midOuter * 0.8, farOuter, 0.08, 0.46, 1, baseColor, 'far');
+        group.add(nearRing);
+        group.add(midRing);
+        group.add(farRing);
+        group.userData = Object.assign({}, group.userData || {}, {
+            visualType: 'vegetation_patch',
+            labelHeight: Math.max(0.95, (cfg.patchRadius * 0.18) + 0.4),
+            vegetationConfig: cfg,
+            vegetationRings: [nearRing, midRing, farRing]
+        });
+        return group;
+    }
+
+    function _env3DInitInfluenceMap() {
+        if (_env3D.influenceMap || !_env3D.renderer) return _env3D.influenceMap;
+        var size = 128;
+        var gl = _env3D.renderer.getContext();
+        var hasFloat = !!(gl && gl.getExtension && gl.getExtension('OES_texture_float'));
+        var hasFloatLinear = !!(gl && gl.getExtension && gl.getExtension('OES_texture_float_linear'));
+        var useFloat = hasFloat && hasFloatLinear;
+        var data = useFloat ? new Float32Array(size * size * 4) : new Uint8Array(size * size * 4);
+        var tex = new THREE.DataTexture(data, size, size, THREE.RGBAFormat, useFloat ? THREE.FloatType : THREE.UnsignedByteType);
+        tex.wrapS = THREE.ClampToEdgeWrapping;
+        tex.wrapT = THREE.ClampToEdgeWrapping;
+        tex.magFilter = THREE.LinearFilter;
+        tex.minFilter = THREE.LinearFilter;
+        tex.needsUpdate = true;
+        _env3D.influenceMap = tex;
+        _env3D.influenceData = data;
+        _env3D.influenceMapSize = size;
+        _env3D.influenceUseFloat = useFloat;
+        return tex;
+    }
+
+    function _env3DEncodeInfluenceSignedByte(value) {
+        var clamped = Math.max(-1, Math.min(1, Number(value || 0)));
+        return Math.max(0, Math.min(255, Math.round(((clamped * 0.5) + 0.5) * 255)));
+    }
+
+    function _env3DDecodeInfluenceSignedByte(value) {
+        return ((Math.max(0, Math.min(255, Number(value || 0))) / 255) * 2) - 1;
+    }
+
+    function _env3DStampInfluence(worldX, worldZ, dirX, dirZ, strength, radius) {
+        if (!_env3D.influenceMap || !_env3D.influenceData || !_env3D.influenceMapSize) _env3DInitInfluenceMap();
+        if (!_env3D.influenceMap || !_env3D.influenceData || !_env3D.influenceMapSize) return;
+        var pushX = Number(dirX || 0);
+        var pushZ = Number(dirZ || 0);
+        var length = Math.sqrt((pushX * pushX) + (pushZ * pushZ));
+        if (length < 0.0001) return;
+        pushX /= length;
+        pushZ /= length;
+        var pushStrength = _env3DClampNumber(strength, 1, 0, 2);
+        var pushRadius = _env3DClampNumber(radius, 1.5, 0.2, 12);
+        var size = Number(_env3D.influenceMapSize || 0);
+        var minX = -40;
+        var maxX = 40;
+        var minZ = -20;
+        var maxZ = 20;
+        var centerX = ((Number(worldX || 0) - minX) / (maxX - minX)) * (size - 1);
+        var centerZ = ((Number(worldZ || 0) - minZ) / (maxZ - minZ)) * (size - 1);
+        var radiusX = Math.max(1, Math.round((pushRadius / (maxX - minX)) * size));
+        var radiusZ = Math.max(1, Math.round((pushRadius / (maxZ - minZ)) * size));
+        var data = _env3D.influenceData;
+        for (var z = Math.max(0, Math.floor(centerZ - radiusZ)); z <= Math.min(size - 1, Math.ceil(centerZ + radiusZ)); z++) {
+            for (var x = Math.max(0, Math.floor(centerX - radiusX)); x <= Math.min(size - 1, Math.ceil(centerX + radiusX)); x++) {
+                var dx = (x - centerX) / radiusX;
+                var dz = (z - centerZ) / radiusZ;
+                var distSq = (dx * dx) + (dz * dz);
+                if (distSq > 1) continue;
+                var falloff = 1 - distSq;
+                falloff *= falloff * pushStrength;
+                var idx = ((z * size) + x) * 4;
+                if (_env3D.influenceUseFloat) {
+                    data[idx] = Math.max(-1, Math.min(1, Number(data[idx] || 0) + (pushX * falloff * 0.35)));
+                    data[idx + 1] = Math.max(-1, Math.min(1, Number(data[idx + 1] || 0) + (pushZ * falloff * 0.35)));
+                    data[idx + 2] = Math.max(Number(data[idx + 2] || 0), falloff);
+                    data[idx + 3] = 1;
+                } else {
+                    var existingX = _env3DDecodeInfluenceSignedByte(data[idx]);
+                    var existingZ = _env3DDecodeInfluenceSignedByte(data[idx + 1]);
+                    var existingStrength = Math.max(0, Math.min(1, Number(data[idx + 2] || 0) / 255));
+                    data[idx] = _env3DEncodeInfluenceSignedByte(existingX + (pushX * falloff * 0.35));
+                    data[idx + 1] = _env3DEncodeInfluenceSignedByte(existingZ + (pushZ * falloff * 0.35));
+                    data[idx + 2] = Math.max(0, Math.min(255, Math.round(Math.max(existingStrength, falloff) * 255)));
+                    data[idx + 3] = 255;
+                }
+            }
+        }
+    }
+
+    function _env3DDecayInfluence(dt) {
+        if (!_env3D.influenceData || !_env3D.influenceMapSize) return;
+        var decay = Math.max(0, 1 - (_env3DClampNumber(dt, 0.016, 0, 1) * 2.4));
+        var data = _env3D.influenceData;
+        if (_env3D.influenceUseFloat) {
+            for (var i = 0; i < data.length; i += 4) {
+                data[i] *= decay;
+                data[i + 1] *= decay;
+                data[i + 2] *= decay;
+            }
+            return;
+        }
+        for (var j = 0; j < data.length; j += 4) {
+            var x = _env3DDecodeInfluenceSignedByte(data[j]) * decay;
+            var z = _env3DDecodeInfluenceSignedByte(data[j + 1]) * decay;
+            var strength = (Math.max(0, Math.min(255, Number(data[j + 2] || 0))) / 255) * decay;
+            data[j] = _env3DEncodeInfluenceSignedByte(x);
+            data[j + 1] = _env3DEncodeInfluenceSignedByte(z);
+            data[j + 2] = Math.max(0, Math.min(255, Math.round(strength * 255)));
+            data[j + 3] = 255;
+        }
+    }
+
+    function _env3DApplyVegetationState(mesh, obj, color, isFocused) {
+        if (!mesh || !mesh.userData || !Array.isArray(mesh.userData.vegetationRings)) return;
+        var appearance = _envSceneAppearanceForObject(obj);
+        var mechanics = _env3DMechanicsForObject(obj);
+        var wind = mechanics && mechanics.wind ? mechanics.wind : null;
+        var reaction = mechanics && mechanics.reaction ? mechanics.reaction : null;
+        var baseColor = new THREE.Color(appearance.color || color || (_env3DKindColors.vegetation_patch || 0x4a7c3f));
+        if (isFocused) baseColor.lerp(new THREE.Color(0x88ff66), 0.18);
+        var tipColor = baseColor.clone().lerp(new THREE.Color(0xb7df7d), 0.45);
+        var bounds = _env3DWorldBoundsVector4();
+        var windDir = wind && Array.isArray(wind.direction) ? wind.direction : [1, 0];
+        mesh.userData.vegetationRings.forEach(function (ring) {
+            if (!ring || !ring.material || !ring.material.uniforms) return;
+            ring.material.uniforms.uWindDir.value.set(Number(windDir[0] || 0), Number(windDir[1] || 0));
+            ring.material.uniforms.uWindStrength.value = wind && wind.enabled ? Number(wind.strength || 0) : 0;
+            ring.material.uniforms.uWindFrequency.value = wind && wind.enabled ? Number(wind.frequency || 1) : 1;
+            ring.material.uniforms.uPushStrength.value = reaction && reaction.enabled ? Number(reaction.strength || 0) : 0;
+            ring.material.uniforms.uInfluenceMap.value = _env3D.influenceMap;
+            ring.material.uniforms.uInfluenceMapSize.value = Number(_env3D.influenceMapSize || 0);
+            ring.material.uniforms.uWorldBounds.value.copy(bounds);
+            ring.material.uniforms.uInfluenceFloat.value = _env3D.influenceUseFloat ? 1.0 : 0.0;
+            ring.material.uniforms.uBaseColor.value.copy(baseColor);
+            ring.material.uniforms.uTipColor.value.copy(tipColor);
+        });
+    }
+
+    function _env3DUpdateVegetationPatch(mesh, obj, time) {
+        if (!mesh || !mesh.userData || !Array.isArray(mesh.userData.vegetationRings)) return;
+        var mechanics = _env3DMechanicsForObject(obj);
+        var cfg = mesh.userData.vegetationConfig || _env3DVegetationConfigFromObject(obj, mechanics);
+        var worldPos = new THREE.Vector3();
+        mesh.getWorldPosition(worldPos);
+        var distance = _env3D.camera ? _env3D.camera.position.distanceTo(worldPos) : 0;
+        mesh.userData.vegetationRings.forEach(function (ring) {
+            if (!ring || !ring.material || !ring.material.uniforms) return;
+            ring.material.uniforms.uTime.value = Number(time || 0);
+            ring.material.uniforms.uInfluenceMap.value = _env3D.influenceMap;
+            ring.material.uniforms.uInfluenceMapSize.value = Number(_env3D.influenceMapSize || 0);
+            ring.material.uniforms.uInfluenceFloat.value = _env3D.influenceUseFloat ? 1.0 : 0.0;
+            if (ring.userData.ringName === 'near') {
+                ring.visible = distance <= cfg.near;
+                ring.count = ring.visible ? Number(ring.userData.maxCount || 0) : 0;
+            } else if (ring.userData.ringName === 'mid') {
+                ring.visible = distance <= cfg.far;
+                ring.count = distance <= cfg.mid
+                    ? Number(ring.userData.maxCount || 0)
+                    : Math.max(10, Math.round(Number(ring.userData.maxCount || 0) * 0.28));
+            } else {
+                ring.visible = true;
+                ring.count = distance <= cfg.far
+                    ? Number(ring.userData.maxCount || 0)
+                    : Math.max(8, Math.round(Number(ring.userData.maxCount || 0) * 0.5));
+            }
+        });
+    }
+
+    function _env3DApplyFoliageWindOverlay(mesh, mechanics, time) {
+        if (!mesh || !mechanics || String(mechanics.family || '').trim().toLowerCase() !== 'foliage') return;
+        if (!mechanics.wind || mechanics.wind.enabled === false) return;
+        if (mesh.userData && mesh.userData.visualType === 'vegetation_patch') return;
+        if (_env3D.transformControls && _env3D.transformControls.dragging && _env3D.selectedMesh === mesh) return;
+        var strength = Number((mechanics.wind || {}).strength || 0);
+        var frequency = Number((mechanics.wind || {}).frequency || 1);
+        var phase = mesh.position.x * 0.11 + mesh.position.z * 0.07;
+        var sway = Math.sin((time * 1.6 * frequency) + phase) * Math.cos((time * 0.9 * frequency) + (phase * 0.7)) * strength * 0.12;
+        var clone = mesh.userData ? mesh.userData.assetClone : null;
+        if (clone) {
+            if (!clone.userData) clone.userData = {};
+            if (!Array.isArray(clone.userData._foliageNodes)) {
+                var swayNodes = [];
+                clone.traverse(function (node) {
+                    if (node && node.isBone) {
+                        swayNodes.push({
+                            node: node,
+                            baseX: Number(node.rotation.x || 0),
+                            baseZ: Number(node.rotation.z || 0)
+                        });
+                    }
+                });
+                if (!swayNodes.length) {
+                    clone.children.forEach(function (node) {
+                        if (!node || !node.isObject3D) return;
+                        swayNodes.push({
+                            node: node,
+                            baseX: Number(node.rotation.x || 0),
+                            baseZ: Number(node.rotation.z || 0)
+                        });
+                    });
+                }
+                clone.userData._foliageNodes = swayNodes;
+            }
+            (clone.userData._foliageNodes || []).forEach(function (entry, idx, list) {
+                if (!entry || !entry.node) return;
+                var weight = Math.max(0.2, 1 - (idx / Math.max(1, (list.length || 1) - 1)) * 0.65);
+                entry.node.rotation.z = Number(entry.baseZ || 0) + (sway * weight);
+                entry.node.rotation.x = Number(entry.baseX || 0) + (sway * 0.18 * weight);
+            });
+            return;
+        }
+        if (mesh.userData && mesh.userData.visualType === 'primitive') {
+            if (mesh.userData._baseWindRotationZ === undefined) mesh.userData._baseWindRotationZ = Number(mesh.rotation.z || 0);
+            mesh.rotation.z = Number(mesh.userData._baseWindRotationZ || 0) + (sway * 0.18);
+        }
+    }
+
+    function _env3DNormalizeRoomMaterialKey(value, fallback) {
+        var text = String(value || fallback || 'stone').trim().toLowerCase();
+        if (text === 'sand' || text === 'wood') return text;
+        return 'stone';
+    }
+
+    function _env3DNormalizeRoomConfig(raw) {
+        var source = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+        var width = Math.max(3, Number(source.width || source.w || 6));
+        var depth = Math.max(3, Number(source.depth || source.d || 6));
+        var height = Math.max(2.2, Number(source.height || source.h || 3));
+        var wallThickness = Math.max(0.08, Math.min(0.4, Number(source.wallThickness || source.wall_thickness || 0.15)));
+        var doorwayCap = Math.max(0.9, Math.min(width, depth) - (wallThickness * 2));
+        var doorwayWidth = Math.max(0.9, Math.min(Number(source.doorwayWidth || source.door_width || source.doorWidth || 1.5), doorwayCap));
+        var doors = [];
+        var rawDoors = Array.isArray(source.doors)
+            ? source.doors
+            : (source.door ? [source.door] : (source.openings ? source.openings : []));
+        rawDoors.forEach(function (entry) {
+            var side = String(entry || '').trim().toLowerCase();
+            if ((side === 'north' || side === 'south' || side === 'east' || side === 'west') && doors.indexOf(side) === -1) {
+                doors.push(side);
+            }
+        });
+        return {
+            id: String(source.id || ''),
+            width: width,
+            depth: depth,
+            height: height,
+            wallThickness: wallThickness,
+            doorwayWidth: doorwayWidth,
+            doors: doors,
+            floorMaterial: _env3DNormalizeRoomMaterialKey(source.floorMaterial || source.floor_material, 'stone'),
+            wallMaterial: _env3DNormalizeRoomMaterialKey(source.wallMaterial || source.wall_material, 'stone')
+        };
+    }
+
+    function _envRoomConfigFromObject(obj) {
+        var data = _envObjectData(obj);
+        return _env3DNormalizeRoomConfig(
+            data.room_config
+            || data.roomConfig
+            || (obj && obj.room_config)
+            || (obj && obj.roomConfig)
+            || {}
+        );
+    }
+
+    function _env3DIsAgentKind(kind) {
+        var text = String(kind || '').trim().toLowerCase();
+        return text === 'slot' || text === 'npc' || text === 'chatbot' || text === 'actor';
+    }
+
+    function _env3DIsRoomObject(obj, appearance) {
+        var kind = String((obj && obj.kind) || '').trim().toLowerCase();
+        var geometry = String(((appearance && appearance.geometry) || '')).trim().toLowerCase();
+        return kind === 'room' || geometry === 'room';
+    }
+
+    function _env3DCollisionPolicyForObject(obj) {
+        if (!obj || typeof obj !== 'object') return 'none';
+        var kind = String(obj.kind || '').trim().toLowerCase();
+        if (kind === 'vegetation_patch' || kind === 'zone' || kind === 'decal' || kind === 'tile' || kind === 'substrate' || kind === 'marker') {
+            return 'none';
+        }
+        var raw = obj.collision_policy;
+        if (raw === undefined && obj.collisionPolicy !== undefined) raw = obj.collisionPolicy;
+        var data = _envObjectData(obj);
+        if (raw === undefined && data.collision_policy !== undefined) raw = data.collision_policy;
+        if (raw === undefined && data.collisionPolicy !== undefined) raw = data.collisionPolicy;
+        if (raw === undefined) return _envDefaultCollisionPolicyForObject(obj);
+        var text = String(raw || _envDefaultCollisionPolicyForObject(obj)).trim().toLowerCase();
+        if (!text) return _envDefaultCollisionPolicyForObject(obj);
+        if (text === 'bvh' || text === 'none') return text;
+        return 'bounds';
+    }
+
+    function _env3DAgentStateColor(state) {
+        var key = String(state || 'idle').trim().toLowerCase();
+        return _env3DAgentStateColors[key] || _env3DAgentStateColors.idle;
+    }
+
+    function _env3DNormalizeAgentModality(value) {
+        var text = String(value || '').trim().toLowerCase();
+        if (!text) return '';
+        if (text === 'llm' || text === 'text' || text === 'language') return 'llm';
+        if (text === 'embedding' || text === 'embed' || text === 'embeddings' || text === 'vector') return 'embedding';
+        if (text === 'asr' || text === 'speech-to-text' || text === 'speech_to_text' || text === 'stt') return 'asr';
+        if (text === 'tts' || text === 'text-to-speech' || text === 'text_to_speech') return 'tts';
+        if (text === 'vlm' || text === 'vision' || text === 'image' || text === 'visual') return 'vlm';
+        return '';
+    }
+
+    function _env3DResolveAgentModality(obj) {
+        var data = _envObjectData(obj);
+        var appearance = obj && obj.appearance && typeof obj.appearance === 'object' && !Array.isArray(obj.appearance)
+            ? obj.appearance
+            : ((data && data.appearance && typeof data.appearance === 'object' && !Array.isArray(data.appearance)) ? data.appearance : {});
+        var explicit = _env3DNormalizeAgentModality(
+            appearance.sprite_id
+            || appearance.spriteId
+            || data.modality
+            || data.mode
+            || data.kind
+            || data.role
+        );
+        if (explicit) return explicit;
+        var haystack = [
+            obj && obj.label,
+            obj && obj.meta,
+            data.modality,
+            data.role,
+            data.model,
+            data.provider,
+            data.task,
+            data.summary,
+            data.type
+        ].filter(Boolean).join(' ').toLowerCase();
+        if (/embed|embedding|vector|rerank|similarity|bge|e5|compass/.test(haystack)) return 'embedding';
+        if (/asr|speech[\s_-]*to[\s_-]*text|whisper|transcrib|audio/.test(haystack)) return 'asr';
+        if (/tts|text[\s_-]*to[\s_-]*speech|voice|speaker|speech synth|synthes/.test(haystack)) return 'tts';
+        if (/vlm|vision|image|visual|multimodal|multi-modal|eye/.test(haystack)) return 'vlm';
+        return 'llm';
+    }
+
+    function _env3DDrawAgentSpriteTile(ctx, type, offsetX, size) {
+        var pad = size * 0.12;
+        var left = offsetX + pad;
+        var top = pad;
+        var right = offsetX + size - pad;
+        var bottom = size - pad;
+        var cx = offsetX + size / 2;
+        var cy = size / 2;
+        ctx.save();
+        ctx.translate(0.5, 0.5);
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 3.2;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        if (type === 'llm') {
+            ctx.beginPath();
+            ctx.arc(cx, cy, size * 0.24, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(cx - size * 0.14, cy + size * 0.02);
+            ctx.lineTo(cx - size * 0.05, cy - size * 0.1);
+            ctx.lineTo(cx + size * 0.01, cy + size * 0.06);
+            ctx.lineTo(cx + size * 0.1, cy - size * 0.05);
+            ctx.stroke();
+        } else if (type === 'embedding') {
+            ctx.beginPath();
+            ctx.arc(cx, cy, size * 0.26, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(cx, top + size * 0.14);
+            ctx.lineTo(cx, bottom - size * 0.14);
+            ctx.moveTo(left + size * 0.14, cy);
+            ctx.lineTo(right - size * 0.14, cy);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(cx, cy - size * 0.18);
+            ctx.lineTo(cx + size * 0.12, cy);
+            ctx.lineTo(cx, cy + size * 0.18);
+            ctx.lineTo(cx - size * 0.12, cy);
+            ctx.closePath();
+            ctx.stroke();
+        } else if (type === 'asr') {
+            ctx.beginPath();
+            ctx.moveTo(cx + size * 0.02, cy - size * 0.23);
+            ctx.bezierCurveTo(cx - size * 0.22, cy - size * 0.2, cx - size * 0.22, cy + size * 0.18, cx - size * 0.02, cy + size * 0.22);
+            ctx.bezierCurveTo(cx + size * 0.12, cy + size * 0.24, cx + size * 0.12, cy + size * 0.06, cx + size * 0.02, cy + size * 0.03);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(cx + size * 0.1, cy + size * 0.03);
+            ctx.bezierCurveTo(cx + size * 0.23, cy - size * 0.02, cx + size * 0.22, cy - size * 0.16, cx + size * 0.06, cy - size * 0.16);
+            ctx.stroke();
+        } else if (type === 'tts') {
+            ctx.beginPath();
+            ctx.moveTo(cx - size * 0.2, cy - size * 0.08);
+            ctx.lineTo(cx - size * 0.06, cy - size * 0.08);
+            ctx.lineTo(cx + size * 0.04, cy - size * 0.18);
+            ctx.lineTo(cx + size * 0.04, cy + size * 0.18);
+            ctx.lineTo(cx - size * 0.06, cy + size * 0.08);
+            ctx.lineTo(cx - size * 0.2, cy + size * 0.08);
+            ctx.closePath();
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(cx + size * 0.12, cy, size * 0.09, -Math.PI / 3, Math.PI / 3);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(cx + size * 0.16, cy, size * 0.16, -Math.PI / 3, Math.PI / 3);
+            ctx.stroke();
+        } else if (type === 'vlm') {
+            ctx.beginPath();
+            ctx.moveTo(left + size * 0.12, cy);
+            ctx.bezierCurveTo(cx - size * 0.18, cy - size * 0.22, cx + size * 0.18, cy - size * 0.22, right - size * 0.12, cy);
+            ctx.bezierCurveTo(cx + size * 0.18, cy + size * 0.22, cx - size * 0.18, cy + size * 0.22, left + size * 0.12, cy);
+            ctx.closePath();
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(cx, cy, size * 0.08, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+        ctx.restore();
+    }
+
+    function _env3DEnsureAgentSpriteAtlas() {
+        if (_env3D.agentSpriteMaps) return _env3D.agentSpriteMaps;
+        if (typeof document === 'undefined' || typeof THREE === 'undefined') return null;
+        var tileSize = 64;
+        var canvas = document.createElement('canvas');
+        canvas.width = tileSize * _envAgentSpriteTiles.length;
+        canvas.height = tileSize;
+        var ctx = canvas.getContext('2d');
+        if (!ctx) return null;
+        _envAgentSpriteTiles.forEach(function (type, idx) {
+            _env3DDrawAgentSpriteTile(ctx, type, idx * tileSize, tileSize);
+        });
+        var atlas = new THREE.CanvasTexture(canvas);
+        atlas.needsUpdate = true;
+        atlas.wrapS = THREE.ClampToEdgeWrapping;
+        atlas.wrapT = THREE.ClampToEdgeWrapping;
+        atlas.generateMipmaps = false;
+        atlas.magFilter = THREE.LinearFilter;
+        atlas.minFilter = THREE.LinearFilter;
+        if ('colorSpace' in atlas && THREE.SRGBColorSpace) atlas.colorSpace = THREE.SRGBColorSpace;
+        _env3DMarkSharedResource(atlas);
+        _env3D.agentSpriteAtlas = canvas;
+        _env3D.agentSpriteTexture = atlas;
+        _env3D.agentSpriteMaps = {};
+        _envAgentSpriteTiles.forEach(function (type, idx) {
+            var tile = atlas.clone();
+            tile.image = atlas.image;
+            tile.repeat.set(1 / _envAgentSpriteTiles.length, 1);
+            tile.offset.set(idx / _envAgentSpriteTiles.length, 0);
+            tile.wrapS = THREE.ClampToEdgeWrapping;
+            tile.wrapT = THREE.ClampToEdgeWrapping;
+            tile.generateMipmaps = false;
+            tile.magFilter = THREE.LinearFilter;
+            tile.minFilter = THREE.LinearFilter;
+            tile.needsUpdate = true;
+            if ('colorSpace' in tile && THREE.SRGBColorSpace) tile.colorSpace = THREE.SRGBColorSpace;
+            _env3DMarkSharedResource(tile);
+            _env3D.agentSpriteMaps[type] = tile;
+        });
+        return _env3D.agentSpriteMaps;
+    }
+
+    function _env3DDisposeAgentSpriteAssets() {
+        if (_env3D.agentSpriteMaps && typeof _env3D.agentSpriteMaps === 'object') {
+            Object.keys(_env3D.agentSpriteMaps).forEach(function (key) {
+                if (_env3D.agentSpriteMaps[key] && typeof _env3D.agentSpriteMaps[key].dispose === 'function') {
+                    _env3D.agentSpriteMaps[key].dispose();
+                }
+            });
+        }
+        if (_env3D.agentSpriteTexture && typeof _env3D.agentSpriteTexture.dispose === 'function') {
+            _env3D.agentSpriteTexture.dispose();
+        }
+        _env3D.agentSpriteAtlas = null;
+        _env3D.agentSpriteTexture = null;
+        _env3D.agentSpriteMaps = null;
+        if (_env3D.spriteSheetCache && typeof _env3D.spriteSheetCache === 'object') {
+            Object.keys(_env3D.spriteSheetCache).forEach(function (key) {
+                var entry = _env3D.spriteSheetCache[key];
+                if (entry && entry.texture && typeof entry.texture.dispose === 'function') entry.texture.dispose();
+            });
+        }
+        _env3D.spriteSheetCache = {};
+    }
+
+    function _env3DDisposePortalTexture() {
+        if (_env3D.portalTexture && typeof _env3D.portalTexture.dispose === 'function') {
+            _env3D.portalTexture.dispose();
+        }
+        _env3D.portalTexture = null;
+    }
+
+    function _env3DDisposeRoomMaterials() {
+        Object.keys(_envRoomMaterials).forEach(function (key) {
+            if (_envRoomMaterials[key] && typeof _envRoomMaterials[key].dispose === 'function') {
+                _envRoomMaterials[key].dispose();
+            }
+            _envRoomMaterials[key] = null;
+        });
+    }
+
+    function _env3DDisposeCrashDummyTexture() {
+        if (_env3D.crashDummyTexture && typeof _env3D.crashDummyTexture.dispose === 'function') {
+            _env3D.crashDummyTexture.dispose();
+        }
+        _env3D.crashDummyTexture = null;
+    }
+
+    function _env3DEnsureCrashDummyTexture() {
+        if (_env3D.crashDummyTexture) return _env3D.crashDummyTexture;
+        if (typeof document === 'undefined' || typeof THREE === 'undefined') return null;
+        var canvas = document.createElement('canvas');
+        canvas.width = 256;
+        canvas.height = 256;
+        var ctx = canvas.getContext('2d');
+        if (!ctx) return null;
+        ctx.fillStyle = '#f1c40f';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#111111';
+        ctx.fillRect(0, 0, canvas.width, 28);
+        ctx.fillRect(0, canvas.height - 28, canvas.width, 28);
+        ctx.fillRect(0, 74, 40, 108);
+        ctx.fillRect(canvas.width - 40, 74, 40, 108);
+        ctx.fillRect(54, 44, 46, 16);
+        ctx.fillRect(canvas.width - 100, 44, 46, 16);
+        ctx.fillRect(54, canvas.height - 60, 46, 16);
+        ctx.fillRect(canvas.width - 100, canvas.height - 60, 46, 16);
+        ctx.strokeStyle = '#111111';
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.lineWidth = 14;
+        ctx.strokeRect(7, 7, canvas.width - 14, canvas.height - 14);
+        ctx.beginPath();
+        ctx.arc(canvas.width / 2, canvas.height / 2, 58, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.lineWidth = 8;
+        ctx.beginPath();
+        ctx.moveTo(canvas.width / 2, 74);
+        ctx.lineTo(canvas.width / 2, canvas.height - 74);
+        ctx.moveTo(74, canvas.height / 2);
+        ctx.lineTo(canvas.width - 74, canvas.height / 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(canvas.width / 2, canvas.height / 2, 15, 0, Math.PI * 2);
+        ctx.stroke();
+        var texture = new THREE.CanvasTexture(canvas);
+        texture.needsUpdate = true;
+        texture.wrapS = THREE.ClampToEdgeWrapping;
+        texture.wrapT = THREE.ClampToEdgeWrapping;
+        texture.generateMipmaps = false;
+        texture.magFilter = THREE.LinearFilter;
+        texture.minFilter = THREE.LinearFilter;
+        if ('colorSpace' in texture && THREE.SRGBColorSpace) texture.colorSpace = THREE.SRGBColorSpace;
+        _env3D.crashDummyTexture = _env3DMarkSharedResource(texture);
+        return _env3D.crashDummyTexture;
+    }
+
+    function _env3DResolvePatternTexture(patternKey) {
+        var key = _env3DNormalizePatternKey(patternKey);
+        if (key === 'crash_dummy') return _env3DEnsureCrashDummyTexture();
+        return null;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // AMBIENT THEME ENGINE — pop culture skins for the 3D habitat
+    // ═══════════════════════════════════════════════════════════════
+    //  css array: [accent, card_border, card_bg_from, card_bg_to, card_glow, stage_bg, canvas_bg]
+
+    var _envThemeId = (function () {
+        try { return localStorage.getItem('env_theme') || 'default'; } catch (e) { return 'default'; }
+    })();
+
+    var _envThemes = {
+        default: {
+            name: 'Default', bg: 0x0a0a1a, fog: 0.012, ground: 0x0d0d24,
+            grid1: 0x1a1a3e, grid2: 0x111128, gridOp: 0.4,
+            amb: [0x334466, 0.6], hemi: [0x4488ff, 0x0a0a1a, 0.5],
+            dir: [0xffffff, 0.8], point: [0x00ff88, 0.6],
+            particle: [0x4488ff, 0.4],
+            css: ['#4fffd0', 'rgba(79,255,208,0.18)', 'rgba(8,16,26,0.88)', 'rgba(5,10,18,0.94)', 'rgba(79,255,208,0.06)', '#111114', '#0a0a1a'],
+            bloom: { strength: 0.6, radius: 0.4, threshold: 0.85 },
+            terrain: { maxDisplacement: 1.2 }
+        },
+        tron_legacy: {
+            name: 'TRON: Legacy', bg: 0x050505, fog: 0.008, ground: 0x080808,
+            grid1: 0x18c8e8, grid2: 0x0a4a5a, gridOp: 0.6,
+            amb: [0x1a3344, 0.4], hemi: [0x6fefff, 0x050505, 0.3],
+            dir: [0x88ccff, 0.6], point: [0x6fefff, 0.8],
+            particle: [0x6fefff, 0.3],
+            css: ['#6fefff', 'rgba(111,239,255,0.2)', 'rgba(5,5,5,0.92)', 'rgba(8,18,22,0.95)', 'rgba(111,239,255,0.08)', '#050508', '#050505'],
+            bloom: { strength: 0.8, radius: 0.45, threshold: 0.75 },
+            terrain: { maxDisplacement: 1.2 }
+        },
+        tron_ares: {
+            name: 'TRON: Ares', bg: 0x0a0000, fog: 0.010, ground: 0x0c0404,
+            grid1: 0xcc1100, grid2: 0x441008, gridOp: 0.6,
+            amb: [0x331111, 0.4], hemi: [0xdd2200, 0x0a0000, 0.3],
+            dir: [0xff6644, 0.6], point: [0xff4400, 0.8],
+            particle: [0xdd2200, 0.35],
+            css: ['#ff4400', 'rgba(221,34,0,0.22)', 'rgba(10,2,0,0.92)', 'rgba(14,4,2,0.95)', 'rgba(255,68,0,0.08)', '#0a0202', '#0a0000'],
+            bloom: { strength: 0.85, radius: 0.45, threshold: 0.75 },
+            terrain: { maxDisplacement: 1.2 }
+        },
+        matrix: {
+            name: 'The Matrix', bg: 0x0d0208, fog: 0.014, ground: 0x060806,
+            grid1: 0x003b00, grid2: 0x001a00, gridOp: 0.5,
+            amb: [0x113311, 0.5], hemi: [0x00ff41, 0x0d0208, 0.3],
+            dir: [0x88ff88, 0.5], point: [0x00ff41, 0.7],
+            particle: [0x00ff41, 0.5],
+            css: ['#00ff41', 'rgba(0,255,65,0.18)', 'rgba(4,8,4,0.92)', 'rgba(2,6,2,0.95)', 'rgba(0,255,65,0.06)', '#080a08', '#0d0208'],
+            bloom: { strength: 0.7, radius: 0.4, threshold: 0.8 },
+            terrain: { maxDisplacement: 1.2 }
+        },
+        blade_runner: {
+            name: 'Blade Runner 2049', bg: 0x2b1718, fog: 0.025, ground: 0x1a1008,
+            grid1: 0xcc7700, grid2: 0x442200, gridOp: 0.3,
+            amb: [0x442211, 0.6], hemi: [0xf78b04, 0x2b1718, 0.4],
+            dir: [0xffaa44, 0.5], point: [0xf78b04, 0.6],
+            particle: [0xf78b04, 0.35],
+            css: ['#f78b04', 'rgba(247,139,4,0.18)', 'rgba(20,10,5,0.92)', 'rgba(14,8,3,0.95)', 'rgba(247,139,4,0.06)', '#120a06', '#2b1718'],
+            bloom: { strength: 1.0, radius: 0.5, threshold: 0.7 },
+            terrain: { maxDisplacement: 1.2 }
+        },
+        ghost_shell: {
+            name: 'Ghost in the Shell', bg: 0x091833, fog: 0.010, ground: 0x081020,
+            grid1: 0x0abdc6, grid2: 0x061830, gridOp: 0.45,
+            amb: [0x112244, 0.5], hemi: [0x04acee, 0x091833, 0.4],
+            dir: [0x8888ff, 0.6], point: [0x04acee, 0.7],
+            particle: [0x8474fb, 0.35],
+            css: ['#04acee', 'rgba(4,172,238,0.18)', 'rgba(9,16,33,0.92)', 'rgba(6,12,24,0.95)', 'rgba(4,172,238,0.06)', '#080e1e', '#091833'],
+            bloom: { strength: 0.8, radius: 0.45, threshold: 0.75 },
+            terrain: { maxDisplacement: 1.2 }
+        },
+        akira: {
+            name: 'AKIRA', bg: 0x0c0c1a, fog: 0.010, ground: 0x0a0812,
+            grid1: 0x2f1583, grid2: 0x140a30, gridOp: 0.5,
+            amb: [0x221133, 0.5], hemi: [0xda1d1f, 0x0c0c1a, 0.4],
+            dir: [0xff6644, 0.6], point: [0xda1d1f, 0.7],
+            particle: [0xee5f0e, 0.35],
+            css: ['#da1d1f', 'rgba(218,29,31,0.2)', 'rgba(12,8,16,0.92)', 'rgba(8,5,12,0.95)', 'rgba(218,29,31,0.06)', '#0a0810', '#0c0c1a'],
+            bloom: { strength: 0.9, radius: 0.5, threshold: 0.7 },
+            terrain: { maxDisplacement: 1.2 }
+        },
+        cyberpunk: {
+            name: 'Cyberpunk 2077', bg: 0x010215, fog: 0.010, ground: 0x080412,
+            grid1: 0x02d7f2, grid2: 0x1a0830, gridOp: 0.5,
+            amb: [0x1a1133, 0.5], hemi: [0xf8e602, 0x010215, 0.4],
+            dir: [0xed1e79, 0.6], point: [0xf8e602, 0.7],
+            particle: [0xed1e79, 0.4],
+            css: ['#f8e602', 'rgba(248,230,2,0.18)', 'rgba(4,2,12,0.92)', 'rgba(2,1,8,0.95)', 'rgba(248,230,2,0.06)', '#060410', '#010215'],
+            bloom: { strength: 1.1, radius: 0.55, threshold: 0.65 },
+            terrain: { maxDisplacement: 1.2 }
+        },
+        photoreal_island: {
+            name: 'Desert Island',
+            type: 'world',
+            bg: 0x87ceeb, fog: 0.003, ground: 0xc5a36b,
+            grid1: 0x7fa0b8, grid2: 0x486274, gridOp: 0.16,
+            particleOp: 0,
+            amb: [0x8899aa, 0.4], hemi: [0xffffff, 0x445566, 0.6],
+            dir: [0xfffbe8, 1.2], point: [0x000000, 0],
+            particle: [0xffffff, 0],
+            css: ['#d9a35b', 'rgba(217,163,91,0.18)', 'rgba(12,18,24,0.84)', 'rgba(6,10,14,0.92)', 'rgba(255,255,255,0.04)', '#111820', '#7da5c9'],
+            bloom: { strength: 0.15, radius: 0.3, threshold: 0.92 },
+            hdri: '/static/assets/hdri/kloofendal_48d_partly_cloudy_1k.hdr',
+            water: {
+                enabled: true,
+                color: 0x001e0f,
+                sunColor: 0xffffff,
+                sunDirection: [20, 30, 15],
+                distortionScale: 3.7,
+                size: 120,
+                alpha: 0.9,
+                y: -0.08
+            },
+            terrain: { maxDisplacement: 0, opacity: 0 }
+        },
+        photoreal_underwater: {
+            name: 'Underwater',
+            type: 'world',
+            bg: 0x113944, fog: 0.012, ground: 0x35524a,
+            grid1: 0x5f939c, grid2: 0x1c3e46, gridOp: 0.08,
+            particleOp: 0,
+            amb: [0x78aeb5, 0.48], hemi: [0x9ed6dd, 0x17343c, 0.58],
+            dir: [0xd7fbff, 0.72], point: [0x4cc9d8, 0.12],
+            particle: [0xb6f5ff, 0],
+            css: ['#7fdae4', 'rgba(127,218,228,0.16)', 'rgba(8,22,28,0.82)', 'rgba(5,12,17,0.9)', 'rgba(127,218,228,0.05)', '#0d2128', '#17434a'],
+            bloom: { strength: 0.04, radius: 0.16, threshold: 0.97 },
+            water: {
+                enabled: true,
+                color: 0x14555c,
+                sunColor: 0xdafcff,
+                sunDirection: [8, 18, 10],
+                distortionScale: 0.85,
+                size: 160,
+                alpha: 0.72,
+                y: 32
+            },
+            terrain: { maxDisplacement: 0, opacity: 0 }
+        }
+    };
+
+    var _envThemeKeys = Object.keys(_envThemes);
+
+    var _envWorldProfiles = {
+        island_cove: {
+            name: 'Island Cove',
+            family: 'coastal',
+            render: {
+                themeBase: 'photoreal_island'
+            },
+            strata: {
+                surfaceLevel: 0,
+                waterLevel: -0.08,
+                seabedLevel: -8,
+                ceilingLevel: null
+            },
+            volumes: [],
+            ecology: {
+                suggestedCategories: ['ships', 'rocks', 'structures'],
+                suggestedTags: ['coastal', 'cove', 'harbor']
+            },
+            camera: {
+                presets: ['overview', 'shoreline', 'cliffside']
+            }
+        },
+        deep_reef: {
+            name: 'Deep Reef',
+            family: 'underwater',
+            render: {
+                themeBase: 'photoreal_underwater',
+                fogColor: 0x143a44,
+                fogDensity: 0.014,
+                bloom: { strength: 0.01, threshold: 0.99 }
+            },
+            strata: {
+                surfaceLevel: 0,
+                waterLevel: 32,
+                seabedLevel: -22,
+                ceilingLevel: null
+            },
+            volumes: [],
+            ecology: {
+                suggestedCategories: ['coral', 'rock', 'shipwreck'],
+                suggestedTags: ['reef', 'underwater', 'bioluminescent']
+            },
+            camera: {
+                presets: ['overview', 'submerged', 'seabed']
+            }
+        },
+        volcanic_coast: {
+            name: 'Volcanic Coast',
+            family: 'volcanic',
+            render: {
+                themeBase: 'photoreal_island',
+                fogColor: 0x2a1810,
+                fogDensity: 0.012,
+                bloom: { strength: 0.25, threshold: 0.92 }
+            },
+            strata: {
+                surfaceLevel: 0,
+                waterLevel: -0.5,
+                seabedLevel: -12,
+                ceilingLevel: null
+            },
+            volumes: [],
+            ecology: {
+                suggestedCategories: ['rocks', 'debris'],
+                suggestedTags: ['volcanic', 'coastal', 'ash']
+            },
+            camera: {
+                presets: ['overview', 'shoreline', 'cliffside']
+            }
+        },
+        karst_cave: {
+            name: 'Karst Cave',
+            family: 'cave',
+            render: {
+                themeBase: 'photoreal_island',
+                fogColor: 0x120e0a,
+                fogDensity: 0.04,
+                bloom: { strength: 0.02, threshold: 0.99 }
+            },
+            strata: {
+                surfaceLevel: 0,
+                waterLevel: -2,
+                seabedLevel: -10,
+                ceilingLevel: 18
+            },
+            volumes: [],
+            ecology: {
+                suggestedCategories: ['rocks', 'structures'],
+                suggestedTags: ['cave', 'karst', 'limestone', 'stalactite']
+            },
+            camera: {
+                presets: ['overview', 'cavern']
+            }
+        }
+    };
+
+    var _envWorldProfileKeys = Object.keys(_envWorldProfiles);
+    var _envWorldProfileKits = {
+        island_cove: {
+            name: 'Island Cove Kit',
+            description: 'Smugglers cove with ships, rocks, pier, and props',
+            items: [
+                { pack: 'polyhaven-models-1k', asset: 'dutch-ship-medium', worldX: 30, worldZ: -15, tilt: 23, heightOffset: 0, scale: 1.0, label: 'Ship' },
+                { pack: 'polyhaven-models-1k', asset: 'modular-wooden-pier', worldX: 15, worldZ: 5, tilt: -12, heightOffset: 0, scale: 1.0, label: 'Pier' },
+                { pack: 'polyhaven-models-1k', asset: 'coast-rocks-01', worldX: -20, worldZ: -10, tilt: 0, heightOffset: 0, scale: 1.0, label: 'Rocks' },
+                { pack: 'polyhaven-models-1k', asset: 'coastal-cliff-01', worldX: -30, worldZ: 10, tilt: 46, heightOffset: 0, scale: 1.0, label: 'Cliff' },
+                { pack: 'polyhaven-models-1k', asset: 'cannon-01', worldX: 10, worldZ: 8, tilt: -69, heightOffset: 0, scale: 1.0, label: 'Cannon' },
+                { pack: 'polyhaven-models-1k', asset: 'barrel-02', worldX: 12, worldZ: 6, tilt: 0, heightOffset: 0, scale: 1.0, label: 'Barrel' },
+                { pack: 'polyhaven-models-1k', asset: 'treasure-chest', worldX: 8, worldZ: 3, tilt: 29, heightOffset: 0, scale: 1.0, label: 'Treasure' }
+            ]
+        },
+        deep_reef: {
+            name: 'Deep Reef Kit',
+            description: 'Underwater reef with rocks, shells, and sunken ship',
+            items: [
+                { pack: 'polyhaven-models-1k', asset: 'coast-rocks-05', worldX: -10, worldZ: -8, tilt: 17, heightOffset: -18, scale: 1.2, label: 'Reef Rock 1' },
+                { pack: 'polyhaven-models-1k', asset: 'coast-rocks-02', worldX: 15, worldZ: -5, tilt: -29, heightOffset: -16, scale: 1.0, label: 'Reef Rock 2' },
+                { pack: 'polyhaven-models-1k', asset: 'coast-rocks-03', worldX: -5, worldZ: 12, tilt: 57, heightOffset: -14, scale: 0.8, label: 'Reef Rock 3' },
+                { pack: 'polyhaven-models-1k', asset: 'lambis-shell', worldX: 3, worldZ: 2, tilt: 40, heightOffset: -20, scale: 1.5, label: 'Shell' },
+                { pack: 'polyhaven-models-1k', asset: 'dutch-ship-large-01', worldX: 25, worldZ: -18, tilt: 52, heightOffset: -12, scale: 1.0, label: 'Sunken Ship' },
+                { pack: 'polyhaven-models-1k', asset: 'boulder-01', worldX: -18, worldZ: 5, tilt: 0, heightOffset: -19, scale: 1.0, label: 'Boulder' }
+            ]
+        },
+        volcanic_coast: {
+            name: 'Volcanic Coast Kit',
+            description: 'Ash-covered coast with dark rocks and wreckage',
+            items: [
+                { pack: 'polyhaven-models-1k', asset: 'namaqualand-boulder-02', worldX: -12, worldZ: -8, tilt: 11, heightOffset: 0, scale: 1.0, label: 'Volcanic Rock 1' },
+                { pack: 'polyhaven-models-1k', asset: 'namaqualand-boulder-04', worldX: 10, worldZ: -12, tilt: -34, heightOffset: 0, scale: 1.2, label: 'Volcanic Rock 2' },
+                { pack: 'polyhaven-models-1k', asset: 'namaqualand-boulder-06', worldX: -20, worldZ: 5, tilt: 46, heightOffset: 0, scale: 0.9, label: 'Volcanic Rock 3' },
+                { pack: 'polyhaven-models-1k', asset: 'coast-line-01', worldX: 0, worldZ: -18, tilt: 0, heightOffset: 0, scale: 1.0, label: 'Coastline' },
+                { pack: 'polyhaven-models-1k', asset: 'barrel-01', worldX: 5, worldZ: 3, tilt: 23, heightOffset: 0, scale: 1.0, label: 'Barrel' }
+            ]
+        },
+        karst_cave: {
+            name: 'Karst Cave Kit',
+            description: 'Underground cave with boulders and rock formations',
+            items: [
+                { pack: 'polyhaven-models-1k', asset: 'mountainside', worldX: -15, worldZ: 0, tilt: 29, heightOffset: -3, scale: 1.0, label: 'Rock Wall' },
+                { pack: 'polyhaven-models-1k', asset: 'boulder-01', worldX: 8, worldZ: -6, tilt: 17, heightOffset: -5, scale: 1.2, label: 'Cave Boulder 1' },
+                { pack: 'polyhaven-models-1k', asset: 'namaqualand-boulder-03', worldX: -8, worldZ: 8, tilt: -23, heightOffset: -4, scale: 1.0, label: 'Cave Boulder 2' },
+                { pack: 'polyhaven-models-1k', asset: 'coast-rocks-01', worldX: 15, worldZ: 10, tilt: 69, heightOffset: -6, scale: 0.9, label: 'Rock Formation' },
+                { pack: 'polyhaven-models-1k', asset: 'treasure-chest', worldX: 0, worldZ: -2, tilt: 0, heightOffset: -7, scale: 1.0, label: 'Hidden Chest' }
+            ]
+        }
+    };
+
+    function _env3DDisposeHDRIRenderTarget() {
+        var scene = _env3D.scene;
+        if (scene && _env3D.hdriRenderTarget && _env3D.hdriRenderTarget.texture) {
+            if (scene.background === _env3D.hdriRenderTarget.texture) scene.background = null;
+            if (scene.environment === _env3D.hdriRenderTarget.texture) scene.environment = null;
+        }
+        if (_env3D.hdriRenderTarget && typeof _env3D.hdriRenderTarget.dispose === 'function') {
+            _env3D.hdriRenderTarget.dispose();
+        }
+        _env3D.hdriRenderTarget = null;
+        _env3D.hdriUrl = '';
+    }
+
+    function _env3DLoadHDRI(url, callback) {
+        if (!url || !_env3D.renderer || typeof THREE.RGBELoader !== 'function' || typeof THREE.PMREMGenerator !== 'function') {
+            if (typeof callback === 'function') callback(null);
+            return;
+        }
+        var loader = new THREE.RGBELoader();
+        loader.load(url, function (texture) {
+            if (texture && THREE.EquirectangularReflectionMapping !== undefined) {
+                texture.mapping = THREE.EquirectangularReflectionMapping;
+            }
+            var pmrem = new THREE.PMREMGenerator(_env3D.renderer);
+            if (typeof pmrem.compileEquirectangularShader === 'function') {
+                pmrem.compileEquirectangularShader();
+            }
+            var renderTarget = pmrem.fromEquirectangular(texture);
+            if (texture && typeof texture.dispose === 'function') texture.dispose();
+            pmrem.dispose();
+            if (typeof callback === 'function') callback(renderTarget || null);
+        }, undefined, function (err) {
+            console.warn('HDRI load failed', err);
+            if (typeof callback === 'function') callback(null);
+        });
+    }
+
+    function _env3DWaterNormalTexture() {
+        if (_env3D.waterNormalTexture) return _env3D.waterNormalTexture;
+        if (typeof THREE.TextureLoader !== 'function') return null;
+        var loader = new THREE.TextureLoader();
+        var texture = loader.load('/static/assets/waternormals.jpg', function (loaded) {
+            loaded.wrapS = THREE.RepeatWrapping;
+            loaded.wrapT = THREE.RepeatWrapping;
+            loaded.needsUpdate = true;
+        });
+        texture.wrapS = THREE.RepeatWrapping;
+        texture.wrapT = THREE.RepeatWrapping;
+        texture.userData = texture.userData || {};
+        texture.userData.envSharedResource = true;
+        _env3D.waterNormalTexture = texture;
+        return texture;
+    }
+
+    function _env3DWaterSunDirection(config) {
+        var sunDirection = new THREE.Vector3(20, 30, 15);
+        var cfg = config && typeof config === 'object' ? config : {};
+        if (Array.isArray(cfg.sunDirection) && cfg.sunDirection.length >= 3) {
+            sunDirection.set(Number(cfg.sunDirection[0] || 0), Number(cfg.sunDirection[1] || 0), Number(cfg.sunDirection[2] || 0));
+        } else if (_env3D.scene) {
+            _env3D.scene.traverse(function (obj) {
+                if (obj && obj.isDirectionalLight && !sunDirection.userData) {
+                    sunDirection.copy(obj.position);
+                    sunDirection.userData = { matched: true };
+                }
+            });
+            if (sunDirection.userData) delete sunDirection.userData;
+        }
+        if (sunDirection.lengthSq() < 0.0001) sunDirection.set(20, 30, 15);
+        return sunDirection.normalize();
+    }
+
+    function _env3DCreateWater(config) {
+        if (!_env3D.scene || typeof THREE.Water !== 'function') return null;
+        var cfg = config && typeof config === 'object' ? config : {};
+        var extent = _env3DClampNumber(cfg.size, 120, 20, 220);
+        var water = new THREE.Water(
+            new THREE.PlaneGeometry(extent, extent),
+            {
+                textureWidth: 512,
+                textureHeight: 512,
+                waterNormals: _env3DWaterNormalTexture(),
+                sunDirection: _env3DWaterSunDirection(cfg),
+                sunColor: Number(cfg.sunColor !== undefined ? cfg.sunColor : 0xffffff),
+                waterColor: Number(cfg.color !== undefined ? cfg.color : 0x001e0f),
+                distortionScale: _env3DClampNumber(cfg.distortionScale, 3.7, 0, 12),
+                alpha: _env3DClampNumber(cfg.alpha, 0.9, 0, 1),
+                fog: !!(_env3D.scene && _env3D.scene.fog)
+            }
+        );
+        water.rotation.x = -Math.PI / 2;
+        water.position.set(0, _env3DClampNumber(cfg.y, -0.08, -20, 60), 0);
+        water.receiveShadow = true;
+        water.castShadow = false;
+        water.renderOrder = 0;
+        water.name = 'env_water_surface';
+        if (water.material) {
+            water.material.side = cfg.doubleSided ? THREE.DoubleSide : THREE.FrontSide;
+            water.material.needsUpdate = true;
+        }
+        return water;
+    }
+
+    function _env3DThemeWaterBaseLevel(themeId) {
+        var theme = _envThemes && _envThemes[themeId];
+        var water = theme && theme.water && typeof theme.water === 'object' ? theme.water : null;
+        if (!water || water.enabled === false) return null;
+        return _env3DClampNumber(water.y, -0.08, -20, 60);
+    }
+
+    function _env3DProfileWaterBaseLevel(profileId) {
+        var profile = _envWorldProfiles && _envWorldProfiles[profileId];
+        var strata = profile && profile.strata && typeof profile.strata === 'object' ? profile.strata : null;
+        if (!strata || strata.waterLevel === undefined || strata.waterLevel === null) return null;
+        return _env3DClampNumber(strata.waterLevel, 0, -20, 60);
+    }
+
+    function _env3DWaterLevelOverrideKey(themeId, profileId) {
+        var profileKey = String(profileId || '').trim();
+        if (profileKey) return 'profile:' + profileKey;
+        return 'theme:' + String(themeId || '').trim();
+    }
+
+    function _env3DResolvedWaterLevel(themeId, profileId, baseLevelOverride) {
+        var key = String(themeId || '').trim();
+        if (!key) return null;
+        var overrides = _env3D.waterLevelOverrides && typeof _env3D.waterLevelOverrides === 'object'
+            ? _env3D.waterLevelOverrides
+            : {};
+        var baseLevel = baseLevelOverride;
+        if (baseLevel === undefined || baseLevel === null) {
+            baseLevel = _env3DProfileWaterBaseLevel(profileId);
+        }
+        if (baseLevel === undefined || baseLevel === null) {
+            baseLevel = _env3DThemeWaterBaseLevel(key);
+        }
+        var overrideKey = _env3DWaterLevelOverrideKey(key, profileId);
+        if (Object.prototype.hasOwnProperty.call(overrides, overrideKey)) {
+            return _env3DClampNumber(overrides[overrideKey], baseLevel, -20, 60);
+        }
+        if (!profileId && Object.prototype.hasOwnProperty.call(overrides, key)) {
+            return _env3DClampNumber(overrides[key], baseLevel, -20, 60);
+        }
+        return baseLevel;
+    }
+
+    function _env3DPersistWaterLevelOverrides() {
+        try {
+            localStorage.setItem('env_theme_water_levels', JSON.stringify(_env3D.waterLevelOverrides || {}));
+        } catch (e) { }
+    }
+
+    function _env3DSetWaterLevel(themeId, value, options) {
+        var key = String(themeId || '').trim();
+        if (!key) return false;
+        var opts = options && typeof options === 'object' ? options : {};
+        var profileId = String(opts.profileId !== undefined ? opts.profileId : (_env3D.activeWorldProfile || '')).trim();
+        var baseLevel = _env3DProfileWaterBaseLevel(profileId);
+        if (baseLevel === undefined || baseLevel === null) baseLevel = _env3DThemeWaterBaseLevel(key);
+        if (baseLevel === null || baseLevel === undefined) return false;
+        var nextLevel = _env3DClampNumber(value, baseLevel, -20, 60);
+        var overrideKey = _env3DWaterLevelOverrideKey(key, profileId);
+        if (!_env3D.waterLevelOverrides || typeof _env3D.waterLevelOverrides !== 'object') {
+            _env3D.waterLevelOverrides = {};
+        }
+        if (opts.reset) {
+            delete _env3D.waterLevelOverrides[overrideKey];
+            nextLevel = baseLevel;
+        } else {
+            _env3D.waterLevelOverrides[overrideKey] = nextLevel;
+        }
+        _env3DPersistWaterLevelOverrides();
+        if (_envThemeId === key && _env3D.waterMesh) {
+            _env3D.waterMesh.position.y = nextLevel;
+        }
+        if (_envThemeId === key && _env3D.volumeIndicator) {
+            _env3D.volumeIndicator.position.y = nextLevel + 0.05;
+        }
+        if (_env3D.strata && _env3D.activeWorldProfile === profileId) {
+            _env3D.strata.waterLevel = nextLevel;
+        }
+        _env3DUpdateWaterLevelControl();
+        _env3DUpdateWorldProfileControl();
+        _envRefreshLiveMirrorSurface();
+        return true;
+    }
+
+    function _env3DDisposeWater() {
+        if (_env3D.scene && _env3D.waterMesh) {
+            _env3D.scene.remove(_env3D.waterMesh);
+        }
+        if (_env3D.waterMesh && _env3D.waterMesh.userData && _env3D.waterMesh.userData.waterRenderTarget
+            && typeof _env3D.waterMesh.userData.waterRenderTarget.dispose === 'function') {
+            _env3D.waterMesh.userData.waterRenderTarget.dispose();
+        }
+        if (_env3D.waterMesh && _env3D.waterMesh.material && typeof _env3D.waterMesh.material.dispose === 'function') {
+            _env3D.waterMesh.material.dispose();
+        }
+        if (_env3D.waterMesh && _env3D.waterMesh.geometry && typeof _env3D.waterMesh.geometry.dispose === 'function') {
+            _env3D.waterMesh.geometry.dispose();
+        }
+        _env3D.waterMesh = null;
+    }
+
+    function _env3DSeabedColorForFamily(family) {
+        var key = String(family || '').trim().toLowerCase();
+        if (key === 'underwater') return 0xA38C62;
+        if (key === 'coastal') return 0x6B5B3B;
+        if (key === 'volcanic') return 0x2A2220;
+        return 0x5A4A3A;
+    }
+
+    function _env3DCeilingColorForFamily(family) {
+        var key = String(family || '').trim().toLowerCase();
+        if (key === 'cave') return 0x3A3530;
+        if (key === 'underwater') return 0x2B3B35;
+        return 0x3A3A38;
+    }
+
+    function _env3DCreateSeabed(config) {
+        if (typeof THREE === 'undefined' || typeof THREE.PlaneGeometry !== 'function') return null;
+        var cfg = config && typeof config === 'object' ? config : {};
+        var geo = new THREE.PlaneGeometry(100, 100, 40, 40);
+        geo.rotateX(-Math.PI / 2);
+        var positions = geo.attributes.position.array;
+        for (var i = 0; i < positions.length / 3; i++) {
+            var px = positions[i * 3];
+            var pz = positions[i * 3 + 2];
+            var radial = Math.sqrt((px * px) + (pz * pz));
+            var edgeFade = 1 - Math.pow(Math.max(0, Math.min(1, radial / 50)), 3);
+            var n = _env3DValueNoise2D(px * 0.7, pz * 0.7);
+            positions[i * 3 + 1] -= n * 0.8 * edgeFade;
+        }
+        geo.computeVertexNormals();
+        var mesh = new THREE.Mesh(
+            geo,
+            new THREE.MeshStandardMaterial({
+                color: _env3DSeabedColorForFamily(cfg.family),
+                roughness: 0.95,
+                metalness: 0.05,
+                emissive: 0x2e2416,
+                emissiveIntensity: 0.28,
+                transparent: true,
+                opacity: 0.96,
+                side: THREE.DoubleSide
+            })
+        );
+        mesh.position.y = Number(cfg.y || 0);
+        mesh.receiveShadow = true;
+        mesh.castShadow = false;
+        mesh.name = 'env_strata_seabed';
+        mesh.userData = mesh.userData || {};
+        mesh.userData.strataRole = 'seabed';
+        return mesh;
+    }
+
+    function _env3DDisposeSeabed() {
+        if (_env3D.scene && _env3D.seabedMesh) _env3D.scene.remove(_env3D.seabedMesh);
+        if (_env3D.seabedMesh && _env3D.seabedMesh.material && typeof _env3D.seabedMesh.material.dispose === 'function') {
+            _env3D.seabedMesh.material.dispose();
+        }
+        if (_env3D.seabedMesh && _env3D.seabedMesh.geometry && typeof _env3D.seabedMesh.geometry.dispose === 'function') {
+            _env3D.seabedMesh.geometry.dispose();
+        }
+        _env3D.seabedMesh = null;
+    }
+
+    function _env3DCreateCeiling(config) {
+        if (typeof THREE === 'undefined' || typeof THREE.PlaneGeometry !== 'function') return null;
+        var cfg = config && typeof config === 'object' ? config : {};
+        var geo = new THREE.PlaneGeometry(100, 100, 30, 30);
+        geo.rotateX(Math.PI / 2);
+        var positions = geo.attributes.position.array;
+        for (var i = 0; i < positions.length / 3; i++) {
+            var px = positions[i * 3];
+            var pz = positions[i * 3 + 2];
+            var radial = Math.sqrt((px * px) + (pz * pz));
+            var edgeFade = 1 - Math.pow(Math.max(0, Math.min(1, radial / 50)), 3);
+            var n = _env3DValueNoise2D(px * 0.5, pz * 0.5);
+            positions[i * 3 + 1] -= n * 1.5 * edgeFade;
+        }
+        geo.computeVertexNormals();
+        var mesh = new THREE.Mesh(
+            geo,
+            new THREE.MeshStandardMaterial({
+                color: _env3DCeilingColorForFamily(cfg.family),
+                roughness: 0.9,
+                metalness: 0.1,
+                emissive: 0x090909,
+                emissiveIntensity: 0.12,
+                transparent: true,
+                opacity: 0.82,
+                side: THREE.DoubleSide
+            })
+        );
+        mesh.position.y = Number(cfg.y || 0);
+        mesh.receiveShadow = false;
+        mesh.castShadow = true;
+        mesh.name = 'env_strata_ceiling';
+        mesh.userData = mesh.userData || {};
+        mesh.userData.strataRole = 'ceiling';
+        return mesh;
+    }
+
+    function _env3DDisposeCeiling() {
+        if (_env3D.scene && _env3D.ceilingMesh) _env3D.scene.remove(_env3D.ceilingMesh);
+        if (_env3D.ceilingMesh && _env3D.ceilingMesh.material && typeof _env3D.ceilingMesh.material.dispose === 'function') {
+            _env3D.ceilingMesh.material.dispose();
+        }
+        if (_env3D.ceilingMesh && _env3D.ceilingMesh.geometry && typeof _env3D.ceilingMesh.geometry.dispose === 'function') {
+            _env3D.ceilingMesh.geometry.dispose();
+        }
+        _env3D.ceilingMesh = null;
+    }
+
+    function _env3DCreateVolumeIndicator(config) {
+        if (typeof THREE === 'undefined' || typeof THREE.RingGeometry !== 'function') return null;
+        var cfg = config && typeof config === 'object' ? config : {};
+        var mesh = new THREE.Mesh(
+            (function () {
+                var geo = new THREE.RingGeometry(45, 50, 64);
+                geo.rotateX(-Math.PI / 2);
+                return geo;
+            })(),
+            new THREE.MeshBasicMaterial({
+                color: 0x71b8ca,
+                opacity: 0.1,
+                transparent: true,
+                side: THREE.DoubleSide,
+                depthWrite: false,
+                depthTest: true
+            })
+        );
+        mesh.position.y = Number(cfg.y || 0) + 0.05;
+        mesh.renderOrder = 7;
+        mesh.name = 'env_strata_volume_indicator';
+        mesh.userData = mesh.userData || {};
+        mesh.userData.strataRole = 'volumeIndicator';
+        return mesh;
+    }
+
+    function _env3DDisposeVolumeIndicator() {
+        if (_env3D.scene && _env3D.volumeIndicator) _env3D.scene.remove(_env3D.volumeIndicator);
+        if (_env3D.volumeIndicator && _env3D.volumeIndicator.material && typeof _env3D.volumeIndicator.material.dispose === 'function') {
+            _env3D.volumeIndicator.material.dispose();
+        }
+        if (_env3D.volumeIndicator && _env3D.volumeIndicator.geometry && typeof _env3D.volumeIndicator.geometry.dispose === 'function') {
+            _env3D.volumeIndicator.geometry.dispose();
+        }
+        _env3D.volumeIndicator = null;
+    }
+
+    function _env3DIsWaterSurfaceTile(obj) {
+        if (!obj || String((obj.kind || '')).trim().toLowerCase() !== 'tile') return false;
+        var data = _envObjectData(obj);
+        var category = String((obj.category !== undefined ? obj.category : data.category) || '').trim().toLowerCase();
+        var materialKey = _env3DNormalizePatternKey(data.material || '');
+        var text = [
+            obj.id,
+            obj.label,
+            obj.meta,
+            category,
+            data.category,
+            data.type,
+            data.role
+        ].join(' ').toLowerCase();
+        if (category === 'seascape') return true;
+        if (materialKey === 'glass' && /(water|ocean|lagoon|sea|surf|shore|coast)/.test(text)) return true;
+        return false;
+    }
+
+    function _env3DThemeSuppressesObject(obj) {
+        if (!_env3D.waterMesh) return false;
+        var theme = _envThemes[_envThemeId] || null;
+        if (!theme || theme.type !== 'world') return false;
+        return _env3DIsWaterSurfaceTile(obj);
+    }
+
+    function _env3DRefreshThemeObjectVisibility() {
+        Object.keys(_env3D.meshes || {}).forEach(function (key) {
+            var mesh = _env3D.meshes[key];
+            var obj = mesh && mesh.userData ? mesh.userData.sceneObject : null;
+            if (!mesh || !obj) return;
+            mesh.visible = _env3DKindFilterVisible(obj.kind) && !_env3DThemeSuppressesObject(obj);
+        });
+    }
+
+    function _env3DApplyTheme(themeId, options) {
+        var t = _envThemes[themeId];
+        if (!t) return;
+        var opts = options && typeof options === 'object' ? options : {};
+        _envThemeId = themeId;
+        if (!opts.preserveProfile) {
+            _env3DDisposeSeabed();
+            _env3DDisposeCeiling();
+            _env3DDisposeVolumeIndicator();
+            _env3D.activeWorldProfile = null;
+            _env3D._lastCameraPreset = '';
+            _env3D.strata = { surfaceLevel: 0, waterLevel: null, seabedLevel: null, ceilingLevel: null };
+        }
+        var s = _env3D.scene;
+        var isWorldTheme = t.type === 'world';
+        _env3D.hdriRequestToken = Number(_env3D.hdriRequestToken || 0) + 1;
+        var hdriToken = _env3D.hdriRequestToken;
+        if (s) {
+            _env3DDisposeHDRIRenderTarget();
+            s.background = new THREE.Color(t.bg);
+            s.fog = new THREE.FogExp2(t.bg, t.fog);
+            s.environment = null;
+        }
+        if (_env3D.terrain && s) {
+            s.remove(_env3D.terrain);
+            if (_env3D.terrain.geometry) _env3D.terrain.geometry.dispose();
+            if (_env3D.terrain.material) _env3D.terrain.material.dispose();
+            var newTerrain = _env3DBuildTerrain();
+            s.add(newTerrain);
+            _env3D.groundPlane = newTerrain;
+            _env3D.terrain = newTerrain;
+        } else if (_env3D.groundPlane && _env3D.groundPlane.material && _env3D.groundPlane.material.color) {
+            _env3D.groundPlane.material.color.setHex(t.ground);
+        }
+        if (_env3D.terrain && _env3D.terrain.material) {
+            var terrainCfg = (t.terrain && typeof t.terrain === 'object') ? t.terrain : {};
+            var terrainOpacity = terrainCfg.opacity !== undefined ? Number(terrainCfg.opacity) : 0.85;
+            terrainOpacity = Math.max(0, Math.min(1, isFinite(terrainOpacity) ? terrainOpacity : 0.85));
+            _env3D.terrain.material.opacity = terrainOpacity;
+            _env3D.terrain.material.transparent = terrainOpacity < 1;
+            _env3D.terrain.material.needsUpdate = true;
+            _env3D.terrain.receiveShadow = terrainOpacity > 0.01;
+        }
+        // Grid - dispose and recreate (vertex colors baked at construction)
+        if (_env3D.gridHelper && s) {
+            s.remove(_env3D.gridHelper);
+            _env3D.gridHelper.geometry.dispose();
+            _env3D.gridHelper.material.dispose();
+            var grid = new THREE.GridHelper(100, 40, t.grid1, t.grid2);
+            grid.position.y = 0;
+            grid.material.transparent = true;
+            grid.material.opacity = t.gridOp;
+            grid.visible = Number(t.gridOp || 0) > 0.001;
+            s.add(grid);
+            _env3D.gridHelper = grid;
+        }
+        // Lights
+        if (s) s.traverse(function (obj) {
+            if (obj.isAmbientLight) { obj.color.setHex(t.amb[0]); obj.intensity = t.amb[1]; }
+            else if (obj.isHemisphereLight) { obj.color.setHex(t.hemi[0]); obj.groundColor.setHex(t.hemi[1]); obj.intensity = t.hemi[2]; }
+            else if (obj.isDirectionalLight) { obj.color.setHex(t.dir[0]); obj.intensity = t.dir[1]; }
+            else if (obj.isPointLight) { obj.color.setHex(t.point[0]); obj.intensity = t.point[1]; }
+        });
+        // Particles
+        if (_env3D.particleSystem) {
+            _env3D.particleSystem.material.color.setHex(t.particle[0]);
+            _env3D.particleSystem.material.opacity = t.particle[1];
+            var particleOpacity = t.particleOp !== undefined ? Number(t.particleOp) : Number(t.particle[1] || 0);
+            _env3D.particleSystem.material.opacity = particleOpacity;
+            _env3D.particleSystem.visible = particleOpacity > 0.001;
+        }
+        if (_env3D.bloomPass && t.bloom) {
+            _env3D.bloomPass.strength = Number(t.bloom.strength || 0);
+            _env3D.bloomPass.radius = Number(t.bloom.radius || 0);
+            _env3D.bloomPass.threshold = Number(t.bloom.threshold || 0);
+        }
+        _env3DDisposeWater();
+        var waterConfig = (t.water && typeof t.water === 'object') ? _envCloneJson(t.water, t.water) : null;
+        if (waterConfig && waterConfig.enabled !== false) {
+            waterConfig.y = _env3DResolvedWaterLevel(themeId, _env3D.activeWorldProfile, waterConfig.y);
+        }
+        if (s && isWorldTheme && waterConfig && waterConfig.enabled) {
+            var nextWater = _env3DCreateWater(waterConfig);
+            if (nextWater) {
+                s.add(nextWater);
+                _env3D.waterMesh = nextWater;
+            }
+        }
+        if (s && isWorldTheme && t.hdri) {
+            _env3DLoadHDRI(t.hdri, function (renderTarget) {
+                if (!renderTarget || !renderTarget.texture) return;
+                if (hdriToken !== _env3D.hdriRequestToken || _envThemeId !== themeId || _env3D.scene !== s) {
+                    if (typeof renderTarget.dispose === 'function') renderTarget.dispose();
+                    return;
+                }
+                _env3D.hdriRenderTarget = renderTarget;
+                _env3D.hdriUrl = String(t.hdri || '');
+                s.environment = renderTarget.texture;
+                s.background = renderTarget.texture;
+            });
+        }
+        _env3DRefreshThemeObjectVisibility();
+        // CSS custom properties for HTML overlays
+        var c = t.css;
+        var root = document.getElementById('tab-environment') || document.documentElement;
+        root.style.setProperty('--env-accent', c[0]);
+        root.style.setProperty('--env-card-border', c[1]);
+        root.style.setProperty('--env-card-bg-from', c[2]);
+        root.style.setProperty('--env-card-bg-to', c[3]);
+        root.style.setProperty('--env-card-glow', c[4]);
+        root.style.setProperty('--env-stage-bg', c[5]);
+        root.style.setProperty('--env-canvas-bg', c[6]);
+        Object.keys(_env3D.meshes || {}).forEach(function (key) {
+            var mesh = _env3D.meshes[key];
+            if (mesh && mesh.userData && mesh.userData.visualType === 'portal') {
+                _env3DApplyPortalState(mesh, mesh.userData.state || 'idle', !!mesh.userData.focused, 0);
+            }
+        });
+        _env3DUpdateThemePicker();
+        _env3DUpdateWaterLevelControl();
+        _env3DUpdateWorldProfileControl();
+        _envRefreshLiveMirrorSurface();
+        try { localStorage.setItem('env_theme', themeId); } catch (e) {}
+    }
+
+    function _env3DApplyProfileRenderOverrides(profile) {
+        var s = _env3D.scene;
+        var render = profile && profile.render && typeof profile.render === 'object' ? profile.render : null;
+        if (!s || !render) return;
+        if (render.fogColor !== undefined || render.fogDensity !== undefined) {
+            var fogColor = render.fogColor !== undefined ? render.fogColor : ((_envThemes[_envThemeId] || {}).bg || 0x0a0a1a);
+            var fogDensity = render.fogDensity !== undefined ? render.fogDensity : ((_envThemes[_envThemeId] || {}).fog || 0.01);
+            s.fog = new THREE.FogExp2(fogColor, fogDensity);
+            if (!render.hdri) s.background = new THREE.Color(fogColor);
+        }
+        if (_env3D.bloomPass && render.bloom) {
+            if (render.bloom.strength !== undefined) _env3D.bloomPass.strength = Number(render.bloom.strength || 0);
+            if (render.bloom.radius !== undefined) _env3D.bloomPass.radius = Number(render.bloom.radius || 0);
+            if (render.bloom.threshold !== undefined) _env3D.bloomPass.threshold = Number(render.bloom.threshold || 0);
+        }
+        if (render.hdri) {
+            _env3D.hdriRequestToken = Number(_env3D.hdriRequestToken || 0) + 1;
+            var hdriToken = _env3D.hdriRequestToken;
+            _env3DDisposeHDRIRenderTarget();
+            _env3DLoadHDRI(render.hdri, function (renderTarget) {
+                if (!renderTarget || !renderTarget.texture) return;
+                if (hdriToken !== _env3D.hdriRequestToken || _env3D.activeWorldProfile !== profile.id || _env3D.scene !== s) {
+                    if (typeof renderTarget.dispose === 'function') renderTarget.dispose();
+                    return;
+                }
+                _env3D.hdriRenderTarget = renderTarget;
+                _env3D.hdriUrl = String(render.hdri || '');
+                s.environment = renderTarget.texture;
+                s.background = renderTarget.texture;
+            });
+        }
+    }
+
+    function _env3DApplyWorldProfile(profileId) {
+        var key = String(profileId || '').trim();
+        if (!key) {
+            _env3DDisposeSeabed();
+            _env3DDisposeCeiling();
+            _env3DDisposeVolumeIndicator();
+            _env3D.activeWorldProfile = null;
+            _env3D._lastCameraPreset = '';
+            _env3D.strata = { surfaceLevel: 0, waterLevel: null, seabedLevel: null, ceilingLevel: null };
+            _env3DApplyTheme(_envThemeId);
+            return false;
+        }
+        var profile = _envWorldProfiles[key];
+        if (!profile || !profile.render || !profile.render.themeBase || !_envThemes[profile.render.themeBase]) return false;
+        profile.id = key;
+        _env3D.activeWorldProfile = key;
+        _env3D.strata = {
+            surfaceLevel: profile.strata && profile.strata.surfaceLevel !== undefined ? Number(profile.strata.surfaceLevel) : 0,
+            waterLevel: profile.strata && profile.strata.waterLevel !== undefined && profile.strata.waterLevel !== null ? Number(profile.strata.waterLevel) : null,
+            seabedLevel: profile.strata && profile.strata.seabedLevel !== undefined && profile.strata.seabedLevel !== null ? Number(profile.strata.seabedLevel) : null,
+            ceilingLevel: profile.strata && profile.strata.ceilingLevel !== undefined && profile.strata.ceilingLevel !== null ? Number(profile.strata.ceilingLevel) : null
+        };
+        _env3DApplyTheme(profile.render.themeBase, { preserveProfile: true });
+        _env3DApplyProfileRenderOverrides(profile);
+        if (_env3D.waterMesh && _env3D.strata.waterLevel !== null && _env3D.strata.waterLevel !== undefined) {
+            _env3D.waterMesh.position.y = _env3DResolvedWaterLevel(_envThemeId, key, _env3D.strata.waterLevel);
+        }
+        _env3D.strata.waterLevel = _env3DResolvedWaterLevel(_envThemeId, key, _env3D.strata.waterLevel);
+        _env3DDisposeSeabed();
+        _env3DDisposeCeiling();
+        _env3DDisposeVolumeIndicator();
+        var s = _env3D.scene;
+        var strata = _env3D.strata;
+        var family = profile.family || '';
+        if (s && strata.seabedLevel !== null && strata.seabedLevel !== undefined) {
+            var seabed = _env3DCreateSeabed({ y: strata.seabedLevel, family: family });
+            if (seabed) {
+                s.add(seabed);
+                _env3D.seabedMesh = seabed;
+            }
+        }
+        if (s && strata.ceilingLevel !== null && strata.ceilingLevel !== undefined) {
+            var ceiling = _env3DCreateCeiling({ y: strata.ceilingLevel, family: family });
+            if (ceiling) {
+                s.add(ceiling);
+                _env3D.ceilingMesh = ceiling;
+            }
+        }
+        if (s && strata.waterLevel !== null && strata.waterLevel !== undefined
+            && strata.seabedLevel !== null && strata.seabedLevel !== undefined) {
+            var volumeIndicator = _env3DCreateVolumeIndicator({ y: strata.waterLevel });
+            if (volumeIndicator) {
+                s.add(volumeIndicator);
+                _env3D.volumeIndicator = volumeIndicator;
+            }
+        }
+        _env3DUpdateWorldProfileControl();
+        _env3DUpdateWaterLevelControl();
+        _envRefreshLiveMirrorSurface();
+        var firstPreset = (profile.camera && profile.camera.presets && profile.camera.presets[0]) || 'overview';
+        _env3DAnimateCameraToPreset(firstPreset, 1000);
+        try {
+            document.dispatchEvent(new CustomEvent('env:profile-applied', {
+                detail: { profileId: key, profile: _envCloneJson(profile, profile) }
+            }));
+        } catch (e) {}
+        return true;
+    }
+
+    function _env3DIsProfileKitApplied(profileId) {
+        var key = String(profileId || '').trim();
+        if (!key) return false;
+        var catalog = _envSceneObjectCatalog();
+        for (var i = 0; i < catalog.length; i++) {
+            var data = _envObjectData(catalog[i]);
+            if (data && String(data.profile_kit || '').trim() === key) return true;
+        }
+        return false;
+    }
+
+    function _env3DScheduleProfileKitControlRefresh(delayMs) {
+        if (_env3D._profileKitRefreshTimer) {
+            clearTimeout(_env3D._profileKitRefreshTimer);
+            _env3D._profileKitRefreshTimer = null;
+        }
+        _env3D._profileKitRefreshTimer = setTimeout(function () {
+            _env3D._profileKitRefreshTimer = null;
+            _env3DUpdateWorldProfileControl();
+            _envRefreshLiveMirrorSurface();
+        }, Math.max(0, Number(delayMs) || 500));
+    }
+
+    function _env3DApplyProfileKit(profileId) {
+        var key = String(profileId || '').trim();
+        var kit = key ? _envWorldProfileKits[key] : null;
+        if (!kit || !Array.isArray(kit.items) || !kit.items.length) return false;
+        if (_env3DIsProfileKitApplied(key)) {
+            _env3DUpdateWorldProfileControl();
+            return false;
+        }
+        var appliedCount = 0;
+        kit.items.forEach(function (item, index) {
+            var assetRecord = _envFindAssetRecord(item.pack, item.asset);
+            if (!assetRecord || !assetRecord.asset) return;
+            var asset = assetRecord.asset;
+            var pack = assetRecord.pack;
+            var url = _envGetAssetUrl(item.pack, item.asset);
+            var scenePoint = _env3DScenePointFromWorld(item.worldX, item.worldZ);
+            var spawnArgs = {
+                kind: 'prop',
+                id: key + '_kit_' + String(item.asset || 'item') + '_' + index,
+                label: String(item.label || item.asset || 'Kit Item'),
+                x: scenePoint.x,
+                y: scenePoint.y,
+                tilt: Number(item.tilt || 0),
+                scale: Number(item.scale || 1),
+                state: String(asset.state || 'idle') || 'idle'
+            };
+            var spawnData = {
+                profile_kit: key,
+                height_offset: Number(item.heightOffset || 0),
+                asset_pack_id: String(item.pack || ''),
+                asset_pack_name: String(pack && pack.name || ''),
+                asset_id: String(item.asset || ''),
+                asset_name: String(item.label || item.asset || '')
+            };
+            if (asset.category) {
+                var cat = String(asset.category || '').trim().toLowerCase();
+                if (cat) {
+                    spawnArgs.category = cat;
+                    spawnData.category = cat;
+                }
+            }
+            if (Array.isArray(asset.tags) && asset.tags.length) {
+                spawnArgs.tags = asset.tags.slice();
+                spawnData.tags = asset.tags.slice();
+            }
+            spawnArgs.data = spawnData;
+            var appearance = asset.appearance && typeof asset.appearance === 'object' && !Array.isArray(asset.appearance)
+                ? _envCloneJson(asset.appearance, {})
+                : {};
+            if (asset.geometry && !appearance.geometry) appearance.geometry = asset.geometry;
+            if (url) appearance.asset_ref = url;
+            if (Object.keys(appearance).length) spawnArgs.appearance = appearance;
+            callTool('env_spawn', spawnArgs);
+            appliedCount += 1;
+        });
+        _env3DUpdateWorldProfileControl();
+        _env3DScheduleProfileKitControlRefresh(500);
+        if (typeof mpToast === 'function') {
+            mpToast('Applied ' + String(kit.name || key) + ': ' + appliedCount + ' objects', 'info', 2500);
+        }
+        return appliedCount > 0;
+    }
+
+    function _env3DClearProfileKit(profileId) {
+        var key = String(profileId || '').trim();
+        if (!key) return 0;
+        var catalog = _envSceneObjectCatalog();
+        var toRemove = catalog.filter(function (obj) {
+            var data = _envObjectData(obj);
+            return data && String(data.profile_kit || '').trim() === key;
+        });
+        toRemove.forEach(function (obj) {
+            callTool('env_remove', { kind: obj.kind, id: obj.id });
+        });
+        _env3DUpdateWorldProfileControl();
+        _env3DScheduleProfileKitControlRefresh(500);
+        var kit = _envWorldProfileKits[key];
+        if (typeof mpToast === 'function') {
+            mpToast('Cleared ' + String((kit && kit.name) || key) + ': ' + toRemove.length + ' objects removed', 'info', 2500);
+        }
+        return toRemove.length;
+    }
+
+    function _env3DUpdateWaterLevelControl() {
+        var control = _env3D.waterLevelControl;
+        if (!control) return;
+        var theme = (_envThemes && _envThemes[_envThemeId]) || null;
+        var isWaterTheme = !!(theme && theme.type === 'world' && theme.water && theme.water.enabled);
+        control.classList.toggle('hidden', !isWaterTheme);
+        if (!isWaterTheme) return;
+        var input = control.querySelector('input[type="range"]');
+        var valueEl = _env3D.waterLevelControlValue || control.querySelector('[data-env-water-level-value]');
+        var baseLevel = _env3DThemeWaterBaseLevel(_envThemeId);
+        if (_env3D.activeWorldProfile) baseLevel = _env3DProfileWaterBaseLevel(_env3D.activeWorldProfile);
+        var currentLevel = _env3DResolvedWaterLevel(_envThemeId, _env3D.activeWorldProfile, baseLevel);
+        if (input) input.value = String(currentLevel);
+        if (valueEl) valueEl.textContent = Number(currentLevel || 0).toFixed(1);
+        var themeNameEl = control.querySelector('[data-env-water-theme-name]');
+        if (themeNameEl) {
+            if (_env3D.activeWorldProfile && _envWorldProfiles[_env3D.activeWorldProfile]) themeNameEl.textContent = String(_envWorldProfiles[_env3D.activeWorldProfile].name || _env3D.activeWorldProfile);
+            else themeNameEl.textContent = String(theme && theme.name || _envThemeId || 'world');
+        }
+        var resetBtn = control.querySelector('[data-env-water-reset]');
+        if (resetBtn) {
+            var overrideKey = _env3DWaterLevelOverrideKey(_envThemeId, _env3D.activeWorldProfile);
+            var hasOverride = !!(_env3D.waterLevelOverrides && Object.prototype.hasOwnProperty.call(_env3D.waterLevelOverrides, overrideKey));
+            resetBtn.disabled = !hasOverride || currentLevel === baseLevel;
+        }
+    }
+
+    function _env3DUpdateWorldProfileControl() {
+        var control = _env3D.worldProfileControl;
+        if (!control) return;
+        var select = _env3D.worldProfileSelect || control.querySelector('select[data-env-world-profile]');
+        if (select) select.value = String(_env3D.activeWorldProfile || '');
+        var familyLabel = control.querySelector('[data-env-profile-family]');
+        if (familyLabel) {
+            var activeProfile = _env3D.activeWorldProfile ? _envWorldProfiles[_env3D.activeWorldProfile] : null;
+            familyLabel.textContent = activeProfile && activeProfile.family ? String(activeProfile.family) : 'Schema';
+        }
+        var strata = _env3D.strata || {};
+        var indicators = _env3D.strataIndicators || {};
+        function setIndicator(name, value) {
+            var node = indicators[name];
+            if (!node) return;
+            node.textContent = value === null || value === undefined ? 'null' : String(Number(value).toFixed(1));
+        }
+        setIndicator('surface', strata.surfaceLevel);
+        setIndicator('water', strata.waterLevel);
+        setIndicator('seabed', strata.seabedLevel);
+        setIndicator('ceiling', strata.ceilingLevel);
+        var seabedControl = _env3D.seabedLevelControl || control.querySelector('[data-env-seabed-control]');
+        var seabedInput = seabedControl ? seabedControl.querySelector('input[type="range"]') : null;
+        var seabedValue = _env3D.seabedLevelControlValue || (seabedControl ? seabedControl.querySelector('[data-env-seabed-level-value]') : null);
+        var showSeabedControl = !!(_env3D.activeWorldProfile && strata.seabedLevel !== null && strata.seabedLevel !== undefined);
+        if (seabedControl) seabedControl.classList.toggle('hidden', !showSeabedControl);
+        var seabedLevel = showSeabedControl ? Number(strata.seabedLevel || 0) : -8;
+        if (seabedInput) seabedInput.value = String(seabedLevel);
+        if (seabedValue) seabedValue.textContent = Number(seabedLevel).toFixed(2);
+        var presetRow = control.querySelector('[data-env-camera-preset-row]');
+        var activeProfile = _env3D.activeWorldProfile ? _envWorldProfiles[_env3D.activeWorldProfile] : null;
+        var presets = activeProfile && activeProfile.camera && Array.isArray(activeProfile.camera.presets)
+            ? activeProfile.camera.presets.filter(function (presetId) {
+                var key = String(presetId || '').trim();
+                return !!(key && _env3DCameraPresets && _env3DCameraPresets[key]);
+            })
+            : [];
+        if (presetRow) {
+            presetRow.classList.toggle('hidden', !presets.length);
+            presetRow.innerHTML = presets.map(function (presetId) {
+                var key = String(presetId || '').trim();
+                if (!key) return '';
+                var label = key.replace(/_/g, ' ').replace(/\b([a-z])/g, function (_, ch) { return ch.toUpperCase(); });
+                var active = key === String(_env3D._lastCameraPreset || '').trim() ? ' active' : '';
+                return '<button type="button" class="env-theme-preset-btn' + active + '" data-env-camera-preset="' + _esc(key) + '">' + _esc(label) + '</button>';
+            }).join('');
+            var buttons = presetRow.querySelectorAll('[data-env-camera-preset]');
+            for (var i = 0; i < buttons.length; i++) {
+                buttons[i].onclick = function () {
+                    var presetId = String(this.getAttribute('data-env-camera-preset') || '').trim();
+                    if (!presetId) return;
+                    _env3DAnimateCameraToPreset(presetId, 800);
+                    _env3DUpdateWorldProfileControl();
+                };
+            }
+        }
+        var activeProfileId = String(_env3D.activeWorldProfile || '').trim();
+        var activeKit = activeProfileId ? _envWorldProfileKits[activeProfileId] : null;
+        var kitApplied = activeKit ? _env3DIsProfileKitApplied(activeProfileId) : false;
+        var kitRow = control.querySelector('[data-env-profile-kit-row]');
+        var applyKitBtn = control.querySelector('[data-env-profile-kit-apply]');
+        var clearKitBtn = control.querySelector('[data-env-profile-kit-clear]');
+        if (kitRow) kitRow.classList.toggle('hidden', !(activeProfile && activeKit));
+        if (applyKitBtn) {
+            applyKitBtn.disabled = !activeKit || kitApplied;
+            applyKitBtn.onclick = (!activeKit || kitApplied) ? null : function () {
+                _env3DApplyProfileKit(activeProfileId);
+            };
+        }
+        if (clearKitBtn) {
+            clearKitBtn.disabled = !activeKit || !kitApplied;
+            clearKitBtn.onclick = (!activeKit || !kitApplied) ? null : function () {
+                _env3DClearProfileKit(activeProfileId);
+            };
+        }
+        var ecologyPanel = control.querySelector('[data-env-profile-ecology]');
+        var suggestedCategories = activeProfile && activeProfile.ecology && Array.isArray(activeProfile.ecology.suggestedCategories)
+            ? activeProfile.ecology.suggestedCategories.slice()
+            : [];
+        var suggestedTags = activeProfile && activeProfile.ecology && Array.isArray(activeProfile.ecology.suggestedTags)
+            ? activeProfile.ecology.suggestedTags.slice()
+            : [];
+        var showEcology = !!(activeProfile && (suggestedCategories.length || suggestedTags.length));
+        if (ecologyPanel) {
+            ecologyPanel.classList.toggle('hidden', !showEcology);
+            ecologyPanel.innerHTML = showEcology
+                ? '<div><strong>Suggested:</strong> ' + _esc(suggestedCategories.join(', ') || 'none') + '</div>'
+                    + '<div><strong>Tags:</strong> ' + _esc(suggestedTags.join(', ') || 'none') + '</div>'
+                : '';
+        }
+    }
+
+    function _env3DCreateThemePicker(container) {
+        if (_env3D.themePickerWrap && _env3D.themePickerWrap.parentNode) {
+            _env3D.themePickerWrap.parentNode.removeChild(_env3D.themePickerWrap);
+        }
+        var wrap = document.createElement('div');
+        wrap.className = 'env-theme-stack';
+        var bar = document.createElement('div');
+        bar.className = 'env-theme-picker';
+        _envThemeKeys.forEach(function (key) {
+            var t = _envThemes[key];
+            var dot = document.createElement('div');
+            dot.className = 'env-theme-dot' + (key === _envThemeId ? ' active' : '');
+            dot.dataset.themeId = key;
+            dot.title = t.name;
+            dot.style.background = t.css[0];
+            dot.addEventListener('click', function () { _env3DApplyTheme(key); });
+            bar.appendChild(dot);
+        });
+        wrap.appendChild(bar);
+        var profileControl = document.createElement('div');
+        profileControl.className = 'env-theme-profile-control';
+        var profileOptions = ['<option value="">None</option>'];
+        _envWorldProfileKeys.forEach(function (key) {
+            var profile = _envWorldProfiles[key];
+            profileOptions.push('<option value="' + _esc(key) + '">' + _esc(String(profile && profile.name || key)) + '</option>');
+        });
+        profileControl.innerHTML =
+            '<div class="env-theme-water-head"><span>World Profile</span><span data-env-profile-family>Schema</span></div>' +
+            '<div class="env-theme-profile-row">' +
+                '<select data-env-world-profile aria-label="World profile">' + profileOptions.join('') + '</select>' +
+            '</div>' +
+            '<div class="env-theme-strata-grid">' +
+                '<div class="env-theme-strata-pill"><span>Surface</span><strong data-env-strata-surface>0.0</strong></div>' +
+                '<div class="env-theme-strata-pill"><span>Water</span><strong data-env-strata-water>null</strong></div>' +
+                '<div class="env-theme-strata-pill"><span>Seabed</span><strong data-env-strata-seabed>null</strong></div>' +
+                '<div class="env-theme-strata-pill"><span>Ceiling</span><strong data-env-strata-ceiling>null</strong></div>' +
+            '</div>' +
+            '<div class="env-theme-strata-slider hidden" data-env-seabed-control>' +
+                '<div class="env-theme-water-head"><span>Seabed</span><span data-env-seabed-level-value>-8.0</span></div>' +
+                '<div class="env-theme-water-row">' +
+                    '<input type="range" min="-40" max="5" step="0.25" value="-8" aria-label="Seabed level">' +
+                '</div>' +
+            '</div>' +
+            '<div class="env-theme-preset-row hidden" data-env-camera-preset-row></div>' +
+            '<div class="env-theme-kit-row hidden" data-env-profile-kit-row>' +
+                '<button type="button" class="env-theme-kit-btn primary" data-env-profile-kit-apply>Apply Kit</button>' +
+                '<button type="button" class="env-theme-kit-btn" data-env-profile-kit-clear>Clear Kit</button>' +
+            '</div>' +
+            '<div class="env-theme-ecology hidden" data-env-profile-ecology></div>';
+        var profileSelect = profileControl.querySelector('select[data-env-world-profile]');
+        if (profileSelect) {
+            profileSelect.addEventListener('change', function () {
+                var selected = String(profileSelect.value || '').trim();
+                if (!selected) {
+                    _env3D.activeWorldProfile = null;
+                    _env3D.strata = { surfaceLevel: 0, waterLevel: null, seabedLevel: null, ceilingLevel: null };
+                    _env3DApplyTheme(_envThemeId);
+                    return;
+                }
+                _env3DApplyWorldProfile(selected);
+            });
+        }
+        var seabedControl = profileControl.querySelector('[data-env-seabed-control]');
+        var seabedInput = seabedControl ? seabedControl.querySelector('input[type="range"]') : null;
+        var seabedValue = seabedControl ? seabedControl.querySelector('[data-env-seabed-level-value]') : null;
+        if (seabedInput) {
+            seabedInput.addEventListener('input', function () {
+                var nextValue = Number(seabedInput.value || 0);
+                if (_env3D.strata) _env3D.strata.seabedLevel = nextValue;
+                if (_env3D.seabedMesh) _env3D.seabedMesh.position.y = nextValue;
+                if (seabedValue) seabedValue.textContent = nextValue.toFixed(2);
+                _env3DUpdateWorldProfileControl();
+                _envRefreshLiveMirrorSurface();
+            });
+        }
+        wrap.appendChild(profileControl);
+        var waterControl = document.createElement('div');
+        waterControl.className = 'env-theme-water-control hidden';
+        waterControl.innerHTML =
+            '<div class="env-theme-water-head"><span>Water</span><span data-env-water-theme-name>World</span></div>' +
+            '<div class="env-theme-water-row">' +
+                '<input type="range" min="-20" max="60" step="0.5" value="0" aria-label="Water level">' +
+                '<span class="env-theme-water-value" data-env-water-level-value>0.0</span>' +
+            '</div>' +
+            '<div class="env-theme-water-actions">' +
+                '<button type="button" data-env-water-reset>Reset</button>' +
+            '</div>';
+        var waterInput = waterControl.querySelector('input[type="range"]');
+        var waterValue = waterControl.querySelector('[data-env-water-level-value]');
+        var waterReset = waterControl.querySelector('[data-env-water-reset]');
+        if (waterInput) {
+            waterInput.addEventListener('input', function () {
+                var nextValue = Number(waterInput.value || 0);
+                if (waterValue) waterValue.textContent = nextValue.toFixed(1);
+                _env3DSetWaterLevel(_envThemeId, nextValue);
+            });
+        }
+        if (waterReset) {
+            waterReset.addEventListener('click', function () {
+                _env3DSetWaterLevel(_envThemeId, 0, { reset: true });
+            });
+        }
+        wrap.appendChild(waterControl);
+        container.appendChild(wrap);
+        _env3D.themePicker = bar;
+        _env3D.themePickerWrap = wrap;
+        _env3D.worldProfileControl = profileControl;
+        _env3D.worldProfileSelect = profileSelect;
+        _env3D.seabedLevelControl = seabedControl;
+        _env3D.seabedLevelControlValue = seabedValue;
+        _env3D.strataIndicators = {
+            surface: profileControl.querySelector('[data-env-strata-surface]'),
+            water: profileControl.querySelector('[data-env-strata-water]'),
+            seabed: profileControl.querySelector('[data-env-strata-seabed]'),
+            ceiling: profileControl.querySelector('[data-env-strata-ceiling]')
+        };
+        _env3D.waterLevelControl = waterControl;
+        _env3D.waterLevelControlValue = waterValue;
+        var familyLabel = profileControl.querySelector('[data-env-profile-family]');
+        if (familyLabel) familyLabel.textContent = 'Schema';
+        _env3DUpdateWorldProfileControl();
+        _env3DUpdateWaterLevelControl();
+    }
+
+    function _env3DUpdateThemePicker() {
+        if (!_env3D.themePicker) return;
+        var dots = _env3D.themePicker.querySelectorAll('.env-theme-dot');
+        for (var i = 0; i < dots.length; i++) {
+            if (dots[i].dataset.themeId === _envThemeId) dots[i].classList.add('active');
+            else dots[i].classList.remove('active');
+        }
+    }
+
+    function _env3DCycleTheme(dir) {
+        var idx = _envThemeKeys.indexOf(_envThemeId);
+        idx = (idx + (dir || 1) + _envThemeKeys.length) % _envThemeKeys.length;
+        _env3DApplyTheme(_envThemeKeys[idx]);
+    }
+
+    function _env3DKindFilterVisible(kind) {
+        var k = String(kind || '').trim().toLowerCase();
+        if (!k) return true;
+        var filter = _env3D.kindFilter || {};
+        return filter[k] !== false;
+    }
+
+    function _env3DLabelVisibleForKey(key) {
+        var mode = String(_env3D.labelMode || 'full').trim().toLowerCase();
+        if (mode === 'hidden') return false;
+        return _env3DKindFilterVisible(String(key || '').split('::')[0] || '');
+    }
+
+    function _env3DApplyLabelMode() {
+        var mode = String(_env3D.labelMode || 'full').trim().toLowerCase();
+        var keys = Object.keys(_env3D.cssLabels || {});
+        for (var i = 0; i < keys.length; i++) {
+            var key = keys[i];
+            var cssLabel = _env3D.cssLabels[key];
+            if (!cssLabel || !cssLabel.element) continue;
+            cssLabel.element.classList.toggle('env3d-label-mode-half', mode === 'half');
+            cssLabel.visible = _env3DLabelVisibleForKey(key);
+        }
+        var indicator = document.querySelector('[data-env-label-mode]');
+        if (indicator) indicator.textContent = mode || 'full';
+        var chips = document.querySelectorAll('[data-env-action="set-label-mode"][data-env-label-target]');
+        for (var j = 0; j < chips.length; j++) {
+            var chipMode = String(chips[j].getAttribute('data-env-label-target') || '').trim().toLowerCase();
+            if (chipMode === mode) chips[j].classList.add('active');
+            else chips[j].classList.remove('active');
+        }
+    }
+
+    function _env3DCycleLabelMode() {
+        var modes = ['full', 'half', 'hidden'];
+        var idx = modes.indexOf(String(_env3D.labelMode || 'full').trim().toLowerCase());
+        if (idx < 0) idx = 0;
+        _env3D.labelMode = modes[(idx + 1) % modes.length];
+        _env3DApplyLabelMode();
+    }
+
+    function _env3DToggleKindFilter(kind) {
+        var k = String(kind || '').trim().toLowerCase();
+        if (!k) return;
+        if (!_env3D.kindFilter || typeof _env3D.kindFilter !== 'object') _env3D.kindFilter = {};
+        _env3D.kindFilter[k] = !_env3DKindFilterVisible(k);
+        _env3DApplyKindFilter();
+    }
+
+    function _env3DAllKnownKinds() {
+        var seen = { prop: true, zone: true, marker: true };
+        var colorKeys = Object.keys(_env3DKindColors || {});
+        for (var i = 0; i < colorKeys.length; i++) seen[colorKeys[i]] = true;
+        var assetKeys = Object.keys(_envDefaultKindAssets || {});
+        for (var j = 0; j < assetKeys.length; j++) seen[assetKeys[j]] = true;
+        var meshKeys = Object.keys(_env3D.meshes || {});
+        for (var m = 0; m < meshKeys.length; m++) {
+            var meshKind = String(meshKeys[m] || '').split('::')[0];
+            if (meshKind) seen[String(meshKind).trim().toLowerCase()] = true;
+        }
+        var pool = typeof _envSceneObjectPool === 'function' ? _envSceneObjectPool() : [];
+        for (var p = 0; p < pool.length; p++) {
+            var poolKind = String(((pool[p] || {}).kind) || '').trim().toLowerCase();
+            if (poolKind) seen[poolKind] = true;
+        }
+        return Object.keys(seen).sort();
+    }
+
+    function _env3DSetAllKindsVisible(visible) {
+        var kinds = _env3DAllKnownKinds();
+        if (!_env3D.kindFilter || typeof _env3D.kindFilter !== 'object') _env3D.kindFilter = {};
+        for (var i = 0; i < kinds.length; i++) {
+            _env3D.kindFilter[kinds[i]] = !!visible;
+        }
+        _env3DApplyKindFilter();
+    }
+
+    function _env3DApplyKindFilter() {
+        var meshKeys = Object.keys(_env3D.meshes || {});
+        for (var i = 0; i < meshKeys.length; i++) {
+            var key = meshKeys[i];
+            var mesh = _env3D.meshes[key];
+            var visible = _env3DKindFilterVisible(String(key || '').split('::')[0] || '');
+            if (mesh) mesh.visible = visible;
+            var label = _env3D.cssLabels[key];
+            if (!label || !label.element) continue;
+            label.visible = visible && String(_env3D.labelMode || 'full').trim().toLowerCase() !== 'hidden';
+        }
+    }
+
+    // Keyboard cycling: [ and ] when Environment tab is active
+    (function () {
+        document.addEventListener('keydown', function (e) {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
+            if (!_isEnvironmentTabActive || !_isEnvironmentTabActive()) return;
+            if (e.key === ']') { e.preventDefault(); _env3DCycleTheme(1); }
+            else if (e.key === '[') { e.preventDefault(); _env3DCycleTheme(-1); }
+            else if (e.key === 'l' || e.key === 'L') { e.preventDefault(); _env3DCycleLabelMode(); }
+            else if (e.key === 'k' || e.key === 'K') {
+                e.preventDefault();
+                _env3D.kindFilterOpen = !_env3D.kindFilterOpen;
+                _envStageUiState.forceStageRebuild = true;
+                renderEnvironmentView();
+            }
+            else if (e.key === 'a' || e.key === 'A') {
+                e.preventDefault();
+                _envAssetBrowserState.expanded = !_envAssetBrowserState.expanded;
+                _envStageUiState.forceStageRebuild = true;
+                renderEnvironmentView();
+                _envRenderAssetBrowser();
+            }
+        });
+    })();
 
     function _env3DObjectKey(obj) {
         return String(obj.kind || 'primitive') + '::' + String(obj.id || '');
@@ -17837,10 +22364,24 @@
         var wx = ((Number(obj.x || 50) / 100) * 80) - 40;
         var wz = ((Number(obj.y || 50) / 100) * 40) - 20;
         var wy = 0;
+        var rawData = _envObjectData(obj);
+        var heightOffset = _env3DClampNumber(
+            rawData.height_offset !== undefined ? rawData.height_offset
+                : (rawData.heightOffset !== undefined ? rawData.heightOffset
+                    : (obj && obj.height_offset !== undefined ? obj.height_offset : (obj ? obj.heightOffset : undefined))),
+            0,
+            -20,
+            20
+        );
         switch (obj.kind) {
+            case 'room':      wy = 0; break;
             case 'workflow':  wy = 4; break;
             case 'actor':     wy = 3.5; break;
             case 'replay':    wy = 3; break;
+            case 'portal':    wy = 1.05; break;
+            case 'prop':      wy = 0; break;
+            case 'marker':    wy = 0.04; break;
+            case 'zone':      wy = 0.01; break;
             case 'dispatch':  wy = 2.5; break;
             case 'node':      wy = 1.5; break;
             case 'event':     wy = 1; break;
@@ -17854,8 +22395,20 @@
             case 'queued':    wy = 1.8; break;
             case 'doc':       wy = 0.3; break;
             case 'slot':      wy = 3; break;
+            case 'decal':     wy = 0.02; break;
+            case 'tile': {
+                var tileData = _envObjectData(obj);
+                var gs = _env3DClampNumber(tileData.grid_size, 4, 1, 20);
+                var tileHeight = _env3DClampNumber(tileData.height, 0.15, 0.05, 1.0);
+                wx = Math.round(wx / gs) * gs;
+                wz = Math.round(wz / gs) * gs;
+                wy = tileHeight * 0.5;
+                break;
+            }
+            case 'substrate': wy = 0; break;
             default:          wy = 1; break;
         }
+        wy += heightOffset;
         return { x: wx, y: wy, z: wz };
     }
 
@@ -17973,6 +22526,120 @@
             focus_kind: String((rigMeta.focus_kind) || ''),
             focus_id: String((rigMeta.focus_id) || '')
         };
+    }
+
+    var _env3DCameraPresets = {
+        overview:  { target: [0, 0, 0], distance: 40, azimuth: 0.8, polar: 1.0 },
+        shoreline: { target: [0, -1, 0], distance: 25, azimuth: 0.5, polar: 1.2 },
+        submerged: { target: [0, 10, 0], distance: 20, azimuth: 0.3, polar: 1.6 },
+        seabed:    { target: [0, -15, 0], distance: 18, azimuth: 0.6, polar: 1.8 },
+        cavern:    { target: [0, 5, 0], distance: 22, azimuth: 0.4, polar: 1.4 },
+        cliffside: { target: [5, 2, 0], distance: 30, azimuth: 1.2, polar: 0.9 },
+        summit:    { target: [0, 15, 0], distance: 35, azimuth: 0.7, polar: 0.6 },
+        orbit:     { target: [0, 3, 0], distance: 35, azimuth: 0, polar: 1.1 }
+    };
+
+    function _env3DResolvedCameraPreset(presetId) {
+        var preset = _env3DCameraPresets[String(presetId || '').trim()];
+        if (!preset) return null;
+        var target = Array.isArray(preset.target) ? preset.target.slice(0, 3) : [0, 0, 0];
+        while (target.length < 3) target.push(0);
+        var distance = Number(preset.distance || 0);
+        var azimuth = Number(preset.azimuth || 0);
+        var polar = Number(preset.polar || 0);
+        var strata = _env3D.strata && typeof _env3D.strata === 'object'
+            ? _env3D.strata
+            : { surfaceLevel: 0, waterLevel: null, seabedLevel: null, ceilingLevel: null };
+        var activeProfile = _env3D.activeWorldProfile && _envWorldProfiles[_env3D.activeWorldProfile]
+            ? _envWorldProfiles[_env3D.activeWorldProfile]
+            : null;
+        var family = String((activeProfile && activeProfile.family) || '').trim().toLowerCase();
+        if (presetId === 'seabed' && strata.seabedLevel !== null && strata.seabedLevel !== undefined) {
+            target[1] = Number(strata.seabedLevel || 0) + 3;
+        } else if (presetId === 'submerged' && strata.waterLevel !== null && strata.waterLevel !== undefined) {
+            target[1] = Number(strata.waterLevel || 0) - 5;
+        } else if (presetId === 'shoreline' && strata.waterLevel !== null && strata.waterLevel !== undefined) {
+            target[1] = Number(strata.waterLevel || 0) + 1;
+        } else if (presetId === 'cavern' && strata.ceilingLevel !== null && strata.ceilingLevel !== undefined) {
+            target[1] = (Number(strata.ceilingLevel || 0) + Number(strata.surfaceLevel || 0)) / 2;
+        }
+        if (family === 'underwater') {
+            var waterLevel = strata.waterLevel !== null && strata.waterLevel !== undefined ? Number(strata.waterLevel || 0) : 12;
+            var seabedLevel = strata.seabedLevel !== null && strata.seabedLevel !== undefined ? Number(strata.seabedLevel || 0) : -12;
+            var midDepth = seabedLevel + ((waterLevel - seabedLevel) * 0.42);
+            if (presetId === 'overview') {
+                target[1] = midDepth;
+                distance = 32;
+                azimuth = 0.58;
+                polar = 1.18;
+            } else if (presetId === 'submerged') {
+                target[1] = seabedLevel + ((waterLevel - seabedLevel) * 0.34);
+                distance = 24;
+                azimuth = 0.62;
+                polar = 1.24;
+            } else if (presetId === 'seabed') {
+                target[1] = seabedLevel + 2.5;
+                distance = 22;
+                azimuth = 0.82;
+                polar = 1.14;
+            }
+        }
+        return {
+            target: target,
+            distance: distance,
+            azimuth: azimuth,
+            polar: polar
+        };
+    }
+
+    function _env3DAnimateCameraToPreset(presetId, durationMs) {
+        var preset = _env3DResolvedCameraPreset(presetId);
+        if (!preset || !_env3D.camera || !_env3D.controls) return false;
+        durationMs = Math.max(0, Number(durationMs) || 800);
+        _env3D._lastCameraPreset = String(presetId || '');
+        _env3DUpdateWorldProfileControl();
+        if (_env3D._cameraAnimFrame) {
+            cancelAnimationFrame(_env3D._cameraAnimFrame);
+            _env3D._cameraAnimFrame = null;
+        }
+        if (_env3D.manualCommitTimer) {
+            clearTimeout(_env3D.manualCommitTimer);
+            _env3D.manualCommitTimer = 0;
+        }
+        if (_env3D._profileKitRefreshTimer) {
+            clearTimeout(_env3D._profileKitRefreshTimer);
+            _env3D._profileKitRefreshTimer = null;
+        }
+        var startPos = _env3D.camera.position.clone();
+        var startTarget = _env3D.controls.target.clone();
+        var endTarget = new THREE.Vector3(
+            Number(preset.target[0] || 0),
+            Number(preset.target[1] || 0),
+            Number(preset.target[2] || 0)
+        );
+        var endPos = new THREE.Vector3();
+        endPos.x = endTarget.x + (preset.distance * Math.sin(preset.polar) * Math.sin(preset.azimuth));
+        endPos.y = endTarget.y + (preset.distance * Math.cos(preset.polar));
+        endPos.z = endTarget.z + (preset.distance * Math.sin(preset.polar) * Math.cos(preset.azimuth));
+        var startTime = performance.now();
+        function step() {
+            var elapsed = performance.now() - startTime;
+            var t = durationMs <= 0 ? 1 : Math.min(1, elapsed / durationMs);
+            var ease = t < 0.5 ? 2 * t * t : 1 - (Math.pow(-2 * t + 2, 2) / 2);
+            _env3D.camera.position.lerpVectors(startPos, endPos, ease);
+            _env3D.controls.target.lerpVectors(startTarget, endTarget, ease);
+            _env3D.controls.update();
+            if (t < 1) {
+                _env3D._cameraAnimFrame = requestAnimationFrame(step);
+            } else {
+                _env3D._cameraAnimFrame = null;
+                _env3DCommitManualCamera('camera:preset:' + String(presetId || ''), true);
+                _env3DUpdateWorldProfileControl();
+            }
+        }
+        _env3D._cameraAnimFrame = requestAnimationFrame(step);
+        _envRefreshLiveMirrorSurface();
+        return true;
     }
 
     function _env3DResolveFocusMesh(kind, id) {
@@ -18210,6 +22877,12 @@
                 return new THREE.SphereGeometry(0.9, 12, 8);
             case 'service':
                 return new THREE.OctahedronGeometry(0.9, 0);
+            case 'zone':
+                return new THREE.CylinderGeometry(3.2, 3.2, 0.04, 32);
+            case 'tile':
+                return new THREE.BoxGeometry(4, 0.15, 4);
+            case 'substrate':
+                return new THREE.SphereGeometry(0.7, 12, 10);
             case 'panel':
                 return new THREE.BoxGeometry(1.8, 1.2, 0.2);
             case 'menu':
@@ -18221,6 +22894,2266 @@
             default:
                 return new THREE.SphereGeometry(0.7, 8, 8);
         }
+    }
+
+    function _env3DGeometryForAppearance(shape) {
+        var kind = String(shape || '').trim().toLowerCase();
+        switch (kind) {
+            case 'sphere':
+                return new THREE.SphereGeometry(0.82, 10, 10);
+            case 'box':
+                return new THREE.BoxGeometry(1.2, 1.2, 1.2);
+            case 'cylinder':
+                return new THREE.CylinderGeometry(0.7, 0.7, 1.4, 10);
+            case 'cone':
+                return new THREE.ConeGeometry(0.75, 1.5, 10);
+            case 'torus':
+                return new THREE.TorusGeometry(0.85, 0.2, 8, 16);
+            case 'octahedron':
+                return new THREE.OctahedronGeometry(0.95, 0);
+            case 'icosahedron':
+                return new THREE.IcosahedronGeometry(1.0, 0);
+            case 'dodecahedron':
+                return new THREE.DodecahedronGeometry(0.95, 0);
+            case 'tetrahedron':
+                return new THREE.TetrahedronGeometry(1.0, 0);
+            case 'disc':
+            case 'circle':
+                return new THREE.CylinderGeometry(1.6, 1.6, 0.04, 24);
+            case 'rect':
+                return new THREE.BoxGeometry(4, 0.04, 4);
+            case 'panel':
+                return new THREE.BoxGeometry(1.8, 1.2, 0.2);
+            default:
+                return null;
+        }
+    }
+
+    function _env3DGeometryForObject(obj, appearance) {
+        var geo = _env3DGeometryForAppearance((appearance && appearance.geometry) || '');
+        return geo || _env3DGeometryForKind(String((obj && obj.kind) || ''));
+    }
+
+    function _envEnsureRoomMaterials() {
+        var defs = {
+            stone: { color: 0x7d8791, roughness: 0.85, metalness: 0.08 },
+            sand: { color: 0xb89c67, roughness: 0.9, metalness: 0.04 },
+            wood: { color: 0x7f5734, roughness: 0.7, metalness: 0.08 }
+        };
+        Object.keys(defs).forEach(function (key) {
+            if (_envRoomMaterials[key]) return;
+            var def = defs[key];
+            _envRoomMaterials[key] = _env3DMarkSharedResource(new THREE.MeshStandardMaterial({
+                color: def.color,
+                roughness: def.roughness,
+                metalness: def.metalness
+            }));
+        });
+        return _envRoomMaterials;
+    }
+
+    function _env3DBuildRoomWallSegments(cfg) {
+        var wallSegments = [];
+        var wallLengthMin = 0.18;
+        var buildWallSegments = function (side, span, fixedCoord, axis) {
+            var hasDoor = cfg.doors.indexOf(side) !== -1;
+            if (!hasDoor) {
+                wallSegments.push({ axis: axis, span: span, fixed: fixedCoord, offset: 0 });
+                return;
+            }
+            var segmentSpan = (span - cfg.doorwayWidth) / 2;
+            if (segmentSpan <= wallLengthMin) {
+                wallSegments.push({ axis: axis, span: span, fixed: fixedCoord, offset: 0 });
+                return;
+            }
+            var halfDoor = cfg.doorwayWidth / 2;
+            var halfSegment = segmentSpan / 2;
+            wallSegments.push({ axis: axis, span: segmentSpan, fixed: fixedCoord, offset: -halfDoor - halfSegment });
+            wallSegments.push({ axis: axis, span: segmentSpan, fixed: fixedCoord, offset: halfDoor + halfSegment });
+        };
+
+        buildWallSegments('north', cfg.width, -cfg.depth / 2, 'x');
+        buildWallSegments('south', cfg.width, cfg.depth / 2, 'x');
+        buildWallSegments('west', cfg.depth, -cfg.width / 2, 'z');
+        buildWallSegments('east', cfg.depth, cfg.width / 2, 'z');
+        return wallSegments;
+    }
+
+    function _envSpawnRoom(config, position) {
+        var cfg = _env3DNormalizeRoomConfig(config);
+        var materials = _envEnsureRoomMaterials();
+        var group = new THREE.Group();
+        var floor = new THREE.Mesh(
+            new THREE.PlaneGeometry(cfg.width, cfg.depth),
+            materials[cfg.floorMaterial] || materials.stone
+        );
+        floor.rotation.x = -Math.PI / 2;
+        floor.position.y = 0;
+        floor.receiveShadow = true;
+        group.add(floor);
+
+        var wallSegments = _env3DBuildRoomWallSegments(cfg);
+        if (wallSegments.length) {
+            var wallMesh = new THREE.InstancedMesh(
+                new THREE.BoxGeometry(1, 1, 1),
+                materials[cfg.wallMaterial] || materials.stone,
+                wallSegments.length
+            );
+            var shadowEnabled = !!(_env3D.renderer && _env3D.renderer.shadowMap && _env3D.renderer.shadowMap.enabled);
+            var dummy = new THREE.Object3D();
+            wallMesh.castShadow = shadowEnabled;
+            wallMesh.receiveShadow = false;
+            wallSegments.forEach(function (segment, idx) {
+                dummy.position.set(
+                    segment.axis === 'x' ? segment.offset : segment.fixed,
+                    cfg.height / 2,
+                    segment.axis === 'x' ? segment.fixed : segment.offset
+                );
+                dummy.scale.set(
+                    segment.axis === 'x' ? segment.span : cfg.wallThickness,
+                    cfg.height,
+                    segment.axis === 'x' ? cfg.wallThickness : segment.span
+                );
+                dummy.updateMatrix();
+                wallMesh.setMatrixAt(idx, dummy.matrix);
+            });
+            wallMesh.instanceMatrix.needsUpdate = true;
+            group.add(wallMesh);
+        }
+
+        if (position && typeof position === 'object') {
+            group.position.set(Number(position.x || 0), Number(position.y || 0), Number(position.z || 0));
+        }
+        group.userData = group.userData || {};
+        group.userData.visualType = 'room';
+        group.userData.roomConfig = cfg;
+        group.userData.labelHeight = cfg.height + 0.7;
+        return group;
+    }
+
+    function _env3DClampNavIndex(value, size) {
+        size = Math.max(1, Number(size || _env3D.navGridSize || 50));
+        return Math.max(0, Math.min(size - 1, Number(value || 0)));
+    }
+
+    function _env3DWorldToNavCell(worldX, worldZ, gridSize) {
+        var size = Math.max(1, Number(gridSize || _env3D.navGridSize || 50));
+        var col = Math.floor(((Number(worldX || 0) + 40) / 80) * size);
+        var row = Math.floor(((Number(worldZ || 0) + 20) / 40) * size);
+        return {
+            col: _env3DClampNavIndex(col, size),
+            row: _env3DClampNavIndex(row, size)
+        };
+    }
+
+    function _env3DNavCellToWorld(row, col, gridSize) {
+        var size = Math.max(1, Number(gridSize || _env3D.navGridSize || 50));
+        return {
+            x: (((Number(col || 0) + 0.5) / size) * 80) - 40,
+            z: (((Number(row || 0) + 0.5) / size) * 40) - 20
+        };
+    }
+
+    function _env3DMarkNavRect(grid, minX, maxX, minZ, maxZ, walkable) {
+        if (!Array.isArray(grid) || !grid.length) return;
+        var size = grid.length;
+        var x0 = Math.min(Number(minX || 0), Number(maxX || 0));
+        var x1 = Math.max(Number(minX || 0), Number(maxX || 0));
+        var z0 = Math.min(Number(minZ || 0), Number(maxZ || 0));
+        var z1 = Math.max(Number(minZ || 0), Number(maxZ || 0));
+        var start = _env3DWorldToNavCell(x0, z0, size);
+        var end = _env3DWorldToNavCell(x1, z1, size);
+        for (var row = start.row; row <= end.row; row++) {
+            for (var col = start.col; col <= end.col; col++) {
+                grid[row][col] = !!walkable;
+            }
+        }
+    }
+
+    function _env3DBlockerFootprint(obj, appearance) {
+        var kind = String((obj && obj.kind) || '').trim().toLowerCase();
+        var geometry = String(((appearance && appearance.geometry) || '')).trim().toLowerCase();
+        var scale = Math.max(0.5, Number((obj && obj.scale) || 1));
+        if (kind === 'panel' || geometry === 'panel') return { width: 1.8 * scale, depth: 0.8 * scale };
+        if (kind === 'menu') return { width: 2.1 * scale, depth: 1.2 * scale };
+        if (kind === 'portal') return { width: 2.2 * scale, depth: 2.2 * scale };
+        if (kind === 'doc') return { width: 1.4 * scale, depth: 1.0 * scale };
+        return { width: 1.2 * scale, depth: 1.2 * scale };
+    }
+
+    function _envBuildNavGrid(objects) {
+        var size = Math.max(8, Number(_env3D.navGridSize || 50));
+        var grid = [];
+        for (var row = 0; row < size; row++) {
+            var line = [];
+            for (var col = 0; col < size; col++) line.push(true);
+            grid.push(line);
+        }
+        objects = Array.isArray(objects) ? objects : [];
+
+        objects.forEach(function (obj) {
+            var appearance = _envSceneAppearanceForObject(obj);
+            if (!_env3DIsRoomObject(obj, appearance)) return;
+            var cfg = _envRoomConfigFromObject(obj);
+            var center = _env3DXYZFromObject(obj);
+            var segments = _env3DBuildRoomWallSegments(cfg);
+            segments.forEach(function (segment) {
+                if (segment.axis === 'x') {
+                    _env3DMarkNavRect(
+                        grid,
+                        center.x + segment.offset - (segment.span / 2),
+                        center.x + segment.offset + (segment.span / 2),
+                        center.z + segment.fixed - (cfg.wallThickness / 2),
+                        center.z + segment.fixed + (cfg.wallThickness / 2),
+                        false
+                    );
+                } else {
+                    _env3DMarkNavRect(
+                        grid,
+                        center.x + segment.fixed - (cfg.wallThickness / 2),
+                        center.x + segment.fixed + (cfg.wallThickness / 2),
+                        center.z + segment.offset - (segment.span / 2),
+                        center.z + segment.offset + (segment.span / 2),
+                        false
+                    );
+                }
+            });
+        });
+
+        objects.forEach(function (obj) {
+            var appearance = _envSceneAppearanceForObject(obj);
+            var kind = String((obj && obj.kind) || '');
+            if (_env3DIsRoomObject(obj, appearance) || _env3DIsAgentKind(kind)) return;
+            if (_env3DCollisionPolicyForObject(obj) === 'none') return;
+            var pos = _env3DXYZFromObject(obj);
+            var footprint = _env3DBlockerFootprint(obj, appearance);
+            _env3DMarkNavRect(
+                grid,
+                pos.x - (footprint.width / 2),
+                pos.x + (footprint.width / 2),
+                pos.z - (footprint.depth / 2),
+                pos.z + (footprint.depth / 2),
+                false
+            );
+        });
+
+        _env3D.navGrid = grid;
+        return grid;
+    }
+
+    function _envFindGridPath(startX, startZ, endX, endZ) {
+        var grid = _env3D.navGrid;
+        if (!Array.isArray(grid) || !grid.length) return [];
+        var size = grid.length;
+        var startCell = _env3DWorldToNavCell(startX, startZ, size);
+        var endCell = _env3DWorldToNavCell(endX, endZ, size);
+        var keyOf = function (row, col) { return String(row) + ',' + String(col); };
+        var open = [];
+        var openMap = {};
+        var closed = {};
+        var parents = {};
+        var gScore = {};
+        var hScore = function (row, col) {
+            var dx = Math.abs(col - endCell.col);
+            var dz = Math.abs(row - endCell.row);
+            var diag = Math.min(dx, dz);
+            var straight = Math.max(dx, dz) - diag;
+            return (diag * Math.SQRT2) + straight;
+        };
+        var pushNode = function (row, col, g, parentKey) {
+            var key = keyOf(row, col);
+            gScore[key] = g;
+            parents[key] = parentKey || '';
+            var node = { row: row, col: col, key: key, g: g, f: g + hScore(row, col) };
+            open.push(node);
+            openMap[key] = node;
+        };
+        pushNode(startCell.row, startCell.col, 0, '');
+
+        while (open.length) {
+            var bestIndex = 0;
+            for (var i = 1; i < open.length; i++) {
+                if (open[i].f < open[bestIndex].f) bestIndex = i;
+            }
+            var current = open.splice(bestIndex, 1)[0];
+            delete openMap[current.key];
+            if (current.row === endCell.row && current.col === endCell.col) {
+                var cells = [];
+                var cursor = current.key;
+                while (cursor) {
+                    var parts = cursor.split(',');
+                    cells.push({ row: Number(parts[0] || 0), col: Number(parts[1] || 0) });
+                    cursor = parents[cursor] || '';
+                }
+                cells.reverse();
+                var points = [];
+                for (var ci = 1; ci < cells.length; ci++) {
+                    var point = _env3DNavCellToWorld(cells[ci].row, cells[ci].col, size);
+                    points.push({ x: point.x, z: point.z });
+                }
+                return points;
+            }
+            closed[current.key] = true;
+
+            for (var rowDelta = -1; rowDelta <= 1; rowDelta++) {
+                for (var colDelta = -1; colDelta <= 1; colDelta++) {
+                    if (!rowDelta && !colDelta) continue;
+                    var nextRow = current.row + rowDelta;
+                    var nextCol = current.col + colDelta;
+                    if (nextRow < 0 || nextRow >= size || nextCol < 0 || nextCol >= size) continue;
+                    var nextKey = keyOf(nextRow, nextCol);
+                    if (closed[nextKey]) continue;
+                    if (!(nextRow === endCell.row && nextCol === endCell.col)
+                        && !(nextRow === startCell.row && nextCol === startCell.col)
+                        && !grid[nextRow][nextCol]) continue;
+                    if (rowDelta && colDelta) {
+                        if ((!grid[current.row][nextCol] && !(current.row === endCell.row && nextCol === endCell.col))
+                            || (!grid[nextRow][current.col] && !(nextRow === endCell.row && current.col === endCell.col))) {
+                            continue;
+                        }
+                    }
+                    var stepCost = (rowDelta && colDelta) ? Math.SQRT2 : 1;
+                    var nextG = Number(gScore[current.key] || 0) + stepCost;
+                    if (openMap[nextKey] && nextG >= Number(gScore[nextKey] || Infinity)) continue;
+                    if (openMap[nextKey]) {
+                        openMap[nextKey].g = nextG;
+                        openMap[nextKey].f = nextG + hScore(nextRow, nextCol);
+                        gScore[nextKey] = nextG;
+                        parents[nextKey] = current.key;
+                    } else {
+                        pushNode(nextRow, nextCol, nextG, current.key);
+                    }
+                }
+            }
+        }
+        return [];
+    }
+
+    function _env3DPlanMeshRoute(mesh) {
+        if (!mesh || !mesh.userData) return null;
+        if (!_env3D.navGrid) {
+            mesh.userData._waypoints = null;
+            return null;
+        }
+        var targetX = Number(mesh.userData._targetX);
+        var targetZ = Number(mesh.userData._targetZ);
+        if (!isFinite(targetX) || !isFinite(targetZ)) {
+            mesh.userData._waypoints = null;
+            return null;
+        }
+        var points = _envFindGridPath(mesh.position.x, mesh.position.z, targetX, targetZ);
+        mesh.userData._waypoints = points.length ? points : null;
+        return mesh.userData._waypoints;
+    }
+
+    function _envSceneObjectById(id) {
+        var targetId = String(id || '').trim();
+        if (!targetId) return null;
+        for (var i = 0; i < _envSpawnedObjects.length; i++) {
+            if (String(((_envSpawnedObjects[i] || {}).id) || '') === targetId) return _envSpawnedObjects[i];
+        }
+        var sceneObjects = Array.isArray((_envScene || {}).objects) ? _envScene.objects : [];
+        for (var j = 0; j < sceneObjects.length; j++) {
+            if (String(((sceneObjects[j] || {}).id) || '') === targetId) return sceneObjects[j];
+        }
+        return null;
+    }
+
+    function _env3DWorldPointFromScene(sceneX, sceneY) {
+        return {
+            x: ((Number(sceneX || 0) / 100) * 80) - 40,
+            z: ((Number(sceneY || 0) / 100) * 40) - 20
+        };
+    }
+
+    function _env3DAdvanceCharacterBehavior(mesh, obj, dt) {
+        if (!mesh || !mesh.userData || !obj) return;
+        var character = _envSceneCharacterForObject(obj);
+        if (!character) return;
+        var behavior = String(character.behavior || 'idle').trim().toLowerCase() || 'idle';
+        var data = _envObjectData(obj);
+        var speed = Math.max(0.8, Number(data.behavior_speed || data.move_speed || mesh.userData._moveSpeed || 3.2));
+        var home = _env3DWorldPointFromScene(obj.x, obj.y);
+        if (behavior === 'idle') return;
+        if (behavior === 'patrol') {
+            var patrolPoints = Array.isArray(data.waypoints) ? data.waypoints : [];
+            if (!patrolPoints.length) return;
+            if (!mesh.userData._moving && (!Array.isArray(mesh.userData._waypoints) || !mesh.userData._waypoints.length)) {
+                var worldWaypoints = patrolPoints.map(function (point) {
+                    return _env3DWorldPointFromScene(point.x, point.y);
+                });
+                if (worldWaypoints.length) {
+                    mesh.userData._targetX = Number(worldWaypoints[worldWaypoints.length - 1].x || home.x);
+                    mesh.userData._targetZ = Number(worldWaypoints[worldWaypoints.length - 1].z || home.z);
+                    mesh.userData._targetY = Number(mesh.position.y || 0);
+                    mesh.userData._waypoints = worldWaypoints;
+                    mesh.userData._moveSpeed = speed;
+                    mesh.userData._moving = true;
+                }
+            }
+            return;
+        }
+        if (behavior === 'wander') {
+            var now = Date.now();
+            if (mesh.userData._moving) return;
+            if (Number(mesh.userData._behaviorNextMoveTs || 0) > now) return;
+            var wanderRadius = Math.max(2, Number(data.wander_radius || 12));
+            var angle = Math.random() * Math.PI * 2;
+            var radius = Math.random() * wanderRadius;
+            var sceneTargetX = Math.max(2, Math.min(98, Number(obj.x || 50) + Math.cos(angle) * radius));
+            var sceneTargetY = Math.max(2, Math.min(98, Number(obj.y || 50) + Math.sin(angle) * radius));
+            var wanderPoint = _env3DWorldPointFromScene(sceneTargetX, sceneTargetY);
+            mesh.userData._targetX = wanderPoint.x;
+            mesh.userData._targetZ = wanderPoint.z;
+            mesh.userData._targetY = Number(mesh.position.y || 0);
+            mesh.userData._moveSpeed = speed;
+            mesh.userData._moving = true;
+            mesh.userData._behaviorNextMoveTs = now + Math.max(1200, Math.round((Number(dt || 0.016) * 1000) + 2200));
+            return;
+        }
+        if (behavior === 'follow') {
+            var followId = String(data.follow_target || data.followTarget || '').trim();
+            var followObj = _envSceneObjectById(followId);
+            if (!followObj) return;
+            var followPoint = _env3DWorldPointFromScene(followObj.x, followObj.y);
+            mesh.userData._targetX = followPoint.x;
+            mesh.userData._targetZ = followPoint.z;
+            mesh.userData._targetY = Number(mesh.position.y || 0);
+            mesh.userData._moveSpeed = speed;
+            mesh.userData._moving = (Math.abs(followPoint.x - mesh.position.x) + Math.abs(followPoint.z - mesh.position.z)) > 0.4;
+            return;
+        }
+        if (behavior === 'guard') {
+            var threshold = Math.max(0.8, Number(data.guard_radius || 4));
+            var dx = mesh.position.x - home.x;
+            var dz = mesh.position.z - home.z;
+            var dist = Math.sqrt((dx * dx) + (dz * dz));
+            if (dist > threshold) {
+                mesh.userData._targetX = home.x;
+                mesh.userData._targetZ = home.z;
+                mesh.userData._targetY = Number(mesh.position.y || 0);
+                mesh.userData._moveSpeed = speed;
+                mesh.userData._moving = true;
+            } else {
+                mesh.userData._moving = false;
+                mesh.userData._waypoints = null;
+            }
+        }
+    }
+
+    function _env3DAdvanceMeshLocomotion(mesh, key, dt, isAgent) {
+        if (!mesh || !mesh.userData || !mesh.userData._moving) return;
+        var tx = Number(mesh.userData._targetX || mesh.position.x);
+        var tz = Number(mesh.userData._targetZ || mesh.position.z);
+        var ty = Number(mesh.userData._targetY || mesh.position.y);
+        var ldx = tx - mesh.position.x;
+        var ldz = tz - mesh.position.z;
+        var ldy = ty - mesh.position.y;
+        var ldist = Math.sqrt((ldx * ldx) + (ldz * ldz));
+        var lspeed = Math.max(0.001, Number(mesh.userData._moveSpeed || 5.0)) * dt;
+        var wpList = mesh.userData._waypoints;
+        if (Array.isArray(wpList) && wpList.length > 0) {
+            var wp = wpList[0];
+            var wdx = Number((wp && wp.x) || mesh.position.x) - mesh.position.x;
+            var wdz = Number((wp && wp.z) || mesh.position.z) - mesh.position.z;
+            var wdist = Math.sqrt((wdx * wdx) + (wdz * wdz));
+            if (wdist < 0.4) {
+                wpList.shift();
+                wp = wpList.length ? wpList[0] : null;
+                wdx = wp ? (Number(wp.x || mesh.position.x) - mesh.position.x) : ldx;
+                wdz = wp ? (Number(wp.z || mesh.position.z) - mesh.position.z) : ldz;
+                wdist = Math.sqrt((wdx * wdx) + (wdz * wdz));
+            }
+            if (wpList.length > 0) {
+                ldx = wdx;
+                ldz = wdz;
+                ldist = wdist;
+            }
+        }
+        if (ldist < lspeed || ldist < 0.05) {
+            mesh.position.x = tx;
+            mesh.position.z = tz;
+            mesh.position.y = ty;
+            mesh.userData._moving = false;
+            mesh.userData._waypoints = null;
+            mesh.userData.baseY = ty;
+        } else {
+            if (ldist > 0.01) {
+                mesh.position.x += (ldx / ldist) * lspeed;
+                mesh.position.z += (ldz / ldist) * lspeed;
+            }
+            mesh.position.y += ldy * 0.15;
+            mesh.userData.baseY = mesh.position.y;
+            if (isAgent && ldist > 0.1) mesh.rotation.y = Math.atan2(ldx, ldz);
+        }
+        if (isAgent && mesh.userData._moving) {
+            Object.keys(_env3D.meshes).forEach(function (otherKey) {
+                if (otherKey === key) return;
+                var other = _env3D.meshes[otherKey];
+                if (!other || !_env3DIsAgentKind(((other.userData || {}).kind) || '')) return;
+                var sx = mesh.position.x - other.position.x;
+                var sz = mesh.position.z - other.position.z;
+                var sDist = Math.sqrt((sx * sx) + (sz * sz));
+                var minSep = 1.5;
+                if (sDist < minSep && sDist > 0.01) {
+                    var push = (minSep - sDist) * 2.0 * dt;
+                    mesh.position.x += (sx / sDist) * push;
+                    mesh.position.z += (sz / sDist) * push;
+                }
+            });
+        }
+    }
+
+    function _env3DEnsurePortalTexture() {
+        if (_env3D.portalTexture) return _env3D.portalTexture;
+        if (typeof document === 'undefined') return null;
+        var canvas = document.createElement('canvas');
+        canvas.width = 128;
+        canvas.height = 128;
+        var ctx = canvas.getContext('2d');
+        if (!ctx) return null;
+        var gradient = ctx.createRadialGradient(64, 64, 10, 64, 64, 56);
+        gradient.addColorStop(0, 'rgba(255,255,255,0.88)');
+        gradient.addColorStop(0.42, 'rgba(140,230,255,0.42)');
+        gradient.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, 128, 128);
+        var texture = new THREE.CanvasTexture(canvas);
+        texture.needsUpdate = true;
+        texture.wrapS = THREE.ClampToEdgeWrapping;
+        texture.wrapT = THREE.ClampToEdgeWrapping;
+        texture.generateMipmaps = false;
+        texture.magFilter = THREE.LinearFilter;
+        texture.minFilter = THREE.LinearFilter;
+        if ('colorSpace' in texture && THREE.SRGBColorSpace) texture.colorSpace = THREE.SRGBColorSpace;
+        _env3D.portalTexture = _env3DMarkSharedResource(texture);
+        return _env3D.portalTexture;
+    }
+
+    function _env3DCreatePortalVisual() {
+        var accent = _env3DAccentHex();
+        var group = new THREE.Group();
+        var ring = new THREE.Mesh(
+            new THREE.TorusGeometry(0.5, 0.06, 8, 24),
+            new THREE.MeshStandardMaterial({
+                color: accent,
+                emissive: accent,
+                emissiveIntensity: 0.6,
+                roughness: 0.22,
+                metalness: 0.14,
+                transparent: true,
+                opacity: 0.74
+            })
+        );
+        var plane = new THREE.Mesh(
+            new THREE.CircleGeometry(0.4, 24),
+            new THREE.MeshBasicMaterial({
+                map: _env3DEnsurePortalTexture(),
+                color: accent,
+                transparent: true,
+                opacity: 0.42,
+                side: THREE.DoubleSide,
+                depthWrite: false
+            })
+        );
+        plane.position.z = 0.012;
+        group.add(ring);
+        group.add(plane);
+        group.userData = group.userData || {};
+        group.userData.visualType = 'portal';
+        group.userData.portalRing = ring;
+        group.userData.portalPlane = plane;
+        group.userData.labelHeight = 1.38;
+        return group;
+    }
+
+    function _env3DApplyPortalState(mesh, state, isFocused, time) {
+        if (!mesh || !mesh.userData) return;
+        var ring = mesh.userData.portalRing;
+        var plane = mesh.userData.portalPlane;
+        var accent = _env3DAccentHex();
+        var stateKey = String(state || mesh.userData.state || 'idle').trim().toLowerCase();
+        var glowHex = stateKey === 'failed' ? 0xff5566 : (stateKey === 'learning' ? 0x8a5cff : accent);
+        var pulse = 0.5 + (0.5 * Math.sin((Number(time || 0) * (stateKey === 'running' ? 5.5 : 2.6)) + (mesh.position.x * 0.08)));
+        if (ring && ring.material) {
+            ring.material.color.setHex(glowHex);
+            if (ring.material.emissive && typeof ring.material.emissive.setHex === 'function') {
+                ring.material.emissive.setHex(isFocused ? 0x00ff88 : glowHex);
+                ring.material.emissiveIntensity = isFocused ? 1.15 : (0.4 + pulse * (stateKey === 'running' ? 0.5 : 0.22));
+            }
+            ring.material.opacity = isFocused ? 0.92 : (0.7 + pulse * 0.08);
+        }
+        if (plane && plane.material) {
+            plane.material.color.setHex(glowHex);
+            plane.material.opacity = isFocused ? 0.7 : (stateKey === 'running' ? (0.38 + pulse * 0.18) : 0.44);
+        }
+    }
+
+    function _env3DEnsureAgentSprite(mesh, obj) {
+        if (!mesh || !mesh.userData) return;
+        if (!_env3DIsAgentKind(mesh.userData.kind)) return;
+        var atlas = _env3DEnsureAgentSpriteAtlas();
+        if (!atlas) return;
+        var modality = _env3DResolveAgentModality(obj);
+        var map = atlas[modality] || atlas.llm;
+        var sprite = mesh.userData.agentSprite || null;
+        if (!sprite) {
+            sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+                map: map,
+                color: _env3DAgentStateColor(obj && obj.state),
+                transparent: true,
+                opacity: 0.94,
+                depthWrite: false,
+                sizeAttenuation: true
+            }));
+            sprite.scale.set(0.62, 0.62, 0.62);
+            sprite.renderOrder = 6;
+            mesh.add(sprite);
+            mesh.userData.agentSprite = sprite;
+        }
+        sprite.position.set(0, Number(mesh.userData.agentSpriteOffsetY || 1.12), 0);
+        sprite.scale.set(0.62, 0.62, 0.62);
+        if (sprite.material.map !== map) {
+            sprite.material.map = map;
+            sprite.material.needsUpdate = true;
+        }
+        sprite.material.color.setHex(_env3DAgentStateColor(obj && obj.state));
+        sprite.material.opacity = String((obj && obj.state) || 'idle').trim().toLowerCase() === 'failed' ? 0.98 : 0.94;
+        mesh.userData.agentModality = modality;
+        _env3DEnsureCharacterSprite(mesh, obj);
+    }
+
+    function _env3DCharacterSpriteLayout(character) {
+        var cfg = character && character.sprite_layout && typeof character.sprite_layout === 'object' && !Array.isArray(character.sprite_layout)
+            ? character.sprite_layout
+            : {};
+        return {
+            columns: Math.max(1, Math.round(Number(cfg.columns || cfg.cols || 4))),
+            rows: Math.max(1, Math.round(Number(cfg.rows || 1))),
+            directions: Math.max(1, Math.round(Number(cfg.directions || cfg.frames || 4)))
+        };
+    }
+
+    function _env3DDisposeCharacterSprite(mesh) {
+        if (!mesh || !mesh.userData || !mesh.userData.characterSprite) return;
+        var sprite = mesh.userData.characterSprite;
+        if (sprite.parent) sprite.parent.remove(sprite);
+        if (sprite.material && sprite.material.map && typeof sprite.material.map.dispose === 'function') sprite.material.map.dispose();
+        if (sprite.material && typeof sprite.material.dispose === 'function') sprite.material.dispose();
+        mesh.userData.characterSprite = null;
+        mesh.userData.characterSpriteFrame = 0;
+        mesh.userData.characterSpriteRef = '';
+    }
+
+    function _env3DLoadSpriteSheet(ref, callback) {
+        var key = String(ref || '').trim();
+        if (!key || typeof THREE === 'undefined') {
+            if (typeof callback === 'function') callback(null);
+            return;
+        }
+        var cache = _env3D.spriteSheetCache[key];
+        if (cache && cache.state === 'ready') {
+            if (typeof callback === 'function') callback(cache.texture);
+            return;
+        }
+        if (cache && cache.state === 'loading') {
+            if (typeof callback === 'function') cache.callbacks.push(callback);
+            return;
+        }
+        cache = {
+            state: 'loading',
+            texture: null,
+            callbacks: typeof callback === 'function' ? [callback] : []
+        };
+        _env3D.spriteSheetCache[key] = cache;
+        var loader = new THREE.TextureLoader();
+        loader.load(key, function (texture) {
+            texture.wrapS = THREE.ClampToEdgeWrapping;
+            texture.wrapT = THREE.ClampToEdgeWrapping;
+            texture.generateMipmaps = false;
+            texture.magFilter = THREE.LinearFilter;
+            texture.minFilter = THREE.LinearFilter;
+            if ('colorSpace' in texture && THREE.SRGBColorSpace) texture.colorSpace = THREE.SRGBColorSpace;
+            cache.state = 'ready';
+            cache.texture = texture;
+            (cache.callbacks || []).forEach(function (fn) {
+                if (typeof fn === 'function') fn(texture);
+            });
+            cache.callbacks = [];
+        }, undefined, function () {
+            cache.state = 'error';
+            (cache.callbacks || []).forEach(function (fn) {
+                if (typeof fn === 'function') fn(null);
+            });
+            cache.callbacks = [];
+        });
+    }
+
+    function _env3DSetCharacterSpriteFrame(mesh, frameIndex) {
+        var sprite = mesh && mesh.userData ? mesh.userData.characterSprite : null;
+        if (!sprite || !sprite.material || !sprite.material.map) return;
+        var layout = mesh.userData.characterSpriteLayout || { columns: 4, rows: 1 };
+        var columns = Math.max(1, Number(layout.columns || 4));
+        var rows = Math.max(1, Number(layout.rows || 1));
+        var total = Math.max(1, columns * rows);
+        var frame = ((Math.round(Number(frameIndex || 0)) % total) + total) % total;
+        var col = frame % columns;
+        var row = Math.floor(frame / columns);
+        sprite.material.map.repeat.set(1 / columns, 1 / rows);
+        sprite.material.map.offset.set(col / columns, 1 - ((row + 1) / rows));
+        sprite.material.map.needsUpdate = true;
+        mesh.userData.characterSpriteFrame = frame;
+    }
+
+    function _env3DUpdateCharacterSpriteFacing(mesh, dx, dz) {
+        if (!mesh || !mesh.userData || !mesh.userData.characterSprite) return;
+        if (Math.abs(Number(dx || 0)) + Math.abs(Number(dz || 0)) < 0.001) return;
+        var layout = mesh.userData.characterSpriteLayout || { directions: 4 };
+        var directions = Math.max(1, Number(layout.directions || 4));
+        var angle = Math.atan2(Number(dx || 0), Number(dz || 0));
+        var normalized = (angle + Math.PI) / (Math.PI * 2);
+        var frame = Math.round(normalized * directions) % directions;
+        _env3DSetCharacterSpriteFrame(mesh, frame);
+    }
+
+    function _env3DEnsureCharacterSprite(mesh, obj) {
+        if (!mesh || !mesh.userData) return;
+        var character = _envSceneCharacterForObject(obj);
+        var spriteRef = String((((character || {}).sprite_ref) || '')).trim();
+        if (!spriteRef) {
+            _env3DDisposeCharacterSprite(mesh);
+            return;
+        }
+        if (mesh.userData.characterSprite && String(mesh.userData.characterSpriteRef || '') !== spriteRef) {
+            _env3DDisposeCharacterSprite(mesh);
+        }
+        _env3DLoadSpriteSheet(spriteRef, function (texture) {
+            if (!texture || !mesh || !mesh.userData) return;
+            var sprite = mesh.userData.characterSprite || null;
+            var layout = _env3DCharacterSpriteLayout(character || {});
+            if (!sprite) {
+                var map = texture.clone();
+                map.image = texture.image;
+                map.wrapS = THREE.ClampToEdgeWrapping;
+                map.wrapT = THREE.ClampToEdgeWrapping;
+                map.generateMipmaps = false;
+                map.magFilter = THREE.LinearFilter;
+                map.minFilter = THREE.LinearFilter;
+                if ('colorSpace' in map && THREE.SRGBColorSpace) map.colorSpace = THREE.SRGBColorSpace;
+                sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+                    map: map,
+                    transparent: true,
+                    opacity: 0.98,
+                    depthWrite: false,
+                    sizeAttenuation: true
+                }));
+                sprite.renderOrder = 7;
+                mesh.add(sprite);
+                mesh.userData.characterSprite = sprite;
+            }
+            mesh.userData.characterSpriteRef = spriteRef;
+            mesh.userData.characterSpriteLayout = layout;
+            sprite.position.set(0, Number(mesh.userData.agentSpriteOffsetY || 1.12) + 0.78, 0.05);
+            var scale = Math.max(0.55, Number(((character || {}).scale) || 1) * 1.15);
+            sprite.scale.set(scale, scale, scale);
+            _env3DSetCharacterSpriteFrame(mesh, Number(mesh.userData.characterSpriteFrame || 0));
+        });
+    }
+
+    function _env3DVisualKeyForObject(obj, appearance) {
+        if (_env3DIsRoomObject(obj, appearance)) {
+            return 'room:' + JSON.stringify(_envRoomConfigFromObject(obj));
+        }
+        var kind = String((obj && obj.kind) || '').trim().toLowerCase();
+        if (kind === 'portal') return 'portal';
+        if (kind === 'vegetation_patch') {
+            var mechanics = obj && obj.mechanics ? obj.mechanics : null;
+            var vegetationData = _envObjectData(obj);
+            return 'vegetation_patch:'
+                + String((appearance && appearance.color) || '')
+                + ':' + Number((obj && obj.scale) || 1).toFixed(2)
+                + ':' + Number(vegetationData.count || vegetationData.instance_count || vegetationData.instances || 500).toFixed(0)
+                + ':' + JSON.stringify(mechanics || null);
+        }
+        if (kind === 'decal') {
+            var decalData = _envObjectData(obj);
+            return 'decal:'
+                + String(decalData.shape || 'circle').trim().toLowerCase()
+                + ':' + Number(decalData.radius || 3).toFixed(2)
+                + ':' + Number(decalData.width || 4).toFixed(2)
+                + ':' + Number(decalData.depth || 4).toFixed(2)
+                + ':' + Number(decalData.opacity === undefined ? 0.5 : decalData.opacity).toFixed(3)
+                + ':' + (decalData.border === false ? '0' : '1');
+        }
+        if (kind === 'zone') {
+            var zoneData = _env3DCreateZoneGeometryData(obj, appearance);
+            return 'zone:'
+                + zoneData.shape
+                + ':' + Number(zoneData.radius || 3.25).toFixed(2)
+                + ':' + Number(zoneData.width || 6.5).toFixed(2)
+                + ':' + Number(zoneData.depth || 6.5).toFixed(2)
+                + ':' + Number(zoneData.opacity === undefined ? 0.22 : zoneData.opacity).toFixed(3)
+                + ':' + (zoneData.border === false ? '0' : '1')
+                + ':' + (zoneData.halo === false ? '0' : '1')
+                + ':' + JSON.stringify(_env3DPrimitiveMaterialSource(obj, appearance));
+        }
+        if (kind === 'tile') {
+            var tileData = _envObjectData(obj);
+            return 'tile:'
+                + String(tileData.material || 'stone').trim().toLowerCase()
+                + ':' + Number(tileData.width || tileData.grid_size || 4).toFixed(1)
+                + ':' + Number(tileData.depth || tileData.grid_size || 4).toFixed(1)
+                + ':' + Number(tileData.height || 0.15).toFixed(3)
+                + ':' + String(tileData.emissive || '')
+                + ':' + Number(tileData.roughness === undefined ? -1 : tileData.roughness).toFixed(2)
+                + ':' + Number(tileData.metalness === undefined ? -1 : tileData.metalness).toFixed(2);
+        }
+        if (kind === 'substrate') {
+            var substrateData = _envObjectData(obj);
+            return 'substrate:' + JSON.stringify(substrateData.recipe || '') + ':' + String(substrateData.material || '');
+        }
+        return 'primitive:'
+            + String((appearance && appearance.geometry) || '')
+            + ':' + String((obj && obj.kind) || '')
+            + ':' + JSON.stringify(_env3DPrimitiveMaterialSource(obj, appearance));
+    }
+
+    function _env3DLabelHeightForObject(obj, mesh) {
+        if (mesh && mesh.userData && mesh.userData.visualType === 'room') {
+            return Math.max(2, Number((((mesh.userData || {}).roomConfig || {}).height) || 3) + 0.7);
+        }
+        if (mesh && mesh.userData && mesh.userData.visualType === 'portal') return 1.38;
+        if (String((obj && obj.kind) || '').trim().toLowerCase() === 'zone') return 0.18;
+        if (String((obj && obj.kind) || '').trim().toLowerCase() === 'decal') return 0.14;
+        if (String((obj && obj.kind) || '').trim().toLowerCase() === 'tile') return 0.3;
+        if (String((obj && obj.kind) || '').trim().toLowerCase() === 'vegetation_patch') return 1.1;
+        if (String((obj && obj.kind) || '').trim().toLowerCase() === 'substrate') {
+            if (mesh && mesh.userData && Number(mesh.userData.labelHeight || 0) > 0) return Number(mesh.userData.labelHeight || 0);
+            if (mesh && typeof mesh.updateMatrixWorld === 'function') {
+                mesh.updateMatrixWorld(true);
+                var substrateBox = new THREE.Box3().setFromObject(mesh);
+                if (isFinite(substrateBox.max.y)) return Math.max(0.8, Number(substrateBox.max.y || 0) + 0.35);
+            }
+            return 1.2;
+        }
+        if (_env3DIsAgentKind((obj && obj.kind) || '')) return 1.86;
+        return 1.5;
+    }
+
+    function _env3DCreateTileGeometryData(obj) {
+        var data = _envObjectData(obj);
+        var gridSize = _env3DClampNumber(data.grid_size, 4, 1, 20);
+        return {
+            grid_size: gridSize,
+            width: _env3DClampNumber(data.width, gridSize, 0.25, 40),
+            depth: _env3DClampNumber(data.depth, gridSize, 0.25, 40),
+            height: _env3DClampNumber(data.height, 0.15, 0.05, 1.0)
+        };
+    }
+
+    function _env3DApplyProceduralState(mesh, obj, fallbackColor, isFocused) {
+        if (!mesh || typeof mesh.traverse !== 'function') return;
+        var data = _envObjectData(obj);
+        var matCfg = _env3DResolveProceduralMaterial(data, fallbackColor);
+        var stateKey = String((obj && obj.state) || 'idle').trim().toLowerCase();
+        var stateHex = _env3DStateEmissive[stateKey] || 0x000000;
+        var stateIntensity = stateKey === 'running' ? 0.4
+            : stateKey === 'failed' || stateKey === 'error' ? 0.6
+            : stateKey === 'learning' ? 0.3
+            : 0;
+        var focusBoost = isFocused ? 0.1 : 0;
+        mesh.traverse(function (node) {
+            if (!node || !node.material) return;
+            var role = String((((node || {}).userData) || {}).proceduralRole || '');
+            var materials = Array.isArray(node.material) ? node.material : [node.material];
+            materials.forEach(function (material) {
+                if (!material) return;
+                if (role === 'edge' || material.isLineBasicMaterial) {
+                    if (material.color && typeof material.color.setHex === 'function') material.color.setHex(matCfg.color);
+                    material.transparent = true;
+                    material.opacity = isFocused ? 0.55 : 0.3;
+                    return;
+                }
+                _env3DApplyResolvedMaterialConfig(material, matCfg);
+                if (material.emissive && typeof material.emissive.setHex === 'function') {
+                    if (stateIntensity > 0) {
+                        material.emissive.setHex(stateHex);
+                        material.emissiveIntensity = stateIntensity + focusBoost;
+                    } else {
+                        material.emissive.setHex(matCfg.emissive);
+                        material.emissiveIntensity = matCfg.emissiveIntensity + focusBoost;
+                    }
+                }
+            });
+        });
+    }
+
+    function _env3DApplyTileState(mesh, obj, color, isFocused) {
+        _env3DApplyProceduralState(mesh, obj, color, isFocused);
+    }
+
+    function _env3DApplySubstrateState(mesh, obj, color, isFocused) {
+        _env3DApplyProceduralState(mesh, obj, color, isFocused);
+    }
+
+    function _env3DGroundAlignGeometry(geometry) {
+        if (!geometry) return null;
+        geometry.computeBoundingBox();
+        var box = geometry.boundingBox;
+        if (!box) return geometry;
+        var centerX = (Number(box.min.x || 0) + Number(box.max.x || 0)) * 0.5;
+        var centerZ = (Number(box.min.z || 0) + Number(box.max.z || 0)) * 0.5;
+        geometry.translate(-centerX, -Number(box.min.y || 0), -centerZ);
+        geometry.computeBoundingBox();
+        geometry.computeBoundingSphere();
+        geometry.computeVertexNormals();
+        return geometry;
+    }
+
+    function _env3DGroundAlignObject(root) {
+        if (!root || typeof root.updateMatrixWorld !== 'function') return root;
+        root.updateMatrixWorld(true);
+        var box = new THREE.Box3().setFromObject(root);
+        if (!isFinite(box.min.x) || !isFinite(box.max.x)) return root;
+        root.position.x -= (Number(box.min.x || 0) + Number(box.max.x || 0)) * 0.5;
+        root.position.y -= Number(box.min.y || 0);
+        root.position.z -= (Number(box.min.z || 0) + Number(box.max.z || 0)) * 0.5;
+        root.updateMatrixWorld(true);
+        return root;
+    }
+
+    function _env3DValidateRecipe(recipe) {
+        if (!recipe || typeof recipe !== 'object' || Array.isArray(recipe)) return false;
+        var type = String(recipe.type || '').trim().toLowerCase();
+        if (type !== 'extrude' && type !== 'lathe' && type !== 'tube' && type !== 'heightmap' && type !== 'composite') return false;
+        if (type === 'extrude') {
+            if (!Array.isArray(recipe.points) || recipe.points.length < 3 || recipe.points.length > 64) return false;
+            return recipe.points.every(function (point) {
+                return Array.isArray(point) && point.length >= 2 && isFinite(Number(point[0])) && isFinite(Number(point[1]));
+            });
+        }
+        if (type === 'lathe') {
+            if (!Array.isArray(recipe.profile) || recipe.profile.length < 2 || recipe.profile.length > 64) return false;
+            return recipe.profile.every(function (point) {
+                return Array.isArray(point) && point.length >= 2 && isFinite(Number(point[0])) && isFinite(Number(point[1]));
+            });
+        }
+        if (type === 'tube') {
+            if (!Array.isArray(recipe.path) || recipe.path.length < 2 || recipe.path.length > 32) return false;
+            return recipe.path.every(function (point) {
+                return Array.isArray(point) && point.length >= 3
+                    && isFinite(Number(point[0])) && isFinite(Number(point[1])) && isFinite(Number(point[2]));
+            });
+        }
+        if (type === 'heightmap') {
+            return Number(recipe.width || 0) > 0 && Number(recipe.depth || 0) > 0;
+        }
+        if (!Array.isArray(recipe.parts) || recipe.parts.length < 1 || recipe.parts.length > 8) return false;
+        return recipe.parts.every(function (part) {
+            return part && typeof part === 'object' && _env3DValidateRecipe(part.recipe);
+        });
+    }
+
+    function _env3DBuildSubstrateGeometry(recipe) {
+        if (!_env3DValidateRecipe(recipe)) return null;
+        var type = String(recipe.type || '').trim().toLowerCase();
+        if (type === 'extrude') {
+            var points = recipe.points.slice(0, 64);
+            var shape = new THREE.Shape();
+            shape.moveTo(Number(points[0][0] || 0), Number(points[0][1] || 0));
+            for (var i = 1; i < points.length; i++) {
+                shape.lineTo(Number(points[i][0] || 0), Number(points[i][1] || 0));
+            }
+            shape.closePath();
+            var extrudeHeight = Math.max(0.1, Number(recipe.height || 1));
+            var bevel = Math.max(0, Number(recipe.bevel || 0));
+            var extrudeGeo = new THREE.ExtrudeGeometry(shape, {
+                depth: extrudeHeight,
+                steps: 1,
+                bevelEnabled: bevel > 0,
+                bevelSize: bevel,
+                bevelThickness: bevel,
+                bevelSegments: bevel > 0 ? 2 : 0,
+                curveSegments: Math.max(3, Math.min(24, points.length))
+            });
+            extrudeGeo.rotateX(-Math.PI / 2);
+            return _env3DGroundAlignGeometry(extrudeGeo);
+        }
+        if (type === 'lathe') {
+            var profile = recipe.profile.slice(0, 64).map(function (point) {
+                return new THREE.Vector2(Math.max(0, Number(point[0] || 0)), Number(point[1] || 0));
+            });
+            var latheGeo = new THREE.LatheGeometry(profile, Math.max(6, Math.min(64, Number(recipe.segments || 16))));
+            return _env3DGroundAlignGeometry(latheGeo);
+        }
+        if (type === 'tube') {
+            var curve = new THREE.CatmullRomCurve3(recipe.path.slice(0, 32).map(function (point) {
+                return new THREE.Vector3(Number(point[0] || 0), Number(point[1] || 0), Number(point[2] || 0));
+            }));
+            var tubeGeo = new THREE.TubeGeometry(
+                curve,
+                Math.max(8, Math.min(96, Number(recipe.segments || (curve.points.length * 12)))),
+                Math.max(0.05, Number(recipe.radius || 0.3)),
+                Math.max(3, Math.min(24, Number(recipe.radial || 6))),
+                false
+            );
+            return _env3DGroundAlignGeometry(tubeGeo);
+        }
+        if (type === 'heightmap') {
+            var width = Math.max(0.5, Number(recipe.width || 10));
+            var depth = Math.max(0.5, Number(recipe.depth || 10));
+            var resolution = Math.max(4, Math.min(64, Math.round(Number(recipe.resolution || 32))));
+            var amplitude = Math.max(0, Number(recipe.amplitude || 2));
+            var frequency = Math.max(0.01, Number(recipe.frequency || 0.3));
+            var seed = Number(recipe.seed || 0);
+            var heightGeo = new THREE.PlaneGeometry(width, depth, resolution, resolution);
+            heightGeo.rotateX(-Math.PI / 2);
+            var positions = heightGeo.attributes.position.array;
+            var colors = new Float32Array(positions.length);
+            var theme = _envThemes[_envThemeId] || _envThemes['default'];
+            var lowColor = new THREE.Color((theme && theme.ground) || 0x0d0d24);
+            var midColor = lowColor.clone().lerp(new THREE.Color(_env3DAccentHex()), 0.35);
+            var highColor = lowColor.clone().lerp(new THREE.Color(0xffffff), 0.65);
+            for (var vi = 0; vi < positions.length / 3; vi++) {
+                var px = positions[vi * 3];
+                var pz = positions[vi * 3 + 2];
+                var edgeX = 1 - Math.min(1, Math.abs(px) / Math.max(0.001, width * 0.5));
+                var edgeZ = 1 - Math.min(1, Math.abs(pz) / Math.max(0.001, depth * 0.5));
+                var edgeFade = Math.max(0, Math.min(1, edgeX * edgeZ));
+                var nx = (px * frequency) + (seed * 11.17);
+                var nz = (pz * frequency) - (seed * 7.13);
+                var octaveA = _env3DValueNoise2D(nx, nz);
+                var octaveB = _env3DValueNoise2D((nx * 2.1) + 19.3, (nz * 2.1) - 13.7);
+                var n = Math.max(0, Math.min(1, ((octaveA * 0.7) + (octaveB * 0.3)) * edgeFade));
+                positions[vi * 3 + 1] = n * amplitude;
+                var tone = n < 0.5
+                    ? lowColor.clone().lerp(midColor, n / 0.5)
+                    : midColor.clone().lerp(highColor, (n - 0.5) / 0.5);
+                colors[vi * 3] = tone.r;
+                colors[vi * 3 + 1] = tone.g;
+                colors[vi * 3 + 2] = tone.b;
+            }
+            heightGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            return _env3DGroundAlignGeometry(heightGeo);
+        }
+        return null;
+    }
+
+    function _env3DCreateSubstrateNodeFromRecipe(recipe, materialCfg, shadowCfg) {
+        if (!_env3DValidateRecipe(recipe)) return null;
+        var type = String(recipe.type || '').trim().toLowerCase();
+        if (type === 'composite') {
+            var composite = new THREE.Group();
+            recipe.parts.slice(0, 8).forEach(function (part) {
+                if (!part || typeof part !== 'object') return;
+                var node = _env3DCreateSubstrateNodeFromRecipe(part.recipe, materialCfg, shadowCfg);
+                if (!node) return;
+                var offset = Array.isArray(part.offset) ? part.offset : [0, 0, 0];
+                var scale = Array.isArray(part.scale) ? part.scale : [1, 1, 1];
+                node.position.set(Number(offset[0] || 0), Number(offset[1] || 0), Number(offset[2] || 0));
+                node.scale.set(
+                    _env3DClampNumber(scale[0], 1, 0.05, 10),
+                    _env3DClampNumber(scale[1], 1, 0.05, 10),
+                    _env3DClampNumber(scale[2], 1, 0.05, 10)
+                );
+                composite.add(node);
+            });
+            return composite;
+        }
+        var geometry = _env3DBuildSubstrateGeometry(recipe);
+        if (!geometry) return null;
+        var material = _env3DCreateProceduralMaterial(materialCfg, !!geometry.getAttribute('color'));
+        var mesh = new THREE.Mesh(geometry, material);
+        mesh.castShadow = shadowCfg.castShadow !== false;
+        mesh.receiveShadow = shadowCfg.receiveShadow !== false;
+        mesh.userData = Object.assign({}, mesh.userData || {}, { proceduralRole: 'surface' });
+        return mesh;
+    }
+
+    function _env3DCreateTileVisual(obj, color) {
+        var tileCfg = _env3DCreateTileGeometryData(obj);
+        var matCfg = _env3DResolveProceduralMaterial(_envObjectData(obj), color);
+        var group = new THREE.Group();
+        var body = new THREE.Mesh(
+            new THREE.BoxGeometry(tileCfg.width, tileCfg.height, tileCfg.depth),
+            _env3DCreateProceduralMaterial(matCfg, false)
+        );
+        body.castShadow = true;
+        body.receiveShadow = true;
+        body.userData = Object.assign({}, body.userData || {}, { proceduralRole: 'surface' });
+        group.add(body);
+        var edges = new THREE.LineSegments(
+            new THREE.EdgesGeometry(body.geometry),
+            new THREE.LineBasicMaterial({
+                color: matCfg.color,
+                transparent: true,
+                opacity: 0.3
+            })
+        );
+        edges.userData = Object.assign({}, edges.userData || {}, { proceduralRole: 'edge' });
+        edges.renderOrder = 2;
+        group.add(edges);
+        group.userData = Object.assign({}, group.userData || {}, {
+            visualType: 'tile',
+            labelHeight: 0.3
+        });
+        group.visible = !_env3DThemeSuppressesObject(obj);
+        return group;
+    }
+
+    function _env3DCreateSubstrateVisual(obj, color) {
+        var data = _envObjectData(obj);
+        var matCfg = _env3DResolveProceduralMaterial(data, color);
+        var shadowCfg = {
+            castShadow: data.cast_shadow !== false,
+            receiveShadow: data.receive_shadow !== false
+        };
+        var content = _env3DCreateSubstrateNodeFromRecipe(data.recipe, matCfg, shadowCfg);
+        if (!content) {
+            content = new THREE.Mesh(
+                new THREE.SphereGeometry(0.7, 12, 10),
+                _env3DCreateProceduralMaterial(matCfg, false)
+            );
+            content.castShadow = shadowCfg.castShadow !== false;
+            content.receiveShadow = shadowCfg.receiveShadow !== false;
+            content.userData = Object.assign({}, content.userData || {}, { proceduralRole: 'surface' });
+        }
+        _env3DGroundAlignObject(content);
+        var group = new THREE.Group();
+        group.add(content);
+        group.userData = Object.assign({}, group.userData || {}, { visualType: 'substrate' });
+        group.updateMatrixWorld(true);
+        var box = new THREE.Box3().setFromObject(group);
+        group.userData.labelHeight = Math.max(0.8, Number(box.max.y || 0) + 0.35);
+        return group;
+    }
+
+    function _env3DCreateZoneGeometryData(obj, appearance) {
+        var data = _envObjectData(obj);
+        var geometryHint = String(
+            (appearance && appearance.geometry !== undefined ? appearance.geometry : (data.shape !== undefined ? data.shape : data.geometry)) || 'circle'
+        ).trim().toLowerCase();
+        return {
+            shape: (geometryHint === 'rect' || geometryHint === 'box' || geometryHint === 'square') ? 'rect' : 'circle',
+            radius: _env3DClampNumber(data.radius, 3.25, 0.5, 20),
+            width: _env3DClampNumber(data.width, 6.5, 1.2, 40),
+            depth: _env3DClampNumber(data.depth, 6.5, 1.2, 40),
+            opacity: _env3DClampNumber(data.opacity, 0.22, 0.04, 0.85),
+            border: data.border !== false,
+            halo: data.halo !== false
+        };
+    }
+
+    function _env3DResolveZoneMaterialConfig(obj, appearance, fallbackColor) {
+        var style = _env3DPrimitiveMaterialSource(obj, appearance);
+        if (style.material === undefined || style.material === null || style.material === '') style.material = 'stone';
+        if (style.opacity === undefined) style.opacity = 0.22;
+        if (style.roughness === undefined) style.roughness = 0.88;
+        if (style.metalness === undefined) style.metalness = 0.06;
+        if (style.double_sided === undefined && style.doubleSided === undefined) style.double_sided = true;
+        return _env3DResolveProceduralMaterial(style, fallbackColor);
+    }
+
+    function _env3DCreateZoneVisual(obj, appearance, color) {
+        var zoneCfg = _env3DCreateZoneGeometryData(obj, appearance);
+        var matCfg = _env3DResolveZoneMaterialConfig(obj, appearance, color);
+        var group = new THREE.Group();
+        var fillGeometry = zoneCfg.shape === 'rect'
+            ? new THREE.PlaneGeometry(zoneCfg.width, zoneCfg.depth)
+            : new THREE.CircleGeometry(zoneCfg.radius, 40);
+        var fillMesh = new THREE.Mesh(
+            fillGeometry,
+            _env3DCreateProceduralMaterial(matCfg, false)
+        );
+        fillMesh.rotation.x = -Math.PI / 2;
+        fillMesh.castShadow = false;
+        fillMesh.receiveShadow = true;
+        fillMesh.renderOrder = 1;
+        fillMesh.userData = Object.assign({}, fillMesh.userData || {}, { zoneRole: 'fill' });
+        group.add(fillMesh);
+        if (zoneCfg.halo) {
+            var haloGeometry = zoneCfg.shape === 'rect'
+                ? new THREE.PlaneGeometry(zoneCfg.width * 1.05, zoneCfg.depth * 1.05)
+                : new THREE.CircleGeometry(zoneCfg.radius * 1.08, 40);
+            var haloMesh = new THREE.Mesh(
+                haloGeometry,
+                new THREE.MeshBasicMaterial({
+                    color: matCfg.color,
+                    transparent: true,
+                    opacity: Math.max(0.05, zoneCfg.opacity * 0.35),
+                    depthWrite: false,
+                    side: THREE.DoubleSide
+                })
+            );
+            haloMesh.rotation.x = -Math.PI / 2;
+            haloMesh.position.y = 0.003;
+            haloMesh.renderOrder = 2;
+            haloMesh.userData = Object.assign({}, haloMesh.userData || {}, { zoneRole: 'halo' });
+            group.add(haloMesh);
+        }
+        if (zoneCfg.border) {
+            var points = [];
+            if (zoneCfg.shape === 'rect') {
+                var hw = zoneCfg.width * 0.5;
+                var hd = zoneCfg.depth * 0.5;
+                points = [
+                    new THREE.Vector3(-hw, 0.006, -hd),
+                    new THREE.Vector3(hw, 0.006, -hd),
+                    new THREE.Vector3(hw, 0.006, hd),
+                    new THREE.Vector3(-hw, 0.006, hd)
+                ];
+            } else {
+                for (var i = 0; i < 40; i++) {
+                    var angle = (i / 40) * Math.PI * 2;
+                    points.push(new THREE.Vector3(Math.cos(angle) * zoneCfg.radius, 0.006, Math.sin(angle) * zoneCfg.radius));
+                }
+            }
+            var borderLine = new THREE.LineLoop(
+                new THREE.BufferGeometry().setFromPoints(points),
+                new THREE.LineBasicMaterial({
+                    color: matCfg.color,
+                    transparent: true,
+                    opacity: 0.78
+                })
+            );
+            borderLine.renderOrder = 3;
+            borderLine.userData = Object.assign({}, borderLine.userData || {}, { zoneRole: 'border' });
+            group.add(borderLine);
+        }
+        group.userData = Object.assign({}, group.userData || {}, {
+            visualType: 'zone',
+            labelHeight: 0.18
+        });
+        return group;
+    }
+
+    function _env3DCreateDecalVisual(obj, color) {
+        var data = _envObjectData(obj);
+        var shape = String(data.shape || 'circle').trim().toLowerCase() === 'rect' ? 'rect' : 'circle';
+        var radius = Math.max(0.25, Number(data.radius || 3));
+        var width = Math.max(0.25, Number(data.width || 4));
+        var depth = Math.max(0.25, Number(data.depth || 4));
+        var opacity = Math.max(0, Math.min(1, Number(data.opacity === undefined ? 0.5 : data.opacity)));
+        var border = data.border !== false;
+        var group = new THREE.Group();
+        var fillGeometry = shape === 'rect'
+            ? new THREE.PlaneGeometry(width, depth)
+            : new THREE.CircleGeometry(radius, 32);
+        var fillMaterial = new THREE.MeshStandardMaterial({
+            color: color,
+            transparent: true,
+            opacity: opacity,
+            depthWrite: false,
+            side: THREE.DoubleSide,
+            roughness: 0.72,
+            metalness: 0.08
+        });
+        var fillMesh = new THREE.Mesh(fillGeometry, fillMaterial);
+        fillMesh.rotation.x = -Math.PI / 2;
+        fillMesh.castShadow = false;
+        fillMesh.receiveShadow = true;
+        fillMesh.renderOrder = 1;
+        fillMesh.userData = Object.assign({}, fillMesh.userData || {}, { decalRole: 'fill' });
+        group.add(fillMesh);
+        if (border) {
+            var points = [];
+            if (shape === 'rect') {
+                var hw = width * 0.5;
+                var hd = depth * 0.5;
+                points = [
+                    new THREE.Vector3(-hw, 0.003, -hd),
+                    new THREE.Vector3(hw, 0.003, -hd),
+                    new THREE.Vector3(hw, 0.003, hd),
+                    new THREE.Vector3(-hw, 0.003, hd)
+                ];
+            } else {
+                for (var i = 0; i < 32; i++) {
+                    var angle = (i / 32) * Math.PI * 2;
+                    points.push(new THREE.Vector3(Math.cos(angle) * radius, 0.003, Math.sin(angle) * radius));
+                }
+            }
+            var borderGeometry = new THREE.BufferGeometry().setFromPoints(points);
+            var borderLine = new THREE.LineLoop(borderGeometry, new THREE.LineBasicMaterial({
+                color: color,
+                transparent: true,
+                opacity: 0.8
+            }));
+            borderLine.renderOrder = 2;
+            borderLine.userData = Object.assign({}, borderLine.userData || {}, { decalRole: 'border' });
+            group.add(borderLine);
+        }
+        group.userData = Object.assign({}, group.userData || {}, { visualType: 'decal' });
+        return group;
+    }
+
+    function _env3DCreateSceneObjectVisual(obj, interaction, appearance, color, emissive, key) {
+        var mesh = null;
+        var visualType = 'primitive';
+        if (_env3DIsRoomObject(obj, appearance)) {
+            mesh = _envSpawnRoom(_envRoomConfigFromObject(obj), null);
+            mesh.name = 'room_' + String((obj && obj.id) || key || 'object').replace(/[^a-z0-9_-]+/gi, '_');
+            visualType = 'room';
+        } else if (String((obj && obj.kind) || '').trim().toLowerCase() === 'vegetation_patch') {
+            mesh = _env3DCreateVegetationPatch(obj, appearance, _env3DMechanicsForObject(obj));
+            visualType = 'vegetation_patch';
+        } else if (String((obj && obj.kind) || '').trim().toLowerCase() === 'portal') {
+            mesh = _env3DCreatePortalVisual();
+            visualType = 'portal';
+        } else if (String((obj && obj.kind) || '').trim().toLowerCase() === 'zone') {
+            mesh = _env3DCreateZoneVisual(obj, appearance, color);
+            visualType = 'zone';
+        } else if (String((obj && obj.kind) || '').trim().toLowerCase() === 'decal') {
+            mesh = _env3DCreateDecalVisual(obj, color);
+            visualType = 'decal';
+        } else if (String((obj && obj.kind) || '').trim().toLowerCase() === 'tile') {
+            mesh = _env3DCreateTileVisual(obj, color);
+            visualType = 'tile';
+        } else if (String((obj && obj.kind) || '').trim().toLowerCase() === 'substrate') {
+            mesh = _env3DCreateSubstrateVisual(obj, color);
+            visualType = 'substrate';
+        } else {
+            var primitiveMatCfg = _env3DResolveProceduralMaterial(_env3DPrimitiveMaterialSource(obj, appearance), color);
+            mesh = new THREE.Mesh(
+                _env3DGeometryForObject(obj, appearance),
+                _env3DCreateProceduralMaterial(primitiveMatCfg, false)
+            );
+            visualType = 'primitive';
+        }
+        mesh.userData = Object.assign({}, mesh.userData || {}, {
+            visualType: visualType,
+            visualKey: _env3DVisualKeyForObject(obj, appearance),
+            kind: obj.kind,
+            id: obj.id,
+            label: obj.label,
+            state: String(obj.state || 'idle'),
+            hasHtml: interaction.has_html,
+            focused: false,
+            labelHeight: Number(((mesh.userData || {}).labelHeight) || _env3DLabelHeightForObject(obj, mesh)),
+            agentSpriteOffsetY: _env3DIsAgentKind(obj.kind) ? 1.12 : 0,
+            agentSprite: null,
+            agentModality: '',
+            assetClone: null,
+            assetRefApplied: '',
+            assetRefRequested: '',
+            assetLoading: false,
+            assetLoadError: '',
+            assetLoadToken: 0
+        });
+        return mesh;
+    }
+
+    function _env3DApplyZoneState(mesh, obj, color, isFocused) {
+        if (!mesh || typeof mesh.traverse !== 'function') return;
+        var appearance = _envSceneAppearanceForObject(obj);
+        var zoneCfg = _env3DCreateZoneGeometryData(obj, appearance);
+        var matCfg = _env3DResolveZoneMaterialConfig(obj, appearance, color);
+        var stateKey = String((obj && obj.state) || 'idle').trim().toLowerCase();
+        var stateHex = _env3DStateEmissive[stateKey] || matCfg.color;
+        var stateIntensity = stateKey === 'running' ? 0.18
+            : stateKey === 'failed' || stateKey === 'error' ? 0.28
+            : stateKey === 'learning' ? 0.14
+            : 0;
+        mesh.traverse(function (node) {
+            if (!node || !node.material) return;
+            var role = String((((node || {}).userData) || {}).zoneRole || '');
+            var materials = Array.isArray(node.material) ? node.material : [node.material];
+            materials.forEach(function (material) {
+                if (!material) return;
+                if (role === 'border') {
+                    if (material.color && typeof material.color.setHex === 'function') material.color.setHex(stateIntensity > 0 ? stateHex : matCfg.color);
+                    material.transparent = true;
+                    material.opacity = isFocused ? 0.98 : 0.78;
+                    return;
+                }
+                if (role === 'halo') {
+                    if (material.color && typeof material.color.setHex === 'function') material.color.setHex(stateIntensity > 0 ? stateHex : matCfg.color);
+                    material.transparent = true;
+                    material.opacity = isFocused ? Math.min(0.5, zoneCfg.opacity * 0.55 + 0.08) : Math.max(0.05, zoneCfg.opacity * 0.35);
+                    return;
+                }
+                _env3DApplyResolvedMaterialConfig(material, matCfg);
+                material.transparent = true;
+                material.opacity = isFocused ? Math.min(1, zoneCfg.opacity + 0.1) : zoneCfg.opacity;
+                if ('depthWrite' in material) material.depthWrite = false;
+                if (material.emissive && typeof material.emissive.setHex === 'function') {
+                    if (stateIntensity > 0) {
+                        material.emissive.setHex(stateHex);
+                        material.emissiveIntensity = stateIntensity + (isFocused ? 0.08 : 0);
+                    } else {
+                        material.emissive.setHex(matCfg.emissive);
+                        material.emissiveIntensity = Number(matCfg.emissiveIntensity || 0) + (isFocused ? 0.06 : 0);
+                    }
+                }
+            });
+        });
+    }
+
+    function _env3DApplyDecalState(mesh, obj, color, isFocused) {
+        if (!mesh || typeof mesh.traverse !== 'function') return;
+        var data = _envObjectData(obj);
+        var opacity = Math.max(0, Math.min(1, Number(data.opacity === undefined ? 0.5 : data.opacity)));
+        mesh.traverse(function (node) {
+            if (!node || !node.material) return;
+            var role = String((((node || {}).userData) || {}).decalRole || '');
+            var materials = Array.isArray(node.material) ? node.material : [node.material];
+            materials.forEach(function (material) {
+                if (!material) return;
+                if (material.color && typeof material.color.setHex === 'function') material.color.setHex(color);
+                if (role === 'fill') {
+                    material.transparent = true;
+                    material.opacity = isFocused ? Math.min(1, opacity + 0.12) : opacity;
+                    if ('depthWrite' in material) material.depthWrite = false;
+                    if (material.emissive && typeof material.emissive.setHex === 'function') {
+                        material.emissive.setHex(color);
+                        material.emissiveIntensity = isFocused ? 0.14 : 0.04;
+                    }
+                } else if (role === 'border') {
+                    material.transparent = true;
+                    material.opacity = isFocused ? 1.0 : 0.8;
+                }
+            });
+        });
+    }
+
+    function _env3DApplyPrimitiveState(mesh, obj, color, emissive, isFocused) {
+        if (!mesh || !mesh.material) return;
+        var appearance = _envSceneAppearanceForObject(obj);
+        var matCfg = _env3DResolveProceduralMaterial(_env3DPrimitiveMaterialSource(obj, appearance), color);
+        _env3DApplyResolvedMaterialConfig(mesh.material, matCfg);
+        if (mesh.material.emissive && typeof mesh.material.emissive.setHex === 'function') {
+            var idleIntensity = Number(matCfg.emissiveIntensity || 0);
+            if (isFocused) {
+                mesh.material.emissive.setHex(0x00ff88);
+                mesh.material.emissiveIntensity = 1.2;
+            } else if (obj.state === 'running') {
+                mesh.material.emissive.setHex(emissive);
+                mesh.material.emissiveIntensity = 0.8;
+            } else if (obj.state === 'failed') {
+                mesh.material.emissive.setHex(emissive);
+                mesh.material.emissiveIntensity = 1.0;
+            } else {
+                mesh.material.emissive.setHex(idleIntensity > 0 ? Number(matCfg.emissive || 0x000000) : emissive);
+                mesh.material.emissiveIntensity = idleIntensity > 0 ? idleIntensity : 0.3;
+            }
+        }
+        _env3DSetPrimitiveOpacity(mesh, mesh.userData.assetClone ? 0 : (isFocused ? 1.0 : 0.9));
+    }
+
+    function _env3DDisposeMaterialResource(material) {
+        if (!material) return;
+        if (material.userData && material.userData.envSharedResource) return;
+        [
+            'map', 'alphaMap', 'aoMap', 'bumpMap', 'displacementMap', 'emissiveMap', 'envMap',
+            'lightMap', 'metalnessMap', 'normalMap', 'roughnessMap', 'specularMap',
+            'clearcoatMap', 'clearcoatNormalMap', 'clearcoatRoughnessMap', 'sheenColorMap',
+            'sheenRoughnessMap', 'specularColorMap', 'specularIntensityMap', 'thicknessMap',
+            'transmissionMap', 'iridescenceMap', 'iridescenceThicknessMap'
+        ].forEach(function (key) {
+            if (!material[key] || typeof material[key].dispose !== 'function') return;
+            if (material[key].userData && material[key].userData.envSharedResource) return;
+            material[key].dispose();
+        });
+        if (typeof material.dispose === 'function') material.dispose();
+    }
+
+    function _env3DDisposeMaterialSet(material) {
+        if (Array.isArray(material)) {
+            material.forEach(function (entry) {
+                _env3DDisposeMaterialResource(entry);
+            });
+            return;
+        }
+        _env3DDisposeMaterialResource(material);
+    }
+
+    function _env3DDisposeSceneResources(root) {
+        if (!root || typeof root.traverse !== 'function') return;
+        root.traverse(function (node) {
+            if (node.geometry && typeof node.geometry.dispose === 'function') node.geometry.dispose();
+            if (node.material) _env3DDisposeMaterialSet(node.material);
+        });
+    }
+
+    function _env3DSetPrimitiveOpacity(mesh, opacity) {
+        if (!mesh || !mesh.material) return;
+        var apply = function (material) {
+            if (!material) return;
+            material.transparent = true;
+            material.opacity = opacity;
+            if ('depthWrite' in material) material.depthWrite = opacity > 0.001;
+        };
+        if (Array.isArray(mesh.material)) mesh.material.forEach(apply);
+        else apply(mesh.material);
+    }
+
+    function _env3DNormalizeAssetScene(sceneRoot, assetRef) {
+        var holder = new THREE.Group();
+        var root = sceneRoot && sceneRoot.clone ? sceneRoot : new THREE.Group();
+        holder.name = String((root && root.name) || assetRef || 'asset');
+        holder.add(root);
+        holder.updateMatrixWorld(true);
+        var box = new THREE.Box3().setFromObject(holder);
+        var size = new THREE.Vector3();
+        box.getSize(size);
+        var maxAxis = Math.max(Number(size.x || 0), Number(size.y || 0), Number(size.z || 0), 0.001);
+        var scale = maxAxis > 0 ? (1 / maxAxis) : 1;
+        root.scale.multiplyScalar(scale);
+        holder.updateMatrixWorld(true);
+        box.setFromObject(holder);
+        var center = box.getCenter(new THREE.Vector3());
+        root.position.x -= center.x;
+        root.position.z -= center.z;
+        root.position.y -= box.min.y;
+        holder.updateMatrixWorld(true);
+        box.setFromObject(holder);
+        box.getSize(size);
+        holder.userData.asset_ref = String(assetRef || '');
+        holder.userData.normalized = true;
+        holder.userData.normalized_size = {
+            width: Math.max(0.001, Number(size.x || 0)),
+            height: Math.max(0.001, Number(size.y || 0)),
+            depth: Math.max(0.001, Number(size.z || 0)),
+            max_axis: Math.max(Number(size.x || 0), Number(size.y || 0), Number(size.z || 0), 0.001)
+        };
+        holder.traverse(function (node) {
+            if (node.isMesh) {
+                node.castShadow = true;
+                node.receiveShadow = true;
+            }
+        });
+        return holder;
+    }
+
+    // Multi-axis asset tags (additive, carried in data.tags - not taxonomy class keys):
+    //   era: antiquity, medieval, renaissance, age_of_sail, colonial, industrial, modern
+    //   region: mediterranean, northern_europe, middle_east, south_asia, east_asia,
+    //           southeast_asia, pacific, mesoamerica, andean, sub_saharan_africa,
+    //           north_africa, steppe
+    //   culture: roman, greek, egyptian, phoenician, viking, celtic, persian, indian,
+    //            chinese, japanese, polynesian, aztec, inca, maya, arab, ottoman,
+    //            mongol, african_kingdoms, medieval_european, colonial_european
+    //   domain: maritime, architecture, military, trade, domestic, religious,
+    //           agricultural, funerary
+    //   material: stone, wood, bronze, iron, steel, clay, fabric, bone, obsidian,
+    //             jade, gold
+    //   environment: port, market, farm, desert, delta, jungle, steppe, mountain,
+    //                reef, river, island, urban, ruins, underwater, coastal
+    //   function: vessel, weapon, armor, tool, furniture, container, structure,
+    //             decoration, religious_object
+    var _env3DAssetTaxonomy = {
+        ships: {
+            scale_target: 12.0,
+            y_offset: -0.15,
+            keywords: ['ship', 'boat', 'vessel', 'pinnace', 'brig', 'sloop', 'galley', 'trireme', 'longship', 'junk', 'dhow', 'canoe', 'raft', 'kayak']
+        },
+        harbor_structures: {
+            scale_target: 8.5,
+            y_offset: 0,
+            keywords: ['pier', 'dock', 'jetty', 'wharf', 'quay', 'lighthouse', 'harbor', 'harbour', 'port', 'marina', 'boathouse']
+        },
+        coastal_hazards: {
+            scale_target: 4.0,
+            y_offset: -0.3,
+            keywords: ['cliff', 'reef', 'shoal', 'crag', 'outcrop', 'rock', 'rocks', 'boulder', 'rock-face', 'rockface']
+        },
+        roman_architecture: {
+            scale_target: 6.0,
+            y_offset: 0,
+            keywords: ['colosseum', 'arena', 'ludus', 'aqueduct', 'temple', 'forum', 'basilica', 'amphitheater', 'amphitheatre', 'thermae', 'villa']
+        },
+        roman_props: {
+            scale_target: 2.0,
+            y_offset: 0,
+            keywords: ['gladius', 'trident', 'shield', 'helmet', 'armor', 'armour', 'toga', 'amphora', 'mosaic', 'standard', 'chariot']
+        },
+        historical_architecture: {
+            scale_target: 6.0,
+            y_offset: 0,
+            keywords: ['colosseum', 'arena', 'ludus', 'aqueduct', 'temple', 'forum', 'basilica', 'amphitheater', 'amphitheatre', 'thermae', 'villa', 'pyramid', 'ziggurat', 'pagoda', 'mosque', 'cathedral', 'longhouse', 'roundhouse', 'stupa', 'torii', 'palace', 'citadel', 'fortress']
+        },
+        historical_vessels: {
+            scale_target: 12.0,
+            y_offset: -0.15,
+            keywords: ['galley', 'trireme', 'longship', 'junk', 'dhow', 'outrigger', 'felucca', 'caravel', 'carrack', 'bireme', 'penteconter', 'dromon']
+        },
+        historical_props: {
+            scale_target: 2.0,
+            y_offset: 0,
+            keywords: ['amphora', 'gladius', 'trident', 'toga', 'mosaic', 'scroll', 'loom', 'kiln', 'forge', 'anvil', 'plow', 'chariot', 'palanquin', 'incense', 'totem', 'idol']
+        },
+        humans: {
+            scale_target: 1.82,
+            y_offset: 0,
+            keywords: ['person', 'human', 'soldier', 'gladiator', 'sailor', 'merchant', 'citizen', 'warrior', 'humanoid', 'character']
+        },
+        creatures: {
+            scale_target: 2.5,
+            y_offset: 0,
+            keywords: ['dragon', 'merfolk', 'mermaid', 'monster', 'shark', 'whale', 'octopus', 'crab', 'sea_monster', 'serpent', 'kraken', 'creature']
+        },
+        reef_underwater: {
+            scale_target: 3.0,
+            y_offset: -0.1,
+            keywords: ['coral', 'seaweed', 'kelp', 'anemone', 'sponge', 'starfish', 'urchin', 'underwater', 'reef']
+        },
+        vegetation: {
+            scale_target: 4.0,
+            y_offset: 0,
+            keywords: ['tree', 'bush', 'shrub', 'plant', 'grass', 'fern', 'palm', 'vine', 'flower', 'foliage']
+        },
+        small_props: {
+            scale_target: 1.35,
+            y_offset: 0,
+            keywords: ['barrel', 'crate', 'chest', 'bucket', 'lantern', 'marker', 'buoy', 'bottle', 'rope', 'net', 'shell']
+        }
+    };
+
+    function _env3DAssetTaxonomyTags(obj, data) {
+        return []
+            .concat(_envSceneCollisionTokenList(obj && obj.tags))
+            .concat(_envSceneCollisionTokenList(data && data.tags))
+            .concat(_envSceneCollisionTokenList(data && data.keywords))
+            .concat(_envSceneCollisionTokenList(data && data.structural_tags))
+            .concat(_envSceneCollisionTokenList(data && data.structuralTags));
+    }
+
+    function _env3DAssetTaxonomyHaystack(obj, data, appearance, tags) {
+        return [
+            obj && obj.kind,
+            obj && obj.id,
+            obj && obj.label,
+            obj && obj.meta,
+            obj && obj.category,
+            data && data.kind,
+            data && data.category,
+            data && data.role,
+            data && data.family,
+            data && data.type,
+            appearance && appearance.asset_ref
+        ].concat(tags || []).join(' ').toLowerCase();
+    }
+
+    function _env3DMatchesTaxonomyClass(classKey, tags, haystack) {
+        var definition = _env3DAssetTaxonomy[classKey];
+        var list = definition && Array.isArray(definition.keywords) ? definition.keywords : [];
+        for (var i = 0; i < list.length; i++) {
+            var keyword = String(list[i] || '').trim().toLowerCase();
+            if (!keyword) continue;
+            if (Array.isArray(tags) && tags.indexOf(keyword) >= 0) return true;
+            if (String(haystack || '').indexOf(keyword) >= 0) return true;
+        }
+        return false;
+    }
+
+    function _env3DResolveTaxonomyClass(obj, data, appearance) {
+        var objectCategory = String(
+            (data && data.category !== undefined ? data.category : (obj && obj.category)) || ''
+        ).trim().toLowerCase();
+        var tags = _env3DAssetTaxonomyTags(obj, data);
+        var haystack = _env3DAssetTaxonomyHaystack(obj, data, appearance, tags);
+        function matches(key) {
+            return _env3DMatchesTaxonomyClass(key, tags, haystack);
+        }
+        if (objectCategory === 'ships') {
+            if (matches('historical_vessels')) return 'historical_vessels';
+            return 'ships';
+        }
+        if (objectCategory === 'structures' || objectCategory === 'structure') {
+            if (matches('harbor_structures')) return 'harbor_structures';
+            if (matches('historical_architecture')) return 'historical_architecture';
+            if (matches('roman_architecture')) return 'roman_architecture';
+        }
+        if (
+            objectCategory === 'props' || objectCategory === 'containers' || objectCategory === 'decorative'
+            || objectCategory === 'furniture' || objectCategory === 'industrial' || objectCategory === 'lighting'
+            || objectCategory === 'tools' || objectCategory === 'food' || objectCategory === 'seating'
+            || objectCategory === 'appliances' || objectCategory === 'electronics' || objectCategory === 'shelves'
+            || objectCategory === 'table' || objectCategory === 'vases' || objectCategory === 'wall-decoration'
+            || objectCategory === 'banner' || objectCategory === 'barrel' || objectCategory === 'chest'
+            || objectCategory === 'weapon' || objectCategory === 'shield' || objectCategory === 'trap'
+            || objectCategory === 'coin' || objectCategory === 'trophy'
+        ) {
+            if (matches('historical_props')) return 'historical_props';
+            if (matches('roman_props')) return 'roman_props';
+            if (matches('small_props')) return 'small_props';
+        }
+        if (objectCategory === 'nature' || objectCategory === 'rocks' || objectCategory === 'terrain' || objectCategory === 'dirt') {
+            if (matches('reef_underwater')) return 'reef_underwater';
+            if (matches('coastal_hazards')) return 'coastal_hazards';
+            if (matches('vegetation')) return 'vegetation';
+        }
+        if (objectCategory === 'plants' || objectCategory === 'grass' || objectCategory === 'vegetation' || objectCategory === 'planter') {
+            if (matches('reef_underwater')) return 'reef_underwater';
+            return 'vegetation';
+        }
+        if (objectCategory === 'character' || objectCategory === 'characters' || objectCategory === 'agent') {
+            if (matches('creatures')) return 'creatures';
+            return 'humans';
+        }
+        if (matches('historical_vessels')) return 'historical_vessels';
+        if (matches('ships')) return 'ships';
+        if (matches('harbor_structures')) return 'harbor_structures';
+        if (matches('historical_architecture')) return 'historical_architecture';
+        if (matches('roman_architecture')) return 'roman_architecture';
+        if (matches('coastal_hazards')) return 'coastal_hazards';
+        if (matches('historical_props')) return 'historical_props';
+        if (matches('roman_props')) return 'roman_props';
+        if (matches('creatures')) return 'creatures';
+        if (matches('reef_underwater')) return 'reef_underwater';
+        if (matches('vegetation')) return 'vegetation';
+        if (matches('small_props')) return 'small_props';
+        if (_env3DIsAgentKind(String((obj && obj.kind) || '').trim().toLowerCase())) return 'humans';
+        return null;
+    }
+
+    function _env3DDesiredAssetScale(obj, clone) {
+        var kind = String((obj && obj.kind) || '').trim().toLowerCase();
+        var data = _envObjectData(obj);
+        var appearance = _envSceneAppearanceForObject(obj);
+        var objectCategory = String(
+            (data && data.category !== undefined ? data.category : (obj && obj.category)) || ''
+        ).trim().toLowerCase();
+        var assetRef = String((appearance && appearance.asset_ref) || '').trim().toLowerCase();
+        var dims = (((clone || {}).userData) || {}).normalized_size || {
+            width: 1,
+            height: 1,
+            depth: 1,
+            max_axis: 1
+        };
+        var tags = _env3DAssetTaxonomyTags(obj, data);
+        var haystack = _env3DAssetTaxonomyHaystack(obj, data, appearance, tags);
+        var taxonomyClass = _env3DResolveTaxonomyClass(obj, data, appearance);
+        if (taxonomyClass && _env3DAssetTaxonomy[taxonomyClass]) {
+            return Number(_env3DAssetTaxonomy[taxonomyClass].scale_target || 1)
+                / Math.max(0.001, Number(dims.max_axis || dims.height || 1));
+        }
+        var isShipLike = objectCategory === 'ships'
+            || tags.indexOf('ships') >= 0
+            || /\b(ship|boat|vessel|pinnace|brig|sloop|barge|canoe|raft)\b/.test(haystack)
+            || /(ship_|ship-|_ship|\/ship|boat_|boat-|_boat|\/boat|pinnace|brig|sloop|barge|canoe|raft|vessel)/.test(assetRef);
+        var isPierLike = (
+            kind === 'structure'
+            || objectCategory === 'structures'
+            || objectCategory === 'structure'
+        ) && (
+            /\b(pier|dock|jetty|wharf|quay)\b/.test(haystack)
+            || /(pier|dock|jetty|wharf|quay)/.test(assetRef)
+        );
+        if (_env3DIsAgentKind(kind)) {
+            return 1.82 / Math.max(0.001, Number(dims.height || dims.max_axis || 1));
+        }
+        if (isShipLike) {
+            return 12.0 / Math.max(0.001, Number(dims.max_axis || dims.height || 1));
+        }
+        if (isPierLike) {
+            return 8.5 / Math.max(0.001, Number(dims.max_axis || dims.height || 1));
+        }
+        if (
+            haystack.indexOf('rock') >= 0 || haystack.indexOf('boulder') >= 0
+            || haystack.indexOf('cliff') >= 0 || haystack.indexOf('crag') >= 0
+            || haystack.indexOf('vegetation') >= 0 || haystack.indexOf('foliage') >= 0
+            || haystack.indexOf('plant') >= 0 || haystack.indexOf('bush') >= 0
+            || haystack.indexOf('shrub') >= 0
+        ) {
+            return 4.0 / Math.max(0.001, Number(dims.height || dims.max_axis || 1));
+        }
+        if (haystack.indexOf('path') >= 0 || haystack.indexOf('driveway') >= 0 || haystack.indexOf('floor') >= 0 || haystack.indexOf('border') >= 0) {
+            return 8.0 / Math.max(0.001, Number(dims.max_axis || 1));
+        }
+        if (haystack.indexOf('wall') >= 0 || haystack.indexOf('gate') >= 0 || haystack.indexOf('fence') >= 0 || haystack.indexOf('building') >= 0 || haystack.indexOf('barracks') >= 0 || haystack.indexOf('armory') >= 0 || haystack.indexOf('structure') >= 0 || haystack.indexOf('arena') >= 0) {
+            return 5.2 / Math.max(0.001, Number(dims.height || dims.max_axis || 1));
+        }
+        if (haystack.indexOf('statue') >= 0 || haystack.indexOf('tree') >= 0 || haystack.indexOf('column') >= 0 || haystack.indexOf('pillar') >= 0 || haystack.indexOf('obelisk') >= 0 || haystack.indexOf('tower') >= 0) {
+            return 4.0 / Math.max(0.001, Number(dims.height || dims.max_axis || 1));
+        }
+        if (
+            haystack.indexOf('cannon') >= 0
+            || haystack.indexOf('ballista') >= 0
+            || haystack.indexOf('catapult') >= 0
+        ) {
+            return 1.8 / Math.max(0.001, Number(dims.max_axis || dims.height || 1));
+        }
+        if (
+            haystack.indexOf('crate') >= 0 || haystack.indexOf('barrel') >= 0
+            || haystack.indexOf('chest') >= 0 || haystack.indexOf('marker') >= 0
+            || haystack.indexOf('buoy') >= 0 || haystack.indexOf('lantern') >= 0
+            || haystack.indexOf('bucket') >= 0 || haystack.indexOf('shell') >= 0
+        ) {
+            return 1.35 / Math.max(0.001, Number(dims.max_axis || dims.height || 1));
+        }
+        if (
+            haystack.indexOf('banner') >= 0 || haystack.indexOf('weapon') >= 0
+            || haystack.indexOf('tool') >= 0 || haystack.indexOf('rack') >= 0
+            || haystack.indexOf('block') >= 0 || haystack.indexOf('furniture') >= 0
+            || haystack.indexOf('prop') >= 0
+        ) {
+            return 2.0 / Math.max(0.001, Number(dims.height || dims.max_axis || 1));
+        }
+        return 2.8 / Math.max(0.001, Number(dims.height || dims.max_axis || 1));
+    }
+
+    function _env3DNormalizeClipName(name) {
+        var normalized = String(name || '')
+            .toLowerCase()
+            .replace(/[-_]\d+$/, '')
+            .replace(/[-_]/g, '');
+        if (!normalized) return '';
+        if (normalized.indexOf('walk') >= 0) return 'walk';
+        if (normalized.indexOf('run') >= 0 || normalized.indexOf('sprint') >= 0) return 'run';
+        if (normalized.indexOf('idle') >= 0 || normalized.indexOf('stand') >= 0 || normalized.indexOf('breathe') >= 0) return 'idle';
+        if (normalized.indexOf('talk') >= 0 || normalized.indexOf('speak') >= 0 || normalized.indexOf('chat') >= 0) return 'talk';
+        if (normalized.indexOf('attack') >= 0 || normalized.indexOf('slash') >= 0 || normalized.indexOf('strike') >= 0 || normalized.indexOf('cast') >= 0) return 'attack';
+        if (normalized.indexOf('emote') >= 0 || normalized.indexOf('wave') >= 0 || normalized.indexOf('gesture') >= 0 || normalized.indexOf('celebrate') >= 0) return 'emote';
+        if (normalized.indexOf('sleep') >= 0 || normalized.indexOf('rest') >= 0) return 'sleep';
+        return normalized;
+    }
+
+    function _env3DResolveAnimationClip(mesh, desiredName) {
+        if (!mesh || !mesh.userData || !mesh.userData._clips) return null;
+        var clips = mesh.userData._clips;
+        if (desiredName && clips[desiredName]) {
+            return { clip: clips[desiredName], name: desiredName };
+        }
+        var clipMap = (((mesh.userData || {}).character) || {}).clip_map || null;
+        if (clipMap && desiredName && clipMap[desiredName]) {
+            var mappedName = _env3DNormalizeClipName(clipMap[desiredName]);
+            if (mappedName && clips[mappedName]) {
+                return { clip: clips[mappedName], name: mappedName };
+            }
+        }
+        if (clips.idle) {
+            return { clip: clips.idle, name: 'idle' };
+        }
+        if (Array.isArray(mesh.userData._clipList) && mesh.userData._clipList.length) {
+            return {
+                clip: mesh.userData._clipList[0],
+                name: _env3DNormalizeClipName(mesh.userData._clipList[0].name) || 'clip0'
+            };
+        }
+        return null;
+    }
+
+    function _envCloneAsset(cachedEntry, assetRef) {
+        if (!cachedEntry || !cachedEntry.scene || typeof cachedEntry.scene.clone !== 'function') return null;
+        cachedEntry.refCount = Number(cachedEntry.refCount || 0) + 1;
+        var clone = (typeof THREE.SkeletonUtils !== 'undefined'
+            && typeof THREE.SkeletonUtils.clone === 'function')
+            ? THREE.SkeletonUtils.clone(cachedEntry.scene)
+            : cachedEntry.scene.clone(true);
+        clone.userData = clone.userData || {};
+        clone.userData.asset_ref = String(assetRef || '');
+        clone.userData.animations = Array.isArray(cachedEntry.animations)
+            ? cachedEntry.animations.slice()
+            : [];
+        return clone;
+    }
+
+    function _envLoadAsset(assetRef, callback) {
+        var ref = String(assetRef || '').trim();
+        var cb = typeof callback === 'function' ? callback : function () { };
+        if (!ref) {
+            cb(null);
+            return;
+        }
+        if (!_env3D.assetCache || typeof _env3D.assetCache !== 'object') _env3D.assetCache = {};
+        var entry = _env3D.assetCache[ref];
+        if (!entry) {
+            entry = {
+                gltf: null,
+                scene: null,
+                loading: false,
+                error: '',
+                errorTimestamp: 0,
+                animations: [],
+                refCount: 0,
+                callbacks: []
+            };
+            _env3D.assetCache[ref] = entry;
+        }
+        if (entry.scene) {
+            cb(_envCloneAsset(entry, ref));
+            return;
+        }
+        if (entry.error) {
+            var errorAge = Date.now() - (entry.errorTimestamp || 0);
+            if (errorAge < 30000) {
+                cb(null);
+                return;
+            }
+            entry.error = '';
+            entry.errorTimestamp = 0;
+        }
+        entry.callbacks.push(cb);
+        if (entry.loading) return;
+        if (!_env3D.assetLoader) {
+            if (typeof THREE === 'undefined' || typeof THREE.GLTFLoader !== 'function') {
+                entry.error = 'GLTFLoader unavailable';
+                entry.errorTimestamp = Date.now();
+                entry.callbacks.splice(0).forEach(function (queued) { queued(null); });
+                console.warn('Champion Council asset load failed: GLTFLoader unavailable for', ref);
+                return;
+            }
+            _env3D.assetLoader = new THREE.GLTFLoader();
+            if (typeof _env3D.assetLoader.setCrossOrigin === 'function') _env3D.assetLoader.setCrossOrigin('anonymous');
+        }
+        entry.loading = true;
+        _env3D.assetLoader.load(ref, function (gltf) {
+            var sceneRoot = gltf && gltf.scene ? gltf.scene : null;
+            if (!sceneRoot) {
+                entry.loading = false;
+                entry.error = 'missing gltf scene';
+                entry.errorTimestamp = Date.now();
+                entry.callbacks.splice(0).forEach(function (queued) { queued(null); });
+                console.warn('Champion Council asset load failed: missing gltf scene for', ref);
+                return;
+            }
+            entry.gltf = gltf;
+            entry.scene = _env3DNormalizeAssetScene(sceneRoot, ref);
+            entry.animations = Array.isArray(gltf && gltf.animations) ? gltf.animations.slice() : [];
+            entry.loading = false;
+            if (_env3D.assetCache[ref] !== entry) {
+                _env3DDisposeSceneResources(entry.scene);
+                entry.callbacks.splice(0).forEach(function (queued) { queued(null); });
+                return;
+            }
+            entry.error = '';
+            entry.errorTimestamp = 0;
+            entry.callbacks.splice(0).forEach(function (queued) {
+                queued(_envCloneAsset(entry, ref));
+            });
+        }, undefined, function (error) {
+            entry.loading = false;
+            entry.error = String((error && error.message) || error || 'load failed');
+            entry.errorTimestamp = Date.now();
+            entry.callbacks.splice(0).forEach(function (queued) { queued(null); });
+            console.warn('Champion Council asset load failed for', ref, error);
+        });
+    }
+
+    function _envDisposeAsset(assetRef) {
+        var ref = String(assetRef || '').trim();
+        if (!ref || !_env3D.assetCache) return;
+        var entry = _env3D.assetCache[ref];
+        if (!entry) return;
+        entry.refCount = Math.max(0, Number(entry.refCount || 0) - 1);
+        if (entry.loading || entry.refCount > 0) return;
+        if (entry.scene) _env3DDisposeSceneResources(entry.scene);
+        delete _env3D.assetCache[ref];
+    }
+
+    function _env3DReleaseMeshAsset(mesh) {
+        if (!mesh || !mesh.userData) return;
+        mesh.userData.assetLoadToken = Number(mesh.userData.assetLoadToken || 0) + 1;
+        var clone = mesh.userData.assetClone || null;
+        if (mesh.userData._mixer) {
+            mesh.userData._mixer.stopAllAction();
+            if (clone && typeof mesh.userData._mixer.uncacheRoot === 'function') {
+                mesh.userData._mixer.uncacheRoot(clone);
+            }
+            mesh.userData._mixer = null;
+            mesh.userData._clips = null;
+            mesh.userData._clipList = null;
+            mesh.userData._currentAction = null;
+            mesh.userData._currentClipName = '';
+        }
+        if (clone && clone.parent) clone.parent.remove(clone);
+        if (mesh.userData.assetRefApplied) _envDisposeAsset(mesh.userData.assetRefApplied);
+        mesh.userData.assetClone = null;
+        mesh.userData.assetRefApplied = '';
+        mesh.userData.assetRefRequested = '';
+        mesh.userData.assetLoading = false;
+        mesh.userData.assetLoadError = '';
+    }
+
+    function _env3DApplyAssetState(mesh, obj, emissive, isFocused, intensityOverride) {
+        if (!mesh || !mesh.userData || !mesh.userData.assetClone) return;
+        var intensity = typeof intensityOverride === 'number'
+            ? intensityOverride
+            : (isFocused ? 0.9 : (obj.state === 'running' ? 0.45 : (obj.state === 'failed' ? 0.7 : 0.16)));
+        mesh.userData.assetClone.traverse(function (node) {
+            if (!node || !node.material) return;
+            var materials = Array.isArray(node.material) ? node.material : [node.material];
+            materials.forEach(function (material) {
+                if (!material) return;
+                if (material.emissive && typeof material.emissive.setHex === 'function') {
+                    material.emissive.setHex(isFocused ? 0x00ff88 : emissive);
+                    material.emissiveIntensity = intensity;
+                }
+            });
+        });
+    }
+
+    function _env3DStoreTriggerMeta(mesh, obj) {
+        if (!mesh || !mesh.userData) return;
+        var objData = _envObjectData(obj);
+        var rawTrigger = objData.trigger && typeof objData.trigger === 'object' && !Array.isArray(objData.trigger)
+            ? objData.trigger
+            : null;
+        mesh.userData.sceneObject = obj || null;
+        if (!rawTrigger) {
+            mesh.userData._trigger = null;
+            mesh.userData._triggerEffect = null;
+            return;
+        }
+        var shape = String(rawTrigger.shape || 'sphere').trim().toLowerCase();
+        mesh.userData._trigger = {
+            shape: shape === 'box' ? 'box' : 'sphere',
+            radius: Math.max(0, Number(rawTrigger.radius || 5)),
+            width: Math.max(0, Number(rawTrigger.width || 8)),
+            depth: Math.max(0, Number(rawTrigger.depth || 6)),
+            height: Math.max(0, Number(rawTrigger.height || 4)),
+            events: Array.isArray(rawTrigger.events) && rawTrigger.events.length
+                ? rawTrigger.events.map(function (eventName) {
+                    return String(eventName || '').trim().toLowerCase();
+                }).filter(Boolean)
+                : ['enter'],
+            cooldown: Math.max(0, Number(rawTrigger.cooldown || 0)),
+            filter_kinds: Array.isArray(rawTrigger.filter_kinds)
+                ? rawTrigger.filter_kinds.map(function (kind) {
+                    return String(kind || '').trim().toLowerCase();
+                }).filter(Boolean)
+                : [],
+            enabled: rawTrigger.enabled !== false
+        };
+        mesh.userData._triggerEffect = _envCloneJson(
+            objData.effect && typeof objData.effect === 'object' && !Array.isArray(objData.effect)
+                ? objData.effect
+                : null,
+            null
+        );
+    }
+
+    function _env3DRebuildTriggerIndex() {
+        var oldTriggers = _env3D.triggers || {};
+        var newTriggers = {};
+        Object.keys(_env3D.meshes || {}).forEach(function (key) {
+            var mesh = _env3D.meshes[key];
+            if (!mesh || !mesh.userData || !mesh.userData._trigger) return;
+            newTriggers[key] = {
+                mesh: mesh,
+                config: mesh.userData._trigger,
+                effect: mesh.userData._triggerEffect,
+                occupants: oldTriggers[key] && oldTriggers[key].occupants ? oldTriggers[key].occupants : {}
+            };
+        });
+        _env3D.triggers = newTriggers;
+    }
+
+    function _env3DTriggerTest(triggerMesh, agentMesh, config) {
+        if (!triggerMesh || !agentMesh || !config) return false;
+        var dx = agentMesh.position.x - triggerMesh.position.x;
+        var dy = agentMesh.position.y - triggerMesh.position.y;
+        var dz = agentMesh.position.z - triggerMesh.position.z;
+        if (config.shape === 'box') {
+            var hw = Number(config.width || 0) * 0.5;
+            var hh = Number(config.height || 0) * 0.5;
+            var hd = Number(config.depth || 0) * 0.5;
+            return Math.abs(dx) <= hw && Math.abs(dy) <= hh && Math.abs(dz) <= hd;
+        }
+        var r = Math.max(0, Number(config.radius || 0));
+        return (dx * dx + dy * dy + dz * dz) <= (r * r);
+    }
+
+    function _env3DTriggerSetEmissiveForState(mesh, state) {
+        if (!mesh || typeof mesh.traverse !== 'function') return;
+        var normalized = String(state || 'idle').trim().toLowerCase();
+        var intensity = normalized === 'running' ? 0.4
+            : normalized === 'error' || normalized === 'failed' ? 0.6
+            : normalized === 'learning' ? 0.3
+            : 0.0;
+        var color = normalized === 'running' ? 0x00ff88
+            : normalized === 'error' || normalized === 'failed' ? 0xff2200
+            : normalized === 'learning' ? 0xffaa00
+            : 0x000000;
+        mesh.traverse(function (node) {
+            if (!node || !node.material) return;
+            var materials = Array.isArray(node.material) ? node.material : [node.material];
+            materials.forEach(function (material) {
+                if (!material || !material.emissive || typeof material.emissive.setHex !== 'function') return;
+                material.emissive.setHex(color);
+                material.emissiveIntensity = intensity;
+            });
+        });
+    }
+
+    function _env3DEmissivePulse(mesh, color, duration) {
+        if (!mesh || !mesh.userData) return;
+        mesh.userData._emissivePulse = {
+            color: new THREE.Color(color || '#ffffff'),
+            duration: Math.max(0.01, Number(duration || 0.5)),
+            startTime: _env3D.clock ? _env3D.clock.getElapsedTime() : 0
+        };
+    }
+
+    function _env3DTriggerFire(triggerKey, agentKey, event, trig) {
+        if (!trig || !trig.effect || !trig.effect.type) return;
+        var effect = trig.effect;
+        var effectType = String(effect.type || '').trim().toLowerCase();
+        switch (effectType) {
+            case 'set_state': {
+                var stTargetKey = String(effect.target || triggerKey);
+                var stTargetMesh = _env3D.meshes[stTargetKey];
+                if (stTargetMesh && stTargetMesh.userData) {
+                    stTargetMesh.userData.state = String(effect.state || 'running').trim().toLowerCase();
+                    _env3DTriggerSetEmissiveForState(stTargetMesh, stTargetMesh.userData.state);
+                }
+                break;
+            }
+            case 'pulse':
+                _env3DEmissivePulse(trig.mesh, effect.color || '#ffffff', effect.duration || 0.5);
+                break;
+            case 'toggle': {
+                if (!trig.mesh || !trig.mesh.userData) break;
+                var tgStateA = String(effect.state_a || 'idle').trim().toLowerCase();
+                var tgStateB = String(effect.state_b || 'running').trim().toLowerCase();
+                var tgCurrent = String(trig.mesh.userData.state || 'idle').trim().toLowerCase();
+                var tgNew = tgCurrent === tgStateA ? tgStateB : tgStateA;
+                trig.mesh.userData.state = tgNew;
+                _env3DTriggerSetEmissiveForState(trig.mesh, tgNew);
+                break;
+            }
+            case 'teleport': {
+                var agentMesh = _env3D.meshes[agentKey];
+                if (agentMesh && agentMesh.userData) {
+                    var tpPos = _env3DXYZFromObject({
+                        x: Number(effect.x || 50),
+                        y: Number(effect.y || 50),
+                        kind: agentMesh.userData.kind
+                    });
+                    agentMesh.position.set(tpPos.x, tpPos.y, tpPos.z);
+                    agentMesh.userData._targetX = tpPos.x;
+                    agentMesh.userData._targetY = tpPos.y;
+                    agentMesh.userData._targetZ = tpPos.z;
+                    agentMesh.userData.baseY = tpPos.y;
+                    agentMesh.userData._moving = false;
+                    agentMesh.userData._waypoints = null;
+                }
+                break;
+            }
+            case 'spawn':
+                if (effect.spawn_kind && effect.spawn_id) {
+                    var sceneObj = trig.mesh && trig.mesh.userData ? trig.mesh.userData.sceneObject : null;
+                    _envUpsertSpawnedObject({
+                        kind: effect.spawn_kind,
+                        id: effect.spawn_id,
+                        label: effect.spawn_label || effect.spawn_id,
+                        x: effect.spawn_x !== undefined ? effect.spawn_x : (sceneObj ? sceneObj.x : 50),
+                        y: effect.spawn_y !== undefined ? effect.spawn_y : (sceneObj ? sceneObj.y : 50),
+                        state: effect.spawn_state || 'running',
+                        color: effect.spawn_color || '#ffffff'
+                    });
+                }
+                break;
+            case 'message': {
+                var msgText = String(effect.text || (event + ' triggered on ' + triggerKey + ' by ' + agentKey));
+                _envEmitBus('trigger', msgText, 'system', {
+                    trigger_key: triggerKey,
+                    agent_key: agentKey,
+                    event: String(event || '')
+                });
+                break;
+            }
+        }
+    }
+
+    function _env3DRequestMeshAsset(mesh, obj, assetRef) {
+        if (!mesh || !mesh.userData) return;
+        var ref = String(assetRef || '').trim();
+        if (!ref) {
+            _env3DReleaseMeshAsset(mesh);
+            return;
+        }
+        if (mesh.userData.assetRefApplied === ref && mesh.userData.assetClone) return;
+        if (mesh.userData.assetRefRequested === ref && mesh.userData.assetLoading) return;
+        _env3DReleaseMeshAsset(mesh);
+        mesh.userData.assetRefRequested = ref;
+        mesh.userData.assetLoading = true;
+        var token = Number(mesh.userData.assetLoadToken || 0);
+        _envLoadAsset(ref, function (clone) {
+            if (!clone) {
+                if (mesh && mesh.userData && Number(mesh.userData.assetLoadToken || 0) === token) {
+                    mesh.userData.assetLoading = false;
+                    mesh.userData.assetLoadError = ref;
+                }
+                return;
+            }
+            if (!mesh
+                || !mesh.userData
+                || Number(mesh.userData.assetLoadToken || 0) !== token
+                || String(mesh.userData.assetRefRequested || '') !== ref
+                || !mesh.parent) {
+                _envDisposeAsset(ref);
+                return;
+            }
+            clone.position.set(0, 0, 0);
+            clone.rotation.set(0, 0, 0);
+            clone.scale.set(1, 1, 1);
+            clone.scale.multiplyScalar(_env3DDesiredAssetScale(obj, clone));
+            mesh.add(clone);
+            mesh.userData.assetClone = clone;
+            mesh.userData.assetRefApplied = ref;
+            mesh.userData.assetLoading = false;
+            mesh.userData.assetLoadError = '';
+            if (clone.userData && Array.isArray(clone.userData.animations) && clone.userData.animations.length) {
+                mesh.userData._mixer = new THREE.AnimationMixer(clone);
+                mesh.userData._clips = {};
+                mesh.userData._clipList = clone.userData.animations.slice();
+                clone.userData.animations.forEach(function (clip) {
+                    var normalized = _env3DNormalizeClipName(clip && clip.name);
+                    if (!normalized) return;
+                    mesh.userData._clips[normalized] = clip;
+                    if (normalized.indexOf('walk') >= 0) mesh.userData._clips.walk = clip;
+                    if (normalized.indexOf('run') >= 0) mesh.userData._clips.run = clip;
+                    if (normalized.indexOf('idle') >= 0) mesh.userData._clips.idle = clip;
+                    if (normalized.indexOf('talk') >= 0) mesh.userData._clips.talk = clip;
+                    if (normalized.indexOf('attack') >= 0) mesh.userData._clips.attack = clip;
+                    if (normalized.indexOf('emote') >= 0) mesh.userData._clips.emote = clip;
+                    if (normalized.indexOf('sleep') >= 0) mesh.userData._clips.sleep = clip;
+                });
+                var initialClip = _env3DResolveAnimationClip(mesh, 'idle');
+                if (initialClip && initialClip.clip) {
+                    mesh.userData._currentAction = mesh.userData._mixer.clipAction(initialClip.clip);
+                    mesh.userData._currentAction.play();
+                    mesh.userData._currentClipName = initialClip.name;
+                }
+            }
+            _env3DSetPrimitiveOpacity(mesh, 0);
+            _env3DApplyAssetState(
+                mesh,
+                obj,
+                _env3DStateEmissive[obj.state] || 0x111122,
+                String(((_envKernel || {}).focus || {}).kind || '') === String(obj.kind || '')
+                    && String(((_envKernel || {}).focus || {}).id || '') === String(obj.id || '')
+            );
+        });
+    }
+
+    function _env3DRemoveSceneObjectMesh(key) {
+        _env3DClearWaypointPath(key);
+        var mesh = _env3D.meshes[key];
+        if (mesh) {
+            if (_env3D.selectedMesh === mesh) _env3DDeselectMesh();
+            if (mesh.parent) mesh.parent.remove(mesh);
+            _env3DReleaseMeshAsset(mesh);
+            _env3DDisposeSceneResources(mesh);
+            delete _env3D.meshes[key];
+        }
+        if (_env3D.triggers && _env3D.triggers[key]) delete _env3D.triggers[key];
+        if (_env3D.cssLabels[key]) {
+            if (_env3D.cssLabels[key].element && _env3D.cssLabels[key].element.parentNode) {
+                _env3D.cssLabels[key].element.parentNode.removeChild(_env3D.cssLabels[key].element);
+            }
+            delete _env3D.cssLabels[key];
+        }
+    }
+
+    function _env3DDisposeAllAssets() {
+        if (!_env3D.assetCache || typeof _env3D.assetCache !== 'object') return;
+        Object.keys(_env3D.assetCache).forEach(function (assetRef) {
+            var entry = _env3D.assetCache[assetRef];
+            if (entry && entry.scene) _env3DDisposeSceneResources(entry.scene);
+        });
+        _env3D.assetCache = {};
     }
 
     function _env3DNavigationConfig() {
@@ -18269,6 +25202,362 @@
         }, { passive: false });
     }
 
+    function _env3DResolveSelectionRoot(hit) {
+        var node = hit || null;
+        while (node && node.parent && !(node.userData && node.userData.kind)) {
+            node = node.parent;
+        }
+        if (!node || !node.userData || !_envIsCustomSceneKind(node.userData.kind)) return null;
+        return node;
+    }
+
+    function _env3DScenePointFromWorld(worldX, worldZ) {
+        return {
+            x: Math.max(0, Math.min(100, (((Number(worldX || 0) + 40) / 80) * 100))),
+            y: Math.max(0, Math.min(100, (((Number(worldZ || 0) + 20) / 40) * 100)))
+        };
+    }
+
+    function _env3DSetSelectionHighlight(mesh, active) {
+        if (!mesh || typeof mesh.traverse !== 'function') return;
+        mesh.traverse(function (node) {
+            if (!node || !node.material) return;
+            var materials = Array.isArray(node.material) ? node.material : [node.material];
+            materials.forEach(function (material) {
+                if (!material || !material.emissive || typeof material.emissive.getHex !== 'function') return;
+                material.userData = material.userData || {};
+                if (active) {
+                    if (material.userData._selectionBaseEmissive === undefined) {
+                        material.userData._selectionBaseEmissive = material.emissive.getHex();
+                        material.userData._selectionBaseEmissiveIntensity = material.emissiveIntensity;
+                    }
+                    material.emissive.setHex(0x00ccff);
+                    material.emissiveIntensity = Math.max(0.35, Number(material.emissiveIntensity || 0.15));
+                } else if (material.userData._selectionBaseEmissive !== undefined) {
+                    material.emissive.setHex(Number(material.userData._selectionBaseEmissive || 0));
+                    material.emissiveIntensity = Number(material.userData._selectionBaseEmissiveIntensity || 0);
+                    delete material.userData._selectionBaseEmissive;
+                    delete material.userData._selectionBaseEmissiveIntensity;
+                }
+            });
+        });
+    }
+
+    function _env3DRefreshSelectionOverlay() {
+        if (!_env3D.container || typeof document === 'undefined') return;
+        if (!_env3D.selectedOverlayEl) {
+            var overlay = document.createElement('div');
+            overlay.style.position = 'absolute';
+            overlay.style.left = '12px';
+            overlay.style.bottom = '12px';
+            overlay.style.padding = '8px 10px';
+            overlay.style.borderRadius = '10px';
+            overlay.style.border = '1px solid rgba(0, 204, 255, 0.28)';
+            overlay.style.background = 'rgba(5, 14, 20, 0.78)';
+            overlay.style.color = 'var(--text)';
+            overlay.style.fontFamily = 'var(--mono)';
+            overlay.style.fontSize = '11px';
+            overlay.style.letterSpacing = '0.4px';
+            overlay.style.zIndex = '16';
+            overlay.style.pointerEvents = 'none';
+            overlay.style.display = 'none';
+            _env3D.container.appendChild(overlay);
+            _env3D.selectedOverlayEl = overlay;
+        }
+        var labelEl = _env3D.selectedOverlayEl;
+        if (!_env3D.selectedMesh || !labelEl) {
+            if (labelEl) labelEl.style.display = 'none';
+            return;
+        }
+        var selectedObj = (_env3D.selectedMesh.userData || {}).sceneObject || {};
+        var liveScenePoint = _env3DScenePointFromWorld(_env3D.selectedMesh.position.x, _env3D.selectedMesh.position.z);
+        labelEl.style.display = 'block';
+        labelEl.innerHTML = '<div style="color:#7fdcff;font-size:10px;text-transform:uppercase;">Selected</div>' +
+            '<div>' + _esc(String(selectedObj.label || selectedObj.id || selectedObj.kind || 'object')) + '</div>' +
+            '<div style="color:var(--text-dim);font-size:10px;">' + _esc(String(selectedObj.kind || 'object')) + ' · ' + _esc(String(selectedObj.id || '')) + '</div>' +
+            '<div style="color:var(--text-dim);font-size:10px;">scene ' + _esc(String(Number(liveScenePoint.x || 0).toFixed(1))) + ', ' + _esc(String(Number(liveScenePoint.y || 0).toFixed(1))) + '</div>';
+    }
+
+    function _env3DClearWaypointPath(key) {
+        var pathKey = String(key || '').trim();
+        var line = _env3D.waypointLines ? _env3D.waypointLines[pathKey] : null;
+        if (!line) return;
+        if (line.parent) line.parent.remove(line);
+        if (line.geometry && typeof line.geometry.dispose === 'function') line.geometry.dispose();
+        if (line.material && typeof line.material.dispose === 'function') line.material.dispose();
+        delete _env3D.waypointLines[pathKey];
+    }
+
+    function _env3DUpdateWaypointPath(mesh, obj) {
+        if (!_env3D.scene || !mesh || !obj) return;
+        var key = _env3DObjectKey(obj);
+        var character = _envSceneCharacterForObject(obj);
+        var waypoints = Array.isArray(_envObjectData(obj).waypoints) ? _envObjectData(obj).waypoints : [];
+        if (!character || String(character.behavior || 'idle').toLowerCase() !== 'patrol' || !waypoints.length) {
+            _env3DClearWaypointPath(key);
+            return;
+        }
+        var points = [new THREE.Vector3(mesh.position.x, mesh.position.y + 0.08, mesh.position.z)];
+        waypoints.forEach(function (point) {
+            points.push(new THREE.Vector3(
+                ((Number(point.x || 0) / 100) * 80) - 40,
+                mesh.position.y + 0.08,
+                ((Number(point.y || 0) / 100) * 40) - 20
+            ));
+        });
+        var line = _env3D.waypointLines[key];
+        if (!line) {
+            line = new THREE.Line(
+                new THREE.BufferGeometry(),
+                new THREE.LineBasicMaterial({ color: 0x44d7ff, transparent: true, opacity: 0.78 })
+            );
+            line.renderOrder = 5;
+            _env3D.scene.add(line);
+            _env3D.waypointLines[key] = line;
+        }
+        line.geometry.setFromPoints(points);
+        line.visible = mesh.visible;
+    }
+
+    function _env3DCaptureWaypointFromEvent(event) {
+        if (String(_envInspectorState.waypointEditKey || '') !== String(_envInspectorState.objectKey || '')) return false;
+        var targetObj = _envInspectorCurrentObject();
+        if (!targetObj) return false;
+        var character = _envSceneCharacterForObject(targetObj);
+        if (!character || String(character.behavior || 'idle').toLowerCase() !== 'patrol') return false;
+        if (!_env3D.raycaster || !_env3D.camera) return false;
+        var hits = [];
+        if (_env3D.groundPlane) hits = _env3D.raycaster.intersectObject(_env3D.groundPlane, false);
+        if (!hits.length && _env3D.terrain) hits = _env3D.raycaster.intersectObject(_env3D.terrain, true);
+        if (!hits.length || !hits[0].point) return false;
+        var scenePoint = _env3DScenePointFromWorld(hits[0].point.x, hits[0].point.z);
+        var nextData = _envCloneJson(_envObjectData(targetObj), {});
+        var nextWaypoints = Array.isArray(nextData.waypoints) ? nextData.waypoints.slice() : [];
+        nextWaypoints.push({
+            x: Math.round(scenePoint.x * 10) / 10,
+            y: Math.round(scenePoint.y * 10) / 10
+        });
+        nextData.waypoints = nextWaypoints;
+        _envUpsertSpawnedObject({
+            kind: String(targetObj.kind || ''),
+            id: String(targetObj.id || ''),
+            data: nextData
+        });
+        callTool('env_mutate', {
+            kind: String(targetObj.kind || ''),
+            id: String(targetObj.id || ''),
+            data: nextData
+        }, 'env_mutate', { inspectorAction: true, inspectorObjectKey: _envSceneObjectKey(targetObj) });
+        if (typeof mpToast === 'function') mpToast('Added patrol waypoint.', 'success', 1600);
+        return true;
+    }
+
+    function _env3DSyncTransformToObject(mesh) {
+        if (!mesh || !mesh.userData || !mesh.userData.kind || !mesh.userData.id) return;
+        var newX = Math.round((((Number(mesh.position.x || 0) + 40) / 80) * 100) * 10) / 10;
+        var newY = Math.round((((Number(mesh.position.z || 0) + 20) / 40) * 100) * 10) / 10;
+        var newScale = Math.round((((Number(mesh.scale.x || 1) + Number(mesh.scale.y || 1) + Number(mesh.scale.z || 1)) / 3) * 100)) / 100;
+        var newTilt = Math.round(((Number(mesh.rotation.y || 0) * 180 / Math.PI) * 10)) / 10;
+        _envMutateObject({
+            kind: mesh.userData.kind,
+            id: mesh.userData.id,
+            x: Math.max(0, Math.min(100, newX)),
+            y: Math.max(0, Math.min(100, newY)),
+            scale: Math.max(0.3, Math.min(2.5, newScale)),
+            tilt: newTilt
+        });
+        callTool('env_mutate', {
+            kind: mesh.userData.kind,
+            id: mesh.userData.id,
+            x: Math.max(0, Math.min(100, newX)),
+            y: Math.max(0, Math.min(100, newY)),
+            scale: Math.max(0.3, Math.min(2.5, newScale)),
+            tilt: newTilt
+        }, 'env_mutate', { source: 'transform-controls' });
+    }
+
+    function _env3DInitTransformControls() {
+        if (_env3D.transformControls || !_env3D.scene || !_env3D.camera || !_env3D.renderer) return _env3D.transformControls;
+        if (typeof THREE === 'undefined' || typeof THREE.TransformControls !== 'function') return null;
+        var tc = new THREE.TransformControls(_env3D.camera, _env3D.renderer.domElement);
+        tc.visible = false;
+        tc.addEventListener('dragging-changed', function (event) {
+            if (_env3D.controls) _env3D.controls.enabled = !event.value;
+            if (!event.value && _env3D.selectedMesh) {
+                _env3DSyncTransformToObject(_env3D.selectedMesh);
+            }
+        });
+        _env3D.scene.add(tc);
+        _env3D.transformControls = tc;
+        return tc;
+    }
+
+    function _env3DSelectMesh(mesh) {
+        if (!mesh || !mesh.userData || !_envIsCustomSceneKind(mesh.userData.kind)) return;
+        if (_env3D.selectedMesh && _env3D.selectedMesh !== mesh) _env3DSetSelectionHighlight(_env3D.selectedMesh, false);
+        var controls = _env3DInitTransformControls();
+        _env3D.selectedMesh = mesh;
+        _env3DSetSelectionHighlight(mesh, true);
+        _env3DRefreshSelectionOverlay();
+        if (controls) {
+            controls.visible = true;
+            controls.attach(mesh);
+        }
+    }
+
+    function _env3DDeselectMesh() {
+        if (_env3D.transformControls) {
+            _env3D.transformControls.detach();
+            _env3D.transformControls.visible = false;
+        }
+        if (_env3D.selectedMesh) _env3DSetSelectionHighlight(_env3D.selectedMesh, false);
+        _env3D.selectedMesh = null;
+        _env3DRefreshSelectionOverlay();
+    }
+
+    function _env3DOnPointerDown(event) {
+        if (!_env3D.renderer || !_env3D.camera) return;
+        if (_env3D.transformControls && _env3D.transformControls.dragging) return;
+        if (event.button !== undefined && event.button !== 0) return;
+        var domEl = _env3D.renderer.domElement;
+        if (!domEl) return;
+        var rect = domEl.getBoundingClientRect();
+        if (!rect || rect.width <= 0 || rect.height <= 0) return;
+        if (!_env3D.mouse) _env3D.mouse = new THREE.Vector2();
+        if (!_env3D.raycaster) _env3D.raycaster = new THREE.Raycaster();
+        _env3D.mouse.x = (((event.clientX - rect.left) / rect.width) * 2) - 1;
+        _env3D.mouse.y = -(((event.clientY - rect.top) / rect.height) * 2) + 1;
+        _env3D.raycaster.setFromCamera(_env3D.mouse, _env3D.camera);
+        if (_env3DCaptureWaypointFromEvent(event)) {
+            domEl.focus();
+            return;
+        }
+        var pickable = [];
+        Object.keys(_env3D.meshes || {}).forEach(function (key) {
+            var mesh = _env3D.meshes[key];
+            if (mesh && mesh.userData && _envIsCustomSceneKind(mesh.userData.kind)) pickable.push(mesh);
+        });
+        var hits = _env3D.raycaster.intersectObjects(pickable, true);
+        domEl.focus();
+        if (!hits.length) {
+            _env3DDeselectMesh();
+            return;
+        }
+        var root = _env3DResolveSelectionRoot(hits[0].object);
+        if (root) _env3DSelectMesh(root);
+        else _env3DDeselectMesh();
+    }
+
+    function _env3DBindTransformEditing(domEl) {
+        if (!domEl || domEl.dataset.envopsTransformEditBound) return;
+        domEl.dataset.envopsTransformEditBound = '1';
+        domEl.tabIndex = 0;
+        domEl.style.outline = 'none';
+        domEl.addEventListener('pointerdown', _env3DOnPointerDown);
+        domEl.addEventListener('keydown', function (event) {
+            if (!_env3D.selectedMesh || !_env3D.transformControls) return;
+            if (event.altKey || event.ctrlKey || event.metaKey) return;
+            var key = String(event.key || '').toLowerCase();
+            if (key === 'g') {
+                event.preventDefault();
+                _env3D.transformControls.setMode('translate');
+            } else if (key === 'r') {
+                event.preventDefault();
+                _env3D.transformControls.setMode('rotate');
+            } else if (key === 's') {
+                event.preventDefault();
+                _env3D.transformControls.setMode('scale');
+            } else if (key === 'escape') {
+                event.preventDefault();
+                _env3DDeselectMesh();
+            }
+        });
+    }
+
+    function _env3DNoiseHash2D(ix, iz) {
+        var n = Math.sin((Number(ix || 0) * 127.1) + (Number(iz || 0) * 311.7) + 91.345) * 43758.5453123;
+        return n - Math.floor(n);
+    }
+
+    function _env3DNoiseSmoothstep(t) {
+        var v = Math.max(0, Math.min(1, Number(t || 0)));
+        return v * v * (3 - (2 * v));
+    }
+
+    function _env3DNoiseLerp(a, b, t) {
+        return Number(a || 0) + ((Number(b || 0) - Number(a || 0)) * Number(t || 0));
+    }
+
+    function _env3DValueNoiseSample(x, z, scale, offsetX, offsetZ) {
+        var sx = ((Number(x || 0) + Number(offsetX || 0)) / Math.max(0.001, Number(scale || 1)));
+        var sz = ((Number(z || 0) + Number(offsetZ || 0)) / Math.max(0.001, Number(scale || 1)));
+        var x0 = Math.floor(sx);
+        var z0 = Math.floor(sz);
+        var x1 = x0 + 1;
+        var z1 = z0 + 1;
+        var fx = _env3DNoiseSmoothstep(sx - x0);
+        var fz = _env3DNoiseSmoothstep(sz - z0);
+        var v00 = _env3DNoiseHash2D(x0, z0);
+        var v10 = _env3DNoiseHash2D(x1, z0);
+        var v01 = _env3DNoiseHash2D(x0, z1);
+        var v11 = _env3DNoiseHash2D(x1, z1);
+        var a = _env3DNoiseLerp(v00, v10, fx);
+        var b = _env3DNoiseLerp(v01, v11, fx);
+        return _env3DNoiseLerp(a, b, fz);
+    }
+
+    function _env3DValueNoise2D(x, z) {
+        var octaveA = _env3DValueNoiseSample(x, z, 20, 0, 0);
+        var octaveB = _env3DValueNoiseSample(x, z, 8, 17.13, -11.27);
+        var combined = (octaveA + (octaveB * 0.3)) / 1.3;
+        return Math.max(0, Math.min(1, combined));
+    }
+
+    function _env3DBuildTerrain() {
+        var segX = 120;
+        var segZ = 80;
+        var geo = new THREE.PlaneGeometry(120, 80, segX, segZ);
+        geo.rotateX(-Math.PI / 2);
+        var positions = geo.attributes.position.array;
+        var colors = new Float32Array(positions.length);
+        var theme = _envThemes[_envThemeId] || _envThemes['default'];
+        var terrainCfg = (theme && theme.terrain && typeof theme.terrain === 'object') ? theme.terrain : {};
+        var groundColor = new THREE.Color((theme && theme.ground) || 0x0d0d24);
+        var maxDisplacementValue = terrainCfg.maxDisplacement !== undefined ? terrainCfg.maxDisplacement : 0.6;
+        var maxDisplacement = Math.min(0.6, Math.max(0, Number(maxDisplacementValue)));
+        var terrainOpacity = terrainCfg.opacity !== undefined ? Number(terrainCfg.opacity) : 0.85;
+        terrainOpacity = Math.max(0, Math.min(1, isFinite(terrainOpacity) ? terrainOpacity : 0.85));
+        for (var i = 0; i < positions.length / 3; i++) {
+            var px = positions[i * 3];
+            var pz = positions[i * 3 + 2];
+            var edgeFadeX = 1.0 - Math.pow(Math.abs(px) / 60, 3);
+            var edgeFadeZ = 1.0 - Math.pow(Math.abs(pz) / 40, 3);
+            var edgeFade = Math.max(0, Math.min(1, edgeFadeX * edgeFadeZ));
+            var n = _env3DValueNoise2D(px, pz);
+            // Only displace downward — terrain never rises above the grid plane
+            var height = -n * maxDisplacement * edgeFade;
+            positions[i * 3 + 1] = height - 0.15;
+            // Subtle vertex color: valleys slightly darker, peaks match ground color
+            var shade = 0.9 + (n * edgeFade * 0.15);
+            colors[i * 3] = Math.min(1, groundColor.r * shade);
+            colors[i * 3 + 1] = Math.min(1, groundColor.g * shade);
+            colors[i * 3 + 2] = Math.min(1, groundColor.b * shade);
+        }
+        geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+        geo.computeVertexNormals();
+        var mat = new THREE.MeshStandardMaterial({
+            vertexColors: true,
+            roughness: 0.92,
+            metalness: 0.08,
+            transparent: true,
+            opacity: terrainOpacity
+        });
+        var terrain = new THREE.Mesh(geo, mat);
+        terrain.receiveShadow = true;
+        terrain.castShadow = false;
+        return terrain;
+    }
+
     function _env3DInit(container) {
         if (_env3D.inited && _env3D.container === container) return;
         // If already inited but container changed (innerHTML rebuild), reattach canvases
@@ -18294,6 +25583,7 @@
             _env3D.controls.rotateSpeed = 0.5;
             _env3DBindControlLifecycle(_env3D.controls);
             _env3DBindWheelZoom(_env3D.renderer.domElement);
+            _env3DBindTransformEditing(_env3D.renderer.domElement);
             _env3DApplyCameraRig(true);
             // Rebind ResizeObserver to new container
             if (_env3D.resizeObserver) {
@@ -18304,12 +25594,21 @@
                 _env3D.resizeObserver.observe(container);
             }
             _env3DResize();
+            // Reattach theme picker to new container
+            _env3DCreateThemePicker(container);
+            _env3DApplyTheme(_envThemeId);
             return;
         }
         _env3DDispose();
 
         _env3D.container = container;
         _env3D.clock = new THREE.Clock();
+        _env3D.assetCache = {};
+        _env3D.assetLoader = null;
+        if (!_env3D.assetPackBootstrapped) {
+            _envEnsureBuiltinAssetPacks();
+            _env3D.assetPackBootstrapped = true;
+        }
 
         // Scene
         var scene = new THREE.Scene();
@@ -18328,7 +25627,8 @@
         var renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
         renderer.setSize(container.clientWidth, container.clientHeight);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-        renderer.shadowMap.enabled = false;
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         renderer.outputColorSpace = THREE.SRGBColorSpace;
         container.appendChild(renderer.domElement);
         renderer.domElement.style.position = 'absolute';
@@ -18337,7 +25637,31 @@
         renderer.domElement.style.width = '100%';
         renderer.domElement.style.height = '100%';
         _env3D.renderer = renderer;
+        _env3D.composer = null;
+        _env3D.bloomPass = null;
+        if (typeof THREE.EffectComposer === 'function'
+            && typeof THREE.RenderPass === 'function'
+            && typeof THREE.UnrealBloomPass === 'function') {
+            var composer = new THREE.EffectComposer(renderer);
+            if (typeof composer.setPixelRatio === 'function') {
+                composer.setPixelRatio(renderer.getPixelRatio());
+            }
+            composer.addPass(new THREE.RenderPass(scene, camera));
+            var bloomPass = new THREE.UnrealBloomPass(
+                new THREE.Vector2(container.clientWidth, container.clientHeight),
+                0.6,
+                0.4,
+                0.85
+            );
+            composer.addPass(bloomPass);
+            if (typeof THREE.OutputPass === 'function') {
+                composer.addPass(new THREE.OutputPass());
+            }
+            _env3D.composer = composer;
+            _env3D.bloomPass = bloomPass;
+        }
         _env3DBindWheelZoom(renderer.domElement);
+        _env3DBindTransformEditing(renderer.domElement);
 
         // CSS2D Renderer (for HTML labels in 3D)
         var cssRenderer = new THREE.CSS2DRenderer();
@@ -18367,20 +25691,11 @@
         _env3DBindControlLifecycle(controls);
         _env3DApplyCameraRig(true);
 
-        // Ground plane
-        var groundGeo = new THREE.PlaneGeometry(120, 80);
-        var groundMat = new THREE.MeshStandardMaterial({
-            color: 0x0d0d24,
-            roughness: 0.9,
-            metalness: 0.1,
-            transparent: true,
-            opacity: 0.85
-        });
-        var ground = new THREE.Mesh(groundGeo, groundMat);
-        ground.rotation.x = -Math.PI / 2;
-        ground.position.y = -0.1;
-        scene.add(ground);
-        _env3D.groundPlane = ground;
+        // Terrain
+        var terrain = _env3DBuildTerrain();
+        scene.add(terrain);
+        _env3D.groundPlane = terrain;
+        _env3D.terrain = terrain;
 
         // Grid
         var grid = new THREE.GridHelper(100, 40, 0x1a1a3e, 0x111128);
@@ -18400,6 +25715,16 @@
 
         var dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
         dirLight.position.set(20, 30, 15);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 2048;
+        dirLight.shadow.mapSize.height = 2048;
+        dirLight.shadow.camera.near = 0.5;
+        dirLight.shadow.camera.far = 100;
+        dirLight.shadow.camera.left = -50;
+        dirLight.shadow.camera.right = 50;
+        dirLight.shadow.camera.top = 50;
+        dirLight.shadow.camera.bottom = -50;
+        dirLight.shadow.bias = -0.0005;
         scene.add(dirLight);
 
         var accentLight = new THREE.PointLight(0x00ff88, 0.6, 80);
@@ -18416,6 +25741,10 @@
             });
             _env3D.resizeObserver.observe(container);
         }
+
+        // Ambient theme engine
+        _env3DCreateThemePicker(container);
+        _env3DApplyTheme(_envThemeId);
 
         _env3D.inited = true;
         _env3DAnimate();
@@ -18445,110 +25774,276 @@
 
     function _env3DSyncObjects(objects) {
         if (!_env3D.scene) return;
+        objects = Array.isArray(objects) ? objects : [];
         var scene = _env3D.scene;
         var newKeys = {};
+        var nextTileGrid = {};
+        var focus = _envKernel.focus || {};
+        var focusHash = String(focus.kind || '') + '::' + String(focus.id || '');
+
+        var navHash = objects.map(function (o) {
+            var appearance = _envSceneAppearanceForObject(o);
+            var kind = String(o.kind || '');
+            var collision = _env3DCollisionPolicyForObject(o);
+            if (_env3DIsRoomObject(o, appearance)) {
+                var roomCfg = _envRoomConfigFromObject(o);
+                return 'R:' + kind + ':' + o.id + ':' + Math.round(o.x) + ':' + Math.round(o.y)
+                    + ':' + roomCfg.width + ':' + roomCfg.depth + ':' + roomCfg.wallThickness + ':' + roomCfg.doorwayWidth
+                    + ':' + roomCfg.doors.join(',');
+            }
+            if (!_env3DIsAgentKind(kind) && collision !== 'none') {
+                return 'B:' + kind + ':' + o.id + ':' + Math.round(o.x) + ':' + Math.round(o.y)
+                    + ':' + Number(o.scale || 1).toFixed(1) + ':' + collision;
+            }
+            return '';
+        }).filter(Boolean).join('|');
+        if (navHash !== _env3D.navHash) {
+            _env3D.navHash = navHash;
+            _envBuildNavGrid(objects);
+            Object.keys(_env3D.meshes).forEach(function (meshKey) {
+                var activeMesh = _env3D.meshes[meshKey];
+                if (activeMesh && activeMesh.userData && activeMesh.userData._moving) {
+                    _env3DPlanMeshRoute(activeMesh);
+                }
+            });
+        }
 
         // Build a hash to detect changes — skip full sync if nothing changed
-        var hash = objects.map(function (o) {
+        var hash = focusHash + '|' + objects.map(function (o) {
             var interaction = _envSceneInteractionMeta(o);
+            var appearance = _envSceneAppearanceForObject(o);
+            var roomConfig = _env3DIsRoomObject(o, appearance) ? _envRoomConfigFromObject(o) : null;
+            var visualKey = _env3DVisualKeyForObject(o, appearance);
             return [
                 o.kind,
                 o.id,
                 o.state,
                 Math.round(o.x),
                 Math.round(o.y),
+                Number(o.scale || 1).toFixed(3),
+                Number(o.tilt || 0).toFixed(1),
                 String(o.label || ''),
                 String(o.meta || ''),
                 Number(interaction.action_count || 0),
                 Number(interaction.menu_item_count || 0),
                 interaction.has_html ? 'html' : 'plain',
-                String(interaction.panel_mode || '')
+                String(interaction.panel_mode || ''),
+                String(appearance.asset_ref || ''),
+                String(appearance.color || o.color || ''),
+                String(appearance.geometry || ''),
+                JSON.stringify(appearance.material || ''),
+                JSON.stringify(appearance.lod_levels || ''),
+                String(visualKey || ''),
+                _env3DResolveAgentModality(o),
+                roomConfig ? JSON.stringify(roomConfig) : ''
             ].join(':');
         }).join('|');
-        if (hash === _env3D.lastObjectHash) return;
+        var assetRetryDue = false;
+        if (hash === _env3D.lastObjectHash) {
+            var now = Date.now();
+            Object.keys(_env3D.meshes || {}).forEach(function (mk) {
+                if (assetRetryDue) return;
+                var meshForRetry = (_env3D.meshes || {})[mk];
+                if (!meshForRetry || !meshForRetry.userData) return;
+                if (!meshForRetry.userData.assetLoadError) return;
+                var retryRef = String(meshForRetry.userData.assetRefRequested || '');
+                if (!retryRef) return;
+                var cachedEntry = _env3D.assetCache && _env3D.assetCache[retryRef];
+                if (!cachedEntry || !cachedEntry.error || !cachedEntry.errorTimestamp) return;
+                if ((now - cachedEntry.errorTimestamp) >= 30000) assetRetryDue = true;
+            });
+            if (!assetRetryDue) {
+                objects.forEach(function (obj) {
+                    var activeMesh = _env3D.meshes[_env3DObjectKey(obj)];
+                    if (!activeMesh) return;
+                    _env3DStoreTriggerMeta(activeMesh, obj);
+                    if (String((obj && obj.kind) || '').trim().toLowerCase() === 'tile') {
+                        nextTileGrid[_env3DObjectKey(obj)] = {
+                            x: Number(activeMesh.userData._targetX !== undefined ? activeMesh.userData._targetX : activeMesh.position.x),
+                            z: Number(activeMesh.userData._targetZ !== undefined ? activeMesh.userData._targetZ : activeMesh.position.z),
+                            gridSize: _env3DCreateTileGeometryData(obj).grid_size
+                        };
+                    }
+                });
+                _env3D.tileGrid = nextTileGrid;
+                _env3DRebuildTriggerIndex();
+                return;
+            }
+        }
 
         objects.forEach(function (obj) {
             var key = _env3DObjectKey(obj);
             newKeys[key] = true;
             var interaction = _envSceneInteractionMeta(obj);
+            var appearance = _envSceneAppearanceForObject(obj);
+            var assetRef = String(appearance.asset_ref || '').trim();
             var pos = _env3DXYZFromObject(obj);
             var scl = Number(obj.scale || 1);
-            var color = _env3DKindColors[obj.kind] || 0x888888;
+            var color = _env3DHexFromColor(appearance.color || obj.color || '', _env3DKindColors[obj.kind] || 0x888888);
             var emissive = _env3DStateEmissive[obj.state] || 0x111122;
+            var visualKey = _env3DVisualKeyForObject(obj, appearance);
+            var isFocused = String(focus.kind || '') === String(obj.kind || '') && String(focus.id || '') === String(obj.id || '');
+            if (String((obj && obj.kind) || '').trim().toLowerCase() === 'tile') {
+                nextTileGrid[key] = {
+                    x: Number(pos.x || 0),
+                    z: Number(pos.z || 0),
+                    gridSize: _env3DCreateTileGeometryData(obj).grid_size
+                };
+            }
 
             // Create or update mesh
             var mesh = _env3D.meshes[key];
+            if (mesh && String(((mesh.userData || {}).visualKey) || '') !== visualKey) {
+                _env3DRemoveSceneObjectMesh(key);
+                mesh = null;
+            }
             if (!mesh) {
-                var geo = _env3DGeometryForKind(obj.kind);
-                var mat = new THREE.MeshStandardMaterial({
-                    color: color,
-                    emissive: emissive,
-                    emissiveIntensity: obj.state === 'running' ? 0.8 : (obj.state === 'failed' ? 1.0 : 0.3),
-                    roughness: 0.5,
-                    metalness: 0.3,
-                    transparent: true,
-                    opacity: 0.9
-                });
-                mesh = new THREE.Mesh(geo, mat);
-                mesh.userData = { kind: obj.kind, id: obj.id, label: obj.label, hasHtml: interaction.has_html };
+                mesh = _env3DCreateSceneObjectVisual(obj, interaction, appearance, color, emissive, key);
                 scene.add(mesh);
                 _env3D.meshes[key] = mesh;
+            }
 
-                // CSS2D label
+            mesh.userData.kind = obj.kind;
+            mesh.userData.id = obj.id;
+            mesh.userData.label = obj.label;
+            mesh.userData.state = String(obj.state || 'idle');
+            mesh.userData.sceneObject = obj;
+            mesh.userData.mechanics = _envCloneJson(obj.mechanics, null);
+            mesh.userData.character = _envCloneJson(obj.character, null);
+            mesh.userData.hasHtml = interaction.has_html;
+            mesh.userData.focused = isFocused;
+            mesh.userData.visualKey = visualKey;
+            mesh.userData.labelHeight = _env3DLabelHeightForObject(obj, mesh);
+            mesh.userData.agentSpriteOffsetY = _env3DIsAgentKind(obj.kind) ? 1.12 : 0;
+            _env3DStoreTriggerMeta(mesh, obj);
+
+            if (!_env3D.cssLabels[key]) {
                 var labelDiv = document.createElement('div');
                 labelDiv.className = 'env3d-label-shell env3d-label-' + obj.kind;
                 labelDiv.style.pointerEvents = 'auto';
+                labelDiv.setAttribute('data-env-object-key', String(key || ''));
                 labelDiv.innerHTML = _env3DLabelMarkupForObject(obj);
+                labelDiv.addEventListener('click', function (event) {
+                    if (event) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                    }
+                    var target = event && event.target && typeof event.target.closest === 'function'
+                        ? event.target.closest('[data-env-action]')
+                        : null;
+                    var action = target ? String(target.getAttribute('data-env-action') || '') : 'scene-object';
+                    var objectKey = target
+                        ? String(target.getAttribute('data-env-object-key') || labelDiv.getAttribute('data-env-object-key') || '')
+                        : String(labelDiv.getAttribute('data-env-object-key') || '');
+                    var sceneObj = _envSceneObjectByKey(objectKey);
+                    if (!sceneObj) return;
+                    var actorName = _envManualActorId();
+                    if (action === 'scene-open-surface') {
+                        _envOpenPrimarySurfaceForObject(sceneObj, actorName, 'label_dom');
+                        return;
+                    }
+                    _envSelectSceneObject(sceneObj, actorName, 'label_dom');
+                });
                 var cssLabel = new THREE.CSS2DObject(labelDiv);
-                cssLabel.position.set(0, 1.5, 0);
+                cssLabel.position.set(0, mesh.userData.labelHeight, 0);
                 mesh.add(cssLabel);
                 _env3D.cssLabels[key] = cssLabel;
+                cssLabel.element.classList.toggle('env3d-label-mode-half', String(_env3D.labelMode || 'full').trim().toLowerCase() === 'half');
+                cssLabel.visible = _env3DLabelVisibleForKey(key);
             }
 
-            // Update position (lerp for smooth motion)
-            var targetPos = new THREE.Vector3(pos.x, pos.y, pos.z);
-            mesh.position.lerp(targetPos, 0.15);
-            mesh.userData.baseY = mesh.position.y; // track for float animation
+            if (mesh.userData.visualType === 'primitive') {
+                if (assetRef) _env3DRequestMeshAsset(mesh, obj, assetRef);
+                else if (mesh.userData.assetClone || mesh.userData.assetRefRequested || mesh.userData.assetRefApplied) _env3DReleaseMeshAsset(mesh);
+                _env3DApplyPrimitiveState(mesh, obj, color, emissive, isFocused);
+                _env3DApplyAssetState(mesh, obj, emissive, isFocused);
+            } else if (mesh.userData.visualType === 'vegetation_patch') {
+                if (mesh.userData.assetClone || mesh.userData.assetRefRequested || mesh.userData.assetRefApplied) _env3DReleaseMeshAsset(mesh);
+                _env3DApplyVegetationState(mesh, obj, color, isFocused);
+            } else if (mesh.userData.visualType === 'zone') {
+                if (mesh.userData.assetClone || mesh.userData.assetRefRequested || mesh.userData.assetRefApplied) _env3DReleaseMeshAsset(mesh);
+                _env3DApplyZoneState(mesh, obj, color, isFocused);
+            } else if (mesh.userData.visualType === 'decal') {
+                if (mesh.userData.assetClone || mesh.userData.assetRefRequested || mesh.userData.assetRefApplied) _env3DReleaseMeshAsset(mesh);
+                _env3DApplyDecalState(mesh, obj, color, isFocused);
+            } else if (mesh.userData.visualType === 'tile') {
+                if (mesh.userData.assetClone || mesh.userData.assetRefRequested || mesh.userData.assetRefApplied) _env3DReleaseMeshAsset(mesh);
+                _env3DApplyTileState(mesh, obj, color, isFocused);
+            } else if (mesh.userData.visualType === 'substrate') {
+                if (mesh.userData.assetClone || mesh.userData.assetRefRequested || mesh.userData.assetRefApplied) _env3DReleaseMeshAsset(mesh);
+                _env3DApplySubstrateState(mesh, obj, color, isFocused);
+            } else if (mesh.userData.assetClone || mesh.userData.assetRefRequested || mesh.userData.assetRefApplied) {
+                _env3DReleaseMeshAsset(mesh);
+            }
+
+            var kindVisible = _env3DKindFilterVisible(obj.kind);
+            mesh.visible = kindVisible && !_env3DThemeSuppressesObject(obj);
+
+            if (mesh.userData.visualType === 'portal') _env3DApplyPortalState(mesh, obj.state, isFocused, 0);
+            if (_env3DIsAgentKind(obj.kind) && mesh.userData.visualType === 'primitive') {
+                _env3DEnsureAgentSprite(mesh, obj);
+            }
+            _env3DUpdateWaypointPath(mesh, obj);
+
+            // Persistent locomotion targets are advanced by _env3DAnimate().
+            if (!mesh.userData._locoInited) {
+                mesh.position.set(pos.x, pos.y, pos.z);
+                mesh.userData._locoInited = true;
+            }
+            mesh.userData._targetX = pos.x;
+            mesh.userData._targetY = pos.y;
+            mesh.userData._targetZ = pos.z;
+            if (mesh.userData._moveSpeed === undefined) mesh.userData._moveSpeed = 5.0;
+            var fixedSurface = mesh.userData.visualType === 'tile'
+                || mesh.userData.visualType === 'substrate'
+                || mesh.userData.visualType === 'vegetation_patch'
+                || (_envIsCustomSceneKind(obj.kind) && !_env3DIsAgentKind(obj.kind));
+            var posDelta = Math.abs(mesh.position.x - pos.x) + Math.abs(mesh.position.z - pos.z);
+            if (fixedSurface) {
+                mesh.position.set(pos.x, pos.y, pos.z);
+                mesh.userData._moving = false;
+                mesh.userData._waypoints = null;
+            } else if (posDelta > 0.1) {
+                mesh.userData._moving = true;
+                _env3DPlanMeshRoute(mesh);
+            } else if (!mesh.userData._moving) {
+                mesh.userData._waypoints = null;
+            }
+            mesh.userData.baseTilt = Number(obj.tilt || 0);
+            if (_envIsCustomSceneKind(obj.kind)
+                && !(_env3D.transformControls && _env3D.transformControls.dragging && _env3D.selectedMesh === mesh)) {
+                mesh.rotation.y = Number(obj.tilt || 0) * (Math.PI / 180);
+            }
+            mesh.userData.baseY = mesh.position.y;
             mesh.scale.lerp(new THREE.Vector3(scl, scl, scl), 0.15);
             mesh.userData.baseScale = scl;
 
-            // Update material — boost focused object
-            var focus = _envKernel.focus || {};
-            var isFocused = String(focus.kind || '') === obj.kind && String(focus.id || '') === String(obj.id || '');
-            mesh.material.emissive.setHex(isFocused ? 0x00ff88 : emissive);
-            mesh.material.emissiveIntensity = isFocused ? 1.2 : (obj.state === 'running' ? 0.8 : (obj.state === 'failed' ? 1.0 : 0.3));
-            mesh.material.opacity = isFocused ? 1.0 : 0.9;
-            mesh.userData.focused = isFocused;
-            mesh.userData.hasHtml = interaction.has_html;
-
             // Update label text
-            var cssLabel = _env3D.cssLabels[key];
-            if (cssLabel && cssLabel.element) {
+            var activeLabel = _env3D.cssLabels[key];
+            if (activeLabel && activeLabel.element) {
                 var nextMarkup = _env3DLabelMarkupForObject(obj);
-                if (cssLabel.element.innerHTML !== nextMarkup) cssLabel.element.innerHTML = nextMarkup;
-                cssLabel.element.setAttribute('data-env-state', String(obj.state || 'idle'));
+                if (activeLabel.element.innerHTML !== nextMarkup) activeLabel.element.innerHTML = nextMarkup;
+                activeLabel.element.setAttribute('data-env-state', String(obj.state || 'idle'));
+                activeLabel.element.setAttribute('data-env-agent', _env3DIsAgentKind(obj.kind) ? 'true' : 'false');
+                activeLabel.element.classList.toggle('env3d-label-mode-half', String(_env3D.labelMode || 'full').trim().toLowerCase() === 'half');
+                activeLabel.visible = kindVisible && String(_env3D.labelMode || 'full').trim().toLowerCase() !== 'hidden';
+                activeLabel.position.set(0, mesh.userData.labelHeight, 0);
             }
         });
 
         // Remove meshes for objects that no longer exist
         Object.keys(_env3D.meshes).forEach(function (key) {
             if (!newKeys[key]) {
-                scene.remove(_env3D.meshes[key]);
-                if (_env3D.meshes[key].geometry) _env3D.meshes[key].geometry.dispose();
-                if (_env3D.meshes[key].material) _env3D.meshes[key].material.dispose();
-                delete _env3D.meshes[key];
-                if (_env3D.cssLabels[key]) {
-                    if (_env3D.cssLabels[key].element && _env3D.cssLabels[key].element.parentNode) {
-                        _env3D.cssLabels[key].element.parentNode.removeChild(_env3D.cssLabels[key].element);
-                    }
-                    delete _env3D.cssLabels[key];
-                }
+                _env3DClearWaypointPath(key);
+                _env3DRemoveSceneObjectMesh(key);
             }
         });
 
         // Build route lines
         _env3DSyncRoutes(objects);
 
+        _env3D.tileGrid = nextTileGrid;
+        _env3DRebuildTriggerIndex();
         _env3D.lastObjectHash = hash;
     }
 
@@ -18636,31 +26131,239 @@
 
         var dt = _env3D.clock.getDelta();
         var time = _env3D.clock.getElapsedTime();
+        var vegetationMeshes = [];
+        var movingAgents = [];
+        if (_env3D.waterMesh
+            && _env3D.waterMesh.material
+            && _env3D.waterMesh.material.uniforms
+            && _env3D.waterMesh.material.uniforms.time) {
+            _env3D.waterMesh.material.uniforms.time.value += dt * 0.5;
+        }
 
         // Rotate meshes gently based on kind
         Object.keys(_env3D.meshes).forEach(function (key) {
             var mesh = _env3D.meshes[key];
             if (!mesh) return;
             var kind = mesh.userData.kind || '';
-            var speed = kind === 'workflow' ? 0.3 :
+            var state = String(mesh.userData.state || 'idle').trim().toLowerCase();
+            var isAgent = _env3DIsAgentKind(kind);
+            var transformDragging = !!(_env3D.transformControls && _env3D.transformControls.dragging && _env3D.selectedMesh === mesh);
+            var prevX = Number(mesh.position.x || 0);
+            var prevZ = Number(mesh.position.z || 0);
+            var speed = kind === 'portal' ? 0.5 :
+                        kind === 'workflow' ? 0.3 :
                         kind === 'replay' ? 0.6 :
-                        kind === 'event' ? 0.4 : 0.15;
-            mesh.rotation.y += speed * dt;
+                        kind === 'event' ? 0.4 :
+                        (kind === 'zone' || kind === 'decal' || kind === 'tile' || kind === 'substrate' || kind === 'vegetation_patch') ? 0 :
+                        (kind === 'room' || isAgent || _envIsCustomSceneKind(kind)) ? 0 : 0.15;
+            if (speed && !transformDragging) mesh.rotation.y += speed * dt;
             // Gentle float (non-accumulating — store base Y in userData)
             if (kind === 'workflow' || kind === 'replay') {
                 if (mesh.userData.baseY === undefined) mesh.userData.baseY = mesh.position.y;
                 mesh.position.y = mesh.userData.baseY + Math.sin(time * 1.5 + mesh.position.x * 0.1) * 0.3;
             }
-            // Pulse focused object scale
-            if (mesh.userData.focused) {
+            if (mesh.userData.visualType === 'portal') _env3DApplyPortalState(mesh, state, !!mesh.userData.focused, time);
+
+            var baseScale = Math.max(0.001, Number(mesh.userData.baseScale || 1));
+            if (isAgent) {
+                var phase = mesh.position.x * 0.14 + mesh.position.z * 0.11;
+                var pulseScale = 1;
+                var emissiveHex = _env3DStateEmissive[state] || _env3DStateEmissive.idle;
+                var emissiveIntensity = mesh.userData.focused ? 0.96 : 0.18;
+                if (state === 'running') {
+                    var runningWave = 0.5 + (0.5 * Math.sin((time * 6.2) + phase));
+                    pulseScale = 1 + runningWave * 0.08;
+                    emissiveIntensity = 0.42 + runningWave * 0.46;
+                } else if (state === 'failed') {
+                    var blink = (Math.floor(time * 2) % 2) === 0 ? 1 : 0.18;
+                    pulseScale = 1 + blink * 0.02;
+                    emissiveHex = 0xff4444;
+                    emissiveIntensity = blink;
+                } else if (state === 'learning') {
+                    var learningWave = 0.5 + (0.5 * Math.sin((time * 2.4) + phase));
+                    pulseScale = 1 + learningWave * 0.05;
+                    emissiveHex = 0x8844ff;
+                    emissiveIntensity = 0.34 + learningWave * 0.34;
+                } else {
+                    pulseScale = 1 + Math.sin((time * 2.1) + phase) * 0.03;
+                    emissiveIntensity = mesh.userData.focused ? 0.78 : 0.16;
+                }
+                if (mesh.userData.focused) pulseScale = Math.max(pulseScale, 1 + Math.sin(time * 3) * 0.08);
+                mesh.scale.setScalar(baseScale * pulseScale);
+                if (mesh.material && mesh.material.emissive && typeof mesh.material.emissive.setHex === 'function') {
+                    mesh.material.emissive.setHex(mesh.userData.focused ? 0x00ff88 : emissiveHex);
+                    mesh.material.emissiveIntensity = emissiveIntensity;
+                }
+                if (mesh.userData.assetClone) {
+                    _env3DApplyAssetState(
+                        mesh,
+                        { state: state },
+                        emissiveHex,
+                        !!mesh.userData.focused,
+                        emissiveIntensity
+                    );
+                }
+                if (mesh.userData.agentSprite) {
+                    mesh.userData.agentSprite.position.set(0, Number(mesh.userData.agentSpriteOffsetY || 1.12), 0);
+                    mesh.userData.agentSprite.material.color.setHex(_env3DAgentStateColor(state));
+                    mesh.userData.agentSprite.material.opacity = state === 'failed'
+                        ? (((Math.floor(time * 2) % 2) === 0) ? 1 : 0.4)
+                        : (state === 'running' ? 0.98 : 0.94);
+                    mesh.userData.agentSprite.material.rotation = state === 'learning' ? (time * 0.55) : 0;
+                    var spriteScale = state === 'running'
+                        ? (0.62 * (1 + (Math.sin((time * 6.2) + phase) * 0.04)))
+                        : (state === 'idle' ? 0.62 * (1 + (Math.sin((time * 2.1) + phase) * 0.02)) : 0.62);
+                    mesh.userData.agentSprite.scale.set(spriteScale, spriteScale, spriteScale);
+                }
+            } else if (mesh.userData.focused && !transformDragging) {
                 var pulse = 1 + Math.sin(time * 3) * 0.08;
-                var baseScale = Math.max(0.001, Number(mesh.userData.baseScale || 1));
                 mesh.scale.setScalar(baseScale * pulse);
-            } else if (mesh.userData.baseScale !== undefined) {
+            } else if (mesh.userData.baseScale !== undefined && !transformDragging) {
                 var settle = Math.max(0.001, Number(mesh.userData.baseScale || 1));
                 mesh.scale.lerp(new THREE.Vector3(settle, settle, settle), 0.18);
             }
+            if (mesh.userData._mixer) {
+                mesh.userData._mixer.update(Math.min(dt, 0.1));
+            }
+            if (!transformDragging) {
+                _env3DAdvanceCharacterBehavior(mesh, (mesh.userData || {}).sceneObject || {}, dt);
+                _env3DAdvanceMeshLocomotion(mesh, key, dt, isAgent);
+            } else {
+                mesh.userData._moving = false;
+                mesh.userData._waypoints = null;
+            }
+            if (mesh.userData._mixer && mesh.userData._clips) {
+                var desiredClip = mesh.userData._moving ? 'walk'
+                    : (state === 'running' ? 'run'
+                    : (state === 'talking' ? 'talk'
+                    : (state === 'attacking' ? 'attack'
+                    : (state === 'emoting' ? 'emote'
+                    : (state === 'sleeping' ? 'sleep' : 'idle')))));
+                var resolvedClip = _env3DResolveAnimationClip(mesh, desiredClip);
+                if (resolvedClip
+                    && resolvedClip.clip
+                    && mesh.userData._currentClipName !== resolvedClip.name) {
+                    var prev = mesh.userData._currentAction;
+                    var next = mesh.userData._mixer.clipAction(resolvedClip.clip);
+                    if (prev && prev !== next) prev.fadeOut(0.3);
+                    next.reset().fadeIn(0.3).play();
+                    mesh.userData._currentAction = next;
+                    mesh.userData._currentClipName = resolvedClip.name;
+                }
+            }
+            var mechanics = mesh.userData.mechanics && typeof mesh.userData.mechanics === 'object'
+                ? mesh.userData.mechanics
+                : _env3DMechanicsForObject((mesh.userData || {}).sceneObject || {});
+            _env3DApplyFoliageWindOverlay(mesh, mechanics, time);
+            mesh.userData._frameVelocityX = Number(mesh.position.x || 0) - prevX;
+            mesh.userData._frameVelocityZ = Number(mesh.position.z || 0) - prevZ;
+            _env3DUpdateCharacterSpriteFacing(mesh, mesh.userData._frameVelocityX, mesh.userData._frameVelocityZ);
+            if (mesh.userData.characterSprite) {
+                mesh.userData.characterSprite.position.set(0, Number(mesh.userData.agentSpriteOffsetY || 1.12) + 0.78, 0.05);
+            }
+            if (_env3D.selectedMesh === mesh) _env3DSetSelectionHighlight(mesh, true);
+            if (mesh.userData.visualType === 'vegetation_patch') vegetationMeshes.push(mesh);
+            if (isAgent && mesh.userData._moving) movingAgents.push(mesh);
             _env3DUpdateLabelScale(mesh, _env3D.cssLabels[key]);
+        });
+        _env3DRefreshSelectionOverlay();
+
+        if (vegetationMeshes.length) {
+            _env3DInitInfluenceMap();
+            _env3DDecayInfluence(dt);
+            movingAgents.forEach(function (mesh) {
+                var vx = Number(mesh.userData._frameVelocityX || 0);
+                var vz = Number(mesh.userData._frameVelocityZ || 0);
+                if (Math.abs(vx) + Math.abs(vz) < 0.001) return;
+                _env3DStampInfluence(
+                    mesh.position.x,
+                    mesh.position.z,
+                    vx,
+                    vz,
+                    1.0,
+                    1.6
+                );
+            });
+            vegetationMeshes.forEach(function (mesh) {
+                _env3DUpdateVegetationPatch(mesh, (mesh.userData || {}).sceneObject || {}, time);
+            });
+            if (_env3D.influenceMap) _env3D.influenceMap.needsUpdate = true;
+        }
+
+        if (_env3D.triggers) {
+            var triggerAgents = [];
+            var triggerAgentKeys = {};
+            Object.keys(_env3D.meshes).forEach(function (agentKey) {
+                var agentMesh = _env3D.meshes[agentKey];
+                if (agentMesh && _env3DIsAgentKind(agentMesh.userData.kind || '')) {
+                    triggerAgents.push({ key: agentKey, mesh: agentMesh });
+                    triggerAgentKeys[agentKey] = true;
+                }
+            });
+            Object.keys(_env3D.triggers).forEach(function (triggerKey) {
+                var trig = _env3D.triggers[triggerKey];
+                if (!trig || !trig.mesh || !trig.config || !trig.config.enabled) return;
+                var tCfg = trig.config;
+                var tEvents = Array.isArray(tCfg.events) ? tCfg.events : ['enter'];
+                var tFilterKinds = Array.isArray(tCfg.filter_kinds) ? tCfg.filter_kinds : [];
+                for (var ai = 0; ai < triggerAgents.length; ai++) {
+                    var agent = triggerAgents[ai];
+                    if (tFilterKinds.length && tFilterKinds.indexOf(String(agent.mesh.userData.kind || '').toLowerCase()) < 0) {
+                        continue;
+                    }
+                    var inside = _env3DTriggerTest(trig.mesh, agent.mesh, tCfg);
+                    var occ = trig.occupants[agent.key];
+                    if (!occ) {
+                        occ = { inside: false, enterTs: 0, lastFireTs: 0 };
+                        trig.occupants[agent.key] = occ;
+                    }
+                    var cooldownOk = (time - occ.lastFireTs) >= Number(tCfg.cooldown || 0);
+                    if (inside && !occ.inside) {
+                        occ.inside = true;
+                        occ.enterTs = time;
+                        if (tEvents.indexOf('enter') >= 0 && cooldownOk) {
+                            _env3DTriggerFire(triggerKey, agent.key, 'enter', trig);
+                            occ.lastFireTs = time;
+                        }
+                    } else if (!inside && occ.inside) {
+                        occ.inside = false;
+                        if (tEvents.indexOf('exit') >= 0 && cooldownOk) {
+                            _env3DTriggerFire(triggerKey, agent.key, 'exit', trig);
+                            occ.lastFireTs = time;
+                        }
+                    } else if (inside && occ.inside) {
+                        if (tEvents.indexOf('dwell') >= 0 && cooldownOk) {
+                            _env3DTriggerFire(triggerKey, agent.key, 'dwell', trig);
+                            occ.lastFireTs = time;
+                        }
+                    }
+                }
+                Object.keys(trig.occupants || {}).forEach(function (occupantKey) {
+                    if (!triggerAgentKeys[occupantKey]) delete trig.occupants[occupantKey];
+                });
+            });
+        }
+
+        Object.keys(_env3D.meshes).forEach(function (pulseKey) {
+            var pulseMesh = _env3D.meshes[pulseKey];
+            if (!pulseMesh || !pulseMesh.userData || !pulseMesh.userData._emissivePulse) return;
+            var pulse = pulseMesh.userData._emissivePulse;
+            var elapsed = time - Number(pulse.startTime || 0);
+            if (elapsed > Number(pulse.duration || 0)) {
+                _env3DTriggerSetEmissiveForState(pulseMesh, pulseMesh.userData.state || 'idle');
+                pulseMesh.userData._emissivePulse = null;
+                return;
+            }
+            var t = elapsed / Math.max(0.001, Number(pulse.duration || 0.5));
+            var intensity = t < 0.5 ? (t * 2) : (2 - t * 2);
+            pulseMesh.traverse(function (node) {
+                if (!node || !node.material) return;
+                var materials = Array.isArray(node.material) ? node.material : [node.material];
+                materials.forEach(function (material) {
+                    if (!material || !material.emissive) return;
+                    material.emissive.copy(pulse.color).multiplyScalar(intensity * 2);
+                });
+            });
         });
 
         // Drift particles (slow upward float with soft wraparound)
@@ -18685,9 +26388,13 @@
             }
         });
 
-        if (!_env3D.manualControlActive) _env3DApplyCameraRig(false);
+        if (!_env3D.manualControlActive && !_env3D._cameraAnimFrame) _env3DApplyCameraRig(false);
         _env3D.controls.update();
-        _env3D.renderer.render(_env3D.scene, _env3D.camera);
+        if (_env3D.composer) {
+            _env3D.composer.render(dt);
+        } else {
+            _env3D.renderer.render(_env3D.scene, _env3D.camera);
+        }
         _env3D.cssRenderer.render(_env3D.scene, _env3D.camera);
     }
 
@@ -18699,6 +26406,9 @@
         _env3D.camera.aspect = w / h;
         _env3D.camera.updateProjectionMatrix();
         _env3D.renderer.setSize(w, h);
+        if (_env3D.composer && typeof _env3D.composer.setSize === 'function') {
+            _env3D.composer.setSize(w, h);
+        }
         _env3D.cssRenderer.setSize(w, h);
     }
 
@@ -18711,6 +26421,10 @@
             cancelAnimationFrame(_env3D.animId);
             _env3D.animId = null;
         }
+        if (_env3D._cameraAnimFrame) {
+            cancelAnimationFrame(_env3D._cameraAnimFrame);
+            _env3D._cameraAnimFrame = null;
+        }
         if (_env3D.renderer && _env3D.renderer.domElement && _env3D.renderer.domElement.parentNode) {
             _env3D.renderer.domElement.parentNode.removeChild(_env3D.renderer.domElement);
         }
@@ -18718,33 +26432,111 @@
             _env3D.cssRenderer.domElement.parentNode.removeChild(_env3D.cssRenderer.domElement);
         }
         Object.keys(_env3D.meshes).forEach(function (key) {
-            if (_env3D.meshes[key].geometry) _env3D.meshes[key].geometry.dispose();
-            if (_env3D.meshes[key].material) _env3D.meshes[key].material.dispose();
+            _env3DRemoveSceneObjectMesh(key);
+        });
+        Object.keys(_env3D.waypointLines || {}).forEach(function (key) {
+            _env3DClearWaypointPath(key);
         });
         _env3D.lineMeshes.forEach(function (line) {
             if (line.geometry) line.geometry.dispose();
             if (line.material) line.material.dispose();
         });
+        _env3DDisposeAllAssets();
+        _env3DDisposePortalTexture();
+        _env3DDisposeCrashDummyTexture();
+        _env3DDisposeAgentSpriteAssets();
+        _env3DDisposeRoomMaterials();
+        if (_env3D.transformControls) {
+            _env3D.transformControls.detach();
+            if (typeof _env3D.transformControls.dispose === 'function') _env3D.transformControls.dispose();
+            if (_env3D.scene) _env3D.scene.remove(_env3D.transformControls);
+        }
+        if (_env3D.influenceMap && typeof _env3D.influenceMap.dispose === 'function') {
+            _env3D.influenceMap.dispose();
+        }
+        _env3DDisposeSeabed();
+        _env3DDisposeCeiling();
+        _env3DDisposeVolumeIndicator();
+        _env3DDisposeWater();
+        _env3DDisposeHDRIRenderTarget();
+        if (_env3D.composer && typeof _env3D.composer.dispose === 'function') {
+            _env3D.composer.dispose();
+        }
         if (_env3D.renderer) {
             _env3D.renderer.dispose();
         }
         _env3D.meshes = {};
         _env3D.cssLabels = {};
         _env3D.lineMeshes = [];
+        _env3D.assetCache = {};
+        _env3D.assetLoader = null;
+        _env3D.hdriRenderTarget = null;
+        _env3D.hdriUrl = '';
+        _env3D.hdriRequestToken = 0;
+        _env3D.portalTexture = null;
+        _env3D.crashDummyTexture = null;
+        _env3D.influenceMap = null;
+        _env3D.influenceData = null;
+        _env3D.influenceMapSize = 0;
+        _env3D.influenceUseFloat = false;
+        _env3D.agentSpriteAtlas = null;
+        _env3D.agentSpriteTexture = null;
+        _env3D.agentSpriteMaps = null;
+        _env3D.spriteSheetCache = {};
+        _env3D.lastObjectHash = '';
+        _env3D.navGrid = null;
+        _env3D.navHash = '';
         _env3D.inited = false;
         _env3D.scene = null;
         _env3D.camera = null;
         _env3D.renderer = null;
+        _env3D.composer = null;
+        _env3D.bloomPass = null;
         _env3D.cssRenderer = null;
+        _env3D.raycaster = null;
+        _env3D.mouse = null;
+        _env3D.selectedMesh = null;
+        if (_env3D.selectedOverlayEl && _env3D.selectedOverlayEl.parentNode) {
+            _env3D.selectedOverlayEl.parentNode.removeChild(_env3D.selectedOverlayEl);
+        }
+        _env3D.selectedOverlayEl = null;
+        _env3D.transformControls = null;
         _env3D.controls = null;
+        _env3D.groundPlane = null;
+        _env3D.terrain = null;
+        _env3D.gridHelper = null;
+        _env3D.waterMesh = null;
+        _env3D.seabedMesh = null;
+        _env3D.ceilingMesh = null;
+        _env3D.volumeIndicator = null;
+        _env3D._lastCameraPreset = '';
+        _env3D.particleSystem = null;
+        _env3D.triggers = {};
+        _env3D.waypointLines = {};
         _env3D.container = null;
         _env3D.rigMeta = null;
         _env3D.poseOffset = { azimuth: 0, polar: 0, distanceScale: 1, targetX: 0, targetY: 0, targetZ: 0 };
+        if (_env3D.themePickerWrap && _env3D.themePickerWrap.parentNode) {
+            _env3D.themePickerWrap.parentNode.removeChild(_env3D.themePickerWrap);
+        }
+        _env3D.themePicker = null;
+        _env3D.themePickerWrap = null;
+        _env3D.worldProfileControl = null;
+        _env3D.worldProfileSelect = null;
+        _env3D.strataIndicators = null;
+        _env3D.seabedLevelControl = null;
+        _env3D.seabedLevelControlValue = null;
+        _env3D.waterLevelControl = null;
+        _env3D.waterLevelControlValue = null;
         _env3D.manualControlActive = false;
         if (_env3D.manualCommitTimer) {
             clearTimeout(_env3D.manualCommitTimer);
             _env3D.manualCommitTimer = 0;
         }
+        if (_env3D.waterNormalTexture && typeof _env3D.waterNormalTexture.dispose === 'function') {
+            _env3D.waterNormalTexture.dispose();
+        }
+        _env3D.waterNormalTexture = null;
     }
 
     function _env3DFocusObject(kind, id) {
@@ -18774,6 +26566,9 @@
         var camera = _envScene.camera || {};
         var routeCount = Number(((_envScene.routes || []).length) || 0);
         var trajectoryCount = Number(((_envScene.trajectories || []).length) || 0);
+        var labelMode = String(_env3D.labelMode || 'full').trim().toLowerCase() || 'full';
+        var kindFilterOpen = !!_env3D.kindFilterOpen;
+        var kindFilterKinds = _env3DAllKnownKinds();
         var replaySummary = _envReplayCursorSummary();
         var watch = _envKernel.watch || {};
         var habitatClasses = ['envops-habitat', 'mode-' + String((dominance && dominance.mode) || 'ambient'), 'failure-' + String((failure && failure.tone) || 'ok')];
@@ -18795,17 +26590,52 @@
             var active = cameraMode === mode.id ? ' active' : '';
             return '<span class="envops-focus-chip' + active + '" data-env-action="set-camera-mode" data-env-camera-mode="' + _esc(mode.id) + '">' + _esc(mode.label) + '</span>';
         }).join('');
+        var kindFilterChips = kindFilterKinds.map(function (kindName) {
+            var visible = _env3DKindFilterVisible(kindName);
+            return '<span class="envops-focus-chip' + (visible ? ' active' : '') + '" data-env-action="toggle-kind" data-env-kind="' + _esc(kindName) + '" style="font-size:10px;padding:2px 6px;margin:1px;">' + _esc(kindName) + '</span>';
+        }).join('');
+        var labelModeHtml = '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.08);">' +
+            '<div class="envops-habitat-scene-cockpit-head"><span>Labels</span><span data-env-label-mode>' + _esc(labelMode) + '</span></div>' +
+            '<div class="envops-focus-strip">' +
+            '<span class="envops-focus-chip' + (labelMode === 'full' ? ' active' : '') + '" data-env-action="set-label-mode" data-env-label-target="full">Full</span>' +
+            '<span class="envops-focus-chip' + (labelMode === 'half' ? ' active' : '') + '" data-env-action="set-label-mode" data-env-label-target="half">Half</span>' +
+            '<span class="envops-focus-chip' + (labelMode === 'hidden' ? ' active' : '') + '" data-env-action="set-label-mode" data-env-label-target="hidden">Hidden</span>' +
+            '</div>' +
+            '<div class="envops-kernel-note">Press L to cycle</div>' +
+            '</div>';
+        var kindFilterHtml = '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.08);">' +
+            '<div class="envops-habitat-scene-cockpit-head" style="cursor:pointer;" data-env-action="toggle-kind-panel"><span>Kind Filter</span><span>' + (kindFilterOpen ? '▼' : '▶') + '</span></div>' +
+            (kindFilterOpen
+                ? ('<div class="envops-focus-strip" style="flex-wrap:wrap;">' + kindFilterChips + '</div>' +
+                    '<div class="envops-focus-strip" style="margin-top:2px;">' +
+                    '<span class="envops-focus-chip" data-env-action="kind-show-all" style="font-size:10px;padding:2px 6px;">Show All</span>' +
+                    '<span class="envops-focus-chip" data-env-action="kind-hide-all" style="font-size:10px;padding:2px 6px;">Hide All</span>' +
+                    '</div>' +
+                    '<div class="envops-kernel-note">Press K to toggle panel</div>')
+                : '') +
+            '</div>';
+        var assetBrowserCockpitHtml = '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.08);">' +
+            '<div class="envops-habitat-scene-cockpit-head" style="cursor:pointer;" data-env-action="toggle-asset-browser"><span>Asset Library</span><span>' + (_envAssetBrowserState.expanded ? 'open' : 'closed') + '</span></div>' +
+            '<div class="envops-kernel-note">Press A to toggle asset browser</div>' +
+            '</div>';
         _envScene.failureSurface = failure;
         var telemetryHtml = _envRenderHabitatTelemetry(workflow, exec, traces);
         var html = '<div class="' + _esc(habitatClasses.join(' ')) + '">' +
             '<div class="envops-habitat-scene">' +
             telemetryHtml +
-            '<div class="envops-habitat-shell envops-habitat-3d-container" id="envops-habitat-shell" style="position:relative;width:100%;height:100%;overflow:hidden;" data-env-camera-mode="' + _esc(cameraMode) + '" data-env-dominance-mode="' + _esc(String((dominance && dominance.mode) || 'ambient')) + '">' +
+            '<div class="envops-habitat-shell envops-habitat-3d-container" id="envops-habitat-shell" style="position:relative;width:100%;height:100%;overflow:visible;" data-env-camera-mode="' + _esc(cameraMode) + '" data-env-dominance-mode="' + _esc(String((dominance && dominance.mode) || 'ambient')) + '">' +
             '</div>' +
             scenePanelHtml +
             inspectorHtml +
             _envRenderOperationsRail(operations) +
             '<div class="envops-habitat-hud">' +
+            '<div class="envops-overlay-panel-head envops-overlay-panel-head-hud" data-env-overlay-handle>' +
+            '<span class="envops-overlay-panel-title">Scene HUD</span>' +
+            '<div class="envops-overlay-panel-actions">' +
+            '<button type="button" class="btn-dim envops-overlay-mini-btn" data-env-action="reset-overlay-panel" data-env-overlay-id="hud" title="Reset panel position">↺</button>' +
+            '<button type="button" class="btn-dim envops-overlay-mini-btn" data-env-action="toggle-overlay-panel" data-env-overlay-id="hud" title="Minimize panel">–</button>' +
+            '</div>' +
+            '</div>' +
             '<div class="envops-habitat-hud-primary" id="envops-habitat-hud-primary">' + _esc(hudCopy.primary) + '</div>' +
             '<div class="envops-habitat-hud-secondary" id="envops-habitat-hud-secondary">' + _esc(hudCopy.secondary) + '</div>' +
             _envRenderCorroborationHtml(corroboration) +
@@ -18818,11 +26648,22 @@
             '</div>' +
             '</div>' +
             '<div class="envops-habitat-scene-cockpit">' +
+            '<div class="envops-overlay-panel-head" data-env-overlay-handle>' +
+            '<span class="envops-overlay-panel-title">Theater Controls</span>' +
+            '<div class="envops-overlay-panel-actions">' +
+            '<button type="button" class="btn-dim envops-overlay-mini-btn" data-env-action="reset-overlay-panel" data-env-overlay-id="cockpit" title="Reset panel position">↺</button>' +
+            '<button type="button" class="btn-dim envops-overlay-mini-btn" data-env-action="toggle-overlay-panel" data-env-overlay-id="cockpit" title="Minimize panel">–</button>' +
+            '</div>' +
+            '</div>' +
             '<div class="envops-habitat-scene-cockpit-head"><span>Camera</span><span>' + _esc(cameraMode) + '</span></div>' +
             '<div class="envops-focus-strip">' + cameraModes + '<span class="envops-focus-chip" data-env-action="reset-camera">Reset Drift</span></div>' +
             '<div class="envops-kernel-note">' + _esc(cameraOffset) + '</div>' +
             (replaySummary || replay.active ? '<div class="envops-habitat-scene-cockpit-head" style="margin-top:8px;"><span>Replay</span><span>' + _esc(replay.active ? 'playing' : 'ready') + '</span></div><div class="envops-kernel-note">' + _esc(replaySummary || String(replay.mode || 'samples')) + '</div>' : '') +
+            labelModeHtml +
+            kindFilterHtml +
+            assetBrowserCockpitHtml +
             '</div>' +
+            _envRenderOverlayRestoreTray() +
             '</div>';
         return html;
     }
@@ -18882,6 +26723,404 @@
                 '</div>' +
                 '</div>';
         }).join('') + '</div>';
+    }
+
+    function _envSceneObjectKey(obj) {
+        if (!obj || typeof obj !== 'object') return '';
+        var kind = String(obj.kind || '').trim();
+        var id = String(obj.id || '').trim();
+        return kind && id ? (kind + '::' + id) : '';
+    }
+
+    function _envSceneAuditRows(objects) {
+        if (Array.isArray(objects)) {
+            return objects.filter(function (obj) { return !!obj && typeof obj === 'object'; });
+        }
+        if (objects && typeof objects === 'object') {
+            return Object.keys(objects).map(function (key) {
+                return objects[key];
+            }).filter(function (obj) { return !!obj && typeof obj === 'object'; });
+        }
+        return [];
+    }
+
+    function _envSceneAuditSignature(objects) {
+        var rows = _envSceneAuditRows(objects).slice().sort(function (a, b) {
+            return _envSceneObjectKey(a).localeCompare(_envSceneObjectKey(b));
+        });
+        return rows.map(function (obj) {
+            var data = _envObjectData(obj);
+            var appearance = _envSceneAppearanceForObject(obj);
+            var tags = _env3DAssetTaxonomyTags(obj, data).join(',');
+            return [
+                _envSceneObjectKey(obj),
+                String(obj.kind || ''),
+                String(obj.category || ''),
+                String(data.category || ''),
+                String(obj.scale || ''),
+                String(data.height_offset !== undefined ? data.height_offset : (obj.height_offset !== undefined ? obj.height_offset : '')),
+                String((appearance && appearance.asset_ref) || ''),
+                tags
+            ].join('~');
+        }).join('|');
+    }
+
+    function _envSceneAuditVisibleWarnings() {
+        var combined = [];
+        var seen = {};
+        function push(rows) {
+            (Array.isArray(rows) ? rows : []).forEach(function (row) {
+                var message = String((row && row.message) || '').trim();
+                if (!message || seen[message]) return;
+                seen[message] = true;
+                combined.push({ level: 'warn', message: message });
+            });
+        }
+        if ((Date.now() - Number(_envSceneAudit.previewTimestamp || 0)) < 8000) {
+            push(_envSceneAudit.previewWarnings);
+        }
+        push(_envSceneAudit.warnings);
+        return combined;
+    }
+
+    function _envRenderSceneAuditWarningsHtml(mode) {
+        var warnings = _envSceneAuditVisibleWarnings();
+        if (!warnings.length) return '';
+        if (mode === 'hud') {
+            return '<div class="envops-hud-metrics">' + warnings.map(function (warning) {
+                return '<div class="envops-stage-empty" style="max-width:none;color:#ffd98a;">WARN: ' + _esc(String(warning.message || '')) + '</div>';
+            }).join('') + '</div>';
+        }
+        return '<div class="envops-card" style="margin-top:10px;border-color:rgba(255,198,92,0.30);background:rgba(255,198,92,0.08);">' +
+            '<div class="envops-card-label">Scene Audit</div>' +
+            '<div class="envops-stage-empty" style="color:#ffd98a;max-width:none;">' + warnings.map(function (warning) {
+                return '<div>WARN: ' + _esc(String(warning.message || '')) + '</div>';
+            }).join('') + '</div>' +
+            '</div>';
+    }
+
+    function _env3DAuditSceneComposition(objects) {
+        var rows = _envSceneAuditRows(objects);
+        var warnings = [];
+        var substrateCount = 0;
+        var propStructureCount = 0;
+        var hasLarge = false;
+        var hasSmall = false;
+        var hasMid = false;
+        var hasMaritime = false;
+        rows.forEach(function (obj) {
+            var kind = String((obj && obj.kind) || '').trim().toLowerCase();
+            var data = _envObjectData(obj);
+            var appearance = _envSceneAppearanceForObject(obj);
+            var tags = _env3DAssetTaxonomyTags(obj, data);
+            var haystack = _env3DAssetTaxonomyHaystack(obj, data, appearance, tags);
+            var taxClass = _env3DResolveTaxonomyClass(obj, data, appearance);
+            var target = taxClass && _env3DAssetTaxonomy[taxClass]
+                ? Number(_env3DAssetTaxonomy[taxClass].scale_target || 0)
+                : 0;
+            if (kind === 'substrate') substrateCount += 1;
+            if (
+                kind === 'prop' || kind === 'structure' || kind === 'room' || kind === 'portal'
+                || taxClass === 'harbor_structures' || taxClass === 'roman_architecture'
+            ) {
+                propStructureCount += 1;
+            }
+            if (target > 8) hasLarge = true;
+            else if (target > 0 && target < 2) hasSmall = true;
+            else if (target >= 2 && target <= 8) hasMid = true;
+            if (
+                tags.indexOf('ocean') >= 0 || tags.indexOf('sea') >= 0 || tags.indexOf('water') >= 0
+                || tags.indexOf('naval') >= 0 || tags.indexOf('maritime') >= 0
+                || /\b(ocean|sea|water|naval|maritime)\b/.test(haystack)
+            ) {
+                hasMaritime = true;
+            }
+        });
+        if (substrateCount > propStructureCount) {
+            warnings.push({ level: 'warn', message: 'Substrates outnumber props — scene may look empty' });
+        }
+        var activeTheme = (_envThemes && _envThemes[_envThemeId]) || null;
+        var waterThemeActive = !!(activeTheme && activeTheme.type === 'world' && activeTheme.water && activeTheme.water.enabled);
+        if (hasMaritime && !waterThemeActive) {
+            warnings.push({ level: 'warn', message: 'Maritime objects without water theme active' });
+        }
+        if (hasLarge && hasSmall && !hasMid) {
+            warnings.push({ level: 'warn', message: 'Missing mid-scale objects for visual bridging' });
+        }
+        return warnings;
+    }
+
+    function _envRefreshSceneAudit(force) {
+        var rows = _envSceneObjectCatalog();
+        var signature = _envSceneAuditSignature(rows);
+        if (!force && signature === String(_envSceneAudit.signature || '')) {
+            return _envSceneAudit.warnings.slice();
+        }
+        _envSceneAudit.signature = signature;
+        _envSceneAudit.warnings = _env3DAuditSceneComposition(rows);
+        _envSceneAudit.timestamp = Date.now();
+        if (_envSceneAudit.previewSignature && _envSceneAudit.previewSignature === signature) {
+            _envSceneAudit.previewWarnings = [];
+            _envSceneAudit.previewSignature = '';
+            _envSceneAudit.previewTimestamp = 0;
+        }
+        return _envSceneAudit.warnings.slice();
+    }
+
+    function _envSceneObjectCatalog() {
+        var rows = [];
+        var seen = {};
+        function push(obj) {
+            if (!obj || typeof obj !== 'object') return;
+            var key = _envSceneObjectKey(obj);
+            if (!key || seen[key]) return;
+            seen[key] = true;
+            rows.push(obj);
+        }
+        (Array.isArray(_envSpawnedObjects) ? _envSpawnedObjects : []).forEach(push);
+        (Array.isArray(_envMirrorState.habitatObjects) ? _envMirrorState.habitatObjects : []).forEach(push);
+        return rows;
+    }
+
+    function _envSceneFindObject(matchFn, maybeId) {
+        var rows = _envSceneObjectCatalog();
+        if (typeof matchFn !== 'function') {
+            var desiredKind = String(matchFn || '').trim().toLowerCase();
+            var desiredId = String(maybeId || '').trim();
+            if (!desiredKind || !desiredId) return null;
+            for (var j = 0; j < rows.length; j++) {
+                var row = rows[j] || {};
+                if (String(row.kind || '').trim().toLowerCase() === desiredKind && String(row.id || '').trim() === desiredId) {
+                    return row;
+                }
+            }
+            return null;
+        }
+        for (var i = 0; i < rows.length; i++) {
+            if (matchFn(rows[i])) return rows[i];
+        }
+        return null;
+    }
+
+    function _envSceneObjectByKindId(kind, id) {
+        var wantedKind = String(kind || '').trim().toLowerCase();
+        var wantedId = String(id || '').trim();
+        if (!wantedKind || !wantedId) return null;
+        return _envSceneFindObject(function (obj) {
+            return String(obj.kind || '').trim().toLowerCase() === wantedKind && String(obj.id || '').trim() === wantedId;
+        });
+    }
+
+    function _envPlainSceneText(value) {
+        if (value === undefined || value === null) return '';
+        var text = typeof value === 'string' ? value : _envSafeJsonText(value, 320);
+        return String(text || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+
+    function _envExtractSceneRound(values) {
+        var rows = Array.isArray(values) ? values : [values];
+        for (var i = 0; i < rows.length; i++) {
+            var text = _envPlainSceneText(rows[i]);
+            if (!text) continue;
+            var match = text.match(/\bround(?:\s*#)?\s*(\d+)\b/i);
+            if (match) return Number(match[1] || 0);
+        }
+        return 0;
+    }
+
+    function _envExtractSceneTool(values) {
+        var rows = Array.isArray(values) ? values : [values];
+        var patterns = [
+            /\bnext tool is\s+([a-z0-9_:.()=\-]+)/i,
+            /\bcurrent tool\s+([a-z0-9_:.()=\-]+)/i,
+            /\bactive tool\s+([a-z0-9_:.()=\-]+)/i
+        ];
+        for (var i = 0; i < rows.length; i++) {
+            var text = _envPlainSceneText(rows[i]);
+            if (!text) continue;
+            for (var j = 0; j < patterns.length; j++) {
+                var match = text.match(patterns[j]);
+                if (match && match[1]) return String(match[1] || '').trim();
+            }
+        }
+        return '';
+    }
+
+    function _envScenePrimaryPanelObject() {
+        var panelObj = _envSceneObjectByKindId(_envHtmlPanelState.objectKind, _envHtmlPanelState.objectId);
+        if (panelObj) return panelObj;
+        return _envSceneFindObject(function (obj) {
+            var kind = String(obj.kind || '').toLowerCase();
+            var category = String(obj.category || '').toLowerCase();
+            var interaction = obj.interaction || {};
+            return kind === 'panel'
+                || category === 'report'
+                || !!obj.html
+                || !!interaction.has_html;
+        });
+    }
+
+    function _envSceneControlObject() {
+        return _envSceneFindObject(function (obj) {
+            var kind = String(obj.kind || '').toLowerCase();
+            var id = String(obj.id || '').toLowerCase();
+            var label = String(obj.label || '').toLowerCase();
+            var category = String(obj.category || '').toLowerCase();
+            return category === 'control'
+                || id.indexOf('clerk') >= 0
+                || label.indexOf('clerk') >= 0
+                || id.indexOf('tracker') >= 0
+                || label.indexOf('tracker') >= 0
+                || (kind === 'prop' && category.indexOf('control') >= 0);
+        });
+    }
+
+    function _envSceneCanonicalState(sceneSnapshotName, sceneWorkflowId, sceneWorkflowMeta) {
+        var panelObj = _envScenePrimaryPanelObject();
+        var controlObj = _envSceneControlObject();
+        var contracts = _envMirrorState.contracts || {};
+        var renderTruth = _envMirrorState.renderTruth || {};
+        var liveState = _envMirrorState.live || {};
+        var sharedState = _envMirrorState.sharedState || ((liveState || {}).shared_state) || {};
+        var panelData = (panelObj && panelObj.data && typeof panelObj.data === 'object') ? panelObj.data : {};
+        var controlData = (controlObj && controlObj.data && typeof controlObj.data === 'object') ? controlObj.data : {};
+        var roundNumber = _envExtractSceneRound([
+            panelData.round,
+            panelData.active_round,
+            controlData.round,
+            controlData.active_round,
+            _envHtmlPanelState.subtitle,
+            _envHtmlPanelState.html,
+            panelObj && panelObj.meta,
+            controlObj && controlObj.meta
+        ]);
+        var activeTool = String(panelData.active_tool || controlData.active_tool || '').trim();
+        if (!activeTool) {
+            activeTool = _envExtractSceneTool([
+                _envHtmlPanelState.subtitle,
+                _envHtmlPanelState.html,
+                panelObj && panelObj.meta,
+                controlObj && controlObj.meta
+            ]);
+        }
+        var surfaceLabel = String(_envHtmlPanelState.title || (panelObj && panelObj.label) || 'Scene shell').trim() || 'Scene shell';
+        var controlLabel = String((controlObj && controlObj.label) || 'Scene clerk').trim() || 'Scene clerk';
+        var activeActorId = String(_envActorActiveId() || 'assistant').trim() || 'assistant';
+        var activeActor = _envActorSessionSnapshot(activeActorId);
+        var actorLabel = String((((activeActor || {}).actor) || {}).label || activeActorId || 'assistant');
+        var activeProfile = _envProfileById(((_envKernel.profile || {}).activeId) || '');
+        var profileLabel = activeProfile ? String(activeProfile.label || activeProfile.id || 'profile') : 'none';
+        var syncReason = String(_envLiveSyncState.lastAttemptReason || _envLiveSyncState.pendingReason || _envLiveSyncState.lastSkippedReason || ((liveState || {}).reason) || '').trim();
+        var syncStatus = String(_envLiveSyncState.lastStatus || 'idle').toUpperCase();
+        var docsActive = String(_envDocState.activeDocId || ((_envDocState.activeDocMeta || {}).key) || '').trim();
+        var docsRound = _envExtractSceneRound([docsActive]);
+        var runtimeStatus = String((((contracts || {}).runtime) || {}).status || 'idle').trim() || 'idle';
+        var focusKind = String((((renderTruth || {}).focus) || {}).kind || (((sharedState || {}).focus) || {}).kind || '').trim();
+        var panelActive = !!_envHtmlPanelState.active;
+        var docsMismatch = !!roundNumber && !!docsRound && docsRound !== roundNumber;
+        var runtimeMismatch = panelActive && runtimeStatus === 'idle' && (!!activeTool || !!roundNumber);
+        var focusMismatch = panelActive && focusKind === 'scene';
+        var canonicalChips = [
+            'surface ' + surfaceLabel,
+            roundNumber ? ('round ' + roundNumber) : 'round unspecified',
+            activeTool ? ('tool ' + activeTool) : 'tool pending',
+            'actor ' + actorLabel
+        ];
+        var corroborationChips = [
+            'sync ' + syncStatus,
+            syncReason ? ('reason ' + syncReason) : 'reason unsignaled',
+            'profile ' + profileLabel,
+            docsActive ? ('doc ' + _envProductCollapseText(docsActive, 42)) : 'doc none'
+        ];
+        var mismatches = [];
+        if (docsMismatch) mismatches.push('docs on round ' + docsRound + ' while clerk/report points at round ' + roundNumber);
+        if (runtimeMismatch) mismatches.push('runtime contract still says idle while the scene clerk/report has active work');
+        if (focusMismatch) mismatches.push('focus owner remains scene while the report panel is open');
+        return {
+            snapshotName: String(sceneSnapshotName || '').trim(),
+            workflowId: String(sceneWorkflowId || '').trim(),
+            workflowLabel: String((sceneWorkflowMeta && (sceneWorkflowMeta.name || sceneWorkflowMeta.id)) || sceneWorkflowId || 'unbound'),
+            surfaceLabel: surfaceLabel,
+            surfaceMode: String(_envHtmlPanelState.mode || (((panelObj || {}).data || {}).panelMode) || 'stage').trim() || 'stage',
+            controlLabel: controlLabel,
+            roundNumber: roundNumber,
+            activeTool: activeTool,
+            driver: String(panelData.driver || controlData.driver || (panelData.run_id ? 'scene_report' : '') || (_envHtmlPanelState.sourceType ? ('panel ' + _envHtmlPanelState.sourceType) : 'scene_clerk')).trim(),
+            activeActorId: activeActorId,
+            activeActorLabel: actorLabel,
+            profileLabel: profileLabel,
+            ingressQueueDepth: Number(((_envKernel.ingress || {}).queue || []).length || 0),
+            ingressActive: !!((_envKernel.ingress || {}).active),
+            docsCount: Number((_envDocState.results || []).length || 0),
+            docsActive: docsActive,
+            runtimeStatus: runtimeStatus,
+            syncStatus: syncStatus,
+            syncReason: syncReason,
+            canonicalChips: canonicalChips,
+            corroborationChips: corroborationChips,
+            mismatches: mismatches,
+            surfaceSummary: surfaceLabel + ' · ' + String(_envHtmlPanelState.active ? 'panel open' : 'scene only'),
+            operatorSummary: (roundNumber ? ('round ' + roundNumber + ' · ') : '') + (activeTool || 'tool pending'),
+            corroborationSummary: 'sync ' + syncStatus.toLowerCase() + (syncReason ? (' · ' + syncReason) : ''),
+            mismatchSummary: mismatches.length ? _envProductCollapseText(mismatches[0], 64) : 'frontend truth aligned'
+        };
+    }
+
+    function _envRenderSceneKernel(sceneSnapshotName, sceneWorkflowId, sceneWorkflowMeta, sceneExec, sections, traces) {
+        var sceneState = _envSceneCanonicalState(sceneSnapshotName, sceneWorkflowId, sceneWorkflowMeta);
+        var recipeStrip = _envRecipeCatalog().slice(0, 6).map(function (recipe) {
+            return '<span class="envops-focus-chip" data-env-action="run-recipe" data-env-recipe-id="' + _esc(String(recipe.id || '')) + '" title="' + _esc(String(recipe.note || '')) + '">' + _esc(String(recipe.label || recipe.id || 'recipe')) + '</span>';
+        }).join('');
+        if (!recipeStrip) recipeStrip = '<span class="envops-kernel-note">No recipes configured.</span>';
+        var profileStrip = _envProfileCatalog().slice(0, 6).map(function (profile) {
+            var isActive = String(((_envKernel.profile || {}).activeId) || '') === String(profile.id || '');
+            return '<span class="envops-focus-chip' + (isActive ? ' active' : '') + '" data-env-action="' + (isActive ? 'focus-profile' : 'activate-profile') + '" data-env-profile-id="' + _esc(String(profile.id || '')) + '">' + _esc(String(profile.label || profile.id || 'profile')) + '</span>';
+        }).join('');
+        if (!profileStrip) profileStrip = '<span class="envops-kernel-note">No profiles configured.</span>';
+        var mismatchStrip = sceneState.mismatches.length
+            ? '<div class="envops-chip-row">' + sceneState.mismatches.map(function (item) { return '<span class="envops-chip">' + _esc(String(item || '')) + '</span>'; }).join('') + '</div>'
+            : '<div class="envops-kernel-note">No deferred mismatches surfaced from the frontend mirrors right now.</div>';
+        return '' +
+            '<div class="envops-focus-card">' +
+            '<div class="envops-focus-head"><div class="envops-focus-title">Scene Operator Spine</div><div class="envops-focus-meta">' + _esc(sceneState.snapshotName || 'scene snapshot') + ' · ' + _esc(sceneState.workflowLabel || 'unbound workflow') + '</div></div>' +
+            '<div class="envops-focus-meta">Canonical truth is carried by the visible clerk/report surface. Live mirror, docs, and runtime contracts stay diagnostic unless the operator explicitly promotes them.</div>' +
+            '<div class="envops-card-label" style="margin-top:10px;">Canonical Now</div>' +
+            '<div class="envops-chip-row">' + sceneState.canonicalChips.map(function (chip) { return '<span class="envops-chip">' + _esc(String(chip || '')) + '</span>'; }).join('') + '</div>' +
+            '<div class="envops-card-label" style="margin-top:10px;">Corroboration</div>' +
+            '<div class="envops-chip-row">' + sceneState.corroborationChips.map(function (chip) { return '<span class="envops-chip">' + _esc(String(chip || '')) + '</span>'; }).join('') + '</div>' +
+            '<div class="envops-card-label" style="margin-top:10px;">Deferred Mismatches</div>' +
+            mismatchStrip +
+            '</div>' +
+            '<div class="envops-kernel-row">' +
+            '<div class="envops-kernel-card"><div class="h">Canonical Surface</div><div class="v">' + _esc(sceneState.surfaceLabel) + ' · ' + _esc(sceneState.surfaceMode) + '</div></div>' +
+            '<div class="envops-kernel-card"><div class="h">Clerk / Driver</div><div class="v">' + _esc(sceneState.controlLabel) + ' · ' + _esc(sceneState.driver || 'scene_clerk') + '</div></div>' +
+            '<div class="envops-kernel-card"><div class="h">Operator Truth</div><div class="v">' + _esc(sceneState.roundNumber ? ('Round ' + sceneState.roundNumber) : 'Round pending') + ' · ' + _esc(sceneState.activeTool || 'tool pending') + '</div></div>' +
+            '<div class="envops-kernel-card"><div class="h">Actor / Profile</div><div class="v">' + _esc(sceneState.activeActorLabel) + ' · ' + _esc(sceneState.profileLabel || 'none') + '</div></div>' +
+            '<div class="envops-kernel-card"><div class="h">Ingress</div><div class="v">' + _esc(sceneState.ingressActive ? 'live' : 'paused') + ' · ' + String(sceneState.ingressQueueDepth) + ' queued</div></div>' +
+            '<div class="envops-kernel-card"><div class="h">Live Sync</div><div class="v">' + _esc(sceneState.syncStatus) + (sceneState.syncReason ? (' · ' + _esc(sceneState.syncReason)) : '') + '</div></div>' +
+            '<div class="envops-kernel-card"><div class="h">Docs Evidence</div><div class="v">' + String(sceneState.docsCount) + ' surfaced' + (sceneState.docsActive ? (' · ' + _esc(_envProductCollapseText(sceneState.docsActive, 36))) : '') + '</div></div>' +
+            '<div class="envops-kernel-card"><div class="h">Runtime Contract</div><div class="v">' + _esc(sceneState.runtimeStatus || 'idle') + ' · ' + String(traces.length) + ' traces</div></div>' +
+            '<div class="envops-kernel-card"><div class="h">Artifacts</div><div class="v">' + String(sections.length) + ' product surfaces linked into the shell</div></div>' +
+            '</div>' +
+            '<div class="envops-kernel-actions">' +
+            '<button class="btn-dim" onclick="_envOpenLinkedTab(\'debug\')">OPEN DEBUG</button>' +
+            '<button class="btn-dim" onclick="_envOpenLinkedTab(\'memory\')">OPEN MEMORY</button>' +
+            '<button class="btn-dim" onclick="_envOpenLinkedTab(\'workflows\')">OPEN WORKFLOWS</button>' +
+            '<button class="btn-dim" onclick="window.envopsRefreshDocs(\'scene kernel refresh\', \'' + _esc(sceneState.activeActorId || 'assistant') + '\')">SCAN DOCS</button>' +
+            '<button class="btn-dim" data-env-action="focus-workflow">FOCUS WORKFLOW</button>' +
+            '<button class="btn-dim" data-env-action="follow-failed">FOLLOW FAILED</button>' +
+            '<button class="btn-dim" data-env-action="run-recipe" data-env-recipe-id="stabilize_loop">STABILIZE LOOP</button>' +
+            '</div>' +
+            '<div class="envops-control-shell">' +
+            '<div class="envops-card-label" style="margin-bottom:0;">Scene Control Console</div>' +
+            '<span class="envops-kernel-note">This scene-first shell now carries operator context outside the report panel so the cockpit stays readable even when corroboration and supporting evidence disagree.</span>' +
+            '<div class="envops-card-label" style="margin-top:10px;">Actor Lanes</div>' +
+            _envRenderActorRail() +
+            '<div class="envops-card-label" style="margin-top:10px;">Profiles</div>' +
+            '<div class="envops-chip-row">' + profileStrip + '</div>' +
+            '<div class="envops-card-label" style="margin-top:10px;">Recipes</div>' +
+            '<div class="envops-chip-row">' + recipeStrip + '</div>' +
+            '</div>';
     }
 
     function _envRenderKernel(workflow, exec, sections, traces) {
@@ -19026,6 +27265,12 @@
              '<option value="inspect_surface">inspect_surface</option>' +
              '<option value="open_surface">open_surface</option>' +
              '<option value="close_surface">close_surface</option>' +
+             '<option value="surface_tab">surface_tab</option>' +
+             '<option value="surface_scroll">surface_scroll</option>' +
+             '<option value="surface_action">surface_action</option>' +
+             '<option value="surface_click">surface_click</option>' +
+             '<option value="surface_input">surface_input</option>' +
+             '<option value="surface_submit">surface_submit</option>' +
              '<option value="close_inspector">close_inspector</option>' +
              '<option value="focus_district">focus_district</option>' +
              '<option value="focus_node">focus_node</option>' +
@@ -19900,6 +28145,19 @@
     }
 
     function _envCurrentDocContext() {
+        // When panel owns attention, docs should reflect panel content
+        if (_envHtmlPanelState.active && _envHtmlPanelState.objectKey) {
+            var panelLabel = String(_envHtmlPanelState.title || '');
+            var panelMeta = String(_envHtmlPanelState.subtitle || '');
+            var panelQuery = [panelLabel, panelMeta].filter(Boolean).join(' ');
+            if (!panelQuery) panelQuery = _envSceneDocQuery();
+            return {
+                kind: 'panel',
+                id: String(_envHtmlPanelState.objectKey || ''),
+                query: panelQuery,
+                workflow: null
+            };
+        }
         if (_envUseScenePrimaryMode()) {
             return {
                 kind: 'scene',
@@ -20023,12 +28281,35 @@
         var countEl = document.getElementById('envops-doc-count');
         if (!docsEl) return;
         if (countEl) countEl.textContent = String(_envDocState.results.length);
+        var canonicalRound = _envExtractSceneRound([
+            _envHtmlPanelState.subtitle,
+            _envHtmlPanelState.html,
+            (_envSceneControlObject() || {}).meta,
+            ((_envScenePrimaryPanelObject() || {}).meta)
+        ]);
+        var activeDocKey = String(_envDocState.activeDocId || ((_envDocState.activeDocMeta || {}).key) || '').trim();
+        var activeDocRound = _envExtractSceneRound([activeDocKey]);
+        var evidenceNotes = ['Supporting evidence only — docs do not outrank the visible clerk/report surface.'];
+        if (canonicalRound && activeDocRound && canonicalRound !== activeDocRound) {
+            evidenceNotes.push('Active doc is from round ' + activeDocRound + ' while the scene clerk/report is on round ' + canonicalRound + '.');
+        }
+        var evidenceHeader =
+            '<div class="envops-focus-card" style="margin-bottom:12px;">' +
+            '<div class="envops-focus-head"><div class="envops-focus-title">Related Evidence</div><div class="envops-focus-meta">' + _esc(String(_envDocState.contextKind || 'scene').toUpperCase()) + ' · ' + String(_envDocState.results.length) + ' results</div></div>' +
+            '<div class="envops-focus-meta">These materials corroborate the current scene context. They should help explain the live loop, not compete with the clerk console for authority.</div>' +
+            '<div class="envops-chip-row" style="margin-top:10px;">' +
+            '<span class="envops-chip">' + _esc('context ' + String(_envDocState.contextId || _envScenePrimarySnapshotName() || 'scene')) + '</span>' +
+            '<span class="envops-chip">' + _esc(activeDocKey ? ('active ' + _envProductCollapseText(activeDocKey, 44)) : 'active none') + '</span>' +
+            '<span class="envops-chip">' + _esc(canonicalRound ? ('clerk round ' + canonicalRound) : 'clerk round pending') + '</span>' +
+            '</div>' +
+            '<div class="envops-kernel-note" style="margin-top:10px;">' + _esc(evidenceNotes.join(' ')) + '</div>' +
+            '</div>';
         if (_envDocState.pendingSearch) {
-            docsEl.innerHTML = '<div class="envops-stage-empty">Scanning FelixBag docs for the current environment context…</div>';
+            docsEl.innerHTML = evidenceHeader + '<div class="envops-stage-empty">Scanning FelixBag docs for the current environment context…</div>';
             return;
         }
         if (!_envDocState.results.length) {
-            docsEl.innerHTML = '<div class="envops-stage-empty">No related docs surfaced yet. Use SCAN DOCS to pull matching FelixBag materials into the shell.</div>';
+            docsEl.innerHTML = evidenceHeader + '<div class="envops-stage-empty">No related docs surfaced yet. Use SCAN DOCS to pull matching FelixBag materials into the shell.</div>';
             return;
         }
         var listHtml = _envDocState.results.map(function (doc) {
@@ -20062,6 +28343,7 @@
                 '<pre>' + _esc(String(_envDocState.activeDocContent || 'Loading document content…')) + '</pre>';
         }
         docsEl.innerHTML =
+            evidenceHeader +
             '<div class="envops-doc-list">' + listHtml + '</div>' +
             '<div class="envops-doc-content">' + (activeHtml || '<div class="envops-stage-empty">Select a related document to inspect its contents inside the environment shell.</div>') + '</div>';
     }
@@ -20209,7 +28491,11 @@
             renderEnvironmentView();
             return;
         }
-        if (['env_spawn', 'env_mutate', 'env_remove', 'env_read', 'env_control', 'env_persist'].indexOf(toolName) >= 0) {
+        var rawEnvPayload = msg && !msg.error ? _envNormalizeEnvironmentPayload(msg.data) : null;
+        var envPayload = msg && msg.error
+            ? { status: 'error', error: String(msg.error || 'Environment tool failed'), summary: String(msg.error || 'Environment tool failed') }
+            : (rawEnvPayload || _envNormalizeEnvironmentPayload(rawText));
+        if (_envToolCarriesEnvironmentPayload(toolName, envPayload)) {
             if (msg && msg.error && pendingMeta && pendingMeta.sceneSnapshotNav) {
                 _envNavigationState.pendingLoad = null;
             }
@@ -20217,18 +28503,30 @@
                 _envSceneBootstrapState.pending = false;
                 _envSceneBootstrapState.error = String(msg.error || 'scene bootstrap failed');
             }
-            var rawEnvPayload = msg && !msg.error ? _envNormalizeEnvironmentPayload(msg.data) : null;
-            var envPayload = msg && msg.error
-                ? { status: 'error', error: String(msg.error || 'Environment tool failed'), summary: String(msg.error || 'Environment tool failed') }
-                : (rawEnvPayload || _envNormalizeEnvironmentPayload(rawText));
             if (envPayload && (toolName === 'env_read' || toolName === 'env_persist')) {
                 _envToolOutputs[toolName] = _envCloneJson(envPayload, envPayload);
             }
             var envApplied = envPayload ? _envApplyEnvironmentPayload(envPayload, toolName, 'tool') : { changed: false, mirrored: false };
             if (!msg.error && toolName === 'env_read' && pendingMeta && pendingMeta.surfaceControlPending) {
                 var pendingSurface = pendingMeta.surfaceControlPending || {};
+                var pendingCommand = String(pendingSurface.command || '');
+                var hydratedSurfaceObj = _envResolveHydratedSurfaceReplayObject(pendingSurface, envPayload);
+                if (hydratedSurfaceObj) {
+                    if (pendingCommand === 'focus_surface') {
+                        _envFocusSceneObject(hydratedSurfaceObj, String(pendingSurface.actor || 'assistant'), 'control');
+                        return;
+                    }
+                    if (pendingCommand === 'inspect_surface') {
+                        _envSelectSceneObject(hydratedSurfaceObj, String(pendingSurface.actor || 'assistant'), 'control');
+                        return;
+                    }
+                    if (pendingCommand === 'open_surface') {
+                        _envFocusSceneObject(hydratedSurfaceObj, String(pendingSurface.actor || 'assistant'), 'control');
+                        if (_envOpenPrimarySurfaceForObject(hydratedSurfaceObj, String(pendingSurface.actor || 'assistant'), 'control')) return;
+                    }
+                }
                 _envExecuteControlCommand(
-                    String(pendingSurface.command || ''),
+                    pendingCommand,
                     String(pendingSurface.targetId || ''),
                     String(pendingSurface.actor || 'assistant'),
                     '__surface_hydrated__'
@@ -20265,7 +28563,12 @@
             if (_envDocState.results.length) {
                 var firstDoc = _envDocState.results[0];
                 _envDocState.activeDocId = String(firstDoc.key || firstDoc.path || '');
-                _envSetFocus('doc', _envDocState.activeDocId, 'assistant', null);
+                var currentFocusKind = String((((_envKernel || {}).focus || {}).kind) || '').toLowerCase();
+                var allowDocAutofocus = !currentFocusKind
+                    || currentFocusKind === 'workflow'
+                    || currentFocusKind === 'doc';
+                if (allowDocAutofocus) _envSetFocus('doc', _envDocState.activeDocId, 'assistant', null);
+                else renderEnvironmentView();
             } else {
                 _envLogAction('docs', 'No related docs matched the current system query', 'system', { query: _envDocState.query });
                 renderEnvironmentView();
@@ -20289,7 +28592,953 @@
         }
     }
 
+    function _envStandaloneBrowserMode() {
+        var protocol = String((window.location && window.location.protocol) || '').toLowerCase();
+        return protocol === 'http:' || protocol === 'https:';
+    }
+
+    function _envWorldViewerThemeSnapshot() {
+        var theme = (_envThemes && _envThemes[_envThemeId]) || (_envThemes && _envThemes['default']) || {};
+        return {
+            id: String(_envThemeId || 'default'),
+            name: String(theme.name || _envThemeId || 'default'),
+            bg: Number(theme.bg || 0x0a0a1a),
+            fog: Number(theme.fog || 0.012),
+            accent: String((theme.css && theme.css[0]) || '#7c9cff'),
+            css: _envCloneJson(theme.css || [], [])
+        };
+    }
+
+    function _envWorldViewerObjectSnapshot(obj) {
+        if (!obj || typeof obj !== 'object') return null;
+        var appearance = _envSceneAppearanceForObject(obj);
+        var snapshot = {
+            kind: String(obj.kind || 'prop'),
+            id: String(obj.id || ''),
+            label: String(obj.label || obj.id || obj.kind || 'object'),
+            state: String(obj.state || 'idle'),
+            x: Number(obj.x || 50),
+            y: Number(obj.y || 50),
+            scale: Number(obj.scale || 1),
+            tilt: Number(obj.tilt || 0),
+            color: String(appearance.color || obj.color || ''),
+            appearance: {
+                geometry: String(appearance.geometry || ''),
+                color: String(appearance.color || obj.color || ''),
+                asset_ref: String(appearance.asset_ref || '')
+            },
+            data: _envCloneJson(_envObjectData(obj), {})
+        };
+        if (appearance.material !== undefined && appearance.material !== null) {
+            snapshot.appearance.material = _envCloneJson(appearance.material, null);
+        }
+        if (_env3DIsRoomObject(obj, appearance)) {
+            snapshot.data.room_config = _envRoomConfigFromObject(obj);
+        }
+        if (_env3DIsAgentKind(obj.kind)) {
+            var modality = _env3DResolveAgentModality(obj);
+            if (modality) snapshot.data.modality = modality;
+        }
+        return snapshot;
+    }
+
+    function _envSerializeEmbeddedJson(value) {
+        return JSON.stringify(value)
+            .replace(/</g, '\\u003c')
+            .replace(/>/g, '\\u003e')
+            .replace(/&/g, '\\u0026')
+            .replace(/\u2028/g, '\\u2028')
+            .replace(/\u2029/g, '\\u2029');
+    }
+
+    function _envBuildWorldViewerHtml(sceneData) {
+        var dataScript = _envSerializeEmbeddedJson(sceneData);
+        return [
+            '<!DOCTYPE html>',
+            '<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">',
+            '<title>Champion Council World</title>',
+            '<style>',
+            ':root{--bg:#081018;--panel:rgba(8,14,24,0.84);--border:rgba(255,255,255,0.12);--text:#e7f4ff;--dim:rgba(231,244,255,0.68);--accent:' + _esc(String(sceneData.theme && sceneData.theme.accent || '#7c9cff')) + ';}',
+            '*{box-sizing:border-box}html,body{height:100%;margin:0}body{font-family:"Segoe UI",Arial,sans-serif;background:#050a12;color:var(--text);overflow:hidden}',
+            '#world-app{position:relative;width:100%;height:100%}#world-canvas{position:absolute;inset:0}',
+            '.world-bar,.world-info{position:absolute;z-index:2;backdrop-filter:blur(10px);background:var(--panel);border:1px solid var(--border)}',
+            '.world-bar{top:18px;left:18px;right:18px;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 16px}',
+            '.world-title{font-size:14px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase}.world-title span{color:var(--accent)}',
+            '.world-sub{margin-top:4px;color:var(--dim);font-size:12px}.world-info{right:18px;bottom:18px;min-width:220px;padding:12px 14px}',
+            '.world-info-row{display:flex;justify-content:space-between;gap:12px;font-size:12px;padding:3px 0}.world-info-row span:last-child{color:var(--dim)}',
+            '.world-credit{position:absolute;left:18px;bottom:18px;z-index:2;color:var(--dim);font-size:11px;padding:8px 10px;background:rgba(5,9,16,0.58);border:1px solid rgba(255,255,255,0.08)}',
+            '@media (max-width:720px){.world-bar{left:12px;right:12px;top:12px;flex-direction:column;align-items:flex-start}.world-info{left:12px;right:12px;bottom:12px;min-width:0}.world-credit{display:none}}',
+            '</style></head><body><div id="world-app"><div class="world-bar"><div><div class="world-title">Champion Council <span>World</span></div><div class="world-sub" id="world-date"></div></div><div class="world-sub" id="world-theme"></div></div><div class="world-info"><div class="world-info-row"><span>Objects</span><span id="world-count">0</span></div><div class="world-info-row"><span>Theme</span><span id="world-theme-name">Unknown</span></div><div class="world-info-row"><span>Version</span><span>' + _esc(String(sceneData.version || 'v90')) + '</span></div></div><div class="world-credit">Orbit: drag · Zoom: wheel · Pan: right drag</div><div id="world-canvas"></div></div>',
+            '<script id="scene-data" type="application/json">' + dataScript + '</script>',
+            '<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>',
+            '<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/controls/OrbitControls.js"></script>',
+            '<script>(function(){',
+            'var data=JSON.parse(document.getElementById("scene-data").textContent||"{}");var host=document.getElementById("world-canvas");var dateEl=document.getElementById("world-date");var countEl=document.getElementById("world-count");var themeEl=document.getElementById("world-theme");var themeNameEl=document.getElementById("world-theme-name");',
+            'function hex(value,fallback){if(value===undefined||value===null||value==="")return Number(fallback||0);if(typeof value==="number")return Number(value);try{return new THREE.Color(value).getHex();}catch(_err){}var text=String(value||"").trim().replace(/^#/,"");var parsed=parseInt(text,16);return isFinite(parsed)?parsed:Number(fallback||0);}',
+            'function xyz(obj){var wx=((Number(obj&&obj.x||50)/100)*80)-40;var wz=((Number(obj&&obj.y||50)/100)*40)-20;var raw=obj&&obj.data||{};var heightOffset=Math.max(-20,Math.min(20,Number(raw.height_offset!==undefined?raw.height_offset:(raw.heightOffset!==undefined?raw.heightOffset:(obj&&obj.height_offset!==undefined?obj.height_offset:(obj&&obj.heightOffset!==undefined?obj.heightOffset:0))))||0));var wy=0;switch(String(obj&&obj.kind||"")){case"room":wy=0;break;case"workflow":wy=4;break;case"actor":wy=3.5;break;case"replay":wy=3;break;case"portal":wy=1.05;break;case"zone":wy=0.01;break;case"dispatch":wy=2.5;break;case"node":wy=1.5;break;case"event":wy=1;break;case"sample":wy=2;break;case"branch":wy=2;break;case"trace":wy=0.5;break;case"artifact":wy=0.5;break;case"recipe":wy=0.3;break;case"profile":wy=0.2;break;case"watch":wy=0.2;break;case"queued":wy=1.8;break;case"doc":wy=0.3;break;case"slot":wy=3;break;case"npc":wy=2.6;break;case"chatbot":wy=2.6;break;case"panel":wy=1.6;break;case"decal":wy=0.02;break;case"tile":var gs=Math.max(1,Math.min(20,Number(raw.grid_size||4)));var h=Math.max(0.05,Math.min(1,Number(raw.height||0.15)));wx=Math.round(wx/gs)*gs;wz=Math.round(wz/gs)*gs;wy=h*0.5;break;case"substrate":wy=0;break;default:wy=0.7;}wy+=heightOffset;return [wx,wy,wz];}',
+            'function geomFor(obj){var shape=String(obj&&obj.appearance&&obj.appearance.geometry||"").toLowerCase();switch(shape){case"sphere":return new THREE.SphereGeometry(0.82,16,12);case"box":return new THREE.BoxGeometry(1.2,1.2,1.2);case"cylinder":return new THREE.CylinderGeometry(0.7,0.7,1.4,14);case"cone":return new THREE.ConeGeometry(0.78,1.5,14);case"torus":return new THREE.TorusGeometry(0.86,0.2,12,24);case"octahedron":return new THREE.OctahedronGeometry(0.96,0);case"icosahedron":return new THREE.IcosahedronGeometry(1.02,0);case"dodecahedron":return new THREE.DodecahedronGeometry(0.98,0);case"tetrahedron":return new THREE.TetrahedronGeometry(1,0);case"disc":case"circle":return new THREE.CylinderGeometry(1.6,1.6,0.04,24);case"rect":return new THREE.BoxGeometry(4,0.04,4);case"panel":return new THREE.BoxGeometry(1.8,1.2,0.2);}switch(String(obj&&obj.kind||"")){case"workflow":return new THREE.IcosahedronGeometry(2.2,1);case"actor":return new THREE.OctahedronGeometry(1.4,0);case"node":return new THREE.BoxGeometry(1.6,1,1.6);case"artifact":return new THREE.CylinderGeometry(0.8,0.8,1.2,8);case"trace":return new THREE.ConeGeometry(0.7,1.4,6);case"event":return new THREE.SphereGeometry(0.6,12,10);case"sample":return new THREE.TetrahedronGeometry(1,0);case"branch":return new THREE.OctahedronGeometry(1,0);case"replay":return new THREE.TorusGeometry(1.2,0.3,12,24);case"recipe":return new THREE.DodecahedronGeometry(0.9,0);case"profile":return new THREE.TorusGeometry(0.8,0.15,10,18);case"dispatch":return new THREE.ConeGeometry(0.8,1.6,8);case"queued":return new THREE.BoxGeometry(0.8,0.8,0.8);case"watch":return new THREE.SphereGeometry(0.5,10,10);case"doc":return new THREE.BoxGeometry(1.4,0.3,1);case"slot":return new THREE.CylinderGeometry(0.6,0.9,1.6,10);case"npc":return new THREE.DodecahedronGeometry(1.1,0);case"chatbot":return new THREE.SphereGeometry(0.9,14,10);case"service":return new THREE.OctahedronGeometry(0.9,0);case"zone":return new THREE.CylinderGeometry(3.2,3.2,0.04,32);case"tile":return new THREE.BoxGeometry(4,0.15,4);case"substrate":return new THREE.SphereGeometry(0.7,12,10);case"panel":return new THREE.BoxGeometry(1.8,1.2,0.2);case"menu":return new THREE.BoxGeometry(2.1,1.4,0.3);default:return new THREE.BoxGeometry(1.1,1.1,1.1);}}',
+            'function roomCfg(obj){var raw=obj&&obj.data&&obj.data.room_config||{};var width=Math.max(4,Number(raw.width||8));var depth=Math.max(4,Number(raw.depth||6));var height=Math.max(2.2,Number(raw.height||3.2));var wallThickness=Math.max(0.12,Number(raw.wallThickness||raw.wall_thickness||0.16));var doorwayWidth=Math.max(1.4,Math.min(width-0.8,Number(raw.doorwayWidth||raw.doorway_width||2.2)));var doors=Array.isArray(raw.doors)?raw.doors.map(function(v){return String(v||"").toLowerCase();}):[];return{width:width,depth:depth,height:height,wallThickness:wallThickness,doorwayWidth:doorwayWidth,doors:doors,floorMaterial:String(raw.floorMaterial||raw.floor_material||"stone"),wallMaterial:String(raw.wallMaterial||raw.wall_material||"stone")};}',
+            'function materialColor(name,fallback){var key=String(name||"").toLowerCase();if(key==="sand")return 0xb89c67;if(key==="wood")return 0x7f5734;return Number(fallback||0x7d8791);}',
+            'function standardMaterial(color,emissive){return new THREE.MeshStandardMaterial({color:color,roughness:0.72,metalness:0.18,emissive:emissive||0x000000,emissiveIntensity:emissive?0.28:0});}',
+            'var scene=new THREE.Scene();var bgHex=Number(data&&data.theme&&data.theme.bg||0x0a0a1a);scene.background=new THREE.Color(bgHex);scene.fog=new THREE.FogExp2(bgHex,Number(data&&data.theme&&data.theme.fog||0.012));var renderer=new THREE.WebGLRenderer({antialias:true,alpha:false});renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));renderer.setSize(window.innerWidth,window.innerHeight);host.appendChild(renderer.domElement);var camera=new THREE.PerspectiveCamera(50,window.innerWidth/Math.max(1,window.innerHeight),0.1,500);var cPos=data&&data.camera&&data.camera.position||[0,35,50];camera.position.set(Number(cPos[0]||0),Number(cPos[1]||35),Number(cPos[2]||50));var controls=new THREE.OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.dampingFactor=0.08;var cTarget=data&&data.camera&&data.camera.target||[0,0,0];controls.target.set(Number(cTarget[0]||0),Number(cTarget[1]||0),Number(cTarget[2]||0));controls.update();',
+            'scene.add(new THREE.AmbientLight(0x5a7088,0.86));var hemi=new THREE.HemisphereLight(hex(data&&data.theme&&data.theme.accent,"#7c9cff"),bgHex,0.58);hemi.position.set(0,40,0);scene.add(hemi);var dir=new THREE.DirectionalLight(0xffffff,0.92);dir.position.set(16,28,12);scene.add(dir);var accent=new THREE.PointLight(hex(data&&data.theme&&data.theme.accent,"#7c9cff"),0.7,90);accent.position.set(0,10,0);scene.add(accent);var ground=new THREE.Mesh(new THREE.PlaneGeometry(140,96),new THREE.MeshStandardMaterial({color:0x0d1522,roughness:0.94,metalness:0.05,transparent:true,opacity:0.96}));ground.rotation.x=-Math.PI/2;ground.position.y=-0.12;scene.add(ground);var grid=new THREE.GridHelper(120,48,hex(data&&data.theme&&data.theme.accent,"#7c9cff"),0x132033);grid.material.opacity=0.28;grid.material.transparent=true;scene.add(grid);var portals=[];',
+            'function place(obj,node,height){var pos=xyz(obj);node.position.set(pos[0],typeof height==="number"?height:pos[1],pos[2]);node.rotation.y=Number(obj&&obj.tilt||0)*(Math.PI/180);node.scale.multiplyScalar(Math.max(0.3,Number(obj&&obj.scale||1)));return node;}',
+            'function addRoom(obj){var cfg=roomCfg(obj);var group=new THREE.Group();var floor=new THREE.Mesh(new THREE.BoxGeometry(cfg.width,0.18,cfg.depth),new THREE.MeshStandardMaterial({color:materialColor(cfg.floorMaterial,0x7d8791),roughness:0.92,metalness:0.04}));floor.position.y=0.09;group.add(floor);function wall(w,h,d,x,y,z){var mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),new THREE.MeshStandardMaterial({color:materialColor(cfg.wallMaterial,0x7d8791),roughness:0.84,metalness:0.08}));mesh.position.set(x,y,z);group.add(mesh);}var halfW=cfg.width/2;var halfD=cfg.depth/2;var halfH=cfg.height/2;var door=cfg.doorwayWidth;function sideNorth(){if(cfg.doors.indexOf("north")>=0){var seg=(cfg.width-door)/2;wall(seg,cfg.height,cfg.wallThickness,-(door/2+seg/2),halfH,-halfD);wall(seg,cfg.height,cfg.wallThickness,(door/2+seg/2),halfH,-halfD);}else wall(cfg.width,cfg.height,cfg.wallThickness,0,halfH,-halfD);}function sideSouth(){if(cfg.doors.indexOf("south")>=0){var seg=(cfg.width-door)/2;wall(seg,cfg.height,cfg.wallThickness,-(door/2+seg/2),halfH,halfD);wall(seg,cfg.height,cfg.wallThickness,(door/2+seg/2),halfH,halfD);}else wall(cfg.width,cfg.height,cfg.wallThickness,0,halfH,halfD);}function sideWest(){if(cfg.doors.indexOf("west")>=0){var seg=(cfg.depth-door)/2;wall(cfg.wallThickness,cfg.height,seg,-halfW,halfH,-(door/2+seg/2));wall(cfg.wallThickness,cfg.height,seg,-halfW,halfH,(door/2+seg/2));}else wall(cfg.wallThickness,cfg.height,cfg.depth,-halfW,halfH,0);}function sideEast(){if(cfg.doors.indexOf("east")>=0){var seg=(cfg.depth-door)/2;wall(cfg.wallThickness,cfg.height,seg,halfW,halfH,-(door/2+seg/2));wall(cfg.wallThickness,cfg.height,seg,halfW,halfH,(door/2+seg/2));}else wall(cfg.wallThickness,cfg.height,cfg.depth,halfW,halfH,0);}sideNorth();sideSouth();sideWest();sideEast();return place(obj,group,0);}',
+            'function addPortal(obj){var color=hex(obj&&obj.color||obj&&obj.appearance&&obj.appearance.color||data&&data.theme&&data.theme.accent,0x7c9cff);var group=new THREE.Group();group.add(new THREE.Mesh(new THREE.TorusGeometry(1.3,0.24,16,40),new THREE.MeshStandardMaterial({color:color,roughness:0.18,metalness:0.76,emissive:color,emissiveIntensity:0.55})));var inner=new THREE.Mesh(new THREE.CircleGeometry(0.88,40),new THREE.MeshBasicMaterial({color:0xaecbff,transparent:true,opacity:0.22,side:THREE.DoubleSide}));inner.rotation.y=Math.PI/2;group.add(inner);var halo=new THREE.Mesh(new THREE.TorusGeometry(1.52,0.04,8,40),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.22}));group.add(halo);place(obj,group,1.05);portals.push(group);return group;}',
+            'function addAgent(obj){var color=hex(obj&&obj.color||obj&&obj.appearance&&obj.appearance.color||data&&data.theme&&data.theme.accent,0xff6633);var state=String(obj&&obj.state||"idle").toLowerCase();var stateColor=state==="running"?0x00ff88:(state==="failed"?0xff4444:(state==="learning"?0x8844ff:color));var group=new THREE.Group();group.add(new THREE.Mesh(new THREE.OctahedronGeometry(1,0),standardMaterial(color,stateColor)));var ring=new THREE.Mesh(new THREE.TorusGeometry(1.26,0.06,10,28),new THREE.MeshBasicMaterial({color:stateColor,transparent:true,opacity:0.5}));ring.rotation.x=Math.PI/2;group.add(ring);return place(obj,group,xyz(obj)[1]);}',
+            'function surfaceCfg(obj,kind){var raw=obj&&obj.data||{};var geometry=String(obj&&obj.appearance&&obj.appearance.geometry||raw.shape||raw.geometry||"").toLowerCase();var shape=kind==="tile"?"rect":((geometry==="rect"||geometry==="box"||geometry==="square")?"rect":"circle");return{shape:shape,radius:Math.max(0.5,Number(raw.radius||(kind==="zone"?3.25:3))),width:Math.max(0.5,Number(raw.width||(kind==="zone"?6.5:4))),depth:Math.max(0.5,Number(raw.depth||(kind==="zone"?6.5:4))),height:Math.max(0.04,Number(raw.height||0.15)),opacity:Math.max(0.04,Math.min(0.9,Number(raw.opacity===undefined?(kind==="zone"?0.22:0.5):raw.opacity))),border:raw.border!==false};}',
+            'function surfaceMaterial(obj,defaultColor,opacity){var mat=obj&&obj.appearance&&obj.appearance.material;mat=mat&&typeof mat==="object"?mat:{};var color=hex(mat.color||obj&&obj.color||obj&&obj.appearance&&obj.appearance.color||defaultColor,defaultColor);return new THREE.MeshStandardMaterial({color:color,roughness:Number(mat.roughness===undefined?0.82:mat.roughness),metalness:Number(mat.metalness===undefined?0.08:mat.metalness),emissive:hex(mat.emissive||0,0),emissiveIntensity:Number(mat.emissive_intensity===undefined?(mat.emissiveIntensity===undefined?0:mat.emissiveIntensity):mat.emissive_intensity||0),transparent:true,opacity:Math.max(0.04,Math.min(0.95,Number(mat.opacity===undefined?opacity:mat.opacity))),depthWrite:false,side:THREE.DoubleSide});}',
+            'function addFlatSurface(obj,kind,defaultColor,defaultY){var cfg=surfaceCfg(obj,kind);var color=hex(obj&&obj.color||obj&&obj.appearance&&obj.appearance.color||defaultColor,defaultColor);var group=new THREE.Group();var fill=cfg.shape==="rect"?new THREE.PlaneGeometry(cfg.width,cfg.depth):new THREE.CircleGeometry(cfg.radius,40);var fillMesh=new THREE.Mesh(fill,surfaceMaterial(obj,color,cfg.opacity));fillMesh.rotation.x=-Math.PI/2;group.add(fillMesh);if(cfg.border){var pts=[];if(cfg.shape==="rect"){var hw=cfg.width*0.5;var hd=cfg.depth*0.5;pts=[new THREE.Vector3(-hw,0.004,-hd),new THREE.Vector3(hw,0.004,-hd),new THREE.Vector3(hw,0.004,hd),new THREE.Vector3(-hw,0.004,hd)];}else{for(var i=0;i<40;i++){var a=(i/40)*Math.PI*2;pts.push(new THREE.Vector3(Math.cos(a)*cfg.radius,0.004,Math.sin(a)*cfg.radius));}}group.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:color,transparent:true,opacity:kind==="zone"?0.78:0.7})));}return place(obj,group,defaultY);}',
+            'function addZone(obj){return addFlatSurface(obj,"zone",0x4f8f72,0.01);}',
+            'function addDecal(obj){return addFlatSurface(obj,"decal",0x5b8aa8,0.02);}',
+            'function addTile(obj){var cfg=surfaceCfg(obj,"tile");var color=hex(obj&&obj.color||obj&&obj.appearance&&obj.appearance.color||0x7d8791,0x7d8791);var mat=surfaceMaterial(obj,color,1);mat.transparent=false;mat.opacity=1;mat.depthWrite=true;var mesh=new THREE.Mesh(new THREE.BoxGeometry(cfg.width,cfg.height,cfg.depth),mat);place(obj,mesh,xyz(obj)[1]);mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry),new THREE.LineBasicMaterial({color:color,transparent:true,opacity:0.32})));return mesh;}',
+            'function addSubstrate(obj){var color=hex(obj&&obj.color||obj&&obj.appearance&&obj.appearance.color||0x7d8791,0x7d8791);var mesh=new THREE.Mesh(geomFor(obj),surfaceMaterial(obj,color,0.88));return place(obj,mesh,xyz(obj)[1]);}',
+            'function addDefault(obj){var color=hex(obj&&obj.color||obj&&obj.appearance&&obj.appearance.color||0x8899aa,0x8899aa);var mesh=new THREE.Mesh(geomFor(obj),standardMaterial(color,0x000000));place(obj,mesh,xyz(obj)[1]);if(obj&&obj.appearance&&obj.appearance.asset_ref){mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry),new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:0.38})));}return mesh;}',
+            'function build(obj){if(!obj)return null;var kind=String(obj.kind||"").toLowerCase();var geometry=String(obj.appearance&&obj.appearance.geometry||"").toLowerCase();if(kind==="room"||geometry==="room")return addRoom(obj);if(kind==="portal")return addPortal(obj);if(kind==="zone")return addZone(obj);if(kind==="decal")return addDecal(obj);if(kind==="tile")return addTile(obj);if(kind==="substrate")return addSubstrate(obj);if(kind==="slot"||kind==="npc"||kind==="chatbot"||kind==="actor")return addAgent(obj);return addDefault(obj);}',
+            'var objects=Array.isArray(data&&data.objects)?data.objects:[];for(var i=0;i<objects.length;i++){var node=build(objects[i]);if(node)scene.add(node);}countEl.textContent=String(objects.length);themeEl.textContent=String(data&&data.theme&&data.theme.name||"Unknown");themeNameEl.textContent=String(data&&data.theme&&data.theme.name||"Unknown");dateEl.textContent="exported "+new Date(data&&data.exportedAt||Date.now()).toLocaleString();',
+            'function resize(){camera.aspect=window.innerWidth/Math.max(1,window.innerHeight);camera.updateProjectionMatrix();renderer.setSize(window.innerWidth,window.innerHeight);}window.addEventListener("resize",resize);',
+            '(function animate(){requestAnimationFrame(animate);for(var i=0;i<portals.length;i++){portals[i].rotation.y+=0.008+(i*0.0006);}controls.update();renderer.render(scene,camera);})();',
+            '})();</script></body></html>'
+        ].join('');
+    }
+
+    function _envExportWorldViewer() {
+        var sceneData = {
+            objects: _envSceneObjectPool().map(_envWorldViewerObjectSnapshot).filter(function (item) { return !!item; }),
+            theme: _envWorldViewerThemeSnapshot(),
+            camera: {
+                position: _env3D.camera ? [_env3D.camera.position.x, _env3D.camera.position.y, _env3D.camera.position.z] : [0, 15, 20],
+                target: _env3D.controls ? [_env3D.controls.target.x, _env3D.controls.target.y, _env3D.controls.target.z] : [0, 0, 0]
+            },
+            kindColors: _envCloneJson(_env3DKindColors || {}, {}),
+            roomMaterialNames: ['stone', 'sand', 'wood'],
+            exportedAt: new Date().toISOString(),
+            version: 'v90'
+        };
+        try {
+            var html = _envBuildWorldViewerHtml(sceneData);
+            var blob = new Blob([html], { type: 'text/html' });
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = 'champion_world_' + Date.now() + '.html';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+            if (typeof mpToast === 'function') mpToast('World viewer exported as standalone HTML.', 'success', 2200);
+        } catch (err) {
+            console.error('[envops] export world failed', err);
+            if (typeof mpToast === 'function') mpToast('World export failed: ' + String((err && err.message) || err || 'unknown error'), 'error', 3600);
+        }
+    }
+
+    function _envNormalizeAssetPackAsset(asset, index) {
+        if (!asset || typeof asset !== 'object' || Array.isArray(asset)) return null;
+        var id = String(asset.id || ('asset_' + index)).trim();
+        if (!id) return null;
+        var tags = Array.isArray(asset.tags) ? asset.tags.map(function (tag) {
+            return String(tag || '').trim();
+        }).filter(function (tag) { return !!tag; }) : [];
+        return {
+            id: id,
+            file: String(asset.file || '').trim(),
+            name: String(asset.name || asset.label || id),
+            category: String(asset.category || 'prop').trim().toLowerCase() || 'prop',
+            tags: tags,
+            thumbnail: String(asset.thumbnail || '').trim(),
+            scale_hint: _envSceneNumber(asset.scale_hint !== undefined ? asset.scale_hint : asset.scaleHint, 1, 0.2, 6),
+            kind: String(asset.kind || '').trim().toLowerCase(),
+            geometry: String(asset.geometry || '').trim().toLowerCase(),
+            state: String(asset.state || '').trim().toLowerCase(),
+            archetype: String(asset.archetype || '').trim().toLowerCase(),
+            anim_set: String(asset.anim_set || asset.animSet || '').trim().toLowerCase(),
+            download_state: String(asset.download_state || asset.downloadState || asset.download_status || asset.downloadStatus || '').trim().toLowerCase(),
+            appearance: asset.appearance && typeof asset.appearance === 'object' && !Array.isArray(asset.appearance)
+                ? _envCloneJson(asset.appearance, {})
+                : {},
+            data: asset.data && typeof asset.data === 'object' && !Array.isArray(asset.data)
+                ? _envCloneJson(asset.data, {})
+                : {}
+        };
+    }
+
+    function _envNormalizeAssetPackManifest(manifest) {
+        if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)) return null;
+        var packId = String(manifest.pack_id || manifest.packId || '').trim();
+        if (!packId) return null;
+        var assets = Array.isArray(manifest.assets) ? manifest.assets.map(_envNormalizeAssetPackAsset).filter(function (asset) { return !!asset; }) : [];
+        return {
+            pack_id: packId,
+            name: String(manifest.name || packId),
+            version: String(manifest.version || '0.1.0'),
+            license: String(manifest.license || 'unknown'),
+            description: String(manifest.description || ''),
+            base_url: String(manifest.base_url || manifest.baseUrl || '').trim(),
+            assets: assets
+        };
+    }
+
+    function _envFindAssetPack(packId) {
+        var id = String(packId || '').trim();
+        for (var i = 0; i < _envAssetPacks.length; i++) {
+            if (String(_envAssetPacks[i].pack_id || '') === id) return _envAssetPacks[i];
+        }
+        return null;
+    }
+
+    function _envAssetLooksCharacterAsset(asset) {
+        var item = asset && typeof asset === 'object' ? asset : {};
+        var category = String(item.category || '').trim().toLowerCase();
+        var kind = String(item.kind || '').trim().toLowerCase();
+        var tags = Array.isArray(item.tags) ? item.tags.map(function (tag) { return String(tag || '').trim().toLowerCase(); }) : [];
+        return category === 'character'
+            || kind === 'npc'
+            || kind === 'actor'
+            || tags.indexOf('character') >= 0
+            || tags.indexOf('npc') >= 0
+            || tags.indexOf('creature') >= 0
+            || tags.indexOf('humanoid') >= 0
+            || tags.indexOf('animated') >= 0;
+    }
+
+    function _envAssetDownloadState(asset) {
+        var item = asset && typeof asset === 'object' ? asset : {};
+        var state = String(item.download_state || '').trim().toLowerCase();
+        if (state) return state;
+        if (Array.isArray(item.tags) && (item.tags.indexOf('local') >= 0 || item.tags.indexOf('user') >= 0)) return 'local';
+        if (String(item.file || '').trim()) return 'ready';
+        return 'remote';
+    }
+
+    function _envPersistUserAssetPack(pack) {
+        try {
+            localStorage.setItem(_envUserAssetPackStorageKey, JSON.stringify(pack || null));
+        } catch (error) {
+            console.warn('[envops] user asset pack persistence skipped', error);
+        }
+    }
+
+    function _envRestoreUserAssetPack() {
+        try {
+            var saved = localStorage.getItem(_envUserAssetPackStorageKey);
+            if (!saved) return null;
+            var parsed = JSON.parse(saved);
+            return _envRegisterAssetPack(parsed);
+        } catch (error) {
+            console.warn('[envops] user asset pack restore failed', error);
+            return null;
+        }
+    }
+
+    function _envRegisterLocalModelAsset(config) {
+        var next = config && typeof config === 'object' ? config : {};
+        var path = String(next.file || '').trim();
+        var name = String(next.name || next.label || '').trim();
+        if (!path || !name) return null;
+        var filename = path.split('/').pop();
+        var modelId = String(next.id || name.toLowerCase().replace(/[^a-z0-9]+/g, '-')).trim() || ('user-model-' + Date.now());
+        var pack = _envFindAssetPack('user_models') || {
+            pack_id: 'user_models',
+            name: 'User Models',
+            version: '1.0.0',
+            license: 'local',
+            description: 'Locally registered GLB assets.',
+            base_url: '',
+            assets: []
+        };
+        var assets = Array.isArray(pack.assets) ? pack.assets.slice() : [];
+        var asset = {
+            id: modelId,
+            name: name,
+            file: path,
+            category: String(next.category || 'character').trim().toLowerCase() || 'character',
+            tags: ['local', 'user'],
+            kind: String(next.kind || 'npc').trim().toLowerCase() || 'npc',
+            scale_hint: _envSceneNumber(next.scale_hint, 1, 0.2, 6),
+            archetype: String(next.archetype || 'custom').trim().toLowerCase(),
+            anim_set: String(next.anim_set || 'humanoid').trim().toLowerCase(),
+            download_state: 'local',
+            appearance: {},
+            data: {
+                source_path: path,
+                filename: filename
+            }
+        };
+        var replaced = false;
+        for (var i = 0; i < assets.length; i++) {
+            if (String((assets[i] || {}).id || '') === modelId) {
+                assets[i] = asset;
+                replaced = true;
+                break;
+            }
+        }
+        if (!replaced) assets.push(asset);
+        pack.assets = assets;
+        var registered = _envRegisterAssetPack(pack);
+        _envPersistUserAssetPack(registered);
+        return registered;
+    }
+
+    function _envMutateAssetPackAsset(packId, assetId, changes) {
+        var pack = _envFindAssetPack(packId);
+        if (!pack) return null;
+        var assets = Array.isArray(pack.assets) ? pack.assets.slice() : [];
+        for (var i = 0; i < assets.length; i++) {
+            if (String((assets[i] || {}).id || '') !== String(assetId || '')) continue;
+            assets[i] = Object.assign({}, assets[i] || {}, changes || {});
+            pack = Object.assign({}, pack, { assets: assets });
+            return _envRegisterAssetPack(pack);
+        }
+        return null;
+    }
+
+    function _envRegisterHubSearchResults(payload, query) {
+        var models = payload && Array.isArray(payload.models) ? payload.models : [];
+        var assets = models.map(function (model) {
+            var modelId = String((model || {}).id || '').trim();
+            if (!modelId) return null;
+            var task = String((model || {}).task || '').trim().toLowerCase();
+            return {
+                id: modelId,
+                name: modelId,
+                file: '',
+                category: 'character',
+                tags: ['hub', 'remote'].concat(task ? [task] : []),
+                kind: 'npc',
+                scale_hint: 1.0,
+                archetype: 'custom',
+                anim_set: 'humanoid',
+                download_state: 'remote',
+                data: {
+                    hub_task: task,
+                    downloads: Number((model || {}).downloads || 0),
+                    likes: Number((model || {}).likes || 0),
+                    query: String(query || '')
+                }
+            };
+        }).filter(function (asset) { return !!asset; });
+        return _envRegisterAssetPack({
+            pack_id: 'hf_search_results',
+            name: 'HF Search Results',
+            version: '1.0.0',
+            license: 'remote',
+            description: 'Transient HuggingFace model search results.',
+            base_url: '',
+            assets: assets
+        });
+    }
+
+    async function _envSearchHubModelsForAssets(query) {
+        _envAssetBrowserState.hubBusy = true;
+        _envAssetBrowserState.hubStatus = 'Searching HuggingFace models…';
+        _envAssetBrowserState.hubQuery = String(query || '').trim();
+        _envRenderAssetBrowser();
+        try {
+            var payload = await callToolAwaitParsed('hub_search', {
+                query: String(query || '').trim(),
+                limit: 24,
+                page: 1
+            }, '__env_asset_hub_search__', { timeout: 45000 });
+            var registered = _envRegisterHubSearchResults(payload, query);
+            _envAssetBrowserState.hubStatus = registered && Array.isArray(registered.assets)
+                ? ('Loaded ' + String(registered.assets.length) + ' model results. Download, then copy the GLB into /static/assets/ and register it locally.')
+                : 'No HuggingFace results matched that query.';
+            _envAssetBrowserState.packFilter = registered ? String(registered.pack_id || '') : _envAssetBrowserState.packFilter;
+        } catch (error) {
+            _envAssetBrowserState.hubStatus = 'Hub search failed: ' + String((error && error.message) || error || 'unknown error');
+        }
+        _envAssetBrowserState.hubBusy = false;
+        _envRenderAssetBrowser();
+    }
+
+    async function _envDownloadHubModelAsset(modelId) {
+        var id = String(modelId || '').trim();
+        if (!id) return;
+        _envMutateAssetPackAsset('hf_search_results', id, { download_state: 'downloading' });
+        _envAssetBrowserState.hubBusy = true;
+        _envAssetBrowserState.hubStatus = 'Downloading ' + id + ' to HuggingFace cache…';
+        _envRenderAssetBrowser();
+        try {
+            var payload = await callToolAwaitParsed('hub_download', { model_id: id }, '__env_asset_hub_download__', { timeout: 120000 });
+            var pathHint = String((payload && (payload.path || payload.download_path || payload.output_path || payload.cache_path)) || '').trim();
+            _envMutateAssetPackAsset('hf_search_results', id, { download_state: 'downloaded' });
+            _envAssetBrowserState.hubStatus = 'Downloaded ' + id + (pathHint ? (' to ' + pathHint) : '') + '. Copy the GLB into /static/assets/ and use Register Local Model.';
+        } catch (error) {
+            _envMutateAssetPackAsset('hf_search_results', id, { download_state: 'error' });
+            _envAssetBrowserState.hubStatus = 'Download failed for ' + id + ': ' + String((error && error.message) || error || 'unknown error');
+        }
+        _envAssetBrowserState.hubBusy = false;
+        _envRenderAssetBrowser();
+    }
+
+    function _envFindAssetRecord(packId, assetId) {
+        var pack = _envFindAssetPack(packId);
+        if (!pack) return null;
+        var id = String(assetId || '').trim();
+        for (var i = 0; i < pack.assets.length; i++) {
+            if (String(pack.assets[i].id || '') === id) return { pack: pack, asset: pack.assets[i] };
+        }
+        return null;
+    }
+
+    function _envRegisterAssetPack(manifest) {
+        var normalized = _envNormalizeAssetPackManifest(manifest);
+        if (!normalized) return null;
+        var replaced = false;
+        for (var i = 0; i < _envAssetPacks.length; i++) {
+            if (String(_envAssetPacks[i].pack_id || '') === String(normalized.pack_id || '')) {
+                _envAssetPacks[i] = normalized;
+                replaced = true;
+                break;
+            }
+        }
+        if (!replaced) _envAssetPacks.push(normalized);
+        _envRenderAssetBrowser();
+        return normalized;
+    }
+
+    function _envLoadAssetPackManifest(url, callback) {
+        var targetUrl = String(url || '').trim();
+        if (!targetUrl || typeof fetch !== 'function') {
+            if (typeof callback === 'function') callback(null);
+            return;
+        }
+        fetch(targetUrl).then(function (response) {
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+            return response.json();
+        }).then(function (manifest) {
+            var registered = _envRegisterAssetPack(manifest);
+            if (typeof callback === 'function') callback(registered);
+        }).catch(function (error) {
+            console.warn('[envops] asset pack manifest load failed', targetUrl, error);
+            if (typeof callback === 'function') callback(null);
+        });
+    }
+
+    function _envLoadPackIndex(indexUrl) {
+        if (_envPackIndexPromise) return _envPackIndexPromise;
+        if (!indexUrl || typeof fetch !== 'function') return Promise.resolve(null);
+        _envPackIndexPromise = fetch(String(indexUrl || '').trim()).then(function (response) {
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+            return response.json();
+        }).then(function (data) {
+            if (!data || !Array.isArray(data.packs) || !data.packs.length) return [];
+            var manifestUrls = data.packs.map(function (manifestUrl) {
+                return String(manifestUrl || '').trim();
+            }).filter(function (manifestUrl) { return !!manifestUrl; });
+            if (!manifestUrls.length) return [];
+            _envAssetBrowserState.packsLoading = Number(_envAssetBrowserState.packsLoading || 0) + manifestUrls.length;
+            _envRenderAssetBrowser();
+            return Promise.all(manifestUrls.map(function (manifestUrl) {
+                return new Promise(function (resolve) {
+                    _envLoadAssetPackManifest(manifestUrl, function (registered) {
+                        _envAssetBrowserState.packsLoading = Math.max(0, Number(_envAssetBrowserState.packsLoading || 0) - 1);
+                        _envRenderAssetBrowser();
+                        resolve(registered || null);
+                    });
+                });
+            }));
+        }).catch(function (error) {
+            console.warn('[envops] pack index load failed', indexUrl, error);
+            _envPackIndexPromise = null;
+            return null;
+        });
+        return _envPackIndexPromise;
+    }
+
+    function _envGetAssetUrl(packId, assetId) {
+        var match = _envFindAssetRecord(packId, assetId);
+        if (!match || !match.asset) return '';
+        var file = String(match.asset.file || '').trim();
+        if (!file) return '';
+        if (/^(https?:|data:|blob:)/i.test(file) || file.charAt(0) === '/') return file;
+        var base = String((match.pack && match.pack.base_url) || '').trim();
+        if (!base) return file;
+        if (base.charAt(base.length - 1) === '/' || file.charAt(0) === '/') return base + file;
+        return base + '/' + file;
+    }
+
+    function _envBuiltinAssetPackManifest() {
+        return {
+            pack_id: 'builtin_primitives',
+            name: 'Built-in Primitives',
+            version: '1.0.0',
+            license: 'MIT',
+            description: 'Basic shapes and scene constructs from the current habitat engine.',
+            base_url: '',
+            assets: [
+                {
+                    id: 'basic_room',
+                    file: '',
+                    name: 'Empty Room',
+                    category: 'structure',
+                    tags: ['room', 'kit'],
+                    scale_hint: 1.2,
+                    kind: 'room',
+                    data: {
+                        room_config: {
+                            width: 8,
+                            depth: 6,
+                            height: 3.2,
+                            wallThickness: 0.16,
+                            doorwayWidth: 2.2,
+                            doors: ['north'],
+                            floorMaterial: 'stone',
+                            wallMaterial: 'stone'
+                        }
+                    }
+                },
+                {
+                    id: 'basic_portal',
+                    file: '',
+                    name: 'Portal Gate',
+                    category: 'structure',
+                    tags: ['portal', 'gate'],
+                    scale_hint: 1.0,
+                    kind: 'portal',
+                    state: 'running'
+                },
+                {
+                    id: 'basic_marker',
+                    file: '',
+                    name: 'Marker Pin',
+                    category: 'prop',
+                    tags: ['marker', 'pin'],
+                    scale_hint: 0.8,
+                    kind: 'prop',
+                    geometry: 'cone',
+                    appearance: {
+                        geometry: 'cone',
+                        color: '#4fffd0'
+                    }
+                }
+            ]
+        };
+    }
+
+    function _envCc0StarterPackManifest() {
+        return {
+            pack_id: 'cc0_starter',
+            name: 'CC0 Starter Pack',
+            version: '1.0.0',
+            license: 'CC0-1.0',
+            description: 'Low-poly CC0 models for common scene object kinds.',
+            base_url: '/static/assets/',
+            assets: [
+                {
+                    id: 'npc',
+                    file: 'npc.glb',
+                    name: 'NPC Character',
+                    category: 'agent',
+                    tags: ['npc', 'actor', 'character', 'humanoid'],
+                    scale_hint: 1.0,
+                    kind: 'npc'
+                },
+                {
+                    id: 'terminal',
+                    file: 'terminal.glb',
+                    name: 'Model Terminal',
+                    category: 'agent',
+                    tags: ['slot', 'workstation', 'terminal', 'console'],
+                    scale_hint: 1.0,
+                    kind: 'slot'
+                },
+                {
+                    id: 'chatbot',
+                    file: 'chatbot.glb',
+                    name: 'Chat Terminal',
+                    category: 'agent',
+                    tags: ['chatbot', 'chat', 'speech'],
+                    scale_hint: 1.0,
+                    kind: 'chatbot'
+                },
+                {
+                    id: 'crate',
+                    file: 'crate.glb',
+                    name: 'Supply Crate',
+                    category: 'prop',
+                    tags: ['prop', 'crate', 'box', 'container'],
+                    scale_hint: 1.0,
+                    kind: 'prop'
+                },
+                {
+                    id: 'gear',
+                    file: 'gear.glb',
+                    name: 'Workflow Gear',
+                    category: 'mechanism',
+                    tags: ['workflow', 'gear', 'cog', 'mechanism'],
+                    scale_hint: 1.0,
+                    kind: 'workflow'
+                },
+                {
+                    id: 'crystal',
+                    file: 'crystal.glb',
+                    name: 'Data Crystal',
+                    category: 'artifact',
+                    tags: ['artifact', 'crystal', 'gem', 'data'],
+                    scale_hint: 0.8,
+                    kind: 'artifact'
+                },
+                {
+                    id: 'screen',
+                    file: 'screen.glb',
+                    name: 'Display Screen',
+                    category: 'furniture',
+                    tags: ['panel', 'screen', 'monitor', 'display'],
+                    scale_hint: 1.0,
+                    kind: 'panel'
+                },
+                {
+                    id: 'server',
+                    file: 'server.glb',
+                    name: 'Server Rack',
+                    category: 'furniture',
+                    tags: ['service', 'server', 'rack', 'infrastructure'],
+                    scale_hint: 1.0,
+                    kind: 'service'
+                },
+                {
+                    id: 'pin',
+                    file: 'pin.glb',
+                    name: 'Map Pin',
+                    category: 'prop',
+                    tags: ['marker', 'pin', 'waypoint'],
+                    scale_hint: 0.8,
+                    kind: 'marker'
+                }
+            ]
+        };
+    }
+
+    function _envEnsureBuiltinAssetPacks() {
+        _envRegisterAssetPack(_envBuiltinAssetPackManifest());
+        _envRegisterAssetPack(_envCc0StarterPackManifest());
+        _envRestoreUserAssetPack();
+        _envLoadPackIndex('/static/assets/packs/index.json');
+    }
+
+    function _envAssetBrowserFilteredAssets() {
+        var packFilter = String(_envAssetBrowserState.packFilter || '').trim();
+        var categoryFilter = String(_envAssetBrowserState.categoryFilter || '').trim();
+        var rows = [];
+        (_envAssetPacks || []).forEach(function (pack) {
+            if (packFilter && String(pack.pack_id || '') !== packFilter) return;
+            (pack.assets || []).forEach(function (asset) {
+                if (categoryFilter) {
+                    if (categoryFilter === 'characters') {
+                        if (!_envAssetLooksCharacterAsset(asset)) return;
+                    } else if (String(asset.category || '') !== categoryFilter) {
+                        return;
+                    }
+                }
+                rows.push({ pack: pack, asset: asset });
+            });
+        });
+        return rows;
+    }
+
+    function _envAssetCardGlyph(asset) {
+        var kind = String(asset.kind || asset.category || asset.id || '').trim().toLowerCase();
+        if (kind.indexOf('room') >= 0) return 'RM';
+        if (kind.indexOf('portal') >= 0) return 'PT';
+        if (kind.indexOf('marker') >= 0) return 'MK';
+        if (kind.indexOf('panel') >= 0) return 'PN';
+        var words = String(asset.name || asset.id || 'ASSET').trim().split(/\s+/);
+        var out = '';
+        for (var i = 0; i < words.length && out.length < 2; i++) {
+            if (words[i] && words[i].charAt(0)) out += words[i].charAt(0).toUpperCase();
+        }
+        return out || 'AS';
+    }
+
+    function _envAssetCardStatusLabel(asset) {
+        var state = _envAssetDownloadState(asset);
+        if (state === 'local') return 'local';
+        if (state === 'downloading') return 'downloading';
+        if (state === 'downloaded') return 'downloaded';
+        if (state === 'error') return 'error';
+        if (state === 'remote') return 'remote';
+        return 'ready';
+    }
+
+    function _envRenderAssetBrowser() {
+        var panel = document.getElementById('envops-asset-browser');
+        var body = document.getElementById('envops-asset-browser-body');
+        var grid = document.getElementById('envops-asset-grid');
+        var count = document.getElementById('envops-asset-count');
+        var packSelect = document.getElementById('envops-asset-pack-select');
+        var categorySelect = document.getElementById('envops-asset-category-select');
+        var actions = document.getElementById('envops-asset-browser-actions');
+        var hubTools = document.getElementById('envops-asset-browser-hub');
+        if (!panel || !body || !grid || !count || !packSelect || !categorySelect) return;
+        var packs = Array.isArray(_envAssetPacks) ? _envAssetPacks.slice() : [];
+        if (!packs.length) {
+            panel.style.display = 'none';
+            return;
+        }
+        panel.style.display = 'block';
+        panel.classList.toggle('collapsed', !_envAssetBrowserState.expanded);
+        body.style.display = _envAssetBrowserState.expanded ? 'block' : 'none';
+
+        var packValue = String(_envAssetBrowserState.packFilter || '');
+        var packOptions = ['<option value="">All Packs</option>'];
+        packs.forEach(function (pack) {
+            packOptions.push('<option value="' + _esc(String(pack.pack_id || '')) + '"' + (String(pack.pack_id || '') === packValue ? ' selected' : '') + '>' + _esc(String(pack.name || pack.pack_id || 'pack')) + '</option>');
+        });
+        packSelect.innerHTML = packOptions.join('');
+
+        var categoriesMap = {};
+        packs.forEach(function (pack) {
+            if (packValue && String(pack.pack_id || '') !== packValue) return;
+            (pack.assets || []).forEach(function (asset) {
+                var cat = String(asset.category || '').trim();
+                if (cat) categoriesMap[cat] = true;
+            });
+        });
+        var categories = Object.keys(categoriesMap).sort();
+        if (categories.indexOf('characters') < 0) categories.unshift('characters');
+        if (_envAssetBrowserState.categoryFilter && categories.indexOf(_envAssetBrowserState.categoryFilter) < 0) {
+            _envAssetBrowserState.categoryFilter = '';
+        }
+        var catValue = String(_envAssetBrowserState.categoryFilter || '');
+        var categoryOptions = ['<option value="">All Categories</option>'];
+        categories.forEach(function (category) {
+            var label = category === 'characters' ? 'Characters' : category;
+            categoryOptions.push('<option value="' + _esc(category) + '"' + (category === catValue ? ' selected' : '') + '>' + _esc(label) + '</option>');
+        });
+        categorySelect.innerHTML = categoryOptions.join('');
+
+        if (actions) {
+            actions.innerHTML = '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">' +
+                '<button type="button" class="btn-dim" data-env-action="toggle-register-local-model">' + (_envAssetBrowserState.localModelOpen ? 'Close Local Model' : 'Register Local Model') + '</button>' +
+                '<span class="envops-kernel-note">Renderer reads appearance.asset_ref; asset packs register via file URLs.</span>' +
+            '</div>' +
+            (_envAssetBrowserState.localModelOpen
+                ? '<div style="display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:8px;margin-top:8px;">' +
+                    _envInspectorEditorField('envops-local-model-path', 'GLB Path', '', 'text', '', '/static/assets/model.glb') +
+                    _envInspectorEditorField('envops-local-model-name', 'Name', '', 'text', '', 'Merlin') +
+                    _envInspectorEditorSelect('envops-local-model-category', 'Category', 'character', [
+                        { value: 'character', label: 'Character' },
+                        { value: 'prop', label: 'Prop' },
+                        { value: 'creature', label: 'Creature' }
+                    ]) +
+                    _envInspectorEditorField('envops-local-model-archetype', 'Archetype', 'custom', 'text') +
+                    _envInspectorEditorField('envops-local-model-anim-set', 'Anim Set', 'humanoid', 'text') +
+                    '<div style="display:flex;align-items:end;"><button type="button" data-env-action="register-local-model">Register</button></div>' +
+                '</div>'
+                : '');
+        }
+        if (hubTools) {
+            hubTools.innerHTML = '<div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:end;">' +
+                _envInspectorEditorField('envops-hub-search-query', 'HuggingFace Search', _envAssetBrowserState.hubQuery || '', 'text', '', 'wizard glb') +
+                '<button type="button" class="' + (_envAssetBrowserState.hubBusy ? 'btn-dim' : '') + '" data-env-action="search-hub-models">' + (_envAssetBrowserState.hubBusy ? 'Searching…' : 'Search HF') + '</button>' +
+            '</div>' +
+            '<div class="envops-kernel-note" style="margin-top:6px;">' + _esc(String(_envAssetBrowserState.hubStatus || 'Search public/open-source model IDs, then download manually and register a local GLB.')) + '</div>';
+        }
+
+        var filtered = _envAssetBrowserFilteredAssets();
+        var totalAssets = packs.reduce(function (sum, pack) {
+            return sum + Number((pack.assets || []).length || 0);
+        }, 0);
+        count.textContent = Number(_envAssetBrowserState.packsLoading || 0) > 0
+            ? 'Loading packs...'
+            : (filtered.length === totalAssets ? (String(totalAssets) + ' assets') : (String(filtered.length) + ' / ' + String(totalAssets) + ' assets'));
+
+        if (!filtered.length) {
+            grid.innerHTML = '<div class="envops-asset-browser-empty">No asset packs loaded for the current filters.</div>';
+            return;
+        }
+
+        grid.innerHTML = filtered.map(function (entry) {
+            var asset = entry.asset;
+            var pack = entry.pack;
+            var tags = Array.isArray(asset.tags) && asset.tags.length ? asset.tags.join(' · ') : 'ready to spawn';
+            var statusLabel = _envAssetCardStatusLabel(asset);
+            var canSpawn = !!String(asset.file || '').trim()
+                || !!String(asset.geometry || '').trim()
+                || !!(asset.appearance && Object.keys(asset.appearance).length)
+                || !!(asset.data && Object.keys(asset.data).length)
+                || _envAssetDownloadState(asset) !== 'remote';
+            return '<div class="envops-asset-card">' +
+                '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">' +
+                '<div class="envops-asset-card-thumb">' + _esc(_envAssetCardGlyph(asset)) + '</div>' +
+                '<span class="envops-chip" style="font-size:10px;">' + _esc(statusLabel) + '</span>' +
+                '</div>' +
+                '<div class="envops-asset-card-name">' + _esc(String(asset.name || asset.id || 'Asset')) + '</div>' +
+                '<div class="envops-asset-card-cat">' + _esc(String(asset.category || 'prop')) + '</div>' +
+                '<div class="envops-asset-card-pack">' + _esc(String(pack.name || pack.pack_id || 'pack')) + '</div>' +
+                '<div class="envops-asset-card-tags">' + _esc(tags) + '</div>' +
+                '<div class="envops-inspector-actions-inline" style="margin-top:8px;">' +
+                (canSpawn
+                    ? '<button class="envops-asset-card-spawn" data-env-asset-pack="' + _esc(String(pack.pack_id || '')) + '" data-env-asset-id="' + _esc(String(asset.id || '')) + '">SPAWN</button>'
+                    : '<button class="btn-dim" data-env-action="download-hub-model" data-env-model-id="' + _esc(String(asset.id || '')) + '">DOWNLOAD</button>') +
+                '</div>' +
+                '</div>';
+        }).join('');
+    }
+
+    function _envSpawnFromAsset(packId, assetId) {
+        var match = _envFindAssetRecord(packId, assetId);
+        if (!match || !match.asset) return;
+        var pack = match.pack;
+        var asset = match.asset;
+        var url = _envGetAssetUrl(packId, assetId);
+        var isCharacterAsset = _envAssetLooksCharacterAsset(asset);
+        var spawnArgs = {
+            kind: String((isCharacterAsset ? 'npc' : asset.kind) || 'prop') || 'prop',
+            id: String(asset.id || 'asset') + '_' + Date.now(),
+            label: String(asset.name || asset.id || 'Asset'),
+            x: 50,
+            y: 50,
+            scale: Number(asset.scale_hint || 1),
+            state: String(asset.state || 'idle') || 'idle'
+        };
+        var spawnData = asset.data && Object.keys(asset.data).length
+            ? _envCloneJson(asset.data, {})
+            : {};
+        if (asset.category) spawnArgs.category = String(asset.category || '').trim().toLowerCase();
+        if (Array.isArray(asset.tags) && asset.tags.length) {
+            spawnArgs.tags = asset.tags.slice();
+        }
+        if (asset.category && spawnData.category === undefined) spawnData.category = String(asset.category || '').trim().toLowerCase();
+        if (Array.isArray(asset.tags) && asset.tags.length && spawnData.tags === undefined) spawnData.tags = asset.tags.slice();
+        spawnData.asset_pack_id = String(pack && pack.pack_id || '');
+        spawnData.asset_pack_name = String(pack && pack.name || '');
+        spawnData.asset_id = String(asset.id || '');
+        spawnData.asset_name = String(asset.name || asset.id || '');
+        if (asset.kind && spawnData.asset_kind === undefined) spawnData.asset_kind = String(asset.kind || '').trim().toLowerCase();
+        if (asset.scale_hint !== undefined && spawnData.asset_scale_hint === undefined) {
+            spawnData.asset_scale_hint = Number(asset.scale_hint || 1);
+        }
+        if (Object.keys(spawnData).length) {
+            spawnArgs.data = spawnData;
+        }
+        var appearance = asset.appearance && typeof asset.appearance === 'object' && !Array.isArray(asset.appearance)
+            ? _envCloneJson(asset.appearance, {})
+            : {};
+        if (asset.geometry && !appearance.geometry) appearance.geometry = asset.geometry;
+        if (url) appearance.asset_ref = url;
+        if (isCharacterAsset) {
+            spawnArgs.character = {
+                archetype: String(asset.archetype || 'custom').trim().toLowerCase() || 'custom',
+                asset_ref: url || null,
+                anim_set: String(asset.anim_set || 'humanoid').trim().toLowerCase() || 'humanoid',
+                behavior: 'idle'
+            };
+        }
+        if (Object.keys(appearance).length) spawnArgs.appearance = appearance;
+        var previewScene = _envSceneObjectCatalog().slice();
+        previewScene.push(_envCloneJson(spawnArgs, {}));
+        var previewWarnings = _env3DAuditSceneComposition(previewScene);
+        _envSceneAudit.previewWarnings = previewWarnings;
+        _envSceneAudit.previewSignature = _envSceneAuditSignature(previewScene);
+        _envSceneAudit.previewTimestamp = Date.now();
+        _envLogAction('spawn', 'Asset browser spawn requested', _envManualActorId(), {
+            pack_id: String(pack && pack.pack_id || ''),
+            asset_id: String(asset.id || ''),
+            kind: String(spawnArgs.kind || 'prop')
+        });
+        callTool('env_spawn', spawnArgs);
+        if (typeof mpToast === 'function') {
+            if (previewWarnings.length) {
+                mpToast(
+                    (previewWarnings.length > 1 ? (String(previewWarnings.length) + ' scene audit warnings. ') : '')
+                    + String(previewWarnings[0].message || 'Scene audit warning.'),
+                    'info',
+                    3200
+                );
+            } else {
+                mpToast('Spawning ' + String(asset.name || asset.id || 'asset') + '.', 'info', 1800);
+            }
+        }
+    }
+
+    function _envRenderInstallBanner() {
+        var banner = document.getElementById('envops-install-banner');
+        var actionBtn = document.getElementById('envops-install-action');
+        if (!banner) return;
+        var show = _envStandaloneBrowserMode()
+            && !_envPwaState.dismissed
+            && !_envPwaState.installed
+            && !!_envPwaState.deferredPrompt;
+        banner.style.display = show ? 'flex' : 'none';
+        if (actionBtn) actionBtn.disabled = !_envPwaState.deferredPrompt;
+    }
+
+    function _envPromptPwaInstall() {
+        var promptEvent = _envPwaState.deferredPrompt;
+        if (!promptEvent) return;
+        try {
+            promptEvent.prompt();
+            Promise.resolve(promptEvent.userChoice).then(function (choice) {
+                _envPwaState.deferredPrompt = null;
+                _envPwaState.available = false;
+                _envPwaState.dismissed = true;
+                if (choice && choice.outcome === 'accepted') {
+                    _envPwaState.installed = true;
+                    if (typeof mpToast === 'function') mpToast('Champion Council install accepted.', 'success', 2200);
+                }
+                _envRenderInstallBanner();
+            }).catch(function () {
+                _envPwaState.deferredPrompt = null;
+                _envRenderInstallBanner();
+            });
+        } catch (err) {
+            console.warn('[envops] install prompt failed', err);
+        }
+    }
+
+    function _envDismissInstallPrompt() {
+        _envPwaState.dismissed = true;
+        _envRenderInstallBanner();
+    }
+
+    function _envInitPwaSupport() {
+        if (_envPwaState.initialized) {
+            _envRenderInstallBanner();
+            return;
+        }
+        _envPwaState.initialized = true;
+        if (!_envStandaloneBrowserMode()) {
+            _envRenderInstallBanner();
+            return;
+        }
+        window.addEventListener('beforeinstallprompt', function (event) {
+            event.preventDefault();
+            _envPwaState.deferredPrompt = event;
+            _envPwaState.available = true;
+            _envPwaState.dismissed = false;
+            _envRenderInstallBanner();
+        });
+        window.addEventListener('appinstalled', function () {
+            _envPwaState.installed = true;
+            _envPwaState.available = false;
+            _envPwaState.deferredPrompt = null;
+            _envRenderInstallBanner();
+        });
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/static/sw.js').catch(function (error) {
+                console.warn('[envops] service worker registration failed', error);
+            });
+        }
+        _envRenderInstallBanner();
+    }
+
     function renderEnvironmentView() {
+        _envRefreshSceneAudit(false);
+        // When 3D scene is active, block ALL HTML rebuilds - only one forced
+        // catch-up per renderThrottleMs cycle.  The 3D canvas and CSS2D labels
+        // update independently at 60 fps via _env3DAnimate.
+        var _sceneGuardActive = !!(_env3D.inited && document.getElementById('envops-habitat-shell'));
+        var _userInitiated = (Date.now() - Number(_envStageUiState.lastUserClickTs || 0)) < 150;
+        if (_sceneGuardActive && !_envStageUiState.forceStageRebuild && !_userInitiated) {
+            return;
+        }
+        // Render is proceeding — ensure forceStageRebuild is set so
+        // preserveSceneStage evaluates false and innerHTML actually rebuilds
+        if (_sceneGuardActive) _envStageUiState.forceStageRebuild = true;
+        _envStageUiState.lastRenderTs = Date.now();
         var listEl = document.getElementById('envops-system-list');
         var countEl = document.getElementById('envops-system-count');
         var selectedEl = document.getElementById('envops-selected');
@@ -20360,6 +29609,7 @@
             _envEnsureSceneSnapshotIdentity('scene-primary', false);
             var sceneSnapshotName = _envScenePrimarySnapshotName();
             var sceneContextId = _envSceneDocContextId();
+            var sceneAuditHtml = _envRenderSceneAuditWarningsHtml();
             _envClearSceneWorkflowResidue(sceneSnapshotName);
             var sceneWorkflowId = String(_envFocusedWorkflowId() || '').trim();
             if (sceneWorkflowId) _envBindWorkflowContext(sceneWorkflowId);
@@ -20367,10 +29617,12 @@
             var sceneWorkflowMeta = sceneWorkflowId ? _envWorkflowById(sceneWorkflowId) : null;
             var traces = sceneWorkflowId ? _envTraceRows(8) : [];
             var sections = _envArtifactSections();
+            var sceneCanonical = _envSceneCanonicalState(sceneSnapshotName, sceneWorkflowId, sceneWorkflowMeta);
             if (String(_envDocState.contextKind || '') !== 'scene' || String(_envDocState.contextId || '') !== String(sceneContextId || 'scene')) {
                 _envRefreshDocs('scene switch', 'system', true);
             }
-            var preserveSceneStage = !!(((_env3D.manualControlActive || _envOpsRailInteractionActive() || _envOpsRailPinned()) && stageEl.querySelector('#envops-habitat-shell')));
+            var preserveSceneStage = !!((!_envStageUiState.forceStageRebuild && (_env3D.inited || _env3D.manualControlActive || _envOpsRailInteractionActive() || _envOpsRailPinned()) && stageEl.querySelector('#envops-habitat-shell')));
+            _envStageUiState.forceStageRebuild = false;
             var sceneHabitatHtml = '';
             if (preserveSceneStage) {
                 _envStageUiState.pendingSceneRender = true;
@@ -20451,17 +29703,23 @@
                     '<div class="envops-card"><div class="envops-card-label">Persisted Objects</div><div class="envops-card-value">' + String(Number(((_envSpawnedObjects || []).length) || 0)) + ' staged</div></div>' +
                     '<div class="envops-card"><div class="envops-card-label">Navigation</div><div class="envops-card-value">history ' + String(Number((_envNavigationState.history || []).length || 0)) + '</div></div>' +
                     '<div class="envops-card"><div class="envops-card-label">Bootstrap</div><div class="envops-card-value">' + _esc(_envSceneBootstrapState.pending ? 'HYDRATING' : (_envSceneBootstrapState.hydratedTs ? 'READY' : 'IDLE')) + '</div></div>' +
+                    '<div class="envops-card"><div class="envops-card-label">Canonical Surface</div><div class="envops-card-value">' + _esc(sceneCanonical.surfaceSummary) + '</div></div>' +
+                    '<div class="envops-card"><div class="envops-card-label">Operator Truth</div><div class="envops-card-value">' + _esc(sceneCanonical.operatorSummary) + '</div></div>' +
+                    '<div class="envops-card"><div class="envops-card-label">Corroboration</div><div class="envops-card-value">' + _esc(sceneCanonical.corroborationSummary) + '</div></div>' +
+                    '<div class="envops-card"><div class="envops-card-label">Deferred Mismatch</div><div class="envops-card-value">' + _esc(sceneCanonical.mismatchSummary) + '</div></div>' +
                     (sceneWorkflowId
                         ? ('<div class="envops-card"><div class="envops-card-label">Workflow Context</div><div class="envops-card-value">' + _esc((sceneWorkflowMeta && (sceneWorkflowMeta.name || sceneWorkflowMeta.id)) || sceneWorkflowId || 'workflow') + '</div></div>' +
                             '<div class="envops-card"><div class="envops-card-label">Run History</div><div class="envops-card-value">' + String((_envRunHistoryState.rows || []).length) + ' cached</div></div>' +
                             '<div class="envops-card"><div class="envops-card-label">Health Probe</div><div class="envops-card-value">' + _esc(_envHealthPending() ? 'REQUESTED' : ((_envHealthState.refreshedTs || 0) ? 'READY' : 'IDLE')) + '</div></div>')
                         : '<div class="envops-card"><div class="envops-card-label">Workflow Context</div><div class="envops-card-value">UNBOUND</div></div>') +
                     '</div>' +
+                    (sceneAuditHtml || '') +
                     '<div class="envops-stage-shell">' +
                     sceneHabitatHtml +
                     '</div>';
                 _envRestoreOpsRailScroll();
             }
+            _envBindHabitatOverlayPanels();
             try {
                 _envSyncHabitatScene(null, sceneExec, sections, traces, renderTarget);
                 _envScene.workflowId = String(sceneWorkflowId || '');
@@ -20476,9 +29734,7 @@
             }
             if (artifactCountEl) artifactCountEl.textContent = String(sections.length);
             _envRenderTraceRows(sceneWorkflowId ? traces : []);
-            kernelEl.innerHTML = sceneWorkflowId
-                ? ('<div class="envops-stage-empty">Scene-first mode active. Workflow context is now bound to ' + _esc((sceneWorkflowMeta && (sceneWorkflowMeta.name || sceneWorkflowMeta.id)) || sceneWorkflowId || 'workflow') + ' for focus, traces, run history, and health surfaces while the scene shell stays primary.</div>')
-                : '<div class="envops-stage-empty">Scene-first mode active. Focus, camera, sampling, branching, and object interactions remain available from the theater while workflow selection stays unbound.</div>';
+            kernelEl.innerHTML = _envRenderSceneKernel(sceneSnapshotName, sceneWorkflowId, sceneWorkflowMeta, sceneExec, sections, traces);
             try {
                 _envRenderDocsPanel();
             } catch (err) {
@@ -24906,6 +34162,15 @@
         });
     }
 
+    var envExportWorldBtn = document.getElementById('envops-export-world');
+    if (envExportWorldBtn) {
+        envExportWorldBtn.addEventListener('click', function () {
+            var uiActor = _envManualActorId();
+            _envLogAction('export', 'Triggered standalone world export', uiActor, { workflow_id: _wfSelectedId || '' });
+            _envExportWorldViewer();
+        });
+    }
+
     var envStartApiBtn = document.getElementById('envops-start-api');
     if (envStartApiBtn) {
         envStartApiBtn.addEventListener('click', function () {
@@ -24938,6 +34203,105 @@
             renderEnvironmentView();
         });
     }
+
+    var envInstallActionBtn = document.getElementById('envops-install-action');
+    if (envInstallActionBtn) {
+        envInstallActionBtn.addEventListener('click', function () {
+            _envPromptPwaInstall();
+        });
+    }
+
+    var envInstallDismissBtn = document.getElementById('envops-install-dismiss');
+    if (envInstallDismissBtn) {
+        envInstallDismissBtn.addEventListener('click', function () {
+            _envDismissInstallPrompt();
+        });
+    }
+
+    var envAssetBrowserToggle = document.getElementById('envops-asset-browser-toggle');
+    if (envAssetBrowserToggle) {
+        envAssetBrowserToggle.addEventListener('click', function () {
+            _envAssetBrowserState.expanded = !_envAssetBrowserState.expanded;
+            renderEnvironmentView();
+            _envRenderAssetBrowser();
+        });
+    }
+
+    var envAssetPackSelect = document.getElementById('envops-asset-pack-select');
+    if (envAssetPackSelect) {
+        envAssetPackSelect.addEventListener('change', function () {
+            _envAssetBrowserState.packFilter = String(envAssetPackSelect.value || '');
+            _envRenderAssetBrowser();
+        });
+    }
+
+    var envAssetCategorySelect = document.getElementById('envops-asset-category-select');
+    if (envAssetCategorySelect) {
+        envAssetCategorySelect.addEventListener('change', function () {
+            _envAssetBrowserState.categoryFilter = String(envAssetCategorySelect.value || '');
+            _envRenderAssetBrowser();
+        });
+    }
+
+    var envAssetBrowserBody = document.getElementById('envops-asset-browser-body');
+    if (envAssetBrowserBody) {
+        envAssetBrowserBody.addEventListener('click', function (event) {
+            var spawnBtn = event.target.closest('[data-env-asset-pack][data-env-asset-id]');
+            if (spawnBtn) {
+                _envSpawnFromAsset(spawnBtn.getAttribute('data-env-asset-pack') || '', spawnBtn.getAttribute('data-env-asset-id') || '');
+                return;
+            }
+            var downloadBtn = event.target.closest('[data-env-action="download-hub-model"]');
+            if (downloadBtn) {
+                _envDownloadHubModelAsset(downloadBtn.getAttribute('data-env-model-id') || '');
+                return;
+            }
+            var toggleLocalBtn = event.target.closest('[data-env-action="toggle-register-local-model"]');
+            if (toggleLocalBtn) {
+                _envAssetBrowserState.localModelOpen = !_envAssetBrowserState.localModelOpen;
+                _envRenderAssetBrowser();
+                return;
+            }
+            var registerLocalBtn = event.target.closest('[data-env-action="register-local-model"]');
+            if (registerLocalBtn) {
+                var pathEl = document.getElementById('envops-local-model-path');
+                var nameEl = document.getElementById('envops-local-model-name');
+                var categoryEl = document.getElementById('envops-local-model-category');
+                var archetypeEl = document.getElementById('envops-local-model-archetype');
+                var animSetEl = document.getElementById('envops-local-model-anim-set');
+                var path = String((pathEl && pathEl.value) || '').trim();
+                var label = String((nameEl && nameEl.value) || '').trim();
+                if (!path || !label) {
+                    if (typeof mpToast === 'function') mpToast('Provide a local /static/assets/*.glb path and a model name.', 'error', 2200);
+                    return;
+                }
+                _envRegisterLocalModelAsset({
+                    id: label.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+                    file: path,
+                    name: label,
+                    category: String((categoryEl && categoryEl.value) || 'character'),
+                    archetype: String((archetypeEl && archetypeEl.value) || 'custom'),
+                    anim_set: String((animSetEl && animSetEl.value) || 'humanoid'),
+                    kind: 'npc'
+                });
+                _envAssetBrowserState.localModelOpen = false;
+                _envAssetBrowserState.packFilter = 'user_models';
+                _envAssetBrowserState.categoryFilter = 'characters';
+                _envRenderAssetBrowser();
+                if (typeof mpToast === 'function') mpToast('Registered local model ' + label + '.', 'success', 2200);
+                return;
+            }
+            var hubSearchBtn = event.target.closest('[data-env-action="search-hub-models"]');
+            if (hubSearchBtn && !_envAssetBrowserState.hubBusy) {
+                var queryEl = document.getElementById('envops-hub-search-query');
+                _envSearchHubModelsForAssets(String((queryEl && queryEl.value) || '').trim());
+            }
+        });
+    }
+
+    _envEnsureBuiltinAssetPacks();
+    _envRenderAssetBrowser();
+    _envInitPwaSupport();
 
     var envStageEl = document.getElementById('envops-stage');
     if (envStageEl) {
@@ -25002,6 +34366,110 @@
                 }
                 if (action === 'replay-focus') {
                     _envQueueControl('focus_replay', actionEl.getAttribute('data-env-replay-index') || '0', uiActor, 'stage replay focus');
+                    return;
+                }
+                if (action === 'set-camera-mode') {
+                    _envQueueControl('set_camera_mode', actionEl.getAttribute('data-env-camera-mode') || 'overview', uiActor, 'cockpit camera mode');
+                    return;
+                }
+                if (action === 'reset-camera') {
+                    _envQueueControl('camera_reset_pose', '', uiActor, 'cockpit camera reset');
+                    return;
+                }
+                if (action === 'toggle-overlay-panel') {
+                    var toggleOverlayId = String(actionEl.getAttribute('data-env-overlay-id') || '').trim();
+                    if (toggleOverlayId) {
+                        var toggleState = _envOverlayPanelState(toggleOverlayId);
+                        _envSetOverlayPanelState(toggleOverlayId, { minimized: !toggleState.minimized });
+                        _envStageUiState.forceStageRebuild = true;
+                        renderEnvironmentView();
+                    }
+                    return;
+                }
+                if (action === 'restore-overlay-panel') {
+                    var restoreOverlayId = String(actionEl.getAttribute('data-env-overlay-id') || '').trim();
+                    if (restoreOverlayId) {
+                        _envSetOverlayPanelState(restoreOverlayId, { minimized: false });
+                        _envStageUiState.forceStageRebuild = true;
+                        renderEnvironmentView();
+                    }
+                    return;
+                }
+                if (action === 'reset-overlay-panel') {
+                    var resetOverlayId = String(actionEl.getAttribute('data-env-overlay-id') || '').trim();
+                    if (resetOverlayId) {
+                        _envSetOverlayPanelState(resetOverlayId, { minimized: false, x: null, y: null });
+                        _envStageUiState.forceStageRebuild = true;
+                        renderEnvironmentView();
+                    }
+                    return;
+                }
+                if (action === 'set-label-mode') {
+                    var labelTarget = actionEl.getAttribute('data-env-label-target') || '';
+                    if (labelTarget) {
+                        _env3D.labelMode = String(labelTarget || 'full').trim().toLowerCase() || 'full';
+                        _env3DApplyLabelMode();
+                        renderEnvironmentView();
+                    }
+                    return;
+                }
+                if (action === 'toggle-kind-panel') {
+                    _env3D.kindFilterOpen = !_env3D.kindFilterOpen;
+                    renderEnvironmentView();
+                    return;
+                }
+                if (action === 'toggle-kind') {
+                    var kindName = actionEl.getAttribute('data-env-kind') || '';
+                    if (kindName) {
+                        _env3DToggleKindFilter(kindName);
+                        renderEnvironmentView();
+                    }
+                    return;
+                }
+                if (action === 'kind-show-all') {
+                    _env3DSetAllKindsVisible(true);
+                    renderEnvironmentView();
+                    return;
+                }
+                if (action === 'kind-hide-all') {
+                    _env3DSetAllKindsVisible(false);
+                    renderEnvironmentView();
+                    return;
+                }
+                if (action === 'toggle-asset-browser') {
+                    _envAssetBrowserState.expanded = !_envAssetBrowserState.expanded;
+                    renderEnvironmentView();
+                    _envRenderAssetBrowser();
+                    return;
+                }
+                if (action === 'toggle-spawn-object-form') {
+                    _envStageUiState.spawnFormOpen = !_envStageUiState.spawnFormOpen;
+                    _envMarkOpsRailInteraction();
+                    renderEnvironmentView();
+                    return;
+                }
+                if (action === 'spawn-scene-object') {
+                    var spawnKindEl = document.getElementById('envops-spawn-kind');
+                    var spawnLabelEl = document.getElementById('envops-spawn-label');
+                    var spawnXEl = document.getElementById('envops-spawn-x');
+                    var spawnYEl = document.getElementById('envops-spawn-y');
+                    var spawnKind = String((spawnKindEl && spawnKindEl.value) || 'prop').trim().toLowerCase() || 'prop';
+                    var spawnLabel = String((spawnLabelEl && spawnLabelEl.value) || '').trim() || ('New ' + spawnKind);
+                    var spawnId = spawnLabel.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || ('spawned-' + Date.now());
+                    var spawnArgs = {
+                        kind: spawnKind,
+                        id: spawnId + '-' + Date.now(),
+                        label: spawnLabel,
+                        x: Number((spawnXEl && spawnXEl.value) || 50),
+                        y: Number((spawnYEl && spawnYEl.value) || 50),
+                        scale: 1,
+                        state: 'idle'
+                    };
+                    _envStageUiState.spawnFormOpen = false;
+                    _envSpawnObject(spawnArgs);
+                    callTool('env_spawn', spawnArgs, 'env_spawn', { stageAction: true, source: 'habitat_spawn' });
+                    if (typeof mpToast === 'function') mpToast('Spawned ' + spawnLabel + '.', 'success', 1800);
+                    renderEnvironmentView();
                     return;
                 }
             }
@@ -25255,6 +34723,44 @@
                 _envQueueControl('set_camera_mode', actionEl.getAttribute('data-env-camera-mode') || 'overview', uiActor, 'manual habitat camera');
                 return;
             }
+            if (action === 'set-label-mode') {
+                var labelTarget = actionEl.getAttribute('data-env-label-target') || '';
+                if (labelTarget) {
+                    _env3D.labelMode = String(labelTarget || 'full').trim().toLowerCase() || 'full';
+                    _env3DApplyLabelMode();
+                    renderEnvironmentView();
+                }
+                return;
+            }
+            if (action === 'toggle-kind-panel') {
+                _env3D.kindFilterOpen = !_env3D.kindFilterOpen;
+                renderEnvironmentView();
+                return;
+            }
+            if (action === 'toggle-kind') {
+                var kindName = actionEl.getAttribute('data-env-kind') || '';
+                if (kindName) {
+                    _env3DToggleKindFilter(kindName);
+                    renderEnvironmentView();
+                }
+                return;
+            }
+            if (action === 'kind-show-all') {
+                _env3DSetAllKindsVisible(true);
+                renderEnvironmentView();
+                return;
+            }
+            if (action === 'kind-hide-all') {
+                _env3DSetAllKindsVisible(false);
+                renderEnvironmentView();
+                return;
+            }
+            if (action === 'toggle-asset-browser') {
+                _envAssetBrowserState.expanded = !_envAssetBrowserState.expanded;
+                renderEnvironmentView();
+                _envRenderAssetBrowser();
+                return;
+            }
             if (action === 'focus-replay') {
                 _envQueueControl('focus_replay', actionEl.getAttribute('data-env-replay-index') || '0', uiActor, 'manual replay focus');
                 return;
@@ -25462,6 +34968,44 @@
     window.envopsCloseSurface = function (actor) {
         _envQueueControl('close_surface', '', actor || 'assistant', 'external surface close');
     };
+    window.envopsSurfaceTab = function (surfaceIdOrKey, tabKey, actor) {
+        _envQueueControl('surface_tab', JSON.stringify({
+            surface: surfaceIdOrKey === undefined || surfaceIdOrKey === null ? '' : String(surfaceIdOrKey),
+            tab: tabKey === undefined || tabKey === null ? '' : String(tabKey)
+        }), actor || 'assistant', 'external surface tab');
+    };
+    window.envopsSurfaceScroll = function (surfaceIdOrKey, target, actor) {
+        _envQueueControl('surface_scroll', JSON.stringify({
+            surface: surfaceIdOrKey === undefined || surfaceIdOrKey === null ? '' : String(surfaceIdOrKey),
+            target: target === undefined || target === null ? '' : String(target)
+        }), actor || 'assistant', 'external surface scroll');
+    };
+    window.envopsSurfaceAction = function (surfaceIdOrKey, action, target, actor) {
+        _envQueueControl('surface_action', JSON.stringify({
+            surface: surfaceIdOrKey === undefined || surfaceIdOrKey === null ? '' : String(surfaceIdOrKey),
+            action: action === undefined || action === null ? '' : String(action),
+            target: target === undefined || target === null ? '' : String(target)
+        }), actor || 'assistant', 'external surface action');
+    };
+    window.envopsSurfaceClick = function (surfaceIdOrKey, target, actor) {
+        _envQueueControl('surface_click', JSON.stringify({
+            surface: surfaceIdOrKey === undefined || surfaceIdOrKey === null ? '' : String(surfaceIdOrKey),
+            target: target === undefined || target === null ? '' : String(target)
+        }), actor || 'assistant', 'external surface click');
+    };
+    window.envopsSurfaceInput = function (surfaceIdOrKey, target, value, actor) {
+        _envQueueControl('surface_input', JSON.stringify({
+            surface: surfaceIdOrKey === undefined || surfaceIdOrKey === null ? '' : String(surfaceIdOrKey),
+            target: target === undefined || target === null ? '' : String(target),
+            value: value === undefined || value === null ? '' : String(value)
+        }), actor || 'assistant', 'external surface input');
+    };
+    window.envopsSurfaceSubmit = function (surfaceIdOrKey, target, actor) {
+        _envQueueControl('surface_submit', JSON.stringify({
+            surface: surfaceIdOrKey === undefined || surfaceIdOrKey === null ? '' : String(surfaceIdOrKey),
+            target: target === undefined || target === null ? '' : String(target)
+        }), actor || 'assistant', 'external surface submit');
+    };
     window.envopsCloseInspector = function (actor) {
         _envQueueControl('close_inspector', '', actor || 'assistant', 'external inspector close');
     };
@@ -25578,6 +35122,8 @@
                 route_count: Number(((_envScene.routes || []).length) || 0),
                 trajectory_count: Number(((_envScene.trajectories || []).length) || 0),
                 pickable_count: Number(((_envScene.pickables || []).length) || 0),
+                habitat_3d_count: Number(Object.keys(_env3D.meshes || {}).length || 0),
+                trigger_count: Number(Object.keys(_env3D.triggers || {}).length || 0),
                 hover: _envScene.hover ? {
                     kind: String((_envScene.hover.kind) || ''),
                     id: String((_envScene.hover.id) || ''),
@@ -25615,8 +35161,8 @@
                     error: String(_envSceneBootstrapState.error || '')
                 },
                 viewport: {
-                    width: Number(_envScene.width || 0),
-                    height: Number(_envScene.height || 0)
+                    width: Number((((_env3D.renderer || {}).domElement || {}).clientWidth) || 0),
+                    height: Number((((_env3D.renderer || {}).domElement || {}).clientHeight) || 0)
                 }
             },
             docs: {
@@ -25702,9 +35248,11 @@
     };
 
     window.envopsGetHabitatObjects = function () {
-        return ((_envScene.objects || [])).map(function (obj) {
+        return _envSceneObjectPool().map(function (obj) {
             var interaction = _envSceneInteractionMeta(obj);
             var data = _envObjectData(obj);
+            var providerBinding = data && data.provider_binding && typeof data.provider_binding === 'object' ? data.provider_binding : null;
+            var capabilityProfile = data && data.capability_profile && typeof data.capability_profile === 'object' ? data.capability_profile : null;
             var menuItems = _envSceneObjectMenuItems(obj).slice(0, 12).map(function (item) {
                 return {
                     label: String(item.label || ''),
@@ -25732,6 +35280,25 @@
                 active: !!obj.active,
                 source: obj.source || null,
                 interaction: interaction,
+                semantics_family: String(data.semantics_family || ''),
+                slot_id: data.slot_id !== undefined ? String(data.slot_id) : '',
+                provider_binding: providerBinding ? {
+                    kind: String(providerBinding.kind || ''),
+                    display_label: String(providerBinding.display_label || ''),
+                    model_id: String(providerBinding.model_id || providerBinding.model || ''),
+                    is_remote: !!providerBinding.is_remote,
+                    router_provider: String(providerBinding.router_provider || '')
+                } : null,
+                capability_profile: capabilityProfile ? {
+                    binding_class: String(capabilityProfile.binding_class || ''),
+                    runtime_class: String(capabilityProfile.runtime_class || ''),
+                    invocation_class: String(capabilityProfile.invocation_class || ''),
+                    modality_families: _slotUniqueStrings(capabilityProfile.modality_families || []),
+                    supported_tasks: _slotUniqueStrings(capabilityProfile.supported_tasks || []),
+                    output_modes: _slotUniqueStrings(capabilityProfile.output_modes || []),
+                    facility_candidates: _slotUniqueStrings(capabilityProfile.facility_candidates || [])
+                } : null,
+                facility_candidates: _slotUniqueStrings(data.facility_candidates || []),
                 html_preview: _envSceneObjectHasHtml(obj) ? _envProductCollapseText(String(obj.html || data.html || ''), 180) : '',
                 menu_items: menuItems
             };
@@ -27420,6 +36987,599 @@
     }
     window._viewDefaultPrompt = _viewDefaultPrompt;
 
+    function _achatContractForTab(tab) {
+        if (!tab) return _slotContractSummary({}, -1);
+        var slotInfo = _getSlotData ? _getSlotData(tab.slot) : null;
+        if (slotInfo) return _slotContractSummary(slotInfo, tab.slot);
+        return _slotContractSummary({
+            slot: tab.slot,
+            model_source: tab.modelSource,
+            model_type: tab.modelType,
+            plugged: tab.isPlugged,
+            status: tab.isPlugged ? 'ready' : 'empty'
+        }, tab.slot);
+    }
+
+    function _achatDefaultFacilityDrafts(tab, contract) {
+        var summary = contract && typeof contract === 'object' ? contract : _achatContractForTab(tab);
+        return {
+            visionPrompt: 'Describe the visible scene, entities, and actionable details.',
+            visionImageUrl: '',
+            voicePrompt: 'Acknowledge the operator and summarize your current runtime state.',
+            voiceAudioUrl: '',
+            voiceTranscribePrompt: 'Transcribe the supplied audio faithfully and call out actionable details.',
+            voiceAudioDataUrl: '',
+            voiceAudioBase64: '',
+            voiceAudioMime: '',
+            voiceAudioFormat: '',
+            voiceAudioBytes: 0,
+            voiceAudioDurationSecs: 0,
+            voiceAudioName: '',
+            memoryQuery: String((summary && summary.model) || (tab && tab.modelSource) || 'agent facility').trim(),
+            memoryDocKey: ''
+        };
+    }
+
+    function _ensureAchatFacilityDrafts(tab, contract) {
+        if (!tab) return null;
+        var base = _achatDefaultFacilityDrafts(tab, contract);
+        if (!tab.facilityDrafts || typeof tab.facilityDrafts !== 'object') {
+            tab.facilityDrafts = base;
+            return tab.facilityDrafts;
+        }
+        var keys = Object.keys(base);
+        for (var i = 0; i < keys.length; i++) {
+            var key = keys[i];
+            if (tab.facilityDrafts[key] === undefined || tab.facilityDrafts[key] === null) {
+                tab.facilityDrafts[key] = base[key];
+            }
+        }
+        return tab.facilityDrafts;
+    }
+
+    function _parseInlineAudioDataUrl(value) {
+        var raw = String(value || '').trim();
+        if (!raw) return null;
+        var match = raw.match(/^data:([^;,]+);base64,(.+)$/i);
+        if (!match) return null;
+        var mimeType = String(match[1] || 'audio/webm').trim() || 'audio/webm';
+        var base64 = String(match[2] || '').trim();
+        if (!base64) return null;
+        return {
+            source: 'inline_data_url',
+            dataUrl: raw,
+            base64: base64,
+            mimeType: mimeType,
+            format: _audioCaptureFormatFromMimeType(mimeType),
+            durationSecs: 0,
+            bytes: 0,
+            name: 'inline-audio.' + _audioCaptureFormatFromMimeType(mimeType)
+        };
+    }
+
+    function _resolveAchatVoiceAudioSource(drafts) {
+        var raw = drafts && typeof drafts === 'object' ? drafts : {};
+        if (raw.voiceAudioBase64 && raw.voiceAudioDataUrl) {
+            return {
+                source: 'captured',
+                dataUrl: String(raw.voiceAudioDataUrl || ''),
+                base64: String(raw.voiceAudioBase64 || ''),
+                mimeType: String(raw.voiceAudioMime || 'audio/webm'),
+                format: String(raw.voiceAudioFormat || _audioCaptureFormatFromMimeType(raw.voiceAudioMime || 'audio/webm')),
+                durationSecs: parseInt(raw.voiceAudioDurationSecs, 10) || 0,
+                bytes: Number(raw.voiceAudioBytes) || 0,
+                name: String(raw.voiceAudioName || ('voice-capture.' + _audioCaptureFormatFromMimeType(raw.voiceAudioMime || 'audio/webm')))
+            };
+        }
+        return _parseInlineAudioDataUrl(raw.voiceAudioUrl);
+    }
+
+    function _clearAchatVoiceDraft(tab, keepExternalSource) {
+        var drafts = _ensureAchatFacilityDrafts(tab);
+        if (!drafts) return;
+        drafts.voiceAudioDataUrl = '';
+        drafts.voiceAudioBase64 = '';
+        drafts.voiceAudioMime = '';
+        drafts.voiceAudioFormat = '';
+        drafts.voiceAudioBytes = 0;
+        drafts.voiceAudioDurationSecs = 0;
+        drafts.voiceAudioName = '';
+        if (!keepExternalSource) drafts.voiceAudioUrl = '';
+        if (tab && tab.toolArgs && tab.toolArgs.invoke_slot && tab.toolArgs.invoke_slot._voice_inline_audio) {
+            delete tab.toolArgs.invoke_slot._voice_inline_audio;
+        }
+    }
+
+    function _storeAchatVoiceCapture(tab, capture) {
+        if (!tab || !capture) return _ensureAchatFacilityDrafts(tab);
+        var drafts = _ensureAchatFacilityDrafts(tab);
+        _clearAchatVoiceDraft(tab, true);
+        drafts.voiceAudioDataUrl = String(capture.dataUrl || '');
+        drafts.voiceAudioBase64 = String(capture.base64 || '');
+        drafts.voiceAudioMime = String(capture.mimeType || 'audio/webm');
+        drafts.voiceAudioFormat = String(capture.format || _audioCaptureFormatFromMimeType(capture.mimeType || 'audio/webm'));
+        drafts.voiceAudioBytes = Number(capture.bytes) || 0;
+        drafts.voiceAudioDurationSecs = parseInt(capture.durationSecs, 10) || 0;
+        drafts.voiceAudioName = String(capture.name || ('voice-capture.' + drafts.voiceAudioFormat));
+        return drafts;
+    }
+
+    function _achatVoiceCaptureLiveForTab(tab) {
+        return !!(tab && _achatVoiceCapture && _achatVoiceCapture.recording && String(_achatVoiceCapture.ownerKey || '') === String(tab.key || ''));
+    }
+
+    function _refreshAchatVoiceCaptureLive(tab, elapsedSecs) {
+        var activeTab = _getActiveAchatTab();
+        if (!tab || !activeTab || activeTab.key !== tab.key) return;
+        var timerEl = document.getElementById('achat-voice-capture-live');
+        var stateEl = document.getElementById('achat-voice-capture-state');
+        if (timerEl) timerEl.textContent = _audioCaptureFormatDuration(elapsedSecs);
+        if (stateEl) stateEl.textContent = 'recording';
+    }
+
+    function _achatVoiceRuntimeStatus(tab, contract) {
+        var summary = contract && typeof contract === 'object' ? contract : _achatContractForTab(tab);
+        var profile = summary.capability_profile || {};
+        var provider = summary.provider_binding || {};
+        var captureRuntime = _audioCaptureRuntimeInfo();
+        var remoteAsrAdapterRequired = !!(profile.supports_audio_input && provider.is_remote && String(profile.invocation_class || '') === 'automatic_speech_recognition');
+        return {
+            capture_runtime: captureRuntime,
+            remote_asr_adapter_required: remoteAsrAdapterRequired,
+            can_stage_asr: !!profile.supports_audio_input && !remoteAsrAdapterRequired
+        };
+    }
+
+    function _achatFacilityViewsForTab(tab) {
+        var contract = _achatContractForTab(tab);
+        var profile = contract.capability_profile || {};
+        var families = _slotUniqueStrings(profile.modality_families || []);
+        var hasVision = !!profile.supports_vision_input || families.indexOf('vision') >= 0 || families.indexOf('image') >= 0;
+        var hasVoice = !!profile.supports_audio_input || !!profile.supports_voice_output || families.indexOf('audio') >= 0 || families.indexOf('speech') >= 0;
+        return [
+            { id: 'overview', label: 'Overview', available: true },
+            { id: 'vision', label: 'Vision', available: hasVision },
+            { id: 'voice', label: 'Voice', available: hasVoice },
+            { id: 'memory', label: 'Memory', available: true },
+            { id: 'actions', label: 'Actions', available: true },
+            { id: 'tools', label: 'Tools', available: true }
+        ];
+    }
+
+    function _ensureAchatFacilityView(tab) {
+        if (!tab) return 'overview';
+        var views = _achatFacilityViewsForTab(tab);
+        var current = String(tab.facilityView || '').trim();
+        var match = views.find(function (view) { return view.id === current; });
+        if (match) return current;
+        tab.facilityView = 'overview';
+        return tab.facilityView;
+    }
+
+    function _achatFacilityCard(label, value) {
+        return '<div class="achat-facility-card">' +
+            '<div class="achat-facility-label">' + escHtml(String(label || 'metric')) + '</div>' +
+            '<div class="achat-facility-value">' + escHtml(String(value || '—')) + '</div>' +
+            '</div>';
+    }
+
+    function _achatFacilityChipRow(items, emptyLabel) {
+        var list = _slotUniqueStrings(items || []);
+        if (!list.length) {
+            return '<div class="achat-facility-note">' + escHtml(String(emptyLabel || 'No entries.')) + '</div>';
+        }
+        return '<div class="achat-facility-chip-row">' + list.map(function (item) {
+            return '<span class="achat-facility-mini">' + escHtml(String(item)) + '</span>';
+        }).join('') + '</div>';
+    }
+
+    function _setAchatToolContext(tab, toolName, runMode) {
+        if (!tab) return;
+        if (toolName) tab.selectedTool = String(toolName);
+        if (runMode) tab.runMode = String(runMode);
+        _refreshAchatMeta();
+        _renderAchatRunMode(tab);
+        _renderAchatToolSelect(tab);
+        _renderAchatToolConfig(tab);
+        _renderAchatFacilityRail(tab);
+        _renderAchatFacilityPanel(tab);
+    }
+
+    function _renderAchatFacilityRail(tab) {
+        var rail = document.getElementById('achat-facility-rail');
+        if (!rail) return;
+        if (!tab) {
+            rail.innerHTML = '';
+            return;
+        }
+        var activeId = _ensureAchatFacilityView(tab);
+        var views = _achatFacilityViewsForTab(tab);
+        rail.innerHTML = views.map(function (view) {
+            return '<button type="button" class="achat-facility-chip' +
+                (view.id === activeId ? ' active' : '') +
+                (view.available ? '' : ' unavailable') +
+                '" data-achat-facility-view="' + escHtml(String(view.id || 'overview')) + '">' +
+                escHtml(String(view.label || view.id || 'view')) +
+                '</button>';
+        }).join('');
+    }
+
+    function _handleAchatFacilityAction(action, tab) {
+        if (!tab) return;
+        var drafts = _ensureAchatFacilityDrafts(tab);
+        var contract = _achatContractForTab(tab);
+        if (action === 'use-agent-loop') {
+            if (!tab.canChat) {
+                mpToast('This slot does not support the agent loop.', 'warn', 2200);
+                return;
+            }
+            _setAchatToolContext(tab, 'agent_chat', 'loop');
+            mpToast('Agent loop ready.', 'ok', 1600);
+            return;
+        }
+        if (action === 'use-direct-invoke') {
+            _setAchatToolContext(tab, 'invoke_slot', 'direct');
+            mpToast('Direct invoke prepared.', 'ok', 1600);
+            return;
+        }
+        if (action === 'open-config') {
+            toggleAchatAgentConfig();
+            return;
+        }
+        if (action === 'open-policy') {
+            toggleAchatPolicy();
+            return;
+        }
+        if (action === 'open-args') {
+            if (!_achatToolConfigOpen) toggleAchatToolConfig();
+            else _renderAchatToolConfig(tab);
+            return;
+        }
+        if (action === 'prep-vision') {
+            var imageUrl = String(drafts.visionImageUrl || '').trim();
+            if (!imageUrl) {
+                mpToast('Add an image URL before preparing a vision invoke.', 'warn', 2400);
+                return;
+            }
+            if (!tab.toolArgs.invoke_slot) tab.toolArgs.invoke_slot = {};
+            tab.toolArgs.invoke_slot.slot = tab.slot;
+            tab.toolArgs.invoke_slot.mode = 'generate';
+            delete tab.toolArgs.invoke_slot.text;
+            delete tab.toolArgs.invoke_slot._voice_inline_audio;
+            tab.toolArgs.invoke_slot.messages = [{
+                role: 'user',
+                content: [
+                    { type: 'text', text: String(drafts.visionPrompt || 'Describe the image.') },
+                    { type: 'image_url', image_url: { url: imageUrl } }
+                ]
+            }];
+            _achatToolConfigOpen = true;
+            _setAchatToolContext(tab, 'invoke_slot', 'direct');
+            mpToast('Vision payload loaded into invoke_slot.', 'ok', 1800);
+            return;
+        }
+        if (action === 'prep-tts') {
+            if (!tab.toolArgs.invoke_slot) tab.toolArgs.invoke_slot = {};
+            tab.toolArgs.invoke_slot.slot = tab.slot;
+            tab.toolArgs.invoke_slot.mode = 'generate';
+            delete tab.toolArgs.invoke_slot.messages;
+            delete tab.toolArgs.invoke_slot._voice_inline_audio;
+            tab.toolArgs.invoke_slot.text = String(drafts.voicePrompt || '').trim() || 'Acknowledge the operator and report readiness.';
+            _achatToolConfigOpen = true;
+            _setAchatToolContext(tab, 'invoke_slot', 'direct');
+            mpToast('Voice prompt loaded into invoke_slot.', 'ok', 1800);
+            return;
+        }
+        if (action === 'voice-record-start') {
+            if (_achatVoiceCaptureLiveForTab(tab)) {
+                mpToast('Voice capture is already running for this slot.', 'warn', 2200);
+                return;
+            }
+            _achatVoiceCapture.ownerKey = String(tab.key || '');
+            _audioCaptureStart(_achatVoiceCapture, {
+                onStart: function () {
+                    _renderAchatFacilityPanel(tab);
+                    _refreshAchatVoiceCaptureLive(tab, 0);
+                },
+                onTick: function (elapsedSecs) {
+                    _refreshAchatVoiceCaptureLive(tab, elapsedSecs);
+                },
+                onStop: function () {
+                    var activeTab = _getActiveAchatTab();
+                    if (activeTab && activeTab.key === tab.key) _renderAchatFacilityPanel(tab);
+                }
+            }).then(function () {
+                mpToast('Voice capture started.', 'ok', 1600);
+            }).catch(function (err) {
+                _achatVoiceCapture.ownerKey = '';
+                mpToast('Voice capture failed: ' + (err && err.message ? err.message : err), 'error', 4200);
+            });
+            return;
+        }
+        if (action === 'voice-import-file') {
+            _audioCaptureImportFile(String(tab.key || ''), function (capture) {
+                _storeAchatVoiceCapture(tab, capture);
+                _renderAchatFacilityPanel(tab);
+                mpToast('Audio file staged in this slot console.', 'ok', 2000);
+            }, function (err) {
+                if (err && String(err.message || err) !== 'No audio file selected.') {
+                    mpToast('Audio import failed: ' + (err && err.message ? err.message : err), 'error', 4200);
+                }
+            });
+            return;
+        }
+        if (action === 'voice-record-stop') {
+            if (!_achatVoiceCaptureLiveForTab(tab)) {
+                mpToast('No active voice capture for this slot.', 'warn', 2200);
+                return;
+            }
+            _audioCaptureFinalize(_achatVoiceCapture, function (capture) {
+                _storeAchatVoiceCapture(tab, capture);
+                _renderAchatFacilityPanel(tab);
+                mpToast('Captured audio staged in this slot console.', 'ok', 2000);
+            }, function (err) {
+                _renderAchatFacilityPanel(tab);
+                mpToast('Voice capture failed: ' + (err && err.message ? err.message : err), 'error', 4200);
+            });
+            return;
+        }
+        if (action === 'voice-record-discard') {
+            if (_achatVoiceCaptureLiveForTab(tab)) _audioCaptureCancel(_achatVoiceCapture);
+            _clearAchatVoiceDraft(tab, true);
+            _renderAchatFacilityPanel(tab);
+            mpToast('Staged voice input cleared.', 'ok', 1600);
+            return;
+        }
+        if (action === 'prep-asr') {
+            var voiceRuntime = _achatVoiceRuntimeStatus(tab, contract);
+            if (voiceRuntime.remote_asr_adapter_required) {
+                mpToast('This slot is remote-provider ASR, but the current invoke_slot path is still chat-shaped. A dedicated ASR adapter is required before this can run end-to-end.', 'warn', 4200);
+                return;
+            }
+            var audioSource = _resolveAchatVoiceAudioSource(drafts);
+            var externalAudio = String(drafts.voiceAudioUrl || '').trim();
+            if (!audioSource || !audioSource.base64) {
+                if (externalAudio && /^https?:\/\//i.test(externalAudio)) {
+                    mpToast('Remote audio URLs are not wired into invoke_slot yet. Record locally or paste a base64 data URL.', 'warn', 3600);
+                } else {
+                    mpToast('Record audio or paste a base64 data URL before staging ASR.', 'warn', 2800);
+                }
+                return;
+            }
+            if (!tab.toolArgs.invoke_slot) tab.toolArgs.invoke_slot = {};
+            tab.toolArgs.invoke_slot.slot = tab.slot;
+            tab.toolArgs.invoke_slot.mode = 'generate';
+            delete tab.toolArgs.invoke_slot.text;
+            delete tab.toolArgs.invoke_slot.messages;
+            tab.toolArgs.invoke_slot._voice_inline_audio = {
+                prompt: String(drafts.voiceTranscribePrompt || 'Transcribe the supplied audio faithfully and call out actionable details.').trim(),
+                base64: String(audioSource.base64 || ''),
+                format: String(audioSource.format || _audioCaptureFormatFromMimeType(audioSource.mimeType || 'audio/webm')),
+                mime_type: String(audioSource.mimeType || '')
+            };
+            _setAchatToolContext(tab, 'invoke_slot', 'direct');
+            if (String(audioSource.format || '').toLowerCase() === 'webm') {
+                mpToast('Inline audio staged. Current capture format is WEBM, so runtime adapters may still need format normalization.', 'warn', 3400);
+            } else {
+                mpToast('Inline audio payload staged for invoke_slot.', 'ok', 2200);
+            }
+            return;
+        }
+        if (action === 'prep-memory-search') {
+            if (!tab.toolArgs.bag_search_docs) tab.toolArgs.bag_search_docs = {};
+            tab.toolArgs.bag_search_docs.query = String(drafts.memoryQuery || contract.model || tab.modelSource || 'agent facility').trim();
+            tab.toolArgs.bag_search_docs.limit = 8;
+            tab.toolArgs.bag_search_docs.prefix = 'docs/';
+            _achatToolConfigOpen = true;
+            _setAchatToolContext(tab, 'bag_search_docs', 'direct');
+            mpToast('Memory doc search prepared.', 'ok', 1800);
+            return;
+        }
+        if (action === 'prep-memory-read') {
+            var docKey = String(drafts.memoryDocKey || '').trim();
+            if (!docKey) {
+                mpToast('Enter a FelixBag doc key before loading bag_read_doc.', 'warn', 2400);
+                return;
+            }
+            if (!tab.toolArgs.bag_read_doc) tab.toolArgs.bag_read_doc = {};
+            tab.toolArgs.bag_read_doc.key = docKey;
+            _achatToolConfigOpen = true;
+            _setAchatToolContext(tab, 'bag_read_doc', 'direct');
+            mpToast('Document read prepared.', 'ok', 1800);
+            return;
+        }
+        if (action === 'prep-slot-info') {
+            if (!tab.toolArgs.slot_info) tab.toolArgs.slot_info = {};
+            tab.toolArgs.slot_info.slot = tab.slot;
+            _achatToolConfigOpen = true;
+            _setAchatToolContext(tab, 'slot_info', 'direct');
+            mpToast('slot_info prepared for this slot.', 'ok', 1800);
+        }
+    }
+
+    function _renderAchatFacilityPanel(tab) {
+        var panel = document.getElementById('achat-facility-panel');
+        if (!panel) return;
+        if (!tab) {
+            panel.innerHTML = '';
+            return;
+        }
+        var contract = _achatContractForTab(tab);
+        var profile = contract.capability_profile || {};
+        var provider = contract.provider_binding || {};
+        var drafts = _ensureAchatFacilityDrafts(tab, contract);
+        var views = _achatFacilityViewsForTab(tab);
+        var activeId = _ensureAchatFacilityView(tab);
+        var activeView = views.find(function (view) { return view.id === activeId; }) || views[0] || { id: 'overview', label: 'Overview', available: true };
+        var title = activeView.label;
+        var subtitle = '';
+        var body = '';
+
+        if (activeView.id === 'overview') {
+            subtitle = 'Shared slot contract, provider binding, and facility eligibility for this operator surface.';
+            body =
+                '<div class="achat-facility-grid">' +
+                _achatFacilityCard('Binding', String(profile.binding_class || 'unbound')) +
+                _achatFacilityCard('Runtime', String(profile.runtime_class || 'vacant')) +
+                _achatFacilityCard('Provider', String(contract.provider || provider.display_label || '—')) +
+                _achatFacilityCard('Invocation', String(profile.invocation_class || 'unbound')) +
+                '</div>' +
+                _achatFacilityCard('Primary Model', String(contract.model || 'vacant slot')) +
+                _achatFacilityCard('Facility Candidates', _slotUniqueStrings(contract.facility_candidates || []).join(', ') || 'No mapped facilities yet.') +
+                _achatFacilityCard('Supported Tasks', _slotUniqueStrings(profile.supported_tasks || []).join(', ') || 'No task profile mapped yet.') +
+                _achatFacilityCard('Output Modes', _slotUniqueStrings(profile.output_modes || []).join(', ') || 'No output modes declared.') +
+                '<div class="achat-facility-actions">' +
+                (tab.canChat ? '<button type="button" class="btn-dim" data-achat-facility-action="use-agent-loop">Agent Loop</button>' : '') +
+                '<button type="button" class="btn-dim" data-achat-facility-action="use-direct-invoke">Direct Invoke</button>' +
+                '<button type="button" class="btn-dim" data-achat-facility-action="open-config">Agent Config</button>' +
+                '<button type="button" class="btn-dim" data-achat-facility-action="open-policy">Tool Access</button>' +
+                '</div>' +
+                _achatFacilityChipRow(profile.modality_families || [], 'No modality families declared.');
+        } else if (activeView.id === 'vision') {
+            subtitle = activeView.available
+                ? 'Vision-capable slots can be primed here with a prompt plus image URL and then handed to the existing invoke path.'
+                : 'This slot is not currently profiled as vision-capable. The panel stays visible so the operator can see that gap honestly.';
+            body =
+                '<div class="achat-facility-grid">' +
+                _achatFacilityCard('Vision Input', profile.supports_vision_input ? 'available' : 'not declared') +
+                _achatFacilityCard('Runtime', String(profile.runtime_class || 'vacant')) +
+                _achatFacilityCard('Tasks', _slotUniqueStrings(profile.supported_tasks || []).join(', ') || 'No vision tasks declared') +
+                _achatFacilityCard('Provider', String(contract.provider || provider.display_label || '—')) +
+                '</div>' +
+                '<div class="achat-facility-form">' +
+                '<div class="achat-facility-field"><label>Vision Prompt</label><textarea data-achat-facility-field="visionPrompt">' + escHtml(String(drafts.visionPrompt || '')) + '</textarea></div>' +
+                '<div class="achat-facility-field"><label>Image URL</label><input type="text" data-achat-facility-field="visionImageUrl" value="' + escHtml(String(drafts.visionImageUrl || '')) + '" placeholder="https://..." /></div>' +
+                '</div>' +
+                '<div class="achat-facility-actions">' +
+                '<button type="button" class="btn-dim" data-achat-facility-action="prep-vision">Load Vision Invoke</button>' +
+                '<button type="button" class="btn-dim" data-achat-facility-action="open-args">Open Args</button>' +
+                '</div>' +
+                '<div class="achat-facility-note">This uses the existing `invoke_slot` path and preloads a multimodal `messages` payload for the current slot. Binary/local image transport is still a later accommodation.</div>';
+        } else if (activeView.id === 'voice') {
+            var liveCapture = _achatVoiceCaptureLiveForTab(tab);
+            var voiceSource = _resolveAchatVoiceAudioSource(drafts);
+            var voiceRuntime = _achatVoiceRuntimeStatus(tab, contract);
+            var captureRuntime = voiceRuntime.capture_runtime || {};
+            var captureState = liveCapture
+                ? 'recording'
+                : (voiceSource ? (voiceSource.source === 'captured' ? 'captured' : 'inline data url') : (String(drafts.voiceAudioUrl || '').trim() ? 'external url' : 'idle'));
+            var captureDuration = liveCapture
+                ? _audioCaptureFormatDuration(Math.max(0, Math.floor((Date.now() - _achatVoiceCapture.startTime) / 1000)))
+                : ((voiceSource && voiceSource.durationSecs) ? _audioCaptureFormatDuration(voiceSource.durationSecs) : '—');
+            var captureFormat = voiceSource ? String(voiceSource.format || 'audio') : '—';
+            var captureBytes = voiceSource && voiceSource.bytes ? _audioCaptureFormatBytes(voiceSource.bytes) : '—';
+            var previewSrc = voiceSource ? String(voiceSource.dataUrl || '') : '';
+            var stagedAsrPayload = !!(tab.toolArgs && tab.toolArgs.invoke_slot && tab.toolArgs.invoke_slot._voice_inline_audio && tab.toolArgs.invoke_slot._voice_inline_audio.base64);
+            subtitle = activeView.available
+                ? 'Voice accommodations are split between speech-out prompts and future speech-in transport. This panel extends the current console without inventing a second runtime.'
+                : 'This slot is not currently profiled for speech input or speech output.';
+            body =
+                '<div class="achat-facility-grid">' +
+                _achatFacilityCard('ASR Input', profile.supports_audio_input ? 'available' : 'not declared') +
+                _achatFacilityCard('TTS Output', profile.supports_voice_output ? 'available' : 'not declared') +
+                _achatFacilityCard('Runtime', String(profile.runtime_class || 'vacant')) +
+                _achatFacilityCard('Tasks', _slotUniqueStrings(profile.supported_tasks || []).join(', ') || 'No voice tasks declared') +
+                _achatFacilityCard('Mic Capture', captureRuntime.can_direct_capture ? 'ready' : 'blocked') +
+                '</div>' +
+                '<div class="achat-facility-chip-row">' +
+                '<span class="achat-facility-mini" id="achat-voice-capture-state">' + escHtml(captureState) + '</span>' +
+                '<span class="achat-facility-mini" id="achat-voice-capture-live">' + escHtml(captureDuration) + '</span>' +
+                '<span class="achat-facility-mini">' + escHtml(captureFormat) + '</span>' +
+                '<span class="achat-facility-mini">' + escHtml(captureBytes) + '</span>' +
+                '<span class="achat-facility-mini">' + escHtml(captureRuntime.secure_origin ? 'secure origin' : 'origin blocked') + '</span>' +
+                (stagedAsrPayload ? '<span class="achat-facility-mini">ASR payload staged</span>' : '') +
+                '</div>' +
+                '<div class="achat-facility-form">' +
+                '<div class="achat-facility-field"><label>Speech Output Prompt</label><textarea data-achat-facility-field="voicePrompt">' + escHtml(String(drafts.voicePrompt || '')) + '</textarea></div>' +
+                '<div class="achat-facility-field"><label>ASR Prompt</label><textarea data-achat-facility-field="voiceTranscribePrompt">' + escHtml(String(drafts.voiceTranscribePrompt || '')) + '</textarea></div>' +
+                '<div class="achat-facility-field"><label>External Audio Data URL</label><textarea data-achat-facility-field="voiceAudioUrl" placeholder="data:audio/...;base64,... or future remote asset">' + escHtml(String(drafts.voiceAudioUrl || '')) + '</textarea></div>' +
+                '</div>' +
+                ((!captureRuntime.can_direct_capture || voiceRuntime.remote_asr_adapter_required)
+                    ? '<div class="achat-facility-note">Runtime status: origin=' + escHtml(String(captureRuntime.origin || '(unknown)')) + ' · direct mic=' + escHtml(captureRuntime.can_direct_capture ? 'ready' : 'blocked') + (voiceRuntime.remote_asr_adapter_required ? ' · remote provider ASR adapter still required for this slot.' : '') + '</div>'
+                    : '') +
+                (previewSrc
+                    ? '<div class="achat-facility-audio">' +
+                    '<audio controls preload="metadata" src="' + escHtml(previewSrc) + '"></audio>' +
+                    '<div class="achat-facility-note">Captured audio remains local to this slot console until you explicitly stage it into a tool payload.</div>' +
+                    '</div>'
+                    : '') +
+                '<div class="achat-facility-actions">' +
+                (liveCapture
+                    ? '<button type="button" class="btn-dim" data-achat-facility-action="voice-record-stop">Stop Capture</button>'
+                    : '<button type="button" class="btn-dim" data-achat-facility-action="voice-record-start">Record Input</button>') +
+                '<button type="button" class="btn-dim" data-achat-facility-action="voice-import-file">Import Audio File</button>' +
+                ((voiceSource || String(drafts.voiceAudioUrl || '').trim()) ? '<button type="button" class="btn-dim" data-achat-facility-action="voice-record-discard">Clear Audio</button>' : '') +
+                (voiceRuntime.can_stage_asr ? '<button type="button" class="btn-dim" data-achat-facility-action="prep-asr">Stage ASR Payload</button>' : '') +
+                (profile.supports_voice_output ? '<button type="button" class="btn-dim" data-achat-facility-action="prep-tts">Load Voice Prompt</button>' : '') +
+                '<button type="button" class="btn-dim" data-achat-facility-action="open-args">Open Args</button>' +
+                '<button type="button" class="btn-dim" data-achat-facility-action="open-config">Agent Config</button>' +
+                '</div>' +
+                '<div class="achat-facility-note">Local capture here reuses the working community MediaRecorder path. Speech-out can already be staged through the current slot invoke flow. Speech-in is staged as hidden inline audio on this tab so the console stays usable; remote audio URLs are not wired yet, imported/captured audio may still need downstream format normalization, and remote-provider ASR still needs a dedicated adapter path.</div>';
+        } else if (activeView.id === 'memory') {
+            subtitle = 'Reuse the current FelixBag and context controls instead of building a separate memory console.';
+            body =
+                '<div class="achat-facility-grid">' +
+                _achatFacilityCard('Context Strategy', String(((tab.agentConfig || {}).contextStrategy) || 'sliding-window')) +
+                _achatFacilityCard('Window Size', String(((tab.agentConfig || {}).contextWindowSize) || '20')) +
+                _achatFacilityCard('Persist Memory', ((tab.agentConfig || {}).persistMemory) ? 'enabled' : 'disabled') +
+                _achatFacilityCard('Memory Key', String(((tab.agentConfig || {}).memoryKey) || 'auto')) +
+                '</div>' +
+                '<div class="achat-facility-form">' +
+                '<div class="achat-facility-field"><label>Doc Search Query</label><input type="text" data-achat-facility-field="memoryQuery" value="' + escHtml(String(drafts.memoryQuery || '')) + '" /></div>' +
+                '<div class="achat-facility-field"><label>Doc Key</label><input type="text" data-achat-facility-field="memoryDocKey" value="' + escHtml(String(drafts.memoryDocKey || '')) + '" placeholder="docs/..." /></div>' +
+                '</div>' +
+                '<div class="achat-facility-actions">' +
+                '<button type="button" class="btn-dim" data-achat-facility-action="prep-memory-search">Load Doc Search</button>' +
+                '<button type="button" class="btn-dim" data-achat-facility-action="prep-memory-read">Load Doc Read</button>' +
+                '<button type="button" class="btn-dim" data-achat-facility-action="open-config">Memory Config</button>' +
+                '</div>';
+        } else if (activeView.id === 'actions') {
+            subtitle = 'Action and orchestration controls should stay attached to the current Council operator surface so the Environment can reuse the same truth.';
+            body =
+                '<div class="achat-facility-grid">' +
+                _achatFacilityCard('Medium', String(((tab.agentConfig || {}).medium) || 'slot')) +
+                _achatFacilityCard('Run Mode', String((tab.runMode || 'direct')).toUpperCase()) +
+                _achatFacilityCard('Agent Loop', tab.canChat ? 'available' : 'not available') +
+                _achatFacilityCard('Verification', String(profile.verification_status || 'unverified')) +
+                '</div>' +
+                _achatFacilityCard('Facility Candidates', _slotUniqueStrings(contract.facility_candidates || []).join(', ') || 'No mapped facilities yet.') +
+                '<div class="achat-facility-actions">' +
+                (tab.canChat ? '<button type="button" class="btn-dim" data-achat-facility-action="use-agent-loop">Agent Loop</button>' : '') +
+                '<button type="button" class="btn-dim" data-achat-facility-action="use-direct-invoke">Direct Invoke</button>' +
+                '<button type="button" class="btn-dim" data-achat-facility-action="prep-slot-info">Slot Info</button>' +
+                '<button type="button" class="btn-dim" data-achat-facility-action="open-config">Embodiment Config</button>' +
+                '</div>';
+        } else {
+            subtitle = 'Use the existing tool policy and schema-driven tool controls as the facility substrate.';
+            body =
+                '<div class="achat-facility-grid">' +
+                _achatFacilityCard('Granted Tools', String((tab.grantedTools || []).length || 0)) +
+                _achatFacilityCard('Blocked Tools', String(Object.keys(_achatBlockedTools || {}).length || 0)) +
+                _achatFacilityCard('Selected Tool', String(tab.selectedTool || 'invoke_slot')) +
+                _achatFacilityCard('Provider', String(contract.provider || provider.display_label || '—')) +
+                '</div>' +
+                _achatFacilityChipRow((tab.grantedTools || []).slice(0, 18), 'No granted tools for this tab.') +
+                '<div class="achat-facility-actions">' +
+                '<button type="button" class="btn-dim" data-achat-facility-action="open-policy">Tool Access</button>' +
+                '<button type="button" class="btn-dim" data-achat-facility-action="open-args">Args</button>' +
+                '<button type="button" class="btn-dim" data-achat-facility-action="open-config">Config</button>' +
+                '</div>';
+        }
+
+        panel.innerHTML =
+            '<div class="achat-facility-head">' +
+            '<div>' +
+            '<div class="achat-facility-title">' + escHtml(String(title || 'Facility')) + '</div>' +
+            '<div class="achat-facility-subtitle">' + escHtml(String(subtitle || '')) + '</div>' +
+            '</div>' +
+            '<div class="achat-facility-chip-row">' +
+            '<span class="achat-facility-mini">' + escHtml(String(contract.visualState || 'empty')) + '</span>' +
+            '<span class="achat-facility-mini">' + escHtml(String(profile.runtime_class || 'runtime')) + '</span>' +
+            '</div>' +
+            '</div>' +
+            body;
+    }
+
     function _ensureAchatTab(slot) {
         var slotIndex = parseInt(slot, 10);
         if (!(slotIndex >= 0)) return null;
@@ -27448,6 +37608,8 @@
                 sessionId: '',
                 loopMessages: [],
                 grantedTools: savedTools.length ? savedTools : _defaultGrantedToolsForTab({ canChat: canChat }),
+                facilityView: 'overview',
+                facilityDrafts: _achatDefaultFacilityDrafts({ slot: slotIndex, modelSource: modelSource, modelType: modelType, isPlugged: isPlugged }),
                 // ── AGENT CONFIG (user-editable per-slot) ──
                 agentConfig: _loadAgentConfig(slotIndex, modelSource)
             };
@@ -27462,10 +37624,15 @@
         existing.isPlugged = isPlugged;
         existing.canChat = canChat;
         if (modelChanged) {
+            if (_achatVoiceCapture && _achatVoiceCapture.recording && String(_achatVoiceCapture.ownerKey || '') === String(existing.key || '')) {
+                _audioCaptureCancel(_achatVoiceCapture);
+            }
             existing.messages = [];
             existing.loopMessages = [];
             existing.sessionId = '';
             existing.toolArgs = {};
+            existing.facilityView = 'overview';
+            existing.facilityDrafts = _achatDefaultFacilityDrafts(existing);
             existing.agentConfig = _loadAgentConfig(slotIndex, modelSource);
             var newPolicyKey = _policyKeyForSlot(slotIndex, modelSource);
             var newSavedTools = _sanitizeGrantedTools((_achatToolPolicies && _achatToolPolicies[newPolicyKey]) || []);
@@ -27482,6 +37649,7 @@
         if (!Array.isArray(existing.grantedTools) || !existing.grantedTools.length) {
             existing.grantedTools = _defaultGrantedToolsForTab(existing);
         }
+        _ensureAchatFacilityDrafts(existing);
         return existing;
     }
 
@@ -28554,6 +38722,8 @@
         _renderAchatAgentConfig(tab);
         _renderAchatMessages(tab);
         _renderAchatPolicyPanel(tab);
+        _renderAchatFacilityRail(tab);
+        _renderAchatFacilityPanel(tab);
         _refreshAchatDebugControls(tab);
 
         var inputEl = document.getElementById('achat-input');
@@ -28577,8 +38747,13 @@
             if (toolCountEl) toolCountEl.textContent = '0';
             if (blockedEl) blockedEl.textContent = String(Object.keys(_achatBlockedTools).length);
             if (modeEl) modeEl.value = 'direct';
+            _renderAchatFacilityRail(null);
+            _renderAchatFacilityPanel(null);
             return;
         }
+
+        var contract = _achatContractForTab(tab);
+        var profile = contract.capability_profile || {};
 
         if (titleEl) titleEl.textContent = 'SLOT ' + tab.slot + ' — MCP ORCHESTRATION';
         if (sidEl) sidEl.textContent = tab.sessionId ? ('session: ' + tab.sessionId) : '';
@@ -28593,10 +38768,13 @@
                 '<span class="achat-tag ' + typeClass + '">' + escHtml(tab.modelType || 'MODEL') + '</span>' +
                 '<span class="achat-tag">SLOT ' + tab.slot + '</span>' +
                 '<span class="achat-tag">' + (tab.isPlugged ? 'PLUGGED' : 'EMPTY') + '</span>' +
-                '<span class="achat-tag">' + escHtml(String((tab.runMode || 'direct').toUpperCase())) + '</span>';
+                '<span class="achat-tag">' + escHtml(String((tab.runMode || 'direct').toUpperCase())) + '</span>' +
+                '<span class="achat-tag">' + escHtml(String(contract.provider || 'LOCAL')) + '</span>';
             if (!tab.canChat) {
                 metaEl.innerHTML += '<span class="achat-tag" style="color:#f59e0b;border-color:#f59e0b;background:rgba(245,158,11,0.12);">NO AGENT LOOP</span>';
             }
+            if (profile.supports_vision_input) metaEl.innerHTML += '<span class="achat-tag">VISION</span>';
+            if (profile.supports_audio_input || profile.supports_voice_output) metaEl.innerHTML += '<span class="achat-tag">VOICE</span>';
             if (_isAchatDebugEnabled(tab)) {
                 metaEl.innerHTML += '<span class="achat-tag" style="color:#fca5a5;border-color:#7f1d1d;background:rgba(127,29,29,0.22);">DEBUG</span>';
             }
@@ -28605,6 +38783,8 @@
         if (toolCountEl) toolCountEl.textContent = String((tab.grantedTools || []).length);
         if (blockedEl) blockedEl.textContent = String(Object.keys(_achatBlockedTools).length);
         if (modeEl) modeEl.value = tab.runMode || (tab.canChat ? 'loop' : 'direct');
+        _renderAchatFacilityRail(tab);
+        _renderAchatFacilityPanel(tab);
         _refreshAchatDebugControls(tab);
     }
 
@@ -28668,6 +38848,44 @@
                 this.value = String(tab.agentConfig.maxTokens);
             });
         }
+
+        var facilityRail = document.getElementById('achat-facility-rail');
+        if (facilityRail && !facilityRail.dataset.bound) {
+            facilityRail.addEventListener('click', function (event) {
+                var btn = event.target.closest('[data-achat-facility-view]');
+                if (!btn) return;
+                var tab = _getActiveAchatTab();
+                if (!tab) return;
+                tab.facilityView = String(btn.getAttribute('data-achat-facility-view') || 'overview');
+                _renderAchatFacilityRail(tab);
+                _renderAchatFacilityPanel(tab);
+            });
+            facilityRail.dataset.bound = '1';
+        }
+
+        var facilityPanel = document.getElementById('achat-facility-panel');
+        if (facilityPanel && !facilityPanel.dataset.bound) {
+            facilityPanel.addEventListener('click', function (event) {
+                var btn = event.target.closest('[data-achat-facility-action]');
+                if (!btn) return;
+                var tab = _getActiveAchatTab();
+                if (!tab) return;
+                _handleAchatFacilityAction(String(btn.getAttribute('data-achat-facility-action') || ''), tab);
+            });
+            facilityPanel.addEventListener('input', function (event) {
+                var field = event.target.closest('[data-achat-facility-field]');
+                if (!field) return;
+                var tab = _getActiveAchatTab();
+                if (!tab) return;
+                var drafts = _ensureAchatFacilityDrafts(tab);
+                var fieldName = String(field.getAttribute('data-achat-facility-field') || '');
+                drafts[fieldName] = String(field.value || '');
+                if ((fieldName === 'voiceAudioUrl' || fieldName === 'voiceTranscribePrompt') && tab.toolArgs && tab.toolArgs.invoke_slot && tab.toolArgs.invoke_slot._voice_inline_audio) {
+                    delete tab.toolArgs.invoke_slot._voice_inline_audio;
+                }
+            });
+            facilityPanel.dataset.bound = '1';
+        }
     }
 
     function openAgentChat(slot) {
@@ -28715,8 +38933,12 @@
     function resetAgentChat() {
         var tab = _getActiveAchatTab();
         if (!tab) return;
+        if (_achatVoiceCapture && _achatVoiceCapture.recording && String(_achatVoiceCapture.ownerKey || '') === String(tab.key || '')) {
+            _audioCaptureCancel(_achatVoiceCapture);
+        }
         tab.sessionId = '';
         tab.messages = [];
+        _clearAchatVoiceDraft(tab, false);
         window.__achatKillRequested = false;
         _renderAchatMessages(tab);
         _refreshAchatMeta();
@@ -28854,6 +39076,13 @@
 
     function _collectSelectedToolArgs(tab, toolName, userMsg) {
         var args = {};
+        var cachedArgs = tab && tab.toolArgs && tab.toolArgs[toolName] && typeof tab.toolArgs[toolName] === 'object'
+            ? _envCloneJson(tab.toolArgs[toolName], {})
+            : {};
+        var cachedKeys = Object.keys(cachedArgs);
+        for (var ck = 0; ck < cachedKeys.length; ck++) {
+            args[cachedKeys[ck]] = cachedArgs[cachedKeys[ck]];
+        }
         if (toolName === 'agent_chat') {
             var cfg = tab.agentConfig || _defaultAgentConfig();
             var iterVal = (document.getElementById('achat-max-iter') || {}).value;
@@ -28909,6 +39138,25 @@
         }
 
         if (toolName === 'invoke_slot') {
+            var stagedVoiceAudio = (args._voice_inline_audio && typeof args._voice_inline_audio === 'object')
+                ? args._voice_inline_audio
+                : null;
+            if (stagedVoiceAudio && stagedVoiceAudio.base64) {
+                args.messages = [{
+                    role: 'user',
+                    content: [
+                        { type: 'text', text: String(stagedVoiceAudio.prompt || 'Transcribe the supplied audio faithfully and call out actionable details.') },
+                        {
+                            type: 'input_audio',
+                            input_audio: {
+                                data: String(stagedVoiceAudio.base64 || ''),
+                                format: String(stagedVoiceAudio.format || 'webm')
+                            }
+                        }
+                    ]
+                }];
+                delete args.text;
+            }
             if (args.slot === undefined || args.slot === null || args.slot === '') args.slot = tab.slot;
             if (!args.mode) {
                 if (tab.modelType.indexOf('EMBED') >= 0) args.mode = 'embed';
@@ -28937,6 +39185,9 @@
         // Guard against strict validators that reject explicit nulls for optional arrays/objects.
         if (toolName === 'invoke_slot' && args.messages === null) {
             delete args.messages;
+        }
+        if (toolName === 'invoke_slot' && args._voice_inline_audio !== undefined) {
+            delete args._voice_inline_audio;
         }
         var argKeys = Object.keys(args);
         for (var ak = 0; ak < argKeys.length; ak++) {
@@ -29611,23 +39862,19 @@
         var timeEl = document.getElementById('voice-rec-time');
 
         if (recordBtn) recordBtn.addEventListener('click', async function () {
-            if (_voiceNoteRecording) return;
             try {
-                var stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                _voiceNoteMediaRecorder = new MediaRecorder(stream);
-                _voiceNoteChunks = [];
-                _voiceNoteMediaRecorder.ondataavailable = function (e) { if (e.data.size > 0) _voiceNoteChunks.push(e.data); };
-                _voiceNoteMediaRecorder.onstop = function () {
-                    stream.getTracks().forEach(function (t) { t.stop(); });
-                };
-                _voiceNoteMediaRecorder.start();
-                _voiceNoteRecording = true;
-                _voiceNoteStartTime = Date.now();
-                recorderDiv.style.display = 'flex';
-                _voiceNoteTimer = setInterval(function () {
-                    var s = Math.floor((Date.now() - _voiceNoteStartTime) / 1000);
-                    timeEl.textContent = Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2);
-                }, 1000);
+                await _audioCaptureStart(_voiceNoteCapture, {
+                    onStart: function () {
+                        if (recorderDiv) recorderDiv.style.display = 'flex';
+                        if (timeEl) timeEl.textContent = '0:00';
+                    },
+                    onTick: function (elapsedSecs) {
+                        if (timeEl) timeEl.textContent = _audioCaptureFormatDuration(elapsedSecs);
+                    },
+                    onStop: function () {
+                        if (timeEl) timeEl.textContent = '0:00';
+                    }
+                });
             } catch (err) {
                 console.error('[VoiceNote] Error:', err);
                 mpToast('Microphone access denied or unavailable: ' + err.message, 'error', 5000);
@@ -29635,54 +39882,41 @@
         });
 
         if (cancelBtn) cancelBtn.addEventListener('click', function () {
-            if (_voiceNoteMediaRecorder && _voiceNoteMediaRecorder.state !== 'inactive') {
-                _voiceNoteMediaRecorder.stop();
-            }
-            if (_voiceNoteTimer) clearInterval(_voiceNoteTimer);
-            _voiceNoteRecording = false;
-            recorderDiv.style.display = 'none';
+            _audioCaptureCancel(_voiceNoteCapture);
+            if (recorderDiv) recorderDiv.style.display = 'none';
+            if (timeEl) timeEl.textContent = '0:00';
         });
 
         if (sendBtn) sendBtn.addEventListener('click', function () {
-            if (!_voiceNoteMediaRecorder) return;
+            if (!_voiceNoteCapture.mediaRecorder) return;
+            _audioCaptureFinalize(_voiceNoteCapture, function (capture) {
+                if (recorderDiv) recorderDiv.style.display = 'none';
+                if (timeEl) timeEl.textContent = '0:00';
 
-            _voiceNoteMediaRecorder.onstop = function () {
-                var blob = new Blob(_voiceNoteChunks, { type: 'audio/webm' });
-                var duration = Math.floor((Date.now() - _voiceNoteStartTime) / 1000);
+                vscode.postMessage({
+                    command: 'ipfsPin',
+                    content: capture.base64,
+                    name: 'voice-note-' + Date.now() + '.' + String(capture.format || 'webm')
+                });
 
-                // Use existing IPFS pinning service via extension message
-                var reader = new FileReader();
-                reader.onload = function () {
-                    var base64 = reader.result.split(',')[1];
-                    vscode.postMessage({
-                        command: 'ipfsPin',
-                        content: base64,
-                        name: 'voice-note-' + Date.now() + '.webm'
-                    });
-
-                    var ipfsHandler = function (e) {
-                        var msg = e.data;
-                        if (msg.type === 'ipfsPinResult' && msg.success) {
-                            window.removeEventListener('message', ipfsHandler);
-                            var url = 'ipfs://' + msg.cid;
-                            vscode.postMessage({
-                                command: 'nostrSendVoiceNote',
-                                audioUrl: url,
-                                durationSecs: duration
-                            });
-                        }
-                    };
-                    window.addEventListener('message', ipfsHandler);
+                var ipfsHandler = function (e) {
+                    var msg = e.data;
+                    if (msg.type === 'ipfsPinResult' && msg.success) {
+                        window.removeEventListener('message', ipfsHandler);
+                        var url = 'ipfs://' + msg.cid;
+                        vscode.postMessage({
+                            command: 'nostrSendVoiceNote',
+                            audioUrl: url,
+                            durationSecs: capture.durationSecs
+                        });
+                    }
                 };
-                reader.readAsDataURL(blob);
-            };
-
-            if (_voiceNoteMediaRecorder.state !== 'inactive') {
-                _voiceNoteMediaRecorder.stop();
-            }
-            if (_voiceNoteTimer) clearInterval(_voiceNoteTimer);
-            _voiceNoteRecording = false;
-            recorderDiv.style.display = 'none';
+                window.addEventListener('message', ipfsHandler);
+            }, function (err) {
+                if (recorderDiv) recorderDiv.style.display = 'none';
+                if (timeEl) timeEl.textContent = '0:00';
+                mpToast('Voice note capture failed: ' + (err && err.message ? err.message : err), 'error', 5000);
+            });
         });
     })();
 
@@ -29703,5 +39937,3 @@
     _envLoadConfig(false);
     // Community is intentionally disabled in Space build.
 })();
-
-

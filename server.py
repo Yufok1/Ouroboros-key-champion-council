@@ -334,6 +334,8 @@ _LIVE_START_TOOLS = frozenset({"agent_chat", "invoke_slot", "chat", "generate", 
 _slot_exec_gate = asyncio.Lock()
 _slot_exec_locks: dict[int, asyncio.Lock] = {}
 _slot_exec_active: dict[int, dict] = {}
+_plug_exec_gate = asyncio.Lock()
+_plug_exec_active: dict[str, dict] = {}
 
 
 def _slot_serial_index(tool_name: str, args: dict | None) -> int | None:
@@ -423,6 +425,70 @@ async def _release_slot_execution(claim: dict | None) -> None:
                 lock.release()
         except Exception:
             pass
+
+
+def _plug_exec_key(tool_name: str, args: dict | None) -> str | None:
+    if tool_name not in ("plug_model", "hub_plug"):
+        return None
+    if not isinstance(args, dict):
+        return None
+    model_id = str(args.get("model_id", "") or "").strip()
+    if not model_id:
+        return None
+    slot_name = str(args.get("slot_name", "") or "").strip()
+    return f"{tool_name}|{model_id}|{slot_name}"
+
+
+async def _claim_plug_execution(tool_name: str, args: dict | None, source: str, client_id: str | None) -> tuple[dict | None, dict | None]:
+    key = _plug_exec_key(tool_name, args)
+    if key is None:
+        return None, None
+    now_ms = int(time.time() * 1000)
+    async with _plug_exec_gate:
+        active = _plug_exec_active.get(key)
+        if active:
+            started_ms = active.get("started_ms")
+            running_for_ms = None
+            try:
+                if started_ms is not None:
+                    running_for_ms = max(0, now_ms - int(started_ms))
+            except Exception:
+                running_for_ms = None
+            busy = {
+                "guard": "plug_busy",
+                "tool": tool_name,
+                "key": key,
+                "active": {
+                    "tool": active.get("tool") or tool_name,
+                    "source": active.get("source"),
+                    "client_id": active.get("client_id"),
+                    "started_ms": started_ms,
+                    "running_for_ms": running_for_ms,
+                    "model_id": active.get("model_id"),
+                    "slot_name": active.get("slot_name"),
+                },
+                "error": f"Model load already in progress for {active.get('model_id') or 'requested model'}. Wait for completion before retrying {tool_name}.",
+            }
+            return None, busy
+        _plug_exec_active[key] = {
+            "tool": tool_name,
+            "source": source,
+            "client_id": client_id,
+            "started_ms": now_ms,
+            "model_id": str((args or {}).get("model_id", "") or ""),
+            "slot_name": str((args or {}).get("slot_name", "") or ""),
+        }
+        return {"key": key}, None
+
+
+async def _release_plug_execution(claim: dict | None) -> None:
+    if not isinstance(claim, dict):
+        return
+    key = str(claim.get("key", "") or "").strip()
+    if not key:
+        return
+    async with _plug_exec_gate:
+        _plug_exec_active.pop(key, None)
 
 
 def _bytes_to_gb(value: int | None) -> float | None:
@@ -1086,7 +1152,33 @@ async def _mirror_activity_to_observe(entry: dict):
             "result_preview": _activity_preview((entry or {}).get("result"), _DEBUG_FEED_MIRROR_MAX_CHARS),
             "timestamp_ms": int((entry or {}).get("timestamp") or int(time.time() * 1000)),
         }
-        await _call_tool("observe", {"signal_type": "event", "data": json.dumps(payload, ensure_ascii=False)})
+        await _call_tool("observe", {"signal_type": "agent_debug", "data": json.dumps(payload, ensure_ascii=False)})
+        # Also inject a debug-shaped activity entry into the SSE stream
+        # so the frontend Debug tab can see it (the _call_tool above only
+        # writes to the capsule observation store, not the SSE broadcast).
+        global _activity_event_seq
+        _activity_event_seq += 1
+        debug_entry = {
+            "id": f"dbg-{int(time.time() * 1000)}-{_activity_event_seq}",
+            "tool": tool,
+            "category": "debug",
+            "args": {"signal_type": "agent_debug", "detail": f"DEBUG {tool}", "mirror": payload},
+            "result": entry.get("result"),
+            "error": entry.get("error"),
+            "durationMs": int(entry.get("durationMs") or 0),
+            "timestamp": int(time.time() * 1000),
+            "source": "agent-debug",
+            "clientId": str((entry or {}).get("clientId") or ""),
+            "hiddenFromActivity": True,
+        }
+        _activity_log.append(debug_entry)
+        if len(_activity_log) > 500:
+            _activity_log.pop(0)
+        for q in list(_activity_subscribers):
+            try:
+                q.put_nowait(debug_entry)
+            except Exception:
+                pass
     except Exception:
         pass
 
@@ -1133,7 +1225,15 @@ WEB_HOST = (os.environ.get("WEB_HOST", "0.0.0.0") or "0.0.0.0").strip() or "0.0.
 WEB_PORT = int(os.environ.get("WEB_PORT", "7860"))
 CAPSULE_PATH = Path("capsule/champion_gen8.py")
 MCP_BASE = f"http://127.0.0.1:{MCP_PORT}"
-_MCP_TOOL_TIMEOUT_SECONDS = max(8, int(os.environ.get("MCP_TOOL_TIMEOUT_SECONDS", "180")))
+_MCP_TOOL_TIMEOUT_SECONDS = max(8, int(os.environ.get("MCP_TOOL_TIMEOUT_SECONDS", "600")))
+_MCP_SESSION_READ_TIMEOUT_SECONDS = max(
+    _MCP_TOOL_TIMEOUT_SECONDS + 60,
+    int(os.environ.get("MCP_SESSION_READ_TIMEOUT_SECONDS", str(_MCP_TOOL_TIMEOUT_SECONDS + 60))),
+)
+_HF_ROUTER_REQUEST_TIMEOUT_SECONDS = max(
+    30.0,
+    float(os.environ.get("HF_ROUTER_REQUEST_TIMEOUT_SECONDS", str(_MCP_TOOL_TIMEOUT_SECONDS))),
+)
 HF_ROUTER_BASE = os.environ.get("HF_ROUTER_BASE", "https://router.huggingface.co").rstrip("/")
 APP_MODE = str(os.environ.get("APP_MODE", "development") or "development").strip().lower()
 if APP_MODE not in ("development", "product"):
@@ -1221,6 +1321,12 @@ _ENV_CONTROL_PROXY_COMMANDS = frozenset({
     "inspect_surface",
     "open_surface",
     "close_surface",
+    "surface_tab",
+    "surface_scroll",
+    "surface_action",
+    "surface_click",
+    "surface_input",
+    "surface_submit",
     "close_inspector",
     "camera_pan_left",
     "camera_pan_right",
@@ -1229,6 +1335,10 @@ _ENV_CONTROL_PROXY_COMMANDS = frozenset({
     "camera_pan_forward",
     "camera_pan_back",
     "camera_pose",
+    "set_world_profile",
+    "apply_profile_kit",
+    "clear_profile_kit",
+    "set_camera_preset",
 })
 
 
@@ -1417,7 +1527,11 @@ async def _connect_mcp():
             _read_stream, _write_stream = await _sse_cm.__aenter__()
 
             # ClientSession wraps the streams with JSON-RPC protocol
-            _session_cm = ClientSession(_read_stream, _write_stream, read_timeout_seconds=timedelta(seconds=180))
+            _session_cm = ClientSession(
+                _read_stream,
+                _write_stream,
+                read_timeout_seconds=timedelta(seconds=_MCP_SESSION_READ_TIMEOUT_SECONDS),
+            )
             _mcp_session = await _session_cm.__aenter__()
 
             # Initialize the session (sends initialize + notifications/initialized)
@@ -3412,7 +3526,7 @@ def _env_control_local_proxy_payload(args: dict | None = None) -> dict | None:
     }
     if command.startswith("camera_"):
         payload["environment_effects"]["camera_action"] = command
-    elif command in ("focus_surface", "inspect_surface", "open_surface", "close_surface", "close_inspector"):
+    elif command in ("focus_surface", "inspect_surface", "open_surface", "close_surface", "surface_tab", "surface_scroll", "surface_action", "surface_click", "surface_input", "surface_submit", "close_inspector"):
         payload["environment_effects"]["surface_action"] = command
     return payload
 
@@ -6915,6 +7029,14 @@ async def proxy_tool_call(tool_name: str, request: Request):
         _broadcast_activity(tool_name, call_args, payload, 0, error_msg, source=source, client_id=client_id)
         return JSONResponse(status_code=409, content=payload)
 
+    plug_claim, plug_busy_guard = await _claim_plug_execution(tool_name, call_args, source, client_id)
+    if plug_busy_guard:
+        error_msg = plug_busy_guard.get("error") or f"Duplicate model load in progress while calling {tool_name}"
+        payload = {"error": error_msg, "plug_busy": plug_busy_guard}
+        _broadcast_activity(tool_name, call_args, payload, 0, error_msg, source=source, client_id=client_id)
+        await _release_slot_execution(claim)
+        return JSONResponse(status_code=409, content=payload)
+
     if tool_name in _LIVE_START_TOOLS and tool_name != "agent_chat":
         _broadcast_activity(
             tool_name,
@@ -7073,6 +7195,7 @@ async def proxy_tool_call(tool_name: str, request: Request):
             result["capacity_guard"] = capacity_guard
         return result
     finally:
+        await _release_plug_execution(plug_claim)
         await _release_slot_execution(claim)
 
 
@@ -7561,7 +7684,7 @@ async def _hf_router_proxy_impl(request: Request, subpath: str, provider: str = 
         elif content_type:
             headers["Content-Type"] = content_type
 
-    timeout = 120.0
+    timeout = _HF_ROUTER_REQUEST_TIMEOUT_SECONDS
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:
             resp = await client.request(
@@ -8066,7 +8189,7 @@ async def mcp_message_proxy(request: Request):
                 params={"session_id": session_id},
                 content=body,
                 headers={"Content-Type": content_type},
-                timeout=120,
+                timeout=float(_MCP_TOOL_TIMEOUT_SECONDS),
             )
             duration_ms = int((time.time() - start) * 1000)
             print(f"[MCP-PROXY] Capsule responded {resp.status_code}")
