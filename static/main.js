@@ -19987,9 +19987,6 @@
         cssLabels: {},     // CSS2DObject labels keyed by kind::id
         lineMeshes: [],    // route/trajectory lines
         particleSystem: null,
-        hdriRenderTarget: null,
-        hdriUrl: '',
-        hdriRequestToken: 0,
         clock: null,
         container: null,
         animId: null,
@@ -21117,7 +21114,6 @@
             particle: [0xffffff, 0],
             css: ['#d9a35b', 'rgba(217,163,91,0.18)', 'rgba(12,18,24,0.84)', 'rgba(6,10,14,0.92)', 'rgba(255,255,255,0.04)', '#111820', '#7da5c9'],
             bloom: { strength: 0.15, radius: 0.3, threshold: 0.92 },
-            hdri: '/static/assets/hdri/kloofendal_48d_partly_cloudy_1k.hdr',
             water: {
                 enabled: true,
                 color: 0x001e0f,
@@ -21164,7 +21160,6 @@
             particle: [0xffffff, 0],
             css: ['#4a5a38', 'rgba(74,90,56,0.18)', 'rgba(10,14,8,0.84)', 'rgba(6,8,4,0.92)', 'rgba(255,255,255,0.04)', '#0e1408', '#3a4a30'],
             bloom: { strength: 0.06, radius: 0.3, threshold: 0.96 },
-            hdri: '/static/assets/hdri/fouriesburg_mountain_cloudy_1k.hdr',
             water: {
                 enabled: true,
                 color: 0x1a2a10,
@@ -21202,7 +21197,6 @@
             particle: [0xffffff, 0],
             css: ['#a0b8d0', 'rgba(160,184,208,0.18)', 'rgba(10,14,20,0.84)', 'rgba(6,8,12,0.92)', 'rgba(255,255,255,0.04)', '#0e1218', '#c8d8e8'],
             bloom: { strength: 0.12, radius: 0.3, threshold: 0.94 },
-            hdri: '/static/assets/hdri/drakensberg_solitary_mountain_puresky_1k.hdr',
             water: { enabled: false },
             terrain: { maxDisplacement: 0, opacity: 0 }
         },
@@ -21217,7 +21211,6 @@
             particle: [0xffffff, 0],
             css: ['#3a2010', 'rgba(58,32,16,0.18)', 'rgba(14,8,4,0.84)', 'rgba(8,4,2,0.92)', 'rgba(255,255,255,0.04)', '#0a0604', '#1a0e08'],
             bloom: { strength: 0.30, radius: 0.4, threshold: 0.90 },
-            hdri: '/static/assets/hdri/the_sky_is_on_fire_1k.hdr',
             water: { enabled: false },
             terrain: { maxDisplacement: 0, opacity: 0 }
         },
@@ -21232,7 +21225,6 @@
             particle: [0xffffff, 0],
             css: ['#d4a574', 'rgba(212,165,116,0.18)', 'rgba(18,12,8,0.84)', 'rgba(10,7,4,0.92)', 'rgba(255,255,255,0.04)', '#1a1208', '#c2956b'],
             bloom: { strength: 0.10, radius: 0.3, threshold: 0.95 },
-            hdri: '/static/assets/hdri/the_sky_is_on_fire_1k.hdr',
             water: { enabled: false },
             terrain: { maxDisplacement: 0, opacity: 0 }
         },
@@ -21247,7 +21239,6 @@
             particle: [0xffffff, 0],
             css: ['#3a5a28', 'rgba(58,90,40,0.18)', 'rgba(8,14,6,0.84)', 'rgba(4,8,2,0.92)', 'rgba(255,255,255,0.04)', '#0c1406', '#2a4a20'],
             bloom: { strength: 0.08, radius: 0.3, threshold: 0.95 },
-            hdri: '/static/assets/hdri/xanderklinge_1k.hdr',
             water: { enabled: false },
             terrain: { maxDisplacement: 0, opacity: 0 }
         },
@@ -21262,7 +21253,6 @@
             particle: [0xffffff, 0],
             css: ['#8a9a70', 'rgba(138,154,112,0.18)', 'rgba(12,14,8,0.84)', 'rgba(8,10,4,0.92)', 'rgba(255,255,255,0.04)', '#0e1208', '#7a8a60'],
             bloom: { strength: 0.08, radius: 0.3, threshold: 0.95 },
-            hdri: '/static/assets/hdri/kloofendal_48d_partly_cloudy_1k.hdr',
             water: { enabled: false },
             terrain: { maxDisplacement: 0, opacity: 0 }
         },
@@ -21277,7 +21267,6 @@
             particle: [0xffffff, 0],
             css: ['#7a8a78', 'rgba(122,138,120,0.18)', 'rgba(10,12,10,0.84)', 'rgba(6,8,6,0.92)', 'rgba(255,255,255,0.04)', '#0e120e', '#8898a8'],
             bloom: { strength: 0.10, radius: 0.3, threshold: 0.94 },
-            hdri: '/static/assets/hdri/kloofendal_48d_partly_cloudy_1k.hdr',
             water: { enabled: false },
             terrain: { maxDisplacement: 0, opacity: 0 }
         },
@@ -21292,7 +21281,6 @@
             particle: [0xffffff, 0],
             css: ['#2a2a4a', 'rgba(42,42,74,0.18)', 'rgba(4,4,10,0.84)', 'rgba(2,2,6,0.92)', 'rgba(255,255,255,0.04)', '#06060e', '#0a0a14'],
             bloom: { strength: 0.20, radius: 0.4, threshold: 0.92 },
-            hdri: '/static/assets/hdri/satara_night_1k.hdr',
             water: { enabled: false },
             terrain: { maxDisplacement: 0, opacity: 0 }
         },
@@ -21307,7 +21295,6 @@
             particle: [0xffffff, 0],
             css: ['#6a9a50', 'rgba(106,154,80,0.18)', 'rgba(10,14,8,0.84)', 'rgba(6,8,4,0.92)', 'rgba(255,255,255,0.04)', '#0e1408', '#88aacc'],
             bloom: { strength: 0.12, radius: 0.3, threshold: 0.93 },
-            hdri: '/static/assets/hdri/kloofendal_48d_partly_cloudy_1k.hdr',
             water: {
                 enabled: true,
                 color: 0x003322,
@@ -21805,43 +21792,6 @@
         }
     };
 
-    function _env3DDisposeHDRIRenderTarget() {
-        var scene = _env3D.scene;
-        if (scene && _env3D.hdriRenderTarget && _env3D.hdriRenderTarget.texture) {
-            if (scene.background === _env3D.hdriRenderTarget.texture) scene.background = null;
-            if (scene.environment === _env3D.hdriRenderTarget.texture) scene.environment = null;
-        }
-        if (_env3D.hdriRenderTarget && typeof _env3D.hdriRenderTarget.dispose === 'function') {
-            _env3D.hdriRenderTarget.dispose();
-        }
-        _env3D.hdriRenderTarget = null;
-        _env3D.hdriUrl = '';
-    }
-
-    function _env3DLoadHDRI(url, callback) {
-        if (!url || !_env3D.renderer || typeof THREE.RGBELoader !== 'function' || typeof THREE.PMREMGenerator !== 'function') {
-            if (typeof callback === 'function') callback(null);
-            return;
-        }
-        var loader = new THREE.RGBELoader();
-        loader.load(url, function (texture) {
-            if (texture && THREE.EquirectangularReflectionMapping !== undefined) {
-                texture.mapping = THREE.EquirectangularReflectionMapping;
-            }
-            var pmrem = new THREE.PMREMGenerator(_env3D.renderer);
-            if (typeof pmrem.compileEquirectangularShader === 'function') {
-                pmrem.compileEquirectangularShader();
-            }
-            var renderTarget = pmrem.fromEquirectangular(texture);
-            if (texture && typeof texture.dispose === 'function') texture.dispose();
-            pmrem.dispose();
-            if (typeof callback === 'function') callback(renderTarget || null);
-        }, undefined, function (err) {
-            console.warn('HDRI load failed', err);
-            if (typeof callback === 'function') callback(null);
-        });
-    }
-
     function _env3DWaterNormalTexture() {
         if (_env3D.waterNormalTexture) return _env3D.waterNormalTexture;
         if (typeof THREE.TextureLoader !== 'function') return null;
@@ -22218,10 +22168,7 @@
         }
         var s = _env3D.scene;
         var isWorldTheme = t.type === 'world';
-        _env3D.hdriRequestToken = Number(_env3D.hdriRequestToken || 0) + 1;
-        var hdriToken = _env3D.hdriRequestToken;
         if (s) {
-            _env3DDisposeHDRIRenderTarget();
             s.background = new THREE.Color(t.bg);
             s.fog = new THREE.FogExp2(t.bg, t.fog);
             s.environment = null;
@@ -22291,19 +22238,6 @@
                 _env3D.waterMesh = nextWater;
             }
         }
-        if (s && isWorldTheme && t.hdri) {
-            _env3DLoadHDRI(t.hdri, function (renderTarget) {
-                if (!renderTarget || !renderTarget.texture) return;
-                if (hdriToken !== _env3D.hdriRequestToken || _envThemeId !== themeId || _env3D.scene !== s) {
-                    if (typeof renderTarget.dispose === 'function') renderTarget.dispose();
-                    return;
-                }
-                _env3D.hdriRenderTarget = renderTarget;
-                _env3D.hdriUrl = String(t.hdri || '');
-                s.environment = renderTarget.texture;
-                s.background = renderTarget.texture;
-            });
-        }
         _env3DRefreshThemeObjectVisibility();
         // CSS custom properties for HTML overlays
         var c = t.css;
@@ -22332,32 +22266,17 @@
         var s = _env3D.scene;
         var render = profile && profile.render && typeof profile.render === 'object' ? profile.render : null;
         if (!s || !render) return;
+        s.environment = null;
         if (render.fogColor !== undefined || render.fogDensity !== undefined) {
             var fogColor = render.fogColor !== undefined ? render.fogColor : ((_envThemes[_envThemeId] || {}).bg || 0x0a0a1a);
             var fogDensity = render.fogDensity !== undefined ? render.fogDensity : ((_envThemes[_envThemeId] || {}).fog || 0.01);
             s.fog = new THREE.FogExp2(fogColor, fogDensity);
-            if (!render.hdri) s.background = new THREE.Color(fogColor);
+            s.background = new THREE.Color(fogColor);
         }
         if (_env3D.bloomPass && render.bloom) {
             if (render.bloom.strength !== undefined) _env3D.bloomPass.strength = Number(render.bloom.strength || 0);
             if (render.bloom.radius !== undefined) _env3D.bloomPass.radius = Number(render.bloom.radius || 0);
             if (render.bloom.threshold !== undefined) _env3D.bloomPass.threshold = Number(render.bloom.threshold || 0);
-        }
-        if (render.hdri) {
-            _env3D.hdriRequestToken = Number(_env3D.hdriRequestToken || 0) + 1;
-            var hdriToken = _env3D.hdriRequestToken;
-            _env3DDisposeHDRIRenderTarget();
-            _env3DLoadHDRI(render.hdri, function (renderTarget) {
-                if (!renderTarget || !renderTarget.texture) return;
-                if (hdriToken !== _env3D.hdriRequestToken || _env3D.activeWorldProfile !== profile.id || _env3D.scene !== s) {
-                    if (typeof renderTarget.dispose === 'function') renderTarget.dispose();
-                    return;
-                }
-                _env3D.hdriRenderTarget = renderTarget;
-                _env3D.hdriUrl = String(render.hdri || '');
-                s.environment = renderTarget.texture;
-                s.background = renderTarget.texture;
-            });
         }
     }
 
@@ -27093,7 +27012,6 @@
         _env3DDisposeCeiling();
         _env3DDisposeVolumeIndicator();
         _env3DDisposeWater();
-        _env3DDisposeHDRIRenderTarget();
         if (_env3D.composer && typeof _env3D.composer.dispose === 'function') {
             _env3D.composer.dispose();
         }
@@ -27105,9 +27023,6 @@
         _env3D.lineMeshes = [];
         _env3D.assetCache = {};
         _env3D.assetLoader = null;
-        _env3D.hdriRenderTarget = null;
-        _env3D.hdriUrl = '';
-        _env3D.hdriRequestToken = 0;
         _env3D.portalTexture = null;
         _env3D.crashDummyTexture = null;
         _env3D.influenceMap = null;
