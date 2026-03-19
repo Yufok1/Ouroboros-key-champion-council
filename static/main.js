@@ -175,6 +175,7 @@
         snapshotRequestedTs: 0,
         hydratedTs: 0,
         snapshotName: '',
+        preserveEmpty: false,
         lastSource: '',
         error: '',
         _priorFocus: null
@@ -15923,6 +15924,254 @@
         return normalized;
     }
 
+    var _ENV_RIG_FAMILY_REGISTRY = {
+        humanoid_biped: {
+            locomotion_class: 'biped',
+            reference_pose: 'A_POSE',
+            standard: 'gltf_generic',
+            canonical_joints: {
+                hips: 'Hips', spine: 'Spine', chest: 'Chest', neck: 'Neck', head: 'Head',
+                shoulder_l: 'LeftShoulder', upper_arm_l: 'LeftUpperArm', lower_arm_l: 'LeftLowerArm', hand_l: 'LeftHand',
+                shoulder_r: 'RightShoulder', upper_arm_r: 'RightUpperArm', lower_arm_r: 'RightLowerArm', hand_r: 'RightHand',
+                upper_leg_l: 'LeftUpperLeg', lower_leg_l: 'LeftLowerLeg', foot_l: 'LeftFoot',
+                upper_leg_r: 'RightUpperLeg', lower_leg_r: 'RightLowerLeg', foot_r: 'RightFoot'
+            },
+            min_clips: ['idle', 'walk']
+        },
+        quadruped: {
+            locomotion_class: 'quadruped',
+            reference_pose: 'BIND_POSE',
+            standard: 'gltf_generic',
+            canonical_joints: {
+                root: 'Root', spine_base: 'SpineBase', spine_mid: 'SpineMid', spine_end: 'SpineEnd',
+                neck: 'Neck', head: 'Head', jaw: 'Jaw', tail_base: 'TailBase', tail_mid: 'TailMid', tail_tip: 'TailTip',
+                front_leg_l_upper: 'FrontLegLUpper', front_leg_l_lower: 'FrontLegLLower', front_leg_l_foot: 'FrontLegLFoot',
+                front_leg_r_upper: 'FrontLegRUpper', front_leg_r_lower: 'FrontLegRLower', front_leg_r_foot: 'FrontLegRFoot',
+                rear_leg_l_upper: 'RearLegLUpper', rear_leg_l_lower: 'RearLegLLower', rear_leg_l_foot: 'RearLegLFoot',
+                rear_leg_r_upper: 'RearLegRUpper', rear_leg_r_lower: 'RearLegRLower', rear_leg_r_foot: 'RearLegRFoot'
+            },
+            min_clips: ['idle', 'walk', 'run']
+        },
+        flying: {
+            locomotion_class: 'flying',
+            reference_pose: 'BIND_POSE',
+            standard: 'gltf_generic',
+            canonical_joints: {
+                root: 'Root', spine: 'Spine', chest: 'Chest', neck: 'Neck', head: 'Head',
+                wing_l_shoulder: 'WingLShoulder', wing_l_mid: 'WingLMid', wing_l_tip: 'WingLTip',
+                wing_r_shoulder: 'WingRShoulder', wing_r_mid: 'WingRMid', wing_r_tip: 'WingRTip',
+                tail_base: 'TailBase', tail_tip: 'TailTip'
+            },
+            min_clips: ['idle', 'fly', 'glide']
+        },
+        serpentine: {
+            locomotion_class: 'serpentine',
+            reference_pose: 'BIND_POSE',
+            standard: 'gltf_generic',
+            canonical_joints: {
+                root: 'Root', head: 'Head', jaw: 'Jaw',
+                spine_01: 'Spine01', spine_02: 'Spine02', spine_03: 'Spine03',
+                spine_04: 'Spine04', spine_05: 'Spine05', spine_06: 'Spine06',
+                spine_07: 'Spine07', spine_08: 'Spine08', tail_tip: 'TailTip'
+            },
+            min_clips: ['idle', 'slither']
+        },
+        vehicle_ship: {
+            locomotion_class: 'vehicle',
+            reference_pose: 'BIND_POSE',
+            standard: 'gltf_generic',
+            canonical_joints: {
+                hull: 'Hull', rudder: 'Rudder',
+                mast_main: 'MainMast', mast_fore: 'ForeMast',
+                sail_main: 'MainSail', flag: 'Flag',
+                cannon_port_1: 'PortCannon1', cannon_starboard_1: 'StarboardCannon1'
+            },
+            min_clips: ['idle', 'sail']
+        },
+        custom: {
+            locomotion_class: 'custom',
+            reference_pose: 'BIND_POSE',
+            standard: 'gltf_generic',
+            canonical_joints: {},
+            min_clips: ['idle']
+        }
+    };
+
+    function _envNormalizeEmbodimentBoundingBox(value) {
+        if (!Array.isArray(value) || value.length !== 3) return null;
+        return value.map(function (entry) {
+            return _envSceneNumber(entry, 0, 0);
+        });
+    }
+
+    function _envNormalizeSceneEmbodiment(sources) {
+        var normalized = {
+            family: null,
+            standard: null,
+            reference_pose: null,
+            locomotion_class: null,
+            joint_map: null,
+            attachment_points: null,
+            proportions: null,
+            morph_profile: null,
+            animation_contract: null,
+            physics_profile: null
+        };
+        var sawValue = false;
+        var list = Array.isArray(sources) ? sources : [sources];
+        var incomingFamily = null;
+        list.forEach(function (source) {
+            if (!source || typeof source !== 'object' || Array.isArray(source)) return;
+            if (source.family !== undefined) {
+                incomingFamily = _envSceneStringOrNull(source.family, incomingFamily);
+            }
+        });
+        if (!_ENV_RIG_FAMILY_REGISTRY[incomingFamily || '']) incomingFamily = incomingFamily ? 'custom' : incomingFamily;
+        var priorFamily = (list[0] && typeof list[0] === 'object' && !Array.isArray(list[0]))
+            ? _envSceneStringOrNull(list[0].family, null)
+            : null;
+        if (!_ENV_RIG_FAMILY_REGISTRY[priorFamily || '']) priorFamily = priorFamily ? 'custom' : priorFamily;
+        var familyChanged = !!(incomingFamily && priorFamily && incomingFamily !== priorFamily);
+        list.forEach(function (source, idx) {
+            if (!source || typeof source !== 'object' || Array.isArray(source)) return;
+            if (source.family !== undefined) {
+                normalized.family = _envSceneStringOrNull(source.family, normalized.family);
+                sawValue = true;
+            }
+            var referencePose = source.reference_pose !== undefined ? source.reference_pose : source.referencePose;
+            if ((!familyChanged || idx !== 0) && referencePose !== undefined) {
+                normalized.reference_pose = _envSceneStringOrNull(referencePose, normalized.reference_pose);
+                sawValue = true;
+            }
+            var locomotionClass = source.locomotion_class !== undefined ? source.locomotion_class : source.locomotionClass;
+            if ((!familyChanged || idx !== 0) && locomotionClass !== undefined) {
+                normalized.locomotion_class = _envSceneStringOrNull(locomotionClass, normalized.locomotion_class);
+                sawValue = true;
+            }
+            if ((!familyChanged || idx !== 0) && source.joint_map && typeof source.joint_map === 'object' && !Array.isArray(source.joint_map)) {
+                normalized.joint_map = _envCloneJson(source.joint_map, {});
+                sawValue = true;
+            } else if ((!familyChanged || idx !== 0) && source.jointMap && typeof source.jointMap === 'object' && !Array.isArray(source.jointMap)) {
+                normalized.joint_map = _envCloneJson(source.jointMap, {});
+                sawValue = true;
+            }
+            if ((!familyChanged || idx !== 0) && source.standard !== undefined) {
+                normalized.standard = _envSceneStringOrNull(source.standard, normalized.standard);
+                sawValue = true;
+            }
+            if (source.attachment_points && typeof source.attachment_points === 'object' && !Array.isArray(source.attachment_points)) {
+                normalized.attachment_points = _envCloneJson(source.attachment_points, {});
+                sawValue = true;
+            } else if (source.attachmentPoints && typeof source.attachmentPoints === 'object' && !Array.isArray(source.attachmentPoints)) {
+                normalized.attachment_points = _envCloneJson(source.attachmentPoints, {});
+                sawValue = true;
+            }
+            if (source.proportions && typeof source.proportions === 'object' && !Array.isArray(source.proportions)) {
+                normalized.proportions = _envCloneJson(source.proportions, {});
+                var bboxValue = normalized.proportions.bounding_box !== undefined
+                    ? normalized.proportions.bounding_box
+                    : normalized.proportions.boundingBox;
+                var normalizedBbox = _envNormalizeEmbodimentBoundingBox(bboxValue);
+                if (normalizedBbox) normalized.proportions.bounding_box = normalizedBbox;
+                else if (Object.prototype.hasOwnProperty.call(normalized.proportions, 'bounding_box')) delete normalized.proportions.bounding_box;
+                if (Object.prototype.hasOwnProperty.call(normalized.proportions, 'boundingBox')) delete normalized.proportions.boundingBox;
+                sawValue = true;
+            }
+            if (source.morph_profile && typeof source.morph_profile === 'object' && !Array.isArray(source.morph_profile)) {
+                normalized.morph_profile = _envCloneJson(source.morph_profile, {});
+                sawValue = true;
+            } else if (source.morphProfile && typeof source.morphProfile === 'object' && !Array.isArray(source.morphProfile)) {
+                normalized.morph_profile = _envCloneJson(source.morphProfile, {});
+                sawValue = true;
+            }
+            if (source.animation_contract && typeof source.animation_contract === 'object' && !Array.isArray(source.animation_contract)) {
+                normalized.animation_contract = _envCloneJson(source.animation_contract, {});
+                sawValue = true;
+            } else if (source.animationContract && typeof source.animationContract === 'object' && !Array.isArray(source.animationContract)) {
+                normalized.animation_contract = _envCloneJson(source.animationContract, {});
+                sawValue = true;
+            }
+            if (source.physics_profile && typeof source.physics_profile === 'object' && !Array.isArray(source.physics_profile)) {
+                normalized.physics_profile = _envCloneJson(source.physics_profile, {});
+                sawValue = true;
+            } else if (source.physicsProfile && typeof source.physicsProfile === 'object' && !Array.isArray(source.physicsProfile)) {
+                normalized.physics_profile = _envCloneJson(source.physicsProfile, {});
+                sawValue = true;
+            }
+        });
+        if (!sawValue) return null;
+        if (!_ENV_RIG_FAMILY_REGISTRY[normalized.family || '']) normalized.family = normalized.family ? 'custom' : normalized.family;
+        if (!normalized.family) normalized.family = 'custom';
+        var defaults = _ENV_RIG_FAMILY_REGISTRY[normalized.family] || _ENV_RIG_FAMILY_REGISTRY.custom;
+        if (!normalized.standard) normalized.standard = defaults.standard || 'gltf_generic';
+        if (!normalized.reference_pose) normalized.reference_pose = defaults.reference_pose || 'BIND_POSE';
+        if (!normalized.locomotion_class) normalized.locomotion_class = defaults.locomotion_class || 'custom';
+        if (!normalized.joint_map && defaults.canonical_joints && Object.keys(defaults.canonical_joints).length) {
+            normalized.joint_map = _envCloneJson(defaults.canonical_joints, {});
+        }
+        return normalized;
+    }
+
+    function _envNormalizeSceneRetargeting(sources) {
+        var normalized = {
+            source_rig_type: null,
+            source_joint_map: null,
+            rest_pose: null,
+            scale_policy: 'uniform',
+            translation_policy: 'hips_only',
+            twist_policy: 'preserve',
+            root_motion_policy: 'extract_optional',
+            status: null
+        };
+        var sawValue = false;
+        var list = Array.isArray(sources) ? sources : [sources];
+        list.forEach(function (source) {
+            if (!source || typeof source !== 'object' || Array.isArray(source)) return;
+            var sourceRigType = source.source_rig_type !== undefined ? source.source_rig_type : source.sourceRigType;
+            if (sourceRigType !== undefined) {
+                normalized.source_rig_type = _envSceneStringOrNull(sourceRigType, normalized.source_rig_type);
+                sawValue = true;
+            }
+            if (source.source_joint_map && typeof source.source_joint_map === 'object' && !Array.isArray(source.source_joint_map)) {
+                normalized.source_joint_map = _envCloneJson(source.source_joint_map, {});
+                sawValue = true;
+            } else if (source.sourceJointMap && typeof source.sourceJointMap === 'object' && !Array.isArray(source.sourceJointMap)) {
+                normalized.source_joint_map = _envCloneJson(source.sourceJointMap, {});
+                sawValue = true;
+            }
+            var restPose = source.rest_pose !== undefined ? source.rest_pose : source.restPose;
+            if (restPose !== undefined) {
+                normalized.rest_pose = _envSceneStringOrNull(restPose, normalized.rest_pose);
+                sawValue = true;
+            }
+            var scalePolicy = source.scale_policy !== undefined ? source.scale_policy : source.scalePolicy;
+            if (scalePolicy !== undefined) {
+                normalized.scale_policy = _envSceneStringOrNull(scalePolicy, normalized.scale_policy) || 'uniform';
+                sawValue = true;
+            }
+            var translationPolicy = source.translation_policy !== undefined ? source.translation_policy : source.translationPolicy;
+            if (translationPolicy !== undefined) {
+                normalized.translation_policy = _envSceneStringOrNull(translationPolicy, normalized.translation_policy) || 'hips_only';
+                sawValue = true;
+            }
+            var twistPolicy = source.twist_policy !== undefined ? source.twist_policy : source.twistPolicy;
+            if (twistPolicy !== undefined) {
+                normalized.twist_policy = _envSceneStringOrNull(twistPolicy, normalized.twist_policy) || 'preserve';
+                sawValue = true;
+            }
+            var rootMotionPolicy = source.root_motion_policy !== undefined ? source.root_motion_policy : source.rootMotionPolicy;
+            if (rootMotionPolicy !== undefined) {
+                normalized.root_motion_policy = _envSceneStringOrNull(rootMotionPolicy, normalized.root_motion_policy) || 'extract_optional';
+                sawValue = true;
+            }
+            if (source.status !== undefined) {
+                normalized.status = _envSceneStringOrNull(source.status, normalized.status);
+                sawValue = true;
+            }
+        });
+        return sawValue ? normalized : null;
+    }
+
     function _envNormalizeSceneCharacter(sources, kind) {
         var normalized = {
             archetype: null,
@@ -16092,6 +16341,73 @@
         marker: '/static/assets/pin.glb'
     };
 
+    function _envAssetRefLookupKey(value) {
+        var text = String(value || '').trim();
+        if (!text) return '';
+        text = text.replace(/^.*[\\/]/, '').replace(/\.[^.\\/]+$/, '').trim().toLowerCase();
+        if (!text) return '';
+        text = text.replace(/[_\s]+/g, '-');
+        text = text.replace(/(?:-|_)(?:1k|2k|4k|8k|16k|lod\d+)$/i, '');
+        text = text.replace(/-+/g, '-').replace(/^-|-$/g, '');
+        return text;
+    }
+
+    function _envAssetRefHintKeys(assetRef) {
+        var text = String(assetRef || '').trim();
+        if (!text) return [];
+        var parts = text.split(/[\\/]+/).filter(Boolean);
+        var keys = {};
+        function add(value) {
+            var key = _envAssetRefLookupKey(value);
+            if (key) keys[key] = true;
+        }
+        if (parts.length) add(parts[parts.length - 1]);
+        if (parts.length > 1) add(parts[parts.length - 2]);
+        return Object.keys(keys);
+    }
+
+    function _envFindAssetRecordByRefHint(packId, assetRef) {
+        var pack = _envFindAssetPack(packId);
+        if (!pack || !Array.isArray(pack.assets) || !pack.assets.length) return null;
+        var hints = _envAssetRefHintKeys(assetRef);
+        if (!hints.length) return null;
+        for (var i = 0; i < pack.assets.length; i++) {
+            var asset = pack.assets[i];
+            var file = String((asset && asset.file) || '').trim();
+            var fileParts = file ? file.split(/[\\/]+/).filter(Boolean) : [];
+            var parentDir = fileParts.length > 1 ? fileParts[fileParts.length - 2] : '';
+            var fileName = fileParts.length ? fileParts[fileParts.length - 1] : '';
+            var assetKeys = {};
+            [_envAssetRefLookupKey(asset && asset.id), _envAssetRefLookupKey(fileName), _envAssetRefLookupKey(parentDir)].forEach(function (key) {
+                if (key) assetKeys[key] = true;
+            });
+            for (var j = 0; j < hints.length; j++) {
+                if (assetKeys[hints[j]]) return { pack: pack, asset: asset };
+            }
+        }
+        return null;
+    }
+
+    function _envResolveCanonicalAssetRef(obj, assetRef) {
+        var ref = String(assetRef || '').trim();
+        if (!ref) return '';
+        var data = _envObjectData(obj);
+        var packId = String((data && data.asset_pack_id) || '').trim();
+        var assetId = String((data && data.asset_id) || '').trim();
+        if (packId && assetId) {
+            var exactUrl = _envGetAssetUrl(packId, assetId);
+            if (exactUrl) return exactUrl;
+        }
+        var packPathMatch = ref.replace(/\\/g, '/').match(/(?:^|\/)static\/assets\/packs\/([^\/]+)\/(.+)$/i);
+        if (!packPathMatch) return ref;
+        var inferredPackId = String(packPathMatch[1] || '').trim();
+        if (!inferredPackId) return ref;
+        var inferred = _envFindAssetRecordByRefHint(inferredPackId, packPathMatch[2]);
+        if (!inferred || !inferred.asset) return ref;
+        var canonicalUrl = _envGetAssetUrl(inferredPackId, inferred.asset.id);
+        return canonicalUrl || ref;
+    }
+
     function _envSceneAppearanceForObject(obj) {
         var data = _envObjectData(obj);
         var result = _envNormalizeSceneAppearanceRecord([
@@ -16111,6 +16427,7 @@
             && result.geometry === 'box') {
             result.asset_ref = _envDefaultKindAssets[obj.kind];
         }
+        if (result.asset_ref) result.asset_ref = _envResolveCanonicalAssetRef(obj, result.asset_ref);
         return result;
     }
 
@@ -16121,6 +16438,30 @@
         }
         if (data && data.character && typeof data.character === 'object' && !Array.isArray(data.character)) {
             return data.character;
+        }
+        return null;
+    }
+
+    function _envSceneEmbodimentForObject(obj) {
+        if (!obj) return null;
+        if (obj.embodiment && typeof obj.embodiment === 'object' && !Array.isArray(obj.embodiment)) {
+            return obj.embodiment;
+        }
+        var data = _envObjectData(obj);
+        if (data && data.embodiment && typeof data.embodiment === 'object' && !Array.isArray(data.embodiment)) {
+            return data.embodiment;
+        }
+        return null;
+    }
+
+    function _envSceneRetargetingForObject(obj) {
+        if (!obj) return null;
+        if (obj.retargeting && typeof obj.retargeting === 'object' && !Array.isArray(obj.retargeting)) {
+            return obj.retargeting;
+        }
+        var data = _envObjectData(obj);
+        if (data && data.retargeting && typeof data.retargeting === 'object' && !Array.isArray(data.retargeting)) {
+            return data.retargeting;
         }
         return null;
     }
@@ -16152,8 +16493,40 @@
             (rawData || {}).character,
             p.character
         ], kind);
+        var embodimentCleared = (Object.prototype.hasOwnProperty.call(p, 'embodiment') && p.embodiment === null)
+            || (rawData && Object.prototype.hasOwnProperty.call(rawData, 'embodiment') && rawData.embodiment === null);
+        var embodiment = embodimentCleared ? null : _envNormalizeSceneEmbodiment([
+            prev ? prev.embodiment : null,
+            (rawData || {}).embodiment,
+            p.embodiment
+        ]);
+        var retargetingCleared = (Object.prototype.hasOwnProperty.call(p, 'retargeting') && p.retargeting === null)
+            || (rawData && Object.prototype.hasOwnProperty.call(rawData, 'retargeting') && rawData.retargeting === null);
+        var retargeting = retargetingCleared ? null : _envNormalizeSceneRetargeting([
+            prev ? prev.retargeting : null,
+            (rawData || {}).retargeting,
+            p.retargeting
+        ]);
+        if (character && embodiment && embodiment.animation_contract && typeof embodiment.animation_contract === 'object') {
+            var clipMapMissing = !character.clip_map || typeof character.clip_map !== 'object' || !Object.keys(character.clip_map).length;
+            if (clipMapMissing) {
+                var derivedClipMap = {};
+                var animationChannels = embodiment.animation_contract;
+                ['locomotion', 'action', 'gesture', 'facial', 'transition'].forEach(function (channelKey) {
+                    if (!animationChannels[channelKey] || typeof animationChannels[channelKey] !== 'object') return;
+                    Object.keys(animationChannels[channelKey]).forEach(function (clipKey) {
+                        if (!derivedClipMap[clipKey]) derivedClipMap[clipKey] = String(animationChannels[channelKey][clipKey] || '');
+                    });
+                });
+                if (Object.keys(derivedClipMap).length) {
+                    character.clip_map = derivedClipMap;
+                }
+            }
+        }
         if (character) data.character = _envCloneJson(character, null);
         else if (data && Object.prototype.hasOwnProperty.call(data, 'character')) delete data.character;
+        if (data && Object.prototype.hasOwnProperty.call(data, 'embodiment')) delete data.embodiment;
+        if (data && Object.prototype.hasOwnProperty.call(data, 'retargeting')) delete data.retargeting;
         var explicitAppearanceAssetRef = !!(
             (rawAppearance && ((rawAppearance.asset_ref !== undefined && rawAppearance.asset_ref !== null && String(rawAppearance.asset_ref).trim())
                 || (rawAppearance.assetRef !== undefined && rawAppearance.assetRef !== null && String(rawAppearance.assetRef).trim())))
@@ -16253,6 +16626,8 @@
             collision_policy: collisionPolicy,
             mechanics: mechanics,
             character: character,
+            embodiment: embodiment,
+            retargeting: retargeting,
             html: p.html !== undefined ? p.html : (((rawData || {}).html !== undefined) ? (rawData || {}).html : (prev ? prev.html : null)),
             color: appearance.color,
             items: _envNormalizeSceneMenuItems(rawItems || []),
@@ -16342,6 +16717,7 @@
             _envSceneBootstrapState.pending = false;
             _envSceneBootstrapState.hydratedTs = Date.now();
             _envSceneBootstrapState.snapshotName = '';
+            _envSceneBootstrapState.preserveEmpty = true;
             _envSceneBootstrapState.lastSource = String(source || toolName || 'env_clear');
             _envSceneBootstrapState.error = '';
             _envNavigationState.currentSnapshot = '';
@@ -16373,12 +16749,14 @@
                 changed = _envReplaceCustomSceneObjects(snapshotObjects, source || 'snapshot') || changed;
                 _envSceneBootstrapState.pending = false;
                 _envSceneBootstrapState.hydratedTs = Date.now();
+                _envSceneBootstrapState.preserveEmpty = false;
                 _envSceneBootstrapState.lastSource = String(source || 'snapshot');
                 _envSceneBootstrapState.error = '';
             }
         }
         if (snapshotName) {
             _envSceneBootstrapState.snapshotName = snapshotName;
+            _envSceneBootstrapState.preserveEmpty = false;
             if (!_envNavigationState.currentSnapshot) _envNavigationState.currentSnapshot = snapshotName;
         }
         return finalizeHydration();
@@ -16408,6 +16786,7 @@
 
     function _envEnsureSceneSnapshotIdentity(reason, force) {
         if (_envSceneBootstrapState.pending) return false;
+        if (!force && _envSceneBootstrapState.preserveEmpty && !_envScenePrimarySnapshotName()) return false;
         if (!force && _envScenePrimarySnapshotName()) return false;
         var now = Date.now();
         if (!force && Number(_envSceneBootstrapState.snapshotRequestedTs || 0) && (now - Number(_envSceneBootstrapState.snapshotRequestedTs || 0)) < 15000) {
@@ -17315,6 +17694,7 @@
         }
         _envNavigationState.currentSnapshot = snapshot;
         _envSceneBootstrapState.snapshotName = snapshot;
+        _envSceneBootstrapState.preserveEmpty = false;
         _envNavigationState.pendingLoad = null;
         _envCloseHtmlPanel(actorName, 'snapshot load');
         _envStageUiState.forceStageRebuild = true;
@@ -18441,6 +18821,8 @@
             ? obj.mechanics
             : null;
         var character = _envSceneCharacterForObject(obj);
+        var embodiment = _envSceneEmbodimentForObject(obj);
+        var retarget = _envSceneRetargetingForObject(obj);
         if (!character && (kind === 'npc' || kind === 'actor')) {
             character = _envNormalizeSceneCharacter([{
                 archetype: 'custom',
@@ -18736,6 +19118,24 @@
             }
             sections.push(_envInspectorSection('character', 'Character', characterBody, {
                 meta: String(character.archetype || 'character')
+            }));
+        }
+        if (embodiment && typeof embodiment === 'object') {
+            var bbox = embodiment.proportions && Array.isArray(embodiment.proportions.bounding_box) && embodiment.proportions.bounding_box.length === 3
+                ? (Number(embodiment.proportions.bounding_box[0]).toFixed(1) + ' × '
+                    + Number(embodiment.proportions.bounding_box[1]).toFixed(1) + ' × '
+                    + Number(embodiment.proportions.bounding_box[2]).toFixed(1))
+                : '—';
+            var embodimentBody = [
+                _envInspectorMetric('Family', embodiment.family || '—'),
+                _envInspectorMetric('Standard', embodiment.standard || '—'),
+                _envInspectorMetric('Locomotion', embodiment.locomotion_class || '—'),
+                _envInspectorMetric('Ref Pose', embodiment.reference_pose || '—'),
+                _envInspectorMetric('Bounding Box', bbox),
+                _envInspectorMetric('Retarget', retarget ? (retarget.status || '—') : '—')
+            ].join('');
+            sections.push(_envInspectorSection('embodiment', 'Embodiment', embodimentBody, {
+                meta: String(embodiment.family || 'body')
             }));
         }
 
@@ -19498,6 +19898,10 @@
             }
             _envSceneBootstrapState.hydratedTs = 0;
             _envSceneBootstrapState.pending = false;
+            if (String(payload.operation_status || '').toLowerCase() === 'cleared') {
+                _envSceneBootstrapState.snapshotName = '';
+                _envSceneBootstrapState.preserveEmpty = true;
+            }
             _envSceneBootstrapState.lastSource = String(source || toolName || 'persist');
         }
 
@@ -19920,6 +20324,8 @@
                 _envNavigationState.currentSnapshot = '';
                 _envNavigationState.history = [];
                 _envNavigationState.pendingLoad = null;
+                _envSceneBootstrapState.snapshotName = '';
+                _envSceneBootstrapState.preserveEmpty = true;
                 _envCloseHtmlPanel('assistant', 'scene cleared');
                 applied.changed = true;
             } else if ((op === 'sync_live' || opStatus === 'sync_live')
@@ -20039,6 +20445,7 @@
     var _envAssetPacks = [];
     var _envUserAssetPackStorageKey = 'champion_user_asset_pack';
     var _envPackIndexPromise = null;
+    var _envPackIndexReady = false;
     var _envAssetBrowserState = {
         expanded: false,
         packFilter: '',
@@ -22416,6 +22823,27 @@
         var kit = key ? _envWorldProfileKits[key] : null;
         if (!kit || !Array.isArray(kit.items) || !kit.items.length) return false;
         if (_env3DIsProfileKitApplied(key)) {
+            _env3DUpdateWorldProfileControl();
+            return false;
+        }
+        var missingAssets = [];
+        kit.items.forEach(function (item) {
+            if (!_envFindAssetRecord(item.pack, item.asset)) missingAssets.push(String(item.pack || '') + ':' + String(item.asset || ''));
+        });
+        if (missingAssets.length) {
+            if (!_env3D._pendingProfileKitLoads || typeof _env3D._pendingProfileKitLoads !== 'object') {
+                _env3D._pendingProfileKitLoads = {};
+            }
+            if (_envPackIndexPromise && !_envPackIndexReady && !_env3D._pendingProfileKitLoads[key]) {
+                _env3D._pendingProfileKitLoads[key] = true;
+                _envPackIndexPromise.finally(function () {
+                    delete _env3D._pendingProfileKitLoads[key];
+                    if (!_env3DIsProfileKitApplied(key)) _env3DApplyProfileKit(key);
+                });
+            }
+            if (typeof mpToast === 'function') {
+                mpToast('Waiting for asset packs before applying ' + String(kit.name || key) + '.', 'info', 2200);
+            }
             _env3DUpdateWorldProfileControl();
             return false;
         }
@@ -29092,14 +29520,16 @@
                 var opStatus = String(envPayload.operation_status || '').toLowerCase();
                 if (op === 'load' || opStatus === 'loaded') {
                     var loadedSnapshot = _envSceneSnapshotNameFromPayload(envPayload, pendingMeta);
-                    if (loadedSnapshot) _envSceneCommitSnapshotLoad(loadedSnapshot, pendingMeta);
-                } else if (op === 'clear' || opStatus === 'cleared') {
-                    _envNavigationState.currentSnapshot = '';
-                    _envNavigationState.history = [];
-                    _envNavigationState.pendingLoad = null;
-                    _envCloseHtmlPanel('assistant', 'scene cleared');
-                }
+                if (loadedSnapshot) _envSceneCommitSnapshotLoad(loadedSnapshot, pendingMeta);
+            } else if (op === 'clear' || opStatus === 'cleared') {
+                _envNavigationState.currentSnapshot = '';
+                _envNavigationState.history = [];
+                _envNavigationState.pendingLoad = null;
+                _envSceneBootstrapState.snapshotName = '';
+                _envSceneBootstrapState.preserveEmpty = true;
+                _envCloseHtmlPanel('assistant', 'scene cleared');
             }
+        }
             if (envApplied.changed || envApplied.mirrored || (toolName === 'env_read' || toolName === 'env_persist')) {
                 renderEnvironmentView();
             }
@@ -29568,6 +29998,7 @@
     function _envLoadPackIndex(indexUrl) {
         if (_envPackIndexPromise) return _envPackIndexPromise;
         if (!indexUrl || typeof fetch !== 'function') return Promise.resolve(null);
+        _envPackIndexReady = false;
         _envPackIndexPromise = fetch(String(indexUrl || '').trim()).then(function (response) {
             if (!response.ok) throw new Error('HTTP ' + response.status);
             return response.json();
@@ -29588,7 +30019,11 @@
                     });
                 });
             }));
+        }).then(function (result) {
+            _envPackIndexReady = true;
+            return result;
         }).catch(function (error) {
+            _envPackIndexReady = true;
             console.warn('[envops] pack index load failed', indexUrl, error);
             _envPackIndexPromise = null;
             return null;
@@ -29974,6 +30409,11 @@
                 asset_ref: url || null,
                 anim_set: String(asset.anim_set || 'humanoid').trim().toLowerCase() || 'humanoid',
                 behavior: 'idle'
+            };
+            spawnArgs.embodiment = {
+                family: 'humanoid_biped',
+                standard: 'gltf_generic',
+                locomotion_class: 'biped'
             };
         }
         if (Object.keys(appearance).length) spawnArgs.appearance = appearance;
@@ -35800,6 +36240,9 @@
         return _envSceneObjectPool().map(function (obj) {
             var interaction = _envSceneInteractionMeta(obj);
             var data = _envObjectData(obj);
+            var character = _envSceneCharacterForObject(obj);
+            var embodiment = _envSceneEmbodimentForObject(obj);
+            var retargeting = _envSceneRetargetingForObject(obj);
             var providerBinding = data && data.provider_binding && typeof data.provider_binding === 'object' ? data.provider_binding : null;
             var capabilityProfile = data && data.capability_profile && typeof data.capability_profile === 'object' ? data.capability_profile : null;
             var menuItems = _envSceneObjectMenuItems(obj).slice(0, 12).map(function (item) {
@@ -35849,7 +36292,10 @@
                 } : null,
                 facility_candidates: _slotUniqueStrings(data.facility_candidates || []),
                 html_preview: _envSceneObjectHasHtml(obj) ? _envProductCollapseText(String(obj.html || data.html || ''), 180) : '',
-                menu_items: menuItems
+                menu_items: menuItems,
+                character: character ? _envCloneJson(character, null) : null,
+                embodiment: embodiment ? _envCloneJson(embodiment, null) : null,
+                retargeting: retargeting ? _envCloneJson(retargeting, null) : null
             };
         });
     };

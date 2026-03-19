@@ -1317,10 +1317,50 @@ _GUIDED_EXTERNAL_MCP_TOOLS = frozenset({
 })
 
 _ENV_CONTROL_PROXY_COMMANDS = frozenset({
+    "activate_profile",
+    "branch_snapshot",
+    "camera_dolly_in",
+    "camera_dolly_out",
+    "camera_frame_focus",
+    "camera_frame_overview",
+    "camera_frame_replay",
+    "camera_orbit_left",
+    "camera_orbit_right",
+    "sample_now",
+    "scan_docs",
+    "set_camera_mode",
+    "set_replay_mode",
+    "toggle_stream",
+    "toggle_replay",
+    "replay_prev",
+    "replay_next",
+    "focus_actor",
+    "focus_artifact",
+    "focus_branch",
+    "focus_dispatch",
+    "focus_district",
+    "focus_doc",
+    "focus_event",
+    "focus_execution",
+    "focus_node",
+    "focus_profile",
+    "focus_queued",
+    "focus_recipe",
+    "focus_replay",
+    "focus_sample",
+    "focus_slot",
+    "focus_trace",
+    "focus_watch",
+    "focus_workflow",
+    "follow_failed",
     "focus_surface",
     "inspect_surface",
     "open_surface",
+    "open_doc_memory",
     "close_surface",
+    "camera_reset_pose",
+    "camera_tilt_down",
+    "camera_tilt_up",
     "surface_tab",
     "surface_scroll",
     "surface_action",
@@ -1335,6 +1375,7 @@ _ENV_CONTROL_PROXY_COMMANDS = frozenset({
     "camera_pan_forward",
     "camera_pan_back",
     "camera_pose",
+    "run_recipe",
     "set_world_profile",
     "apply_profile_kit",
     "clear_profile_kit",
@@ -1437,6 +1478,52 @@ _DEBUG_FEED_MIRROR_EXCLUDED_TOOLS = frozenset({
 # Populated by mcp_message_proxy, resolved by mcp_sse_proxy when the
 # capsule sends the result back on the SSE stream.
 _pending_external_calls: dict[str | int, dict] = {}
+_external_mcp_sse_subscribers: dict[str, list[asyncio.Queue]] = {}
+
+
+def _register_external_mcp_sse_subscriber(session_id: str, queue: asyncio.Queue):
+    sid = str(session_id or "").strip()
+    if not sid:
+        return
+    queues = _external_mcp_sse_subscribers.setdefault(sid, [])
+    if queue not in queues:
+        queues.append(queue)
+
+
+def _unregister_external_mcp_sse_subscriber(session_id: str, queue: asyncio.Queue):
+    sid = str(session_id or "").strip()
+    if not sid:
+        return
+    queues = _external_mcp_sse_subscribers.get(sid)
+    if not queues:
+        return
+    try:
+        queues.remove(queue)
+    except ValueError:
+        pass
+    if not queues:
+        _external_mcp_sse_subscribers.pop(sid, None)
+
+
+def _push_external_mcp_sse_response(session_id: str, payload: dict) -> bool:
+    sid = str(session_id or "").strip()
+    if not sid or not isinstance(payload, dict):
+        return False
+    queues = list(_external_mcp_sse_subscribers.get(sid) or [])
+    if not queues:
+        return False
+    chunk = "event: message\ndata: " + json.dumps(payload) + "\n\n"
+    delivered = False
+    dead = []
+    for queue in queues:
+        try:
+            queue.put_nowait(chunk)
+            delivered = True
+        except Exception:
+            dead.append(queue)
+    for queue in dead:
+        _unregister_external_mcp_sse_subscriber(sid, queue)
+    return delivered
 
 # MCP client session (managed by lifespan)
 _mcp_session: ClientSession | None = None
@@ -7831,135 +7918,154 @@ async def mcp_sse_proxy(request: Request):
     print(f"[MCP-PROXY] SSE connect — public_base={public_base}")
 
     async def _stream():
+        out_queue: asyncio.Queue = asyncio.Queue()
         endpoint_rewritten = False
-        try:
-            async with httpx.AsyncClient() as client:
-                async with client.stream("GET", f"{MCP_BASE}/sse", timeout=None) as resp:
-                    buffer = ""
-                    _current_event_type = ""
-                    async for chunk in resp.aiter_text():
-                        buffer += chunk
-                        # Process complete lines
-                        while "\n" in buffer:
-                            line, buffer = buffer.split("\n", 1)
+        current_event_type = ""
+        registered_session_id = ""
 
-                            # Track SSE event type for parsing
-                            if line.startswith("event:"):
-                                _current_event_type = line.split(":", 1)[1].strip()
+        async def _pump_capsule_stream():
+            nonlocal endpoint_rewritten, current_event_type, registered_session_id
+            try:
+                async with httpx.AsyncClient() as client:
+                    async with client.stream("GET", f"{MCP_BASE}/sse", timeout=None) as resp:
+                        buffer = ""
+                        async for chunk in resp.aiter_text():
+                            buffer += chunk
+                            while "\n" in buffer:
+                                line, buffer = buffer.split("\n", 1)
 
-                            if not endpoint_rewritten and line.startswith("data:") and "/messages" in line:
-                                raw = line.split("data:", 1)[1].strip()
-                                if raw.startswith("http://") or raw.startswith("https://"):
-                                    from urllib.parse import urlparse
-                                    parsed = urlparse(raw)
-                                    path_and_query = parsed.path
-                                    if parsed.query:
-                                        path_and_query += "?" + parsed.query
+                                if line.startswith("event:"):
+                                    current_event_type = line.split(":", 1)[1].strip()
+
+                                if not endpoint_rewritten and line.startswith("data:") and "/messages" in line:
+                                    raw = line.split("data:", 1)[1].strip()
+                                    if raw.startswith("http://") or raw.startswith("https://"):
+                                        from urllib.parse import urlparse
+                                        parsed = urlparse(raw)
+                                        path_and_query = parsed.path
+                                        if parsed.query:
+                                            path_and_query += "?" + parsed.query
+                                    else:
+                                        path_and_query = raw
+                                    if not path_and_query.startswith("/"):
+                                        path_and_query = "/" + path_and_query
+                                    query_pairs = dict(parse_qsl(urlsplit(path_and_query).query or ""))
+                                    session_id = str(query_pairs.get("session_id") or query_pairs.get("sessionId") or "").strip()
+                                    if session_id:
+                                        _register_external_mcp_sse_subscriber(session_id, out_queue)
+                                        registered_session_id = session_id
+                                    rewritten = f"data: {public_base}/mcp{path_and_query}"
+                                    print(f"[MCP-PROXY] Rewrote endpoint: {line.strip()} -> {rewritten.strip()}")
+                                    endpoint_rewritten = True
+                                    await out_queue.put(rewritten + "\n")
                                 else:
-                                    path_and_query = raw
-                                if not path_and_query.startswith("/"):
-                                    path_and_query = "/" + path_and_query
-                                rewritten = f"data: {public_base}/mcp{path_and_query}"
-                                print(f"[MCP-PROXY] Rewrote endpoint: {line.strip()} -> {rewritten.strip()}")
-                                endpoint_rewritten = True
-                                yield rewritten + "\n"
-                            else:
-                                # ── Intercept JSON-RPC responses to capture tool results ──
-                                # MCP SSE transport sends bare data: lines (no event: prefix),
-                                # so we check ANY data line when we have pending calls.
-                                if line.startswith("data:") and _pending_external_calls:
-                                    raw_data = line.split("data:", 1)[1].strip()
-                                    print(f"[MCP-PROXY] SSE data line, event_type='{_current_event_type}', pending={len(_pending_external_calls)}, data={raw_data[:120]}")
-                                    try:
-                                        payload = json.loads(raw_data)
-                                        rpc_id = payload.get("id")
-                                        # Try exact match first, then coerced match (int vs str)
-                                        matched_key = None
-                                        if rpc_id is not None:
-                                            if rpc_id in _pending_external_calls:
-                                                matched_key = rpc_id
-                                            elif str(rpc_id) in _pending_external_calls:
-                                                matched_key = str(rpc_id)
-                                            elif isinstance(rpc_id, str) and rpc_id.isdigit() and int(rpc_id) in _pending_external_calls:
-                                                matched_key = int(rpc_id)
-                                        if matched_key is not None:
-                                            pending = _pending_external_calls.pop(matched_key)
-                                            duration_ms = int((time.time() - pending["start"]) * 1000)
-                                            rpc_result = payload.get("result")
-                                            rpc_error = payload.get("error")
-                                            error_str = None
-                                            if rpc_error:
-                                                error_str = rpc_error.get("message", str(rpc_error)) if isinstance(rpc_error, dict) else str(rpc_error)
-
-                                            if pending["tool"] == "get_genesis" and error_str and "NoneType" in error_str:
-                                                safe = {
-                                                    "genesis_hash": None,
-                                                    "lineage": [],
-                                                    "note": "Genesis data not initialized for this capsule instance",
-                                                }
-                                                rpc_result = {
-                                                    "content": [{"type": "text", "text": json.dumps(safe)}]
-                                                }
-                                                rpc_error = None
+                                    if line.startswith("data:") and _pending_external_calls:
+                                        raw_data = line.split("data:", 1)[1].strip()
+                                        print(f"[MCP-PROXY] SSE data line, event_type='{current_event_type}', pending={len(_pending_external_calls)}, data={raw_data[:120]}")
+                                        try:
+                                            payload = json.loads(raw_data)
+                                            rpc_id = payload.get("id")
+                                            matched_key = None
+                                            if rpc_id is not None:
+                                                if rpc_id in _pending_external_calls:
+                                                    matched_key = rpc_id
+                                                elif str(rpc_id) in _pending_external_calls:
+                                                    matched_key = str(rpc_id)
+                                                elif isinstance(rpc_id, str) and rpc_id.isdigit() and int(rpc_id) in _pending_external_calls:
+                                                    matched_key = int(rpc_id)
+                                            if matched_key is not None:
+                                                pending = _pending_external_calls.pop(matched_key)
+                                                duration_ms = int((time.time() - pending["start"]) * 1000)
+                                                rpc_result = payload.get("result")
+                                                rpc_error = payload.get("error")
                                                 error_str = None
-                                                payload.pop("error", None)
-                                                payload["result"] = rpc_result
-                                                line = "data: " + json.dumps(payload)
+                                                if rpc_error:
+                                                    error_str = rpc_error.get("message", str(rpc_error)) if isinstance(rpc_error, dict) else str(rpc_error)
 
-                                            print(f"[MCP-PROXY] Matched pending call id={rpc_id} tool={pending['tool']} duration={duration_ms}ms has_result={rpc_result is not None}")
-                                            _broadcast_activity(
-                                                pending["tool"], pending["args"],
-                                                rpc_result, duration_ms, error_str,
-                                                source="external", client_id=pending.get("client_id")
-                                            )
-                                            # Cache-aware inner tool call broadcasting for agent_chat
-                                            if pending["tool"] == "agent_chat" and rpc_result:
-                                                _ac_parsed = _parse_mcp_result(rpc_result)
-                                                _ac_full = _ac_parsed
-                                                if isinstance(_ac_parsed, dict) and _ac_parsed.get("_cached"):
-                                                    try:
-                                                        _ac_cache = await _call_tool("get_cached", {"cache_id": str(_ac_parsed["_cached"])})
-                                                        _ac_resolved = _parse_mcp_result((_ac_cache or {}).get("result"))
-                                                        if isinstance(_ac_resolved, dict) and ("result" in _ac_resolved or "tool_calls" in _ac_resolved):
-                                                            _ac_full = _ac_resolved
-                                                            print(f"[AGENT-INNER/SSE] Resolved cache {_ac_parsed['_cached']}")
-                                                    except Exception:
-                                                        pass
-                                                _ac_inner = _ac_full.get("result") if isinstance(_ac_full, dict) and isinstance(_ac_full.get("result"), dict) else _ac_full
-                                                _ac_tc = _ac_inner.get("tool_calls", []) if isinstance(_ac_inner, dict) else []
-                                                for _aci, _ac_entry in enumerate(_ac_tc):
-                                                    if not isinstance(_ac_entry, dict):
-                                                        continue
-                                                    _broadcast_activity(
-                                                        _ac_entry.get("tool", "unknown"),
-                                                        _ac_entry.get("args", {}),
-                                                        {"content": [{"type": "text", "text": str(_ac_entry.get("result", ""))}]},
-                                                        0, str(_ac_entry.get("error")) if _ac_entry.get("error") else None,
-                                                        source="agent-inner", client_id=pending.get("client_id"),
-                                                    )
-                                                    print(f"[AGENT-INNER/SSE] Broadcast {_aci+1}/{len(_ac_tc)}: {_ac_entry.get('tool')}")
-                                            else:
-                                                _broadcast_agent_inner_calls(pending["tool"], rpc_result, duration_ms, source="external", client_id=pending.get("client_id"))
-                                            await _release_slot_execution(pending.get("claim"))
-                                        elif rpc_id is not None:
-                                            print(f"[MCP-PROXY] SSE response id={rpc_id} (type={type(rpc_id).__name__}) not in pending keys={list(_pending_external_calls.keys())}")
-                                    except (json.JSONDecodeError, AttributeError):
-                                        pass
+                                                if pending["tool"] == "get_genesis" and error_str and "NoneType" in error_str:
+                                                    safe = {
+                                                        "genesis_hash": None,
+                                                        "lineage": [],
+                                                        "note": "Genesis data not initialized for this capsule instance",
+                                                    }
+                                                    rpc_result = {
+                                                        "content": [{"type": "text", "text": json.dumps(safe)}]
+                                                    }
+                                                    error_str = None
+                                                    payload.pop("error", None)
+                                                    payload["result"] = rpc_result
+                                                    line = "data: " + json.dumps(payload)
 
-                                yield line + "\n"
-        except httpx.RemoteProtocolError:
-            pass
-        except Exception as e:
-            print(f"[MCP-PROXY] SSE stream error: {e}")
-            yield f"event: error\ndata: {e}\n\n"
+                                                print(f"[MCP-PROXY] Matched pending call id={rpc_id} tool={pending['tool']} duration={duration_ms}ms has_result={rpc_result is not None}")
+                                                _broadcast_activity(
+                                                    pending["tool"], pending["args"],
+                                                    rpc_result, duration_ms, error_str,
+                                                    source="external", client_id=pending.get("client_id")
+                                                )
+                                                if pending["tool"] == "agent_chat" and rpc_result:
+                                                    _ac_parsed = _parse_mcp_result(rpc_result)
+                                                    _ac_full = _ac_parsed
+                                                    if isinstance(_ac_parsed, dict) and _ac_parsed.get("_cached"):
+                                                        try:
+                                                            _ac_cache = await _call_tool("get_cached", {"cache_id": str(_ac_parsed["_cached"])})
+                                                            _ac_resolved = _parse_mcp_result((_ac_cache or {}).get("result"))
+                                                            if isinstance(_ac_resolved, dict) and ("result" in _ac_resolved or "tool_calls" in _ac_resolved):
+                                                                _ac_full = _ac_resolved
+                                                                print(f"[AGENT-INNER/SSE] Resolved cache {_ac_parsed['_cached']}")
+                                                        except Exception:
+                                                            pass
+                                                    _ac_inner = _ac_full.get("result") if isinstance(_ac_full, dict) and isinstance(_ac_full.get("result"), dict) else _ac_full
+                                                    _ac_tc = _ac_inner.get("tool_calls", []) if isinstance(_ac_inner, dict) else []
+                                                    for _aci, _ac_entry in enumerate(_ac_tc):
+                                                        if not isinstance(_ac_entry, dict):
+                                                            continue
+                                                        _broadcast_activity(
+                                                            _ac_entry.get("tool", "unknown"),
+                                                            _ac_entry.get("args", {}),
+                                                            {"content": [{"type": "text", "text": str(_ac_entry.get("result", ""))}]},
+                                                            0, str(_ac_entry.get("error")) if _ac_entry.get("error") else None,
+                                                            source="agent-inner", client_id=pending.get("client_id"),
+                                                        )
+                                                        print(f"[AGENT-INNER/SSE] Broadcast {_aci+1}/{len(_ac_tc)}: {_ac_entry.get('tool')}")
+                                                else:
+                                                    _broadcast_agent_inner_calls(pending["tool"], rpc_result, duration_ms, source="external", client_id=pending.get("client_id"))
+                                                await _release_slot_execution(pending.get("claim"))
+                                            elif rpc_id is not None:
+                                                print(f"[MCP-PROXY] SSE response id={rpc_id} (type={type(rpc_id).__name__}) not in pending keys={list(_pending_external_calls.keys())}")
+                                        except (json.JSONDecodeError, AttributeError):
+                                            pass
+
+                                    await out_queue.put(line + "\n")
+            except httpx.RemoteProtocolError:
+                pass
+            except Exception as e:
+                print(f"[MCP-PROXY] SSE stream error: {e}")
+                await out_queue.put(f"event: error\ndata: {e}\n\n")
+            finally:
+                if registered_session_id:
+                    _unregister_external_mcp_sse_subscriber(registered_session_id, out_queue)
+                stale_ids = [k for k, v in _pending_external_calls.items()
+                             if time.time() - v["start"] > 300]
+                for k in stale_ids:
+                    stale = _pending_external_calls.pop(k, None)
+                    if isinstance(stale, dict):
+                        await _release_slot_execution(stale.get("claim"))
+                await out_queue.put(None)
+
+        pump_task = asyncio.create_task(_pump_capsule_stream())
+        try:
+            while True:
+                chunk = await out_queue.get()
+                if chunk is None:
+                    break
+                yield chunk
         finally:
-            # Clean up any pending calls for this SSE session (stale after disconnect)
-            stale_ids = [k for k, v in _pending_external_calls.items()
-                         if time.time() - v["start"] > 300]
-            for k in stale_ids:
-                stale = _pending_external_calls.pop(k, None)
-                if isinstance(stale, dict):
-                    await _release_slot_execution(stale.get("claim"))
+            if not pump_task.done():
+                pump_task.cancel()
+                try:
+                    await pump_task
+                except Exception:
+                    pass
 
     return StreamingResponse(
         _stream(),
@@ -8003,6 +8109,8 @@ async def mcp_message_proxy(request: Request):
         if str(rpc_payload.get("method") or "") in ("initialize", "tools/list"):
             handled = await _handle_streamable_rpc(rpc_payload, _mcp_client_id)
             if handled is None:
+                return Response(status_code=202)
+            if session_id and _push_external_mcp_sse_response(session_id, handled):
                 return Response(status_code=202)
             return JSONResponse(status_code=200, content=handled)
 
@@ -8063,6 +8171,8 @@ async def mcp_message_proxy(request: Request):
         }
         handled = await _handle_streamable_rpc(rpc_obj, _mcp_client_id)
         if handled is None:
+            return Response(status_code=202)
+        if session_id and _push_external_mcp_sse_response(session_id, handled):
             return Response(status_code=202)
         return JSONResponse(status_code=200, content=handled)
 
