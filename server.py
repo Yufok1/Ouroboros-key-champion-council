@@ -10,6 +10,7 @@ Architecture:
 import os
 import sys
 import json
+import base64
 import asyncio
 import subprocess
 import shutil
@@ -48,6 +49,12 @@ _SILENT_TOOLS = frozenset([
     'get_capabilities', 'get_help', 'get_onboarding', 'get_quickstart',
     'hub_tasks', 'list_tools', 'heartbeat', 'api_health',
 ])
+
+_ENV_CAPTURE_DIR = Path("static") / "captures"
+_ENV_CAPTURE_INDEX_PATH = _ENV_CAPTURE_DIR / "_index.json"
+_ENV_CAPTURE_LIMIT = 20
+_env_capture_history: list[dict] = []
+_env_capture_lock = threading.Lock()
 
 
 def _normalize_activity_source(value: str | None) -> str | None:
@@ -1327,6 +1334,12 @@ _ENV_CONTROL_PROXY_COMMANDS = frozenset({
     "camera_orbit_left",
     "camera_orbit_right",
     "sample_now",
+    "capture_frame",
+    "capture_frame_overview",
+    "capture_strip",
+    "capture_supercam",
+    "capture_focus",
+    "capture_probe",
     "scan_docs",
     "set_camera_mode",
     "set_replay_mode",
@@ -1944,7 +1957,7 @@ def _workflow_local_proxy_tool_names() -> set[str]:
         "agent_chat_result", "agent_chat_purge", "workflow_execute", "workflow_status", "workflow_history",
         "hf_cache_status", "hf_cache_clear", "capsule_restart",
         "persist_status", "persist_restore_revision",
-        "env_control",
+        "env_control", "env_read",
     }
     try:
         if isinstance(_AGENT_LOCAL_TOOL_SPECS, dict):
@@ -3616,7 +3629,427 @@ def _env_control_local_proxy_payload(args: dict | None = None) -> dict | None:
         payload["environment_effects"]["camera_action"] = command
     elif command in ("focus_surface", "inspect_surface", "open_surface", "close_surface", "surface_tab", "surface_scroll", "surface_action", "surface_click", "surface_input", "surface_submit", "close_inspector"):
         payload["environment_effects"]["surface_action"] = command
+    elif command.startswith("capture_"):
+        payload["environment_effects"]["capture_action"] = command
     return payload
+
+
+def _env_capture_safe_token(text: str) -> str:
+    token = "".join(ch.lower() if ch.isalnum() else "_" for ch in str(text or ""))
+    token = token.strip("_")
+    return token[:48] or "capture"
+
+
+def _env_capture_ensure_dir() -> Path:
+    _ENV_CAPTURE_DIR.mkdir(parents=True, exist_ok=True)
+    return _ENV_CAPTURE_DIR
+
+
+def _env_capture_entry_files(value) -> list[str]:
+    files: list[str] = []
+    if isinstance(value, dict):
+        file_path = value.get("file_path")
+        if isinstance(file_path, str) and file_path.strip():
+            files.append(file_path.strip())
+        for child in value.values():
+            files.extend(_env_capture_entry_files(child))
+    elif isinstance(value, list):
+        for child in value:
+            files.extend(_env_capture_entry_files(child))
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for item in files:
+        if item not in seen:
+            deduped.append(item)
+            seen.add(item)
+    return deduped
+
+
+def _env_capture_delete_files(entry: dict | None) -> None:
+    for file_path in _env_capture_entry_files(entry or {}):
+        try:
+            path = Path(file_path)
+            if path.exists():
+                path.unlink()
+        except Exception:
+            pass
+
+
+def _env_capture_save_index() -> None:
+    _env_capture_ensure_dir()
+    with _env_capture_lock:
+        snapshot = json.loads(json.dumps(_env_capture_history, default=str))
+    _ENV_CAPTURE_INDEX_PATH.write_text(json.dumps(snapshot, indent=2), encoding="utf-8")
+
+
+def _env_capture_load_index() -> None:
+    global _env_capture_history
+    try:
+        if not _ENV_CAPTURE_INDEX_PATH.exists():
+            return
+        data = json.loads(_ENV_CAPTURE_INDEX_PATH.read_text(encoding="utf-8"))
+        rows = data if isinstance(data, list) else []
+        cleaned = [row for row in rows if isinstance(row, dict)]
+        with _env_capture_lock:
+            _env_capture_history = cleaned[-_ENV_CAPTURE_LIMIT:]
+    except Exception:
+        _env_capture_history = []
+
+
+def _save_b64_jpeg(data_url: str, path: Path) -> None:
+    raw = str(data_url or "").strip()
+    if raw.startswith("data:") and "," in raw:
+        raw = raw.split(",", 1)[1]
+    path.write_bytes(base64.b64decode(raw))
+
+
+def _env_capture_materialize(value, prefix: str, ts: int, files_saved: list[str]):
+    if isinstance(value, dict):
+        out: dict = {}
+        image_b64 = value.get("image_b64")
+        if isinstance(image_b64, str) and image_b64.strip():
+            filename = f"{_env_capture_safe_token(prefix)}_{ts}.jpg"
+            path = (_env_capture_ensure_dir() / filename).resolve()
+            _save_b64_jpeg(image_b64, path)
+            files_saved.append(str(path))
+            out["file_path"] = str(path)
+            out["file_url"] = f"/static/captures/{path.name}"
+        for key, child in value.items():
+            if key == "image_b64":
+                continue
+            child_prefix = f"{prefix}_{_env_capture_safe_token(key)}"
+            out[key] = _env_capture_materialize(child, child_prefix, ts, files_saved)
+        return out
+    if isinstance(value, list):
+        rows = []
+        for idx, child in enumerate(value):
+            rows.append(_env_capture_materialize(child, f"{prefix}_{idx}", ts, files_saved))
+        return rows
+    return value
+
+
+def _env_capture_append(capture_type: str, result: dict) -> dict:
+    ts = int(time.time() * 1000)
+    files_saved: list[str] = []
+    safe_type = _env_capture_safe_token(capture_type or "frame")
+    materialized = _env_capture_materialize(
+        json.loads(json.dumps(result or {}, default=str)),
+        safe_type,
+        ts,
+        files_saved,
+    )
+    entry = {
+        "type": safe_type,
+        "ts": ts,
+        "result": materialized,
+    }
+    with _env_capture_lock:
+        _env_capture_history.append(entry)
+        while len(_env_capture_history) > _ENV_CAPTURE_LIMIT:
+            old = _env_capture_history.pop(0)
+            _env_capture_delete_files(old)
+    _env_capture_save_index()
+    return {
+        "status": "ok",
+        "type": safe_type,
+        "ts": ts,
+        "files": files_saved,
+        "capture": entry,
+    }
+
+
+def _env_capture_latest(capture_type: str) -> dict | None:
+    target = _env_capture_safe_token(capture_type or "frame")
+    with _env_capture_lock:
+        for entry in reversed(_env_capture_history):
+            if isinstance(entry, dict) and str(entry.get("type") or "") == target:
+                return json.loads(json.dumps(entry, default=str))
+    return None
+
+
+def _env_capture_recent(capture_type: str, limit: int = 2) -> list[dict]:
+    target = _env_capture_safe_token(capture_type or "frame")
+    limit = max(1, min(10, int(limit or 2)))
+    rows: list[dict] = []
+    with _env_capture_lock:
+        for entry in reversed(_env_capture_history):
+            if isinstance(entry, dict) and str(entry.get("type") or "") == target:
+                rows.append(json.loads(json.dumps(entry, default=str)))
+                if len(rows) >= limit:
+                    break
+    return rows
+
+
+def _env_projection_lookup(result: dict | None) -> dict[tuple[str, str], dict]:
+    lookup: dict[tuple[str, str], dict] = {}
+    if not isinstance(result, dict):
+        return lookup
+    for tile in result.get("tiles") or []:
+        if not isinstance(tile, dict):
+            continue
+        label = str(tile.get("label") or "")
+        observation = tile.get("observation") if isinstance(tile.get("observation"), dict) else {}
+        for proj in observation.get("projections") or []:
+            if not isinstance(proj, dict):
+                continue
+            object_key = str(proj.get("object_key") or "")
+            if not object_key:
+                continue
+            lookup[(label, object_key)] = proj
+    return lookup
+
+
+def _debug_activity_detail(entry: dict | None) -> str:
+    if not isinstance(entry, dict):
+        return ""
+    args = entry.get("args") if isinstance(entry.get("args"), dict) else {}
+    result = entry.get("result") if isinstance(entry.get("result"), dict) else {}
+    detail = str(args.get("detail") or result.get("message") or "").strip()
+    return detail
+
+
+def _is_debug_activity_entry(entry: dict | None) -> bool:
+    if not isinstance(entry, dict):
+        return False
+    if entry.get("source") == "agent-debug" or entry.get("tool") == "agent_debug":
+        return True
+    args = entry.get("args") if isinstance(entry.get("args"), dict) else {}
+    detail = _debug_activity_detail(entry)
+    if re.match(r"^debug\b", detail, re.IGNORECASE):
+        return True
+    signal_type = str(args.get("signal_type") or "").lower()
+    if "agent_debug" in signal_type:
+        return True
+    reason = str(args.get("reason") or "").lower()
+    if "agent_debug" in reason:
+        return True
+    event_type = str(args.get("event_type") or "").lower()
+    if "agent_debug" in event_type:
+        return True
+    return False
+
+
+def _debug_state_payload(query_text: str) -> dict:
+    debug_rows = [entry for entry in _activity_log if _is_debug_activity_entry(entry)]
+    recent_rows = debug_rows[-15:]
+    mirrored_rows = 0
+    loop_rows = 0
+    error_rows = 0
+    source_counts: dict[str, int] = {}
+    for entry in debug_rows:
+        args = entry.get("args") if isinstance(entry.get("args"), dict) else {}
+        source = str(entry.get("source") or "unknown")
+        source_counts[source] = int(source_counts.get(source, 0)) + 1
+        if args.get("mirror") is not None:
+            mirrored_rows += 1
+        else:
+            loop_rows += 1
+        if entry.get("error"):
+            error_rows += 1
+    compact_rows = []
+    for entry in reversed(recent_rows):
+        args = entry.get("args") if isinstance(entry.get("args"), dict) else {}
+        mirror = args.get("mirror") if isinstance(args.get("mirror"), dict) else {}
+        compact_rows.append({
+            "id": str(entry.get("id") or ""),
+            "tool": str(entry.get("tool") or ""),
+            "source": str(entry.get("source") or ""),
+            "client_id": str(entry.get("clientId") or ""),
+            "timestamp_ms": int(entry.get("timestamp") or 0),
+            "duration_ms": int(entry.get("durationMs") or 0),
+            "error": entry.get("error"),
+            "detail": _debug_activity_detail(entry),
+            "signal_type": str(args.get("signal_type") or ""),
+            "has_mirror_payload": bool(mirror),
+            "mirrored_tool": str(mirror.get("tool") or ""),
+            "mirrored_source": str(mirror.get("source") or ""),
+        })
+    latest_row = compact_rows[0] if compact_rows else None
+    debug_state = {
+        "mirror": {
+            "enabled": bool(_DEBUG_FEED_MIRROR_ENABLED),
+            "max_chars": int(_DEBUG_FEED_MIRROR_MAX_CHARS),
+            "excluded_tools": sorted(_DEBUG_FEED_MIRROR_EXCLUDED_TOOLS),
+        },
+        "counts": {
+            "activity_rows_total": len(_activity_log),
+            "debug_rows_total": len(debug_rows),
+            "mirrored_tool_rows": mirrored_rows,
+            "agent_loop_rows": loop_rows,
+            "error_rows": error_rows,
+            "sse_subscribers": len(_activity_subscribers),
+            "source_counts": source_counts,
+        },
+        "latest": latest_row,
+        "recent_rows": compact_rows,
+        "guidance": {
+            "default_path": [
+                "trigger the real tool/action",
+                "read env_read(query='live'|'shared_state'|'contracts'|'habitat_objects')",
+                "read feed(n=...)",
+                "use the Debug tab as a filtered browser surface rather than the sole source of truth",
+            ],
+            "notes": [
+                "trace_root_causes mutates the default causal graph when given a free-form description",
+                "get_help('debug') is not currently exposed by the capsule help registry",
+                "debug_state is a local env_read summary over the existing activity/debug mirror",
+            ],
+        },
+    }
+    return {
+        "tool": "env_read",
+        "status": "ok",
+        "summary": "Read local debug state summary",
+        "normalized_args": {"query": query_text},
+        "delta": {
+            "found": True,
+            "type": "debug_state",
+            "debug_rows": len(debug_rows),
+            "mirrored_tool_rows": mirrored_rows,
+            "agent_loop_rows": loop_rows,
+        },
+        "operation": "env_read",
+        "operation_status": "ok",
+        "query": query_text,
+        "debug_state": debug_state,
+    }
+
+
+def _env_probe_compare_payload() -> dict:
+    rows = _env_capture_recent("probe", 2)
+    latest = rows[0] if rows else None
+    previous = rows[1] if len(rows) > 1 else None
+    if latest is None:
+        return {
+            "tool": "env_read",
+            "status": "partial",
+            "summary": "No probe capture is available yet",
+            "normalized_args": {"query": "probe_compare"},
+            "delta": {"found": False},
+            "operation": "env_read",
+            "operation_status": "partial",
+            "query": "probe_compare",
+            "probe_compare": None,
+        }
+    latest_result = latest.get("result") if isinstance(latest.get("result"), dict) else {}
+    previous_result = previous.get("result") if isinstance(previous, dict) and isinstance(previous.get("result"), dict) else {}
+    latest_target = latest_result.get("target") if isinstance(latest_result.get("target"), dict) else {}
+    previous_target = previous_result.get("target") if isinstance(previous_result.get("target"), dict) else {}
+    latest_key = str(latest_target.get("object_key") or "")
+    previous_key = str(previous_target.get("object_key") or "")
+    latest_neighbors = {str(item.get("object_key") or "") for item in (latest_result.get("neighbors") or []) if isinstance(item, dict)}
+    previous_neighbors = {str(item.get("object_key") or "") for item in (previous_result.get("neighbors") or []) if isinstance(item, dict)}
+    latest_lookup = _env_projection_lookup(latest_result)
+    previous_lookup = _env_projection_lookup(previous_result)
+    tile_deltas: list[dict] = []
+    if latest_key and latest_key == previous_key:
+        for (label, object_key), latest_proj in latest_lookup.items():
+            if object_key != latest_key:
+                continue
+            previous_proj = previous_lookup.get((label, object_key))
+            if not isinstance(previous_proj, dict):
+                continue
+            latest_screen = latest_proj.get("screen") if isinstance(latest_proj.get("screen"), dict) else {}
+            previous_screen = previous_proj.get("screen") if isinstance(previous_proj.get("screen"), dict) else {}
+            try:
+                dx = float(latest_screen.get("x", 0)) - float(previous_screen.get("x", 0))
+                dy = float(latest_screen.get("y", 0)) - float(previous_screen.get("y", 0))
+                depth_delta = float(latest_screen.get("depth", 0)) - float(previous_screen.get("depth", 0))
+            except Exception:
+                continue
+            tile_deltas.append({
+                "label": label,
+                "dx": round(dx, 2),
+                "dy": round(dy, 2),
+                "depth_delta": round(depth_delta, 4),
+            })
+    latest_pos = latest_target.get("position") if isinstance(latest_target.get("position"), dict) else {}
+    previous_pos = previous_target.get("position") if isinstance(previous_target.get("position"), dict) else {}
+    world_delta = None
+    if latest_key and latest_key == previous_key and latest_pos and previous_pos:
+        try:
+            world_delta = {
+                "dx": round(float(latest_pos.get("x", 0)) - float(previous_pos.get("x", 0)), 4),
+                "dy": round(float(latest_pos.get("y", 0)) - float(previous_pos.get("y", 0)), 4),
+                "dz": round(float(latest_pos.get("z", 0)) - float(previous_pos.get("z", 0)), 4),
+            }
+        except Exception:
+            world_delta = None
+    compare = {
+        "latest_ts": latest.get("ts"),
+        "previous_ts": previous.get("ts") if previous else None,
+        "latest_target_key": latest_key,
+        "previous_target_key": previous_key or None,
+        "same_target": bool(latest_key and latest_key == previous_key),
+        "world_delta": world_delta,
+        "tile_deltas": tile_deltas,
+        "neighbor_added": sorted(key for key in latest_neighbors if key and key not in previous_neighbors),
+        "neighbor_removed": sorted(key for key in previous_neighbors if key and key not in latest_neighbors),
+        "latest": latest,
+        "previous": previous,
+    }
+    return {
+        "tool": "env_read",
+        "status": "ok",
+        "summary": "Read latest probe comparison",
+        "normalized_args": {"query": "probe_compare"},
+        "delta": {"found": True, "type": "probe_compare", "same_target": compare["same_target"]},
+        "operation": "env_read",
+        "operation_status": "ok",
+        "query": "probe_compare",
+        "probe_compare": compare,
+        "capture": latest,
+    }
+
+
+def _env_read_local_proxy_payload(args: dict | None = None) -> dict | None:
+    args = args or {}
+    query_text = str(args.get("query", "list") or "list").strip() or "list"
+    query_lower = query_text.lower()
+    if query_lower == "debug_state":
+        return _debug_state_payload(query_text)
+    if query_lower == "probe_compare":
+        return _env_probe_compare_payload()
+    query_map = {
+        "frame": ("frame", "frame"),
+        "frame_strip": ("strip", "frame_strip"),
+        "supercam": ("supercam", "supercam"),
+        "probe": ("probe", "probe"),
+    }
+    mapped = query_map.get(query_lower)
+    if not mapped:
+        return None
+    capture_type, response_key = mapped
+    entry = _env_capture_latest(capture_type)
+    if entry is None:
+        payload = {
+            "tool": "env_read",
+            "status": "partial",
+            "summary": f"No {response_key} capture is available yet",
+            "normalized_args": {"query": query_text},
+            "delta": {"found": False},
+            "operation": "env_read",
+            "operation_status": "partial",
+            "query": query_text,
+            response_key: None,
+        }
+        return payload
+    payload = {
+        "tool": "env_read",
+        "status": "ok",
+        "summary": f"Read latest {response_key} capture",
+        "normalized_args": {"query": query_text},
+        "delta": {"found": True, "type": capture_type, "ts": entry.get("ts")},
+        "operation": "env_read",
+        "operation_status": "ok",
+        "query": query_text,
+        response_key: entry,
+        "capture": entry,
+    }
+    return payload
+
+
+_env_capture_load_index()
 
 
 def _agent_session_snapshot(args: dict | None = None) -> dict:
@@ -6965,6 +7398,14 @@ async def proxy_tool_call(tool_name: str, request: Request):
             return JSONResponse(status_code=400, content=env_control_proxy_payload)
         return {"result": {"content": [{"type": "text", "text": json.dumps(env_control_proxy_payload)}], "isError": False}}
 
+    env_read_proxy_payload = _env_read_local_proxy_payload(body if isinstance(body, dict) else {})
+    if tool_name == "env_read" and env_read_proxy_payload is not None:
+        err_msg = env_read_proxy_payload.get("error") if isinstance(env_read_proxy_payload, dict) else None
+        _broadcast_activity(tool_name, body if isinstance(body, dict) else {}, env_read_proxy_payload, 0, err_msg, source=source, client_id=client_id)
+        if err_msg:
+            return JSONResponse(status_code=400, content=env_read_proxy_payload)
+        return {"result": {"content": [{"type": "text", "text": json.dumps(env_read_proxy_payload)}], "isError": False}}
+
     product_bundle_payload = await _product_bundle_local_tool(tool_name, body if isinstance(body, dict) else {})
     if product_bundle_payload is not None:
         err_msg = product_bundle_payload.get("error") if isinstance(product_bundle_payload, dict) else None
@@ -7854,6 +8295,29 @@ async def activity_log_route():
     return {"entries": _activity_log[-100:]}
 
 
+@app.post("/api/env/capture")
+async def env_capture(request: Request):
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    capture_type = str((body or {}).get("type") or "frame").strip() or "frame"
+    result = (body or {}).get("result")
+    if not isinstance(result, dict):
+        return JSONResponse(status_code=400, content={"error": "Missing capture result payload"})
+    try:
+        payload = _env_capture_append(capture_type, result)
+        return JSONResponse(content=payload)
+    except Exception as exc:
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": f"Failed to persist capture: {exc}",
+                "type": capture_type,
+            },
+        )
+
+
 @app.get("/", response_class=HTMLResponse)
 async def landing():
     return Path("static/index.html").read_text(encoding="utf-8")
@@ -8737,6 +9201,14 @@ async def _handle_streamable_rpc(obj: dict, client_id: str) -> dict | None:
             if err_msg:
                 return _rpc_error(rpc_id, -32603, err_msg, env_control_proxy_payload)
             return {"jsonrpc": "2.0", "id": rpc_id, "result": {"content": [{"type": "text", "text": json.dumps(env_control_proxy_payload)}], "isError": False}}
+
+        env_read_proxy_payload = _env_read_local_proxy_payload(args)
+        if tool_name == "env_read" and env_read_proxy_payload is not None:
+            err_msg = env_read_proxy_payload.get("error") if isinstance(env_read_proxy_payload, dict) else None
+            _broadcast_activity(tool_name, args, env_read_proxy_payload, 0, err_msg, source="external", client_id=client_id)
+            if err_msg:
+                return _rpc_error(rpc_id, -32603, err_msg, env_read_proxy_payload)
+            return {"jsonrpc": "2.0", "id": rpc_id, "result": {"content": [{"type": "text", "text": json.dumps(env_read_proxy_payload)}], "isError": False}}
 
         product_bundle_payload = await _product_bundle_local_tool(tool_name, args)
         if product_bundle_payload is not None:

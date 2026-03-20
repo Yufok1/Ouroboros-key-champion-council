@@ -1,4 +1,4 @@
-var CACHE_NAME = 'champion-council-v128b';
+var CACHE_NAME = 'champion-council-v129j';
 var STATIC_ASSETS = [
     '/',
     '/static/panel.html',
@@ -11,7 +11,10 @@ var STATIC_ASSETS = [
     '/static/CSS2DRenderer.js',
     '/static/GLTFLoader.js',
     '/static/Water.js',
-    '/static/main.js?v=128b',
+    '/static/rapier3d-compat/rapier.es.js',
+    '/static/rapier3d-compat/rapier_wasm3d.js',
+    '/static/rapier3d-compat/rapier_wasm3d_bg.wasm',
+    '/static/main.js?v=129j',
     '/static/manifest.json',
     '/static/icon.svg',
     '/static/assets/packs/index.json',

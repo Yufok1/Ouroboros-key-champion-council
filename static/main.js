@@ -91,6 +91,7 @@
         habitatObjects: [],
         renderTruth: null,
         layoutSnapshot: null,
+        latestCapture: null,
         stateExcerpt: null,
         refreshedTs: 0,
         lastTool: '',
@@ -14797,6 +14798,30 @@
             _envCaptureSample(reason || 'control console sample', actorName);
             return;
         }
+        if (command === 'capture_frame') {
+            _envQueueCapture({ type: 'frame', pose: targetId || 'current' });
+            return;
+        }
+        if (command === 'capture_frame_overview') {
+            _envQueueCapture({ type: 'frame', pose: 'overview' });
+            return;
+        }
+        if (command === 'capture_strip') {
+            _envQueueCapture({ type: 'strip', count: parseInt(targetId, 10) || 4 });
+            return;
+        }
+        if (command === 'capture_supercam') {
+            _envQueueCapture({ type: 'supercam' });
+            return;
+        }
+        if (command === 'capture_focus') {
+            _envQueueCapture({ type: 'focus', object_key: targetId || '' });
+            return;
+        }
+        if (command === 'capture_probe') {
+            _envQueueCapture({ type: 'probe', object_key: targetId || '' });
+            return;
+        }
         if (command === 'toggle_stream') {
             _envToggleSampler(actorName);
             return;
@@ -15861,6 +15886,393 @@
         return [x / len, z / len];
     }
 
+    function _envNormalizeSceneStringList(value, fallback) {
+        var list = Array.isArray(value)
+            ? value
+            : (typeof value === 'string' || typeof value === 'number'
+                ? String(value).split(',')
+                : (Array.isArray(fallback) ? fallback : []));
+        var seen = {};
+        var out = [];
+        list.forEach(function (entry) {
+            var text = String(entry == null ? '' : entry).trim();
+            if (!text || seen[text]) return;
+            seen[text] = true;
+            out.push(text);
+        });
+        return out;
+    }
+
+    function _envNormalizeSceneAnchorList(value, fallback) {
+        var list = Array.isArray(value) ? value : (Array.isArray(fallback) ? fallback : []);
+        var seen = {};
+        var out = [];
+        list.forEach(function (entry, idx) {
+            if (entry == null) return;
+            var anchor = null;
+            if (typeof entry === 'string' || typeof entry === 'number') {
+                var text = String(entry).trim();
+                if (!text) return;
+                anchor = {
+                    name: text,
+                    target: '',
+                    mode: 'snap',
+                    note: ''
+                };
+            } else if (typeof entry === 'object' && !Array.isArray(entry)) {
+                anchor = {
+                    name: String(entry.name || entry.id || entry.key || ('anchor_' + idx)).trim() || ('anchor_' + idx),
+                    target: String(entry.target || entry.object_key || entry.objectKey || entry.to || '').trim(),
+                    mode: String(entry.mode || entry.kind || 'snap').trim().toLowerCase() || 'snap',
+                    note: String(entry.note || entry.description || entry.meta || '').trim()
+                };
+            }
+            if (!anchor || !anchor.name) return;
+            var signature = [anchor.name, anchor.target, anchor.mode].join('::');
+            if (seen[signature]) return;
+            seen[signature] = true;
+            out.push(anchor);
+        });
+        return out;
+    }
+
+    function _envSceneSemanticFieldPresence(sources) {
+        var presence = {
+            role: false,
+            room_id: false,
+            supports: false,
+            anchors: false,
+            priority: false,
+            placement_intent: false
+        };
+        var list = Array.isArray(sources) ? sources : [sources];
+        list.forEach(function (source) {
+            if (!source || typeof source !== 'object' || Array.isArray(source)) return;
+            if (Object.prototype.hasOwnProperty.call(source, 'role')) presence.role = true;
+            if (Object.prototype.hasOwnProperty.call(source, 'room_id') || Object.prototype.hasOwnProperty.call(source, 'roomId')) presence.room_id = true;
+            if (Object.prototype.hasOwnProperty.call(source, 'supports')) presence.supports = true;
+            if (Object.prototype.hasOwnProperty.call(source, 'anchors')) presence.anchors = true;
+            if (Object.prototype.hasOwnProperty.call(source, 'priority')) presence.priority = true;
+            if (Object.prototype.hasOwnProperty.call(source, 'placement_intent') || Object.prototype.hasOwnProperty.call(source, 'placementIntent')) presence.placement_intent = true;
+        });
+        return presence;
+    }
+
+    function _envSceneSemanticObservationForObject(obj) {
+        if (!obj) return null;
+        if (obj.semantics_observation && typeof obj.semantics_observation === 'object' && !Array.isArray(obj.semantics_observation)) {
+            return obj.semantics_observation;
+        }
+        var data = _envObjectData(obj);
+        if (data && data.semantics_observation && typeof data.semantics_observation === 'object' && !Array.isArray(data.semantics_observation)) {
+            return data.semantics_observation;
+        }
+        return null;
+    }
+
+    function _envSceneSemanticSourcePatch(source) {
+        if (!source || typeof source !== 'object' || Array.isArray(source)) return null;
+        var patch = {};
+        if (source.role !== undefined && source.role !== null && String(source.role).trim()) patch.role = source.role;
+        var roomId = source.room_id !== undefined ? source.room_id : source.roomId;
+        if (roomId !== undefined && roomId !== null && String(roomId).trim()) patch.room_id = roomId;
+        if (Object.prototype.hasOwnProperty.call(source, 'supports') && Array.isArray(source.supports)) patch.supports = source.supports.slice();
+        if (Object.prototype.hasOwnProperty.call(source, 'anchors') && Array.isArray(source.anchors)) patch.anchors = _envCloneJson(source.anchors, []);
+        if (source.priority !== undefined && source.priority !== null) {
+            var priority = String(source.priority || '').trim().toLowerCase();
+            if (priority && priority !== 'normal') patch.priority = priority;
+        }
+        var placementIntent = source.placement_intent !== undefined ? source.placement_intent : source.placementIntent;
+        if (placementIntent !== undefined && placementIntent !== null && String(placementIntent).trim()) patch.placement_intent = placementIntent;
+        return Object.keys(patch).length ? patch : null;
+    }
+
+    function _envSceneSemanticHaystack(parts) {
+        return (Array.isArray(parts) ? parts : [parts]).map(function (part) {
+            if (part === undefined || part === null) return '';
+            if (Array.isArray(part)) return part.join(' ');
+            return String(part);
+        }).join(' ').replace(/\s+/g, ' ').trim().toLowerCase();
+    }
+
+    function _envSceneSemanticHasAny(haystack, needles) {
+        var text = String(haystack || '').toLowerCase();
+        return (Array.isArray(needles) ? needles : [needles]).some(function (needle) {
+            var token = String(needle || '').trim().toLowerCase();
+            return !!token && text.indexOf(token) >= 0;
+        });
+    }
+
+    function _envAutoCaptureSceneSemantics(source, authoredSemantics, authoredPresence) {
+        var obj = source && typeof source === 'object' ? source : {};
+        var data = obj.data && typeof obj.data === 'object' && !Array.isArray(obj.data) ? obj.data : {};
+        var appearance = obj.appearance && typeof obj.appearance === 'object' && !Array.isArray(obj.appearance) ? obj.appearance : {};
+        var tags = []
+            .concat(Array.isArray(obj.tags) ? obj.tags : [])
+            .concat(Array.isArray(data.tags) ? data.tags : [])
+            .concat(Array.isArray(data.keywords) ? data.keywords : [])
+            .concat(Array.isArray(data.structural_tags) ? data.structural_tags : [])
+            .concat(Array.isArray(data.structuralTags) ? data.structuralTags : []);
+        var snapshotName = String(_envScenePrimarySnapshotName() || _envNavigationState.currentSnapshot || _envSceneBootstrapState.snapshotName || '').trim();
+        var profileKit = String(data.profile_kit || '').trim();
+        var worldProfile = String(((_env3D || {}).activeWorldProfile) || '').trim();
+        var assetPackId = String(data.asset_pack_id || '').trim();
+        var assetId = String(data.asset_id || '').trim();
+        var kind = String(obj.kind || '').trim().toLowerCase();
+        var scale = Number(obj.scale || 1);
+        if (!isFinite(scale) || scale <= 0) scale = 1;
+        var haystack = _envSceneSemanticHaystack([
+            kind,
+            obj.id,
+            obj.label,
+            obj.meta,
+            obj.category,
+            data.category,
+            data.asset_kind,
+            data.asset_name,
+            data.asset_pack_name,
+            data.asset_pack_id,
+            data.asset_id,
+            data.profile_kit,
+            data.semantics_family,
+            appearance.asset_ref,
+            appearance.assetRef,
+            tags
+        ]);
+        var derived = {};
+        var inferredFields = [];
+        var evidence = [];
+        var confidence = 0;
+        var authoredFieldList = Object.keys(authoredPresence || {}).filter(function (key) {
+            return !!(authoredPresence || {})[key];
+        });
+        function note(field, sourceKey, amount) {
+            if (field && inferredFields.indexOf(field) < 0) inferredFields.push(field);
+            if (sourceKey && evidence.indexOf(sourceKey) < 0) evidence.push(sourceKey);
+            confidence += Number(amount || 0);
+        }
+        var hasCharacterContract = !!(obj.character || obj.embodiment || data.character || data.embodiment || data.retargeting || data.semantics_family === 'agent_runtime_slot');
+        if (!(authoredPresence || {}).role) {
+            if (kind === 'zone') {
+                derived.role = 'zone';
+                note('role', 'kind:zone', 0.32);
+            } else if (/^(npc|actor|slot|chatbot|service)$/.test(kind) || hasCharacterContract) {
+                derived.role = 'agent';
+                note('role', hasCharacterContract ? 'character_contract' : ('kind:' + kind), 0.34);
+            } else if (_envSceneSemanticHasAny(haystack, ['portal', 'gate', 'door', 'archway', 'entrance', 'exit', 'threshold'])) {
+                derived.role = 'portal';
+                note('role', 'label_meta', 0.3);
+            } else if (_envSceneSemanticHasAny(haystack, ['tunnel', 'corridor', 'passage', 'hallway', 'crawlspace'])) {
+                derived.role = 'tunnel';
+                note('role', 'label_meta', 0.28);
+            } else if (_envSceneSemanticHasAny(haystack, ['chamber', 'cavern', 'cave', 'room', 'hall', 'sanctum'])) {
+                derived.role = 'chamber';
+                note('role', 'label_meta', 0.24);
+            } else if (_envSceneSemanticHasAny(haystack, ['floor', 'ground', 'foundation', 'base', 'deck', 'platform', 'walkway', 'path', 'road', 'seabed', 'terrain'])) {
+                derived.role = 'floor';
+                note('role', 'asset_metadata', 0.28);
+            } else if (_envSceneSemanticHasAny(haystack, ['wall', 'cliff', 'rockface', 'rock-face', 'facade', 'partition', 'barrier', 'bulkhead'])) {
+                derived.role = 'wall';
+                note('role', 'asset_metadata', 0.28);
+            } else if (_envSceneSemanticHasAny(haystack, ['ceiling', 'roof', 'overhang', 'canopy'])) {
+                derived.role = 'ceiling';
+                note('role', 'asset_metadata', 0.26);
+            } else if (_envSceneSemanticHasAny(haystack, ['pillar', 'column', 'support', 'beam', 'buttress'])) {
+                derived.role = 'support';
+                note('role', 'asset_metadata', 0.24);
+            } else if (_envSceneSemanticHasAny(haystack, ['stairs', 'stair', 'ladder', 'ramp', 'bridge'])) {
+                derived.role = 'transition';
+                note('role', 'asset_metadata', 0.22);
+            } else if (_envSceneSemanticHasAny(haystack, ['water', 'river', 'pool', 'lake', 'ocean', 'sump'])) {
+                derived.role = 'water';
+                note('role', 'asset_metadata', 0.24);
+            } else if (_envSceneSemanticHasAny(haystack, ['torch', 'lamp', 'lantern', 'beacon', 'fire', 'brazer', 'brazier'])) {
+                derived.role = 'light';
+                note('role', 'asset_metadata', 0.2);
+            } else if (_envSceneSemanticHasAny(haystack, ['vehicle', 'ship', 'boat', 'submarine', 'raft'])) {
+                derived.role = 'vehicle';
+                note('role', 'asset_metadata', 0.24);
+            } else if (_envSceneSemanticHasAny(haystack, ['altar', 'shrine', 'obelisk', 'monolith', 'statue', 'throne'])) {
+                derived.role = 'landmark';
+                note('role', 'label_meta', 0.2);
+            } else if (kind === 'prop') {
+                derived.role = 'prop';
+                note('role', 'kind:prop', 0.1);
+            }
+        }
+        var role = String(((authoredSemantics || {}).role || derived.role || '')).trim().toLowerCase();
+        if (!(authoredPresence || {}).room_id) {
+            if (profileKit) {
+                derived.room_id = 'kit:' + _slugifyName(profileKit);
+                note('room_id', 'profile_kit', 0.18);
+            } else if (snapshotName) {
+                derived.room_id = 'scene:' + _slugifyName(snapshotName);
+                note('room_id', 'snapshot_context', 0.14);
+            } else if (worldProfile) {
+                derived.room_id = 'profile:' + _slugifyName(worldProfile);
+                note('room_id', 'world_profile', 0.1);
+            }
+        }
+        if (!(authoredPresence || {}).priority) {
+            if (/^(portal|landmark)$/.test(role) || _envSceneSemanticHasAny(haystack, ['centerpiece', 'focal', 'hero', 'landmark', 'entrance', 'exit', 'altar', 'shrine'])) {
+                derived.priority = 'landmark';
+                note('priority', 'label_meta', 0.18);
+            } else if (role === 'agent' || kind === 'npc' || _envSceneSemanticHasAny(haystack, ['guardian', 'boss', 'captain', 'leader'])) {
+                derived.priority = 'high';
+                note('priority', kind === 'npc' ? 'kind:npc' : 'label_meta', 0.16);
+            } else if (/^(floor|wall|ceiling|support|transition|tunnel|chamber)$/.test(role)) {
+                derived.priority = 'medium';
+                note('priority', 'structural_role', 0.08);
+            } else if (_envSceneSemanticHasAny(haystack, ['torch', 'barrel', 'crate', 'debris', 'rubble', 'grass', 'moss', 'web', 'spiderweb', 'firewood', 'pebble'])) {
+                derived.priority = 'low';
+                note('priority', 'asset_metadata', 0.08);
+            }
+        }
+        if (!(authoredPresence || {}).placement_intent) {
+            if (role === 'floor') {
+                derived.placement_intent = 'walkable_base';
+                note('placement_intent', 'role:floor', 0.16);
+            } else if (/^(wall|ceiling|support)$/.test(role)) {
+                derived.placement_intent = 'structural_shell';
+                note('placement_intent', 'structural_role', 0.16);
+            } else if (/^(portal|transition)$/.test(role)) {
+                derived.placement_intent = 'traversal_anchor';
+                note('placement_intent', 'traversal_role', 0.16);
+            } else if (/^(tunnel|chamber|water)$/.test(role)) {
+                derived.placement_intent = 'space_definer';
+                note('placement_intent', 'space_role', 0.14);
+            } else if (role === 'light') {
+                derived.placement_intent = 'lighting_anchor';
+                note('placement_intent', 'role:light', 0.14);
+            } else if (role === 'landmark') {
+                derived.placement_intent = 'focal_landmark';
+                note('placement_intent', 'role:landmark', 0.14);
+            } else if (role === 'agent') {
+                derived.placement_intent = 'active_actor';
+                note('placement_intent', 'role:agent', 0.12);
+            } else if (role === 'vehicle') {
+                derived.placement_intent = 'vehicle_actor';
+                note('placement_intent', 'role:vehicle', 0.12);
+            } else if (role === 'prop') {
+                derived.placement_intent = 'set_dressing';
+                note('placement_intent', 'role:prop', 0.08);
+            } else if (role === 'zone') {
+                derived.placement_intent = 'trigger_volume';
+                note('placement_intent', 'role:zone', 0.1);
+            }
+        }
+        if (assetPackId || assetId) {
+            if (evidence.indexOf('asset_metadata') < 0) evidence.push('asset_metadata');
+            confidence += 0.05;
+        }
+        var derivedSemantics = _envNormalizeSceneSemantics(derived);
+        var sourceMode = authoredFieldList.length
+            ? (derivedSemantics ? 'mixed' : 'authored')
+            : (derivedSemantics ? 'inferred' : '');
+        var observation = null;
+        if (sourceMode) {
+            var finalConfidence = sourceMode === 'authored' && !derivedSemantics
+                ? 1
+                : Math.max(0.18, Math.min(0.96, confidence + (scale >= 1.6 ? 0.02 : 0)));
+            observation = {
+                source: sourceMode,
+                confidence: Number(Math.max(0, Math.min(1, finalConfidence)).toFixed(2)),
+                authored_fields: authoredFieldList,
+                inferred_fields: inferredFields.slice(),
+                evidence: evidence.slice(),
+                snapshot: snapshotName || '',
+                profile_kit: profileKit || '',
+                world_profile: worldProfile || '',
+                asset_pack_id: assetPackId || '',
+                asset_id: assetId || ''
+            };
+        }
+        return {
+            semantics: derivedSemantics,
+            observation: observation
+        };
+    }
+
+    function _envMergeSceneSemantics(authored, derived, presence) {
+        var authoredSemantics = authored ? _envNormalizeSceneSemantics(authored) : null;
+        var derivedSemantics = derived ? _envNormalizeSceneSemantics(derived) : null;
+        var explicit = presence && typeof presence === 'object' ? presence : {};
+        if (!authoredSemantics && !derivedSemantics) return null;
+        if (!authoredSemantics) return derivedSemantics;
+        if (!derivedSemantics) return authoredSemantics;
+        var merged = _envCloneJson(authoredSemantics, {});
+        if (!explicit.role) merged.role = authoredSemantics.role || derivedSemantics.role || null;
+        if (!explicit.room_id) merged.room_id = authoredSemantics.room_id || derivedSemantics.room_id || null;
+        if (!explicit.supports) {
+            merged.supports = (Array.isArray(authoredSemantics.supports) && authoredSemantics.supports.length)
+                ? authoredSemantics.supports.slice()
+                : (Array.isArray(derivedSemantics.supports) ? derivedSemantics.supports.slice() : []);
+        }
+        if (!explicit.anchors) {
+            merged.anchors = (Array.isArray(authoredSemantics.anchors) && authoredSemantics.anchors.length)
+                ? _envCloneJson(authoredSemantics.anchors, [])
+                : _envCloneJson(derivedSemantics.anchors || [], []);
+        }
+        if (!explicit.priority) {
+            merged.priority = (authoredSemantics.priority && authoredSemantics.priority !== 'normal')
+                ? authoredSemantics.priority
+                : (derivedSemantics.priority || authoredSemantics.priority || 'normal');
+        }
+        if (!explicit.placement_intent) {
+            merged.placement_intent = authoredSemantics.placement_intent || derivedSemantics.placement_intent || null;
+        }
+        return _envNormalizeSceneSemantics(merged);
+    }
+
+    function _envNormalizeSceneSemantics(sources) {
+        var normalized = {
+            role: null,
+            room_id: null,
+            supports: [],
+            anchors: [],
+            priority: 'normal',
+            placement_intent: null
+        };
+        var sawValue = false;
+        var list = Array.isArray(sources) ? sources : [sources];
+        list.forEach(function (source) {
+            if (!source || typeof source !== 'object' || Array.isArray(source)) return;
+            if (Object.prototype.hasOwnProperty.call(source, 'role')) {
+                normalized.role = _envSceneStringOrNull(source.role, normalized.role);
+                if (normalized.role) sawValue = true;
+            }
+            var roomId = source.room_id !== undefined ? source.room_id : source.roomId;
+            if (roomId !== undefined) {
+                normalized.room_id = _envSceneStringOrNull(roomId, normalized.room_id);
+                if (normalized.room_id) sawValue = true;
+            }
+            if (Object.prototype.hasOwnProperty.call(source, 'supports')) {
+                normalized.supports = _envNormalizeSceneStringList(source.supports, normalized.supports);
+                if (normalized.supports.length) sawValue = true;
+            }
+            if (Object.prototype.hasOwnProperty.call(source, 'anchors')) {
+                normalized.anchors = _envNormalizeSceneAnchorList(source.anchors, normalized.anchors);
+                if (normalized.anchors.length) sawValue = true;
+            }
+            if (Object.prototype.hasOwnProperty.call(source, 'priority')) {
+                normalized.priority = String(_envSceneStringOrNull(source.priority, normalized.priority) || 'normal').trim().toLowerCase() || 'normal';
+                sawValue = true;
+            }
+            var placementIntent = source.placement_intent !== undefined ? source.placement_intent : source.placementIntent;
+            if (placementIntent !== undefined) {
+                normalized.placement_intent = _envSceneStringOrNull(placementIntent, normalized.placement_intent);
+                if (normalized.placement_intent) sawValue = true;
+            }
+        });
+        if (!sawValue && !normalized.role && !normalized.room_id && !normalized.supports.length && !normalized.anchors.length && !normalized.placement_intent) {
+            return null;
+        }
+        if (!/^(background|low|normal|medium|high|foreground|landmark|critical)$/.test(normalized.priority)) {
+            normalized.priority = 'normal';
+        }
+        return normalized;
+    }
+
     function _envNormalizeSceneMechanics(sources) {
         var normalized = {
             family: null,
@@ -15880,6 +16292,14 @@
                 near: 20,
                 mid: 50,
                 far: 100
+            },
+            physics: {
+                enabled: false,
+                bodyType: 'static',
+                shape: 'box',
+                mass: 1.0,
+                restitution: 0.3,
+                friction: 0.5
             }
         };
         var sawValue = false;
@@ -15911,6 +16331,20 @@
                 if (lod.near !== undefined) normalized.lod.near = _envSceneNumber(lod.near, normalized.lod.near, 2, 300);
                 if (lod.mid !== undefined) normalized.lod.mid = _envSceneNumber(lod.mid, normalized.lod.mid, normalized.lod.near + 1, 400);
                 if (lod.far !== undefined) normalized.lod.far = _envSceneNumber(lod.far, normalized.lod.far, normalized.lod.mid + 1, 600);
+                sawValue = true;
+            }
+            if (source.physics && typeof source.physics === 'object' && !Array.isArray(source.physics)) {
+                var physics = source.physics;
+                if (physics.enabled !== undefined) normalized.physics.enabled = physics.enabled !== false;
+                if (physics.bodyType !== undefined) {
+                    normalized.physics.bodyType = String(_envSceneStringOrNull(physics.bodyType, normalized.physics.bodyType) || 'static').trim().toLowerCase() || 'static';
+                }
+                if (physics.shape !== undefined) {
+                    normalized.physics.shape = String(_envSceneStringOrNull(physics.shape, normalized.physics.shape) || 'box').trim().toLowerCase() || 'box';
+                }
+                if (physics.mass !== undefined) normalized.physics.mass = _envSceneNumber(physics.mass, normalized.physics.mass, 0, 10000);
+                if (physics.restitution !== undefined) normalized.physics.restitution = _envSceneNumber(physics.restitution, normalized.physics.restitution, 0, 1.5);
+                if (physics.friction !== undefined) normalized.physics.friction = _envSceneNumber(physics.friction, normalized.physics.friction, 0, 10);
                 sawValue = true;
             }
         });
@@ -16466,6 +16900,18 @@
         return null;
     }
 
+    function _envSceneSemanticsForObject(obj) {
+        if (!obj) return null;
+        if (obj.semantics && typeof obj.semantics === 'object' && !Array.isArray(obj.semantics)) {
+            return obj.semantics;
+        }
+        var data = _envObjectData(obj);
+        if (data && data.semantics && typeof data.semantics === 'object' && !Array.isArray(data.semantics)) {
+            return data.semantics;
+        }
+        return null;
+    }
+
     function _envNormalizeSceneObjectRecord(params, existing) {
         var p = params && typeof params === 'object' ? params : {};
         var prev = existing && typeof existing === 'object' ? existing : null;
@@ -16507,6 +16953,41 @@
             (rawData || {}).retargeting,
             p.retargeting
         ]);
+        var rawSemantics = p.semantics && typeof p.semantics === 'object' && !Array.isArray(p.semantics) ? p.semantics : null;
+        var dataSemantics = (rawData || {}).semantics && typeof (rawData || {}).semantics === 'object' && !Array.isArray((rawData || {}).semantics)
+            ? (rawData || {}).semantics
+            : null;
+        var dataAuthoredSemantics = (rawData || {}).semantics_authored && typeof (rawData || {}).semantics_authored === 'object' && !Array.isArray((rawData || {}).semantics_authored)
+            ? _envSceneSemanticSourcePatch((rawData || {}).semantics_authored)
+            : null;
+        var prevAuthoredSemantics = prevData && prevData.semantics_authored && typeof prevData.semantics_authored === 'object' && !Array.isArray(prevData.semantics_authored)
+            ? _envSceneSemanticSourcePatch(prevData.semantics_authored)
+            : (prev ? _envSceneSemanticSourcePatch(prev.semantics) : null);
+        var semanticsCleared = (Object.prototype.hasOwnProperty.call(p, 'semantics') && p.semantics === null)
+            || (rawData && Object.prototype.hasOwnProperty.call(rawData, 'semantics') && rawData.semantics === null);
+        var authoredSemanticSources = [
+            prevAuthoredSemantics,
+            dataAuthoredSemantics || _envSceneSemanticSourcePatch(dataSemantics),
+            _envSceneSemanticSourcePatch({
+                role: (rawData || {}).role,
+                room_id: (rawData || {}).room_id !== undefined ? (rawData || {}).room_id : (rawData || {}).roomId,
+                supports: (rawData || {}).supports,
+                anchors: (rawData || {}).anchors,
+                priority: (rawData || {}).priority,
+                placement_intent: (rawData || {}).placement_intent !== undefined ? (rawData || {}).placement_intent : (rawData || {}).placementIntent
+            }),
+            _envSceneSemanticSourcePatch(rawSemantics),
+            _envSceneSemanticSourcePatch({
+                role: p.role,
+                room_id: p.room_id !== undefined ? p.room_id : p.roomId,
+                supports: p.supports,
+                anchors: p.anchors,
+                priority: p.priority,
+                placement_intent: p.placement_intent !== undefined ? p.placement_intent : p.placementIntent
+            })
+        ];
+        var authoredSemantics = semanticsCleared ? null : _envNormalizeSceneSemantics(authoredSemanticSources);
+        var authoredSemanticPresence = _envSceneSemanticFieldPresence(authoredSemanticSources);
         if (character && embodiment && embodiment.animation_contract && typeof embodiment.animation_contract === 'object') {
             var clipMapMissing = !character.clip_map || typeof character.clip_map !== 'object' || !Object.keys(character.clip_map).length;
             if (clipMapMissing) {
@@ -16527,6 +17008,9 @@
         else if (data && Object.prototype.hasOwnProperty.call(data, 'character')) delete data.character;
         if (data && Object.prototype.hasOwnProperty.call(data, 'embodiment')) delete data.embodiment;
         if (data && Object.prototype.hasOwnProperty.call(data, 'retargeting')) delete data.retargeting;
+        ['role', 'room_id', 'roomId', 'supports', 'anchors', 'priority', 'placement_intent', 'placementIntent'].forEach(function (key) {
+            if (data && Object.prototype.hasOwnProperty.call(data, key)) delete data[key];
+        });
         var explicitAppearanceAssetRef = !!(
             (rawAppearance && ((rawAppearance.asset_ref !== undefined && rawAppearance.asset_ref !== null && String(rawAppearance.asset_ref).trim())
                 || (rawAppearance.assetRef !== undefined && rawAppearance.assetRef !== null && String(rawAppearance.assetRef).trim())))
@@ -16567,17 +17051,56 @@
                 material: p.material
             }
         ]);
+        var fallbackLabel = prev ? prev.label : '';
+        var fallbackMeta = prev ? prev.meta : '';
+        var fallbackState = prev ? prev.state : 'idle';
+        var fallbackCategory = prev ? prev.category : '';
+        var finalId = String(p.id || (prev ? prev.id : ('spawned-' + Date.now() + '-' + Math.floor(Math.random() * 9999))));
+        var finalLabel = String(p.label || p.name || (rawData || {}).label || (rawData || {}).name || fallbackLabel || (p.kind || (prev ? prev.kind : 'object') || 'object'));
+        var finalMeta = String(
+            p.meta !== undefined ? p.meta
+                : (p.description !== undefined ? p.description
+                    : (((rawData || {}).meta !== undefined) ? (rawData || {}).meta
+                        : (((rawData || {}).description !== undefined) ? (rawData || {}).description
+                            : (((rawData || {}).note !== undefined) ? (rawData || {}).note : fallbackMeta))))
+        );
+        var finalState = String(p.state !== undefined ? p.state : (((rawData || {}).state !== undefined) ? (rawData || {}).state : fallbackState || 'idle'));
+        var finalCategory = String(p.category || (rawData || {}).category || fallbackCategory || p.kind || (prev ? prev.kind : 'spawned') || 'spawned');
+        var finalX = _envSceneNumber(p.x, prev ? prev.x : ((rawData || {}).x !== undefined ? (rawData || {}).x : 50), 2, 98);
+        var finalY = _envSceneNumber(p.y, prev ? prev.y : ((rawData || {}).y !== undefined ? (rawData || {}).y : 50), 2, 98);
+        var finalScale = _envSceneNumber(p.scale, prev ? prev.scale : ((rawData || {}).scale !== undefined ? (rawData || {}).scale : 1), 0.3, 2.5);
+        var finalTilt = _envSceneNumber(p.tilt, prev ? prev.tilt : ((rawData || {}).tilt !== undefined ? (rawData || {}).tilt : 0));
+        var autoSemanticsCapture = _envAutoCaptureSceneSemantics({
+            kind: kind,
+            id: finalId,
+            label: finalLabel,
+            meta: finalMeta,
+            category: finalCategory,
+            x: finalX,
+            y: finalY,
+            scale: finalScale,
+            tilt: finalTilt,
+            state: finalState,
+            data: data,
+            appearance: appearance,
+            character: character,
+            embodiment: embodiment,
+            retargeting: retargeting
+        }, authoredSemantics, authoredSemanticPresence);
+        var semantics = _envMergeSceneSemantics(authoredSemantics, autoSemanticsCapture.semantics, authoredSemanticPresence);
+        var semanticsObservation = autoSemanticsCapture.observation || null;
+        if (authoredSemantics) data.semantics_authored = _envCloneJson(authoredSemantics, null);
+        else if (data && Object.prototype.hasOwnProperty.call(data, 'semantics_authored')) delete data.semantics_authored;
+        if (semanticsObservation) data.semantics_observation = _envCloneJson(semanticsObservation, null);
+        else if (data && Object.prototype.hasOwnProperty.call(data, 'semantics_observation')) delete data.semantics_observation;
+        if (semantics) data.semantics = _envCloneJson(semantics, null);
+        else if (data && Object.prototype.hasOwnProperty.call(data, 'semantics')) delete data.semantics;
         var collisionSource = {
             kind: kind,
-            id: String(p.id || (prev ? prev.id : '')),
-            label: String(p.label || p.name || (rawData || {}).label || (rawData || {}).name || (prev ? prev.label : '') || kind),
-            meta: String(
-                p.meta !== undefined ? p.meta
-                    : (p.description !== undefined ? p.description
-                        : (((rawData || {}).meta !== undefined) ? (rawData || {}).meta
-                            : (((rawData || {}).description !== undefined) ? (rawData || {}).description : (prev ? prev.meta : ''))))
-            ),
-            category: String(p.category || (rawData || {}).category || (prev ? prev.category : '') || ''),
+            id: finalId,
+            label: finalLabel,
+            meta: finalMeta,
+            category: finalCategory,
             tags: p.tags !== undefined ? p.tags : (((rawData || {}).tags !== undefined) ? (rawData || {}).tags : (prev ? prev.tags : undefined)),
             data: data,
             appearance: appearance
@@ -16598,27 +17121,17 @@
         ]);
         if (mechanics) data.mechanics = _envCloneJson(mechanics, null);
         else if (data && Object.prototype.hasOwnProperty.call(data, 'mechanics')) delete data.mechanics;
-        var fallbackLabel = prev ? prev.label : '';
-        var fallbackMeta = prev ? prev.meta : '';
-        var fallbackState = prev ? prev.state : 'idle';
-        var fallbackCategory = prev ? prev.category : '';
         return {
             kind: kind,
-            id: String(p.id || (prev ? prev.id : ('spawned-' + Date.now() + '-' + Math.floor(Math.random() * 9999)))),
-            label: String(p.label || p.name || (rawData || {}).label || (rawData || {}).name || fallbackLabel || (p.kind || (prev ? prev.kind : 'object') || 'object')),
-            meta: String(
-                p.meta !== undefined ? p.meta
-                    : (p.description !== undefined ? p.description
-                        : (((rawData || {}).meta !== undefined) ? (rawData || {}).meta
-                            : (((rawData || {}).description !== undefined) ? (rawData || {}).description
-                                : (((rawData || {}).note !== undefined) ? (rawData || {}).note : fallbackMeta))))
-            ),
-            state: String(p.state !== undefined ? p.state : (((rawData || {}).state !== undefined) ? (rawData || {}).state : fallbackState || 'idle')),
-            category: String(p.category || (rawData || {}).category || fallbackCategory || p.kind || (prev ? prev.kind : 'spawned') || 'spawned'),
-            x: _envSceneNumber(p.x, prev ? prev.x : ((rawData || {}).x !== undefined ? (rawData || {}).x : 50), 2, 98),
-            y: _envSceneNumber(p.y, prev ? prev.y : ((rawData || {}).y !== undefined ? (rawData || {}).y : 50), 2, 98),
-            scale: _envSceneNumber(p.scale, prev ? prev.scale : ((rawData || {}).scale !== undefined ? (rawData || {}).scale : 1), 0.3, 2.5),
-            tilt: _envSceneNumber(p.tilt, prev ? prev.tilt : ((rawData || {}).tilt !== undefined ? (rawData || {}).tilt : 0)),
+            id: finalId,
+            label: finalLabel,
+            meta: finalMeta,
+            state: finalState,
+            category: finalCategory,
+            x: finalX,
+            y: finalY,
+            scale: finalScale,
+            tilt: finalTilt,
             spawned: true,
             spawnedTs: Number((prev && prev.spawnedTs) || Date.now()),
             data: data,
@@ -16626,6 +17139,8 @@
             collision_policy: collisionPolicy,
             mechanics: mechanics,
             character: character,
+            semantics: semantics,
+            semantics_observation: semanticsObservation,
             embodiment: embodiment,
             retargeting: retargeting,
             html: p.html !== undefined ? p.html : (((rawData || {}).html !== undefined) ? (rawData || {}).html : (prev ? prev.html : null)),
@@ -16739,6 +17254,11 @@
             _envSceneBootstrapState.hydratedTs = Date.now();
             _envSceneBootstrapState.lastSource = String(source || toolName || 'env_objects');
             _envSceneBootstrapState.error = '';
+            if (listLike && !payload.objects.length && !snapshotName) {
+                _envSceneBootstrapState.snapshotName = '';
+                _envSceneBootstrapState.preserveEmpty = true;
+                _envNavigationState.currentSnapshot = '';
+            }
         }
         if (payload.object && _envIsCustomSceneKind(payload.object.kind)) {
             if (_envUpsertSpawnedObject(payload.object)) changed = true;
@@ -16786,6 +17306,8 @@
 
     function _envEnsureSceneSnapshotIdentity(reason, force) {
         if (_envSceneBootstrapState.pending) return false;
+        if (!force && _envCustomSceneObjectsNeedHydration()) return false;
+        if (!force && _envKnownPersistedObjectCount() > 0) return false;
         if (!force && _envSceneBootstrapState.preserveEmpty && !_envScenePrimarySnapshotName()) return false;
         if (!force && _envScenePrimarySnapshotName()) return false;
         var now = Date.now();
@@ -18544,7 +19066,8 @@
                 data: _envCloneJson(_envObjectData(sourceObj), {}),
                 appearance: _envCloneJson(sourceObj.appearance || _envSceneAppearanceForObject(sourceObj), {}),
                 mechanics: _envCloneJson(sourceObj.mechanics || null, null),
-                character: _envCloneJson(sourceObj.character || _envSceneCharacterForObject(sourceObj) || null, null)
+                character: _envCloneJson(sourceObj.character || _envSceneCharacterForObject(sourceObj) || null, null),
+                semantics: _envCloneJson(sourceObj.semantics || _envSceneSemanticsForObject(sourceObj) || null, null)
             }, 'HTML/surface node edit');
             _envLogAction('handoff', 'Inspector prefilled env_mutate for surface node', actorName, { object_key: objectKey, kind: String(sourceObj.kind || '') });
             return true;
@@ -18821,6 +19344,8 @@
             ? obj.mechanics
             : null;
         var character = _envSceneCharacterForObject(obj);
+        var semantics = _envSceneSemanticsForObject(obj);
+        var semanticsObservation = _envSceneSemanticObservationForObject(obj);
         var embodiment = _envSceneEmbodimentForObject(obj);
         var retarget = _envSceneRetargetingForObject(obj);
         if (!character && (kind === 'npc' || kind === 'actor')) {
@@ -18836,6 +19361,42 @@
         var slotSummary = slotId ? _envInspectorSlotSummary(slotMeta, slotId) : null;
         var actions = [];
         var sections = [];
+
+        if (semantics) {
+            var semanticsRows = [
+                _envInspectorMetric('Role', semantics.role || '—'),
+                _envInspectorMetric('Room', semantics.room_id || '—'),
+                _envInspectorMetric('Priority', semantics.priority || 'normal'),
+                _envInspectorMetric('Intent', semantics.placement_intent || '—'),
+                _envInspectorMetric('Supports', String((semantics.supports || []).length || 0)),
+                _envInspectorMetric('Anchors', String((semantics.anchors || []).length || 0))
+            ];
+            if (semanticsObservation) {
+                semanticsRows.push(_envInspectorMetric('Source', String(semanticsObservation.source || 'authored')));
+                semanticsRows.push(_envInspectorMetric('Confidence', String(semanticsObservation.confidence !== undefined ? semanticsObservation.confidence : '—')));
+            }
+            if (Array.isArray(semantics.supports) && semantics.supports.length) {
+                semanticsRows.push('<div class="envops-chip-row">' + semantics.supports.slice(0, 8).map(function (item) {
+                    return '<span class="envops-chip">' + _esc(String(item || '')) + '</span>';
+                }).join('') + '</div>');
+            }
+            if (Array.isArray(semantics.anchors) && semantics.anchors.length) {
+                semanticsRows.push('<div class="envops-chip-row">' + semantics.anchors.slice(0, 6).map(function (anchor) {
+                    var label = String((anchor && anchor.name) || 'anchor');
+                    var target = String((anchor && anchor.target) || '');
+                    return '<span class="envops-chip">' + _esc(target ? (label + ' -> ' + target) : label) + '</span>';
+                }).join('') + '</div>');
+            }
+            if (semanticsObservation && Array.isArray(semanticsObservation.evidence) && semanticsObservation.evidence.length) {
+                semanticsRows.push('<div class="envops-chip-row">' + semanticsObservation.evidence.slice(0, 8).map(function (item) {
+                    return '<span class="envops-chip">' + _esc(String(item || '')) + '</span>';
+                }).join('') + '</div>');
+            }
+            sections.push(_envInspectorSection('semantics', 'Semantics', semanticsRows.join(''), {
+                meta: String(semantics.role || semantics.priority || 'semantic'),
+                open: true
+            }));
+        }
 
         if (kind === 'npc' && slotSummary) {
             sections.push(_envInspectorSection('agent', 'Agent', [
@@ -19453,6 +20014,10 @@
                 (liveState && (liveState.layout_snapshot || ((liveState.shared_state || {}).layout))) || null,
                 null
             );
+            _envMirrorState.latestCapture = _envCloneJson(
+                (liveState && (liveState.latest_capture || ((liveState.shared_state || {}).capture))) || null,
+                null
+            );
             if (!Object.prototype.hasOwnProperty.call(payload, 'state_excerpt')) {
                 _envMirrorState.stateExcerpt = _envLiveStateExcerpt(liveState);
             }
@@ -19460,6 +20025,7 @@
         }
         if (Object.prototype.hasOwnProperty.call(payload, 'shared_state')) {
             _envMirrorState.sharedState = _envCloneJson(payload.shared_state, null);
+            _envMirrorState.latestCapture = _envCloneJson((((payload.shared_state || {}).capture) || _envMirrorState.latestCapture), _envMirrorState.latestCapture);
             changed = true;
         }
         if (Object.prototype.hasOwnProperty.call(payload, 'contracts')) {
@@ -19476,6 +20042,10 @@
         }
         if (Object.prototype.hasOwnProperty.call(payload, 'layout_snapshot')) {
             _envMirrorState.layoutSnapshot = _envCloneJson(payload.layout_snapshot, null);
+            changed = true;
+        }
+        if (Object.prototype.hasOwnProperty.call(payload, 'latest_capture')) {
+            _envMirrorState.latestCapture = _envCloneJson(payload.latest_capture, null);
             changed = true;
         }
         if (Object.prototype.hasOwnProperty.call(payload, 'state_excerpt')) {
@@ -19730,6 +20300,7 @@
         var stageText = _envProductCollapseText(String((stageEl && stageEl.innerText) || ''), 240);
         var activeProfileId = String(_env3D.activeWorldProfile || '');
         var activeProfile = activeProfileId && _envWorldProfiles[activeProfileId] ? _envWorldProfiles[activeProfileId] : null;
+        var physics = _env3DPhysicsSnapshot();
         return {
             stage_mode: String(_envRenderTruthState.stageMode || 'blank'),
             blank_reason: String(_envRenderTruthState.blankReason || ''),
@@ -19775,8 +20346,10 @@
                     ceiling: !!_env3D.ceilingMesh,
                     water: !!_env3D.waterMesh,
                     volumeIndicator: !!_env3D.volumeIndicator
-                }
+                },
+                physics: physics
             },
+            physics: physics,
             camera_preset: String(_env3D._lastCameraPreset || ''),
             panel_active: !!_envHtmlPanelState.active,
             inspector_active: !!_envInspectorState.active,
@@ -19820,6 +20393,8 @@
         if (Array.isArray(_envMirrorState.habitatObjects)) surface.habitat_objects = _envCloneJson(_envMirrorState.habitatObjects, []);
         if (_envMirrorState.renderTruth) surface.render_truth = _envCloneJson(_envMirrorState.renderTruth, null);
         if (_envMirrorState.layoutSnapshot) surface.layout_snapshot = _envCloneJson(_envMirrorState.layoutSnapshot, null);
+        surface.physics = _envCloneJson(((_envMirrorState.renderTruth || {}).physics) || _env3DPhysicsSnapshot(), null);
+        if (_envMirrorState.latestCapture) surface.latest_capture = _envCloneJson(_envMirrorState.latestCapture, null);
         if (_envMirrorState.sharedState && _envMirrorState.sharedState.corroboration) {
             surface.corroboration = _envCloneJson(_envMirrorState.sharedState.corroboration, null);
         }
@@ -19858,6 +20433,15 @@
             || obj.data !== undefined
             || obj.appearance !== undefined
             || obj.mechanics !== undefined
+            || obj.semantics !== undefined
+            || obj.role !== undefined
+            || obj.room_id !== undefined
+            || obj.roomId !== undefined
+            || obj.supports !== undefined
+            || obj.anchors !== undefined
+            || obj.priority !== undefined
+            || obj.placement_intent !== undefined
+            || obj.placementIntent !== undefined
             || obj.character !== undefined
             || obj.html !== undefined
             || obj.actions !== undefined
@@ -20413,6 +20997,10 @@
         agentSpriteTexture: null,
         agentSpriteMaps: null,
         spriteSheetCache: {},
+        physics: null,
+        physicsInitPromise: null,
+        physicsInitToken: 0,
+        physicsInitError: '',
         triggers: {},
         tileGrid: {},
         waypointLines: {},
@@ -20432,6 +21020,1306 @@
         manualCommitTimer: 0,
         lastManualReason: ''
     };
+
+    function _env3DResolvePhysicsGroundY() {
+        var strata = _env3D.strata && typeof _env3D.strata === 'object' ? _env3D.strata : null;
+        if (strata && strata.seabedLevel !== undefined && strata.seabedLevel !== null) {
+            var groundY = Number(strata.seabedLevel);
+            if (isFinite(groundY)) return groundY;
+        }
+        return 0;
+    }
+
+    function _env3DDisposePhysics() {
+        var physics = _env3D.physics;
+        if (!physics) return;
+        try {
+            if (physics.world && typeof physics.world.free === 'function') physics.world.free();
+        } catch (e) { }
+        _env3D.physics = null;
+    }
+
+    function _env3DPhysicsSnapshot() {
+        if (typeof _env3D !== 'object' || !_env3D) {
+            return {
+                loaded: false,
+                body_count: 0,
+                collider_count: 0,
+                ground_y: null,
+                step_size: null,
+                init_error: null
+            };
+        }
+        var physics = _env3D.physics && _env3D.physics.world ? _env3D.physics : null;
+        var bodyCount = 0;
+        var colliderCount = 0;
+        if (physics && physics.world) {
+            try {
+                bodyCount = Number((((physics.world || {}).bodies || {}).len && physics.world.bodies.len()) || 0);
+            } catch (e) { }
+            try {
+                colliderCount = Number((((physics.world || {}).colliders || {}).len && physics.world.colliders.len()) || 0);
+            } catch (e) { }
+        }
+        var initError = String(_env3D.physicsInitError || '').trim();
+        return {
+            loaded: !!physics,
+            body_count: bodyCount,
+            collider_count: colliderCount,
+            ground_y: physics ? Number(physics.groundY || 0) : null,
+            step_size: physics ? Number(physics.stepSize || 0) : null,
+            init_error: initError || null
+        };
+    }
+
+    function _env3DInitPhysics(RAPIER) {
+        if (!RAPIER || typeof RAPIER.World !== 'function') return null;
+        if (_env3D.physics && _env3D.physics.world) return _env3D.physics;
+        _env3DDisposePhysics();
+        var stepSize = 1 / 60;
+        var world = new RAPIER.World({ x: 0.0, y: -9.81, z: 0.0 });
+        world.timestep = stepSize;
+        var groundY = _env3DResolvePhysicsGroundY();
+        var groundDesc = RAPIER.RigidBodyDesc.fixed().setTranslation(0, groundY, 0);
+        var groundBody = world.createRigidBody(groundDesc);
+        var groundCollider = RAPIER.ColliderDesc.cuboid(500, 0.1, 500);
+        world.createCollider(groundCollider, groundBody);
+        _env3D.physics = {
+            RAPIER: RAPIER,
+            world: world,
+            bodies: new Map(),
+            colliders: new Map(),
+            accumulator: 0,
+            stepSize: stepSize,
+            groundY: groundY
+        };
+        _env3D.physicsInitError = '';
+        return _env3D.physics;
+    }
+
+    function _env3DEnsurePhysicsInit() {
+        if (_env3D.physics && _env3D.physics.world) return Promise.resolve(_env3D.physics);
+        if (_env3D.physicsInitPromise) return _env3D.physicsInitPromise;
+        var token = Number(_env3D.physicsInitToken || 0) + 1;
+        _env3D.physicsInitToken = token;
+        _env3D.physicsInitPromise = import('/static/rapier3d-compat/rapier.es.js').then(function (mod) {
+            var RAPIER = mod && (mod.default || mod);
+            if (!RAPIER || typeof RAPIER.init !== 'function') {
+                throw new Error('Rapier module missing init()');
+            }
+            return RAPIER.init().then(function () {
+                if (_env3D.physicsInitToken !== token) return null;
+                return _env3DInitPhysics(RAPIER);
+            });
+        }).then(function (physics) {
+            if (_env3D.physicsInitToken === token) _env3D.physicsInitPromise = null;
+            return physics;
+        }, function (err) {
+            if (_env3D.physicsInitToken === token) {
+                _env3D.physicsInitPromise = null;
+                _env3D.physics = null;
+                _env3D.physicsInitError = String((err && err.message) || err || 'physics_init_failed');
+                console.warn('Rapier WASM failed to load — physics disabled', err);
+            }
+            return null;
+        });
+        return _env3D.physicsInitPromise;
+    }
+
+    var _envObserver = {
+        inited: false,
+        renderer: null,
+        camera: null,
+        orthoCamera: null,
+        annotationCanvas: null,
+        annotationCtx: null,
+        compositeCanvas: null,
+        compositeCtx: null,
+        atlasCanvas: null,
+        atlasCtx: null,
+        width: 800,
+        height: 450
+    };
+    var _envCaptureQueue = [];
+    var _envCaptureProcessing = false;
+
+    function _envObserverInit() {
+        if (_envObserver.inited && _envObserver.renderer) return _envObserver;
+        if (typeof THREE === 'undefined' || !_env3D.scene) return null;
+        var canvas = document.createElement('canvas');
+        canvas.width = _envObserver.width;
+        canvas.height = _envObserver.height;
+        var renderer = new THREE.WebGLRenderer({
+            canvas: canvas,
+            preserveDrawingBuffer: true,
+            alpha: false,
+            antialias: true
+        });
+        renderer.setSize(_envObserver.width, _envObserver.height, false);
+        renderer.setPixelRatio(1);
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
+        renderer.shadowMap.enabled = false;
+        _envObserver.renderer = renderer;
+        _envObserver.camera = new THREE.PerspectiveCamera(50, _envObserver.width / Math.max(1, _envObserver.height), 0.1, 500);
+        _envObserver.orthoCamera = new THREE.OrthographicCamera(-60, 60, 33.75, -33.75, 0.1, 500);
+        _envObserver.annotationCanvas = document.createElement('canvas');
+        _envObserver.annotationCanvas.width = _envObserver.width;
+        _envObserver.annotationCanvas.height = _envObserver.height;
+        _envObserver.annotationCtx = _envObserver.annotationCanvas.getContext('2d');
+        _envObserver.compositeCanvas = document.createElement('canvas');
+        _envObserver.compositeCanvas.width = _envObserver.width;
+        _envObserver.compositeCanvas.height = _envObserver.height;
+        _envObserver.compositeCtx = _envObserver.compositeCanvas.getContext('2d');
+        _envObserver.atlasCanvas = document.createElement('canvas');
+        _envObserver.atlasCtx = _envObserver.atlasCanvas.getContext('2d');
+        _envObserver.inited = true;
+        return _envObserver;
+    }
+
+    function _envObserverSetSize(width, height) {
+        var observer = _envObserverInit();
+        if (!observer || !observer.renderer) return null;
+        width = Math.max(1, Math.round(Number(width) || observer.width || 800));
+        height = Math.max(1, Math.round(Number(height) || observer.height || 450));
+        observer.width = width;
+        observer.height = height;
+        observer.renderer.setSize(width, height, false);
+        observer.camera.aspect = width / Math.max(1, height);
+        observer.camera.updateProjectionMatrix();
+        observer.annotationCanvas.width = width;
+        observer.annotationCanvas.height = height;
+        observer.compositeCanvas.width = width;
+        observer.compositeCanvas.height = height;
+        return observer;
+    }
+
+    function _envObserverSceneBounds() {
+        var fallbackCenter = new THREE.Vector3(0, 0, 0);
+        var fallbackSize = new THREE.Vector3(40, 20, 40);
+        var points = [];
+        var point = new THREE.Vector3();
+        (_envSceneObjectPool() || []).forEach(function (obj) {
+            if (!obj || typeof obj !== 'object') return;
+            var objectKey = _env3DObjectKey(obj);
+            var mesh = objectKey && _env3D.meshes ? _env3D.meshes[objectKey] : null;
+            if (mesh && mesh.visible !== false && typeof mesh.getWorldPosition === 'function') {
+                try {
+                    mesh.updateWorldMatrix(true, true);
+                    mesh.getWorldPosition(point);
+                    if (isFinite(point.x) && isFinite(point.y) && isFinite(point.z)) {
+                        points.push(point.clone());
+                        return;
+                    }
+                } catch (e) { }
+            }
+            var ox = Number(obj.x || 0);
+            var oy = Number(obj.y || 0);
+            var oz = Number((obj.data && obj.data.z) || obj.z || 0);
+            if (isFinite(ox) && isFinite(oy) && isFinite(oz)) {
+                points.push(new THREE.Vector3(ox, oy, oz));
+            }
+        });
+        if (!points.length) {
+            return {
+                box: null,
+                center: fallbackCenter,
+                size: fallbackSize,
+                radius: 40,
+                point_count: 0
+            };
+        }
+        var box = new THREE.Box3();
+        points.forEach(function (p) { box.expandByPoint(p); });
+        var center = new THREE.Vector3();
+        var size = new THREE.Vector3();
+        box.getCenter(center);
+        box.getSize(size);
+        if (!isFinite(size.x) || !isFinite(size.y) || !isFinite(size.z) || size.lengthSq() <= 0) {
+            size.copy(fallbackSize);
+        }
+        var distances = points.map(function (p) { return p.distanceTo(center); }).filter(function (d) { return isFinite(d); }).sort(function (a, b) { return a - b; });
+        var percentileIndex = distances.length ? Math.min(distances.length - 1, Math.floor(distances.length * 0.9)) : 0;
+        var robustRadius = distances.length ? distances[percentileIndex] : 0;
+        var radius = Math.max(16, robustRadius * 1.35, Math.max(size.x, size.y, size.z) * 0.6);
+        radius = Math.min(radius, 160);
+        return {
+            box: box,
+            center: center,
+            size: size,
+            radius: radius,
+            point_count: points.length
+        };
+    }
+
+    function _envObserverBoundsSnapshot(bounds) {
+        var info = bounds && typeof bounds === 'object' ? bounds : {};
+        return {
+            center: _env3DVectorSnapshot(info.center),
+            size: _env3DVectorSnapshot(info.size),
+            radius: Number(info.radius || 0),
+            point_count: Number(info.point_count || 0)
+        };
+    }
+
+    function _envObserverBuildBoundsFromPoints(points, fallbackCenter, fallbackSize) {
+        var centerFallback = fallbackCenter instanceof THREE.Vector3 ? fallbackCenter.clone() : new THREE.Vector3(0, 0, 0);
+        var sizeFallback = fallbackSize instanceof THREE.Vector3 ? fallbackSize.clone() : new THREE.Vector3(40, 20, 40);
+        var cleanPoints = Array.isArray(points) ? points.filter(function (p) {
+            return p instanceof THREE.Vector3 && isFinite(p.x) && isFinite(p.y) && isFinite(p.z);
+        }) : [];
+        if (!cleanPoints.length) {
+            return {
+                box: null,
+                center: centerFallback,
+                size: sizeFallback,
+                radius: 40,
+                point_count: 0
+            };
+        }
+        var box = new THREE.Box3();
+        cleanPoints.forEach(function (p) { box.expandByPoint(p); });
+        var center = new THREE.Vector3();
+        var size = new THREE.Vector3();
+        box.getCenter(center);
+        box.getSize(size);
+        if (!isFinite(size.x) || !isFinite(size.y) || !isFinite(size.z) || size.lengthSq() <= 0) {
+            size.copy(sizeFallback);
+        }
+        var distances = cleanPoints.map(function (p) { return p.distanceTo(center); }).filter(function (d) { return isFinite(d); }).sort(function (a, b) { return a - b; });
+        var percentileIndex = distances.length ? Math.min(distances.length - 1, Math.floor(distances.length * 0.9)) : 0;
+        var robustRadius = distances.length ? distances[percentileIndex] : 0;
+        var radius = Math.max(10, robustRadius * 1.35, Math.max(size.x, size.y, size.z) * 0.6);
+        radius = Math.min(radius, 160);
+        return {
+            box: box,
+            center: center,
+            size: size,
+            radius: radius,
+            point_count: cleanPoints.length
+        };
+    }
+
+    function _envObserverResolveObjectKey(objectKey) {
+        var targetKey = String(objectKey || '').trim();
+        if (!targetKey) return '';
+        if (_env3D.meshes && _env3D.meshes[targetKey]) return targetKey;
+        var sceneObject = null;
+        (_envSceneObjectPool() || []).some(function (obj) {
+            if (!obj || typeof obj !== 'object') return false;
+            var key = _env3DObjectKey(obj);
+            if (key === targetKey || String(obj.id || '') === targetKey || String(obj.label || '') === targetKey) {
+                sceneObject = obj;
+                targetKey = key;
+                return true;
+            }
+            if (key && key.slice((-2 - targetKey.length)) === ('::' + targetKey)) {
+                sceneObject = obj;
+                targetKey = key;
+                return true;
+            }
+            return false;
+        });
+        return sceneObject ? targetKey : '';
+    }
+
+    function _envObserverObjectContext(objectKey) {
+        var resolvedKey = _envObserverResolveObjectKey(objectKey);
+        if (!resolvedKey) return null;
+        var sceneObject = null;
+        (_envSceneObjectPool() || []).some(function (obj) {
+            if (_env3DObjectKey(obj) === resolvedKey) {
+                sceneObject = obj;
+                return true;
+            }
+            return false;
+        });
+        if (!sceneObject) return null;
+        var mesh = _env3D.meshes ? _env3D.meshes[resolvedKey] : null;
+        var center = new THREE.Vector3(
+            Number(sceneObject.x || 0),
+            Number(sceneObject.y || 0),
+            Number((sceneObject.data && sceneObject.data.z) || sceneObject.z || 0)
+        );
+        var size = new THREE.Vector3(
+            Math.max(1, Number(sceneObject.scale || 1) * 2),
+            Math.max(1, Number(sceneObject.scale || 1) * 2),
+            Math.max(1, Number(sceneObject.scale || 1) * 2)
+        );
+        if (mesh && typeof mesh.updateWorldMatrix === 'function') {
+            try {
+                mesh.updateWorldMatrix(true, true);
+                var box = new THREE.Box3().setFromObject(mesh);
+                if (!box.isEmpty()) {
+                    box.getCenter(center);
+                    box.getSize(size);
+                } else if (typeof mesh.getWorldPosition === 'function') {
+                    mesh.getWorldPosition(center);
+                }
+            } catch (e) {
+                if (typeof mesh.getWorldPosition === 'function') {
+                    try { mesh.getWorldPosition(center); } catch (ignored) { }
+                }
+            }
+        }
+        return {
+            object_key: resolvedKey,
+            label: String(sceneObject.label || sceneObject.id || '').trim(),
+            kind: String(sceneObject.kind || '').trim().toLowerCase(),
+            category: String(sceneObject.category || '').trim().toLowerCase(),
+            semantics: _envCloneJson(_envSceneSemanticsForObject(sceneObject), null),
+            semantics_observation: _envCloneJson(_envSceneSemanticObservationForObject(sceneObject), null),
+            center: center,
+            size: size,
+            scale: Number(sceneObject.scale || 1),
+            object: sceneObject,
+            mesh: mesh
+        };
+    }
+
+    function _envObserverNeighborContexts(targetContext, limit) {
+        if (!targetContext || !(targetContext.center instanceof THREE.Vector3)) return [];
+        limit = Math.max(1, Math.min(12, parseInt(limit, 10) || 6));
+        var rows = [];
+        (_envSceneObjectPool() || []).forEach(function (obj) {
+            var key = _env3DObjectKey(obj);
+            if (!key || key === targetContext.object_key) return;
+            var ctx = _envObserverObjectContext(key);
+            if (!ctx || !(ctx.center instanceof THREE.Vector3)) return;
+            var targetSemantics = targetContext.semantics || {};
+            var ctxSemantics = ctx.semantics || {};
+            var relationBias = 0;
+            if (targetSemantics.room_id && ctxSemantics.room_id && targetSemantics.room_id === ctxSemantics.room_id) relationBias -= 6;
+            if (Array.isArray(targetSemantics.supports) && targetSemantics.supports.indexOf(ctx.object_key) >= 0) relationBias -= 12;
+            if (Array.isArray(ctxSemantics.supports) && ctxSemantics.supports.indexOf(targetContext.object_key) >= 0) relationBias -= 12;
+            if (/^(floor|wall|ceiling|portal|tunnel|chamber|landmark)$/.test(String(ctxSemantics.role || ''))) relationBias -= 2;
+            rows.push({
+                distance: ctx.center.distanceTo(targetContext.center),
+                relationBias: relationBias,
+                context: ctx
+            });
+        });
+        rows.sort(function (a, b) {
+            var aScore = Number(a.distance || 0) + Number(a.relationBias || 0);
+            var bScore = Number(b.distance || 0) + Number(b.relationBias || 0);
+            return aScore - bScore;
+        });
+        return rows.slice(0, limit).map(function (row) { return row.context; });
+    }
+
+    function _envObserverCollectScreenProjections(usedCamera, options) {
+        if (!usedCamera) return [];
+        var opts = options && typeof options === 'object' ? options : {};
+        var includeKeys = {};
+        if (Array.isArray(opts.includeKeys)) {
+            opts.includeKeys.forEach(function (key) {
+                key = String(key || '').trim();
+                if (key) includeKeys[key] = true;
+            });
+        }
+        var useIncludeFilter = Object.keys(includeKeys).length > 0;
+        var limit = Math.max(1, Math.min(64, parseInt(opts.limit, 10) || 16));
+        var focusKey = String(opts.focusKey || '').trim();
+        var w = Number(_envObserver.annotationCanvas.width || _envObserver.width || 0);
+        var h = Number(_envObserver.annotationCanvas.height || _envObserver.height || 0);
+        var worldPos = new THREE.Vector3();
+        var rows = [];
+        (_envSceneObjectPool() || []).forEach(function (obj) {
+            var objectKey = _env3DObjectKey(obj);
+            if (!objectKey) return;
+            if (useIncludeFilter && !includeKeys[objectKey]) return;
+            var mesh = _env3D.meshes ? _env3D.meshes[objectKey] : null;
+            if (!mesh || mesh.visible === false || typeof mesh.getWorldPosition !== 'function') return;
+            try {
+                mesh.updateWorldMatrix(true, true);
+                mesh.getWorldPosition(worldPos);
+            } catch (e) {
+                return;
+            }
+            var projected = worldPos.clone().project(usedCamera);
+            if (!isFinite(projected.x) || !isFinite(projected.y) || !isFinite(projected.z)) return;
+            if (projected.z < -1 || projected.z > 1) return;
+            var screenX = (projected.x * 0.5 + 0.5) * w;
+            var screenY = (-projected.y * 0.5 + 0.5) * h;
+            rows.push({
+                object_key: objectKey,
+                label: String(obj.label || obj.id || '').trim(),
+                kind: String(obj.kind || '').trim().toLowerCase(),
+                category: String(obj.category || '').trim().toLowerCase(),
+                semantics: _envCloneJson(_envSceneSemanticsForObject(obj), null),
+                semantics_observation: _envCloneJson(_envSceneSemanticObservationForObject(obj), null),
+                focus: objectKey === focusKey,
+                world: _env3DVectorSnapshot(worldPos),
+                screen: {
+                    x: Number(screenX.toFixed(2)),
+                    y: Number(screenY.toFixed(2)),
+                    nx: Number(projected.x.toFixed(4)),
+                    ny: Number(projected.y.toFixed(4)),
+                    depth: Number(projected.z.toFixed(4))
+                }
+            });
+        });
+        rows.sort(function (a, b) {
+            var scoreA = (a.focus ? 1000 : 0) + (a.kind === 'npc' ? 100 : 0) - Math.abs(a.screen.depth || 0);
+            var scoreB = (b.focus ? 1000 : 0) + (b.kind === 'npc' ? 100 : 0) - Math.abs(b.screen.depth || 0);
+            return scoreB - scoreA;
+        });
+        return rows.slice(0, limit);
+    }
+
+    function _envObserverFocusCandidates(limit) {
+        limit = Math.max(1, Math.min(12, parseInt(limit, 10) || 6));
+        var rows = [];
+        var worldPos = new THREE.Vector3();
+        (_envSceneObjectPool() || []).forEach(function (obj) {
+            if (!obj || typeof obj !== 'object') return;
+            var objectKey = _env3DObjectKey(obj);
+            if (!objectKey) return;
+            var mesh = _env3D.meshes ? _env3D.meshes[objectKey] : null;
+            if (mesh && mesh.visible === false) return;
+            var label = String(obj.label || obj.id || '').trim();
+            if (!label) return;
+            var kind = String(obj.kind || '').trim().toLowerCase();
+            var category = String(obj.category || '').trim().toLowerCase();
+            var semantics = _envSceneSemanticsForObject(obj) || null;
+            var semanticsObservation = _envSceneSemanticObservationForObject(obj) || null;
+            var scale = Number(obj.scale || 1);
+            if (!isFinite(scale) || scale <= 0) scale = 1;
+            var score = scale * 10;
+            if (kind === 'npc') score += 120;
+            else if (kind === 'zone') score += 90;
+            else if (kind === 'route' || kind === 'trajectory') score += 20;
+            if (/structure|water|hazard|statue|treasure/.test(category)) score += 28;
+            if (/chamber|altar|floor|wall|arch|river|sump|guardian|junction|passage|crawlspace|obelisk/i.test(label)) score += 18;
+            if (/torch|gem|shard|coin|bedroll|barrel|firewood|spiderweb/i.test(label)) score -= 22;
+            if (semantics) {
+                var role = String(semantics.role || '').trim().toLowerCase();
+                var priority = String(semantics.priority || 'normal').trim().toLowerCase();
+                if (/^(landmark|critical)$/.test(priority)) score += 80;
+                else if (/^(high|foreground)$/.test(priority)) score += 36;
+                else if (/^(background|low)$/.test(priority)) score -= 18;
+                if (/^(floor|wall|ceiling|portal|tunnel|chamber|landmark)$/.test(role)) score += 24;
+                if (semantics.room_id) score += 8;
+                if (Array.isArray(semantics.anchors) && semantics.anchors.length) score += Math.min(12, semantics.anchors.length * 3);
+                if (Array.isArray(semantics.supports) && semantics.supports.length) score += Math.min(16, semantics.supports.length * 4);
+            }
+            var position = null;
+            if (mesh && typeof mesh.getWorldPosition === 'function') {
+                try {
+                    mesh.updateWorldMatrix(true, true);
+                    mesh.getWorldPosition(worldPos);
+                    position = _env3DVectorSnapshot(worldPos);
+                } catch (e) { }
+            }
+            if (!position) {
+                position = {
+                    x: Number(obj.x || 0),
+                    y: Number(obj.y || 0),
+                    z: Number((obj.data && obj.data.z) || obj.z || 0)
+                };
+            }
+            rows.push({
+                object_key: objectKey,
+                label: label,
+                kind: kind,
+                category: category,
+                semantics: _envCloneJson(semantics, null),
+                semantics_observation: _envCloneJson(semanticsObservation, null),
+                score: Number(score.toFixed(2)),
+                scale: scale,
+                position: position
+            });
+        });
+        rows.sort(function (a, b) {
+            return Number(b.score || 0) - Number(a.score || 0);
+        });
+        return rows.slice(0, limit).map(function (row) {
+            return {
+                object_key: String(row.object_key || ''),
+                label: String(row.label || ''),
+                kind: String(row.kind || ''),
+                category: String(row.category || ''),
+                semantics: _envCloneJson(row.semantics, null),
+                semantics_observation: _envCloneJson(row.semantics_observation, null),
+                score: Number(row.score || 0),
+                scale: Number(row.scale || 1),
+                position: _envCloneJson(row.position, null)
+            };
+        });
+    }
+
+    function _envObserverCameraSnapshot(camera, target, cameraType) {
+        if (!camera) return null;
+        return {
+            camera_type: String(cameraType || 'perspective'),
+            position: _env3DVectorSnapshot(camera.position),
+            target: _env3DVectorSnapshot(target),
+            zoom: typeof camera.zoom === 'number' ? Number(camera.zoom) : null,
+            fov: typeof camera.fov === 'number' ? Number(camera.fov) : null
+        };
+    }
+
+    function _envObserverSetPose(pose, boundsOverride) {
+        var observer = _envObserverInit();
+        if (!observer) return null;
+        var width = observer.width;
+        var height = observer.height;
+        var bounds = boundsOverride && typeof boundsOverride === 'object' ? boundsOverride : _envObserverSceneBounds();
+        var center = bounds.center.clone();
+        var size = bounds.size.clone();
+        var radius = Number(bounds.radius || 40);
+        var cam = observer.camera;
+        var ortho = observer.orthoCamera;
+        if (pose === 'current') {
+            var currentTarget = _env3D.controls && _env3D.controls.target ? _env3D.controls.target.clone() : center.clone();
+            cam.position.copy(_env3D.camera.position);
+            cam.quaternion.copy(_env3D.camera.quaternion);
+            cam.up.copy(_env3D.camera.up);
+            cam.near = Number(_env3D.camera.near || 0.1);
+            cam.far = Number(_env3D.camera.far || 500);
+            cam.fov = Number(_env3D.camera.fov || 50);
+            cam.aspect = width / Math.max(1, height);
+            cam.updateProjectionMatrix();
+            cam.updateMatrixWorld(true);
+            return {
+                camera: cam,
+                camera_type: 'perspective',
+                pose: 'current',
+                snapshot: _envObserverCameraSnapshot(cam, currentTarget, 'perspective')
+            };
+        }
+        if (pose === 'topdown') {
+            var aspect = width / Math.max(1, height);
+            var halfSpanX = Math.max(18, size.x * 0.65);
+            var halfSpanZ = Math.max(18, size.z * 0.65);
+            var halfWidth = Math.max(halfSpanX, halfSpanZ * aspect);
+            var halfHeight = Math.max(halfSpanZ, halfSpanX / Math.max(0.001, aspect));
+            ortho.left = -halfWidth;
+            ortho.right = halfWidth;
+            ortho.top = halfHeight;
+            ortho.bottom = -halfHeight;
+            ortho.near = 0.1;
+            ortho.far = Math.max(500, radius * 10);
+            ortho.zoom = 1;
+            ortho.position.set(center.x, center.y + Math.max(60, size.y + (radius * 1.8)), center.z);
+            ortho.up.set(0, 0, -1);
+            ortho.lookAt(center.x, center.y, center.z);
+            ortho.updateProjectionMatrix();
+            ortho.updateMatrixWorld(true);
+            return {
+                camera: ortho,
+                camera_type: 'orthographic',
+                pose: 'topdown',
+                snapshot: _envObserverCameraSnapshot(ortho, center, 'orthographic')
+            };
+        }
+        if (pose === 'overview') {
+            var overviewDist = Math.max(radius * 1.6, 28);
+            var overviewTarget = new THREE.Vector3(center.x, center.y, center.z);
+            cam.position.set(
+                center.x + (overviewDist * 0.82),
+                center.y + Math.max(12, overviewDist * 0.72),
+                center.z + (overviewDist * 0.82)
+            );
+            cam.lookAt(overviewTarget);
+            cam.near = 0.1;
+            cam.far = Math.max(500, radius * 12);
+            cam.fov = 50;
+            cam.aspect = width / Math.max(1, height);
+            cam.updateProjectionMatrix();
+            cam.updateMatrixWorld(true);
+            return {
+                camera: cam,
+                camera_type: 'perspective',
+                pose: 'overview',
+                snapshot: _envObserverCameraSnapshot(cam, overviewTarget, 'perspective')
+            };
+        }
+        if (pose && typeof pose === 'object') {
+            var target = new THREE.Vector3(
+                Number(pose.tx !== undefined ? pose.tx : center.x) || 0,
+                Number(pose.ty !== undefined ? pose.ty : center.y) || 0,
+                Number(pose.tz !== undefined ? pose.tz : center.z) || 0
+            );
+            cam.position.set(
+                Number(pose.x || 0),
+                Number(pose.y || 0),
+                Number(pose.z || 0)
+            );
+            cam.lookAt(target);
+            cam.near = 0.1;
+            cam.far = Math.max(500, radius * 12);
+            cam.fov = Number(pose.fov || 50);
+            cam.aspect = width / Math.max(1, height);
+            cam.updateProjectionMatrix();
+            cam.updateMatrixWorld(true);
+            return {
+                camera: cam,
+                camera_type: 'perspective',
+                pose: 'custom',
+                snapshot: _envObserverCameraSnapshot(cam, target, 'perspective')
+            };
+        }
+        return _envObserverSetPose('overview');
+    }
+
+    function _envObserverApplyHelperVisibility(options) {
+        var opts = options && typeof options === 'object' ? options : {};
+        var prior = [];
+        var suppressed = [];
+        function hide(node, tag) {
+            if (!node || typeof node.visible === 'undefined') return;
+            prior.push({ node: node, visible: !!node.visible });
+            node.visible = false;
+            suppressed.push(String(tag || 'helper'));
+        }
+        if (!opts.showTransformControls && _env3D.transformControls) hide(_env3D.transformControls, 'transform_controls');
+        if (!opts.showGrid && _env3D.gridHelper) hide(_env3D.gridHelper, 'grid_helper');
+        return {
+            suppressed: suppressed,
+            restore: function () {
+                prior.forEach(function (entry) {
+                    if (!entry || !entry.node) return;
+                    entry.node.visible = entry.visible;
+                });
+            }
+        };
+    }
+
+    function _envObserverDrawAnnotations(usedCamera, options) {
+        var ctx = _envObserver.annotationCtx;
+        if (!ctx || !usedCamera) return;
+        var opts = options && typeof options === 'object' ? options : {};
+        var mode = String(opts.mode || 'full').trim().toLowerCase();
+        var focusKey = String(opts.focusKey || '').trim();
+        var includeKeys = {};
+        if (Array.isArray(opts.includeKeys)) {
+            opts.includeKeys.forEach(function (key) {
+                key = String(key || '').trim();
+                if (key) includeKeys[key] = true;
+            });
+        }
+        var useIncludeFilter = Object.keys(includeKeys).length > 0;
+        var w = Number(_envObserver.annotationCanvas.width || 0);
+        var h = Number(_envObserver.annotationCanvas.height || 0);
+        ctx.clearRect(0, 0, w, h);
+        if (mode === 'none') return;
+        ctx.font = '11px monospace';
+        ctx.textBaseline = 'middle';
+        ctx.lineJoin = 'round';
+        ctx.lineWidth = 2;
+        var worldPos = new THREE.Vector3();
+        var candidates = [];
+        (_envSceneObjectPool() || []).forEach(function (obj) {
+            var objectKey = _env3DObjectKey(obj);
+            if (useIncludeFilter && !includeKeys[objectKey]) return;
+            var mesh = objectKey && _env3D.meshes ? _env3D.meshes[objectKey] : null;
+            if (!mesh || mesh.visible === false) return;
+            var label = String(obj.label || obj.id || '').trim();
+            if (!label) return;
+            mesh.getWorldPosition(worldPos);
+            var projected = worldPos.clone().project(usedCamera);
+            if (!isFinite(projected.x) || !isFinite(projected.y) || !isFinite(projected.z)) return;
+            if (projected.z < -1 || projected.z > 1) return;
+            var screenX = (projected.x * 0.5 + 0.5) * w;
+            var screenY = (-projected.y * 0.5 + 0.5) * h;
+            if (screenX < 0 || screenX > w || screenY < 0 || screenY > h) return;
+            candidates.push({
+                objectKey: objectKey,
+                label: label,
+                x: screenX,
+                y: screenY,
+                focus: !!focusKey && String(objectKey) === focusKey,
+                kind: String(obj.kind || '').trim().toLowerCase()
+            });
+        });
+        if (mode === 'focus') {
+            candidates = focusKey ? candidates.filter(function (item) { return item.focus; }) : [];
+        } else if (mode === 'sparse') {
+            candidates.sort(function (a, b) {
+                var scoreA = (a.focus ? 1000 : 0) + (/^(npc|zone)$/.test(a.kind) ? 100 : 0);
+                var scoreB = (b.focus ? 1000 : 0) + (/^(npc|zone)$/.test(b.kind) ? 100 : 0);
+                return scoreB - scoreA;
+            });
+            var kept = [];
+            candidates = candidates.filter(function (item) {
+                if (kept.length >= 10) return false;
+                var separated = kept.every(function (other) {
+                    var dx = item.x - other.x;
+                    var dy = item.y - other.y;
+                    return ((dx * dx) + (dy * dy)) >= (58 * 58);
+                });
+                if (!separated && !item.focus) return false;
+                kept.push(item);
+                return true;
+            });
+        }
+        candidates.forEach(function (item) {
+            var screenX = item.x;
+            var screenY = item.y;
+            var label = item.label;
+            var metrics = ctx.measureText(label);
+            var padX = 5;
+            var padY = 3;
+            var textW = Math.ceil(metrics.width || 0);
+            var boxW = textW + (padX * 2);
+            var boxH = 16;
+            var boxX = Math.round(screenX + 6);
+            var boxY = Math.round(screenY - boxH - 4);
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.66)';
+            ctx.fillRect(boxX, boxY, boxW, boxH);
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.85)';
+            ctx.beginPath();
+            ctx.arc(screenX, screenY, item.focus ? 4 : 3, 0, Math.PI * 2);
+            ctx.fillStyle = item.focus ? '#ffe066' : '#00ffff';
+            ctx.fill();
+            ctx.strokeText(label, boxX + padX, boxY + Math.round(boxH / 2));
+            ctx.fillStyle = '#ffffff';
+            ctx.fillText(label, boxX + padX, boxY + Math.round(boxH / 2));
+        });
+    }
+
+    function _envObserverRenderComposite(pose, options) {
+        if (!_env3D.scene || !_env3D.inited) {
+            return { error: 'environment_3d_not_ready' };
+        }
+        var opts = options && typeof options === 'object' ? options : {};
+        var bounds = opts.bounds && typeof opts.bounds === 'object' ? opts.bounds : _envObserverSceneBounds();
+        var observer = _envObserverSetSize(opts.width || 800, opts.height || 450);
+        if (!observer || !observer.renderer) return { error: 'observer_unavailable' };
+        if (_env3D.scene && typeof _env3D.scene.updateMatrixWorld === 'function') _env3D.scene.updateMatrixWorld(true);
+        var poseInfo = _envObserverSetPose(pose, bounds);
+        if (!poseInfo || !poseInfo.camera) return { error: 'pose_unavailable' };
+        var helperState = _envObserverApplyHelperVisibility({
+            showTransformControls: !!opts.showTransformControls,
+            showGrid: opts.showGrid !== false
+        });
+        var projections = [];
+        try {
+            observer.renderer.render(_env3D.scene, poseInfo.camera);
+            _envObserverDrawAnnotations(poseInfo.camera, {
+                mode: opts.annotationMode || 'full',
+                focusKey: opts.focusKey || '',
+                includeKeys: Array.isArray(opts.includeKeys) ? opts.includeKeys.slice() : []
+            });
+            projections = _envObserverCollectScreenProjections(poseInfo.camera, {
+                focusKey: opts.focusKey || '',
+                includeKeys: Array.isArray(opts.includeKeys) ? opts.includeKeys.slice() : [],
+                limit: opts.projectionLimit || 16
+            });
+        } finally {
+            helperState.restore();
+        }
+        var comp = observer.compositeCtx;
+        comp.clearRect(0, 0, observer.width, observer.height);
+        comp.fillStyle = '#05070d';
+        comp.fillRect(0, 0, observer.width, observer.height);
+        comp.drawImage(observer.renderer.domElement, 0, 0, observer.width, observer.height);
+        comp.drawImage(observer.annotationCanvas, 0, 0, observer.width, observer.height);
+        var warnings = [];
+        var pointCount = Number(bounds.point_count || 0);
+        var radius = Number(bounds.radius || 0);
+        if (pointCount <= 0) warnings.push('no_scene_points');
+        else if (pointCount < 4) warnings.push('sparse_scene_points');
+        if (radius > 140) warnings.push('wide_scene_radius');
+        var annotationMode = String(opts.annotationMode || 'full').trim().toLowerCase();
+        if (annotationMode === 'full') warnings.push('dense_annotation_mode');
+        var confidence = 'high';
+        if (warnings.length >= 2) confidence = 'medium';
+        if (warnings.indexOf('no_scene_points') >= 0) confidence = 'low';
+        return {
+            width: observer.width,
+            height: observer.height,
+            pose: String((poseInfo && poseInfo.pose) || pose || 'overview'),
+            camera: _envCloneJson(poseInfo.snapshot, null),
+            observation: {
+                confidence: confidence,
+                annotation_mode: annotationMode || 'full',
+                bounds: _envObserverBoundsSnapshot(bounds),
+                helper_suppression: {
+                    transform_controls: helperState.suppressed.indexOf('transform_controls') >= 0,
+                    grid_helper: helperState.suppressed.indexOf('grid_helper') >= 0
+                },
+                suppressed_helpers: helperState.suppressed.slice(),
+                warnings: warnings,
+                projections: projections
+            }
+        };
+    }
+
+    function _envObserverRenderDataUrl(pose, options) {
+        var meta = _envObserverRenderComposite(pose, options);
+        if (meta && meta.error) return meta;
+        meta = meta || {};
+        meta.image_b64 = _envObserver.compositeCanvas.toDataURL('image/jpeg', 0.65);
+        return meta;
+    }
+
+    function _envCaptureFrame(pose) {
+        var render = _envObserverRenderDataUrl(pose || 'current', { width: 800, height: 450, annotationMode: 'sparse', projectionLimit: 18 });
+        if (render && render.error) {
+            return { type: 'frame', pose: String(pose || 'current'), error: render.error, ts: Date.now() };
+        }
+        return {
+            type: 'frame',
+            image_b64: render.image_b64,
+            width: Number(render.width || 800),
+            height: Number(render.height || 450),
+            pose: String(render.pose || pose || 'current'),
+            camera: _envCloneJson(render.camera, null),
+            observation: _envCloneJson(render.observation, null),
+            render_truth: _envBuildRenderTruth(),
+            ts: Date.now()
+        };
+    }
+
+    function _envCaptureStrip(count) {
+        count = Math.max(1, Math.min(8, parseInt(count, 10) || 4));
+        var bounds = _envObserverSceneBounds();
+        var center = bounds.center.clone();
+        var radius = Math.max(24, Number(bounds.radius || 40) * 1.55);
+        var frames = [];
+        for (var i = 0; i < count; i += 1) {
+            var angle = (i / count) * Math.PI * 2;
+            var render = _envObserverRenderDataUrl({
+                x: center.x + (Math.cos(angle) * radius),
+                y: center.y + Math.max(14, radius * 0.45),
+                z: center.z + (Math.sin(angle) * radius),
+                tx: center.x,
+                ty: center.y,
+                tz: center.z
+            }, { width: 400, height: 225, annotationMode: 'none', projectionLimit: 10 });
+            if (render && render.error) {
+                frames.push({ angle_deg: Math.round((angle * 180) / Math.PI), error: render.error });
+            } else {
+                frames.push({
+                    angle_deg: Math.round((angle * 180) / Math.PI),
+                    width: Number(render.width || 400),
+                    height: Number(render.height || 225),
+                    image_b64: render.image_b64,
+                    camera: _envCloneJson(render.camera, null),
+                    observation: _envCloneJson(render.observation, null)
+                });
+            }
+        }
+        return {
+            type: 'strip',
+            count: count,
+            frames: frames,
+            focus_candidates: _envObserverFocusCandidates(6),
+            render_truth: _envBuildRenderTruth(),
+            ts: Date.now()
+        };
+    }
+
+    function _envCaptureSupercam() {
+        var observer = _envObserverInit();
+        if (!observer || !_env3D.scene || !_env3D.inited) {
+            return { type: 'supercam', error: 'environment_3d_not_ready', ts: Date.now() };
+        }
+        var atlasWidth = 1600;
+        var atlasHeight = 900;
+        var tileWidth = 800;
+        var tileHeight = 450;
+        observer.atlasCanvas.width = atlasWidth;
+        observer.atlasCanvas.height = atlasHeight;
+        var atlasCtx = observer.atlasCtx;
+        atlasCtx.clearRect(0, 0, atlasWidth, atlasHeight);
+        atlasCtx.fillStyle = '#05070d';
+        atlasCtx.fillRect(0, 0, atlasWidth, atlasHeight);
+        var bounds = _envObserverSceneBounds();
+        var center = bounds.center.clone();
+        var radius = Math.max(26, Number(bounds.radius || 40) * 1.55);
+        var tiles = [
+            { label: 'Overview', pose: 'overview' },
+            { label: 'Topdown', pose: 'topdown' }
+        ];
+        for (var i = 0; i < 6; i += 1) {
+            var angle = (i / 6) * Math.PI * 2;
+            tiles.push({
+                label: 'Orbit ' + Math.round((angle * 180) / Math.PI) + '\u00b0',
+                pose: {
+                    x: center.x + (Math.cos(angle) * radius),
+                    y: center.y + Math.max(12, radius * 0.42),
+                    z: center.z + (Math.sin(angle) * radius),
+                    tx: center.x,
+                    ty: center.y,
+                    tz: center.z
+                }
+            });
+        }
+        tiles = tiles.map(function (tile, index) {
+            var render = _envObserverRenderComposite(tile.pose, { width: tileWidth, height: tileHeight, annotationMode: 'none', projectionLimit: 12 });
+            var col = index % 2;
+            var row = Math.floor(index / 2);
+            var x = col * tileWidth;
+            var y = row * tileHeight;
+            if (!render || render.error) {
+                atlasCtx.fillStyle = '#1a1f2b';
+                atlasCtx.fillRect(x, y, tileWidth, tileHeight);
+                atlasCtx.fillStyle = '#ffffff';
+                atlasCtx.font = '16px monospace';
+                atlasCtx.fillText(String(tile.label || 'capture'), x + 12, y + 24);
+                atlasCtx.font = '12px monospace';
+                atlasCtx.fillText(String((render && render.error) || 'capture_failed'), x + 12, y + 44);
+                return {
+                    label: String(tile.label || ''),
+                    pose: typeof tile.pose === 'string' ? tile.pose : 'custom',
+                    x: x,
+                    y: y,
+                    width: tileWidth,
+                    height: tileHeight,
+                    error: String((render && render.error) || 'capture_failed')
+                };
+            }
+            atlasCtx.drawImage(observer.compositeCanvas, x, y, tileWidth, tileHeight);
+            atlasCtx.fillStyle = 'rgba(0, 0, 0, 0.72)';
+            atlasCtx.fillRect(x, y, tileWidth, 22);
+            atlasCtx.fillStyle = '#ffffff';
+            atlasCtx.font = '12px monospace';
+            atlasCtx.textBaseline = 'middle';
+            atlasCtx.fillText(String(tile.label || ''), x + 10, y + 11);
+            return {
+                label: String(tile.label || ''),
+                pose: typeof tile.pose === 'string' ? tile.pose : 'custom',
+                x: x,
+                y: y,
+                width: tileWidth,
+                height: tileHeight,
+                camera: _envCloneJson(render.camera, null),
+                observation: _envCloneJson(render.observation, null)
+            };
+        });
+        return {
+            type: 'supercam',
+            width: atlasWidth,
+            height: atlasHeight,
+            image_b64: observer.atlasCanvas.toDataURL('image/jpeg', 0.68),
+            tiles: tiles,
+            observation: {
+                mode: 'survey',
+                bounds: _envObserverBoundsSnapshot(bounds),
+                helper_suppression: {
+                    transform_controls: true,
+                    grid_helper: false
+                }
+            },
+            focus_candidates: _envObserverFocusCandidates(8),
+            render_truth: _envBuildRenderTruth(),
+            object_count: Number((_envSpawnedObjects || []).length || 0),
+            ts: Date.now()
+        };
+    }
+
+    function _envCaptureFocus(objectKey) {
+        var targetContext = _envObserverObjectContext(objectKey);
+        if (!targetContext || !targetContext.center) {
+            return { type: 'focus', object_key: String(objectKey || ''), error: 'object_not_found', ts: Date.now() };
+        }
+        var center = targetContext.center.clone();
+        var size = targetContext.size.clone();
+        var dist = Math.max(10, size.length() * 2.2, Math.max(size.x, size.y, size.z) * 2.8);
+        var neighbors = _envObserverNeighborContexts(targetContext, 5);
+        var includeKeys = [targetContext.object_key].concat(neighbors.map(function (row) { return row.object_key; }));
+        var render = _envObserverRenderDataUrl({
+            x: center.x + (dist * 0.72),
+            y: center.y + Math.max(4, dist * 0.46),
+            z: center.z + (dist * 0.72),
+            tx: center.x,
+            ty: center.y,
+            tz: center.z
+        }, {
+            width: 800,
+            height: 450,
+            annotationMode: 'focus',
+            focusKey: targetContext.object_key,
+            includeKeys: includeKeys,
+            projectionLimit: 10
+        });
+        if (render && render.error) {
+            return { type: 'focus', object_key: targetContext.object_key, error: render.error, ts: Date.now() };
+        }
+        return {
+            type: 'focus',
+            object_key: targetContext.object_key,
+            image_b64: render.image_b64,
+            width: Number(render.width || 800),
+            height: Number(render.height || 450),
+            camera: _envCloneJson(render.camera, null),
+            observation: _envCloneJson(render.observation, null),
+            target: {
+                object_key: targetContext.object_key,
+                label: String(targetContext.label || ''),
+                kind: String(targetContext.kind || ''),
+                category: String(targetContext.category || ''),
+                semantics: _envCloneJson(targetContext.semantics, null),
+                semantics_observation: _envCloneJson(targetContext.semantics_observation, null),
+                position: _env3DVectorSnapshot(targetContext.center),
+                size: _env3DVectorSnapshot(targetContext.size)
+            },
+            neighbors: neighbors.map(function (ctx) {
+                return {
+                    object_key: ctx.object_key,
+                    label: String(ctx.label || ''),
+                    kind: String(ctx.kind || ''),
+                    category: String(ctx.category || ''),
+                    semantics: _envCloneJson(ctx.semantics, null),
+                    semantics_observation: _envCloneJson(ctx.semantics_observation, null),
+                    position: _env3DVectorSnapshot(ctx.center),
+                    size: _env3DVectorSnapshot(ctx.size)
+                };
+            }),
+            projections: _envCloneJson((render.observation || {}).projections || [], []),
+            ts: Date.now()
+        };
+    }
+
+    function _envCaptureProbe(objectKey) {
+        var targetContext = _envObserverObjectContext(objectKey);
+        if (!targetContext || !targetContext.center) {
+            return { type: 'probe', object_key: String(objectKey || ''), error: 'object_not_found', ts: Date.now() };
+        }
+        var neighbors = _envObserverNeighborContexts(targetContext, 7);
+        var contexts = [targetContext].concat(neighbors);
+        var points = contexts.map(function (ctx) { return ctx.center.clone(); });
+        var localBounds = _envObserverBuildBoundsFromPoints(points, targetContext.center.clone(), new THREE.Vector3(16, 10, 16));
+        localBounds.radius = Math.max(localBounds.radius, Math.max(10, targetContext.size.length() * 2.2));
+        var includeKeys = contexts.map(function (ctx) { return ctx.object_key; });
+        var observer = _envObserverInit();
+        if (!observer || !_env3D.scene || !_env3D.inited) {
+            return { type: 'probe', object_key: targetContext.object_key, error: 'environment_3d_not_ready', ts: Date.now() };
+        }
+        var atlasWidth = 1600;
+        var atlasHeight = 900;
+        var tileWidth = 800;
+        var tileHeight = 450;
+        observer.atlasCanvas.width = atlasWidth;
+        observer.atlasCanvas.height = atlasHeight;
+        var atlasCtx = observer.atlasCtx;
+        atlasCtx.clearRect(0, 0, atlasWidth, atlasHeight);
+        atlasCtx.fillStyle = '#05070d';
+        atlasCtx.fillRect(0, 0, atlasWidth, atlasHeight);
+        var r = Math.max(12, Number(localBounds.radius || 18));
+        var c = localBounds.center.clone();
+        var tiles = [
+            {
+                label: 'Context',
+                pose: {
+                    x: c.x + (r * 1.7),
+                    y: c.y + Math.max(6, r * 1.15),
+                    z: c.z + (r * 1.7),
+                    tx: c.x,
+                    ty: c.y,
+                    tz: c.z
+                },
+                annotationMode: 'sparse'
+            },
+            { label: 'Topdown Local', pose: 'topdown', annotationMode: 'none' },
+            {
+                label: 'Probe Left',
+                pose: {
+                    x: c.x - (r * 1.25),
+                    y: c.y + Math.max(4, r * 0.85),
+                    z: c.z + (r * 1.1),
+                    tx: c.x,
+                    ty: c.y,
+                    tz: c.z
+                },
+                annotationMode: 'focus'
+            },
+            {
+                label: 'Probe Right',
+                pose: {
+                    x: c.x + (r * 1.25),
+                    y: c.y + Math.max(4, r * 0.85),
+                    z: c.z - (r * 1.1),
+                    tx: c.x,
+                    ty: c.y,
+                    tz: c.z
+                },
+                annotationMode: 'focus'
+            }
+        ];
+        var tileResults = tiles.map(function (tile, index) {
+            var render = _envObserverRenderComposite(tile.pose, {
+                width: tileWidth,
+                height: tileHeight,
+                annotationMode: tile.annotationMode || 'focus',
+                focusKey: targetContext.object_key,
+                includeKeys: includeKeys,
+                bounds: localBounds,
+                projectionLimit: includeKeys.length + 2
+            });
+            var col = index % 2;
+            var row = Math.floor(index / 2);
+            var x = col * tileWidth;
+            var y = row * tileHeight;
+            if (!render || render.error) {
+                atlasCtx.fillStyle = '#1a1f2b';
+                atlasCtx.fillRect(x, y, tileWidth, tileHeight);
+                atlasCtx.fillStyle = '#ffffff';
+                atlasCtx.font = '16px monospace';
+                atlasCtx.fillText(String(tile.label || 'probe'), x + 12, y + 24);
+                atlasCtx.font = '12px monospace';
+                atlasCtx.fillText(String((render && render.error) || 'capture_failed'), x + 12, y + 44);
+                return {
+                    label: String(tile.label || ''),
+                    pose: typeof tile.pose === 'string' ? tile.pose : 'custom',
+                    x: x,
+                    y: y,
+                    width: tileWidth,
+                    height: tileHeight,
+                    error: String((render && render.error) || 'capture_failed')
+                };
+            }
+            atlasCtx.drawImage(observer.compositeCanvas, x, y, tileWidth, tileHeight);
+            atlasCtx.fillStyle = 'rgba(0, 0, 0, 0.72)';
+            atlasCtx.fillRect(x, y, tileWidth, 22);
+            atlasCtx.fillStyle = '#ffffff';
+            atlasCtx.font = '12px monospace';
+            atlasCtx.textBaseline = 'middle';
+            atlasCtx.fillText(String(tile.label || ''), x + 10, y + 11);
+            return {
+                label: String(tile.label || ''),
+                pose: typeof tile.pose === 'string' ? tile.pose : 'custom',
+                x: x,
+                y: y,
+                width: tileWidth,
+                height: tileHeight,
+                camera: _envCloneJson(render.camera, null),
+                observation: _envCloneJson(render.observation, null)
+            };
+        });
+        return {
+            type: 'probe',
+            object_key: targetContext.object_key,
+            width: atlasWidth,
+            height: atlasHeight,
+            image_b64: observer.atlasCanvas.toDataURL('image/jpeg', 0.72),
+            target: {
+                object_key: targetContext.object_key,
+                label: String(targetContext.label || ''),
+                kind: String(targetContext.kind || ''),
+                category: String(targetContext.category || ''),
+                semantics: _envCloneJson(targetContext.semantics, null),
+                semantics_observation: _envCloneJson(targetContext.semantics_observation, null),
+                position: _env3DVectorSnapshot(targetContext.center),
+                size: _env3DVectorSnapshot(targetContext.size)
+            },
+            neighbors: neighbors.map(function (ctx) {
+                return {
+                    object_key: ctx.object_key,
+                    label: String(ctx.label || ''),
+                    kind: String(ctx.kind || ''),
+                    category: String(ctx.category || ''),
+                    semantics: _envCloneJson(ctx.semantics, null),
+                    semantics_observation: _envCloneJson(ctx.semantics_observation, null),
+                    position: _env3DVectorSnapshot(ctx.center),
+                    size: _env3DVectorSnapshot(ctx.size)
+                };
+            }),
+            tiles: tileResults,
+            observation: {
+                mode: 'probe',
+                bounds: _envObserverBoundsSnapshot(localBounds),
+                helper_suppression: {
+                    transform_controls: true,
+                    grid_helper: false
+                }
+            },
+            render_truth: _envBuildRenderTruth(),
+            ts: Date.now()
+        };
+    }
+
+    function _envPostCaptureResult(type, result) {
+        if (!result || typeof result !== 'object') return;
+        var meta = _envCloneJson(result, {});
+        delete meta.image_b64;
+        if (Array.isArray(meta.frames)) {
+            meta.frame_count = meta.frames.length;
+            meta.frames = meta.frames.map(function (frame) {
+                var clean = _envCloneJson(frame, {});
+                delete clean.image_b64;
+                return clean;
+            });
+        }
+        if (Array.isArray(meta.tiles)) meta.tile_count = meta.tiles.length;
+        if (meta.render_truth && typeof meta.render_truth === 'object') {
+            meta.render_truth = {
+                bundle_version: String(meta.render_truth.bundle_version || ''),
+                renderer_active: String(meta.render_truth.renderer_active || ''),
+                scene: _envCloneJson(meta.render_truth.scene, null),
+                physics: _envCloneJson(meta.render_truth.physics, null)
+            };
+        }
+        meta.capture_pending = true;
+        _envMirrorState.latestCapture = meta;
+        _envRefreshLiveMirrorSurface();
+        fetch('/api/env/capture', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: String(type || result.type || 'frame'), result: result })
+        }).then(function (resp) {
+            return resp.json();
+        }).then(function (payload) {
+            if (payload && payload.capture) {
+                _envMirrorState.latestCapture = _envCloneJson(payload.capture, null);
+            } else {
+                meta.capture_pending = false;
+                _envMirrorState.latestCapture = meta;
+            }
+            _envRefreshLiveMirrorSurface();
+            _envScheduleLiveSync('capture:' + String(type || result.type || 'frame'), true);
+        }).catch(function (err) {
+            meta.capture_pending = false;
+            meta.capture_error = String((err && err.message) || err || 'capture_upload_failed');
+            _envMirrorState.latestCapture = meta;
+            _envRefreshLiveMirrorSurface();
+        });
+    }
+
+    function _envProcessCaptureQueue() {
+        if (!_envCaptureQueue.length) {
+            _envCaptureProcessing = false;
+            return;
+        }
+        _envCaptureProcessing = true;
+        var job = _envCaptureQueue.shift() || {};
+        requestAnimationFrame(function () {
+            var result = null;
+            try {
+                if (job.type === 'frame') {
+                    result = _envCaptureFrame(job.pose || 'current');
+                } else if (job.type === 'strip') {
+                    result = _envCaptureStrip(job.count || 4);
+                } else if (job.type === 'supercam') {
+                    result = _envCaptureSupercam();
+                } else if (job.type === 'focus') {
+                    result = _envCaptureFocus(job.object_key || '');
+                } else if (job.type === 'probe') {
+                    result = _envCaptureProbe(job.object_key || '');
+                } else {
+                    result = { type: String(job.type || 'capture'), error: 'unsupported_capture_type', ts: Date.now() };
+                }
+            } catch (e) {
+                result = {
+                    type: String(job.type || 'capture'),
+                    error: String((e && e.message) || e || 'capture_failed'),
+                    ts: Date.now()
+                };
+            }
+            _envPostCaptureResult(job.type, result);
+            setTimeout(function () {
+                _envProcessCaptureQueue();
+            }, 0);
+        });
+    }
+
+    function _envQueueCapture(job) {
+        if (!job || typeof job !== 'object') return;
+        _envCaptureQueue.push(job);
+        if (!_envCaptureProcessing) _envProcessCaptureQueue();
+    }
 
     var _envSceneAudit = {
         warnings: [],
@@ -26726,6 +28614,7 @@
         _env3DApplyTheme(_envThemeId);
 
         _env3D.inited = true;
+        _env3DEnsurePhysicsInit();
         _env3DAnimate();
     }
 
@@ -27112,6 +29001,13 @@
 
         var dt = _env3D.clock.getDelta();
         var time = _env3D.clock.getElapsedTime();
+        if (_env3D.physics && _env3D.physics.world) {
+            _env3D.physics.accumulator += Math.min(dt, 0.1);
+            while (_env3D.physics.accumulator >= _env3D.physics.stepSize) {
+                _env3D.physics.world.step();
+                _env3D.physics.accumulator -= _env3D.physics.stepSize;
+            }
+        }
         var vegetationMeshes = [];
         var movingAgents = [];
         if (_env3D.waterMesh
@@ -27406,6 +29302,9 @@
             cancelAnimationFrame(_env3D._cameraAnimFrame);
             _env3D._cameraAnimFrame = null;
         }
+        _env3D.physicsInitToken = Number(_env3D.physicsInitToken || 0) + 1;
+        _env3D.physicsInitPromise = null;
+        _env3DDisposePhysics();
         if (_env3D.renderer && _env3D.renderer.domElement && _env3D.renderer.domElement.parentNode) {
             _env3D.renderer.domElement.parentNode.removeChild(_env3D.renderer.domElement);
         }
@@ -27460,6 +29359,8 @@
         _env3D.agentSpriteTexture = null;
         _env3D.agentSpriteMaps = null;
         _env3D.spriteSheetCache = {};
+        _env3D.physics = null;
+        _env3D.physicsInitPromise = null;
         _env3D.lastObjectHash = '';
         _env3D.navGrid = null;
         _env3D.navHash = '';
@@ -27828,6 +29729,7 @@
     }
 
     function _envRefreshSceneAudit(force) {
+        if (typeof _envSceneAudit !== 'object' || !_envSceneAudit) return [];
         var rows = _envSceneObjectCatalog();
         var signature = _envSceneAuditSignature(rows);
         if (!force && signature === String(_envSceneAudit.signature || '')) {
@@ -36149,6 +38051,7 @@
                     last_source: String(_envSceneBootstrapState.lastSource || ''),
                     error: String(_envSceneBootstrapState.error || '')
                 },
+                physics: _env3DPhysicsSnapshot(),
                 viewport: {
                     width: Number((((_env3D.renderer || {}).domElement || {}).clientWidth) || 0),
                     height: Number((((_env3D.renderer || {}).domElement || {}).clientHeight) || 0)
@@ -36201,6 +38104,7 @@
             operations: _envBuildOperationSnapshot(4),
             render: renderTruth,
             layout: layoutSnapshot,
+            capture: _envCloneJson(_envMirrorState.latestCapture, null),
             corroboration: corroborationState,
             navigation: _envSceneNavigationSnapshot(),
             panel: _envHtmlPanelSnapshot(),
@@ -36241,6 +38145,8 @@
             var interaction = _envSceneInteractionMeta(obj);
             var data = _envObjectData(obj);
             var character = _envSceneCharacterForObject(obj);
+            var semantics = _envSceneSemanticsForObject(obj);
+            var semanticsObservation = _envSceneSemanticObservationForObject(obj);
             var embodiment = _envSceneEmbodimentForObject(obj);
             var retargeting = _envSceneRetargetingForObject(obj);
             var providerBinding = data && data.provider_binding && typeof data.provider_binding === 'object' ? data.provider_binding : null;
@@ -36293,6 +38199,8 @@
                 facility_candidates: _slotUniqueStrings(data.facility_candidates || []),
                 html_preview: _envSceneObjectHasHtml(obj) ? _envProductCollapseText(String(obj.html || data.html || ''), 180) : '',
                 menu_items: menuItems,
+                semantics: semantics ? _envCloneJson(semantics, null) : null,
+                semantics_observation: semanticsObservation ? _envCloneJson(semanticsObservation, null) : null,
                 character: character ? _envCloneJson(character, null) : null,
                 embodiment: embodiment ? _envCloneJson(embodiment, null) : null,
                 retargeting: retargeting ? _envCloneJson(retargeting, null) : null
