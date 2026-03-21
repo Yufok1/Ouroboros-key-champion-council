@@ -17,6 +17,7 @@ import shutil
 import threading
 import mimetypes
 import tempfile
+import re
 from pathlib import Path
 from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
@@ -1078,6 +1079,17 @@ async def _hf_cache_clear_payload(
 
 
 _activity_event_seq = 0
+_activity_log_lock = threading.Lock()
+
+
+def _json_safe_snapshot(value):
+    try:
+        return json.loads(json.dumps(value, ensure_ascii=False, default=str))
+    except Exception:
+        try:
+            return {"_snapshot_error": True, "preview": _activity_preview(value, 320)}
+        except Exception:
+            return {"_snapshot_error": True, "preview": str(value)}
 
 
 def _broadcast_activity(tool: str, args: dict, result: dict | None, duration_ms: int, error: str | None, source: str = "external", client_id: str | None = None):
@@ -1100,8 +1112,8 @@ def _broadcast_activity(tool: str, args: dict, result: dict | None, duration_ms:
         "id": f"act-{int(time.time() * 1000)}-{_activity_event_seq}",
         "tool": tool,
         "category": cat,
-        "args": args or {},
-        "result": parsed_result,
+        "args": _json_safe_snapshot(args or {}),
+        "result": _json_safe_snapshot(parsed_result),
         "error": error,
         "durationMs": duration_ms,
         "timestamp": int(time.time() * 1000),
@@ -1109,9 +1121,10 @@ def _broadcast_activity(tool: str, args: dict, result: dict | None, duration_ms:
         "clientId": client_id,  # granular client identification
         "hiddenFromActivity": hidden_from_activity,
     }
-    _activity_log.append(entry)
-    if len(_activity_log) > 500:
-        _activity_log.pop(0)
+    with _activity_log_lock:
+        _activity_log.append(entry)
+        if len(_activity_log) > 500:
+            _activity_log.pop(0)
     if _DEBUG_FEED_MIRROR_ENABLED and tool not in _DEBUG_FEED_MIRROR_EXCLUDED_TOOLS:
         try:
             asyncio.get_running_loop().create_task(_mirror_activity_to_observe(entry))
@@ -1200,7 +1213,7 @@ async def _mirror_activity_to_observe(entry: dict):
             "tool": tool,
             "category": "debug",
             "args": {"signal_type": "agent_debug", "detail": f"DEBUG {tool}", "mirror": payload},
-            "result": entry.get("result"),
+            "result": _json_safe_snapshot(entry.get("result")),
             "error": entry.get("error"),
             "durationMs": _coerce_int(entry.get("durationMs"), 0),
             "timestamp": int(time.time() * 1000),
@@ -1208,9 +1221,10 @@ async def _mirror_activity_to_observe(entry: dict):
             "clientId": str((entry or {}).get("clientId") or ""),
             "hiddenFromActivity": True,
         }
-        _activity_log.append(debug_entry)
-        if len(_activity_log) > 500:
-            _activity_log.pop(0)
+        with _activity_log_lock:
+            _activity_log.append(debug_entry)
+            if len(_activity_log) > 500:
+                _activity_log.pop(0)
         for q in list(_activity_subscribers):
             try:
                 q.put_nowait(debug_entry)
@@ -3860,7 +3874,12 @@ def _is_debug_activity_entry(entry: dict | None) -> bool:
 
 
 def _debug_state_payload(query_text: str) -> dict:
-    debug_rows = [entry for entry in _activity_log if _is_debug_activity_entry(entry)]
+    with _activity_log_lock:
+        try:
+            activity_rows = json.loads(json.dumps(_activity_log, default=str))
+        except Exception:
+            activity_rows = list(_activity_log)
+    debug_rows = [entry for entry in activity_rows if _is_debug_activity_entry(entry)]
     recent_rows = debug_rows[-15:]
     mirrored_rows = 0
     loop_rows = 0
@@ -3902,7 +3921,7 @@ def _debug_state_payload(query_text: str) -> dict:
             "excluded_tools": sorted(_DEBUG_FEED_MIRROR_EXCLUDED_TOOLS),
         },
         "counts": {
-            "activity_rows_total": len(_activity_log),
+            "activity_rows_total": len(activity_rows),
             "debug_rows_total": len(debug_rows),
             "mirrored_tool_rows": mirrored_rows,
             "agent_loop_rows": loop_rows,
@@ -7431,7 +7450,12 @@ async def proxy_tool_call(tool_name: str, request: Request):
     env_read_proxy_payload = _env_read_local_proxy_payload(body if isinstance(body, dict) else {})
     if tool_name == "env_read" and env_read_proxy_payload is not None:
         err_msg = env_read_proxy_payload.get("error") if isinstance(env_read_proxy_payload, dict) else None
-        _broadcast_activity(tool_name, body if isinstance(body, dict) else {}, env_read_proxy_payload, 0, err_msg, source=source, client_id=client_id)
+        env_read_query = str((body or {}).get("query", "") or "").strip().lower() if isinstance(body, dict) else ""
+        # debug_state is a local summary over the activity/debug mirror itself.
+        # Broadcasting it back into the activity stream creates a reflexive read
+        # path that can destabilize repeated debug_state calls.
+        if env_read_query != "debug_state":
+            _broadcast_activity(tool_name, body if isinstance(body, dict) else {}, env_read_proxy_payload, 0, err_msg, source=source, client_id=client_id)
         if err_msg:
             return JSONResponse(status_code=400, content=env_read_proxy_payload)
         return {"result": {"content": [{"type": "text", "text": json.dumps(env_read_proxy_payload)}], "isError": False}}
