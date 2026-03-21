@@ -101,6 +101,8 @@ When TransformControls are attached to a mesh, show a visual indicator:
 
 **Goal:** First-class character objects with swappable models, animation profiles, and behavioral states.
 
+> Supersession note: the schema shape in this Phase 2 section is historical guidance and is now superseded by [CHARACTER_EMBODIMENT_SPEC.md](/F:/End-Game/champion_councl/docs/CHARACTER_EMBODIMENT_SPEC.md) for canonical field ownership and version sequencing. The implementation seams in this phase still matter: inspector authoring, spawn UI, selection handling, asset flow, and runtime integration remain valid targets.
+
 **Batch 2A: NPC prefab schema on object contract (~50 lines)**
 
 Extend `_envNormalizeSceneObjectRecord` with a `character` block:
@@ -518,3 +520,5 @@ Phase 1 finishes v100 by exposing everything that already works. Phases 2-3 tran
 - Asset loading is generic (already supports any GLB via asset_ref)
 
 The character system drops into the existing pipeline without refactoring anything.
+
+Schema note: the transition logic above still holds, but the canonical modern schema now lives in [CHARACTER_EMBODIMENT_SPEC.md](/F:/End-Game/champion_councl/docs/CHARACTER_EMBODIMENT_SPEC.md). Use this document for seam and implementation guidance, not as the final authority for Phase 2 field definitions.

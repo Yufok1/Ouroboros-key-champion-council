@@ -21,6 +21,12 @@ The system is authoritative because it reuses existing runtime state:
 
 It does **not** maintain a duplicate scene description.
 
+It should also be able to tell the difference between:
+
+- authored appearance intent
+- resolved mesh/material state
+- rendered visual outcome
+
 ## Capture Commands
 
 Issue these through `env_control`.
@@ -100,6 +106,37 @@ The readback payloads return metadata and file URLs into `static/captures/`, plu
 
 This makes probe captures suitable for microscopic placement work, not just macro scene review.
 
+Asset-backed objects now also expose a `material_observation` block when available. The observer now measures resolved clone materials and the runtime applies a default asset-tint policy so authored scene colors can actually reach the visible GLTF clone instead of stopping at the hidden primitive base mesh.
+
+Current material observation fields include:
+
+- authored color intent
+- authored material override
+- asset clone presence
+- primitive visibility
+- clone mesh/material counts
+- resolved submaterial summaries
+- dominant resolved color
+- tint capability
+- tint mode / tint applied state
+- tint mismatch flag
+
+Current asset tint policy is intentionally simple:
+
+- default mode is `multiply` when an authored color exists
+- transparent/glass-like materials default to `preserve`
+- per-object material config can opt into `preserve`, `multiply`, `replace`, or `none`
+
+This keeps the observer and the runtime aligned: authored pigment intent, resolved clone material state, and capture metadata are now tied together through the same path.
+
+Palette grammar should extend this same observer path instead of creating a separate color-debug plane.
+
+Current palette-facing observer targets:
+
+- grouped objects should be able to declare `palette_group` and `palette_role`
+- probe and supercam captures should surface `palette_coherence` summaries for grouped objects
+- palette checks should validate resolved colors against authored family bounds, not only against single-object tint intent
+
 ## Current Strengths
 
 - multi-angle visual confirmation
@@ -108,6 +145,7 @@ This makes probe captures suitable for microscopic placement work, not just macr
 - stable before/after comparison
 - physics state exposed in the live payload
 - file-backed artifacts for reuse and inspection
+- material-resolution telemetry for asset-backed objects
 
 ## Semantic Layer
 
@@ -169,8 +207,35 @@ The system is strong, but not infinite. Known limitations:
 
 - many objects still do not have their `semantics` block populated richly enough yet
 - automatic capture is strong for role/room/priority/intent, but support and anchor relationships are still mostly authored
+- rendered pixel truth is still weaker than resolved material truth; the observer now knows more about clone materials than about final framebuffer samples
 - captures are only as good as the scene content and object contracts they observe
 - helper suppression and annotation modes are good, but still tunable
+
+## Phase 3 Pixel Truth Direction
+
+The next observer step should strengthen rendered pixel truth without replacing the current pipeline.
+
+Preferred design:
+
+- use a dedicated offscreen observer render target for sampling
+- do not read back from the main live renderer unless there is no better fallback
+- do not sample from the annotated/composited browser surface
+- perform sampling on demand for `focus`, `probe`, and `supercam` work, not as a continuous per-frame cost
+
+The purpose of the offscreen path is to associate three truths cleanly:
+
+- authored appearance intent
+- resolved clone material state
+- rendered sampled color truth
+
+This should support later mismatch judgments such as:
+
+- authored brown, resolved pale
+- resolved brown, rendered washed out
+- submesh divergence inside a single asset-backed object
+- local palette incoherence across neighboring objects
+
+Phase 3 should stay observer-scoped. It is not a second scene model and not a second control plane.
 
 ## What "Perfect" Means Here
 

@@ -181,6 +181,14 @@
         error: '',
         _priorFocus: null
     };
+    let _envPaletteFamilyState = {
+        families: {},
+        loaded: false,
+        loading: false,
+        error: '',
+        loadedTs: 0,
+        promise: null
+    };
     let _envRenderTruthState = {
         stageMode: 'blank',
         blankReason: 'uninitialized',
@@ -7027,7 +7035,15 @@
     }
 
     function _envSceneShouldRenderCustomOnly() {
-        return _envUseScenePrimaryMode() && _envKnownPersistedObjectCount() > 0;
+        if (!_envUseScenePrimaryMode()) return false;
+        if (_envSceneBootstrapState.pending) return true;
+        if (_envCustomSceneObjectsNeedHydration()) return true;
+        if (_envKnownPersistedObjectCount() > 0) return true;
+        return !!(
+            _envSceneBootstrapState.preserveEmpty
+            && Number(_envSceneBootstrapState.hydratedTs || 0) > 0
+            && !_envScenePrimarySnapshotName()
+        );
     }
 
     function _envPrimaryWorkflow() {
@@ -14458,6 +14474,7 @@
                         hydrated_ts: Number(_envSceneBootstrapState.hydratedTs || 0),
                         requested_ts: Number(_envSceneBootstrapState.requestedTs || 0),
                         snapshot_name: String(_envSceneBootstrapState.snapshotName || ''),
+                        preserve_empty: !!_envSceneBootstrapState.preserveEmpty,
                         last_source: String(_envSceneBootstrapState.lastSource || ''),
                         error: String(_envSceneBootstrapState.error || '')
                     },
@@ -15848,7 +15865,10 @@
             geometry: 'box',
             asset_ref: null,
             lod_levels: null,
-            material: null
+            material: null,
+            palette_family: null,
+            palette_role: null,
+            palette_group: null
         };
         var list = Array.isArray(sources) ? sources : [sources];
         list.forEach(function (source) {
@@ -15870,8 +15890,26 @@
                     ? _envCloneJson(source.material, null)
                     : _envSceneStringOrNull(source.material, normalized.material);
             }
+            var paletteFamily = source.palette_family !== undefined ? source.palette_family : source.paletteFamily;
+            if (paletteFamily !== undefined) {
+                normalized.palette_family = _envSceneStringOrNull(paletteFamily, normalized.palette_family);
+            }
+            var paletteRole = source.palette_role !== undefined ? source.palette_role : source.paletteRole;
+            if (paletteRole !== undefined) {
+                normalized.palette_role = _envSceneStringOrNull(paletteRole, normalized.palette_role);
+            }
+            var paletteGroup = source.palette_group !== undefined ? source.palette_group : source.paletteGroup;
+            if (paletteGroup !== undefined) {
+                normalized.palette_group = _envSceneStringOrNull(paletteGroup, normalized.palette_group);
+            }
         });
         if (!normalized.geometry) normalized.geometry = 'box';
+        if (normalized.palette_family) normalized.palette_family = String(normalized.palette_family || '').trim().toLowerCase() || null;
+        if (normalized.palette_role) {
+            normalized.palette_role = String(normalized.palette_role || '').trim().toLowerCase() || null;
+            if (!/^(dominant|accent|neutral|reactive)$/.test(normalized.palette_role || '')) normalized.palette_role = null;
+        }
+        if (normalized.palette_group) normalized.palette_group = String(normalized.palette_group || '').trim() || null;
         return normalized;
     }
 
@@ -16865,6 +16903,147 @@
         return result;
     }
 
+    function _envPaletteNormalizeColorList(value) {
+        var list = Array.isArray(value) ? value : [];
+        return list.map(function (entry) {
+            return String(entry || '').trim().toLowerCase();
+        }).filter(function (entry, index, all) {
+            return /^#[0-9a-f]{6}$/i.test(entry) && all.indexOf(entry) === index;
+        });
+    }
+
+    function _envPaletteNormalizeBounds(value) {
+        var bounds = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+        return {
+            hue_range: _envSceneNumber(bounds.hue_range, bounds.hueRange, 0, 180),
+            saturation_range: _envSceneNumber(bounds.saturation_range, bounds.saturationRange, 0, 100),
+            lightness_range: _envSceneNumber(bounds.lightness_range, bounds.lightnessRange, 0, 100)
+        };
+    }
+
+    function _envPaletteNormalizeFamilies(payload) {
+        var root = payload && typeof payload === 'object' && !Array.isArray(payload)
+            ? (payload.families && typeof payload.families === 'object' && !Array.isArray(payload.families) ? payload.families : payload)
+            : {};
+        var out = {};
+        Object.keys(root).forEach(function (key) {
+            var entry = root[key];
+            if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return;
+            var id = String(entry.id || key || '').trim().toLowerCase();
+            if (!id) return;
+            out[id] = {
+                id: id,
+                base_colors: _envPaletteNormalizeColorList(entry.base_colors),
+                accent_colors: _envPaletteNormalizeColorList(entry.accent_colors),
+                forbidden_colors: _envPaletteNormalizeColorList(entry.forbidden_colors),
+                perceptual_bounds: _envPaletteNormalizeBounds(entry.perceptual_bounds),
+                description: String(entry.description || '').trim()
+            };
+        });
+        return out;
+    }
+
+    function _envLoadPaletteFamilies() {
+        if (_envPaletteFamilyState.promise) return _envPaletteFamilyState.promise;
+        _envPaletteFamilyState.loading = true;
+        _envPaletteFamilyState.error = '';
+        _envPaletteFamilyState.promise = fetch('/static/palette-families.json', { method: 'GET', cache: 'no-store' })
+            .then(function (response) {
+                if (!response.ok) throw new Error('palette-families ' + response.status);
+                return response.json();
+            })
+            .then(function (payload) {
+                _envPaletteFamilyState.families = _envPaletteNormalizeFamilies(payload);
+                _envPaletteFamilyState.loaded = true;
+                _envPaletteFamilyState.loadedTs = Date.now();
+                return _envPaletteFamilyState.families;
+            })
+            .catch(function (err) {
+                _envPaletteFamilyState.error = String((err && err.message) || err || 'palette families unavailable');
+                return _envPaletteFamilyState.families;
+            })
+            .finally(function () {
+                _envPaletteFamilyState.loading = false;
+                _envPaletteFamilyState.promise = null;
+            });
+        return _envPaletteFamilyState.promise;
+    }
+
+    function _envPaletteFamilyRecord(familyId) {
+        var id = String(familyId || '').trim().toLowerCase();
+        if (!id) return null;
+        if (!_envPaletteFamilyState.loaded && !_envPaletteFamilyState.loading) _envLoadPaletteFamilies();
+        return (_envPaletteFamilyState.families || {})[id] || null;
+    }
+
+    function _envPaletteCandidateColors(family, role) {
+        if (!family) return [];
+        var roleId = String(role || '').trim().toLowerCase();
+        var colors = roleId === 'accent' ? family.accent_colors : family.base_colors;
+        if (!Array.isArray(colors) || !colors.length) colors = roleId === 'accent' ? family.base_colors : family.accent_colors;
+        return Array.isArray(colors) ? colors.slice() : [];
+    }
+
+    function _envPaletteClamp01(value) {
+        return Math.max(0, Math.min(1, Number(value || 0)));
+    }
+
+    function _envPaletteSignedUnit(seed) {
+        return ((_hash32(seed) % 20001) / 10000) - 1;
+    }
+
+    function _envPaletteHueDistance(a, b) {
+        var diff = Math.abs(Number(a || 0) - Number(b || 0));
+        return Math.min(diff, 1 - diff) * 360;
+    }
+
+    function paletteResolve(familyId, role, seed, index) {
+        var family = _envPaletteFamilyRecord(familyId);
+        if (!family) return null;
+        var colors = _envPaletteCandidateColors(family, role);
+        if (!colors.length) return null;
+        var key = [family.id, String(role || 'dominant'), String(seed || ''), String(index || 0)].join('|');
+        var baseColor = new THREE.Color(colors[_hash32(key + '|base') % colors.length]);
+        var hsl = { h: 0, s: 0, l: 0 };
+        var bounds = family.perceptual_bounds || {};
+        var hueRange = Number(bounds.hue_range || 0);
+        var satRange = Number(bounds.saturation_range || 0) / 100;
+        var lightRange = Number(bounds.lightness_range || 0) / 100;
+        baseColor.getHSL(hsl);
+        baseColor.setHSL(
+            (hsl.h + ((_envPaletteSignedUnit(key + '|h') * hueRange) / 360) + 1) % 1,
+            _envPaletteClamp01(hsl.s + (_envPaletteSignedUnit(key + '|s') * satRange)),
+            _envPaletteClamp01(hsl.l + (_envPaletteSignedUnit(key + '|l') * lightRange))
+        );
+        var resolved = ('#' + baseColor.getHexString()).toLowerCase();
+        if ((family.forbidden_colors || []).indexOf(resolved) >= 0) return String(colors[0] || resolved).toLowerCase();
+        return resolved;
+    }
+
+    function _envPaletteColorWithinFamily(colorHex, family, role) {
+        if (!family || !colorHex) return false;
+        var testColor = new THREE.Color(String(colorHex || '').trim());
+        var testHsl = { h: 0, s: 0, l: 0 };
+        var bounds = family.perceptual_bounds || {};
+        var hueRange = Number(bounds.hue_range || 0);
+        var satRange = Number(bounds.saturation_range || 0) / 100;
+        var lightRange = Number(bounds.lightness_range || 0) / 100;
+        var candidates = _envPaletteCandidateColors(family, role);
+        if (!candidates.length) return false;
+        if ((family.forbidden_colors || []).indexOf(String(colorHex || '').trim().toLowerCase()) >= 0) return false;
+        testColor.getHSL(testHsl);
+        return candidates.some(function (candidate) {
+            var baseColor = new THREE.Color(candidate);
+            var baseHsl = { h: 0, s: 0, l: 0 };
+            baseColor.getHSL(baseHsl);
+            return _envPaletteHueDistance(testHsl.h, baseHsl.h) <= hueRange
+                && Math.abs(testHsl.s - baseHsl.s) <= satRange
+                && Math.abs(testHsl.l - baseHsl.l) <= lightRange;
+        });
+    }
+
+    try { _envLoadPaletteFamilies(); } catch (e) { }
+
     function _envSceneCharacterForObject(obj) {
         var data = _envObjectData(obj);
         if (obj && obj.character && typeof obj.character === 'object' && !Array.isArray(obj.character)) {
@@ -16900,6 +17079,111 @@
         return null;
     }
 
+    function _envNormalizeSceneAttachmentVector(value, fallback) {
+        var base = (fallback && typeof fallback === 'object' && !Array.isArray(fallback))
+            ? fallback
+            : { x: 0, y: 0, z: 0 };
+        var source = value;
+        if (Array.isArray(source)) {
+            return {
+                x: _envSceneNumber(source[0], base.x),
+                y: _envSceneNumber(source[1], base.y),
+                z: _envSceneNumber(source[2], base.z)
+            };
+        }
+        if (!source || typeof source !== 'object' || Array.isArray(source)) {
+            return {
+                x: _envSceneNumber(base.x, 0),
+                y: _envSceneNumber(base.y, 0),
+                z: _envSceneNumber(base.z, 0)
+            };
+        }
+        return {
+            x: _envSceneNumber(source.x !== undefined ? source.x : source.left, base.x),
+            y: _envSceneNumber(source.y !== undefined ? source.y : source.up, base.y),
+            z: _envSceneNumber(source.z !== undefined ? source.z : source.forward, base.z)
+        };
+    }
+
+    function _envNormalizeSceneAttachmentRecord(sources) {
+        var normalized = {
+            parent_key: '',
+            anchor: 'top',
+            local_offset: { x: 0, y: 0, z: 0 },
+            local_tilt: 0,
+            inherit_rotation: true,
+            mode: 'snap'
+        };
+        var sawValue = false;
+        var list = Array.isArray(sources) ? sources : [sources];
+        list.forEach(function (source) {
+            if (!source || typeof source !== 'object' || Array.isArray(source)) return;
+            var parentKey = source.parent_key !== undefined ? source.parent_key
+                : (source.parentKey !== undefined ? source.parentKey
+                    : (source.object_key !== undefined ? source.object_key
+                        : (source.objectKey !== undefined ? source.objectKey
+                            : (source.target !== undefined ? source.target
+                                : (source.attach_to !== undefined ? source.attach_to : source.attachTo)))));
+            if (parentKey !== undefined) {
+                normalized.parent_key = String(parentKey || '').trim();
+                sawValue = true;
+            }
+            var anchor = source.anchor_id !== undefined ? source.anchor_id
+                : (source.anchorId !== undefined ? source.anchorId
+                    : (source.anchor !== undefined ? source.anchor : source.surface));
+            if (anchor !== undefined && anchor !== null && String(anchor).trim()) {
+                normalized.anchor = String(anchor).trim().toLowerCase();
+                sawValue = true;
+            }
+            var localOffset = source.local_offset !== undefined ? source.local_offset
+                : (source.localOffset !== undefined ? source.localOffset
+                    : (source.offset !== undefined ? source.offset : source.position));
+            if (localOffset !== undefined) {
+                normalized.local_offset = _envNormalizeSceneAttachmentVector(localOffset, normalized.local_offset);
+                sawValue = true;
+            }
+            var localTilt = source.local_tilt !== undefined ? source.local_tilt
+                : (source.localTilt !== undefined ? source.localTilt
+                    : (source.tilt !== undefined ? source.tilt : undefined));
+            if (localTilt !== undefined && localTilt !== null && localTilt !== '') {
+                normalized.local_tilt = _envSceneNumber(localTilt, normalized.local_tilt);
+                sawValue = true;
+            }
+            var inheritRotation = source.inherit_rotation !== undefined ? source.inherit_rotation : source.inheritRotation;
+            if (inheritRotation !== undefined) {
+                normalized.inherit_rotation = !!inheritRotation;
+                sawValue = true;
+            }
+            var mode = source.mode !== undefined ? source.mode : (source.kind !== undefined ? source.kind : undefined);
+            if (mode !== undefined && mode !== null && String(mode).trim()) {
+                normalized.mode = String(mode).trim().toLowerCase();
+                sawValue = true;
+            }
+        });
+        if (!sawValue || !normalized.parent_key) return null;
+        normalized.anchor = String(normalized.anchor || 'top').trim().toLowerCase() || 'top';
+        normalized.local_offset = _envNormalizeSceneAttachmentVector(normalized.local_offset, { x: 0, y: 0, z: 0 });
+        normalized.local_tilt = _envSceneNumber(normalized.local_tilt, 0);
+        normalized.mode = String(normalized.mode || 'snap').trim().toLowerCase() || 'snap';
+        return normalized;
+    }
+
+    function _envSceneAttachmentForObject(obj) {
+        if (!obj) return null;
+        var data = _envObjectData(obj);
+        return _envNormalizeSceneAttachmentRecord([
+            data && data.attachment,
+            obj && obj.attachment,
+            {
+                parent_key: obj ? (obj.parent_key !== undefined ? obj.parent_key : obj.parentKey) : undefined,
+                anchor: obj ? (obj.anchor_id !== undefined ? obj.anchor_id : obj.anchorId) : undefined,
+                local_offset: obj ? (obj.local_offset !== undefined ? obj.local_offset : obj.localOffset) : undefined,
+                local_tilt: obj ? (obj.local_tilt !== undefined ? obj.local_tilt : obj.localTilt) : undefined,
+                inherit_rotation: obj ? (obj.inherit_rotation !== undefined ? obj.inherit_rotation : obj.inheritRotation) : undefined
+            }
+        ]);
+    }
+
     function _envSceneSemanticsForObject(obj) {
         if (!obj) return null;
         if (obj.semantics && typeof obj.semantics === 'object' && !Array.isArray(obj.semantics)) {
@@ -16912,13 +17196,41 @@
         return null;
     }
 
+    function _envMergeSceneDataRecord(prevData, nextData) {
+        var base = (prevData && typeof prevData === 'object' && !Array.isArray(prevData))
+            ? _envCloneJson(prevData, {})
+            : {};
+        var overlay = (nextData && typeof nextData === 'object' && !Array.isArray(nextData))
+            ? nextData
+            : null;
+        if (!overlay) return base;
+        Object.keys(overlay).forEach(function (key) {
+            var nextValue = overlay[key];
+            if (nextValue === undefined) return;
+            var currentValue = base[key];
+            if (
+                nextValue && typeof nextValue === 'object' && !Array.isArray(nextValue)
+                && currentValue && typeof currentValue === 'object' && !Array.isArray(currentValue)
+            ) {
+                base[key] = Object.assign(
+                    {},
+                    _envCloneJson(currentValue, {}),
+                    _envCloneJson(nextValue, {})
+                );
+                return;
+            }
+            base[key] = _envCloneJson(nextValue, nextValue);
+        });
+        return base;
+    }
+
     function _envNormalizeSceneObjectRecord(params, existing) {
         var p = params && typeof params === 'object' ? params : {};
         var prev = existing && typeof existing === 'object' ? existing : null;
         var prevData = prev ? _envObjectData(prev) : {};
         var kind = String(p.kind || (prev ? prev.kind : 'spawned') || 'spawned');
         var rawData = p.data && typeof p.data === 'object' && !Array.isArray(p.data) ? p.data : null;
-        var data = rawData ? _envCloneJson(rawData, {}) : _envCloneJson(prevData, {});
+        var data = _envMergeSceneDataRecord(prevData, rawData);
         var rawActions = Array.isArray(p.actions)
             ? p.actions
             : (Array.isArray(((rawData || {}).actions)) ? (rawData || {}).actions : (prev ? prev.actions : []));
@@ -16952,6 +17264,31 @@
             prev ? prev.retargeting : null,
             (rawData || {}).retargeting,
             p.retargeting
+        ]);
+        var rawAttachment = p.attachment && typeof p.attachment === 'object' && !Array.isArray(p.attachment) ? p.attachment : null;
+        var dataAttachment = (rawData || {}).attachment && typeof (rawData || {}).attachment === 'object' && !Array.isArray((rawData || {}).attachment)
+            ? (rawData || {}).attachment
+            : null;
+        var attachmentCleared = (Object.prototype.hasOwnProperty.call(p, 'attachment') && p.attachment === null)
+            || (rawData && Object.prototype.hasOwnProperty.call(rawData, 'attachment') && rawData.attachment === null);
+        var attachment = attachmentCleared ? null : _envNormalizeSceneAttachmentRecord([
+            prevData ? prevData.attachment : null,
+            dataAttachment,
+            {
+                parent_key: (rawData || {}).parent_key !== undefined ? (rawData || {}).parent_key : (rawData || {}).parentKey,
+                anchor: (rawData || {}).anchor_id !== undefined ? (rawData || {}).anchor_id : (rawData || {}).anchorId,
+                local_offset: (rawData || {}).local_offset !== undefined ? (rawData || {}).local_offset : (rawData || {}).localOffset,
+                local_tilt: (rawData || {}).local_tilt !== undefined ? (rawData || {}).local_tilt : (rawData || {}).localTilt,
+                inherit_rotation: (rawData || {}).inherit_rotation !== undefined ? (rawData || {}).inherit_rotation : (rawData || {}).inheritRotation
+            },
+            rawAttachment,
+            {
+                parent_key: p.parent_key !== undefined ? p.parent_key : p.parentKey,
+                anchor: p.anchor_id !== undefined ? p.anchor_id : p.anchorId,
+                local_offset: p.local_offset !== undefined ? p.local_offset : p.localOffset,
+                local_tilt: p.local_tilt !== undefined ? p.local_tilt : p.localTilt,
+                inherit_rotation: p.inherit_rotation !== undefined ? p.inherit_rotation : p.inheritRotation
+            }
         ]);
         var rawSemantics = p.semantics && typeof p.semantics === 'object' && !Array.isArray(p.semantics) ? p.semantics : null;
         var dataSemantics = (rawData || {}).semantics && typeof (rawData || {}).semantics === 'object' && !Array.isArray((rawData || {}).semantics)
@@ -17095,6 +17432,8 @@
         else if (data && Object.prototype.hasOwnProperty.call(data, 'semantics_observation')) delete data.semantics_observation;
         if (semantics) data.semantics = _envCloneJson(semantics, null);
         else if (data && Object.prototype.hasOwnProperty.call(data, 'semantics')) delete data.semantics;
+        if (attachment) data.attachment = _envCloneJson(attachment, null);
+        else if (data && Object.prototype.hasOwnProperty.call(data, 'attachment')) delete data.attachment;
         var collisionSource = {
             kind: kind,
             id: finalId,
@@ -17225,6 +17564,11 @@
             if (changed || restoredFocus) {
                 _envRefreshLiveMirrorSurface();
             }
+            if (!restoreSnapshot
+                && !_envSceneBootstrapState.preserveEmpty
+                && _envKnownPersistedObjectCount() > 0) {
+                _envEnsureSceneSnapshotIdentity(String(source || toolName || 'hydrate') + ':identity', false);
+            }
             return changed;
         };
         if (op === 'clear' || opStatus === 'cleared') {
@@ -17256,8 +17600,9 @@
             _envSceneBootstrapState.error = '';
             if (listLike && !payload.objects.length && !snapshotName) {
                 _envSceneBootstrapState.snapshotName = '';
-                _envSceneBootstrapState.preserveEmpty = true;
                 _envNavigationState.currentSnapshot = '';
+            } else if (listLike && payload.objects.length) {
+                _envSceneBootstrapState.preserveEmpty = false;
             }
         }
         if (payload.object && _envIsCustomSceneKind(payload.object.kind)) {
@@ -17277,7 +17622,7 @@
         if (snapshotName) {
             _envSceneBootstrapState.snapshotName = snapshotName;
             _envSceneBootstrapState.preserveEmpty = false;
-            if (!_envNavigationState.currentSnapshot) _envNavigationState.currentSnapshot = snapshotName;
+            _envNavigationState.currentSnapshot = snapshotName;
         }
         return finalizeHydration();
     }
@@ -17307,7 +17652,6 @@
     function _envEnsureSceneSnapshotIdentity(reason, force) {
         if (_envSceneBootstrapState.pending) return false;
         if (!force && _envCustomSceneObjectsNeedHydration()) return false;
-        if (!force && _envKnownPersistedObjectCount() > 0) return false;
         if (!force && _envSceneBootstrapState.preserveEmpty && !_envScenePrimarySnapshotName()) return false;
         if (!force && _envScenePrimarySnapshotName()) return false;
         var now = Date.now();
@@ -20014,9 +20358,9 @@
                 (liveState && (liveState.layout_snapshot || ((liveState.shared_state || {}).layout))) || null,
                 null
             );
-            _envMirrorState.latestCapture = _envCloneJson(
+            _envMirrorState.latestCapture = _envSummarizeCaptureMeta(
                 (liveState && (liveState.latest_capture || ((liveState.shared_state || {}).capture))) || null,
-                null
+                _envMirrorState.latestCapture
             );
             if (!Object.prototype.hasOwnProperty.call(payload, 'state_excerpt')) {
                 _envMirrorState.stateExcerpt = _envLiveStateExcerpt(liveState);
@@ -20025,7 +20369,10 @@
         }
         if (Object.prototype.hasOwnProperty.call(payload, 'shared_state')) {
             _envMirrorState.sharedState = _envCloneJson(payload.shared_state, null);
-            _envMirrorState.latestCapture = _envCloneJson((((payload.shared_state || {}).capture) || _envMirrorState.latestCapture), _envMirrorState.latestCapture);
+            _envMirrorState.latestCapture = _envSummarizeCaptureMeta(
+                (((payload.shared_state || {}).capture) || null),
+                _envMirrorState.latestCapture
+            );
             changed = true;
         }
         if (Object.prototype.hasOwnProperty.call(payload, 'contracts')) {
@@ -20045,7 +20392,7 @@
             changed = true;
         }
         if (Object.prototype.hasOwnProperty.call(payload, 'latest_capture')) {
-            _envMirrorState.latestCapture = _envCloneJson(payload.latest_capture, null);
+            _envMirrorState.latestCapture = _envSummarizeCaptureMeta(payload.latest_capture, _envMirrorState.latestCapture);
             changed = true;
         }
         if (Object.prototype.hasOwnProperty.call(payload, 'state_excerpt')) {
@@ -20463,6 +20810,20 @@
         return _envLooksLikeSceneObjectPayload(payload) ? payload : null;
     }
 
+    function _envDeferredMutationCaptureKey(payload, toolName) {
+        if (toolName !== 'env_spawn' && toolName !== 'env_mutate') return '';
+        if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return '';
+        var effects = payload.environment_effects && typeof payload.environment_effects === 'object'
+            ? payload.environment_effects
+            : {};
+        var upserted = Array.isArray(effects.objects_upserted) ? effects.objects_upserted : [];
+        if (upserted.length > 1) return '';
+        var candidate = upserted.length ? upserted[0] : _envFallbackSceneObjectFromPayload(payload);
+        if (!candidate || typeof candidate !== 'object') return '';
+        if (!_envIsCustomSceneKind(candidate.kind)) return '';
+        return _envSceneObjectKey(candidate);
+    }
+
     function _envApplyEnvironmentEffects(payload, toolName, source) {
         if (!payload || typeof payload !== 'object') return false;
         var effects = payload.environment_effects && typeof payload.environment_effects === 'object'
@@ -20533,6 +20894,10 @@
         if (_envHtmlPanelState.active && _envHtmlPanelState.objectKey && !_envSceneObjectByKey(_envHtmlPanelState.objectKey)) {
             _envCloseHtmlPanel('assistant', 'object removed');
             changed = true;
+        }
+        if ((changed || hydrated) && source !== '__env_sync_live__') {
+            var autoCaptureKey = _envDeferredMutationCaptureKey(payload, toolName);
+            if (autoCaptureKey) _envQueueDeferredMutationCapture(autoCaptureKey);
         }
         if (changed) _envRefreshLiveMirrorSurface();
         return {
@@ -20634,6 +20999,7 @@
             return null;
         }
         var sharedState = window.envopsGetSharedState();
+        var latestCapture = _envCloneJson(_envMirrorState.latestCapture, null);
         var renderTruth = typeof window.envopsGetRenderTruth === 'function'
             ? window.envopsGetRenderTruth()
             : ((sharedState && sharedState.render) || null);
@@ -20651,6 +21017,7 @@
             shared_state: _envCloneJson(sharedState, null),
             render_truth: _envCloneJson(renderTruth, null),
             layout_snapshot: _envCloneJson(layoutSnapshot, null),
+            latest_capture: latestCapture,
             contracts: _envCloneJson(window.envopsGetContracts(), null),
             habitat_objects: _envCloneJson(window.envopsGetHabitatObjects(), []),
             recent_bus: typeof window.envopsGetBusEvents === 'function'
@@ -20672,6 +21039,9 @@
         var panel = shared.panel && typeof shared.panel === 'object' ? shared.panel : {};
         var inspector = shared.inspector && typeof shared.inspector === 'object' ? shared.inspector : {};
         var corroboration = shared.corroboration && typeof shared.corroboration === 'object' ? shared.corroboration : {};
+        var capture = payload.latest_capture && typeof payload.latest_capture === 'object'
+            ? payload.latest_capture
+            : (shared.capture && typeof shared.capture === 'object' ? shared.capture : {});
         var render = payload.render_truth && typeof payload.render_truth === 'object'
             ? payload.render_truth
             : (shared.render && typeof shared.render === 'object' ? shared.render : {});
@@ -20735,6 +21105,12 @@
             String(render.blank_reason || ''),
             String(render.renderer_active || ''),
             String(render.render_revision || 0),
+            String(capture.type || ''),
+            String(capture.target || ''),
+            String(capture.file || ''),
+            String(capture.timestamp || 0),
+            capture.capture_pending ? 'capture_pending' : 'capture_settled',
+            String(capture.confidence || ''),
             String(layout.overlap_count || 0),
             String(layout.clipped_count || 0),
             String(layout.offscreen_count || 0),
@@ -21142,6 +21518,7 @@
     };
     var _envCaptureQueue = [];
     var _envCaptureProcessing = false;
+    var _envDeferredMutationCaptures = {};
 
     function _envObserverInit() {
         if (_envObserver.inited && _envObserver.renderer) return _envObserver;
@@ -21261,6 +21638,57 @@
         };
     }
 
+    function _env3DBoxSnapshot(box) {
+        if (!box || typeof box.isEmpty !== 'function' || box.isEmpty()) return null;
+        return {
+            min: _env3DVectorSnapshot(box.min),
+            max: _env3DVectorSnapshot(box.max),
+            size: _env3DVectorSnapshot(box.getSize(new THREE.Vector3()))
+        };
+    }
+
+    function _envSceneObjectSpatialMetrics(sceneObject, mesh) {
+        var fallbackCenter = new THREE.Vector3(
+            Number((sceneObject && sceneObject.x) || 0),
+            Number((sceneObject && sceneObject.y) || 0),
+            Number((((sceneObject || {}).data || {}).z) || (sceneObject && sceneObject.z) || 0)
+        );
+        var fallbackSize = new THREE.Vector3(
+            Math.max(1, Number((sceneObject && sceneObject.scale) || 1) * 2),
+            Math.max(1, Number((sceneObject && sceneObject.scale) || 1) * 2),
+            Math.max(1, Number((sceneObject && sceneObject.scale) || 1) * 2)
+        );
+        var center = fallbackCenter.clone();
+        var size = fallbackSize.clone();
+        var box = null;
+        if (mesh && typeof mesh.updateWorldMatrix === 'function') {
+            try {
+                mesh.updateWorldMatrix(true, true);
+                var worldBox = new THREE.Box3().setFromObject(mesh);
+                if (!worldBox.isEmpty()) {
+                    box = worldBox;
+                    box.getCenter(center);
+                    box.getSize(size);
+                } else if (typeof mesh.getWorldPosition === 'function') {
+                    mesh.getWorldPosition(center);
+                }
+            } catch (e) {
+                if (typeof mesh.getWorldPosition === 'function') {
+                    try { mesh.getWorldPosition(center); } catch (ignored) { }
+                }
+            }
+        }
+        if (!box) {
+            var half = size.clone().multiplyScalar(0.5);
+            box = new THREE.Box3(center.clone().sub(half), center.clone().add(half));
+        }
+        return {
+            center: center,
+            size: size,
+            box: box
+        };
+    }
+
     function _envObserverBuildBoundsFromPoints(points, fallbackCenter, fallbackSize) {
         var centerFallback = fallbackCenter instanceof THREE.Vector3 ? fallbackCenter.clone() : new THREE.Vector3(0, 0, 0);
         var sizeFallback = fallbackSize instanceof THREE.Vector3 ? fallbackSize.clone() : new THREE.Vector3(40, 20, 40);
@@ -21335,41 +21763,28 @@
         });
         if (!sceneObject) return null;
         var mesh = _env3D.meshes ? _env3D.meshes[resolvedKey] : null;
-        var center = new THREE.Vector3(
-            Number(sceneObject.x || 0),
-            Number(sceneObject.y || 0),
-            Number((sceneObject.data && sceneObject.data.z) || sceneObject.z || 0)
-        );
-        var size = new THREE.Vector3(
-            Math.max(1, Number(sceneObject.scale || 1) * 2),
-            Math.max(1, Number(sceneObject.scale || 1) * 2),
-            Math.max(1, Number(sceneObject.scale || 1) * 2)
-        );
-        if (mesh && typeof mesh.updateWorldMatrix === 'function') {
-            try {
-                mesh.updateWorldMatrix(true, true);
-                var box = new THREE.Box3().setFromObject(mesh);
-                if (!box.isEmpty()) {
-                    box.getCenter(center);
-                    box.getSize(size);
-                } else if (typeof mesh.getWorldPosition === 'function') {
-                    mesh.getWorldPosition(center);
-                }
-            } catch (e) {
-                if (typeof mesh.getWorldPosition === 'function') {
-                    try { mesh.getWorldPosition(center); } catch (ignored) { }
-                }
-            }
-        }
+        var appearance = _envSceneAppearanceForObject(sceneObject);
+        var materialObservation = mesh && mesh.userData
+            ? _envCloneJson(mesh.userData.materialObservation || null, null)
+            : null;
+        var spatial = _envSceneObjectSpatialMetrics(sceneObject, mesh);
         return {
             object_key: resolvedKey,
             label: String(sceneObject.label || sceneObject.id || '').trim(),
             kind: String(sceneObject.kind || '').trim().toLowerCase(),
             category: String(sceneObject.category || '').trim().toLowerCase(),
+            appearance: {
+                color: String((appearance && appearance.color) || ''),
+                asset_ref: String((appearance && appearance.asset_ref) || ''),
+                material: _envCloneJson((appearance && appearance.material !== undefined) ? appearance.material : null, null)
+            },
             semantics: _envCloneJson(_envSceneSemanticsForObject(sceneObject), null),
             semantics_observation: _envCloneJson(_envSceneSemanticObservationForObject(sceneObject), null),
-            center: center,
-            size: size,
+            material_observation: materialObservation,
+            center: spatial.center,
+            size: spatial.size,
+            bounds: _env3DBoxSnapshot(spatial.box),
+            box: spatial.box,
             scale: Number(sceneObject.scale || 1),
             object: sceneObject,
             mesh: mesh
@@ -21406,6 +21821,145 @@
         return rows.slice(0, limit).map(function (row) { return row.context; });
     }
 
+    function _envObserverDirectionBetween(a, b) {
+        var from = a instanceof THREE.Vector3 ? a : new THREE.Vector3(0, 0, 0);
+        var to = b instanceof THREE.Vector3 ? b : new THREE.Vector3(0, 0, 0);
+        var dx = Number(to.x - from.x || 0);
+        var dy = Number(to.y - from.y || 0);
+        var dz = Number(to.z - from.z || 0);
+        var ax = Math.abs(dx);
+        var ay = Math.abs(dy);
+        var az = Math.abs(dz);
+        if (ay > ax && ay > az) return dy >= 0 ? 'above' : 'below';
+        if (ax >= az) return dx >= 0 ? 'east' : 'west';
+        return dz >= 0 ? 'south' : 'north';
+    }
+
+    function _envObserverBoxGapDistance(boxA, boxB) {
+        if (!boxA || !boxB) return Infinity;
+        var dx = Math.max(0, Number(boxA.min.x || 0) - Number(boxB.max.x || 0), Number(boxB.min.x || 0) - Number(boxA.max.x || 0));
+        var dy = Math.max(0, Number(boxA.min.y || 0) - Number(boxB.max.y || 0), Number(boxB.min.y || 0) - Number(boxA.max.y || 0));
+        var dz = Math.max(0, Number(boxA.min.z || 0) - Number(boxB.max.z || 0), Number(boxB.min.z || 0) - Number(boxA.max.z || 0));
+        return Math.sqrt((dx * dx) + (dy * dy) + (dz * dz));
+    }
+
+    function _envObserverBoxesOverlap(boxA, boxB) {
+        if (!boxA || !boxB) return false;
+        var overlapX = Math.min(Number(boxA.max.x || 0), Number(boxB.max.x || 0)) - Math.max(Number(boxA.min.x || 0), Number(boxB.min.x || 0));
+        var overlapY = Math.min(Number(boxA.max.y || 0), Number(boxB.max.y || 0)) - Math.max(Number(boxA.min.y || 0), Number(boxB.min.y || 0));
+        var overlapZ = Math.min(Number(boxA.max.z || 0), Number(boxB.max.z || 0)) - Math.max(Number(boxA.min.z || 0), Number(boxB.min.z || 0));
+        return overlapX > 0.01 && overlapY > 0.01 && overlapZ > 0.01;
+    }
+
+    function _envObserverPlacementRole(ctx) {
+        return String(((((ctx || {}).semantics || {}).role) || '')).trim().toLowerCase();
+    }
+
+    function _envObserverPlacementSupports(ctx) {
+        var supports = (((ctx || {}).semantics || {}).supports);
+        return Array.isArray(supports) ? supports.map(function (value) { return String(value || ''); }) : [];
+    }
+
+    function _envObserverPlacementSupportLinked(targetContext, ctx) {
+        if (!targetContext || !ctx) return false;
+        var targetKey = String(targetContext.object_key || '');
+        var otherKey = String(ctx.object_key || '');
+        if (!targetKey || !otherKey) return false;
+        var targetSupports = _envObserverPlacementSupports(targetContext);
+        var otherSupports = _envObserverPlacementSupports(ctx);
+        return targetSupports.indexOf(otherKey) >= 0 || otherSupports.indexOf(targetKey) >= 0;
+    }
+
+    function _envObserverPlacementIgnoreForNearest(targetContext, ctx) {
+        var role = _envObserverPlacementRole(ctx);
+        if (!role) return false;
+        return role === 'water'
+            || role === 'floor'
+            || role === 'wall'
+            || role === 'ceiling'
+            || role === 'support'
+            || role === 'light';
+    }
+
+    function _envObserverPlacementIgnoreForClearance(targetContext, ctx) {
+        var role = _envObserverPlacementRole(ctx);
+        if (_envObserverPlacementSupportLinked(targetContext, ctx)) return true;
+        return role === 'water'
+            || role === 'floor'
+            || role === 'wall'
+            || role === 'ceiling'
+            || role === 'support'
+            || role === 'portal'
+            || role === 'transition'
+            || role === 'light';
+    }
+
+    function _envObserverPlacementCheck(targetContext) {
+        if (!targetContext || !(targetContext.center instanceof THREE.Vector3)) return null;
+        var targetSizeLen = targetContext.size instanceof THREE.Vector3 ? targetContext.size.length() : 0;
+        var rows = [];
+        var sceneSizeSum = 0;
+        var sceneSizeCount = 0;
+        (_envSceneObjectPool() || []).forEach(function (obj) {
+            var key = _env3DObjectKey(obj);
+            if (!key || key === targetContext.object_key) return;
+            var ctx = _envObserverObjectContext(key);
+            if (!ctx || !(ctx.center instanceof THREE.Vector3)) return;
+            var gap = _envObserverBoxGapDistance(targetContext.box, ctx.box);
+            var centerDistance = ctx.center.distanceTo(targetContext.center);
+            var sizeLen = ctx.size instanceof THREE.Vector3 ? ctx.size.length() : 0;
+            if (sizeLen > 0) {
+                sceneSizeSum += sizeLen;
+                sceneSizeCount += 1;
+            }
+            rows.push({
+                context: ctx,
+                gap: gap,
+                center_distance: centerDistance,
+                overlap: _envObserverBoxesOverlap(targetContext.box, ctx.box)
+            });
+        });
+        rows.sort(function (a, b) {
+            if (a.gap !== b.gap) return a.gap - b.gap;
+            return a.center_distance - b.center_distance;
+        });
+        var nearestRows = rows.filter(function (row) {
+            return !_envObserverPlacementIgnoreForNearest(targetContext, row.context);
+        });
+        var clearanceRows = rows.filter(function (row) {
+            return !_envObserverPlacementIgnoreForClearance(targetContext, row.context);
+        });
+        var nearest = nearestRows.length ? nearestRows[0] : (rows.length ? rows[0] : null);
+        var clearanceNearest = clearanceRows.length ? clearanceRows[0] : nearest;
+        var neighborRows = rows.filter(function (row) {
+            return row.context && row.context.size instanceof THREE.Vector3 && row.context.size.length() > 0;
+        });
+        var neighborAvg = neighborRows.length
+            ? (neighborRows.reduce(function (sum, row) { return sum + row.context.size.length(); }, 0) / neighborRows.length)
+            : 0;
+        var sceneAvg = sceneSizeCount ? (sceneSizeSum / sceneSizeCount) : 0;
+        var overlaps = clearanceRows.filter(function (row) { return row.overlap; }).map(function (row) { return row.context.object_key; });
+        return {
+            target_key: String(targetContext.object_key || ''),
+            world_position: _env3DVectorSnapshot(targetContext.center),
+            bounds_size: _env3DVectorSnapshot(targetContext.size),
+            nearest_neighbor: nearest ? {
+                key: String((nearest.context || {}).object_key || ''),
+                distance: Number(nearest.gap.toFixed(3)),
+                direction: _envObserverDirectionBetween(targetContext.center, nearest.context.center)
+            } : null,
+            clearance: {
+                min_neighbor_distance: Number((clearanceNearest ? clearanceNearest.gap : 0).toFixed(3)),
+                overlap_count: Number(overlaps.length || 0),
+                overlapping_keys: overlaps
+            },
+            scale_ratio: {
+                vs_neighbor_avg: neighborAvg > 0 ? Number((targetSizeLen / neighborAvg).toFixed(4)) : null,
+                vs_scene_avg: sceneAvg > 0 ? Number((targetSizeLen / sceneAvg).toFixed(4)) : null
+            }
+        };
+    }
+
     function _envObserverCollectScreenProjections(usedCamera, options) {
         if (!usedCamera) return [];
         var opts = options && typeof options === 'object' ? options : {};
@@ -21428,6 +21982,7 @@
             if (!objectKey) return;
             if (useIncludeFilter && !includeKeys[objectKey]) return;
             var mesh = _env3D.meshes ? _env3D.meshes[objectKey] : null;
+            var appearance = _envSceneAppearanceForObject(obj);
             if (!mesh || mesh.visible === false || typeof mesh.getWorldPosition !== 'function') return;
             try {
                 mesh.updateWorldMatrix(true, true);
@@ -21445,8 +22000,16 @@
                 label: String(obj.label || obj.id || '').trim(),
                 kind: String(obj.kind || '').trim().toLowerCase(),
                 category: String(obj.category || '').trim().toLowerCase(),
+                appearance: {
+                    color: String((appearance && appearance.color) || ''),
+                    asset_ref: String((appearance && appearance.asset_ref) || ''),
+                    material: _envCloneJson((appearance && appearance.material !== undefined) ? appearance.material : null, null)
+                },
                 semantics: _envCloneJson(_envSceneSemanticsForObject(obj), null),
                 semantics_observation: _envCloneJson(_envSceneSemanticObservationForObject(obj), null),
+                material_observation: mesh && mesh.userData
+                    ? _envCloneJson(mesh.userData.materialObservation || null, null)
+                    : null,
                 focus: objectKey === focusKey,
                 world: _env3DVectorSnapshot(worldPos),
                 screen: {
@@ -21522,6 +22085,9 @@
                 label: label,
                 kind: kind,
                 category: category,
+                material_observation: mesh && mesh.userData
+                    ? _envCloneJson(mesh.userData.materialObservation || null, null)
+                    : null,
                 semantics: _envCloneJson(semantics, null),
                 semantics_observation: _envCloneJson(semanticsObservation, null),
                 score: Number(score.toFixed(2)),
@@ -21538,11 +22104,52 @@
                 label: String(row.label || ''),
                 kind: String(row.kind || ''),
                 category: String(row.category || ''),
+                material_observation: _envCloneJson(row.material_observation, null),
                 semantics: _envCloneJson(row.semantics, null),
                 semantics_observation: _envCloneJson(row.semantics_observation, null),
                 score: Number(row.score || 0),
                 scale: Number(row.scale || 1),
                 position: _envCloneJson(row.position, null)
+            };
+        });
+    }
+
+    function _envObserverPaletteCoherence(options) {
+        var opts = options && typeof options === 'object' ? options : {};
+        var includeKeys = {};
+        if (Array.isArray(opts.includeKeys)) {
+            opts.includeKeys.forEach(function (key) {
+                key = String(key || '').trim();
+                if (key) includeKeys[key] = true;
+            });
+        }
+        var useIncludeKeys = Object.keys(includeKeys).length > 0;
+        var groups = {};
+        (_envSceneObjectPool() || []).forEach(function (obj) {
+            var objectKey = _env3DObjectKey(obj);
+            if (!objectKey || (useIncludeKeys && !includeKeys[objectKey])) return;
+            var appearance = _envSceneAppearanceForObject(obj);
+            var familyId = String((appearance && appearance.palette_family) || '').trim().toLowerCase();
+            var groupId = String((appearance && appearance.palette_group) || '').trim();
+            if (!familyId || !groupId) return;
+            var family = _envPaletteFamilyRecord(familyId);
+            if (!family) return;
+            var mesh = _env3D.meshes ? _env3D.meshes[objectKey] : null;
+            var materialObservation = mesh && mesh.userData ? mesh.userData.materialObservation || null : null;
+            var resolvedColor = String(((materialObservation || {}).dominant_color_hex) || ((appearance || {}).color) || (obj.color || '')).trim().toLowerCase();
+            if (!groups[groupId]) groups[groupId] = { group: groupId, family: familyId, total: 0, in_range: 0, outliers: [] };
+            groups[groupId].total += 1;
+            if (_envPaletteColorWithinFamily(resolvedColor, family, appearance.palette_role || 'dominant')) groups[groupId].in_range += 1;
+            else groups[groupId].outliers.push(String(obj.id || objectKey || ''));
+        });
+        return Object.keys(groups).sort().map(function (groupId) {
+            var row = groups[groupId];
+            return {
+                group: row.group,
+                family: row.family,
+                in_range: row.in_range,
+                outliers: row.outliers.slice(0, 12),
+                score: row.total ? Number((row.in_range / row.total).toFixed(4)) : 0
             };
         });
     }
@@ -21872,6 +22479,80 @@
         };
     }
 
+    function _envCaptureSummaryFile(value) {
+        if (!value || typeof value !== 'object') return '';
+        if (typeof value.file_url === 'string' && value.file_url.trim()) return String(value.file_url || '').trim();
+        if (typeof value.file_path === 'string' && value.file_path.trim()) return String(value.file_path || '').trim();
+        if (value.result && typeof value.result === 'object') {
+            var nested = _envCaptureSummaryFile(value.result);
+            if (nested) return nested;
+        }
+        if (Array.isArray(value.frames)) {
+            for (var i = 0; i < value.frames.length; i += 1) {
+                var frameFile = _envCaptureSummaryFile(value.frames[i]);
+                if (frameFile) return frameFile;
+            }
+        }
+        if (Array.isArray(value.tiles)) {
+            for (var j = 0; j < value.tiles.length; j += 1) {
+                var tileFile = _envCaptureSummaryFile(value.tiles[j]);
+                if (tileFile) return tileFile;
+            }
+        }
+        return '';
+    }
+
+    function _envCaptureSummaryCamera(camera) {
+        var pose = camera && typeof camera === 'object' ? camera : (_env3DCameraPoseSnapshot() || {});
+        return {
+            position: _envCloneJson(pose.position || null, null),
+            target: _envCloneJson(pose.target || null, null),
+            distance: Number(pose.distance || 0)
+        };
+    }
+
+    function _envSummarizeCaptureMeta(value, fallback) {
+        if (!value || typeof value !== 'object') return fallback === undefined ? null : fallback;
+        var base = fallback && typeof fallback === 'object' ? fallback : {};
+        var root = value;
+        var result = value.result && typeof value.result === 'object' ? value.result : value;
+        var leadTile = Array.isArray(result.tiles) && result.tiles.length ? (result.tiles[0] || {}) : {};
+        var targetKey = String(
+            result.object_key
+            || (((result.target || {}).object_key) || '')
+        ).trim();
+        var summary = {
+            type: String(root.type || result.type || 'capture'),
+            target: targetKey || (base.target !== undefined ? base.target : null),
+            file: _envCaptureSummaryFile(root) || _envCaptureSummaryFile(result) || String(base.file || ''),
+            timestamp: Number(root.ts || result.ts || Date.now()),
+            object_count: Number(
+                root.object_count
+                || result.object_count
+                || ((((result.render_truth || {}).scene) || {}).object_count)
+                || base.object_count
+                || 0
+            ),
+            camera_pose: _envCaptureSummaryCamera(result.camera || leadTile.camera || base.camera_pose || null)
+        };
+        var incomingPending = !!(root.capture_pending || result.capture_pending);
+        var sameCapture = !!(
+            (summary.file && String(summary.file) === String(base.file || ''))
+            || (summary.timestamp > 0
+                && Number(base.timestamp || 0) > 0
+                && Number(summary.timestamp) === Number(base.timestamp || 0)
+                && String(summary.type || '') === String(base.type || ''))
+        );
+        if (incomingPending) {
+            if (!(sameCapture && base.capture_pending === false)) summary.capture_pending = true;
+        } else if (sameCapture && base.capture_pending === false) {
+            summary.capture_pending = false;
+        }
+        if (root.capture_error || result.capture_error) summary.capture_error = String(root.capture_error || result.capture_error || '');
+        if (root.confidence || result.confidence || base.confidence) summary.confidence = String(root.confidence || result.confidence || base.confidence || '');
+        return summary;
+    }
+
     function _envCaptureStrip(count) {
         count = Math.max(1, Math.min(8, parseInt(count, 10) || 4));
         var bounds = _envObserverSceneBounds();
@@ -21998,6 +22679,7 @@
             observation: {
                 mode: 'survey',
                 bounds: _envObserverBoundsSnapshot(bounds),
+                palette_coherence: _envObserverPaletteCoherence({}),
                 helper_suppression: {
                     transform_controls: true,
                     grid_helper: false
@@ -22051,8 +22733,10 @@
                 label: String(targetContext.label || ''),
                 kind: String(targetContext.kind || ''),
                 category: String(targetContext.category || ''),
+                appearance: _envCloneJson(targetContext.appearance, null),
                 semantics: _envCloneJson(targetContext.semantics, null),
                 semantics_observation: _envCloneJson(targetContext.semantics_observation, null),
+                material_observation: _envCloneJson(targetContext.material_observation, null),
                 position: _env3DVectorSnapshot(targetContext.center),
                 size: _env3DVectorSnapshot(targetContext.size)
             },
@@ -22062,8 +22746,10 @@
                     label: String(ctx.label || ''),
                     kind: String(ctx.kind || ''),
                     category: String(ctx.category || ''),
+                    appearance: _envCloneJson(ctx.appearance, null),
                     semantics: _envCloneJson(ctx.semantics, null),
                     semantics_observation: _envCloneJson(ctx.semantics_observation, null),
+                    material_observation: _envCloneJson(ctx.material_observation, null),
                     position: _env3DVectorSnapshot(ctx.center),
                     size: _env3DVectorSnapshot(ctx.size)
                 };
@@ -22200,8 +22886,10 @@
                 label: String(targetContext.label || ''),
                 kind: String(targetContext.kind || ''),
                 category: String(targetContext.category || ''),
+                appearance: _envCloneJson(targetContext.appearance, null),
                 semantics: _envCloneJson(targetContext.semantics, null),
                 semantics_observation: _envCloneJson(targetContext.semantics_observation, null),
+                material_observation: _envCloneJson(targetContext.material_observation, null),
                 position: _env3DVectorSnapshot(targetContext.center),
                 size: _env3DVectorSnapshot(targetContext.size)
             },
@@ -22211,16 +22899,20 @@
                     label: String(ctx.label || ''),
                     kind: String(ctx.kind || ''),
                     category: String(ctx.category || ''),
+                    appearance: _envCloneJson(ctx.appearance, null),
                     semantics: _envCloneJson(ctx.semantics, null),
                     semantics_observation: _envCloneJson(ctx.semantics_observation, null),
+                    material_observation: _envCloneJson(ctx.material_observation, null),
                     position: _env3DVectorSnapshot(ctx.center),
                     size: _env3DVectorSnapshot(ctx.size)
                 };
             }),
+            placement_check: _envObserverPlacementCheck(targetContext),
             tiles: tileResults,
             observation: {
                 mode: 'probe',
                 bounds: _envObserverBoundsSnapshot(localBounds),
+                palette_coherence: _envObserverPaletteCoherence({ includeKeys: includeKeys }),
                 helper_suppression: {
                     transform_controls: true,
                     grid_helper: false
@@ -22231,29 +22923,19 @@
         };
     }
 
-    function _envPostCaptureResult(type, result) {
+    function _envPostCaptureResult(type, result, job) {
         if (!result || typeof result !== 'object') return;
-        var meta = _envCloneJson(result, {});
-        delete meta.image_b64;
-        if (Array.isArray(meta.frames)) {
-            meta.frame_count = meta.frames.length;
-            meta.frames = meta.frames.map(function (frame) {
-                var clean = _envCloneJson(frame, {});
-                delete clean.image_b64;
-                return clean;
-            });
-        }
-        if (Array.isArray(meta.tiles)) meta.tile_count = meta.tiles.length;
-        if (meta.render_truth && typeof meta.render_truth === 'object') {
-            meta.render_truth = {
-                bundle_version: String(meta.render_truth.bundle_version || ''),
-                renderer_active: String(meta.render_truth.renderer_active || ''),
-                scene: _envCloneJson(meta.render_truth.scene, null),
-                physics: _envCloneJson(meta.render_truth.physics, null)
-            };
-        }
-        meta.capture_pending = true;
-        _envMirrorState.latestCapture = meta;
+        var summary = _envSummarizeCaptureMeta(result, null) || {
+            type: String(type || (job || {}).type || 'capture'),
+            target: null,
+            file: '',
+            timestamp: Date.now(),
+            object_count: 0,
+            camera_pose: _envCaptureSummaryCamera(null)
+        };
+        summary.capture_pending = true;
+        if (job && job.confidence) summary.confidence = String(job.confidence || '');
+        _envMirrorState.latestCapture = summary;
         _envRefreshLiveMirrorSurface();
         fetch('/api/env/capture', {
             method: 'POST',
@@ -22263,17 +22945,20 @@
             return resp.json();
         }).then(function (payload) {
             if (payload && payload.capture) {
-                _envMirrorState.latestCapture = _envCloneJson(payload.capture, null);
+                var persistedSummary = _envSummarizeCaptureMeta(payload.capture, summary) || _envCloneJson(summary, null) || {};
+                persistedSummary.capture_pending = false;
+                if (!persistedSummary.capture_error) delete persistedSummary.capture_error;
+                _envMirrorState.latestCapture = persistedSummary;
             } else {
-                meta.capture_pending = false;
-                _envMirrorState.latestCapture = meta;
+                summary.capture_pending = false;
+                _envMirrorState.latestCapture = summary;
             }
             _envRefreshLiveMirrorSurface();
             _envScheduleLiveSync('capture:' + String(type || result.type || 'frame'), true);
         }).catch(function (err) {
-            meta.capture_pending = false;
-            meta.capture_error = String((err && err.message) || err || 'capture_upload_failed');
-            _envMirrorState.latestCapture = meta;
+            summary.capture_pending = false;
+            summary.capture_error = String((err && err.message) || err || 'capture_upload_failed');
+            _envMirrorState.latestCapture = summary;
             _envRefreshLiveMirrorSurface();
         });
     }
@@ -22308,7 +22993,7 @@
                     ts: Date.now()
                 };
             }
-            _envPostCaptureResult(job.type, result);
+            _envPostCaptureResult(job.type, result, job);
             setTimeout(function () {
                 _envProcessCaptureQueue();
             }, 0);
@@ -22319,6 +23004,58 @@
         if (!job || typeof job !== 'object') return;
         _envCaptureQueue.push(job);
         if (!_envCaptureProcessing) _envProcessCaptureQueue();
+    }
+
+    function _envDeferredMutationCaptureReady(objectKey) {
+        var key = String(objectKey || '').trim();
+        if (!key || !_env3D.inited) return { ready: false, loading: false };
+        var sceneObject = _envSceneObjectByKey(key);
+        var mesh = _env3D.meshes ? _env3D.meshes[key] : null;
+        if (!sceneObject || !mesh || !mesh.userData) return { ready: false, loading: false };
+        var appearance = _envSceneAppearanceForObject(sceneObject);
+        var wantsClone = !!String((appearance && appearance.asset_ref) || '').trim()
+            && String((mesh.userData.visualType) || '') === 'primitive';
+        var loading = !!mesh.userData.assetLoading || (wantsClone && !mesh.userData.assetClone);
+        return {
+            ready: !!mesh && (!wantsClone || (!!mesh.userData.assetClone && !mesh.userData.assetLoading)),
+            loading: loading
+        };
+    }
+
+    function _envFlushDeferredMutationCapture(objectKey, confidence) {
+        var key = String(objectKey || '').trim();
+        if (!key || !_envDeferredMutationCaptures[key]) return false;
+        delete _envDeferredMutationCaptures[key];
+        _envQueueCapture({
+            type: 'frame',
+            pose: 'current',
+            confidence: String(confidence || 'settled')
+        });
+        return true;
+    }
+
+    function _envQueueDeferredMutationCapture(objectKey) {
+        var key = String(objectKey || '').trim();
+        if (!key || _envDeferredMutationCaptures[key]) return;
+        _envDeferredMutationCaptures[key] = { attempts: 0 };
+        function attempt() {
+            var pending = _envDeferredMutationCaptures[key];
+            if (!pending) return;
+            pending.attempts += 1;
+            var ready = _envDeferredMutationCaptureReady(key);
+            if (ready.ready && !ready.loading) {
+                _envFlushDeferredMutationCapture(key, 'settled');
+                return;
+            }
+            if (pending.attempts >= 24) {
+                _envFlushDeferredMutationCapture(key, 'low');
+                return;
+            }
+            requestAnimationFrame(attempt);
+        }
+        requestAnimationFrame(function () {
+            requestAnimationFrame(attempt);
+        });
     }
 
     var _envSceneAudit = {
@@ -22443,6 +23180,239 @@
         return isFinite(parsed) ? parsed : Number(fallback || 0);
     }
 
+    function _env3DHexToCss(hexValue) {
+        var hex = Number(hexValue);
+        if (!isFinite(hex)) hex = 0;
+        hex = Math.max(0, Math.min(0xffffff, Math.round(hex)));
+        var text = hex.toString(16);
+        while (text.length < 6) text = '0' + text;
+        return '#' + text;
+    }
+
+    function _env3DColorDistance(hexA, hexB) {
+        var a = Number(hexA);
+        var b = Number(hexB);
+        if (!isFinite(a) || !isFinite(b)) return 1;
+        var ar = (a >> 16) & 0xff;
+        var ag = (a >> 8) & 0xff;
+        var ab = a & 0xff;
+        var br = (b >> 16) & 0xff;
+        var bg = (b >> 8) & 0xff;
+        var bb = b & 0xff;
+        var dr = ar - br;
+        var dg = ag - bg;
+        var db = ab - bb;
+        return Math.sqrt((dr * dr) + (dg * dg) + (db * db)) / 441.6729559300637;
+    }
+
+    function _env3DMaterialColorHex(material, field) {
+        if (!material) return null;
+        var colorField = field ? material[field] : material.color;
+        if (!colorField || typeof colorField.getHex !== 'function') return null;
+        try {
+            return colorField.getHex();
+        } catch (err) {
+            return null;
+        }
+    }
+
+    function _env3DMaterialHasVisibleOpacity(material) {
+        if (!material) return false;
+        if (material.visible === false) return false;
+        if (material.opacity === undefined || material.opacity === null) return true;
+        return Number(material.opacity || 0) > 0.05;
+    }
+
+    function _env3DMarkMaterialTexturesShared(material) {
+        if (!material || typeof material !== 'object') return;
+        [
+            'map', 'alphaMap', 'aoMap', 'bumpMap', 'displacementMap', 'emissiveMap', 'envMap',
+            'lightMap', 'metalnessMap', 'normalMap', 'roughnessMap', 'specularMap',
+            'clearcoatMap', 'clearcoatNormalMap', 'clearcoatRoughnessMap', 'sheenColorMap',
+            'sheenRoughnessMap', 'specularColorMap', 'specularIntensityMap', 'thicknessMap',
+            'transmissionMap', 'iridescenceMap', 'iridescenceThicknessMap'
+        ].forEach(function (key) {
+            if (material[key]) _env3DMarkSharedResource(material[key]);
+        });
+    }
+
+    function _env3DEnsureCloneMaterialInstances(clone) {
+        if (!clone || typeof clone.traverse !== 'function' || clone.userData && clone.userData.envMaterialInstancesReady) return;
+        clone.traverse(function (node) {
+            if (!node || !node.material) return;
+            var cloneMaterial = function (material) {
+                if (!material || typeof material.clone !== 'function') return material;
+                if (material.userData && material.userData.envSceneCloneMaterial) return material;
+                var cloned = material.clone();
+                cloned.userData = cloned.userData || {};
+                cloned.userData.envSceneCloneMaterial = true;
+                cloned.userData.envBaseColorHex = _env3DMaterialColorHex(material, 'color');
+                _env3DMarkMaterialTexturesShared(cloned);
+                return cloned;
+            };
+            if (Array.isArray(node.material)) {
+                node.material = node.material.map(cloneMaterial);
+                return;
+            }
+            node.material = cloneMaterial(node.material);
+        });
+        clone.userData = clone.userData || {};
+        clone.userData.envMaterialInstancesReady = true;
+    }
+
+    function _env3DResolveAssetTintMode(appearance, material) {
+        var authoredMaterial = appearance && appearance.material && typeof appearance.material === 'object' && !Array.isArray(appearance.material)
+            ? appearance.material
+            : null;
+        var explicit = '';
+        if (authoredMaterial) {
+            explicit = String(
+                authoredMaterial.asset_tint_mode !== undefined ? authoredMaterial.asset_tint_mode
+                    : (authoredMaterial.assetTintMode !== undefined ? authoredMaterial.assetTintMode
+                        : (authoredMaterial.tint_mode !== undefined ? authoredMaterial.tint_mode
+                            : (authoredMaterial.tintMode !== undefined ? authoredMaterial.tintMode
+                                : (authoredMaterial.tint !== undefined ? authoredMaterial.tint : ''))))
+            ).trim().toLowerCase();
+        }
+        if (explicit === 'off' || explicit === 'none' || explicit === 'disable' || explicit === 'disabled') return 'none';
+        if (explicit === 'preserve' || explicit === 'keep' || explicit === 'original') return 'preserve';
+        if (explicit === 'replace' || explicit === 'flat' || explicit === 'override') return 'replace';
+        if (explicit === 'multiply' || explicit === 'tint' || explicit === 'modulate') return 'multiply';
+        if (material && material.transparent && Number(material.opacity === undefined ? 1 : material.opacity) < 0.98) return 'preserve';
+        if (!appearance || !appearance.color) return 'none';
+        return 'multiply';
+    }
+
+    function _env3DApplyAssetMaterialTint(material, appearance) {
+        if (!material || !material.color || typeof material.color.setHex !== 'function') return { mode: 'none', applied: false };
+        var authoredColorHex = appearance && appearance.color ? _env3DHexFromColor(appearance.color, 0xffffff) : null;
+        var baseColorHex = material.userData && material.userData.envBaseColorHex !== undefined
+            ? Number(material.userData.envBaseColorHex)
+            : _env3DMaterialColorHex(material, 'color');
+        var mode = _env3DResolveAssetTintMode(appearance, material);
+        var applied = false;
+        if (mode === 'multiply' || mode === 'replace') {
+            if (authoredColorHex !== null) {
+                material.color.setHex(authoredColorHex);
+                applied = true;
+            } else if (baseColorHex !== null) {
+                material.color.setHex(baseColorHex);
+            }
+        } else if (baseColorHex !== null) {
+            material.color.setHex(baseColorHex);
+        }
+        material.userData = material.userData || {};
+        material.userData.envAssetTint = {
+            mode: mode,
+            applied: applied,
+            authored_color_hex: authoredColorHex === null ? null : _env3DHexToCss(authoredColorHex),
+            base_color_hex: baseColorHex === null ? null : _env3DHexToCss(baseColorHex)
+        };
+        material.needsUpdate = true;
+        return material.userData.envAssetTint;
+    }
+
+    function _env3DMaterialObservationSummary(mesh, obj) {
+        if (!mesh || !mesh.userData) return null;
+        var clone = mesh.userData.assetClone || null;
+        if (!clone) {
+            mesh.userData.materialObservation = null;
+            return null;
+        }
+        var appearance = _envSceneAppearanceForObject(obj);
+        var authoredColor = appearance && appearance.color ? String(appearance.color) : null;
+        var authoredMaterial = (appearance && appearance.material !== undefined && appearance.material !== null)
+            ? _envCloneJson(appearance.material, null)
+            : null;
+        var authoredColorHex = authoredColor ? _env3DHexFromColor(authoredColor, 0) : null;
+        var primitiveVisible = false;
+        var baseMaterials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+        baseMaterials.forEach(function (material) {
+            if (_env3DMaterialHasVisibleOpacity(material)) primitiveVisible = true;
+        });
+        var cloneNodeCount = 0;
+        var cloneMeshCount = 0;
+        var tintCapable = false;
+        var tintApplied = false;
+        var tintMode = 'none';
+        var rgbSum = { r: 0, g: 0, b: 0, count: 0 };
+        var submaterials = [];
+        clone.traverse(function (node) {
+            cloneNodeCount += 1;
+            if (!node || !node.material) return;
+            if (node.isMesh || node.isSkinnedMesh) cloneMeshCount += 1;
+            var materials = Array.isArray(node.material) ? node.material : [node.material];
+            materials.forEach(function (material, materialIndex) {
+                if (!material) return;
+                var tintState = material.userData && material.userData.envAssetTint
+                    ? material.userData.envAssetTint
+                    : { mode: 'none', applied: false };
+                var colorHex = _env3DMaterialColorHex(material, 'color');
+                var emissiveHex = _env3DMaterialColorHex(material, 'emissive');
+                if (colorHex !== null) {
+                    rgbSum.r += (colorHex >> 16) & 0xff;
+                    rgbSum.g += (colorHex >> 8) & 0xff;
+                    rgbSum.b += colorHex & 0xff;
+                    rgbSum.count += 1;
+                }
+                if (material.color && typeof material.color.setHex === 'function') tintCapable = true;
+                if (tintState.applied) tintApplied = true;
+                if (tintState.mode && tintState.mode !== 'none') {
+                    if (tintMode === 'none') tintMode = tintState.mode;
+                    else if (tintMode !== tintState.mode) tintMode = 'mixed';
+                }
+                submaterials.push({
+                    node_name: String((node && node.name) || ''),
+                    material_index: Number(materialIndex || 0),
+                    name: String(material.name || ''),
+                    type: String(material.type || 'Material'),
+                    color_hex: colorHex === null ? null : _env3DHexToCss(colorHex),
+                    emissive_hex: emissiveHex === null ? null : _env3DHexToCss(emissiveHex),
+                    emissive_intensity: material.emissiveIntensity === undefined ? null : Number(material.emissiveIntensity || 0),
+                    has_map: !!material.map,
+                    has_normal_map: !!material.normalMap,
+                    transparent: !!material.transparent,
+                    opacity: material.opacity === undefined ? null : Number(material.opacity || 0),
+                    roughness: material.roughness === undefined ? null : Number(material.roughness || 0),
+                    metalness: material.metalness === undefined ? null : Number(material.metalness || 0),
+                    tint_applied: !!tintState.applied,
+                    tint_mode: String(tintState.mode || 'none')
+                });
+            });
+        });
+        var dominantColorHex = null;
+        if (rgbSum.count > 0) {
+            dominantColorHex = ((Math.round(rgbSum.r / rgbSum.count) & 0xff) << 16)
+                | ((Math.round(rgbSum.g / rgbSum.count) & 0xff) << 8)
+                | (Math.round(rgbSum.b / rgbSum.count) & 0xff);
+        }
+        var tintMismatch = false;
+        if (authoredColorHex !== null && dominantColorHex !== null && tintCapable) {
+            tintMismatch = _env3DColorDistance(authoredColorHex, dominantColorHex) > 0.18;
+        }
+        var observation = {
+            source: 'asset_clone',
+            asset_ref: String((appearance && appearance.asset_ref) || ''),
+            has_clone: true,
+            primitive_visible: primitiveVisible,
+            clone_node_count: cloneNodeCount,
+            clone_mesh_count: cloneMeshCount,
+            submaterial_count: submaterials.length,
+            authored_color: authoredColor,
+            authored_color_hex: authoredColorHex === null ? null : _env3DHexToCss(authoredColorHex),
+            authored_material: authoredMaterial,
+            dominant_color_hex: dominantColorHex === null ? null : _env3DHexToCss(dominantColorHex),
+            tint_capable: tintCapable,
+            tint_applied: tintApplied,
+            tint_mode: tintMode,
+            tint_mismatch: tintMismatch,
+            submaterials: submaterials.slice(0, 24),
+            captured_at: Date.now()
+        };
+        mesh.userData.materialObservation = observation;
+        return observation;
+    }
+
     function _env3DAccentHex() {
         var theme = _env3DResolvedTheme(_envThemeId);
         var accent = theme && theme.css ? theme.css[0] : '#7c9cff';
@@ -22525,11 +23495,20 @@
                     : (source.texture !== undefined ? source.texture : ''))
         );
         if (!patternKey && materialKey === 'crash_dummy') patternKey = 'crash_dummy';
+        var resolvedColorSource = source.color || '';
+        if (!resolvedColorSource && source.palette_family) {
+            resolvedColorSource = paletteResolve(
+                source.palette_family,
+                source.palette_role || 'dominant',
+                source.palette_seed !== undefined ? source.palette_seed : (source.palette_group || source.seed || ''),
+                source.palette_index !== undefined ? source.palette_index : (source.index || 0)
+            ) || '';
+        }
         return {
             key: materialKey,
             color: materialKey === 'custom'
-                ? _env3DHexFromColor(source.color || fallbackColor || '', Number(base.color || fallbackColor || 0x7d8791))
-                : _env3DHexFromColor(source.color || '', Number(base.color || fallbackColor || 0x7d8791)),
+                ? _env3DHexFromColor(resolvedColorSource || fallbackColor || '', Number(base.color || fallbackColor || 0x7d8791))
+                : _env3DHexFromColor(resolvedColorSource || '', Number(base.color || fallbackColor || 0x7d8791)),
             roughness: _env3DClampNumber(source.roughness, base.roughness, 0, 1),
             metalness: _env3DClampNumber(source.metalness, base.metalness, 0, 1),
             emissive: resolvedEmissive,
@@ -22860,7 +23839,15 @@
         var mechanics = _env3DMechanicsForObject(obj);
         var wind = mechanics && mechanics.wind ? mechanics.wind : null;
         var reaction = mechanics && mechanics.reaction ? mechanics.reaction : null;
-        var baseColor = new THREE.Color(appearance.color || color || (_env3DKindColors.vegetation_patch || 0x4a7c3f));
+        var paletteColor = !appearance.color && appearance.palette_family
+            ? paletteResolve(
+                appearance.palette_family,
+                appearance.palette_role || 'reactive',
+                appearance.palette_group || (obj && obj.id) || '',
+                0
+            )
+            : '';
+        var baseColor = new THREE.Color(appearance.color || paletteColor || color || (_env3DKindColors.vegetation_patch || 0x4a7c3f));
         if (isFocused) baseColor.lerp(new THREE.Color(0x88ff66), 0.18);
         var tipColor = baseColor.clone().lerp(new THREE.Color(0xb7df7d), 0.45);
         var bounds = _env3DWorldBoundsVector4();
@@ -25182,7 +26169,7 @@
         return String(obj.kind || 'primitive') + '::' + String(obj.id || '');
     }
 
-    function _env3DXYZFromObject(obj) {
+    function _env3DRawXYZFromObject(obj) {
         // Map x (0-100) to world X (-40 to +40), y (0-100) to world Z (-20 to +20)
         // Height (Y) based on kind hierarchy
         var wx = ((Number(obj.x || 50) / 100) * 80) - 40;
@@ -25234,6 +26221,163 @@
         }
         wy += heightOffset;
         return { x: wx, y: wy, z: wz };
+    }
+
+    function _env3DRotateOffsetAroundY(offset, degrees) {
+        var vec = offset && typeof offset === 'object' ? offset : { x: 0, y: 0, z: 0 };
+        var radians = Number(degrees || 0) * (Math.PI / 180);
+        var cos = Math.cos(radians);
+        var sin = Math.sin(radians);
+        return {
+            x: (Number(vec.x || 0) * cos) - (Number(vec.z || 0) * sin),
+            y: Number(vec.y || 0),
+            z: (Number(vec.x || 0) * sin) + (Number(vec.z || 0) * cos)
+        };
+    }
+
+    function _env3DAttachmentAnchorWorldPosition(attachment, spatial) {
+        var anchor = String((attachment && attachment.anchor) || 'top').trim().toLowerCase();
+        var center = spatial && spatial.center instanceof THREE.Vector3 ? spatial.center.clone() : new THREE.Vector3(0, 0, 0);
+        var box = spatial && spatial.box ? spatial.box : null;
+        if (!box) return center;
+        if (anchor === 'center' || anchor === 'mid') return center;
+        if (anchor === 'base' || anchor === 'bottom' || anchor === 'ground') return new THREE.Vector3(center.x, Number(box.min.y || 0), center.z);
+        if (anchor === 'north') return new THREE.Vector3(center.x, center.y, Number(box.min.z || 0));
+        if (anchor === 'south') return new THREE.Vector3(center.x, center.y, Number(box.max.z || 0));
+        if (anchor === 'east') return new THREE.Vector3(Number(box.max.x || 0), center.y, center.z);
+        if (anchor === 'west') return new THREE.Vector3(Number(box.min.x || 0), center.y, center.z);
+        return new THREE.Vector3(center.x, Number(box.max.y || 0), center.z);
+    }
+
+    function _env3DResolveSceneTransform(obj, stack) {
+        var rawPosition = _env3DRawXYZFromObject(obj || {});
+        var rawTilt = Number((obj && obj.tilt) || 0);
+        if (!obj || typeof obj !== 'object') {
+            return {
+                position: rawPosition,
+                tilt: rawTilt,
+                raw_position: rawPosition,
+                attached: false,
+                attachment: null,
+                parent_key: ''
+            };
+        }
+        var objectKey = _envSceneObjectKey(obj);
+        var seen = stack && typeof stack === 'object' ? stack : {};
+        if (objectKey && seen[objectKey]) {
+            return {
+                position: rawPosition,
+                tilt: rawTilt,
+                raw_position: rawPosition,
+                attached: false,
+                attachment: null,
+                parent_key: '',
+                cycle_fallback: true
+            };
+        }
+        if (objectKey) seen[objectKey] = true;
+        var attachment = _envSceneAttachmentForObject(obj);
+        if (!attachment || !attachment.parent_key) {
+            if (objectKey) delete seen[objectKey];
+            return {
+                position: rawPosition,
+                tilt: rawTilt,
+                raw_position: rawPosition,
+                attached: false,
+                attachment: null,
+                parent_key: ''
+            };
+        }
+        var parentObject = _envSceneObjectByKey(attachment.parent_key);
+        if (!parentObject || _envSceneObjectKey(parentObject) === objectKey) {
+            if (objectKey) delete seen[objectKey];
+            return {
+                position: rawPosition,
+                tilt: rawTilt,
+                raw_position: rawPosition,
+                attached: false,
+                attachment: attachment,
+                parent_key: String(attachment.parent_key || ''),
+                missing_parent: true
+            };
+        }
+        var parentTransform = _env3DResolveSceneTransform(parentObject, seen);
+        var parentMesh = _env3D.meshes ? _env3D.meshes[_envSceneObjectKey(parentObject)] : null;
+        var parentSpatial = _envSceneObjectSpatialMetrics(parentObject, parentMesh);
+        if (parentMesh && parentMesh.position && parentSpatial && parentSpatial.box && parentSpatial.center) {
+            var delta = new THREE.Vector3(
+                Number((parentTransform.position || {}).x || 0) - Number(parentMesh.position.x || 0),
+                Number((parentTransform.position || {}).y || 0) - Number(parentMesh.position.y || 0),
+                Number((parentTransform.position || {}).z || 0) - Number(parentMesh.position.z || 0)
+            );
+            parentSpatial.center.add(delta);
+            parentSpatial.box = parentSpatial.box.clone().translate(delta);
+        }
+        var anchorPoint = _env3DAttachmentAnchorWorldPosition(attachment, parentSpatial);
+        var localOffset = _envNormalizeSceneAttachmentVector(attachment.local_offset, { x: 0, y: 0, z: 0 });
+        var rotatedOffset = attachment.inherit_rotation === false
+            ? localOffset
+            : _env3DRotateOffsetAroundY(localOffset, parentTransform.tilt);
+        var resolvedPosition = {
+            x: Number(anchorPoint.x || 0) + Number(rotatedOffset.x || 0),
+            y: Number(anchorPoint.y || 0) + Number(rotatedOffset.y || 0),
+            z: Number(anchorPoint.z || 0) + Number(rotatedOffset.z || 0)
+        };
+        var resolvedTilt = attachment.inherit_rotation === false
+            ? Number(attachment.local_tilt !== undefined ? attachment.local_tilt : rawTilt)
+            : Number(parentTransform.tilt || 0) + Number(attachment.local_tilt || 0);
+        if (objectKey) delete seen[objectKey];
+        return {
+            position: resolvedPosition,
+            tilt: resolvedTilt,
+            raw_position: rawPosition,
+            attached: true,
+            attachment: attachment,
+            parent_key: String(attachment.parent_key || ''),
+            anchor_position: _env3DVectorSnapshot(anchorPoint)
+        };
+    }
+
+    function _env3DSuggestAttachmentRecord(childObj, parentObj, options) {
+        if (!childObj || !parentObj) return null;
+        var childTransform = _env3DResolveSceneTransform(childObj);
+        var parentTransform = _env3DResolveSceneTransform(parentObj);
+        var optionBag = options && typeof options === 'object' && !Array.isArray(options) ? options : {};
+        var inheritRotation = optionBag.inherit_rotation !== undefined ? !!optionBag.inherit_rotation
+            : (optionBag.inheritRotation !== undefined ? !!optionBag.inheritRotation : true);
+        var anchorName = String(optionBag.anchor || optionBag.anchor_id || optionBag.anchorId || 'top').trim().toLowerCase() || 'top';
+        var parentMesh = _env3D.meshes ? _env3D.meshes[_envSceneObjectKey(parentObj)] : null;
+        var parentSpatial = _envSceneObjectSpatialMetrics(parentObj, parentMesh);
+        if (parentMesh && parentMesh.position && parentSpatial && parentSpatial.box && parentSpatial.center) {
+            var delta = new THREE.Vector3(
+                Number((parentTransform.position || {}).x || 0) - Number(parentMesh.position.x || 0),
+                Number((parentTransform.position || {}).y || 0) - Number(parentMesh.position.y || 0),
+                Number((parentTransform.position || {}).z || 0) - Number(parentMesh.position.z || 0)
+            );
+            parentSpatial.center.add(delta);
+            parentSpatial.box = parentSpatial.box.clone().translate(delta);
+        }
+        var anchorPoint = _env3DAttachmentAnchorWorldPosition({ anchor: anchorName }, parentSpatial);
+        var deltaX = Number((childTransform.position || {}).x || 0) - Number(anchorPoint.x || 0);
+        var deltaY = Number((childTransform.position || {}).y || 0) - Number(anchorPoint.y || 0);
+        var deltaZ = Number((childTransform.position || {}).z || 0) - Number(anchorPoint.z || 0);
+        var localOffset = inheritRotation
+            ? _env3DRotateOffsetAroundY({ x: deltaX, y: deltaY, z: deltaZ }, -Number(parentTransform.tilt || 0))
+            : { x: deltaX, y: deltaY, z: deltaZ };
+        return _envNormalizeSceneAttachmentRecord({
+            parent_key: _envSceneObjectKey(parentObj),
+            anchor: anchorName,
+            local_offset: localOffset,
+            local_tilt: inheritRotation
+                ? Number((childTransform.tilt || 0) - Number(parentTransform.tilt || 0))
+                : Number(childTransform.tilt || 0),
+            inherit_rotation: inheritRotation,
+            mode: String(optionBag.mode || 'snap')
+        });
+    }
+
+    function _env3DXYZFromObject(obj) {
+        return _env3DResolveSceneTransform(obj).position;
     }
 
     function _env3DVectorSnapshot(vec) {
@@ -27730,24 +28874,29 @@
         mesh.userData.assetRefRequested = '';
         mesh.userData.assetLoading = false;
         mesh.userData.assetLoadError = '';
+        mesh.userData.materialObservation = null;
     }
 
     function _env3DApplyAssetState(mesh, obj, emissive, isFocused, intensityOverride) {
         if (!mesh || !mesh.userData || !mesh.userData.assetClone) return;
+        var appearance = _envSceneAppearanceForObject(obj);
         var intensity = typeof intensityOverride === 'number'
             ? intensityOverride
             : (isFocused ? 0.9 : (obj.state === 'running' ? 0.45 : (obj.state === 'failed' ? 0.7 : 0.16)));
+        _env3DEnsureCloneMaterialInstances(mesh.userData.assetClone);
         mesh.userData.assetClone.traverse(function (node) {
             if (!node || !node.material) return;
             var materials = Array.isArray(node.material) ? node.material : [node.material];
             materials.forEach(function (material) {
                 if (!material) return;
+                _env3DApplyAssetMaterialTint(material, appearance);
                 if (material.emissive && typeof material.emissive.setHex === 'function') {
                     material.emissive.setHex(isFocused ? 0x00ff88 : emissive);
                     material.emissiveIntensity = intensity;
                 }
             });
         });
+        _env3DMaterialObservationSummary(mesh, obj);
     }
 
     function _env3DStoreTriggerMeta(mesh, obj) {
@@ -27992,6 +29141,7 @@
                 String(((_envKernel || {}).focus || {}).kind || '') === String(obj.kind || '')
                     && String(((_envKernel || {}).focus || {}).id || '') === String(obj.id || '')
             );
+            _envFlushDeferredMutationCapture(_env3DObjectKey(obj), 'settled');
         });
     }
 
@@ -28653,14 +29803,16 @@
             var appearance = _envSceneAppearanceForObject(o);
             var kind = String(o.kind || '');
             var collision = _env3DCollisionPolicyForObject(o);
+            var resolvedTransform = _env3DResolveSceneTransform(o);
+            var resolvedPos = resolvedTransform.position || _env3DRawXYZFromObject(o);
             if (_env3DIsRoomObject(o, appearance)) {
                 var roomCfg = _envRoomConfigFromObject(o);
-                return 'R:' + kind + ':' + o.id + ':' + Math.round(o.x) + ':' + Math.round(o.y)
+                return 'R:' + kind + ':' + o.id + ':' + Math.round(Number(resolvedPos.x || 0)) + ':' + Math.round(Number(resolvedPos.z || 0))
                     + ':' + roomCfg.width + ':' + roomCfg.depth + ':' + roomCfg.wallThickness + ':' + roomCfg.doorwayWidth
                     + ':' + roomCfg.doors.join(',');
             }
             if (!_env3DIsAgentKind(kind) && collision !== 'none') {
-                return 'B:' + kind + ':' + o.id + ':' + Math.round(o.x) + ':' + Math.round(o.y)
+                return 'B:' + kind + ':' + o.id + ':' + Math.round(Number(resolvedPos.x || 0)) + ':' + Math.round(Number(resolvedPos.z || 0))
                     + ':' + Number(o.scale || 1).toFixed(1) + ':' + collision;
             }
             return '';
@@ -28682,14 +29834,17 @@
             var appearance = _envSceneAppearanceForObject(o);
             var roomConfig = _env3DIsRoomObject(o, appearance) ? _envRoomConfigFromObject(o) : null;
             var visualKey = _env3DVisualKeyForObject(o, appearance);
+            var resolvedTransform = _env3DResolveSceneTransform(o);
+            var resolvedPos = resolvedTransform.position || _env3DRawXYZFromObject(o);
+            var attachment = resolvedTransform.attachment || _envSceneAttachmentForObject(o);
             return [
                 o.kind,
                 o.id,
                 o.state,
-                Math.round(o.x),
-                Math.round(o.y),
+                Math.round(Number(resolvedPos.x || 0)),
+                Math.round(Number(resolvedPos.z || 0)),
                 Number(o.scale || 1).toFixed(3),
-                Number(o.tilt || 0).toFixed(1),
+                Number(resolvedTransform.tilt !== undefined ? resolvedTransform.tilt : (o.tilt || 0)).toFixed(1),
                 String(o.label || ''),
                 String(o.meta || ''),
                 Number(interaction.action_count || 0),
@@ -28702,6 +29857,7 @@
                 JSON.stringify(appearance.material || ''),
                 JSON.stringify(appearance.lod_levels || ''),
                 String(visualKey || ''),
+                JSON.stringify(attachment || ''),
                 _env3DResolveAgentModality(o),
                 roomConfig ? JSON.stringify(roomConfig) : ''
             ].join(':');
@@ -28745,7 +29901,9 @@
             var interaction = _envSceneInteractionMeta(obj);
             var appearance = _envSceneAppearanceForObject(obj);
             var assetRef = String(appearance.asset_ref || '').trim();
-            var pos = _env3DXYZFromObject(obj);
+            var resolvedTransform = _env3DResolveSceneTransform(obj);
+            var pos = resolvedTransform.position || _env3DRawXYZFromObject(obj);
+            var resolvedTilt = Number(resolvedTransform.tilt !== undefined ? resolvedTransform.tilt : (obj.tilt || 0));
             var scl = Number(obj.scale || 1);
             var color = _env3DHexFromColor(appearance.color || obj.color || '', _env3DKindColors[obj.kind] || 0x888888);
             var emissive = _env3DStateEmissive[obj.state] || 0x111122;
@@ -28783,6 +29941,7 @@
             mesh.userData.visualKey = visualKey;
             mesh.userData.labelHeight = _env3DLabelHeightForObject(obj, mesh);
             mesh.userData.agentSpriteOffsetY = _env3DIsAgentKind(obj.kind) ? 1.12 : 0;
+            mesh.userData.resolvedTransform = _envCloneJson(resolvedTransform, null);
             _env3DStoreTriggerMeta(mesh, obj);
 
             if (!_env3D.cssLabels[key]) {
@@ -28878,10 +30037,10 @@
             } else if (!mesh.userData._moving) {
                 mesh.userData._waypoints = null;
             }
-            mesh.userData.baseTilt = Number(obj.tilt || 0);
+            mesh.userData.baseTilt = resolvedTilt;
             if (_envIsCustomSceneKind(obj.kind)
                 && !(_env3D.transformControls && _env3D.transformControls.dragging && _env3D.selectedMesh === mesh)) {
-                mesh.rotation.y = Number(obj.tilt || 0) * (Math.PI / 180);
+                mesh.rotation.y = resolvedTilt * (Math.PI / 180);
             }
             mesh.userData.baseY = mesh.position.y;
             mesh.scale.lerp(new THREE.Vector3(scl, scl, scl), 0.15);
@@ -32497,6 +33656,7 @@
         }
 
         if (!workflow && scenePrimary) {
+            _envEnsurePersistedSceneBootstrap('scene-primary', false);
             _envEnsureSceneSnapshotIdentity('scene-primary', false);
             var sceneSnapshotName = _envScenePrimarySnapshotName();
             var sceneContextId = _envSceneDocContextId();
@@ -37935,6 +39095,39 @@
     window.envopsGetLayoutSnapshot = function () {
         return JSON.parse(JSON.stringify(_envBuildLayoutSnapshot()));
     };
+
+    function _envSceneObjectVisualContract(obj) {
+        var sceneObject = obj && typeof obj === 'object' ? obj : {};
+        var objectKey = _envSceneObjectKey(sceneObject);
+        var mesh = objectKey && _env3D.meshes ? _env3D.meshes[objectKey] : null;
+        var appearance = _envSceneAppearanceForObject(sceneObject);
+        var materialObservation = mesh && mesh.userData ? (mesh.userData.materialObservation || null) : null;
+        var spatial = _envSceneObjectSpatialMetrics(sceneObject, mesh);
+        return {
+            appearance: {
+                color: String((appearance && appearance.color) || ''),
+                geometry: String((appearance && appearance.geometry) || ''),
+                asset_ref: String((appearance && appearance.asset_ref) || ''),
+                material_override: (appearance && appearance.material !== undefined)
+                    ? _envCloneJson(appearance.material, null)
+                    : null
+            },
+            visual: {
+                has_asset_clone: !!(mesh && mesh.userData && mesh.userData.assetClone),
+                primitive_visible: materialObservation && materialObservation.primitive_visible !== undefined
+                    ? !!materialObservation.primitive_visible
+                    : !!(mesh && mesh.userData && mesh.userData.visualType === 'primitive' && !mesh.userData.assetClone),
+                bounds: _env3DBoxSnapshot(spatial.box),
+                world_position: _env3DVectorSnapshot(spatial.center),
+                material_summary: {
+                    dominant_color: String(((materialObservation || {}).dominant_color_hex) || ((appearance && appearance.color) || '') || ''),
+                    tint_applied: !!((materialObservation || {}).tint_applied),
+                    tint_mode: String(((materialObservation || {}).tint_mode) || '')
+                }
+            }
+        };
+    }
+
     window.envopsGetSharedState = function () {
         _envRefreshReplayTrack((_envKernel.replay || {}).mode, true);
         var currentWorkflow = _envPrimaryWorkflow();
@@ -38048,6 +39241,7 @@
                     hydrated_ts: Number(_envSceneBootstrapState.hydratedTs || 0),
                     requested_ts: Number(_envSceneBootstrapState.requestedTs || 0),
                     snapshot_name: String(_envSceneBootstrapState.snapshotName || ''),
+                    preserve_empty: !!_envSceneBootstrapState.preserveEmpty,
                     last_source: String(_envSceneBootstrapState.lastSource || ''),
                     error: String(_envSceneBootstrapState.error || '')
                 },
@@ -38149,6 +39343,9 @@
             var semanticsObservation = _envSceneSemanticObservationForObject(obj);
             var embodiment = _envSceneEmbodimentForObject(obj);
             var retargeting = _envSceneRetargetingForObject(obj);
+            var attachment = _envSceneAttachmentForObject(obj);
+            var resolvedTransform = _env3DResolveSceneTransform(obj);
+            var visualContract = _envSceneObjectVisualContract(obj);
             var providerBinding = data && data.provider_binding && typeof data.provider_binding === 'object' ? data.provider_binding : null;
             var capabilityProfile = data && data.capability_profile && typeof data.capability_profile === 'object' ? data.capability_profile : null;
             var menuItems = _envSceneObjectMenuItems(obj).slice(0, 12).map(function (item) {
@@ -38199,6 +39396,17 @@
                 facility_candidates: _slotUniqueStrings(data.facility_candidates || []),
                 html_preview: _envSceneObjectHasHtml(obj) ? _envProductCollapseText(String(obj.html || data.html || ''), 180) : '',
                 menu_items: menuItems,
+                appearance: _envCloneJson(visualContract.appearance, null),
+                visual: _envCloneJson(visualContract.visual, null),
+                attachment: attachment ? _envCloneJson(attachment, null) : null,
+                resolved_transform: resolvedTransform ? {
+                    position: _envCloneJson((resolvedTransform || {}).position || null, null),
+                    raw_position: _envCloneJson((resolvedTransform || {}).raw_position || null, null),
+                    tilt: Number((resolvedTransform || {}).tilt || 0),
+                    attached: !!((resolvedTransform || {}).attached),
+                    parent_key: String((resolvedTransform || {}).parent_key || ''),
+                    anchor_position: _envCloneJson((resolvedTransform || {}).anchor_position || null, null)
+                } : null,
                 semantics: semantics ? _envCloneJson(semantics, null) : null,
                 semantics_observation: semanticsObservation ? _envCloneJson(semanticsObservation, null) : null,
                 character: character ? _envCloneJson(character, null) : null,
@@ -38206,6 +39414,15 @@
                 retargeting: retargeting ? _envCloneJson(retargeting, null) : null
             };
         });
+    };
+    window.envopsSuggestAttachment = function (childTarget, parentTarget, options) {
+        var child = _envSceneFindObjectByKey(childTarget)
+            || _envSceneObjectPool().find(function (obj) { return String((obj && obj.id) || '') === String(childTarget || ''); })
+            || null;
+        var parent = _envSceneFindObjectByKey(parentTarget)
+            || _envSceneObjectPool().find(function (obj) { return String((obj && obj.id) || '') === String(parentTarget || ''); })
+            || null;
+        return _envCloneJson(_env3DSuggestAttachmentRecord(child, parent, options || {}), null);
     };
 
     window.envopsToggleReplay = function (actor) {
