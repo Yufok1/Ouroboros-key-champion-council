@@ -517,6 +517,36 @@ def _read_int_file(path: str) -> int | None:
         return None
 
 
+def _coerce_int(value, default: int = 0) -> int:
+    fallback = int(default)
+    if value is None:
+        return fallback
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        try:
+            return int(value)
+        except (TypeError, ValueError, OverflowError):
+            return fallback
+    if isinstance(value, str):
+        raw = value.strip()
+        if not raw:
+            return fallback
+        try:
+            return int(raw)
+        except (TypeError, ValueError):
+            try:
+                return int(float(raw))
+            except (TypeError, ValueError, OverflowError):
+                return fallback
+    try:
+        return int(value)
+    except (TypeError, ValueError, OverflowError):
+        return fallback
+
+
 def _host_memory_snapshot() -> dict:
     total_bytes = None
     avail_bytes = None
@@ -1151,13 +1181,13 @@ async def _mirror_activity_to_observe(entry: dict):
             "client_id": str((entry or {}).get("clientId") or ""),
             "activity_id": str((entry or {}).get("id") or ""),
             "hidden_from_activity": bool((entry or {}).get("hiddenFromActivity")),
-            "duration_ms": int((entry or {}).get("durationMs") or 0),
+            "duration_ms": _coerce_int((entry or {}).get("durationMs"), 0),
             "error": (entry or {}).get("error"),
             "args": _activity_mirror_value((entry or {}).get("args") or {}, 5000),
             "result": _activity_mirror_value((entry or {}).get("result"), 14000),
             "args_preview": _activity_preview((entry or {}).get("args") or {}, 220),
             "result_preview": _activity_preview((entry or {}).get("result"), _DEBUG_FEED_MIRROR_MAX_CHARS),
-            "timestamp_ms": int((entry or {}).get("timestamp") or int(time.time() * 1000)),
+            "timestamp_ms": _coerce_int((entry or {}).get("timestamp"), int(time.time() * 1000)),
         }
         await _call_tool("observe", {"signal_type": "agent_debug", "data": json.dumps(payload, ensure_ascii=False)})
         # Also inject a debug-shaped activity entry into the SSE stream
@@ -1172,7 +1202,7 @@ async def _mirror_activity_to_observe(entry: dict):
             "args": {"signal_type": "agent_debug", "detail": f"DEBUG {tool}", "mirror": payload},
             "result": entry.get("result"),
             "error": entry.get("error"),
-            "durationMs": int(entry.get("durationMs") or 0),
+            "durationMs": _coerce_int(entry.get("durationMs"), 0),
             "timestamp": int(time.time() * 1000),
             "source": "agent-debug",
             "clientId": str((entry or {}).get("clientId") or ""),
@@ -3855,8 +3885,8 @@ def _debug_state_payload(query_text: str) -> dict:
             "tool": str(entry.get("tool") or ""),
             "source": str(entry.get("source") or ""),
             "client_id": str(entry.get("clientId") or ""),
-            "timestamp_ms": int(entry.get("timestamp") or 0),
-            "duration_ms": int(entry.get("durationMs") or 0),
+            "timestamp_ms": _coerce_int(entry.get("timestamp"), 0),
+            "duration_ms": _coerce_int(entry.get("durationMs"), 0),
             "error": entry.get("error"),
             "detail": _debug_activity_detail(entry),
             "signal_type": str(args.get("signal_type") or ""),
