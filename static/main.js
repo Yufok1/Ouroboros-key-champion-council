@@ -21772,6 +21772,82 @@
         return sceneObject ? targetKey : '';
     }
 
+    function _envScenePhysicsObservationForObject(sceneObject, mesh, objectKey) {
+        var obj = sceneObject && typeof sceneObject === 'object' ? sceneObject : {};
+        var key = String(objectKey || _envSceneObjectKey(obj) || '').trim();
+        var data = _envObjectData(obj);
+        var declaredPhysics = data.physics && typeof data.physics === 'object' && !Array.isArray(data.physics)
+            ? data.physics
+            : null;
+        var embodiment = data.embodiment && typeof data.embodiment === 'object' && !Array.isArray(data.embodiment)
+            ? data.embodiment
+            : null;
+        var physicsProfile = embodiment && embodiment.physics_profile && typeof embodiment.physics_profile === 'object' && !Array.isArray(embodiment.physics_profile)
+            ? embodiment.physics_profile
+            : (data.physics_profile && typeof data.physics_profile === 'object' && !Array.isArray(data.physics_profile)
+                ? data.physics_profile
+                : null);
+        var runtimePhysics = _env3D.physics && _env3D.physics.world ? _env3D.physics : null;
+        var triggerEntry = key && _env3D.triggers && _env3D.triggers[key] ? _env3D.triggers[key] : null;
+        var triggerConfig = triggerEntry && triggerEntry.config && typeof triggerEntry.config === 'object'
+            ? triggerEntry.config
+            : ((mesh && mesh.userData && mesh.userData._trigger && typeof mesh.userData._trigger === 'object') ? mesh.userData._trigger : null);
+        var triggerOccupants = triggerEntry && triggerEntry.occupants && typeof triggerEntry.occupants === 'object'
+            ? triggerEntry.occupants
+            : {};
+        var occupantRows = Object.keys(triggerOccupants).map(function (occupantKey) {
+            var occ = triggerOccupants[occupantKey] || {};
+            return {
+                object_key: String(occupantKey || ''),
+                inside: !!occ.inside,
+                enter_ts: Number(occ.enterTs || 0) || 0,
+                last_fire_ts: Number(occ.lastFireTs || 0) || 0
+            };
+        });
+        return {
+            declared: {
+                enabled: !!(declaredPhysics && declaredPhysics.enabled),
+                body_type: String((declaredPhysics && declaredPhysics.bodyType) || 'static'),
+                shape: String((declaredPhysics && declaredPhysics.shape) || 'box'),
+                mass: declaredPhysics && declaredPhysics.mass !== undefined ? Number(declaredPhysics.mass || 0) : null,
+                restitution: declaredPhysics && declaredPhysics.restitution !== undefined ? Number(declaredPhysics.restitution || 0) : null,
+                friction: declaredPhysics && declaredPhysics.friction !== undefined ? Number(declaredPhysics.friction || 0) : null,
+                profile: physicsProfile ? _envCloneJson(physicsProfile, null) : null
+            },
+            runtime: {
+                available: !!runtimePhysics,
+                body_attached: false,
+                collider_attached: false,
+                body_handle: '',
+                linear_velocity: null,
+                angular_velocity: null,
+                sleeping: null,
+                placeholder: true,
+                source: runtimePhysics ? 'rapier_schema_placeholder' : 'pre_rapier_schema_placeholder'
+            },
+            contact: {
+                supported: false,
+                contact_count: 0,
+                touching_keys: [],
+                last_contact_ts: 0,
+                placeholder: true
+            },
+            trigger: {
+                is_trigger: !!triggerConfig,
+                enabled: !!(triggerConfig && triggerConfig.enabled !== false),
+                shape: String((triggerConfig && triggerConfig.shape) || ''),
+                events: triggerConfig && Array.isArray(triggerConfig.events)
+                    ? triggerConfig.events.map(function (eventName) { return String(eventName || '').trim().toLowerCase(); }).filter(Boolean)
+                    : [],
+                filter_kinds: triggerConfig && Array.isArray(triggerConfig.filter_kinds)
+                    ? triggerConfig.filter_kinds.map(function (kind) { return String(kind || '').trim().toLowerCase(); }).filter(Boolean)
+                    : [],
+                occupant_count: Number(occupantRows.length || 0),
+                occupants: occupantRows
+            }
+        };
+    }
+
     function _envObserverObjectContext(objectKey) {
         var resolvedKey = _envObserverResolveObjectKey(objectKey);
         if (!resolvedKey) return null;
@@ -21803,6 +21879,7 @@
             semantics: _envCloneJson(_envSceneSemanticsForObject(sceneObject), null),
             semantics_observation: _envCloneJson(_envSceneSemanticObservationForObject(sceneObject), null),
             material_observation: materialObservation,
+            physics_observation: _envScenePhysicsObservationForObject(sceneObject, mesh, resolvedKey),
             center: spatial.center,
             size: spatial.size,
             bounds: _env3DBoxSnapshot(spatial.box),
@@ -22032,6 +22109,7 @@
                 material_observation: mesh && mesh.userData
                     ? _envCloneJson(mesh.userData.materialObservation || null, null)
                     : null,
+                physics_observation: _envScenePhysicsObservationForObject(obj, mesh, objectKey),
                 focus: objectKey === focusKey,
                 world: _env3DVectorSnapshot(worldPos),
                 screen: {
@@ -22112,6 +22190,7 @@
                     : null,
                 semantics: _envCloneJson(semantics, null),
                 semantics_observation: _envCloneJson(semanticsObservation, null),
+                physics_observation: _envScenePhysicsObservationForObject(obj, mesh, objectKey),
                 score: Number(score.toFixed(2)),
                 scale: scale,
                 position: position
@@ -22129,6 +22208,7 @@
                 material_observation: _envCloneJson(row.material_observation, null),
                 semantics: _envCloneJson(row.semantics, null),
                 semantics_observation: _envCloneJson(row.semantics_observation, null),
+                physics_observation: _envCloneJson(row.physics_observation, null),
                 score: Number(row.score || 0),
                 scale: Number(row.scale || 1),
                 position: _envCloneJson(row.position, null)
@@ -22702,6 +22782,7 @@
                 mode: 'survey',
                 bounds: _envObserverBoundsSnapshot(bounds),
                 palette_coherence: _envObserverPaletteCoherence({}),
+                physics: _env3DPhysicsSnapshot(),
                 helper_suppression: {
                     transform_controls: true,
                     grid_helper: false
@@ -22759,6 +22840,7 @@
                 semantics: _envCloneJson(targetContext.semantics, null),
                 semantics_observation: _envCloneJson(targetContext.semantics_observation, null),
                 material_observation: _envCloneJson(targetContext.material_observation, null),
+                physics_observation: _envCloneJson(targetContext.physics_observation, null),
                 position: _env3DVectorSnapshot(targetContext.center),
                 size: _env3DVectorSnapshot(targetContext.size)
             },
@@ -22772,6 +22854,7 @@
                     semantics: _envCloneJson(ctx.semantics, null),
                     semantics_observation: _envCloneJson(ctx.semantics_observation, null),
                     material_observation: _envCloneJson(ctx.material_observation, null),
+                    physics_observation: _envCloneJson(ctx.physics_observation, null),
                     position: _env3DVectorSnapshot(ctx.center),
                     size: _env3DVectorSnapshot(ctx.size)
                 };
@@ -22912,6 +22995,7 @@
                 semantics: _envCloneJson(targetContext.semantics, null),
                 semantics_observation: _envCloneJson(targetContext.semantics_observation, null),
                 material_observation: _envCloneJson(targetContext.material_observation, null),
+                physics_observation: _envCloneJson(targetContext.physics_observation, null),
                 position: _env3DVectorSnapshot(targetContext.center),
                 size: _env3DVectorSnapshot(targetContext.size)
             },
@@ -22925,6 +23009,7 @@
                     semantics: _envCloneJson(ctx.semantics, null),
                     semantics_observation: _envCloneJson(ctx.semantics_observation, null),
                     material_observation: _envCloneJson(ctx.material_observation, null),
+                    physics_observation: _envCloneJson(ctx.physics_observation, null),
                     position: _env3DVectorSnapshot(ctx.center),
                     size: _env3DVectorSnapshot(ctx.size)
                 };
@@ -22935,6 +23020,7 @@
                 mode: 'probe',
                 bounds: _envObserverBoundsSnapshot(localBounds),
                 palette_coherence: _envObserverPaletteCoherence({ includeKeys: includeKeys }),
+                physics: _env3DPhysicsSnapshot(),
                 helper_suppression: {
                     transform_controls: true,
                     grid_helper: false
@@ -39145,7 +39231,8 @@
                     dominant_color: String(((materialObservation || {}).dominant_color_hex) || ((appearance && appearance.color) || '') || ''),
                     tint_applied: !!((materialObservation || {}).tint_applied),
                     tint_mode: String(((materialObservation || {}).tint_mode) || '')
-                }
+                },
+                physics_observation: _envScenePhysicsObservationForObject(sceneObject, mesh, objectKey)
             }
         };
     }
@@ -39358,6 +39445,8 @@
 
     window.envopsGetHabitatObjects = function () {
         return _envSceneObjectPool().map(function (obj) {
+            var objectKey = _envSceneObjectKey(obj);
+            var mesh = objectKey && _env3D.meshes ? _env3D.meshes[objectKey] : null;
             var interaction = _envSceneInteractionMeta(obj);
             var data = _envObjectData(obj);
             var character = _envSceneCharacterForObject(obj);
@@ -39383,7 +39472,7 @@
                 };
             });
             return {
-                object_key: _envSceneObjectKey(obj),
+                object_key: objectKey,
                 id: String(obj.id || ''),
                 kind: String(obj.kind || ''),
                 label: String(obj.label || ''),
@@ -39431,6 +39520,7 @@
                 } : null,
                 semantics: semantics ? _envCloneJson(semantics, null) : null,
                 semantics_observation: semanticsObservation ? _envCloneJson(semanticsObservation, null) : null,
+                physics_observation: _envScenePhysicsObservationForObject(obj, mesh, objectKey),
                 character: character ? _envCloneJson(character, null) : null,
                 embodiment: embodiment ? _envCloneJson(embodiment, null) : null,
                 retargeting: retargeting ? _envCloneJson(retargeting, null) : null
