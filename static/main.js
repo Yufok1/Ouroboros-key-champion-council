@@ -17587,6 +17587,10 @@
             return finalizeHydration();
         }
         var listLike = (toolName === 'env_read' && query === 'list') || (toolName === 'env_persist' && (op === 'load' || opStatus === 'loaded'));
+        var effects = payload.environment_effects && typeof payload.environment_effects === 'object'
+            ? payload.environment_effects
+            : {};
+        var effectUpserted = Array.isArray(effects.objects_upserted) ? effects.objects_upserted : [];
         if (Array.isArray(payload.objects)) {
             if (listLike) changed = _envReplaceCustomSceneObjects(payload.objects, source || (toolName + ':objects')) || changed;
             else {
@@ -17598,12 +17602,27 @@
             _envSceneBootstrapState.hydratedTs = Date.now();
             _envSceneBootstrapState.lastSource = String(source || toolName || 'env_objects');
             _envSceneBootstrapState.error = '';
+            var liveBootstrap = ((((payload || {}).state_excerpt || {}).live || {}).bootstrap || {});
+            var preserveEmptyHint = !!(liveBootstrap && liveBootstrap.preserve_empty);
             if (listLike && !payload.objects.length && !snapshotName) {
                 _envSceneBootstrapState.snapshotName = '';
+                _envSceneBootstrapState.preserveEmpty = preserveEmptyHint;
                 _envNavigationState.currentSnapshot = '';
             } else if (listLike && payload.objects.length) {
                 _envSceneBootstrapState.preserveEmpty = false;
             }
+        }
+        if (listLike && !Array.isArray(payload.objects) && effectUpserted.length) {
+            var effectSource = ((source ? String(source) + ':' : '') + toolName + ':effects');
+            var replacedFromEffects = _envReplaceCustomSceneObjects(effectUpserted, effectSource);
+            changed = replacedFromEffects || changed;
+            if (!replacedFromEffects) {
+                _envSceneBootstrapState.pending = false;
+                _envSceneBootstrapState.hydratedTs = Date.now();
+                _envSceneBootstrapState.lastSource = effectSource;
+                _envSceneBootstrapState.error = '';
+            }
+            _envSceneBootstrapState.preserveEmpty = false;
         }
         if (payload.object && _envIsCustomSceneKind(payload.object.kind)) {
             if (_envUpsertSpawnedObject(payload.object)) changed = true;
@@ -21252,13 +21271,18 @@
         var tool = String(event.tool || '');
         var result = _envNormalizeEnvironmentPayload(event.result || {});
         if (!result) return false;
-        if (!_envToolCarriesEnvironmentPayload(tool, result)) return false;
-        if (tool !== 'get_cached'
-            && result._cached
+        var op = String(result.operation || '').toLowerCase();
+        var opStatus = String(result.operation_status || '').toLowerCase();
+        var bareCachedEnvStub = !!(
+            result._cached
             && !_envFallbackSceneObjectFromPayload(result)
             && !(result.environment_effects && Object.keys(result.environment_effects || {}).length)
             && !Array.isArray(result.objects)
-            && !result.snapshot) {
+            && !result.snapshot
+        );
+        if (!_envToolCarriesEnvironmentPayload(tool, result)) return false;
+        if (tool !== 'get_cached'
+            && bareCachedEnvStub) {
             var activityCacheId = String(result._cached || '').trim();
             if (activityCacheId) {
                 callTool('get_cached', { cache_id: activityCacheId }, tool, {
@@ -21269,9 +21293,7 @@
         var applied = _envApplyEnvironmentPayload(result, tool, 'activity');
         var skipHydrationSyncRender = false;
         if (tool === 'env_persist') {
-            var op = String(result.operation || '').toLowerCase();
-            var opStatus = String(result.operation_status || '').toLowerCase();
-            if (op === 'load' || opStatus === 'loaded') {
+            if ((op === 'load' || opStatus === 'loaded') && !bareCachedEnvStub) {
                 var loadedSnapshot = _envSceneSnapshotNameFromPayload(result, null);
                 if (loadedSnapshot) {
                     _envSceneCommitSnapshotLoad(loadedSnapshot, null);
