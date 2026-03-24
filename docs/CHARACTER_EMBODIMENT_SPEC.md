@@ -683,50 +683,32 @@ Delivered (v128/128a/128b):
 - canonical joint map definitions
 - env_control proxy fix for `sample_now` / `toggle_stream`
 
-### v129
-
-Rapier physics substrate for world and mechanics.
-
-Deliver:
-
-- Rapier WASM integration into the Three.js runtime
-- rigid body / collider primitives for scene objects
-- gravity, collision response, and trigger volumes
-- physics-aware object contract extensions (`mechanics.physics`)
-- water buoyancy foundation (surface plane interaction)
-
-### v130
-
-Player character controller on Rapier.
-
-Deliver:
-
-- kinematic character controller (ground detection, slopes, steps)
-- input binding (keyboard/gamepad → movement intent)
-- camera follow modes (third-person, first-person, orbit)
-- collision with world geometry and other bodies
-
-### v131
-
-Retarget import lane and procedural augmentation (merged).
-
-Deliver:
-
-- VRM adapter
-- Mixamo adapter
-- generic glTF humanoid adapter
-- attachment point contract
-- grounding and stride correction
-- limited fallback locomotion
-- proxy-mode actor support
-
-Family-general rule:
-
-- the schema remains multi-family from day one even if humanoid adapters land first for speed
-
 ### v132
 
-Combat, projectiles, buoyancy, and ship controller.
+Player presence on the restored baseline.
+
+Deliver:
+
+- local player runtime state
+- Rapier-backed traversal controller
+- input binding and player camera follow mode
+- spawn / recovery path
+- player telemetry in live/shared-state payloads
+
+### v133
+
+NPC embodiment pipeline.
+
+Deliver:
+
+- runtime entity layering applied to non-player actors
+- retargeting-aware character normalization
+- embodied NPC animation/control seam
+- preserved multi-family schema direction
+
+### v134
+
+Combat, projectiles, and buoyancy.
 
 Deliver:
 
@@ -734,11 +716,8 @@ Deliver:
 - hit/death/block/talk/emote layering
 - combat-ready animation contract
 - projectile physics (Rapier raycasts or kinematic bodies)
-- `vehicle_ship` embodiment family
-- ship locomotion/controller contract (buoyancy + helm input)
-- captain agent and ship embodiment separation
 
-### v133
+### v135
 
 Attachment and equipment runtime.
 
@@ -748,7 +727,7 @@ Deliver:
 - visual snap points
 - stat and silhouette changes
 
-### v134
+### v136
 
 Commercial export pipeline.
 
@@ -759,6 +738,12 @@ Deliver:
 - GLB/FBX packaging for non-humanoid sellable families
 - LOD packaging
 - preview renders
+
+### Removed Branch Note
+
+The underdepth / cave-first branch that occupied `v129u` through `v131b` was rolled out of the active tracked runtime on 2026-03-24.
+
+Those bundle numbers are treated as consumed historical exploration, not the current embodiment roadmap.
 
 ## Non-Goals For The First Pass
 
