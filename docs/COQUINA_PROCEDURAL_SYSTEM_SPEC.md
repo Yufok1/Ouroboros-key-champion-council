@@ -667,6 +667,7 @@ Each step is independently testable and shippable.
 ### Internal
 
 - `docs/PROCEDURAL_ENVIRONMENT_GENERATION_ARCHITECTURE_2026-03-20.md` — original architecture (retained as historical design reference)
+- `docs/COQUINA_DATA_CONTRACTS_2026-03-24.md` — machine-readable contract mapping onto the existing runtime seams
 - `docs/archive/rollback-2026-03-24/CODEX_V130A_TUNING_BRIEF.md` — first mention of aggregate coquina surfaces
 - `docs/CHAMPION_COUNCIL_ROADMAP_2026-03-24.md` — current roadmap
 - `docs/CODEX_V132_SCOPE_BRIEF.md` — current v132 brief (does not depend on this spec)
