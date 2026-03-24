@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
     <title>Champion Council — Control Panel</title>
     <link rel="manifest" href="/static/manifest.json">
+    <link rel="icon" href="/static/icon.svg" type="image/svg+xml">
     <meta name="theme-color" content="#1a1a2e">
     <style>
         :root {
@@ -11028,6 +11029,7 @@
                     <strong>OpenAI-compatible endpoints</strong> (remote provider URL).
                     This keeps UI and MCP plug flows in parity around <code>plug_model</code>.
                 </div>
+                <form id="plug-provider-form" onsubmit="event.preventDefault(); doPlugProvider();">
 
                 <div class="field">
                     <label>Provider Type</label>
@@ -11126,9 +11128,10 @@
                     <input id="plug-provider-slot-name" placeholder="my-provider" />
                 </div>
                 <div class="modal-actions">
-                    <button onclick="doPlugProvider()">CONNECT</button>
-                    <button class="btn-dim" onclick="closeModals()">CANCEL</button>
+                    <button type="submit">CONNECT</button>
+                    <button type="button" class="btn-dim" onclick="closeModals()">CANCEL</button>
                 </div>
+                </form>
             </div>
         </div>
 

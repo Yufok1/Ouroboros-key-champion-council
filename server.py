@@ -26,7 +26,7 @@ from urllib.parse import urlparse, urlsplit, urlunsplit, unquote, parse_qsl
 import uvicorn
 import httpx
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse, Response, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -8381,6 +8381,16 @@ async def landing():
 @app.get("/privacy-policy", response_class=HTMLResponse)
 async def privacy_policy():
     return Path("static/privacy.html").read_text(encoding="utf-8")
+
+
+@app.get("/envops.config.json")
+async def root_envops_config():
+    return FileResponse(Path("static/envops.config.json"), media_type="application/json")
+
+
+@app.get("/favicon.ico")
+async def root_favicon():
+    return FileResponse(Path("static/logo.png"), media_type="image/png")
 
 
 @app.get("/panel", response_class=HTMLResponse)

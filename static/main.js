@@ -8564,6 +8564,10 @@
         return pool;
     }
 
+    function _envSceneRenderedObjectCount() {
+        return Number((_envSceneObjectPool() || []).length || 0);
+    }
+
     function _envSceneFindObject(kind, id) {
         var desiredKind = String(kind || '').trim();
         var desiredId = String(id || '').trim();
@@ -20690,7 +20694,7 @@
                 id: String(((_envKernel.focus || {}).id) || '')
             },
             scene: {
-                object_count: Number(((_envScene.objects || []).length) || 0),
+                object_count: _envSceneRenderedObjectCount(),
                 pickable_count: Number(((_envScene.pickables || []).length) || 0),
                 habitat_3d_count: Number(Object.keys(_env3D.meshes || {}).length || 0),
                 trigger_count: Number(Object.keys(_env3D.triggers || {}).length || 0),
@@ -21611,9 +21615,16 @@
                     }
                 } catch (e) { }
             }
-            var ox = Number(obj.x || 0);
-            var oy = Number(obj.y || 0);
-            var oz = Number((obj.data && obj.data.z) || obj.z || 0);
+            var rawPosition = typeof _env3DRawXYZFromObject === 'function'
+                ? _env3DRawXYZFromObject(obj)
+                : {
+                    x: Number(obj.x || 0),
+                    y: Number(obj.y || 0),
+                    z: Number((obj.data && obj.data.z) || obj.z || 0)
+                };
+            var ox = Number((rawPosition && rawPosition.x) || 0);
+            var oy = Number((rawPosition && rawPosition.y) || 0);
+            var oz = Number((rawPosition && rawPosition.z) || 0);
             if (isFinite(ox) && isFinite(oy) && isFinite(oz)) {
                 points.push(new THREE.Vector3(ox, oy, oz));
             }
@@ -21670,10 +21681,13 @@
     }
 
     function _envSceneObjectSpatialMetrics(sceneObject, mesh) {
+        var rawPosition = typeof _env3DRawXYZFromObject === 'function' && sceneObject
+            ? _env3DRawXYZFromObject(sceneObject)
+            : null;
         var fallbackCenter = new THREE.Vector3(
-            Number((sceneObject && sceneObject.x) || 0),
-            Number((sceneObject && sceneObject.y) || 0),
-            Number((((sceneObject || {}).data || {}).z) || (sceneObject && sceneObject.z) || 0)
+            Number((rawPosition && rawPosition.x) || (sceneObject && sceneObject.x) || 0),
+            Number((rawPosition && rawPosition.y) || (sceneObject && sceneObject.y) || 0),
+            Number((rawPosition && rawPosition.z) || (((sceneObject || {}).data || {}).z) || (sceneObject && sceneObject.z) || 0)
         );
         var fallbackSize = new THREE.Vector3(
             Math.max(1, Number((sceneObject && sceneObject.scale) || 1) * 2),
@@ -39311,7 +39325,7 @@
                 cameraMode: String(_envSceneNormalizeCameraMode(_envScene.cameraMode || (((_envConfig || {}).scene || {}).defaultCameraMode) || 'overview')),
                 workflow_id: String(_envScene.workflowId || ''),
                 execution_id: String(_envScene.executionId || ''),
-                object_count: Number(((_envScene.objects || []).length) || 0),
+                object_count: _envSceneRenderedObjectCount(),
                 route_count: Number(((_envScene.routes || []).length) || 0),
                 trajectory_count: Number(((_envScene.trajectories || []).length) || 0),
                 pickable_count: Number(((_envScene.pickables || []).length) || 0),
