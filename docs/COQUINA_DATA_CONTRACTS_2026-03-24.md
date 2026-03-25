@@ -13,6 +13,8 @@ This document is intentionally narrower than the coquina system spec. It answers
 
 How do coquina atoms, affixes, palette evolution, and checkpoints fit into the runtime that already exists?
 
+The answer is scenographic, not engine-forking: coquina emits canonical scene objects into the existing substrate.
+
 ## Non-Redundancy Rule
 
 Coquina extends the current environment runtime. It does not replace it.

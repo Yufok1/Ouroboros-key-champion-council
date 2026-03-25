@@ -1,9 +1,21 @@
 # Champion Council Roadmap
 
 Status: Active
-Date: 2026-03-24
+Date: 2026-03-25
 Baseline commit: `abc2774`
 Runtime baseline: restored pre-underdepths environment runtime with generic fixes reapplied
+
+## Canonical Identity
+
+Champion Council is a self-verifying AI capsule with an inhabitable spatial substrate, a sandboxed agent workspace, and a live operational theater.
+
+Its three fused surfaces are:
+
+- spatial substrate
+- agent workspace
+- verifiable runtime
+
+Champion Council is not a game engine, simulation engine, or fixed VFX pipeline. It is inhabitable procedural media with agent co-presence.
 
 ## Current Position
 
@@ -14,10 +26,11 @@ The tracked code no longer includes the underdepth / cave-first procedural gener
 The live baseline at `abc2774` keeps:
 
 - environment theater and live mirror
-- Rapier initialization and physics scaffold
+- optional Rapier scaffold
 - world profiles and profile kits
 - asset ingestion and pack registry
 - observer / bounds / scene-truth systems
+- behavior-driven movement seams for agent-like objects
 - generic runtime fixes reapplied after restore
 
 The baseline does not keep:
@@ -27,6 +40,15 @@ The baseline does not keep:
 - procedural recipe / vocab files
 - `generate_scene` / `clear_generated_scene`
 - cave-first scoring and archetype thresholds
+
+## Facilities and Workstations
+
+Facilities and workstations are the preferred organizing language for Champion Council.
+
+- A facility is a capability blueprint the substrate may activate
+- A workstation is a bound instance of that facility in the current environment
+
+Physics, palette evolution, spatial theater, agent presence, export, and diagnostics should be treated as optional facilities. They can be inhaled when useful, left dormant when not, and recombined without forcing the whole system through a fixed engine hierarchy.
 
 ## Four Phases
 
@@ -40,7 +62,7 @@ Delivered:
 - local/capsule orchestration
 - health, activity, and tool surfaces
 
-### Phase 2 — Productionalized Environment Runtime
+### Phase 2 — Operational Environment Runtime
 
 Status: In progress
 
@@ -58,7 +80,7 @@ Open:
 - cleaner product-facing docs
 - tighter runtime verification loops
 
-### Phase 3 — Embodiment and World Runtime
+### Phase 3 — Agent Presence and Embodiment
 
 Status: Active
 
@@ -66,22 +88,23 @@ This is the current execution lane.
 
 Focus:
 
-- player presence
-- NPC embodiment
-- combat/mechanics
-- equipment/runtime assembly
+- agent spatial presence
+- inhabitant embodiment
+- optional interaction/mechanics facilities
+- attachment/runtime assembly
 - clean procgen rebuild from a neutral ontology
 
-### Phase 4 — Agent Sim / Game Runtime
+### Phase 4 — Agent Co-Presence and World Evolution
 
 Status: Future
 
 Focus:
 
 - agent societies
-- dynamic encounters
-- player + AI co-presence
+- human + agent co-presence
+- dynamic encounters when useful
 - broader world evolution loops
+- richer facility orchestration
 
 ## Version Map
 
@@ -91,7 +114,7 @@ The active shipped baseline is `abc2774`, built on `e9e9a39`.
 
 This baseline includes:
 
-- physics scaffold
+- optional physics scaffold
 - live/shared-state mirror
 - world profiles
 - asset pipeline
@@ -108,39 +131,40 @@ The following line is no longer part of the active tracked runtime:
 - `v131a` passage archetype expansion
 - `v131b` cave scoring recalibration
 
-These artifacts are archived under `docs/archive/rollback-2026-03-24/`.
+Historical artifacts may exist locally under `docs/archive/rollback-2026-03-24/`, but they are not part of the canonical tracked runtime doctrine unless explicitly committed later.
 
 ### Next Active Milestones
 
-#### v132 — Player Presence + Character Controller
+#### v132 — Agent Spatial Presence
 
 Target:
 
-- local player runtime state
-- Rapier-backed traversal controller
-- camera binding for player mode
+- local inhabitant runtime state
+- visible inhabitant entity in the scene graph
+- behavior-driven movement via existing locomotion lanes
+- camera binding for inhabitant presence mode
 - spawn / recovery path
-- live mirror exposure for player telemetry
+- live mirror exposure for inhabitant telemetry
 
-#### v133 — NPC Embodiment Pipeline
+#### v133 — Inhabitant Embodiment Pipeline
 
 Target:
 
 - canonical runtime entity lane
-- embodied NPC instances
+- embodied inhabitant instances
 - retargeting-aware character normalization
 - animation/control seam for non-player actors
 
-#### v134 — Combat + Projectiles + Buoyancy
+#### v134 — Optional Interaction and Physics Facilities
 
 Target:
 
-- combat-ready action state
-- projectile simulation
-- water interaction and buoyancy
-- mechanics integration with embodiment runtime
+- action-ready runtime state
+- optional projectile or physics-backed interaction facilities when justified
+- optional water interaction and buoyancy facilities when justified
+- mechanics integration with embodiment runtime only when a live facility needs them
 
-#### v135 — Attachment + Equipment Runtime
+#### v135 — Attachment + Equipment Facility
 
 Target:
 
@@ -169,6 +193,7 @@ Return conditions:
 
 - rebuild from a neutral world ontology
 - emit canonical scene objects into the existing substrate
+- serve as generative scenography, not a fixed level-design pipeline
 - support multiple world families instead of one archetype family
 - include runtime contracts and audit tooling from the start
 
@@ -179,6 +204,7 @@ Design reference:
 ## Immediate Priorities
 
 1. Keep the restored runtime stable on `abc2774`
-2. Write and execute `v132` against the restored baseline
-3. Update embodiment/runtime docs so version numbering matches reality
-4. Rebuild procedural generation later as a general scene system, not a cave-first system
+2. Maintain the canonical identity: spatial substrate, agent workspace, verifiable runtime
+3. Write and execute `v132` as agent spatial presence, not a player controller
+4. Reconcile embodiment/runtime docs so facilities remain optional and version numbering matches reality
+5. Rebuild procedural generation later as a general scene system, not a cave-first system

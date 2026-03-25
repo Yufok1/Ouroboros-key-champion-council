@@ -8,9 +8,11 @@ Supersedes: `docs/PROCEDURAL_ENVIRONMENT_GENERATION_ARCHITECTURE_2026-03-20.md` 
 
 ## Purpose
 
-Define the canonical architecture for Champion Council's next-generation procedural environment system.
+Define the canonical architecture for Champion Council's next-generation procedural environment and scenography system.
 
-This system replaces the removed cave-first generator (v129u–v131b). It is not a patch on that system. It is a new foundation built on the lessons from that branch and from external research into procedural modeling, perceptual color systems, compositional scene models, and dependency-aware generation pipelines.
+This system replaces the removed cave-first generator (v129u-v131b). It is not a patch on that system. It is a new foundation built on the lessons from that branch and from external research into procedural modeling, perceptual color systems, compositional scene models, and dependency-aware generation pipelines.
+
+Coquina should be treated as generative scenography for inhabitable procedural media, not as a fixed level-design pipeline.
 
 ## Core Thesis
 

@@ -606,19 +606,20 @@ Rule:
 
 ## Physics Runtime Note
 
-This spec does not hard-lock a physics engine yet because no dedicated physics runtime is currently integrated in this codebase.
+This spec does not hard-lock a physics engine.
 
-Near-term preferred candidate:
+The current codebase already contains an optional Rapier scaffold for init, step, and snapshot surfaces, but embodiment does not require physics to be active.
 
-- `cannon-es` for rigid bodies, constraints, buoyancy approximation, and ragdoll scaffolding
+Physics is an inhaled facility, not a baseline dependency.
 
-Possible higher-fidelity alternative if later justified:
+Implementation rules:
 
-- `ammo.js`
+- keep `physics_profile` schema engine-agnostic
+- map `physics_profile` onto the active facility only when a world or experience actually needs physics
+- do not make gravity, rigid bodies, or collision mandatory for first-pass inhabitant presence
+- leave the existing Rapier seam dormant until a concrete facility justifies activating it
 
-Implementation rule:
-
-- keep `physics_profile` schema engine-agnostic until the actual runtime dependency is introduced
+If a future facility needs higher-fidelity physics, evaluate that separately instead of hard-locking the embodiment architecture now.
 
 ## Migration Rules
 
@@ -685,19 +686,20 @@ Delivered (v128/128a/128b):
 
 ### v132
 
-Player presence on the restored baseline.
+Agent spatial presence on the restored baseline.
 
 Deliver:
 
-- local player runtime state
-- Rapier-backed traversal controller
-- input binding and player camera follow mode
+- local inhabitant runtime state
+- visible inhabitant presence in the scene graph
+- behavior-driven movement through existing locomotion seams
+- input/camera binding for inhabitant follow mode
 - spawn / recovery path
-- player telemetry in live/shared-state payloads
+- inhabitant telemetry in live/shared-state payloads
 
 ### v133
 
-NPC embodiment pipeline.
+Inhabitant embodiment pipeline.
 
 Deliver:
 
@@ -708,14 +710,14 @@ Deliver:
 
 ### v134
 
-Combat, projectiles, and buoyancy.
+Optional interaction and physics facilities.
 
 Deliver:
 
 - locomotion/action separation
 - hit/death/block/talk/emote layering
-- combat-ready animation contract
-- projectile physics (Rapier raycasts or kinematic bodies)
+- interaction-ready animation contract
+- projectile or buoyancy hooks only when an active facility explicitly needs them
 
 ### v135
 
@@ -763,7 +765,7 @@ When implementation begins, the first coding pass should:
 2. preserve the current character inspector and asset browser behavior
 3. keep `appearance.asset_ref` canonical for rendering
 4. add a family registry for rig definitions
-5. avoid breaking current NPC spawn, clip resolution, or sprite layering
+5. avoid breaking current inhabitant spawn, clip resolution, or sprite layering
 
 ## Quick Start
 

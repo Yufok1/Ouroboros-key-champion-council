@@ -1,7 +1,7 @@
-# Codex v132 Scope Brief — Player Presence on Restored Baseline
+# Codex v132 Scope Brief — Agent Spatial Presence on Restored Baseline
 
 Prepared by: Codex
-Date: 2026-03-24
+Date: 2026-03-25
 Base commit: `abc2774`
 Base runtime: restored pre-underdepths baseline
 Target bundle: `132`
@@ -10,23 +10,25 @@ Target bundle: `132`
 
 The runtime has been rolled back to a pre-underdepths baseline and then patched with a small set of generic fixes.
 
-This means `v132` is no longer "player presence on top of a cave generator." It is now "player presence on top of the restored general environment runtime."
+This means `v132` is no longer "player presence on top of a cave generator." It is now "agent spatial presence on top of the restored general environment runtime."
 
 The current live baseline already has:
 
 - environment theater
 - live/shared-state mirror
-- Rapier initialization and physics stepping
+- optional Rapier scaffold
 - world profiles and strata
 - asset-driven scene composition
 - observer / bounds / verification substrate
+- agent-kind visual support
+- behavior-driven movement seams for agent-like objects
 
 The current live baseline does not have:
 
-- a first-class local player entity
-- traversal mode
-- player camera binding
-- player telemetry in live/shared payloads
+- a first-class inhabitant runtime state
+- a canonical local agent presence toggle
+- clean inhabitant camera binding
+- inhabitant telemetry in live/shared payloads
 
 ## Existing Runtime Surfaces
 
@@ -37,6 +39,9 @@ These surfaces already exist in `static/main.js` at `abc2774`:
 - `_env3DPhysicsSnapshot()` at `21444`
 - `_env3DInitPhysics(RAPIER)` at `21477`
 - `_env3DEnsurePhysicsInit()` at `21502`
+- `_env3DIsAgentKind(kind)` at `24119`
+- `_env3DAdvanceCharacterBehavior(mesh, obj, dt)` at `27402`
+- `_env3DAdvanceMeshLocomotion(mesh, key, dt, isAgent)` at `27477`
 - `_envWorldProfiles` at `24743`
 - `_env3DSyncObjects(objects)` at `29915`
 - `_env3DAnimate()` at `30275`
@@ -46,79 +51,95 @@ Implementation should extend these surfaces, not create a second runtime lane.
 
 ## v132 Deliverables
 
-### 1. Player Runtime State
+### 1. Inhabitant Runtime State
 
-Add a first-class local player state with at least:
+Add a first-class local inhabitant state with at least:
 
 - `enabled`
 - `mode`
 - `position`
-- `velocity`
-- `yaw`
-- `pitch`
-- `grounded`
+- `facing`
+- `behavior`
+- `visual_mode`
+- `activity`
+- `camera_binding`
 - `spawn_source`
 
 This state must be visible through the live/shared-state payload.
 
-### 2. Rapier-Backed Controller
+### 2. Visible Inhabitant
 
-Add a player body that uses the existing Rapier world:
+Add one canonical inhabitant entity to the scene graph:
 
-- initialize physics on demand when player mode activates
-- create a dedicated player rigid body / collider
-- collide against the current environment
-- support gravity and recovery without falling through the world
+- use the existing object contract and agent-kind rendering surfaces
+- choose the cheapest legible representation that works now: sprite, marker, or mesh
+- keep the representation interchangeable so richer embodiment can replace it later
+- do not fork a second object model just for inhabitant presence
 
-Do not create a second physics world.
+### 3. Behavior-Driven Movement
 
-### 3. Traversal Input + Camera Binding
+Use the existing non-physics locomotion seams:
 
-Add a minimal traversal mode to the theater:
+- idle
+- goto
+- patrol
+- wander
+- follow
 
-- movement input
-- look input
-- player-follow camera while active
-- clean return to current free/orbit behavior when disabled
+The first pass should favor deterministic, visually legible movement over rigid body realism.
 
-The first pass should favor reliability over polish.
+For the canonical inhabitant lane, default presence should be idle / anchored until an explicit command or objective is assigned. Ambient random wandering is not the default operating mode.
 
-### 4. Spawn / Recovery Path
+Do not make Rapier a dependency of `v132`.
 
-Add deterministic player placement:
+### 4. Camera Binding + Entry / Exit
+
+Add a minimal inhabitant presence mode to the theater:
+
+- camera can follow the inhabitant while active
+- camera can return cleanly to current overview/orbit behavior when disabled
+- inhabitant presence can be entered and exited cleanly
+- the active camera relationship is visible in runtime state
+
+### 5. Spawn / Recovery Path
+
+Add deterministic inhabitant placement:
 
 - safe spawn in the active scene
-- floor-aware fallback if no ideal spawn exists
-- recovery if the player leaves valid bounds or physics setup fails
+- bounded fallback if no authored spawn exists
+- recovery if the inhabitant leaves valid space or route planning fails
+- no cave-, generator-, or player-start-specific assumptions
 
-This must work without assuming a cave or generator-specific entry point.
+### 6. Mirror / Debug Visibility
 
-### 5. Mirror / Debug Visibility
+Expose inhabitant telemetry through the existing mirror/debug path:
 
-Expose player telemetry through the existing mirror/debug path:
-
-- current player state in live/shared payloads
-- player physics summary
-- clear indicator that player mode is active
+- current inhabitant state in live/shared payloads
+- current behavior and camera-binding summary
+- clear indicator that inhabitant presence is active
+- enough data to verify behavior over MCP, not only by visual inspection
 
 Verification must be possible over MCP, not only by visual inspection.
 
 ## What Not To Do
 
 - Do not rebuild procedural generation in `v132`
-- Do not add NPC embodiment yet
-- Do not add combat or projectiles yet
+- Do not add broader multi-inhabitant embodiment yet
+- Do not add combat, projectiles, or equipment yet
 - Do not add equipment runtime yet
 - Do not replace the entire camera architecture
+- Do not make physics mandatory
+- Do not create a second movement/runtime model
 - Do not introduce cave- or underdepth-specific assumptions
 
 ## Success Criteria
 
-1. Player mode can be entered from the restored theater runtime
-2. Rapier initializes and the player can traverse active scenes without falling through the floor
-3. Live/shared-state payloads expose player position, velocity, and grounded state
-4. The restored runtime remains healthy on local startup and MCP sync
-5. Existing asset-driven scenes remain stable while player mode is active
+1. Inhabitant presence can be entered from the restored theater runtime
+2. A visible inhabitant can be observed in active scenes without introducing a second runtime lane
+3. Existing behavior-driven movement seams can move the inhabitant through authored scenes
+4. Live/shared-state payloads expose inhabitant position, behavior, and camera-binding state
+5. The restored runtime remains healthy on local startup and MCP sync
+6. Existing asset-driven scenes remain stable while inhabitant presence is active
 
 ## Verification Criteria
 
@@ -126,9 +147,10 @@ Verify against the actual restored runtime, not archived cave fixtures:
 
 - local server boots cleanly on the configured ports
 - panel and health endpoints remain healthy
-- player mode can be entered and exited cleanly
-- observer/live-mirror payloads remain valid while the player moves
+- inhabitant presence can be entered and exited cleanly
+- observer/live-mirror payloads remain valid while the inhabitant moves
 - no new bounds/coordinate regressions are introduced
+- no physics dependency is required for the first pass
 
 ## File Touchpoints
 
@@ -144,4 +166,5 @@ Possible secondary touchpoints if needed:
 ## Notes
 
 - The archived cave-era `v132` brief is historical only and should not be used as the active scope source.
-- If procedural generation returns later, it should be rebuilt as a neutral world system, not used as the validation substrate for `v132`.
+- Rapier remains available as a dormant facility. It is not the validation substrate for `v132`.
+- If procedural generation returns later, it should be rebuilt as generative scenography that emits canonical scene objects into the existing substrate.
