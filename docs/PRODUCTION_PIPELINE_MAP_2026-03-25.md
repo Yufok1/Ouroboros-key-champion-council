@@ -1,0 +1,361 @@
+# Production Pipeline Map
+
+Status: Active
+Date: 2026-03-25
+Scope: End-to-end production requirements for Champion Council from empty substrate to sellable product
+
+## Purpose
+
+Map the full production trajectory in concrete terms:
+
+- what must be authored
+- what must be implemented
+- what must be validated
+- what must be exported
+- what must be documented for buyers and operators
+
+This document is not a replacement for the roadmap. It is the execution map that sits between doctrine and implementation.
+
+## Current Truth
+
+Champion Council already has:
+
+- canonical identity and product framing
+- character-first product contract docs
+- `v132` inhabitant presence
+- grounding/perception v1 beginnings
+- an empty substrate with no saved scenes
+
+Champion Council does not yet have:
+
+- a canonical validation habitat
+- fully hardened grounding/perception
+- buyer-facing HTTP command facade
+- engine adapter docs
+- embodiment import/export pipeline
+- commercial packaging pipeline
+
+## Production Classes
+
+### 1. Capsule-Free Products
+
+Deliverable is a baked artifact. No live runtime required by the buyer.
+
+Examples:
+
+- GLB / VRM / FBX character assets
+- baked environment scenes
+- scenographic kits
+- rendered media
+- metadata packs
+
+### 2. Capsule-Optional Products
+
+Deliverable works as plain content, but gains behavior when paired with the capsule runtime.
+
+Examples:
+
+- character pack + optional live behavior companion
+- environment bundle + optional inhabited mode
+- scenographic kit + optional generator/runtime companion
+
+### 3. Capsule-Required Products
+
+Behavior is part of the product.
+
+Examples:
+
+- inhabited character products
+- coordinated character packs
+- inhabited environments
+- agent API/runtime products
+
+## Required Production Lanes
+
+Everything we ship will pass through some combination of the following lanes.
+
+### A. Doctrine and Contracts
+
+Required outputs:
+
+- identity doctrine
+- roadmap
+- product manifest spec
+- manifest schema
+- command registry
+- template spec per product family
+
+Purpose:
+
+- keep architecture honest
+- prevent squad-first drift
+- define the buyer contract before adapter work
+
+### B. Runtime Foundation
+
+Required outputs:
+
+- stable theater/runtime seams
+- live mirror
+- persistence loop
+- environment control surface
+- workflow execution substrate
+
+Purpose:
+
+- keep the product reconstructable
+- keep behavior observable
+- keep later export and debugging grounded in one runtime
+
+### C. Validation Habitat
+
+Required outputs:
+
+- one canonical test habitat built from zero
+- support surfaces explicitly authored
+- blocker classes explicitly represented
+- clean sightlines for perception tests
+- repeatable spawn, recovery, and camera probes
+
+Purpose:
+
+- provide a trusted environment for Path A
+- stop testing new runtime work in polluted showcase scenes
+
+### D. Character Runtime
+
+Required outputs:
+
+- inhabitant runtime state
+- spawn / despawn / focus control path
+- behavior execution lane
+- grounded placement
+- perception state
+- spectator/debug surfaces
+
+Purpose:
+
+- turn the character product from document to runtime entity
+
+### E. Facility and Workflow Surface
+
+Required outputs:
+
+- workstation bindings
+- facility blueprints
+- workflow bindings to workstations
+- typed surfaces for operator interaction
+- artifact/report output rules
+
+Purpose:
+
+- make rooms and objects functional, not merely visual
+- give product commands real internal execution targets
+
+### F. Buyer API Surface
+
+Required outputs:
+
+- HTTP JSON command facade
+- OpenAPI contract
+- command payload schemas
+- runtime-to-command binding layer
+
+Purpose:
+
+- expose `character.*` without exposing raw tool internals
+
+### G. Embodiment and Asset Lane
+
+Required outputs:
+
+- rig-family normalization
+- attachment-point contract
+- animation contract
+- asset import policy
+- export normalization for GLB-first delivery
+
+Purpose:
+
+- support portable character products instead of one-off demo bodies
+
+### H. Product Packaging
+
+Required outputs:
+
+- bundle profiles
+- deployment payload
+- previews and thumbnails
+- metadata and provenance
+- packaging rules for free / optional / required products
+
+Purpose:
+
+- move from internal runtime to distributable products
+
+### I. Buyer Integration and Support
+
+Required outputs:
+
+- Unity notes
+- Godot notes
+- Unreal notes
+- sample requests
+- operator runbooks
+
+Purpose:
+
+- let a buyer evaluate quickly without learning MCP internals
+
+## What Must Be Produced
+
+At minimum, the production pipeline must eventually emit all of the following categories.
+
+### Specs and Schemas
+
+- product manifest spec
+- manifest JSON schema
+- command registry
+- runtime specs
+- habitat specs
+- facility specs
+- adapter specs
+
+### Runtime Code
+
+- theater/runtime seams
+- inhabitant control and state
+- perception and grounding
+- facility/workflow execution glue
+- command facade
+
+### Scene and Habitat Assets
+
+- validation habitat
+- showcase/demo habitats
+- product-ready environments
+- captured visual references
+
+### Product Artifacts
+
+- character manifests
+- environment manifests
+- bundle exports
+- preview media
+- metadata packs
+
+### Verification Surfaces
+
+- live mirror fields
+- capture/probe workflows
+- validation checklists
+- gate criteria
+
+### Buyer-Facing Materials
+
+- OpenAPI docs
+- engine integration notes
+- packaging/install guidance
+- licensing/provenance statements
+
+## Production Gates
+
+Every lane should have a gate, not just a vague milestone.
+
+### Gate 1: Contract Ready
+
+Pass when:
+
+- the product contract is documented
+- schema validates
+- command vocabulary is stable enough to target
+
+### Gate 2: Runtime Presence Ready
+
+Pass when:
+
+- one inhabitant exists in the theater
+- it can be spawned, focused, and removed
+- mirror state is complete enough for debugging
+
+### Gate 3: Validation Habitat Ready
+
+Pass when:
+
+- the habitat is built from zero
+- support/blocker/perception cases are deliberate
+- the scene is clean enough for repeated runtime testing
+
+### Gate 4: Grounding/Perception Ready
+
+Pass when:
+
+- inhabitant does not spawn under scenery
+- support surface is reported correctly
+- visible/occluded object state is exposed
+
+### Gate 5: Buyer API Ready
+
+Pass when:
+
+- HTTP facade exists
+- OpenAPI exists
+- character commands round-trip cleanly
+
+### Gate 6: Portable Character Ready
+
+Pass when:
+
+- embodiment import/export rules are stable
+- animation/rig/attachment contracts are explicit
+
+### Gate 7: Product Export Ready
+
+Pass when:
+
+- a product bundle can be generated deterministically
+- required metadata and preview assets exist
+
+## Recommended Execution Order
+
+This is the current honest build order.
+
+1. Finish Path A in runtime code.
+2. Build the canonical validation habitat from zero.
+3. Validate grounding/perception in that habitat until stable.
+4. Commit the current grounding follow-up.
+5. Add the buyer-facing HTTP command facade.
+6. Write engine adapter docs.
+7. Move into embodiment import/export and product packaging.
+
+## Environment Authoring Pattern
+
+Use the environment tools in their canonical order:
+
+- `env_spawn -> env_mutate -> env_persist`
+- `env_spawn -> workstation_bind -> env_persist`
+- `env_read -> env_control`
+
+This matters because the validation habitat should be intentionally authored and reconstructable, not improvised from transient mutations.
+
+## Immediate Deliverables
+
+The next deliverables should be:
+
+- one canonical validation habitat spec
+- one canonical validation habitat scene built from zero
+- completed grounding/perception follow-up commit
+- a short validation checklist for inhabitant tests
+
+## Non-Goals Right Now
+
+Do not mix these into the immediate foundation pass:
+
+- multi-inhabitant orchestration
+- combat
+- equipment
+- procgen rebuild
+- cinematic polish
+- rich showcase world building
+
+The next useful environment is a test habitat, not a content scene.
