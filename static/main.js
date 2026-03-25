@@ -976,6 +976,17 @@
     var _ENV_INHABITANT_OBJECT_ID = 'resident_primary';
     var _ENV_INHABITANT_LABEL = 'Resident Inhabitant';
 
+    function _envCreateInhabitantPerceptionState() {
+        return {
+            fov_degrees: 110,
+            sight_range: 22,
+            visible_object_keys: [],
+            visible_focus_key: '',
+            occluded_object_keys: [],
+            last_seen: {}
+        };
+    }
+
     function _envCreateInhabitantRuntimeState() {
         return {
             enabled: false,
@@ -993,8 +1004,12 @@
             visual_mode: 'none',
             activity: 'dormant',
             camera_binding: '',
+            grounded: false,
+            support_key: '',
+            support_kind: '',
             spawn_source: '',
             spawn_point: { x: 50, y: 52 },
+            perception: _envCreateInhabitantPerceptionState(),
             last_spawn_ts: 0,
             last_update_ts: 0
         };
@@ -8677,6 +8692,109 @@
         return seed;
     }
 
+    function _envRuntimeSemanticContextForObject(obj) {
+        if (!obj || typeof obj !== 'object') {
+            return {
+                kind: '',
+                data: {},
+                semantics: {},
+                observation: {},
+                role: '',
+                placement_intent: '',
+                priority: '',
+                haystack: ''
+            };
+        }
+        var data = _envObjectData(obj);
+        var semantics = _envSceneSemanticsForObject(obj) || {};
+        var observation = _envSceneSemanticObservationForObject(obj) || {};
+        var role = String(semantics.role || observation.role || data.role || '').trim().toLowerCase();
+        var placementIntent = String(semantics.placement_intent || observation.placement_intent || data.placement_intent || data.placementIntent || '').trim().toLowerCase();
+        var priority = String(semantics.priority || observation.priority || data.priority || '').trim().toLowerCase();
+        return {
+            kind: String(obj.kind || '').trim().toLowerCase(),
+            data: data,
+            semantics: semantics,
+            observation: observation,
+            role: role,
+            placement_intent: placementIntent,
+            priority: priority,
+            haystack: _envSceneSemanticHaystack([
+                String(obj.kind || '').trim().toLowerCase(),
+                role,
+                placementIntent,
+                priority,
+                obj.label,
+                obj.meta,
+                obj.category,
+                data.category,
+                data.asset_kind,
+                data.asset_name,
+                data.asset_pack_name,
+                data.asset_pack_id,
+                data.asset_id,
+                data.role,
+                data.kind,
+                data.type,
+                data.summary,
+                data.semantics_family,
+                Array.isArray(semantics.anchors) ? semantics.anchors : [],
+                Array.isArray(observation.anchors) ? observation.anchors : [],
+                Array.isArray(semantics.supports) ? semantics.supports : [],
+                Array.isArray(observation.supports) ? observation.supports : [],
+                Array.isArray(data.tags) ? data.tags : [],
+                Array.isArray(data.keywords) ? data.keywords : []
+            ])
+        };
+    }
+
+    function _envRuntimeBlockerProfileForObject(obj) {
+        var ctx = _envRuntimeSemanticContextForObject(obj);
+        var data = ctx.data || {};
+        var rawClass = data.blocker_class !== undefined ? data.blocker_class
+            : (data.blockerClass !== undefined ? data.blockerClass
+                : (obj && obj.blocker_class !== undefined ? obj.blocker_class : (obj ? obj.blockerClass : undefined)));
+        var explicitSupport = data.support_surface === true
+            || data.supportSurface === true
+            || data.walkable_surface === true
+            || data.walkableSurface === true
+            || (obj && (obj.support_surface === true || obj.supportSurface === true || obj.walkable_surface === true || obj.walkableSurface === true));
+        var blockerClass = '';
+        var role = ctx.role;
+        var haystack = ctx.haystack;
+        if (rawClass !== undefined && rawClass !== null) {
+            blockerClass = String(rawClass || '').trim().toLowerCase();
+        }
+        if (!/^(support|solid|overhead|decorative|soft|portal)$/.test(blockerClass)) {
+            if (explicitSupport) blockerClass = 'support';
+            else if (ctx.kind === 'tile' || ctx.kind === 'substrate') blockerClass = 'support';
+            else if (ctx.kind === 'zone' || ctx.kind === 'decal' || ctx.kind === 'marker') blockerClass = 'decorative';
+            else if (ctx.kind === 'vegetation_patch') blockerClass = 'soft';
+            else if (role === 'floor' || role === 'transition' || role === 'path' || role === 'platform') blockerClass = 'support';
+            else if (role === 'portal' || _envSceneSemanticHasAny(haystack, ['portal', 'gate', 'door', 'archway', 'entrance', 'exit', 'threshold'])) blockerClass = 'portal';
+            else if (role === 'ceiling' || _envSceneSemanticHasAny(haystack, ['ceiling', 'roof', 'overhang', 'canopy'])) blockerClass = 'overhead';
+            else if (_envSceneSemanticHasAny(haystack, ['floor', 'ground', 'foundation', 'base', 'deck', 'platform', 'walkway', 'path', 'road'])) blockerClass = 'support';
+            else if (_envSceneSemanticHasAny(haystack, ['water', 'river', 'pool', 'lake', 'ocean', 'sump', 'grass', 'moss', 'pebble', 'rubble', 'debris'])) blockerClass = 'soft';
+            else if (_envSceneSemanticHasAny(haystack, ['light', 'torch', 'lamp', 'lantern', 'beacon', 'fire', 'brazier', 'brazer'])) blockerClass = 'decorative';
+            else if (_env3DIsAgentKind(ctx.kind) || role === 'agent') blockerClass = 'soft';
+            else blockerClass = 'solid';
+        }
+        return {
+            object_key: _envSceneObjectKey(obj),
+            kind: ctx.kind,
+            role: role,
+            placement_intent: ctx.placement_intent,
+            priority: ctx.priority,
+            blocker_class: blockerClass,
+            support_surface: blockerClass === 'support',
+            traversal_blocking: blockerClass === 'solid' || blockerClass === 'overhead',
+            sight_blocking: blockerClass === 'solid' || blockerClass === 'overhead',
+            salient: blockerClass !== 'support' && blockerClass !== 'decorative',
+            explicit_support: !!explicitSupport,
+            haystack: haystack
+        };
+    }
+
     function _envInhabitantSupportHitsAtWorld(worldX, worldZ) {
         if (typeof THREE === 'undefined' || !_env3D || !_env3D.inited) return [];
         if (!_env3D.inhabitantSupportRaycaster) _env3D.inhabitantSupportRaycaster = new THREE.Raycaster();
@@ -8687,16 +8805,17 @@
         );
         var hits = [];
         var supportMeshes = [];
-        if (_env3D.terrain) supportMeshes.push({ mesh: _env3D.terrain, object: null, support_kind: 'terrain' });
         Object.keys(_env3D.meshes || {}).forEach(function (key) {
             var mesh = _env3D.meshes[key];
             if (!mesh || mesh.visible === false || !mesh.userData) return;
             var kind = String(mesh.userData.kind || '').trim().toLowerCase();
             if (!kind || _env3DIsAgentKind(kind)) return;
-            if (kind === 'zone' || kind === 'decal' || kind === 'marker' || kind === 'vegetation_patch') return;
+            var sceneObj = mesh.userData.sceneObject || null;
+            var profile = sceneObj ? _envRuntimeBlockerProfileForObject(sceneObj) : null;
+            if (profile && !profile.support_surface && !profile.traversal_blocking) return;
             supportMeshes.push({
                 mesh: mesh,
-                object: mesh.userData.sceneObject || null,
+                object: sceneObj,
                 support_kind: kind
             });
         });
@@ -8722,36 +8841,30 @@
         return hits;
     }
 
-    function _envInhabitantSupportHeightAtWorld(worldX, worldZ, fallbackY) {
+    function _envInhabitantSupportRecordAtWorld(worldX, worldZ, fallbackY) {
         var fallback = Number(fallbackY || 0);
         var hits = _envInhabitantSupportHitsAtWorld(worldX, worldZ);
         for (var i = 0; i < hits.length; i++) {
             var hit = hits[i];
             var obj = hit.object;
-            if (!obj) {
-                if (hit.support_kind === 'terrain') return Number(hit.point.y || fallback);
-                continue;
-            }
-            var kind = String(obj.kind || '').trim().toLowerCase();
-            var semantics = _envSceneSemanticsForObject(obj) || {};
-            var observation = _envSceneSemanticObservationForObject(obj) || {};
-            var role = String(semantics.role || observation.role || '').trim().toLowerCase();
-            var placementIntent = String(semantics.placement_intent || observation.placement_intent || '').trim().toLowerCase();
-            var haystack = _envSceneSemanticHaystack([
-                role,
-                placementIntent,
-                obj.label,
-                obj.meta,
-                obj.category,
-                ((_envObjectData(obj) || {}).category)
-            ]);
-            if (kind === 'tile' || kind === 'substrate') return Number(hit.point.y || fallback);
-            if (role === 'floor' || role === 'transition' || role === 'path' || role === 'platform') return Number(hit.point.y || fallback);
-            if (_envSceneSemanticHasAny(haystack, ['floor', 'ground', 'foundation', 'base', 'deck', 'platform', 'walkway', 'path', 'road', 'terrain'])) {
-                return Number(hit.point.y || fallback);
-            }
+            if (!obj || typeof obj !== 'object') continue;
+            var profile = _envRuntimeBlockerProfileForObject(obj);
+            if (!profile.support_surface) continue;
+            return {
+                grounded: true,
+                support_key: String(profile.object_key || ''),
+                support_kind: String(profile.kind || hit.support_kind || ''),
+                support_class: String(profile.blocker_class || 'support'),
+                support_y: Number((hit.point && hit.point.y) || fallback)
+            };
         }
-        return fallback;
+        return {
+            grounded: false,
+            support_key: '',
+            support_kind: '',
+            support_class: '',
+            support_y: fallback
+        };
     }
 
     function _envInhabitantSnapMeshToSupport(mesh, fallbackY) {
@@ -8759,7 +8872,8 @@
         if (typeof mesh.updateWorldMatrix === 'function') mesh.updateWorldMatrix(true, true);
         var box = new THREE.Box3().setFromObject(mesh);
         var currentMinY = isFinite(box.min.y) ? Number(box.min.y || 0) : Number(mesh.position.y || 0);
-        var supportY = _envInhabitantSupportHeightAtWorld(mesh.position.x, mesh.position.z, Number(fallbackY || currentMinY));
+        var support = _envInhabitantSupportRecordAtWorld(mesh.position.x, mesh.position.z, Number(fallbackY || currentMinY));
+        var supportY = Number((support || {}).support_y || fallbackY || currentMinY);
         if (!isFinite(supportY)) supportY = Number(fallbackY || currentMinY || 0);
         var delta = (supportY + 0.02) - currentMinY;
         if (Math.abs(delta) > 0.001) {
@@ -8767,6 +8881,9 @@
             mesh.userData._targetY = Number(mesh.position.y || 0);
             mesh.userData.baseY = Number(mesh.position.y || 0);
         }
+        mesh.userData._grounded = !!((support || {}).grounded);
+        mesh.userData._supportKey = String(((support || {}).support_key) || '');
+        mesh.userData._supportKind = String(((support || {}).support_kind) || '');
         return Number(mesh.position.y || fallbackY || 0);
     }
 
@@ -8796,6 +8913,175 @@
             && String(focus.id || '') === _ENV_INHABITANT_OBJECT_ID
             ? 'follow_focus'
             : '';
+    }
+
+    function _envInhabitantFocusScore(profile, distance) {
+        var score = Math.max(0, 40 - Number(distance || 0));
+        var role = String((profile || {}).role || '').trim().toLowerCase();
+        var priority = String((profile || {}).priority || '').trim().toLowerCase();
+        if (role === 'agent') score += 18;
+        else if (role === 'portal') score += 14;
+        else if (role === 'landmark') score += 12;
+        else if ((profile || {}).blocker_class === 'solid') score += 6;
+        if (priority === 'high') score += 8;
+        if (priority === 'low') score -= 4;
+        return score;
+    }
+
+    function _envBuildInhabitantPerceptionState(state, obj, mesh, yawDegrees) {
+        var previous = state && state.perception && typeof state.perception === 'object' && !Array.isArray(state.perception)
+            ? state.perception
+            : _envCreateInhabitantPerceptionState();
+        var next = _envCreateInhabitantPerceptionState();
+        next.last_seen = _envCloneJson(previous.last_seen, {});
+        if (!mesh || typeof THREE === 'undefined' || !_env3D || !_env3D.inited) return next;
+
+        var data = _envObjectData(obj);
+        var fov = _env3DClampNumber(
+            data.perception_fov !== undefined ? data.perception_fov : (data.fov_degrees !== undefined ? data.fov_degrees : previous.fov_degrees),
+            110,
+            30,
+            170
+        );
+        var range = _env3DClampNumber(
+            data.sight_range !== undefined ? data.sight_range : (data.perception_range !== undefined ? data.perception_range : previous.sight_range),
+            22,
+            4,
+            80
+        );
+        next.fov_degrees = Number(fov);
+        next.sight_range = Number(range);
+
+        var spatial = _envSceneObjectSpatialMetrics(obj, mesh);
+        var eyeHeight = Math.max(0.9, Number(((spatial.size || {}).y) || 0) * 0.35);
+        var eye = new THREE.Vector3(
+            Number((((spatial.center || {}).x)) || Number(mesh.position.x || 0)),
+            Number((((spatial.box || {}).min || {}).y) || Number(mesh.position.y || 0)) + eyeHeight,
+            Number((((spatial.center || {}).z)) || Number(mesh.position.z || 0))
+        );
+        var yawRadians = Number(yawDegrees || 0) * Math.PI / 180;
+        var forward = new THREE.Vector3(Math.sin(yawRadians), 0, Math.cos(yawRadians));
+        if (forward.lengthSq() <= 0.0001) forward.set(0, 0, 1);
+        forward.normalize();
+        var halfFovCos = Math.cos((Number(fov || 110) * Math.PI / 180) * 0.5);
+        var now = Date.now();
+        var candidateRows = [];
+        var occluderMeshes = [];
+        var pool = _envSceneObjectPool();
+
+        pool.forEach(function (candidate) {
+            if (!candidate || candidate === obj) return;
+            var objectKey = _envSceneObjectKey(candidate);
+            if (!objectKey || objectKey === _envInhabitantObjectKey()) return;
+            var candidateMesh = _env3D.meshes ? _env3D.meshes[objectKey] : null;
+            if (!candidateMesh || candidateMesh.visible === false) return;
+            var profile = _envRuntimeBlockerProfileForObject(candidate);
+            if (profile.sight_blocking) occluderMeshes.push(candidateMesh);
+            if (!profile.salient) return;
+            var candidateSpatial = _envSceneObjectSpatialMetrics(candidate, candidateMesh);
+            var target = candidateSpatial.center.clone();
+            target.y = Math.max(
+                Number(target.y || 0),
+                Number((((candidateSpatial.box || {}).min || {}).y) || Number(target.y || 0)) + Math.max(0.45, Number((((candidateSpatial.size || {}).y) || 0)) * 0.22)
+            );
+            var delta = target.clone().sub(eye);
+            var distance = Number(delta.length() || 0);
+            if (!isFinite(distance) || distance <= 0.01 || distance > Number(range || 22)) return;
+            var planar = new THREE.Vector3(delta.x, 0, delta.z);
+            if (planar.lengthSq() > 0.0001) {
+                planar.normalize();
+                if (forward.dot(planar) < halfFovCos) return;
+            }
+            candidateRows.push({
+                key: objectKey,
+                object: candidate,
+                mesh: candidateMesh,
+                profile: profile,
+                target: target,
+                distance: distance
+            });
+        });
+
+        if (!_env3D.inhabitantPerceptionRaycaster) _env3D.inhabitantPerceptionRaycaster = new THREE.Raycaster();
+        var raycaster = _env3D.inhabitantPerceptionRaycaster;
+        var visibleRows = [];
+        var occludedRows = [];
+
+        candidateRows.forEach(function (row) {
+            var direction = row.target.clone().sub(eye);
+            var distance = Number(direction.length() || row.distance || 0);
+            if (!isFinite(distance) || distance <= 0.01) return;
+            direction.normalize();
+            raycaster.set(eye, direction);
+            raycaster.far = Math.max(0.01, distance - 0.08);
+            var blocked = false;
+            if (occluderMeshes.length) {
+                var blockers = raycaster.intersectObjects(occluderMeshes, true) || [];
+                for (var i = 0; i < blockers.length; i++) {
+                    var blocker = blockers[i];
+                    var blockerRoot = _env3DResolveSelectionRoot(blocker.object) || blocker.object;
+                    if (!blockerRoot || blockerRoot === row.mesh || blockerRoot === mesh) continue;
+                    blocked = true;
+                    break;
+                }
+            }
+            if (blocked) occludedRows.push(row);
+            else visibleRows.push(row);
+        });
+
+        visibleRows.sort(function (a, b) {
+            return _envInhabitantFocusScore(b.profile, b.distance) - _envInhabitantFocusScore(a.profile, a.distance);
+        });
+        occludedRows.sort(function (a, b) {
+            return Number(a.distance || 0) - Number(b.distance || 0);
+        });
+
+        next.visible_object_keys = visibleRows.slice(0, 12).map(function (row) { return row.key; });
+        next.visible_focus_key = visibleRows.length ? String(visibleRows[0].key || '') : '';
+        next.occluded_object_keys = occludedRows.slice(0, 12).map(function (row) { return row.key; });
+
+        var retained = {};
+        Object.keys(next.last_seen || {}).forEach(function (key) {
+            var record = next.last_seen[key];
+            if (!record || typeof record !== 'object') return;
+            var keepTs = Math.max(Number(record.last_observed_ts || 0), Number(record.last_visible_ts || 0));
+            if ((now - keepTs) <= 15000) retained[key] = record;
+        });
+        visibleRows.forEach(function (row) {
+            retained[row.key] = {
+                object_key: row.key,
+                label: String((row.object || {}).label || ''),
+                blocker_class: String((row.profile || {}).blocker_class || ''),
+                status: 'visible',
+                distance: Number(Number(row.distance || 0).toFixed(2)),
+                scene_x: Number(((row.object || {}).x) || 0),
+                scene_y: Number(((row.object || {}).y) || 0),
+                last_observed_ts: now,
+                last_visible_ts: now
+            };
+        });
+        occludedRows.forEach(function (row) {
+            var prior = retained[row.key] && typeof retained[row.key] === 'object' ? retained[row.key] : {};
+            retained[row.key] = Object.assign({}, prior, {
+                object_key: row.key,
+                label: String((row.object || {}).label || ''),
+                blocker_class: String((row.profile || {}).blocker_class || ''),
+                status: 'occluded',
+                distance: Number(Number(row.distance || 0).toFixed(2)),
+                scene_x: Number(((row.object || {}).x) || 0),
+                scene_y: Number(((row.object || {}).y) || 0),
+                last_observed_ts: now,
+                last_visible_ts: Number(prior.last_visible_ts || 0)
+            });
+        });
+        var bounded = {};
+        Object.keys(retained).sort(function (a, b) {
+            return Number(((retained[b] || {}).last_observed_ts) || 0) - Number(((retained[a] || {}).last_observed_ts) || 0);
+        }).slice(0, 16).forEach(function (key) {
+            bounded[key] = retained[key];
+        });
+        next.last_seen = bounded;
+        return next;
     }
 
     function _envRefreshInhabitantRuntimeState(reason) {
@@ -8829,10 +9115,16 @@
             : Number((((state || {}).facing || {}).yaw_degrees) || 0);
         while (yaw > 180) yaw -= 360;
         while (yaw < -180) yaw += 360;
+        var support = enabled
+            ? _envInhabitantSupportRecordAtWorld(worldPosition.x, worldPosition.z, Number(worldPosition.y || rawPosition.y || 1))
+            : { grounded: false, support_key: '', support_kind: '', support_class: '', support_y: Number(worldPosition.y || 0) };
+        var perception = enabled
+            ? _envBuildInhabitantPerceptionState(state, obj, mesh, yaw)
+            : _envCreateInhabitantPerceptionState();
         var activity = 'dormant';
         if (enabled) {
             if (mesh && mesh.userData && mesh.userData._moving) activity = 'moving';
-            else if (behavior === 'wander' || behavior === 'patrol' || behavior === 'follow') activity = 'navigating';
+            else if (behavior === 'patrol' || behavior === 'follow') activity = 'navigating';
             else activity = 'idle';
         }
         var next = Object.assign({}, state, {
@@ -8861,6 +9153,10 @@
             visual_mode: _envInhabitantVisualMode(obj, mesh),
             activity: activity,
             camera_binding: enabled ? _envInhabitantCameraBinding() : '',
+            grounded: !!support.grounded,
+            support_key: String(support.support_key || ''),
+            support_kind: String(support.support_kind || ''),
+            perception: perception,
             last_update_ts: Date.now()
         });
         if (obj) {
@@ -8946,9 +9242,9 @@
                 anchors: ['agent_spatial_presence']
             }
         });
-        _envRefreshInhabitantRuntimeState('spawn');
         var spawnedMesh = _env3D.meshes ? _env3D.meshes[_envInhabitantObjectKey()] : null;
         if (spawnedMesh) _envInhabitantSnapMeshToSupport(spawnedMesh, Number((((state.position || {}).world || {}).y) || 1));
+        _envRefreshInhabitantRuntimeState('spawn');
         _envLogAction('inhabitant', 'Activated inhabitant presence', actorName, {
             action: 'spawn_inhabitant',
             behavior: behavior,
@@ -9035,11 +9331,22 @@
         var prevScene = _envCloneJson(((state.position || {}).scene) || {}, { x: 0, y: 0 });
         var prevActivity = String(state.activity || '');
         var prevBinding = String(state.camera_binding || '');
+        var prevGrounded = !!state.grounded;
+        var prevSupportKey = String(state.support_key || '');
+        var prevPerception = state.perception && typeof state.perception === 'object' ? state.perception : {};
+        var prevVisibleFocus = String(prevPerception.visible_focus_key || '');
+        var prevVisibleCount = Number((prevPerception.visible_object_keys || []).length || 0);
+        var prevOccludedCount = Number((prevPerception.occluded_object_keys || []).length || 0);
         var nextState = _envRefreshInhabitantRuntimeState('animate');
         if (Math.abs(Number(prevScene.x || 0) - Number((((nextState || {}).position || {}).scene || {}).x || 0)) > 0.05
             || Math.abs(Number(prevScene.y || 0) - Number((((nextState || {}).position || {}).scene || {}).y || 0)) > 0.05
             || prevActivity !== String((nextState || {}).activity || '')
-            || prevBinding !== String((nextState || {}).camera_binding || '')) {
+            || prevBinding !== String((nextState || {}).camera_binding || '')
+            || prevGrounded !== !!(nextState && nextState.grounded)
+            || prevSupportKey !== String((nextState || {}).support_key || '')
+            || prevVisibleFocus !== String((((nextState || {}).perception || {}).visible_focus_key) || '')
+            || prevVisibleCount !== Number((((nextState || {}).perception || {}).visible_object_keys || []).length || 0)
+            || prevOccludedCount !== Number((((nextState || {}).perception || {}).occluded_object_keys || []).length || 0)) {
             _envScheduleLiveSync('inhabitant:track', false);
         }
     }
@@ -21448,6 +21755,7 @@
         var inhabitantScene = inhabitant.position && inhabitant.position.scene && typeof inhabitant.position.scene === 'object'
             ? inhabitant.position.scene
             : {};
+        var inhabitantPerception = inhabitant.perception && typeof inhabitant.perception === 'object' ? inhabitant.perception : {};
         var render = (live.render_truth && typeof live.render_truth === 'object')
             ? live.render_truth
             : (shared.render && typeof shared.render === 'object' ? shared.render : {});
@@ -21492,9 +21800,15 @@
                 behavior: String(inhabitant.behavior || ''),
                 activity: String(inhabitant.activity || ''),
                 camera_binding: String(inhabitant.camera_binding || ''),
+                grounded: !!inhabitant.grounded,
+                support_key: String(inhabitant.support_key || ''),
+                support_kind: String(inhabitant.support_kind || ''),
                 object_key: String(inhabitant.object_key || ''),
                 scene_x: Number(inhabitantScene.x || 0),
-                scene_y: Number(inhabitantScene.y || 0)
+                scene_y: Number(inhabitantScene.y || 0),
+                visible_count: Number((inhabitantPerception.visible_object_keys || []).length || 0),
+                occluded_count: Number((inhabitantPerception.occluded_object_keys || []).length || 0),
+                visible_focus_key: String(inhabitantPerception.visible_focus_key || '')
             },
             render: {
                 stage_mode: String(render.stage_mode || ''),
@@ -21561,6 +21875,7 @@
             ? inhabitant.position.scene
             : {};
         var inhabitantFacing = inhabitant.facing && typeof inhabitant.facing === 'object' ? inhabitant.facing : {};
+        var inhabitantPerception = inhabitant.perception && typeof inhabitant.perception === 'object' ? inhabitant.perception : {};
         var corroboration = shared.corroboration && typeof shared.corroboration === 'object' ? shared.corroboration : {};
         var capture = payload.latest_capture && typeof payload.latest_capture === 'object'
             ? payload.latest_capture
@@ -21626,9 +21941,15 @@
             String(inhabitant.activity || ''),
             String(inhabitant.camera_binding || ''),
             String(inhabitant.visual_mode || ''),
+            inhabitant.grounded ? 'grounded' : 'ungrounded',
+            String(inhabitant.support_key || ''),
+            String(inhabitant.support_kind || ''),
             Number(inhabitantScene.x || 0).toFixed(2),
             Number(inhabitantScene.y || 0).toFixed(2),
             Number(inhabitantFacing.yaw_degrees || 0).toFixed(2),
+            String(inhabitantPerception.visible_focus_key || ''),
+            String((inhabitantPerception.visible_object_keys || []).length || 0),
+            String((inhabitantPerception.occluded_object_keys || []).length || 0),
             String((((corroboration.subject || {}).key) || '')),
             String((((corroboration.last_action || {}).body) || '')),
             String(primaryOp.tool || ''),
@@ -24639,6 +24960,7 @@
     function _env3DCollisionPolicyForObject(obj) {
         if (!obj || typeof obj !== 'object') return 'none';
         var kind = String(obj.kind || '').trim().toLowerCase();
+        var profile = _envRuntimeBlockerProfileForObject(obj);
         if (kind === 'vegetation_patch' || kind === 'zone' || kind === 'decal' || kind === 'tile' || kind === 'substrate' || kind === 'marker') {
             return 'none';
         }
@@ -24647,7 +24969,12 @@
         var data = _envObjectData(obj);
         if (raw === undefined && data.collision_policy !== undefined) raw = data.collision_policy;
         if (raw === undefined && data.collisionPolicy !== undefined) raw = data.collisionPolicy;
-        if (raw === undefined) return _envDefaultCollisionPolicyForObject(obj);
+        if (raw === undefined) {
+            if (profile.support_surface || profile.blocker_class === 'decorative' || profile.blocker_class === 'soft' || profile.blocker_class === 'portal') {
+                return 'none';
+            }
+            return _envDefaultCollisionPolicyForObject(obj);
+        }
         var text = String(raw || _envDefaultCollisionPolicyForObject(obj)).trim().toLowerCase();
         if (!text) return _envDefaultCollisionPolicyForObject(obj);
         if (text === 'bvh' || text === 'none') return text;
@@ -31297,6 +31624,19 @@
                 + ', ' + Number((((inhabitantState.position || {}).scene || {}).y) || 0).toFixed(1)
                 + ' · facing ' + Number((((inhabitantState.facing || {}).yaw_degrees) || 0).toFixed(0) + '°'))
             : 'Summon one visible inhabitant into the current habitat. It stays idle until commanded.';
+        var inhabitantPerception = inhabitantState.perception && typeof inhabitantState.perception === 'object'
+            ? inhabitantState.perception
+            : _envCreateInhabitantPerceptionState();
+        var inhabitantGrounding = inhabitantState.enabled
+            ? ((inhabitantState.grounded ? 'grounded' : 'ungrounded')
+                + (inhabitantState.support_key ? (' · support ' + String(inhabitantState.support_key || '')) : '')
+                + (inhabitantState.support_kind ? (' · ' + String(inhabitantState.support_kind || '')) : ''))
+            : 'Support and perception surfaces appear here once the inhabitant is active.';
+        var inhabitantPerceptionSummary = inhabitantState.enabled
+            ? ('seeing ' + Number((inhabitantPerception.visible_object_keys || []).length || 0)
+                + ' · occluded ' + Number((inhabitantPerception.occluded_object_keys || []).length || 0)
+                + (inhabitantPerception.visible_focus_key ? (' · focus ' + String(inhabitantPerception.visible_focus_key || '')) : ''))
+            : 'Perception is symbolic: FOV, LOS, and recent memory.';
         var inhabitantControlsHtml = '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.08);">' +
             '<div class="envops-habitat-scene-cockpit-head"><span>Inhabitant</span><span>' + _esc(inhabitantState.enabled ? String(inhabitantState.mode || 'autonomous') : 'offline') + '</span></div>' +
             '<div class="envops-focus-strip">' +
@@ -31305,6 +31645,8 @@
             '</div>' +
             '<div class="envops-kernel-note">' + _esc(inhabitantStatus) + '</div>' +
             '<div class="envops-kernel-note">' + _esc(inhabitantLocation) + '</div>' +
+            '<div class="envops-kernel-note">' + _esc(inhabitantGrounding) + '</div>' +
+            '<div class="envops-kernel-note">' + _esc(inhabitantPerceptionSummary) + '</div>' +
             '</div>';
         _envScene.failureSurface = failure;
         var telemetryHtml = _envRenderHabitatTelemetry(workflow, exec, traces);
@@ -39763,6 +40105,10 @@
     };
     window.envopsGetInhabitantState = function () {
         return JSON.parse(JSON.stringify(_envRefreshInhabitantRuntimeState('external_state')));
+    };
+    window.envopsGetInhabitantPerception = function () {
+        var state = _envRefreshInhabitantRuntimeState('external_perception');
+        return JSON.parse(JSON.stringify((state && state.perception) || _envCreateInhabitantPerceptionState()));
     };
     window.envopsGetBusEvents = function (limit) {
         var take = Math.max(1, Math.min(200, Number(limit || _envLiveTailLimit() || 24)));
