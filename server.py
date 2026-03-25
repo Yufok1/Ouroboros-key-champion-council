@@ -1,11 +1,11 @@
 """
-Champion Council — HuggingFace Space Server
-Runs the capsule MCP backend + web control panel.
+Champion Council runtime gateway.
+Serves the operational panel, proxies capsule tool calls, and exposes the spatial substrate to browser and MCP-facing clients.
 
 Architecture:
-  1. Capsule (champion_gen8.py) runs as MCP/SSE server on port 8765
-  2. FastAPI serves the web control panel on port 7860
-  3. FastAPI proxies tool calls from the browser to the capsule via mcp SDK client
+  1. The capsule runs as an MCP/SSE server on MCP_PORT
+  2. FastAPI serves the operational theater and panel on WEB_PORT
+  3. FastAPI proxies browser requests into the capsule, activity surfaces, and environment state
 """
 import os
 import sys
@@ -1433,6 +1433,9 @@ _ENV_CONTROL_PROXY_COMMANDS = frozenset({
     "camera_pan_back",
     "camera_pose",
     "run_recipe",
+    "spawn_inhabitant",
+    "despawn_inhabitant",
+    "focus_inhabitant",
     "set_world_profile",
     "apply_profile_kit",
     "clear_profile_kit",
@@ -3671,6 +3674,8 @@ def _env_control_local_proxy_payload(args: dict | None = None) -> dict | None:
     }
     if command.startswith("camera_"):
         payload["environment_effects"]["camera_action"] = command
+    elif command in ("spawn_inhabitant", "despawn_inhabitant", "focus_inhabitant"):
+        payload["environment_effects"]["inhabitant_action"] = command
     elif command in ("focus_surface", "inspect_surface", "open_surface", "close_surface", "surface_tab", "surface_scroll", "surface_action", "surface_click", "surface_input", "surface_submit", "close_inspector"):
         payload["environment_effects"]["surface_action"] = command
     elif command.startswith("capture_"):

@@ -972,6 +972,34 @@
         samples: [],
         actors: { activeId: 'assistant', filterId: 'all', seq: 0, lanes: {} }
     };
+    var _ENV_INHABITANT_OBJECT_KIND = 'npc';
+    var _ENV_INHABITANT_OBJECT_ID = 'resident_primary';
+    var _ENV_INHABITANT_LABEL = 'Resident Inhabitant';
+
+    function _envCreateInhabitantRuntimeState() {
+        return {
+            enabled: false,
+            mode: 'dormant',
+            object_key: _ENV_INHABITANT_OBJECT_KIND + '::' + _ENV_INHABITANT_OBJECT_ID,
+            kind: _ENV_INHABITANT_OBJECT_KIND,
+            id: _ENV_INHABITANT_OBJECT_ID,
+            label: _ENV_INHABITANT_LABEL,
+            position: {
+                scene: { x: 50, y: 52 },
+                world: { x: 0, y: 1, z: 0 }
+            },
+            facing: { yaw_degrees: 0, pitch_degrees: 0 },
+            behavior: 'idle',
+            visual_mode: 'none',
+            activity: 'dormant',
+            camera_binding: '',
+            spawn_source: '',
+            spawn_point: { x: 50, y: 52 },
+            last_spawn_ts: 0,
+            last_update_ts: 0
+        };
+    }
+
     let _envScene = {
         enabled: true,
         canvas: null,
@@ -1026,7 +1054,8 @@
             zoomLogTimer: null,
             zoomLogActor: '',
             zoomLogReason: ''
-        }
+        },
+        inhabitant: _envCreateInhabitantRuntimeState()
     };
 
     // ── SLOT DRILL-IN STATE ──
@@ -8576,6 +8605,445 @@
         }) || null;
     }
 
+    function _envInhabitantRuntimeState() {
+        if (!_envScene.inhabitant || typeof _envScene.inhabitant !== 'object' || Array.isArray(_envScene.inhabitant)) {
+            _envScene.inhabitant = _envCreateInhabitantRuntimeState();
+        }
+        return _envScene.inhabitant;
+    }
+
+    function _envInhabitantObjectKey() {
+        return _ENV_INHABITANT_OBJECT_KIND + '::' + _ENV_INHABITANT_OBJECT_ID;
+    }
+
+    function _envInhabitantObject() {
+        return _envSceneFindObject(_ENV_INHABITANT_OBJECT_KIND, _ENV_INHABITANT_OBJECT_ID);
+    }
+
+    function _envSceneClampPoint(x, y) {
+        return {
+            x: Math.max(4, Math.min(96, Number(x || 50))),
+            y: Math.max(4, Math.min(96, Number(y || 52)))
+        };
+    }
+
+    function _envInhabitantScenePointOccupied(candidate, ignoreKey) {
+        var point = candidate && typeof candidate === 'object' ? candidate : { x: 50, y: 52 };
+        var skipKey = String(ignoreKey || '').trim();
+        return _envSceneObjectPool().some(function (obj) {
+            if (!obj || typeof obj !== 'object') return false;
+            var key = _envSceneObjectKey(obj);
+            if (key && skipKey && key === skipKey) return false;
+            var dx = Number(obj.x || 0) - Number(point.x || 0);
+            var dy = Number(obj.y || 0) - Number(point.y || 0);
+            return Math.sqrt((dx * dx) + (dy * dy)) < 4.5;
+        });
+    }
+
+    function _envResolveInhabitantSpawnPoint(preferred) {
+        var seed = preferred && typeof preferred === 'object' && !Array.isArray(preferred)
+            ? {
+                x: Number(preferred.x || 50),
+                y: Number(preferred.y || 52)
+            }
+            : null;
+        if (!seed && _env3D.inited && typeof _envObserverSceneBounds === 'function') {
+            var bounds = _envObserverSceneBounds();
+            if (bounds && bounds.center) {
+                seed = _env3DScenePointFromWorld(bounds.center.x, bounds.center.z);
+            }
+        }
+        if (!seed) {
+            var camera = (_envScene || {}).camera || {};
+            seed = {
+                x: Number(camera.targetX || camera.x || 50),
+                y: Number(camera.targetY || camera.y || 52)
+            };
+        }
+        seed = _envSceneClampPoint(seed.x + 4, seed.y + 2);
+        var offsets = [
+            { x: 0, y: 0 },
+            { x: 8, y: 0 },
+            { x: -8, y: 0 },
+            { x: 0, y: 8 },
+            { x: 0, y: -8 },
+            { x: 6, y: 6 },
+            { x: -6, y: 6 }
+        ];
+        for (var i = 0; i < offsets.length; i++) {
+            var candidate = _envSceneClampPoint(seed.x + offsets[i].x, seed.y + offsets[i].y);
+            if (!_envInhabitantScenePointOccupied(candidate, _envInhabitantObjectKey())) return candidate;
+        }
+        return seed;
+    }
+
+    function _envInhabitantSupportHitsAtWorld(worldX, worldZ) {
+        if (typeof THREE === 'undefined' || !_env3D || !_env3D.inited) return [];
+        if (!_env3D.inhabitantSupportRaycaster) _env3D.inhabitantSupportRaycaster = new THREE.Raycaster();
+        var raycaster = _env3D.inhabitantSupportRaycaster;
+        raycaster.set(
+            new THREE.Vector3(Number(worldX || 0), 80, Number(worldZ || 0)),
+            new THREE.Vector3(0, -1, 0)
+        );
+        var hits = [];
+        var supportMeshes = [];
+        if (_env3D.terrain) supportMeshes.push({ mesh: _env3D.terrain, object: null, support_kind: 'terrain' });
+        Object.keys(_env3D.meshes || {}).forEach(function (key) {
+            var mesh = _env3D.meshes[key];
+            if (!mesh || mesh.visible === false || !mesh.userData) return;
+            var kind = String(mesh.userData.kind || '').trim().toLowerCase();
+            if (!kind || _env3DIsAgentKind(kind)) return;
+            if (kind === 'zone' || kind === 'decal' || kind === 'marker' || kind === 'vegetation_patch') return;
+            supportMeshes.push({
+                mesh: mesh,
+                object: mesh.userData.sceneObject || null,
+                support_kind: kind
+            });
+        });
+        supportMeshes.forEach(function (entry) {
+            try {
+                var localHits = raycaster.intersectObject(entry.mesh, true) || [];
+                localHits.forEach(function (hit) {
+                    if (!hit || !hit.point || !isFinite(hit.point.y)) return;
+                    var root = entry.object ? entry.mesh : _env3DResolveSelectionRoot(hit.object);
+                    var sceneObj = entry.object || (root && root.userData ? root.userData.sceneObject : null);
+                    hits.push({
+                        point: hit.point,
+                        object: sceneObj,
+                        mesh: root || entry.mesh,
+                        support_kind: entry.support_kind
+                    });
+                });
+            } catch (e) { }
+        });
+        hits.sort(function (a, b) {
+            return Number((b.point && b.point.y) || -Infinity) - Number((a.point && a.point.y) || -Infinity);
+        });
+        return hits;
+    }
+
+    function _envInhabitantSupportHeightAtWorld(worldX, worldZ, fallbackY) {
+        var fallback = Number(fallbackY || 0);
+        var hits = _envInhabitantSupportHitsAtWorld(worldX, worldZ);
+        for (var i = 0; i < hits.length; i++) {
+            var hit = hits[i];
+            var obj = hit.object;
+            if (!obj) {
+                if (hit.support_kind === 'terrain') return Number(hit.point.y || fallback);
+                continue;
+            }
+            var kind = String(obj.kind || '').trim().toLowerCase();
+            var semantics = _envSceneSemanticsForObject(obj) || {};
+            var observation = _envSceneSemanticObservationForObject(obj) || {};
+            var role = String(semantics.role || observation.role || '').trim().toLowerCase();
+            var placementIntent = String(semantics.placement_intent || observation.placement_intent || '').trim().toLowerCase();
+            var haystack = _envSceneSemanticHaystack([
+                role,
+                placementIntent,
+                obj.label,
+                obj.meta,
+                obj.category,
+                ((_envObjectData(obj) || {}).category)
+            ]);
+            if (kind === 'tile' || kind === 'substrate') return Number(hit.point.y || fallback);
+            if (role === 'floor' || role === 'transition' || role === 'path' || role === 'platform') return Number(hit.point.y || fallback);
+            if (_envSceneSemanticHasAny(haystack, ['floor', 'ground', 'foundation', 'base', 'deck', 'platform', 'walkway', 'path', 'road', 'terrain'])) {
+                return Number(hit.point.y || fallback);
+            }
+        }
+        return fallback;
+    }
+
+    function _envInhabitantSnapMeshToSupport(mesh, fallbackY) {
+        if (!mesh || typeof THREE === 'undefined') return Number(fallbackY || 0);
+        if (typeof mesh.updateWorldMatrix === 'function') mesh.updateWorldMatrix(true, true);
+        var box = new THREE.Box3().setFromObject(mesh);
+        var currentMinY = isFinite(box.min.y) ? Number(box.min.y || 0) : Number(mesh.position.y || 0);
+        var supportY = _envInhabitantSupportHeightAtWorld(mesh.position.x, mesh.position.z, Number(fallbackY || currentMinY));
+        if (!isFinite(supportY)) supportY = Number(fallbackY || currentMinY || 0);
+        var delta = (supportY + 0.02) - currentMinY;
+        if (Math.abs(delta) > 0.001) {
+            mesh.position.y += delta;
+            mesh.userData._targetY = Number(mesh.position.y || 0);
+            mesh.userData.baseY = Number(mesh.position.y || 0);
+        }
+        return Number(mesh.position.y || fallbackY || 0);
+    }
+
+    function _envInhabitantBehaviorFromTarget(targetId, fallback) {
+        var raw = String(targetId || fallback || '').trim().toLowerCase();
+        if (raw === 'idle' || raw === 'patrol' || raw === 'follow' || raw === 'guard') return raw;
+        return String(fallback || 'idle').trim().toLowerCase() || 'idle';
+    }
+
+    function _envInhabitantVisualMode(obj, mesh) {
+        var appearance = obj ? _envSceneAppearanceForObject(obj) : {};
+        var character = obj ? _envSceneCharacterForObject(obj) : null;
+        if (mesh && mesh.userData && mesh.userData.assetClone) return 'mesh_asset';
+        if (appearance && appearance.asset_ref) return 'asset_ref';
+        if (character && character.asset_ref) return 'character_asset';
+        if (mesh && mesh.userData && mesh.userData.characterSprite) return 'sprite';
+        if (character && character.sprite_ref) return 'sprite_ref';
+        if (mesh && mesh.userData && mesh.userData.visualType) return String(mesh.userData.visualType || 'primitive');
+        return obj ? 'primitive' : 'none';
+    }
+
+    function _envInhabitantCameraBinding() {
+        var focus = _envKernel.focus || {};
+        var mode = _envSceneNormalizeCameraMode(_envScene.cameraMode || (((_envConfig || {}).scene || {}).defaultCameraMode) || 'overview');
+        return mode === 'focus'
+            && String(focus.kind || '') === _ENV_INHABITANT_OBJECT_KIND
+            && String(focus.id || '') === _ENV_INHABITANT_OBJECT_ID
+            ? 'follow_focus'
+            : '';
+    }
+
+    function _envRefreshInhabitantRuntimeState(reason) {
+        var state = _envInhabitantRuntimeState();
+        var obj = _envInhabitantObject();
+        var meshKey = _envInhabitantObjectKey();
+        var mesh = meshKey && _env3D.meshes ? _env3D.meshes[meshKey] : null;
+        var enabled = !!state.enabled && !!obj;
+        var rawPosition = obj ? _env3DRawXYZFromObject(obj) : { x: 0, y: 1, z: 0 };
+        var worldPosition = mesh
+            ? {
+                x: Number(mesh.position.x || 0),
+                y: Number(mesh.position.y || Number(rawPosition.y || 1)),
+                z: Number(mesh.position.z || 0)
+            }
+            : {
+                x: Number(rawPosition.x || 0),
+                y: Number(rawPosition.y || 1),
+                z: Number(rawPosition.z || 0)
+            };
+        var scenePosition = obj
+            ? (function () {
+                var projected = _env3DScenePointFromWorld(worldPosition.x, worldPosition.z);
+                return _envSceneClampPoint(projected.x, projected.y);
+            })()
+            : _envSceneClampPoint(Number(((state.spawn_point || {}).x) || 50), Number(((state.spawn_point || {}).y) || 52));
+        var character = obj ? _envSceneCharacterForObject(obj) : null;
+        var behavior = String((character && character.behavior) || state.behavior || 'idle').trim().toLowerCase() || 'idle';
+        var yaw = mesh
+            ? (Number(mesh.rotation.y || 0) * 180 / Math.PI)
+            : Number((((state || {}).facing || {}).yaw_degrees) || 0);
+        while (yaw > 180) yaw -= 360;
+        while (yaw < -180) yaw += 360;
+        var activity = 'dormant';
+        if (enabled) {
+            if (mesh && mesh.userData && mesh.userData._moving) activity = 'moving';
+            else if (behavior === 'wander' || behavior === 'patrol' || behavior === 'follow') activity = 'navigating';
+            else activity = 'idle';
+        }
+        var next = Object.assign({}, state, {
+            enabled: enabled,
+            mode: enabled ? (String(state.mode || 'autonomous') === 'dormant' ? 'autonomous' : String(state.mode || 'autonomous')) : 'dormant',
+            object_key: meshKey,
+            kind: _ENV_INHABITANT_OBJECT_KIND,
+            id: _ENV_INHABITANT_OBJECT_ID,
+            label: String((obj && obj.label) || state.label || _ENV_INHABITANT_LABEL),
+            position: {
+                scene: {
+                    x: Number(scenePosition.x.toFixed(2)),
+                    y: Number(scenePosition.y.toFixed(2))
+                },
+                world: {
+                    x: Number(worldPosition.x.toFixed(3)),
+                    y: Number(worldPosition.y.toFixed(3)),
+                    z: Number(worldPosition.z.toFixed(3))
+                }
+            },
+            facing: {
+                yaw_degrees: Number(yaw.toFixed(2)),
+                pitch_degrees: 0
+            },
+            behavior: behavior,
+            visual_mode: _envInhabitantVisualMode(obj, mesh),
+            activity: activity,
+            camera_binding: enabled ? _envInhabitantCameraBinding() : '',
+            last_update_ts: Date.now()
+        });
+        if (obj) {
+            next.spawn_point = _envSceneClampPoint(
+                Number(((state.spawn_point || {}).x) || obj.x || scenePosition.x),
+                Number(((state.spawn_point || {}).y) || obj.y || scenePosition.y)
+            );
+        }
+        _envScene.inhabitant = next;
+        return next;
+    }
+
+    function _envSetInhabitantEnabled(enabled, actor, reason, targetId) {
+        var actorName = String(actor || _envManualActorId() || 'assistant').trim() || 'assistant';
+        var state = _envInhabitantRuntimeState();
+        if (!enabled) {
+            var hadFocus = String(((_envKernel.focus || {}).kind) || '') === _ENV_INHABITANT_OBJECT_KIND
+                && String(((_envKernel.focus || {}).id) || '') === _ENV_INHABITANT_OBJECT_ID;
+            _envRemoveObject(_ENV_INHABITANT_OBJECT_KIND, _ENV_INHABITANT_OBJECT_ID);
+            if (hadFocus) {
+                _envSetFocus('scene', _envScenePrimarySnapshotName() || 'scene', actorName);
+                _envScene.cameraMode = 'overview';
+                _envSceneResetCamera('', 'inhabitant dismiss');
+                _env3DResetPoseOffset();
+                if (_env3D.inited) _env3DApplyCameraRig(true);
+            }
+            if (String(_envInspectorState.objectKey || '') === _envInhabitantObjectKey()) {
+                _envCloseInspector(actorName, 'inhabitant dismiss');
+            }
+            var nextDisabled = _envCreateInhabitantRuntimeState();
+            nextDisabled.spawn_point = _envCloneJson((state && state.spawn_point) || { x: 50, y: 52 }, { x: 50, y: 52 });
+            nextDisabled.behavior = String(state.behavior || 'idle');
+            nextDisabled.spawn_source = String(reason || 'despawn');
+            nextDisabled.last_spawn_ts = Number(state.last_spawn_ts || 0);
+            nextDisabled.last_update_ts = Date.now();
+            _envScene.inhabitant = nextDisabled;
+            _envLogAction('inhabitant', 'Dismissed inhabitant presence', actorName, { action: 'despawn_inhabitant' });
+            _envEmitBus('inhabitant', 'Dismissed inhabitant presence', actorName, { action: 'despawn_inhabitant' });
+            _envSetBadge('idle', 'INHABITANT OFF');
+            _envScheduleLiveSync('inhabitant:despawn', true);
+            renderEnvironmentView();
+            return null;
+        }
+        var behavior = _envInhabitantBehaviorFromTarget(targetId, state.behavior || 'idle');
+        var spawnPoint = _envResolveInhabitantSpawnPoint(state.spawn_point);
+        state.enabled = true;
+        state.mode = behavior === 'idle' ? 'anchored' : 'autonomous';
+        state.behavior = behavior;
+        state.spawn_point = _envCloneJson(spawnPoint, spawnPoint);
+        state.spawn_source = String(reason || 'manual');
+        state.last_spawn_ts = Date.now();
+        var obj = _envUpsertSpawnedObject({
+            kind: _ENV_INHABITANT_OBJECT_KIND,
+            id: _ENV_INHABITANT_OBJECT_ID,
+            label: _ENV_INHABITANT_LABEL,
+            state: 'running',
+            category: 'inhabitant',
+            x: spawnPoint.x,
+            y: spawnPoint.y,
+            scale: 1.08,
+            meta: 'Primary inhabitant presence surface.',
+            color: '#7dd3fc',
+            character: {
+                archetype: 'custom',
+                anim_set: 'humanoid',
+                behavior: behavior
+            },
+            embodiment: {
+                family: 'humanoid_biped',
+                standard: 'gltf_generic',
+                locomotion_class: 'biped'
+            },
+            data: {
+                role: 'inhabitant',
+                inhabitant_id: 'primary',
+                inhabitant_mode: state.mode,
+                behavior_speed: 2.6,
+                spawn_source: state.spawn_source
+            },
+            semantics: {
+                role: 'inhabitant',
+                placement_intent: 'presence',
+                anchors: ['agent_spatial_presence']
+            }
+        });
+        _envRefreshInhabitantRuntimeState('spawn');
+        var spawnedMesh = _env3D.meshes ? _env3D.meshes[_envInhabitantObjectKey()] : null;
+        if (spawnedMesh) _envInhabitantSnapMeshToSupport(spawnedMesh, Number((((state.position || {}).world || {}).y) || 1));
+        _envLogAction('inhabitant', 'Activated inhabitant presence', actorName, {
+            action: 'spawn_inhabitant',
+            behavior: behavior,
+            x: spawnPoint.x,
+            y: spawnPoint.y
+        });
+        _envEmitBus('inhabitant', 'Activated inhabitant presence', actorName, {
+            action: 'spawn_inhabitant',
+            behavior: behavior,
+            object_key: _envInhabitantObjectKey()
+        });
+        _envSetBadge('running', 'INHABITANT');
+        _envScheduleLiveSync('inhabitant:spawn', true);
+        renderEnvironmentView();
+        return obj;
+    }
+
+    function _envFocusInhabitant(actor, reason, targetId) {
+        var actorName = String(actor || _envManualActorId() || 'assistant').trim() || 'assistant';
+        var obj = _envInhabitantObject();
+        if (!obj) obj = _envSetInhabitantEnabled(true, actorName, reason || 'inhabitant focus', targetId);
+        if (!obj) return false;
+        _envScene.cameraMode = 'focus';
+        _envSelectSceneObject(obj, actorName, 'inhabitant_control');
+        if (_env3D.inited) _env3DFocusObject(String(obj.kind || _ENV_INHABITANT_OBJECT_KIND), String(obj.id || _ENV_INHABITANT_OBJECT_ID));
+        _envRefreshInhabitantRuntimeState('focus');
+        _envLogAction('inhabitant', 'Focused inhabitant camera', actorName, {
+            action: 'focus_inhabitant',
+            object_key: _envInhabitantObjectKey()
+        });
+        _envEmitBus('inhabitant', 'Focused inhabitant camera', actorName, {
+            action: 'focus_inhabitant',
+            object_key: _envInhabitantObjectKey()
+        });
+        _envSetBadge('running', 'FOLLOW INH');
+        _envScheduleLiveSync('inhabitant:focus', true);
+        renderEnvironmentView();
+        return true;
+    }
+
+    function _envMaintainInhabitantPresence() {
+        var state = _envInhabitantRuntimeState();
+        if (!state.enabled) {
+            _envRefreshInhabitantRuntimeState('idle');
+            return;
+        }
+        var obj = _envInhabitantObject();
+        if (!obj) {
+            _envSetInhabitantEnabled(true, 'system', 'inhabitant recovery', state.behavior || 'idle');
+            return;
+        }
+        var mesh = _env3D.meshes ? _env3D.meshes[_envInhabitantObjectKey()] : null;
+        if (mesh) {
+            _envInhabitantSnapMeshToSupport(mesh, Number((mesh.position && mesh.position.y) || 1));
+            var bounds = _env3DWorldBoundsVector4();
+            var margin = 3;
+            if (mesh.position.x < Number(bounds.x) - margin
+                || mesh.position.x > Number(bounds.z) + margin
+                || mesh.position.z < Number(bounds.y) - margin
+                || mesh.position.z > Number(bounds.w) + margin) {
+                var spawnPoint = _envResolveInhabitantSpawnPoint(state.spawn_point);
+                var rawPosition = _env3DRawXYZFromObject(obj);
+                var worldPoint = _env3DWorldPointFromScene(spawnPoint.x, spawnPoint.y);
+                mesh.position.set(worldPoint.x, Number(rawPosition.y || mesh.position.y || 1), worldPoint.z);
+                _envInhabitantSnapMeshToSupport(mesh, Number(rawPosition.y || mesh.position.y || 1));
+                mesh.userData._targetX = worldPoint.x;
+                mesh.userData._targetY = Number(mesh.position.y || rawPosition.y || 1);
+                mesh.userData._targetZ = worldPoint.z;
+                mesh.userData._moving = false;
+                mesh.userData._waypoints = null;
+                state.spawn_point = _envCloneJson(spawnPoint, spawnPoint);
+                _envLogAction('inhabitant', 'Recovered inhabitant to spawn point', 'system', {
+                    x: spawnPoint.x,
+                    y: spawnPoint.y
+                });
+                _envEmitBus('inhabitant', 'Recovered inhabitant to spawn point', 'system', {
+                    object_key: _envInhabitantObjectKey(),
+                    x: spawnPoint.x,
+                    y: spawnPoint.y
+                });
+                _envScheduleLiveSync('inhabitant:recover', true);
+            }
+        }
+        var prevScene = _envCloneJson(((state.position || {}).scene) || {}, { x: 0, y: 0 });
+        var prevActivity = String(state.activity || '');
+        var prevBinding = String(state.camera_binding || '');
+        var nextState = _envRefreshInhabitantRuntimeState('animate');
+        if (Math.abs(Number(prevScene.x || 0) - Number((((nextState || {}).position || {}).scene || {}).x || 0)) > 0.05
+            || Math.abs(Number(prevScene.y || 0) - Number((((nextState || {}).position || {}).scene || {}).y || 0)) > 0.05
+            || prevActivity !== String((nextState || {}).activity || '')
+            || prevBinding !== String((nextState || {}).camera_binding || '')) {
+            _envScheduleLiveSync('inhabitant:track', false);
+        }
+    }
+
     function _envSceneFindPickable(kind, id) {
         var desiredKind = String(kind || '').trim();
         var desiredId = String(id || '').trim();
@@ -9004,6 +9472,7 @@
         if (command === 'focus_replay' || command === 'toggle_replay' || command === 'replay_prev' || command === 'replay_next' || command === 'set_replay_mode') return 'replay::' + replayCursor;
         if (command === 'sample_now' || command === 'toggle_stream') return latestSample ? ('sample::' + String(latestSample.id || '')) : '';
         if (command === 'branch_snapshot') return latestBranch ? ('branch::' + String(latestBranch.id || '')) : '';
+        if (command === 'spawn_inhabitant' || command === 'despawn_inhabitant' || command === 'focus_inhabitant') return _envInhabitantObjectKey();
         if (command === 'set_camera_mode'
             || command === 'camera_frame_overview'
             || command === 'camera_frame_focus'
@@ -15153,6 +15622,18 @@
             _envSetFocus('doc', docId, actorName);
             return;
         }
+        if (command === 'spawn_inhabitant') {
+            _envSetInhabitantEnabled(true, actorName, reason || 'control inhabitant spawn', targetId);
+            return;
+        }
+        if (command === 'despawn_inhabitant') {
+            _envSetInhabitantEnabled(false, actorName, reason || 'control inhabitant despawn', '');
+            return;
+        }
+        if (command === 'focus_inhabitant') {
+            _envFocusInhabitant(actorName, reason || 'control inhabitant focus', targetId);
+            return;
+        }
         if (command === 'set_camera_mode') {
             var mode = _envSceneNormalizeCameraMode(targetId || ((_envScene || {}).cameraMode) || 'overview');
             _envScene.cameraMode = mode;
@@ -20963,6 +21444,10 @@
         var navigation = shared.navigation && typeof shared.navigation === 'object' ? shared.navigation : {};
         var panel = shared.panel && typeof shared.panel === 'object' ? shared.panel : {};
         var inspector = shared.inspector && typeof shared.inspector === 'object' ? shared.inspector : {};
+        var inhabitant = shared.inhabitant && typeof shared.inhabitant === 'object' ? shared.inhabitant : {};
+        var inhabitantScene = inhabitant.position && inhabitant.position.scene && typeof inhabitant.position.scene === 'object'
+            ? inhabitant.position.scene
+            : {};
         var render = (live.render_truth && typeof live.render_truth === 'object')
             ? live.render_truth
             : (shared.render && typeof shared.render === 'object' ? shared.render : {});
@@ -21000,6 +21485,16 @@
                 object_key: String(inspector.object_key || ''),
                 kind: String(inspector.kind || ''),
                 id: String(inspector.id || '')
+            },
+            inhabitant: {
+                enabled: !!inhabitant.enabled,
+                mode: String(inhabitant.mode || ''),
+                behavior: String(inhabitant.behavior || ''),
+                activity: String(inhabitant.activity || ''),
+                camera_binding: String(inhabitant.camera_binding || ''),
+                object_key: String(inhabitant.object_key || ''),
+                scene_x: Number(inhabitantScene.x || 0),
+                scene_y: Number(inhabitantScene.y || 0)
             },
             render: {
                 stage_mode: String(render.stage_mode || ''),
@@ -21061,6 +21556,11 @@
         var navigation = shared.navigation && typeof shared.navigation === 'object' ? shared.navigation : {};
         var panel = shared.panel && typeof shared.panel === 'object' ? shared.panel : {};
         var inspector = shared.inspector && typeof shared.inspector === 'object' ? shared.inspector : {};
+        var inhabitant = shared.inhabitant && typeof shared.inhabitant === 'object' ? shared.inhabitant : {};
+        var inhabitantScene = inhabitant.position && inhabitant.position.scene && typeof inhabitant.position.scene === 'object'
+            ? inhabitant.position.scene
+            : {};
+        var inhabitantFacing = inhabitant.facing && typeof inhabitant.facing === 'object' ? inhabitant.facing : {};
         var corroboration = shared.corroboration && typeof shared.corroboration === 'object' ? shared.corroboration : {};
         var capture = payload.latest_capture && typeof payload.latest_capture === 'object'
             ? payload.latest_capture
@@ -21120,6 +21620,15 @@
             inspector.active ? 'inspector_on' : 'inspector_off',
             String(inspector.object_key || ''),
             String(inspector.kind || ''),
+            inhabitant.enabled ? 'inhabitant_on' : 'inhabitant_off',
+            String(inhabitant.mode || ''),
+            String(inhabitant.behavior || ''),
+            String(inhabitant.activity || ''),
+            String(inhabitant.camera_binding || ''),
+            String(inhabitant.visual_mode || ''),
+            Number(inhabitantScene.x || 0).toFixed(2),
+            Number(inhabitantScene.y || 0).toFixed(2),
+            Number(inhabitantFacing.yaw_degrees || 0).toFixed(2),
             String((((corroboration.subject || {}).key) || '')),
             String((((corroboration.last_action || {}).body) || '')),
             String(primaryOp.tool || ''),
@@ -30534,6 +31043,8 @@
             _env3D.particleSystem.geometry.attributes.position.needsUpdate = true;
         }
 
+        _envMaintainInhabitantPresence();
+
         // Update route lines to follow moving meshes (use stored keys, not index)
         _env3D.lineMeshes.forEach(function (line) {
             var fromMesh = _env3D.meshes[line.userData.fromKey];
@@ -30739,6 +31250,7 @@
         var cameraOffset = (Math.abs(Number(camera.offsetX || 0)) > 0.25 || Math.abs(Number(camera.offsetY || 0)) > 0.25 || Math.abs(Number((camera.zoomScale || 1) - 1)) > 0.02)
             ? ('offset ' + Number(camera.offsetX || 0).toFixed(1) + ',' + Number(camera.offsetY || 0).toFixed(1) + ' · zoom ' + Number(camera.zoomScale || 1).toFixed(2))
             : 'camera locked to rail';
+        var inhabitantState = _envRefreshInhabitantRuntimeState('render');
         var scenePanelHtml = _envRenderSceneHtmlPanel();
         var inspectorHtml = _envRenderInspectorPanel();
         var cameraModes = [
@@ -30776,6 +31288,23 @@
         var assetBrowserCockpitHtml = '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.08);">' +
             '<div class="envops-habitat-scene-cockpit-head" style="cursor:pointer;" data-env-action="toggle-asset-browser"><span>Asset Library</span><span>' + (_envAssetBrowserState.expanded ? 'open' : 'closed') + '</span></div>' +
             '<div class="envops-kernel-note">Press A to toggle asset browser</div>' +
+            '</div>';
+        var inhabitantStatus = inhabitantState.enabled
+            ? (String(inhabitantState.activity || 'idle') + ' · ' + String(inhabitantState.behavior || 'idle') + ' · ' + String(inhabitantState.visual_mode || 'primitive'))
+            : 'inactive';
+        var inhabitantLocation = inhabitantState.enabled
+            ? ('scene ' + Number((((inhabitantState.position || {}).scene || {}).x) || 0).toFixed(1)
+                + ', ' + Number((((inhabitantState.position || {}).scene || {}).y) || 0).toFixed(1)
+                + ' · facing ' + Number((((inhabitantState.facing || {}).yaw_degrees) || 0).toFixed(0) + '°'))
+            : 'Summon one visible inhabitant into the current habitat. It stays idle until commanded.';
+        var inhabitantControlsHtml = '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.08);">' +
+            '<div class="envops-habitat-scene-cockpit-head"><span>Inhabitant</span><span>' + _esc(inhabitantState.enabled ? String(inhabitantState.mode || 'autonomous') : 'offline') + '</span></div>' +
+            '<div class="envops-focus-strip">' +
+            '<span class="envops-focus-chip' + (inhabitantState.enabled ? ' active' : '') + '" data-env-action="toggle-inhabitant">' + _esc(inhabitantState.enabled ? 'Dismiss' : 'Summon') + '</span>' +
+            '<span class="envops-focus-chip' + (inhabitantState.camera_binding ? ' active' : '') + '" data-env-action="focus-inhabitant">' + _esc(inhabitantState.camera_binding ? 'Following' : 'Follow') + '</span>' +
+            '</div>' +
+            '<div class="envops-kernel-note">' + _esc(inhabitantStatus) + '</div>' +
+            '<div class="envops-kernel-note">' + _esc(inhabitantLocation) + '</div>' +
             '</div>';
         _envScene.failureSurface = failure;
         var telemetryHtml = _envRenderHabitatTelemetry(workflow, exec, traces);
@@ -30818,6 +31347,7 @@
             '<div class="envops-focus-strip">' + cameraModes + '<span class="envops-focus-chip" data-env-action="reset-camera">Reset Drift</span></div>' +
             '<div class="envops-kernel-note">' + _esc(cameraOffset) + '</div>' +
             (replaySummary || replay.active ? '<div class="envops-habitat-scene-cockpit-head" style="margin-top:8px;"><span>Replay</span><span>' + _esc(replay.active ? 'playing' : 'ready') + '</span></div><div class="envops-kernel-note">' + _esc(replaySummary || String(replay.mode || 'samples')) + '</div>' : '') +
+            inhabitantControlsHtml +
             labelModeHtml +
             kindFilterHtml +
             assetBrowserCockpitHtml +
@@ -31418,6 +31948,9 @@
              '<option value="camera_pan_back">camera_pan_back</option>' +
              '<option value="camera_pose">camera_pose</option>' +
              '<option value="camera_reset_pose">camera_reset_pose</option>' +
+             '<option value="spawn_inhabitant">spawn_inhabitant</option>' +
+             '<option value="despawn_inhabitant">despawn_inhabitant</option>' +
+             '<option value="focus_inhabitant">focus_inhabitant</option>' +
              '<option value="focus_replay">focus_replay</option>' +
              '<option value="branch_snapshot">branch_snapshot</option>' +
              '<option value="focus_workflow">focus_workflow</option>' +
@@ -38549,6 +39082,15 @@
                     _envQueueControl('camera_reset_pose', '', uiActor, 'cockpit camera reset');
                     return;
                 }
+                if (action === 'toggle-inhabitant') {
+                    var inhabitantToggleState = _envRefreshInhabitantRuntimeState('ui:toggle');
+                    _envQueueControl(inhabitantToggleState.enabled ? 'despawn_inhabitant' : 'spawn_inhabitant', '', uiActor, inhabitantToggleState.enabled ? 'cockpit inhabitant dismiss' : 'cockpit inhabitant summon');
+                    return;
+                }
+                if (action === 'focus-inhabitant') {
+                    _envQueueControl('focus_inhabitant', '', uiActor, 'cockpit inhabitant follow');
+                    return;
+                }
                 if (action === 'toggle-overlay-panel') {
                     var toggleOverlayId = String(actionEl.getAttribute('data-env-overlay-id') || '').trim();
                     if (toggleOverlayId) {
@@ -38896,6 +39438,15 @@
                 _envQueueControl('set_camera_mode', actionEl.getAttribute('data-env-camera-mode') || 'overview', uiActor, 'manual habitat camera');
                 return;
             }
+            if (action === 'toggle-inhabitant') {
+                var inhabitantManualState = _envRefreshInhabitantRuntimeState('ui:manual');
+                _envQueueControl(inhabitantManualState.enabled ? 'despawn_inhabitant' : 'spawn_inhabitant', '', uiActor, inhabitantManualState.enabled ? 'manual inhabitant dismiss' : 'manual inhabitant summon');
+                return;
+            }
+            if (action === 'focus-inhabitant') {
+                _envQueueControl('focus_inhabitant', '', uiActor, 'manual inhabitant follow');
+                return;
+            }
             if (action === 'set-label-mode') {
                 var labelTarget = actionEl.getAttribute('data-env-label-target') || '';
                 if (labelTarget) {
@@ -39204,6 +39755,15 @@
     window.envopsRefreshHealth = function (reason) {
         _envRequestHealth(reason || 'external refresh', true);
     };
+    window.envopsSetInhabitantEnabled = function (enabled, actor, reason, behavior) {
+        _envQueueControl(enabled ? 'spawn_inhabitant' : 'despawn_inhabitant', String(behavior || ''), actor || 'assistant', reason || (enabled ? 'external inhabitant spawn' : 'external inhabitant despawn'));
+    };
+    window.envopsFocusInhabitant = function (actor, reason) {
+        _envQueueControl('focus_inhabitant', '', actor || 'assistant', reason || 'external inhabitant focus');
+    };
+    window.envopsGetInhabitantState = function () {
+        return JSON.parse(JSON.stringify(_envRefreshInhabitantRuntimeState('external_state')));
+    };
     window.envopsGetBusEvents = function (limit) {
         var take = Math.max(1, Math.min(200, Number(limit || _envLiveTailLimit() || 24)));
         return JSON.parse(JSON.stringify((_envBus.events || []).slice(0, take)));
@@ -39261,6 +39821,7 @@
         var renderTruth = _envBuildRenderTruth();
         var layoutSnapshot = _envBuildLayoutSnapshot();
         var corroborationState = _envBuildCorroborationState(renderTruth, layoutSnapshot);
+        var inhabitantState = _envRefreshInhabitantRuntimeState('shared_state');
         return {
             config_source: _envBus.source || 'defaults',
             focus: Object.assign({}, _envKernel.focus || {}),
@@ -39374,6 +39935,7 @@
                     height: Number((((_env3D.renderer || {}).domElement || {}).clientHeight) || 0)
                 }
             },
+            inhabitant: _envCloneJson(inhabitantState, _envCreateInhabitantRuntimeState()),
             docs: {
                 context_kind: String((_envDocState.contextKind || '')),
                 context_id: String((_envDocState.contextId || '')),
