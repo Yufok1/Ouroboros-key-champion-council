@@ -8586,15 +8586,18 @@
     }
 
     function _envSceneObjectPool() {
+        var inhabitantKey = _envInhabitantObjectKey();
         var spawnedByKey = {};
         (_envSpawnedObjects || []).forEach(function (obj) {
             var key = _envSceneObjectKey(obj);
+            if (!key || key === inhabitantKey) return;
             if (key) spawnedByKey[key] = obj;
         });
         var pool = [];
         var seen = {};
         (Array.isArray(_envScene.objects) ? _envScene.objects : []).forEach(function (obj) {
             var key = _envSceneObjectKey(obj);
+            if (!key || key === inhabitantKey) return;
             if (!key || seen[key]) return;
             seen[key] = true;
             pool.push(spawnedByKey[key] || obj);
@@ -8605,6 +8608,11 @@
                 pool.push(spawnedByKey[key]);
             }
         });
+        var mounted = _envInhabitantMountedRecord();
+        if (mounted && !seen[inhabitantKey]) {
+            seen[inhabitantKey] = true;
+            pool.push(mounted);
+        }
         return pool;
     }
 
@@ -8625,6 +8633,124 @@
             _envScene.inhabitant = _envCreateInhabitantRuntimeState();
         }
         return _envScene.inhabitant;
+    }
+
+    function _envInhabitantRuntimeSurfaceSnapshot(runtimeState) {
+        var state = runtimeState && typeof runtimeState === 'object' ? runtimeState : _envInhabitantRuntimeState();
+        var perception = state && state.perception && typeof state.perception === 'object' && !Array.isArray(state.perception)
+            ? state.perception
+            : _envCreateInhabitantPerceptionState();
+        var bootstrap = (_envScene && _envScene.bootstrap && typeof _envScene.bootstrap === 'object') ? _envScene.bootstrap : {};
+        var navigation = (typeof _envNavigationState === 'object' && _envNavigationState) ? _envNavigationState : {};
+        var environmentRef = String(navigation.currentSnapshot || bootstrap.snapshot_name || 'validation_habitat_v2_20260325');
+        var lastSeenKeys = Object.keys(perception.last_seen || {});
+        return {
+            runtime_state: {
+                mounted: !!state.enabled,
+                mode: String(state.mode || 'dormant'),
+                activity: String(state.activity || 'dormant'),
+                behavior: String(state.behavior || 'idle'),
+                visual_mode: String(state.visual_mode || 'none'),
+                camera_binding: String(state.camera_binding || ''),
+                grounded: !!state.grounded,
+                support_key: String(state.support_key || ''),
+                support_kind: String(state.support_kind || ''),
+                spawn_source: String(state.spawn_source || ''),
+                last_spawn_ts: Number(state.last_spawn_ts || 0),
+                last_update_ts: Number(state.last_update_ts || 0),
+                position: _envCloneJson(state.position || {}, { scene: { x: 50, y: 52 }, world: { x: 0, y: 1, z: 0 } }),
+                facing: _envCloneJson(state.facing || {}, { yaw_degrees: 0, pitch_degrees: 0 })
+            },
+            mount_contract: {
+                target_class: 'mounted_character_runtime',
+                runtime_container: 'character_runtime',
+                environment_ref: environmentRef,
+                scene_object_surrogate: false,
+                support_policy: 'environment_facilities',
+                grounding_policy: 'runtime_surface_snap'
+            },
+            command_surface: {
+                transport: 'env_control',
+                host_commands: ['spawn_inhabitant', 'despawn_inhabitant', 'focus_inhabitant'],
+                implemented_verbs: ['focus'],
+                agent_bearing: false,
+                chat_overlay_eligible: false
+            },
+            perception_surface: {
+                fov_degrees: Number(perception.fov_degrees || 110),
+                sight_range: Number(perception.sight_range || 22),
+                visible_object_keys: _envCloneJson(perception.visible_object_keys || [], []),
+                visible_focus_key: String(perception.visible_focus_key || ''),
+                occluded_object_keys: _envCloneJson(perception.occluded_object_keys || [], []),
+                last_seen: _envCloneJson(perception.last_seen || {}, {}),
+                last_seen_count: Number(lastSeenKeys.length || 0)
+            },
+            capability_surface: {
+                brain_source: 'husk',
+                granted_tools: [],
+                active_utility_keys: []
+            },
+            memory_surface: {
+                namespace: 'character.' + String(state.id || _ENV_INHABITANT_OBJECT_ID || 'resident_primary'),
+                backing: 'none',
+                available: false
+            }
+        };
+    }
+
+    function _envInhabitantMountedRecord() {
+        var state = _envInhabitantRuntimeState();
+        if (!state || !state.enabled) return null;
+        var scenePoint = _envSceneClampPoint(
+            Number(((((state || {}).position || {}).scene || {}).x) || ((state.spawn_point || {}).x) || 50),
+            Number(((((state || {}).position || {}).scene || {}).y) || ((state.spawn_point || {}).y) || 52)
+        );
+        var runtimeSurface = _envInhabitantRuntimeSurfaceSnapshot(state);
+        return _envNormalizeSceneObjectRecord({
+            kind: _ENV_INHABITANT_OBJECT_KIND,
+            id: _ENV_INHABITANT_OBJECT_ID,
+            label: String(state.label || _ENV_INHABITANT_LABEL || 'Resident Inhabitant'),
+            state: 'running',
+            source: 'runtime',
+            runtime_target_class: 'mounted_character_runtime',
+            category: 'inhabitant',
+            x: scenePoint.x,
+            y: scenePoint.y,
+            scale: 1.08,
+            meta: 'Mounted character runtime surface.',
+            color: '#7dd3fc',
+            character: {
+                archetype: 'custom',
+                anim_set: 'humanoid',
+                behavior: String(state.behavior || 'idle')
+            },
+            embodiment: {
+                family: 'humanoid_biped',
+                standard: 'gltf_generic',
+                locomotion_class: 'biped'
+            },
+            data: {
+                role: 'inhabitant',
+                inhabitant_id: 'primary',
+                inhabitant_mode: String(state.mode || 'autonomous'),
+                behavior_speed: 2.6,
+                spawn_source: String(state.spawn_source || ''),
+                mounted_character_runtime: true,
+                runtime_target_class: 'mounted_character_runtime',
+                runtime_container: 'character_runtime',
+                runtime_state: runtimeSurface.runtime_state,
+                mount_contract: runtimeSurface.mount_contract,
+                command_surface: runtimeSurface.command_surface,
+                perception_surface: runtimeSurface.perception_surface,
+                capability_surface: runtimeSurface.capability_surface,
+                memory_surface: runtimeSurface.memory_surface
+            },
+            semantics: {
+                role: 'inhabitant',
+                placement_intent: 'presence',
+                anchors: ['agent_spatial_presence']
+            }
+        }, null);
     }
 
     function _envInhabitantObjectKey() {
@@ -9331,7 +9457,7 @@
         if (!enabled) {
             var hadFocus = String(((_envKernel.focus || {}).kind) || '') === _ENV_INHABITANT_OBJECT_KIND
                 && String(((_envKernel.focus || {}).id) || '') === _ENV_INHABITANT_OBJECT_ID;
-            _envRemoveObject(_ENV_INHABITANT_OBJECT_KIND, _ENV_INHABITANT_OBJECT_ID);
+            _env3DRemoveSceneObjectMesh(_envInhabitantObjectKey());
             if (hadFocus) {
                 _envSetFocus('scene', _envScenePrimarySnapshotName() || 'scene', actorName);
                 _envScene.cameraMode = 'overview';
@@ -9353,7 +9479,8 @@
             _envEmitBus('inhabitant', 'Dismissed inhabitant presence', actorName, { action: 'despawn_inhabitant' });
             _envSetBadge('idle', 'INHABITANT OFF');
             _envScheduleLiveSync('inhabitant:despawn', true);
-            renderEnvironmentView();
+            if (_env3D.inited) _envSyncHabitatScene();
+            else renderEnvironmentView();
             return null;
         }
         var behavior = _envInhabitantBehaviorFromTarget(targetId, state.behavior || 'idle');
@@ -9379,40 +9506,9 @@
         state.spawn_point = _envCloneJson(spawnPoint, spawnPoint);
         state.spawn_source = String(reason || 'manual');
         state.last_spawn_ts = Date.now();
-        var obj = _envUpsertSpawnedObject({
-            kind: _ENV_INHABITANT_OBJECT_KIND,
-            id: _ENV_INHABITANT_OBJECT_ID,
-            label: _ENV_INHABITANT_LABEL,
-            state: 'running',
-            category: 'inhabitant',
-            x: spawnPoint.x,
-            y: spawnPoint.y,
-            scale: 1.08,
-            meta: 'Primary inhabitant presence surface.',
-            color: '#7dd3fc',
-            character: {
-                archetype: 'custom',
-                anim_set: 'humanoid',
-                behavior: behavior
-            },
-            embodiment: {
-                family: 'humanoid_biped',
-                standard: 'gltf_generic',
-                locomotion_class: 'biped'
-            },
-            data: {
-                role: 'inhabitant',
-                inhabitant_id: 'primary',
-                inhabitant_mode: state.mode,
-                behavior_speed: 2.6,
-                spawn_source: state.spawn_source
-            },
-            semantics: {
-                role: 'inhabitant',
-                placement_intent: 'presence',
-                anchors: ['agent_spatial_presence']
-            }
-        });
+        var obj = _envInhabitantMountedRecord();
+        if (_env3D.inited) _envSyncHabitatScene();
+        else renderEnvironmentView();
         var spawnedMesh = _env3D.meshes ? _env3D.meshes[_envInhabitantObjectKey()] : null;
         if (spawnedMesh) _envInhabitantSnapMeshToSupport(spawnedMesh, Number((((state.position || {}).world || {}).y) || 1));
         _envRefreshInhabitantRuntimeState('spawn');
@@ -9430,7 +9526,7 @@
         _envSetBadge('running', 'INHABITANT');
         _envScheduleLiveSync('inhabitant:spawn', true);
         renderEnvironmentView();
-        return obj;
+        return _envInhabitantObject() || obj;
     }
 
     function _envFocusInhabitant(actor, reason, targetId) {
@@ -10360,11 +10456,34 @@
         if (secondaryEl) secondaryEl.textContent = _envScene.hud.secondary;
     }
 
+    function _envFocusTargetClass(focus) {
+        var focusState = focus && typeof focus === 'object' ? focus : {};
+        var payload = focusState.payload && typeof focusState.payload === 'object' ? focusState.payload : null;
+        var targetClass = String(
+            focusState.target_class
+            || ((payload && payload.runtime_target_class) || '')
+            || (((payload && payload.data) || {}).runtime_target_class || '')
+            || ((((payload && payload.data) || {}).mount_contract || {}).target_class || '')
+            || ((((payload && payload.mount_contract) || {}).target_class) || '')
+        );
+        if (!targetClass && _envIsMountedCharacterRuntimeObject(payload)) {
+            targetClass = 'mounted_character_runtime';
+        }
+        if (!targetClass) {
+            var focusKind = String((focusState.kind || (payload && payload.kind) || ''));
+            var focusId = String((focusState.id || (payload && payload.id) || ''));
+            var focusObj = focusKind && focusId ? _envSceneFindObject(focusKind, focusId) : null;
+            if (_envIsMountedCharacterRuntimeObject(focusObj)) targetClass = 'mounted_character_runtime';
+        }
+        return targetClass;
+    }
+
     function _envCorroborationFocusSummary() {
         var focus = _envKernel.focus || {};
         var payload = focus.payload && typeof focus.payload === 'object' ? focus.payload : null;
         var kind = String((focus.kind || (payload && payload.kind) || 'scene'));
         var id = String((focus.id || (payload && payload.id) || ''));
+        var targetClass = _envFocusTargetClass(focus);
         var label = String((payload && payload.label) || focus.label || focus.id || focus.kind || 'scene');
         if (kind === 'workflow' && id) {
             var workflowMeta = _envWorkflowById(id);
@@ -10376,7 +10495,8 @@
             key: kind && id ? (kind + '::' + id) : '',
             kind: kind,
             id: id,
-            label: label
+            label: label,
+            target_class: targetClass
         };
     }
 
@@ -10536,7 +10656,9 @@
         if (!_envIsOperationalActivityEvent(event)) return null;
         var objectKey = _envActivityTargetKey(event);
         var targetObj = objectKey ? _envSceneObjectByKey(objectKey) : null;
-        var targetKind = objectKey ? _envSceneKeyKind(objectKey) : '';
+        var targetKind = targetObj && _envIsMountedCharacterRuntimeObject(targetObj)
+            ? 'mounted_character_runtime'
+            : (objectKey ? _envSceneKeyKind(objectKey) : '');
         var targetId = objectKey && objectKey.indexOf('::') >= 0 ? objectKey.split('::').slice(1).join('::') : '';
         var targetLabel = targetObj
             ? String(targetObj.label || targetObj.id || objectKey)
@@ -10575,7 +10697,9 @@
         var payload = event.payload && typeof event.payload === 'object' ? event.payload : {};
         var objectKey = _envBusOperationTargetKey(event);
         var targetObj = objectKey ? _envSceneObjectByKey(objectKey) : null;
-        var targetKind = objectKey ? _envSceneKeyKind(objectKey) : String(payload.kind || '');
+        var targetKind = targetObj && _envIsMountedCharacterRuntimeObject(targetObj)
+            ? 'mounted_character_runtime'
+            : (objectKey ? _envSceneKeyKind(objectKey) : String(payload.kind || ''));
         var targetId = objectKey && objectKey.indexOf('::') >= 0
             ? objectKey.split('::').slice(1).join('::')
             : String(payload.id || '');
@@ -11211,6 +11335,10 @@
             return path.split('/').slice(-1)[0] || path;
         }
         if (kind === 'slot' || kind === 'npc' || kind === 'chatbot' || kind === 'service' || kind === 'panel') {
+            var sceneObj = _envSceneFindObject(kind, id);
+            if (_envIsMountedCharacterRuntimeObject(sceneObj)) {
+                return String(sceneObj.label || 'Resident Inhabitant');
+            }
             var slotIdx = parseInt(id, 10);
             var slotData = (!isNaN(slotIdx) && _getSlotData) ? _getSlotData(slotIdx) : null;
             var prefix = kind === 'slot' ? 'slot' : kind;
@@ -14452,7 +14580,7 @@
         ctx.scale(dpr, dpr);
         _envSceneUpdateCamera(timeMs);
         _envScene.dominance = _envSceneDominanceContext();
-        _envScene.pickables = (_envScene.objects || []).map(function (obj, idx) {
+        _envScene.pickables = _envSceneObjectPool().map(function (obj, idx) {
             return _envSceneProjectObject(obj, idx, timeMs);
         }).sort(function (a, b) {
                     return Number(a.y || 0) - Number(b.y || 0);
@@ -15263,6 +15391,10 @@
     }
 
     function _envFocusDescriptor(kind, id, workflow, sections, traces) {
+        var mountedSceneObj = _envSceneFindObject(kind, id);
+        if (_envIsMountedCharacterRuntimeObject(mountedSceneObj)) {
+            return 'character runtime · ' + String(mountedSceneObj.label || mountedSceneObj.id || 'resident');
+        }
         if (kind === 'actor') {
             var actorLane = _envActorLaneById(id) || _envActorEnsureLane(id || _envActorActiveId());
             if (actorLane) return 'actor · ' + String(actorLane.label || actorLane.id || 'actor');
@@ -15340,6 +15472,8 @@
             if (watchMeta) return 'watch · ' + String(watchMeta.label || watchMeta.key || 'mode');
         }
         if (kind === 'execution') return 'execution';
+        var sceneObj = _envSceneFindObject(kind, id);
+        if (sceneObj) return String(sceneObj.label || sceneObj.id || sceneObj.kind || kind || 'workflow');
         return String(kind || 'workflow');
     }
 
@@ -15353,12 +15487,19 @@
         var label = _envFocusDescriptor(focusKind, focusId, workflow, sections, traces);
         var actorName = _envNormalizeActorId(actor || 'system') || 'system';
         var lane = _envActorEnsureLane(actorName);
+        var focusPayload = payload || null;
+        var mountedFocus = _envIsMountedCharacterRuntimeObject(focusPayload);
+        if (!mountedFocus) {
+            var mountedSceneObj = _envSceneFindObject(focusKind, focusId);
+            mountedFocus = _envIsMountedCharacterRuntimeObject(mountedSceneObj);
+        }
         _envKernel.focus = {
             kind: focusKind,
             id: focusId,
             label: label,
             actor: actorName,
-            payload: payload || null
+            payload: focusPayload,
+            target_class: mountedFocus ? 'mounted_character_runtime' : ''
         };
         lane.focus = Object.assign({}, _envKernel.focus || {});
         lane.lastFocusTs = Date.now();
@@ -15368,7 +15509,9 @@
         else if (focusKind === 'workflow') _wfSelectWorkflowDrill();
         else if (focusKind === 'trace' && traces[focusId] && traces[focusId].args && traces[focusId].args._workflow_node_id) _wfSelectNodeDrill(String(traces[focusId].args._workflow_node_id));
         else if (focusKind === 'doc') _envDocRequestRead(focusId, actorName);
-        _envLogAction('focus', 'Focused ' + label + ' (' + focusKind + ')', actorName, { kind: focusKind, id: focusId });
+        var focusObj = _envSceneFindObject(focusKind, focusId);
+        var focusLogKind = _envIsMountedCharacterRuntimeObject(focusObj) ? 'mounted_character_runtime' : focusKind;
+        _envLogAction('focus', 'Focused ' + label + ' (' + focusLogKind + ')', actorName, { kind: focusKind, id: focusId });
         // Drive three.js camera to follow focus — suppress when panel owns attention
         if (_env3D.inited && !_envHtmlPanelState.active) {
             var cMode = _envSceneNormalizeCameraMode(_envScene.cameraMode || 'overview');
@@ -17114,13 +17257,14 @@
                 note('room_id', 'world_profile', 0.1);
             }
         }
+        var isMountedCharacterRuntime = _envIsMountedCharacterRuntimeObject(obj);
         if (!(authoredPresence || {}).priority) {
             if (/^(portal|landmark)$/.test(role) || _envSceneSemanticHasAny(haystack, ['centerpiece', 'focal', 'hero', 'landmark', 'entrance', 'exit', 'altar', 'shrine'])) {
                 derived.priority = 'landmark';
                 note('priority', 'label_meta', 0.18);
             } else if (role === 'agent' || kind === 'npc' || _envSceneSemanticHasAny(haystack, ['guardian', 'boss', 'captain', 'leader'])) {
                 derived.priority = 'high';
-                note('priority', kind === 'npc' ? 'kind:npc' : 'label_meta', 0.16);
+                note('priority', (kind === 'npc' && isMountedCharacterRuntime) ? 'runtime_target_class' : (kind === 'npc' ? 'kind:npc' : 'label_meta'), 0.16);
             } else if (/^(floor|wall|ceiling|support|transition|tunnel|chamber)$/.test(role)) {
                 derived.priority = 'medium';
                 note('priority', 'structural_role', 0.08);
@@ -18466,7 +18610,9 @@
 
     function _envReplaceCustomSceneObjects(items, source) {
         var nextItems = Array.isArray(items) ? items.filter(function (item) {
-            return item && _envIsCustomSceneKind(item.kind);
+            return item
+                && _envIsCustomSceneKind(item.kind)
+                && _envSceneObjectKey(item) !== _envInhabitantObjectKey();
         }) : [];
         var normalized = nextItems.map(function (item) {
             return _envNormalizeSceneObjectRecord(item, null);
@@ -19049,6 +19195,44 @@
         };
     }
 
+    function _envSceneObjectChatBinding(obj) {
+        if (!obj || typeof obj !== 'object') {
+            return {
+                agent_bearing: false,
+                chat_overlay_eligible: false,
+                slot_id: ''
+            };
+        }
+        var data = _envObjectData(obj);
+        var commandSurface = data && data.command_surface && typeof data.command_surface === 'object'
+            ? data.command_surface
+            : null;
+        var capabilityProfile = data && data.capability_profile && typeof data.capability_profile === 'object'
+            ? data.capability_profile
+            : null;
+        var observation = data && data.observation && typeof data.observation === 'object'
+            ? data.observation
+            : null;
+        var slotId = _envSceneResolveSlotId(obj);
+        var agentBearing = false;
+        var overlayEligible = false;
+        if (commandSurface) {
+            agentBearing = !!commandSurface.agent_bearing;
+            overlayEligible = !!commandSurface.chat_overlay_eligible;
+            if (!overlayEligible && agentBearing) overlayEligible = true;
+        }
+        if (!agentBearing && capabilityProfile && capabilityProfile.supports_agent_chat) agentBearing = true;
+        if (!overlayEligible && capabilityProfile && capabilityProfile.supports_agent_chat) overlayEligible = true;
+        if (!agentBearing && observation && observation.supports_agent_chat) agentBearing = true;
+        if (!overlayEligible && observation && observation.supports_agent_chat) overlayEligible = true;
+        if (!slotId) overlayEligible = false;
+        return {
+            agent_bearing: !!agentBearing,
+            chat_overlay_eligible: !!overlayEligible,
+            slot_id: String(slotId || '')
+        };
+    }
+
     function _envSceneActionsForObject(obj) {
         if (!obj || typeof obj !== 'object') return [];
         var rawActions = [];
@@ -19078,11 +19262,11 @@
         var url = String(data.url || data.href || '').trim();
         if (url) return [{ type: 'open_url', label: url, url: url }];
         if (_envSceneObjectHasHtml(obj)) return [{ type: 'open_html', label: 'open panel' }];
-        var slotId = _envSceneResolveSlotId(obj);
-        if (String(obj.kind || '').toLowerCase() === 'npc' && String(slotId).trim()) {
-            return [{ type: 'open_agent_chat', label: 'open agent chat', slot: slotId }];
+        var chatBinding = _envSceneObjectChatBinding(obj);
+        if (chatBinding.agent_bearing && chatBinding.chat_overlay_eligible && chatBinding.slot_id) {
+            return [{ type: 'open_agent_chat', label: 'open agent chat', slot: chatBinding.slot_id }];
         }
-        var command = _envFocusCommandForKind(obj.kind);
+        var command = _envFocusCommandForTarget(obj.kind, obj.id);
         if (command) return [{ type: 'env_control', label: command, command: command, target: String(obj.id || '') }];
         return [];
     }
@@ -19103,11 +19287,22 @@
     function _envSceneObjectByKey(key) {
         var wanted = String(key || '').trim();
         if (!wanted) return null;
-        var objects = Array.isArray(_envScene.objects) ? _envScene.objects : [];
+        var objects = _envSceneObjectCatalog();
         for (var i = 0; i < objects.length; i++) {
             if (_envSceneObjectKey(objects[i]) === wanted) return objects[i];
         }
         return null;
+    }
+
+    function _envIsMountedCharacterRuntimeObject(obj) {
+        var data = _envObjectData(obj);
+        return !!(data && data.mounted_character_runtime);
+    }
+
+    function _envEnvironmentObjectCatalog() {
+        return _envSceneObjectCatalog().filter(function (obj) {
+            return !_envIsMountedCharacterRuntimeObject(obj);
+        });
     }
 
     function _envSceneSnapshotObjects(snapshot) {
@@ -19780,9 +19975,18 @@
             return true;
         }
         if (actionType === 'open_agent_chat') {
+            var chatBinding = _envSceneObjectChatBinding(sourceObj);
             var slotId = actionSpec.slot !== undefined && actionSpec.slot !== null && String(actionSpec.slot).trim()
                 ? String(actionSpec.slot)
-                : _envSceneResolveSlotId(sourceObj);
+                : String(chatBinding.slot_id || '');
+            if (sourceObj && (!chatBinding.agent_bearing || !chatBinding.chat_overlay_eligible || !slotId)) {
+                _envLogAction('route', 'Rejected agent chat: target is not agent-bearing', actorName, {
+                    object_key: objectKey,
+                    slot_id: slotId
+                });
+                renderEnvironmentView();
+                return false;
+            }
             if (!_envOpenAgentChatForSlot(slotId)) {
                 _envQueueControl('focus_slot', String(slotId || ''), actorName, 'scene slot focus', {
                     source: String(source || 'scene'),
@@ -19867,11 +20071,14 @@
     }
 
     function _envInspectorSnapshot() {
+        var objectKey = String(_envInspectorState.objectKey || '');
+        var targetObj = objectKey ? _envSceneObjectByKey(objectKey) : null;
         return {
             active: !!_envInspectorState.active,
-            object_key: String(_envInspectorState.objectKey || ''),
+            object_key: objectKey,
             kind: String(_envInspectorState.kind || ''),
             id: String(_envInspectorState.id || ''),
+            target_class: _envIsMountedCharacterRuntimeObject(targetObj) ? 'mounted_character_runtime' : '',
             actor: String(_envInspectorState.actor || ''),
             source: String(_envInspectorState.source || ''),
             opened_ts: Number(_envInspectorState.openedTs || 0),
@@ -19981,6 +20188,9 @@
         _envInspectorState.openedTs = Date.now();
         _envInspectorState.anchor = _envInspectorAnchorForObject(obj);
         _envInspectorState.activeSection = _envDefaultInspectorSectionKey(obj.kind);
+        if (_envIsMountedCharacterRuntimeObject(obj)) {
+            _envInspectorState.activeSection = 'character-runtime';
+        }
         _envScheduleLiveSync('inspector:open', true);
         renderEnvironmentView();
         return true;
@@ -20008,15 +20218,20 @@
     function _envFocusSceneObject(obj, actor, source) {
         if (!obj || typeof obj !== 'object') return false;
         var actorName = String(actor || _envManualActorId() || 'assistant');
+        var mountedRuntime = _envIsMountedCharacterRuntimeObject(obj);
+        var focusSummary = mountedRuntime
+            ? ('Focused character runtime · ' + String(obj.label || obj.id || obj.kind || 'object'))
+            : ('Scene focus · ' + String(obj.label || obj.id || obj.kind || 'object'));
         _envSetFocus(String(obj.kind || 'workflow'), String(obj.id || ''), actorName, obj);
         if (_env3D.inited) {
             _envScene.cameraMode = 'focus';
             _env3DFocusObject(String(obj.kind || 'workflow'), String(obj.id || ''));
         }
-        _envEmitBus('focus', 'Scene focus · ' + String(obj.label || obj.id || obj.kind || 'object'), actorName, {
+        _envEmitBus('focus', focusSummary, actorName, {
             object_key: _envSceneObjectKey(obj),
             kind: String(obj.kind || ''),
             id: String(obj.id || ''),
+            runtime_target_class: mountedRuntime ? 'mounted_character_runtime' : '',
             source: String(source || 'scene')
         });
         _envScheduleLiveSync('focus:scene-object', true);
@@ -20279,6 +20494,9 @@
         var sourceObj = obj && typeof obj === 'object' ? obj : {};
         var label = String(sourceObj.label || sourceObj.id || sourceObj.kind || 'this object').trim();
         var kind = String(sourceObj.kind || 'object').toLowerCase();
+        if (_envIsMountedCharacterRuntimeObject(sourceObj)) {
+            return 'Report the mounted character runtime status, command surface, perception state, and immediate environment context in one concise paragraph.';
+        }
         if (kind === 'npc') return 'Respond in character as ' + label + '. Give your current role, mood, and immediate context in the environment.';
         if (kind === 'slot') return 'Report your current model identity, provider, and readiness in one concise paragraph.';
         return 'Describe your current role, status, and immediate context in the environment.';
@@ -20299,6 +20517,7 @@
         var actorName = String(actor || _envManualActorId() || 'assistant');
         var objectKey = sourceObj ? _envSceneObjectKey(sourceObj) : '';
         var data = _envObjectData(sourceObj);
+        var isMountedCharacterRuntime = _envIsMountedCharacterRuntimeObject(sourceObj);
         var slotId = _envSceneResolveSlotId(sourceObj);
         var slotNum = parseInt(String(slotId || ''), 10);
         var workflowId = _envInspectorWorkflowTarget(sourceObj);
@@ -20376,6 +20595,7 @@
             return true;
         }
         if (action === 'edit-object') {
+            if (isMountedCharacterRuntime) return false;
             _queueToolPromptPrefill('env_mutate', {
                 kind: String(sourceObj.kind || ''),
                 id: String(sourceObj.id || ''),
@@ -20399,6 +20619,7 @@
             return true;
         }
         if (action === 'edit-mechanics') {
+            if (isMountedCharacterRuntime) return false;
             _envInspectorState.mechanicsEditKey = objectKey;
             _envInspectorState.activeSection = 'mechanics';
             renderEnvironmentView();
@@ -20410,6 +20631,7 @@
             return true;
         }
         if (action === 'save-mechanics') {
+            if (isMountedCharacterRuntime) return false;
             var family = String(((document.getElementById('envops-mechanics-family') || {}).value || '')).trim();
             var windEnabled = !!((document.getElementById('envops-mechanics-wind-enabled') || {}).checked);
             var reactionEnabled = !!((document.getElementById('envops-mechanics-reaction-enabled') || {}).checked);
@@ -20452,6 +20674,7 @@
             return true;
         }
         if (action === 'edit-character') {
+            if (isMountedCharacterRuntime) return false;
             _envInspectorState.characterEditKey = objectKey;
             _envInspectorState.activeSection = 'character';
             renderEnvironmentView();
@@ -20463,6 +20686,7 @@
             return true;
         }
         if (action === 'save-character') {
+            if (isMountedCharacterRuntime) return false;
             var currentCharacter = _envCloneJson(sourceObj.character || _envSceneCharacterForObject(sourceObj) || {}, {});
             currentCharacter.archetype = String(((document.getElementById('envops-character-archetype') || {}).value || '')).trim() || null;
             currentCharacter.asset_ref = String(((document.getElementById('envops-character-asset-ref') || {}).value || '')).trim() || null;
@@ -20489,11 +20713,13 @@
             return true;
         }
         if (action === 'toggle-waypoint-capture') {
+            if (isMountedCharacterRuntime) return false;
             _envInspectorState.waypointEditKey = _envInspectorState.waypointEditKey === objectKey ? '' : objectKey;
             renderEnvironmentView();
             return true;
         }
         if (action === 'clear-waypoints') {
+            if (isMountedCharacterRuntime) return false;
             var nextData = _envCloneJson(data, {});
             nextData.waypoints = [];
             _envUpsertSpawnedObject({
@@ -20509,6 +20735,7 @@
             return true;
         }
         if (action === 'remove-object') {
+            if (isMountedCharacterRuntime) return false;
             if (!_envIsCustomSceneKind(sourceObj.kind)) return false;
             callTool('env_remove', {
                 kind: String(sourceObj.kind || ''),
@@ -20666,6 +20893,11 @@
         var kind = String(obj.kind || '').toLowerCase();
         var objectKey = _envSceneObjectKey(obj);
         var data = _envObjectData(obj);
+        var isMountedCharacterRuntime = _envIsMountedCharacterRuntimeObject(obj);
+        var mountedRuntimeSurface = isMountedCharacterRuntime
+            ? _envInhabitantRuntimeSurfaceSnapshot(_envInhabitantRuntimeState())
+            : null;
+        var chatBinding = _envSceneObjectChatBinding(obj);
         var mechanics = obj && obj.mechanics && typeof obj.mechanics === 'object' && !Array.isArray(obj.mechanics)
             ? obj.mechanics
             : null;
@@ -20724,6 +20956,46 @@
             }));
         }
 
+        if (mountedRuntimeSurface) {
+            var runtimeState = mountedRuntimeSurface.runtime_state || {};
+            var commandSurface = mountedRuntimeSurface.command_surface || {};
+            var capabilitySurface = mountedRuntimeSurface.capability_surface || {};
+            var memorySurface = mountedRuntimeSurface.memory_surface || {};
+            var perceptionSurface = mountedRuntimeSurface.perception_surface || {};
+            var commandChips = []
+                .concat(commandSurface.host_commands || [])
+                .concat(commandSurface.implemented_verbs || []);
+            var runtimeRows = [
+                _envInspectorMetric('Mounted', runtimeState.mounted ? 'yes' : 'no'),
+                _envInspectorMetric('Mode', String(runtimeState.mode || 'dormant')),
+                _envInspectorMetric('Activity', String(runtimeState.activity || 'dormant')),
+                _envInspectorMetric('Behavior', String(runtimeState.behavior || 'idle')),
+                _envInspectorMetric('Grounded', runtimeState.grounded ? 'yes' : 'no'),
+                _envInspectorMetric('Support', String(runtimeState.support_key || '—')),
+                _envInspectorMetric('Camera', String(runtimeState.camera_binding || '—')),
+                _envInspectorMetric('Brain', String(capabilitySurface.brain_source || 'husk'))
+            ];
+            if (commandChips.length) {
+                runtimeRows.push('<div class="envops-chip-row">' + commandChips.slice(0, 8).map(function (item) {
+                    return '<span class="envops-chip">' + _esc(String(item || '')) + '</span>';
+                }).join('') + '</div>');
+            }
+            sections.push(_envInspectorSection('character-runtime', 'Character Runtime', runtimeRows.join(''), {
+                meta: String(capabilitySurface.brain_source || 'runtime'),
+                open: true
+            }));
+            sections.push(_envInspectorSection('perception-surface', 'Perception Surface', [
+                _envInspectorMetric('FOV', String(Number(perceptionSurface.fov_degrees || 0).toFixed(0)) + '°'),
+                _envInspectorMetric('Range', String(Number(perceptionSurface.sight_range || 0).toFixed(1)) + 'm'),
+                _envInspectorMetric('Visible', String(Number((perceptionSurface.visible_object_keys || []).length || 0))),
+                _envInspectorMetric('Occluded', String(Number((perceptionSurface.occluded_object_keys || []).length || 0))),
+                _envInspectorMetric('Focus', String(perceptionSurface.visible_focus_key || '—')),
+                _envInspectorMetric('Memory', memorySurface.available ? 'live' : String(memorySurface.backing || 'none'))
+            ].join(''), {
+                meta: String((perceptionSurface.visible_object_keys || []).length || 0) + ' visible'
+            }));
+        }
+
         if (kind === 'npc' && slotSummary) {
             sections.push(_envInspectorSection('agent', 'Agent', [
                 _envInspectorMetric('Slot', slotSummary.slot),
@@ -20731,9 +21003,13 @@
                 _envInspectorMetric('Provider', slotSummary.provider || '—'),
                 _envInspectorMetric('Chat', slotSummary.supportsChat ? 'yes' : 'no')
             ].join(''), { meta: slotSummary.provider || 'slot', open: true }));
-            actions.push(_envInspectorActionButton('chat', 'Chat', 'primary'));
-            actions.push(_envInspectorActionButton('invoke-slot', 'Invoke'));
-            actions.push(_envInspectorActionButton('focus-slot', 'Focus Slot'));
+            if (chatBinding.agent_bearing && chatBinding.chat_overlay_eligible && chatBinding.slot_id) {
+                actions.push(_envInspectorActionButton('chat', 'Chat', 'primary'));
+            }
+            if (chatBinding.slot_id) {
+                actions.push(_envInspectorActionButton('invoke-slot', 'Invoke'));
+                actions.push(_envInspectorActionButton('focus-slot', 'Focus Slot'));
+            }
             var caps = Array.isArray(data.capabilities) ? data.capabilities : (Array.isArray(data.granted_tools) ? data.granted_tools : []);
             var slotCaps = _slotUniqueStrings(((slotSummary.capabilityProfile || {}).supported_tasks || []).concat((slotSummary.capabilityProfile || {}).modality_families || []));
             caps = _slotUniqueStrings(caps.concat(slotCaps));
@@ -20872,7 +21148,7 @@
             if (kind === 'trace' || kind === 'event') actions.push(_envInspectorActionButton('open-debug', 'Open Debug', 'primary'));
         }
 
-        if ((mechanics && mechanics.family) || _envIsCustomSceneKind(kind)) {
+        if ((mechanics && mechanics.family) || (_envIsCustomSceneKind(kind) && !isMountedCharacterRuntime)) {
             mechanics = mechanics || {
                 family: null,
                 wind: { enabled: false, strength: 0.5, frequency: 1, direction: [1, 0] },
@@ -20903,7 +21179,7 @@
                 ));
             }
             var mechanicsBody = mechanicRows.join('');
-            if (_envIsCustomSceneKind(kind)) {
+            if (_envIsCustomSceneKind(kind) && !isMountedCharacterRuntime) {
                 if (mechanicsEditing) {
                     mechanicsBody = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">' +
                         _envInspectorEditorSelect('envops-mechanics-family', 'Family', mechanics.family || '', [
@@ -20951,7 +21227,7 @@
                 _envInspectorMetric('Behavior', character.behavior || 'idle'),
                 _envInspectorMetric('Voice', character.voice || '—')
             ].join('');
-            if (_envIsCustomSceneKind(kind)) {
+            if (_envIsCustomSceneKind(kind) && !isMountedCharacterRuntime) {
                 if (characterEditing) {
                     characterBody = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">' +
                         _envInspectorEditorSelect('envops-character-archetype', 'Archetype', character.archetype || 'custom', [
@@ -21077,10 +21353,10 @@
 
         sections.push(_envInspectorSection('raw-payload', 'Raw Payload', _wfJsonBlock(String(obj.label || obj.id || obj.kind || 'object'), obj), { meta: 'raw' }));
         var actionMarkup = actions.join('');
-        if (_envIsCustomSceneKind(kind) && actionMarkup.indexOf('data-env-inspector-action="edit-object"') < 0) {
+        if (_envIsCustomSceneKind(kind) && !isMountedCharacterRuntime && actionMarkup.indexOf('data-env-inspector-action="edit-object"') < 0) {
             actions.push(_envInspectorActionButton('edit-object', 'Edit'));
         }
-        if (_envIsCustomSceneKind(kind) && actionMarkup.indexOf('data-env-inspector-action="remove-object"') < 0) {
+        if (_envIsCustomSceneKind(kind) && !isMountedCharacterRuntime && actionMarkup.indexOf('data-env-inspector-action="remove-object"') < 0) {
             actions.push(_envInspectorActionButton('remove-object', 'Remove'));
         }
         actionMarkup = actions.join('');
@@ -21268,6 +21544,7 @@
 
     function _envUpsertSpawnedObject(params) {
         if (!params || typeof params !== 'object') return null;
+        if (_envSceneObjectKey(params) === _envInhabitantObjectKey()) return null;
         return _envMutateObject(params) || _envSpawnObject(params);
     }
 
@@ -27596,6 +27873,20 @@
     function _env3DCameraPoseSnapshot() {
         if (!_env3D.camera) return null;
         var rigMeta = _env3D.rigMeta && typeof _env3D.rigMeta === 'object' ? _env3D.rigMeta : {};
+        var focusObj = rigMeta.focus_key ? _envSceneObjectByKey(String(rigMeta.focus_key || '')) : null;
+        var focusState = _envKernel && _envKernel.focus && typeof _envKernel.focus === 'object' ? _envKernel.focus : null;
+        var focusTargetClass = String((rigMeta.focus_target_class) || '');
+        if (!focusTargetClass && _envIsMountedCharacterRuntimeObject(focusObj)) {
+            focusTargetClass = 'mounted_character_runtime';
+        }
+        if (!focusTargetClass && _envFocusTargetClass(focusState)) {
+            focusTargetClass = _envFocusTargetClass(focusState);
+        }
+        if (!focusTargetClass
+            && String((rigMeta.focus_kind) || '') === _ENV_INHABITANT_OBJECT_KIND
+            && String((rigMeta.focus_id) || '') === _ENV_INHABITANT_OBJECT_ID) {
+            focusTargetClass = 'mounted_character_runtime';
+        }
         var target = _env3D.controls && _env3D.controls.target ? _env3D.controls.target.clone() : new THREE.Vector3(0, 0, 0);
         var position = _env3D.camera.position ? _env3D.camera.position.clone() : new THREE.Vector3(0, 0, 0);
         var offset = position.clone().sub(target);
@@ -27621,7 +27912,8 @@
             },
             focus_key: String((rigMeta.focus_key) || ''),
             focus_kind: String((rigMeta.focus_kind) || ''),
-            focus_id: String((rigMeta.focus_id) || '')
+            focus_id: String((rigMeta.focus_id) || ''),
+            focus_target_class: String(focusTargetClass || '')
         };
     }
 
@@ -31710,11 +32002,14 @@
     function _env3DFocusObject(kind, id) {
         var mesh = _env3DResolveFocusMesh(kind, id);
         if (!mesh || !_env3D.controls) return;
+        var focusKey = String(_env3DObjectKey((mesh || {}).userData || {}));
+        var focusObj = focusKey ? _envSceneObjectByKey(focusKey) : null;
         _env3D.rigMeta = {
             mode: 'focus',
-            focus_key: String(_env3DObjectKey((mesh || {}).userData || {})),
+            focus_key: focusKey,
             focus_kind: String((((mesh || {}).userData || {}).kind) || ''),
-            focus_id: String((((mesh || {}).userData || {}).id) || '')
+            focus_id: String((((mesh || {}).userData || {}).id) || ''),
+            focus_target_class: _envIsMountedCharacterRuntimeObject(focusObj) ? 'mounted_character_runtime' : ''
         };
         _env3DApplyCameraRig(true);
     }
@@ -32054,7 +32349,7 @@
 
     function _envRefreshSceneAudit(force) {
         if (typeof _envSceneAudit !== 'object' || !_envSceneAudit) return [];
-        var rows = _envSceneObjectCatalog();
+        var rows = _envEnvironmentObjectCatalog();
         var signature = _envSceneAuditSignature(rows);
         if (!force && signature === String(_envSceneAudit.signature || '')) {
             return _envSceneAudit.warnings.slice();
@@ -32073,15 +32368,21 @@
     function _envSceneObjectCatalog() {
         var rows = [];
         var seen = {};
+        var inhabitantKey = _envInhabitantObjectKey();
         function push(obj) {
             if (!obj || typeof obj !== 'object') return;
             var key = _envSceneObjectKey(obj);
-            if (!key || seen[key]) return;
+            if (!key || key === inhabitantKey || seen[key]) return;
             seen[key] = true;
             rows.push(obj);
         }
         (Array.isArray(_envSpawnedObjects) ? _envSpawnedObjects : []).forEach(push);
         (Array.isArray(_envMirrorState.habitatObjects) ? _envMirrorState.habitatObjects : []).forEach(push);
+        var mounted = _envInhabitantMountedRecord();
+        if (mounted && !seen[inhabitantKey]) {
+            seen[inhabitantKey] = true;
+            rows.push(mounted);
+        }
         return rows;
     }
 
@@ -32636,7 +32937,11 @@
                 auto_sample_on_runtime: !!((_envKernel.watch || {}).autoSampleOnRuntime),
                 auto_focus_latest_trace: !!((_envKernel.watch || {}).autoFocusLatestTrace)
             },
-            shared_focus: Object.assign({}, (_envKernel.focus || {})),
+            shared_focus: (function () {
+                var focus = Object.assign({}, (_envKernel.focus || {}));
+                focus.target_class = _envFocusTargetClass(focus);
+                return focus;
+            })(),
             sampler_state: {
                 active: !!((_envKernel.sampler || {}).active),
                 interval_ms: Number((_envKernel.sampler || {}).intervalMs || 0)
@@ -32712,6 +33017,15 @@
         if (k === 'panel') return 'focus_surface';
         if (k === 'slot' || k === 'npc' || k === 'chatbot' || k === 'service') return 'focus_slot';
         return '';
+    }
+
+    function _envFocusCommandForTarget(kind, id) {
+        var focusKind = String(kind || 'workflow').trim();
+        var focusId = id === undefined || id === null ? '' : String(id).trim();
+        if (focusKind === _ENV_INHABITANT_OBJECT_KIND && focusId === _ENV_INHABITANT_OBJECT_ID) {
+            return 'focus_inhabitant';
+        }
+        return _envFocusCommandForKind(focusKind);
     }
 
     function _envClassifyNodeType(node) {
@@ -33912,7 +34226,9 @@
 
     function _envExportWorldViewer() {
         var sceneData = {
-            objects: _envSceneObjectPool().map(_envWorldViewerObjectSnapshot).filter(function (item) { return !!item; }),
+            objects: _envSceneObjectPool().filter(function (obj) {
+                return !_envIsMountedCharacterRuntimeObject(obj);
+            }).map(_envWorldViewerObjectSnapshot).filter(function (item) { return !!item; }),
             theme: _envWorldViewerThemeSnapshot(),
             camera: {
                 position: _env3D.camera ? [_env3D.camera.position.x, _env3D.camera.position.y, _env3D.camera.position.z] : [0, 15, 20],
@@ -34646,7 +34962,7 @@
             };
         }
         if (Object.keys(appearance).length) spawnArgs.appearance = appearance;
-        var previewScene = _envSceneObjectCatalog().slice();
+        var previewScene = _envEnvironmentObjectCatalog().slice();
         previewScene.push(_envCloneJson(spawnArgs, {}));
         var previewWarnings = _env3DAuditSceneComposition(previewScene);
         _envSceneAudit.previewWarnings = previewWarnings;
@@ -39713,7 +40029,7 @@
             }
             var focusKind = focusEl.getAttribute('data-env-focus-kind') || 'workflow';
             var focusId = focusEl.getAttribute('data-env-focus-id') || '';
-            var command = _envFocusCommandForKind(focusKind);
+            var command = _envFocusCommandForTarget(focusKind, focusId);
             if (!command) return;
             _envQueueControl(command, focusId, uiActor, 'habitat focus', { kind: focusKind });
         });
@@ -39822,7 +40138,7 @@
             if (action === 'focus-linked-target') {
                 var focusKind = actionEl.getAttribute('data-env-focus-kind') || '';
                 var focusId = actionEl.getAttribute('data-env-focus-id') || '';
-                var command = _envFocusCommandForKind(focusKind);
+                var command = _envFocusCommandForTarget(focusKind, focusId);
                 if (!command) return;
                 _envQueueControl(command, focusId, uiActor, 'focus payload linked target', { kind: focusKind });
             }
@@ -39864,7 +40180,7 @@
             if (action === 'restore-actor-focus') {
                 var restoreKind = actionEl.getAttribute('data-env-focus-kind') || '';
                 var restoreId = actionEl.getAttribute('data-env-focus-id') || '';
-                var restoreCommand = _envFocusCommandForKind(restoreKind);
+                var restoreCommand = _envFocusCommandForTarget(restoreKind, restoreId);
                 if (!restoreCommand) return;
                 _envQueueControl(restoreCommand, restoreId, uiActor, 'actor lane restore focus', { kind: restoreKind });
                 return;
@@ -40117,7 +40433,7 @@
         if (_wfSelectedId) _wfRequestDefinition(_wfSelectedId, 'External environment system selection');
     };
     window.envopsSetFocus = function (kind, id, actor) {
-        var command = _envFocusCommandForKind(kind);
+        var command = _envFocusCommandForTarget(kind, id);
         if (!command) return;
         _envQueueControl(command, id === undefined || id === null ? '' : String(id), actor || 'assistant', 'external focus');
     };
@@ -40281,6 +40597,10 @@
         var state = _envRefreshInhabitantRuntimeState('external_perception');
         return JSON.parse(JSON.stringify((state && state.perception) || _envCreateInhabitantPerceptionState()));
     };
+    window.envopsGetInhabitantRuntimeSurface = function () {
+        var state = _envRefreshInhabitantRuntimeState('external_runtime_surface');
+        return JSON.parse(JSON.stringify(_envInhabitantRuntimeSurfaceSnapshot(state)));
+    };
     window.envopsGetBusEvents = function (limit) {
         var take = Math.max(1, Math.min(200, Number(limit || _envLiveTailLimit() || 24)));
         return JSON.parse(JSON.stringify((_envBus.events || []).slice(0, take)));
@@ -40339,9 +40659,12 @@
         var layoutSnapshot = _envBuildLayoutSnapshot();
         var corroborationState = _envBuildCorroborationState(renderTruth, layoutSnapshot);
         var inhabitantState = _envRefreshInhabitantRuntimeState('shared_state');
+        var inhabitantSurface = _envInhabitantRuntimeSurfaceSnapshot(inhabitantState);
+        var focusSnapshot = Object.assign({}, _envKernel.focus || {});
+        focusSnapshot.target_class = _envFocusTargetClass(focusSnapshot);
         return {
             config_source: _envBus.source || 'defaults',
-            focus: Object.assign({}, _envKernel.focus || {}),
+            focus: focusSnapshot,
             sampler: {
                 active: !!((_envKernel.sampler || {}).active),
                 intervalMs: Number((_envKernel.sampler || {}).intervalMs || 0)
@@ -40452,7 +40775,20 @@
                     height: Number((((_env3D.renderer || {}).domElement || {}).clientHeight) || 0)
                 }
             },
-            inhabitant: _envCloneJson(inhabitantState, _envCreateInhabitantRuntimeState()),
+            inhabitant: Object.assign(
+                _envCloneJson(inhabitantState, _envCreateInhabitantRuntimeState()),
+                {
+                    mounted_character_runtime: !!((inhabitantSurface.runtime_state || {}).mounted),
+                    runtime_target_class: String((inhabitantSurface.mount_contract || {}).target_class || 'mounted_character_runtime'),
+                    runtime_container: String((inhabitantSurface.mount_contract || {}).runtime_container || 'character_runtime'),
+                    runtime_state: _envCloneJson(inhabitantSurface.runtime_state, null),
+                    mount_contract: _envCloneJson(inhabitantSurface.mount_contract, null),
+                    command_surface: _envCloneJson(inhabitantSurface.command_surface, null),
+                    perception_surface: _envCloneJson(inhabitantSurface.perception_surface, null),
+                    capability_surface: _envCloneJson(inhabitantSurface.capability_surface, null),
+                    memory_surface: _envCloneJson(inhabitantSurface.memory_surface, null)
+                }
+            ),
             docs: {
                 context_kind: String((_envDocState.contextKind || '')),
                 context_id: String((_envDocState.contextId || '')),
@@ -40542,6 +40878,9 @@
             var mesh = objectKey && _env3D.meshes ? _env3D.meshes[objectKey] : null;
             var interaction = _envSceneInteractionMeta(obj);
             var data = _envObjectData(obj);
+            var mountedRuntime = _envIsMountedCharacterRuntimeObject(obj)
+                ? _envInhabitantRuntimeSurfaceSnapshot(_envInhabitantRuntimeState())
+                : null;
             var character = _envSceneCharacterForObject(obj);
             var semantics = _envSceneSemanticsForObject(obj);
             var semanticsObservation = _envSceneSemanticObservationForObject(obj);
@@ -40577,7 +40916,7 @@
                 scale: Number(obj.scale || 1),
                 tilt: Number(obj.tilt || 0),
                 active: !!obj.active,
-                source: obj.source || null,
+                source: _envIsMountedCharacterRuntimeObject(obj) ? 'runtime' : (obj.source || null),
                 interaction: interaction,
                 semantics_family: String(data.semantics_family || ''),
                 slot_id: data.slot_id !== undefined ? String(data.slot_id) : '',
@@ -40616,7 +40955,13 @@
                 physics_observation: _envScenePhysicsObservationForObject(obj, mesh, objectKey),
                 character: character ? _envCloneJson(character, null) : null,
                 embodiment: embodiment ? _envCloneJson(embodiment, null) : null,
-                retargeting: retargeting ? _envCloneJson(retargeting, null) : null
+                retargeting: retargeting ? _envCloneJson(retargeting, null) : null,
+                mount_contract: mountedRuntime ? _envCloneJson(mountedRuntime.mount_contract, null) : null,
+                command_surface: mountedRuntime ? _envCloneJson(mountedRuntime.command_surface, null) : null,
+                perception_surface: mountedRuntime ? _envCloneJson(mountedRuntime.perception_surface, null) : null,
+                capability_surface: mountedRuntime ? _envCloneJson(mountedRuntime.capability_surface, null) : null,
+                memory_surface: mountedRuntime ? _envCloneJson(mountedRuntime.memory_surface, null) : null,
+                runtime_state: mountedRuntime ? _envCloneJson(mountedRuntime.runtime_state, null) : null
             };
         });
     };
