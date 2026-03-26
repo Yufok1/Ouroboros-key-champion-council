@@ -22,18 +22,21 @@ Champion Council already has:
 
 - canonical identity and product framing
 - character-first product contract docs
-- `v132` inhabitant presence
-- grounding/perception v1 beginnings
-- an empty substrate with no saved scenes
+- a canonical validation habitat
+- runtime bundle/export profiles
+- utility/workstation design specs
+- a corrected architecture direction:
+  - environment product
+  - character product
+  - character runtime facility mounted into environment facilities
 
 Champion Council does not yet have:
 
-- a canonical validation habitat
-- fully hardened grounding/perception
+- the corrected mounted-character implementation
 - buyer-facing HTTP command facade
 - engine adapter docs
-- embodiment import/export pipeline
-- commercial packaging pipeline
+- full embodiment import/export pipeline
+- a fully aligned delivery matrix across every product variation
 
 ## Production Classes
 
@@ -126,16 +129,16 @@ Purpose:
 
 Required outputs:
 
-- inhabitant runtime state
-- spawn / despawn / focus control path
-- behavior execution lane
-- grounded placement
+- character runtime facility
+- mounted-pose/state model
+- command surface
 - perception state
-- spectator/debug surfaces
+- memory/runtime identity surface
+- mount contract into environment facilities
 
 Purpose:
 
-- turn the character product from document to runtime entity
+- turn the character product from document to mounted live runtime
 
 ### E. Facility and Workflow Surface
 
@@ -149,8 +152,8 @@ Required outputs:
 
 Purpose:
 
-- make rooms and objects functional, not merely visual
-- give product commands real internal execution targets
+- make environments functional, not merely visual
+- give mounted character runtimes real environment-side execution targets
 
 ### F. Buyer API Surface
 
@@ -188,6 +191,7 @@ Required outputs:
 - previews and thumbnails
 - metadata and provenance
 - packaging rules for free / optional / required products
+- shipping matrix for environment, character, and mounted variants
 
 Purpose:
 
@@ -240,6 +244,7 @@ At minimum, the production pipeline must eventually emit all of the following ca
 
 - character manifests
 - environment manifests
+- mounted-product integration manifests
 - bundle exports
 - preview media
 - metadata packs
@@ -257,6 +262,7 @@ At minimum, the production pipeline must eventually emit all of the following ca
 - engine integration notes
 - packaging/install guidance
 - licensing/provenance statements
+- runtime and product delivery matrix
 
 ## Production Gates
 

@@ -66,6 +66,12 @@ The proof character should support:
 - one active goal
 - one camera-binding state
 
+The runtime layer described here belongs to the character product.
+
+It mounts into environment facilities.
+
+It should not be modeled as a normal scene object kind.
+
 The default runtime stance should be idle until an explicit command or objective is assigned. Do not make ambient random wandering the default product behavior.
 
 ## Required Capabilities
@@ -135,8 +141,23 @@ The proof product should be operable through:
 - the theater runtime
 - the live/shared-state mirror
 - a future HTTP command facade
+- a mount contract into environment-side facilities
 
 The first proof does not need Unity, Unreal, or Godot packages yet, but it must be designed so those adapters can wrap it later.
+
+## Product Variations
+
+The same proof character may eventually ship as:
+
+1. asset-only
+2. mount-ready
+3. live-runtime-backed
+
+Asset-only ships the embodiment package and metadata only.
+
+Mount-ready ships the embodiment package plus runtime/mount metadata.
+
+Live-runtime-backed ships the embodiment package plus a runtime host or hosted runtime dependency.
 
 ## Relationship To v132
 

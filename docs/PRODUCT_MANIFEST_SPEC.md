@@ -130,6 +130,11 @@ Examples:
 
 This is not the same thing as commands. Capabilities describe available behavior; commands define callable operations.
 
+For character products, capabilities may include both:
+
+- embodied abilities intrinsic to the character package
+- runtime-facility abilities exposed when the product is mounted into an environment
+
 ### `command_surface`
 
 Defines how the buyer talks to the product.
@@ -182,6 +187,7 @@ Examples:
 - model family expectations
 - resource budget
 - optional services
+- whether the shipped form is asset-only, mount-ready, or live-runtime-backed
 
 ### `integration`
 
@@ -199,6 +205,7 @@ Recommended additions:
 - Unreal plugin path
 - Godot addon path
 - example calls
+- mount contract reference for environment integration
 
 ### `deployment`
 
@@ -217,6 +224,12 @@ Expected contents today include:
 - runtime shell
 - policies
 - warnings
+
+For live-runtime-backed character products, this section may also include:
+
+- character runtime facility metadata
+- environment mount defaults
+- runtime host expectations
 
 ## Composition Rule
 
@@ -239,6 +252,20 @@ The same manifest family supports three commercial modes:
 3. Capsule-required
 
 The distinction is expressed through `requirements`, `integration`, and `deployment`, not by inventing a second manifest family.
+
+### Runtime Facility Rule
+
+For character products:
+
+- the actor/runtime layer belongs to the character product
+- it is not a separate product by default
+- it mounts into environment facilities through the integration contract
+
+So the manifest should describe:
+
+- what the character package intrinsically carries
+- what it needs from a host environment
+- what extra facilities are required for live behavior
 
 ## Non-Goals
 
