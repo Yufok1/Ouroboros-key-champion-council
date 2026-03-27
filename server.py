@@ -36,6 +36,7 @@ from mcp.client.sse import sse_client
 import time
 import uuid
 import persistence
+import pack_storage
 
 # Ensure Starlette static serving emits correct MIME for audio container files.
 mimetypes.add_type("audio/mp4", ".m4a")
@@ -1436,6 +1437,11 @@ _ENV_CONTROL_PROXY_COMMANDS = frozenset({
     "spawn_inhabitant",
     "despawn_inhabitant",
     "focus_inhabitant",
+    "character_mount",
+    "character_unmount",
+    "character_focus",
+    "character_look_at",
+    "toggle_inhabitant_fov_debug",
     "set_world_profile",
     "apply_profile_kit",
     "clear_profile_kit",
@@ -1838,6 +1844,13 @@ async def lifespan(app: FastAPI):
                 else:
                     pstat = persistence.status() if hasattr(persistence, "status") else {}
                     print(f"[INIT] Persistence unavailable: {pstat}")
+
+                ppack = pack_storage.status() if hasattr(pack_storage, "status") else {"available": False}
+                print(
+                    f"[INIT] Pack storage (hf={ppack.get('hf_enabled')}, local_index={ppack.get('local_index_exists')}, "
+                    f"cache_index={ppack.get('cache_index_exists')}, repo={ppack.get('repo_id')})..."
+                )
+
             else:
                 print("[WARN] MCP connect failed (will retry on first request)")
 
@@ -3674,8 +3687,8 @@ def _env_control_local_proxy_payload(args: dict | None = None) -> dict | None:
     }
     if command.startswith("camera_"):
         payload["environment_effects"]["camera_action"] = command
-    elif command in ("spawn_inhabitant", "despawn_inhabitant", "focus_inhabitant"):
-        payload["environment_effects"]["inhabitant_action"] = command
+    elif command in ("spawn_inhabitant", "despawn_inhabitant", "focus_inhabitant", "character_mount", "character_unmount", "character_focus", "character_look_at", "toggle_inhabitant_fov_debug"):
+        payload["environment_effects"]["character_runtime_action"] = command
     elif command in ("focus_surface", "inspect_surface", "open_surface", "close_surface", "surface_tab", "surface_scroll", "surface_action", "surface_click", "surface_input", "surface_submit", "close_inspector"):
         payload["environment_effects"]["surface_action"] = command
     elif command.startswith("capture_"):
@@ -8396,6 +8409,33 @@ async def root_envops_config():
 @app.get("/favicon.ico")
 async def root_favicon():
     return FileResponse(Path("static/logo.png"), media_type="image/png")
+
+
+@app.get("/api/packs/status")
+async def pack_status():
+    return pack_storage.status()
+
+
+@app.post("/api/packs/sync")
+async def pack_sync(request: Request):
+    body = await request.json() if request.headers.get("content-type", "").startswith("application/json") else {}
+    force = bool((body or {}).get("force"))
+    return await pack_storage.sync_runtime_packs(force=force)
+
+
+@app.get("/static/assets/packs/{pack_path:path}")
+async def pack_asset(pack_path: str):
+    resolved = await pack_storage.resolve_runtime_pack_file(pack_path)
+    if not resolved or not resolved.exists():
+        return JSONResponse(
+            status_code=404,
+            content={
+                "error": "Pack asset not found",
+                "path": str(pack_path or ""),
+                "packs": pack_storage.status(),
+            },
+        )
+    return FileResponse(resolved)
 
 
 @app.get("/panel", response_class=HTMLResponse)

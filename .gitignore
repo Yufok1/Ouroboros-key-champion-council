@@ -39,6 +39,7 @@ children/
 
 # One-off scripts (ingestion helpers already ran)
 scripts/
+!scripts/sync-pack-dataset.py
 
 # Diagram scratch
 merril.d2/

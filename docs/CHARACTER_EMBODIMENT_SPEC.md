@@ -99,11 +99,14 @@ Other fields may template or normalize into it, but rendering should not branch 
 
 ## Layered Runtime Model
 
-At runtime, an embodied scene object is an environment object with optional agent, character, embodiment, retargeting, appearance, and mechanics data.
+At runtime there are two related but distinct lanes:
+
+1. authored environment objects may carry appearance, character, embodiment, retargeting, attachment, and mechanics data
+2. a mounted character runtime may render through those embodiment contracts, but it is not stored as a normal environment object registry entry
 
 ### Layer A: Scene Object Envelope
 
-This is the existing environment object shell:
+This is the existing environment object shell for authored environment objects:
 
 - `kind`
 - `id`
@@ -119,7 +122,9 @@ This is the existing environment object shell:
 - `appearance`
 - `mechanics`
 
-This remains the outer contract because the environment runtime already depends on it.
+This remains the authored object contract because the environment runtime already depends on it.
+
+It is not the host container for the mounted character runtime itself.
 
 ### Layer B: Agent
 
@@ -690,12 +695,12 @@ Agent spatial presence on the restored baseline.
 
 Deliver:
 
-- local inhabitant runtime state
-- visible inhabitant presence in the scene graph
+- local mounted character runtime state
+- visible mounted character runtime presence in the scene graph
 - behavior-driven movement through existing locomotion seams
-- input/camera binding for inhabitant follow mode
+- input/camera binding for mounted character runtime follow mode
 - spawn / recovery path
-- inhabitant telemetry in live/shared-state payloads
+- mounted character runtime telemetry in live/shared-state payloads
 
 ### v133
 
@@ -765,7 +770,7 @@ When implementation begins, the first coding pass should:
 2. preserve the current character inspector and asset browser behavior
 3. keep `appearance.asset_ref` canonical for rendering
 4. add a family registry for rig definitions
-5. avoid breaking current inhabitant spawn, clip resolution, or sprite layering
+5. avoid breaking current character mount compatibility, clip resolution, or sprite layering
 
 ## Quick Start
 
