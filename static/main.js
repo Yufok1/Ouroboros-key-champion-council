@@ -180,6 +180,12 @@
         error: '',
         _priorFocus: null
     };
+    var _envTheaterSessionStorageKey = 'env_theater_session_v1';
+    let _envTheaterSessionRestore = {
+        pending: false,
+        applying: false,
+        session: null
+    };
     let _envPaletteFamilyState = {
         families: {},
         loaded: false,
@@ -8250,6 +8256,7 @@
             _envKernel.profile.lastAppliedTs = 0;
             _envRefreshReplayTrack(_envKernel.replay.mode, true);
         }
+        _envApplyTheaterSessionBootstrap();
     }
 
     function _envSceneConfig() {
@@ -8649,6 +8656,340 @@
 
     function _envCharacterWorkbenchActive() {
         return _envTheaterMode() === 'character';
+    }
+
+    function _envDefaultTheaterSession() {
+        return {
+            version: 1,
+            saved_at: 0,
+            scene: {
+                snapshot: '',
+                theater_mode: 'environment',
+                camera_mode: 'overview',
+                focus_mounted: false,
+                camera: {
+                    offsetX: 0,
+                    offsetY: 0,
+                    zoomScale: 1,
+                    orbitX: 0,
+                    orbitY: 0
+                },
+                pose_offset: {
+                    azimuth: 0,
+                    polar: 0,
+                    distanceScale: 1,
+                    targetX: 0,
+                    targetY: 0,
+                    targetZ: 0
+                }
+            },
+            character: {
+                mounted: false,
+                behavior: 'idle',
+                asset_ref: ''
+            },
+            workbench: {
+                skeleton: false,
+                scaffold: false,
+                attachments: false,
+                turntable: false,
+                preview_clip: '',
+                preview_paused: true,
+                preview_loop: 'repeat',
+                preview_speed: 1
+            }
+        };
+    }
+
+    function _envNormalizeTheaterSessionPose(source) {
+        var pose = source && typeof source === 'object' && !Array.isArray(source) ? source : {};
+        return {
+            azimuth: Math.max(-Math.PI * 0.72, Math.min(Math.PI * 0.72, Number(pose.azimuth || 0))),
+            polar: Math.max(-0.72, Math.min(0.54, Number(pose.polar || 0))),
+            distanceScale: Math.max(0.48, Math.min(2.2, Number(pose.distanceScale || 1))),
+            targetX: Math.max(-80, Math.min(80, Number(pose.targetX || 0))),
+            targetY: Math.max(-40, Math.min(40, Number(pose.targetY || 0))),
+            targetZ: Math.max(-80, Math.min(80, Number(pose.targetZ || 0)))
+        };
+    }
+
+    function _envNormalizeTheaterSession(raw) {
+        var base = _envDefaultTheaterSession();
+        var src = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+        var scene = src.scene && typeof src.scene === 'object' && !Array.isArray(src.scene) ? src.scene : {};
+        var character = src.character && typeof src.character === 'object' && !Array.isArray(src.character) ? src.character : {};
+        var workbench = src.workbench && typeof src.workbench === 'object' && !Array.isArray(src.workbench) ? src.workbench : {};
+        return {
+            version: Number(src.version || 1),
+            saved_at: Number(src.saved_at || 0),
+            scene: {
+                snapshot: String(scene.snapshot || '').trim(),
+                theater_mode: _envSceneNormalizeTheaterMode(scene.theater_mode || base.scene.theater_mode),
+                camera_mode: _envSceneNormalizeCameraMode(scene.camera_mode || base.scene.camera_mode),
+                focus_mounted: !!scene.focus_mounted,
+                camera: {
+                    offsetX: Number(((scene.camera || {}).offsetX) || 0),
+                    offsetY: Number(((scene.camera || {}).offsetY) || 0),
+                    zoomScale: _envSceneClampZoomScale(Number(((scene.camera || {}).zoomScale) || 1)),
+                    orbitX: Number(((scene.camera || {}).orbitX) || 0),
+                    orbitY: Number(((scene.camera || {}).orbitY) || 0)
+                },
+                pose_offset: _envNormalizeTheaterSessionPose(scene.pose_offset || base.scene.pose_offset)
+            },
+            character: {
+                mounted: !!character.mounted,
+                behavior: String(character.behavior || base.character.behavior || 'idle').trim() || 'idle',
+                asset_ref: String(character.asset_ref || '').trim()
+            },
+            workbench: {
+                skeleton: !!workbench.skeleton,
+                scaffold: !!workbench.scaffold,
+                attachments: !!workbench.attachments,
+                turntable: !!workbench.turntable,
+                preview_clip: String(workbench.preview_clip || '').trim(),
+                preview_paused: workbench.preview_paused !== false,
+                preview_loop: String(workbench.preview_loop || 'repeat').trim().toLowerCase() === 'once' ? 'once' : 'repeat',
+                preview_speed: Math.max(0.25, Math.min(4, Number(workbench.preview_speed || 1)))
+            }
+        };
+    }
+
+    function _envLoadTheaterSession() {
+        try {
+            var raw = localStorage.getItem(_envTheaterSessionStorageKey);
+            if (!raw) return null;
+            return _envNormalizeTheaterSession(JSON.parse(raw));
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function _envCaptureTheaterSession() {
+        var previous = _envLoadTheaterSession() || _envDefaultTheaterSession();
+        var state = _envInhabitantRuntimeState();
+        var mesh = _envMountedRuntimeMesh();
+        var focus = _envKernel && _envKernel.focus && typeof _envKernel.focus === 'object' ? _envKernel.focus : {};
+        var camera = _envScene && _envScene.camera && typeof _envScene.camera === 'object' ? _envScene.camera : {};
+        var workbench = previous.workbench && typeof previous.workbench === 'object'
+            ? Object.assign({}, previous.workbench)
+            : _envDefaultTheaterSession().workbench;
+        if (mesh && mesh.userData) {
+            workbench.skeleton = !!(mesh.userData._skeletonHelper && mesh.userData._skeletonHelper.visible);
+            workbench.scaffold = !!mesh.userData._scaffoldVisible;
+            workbench.attachments = !!mesh.userData._attachmentGizmosVisible;
+            workbench.preview_clip = String(mesh.userData._previewClipName || mesh.userData._currentClipName || '');
+            workbench.preview_paused = !!mesh.userData._previewPaused;
+            workbench.preview_loop = String(mesh.userData._previewLoop || 'repeat').trim().toLowerCase() === 'once' ? 'once' : 'repeat';
+            workbench.preview_speed = Math.max(0.25, Math.min(4, Number(mesh.userData._previewSpeed || 1)));
+        }
+        workbench.turntable = !!(_env3D && _env3D.workbenchTurntable);
+        return _envNormalizeTheaterSession({
+            version: 1,
+            saved_at: Date.now(),
+            scene: {
+                snapshot: String(_envScenePrimarySnapshotName() || '').trim(),
+                theater_mode: _envTheaterMode(),
+                camera_mode: _envSceneNormalizeCameraMode(_envScene.cameraMode || (((_envConfig || {}).scene || {}).defaultCameraMode) || 'overview'),
+                focus_mounted: String((focus.kind || '')) === _ENV_INHABITANT_OBJECT_KIND
+                    && String((focus.id || '')) === _ENV_INHABITANT_OBJECT_ID,
+                camera: {
+                    offsetX: Number(camera.offsetX || 0),
+                    offsetY: Number(camera.offsetY || 0),
+                    zoomScale: Number(camera.zoomScale || 1),
+                    orbitX: Number(camera.orbitX || 0),
+                    orbitY: Number(camera.orbitY || 0)
+                },
+                pose_offset: _envCloneJson(_env3DPoseOffsetState(), _envDefaultTheaterSession().scene.pose_offset)
+            },
+            character: {
+                mounted: !!state.enabled,
+                behavior: String(state.behavior || 'idle'),
+                asset_ref: String(state.character_asset_ref || '')
+            },
+            workbench: workbench
+        });
+    }
+
+    function _envSaveTheaterSession(reason) {
+        if (_envTheaterSessionRestore.applying) return false;
+        try {
+            var session = _envCaptureTheaterSession();
+            if (!session) return false;
+            session.reason = String(reason || '').trim();
+            localStorage.setItem(_envTheaterSessionStorageKey, JSON.stringify(session));
+            _envTheaterSessionRestore.session = session;
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function _envSaveTheaterSessionLifecycle(reason) {
+        if (_envTheaterSessionRestore.applying) return false;
+        return _envSaveTheaterSession(reason || 'lifecycle');
+    }
+
+    function _envBindTheaterSessionLifecycle() {
+        if (_envTheaterSessionRestore.boundLifecycle) return;
+        _envTheaterSessionRestore.boundLifecycle = true;
+        window.addEventListener('pagehide', function () {
+            _envSaveTheaterSessionLifecycle('pagehide');
+        });
+        window.addEventListener('beforeunload', function () {
+            _envSaveTheaterSessionLifecycle('beforeunload');
+        });
+        document.addEventListener('visibilitychange', function () {
+            if (document.hidden) _envSaveTheaterSessionLifecycle('visibility_hidden');
+        });
+    }
+
+    function _envApplyTheaterSessionBootstrap() {
+        var session = _envLoadTheaterSession();
+        _envTheaterSessionRestore.session = session;
+        if (!session) {
+            _envTheaterSessionRestore.pending = false;
+            return false;
+        }
+        if (session.scene.snapshot) {
+            _envNavigationState.currentSnapshot = session.scene.snapshot;
+            _envSceneBootstrapState.snapshotName = session.scene.snapshot;
+        }
+        _envScene.theaterMode = session.scene.theater_mode;
+        _envScene.cameraMode = session.scene.camera_mode;
+        if (!_envScene.camera || typeof _envScene.camera !== 'object') _envScene.camera = {};
+        _envScene.camera.offsetX = Number(session.scene.camera.offsetX || 0);
+        _envScene.camera.offsetY = Number(session.scene.camera.offsetY || 0);
+        _envScene.camera.zoomScale = _envSceneClampZoomScale(Number(session.scene.camera.zoomScale || 1));
+        _envScene.camera.orbitX = Number(session.scene.camera.orbitX || 0);
+        _envScene.camera.orbitY = Number(session.scene.camera.orbitY || 0);
+        _envScene.camera.targetOrbitX = Number(session.scene.camera.orbitX || 0);
+        _envScene.camera.targetOrbitY = Number(session.scene.camera.orbitY || 0);
+        _env3D.poseOffset = _envNormalizeTheaterSessionPose(session.scene.pose_offset || null);
+        var state = _envInhabitantRuntimeState();
+        state.character_asset_ref = String(session.character.asset_ref || '');
+        state.behavior = String(session.character.behavior || 'idle').trim() || 'idle';
+        state.enabled = !!session.character.mounted;
+        state.mode = state.enabled ? (state.behavior === 'idle' ? 'anchored' : 'autonomous') : 'dormant';
+        state.last_update_ts = Date.now();
+        _envTheaterSessionRestore.pending = !!(
+            session.character.mounted
+            || session.scene.theater_mode === 'character'
+            || session.scene.focus_mounted
+            || session.workbench.skeleton
+            || session.workbench.scaffold
+            || session.workbench.attachments
+            || session.workbench.turntable
+            || session.workbench.preview_clip
+        );
+        return true;
+    }
+
+    function _envApplyWorkbenchPlaybackSession(mesh, workbench) {
+        if (!mesh || !mesh.userData) return false;
+        var desired = workbench && typeof workbench === 'object' ? workbench : {};
+        var desiredClip = String(desired.preview_clip || '').trim();
+        var desiredLoop = String(desired.preview_loop || 'repeat').trim().toLowerCase() === 'once' ? 'once' : 'repeat';
+        var desiredPaused = desired.preview_paused !== false;
+        var desiredSpeed = Math.max(0.25, Math.min(4, Number(desired.preview_speed || 1)));
+        var action = mesh.userData._currentAction || null;
+        var resolved = desiredClip ? _env3DResolveAnimationClip(mesh, desiredClip) : null;
+        if (resolved && resolved.clip && mesh.userData._mixer) {
+            var nextAction = mesh.userData._mixer.clipAction(resolved.clip);
+            if (action && action !== nextAction) action.fadeOut(0.15);
+            nextAction.reset();
+            nextAction.enabled = true;
+            nextAction.clampWhenFinished = desiredLoop === 'once';
+            if (typeof nextAction.setLoop === 'function') {
+                var loopMode = desiredLoop === 'once' ? THREE.LoopOnce : THREE.LoopRepeat;
+                nextAction.setLoop(loopMode, loopMode === THREE.LoopOnce ? 1 : Infinity);
+            }
+            if (typeof nextAction.setEffectiveTimeScale === 'function') nextAction.setEffectiveTimeScale(desiredSpeed);
+            if (action && action !== nextAction) nextAction.fadeIn(0.15);
+            nextAction.play();
+            nextAction.paused = !!desiredPaused;
+            mesh.userData._currentAction = nextAction;
+            mesh.userData._currentClipName = resolved.name;
+            mesh.userData._currentClipSource = String(resolved.source || 'native');
+        } else if (action) {
+            if (typeof action.setLoop === 'function') {
+                var activeLoop = desiredLoop === 'once' ? THREE.LoopOnce : THREE.LoopRepeat;
+                action.setLoop(activeLoop, activeLoop === THREE.LoopOnce ? 1 : Infinity);
+                action.clampWhenFinished = activeLoop === THREE.LoopOnce;
+            }
+            if (typeof action.setEffectiveTimeScale === 'function') action.setEffectiveTimeScale(desiredSpeed);
+            action.paused = !!desiredPaused;
+        }
+        if (desiredClip) mesh.userData._previewClipName = desiredClip;
+        mesh.userData._previewLoop = desiredLoop;
+        mesh.userData._previewPaused = !!desiredPaused;
+        mesh.userData._previewSpeed = desiredSpeed;
+        return true;
+    }
+
+    function _envApplyWorkbenchSessionToMesh(mesh, workbench) {
+        if (!mesh || !mesh.userData) return false;
+        var desired = workbench && typeof workbench === 'object' ? workbench : {};
+        var changed = false;
+        var skeletonVisible = !!(mesh.userData._skeletonHelper && mesh.userData._skeletonHelper.visible);
+        if (!!desired.skeleton !== skeletonVisible && _env3DToggleWorkbenchSkeletonHelper()) changed = true;
+        var attachmentVisible = !!mesh.userData._attachmentGizmosVisible;
+        if (!!desired.attachments !== attachmentVisible && _env3DToggleWorkbenchAttachmentGizmos()) changed = true;
+        var scaffoldVisible = !!mesh.userData._scaffoldVisible;
+        if (!!desired.scaffold !== scaffoldVisible && _env3DToggleWorkbenchScaffold()) changed = true;
+        if (_envApplyWorkbenchPlaybackSession(mesh, desired)) changed = true;
+        _env3D.workbenchTurntable = !!desired.turntable;
+        return changed;
+    }
+
+    function _envApplyTheaterSessionLive(reason) {
+        if (_envTheaterSessionRestore.applying || !_envTheaterSessionRestore.pending) return false;
+        var session = _envTheaterSessionRestore.session;
+        if (!session) {
+            _envTheaterSessionRestore.pending = false;
+            return false;
+        }
+        var state = _envInhabitantRuntimeState();
+        var focusMounted = !!session.scene.focus_mounted || session.scene.theater_mode === 'character';
+        var mesh = _envMountedRuntimeMesh();
+        if (focusMounted && (!state.enabled || !mesh)) {
+            _envTheaterSessionRestore.applying = true;
+            try {
+                _envScene.theaterMode = session.scene.theater_mode;
+                _envFocusInhabitant('system', 'theater session restore focus', session.character.behavior || 'idle');
+            } finally {
+                _envTheaterSessionRestore.applying = false;
+            }
+            return true;
+        }
+        if (session.character.mounted && (!mesh || (mesh.userData && mesh.userData.assetLoading))) return false;
+        _envTheaterSessionRestore.applying = true;
+        try {
+            _envScene.theaterMode = session.scene.theater_mode;
+            _envScene.cameraMode = session.scene.camera_mode;
+            if (focusMounted) {
+                _envFocusInhabitant('system', 'theater session restore focus', session.character.behavior || 'idle');
+                mesh = _envMountedRuntimeMesh();
+            }
+            if (_env3D.inited) {
+                if (session.scene.theater_mode === 'character') {
+                    _env3DApplyCharacterWorkbenchCamera();
+                }
+                _env3DAdjustPoseOffset(session.scene.pose_offset || {});
+                _env3DApplyCameraRig(true);
+            }
+            if (mesh && mesh.userData) {
+                _envApplyWorkbenchSessionToMesh(mesh, session.workbench || {});
+            } else {
+                _env3D.workbenchTurntable = !!((session.workbench || {}).turntable);
+            }
+            _envTheaterSessionRestore.pending = false;
+        } finally {
+            _envTheaterSessionRestore.applying = false;
+        }
+        _envScene.dirty = true;
+        _envStageUiState.forceStageRebuild = true;
+        renderEnvironmentView();
+        return true;
     }
 
     function _envSceneClampZoomScale(value) {
@@ -10866,6 +11207,7 @@
             _envEmitBus('character_runtime', 'Unmounted mounted character runtime', actorName, { action: 'character_unmount' });
             _envSetBadge('idle', 'CHAR RT OFF');
             _envScheduleLiveSync('character_runtime:unmount', true);
+            _envSaveTheaterSession('character_unmount');
             if (_env3D.inited) _envSyncHabitatScene();
             else renderEnvironmentView();
             return null;
@@ -10913,6 +11255,7 @@
         });
         _envSetBadge('running', 'CHAR RUNTIME');
         _envScheduleLiveSync('character_runtime:mount', true);
+        _envSaveTheaterSession('character_mount');
         renderEnvironmentView();
         return _envInhabitantObject() || obj;
     }
@@ -10936,6 +11279,7 @@
         });
         _envSetBadge('running', 'FOLLOW CHAR');
         _envScheduleLiveSync('character_runtime:focus', true);
+        _envSaveTheaterSession('character_focus');
         renderEnvironmentView();
         return true;
     }
@@ -16150,6 +16494,7 @@
         }
         var hudCopy = _envHabitatHudCopy(workflow);
         _envSceneHudText(hudCopy.primary, hudCopy.secondary);
+        _envApplyTheaterSessionLive('scene_sync');
     }
 
     function _envRecipeCatalog() {
@@ -17656,6 +18001,7 @@
         _envEmitBus('camera', label, actorName, meta);
         _envScene.dirty = true;
         _envScheduleLiveSync('camera:' + String(command || 'control'), true);
+        _envSaveTheaterSession('camera:' + String(command || 'control'));
         renderEnvironmentView();
         return true;
     }
@@ -18037,6 +18383,7 @@
             });
             _envSetBadge('running', modelRef ? 'MODEL SET' : 'MODEL CLR');
             _envScheduleLiveSync('character_runtime:set_model', true);
+            _envSaveTheaterSession('character_set_model');
             if (_env3D.inited) _envSyncHabitatScene();
             else renderEnvironmentView();
             return;
@@ -18077,6 +18424,7 @@
             _envEmitBus('control', 'Updated habitat camera mode', actorName, { action: command, camera_mode: mode });
             _envSetBadge('running', 'CAM ' + mode.toUpperCase());
             _envScene.dirty = true;
+            _envSaveTheaterSession('set_camera_mode');
             renderEnvironmentView();
             return;
         }
@@ -30260,6 +30608,7 @@
             distance: snapshot ? Number(snapshot.distance || 0) : 0,
             focus_key: snapshot ? String(snapshot.focus_key || '') : ''
         });
+        _envSaveTheaterSession(reason || 'camera:manual');
         _envRefreshLiveMirrorSurface();
     }
 
@@ -31934,9 +32283,125 @@
         if (normalized.indexOf('idle') >= 0 || normalized.indexOf('stand') >= 0 || normalized.indexOf('breathe') >= 0) return 'idle';
         if (normalized.indexOf('talk') >= 0 || normalized.indexOf('speak') >= 0 || normalized.indexOf('chat') >= 0) return 'talk';
         if (normalized.indexOf('attack') >= 0 || normalized.indexOf('slash') >= 0 || normalized.indexOf('strike') >= 0 || normalized.indexOf('cast') >= 0) return 'attack';
+        if (normalized.indexOf('hit') >= 0 || normalized.indexOf('hurt') >= 0 || normalized.indexOf('damage') >= 0 || normalized.indexOf('impact') >= 0) return 'hit';
+        if (normalized.indexOf('death') >= 0 || normalized.indexOf('dead') >= 0 || normalized.indexOf('die') >= 0 || normalized.indexOf('knockout') >= 0) return 'death';
+        if (normalized.indexOf('block') >= 0 || normalized.indexOf('guard') >= 0 || normalized.indexOf('parry') >= 0) return 'block';
         if (normalized.indexOf('emote') >= 0 || normalized.indexOf('wave') >= 0 || normalized.indexOf('gesture') >= 0 || normalized.indexOf('celebrate') >= 0) return 'emote';
+        if (normalized.indexOf('blink') >= 0) return 'blink';
         if (normalized.indexOf('sleep') >= 0 || normalized.indexOf('rest') >= 0) return 'sleep';
         return normalized;
+    }
+
+    function _env3DClipChannelForName(name) {
+        var normalized = _env3DNormalizeClipName(name);
+        if (!normalized) return '';
+        if (normalized === 'idle' || normalized === 'walk' || normalized === 'run') return 'locomotion';
+        if (normalized === 'attack' || normalized === 'hit' || normalized === 'death' || normalized === 'block') return 'action';
+        if (normalized === 'talk' || normalized === 'emote' || normalized === 'sleep') return 'gesture';
+        if (normalized === 'blink') return 'facial';
+        if (normalized.indexOf('_to_') >= 0) return 'transition';
+        return '';
+    }
+
+    function _env3DRegisterClipLookup(lookup, clip, clipName) {
+        if (!lookup || !clip) return '';
+        var normalized = _env3DNormalizeClipName(clipName !== undefined ? clipName : ((clip && clip.name) || ''));
+        if (!normalized) return '';
+        if (!lookup[normalized]) lookup[normalized] = clip;
+        return normalized;
+    }
+
+    function _env3DBuildDerivedAnimationContract(clipList) {
+        var list = Array.isArray(clipList) ? clipList : [];
+        var contract = {
+            locomotion: {},
+            action: {},
+            gesture: {},
+            facial: {},
+            transition: {}
+        };
+        var saw = false;
+        list.forEach(function (clip, idx) {
+            var rawName = String((clip && clip.name) || ('clip' + idx)).trim();
+            if (!rawName) return;
+            var channel = _env3DClipChannelForName(rawName);
+            var normalized = _env3DNormalizeClipName(rawName);
+            if (!channel || !normalized) return;
+            if (contract[channel][normalized]) return;
+            contract[channel][normalized] = rawName;
+            saw = true;
+        });
+        if (!saw) return null;
+        Object.keys(contract).forEach(function (channel) {
+            if (!Object.keys(contract[channel] || {}).length) delete contract[channel];
+        });
+        return contract;
+    }
+
+    function _env3DFlattenAnimationContractClipMap(animationContract) {
+        var contract = animationContract && typeof animationContract === 'object' && !Array.isArray(animationContract)
+            ? animationContract
+            : null;
+        if (!contract) return {};
+        var clipMap = {};
+        ['locomotion', 'action', 'gesture', 'facial', 'transition'].forEach(function (channel) {
+            var entries = contract[channel];
+            if (!entries || typeof entries !== 'object' || Array.isArray(entries)) return;
+            Object.keys(entries).forEach(function (key) {
+                if (!clipMap[key]) clipMap[key] = String(entries[key] || '');
+            });
+        });
+        return clipMap;
+    }
+
+    function _env3DMergeAnimationContract(existingContract, derivedContract) {
+        var derived = derivedContract && typeof derivedContract === 'object' && !Array.isArray(derivedContract)
+            ? derivedContract
+            : null;
+        var existing = existingContract && typeof existingContract === 'object' && !Array.isArray(existingContract)
+            ? existingContract
+            : null;
+        if (!derived) return existing ? _envCloneJson(existing, {}) : null;
+        var merged = existing ? _envCloneJson(existing, {}) : {};
+        ['locomotion', 'action', 'gesture', 'facial', 'transition'].forEach(function (channel) {
+            var incoming = derived[channel];
+            if (!incoming || typeof incoming !== 'object' || Array.isArray(incoming)) return;
+            if (!merged[channel] || typeof merged[channel] !== 'object' || Array.isArray(merged[channel])) merged[channel] = {};
+            Object.keys(incoming).forEach(function (key) {
+                if (!merged[channel][key]) merged[channel][key] = incoming[key];
+            });
+            if (!Object.keys(merged[channel]).length) delete merged[channel];
+        });
+        return Object.keys(merged).length ? merged : null;
+    }
+
+    function _env3DApplyDerivedAnimationContractToObject(obj, data, clipList) {
+        if (!obj || !clipList || !clipList.length) return null;
+        var derivedContract = _env3DBuildDerivedAnimationContract(clipList);
+        if (!derivedContract) return null;
+        var character = _envSceneCharacterForObject(obj);
+        if (!character) {
+            character = {};
+            obj.character = character;
+        }
+        var embodiment = _envSceneEmbodimentForObject(obj);
+        if (!embodiment) {
+            embodiment = {};
+            obj.embodiment = embodiment;
+        }
+        embodiment.animation_contract = _env3DMergeAnimationContract(embodiment.animation_contract, derivedContract);
+        var flatClipMap = _env3DFlattenAnimationContractClipMap(embodiment.animation_contract);
+        if (!character.clip_map || typeof character.clip_map !== 'object' || Array.isArray(character.clip_map)) character.clip_map = {};
+        Object.keys(flatClipMap).forEach(function (key) {
+            if (!character.clip_map[key]) character.clip_map[key] = flatClipMap[key];
+        });
+        if (data) {
+            if (!data.embodiment || typeof data.embodiment !== 'object' || Array.isArray(data.embodiment)) data.embodiment = {};
+            data.embodiment.animation_contract = _envCloneJson(embodiment.animation_contract, null);
+            if (!data.character || typeof data.character !== 'object' || Array.isArray(data.character)) data.character = {};
+            data.character.clip_map = _envCloneJson(character.clip_map, null);
+        }
+        return embodiment.animation_contract;
     }
 
     function _env3DClipInventory(mesh, mode) {
@@ -31967,14 +32432,20 @@
         var inventory = _env3DClipInventory(mesh, mode);
         var clips = inventory.clips;
         if (!clips) return null;
-        if (desiredName && clips[desiredName]) {
-            return { clip: clips[desiredName], name: desiredName, source: inventory.source };
+        var requestedName = String(desiredName || '').trim();
+        var normalizedDesired = _env3DNormalizeClipName(requestedName);
+        if (requestedName && clips[requestedName]) {
+            return { clip: clips[requestedName], name: requestedName, source: inventory.source };
+        }
+        if (normalizedDesired && clips[normalizedDesired]) {
+            return { clip: clips[normalizedDesired], name: normalizedDesired, source: inventory.source };
         }
         var clipMap = (((mesh.userData || {}).character) || {}).clip_map || null;
-        if (clipMap && desiredName && clipMap[desiredName]) {
-            var mappedName = _env3DNormalizeClipName(clipMap[desiredName]);
+        var clipMapKey = requestedName && clipMap && clipMap[requestedName] ? requestedName : normalizedDesired;
+        if (clipMap && clipMapKey && clipMap[clipMapKey]) {
+            var mappedName = _env3DNormalizeClipName(clipMap[clipMapKey]);
             if (mappedName && clips[mappedName]) {
-                return { clip: clips[mappedName], name: mappedName, source: inventory.source };
+                return { clip: clips[mappedName], name: clipMapKey, source: inventory.source };
             }
         }
         if (clips.idle) {
@@ -32444,7 +32915,7 @@
             var result = _env3DCanonicalizeClipTracks(clip, sourceJointMap);
             var remappedClip = result && result.clip ? result.clip : clip;
             retargeted.push(remappedClip);
-            var normalizedName = _env3DNormalizeClipName(remappedClip && remappedClip.name) || ('clip' + idx);
+            var normalizedName = _env3DRegisterClipLookup(byName, remappedClip, remappedClip && remappedClip.name) || ('clip' + idx);
             if (normalizedName && !byName[normalizedName]) byName[normalizedName] = remappedClip;
             summary.addressable_tracks += Number((result && result.addressable_tracks) || 0);
             summary.mapped_tracks += Number((result && result.mapped_tracks) || 0);
@@ -32501,6 +32972,7 @@
             mesh.userData.assetRefApplied = ref;
             mesh.userData.assetLoading = false;
             mesh.userData.assetLoadError = '';
+            var _v133aData = obj && obj.data ? obj.data : (obj ? (obj.data = {}) : null);
             if (clone.userData && Array.isArray(clone.userData.animations) && clone.userData.animations.length) {
                 var isMountedRuntimeAsset = _envIsMountedCharacterRuntimeObject(obj);
                 mesh.userData._mixer = new THREE.AnimationMixer(clone);
@@ -32509,17 +32981,9 @@
                     return _env3DSanitizeMountedRuntimeClip(obj, clip);
                 });
                 mesh.userData._clipList.forEach(function (clip) {
-                    var normalized = _env3DNormalizeClipName(clip && clip.name);
-                    if (!normalized) return;
-                    mesh.userData._clips[normalized] = clip;
-                    if (normalized.indexOf('walk') >= 0) mesh.userData._clips.walk = clip;
-                    if (normalized.indexOf('run') >= 0) mesh.userData._clips.run = clip;
-                    if (normalized.indexOf('idle') >= 0) mesh.userData._clips.idle = clip;
-                    if (normalized.indexOf('talk') >= 0) mesh.userData._clips.talk = clip;
-                    if (normalized.indexOf('attack') >= 0) mesh.userData._clips.attack = clip;
-                    if (normalized.indexOf('emote') >= 0) mesh.userData._clips.emote = clip;
-                    if (normalized.indexOf('sleep') >= 0) mesh.userData._clips.sleep = clip;
+                    _env3DRegisterClipLookup(mesh.userData._clips, clip, clip && clip.name);
                 });
+                _env3DApplyDerivedAnimationContractToObject(obj, _v133aData, mesh.userData._clipList);
                 var initialClip = _env3DResolveAnimationClip(mesh, 'idle');
                 if (initialClip && initialClip.clip) {
                     mesh.userData._currentAction = mesh.userData._mixer.clipAction(initialClip.clip);
@@ -32537,7 +33001,6 @@
             }
             mesh.userData._canonicalJointMap = null;
             mesh.userData._jointMapCoverage = 0;
-            var _v133aData = obj && obj.data ? obj.data : (obj ? (obj.data = {}) : null);
             if (obj) {
                 var _v133aRetarget = _envSceneRetargetingForObject(obj);
                 if (!_v133aRetarget) {
@@ -32627,6 +33090,7 @@
                     && String(((_envKernel || {}).focus || {}).id || '') === String(obj.id || '')
             );
             _envFlushDeferredMutationCapture(_env3DObjectKey(obj), 'settled');
+            _envApplyTheaterSessionLive('asset_ready');
         });
     }
 
@@ -33727,6 +34191,7 @@
             var nextVisible = currentHelper.visible === false;
             currentHelper.visible = nextVisible;
             if (currentHelper.parts) _env3DWorkbenchSetHelperPartsVisible(currentHelper.parts, nextVisible);
+            _envSaveTheaterSession('workbench:skeleton_line');
             return true;
         }
         var clone = mesh.userData.assetClone;
@@ -33743,6 +34208,7 @@
         helper.visible = true;
         _env3D.scene.add(helper);
         mesh.userData._skeletonHelper = helper;
+        _envSaveTheaterSession('workbench:skeleton_line');
         return true;
     }
 
@@ -33754,6 +34220,7 @@
             var nextVisible = helper.visible === false;
             helper.visible = nextVisible;
             if (helper.parts) _env3DWorkbenchSetHelperPartsVisible(helper.parts, nextVisible);
+            _envSaveTheaterSession('workbench:skeleton');
             return true;
         }
         var meshHelper = _env3DBuildWorkbenchBoneMeshes(mesh);
@@ -33761,6 +34228,7 @@
             _env3DWorkbenchSetHelperPartsVisible(meshHelper.parts, true);
             meshHelper.visible = true;
             mesh.userData._skeletonHelper = meshHelper;
+            _envSaveTheaterSession('workbench:skeleton');
             return true;
         }
         return _env3DToggleWorkbenchSkeletonLineHelper();
@@ -33804,6 +34272,7 @@
                 if (gizmo) gizmo.visible = nextVisible;
             });
             mesh.userData._attachmentGizmosVisible = nextVisible;
+            _envSaveTheaterSession('workbench:attachments');
             return true;
         }
         var jointMap = (mesh.userData && mesh.userData._canonicalJointMap) || {};
@@ -33834,6 +34303,7 @@
         if (!Object.keys(gizmos).length) return false;
         mesh.userData._attachmentGizmos = gizmos;
         mesh.userData._attachmentGizmosVisible = true;
+        _envSaveTheaterSession('workbench:attachments');
         return true;
     }
 
@@ -34004,9 +34474,12 @@
         if (!mesh || !mesh.userData) return false;
         if (mesh.userData._scaffoldVisible) {
             _env3DDisposeScaffoldBody(mesh);
+            _envSaveTheaterSession('workbench:scaffold');
             return true;
         }
-        return _env3DBuildScaffoldBody(mesh);
+        var built = _env3DBuildScaffoldBody(mesh);
+        if (built) _envSaveTheaterSession('workbench:scaffold');
+        return built;
     }
 
     function _env3DSyncObjects(objects) {
@@ -34960,6 +35433,7 @@
         _envScene.dirty = true;
         _envStageUiState.forceStageRebuild = true;
         _envScheduleLiveSync('theater_mode:' + nextMode, true);
+        _envSaveTheaterSession('set_theater_mode');
         renderEnvironmentView();
         return true;
     }
@@ -42901,6 +43375,7 @@
                             playMesh.userData._previewPaused = false;
                             if (!playMesh.userData._previewLoop) playMesh.userData._previewLoop = loopMode === THREE.LoopOnce ? 'once' : 'repeat';
                             if (!(Number(playMesh.userData._previewSpeed) > 0)) playMesh.userData._previewSpeed = 1;
+                            _envSaveTheaterSession('workbench:play_clip');
                             renderEnvironmentView();
                         }
                     }
@@ -42912,6 +43387,7 @@
                     if (pauseAction) {
                         pauseAction.paused = !pauseAction.paused;
                         if (pauseMesh && pauseMesh.userData) pauseMesh.userData._previewPaused = !!pauseAction.paused;
+                        _envSaveTheaterSession('workbench:pause');
                         renderEnvironmentView();
                     }
                     return;
@@ -42925,6 +43401,7 @@
                         speedAction.setEffectiveTimeScale(speedValue);
                     }
                     if (speedMesh && speedMesh.userData) speedMesh.userData._previewSpeed = speedValue;
+                    _envSaveTheaterSession('workbench:speed');
                     renderEnvironmentView();
                     return;
                 }
@@ -42936,6 +43413,7 @@
                         if (typeof loopAction.setLoop === 'function') loopAction.setLoop(nextLoop, nextLoop === THREE.LoopOnce ? 1 : Infinity);
                         loopAction.clampWhenFinished = nextLoop === THREE.LoopOnce;
                         if (loopMesh && loopMesh.userData) loopMesh.userData._previewLoop = nextLoop === THREE.LoopOnce ? 'once' : 'repeat';
+                        _envSaveTheaterSession('workbench:loop');
                         renderEnvironmentView();
                     }
                     return;
@@ -42955,6 +43433,7 @@
                 }
                 if (action === 'workbench-toggle-turntable') {
                     _env3D.workbenchTurntable = !_env3D.workbenchTurntable;
+                    _envSaveTheaterSession('workbench:turntable');
                     renderEnvironmentView();
                     return;
                 }
@@ -48687,6 +49166,7 @@
     vscode.postMessage({ command: 'web3GetDID' });
     vscode.postMessage({ command: 'web3GetCategories' });
     vscode.postMessage({ command: 'web3GetDocTypes' });
+    _envBindTheaterSessionLifecycle();
     _envApplyConfig();
     _envLoadConfig(false);
     // Community is intentionally disabled in Space build.
