@@ -9219,7 +9219,7 @@
             if (!profile.support_surface) return;
             var objectKey = _envSceneObjectKey(obj);
             var mesh = objectKey && _env3D.meshes ? _env3D.meshes[objectKey] : null;
-            if (mesh && mesh.visible === false) return;
+            if (mesh && mesh.visible === false && !profile.explicit_support) return;
             var spatial = _envSceneObjectSpatialMetrics(obj, mesh);
             if (!spatial || !spatial.box) return;
             var box = spatial.box;
@@ -9378,10 +9378,12 @@
         var fallback = new THREE.Box3();
         if (!mesh || typeof THREE === 'undefined') return fallback;
         if (typeof mesh.updateWorldMatrix === 'function') mesh.updateWorldMatrix(true, true);
+        var boundsRoot = mesh && mesh.userData && mesh.userData.assetClone ? mesh.userData.assetClone : mesh;
+        if (boundsRoot && typeof boundsRoot.updateWorldMatrix === 'function') boundsRoot.updateWorldMatrix(true, true);
         var box = new THREE.Box3();
         var found = false;
-        if (typeof mesh.traverse === 'function') {
-            mesh.traverse(function (node) {
+        if (boundsRoot && typeof boundsRoot.traverse === 'function') {
+            boundsRoot.traverse(function (node) {
                 if (!node || node.visible === false) return;
                 if (node.isSprite || String(node.type || '').trim().toLowerCase() === 'sprite') return;
                 if (!node.isMesh || !node.geometry) return;
@@ -9404,7 +9406,12 @@
 
     function _envInhabitantSupportOffset(mesh) {
         if (!mesh || !mesh.userData || typeof THREE === 'undefined') return 1;
+        var supportObj = mesh.userData.sceneObject || null;
         var cached = Number(mesh.userData._supportOffsetY);
+        if (_envIsMountedCharacterRuntimeObject(supportObj) && mesh.userData.assetClone) {
+            if (isFinite(cached) && Math.abs(cached) <= 0.05) return 0;
+            return 0;
+        }
         if (isFinite(cached) && cached > 0.05 && cached < 4.5) return cached;
         var bounds = _envInhabitantBodyBounds(mesh);
         var size = bounds && typeof bounds.getSize === 'function'
@@ -9420,10 +9427,101 @@
         return Number(mesh.userData._supportOffsetY || bottomOffset || 1);
     }
 
+    function _env3DAssetLocalBounds(mesh) {
+        var fallback = new THREE.Box3();
+        if (!mesh || !mesh.userData || !mesh.userData.assetClone || typeof THREE === 'undefined') return fallback;
+        var clone = mesh.userData.assetClone;
+        if (typeof mesh.updateWorldMatrix === 'function') mesh.updateWorldMatrix(true, true);
+        if (typeof clone.updateWorldMatrix === 'function') clone.updateWorldMatrix(true, true);
+        var parentInverse = new THREE.Matrix4();
+        parentInverse.copy(mesh.matrixWorld).invert();
+        var box = new THREE.Box3();
+        var found = false;
+        clone.traverse(function (node) {
+            if (!node || node.visible === false) return;
+            var helperTag = String((((node || {}).userData || {})._envHelper || '')).trim().toLowerCase();
+            var nodeName = String(node.name || '');
+            if (helperTag) return;
+            if (nodeName.indexOf('__scaffold_') === 0 || nodeName.indexOf('__attachment_gizmo_') === 0) return;
+            if (node.isSprite || String(node.type || '').trim().toLowerCase() === 'sprite') return;
+            if (!node.isMesh || !node.geometry) return;
+            if (!node.geometry.boundingBox && typeof node.geometry.computeBoundingBox === 'function') {
+                node.geometry.computeBoundingBox();
+            }
+            if (!node.geometry.boundingBox) return;
+            var localBox = node.geometry.boundingBox.clone()
+                .applyMatrix4(node.matrixWorld)
+                .applyMatrix4(parentInverse);
+            if (!found) {
+                box.copy(localBox);
+                found = true;
+            } else {
+                box.union(localBox);
+            }
+        });
+        return found ? box : fallback;
+    }
+
+    function _env3DPinMountedRuntimeAssetFloor(mesh) {
+        var obj = mesh && mesh.userData ? mesh.userData.sceneObject : null;
+        if (!mesh || !mesh.userData || !mesh.userData.assetClone) return false;
+        if (!_envIsMountedCharacterRuntimeObject(obj) || typeof THREE === 'undefined') return false;
+        var box = _env3DAssetLocalBounds(mesh);
+        if (!box || box.isEmpty()) return false;
+        var floorOffset = Number(box.min.y || 0);
+        if (!isFinite(floorOffset) || Math.abs(floorOffset) < 0.0005) return false;
+        mesh.userData.assetClone.position.y -= floorOffset;
+        mesh.userData._supportOffsetY = 0;
+        return true;
+    }
+
+    function _envMountedRuntimeWorkbenchGroundSupport(mesh, fallbackY) {
+        var obj = mesh && mesh.userData ? mesh.userData.sceneObject : null;
+        if (!mesh || !_envIsMountedCharacterRuntimeObject(obj) || !_envCharacterWorkbenchActive()) return null;
+        var groundY = Number((_env3D && _env3D.physics && _env3D.physics.ground_y) || 0);
+        return {
+            grounded: true,
+            support_key: 'ground::default',
+            support_kind: 'ground',
+            support_class: 'support',
+            support_y: Number(isFinite(groundY) ? groundY : (fallbackY || mesh.position.y || 0))
+        };
+    }
+
+    function _envInhabitantCurrentMeshSupport(mesh, fallbackY) {
+        if (!mesh || !mesh.userData) return null;
+        var supportKey = String(mesh.userData._supportKey || '');
+        var supportKind = String(mesh.userData._supportKind || '');
+        var grounded = mesh.userData._grounded;
+        if (!supportKey && !supportKind && grounded === undefined) return null;
+        var offset = Number(_envInhabitantSupportOffset(mesh) || 0);
+        var supportY = Number(mesh.position.y || fallbackY || 0) - offset;
+        return {
+            grounded: grounded !== false,
+            support_key: supportKey,
+            support_kind: supportKind,
+            support_class: 'support',
+            support_y: _envInhabitantResolvedSupportY(supportY, Number(fallbackY || 0))
+        };
+    }
+
+    function _envResolveInhabitantSupport(mesh, worldX, worldZ, fallbackY, preferCurrentMeshSupport) {
+        var fallback = Number(fallbackY || (mesh && mesh.position ? mesh.position.y : 0) || 0);
+        return _envMountedRuntimeWorkbenchGroundSupport(mesh, fallback)
+            || (preferCurrentMeshSupport ? _envInhabitantCurrentMeshSupport(mesh, fallback) : null)
+            || _envInhabitantSupportRecordAtWorld(worldX, worldZ, fallback);
+    }
+
     function _envInhabitantSnapMeshToSupport(mesh, fallbackY) {
         if (!mesh || typeof THREE === 'undefined') return Number(fallbackY || 0);
         if (typeof mesh.updateWorldMatrix === 'function') mesh.updateWorldMatrix(true, true);
-        var support = _envInhabitantSupportRecordAtWorld(mesh.position.x, mesh.position.z, Number(fallbackY || mesh.position.y || 0));
+        var support = _envResolveInhabitantSupport(
+            mesh,
+            Number(mesh.position.x || 0),
+            Number(mesh.position.z || 0),
+            Number(fallbackY || mesh.position.y || 0),
+            false
+        );
         var supportY = _envInhabitantResolvedSupportY((support || {}).support_y, Number(fallbackY || mesh.position.y || 0));
         var targetY = supportY + _envInhabitantSupportOffset(mesh);
         if (Math.abs(targetY - Number(mesh.position.y || 0)) > 0.001) {
@@ -10562,6 +10660,9 @@
         var meshKey = _envInhabitantObjectKey();
         var mesh = meshKey && _env3D.meshes ? _env3D.meshes[meshKey] : null;
         var enabled = !!state.enabled && !!obj;
+        if (enabled && mesh) {
+            _envInhabitantSnapMeshToSupport(mesh, Number((mesh.position && mesh.position.y) || 0));
+        }
         var rawPosition = obj ? _env3DRawXYZFromObject(obj) : { x: 0, y: 1, z: 0 };
         var worldPosition = mesh
             ? {
@@ -10588,7 +10689,13 @@
         while (yaw > 180) yaw -= 360;
         while (yaw < -180) yaw += 360;
         var support = enabled
-            ? _envInhabitantSupportRecordAtWorld(worldPosition.x, worldPosition.z, Number(worldPosition.y || rawPosition.y || 1))
+            ? _envResolveInhabitantSupport(
+                mesh,
+                Number(worldPosition.x || 0),
+                Number(worldPosition.z || 0),
+                Number(worldPosition.y || rawPosition.y || 1),
+                true
+            )
             : { grounded: false, support_key: '', support_kind: '', support_class: '', support_y: Number(worldPosition.y || 0) };
         var perception = enabled
             ? _envBuildInhabitantPerceptionState(state, obj, mesh, yaw)
@@ -24751,7 +24858,16 @@
         if (mesh && typeof mesh.updateWorldMatrix === 'function') {
             try {
                 mesh.updateWorldMatrix(true, true);
-                var worldBox = new THREE.Box3().setFromObject(mesh);
+                var worldBox = null;
+                if (mesh.userData && mesh.userData.assetClone) {
+                    var assetLocalBox = _env3DAssetLocalBounds(mesh);
+                    if (assetLocalBox && !assetLocalBox.isEmpty()) {
+                        worldBox = assetLocalBox.clone().applyMatrix4(mesh.matrixWorld);
+                    }
+                }
+                if (!worldBox || worldBox.isEmpty()) {
+                    worldBox = new THREE.Box3().setFromObject(mesh);
+                }
                 if (!worldBox.isEmpty()) {
                     box = worldBox;
                     box.getCenter(center);
@@ -29333,6 +29449,7 @@
             var label = _env3D.cssLabels[key];
             if (!label || !label.element) continue;
             label.visible = !characterMode && visible && String(_env3D.labelMode || 'full').trim().toLowerCase() !== 'hidden';
+            label.element.style.display = label.visible ? '' : 'none';
             label.element.style.opacity = String(_env3DLabelOpacityForMesh(_env3D.meshes[key]));
         }
     }
@@ -29383,6 +29500,7 @@
             case 'workflow':  wy = 4; break;
             case 'actor':     wy = 3.5; break;
             case 'replay':    wy = 3; break;
+            case 'character_runtime': wy = 0; break;
             case 'portal':    wy = 1.05; break;
             case 'prop':      wy = 0; break;
             case 'marker':    wy = 0.04; break;
@@ -29898,11 +30016,41 @@
         return offset;
     }
 
+    function _env3DCharacterWorkbenchWorldBox(mesh) {
+        if (!mesh || typeof THREE === 'undefined') return null;
+        if (typeof mesh.updateWorldMatrix === 'function') mesh.updateWorldMatrix(true, true);
+        var box = null;
+        if (mesh.userData && mesh.userData.assetClone) {
+            var assetLocalBox = _env3DAssetLocalBounds(mesh);
+            if (assetLocalBox && !assetLocalBox.isEmpty()) {
+                box = assetLocalBox.clone().applyMatrix4(mesh.matrixWorld);
+            }
+        }
+        if ((!box || box.isEmpty()) && typeof THREE.Box3 === 'function') {
+            var fallback = new THREE.Box3().setFromObject(mesh);
+            if (fallback && !fallback.isEmpty()) box = fallback;
+        }
+        return box && !box.isEmpty() ? box : null;
+    }
+
+    function _env3DCharacterWorkbenchDisplayFloorY(mesh, box) {
+        if (!mesh) return 0;
+        var worldBox = box && typeof box.isEmpty === 'function' && !box.isEmpty()
+            ? box
+            : _env3DCharacterWorkbenchWorldBox(mesh);
+        var floorY = worldBox ? Number(((worldBox.min || {}).y) || 0) : Number(mesh.position.y || 0);
+        var supportObj = mesh.userData ? (mesh.userData.sceneObject || null) : null;
+        if (_envIsMountedCharacterRuntimeObject(supportObj)) {
+            var rootY = Number(mesh.position.y || floorY);
+            if (isFinite(rootY) && Math.abs(rootY - floorY) > 0.08) return rootY;
+        }
+        return isFinite(floorY) ? floorY : Number(mesh.position.y || 0);
+    }
+
     function _env3DCharacterWorkbenchRig(mesh) {
         if (!mesh || !_env3D.camera) return null;
-        if (typeof mesh.updateWorldMatrix === 'function') mesh.updateWorldMatrix(true, true);
-        var box = new THREE.Box3().setFromObject(mesh);
-        if (!box || box.isEmpty()) return null;
+        var box = _env3DCharacterWorkbenchWorldBox(mesh);
+        if (!box) return null;
         var size = new THREE.Vector3();
         var center = new THREE.Vector3();
         box.getSize(size);
@@ -29911,15 +30059,16 @@
         var aspect = Math.max(0.4, Number(camera.aspect || 1));
         var verticalFov = THREE.MathUtils.degToRad(Math.max(12, Math.min(100, Number(camera.fov || 50))));
         var horizontalFov = Math.max(0.12, 2 * Math.atan(Math.tan(verticalFov * 0.5) * aspect));
-        var fitFill = 0.86;
+        var fitFill = 0.8;
         var frameHalfHeight = Math.max(0.9, Number(size.y || 0) * 0.58);
         var frameHalfWidth = Math.max(0.7, Math.max(Number(size.x || 0), Number(size.z || 0)) * 0.66);
         var distanceForHeight = frameHalfHeight / Math.max(0.08, Math.tan(verticalFov * 0.5) * fitFill);
         var distanceForWidth = frameHalfWidth / Math.max(0.08, Math.tan(horizontalFov * 0.5) * fitFill);
-        var radius = Math.max(2.4, Math.min(18, Math.max(distanceForHeight, distanceForWidth) * 1.08));
+        var radius = Math.max(2.8, Math.min(20, Math.max(distanceForHeight, distanceForWidth) * 1.14));
+        var displayFloorY = _env3DCharacterWorkbenchDisplayFloorY(mesh, box);
         var target = center.clone();
-        target.y = box.min.y + Math.max(1.05, Number(size.y || 0) * 0.56);
-        var offset = new THREE.Vector3().setFromSpherical(new THREE.Spherical(radius, 1.18, -0.36));
+        target.y = displayFloorY + Math.max(1.22, Number(size.y || 0) * 0.5);
+        var offset = new THREE.Vector3().setFromSpherical(new THREE.Spherical(radius, 1.1, -0.44));
         var focusObj = mesh.userData ? (mesh.userData.sceneObject || null) : null;
         return {
             mode: 'focus',
@@ -30447,6 +30596,10 @@
     function _env3DEnsureAgentSprite(mesh, obj) {
         if (!mesh || !mesh.userData) return;
         if (!_env3DIsAgentKind(mesh.userData.kind)) return;
+        if (mesh.userData.assetClone && _envIsMountedCharacterRuntimeObject(obj)) {
+            _env3DDisposeMountedRuntimeBillboards(mesh, obj);
+            return;
+        }
         var atlas = _env3DEnsureAgentSpriteAtlas();
         if (!atlas) return;
         var modality = _env3DResolveAgentModality(obj);
@@ -30476,6 +30629,32 @@
         sprite.material.opacity = String((obj && obj.state) || 'idle').trim().toLowerCase() === 'failed' ? 0.98 : 0.94;
         mesh.userData.agentModality = modality;
         _env3DEnsureCharacterSprite(mesh, obj);
+    }
+
+    function _env3DDisposeAgentSprite(mesh) {
+        if (!mesh || !mesh.userData || !mesh.userData.agentSprite) return;
+        var sprite = mesh.userData.agentSprite;
+        if (sprite.parent) sprite.parent.remove(sprite);
+        if (sprite.material && typeof sprite.material.dispose === 'function') sprite.material.dispose();
+        mesh.userData.agentSprite = null;
+        mesh.userData.agentModality = '';
+    }
+
+    function _env3DDisposeMountedRuntimeBillboards(mesh, obj) {
+        if (!mesh || !mesh.userData || !_envIsMountedCharacterRuntimeObject(obj || mesh.userData.sceneObject)) return;
+        _env3DDisposeAgentSprite(mesh);
+        _env3DDisposeCharacterSprite(mesh);
+        var billboardNodes = [];
+        if (typeof mesh.traverse === 'function') {
+            mesh.traverse(function (node) {
+                if (!node || node === mesh || !node.isSprite) return;
+                billboardNodes.push(node);
+            });
+        }
+        billboardNodes.forEach(function (node) {
+            if (node.parent) node.parent.remove(node);
+            if (node.material && typeof node.material.dispose === 'function') node.material.dispose();
+        });
     }
 
     function _env3DCharacterSpriteLayout(character) {
@@ -30573,6 +30752,10 @@
 
     function _env3DEnsureCharacterSprite(mesh, obj) {
         if (!mesh || !mesh.userData) return;
+        if (mesh.userData.assetClone && _envIsMountedCharacterRuntimeObject(obj)) {
+            _env3DDisposeCharacterSprite(mesh);
+            return;
+        }
         var character = _envSceneCharacterForObject(obj);
         var spriteRef = String((((character || {}).sprite_ref) || '')).trim();
         if (!spriteRef) {
@@ -31830,6 +32013,7 @@
         mesh.userData.assetLoadToken = Number(mesh.userData.assetLoadToken || 0) + 1;
         var clone = mesh.userData.assetClone || null;
         _env3DDisposeWorkbenchRuntimeHelpers(mesh);
+        _env3DDisposeAgentSprite(mesh);
         if (mesh.userData._mixer) {
             mesh.userData._mixer.stopAllAction();
             if (clone && typeof mesh.userData._mixer.uncacheRoot === 'function') {
@@ -31853,6 +32037,7 @@
         mesh.userData.assetLoading = false;
         mesh.userData.assetLoadError = '';
         mesh.userData.materialObservation = null;
+        mesh.userData._supportOffsetY = 0;
     }
 
     function _env3DApplyAssetState(mesh, obj, emissive, isFocused, intensityOverride) {
@@ -32047,6 +32232,22 @@
         }
     }
 
+    function _env3DSanitizeMountedRuntimeClip(obj, clip) {
+        if (!clip || !_envIsMountedCharacterRuntimeObject(obj) || typeof THREE === 'undefined') return clip;
+        if (!Array.isArray(clip.tracks) || !clip.tracks.length) return clip;
+        var filteredTracks = clip.tracks.filter(function (track) {
+            var trackName = String((track && track.name) || '').trim().toLowerCase();
+            return trackName.indexOf('.position') < 0;
+        });
+        if (!filteredTracks.length || filteredTracks.length === clip.tracks.length) return clip;
+        var sanitized = clip.clone ? clip.clone() : new THREE.AnimationClip(String(clip.name || 'clip'), Number(clip.duration || -1), []);
+        sanitized.tracks = filteredTracks.map(function (track) {
+            return track && typeof track.clone === 'function' ? track.clone() : track;
+        });
+        if (typeof sanitized.resetDuration === 'function') sanitized.resetDuration();
+        return sanitized;
+    }
+
     function _env3DRequestMeshAsset(mesh, obj, assetRef) {
         if (!mesh || !mesh.userData) return;
         var ref = String(assetRef || '').trim();
@@ -32086,10 +32287,13 @@
             mesh.userData.assetLoading = false;
             mesh.userData.assetLoadError = '';
             if (clone.userData && Array.isArray(clone.userData.animations) && clone.userData.animations.length) {
+                var isMountedRuntimeAsset = _envIsMountedCharacterRuntimeObject(obj);
                 mesh.userData._mixer = new THREE.AnimationMixer(clone);
                 mesh.userData._clips = {};
-                mesh.userData._clipList = clone.userData.animations.slice();
-                clone.userData.animations.forEach(function (clip) {
+                mesh.userData._clipList = clone.userData.animations.map(function (clip) {
+                    return _env3DSanitizeMountedRuntimeClip(obj, clip);
+                });
+                mesh.userData._clipList.forEach(function (clip) {
                     var normalized = _env3DNormalizeClipName(clip && clip.name);
                     if (!normalized) return;
                     mesh.userData._clips[normalized] = clip;
@@ -32106,9 +32310,13 @@
                     mesh.userData._currentAction = mesh.userData._mixer.clipAction(initialClip.clip);
                     mesh.userData._currentAction.play();
                     mesh.userData._currentClipName = initialClip.name;
+                    if (isMountedRuntimeAsset) {
+                        mesh.userData._currentAction.time = 0;
+                        mesh.userData._currentAction.paused = true;
+                    }
                 }
                 mesh.userData._previewSpeed = 1;
-                mesh.userData._previewPaused = false;
+                mesh.userData._previewPaused = !!isMountedRuntimeAsset;
                 mesh.userData._previewLoop = 'repeat';
             }
             mesh.userData._canonicalJointMap = null;
@@ -32166,6 +32374,12 @@
             if (_envCharacterWorkbenchActive() && mesh.userData._canonicalJointMap) {
                 _env3DBuildScaffoldBody(mesh);
             }
+            if (_envIsMountedCharacterRuntimeObject(obj)) {
+                _env3DDisposeMountedRuntimeBillboards(mesh, obj);
+                mesh.userData._supportOffsetY = 0;
+                _env3DPinMountedRuntimeAssetFloor(mesh);
+                _envInhabitantSnapMeshToSupport(mesh, Number(mesh.position.y || 1));
+            }
             _env3DSetPrimitiveOpacity(mesh, 0);
             _env3DApplyAssetState(
                 mesh,
@@ -32178,6 +32392,17 @@
         });
     }
 
+    function _env3DRemoveSceneObjectLabel(key) {
+        var label = _env3D.cssLabels[key];
+        if (label) {
+            if (label.parent) label.parent.remove(label);
+            if (label.element && label.element.parentNode) {
+                label.element.parentNode.removeChild(label.element);
+            }
+            delete _env3D.cssLabels[key];
+        }
+    }
+
     function _env3DRemoveSceneObjectMesh(key) {
         var mesh = _env3D.meshes[key];
         if (mesh) {
@@ -32188,12 +32413,7 @@
             delete _env3D.meshes[key];
         }
         if (_env3D.triggers && _env3D.triggers[key]) delete _env3D.triggers[key];
-        if (_env3D.cssLabels[key]) {
-            if (_env3D.cssLabels[key].element && _env3D.cssLabels[key].element.parentNode) {
-                _env3D.cssLabels[key].element.parentNode.removeChild(_env3D.cssLabels[key].element);
-            }
-            delete _env3D.cssLabels[key];
-        }
+        _env3DRemoveSceneObjectLabel(key);
     }
 
     function _env3DDisposeAllAssets() {
@@ -32832,12 +33052,6 @@
         ], 0x75c6ff, 0.16, true);
         group.add(frame);
 
-        var focusSpine = _env3DCreateWorkbenchGuideLine([
-            new THREE.Vector3(0, 0.05, 0),
-            new THREE.Vector3(0, 2.2, 0)
-        ], 0x74fff0, 0.14, false);
-        group.add(focusSpine);
-
         _env3D.scene.add(group);
         _env3D.workbenchGuides = {
             group: group,
@@ -32846,8 +33060,7 @@
             innerRing: innerRing,
             grid: grid,
             crosshair: crosshair,
-            frame: frame,
-            focusSpine: focusSpine
+            frame: frame
         };
         return _env3D.workbenchGuides;
     }
@@ -32883,32 +33096,30 @@
         }
         var box = null;
         try {
-            mesh.updateWorldMatrix(true, true);
-            box = new THREE.Box3().setFromObject(mesh);
+            box = _env3DCharacterWorkbenchWorldBox(mesh);
         } catch (ignored) {
             box = null;
         }
-        if (!box || box.isEmpty()) {
+        if (!box) {
             guides.group.visible = false;
             return;
         }
         var size = box.getSize(new THREE.Vector3());
         var center = box.getCenter(new THREE.Vector3());
+        var displayFloorY = _env3DCharacterWorkbenchDisplayFloorY(mesh, box);
         var footprint = Math.max(8, Number(size.x || 0), Number(size.z || 0));
         var vertical = Math.max(12, Number(size.y || 0));
         var stageRadius = Math.max(6.5, footprint * 0.8, vertical * 0.26);
         var gridSpan = Math.max(stageRadius * 2.3, footprint * 2.15);
         var frameSpan = Math.max(stageRadius * 1.4, footprint * 0.96);
         guides.group.visible = true;
-        guides.group.position.set(center.x, box.min.y + 0.025, center.z);
+        guides.group.position.set(center.x, displayFloorY + 0.025, center.z);
         guides.pad.scale.set(stageRadius, stageRadius, stageRadius);
         guides.halo.scale.set(stageRadius * 1.08, stageRadius * 1.08, stageRadius * 1.08);
         guides.innerRing.scale.set(stageRadius * 0.86, stageRadius * 0.86, stageRadius * 0.86);
         guides.grid.scale.set(gridSpan / 20, 1, gridSpan / 20);
         guides.crosshair.scale.set(stageRadius * 0.94, 1, stageRadius * 0.94);
         guides.frame.scale.set(frameSpan, 1, frameSpan);
-        guides.focusSpine.scale.set(1, Math.max(1, vertical * 0.46), 1);
-        guides.focusSpine.position.y = 0;
     }
 
     function _env3DDisposeWorkbenchSkeletonHelper(mesh) {
@@ -33068,6 +33279,8 @@
                     depthWrite: false
                 })
             );
+            gizmo.name = '__attachment_gizmo_' + String(slotName || 'slot') + '__';
+            gizmo.userData._envHelper = 'attachment_gizmo';
             gizmo.position.copy(_env3DWorkbenchAttachmentOffset(definition));
             gizmo.renderOrder = 999;
             bone.add(gizmo);
@@ -33211,6 +33424,7 @@
             });
             var piece = new THREE.Mesh(geometry, material);
             piece.name = '__scaffold_' + String(slotDef.slot || slotDef.joint || 'piece') + '__';
+            piece.userData._envHelper = 'scaffold';
             piece.renderOrder = 500;
             if (Array.isArray(slotDef.up)) {
                 piece.position.set(Number(slotDef.up[0] || 0), Number(slotDef.up[1] || 0), Number(slotDef.up[2] || 0));
@@ -33408,7 +33622,11 @@
             mesh.userData.resolvedTransform = _envCloneJson(resolvedTransform, null);
             _env3DStoreTriggerMeta(mesh, obj);
 
-            if (!_env3D.cssLabels[key]) {
+            if (characterWorkbenchMode && _env3D.cssLabels[key]) {
+                _env3DRemoveSceneObjectLabel(key);
+            }
+            var allowSceneLabel = !characterWorkbenchMode;
+            if (!_env3D.cssLabels[key] && allowSceneLabel) {
                 var labelDiv = document.createElement('div');
                 labelDiv.className = 'env3d-label-shell env3d-label-' + obj.kind;
                 labelDiv.style.pointerEvents = 'auto';
@@ -33440,7 +33658,8 @@
                 mesh.add(cssLabel);
                 _env3D.cssLabels[key] = cssLabel;
                 cssLabel.element.classList.toggle('env3d-label-mode-half', String(_env3D.labelMode || 'full').trim().toLowerCase() === 'half');
-                cssLabel.visible = _env3DLabelVisibleForKey(key);
+                cssLabel.visible = !!mesh.visible && _env3DLabelVisibleForKey(key);
+                cssLabel.element.style.display = cssLabel.visible ? '' : 'none';
                 cssLabel.element.style.opacity = String(_env3DLabelOpacityForMesh(mesh));
             }
 
@@ -33475,7 +33694,8 @@
 
             if (mesh.userData.visualType === 'portal') _env3DApplyPortalState(mesh, obj.state, isFocused, 0);
             if (_env3DIsAgentKind(obj.kind) && mesh.userData.visualType === 'primitive') {
-                _env3DEnsureAgentSprite(mesh, obj);
+                if (mesh.userData.assetClone && isMountedCharacterRuntime) _env3DDisposeMountedRuntimeBillboards(mesh, obj);
+                else _env3DEnsureAgentSprite(mesh, obj);
             }
             if (!mesh.userData._locoInited) {
                 if (!isMountedCharacterRuntime) mesh.position.set(pos.x, pos.y, pos.z);
@@ -33516,7 +33736,8 @@
                 activeLabel.element.setAttribute('data-env-state', String(obj.state || 'idle'));
                 activeLabel.element.setAttribute('data-env-agent', _env3DIsAgentKind(obj.kind) ? 'true' : 'false');
                 activeLabel.element.classList.toggle('env3d-label-mode-half', String(_env3D.labelMode || 'full').trim().toLowerCase() === 'half');
-                activeLabel.visible = !characterWorkbenchMode && kindVisible && String(_env3D.labelMode || 'full').trim().toLowerCase() !== 'hidden';
+                activeLabel.visible = !characterWorkbenchMode && !!mesh.visible && String(_env3D.labelMode || 'full').trim().toLowerCase() !== 'hidden';
+                activeLabel.element.style.display = activeLabel.visible ? '' : 'none';
                 activeLabel.element.style.opacity = String(_env3DLabelOpacityForMesh(mesh));
                 activeLabel.position.set(0, mesh.userData.labelHeight, 0);
             }
@@ -33736,6 +33957,10 @@
             }
             if (mesh.userData._mixer) {
                 mesh.userData._mixer.update(Math.min(dt, 0.1));
+                _env3DPinMountedRuntimeAssetFloor(mesh);
+            }
+            if (mesh.userData.assetClone && _envIsMountedCharacterRuntimeObject((mesh.userData || {}).sceneObject || null)) {
+                _env3DDisposeMountedRuntimeBillboards(mesh, (mesh.userData || {}).sceneObject || null);
             }
             if (isAgent || transformDragging) {
                 mesh.userData._moving = false;
@@ -34084,6 +34309,11 @@
         var resolvedTheme = _env3DResolvedTheme(_envThemeId) || {};
         var sourceTheme = _envThemes[_envThemeId] || null;
         var isWorldTheme = !!(sourceTheme && sourceTheme.type === 'world');
+        if (characterMode) {
+            Object.keys(_env3D.cssLabels || {}).forEach(function (key) {
+                _env3DRemoveSceneObjectLabel(key);
+            });
+        }
         Object.keys(_env3D.meshes || {}).forEach(function (key) {
             var mesh = _env3D.meshes[key];
             if (!mesh || !mesh.userData) return;
@@ -34092,7 +34322,10 @@
                 mesh.visible = _env3DObjectVisibleForTheaterMode(obj, key);
             }
             var cssLabel = _env3D.cssLabels && _env3D.cssLabels[key] ? _env3D.cssLabels[key] : null;
-            if (cssLabel) cssLabel.visible = !characterMode && !!mesh.visible && labelMode !== 'hidden';
+            if (cssLabel) {
+                cssLabel.visible = !characterMode && !!mesh.visible && labelMode !== 'hidden';
+                if (cssLabel.element) cssLabel.element.style.display = cssLabel.visible ? '' : 'none';
+            }
         });
         if (_env3D.groundPlane) _env3D.groundPlane.visible = !characterMode;
         if (_env3D.terrain) _env3D.terrain.visible = !characterMode;
