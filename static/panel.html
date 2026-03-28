@@ -3592,6 +3592,7 @@
             border-color: rgba(124,156,255,0.4);
         }
         .envops-habitat.surface-active .envops-habitat-overlay-dock,
+        .envops-habitat.surface-active .envops-habitat-character-telemetry,
         .envops-habitat.surface-active .envops-habitat-hud,
         .envops-habitat.surface-active .envops-habitat-ops-rail,
         .envops-habitat.surface-active .envops-habitat-scene-cockpit,
@@ -3926,6 +3927,17 @@
         }
 
         .envops-habitat-overlay-dock {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            right: 12px;
+            display: grid;
+            gap: 6px;
+            z-index: 28;
+            pointer-events: none;
+        }
+
+        .envops-habitat-character-telemetry {
             position: absolute;
             top: 12px;
             left: 12px;

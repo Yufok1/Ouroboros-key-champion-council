@@ -18102,7 +18102,7 @@
                     '</div>';
             }
             return '' +
-                '<div class="envops-habitat-overlay-dock">' +
+                '<div class="envops-habitat-character-telemetry">' +
                 '<div class="envops-habitat-scene-status">' +
                 characterChip('Mode', 'Character Workbench', 'active', 'mode') +
                 characterChip('Rig', workbench.sourceRigType, 'ok', 'rig') +
