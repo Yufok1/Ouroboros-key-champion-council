@@ -1041,6 +1041,7 @@
             support_kind: '',
             spawn_source: '',
             spawn_point: { x: 50, y: 52 },
+            character_asset_ref: '',
             nav: _envCreateInhabitantNavigationState(),
             perception: _envCreateInhabitantPerceptionState(),
             last_spawn_ts: 0,
@@ -8781,9 +8782,9 @@
             },
             command_surface: {
                 transport: 'env_control',
-                host_commands: ['character_mount', 'character_unmount', 'character_focus', 'character_move_to', 'character_stop', 'character_look_at'],
+                host_commands: ['character_mount', 'character_unmount', 'character_focus', 'character_move_to', 'character_stop', 'character_look_at', 'character_set_model'],
                 legacy_host_commands: ['spawn_inhabitant', 'despawn_inhabitant', 'focus_inhabitant'],
-                implemented_verbs: ['mount', 'unmount', 'focus', 'move_to', 'stop', 'look_at'],
+                implemented_verbs: ['mount', 'unmount', 'focus', 'move_to', 'stop', 'look_at', 'set_model'],
                 agent_bearing: false,
                 chat_overlay_eligible: false
             },
@@ -8830,12 +8831,14 @@
             Number(((((state || {}).position || {}).scene || {}).y) || ((state.spawn_point || {}).y) || 52)
         );
         var runtimeSurface = _envInhabitantRuntimeSurfaceSnapshot(state);
+        var characterAssetRef = String(state.character_asset_ref || '');
         return _envNormalizeSceneObjectRecord({
             kind: _ENV_INHABITANT_OBJECT_KIND,
             id: _ENV_INHABITANT_OBJECT_ID,
             label: String(state.label || _ENV_INHABITANT_LABEL || 'Mounted Character Runtime'),
             state: 'running',
             source: 'runtime',
+            asset_ref: characterAssetRef || undefined,
             runtime_target_class: 'mounted_character_runtime',
             category: 'character_runtime',
             x: scenePoint.x,
@@ -8843,10 +8846,12 @@
             scale: 1.08,
             meta: 'Mounted character runtime surface.',
             color: '#7dd3fc',
+            appearance: characterAssetRef ? { asset_ref: characterAssetRef } : undefined,
             character: {
                 archetype: 'custom',
                 anim_set: 'humanoid',
-                behavior: String(state.behavior || 'idle')
+                behavior: String(state.behavior || 'idle'),
+                asset_ref: characterAssetRef || undefined
             },
             embodiment: {
                 family: 'humanoid_biped',
@@ -10694,6 +10699,7 @@
             var nextDisabled = _envCreateInhabitantRuntimeState();
             nextDisabled.spawn_point = _envCloneJson((state && state.spawn_point) || { x: 50, y: 52 }, { x: 50, y: 52 });
             nextDisabled.behavior = String(state.behavior || 'idle');
+            nextDisabled.character_asset_ref = String(state.character_asset_ref || '');
             nextDisabled.spawn_source = String(reason || 'despawn');
             nextDisabled.last_spawn_ts = Number(state.last_spawn_ts || 0);
             nextDisabled.last_update_ts = Date.now();
@@ -17826,6 +17832,42 @@
                 return;
             }
             _envSetFocus('doc', docId, actorName);
+            return;
+        }
+        if (command === 'character_set_model') {
+            var modelRef = String(targetId || '').trim();
+            var state = _envInhabitantRuntimeState();
+            state.character_asset_ref = modelRef;
+            state.last_update_ts = Date.now();
+            if (state.enabled) {
+                var existingMesh = _env3D.meshes ? _env3D.meshes[_envInhabitantObjectKey()] : null;
+                var obj = _envInhabitantObject();
+                if (existingMesh && obj) {
+                    obj.asset_ref = modelRef || undefined;
+                    if (!obj.appearance || typeof obj.appearance !== 'object') obj.appearance = {};
+                    obj.appearance.asset_ref = modelRef || undefined;
+                    if (!obj.character || typeof obj.character !== 'object') obj.character = {};
+                    obj.character.asset_ref = modelRef || undefined;
+                    var data = obj.data || (obj.data = {});
+                    if (!data.appearance || typeof data.appearance !== 'object') data.appearance = {};
+                    data.appearance.asset_ref = modelRef || undefined;
+                    if (!data.character || typeof data.character !== 'object') data.character = {};
+                    data.character.asset_ref = modelRef || undefined;
+                    _env3DRequestMeshAsset(existingMesh, obj, modelRef);
+                }
+            }
+            _envLogAction('character_runtime', 'Set character model: ' + (modelRef || '(cleared)'), actorName, {
+                action: 'character_set_model',
+                asset_ref: modelRef
+            });
+            _envEmitBus('character_runtime', 'Set character model: ' + (modelRef || '(cleared)'), actorName, {
+                action: 'character_set_model',
+                asset_ref: modelRef
+            });
+            _envSetBadge('running', modelRef ? 'MODEL SET' : 'MODEL CLR');
+            _envScheduleLiveSync('character_runtime:set_model', true);
+            if (_env3D.inited) _envSyncHabitatScene();
+            else renderEnvironmentView();
             return;
         }
         if (command === 'spawn_inhabitant' || command === 'character_mount') {
@@ -34924,6 +34966,7 @@
              '<option value="character_mount">character_mount</option>' +
              '<option value="character_unmount">character_unmount</option>' +
              '<option value="character_focus">character_focus</option>' +
+             '<option value="character_set_model">character_set_model</option>' +
              '<option value="character_move_to">character_move_to</option>' +
              '<option value="character_stop">character_stop</option>' +
              '<option value="character_look_at">character_look_at</option>' +
@@ -42825,6 +42868,9 @@
     };
     window.envopsCharacterFocus = function (actor, reason) {
         _envQueueControl('character_focus', '', actor || 'assistant', reason || 'external character runtime focus');
+    };
+    window.envopsCharacterSetModel = function (modelRef, actor, reason) {
+        _envQueueControl('character_set_model', String(modelRef || ''), actor || 'assistant', reason || 'external character runtime set model');
     };
     window.envopsCharacterMoveTo = function (target, actor, reason) {
         var payload = '';
