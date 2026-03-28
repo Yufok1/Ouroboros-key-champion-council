@@ -1103,6 +1103,7 @@
         executionId: '',
         renderTarget: 'web3d',
         cameraMode: 'overview',
+        theaterMode: 'environment',
         camera: {
             x: 50,
             y: 52,
@@ -8633,6 +8634,22 @@
         return 'overview';
     }
 
+    function _envSceneNormalizeTheaterMode(mode) {
+        var value = String(mode || 'environment').trim().toLowerCase();
+        if (value === 'character' || value === 'char' || value === 'model' || value === 'workbench') return 'character';
+        if (value === 'runtime' || value === 'debug') return 'runtime';
+        return 'environment';
+    }
+
+    function _envTheaterMode() {
+        _envScene.theaterMode = _envSceneNormalizeTheaterMode(_envScene.theaterMode || 'environment');
+        return _envScene.theaterMode;
+    }
+
+    function _envCharacterWorkbenchActive() {
+        return _envTheaterMode() === 'character';
+    }
+
     function _envSceneClampZoomScale(value) {
         var nav = _envSceneNavigationConfig();
         return Math.max(nav.minZoomScale, Math.min(nav.maxZoomScale, Number(value || 1)));
@@ -10616,6 +10633,46 @@
         return next;
     }
 
+    function _envMountedRuntimeMesh() {
+        var meshKey = _envInhabitantObjectKey();
+        return meshKey && _env3D.meshes ? _env3D.meshes[meshKey] : null;
+    }
+
+    function _envCharacterWorkbenchDisplayScale(mesh, obj, sceneScale) {
+        var baseScale = Math.max(0.001, Number(sceneScale || 1));
+        if (!_envCharacterWorkbenchActive()) return baseScale;
+        if (!mesh || !obj || !_envIsMountedCharacterRuntimeObject(obj)) return baseScale;
+        var width = 0;
+        var height = 0;
+        var depth = 0;
+        var clone = mesh.userData ? (mesh.userData.assetClone || null) : null;
+        if (clone && clone.userData && clone.userData.normalized_size) {
+            var dims = clone.userData.normalized_size || {};
+            var cloneScale = Number(_env3DDesiredAssetScale(obj, clone) || 1);
+            width = Math.max(0, Number(dims.width || dims.max_axis || 0)) * cloneScale * baseScale;
+            height = Math.max(0, Number(dims.height || dims.max_axis || 0)) * cloneScale * baseScale;
+            depth = Math.max(0, Number(dims.depth || dims.max_axis || 0)) * cloneScale * baseScale;
+        }
+        if (!(width > 0.001) || !(height > 0.001)) {
+            var geometry = mesh.geometry || null;
+            if (geometry && !geometry.boundingBox && typeof geometry.computeBoundingBox === 'function') {
+                geometry.computeBoundingBox();
+            }
+            if (geometry && geometry.boundingBox) {
+                width = Math.max(0, Number(geometry.boundingBox.max.x - geometry.boundingBox.min.x || 0)) * baseScale;
+                height = Math.max(0, Number(geometry.boundingBox.max.y - geometry.boundingBox.min.y || 0)) * baseScale;
+                depth = Math.max(0, Number(geometry.boundingBox.max.z - geometry.boundingBox.min.z || 0)) * baseScale;
+            }
+        }
+        width = Math.max(width, depth, 0.001);
+        height = Math.max(height, 0.001);
+        var targetHeight = 16.5;
+        var targetWidth = 10.5;
+        var factor = Math.max(targetHeight / height, targetWidth / width);
+        factor = Math.max(1, Math.min(18, Number(factor || 1)));
+        return baseScale * factor;
+    }
+
     function _envSetInhabitantEnabled(enabled, actor, reason, targetId) {
         var actorName = String(actor || _envManualActorId() || 'assistant').trim() || 'assistant';
         var state = _envInhabitantRuntimeState();
@@ -11326,6 +11383,7 @@
         if (command === 'spawn_inhabitant' || command === 'despawn_inhabitant' || command === 'focus_inhabitant'
             || command === 'character_mount' || command === 'character_unmount' || command === 'character_focus'
             || command === 'character_move_to' || command === 'character_stop' || command === 'character_look_at') return _envInhabitantObjectKey();
+        if (command === 'set_theater_mode') return _envScenePrimarySnapshotName() ? ('scene::' + _envScenePrimarySnapshotName()) : 'scene::scene';
         if (command === 'set_camera_mode'
             || command === 'camera_frame_overview'
             || command === 'camera_frame_focus'
@@ -16412,7 +16470,105 @@
         return summary;
     }
 
+    function _envCharacterWorkbenchSummary() {
+        var runtime = _envRefreshInhabitantRuntimeState('render');
+        var obj = _envInhabitantObject();
+        var mesh = _envMountedRuntimeMesh();
+        var retarget = obj ? _envSceneRetargetingForObject(obj) : null;
+        var clipList = (mesh && mesh.userData && Array.isArray(mesh.userData._clipList)) ? mesh.userData._clipList : [];
+        var activeClip = String(((mesh && mesh.userData && mesh.userData._previewClipName) || (mesh && mesh.userData && mesh.userData._currentClipName) || runtime.behavior || 'idle') || 'idle');
+        var sourceRigType = String((mesh && mesh.userData && mesh.userData._sourceRigType) || (mesh && mesh.userData && mesh.userData.assetClone ? 'undetected' : 'primitive'));
+        var boneCount = 0;
+        if (mesh && mesh.userData && mesh.userData.assetClone && typeof mesh.userData.assetClone.traverse === 'function') {
+            mesh.userData.assetClone.traverse(function (node) {
+                if (node && node.isBone === true) boneCount += 1;
+            });
+        }
+        var visualBounds = mesh && mesh.userData && mesh.userData._visualBounds ? mesh.userData._visualBounds : null;
+        var size = visualBounds && visualBounds.size ? visualBounds.size : null;
+        var cards = [
+            { label: 'Active Subject', value: String((obj && obj.label) || _ENV_INHABITANT_LABEL || 'Mounted Character Runtime') },
+            { label: 'Presentation', value: String(runtime.visual_mode || 'primitive') + ' · ' + String(runtime.activity || 'idle') },
+            { label: 'Embodiment', value: String((((obj || {}).embodiment || {}).family) || 'humanoid_biped') + ' · ' + String((((obj || {}).embodiment || {}).locomotion_class) || 'biped') },
+            { label: 'Rig Source', value: sourceRigType },
+            { label: 'Active Clip', value: activeClip || 'idle' },
+            { label: 'Clip Inventory', value: String(clipList.length) + ' clips' },
+            { label: 'Bone Count', value: boneCount > 0 ? String(boneCount) : 'primitive' },
+            { label: 'Retargeting', value: retarget ? String(retarget.status || retarget.source_rig_type || 'configured') : 'none' }
+        ];
+        if (size) {
+            cards.splice(3, 0, {
+                label: 'Workbench Size',
+                value: Number(size.x || 0).toFixed(1) + ' × ' + Number(size.y || 0).toFixed(1) + ' × ' + Number(size.z || 0).toFixed(1)
+            });
+        }
+        return {
+            title: 'Character Workbench',
+            subtitle: 'Model-focused theater using the mounted character runtime as the primary subject. Environment scene presentation is suppressed in this mode.',
+            hudPrimary: 'Subject: ' + String((obj && obj.label) || _ENV_INHABITANT_LABEL || 'Mounted Character Runtime'),
+            hudSecondary: 'Previewing embodiment, clips, and scale in theater space. Environment shell copy is intentionally suppressed.',
+            cards: cards,
+            activeClip: activeClip,
+            clipCount: clipList.length,
+            sourceRigType: sourceRigType,
+            boneCount: boneCount,
+            retargetingStatus: retarget ? String(retarget.status || retarget.source_rig_type || 'configured') : 'none'
+        };
+    }
+
+    function _envRenderScenePrimaryHeroAndCards(sceneSnapshotName, renderTarget, packageMode, sceneCanonical, sceneWorkflowId, sceneWorkflowMeta) {
+        var workbench = _envTheaterMode() === 'character' ? _envCharacterWorkbenchSummary() : null;
+        var title = workbench ? workbench.title : (sceneSnapshotName || 'Environment Scene');
+        var subtitle = workbench
+            ? (workbench.subtitle + ' Renderer target: ' + String(renderTarget || 'web3d') + ' · Deployment mode: ' + String(packageMode || 'online'))
+            : ('Snapshot-backed environment shell using the champion runtime as spatial control plane. Renderer target: ' + String(renderTarget || 'web3d') + ' · Deployment mode: ' + String(packageMode || 'online'));
+        var linksHtml =
+            '<div class="envops-links">' +
+            '<button class="btn-dim" onclick="_envOpenLinkedTab(\'workflows\')">OPEN WORKFLOWS</button>' +
+            '<button class="btn-dim" onclick="_envOpenLinkedTab(\'debug\')">OPEN DEBUG</button>' +
+            '<button class="btn-dim" onclick="_envOpenLinkedTab(\'memory\')">OPEN MEMORY</button>' +
+            '<button class="btn-dim" onclick="_envOpenLinkedTab(\'tools\')">OPEN TOOLS</button>' +
+            '</div>';
+        var cardsHtml = '';
+        if (workbench) {
+            cardsHtml = (workbench.cards || []).map(function (card) {
+                return '<div class="envops-card"><div class="envops-card-label">' + _esc(String((card && card.label) || 'Info')) + '</div><div class="envops-card-value">' + _esc(String((card && card.value) || '—')) + '</div></div>';
+            }).join('');
+        } else {
+            cardsHtml =
+                '<div class="envops-card"><div class="envops-card-label">Scene Snapshot</div><div class="envops-card-value">' + _esc(sceneSnapshotName || 'unspecified') + '</div></div>' +
+                '<div class="envops-card"><div class="envops-card-label">Persisted Objects</div><div class="envops-card-value">' + String(Number(((_envSpawnedObjects || []).length) || 0)) + ' staged</div></div>' +
+                '<div class="envops-card"><div class="envops-card-label">Navigation</div><div class="envops-card-value">history ' + String(Number((_envNavigationState.history || []).length || 0)) + '</div></div>' +
+                '<div class="envops-card"><div class="envops-card-label">Bootstrap</div><div class="envops-card-value">' + _esc(_envSceneBootstrapState.pending ? 'HYDRATING' : (_envSceneBootstrapState.hydratedTs ? 'READY' : 'IDLE')) + '</div></div>' +
+                '<div class="envops-card"><div class="envops-card-label">Canonical Surface</div><div class="envops-card-value">' + _esc(sceneCanonical.surfaceSummary) + '</div></div>' +
+                '<div class="envops-card"><div class="envops-card-label">Operator Truth</div><div class="envops-card-value">' + _esc(sceneCanonical.operatorSummary) + '</div></div>' +
+                '<div class="envops-card"><div class="envops-card-label">Corroboration</div><div class="envops-card-value">' + _esc(sceneCanonical.corroborationSummary) + '</div></div>' +
+                '<div class="envops-card"><div class="envops-card-label">Deferred Mismatch</div><div class="envops-card-value">' + _esc(sceneCanonical.mismatchSummary) + '</div></div>' +
+                (sceneWorkflowId
+                    ? ('<div class="envops-card"><div class="envops-card-label">Workflow Context</div><div class="envops-card-value">' + _esc((sceneWorkflowMeta && (sceneWorkflowMeta.name || sceneWorkflowMeta.id)) || sceneWorkflowId || 'workflow') + '</div></div>' +
+                        '<div class="envops-card"><div class="envops-card-label">Run History</div><div class="envops-card-value">' + String((_envRunHistoryState.rows || []).length) + ' cached</div></div>' +
+                        '<div class="envops-card"><div class="envops-card-label">Health Probe</div><div class="envops-card-value">' + _esc(_envHealthPending() ? 'REQUESTED' : ((_envHealthState.refreshedTs || 0) ? 'READY' : 'IDLE')) + '</div></div>')
+                    : '<div class="envops-card"><div class="envops-card-label">Workflow Context</div><div class="envops-card-value">UNBOUND</div></div>');
+        }
+        return '' +
+            '<div class="envops-stage-hero">' +
+            '<div>' +
+            '<div class="envops-stage-title">' + _esc(title) + '</div>' +
+            '<div class="envops-stage-subtitle">' + _esc(subtitle) + '</div>' +
+            '</div>' +
+            linksHtml +
+            '</div>' +
+            '<div class="envops-card-grid">' + cardsHtml + '</div>';
+    }
+
     function _envHabitatHudCopy(workflow) {
+        if (_envTheaterMode() === 'character') {
+            var workbench = _envCharacterWorkbenchSummary();
+            return {
+                primary: workbench.hudPrimary,
+                secondary: workbench.hudSecondary
+            };
+        }
         var focus = _envKernel.focus || {};
         var replay = _envKernel.replay || {};
         var replaySummary = _envReplayCursorSummary();
@@ -17547,6 +17703,10 @@
             _envCharacterLookAt(actorName, reason || 'control character look', targetId);
             return;
         }
+        if (command === 'set_theater_mode') {
+            _envSetTheaterMode(targetId || 'environment', actorName, reason || 'control theater mode');
+            return;
+        }
         if (command === 'set_camera_mode') {
             var mode = _envSceneNormalizeCameraMode(targetId || ((_envScene || {}).cameraMode) || 'overview');
             _envScene.cameraMode = mode;
@@ -17796,6 +17956,28 @@
     }
 
     function _envRenderHabitatTelemetry(workflow, exec, traces) {
+        if (_envTheaterMode() === 'character') {
+            var workbench = _envCharacterWorkbenchSummary();
+            function characterChip(label, value, tone, role) {
+                return '<div class="envops-habitat-status-chip ' + _esc(tone) + '" data-role="' + _esc(role || label.toLowerCase()) + '">' +
+                    '<span class="k">' + _esc(label) + '</span>' +
+                    '<span class="v">' + _esc(value) + '</span>' +
+                    '</div>';
+            }
+            return '' +
+                '<div class="envops-habitat-overlay-dock">' +
+                '<div class="envops-habitat-scene-status">' +
+                characterChip('Mode', 'Character Workbench', 'active', 'mode') +
+                characterChip('Rig', workbench.sourceRigType, 'ok', 'rig') +
+                characterChip('Clip', workbench.activeClip || 'idle', 'ok', 'clip') +
+                characterChip('Bones', workbench.boneCount > 0 ? String(workbench.boneCount) : 'primitive', 'ok', 'bones') +
+                '</div>' +
+                '<div class="envops-habitat-scene-status-meta">' +
+                '<div class="envops-habitat-status-mini ok" data-role="subject"><span class="k">Subject</span><span class="v">' + _esc(workbench.hudPrimary.replace(/^Subject:\s*/, '')) + '</span></div>' +
+                '<div class="envops-habitat-status-mini ok" data-role="retarget"><span class="k">Retarget</span><span class="v">' + _esc(workbench.retargetingStatus) + '</span></div>' +
+                '</div>' +
+                '</div>';
+        }
         var ingress = _envKernel.ingress || {};
         var watch = _envKernel.watch || {};
         var sampler = _envKernel.sampler || {};
@@ -23489,6 +23671,7 @@
             },
             scene: {
                 camera_mode: String(scene.cameraMode || ''),
+                theater_mode: String(scene.theaterMode || ''),
                 object_count: Number(scene.object_count || 0),
                 route_count: Number(scene.route_count || 0),
                 trajectory_count: Number(scene.trajectory_count || 0),
@@ -23896,6 +24079,7 @@
         controls: null,
         groundPlane: null,
         gridHelper: null,
+        workbenchGuides: null,
         waterMesh: null,
         waterNormalTexture: null,
         waterLevelOverrides: (function () {
@@ -28127,12 +28311,21 @@
         return _env3DIsWaterSurfaceTile(obj);
     }
 
+    function _env3DObjectVisibleForTheaterMode(obj, key) {
+        var characterMode = _envCharacterWorkbenchActive();
+        var mountedKey = _envInhabitantObjectKey();
+        var mountedRuntime = !!(obj && _envIsMountedCharacterRuntimeObject(obj)) || String(key || '') === mountedKey;
+        if (characterMode) return mountedRuntime;
+        if (!obj) return true;
+        return _env3DKindFilterVisible(obj.kind) && !_env3DThemeSuppressesObject(obj);
+    }
+
     function _env3DRefreshThemeObjectVisibility() {
         Object.keys(_env3D.meshes || {}).forEach(function (key) {
             var mesh = _env3D.meshes[key];
             var obj = mesh && mesh.userData ? mesh.userData.sceneObject : null;
             if (!mesh || !obj) return;
-            mesh.visible = _env3DKindFilterVisible(obj.kind) && !_env3DThemeSuppressesObject(obj);
+            mesh.visible = _env3DObjectVisibleForTheaterMode(obj, key);
         });
     }
 
@@ -28241,6 +28434,7 @@
         });
         _env3DUpdateWaterLevelControl();
         _env3DUpdateWorldProfileControl();
+        _env3DApplyTheaterModePresentation();
         _envRefreshLiveMirrorSurface();
     }
 
@@ -28806,15 +29000,19 @@
     }
 
     function _env3DApplyKindFilter() {
+        var characterMode = _envCharacterWorkbenchActive();
         var meshKeys = Object.keys(_env3D.meshes || {});
         for (var i = 0; i < meshKeys.length; i++) {
             var key = meshKeys[i];
             var mesh = _env3D.meshes[key];
-            var visible = _env3DKindFilterVisible(String(key || '').split('::')[0] || '');
+            var obj = mesh && mesh.userData ? mesh.userData.sceneObject : null;
+            var visible = obj
+                ? _env3DObjectVisibleForTheaterMode(obj, key)
+                : _env3DKindFilterVisible(String(key || '').split('::')[0] || '');
             if (mesh) mesh.visible = visible;
             var label = _env3D.cssLabels[key];
             if (!label || !label.element) continue;
-            label.visible = visible && String(_env3D.labelMode || 'full').trim().toLowerCase() !== 'hidden';
+            label.visible = !characterMode && visible && String(_env3D.labelMode || 'full').trim().toLowerCase() !== 'hidden';
             label.element.style.opacity = String(_env3DLabelOpacityForMesh(_env3D.meshes[key]));
         }
     }
@@ -29380,6 +29578,43 @@
         return offset;
     }
 
+    function _env3DCharacterWorkbenchRig(mesh) {
+        if (!mesh || !_env3D.camera) return null;
+        if (typeof mesh.updateWorldMatrix === 'function') mesh.updateWorldMatrix(true, true);
+        var box = new THREE.Box3().setFromObject(mesh);
+        if (!box || box.isEmpty()) return null;
+        var size = new THREE.Vector3();
+        var center = new THREE.Vector3();
+        box.getSize(size);
+        box.getCenter(center);
+        var camera = _env3D.camera;
+        var aspect = Math.max(0.4, Number(camera.aspect || 1));
+        var verticalFov = THREE.MathUtils.degToRad(Math.max(12, Math.min(100, Number(camera.fov || 50))));
+        var horizontalFov = Math.max(0.12, 2 * Math.atan(Math.tan(verticalFov * 0.5) * aspect));
+        var fitFill = 0.86;
+        var frameHalfHeight = Math.max(0.9, Number(size.y || 0) * 0.58);
+        var frameHalfWidth = Math.max(0.7, Math.max(Number(size.x || 0), Number(size.z || 0)) * 0.66);
+        var distanceForHeight = frameHalfHeight / Math.max(0.08, Math.tan(verticalFov * 0.5) * fitFill);
+        var distanceForWidth = frameHalfWidth / Math.max(0.08, Math.tan(horizontalFov * 0.5) * fitFill);
+        var radius = Math.max(2.4, Math.min(18, Math.max(distanceForHeight, distanceForWidth) * 1.08));
+        var target = center.clone();
+        target.y = box.min.y + Math.max(1.05, Number(size.y || 0) * 0.56);
+        var offset = new THREE.Vector3().setFromSpherical(new THREE.Spherical(radius, 1.18, -0.36));
+        var focusObj = mesh.userData ? (mesh.userData.sceneObject || null) : null;
+        return {
+            mode: 'focus',
+            target: target,
+            position: target.clone().add(offset),
+            meta: {
+                mode: 'focus',
+                focus_key: String(_env3DObjectKey((mesh || {}).userData || {})),
+                focus_kind: String((((mesh || {}).userData || {}).kind) || ''),
+                focus_id: String((((mesh || {}).userData || {}).id) || ''),
+                focus_target_class: _envIsMountedCharacterRuntimeObject(focusObj) ? 'mounted_character_runtime' : ''
+            }
+        };
+    }
+
     function _env3DBaseCameraRig() {
         if (!_env3D.camera || !_env3D.controls) return null;
         var requestedMode = _envSceneNormalizeCameraMode(_envScene.cameraMode || (((_envConfig || {}).scene || {}).defaultCameraMode) || 'overview');
@@ -29395,6 +29630,18 @@
             meta.mode = mode;
         }
         if (mesh) {
+            if (requestedMode === 'focus' && _envCharacterWorkbenchActive()) {
+                var focusObj = mesh.userData ? (mesh.userData.sceneObject || null) : null;
+                var mountedRuntimeFocus = !!focusObj && _envIsMountedCharacterRuntimeObject(focusObj);
+                if (!mountedRuntimeFocus) {
+                    mountedRuntimeFocus = String((((mesh || {}).userData || {}).kind) || '') === _ENV_INHABITANT_OBJECT_KIND
+                        && String((((mesh || {}).userData || {}).id) || '') === _ENV_INHABITANT_OBJECT_ID;
+                }
+                if (mountedRuntimeFocus) {
+                    var workbenchRig = _env3DCharacterWorkbenchRig(mesh);
+                    if (workbenchRig) return workbenchRig;
+                }
+            }
             target.copy(mesh.position);
             target.y += (mesh.userData && mesh.userData.kind === 'workflow') ? 1.6 : 0.8;
             position.copy(target.clone().add(_env3DFramingOffsetForMesh(mesh, mode)));
@@ -30574,6 +30821,26 @@
         return group;
     }
 
+    function _env3DEnsurePrimitiveFocusEdge(mesh) {
+        if (!mesh || !mesh.geometry || !mesh.userData) return null;
+        if (mesh.userData._focusEdge) return mesh.userData._focusEdge;
+        var edgeLine = new THREE.LineSegments(
+            new THREE.EdgesGeometry(mesh.geometry),
+            new THREE.LineBasicMaterial({
+                color: 0x7dd3fc,
+                transparent: true,
+                opacity: 0,
+                depthWrite: false
+            })
+        );
+        edgeLine.userData = Object.assign({}, edgeLine.userData || {}, { proceduralRole: 'focus_edge' });
+        edgeLine.renderOrder = 3;
+        edgeLine.visible = false;
+        mesh.add(edgeLine);
+        mesh.userData._focusEdge = edgeLine;
+        return edgeLine;
+    }
+
     function _env3DCreateSceneObjectVisual(obj, interaction, appearance, color, emissive, key) {
         var mesh = null;
         var visualType = 'primitive';
@@ -30707,12 +30974,14 @@
         if (!mesh || !mesh.material) return;
         var appearance = _envSceneAppearanceForObject(obj);
         var matCfg = _env3DResolveProceduralMaterial(_env3DPrimitiveMaterialSource(obj, appearance), color);
+        var focusEdge = _env3DEnsurePrimitiveFocusEdge(mesh);
+        var workbenchFocus = _envCharacterWorkbenchActive() && _envIsMountedCharacterRuntimeObject(obj);
         _env3DApplyResolvedMaterialConfig(mesh.material, matCfg);
         if (mesh.material.emissive && typeof mesh.material.emissive.setHex === 'function') {
             var idleIntensity = Number(matCfg.emissiveIntensity || 0);
             if (isFocused) {
-                mesh.material.emissive.setHex(0x00ff88);
-                mesh.material.emissiveIntensity = 1.2;
+                mesh.material.emissive.setHex(idleIntensity > 0 ? Number(matCfg.emissive || 0x000000) : emissive);
+                mesh.material.emissiveIntensity = workbenchFocus ? 0.18 : 0.55;
             } else if (obj.state === 'running') {
                 mesh.material.emissive.setHex(emissive);
                 mesh.material.emissiveIntensity = 0.8;
@@ -30723,6 +30992,13 @@
                 mesh.material.emissive.setHex(idleIntensity > 0 ? Number(matCfg.emissive || 0x000000) : emissive);
                 mesh.material.emissiveIntensity = idleIntensity > 0 ? idleIntensity : 0.3;
             }
+        }
+        if (focusEdge && focusEdge.material) {
+            focusEdge.visible = !mesh.userData.assetClone && (!!isFocused || workbenchFocus);
+            if (focusEdge.material.color && typeof focusEdge.material.color.setHex === 'function') {
+                focusEdge.material.color.setHex(isFocused ? 0x00ff88 : 0x7dd3fc);
+            }
+            focusEdge.material.opacity = isFocused ? (workbenchFocus ? 0.92 : 0.55) : (workbenchFocus ? 0.22 : 0.12);
         }
         _env3DSetPrimitiveOpacity(mesh, mesh.userData.assetClone ? 0 : (isFocused ? 1.0 : 0.9));
     }
@@ -31549,10 +31825,15 @@
     function _env3DNavigationConfig() {
         var web3d = (((_envSceneConfig() || {}).web3d) || {});
         var nav = (web3d.navigation && typeof web3d.navigation === 'object') ? web3d.navigation : {};
+        var characterMode = _envCharacterWorkbenchActive();
         return {
-            minDistance: Math.max(8, Number(nav.minDistance || 18)),
-            maxDistance: Math.max(48, Number(nav.maxDistance || 220)),
-            wheelStep: Math.max(0.04, Number(nav.wheelStep || 0.14))
+            minDistance: characterMode
+                ? Math.max(1.2, Math.min(6, Number(nav.characterMinDistance || 1.8)))
+                : Math.max(8, Number(nav.minDistance || 18)),
+            maxDistance: characterMode
+                ? Math.max(16, Number(nav.characterMaxDistance || 40))
+                : Math.max(48, Number(nav.maxDistance || 220)),
+            wheelStep: Math.max(0.04, Number(characterMode ? (nav.characterWheelStep || 0.18) : (nav.wheelStep || 0.14)))
         };
     }
 
@@ -32045,6 +32326,7 @@
 
         // Particle field (ambient drift)
         _env3DBuildParticles(scene);
+        _env3DEnsureWorkbenchGuides();
 
         // Resize observer for container resize (CSS resize: vertical)
         if (typeof ResizeObserver !== 'undefined') {
@@ -32085,10 +32367,172 @@
         _env3D.particleSystem = points;
     }
 
+    function _env3DCreateWorkbenchGuideLine(points, color, opacity, closed) {
+        var geometry = new THREE.BufferGeometry().setFromPoints(points);
+        var material = new THREE.LineBasicMaterial({
+            color: Number(color || 0x55d7d4),
+            transparent: true,
+            opacity: Number(opacity || 0.18),
+            depthWrite: false
+        });
+        return closed ? new THREE.LineLoop(geometry, material) : new THREE.LineSegments(geometry, material);
+    }
+
+    function _env3DEnsureWorkbenchGuides() {
+        if (!_env3D.scene) return null;
+        if (_env3D.workbenchGuides && _env3D.workbenchGuides.group) return _env3D.workbenchGuides;
+        var group = new THREE.Group();
+        group.name = 'envopsCharacterWorkbenchGuides';
+        group.visible = false;
+
+        var pad = new THREE.Mesh(
+            new THREE.CircleGeometry(1, 80),
+            new THREE.MeshBasicMaterial({
+                color: 0x0d141d,
+                transparent: true,
+                opacity: 0.88,
+                side: THREE.DoubleSide,
+                depthWrite: false
+            })
+        );
+        pad.rotation.x = -Math.PI / 2;
+        group.add(pad);
+
+        var halo = new THREE.Mesh(
+            new THREE.RingGeometry(1.01, 1.08, 96),
+            new THREE.MeshBasicMaterial({
+                color: 0x6fe9d9,
+                transparent: true,
+                opacity: 0.24,
+                side: THREE.DoubleSide,
+                depthWrite: false
+            })
+        );
+        halo.rotation.x = -Math.PI / 2;
+        group.add(halo);
+
+        var innerRing = new THREE.Mesh(
+            new THREE.RingGeometry(0.58, 0.61, 96),
+            new THREE.MeshBasicMaterial({
+                color: 0x5ac8ff,
+                transparent: true,
+                opacity: 0.14,
+                side: THREE.DoubleSide,
+                depthWrite: false
+            })
+        );
+        innerRing.rotation.x = -Math.PI / 2;
+        group.add(innerRing);
+
+        var grid = new THREE.GridHelper(20, 20, 0x4fe9d0, 0x203544);
+        if (grid.material) {
+            grid.material.transparent = true;
+            grid.material.opacity = 0.22;
+            grid.material.depthWrite = false;
+        }
+        grid.position.y = 0.018;
+        group.add(grid);
+
+        var crosshair = _env3DCreateWorkbenchGuideLine([
+            new THREE.Vector3(-1.08, 0.03, 0),
+            new THREE.Vector3(1.08, 0.03, 0),
+            new THREE.Vector3(0, 0.03, -1.08),
+            new THREE.Vector3(0, 0.03, 1.08)
+        ], 0x8bf3de, 0.26, false);
+        group.add(crosshair);
+
+        var frame = _env3DCreateWorkbenchGuideLine([
+            new THREE.Vector3(-1, 0.028, -1),
+            new THREE.Vector3(1, 0.028, -1),
+            new THREE.Vector3(1, 0.028, 1),
+            new THREE.Vector3(-1, 0.028, 1)
+        ], 0x75c6ff, 0.16, true);
+        group.add(frame);
+
+        var focusSpine = _env3DCreateWorkbenchGuideLine([
+            new THREE.Vector3(0, 0.05, 0),
+            new THREE.Vector3(0, 2.2, 0)
+        ], 0x74fff0, 0.14, false);
+        group.add(focusSpine);
+
+        _env3D.scene.add(group);
+        _env3D.workbenchGuides = {
+            group: group,
+            pad: pad,
+            halo: halo,
+            innerRing: innerRing,
+            grid: grid,
+            crosshair: crosshair,
+            frame: frame,
+            focusSpine: focusSpine
+        };
+        return _env3D.workbenchGuides;
+    }
+
+    function _env3DDisposeWorkbenchGuides() {
+        var guides = _env3D.workbenchGuides;
+        if (!guides || !guides.group) {
+            _env3D.workbenchGuides = null;
+            return;
+        }
+        if (guides.group.parent) guides.group.parent.remove(guides.group);
+        guides.group.traverse(function (node) {
+            if (!node) return;
+            if (node.geometry && typeof node.geometry.dispose === 'function') node.geometry.dispose();
+            if (node.material) {
+                var materials = Array.isArray(node.material) ? node.material : [node.material];
+                materials.forEach(function (material) {
+                    if (material && typeof material.dispose === 'function') material.dispose();
+                });
+            }
+        });
+        _env3D.workbenchGuides = null;
+    }
+
+    function _env3DUpdateWorkbenchGuides() {
+        var guides = _env3DEnsureWorkbenchGuides();
+        if (!guides || !guides.group) return;
+        var characterMode = _envCharacterWorkbenchActive();
+        var mesh = _envMountedRuntimeMesh();
+        if (!characterMode || !mesh || !_env3D.scene) {
+            guides.group.visible = false;
+            return;
+        }
+        var box = null;
+        try {
+            mesh.updateWorldMatrix(true, true);
+            box = new THREE.Box3().setFromObject(mesh);
+        } catch (ignored) {
+            box = null;
+        }
+        if (!box || box.isEmpty()) {
+            guides.group.visible = false;
+            return;
+        }
+        var size = box.getSize(new THREE.Vector3());
+        var center = box.getCenter(new THREE.Vector3());
+        var footprint = Math.max(8, Number(size.x || 0), Number(size.z || 0));
+        var vertical = Math.max(12, Number(size.y || 0));
+        var stageRadius = Math.max(6.5, footprint * 0.8, vertical * 0.26);
+        var gridSpan = Math.max(stageRadius * 2.3, footprint * 2.15);
+        var frameSpan = Math.max(stageRadius * 1.4, footprint * 0.96);
+        guides.group.visible = true;
+        guides.group.position.set(center.x, box.min.y + 0.025, center.z);
+        guides.pad.scale.set(stageRadius, stageRadius, stageRadius);
+        guides.halo.scale.set(stageRadius * 1.08, stageRadius * 1.08, stageRadius * 1.08);
+        guides.innerRing.scale.set(stageRadius * 0.86, stageRadius * 0.86, stageRadius * 0.86);
+        guides.grid.scale.set(gridSpan / 20, 1, gridSpan / 20);
+        guides.crosshair.scale.set(stageRadius * 0.94, 1, stageRadius * 0.94);
+        guides.frame.scale.set(frameSpan, 1, frameSpan);
+        guides.focusSpine.scale.set(1, Math.max(1, vertical * 0.46), 1);
+        guides.focusSpine.position.y = 0;
+    }
+
     function _env3DSyncObjects(objects) {
         if (!_env3D.scene) return;
         objects = Array.isArray(objects) ? objects : [];
         var scene = _env3D.scene;
+        var characterWorkbenchMode = _envCharacterWorkbenchActive();
         var newKeys = {};
         var nextTileGrid = {};
         var focus = _envKernel.focus || {};
@@ -32180,6 +32624,7 @@
                 });
                 _env3D.tileGrid = nextTileGrid;
                 _env3DRebuildTriggerIndex();
+                _env3DApplyTheaterModePresentation();
                 return;
             }
         }
@@ -32294,14 +32739,14 @@
             }
 
             var kindVisible = _env3DKindFilterVisible(obj.kind);
-            mesh.visible = kindVisible && !_env3DThemeSuppressesObject(obj);
+            var isMountedCharacterRuntime = _envIsMountedCharacterRuntimeObject(obj)
+                || key === _envInhabitantObjectKey();
+            mesh.visible = _env3DObjectVisibleForTheaterMode(obj, key);
 
             if (mesh.userData.visualType === 'portal') _env3DApplyPortalState(mesh, obj.state, isFocused, 0);
             if (_env3DIsAgentKind(obj.kind) && mesh.userData.visualType === 'primitive') {
                 _env3DEnsureAgentSprite(mesh, obj);
             }
-            var isMountedCharacterRuntime = _envIsMountedCharacterRuntimeObject(obj)
-                || key === _envInhabitantObjectKey();
             if (!mesh.userData._locoInited) {
                 if (!isMountedCharacterRuntime) mesh.position.set(pos.x, pos.y, pos.z);
                 mesh.userData._locoInited = true;
@@ -32329,8 +32774,9 @@
                 mesh.rotation.y = resolvedTilt * (Math.PI / 180);
             }
             mesh.userData.baseY = mesh.position.y;
-            mesh.scale.lerp(new THREE.Vector3(scl, scl, scl), 0.15);
-            mesh.userData.baseScale = scl;
+            var displayScale = _envCharacterWorkbenchDisplayScale(mesh, obj, scl);
+            mesh.scale.lerp(new THREE.Vector3(displayScale, displayScale, displayScale), 0.15);
+            mesh.userData.baseScale = displayScale;
 
             // Update label text
             var activeLabel = _env3D.cssLabels[key];
@@ -32340,7 +32786,7 @@
                 activeLabel.element.setAttribute('data-env-state', String(obj.state || 'idle'));
                 activeLabel.element.setAttribute('data-env-agent', _env3DIsAgentKind(obj.kind) ? 'true' : 'false');
                 activeLabel.element.classList.toggle('env3d-label-mode-half', String(_env3D.labelMode || 'full').trim().toLowerCase() === 'half');
-                activeLabel.visible = kindVisible && String(_env3D.labelMode || 'full').trim().toLowerCase() !== 'hidden';
+                activeLabel.visible = !characterWorkbenchMode && kindVisible && String(_env3D.labelMode || 'full').trim().toLowerCase() !== 'hidden';
                 activeLabel.element.style.opacity = String(_env3DLabelOpacityForMesh(mesh));
                 activeLabel.position.set(0, mesh.userData.labelHeight, 0);
             }
@@ -32354,6 +32800,11 @@
         });
 
         _env3DSyncRoutes(objects);
+        if (characterWorkbenchMode && Array.isArray(_env3D.lineMeshes)) {
+            _env3D.lineMeshes.forEach(function (line) {
+                if (line) line.visible = false;
+            });
+        }
 
         _env3D.tileGrid = nextTileGrid;
         _env3DRebuildTriggerIndex();
@@ -32486,6 +32937,7 @@
 
             var baseScale = Math.max(0.001, Number(mesh.userData.baseScale || 1));
             if (isAgent) {
+                var workbenchCharacter = _envCharacterWorkbenchActive() && _envIsMountedCharacterRuntimeKind(kind);
                 var phase = mesh.position.x * 0.14 + mesh.position.z * 0.11;
                 var pulseScale = 1;
                 var emissiveHex = _env3DStateEmissive[state] || _env3DStateEmissive.idle;
@@ -32509,9 +32961,13 @@
                     emissiveIntensity = mesh.userData.focused ? 0.78 : 0.16;
                 }
                 if (mesh.userData.focused) pulseScale = Math.max(pulseScale, 1 + Math.sin(time * 3) * 0.08);
+                if (workbenchCharacter) {
+                    pulseScale = 1;
+                    emissiveIntensity = mesh.userData.focused ? 0.22 : 0.14;
+                }
                 mesh.scale.setScalar(baseScale * pulseScale);
                 if (mesh.material && mesh.material.emissive && typeof mesh.material.emissive.setHex === 'function') {
-                    mesh.material.emissive.setHex(mesh.userData.focused ? 0x00ff88 : emissiveHex);
+                    mesh.material.emissive.setHex(workbenchCharacter ? emissiveHex : (mesh.userData.focused ? 0x00ff88 : emissiveHex));
                     mesh.material.emissiveIntensity = emissiveIntensity;
                 }
                 if (mesh.userData.assetClone) {
@@ -32522,6 +32978,12 @@
                         !!mesh.userData.focused,
                         emissiveIntensity
                     );
+                }
+                if (mesh.userData._focusEdge && mesh.userData._focusEdge.material) {
+                    mesh.userData._focusEdge.visible = !mesh.userData.assetClone && (_envCharacterWorkbenchActive() || !!mesh.userData.focused);
+                    mesh.userData._focusEdge.material.opacity = mesh.userData.focused
+                        ? (workbenchCharacter ? (0.74 + (Math.sin(time * 4) * 0.12)) : (0.48 + (Math.sin(time * 4) * 0.08)))
+                        : (workbenchCharacter ? 0.18 : 0.08);
                 }
                 if (mesh.userData.agentSprite) {
                     mesh.userData.agentSprite.position.set(0, Number(mesh.userData.agentSpriteOffsetY || 1.12), 0);
@@ -32694,6 +33156,7 @@
         }
 
         _envMaintainInhabitantPresence(dt);
+        _env3DUpdateWorkbenchGuides();
 
         // Update route lines to follow moving meshes (use stored keys, not index)
         _env3D.lineMeshes.forEach(function (line) {
@@ -32765,6 +33228,7 @@
         _env3DDisposeCrashDummyTexture();
         _env3DDisposeAgentSpriteAssets();
         _env3DDisposeRoomMaterials();
+        _env3DDisposeWorkbenchGuides();
         if (_env3D.transformControls) {
             _env3D.transformControls.detach();
             if (typeof _env3D.transformControls.dispose === 'function') _env3D.transformControls.dispose();
@@ -32870,6 +33334,117 @@
         _env3DApplyCameraRig(true);
     }
 
+    function _env3DApplyTheaterModePresentation() {
+        if (!_env3D.scene) return;
+        var characterMode = _envCharacterWorkbenchActive();
+        var mountedKey = _envInhabitantObjectKey();
+        var labelMode = String(_env3D.labelMode || 'full').trim().toLowerCase();
+        var resolvedTheme = _env3DResolvedTheme(_envThemeId) || {};
+        var sourceTheme = _envThemes[_envThemeId] || null;
+        var isWorldTheme = !!(sourceTheme && sourceTheme.type === 'world');
+        Object.keys(_env3D.meshes || {}).forEach(function (key) {
+            var mesh = _env3D.meshes[key];
+            if (!mesh || !mesh.userData) return;
+            var obj = mesh.userData.sceneObject || _envSceneObjectByKey(key) || null;
+            if (obj) {
+                mesh.visible = _env3DObjectVisibleForTheaterMode(obj, key);
+            }
+            var cssLabel = _env3D.cssLabels && _env3D.cssLabels[key] ? _env3D.cssLabels[key] : null;
+            if (cssLabel) cssLabel.visible = !characterMode && !!mesh.visible && labelMode !== 'hidden';
+        });
+        if (_env3D.groundPlane) _env3D.groundPlane.visible = !characterMode;
+        if (_env3D.terrain) _env3D.terrain.visible = !characterMode;
+        if (_env3D.gridHelper) _env3D.gridHelper.visible = !characterMode && Number(resolvedTheme.gridOp || 0) > 0.001;
+        if (_env3D.waterMesh) _env3D.waterMesh.visible = !characterMode && isWorldTheme;
+        if (_env3D.seabedMesh) _env3D.seabedMesh.visible = !characterMode;
+        if (_env3D.ceilingMesh) _env3D.ceilingMesh.visible = !characterMode;
+        if (_env3D.volumeIndicator) _env3D.volumeIndicator.visible = !characterMode;
+        if (_env3D.particleSystem) {
+            var particleOpacity = resolvedTheme.particleOp !== undefined
+                ? Number(resolvedTheme.particleOp)
+                : Number(((resolvedTheme.particle || [0, 0])[1]) || 0);
+            _env3D.particleSystem.visible = !characterMode && particleOpacity > 0.001;
+        }
+        _env3DUpdateWorkbenchGuides();
+        if (_env3D.scene) {
+            if (characterMode) {
+                _env3D.scene.background = new THREE.Color(0x0b1016);
+                _env3D.scene.fog = null;
+                _env3D.scene.environment = null;
+            } else {
+                _env3D.scene.background = new THREE.Color(Number(resolvedTheme.bg || 0x0a0a1a));
+                _env3D.scene.fog = new THREE.FogExp2(Number(resolvedTheme.bg || 0x0a0a1a), Number(resolvedTheme.fog || 0.012));
+                _env3D.scene.environment = null;
+            }
+        }
+        if (Array.isArray(_env3D.lineMeshes)) {
+            _env3D.lineMeshes.forEach(function (line) {
+                if (line) line.visible = !characterMode;
+            });
+        }
+    }
+
+    function _env3DApplyCharacterWorkbenchCamera() {
+        if (!_envCharacterWorkbenchActive() || !_env3D.inited) return false;
+        var obj = _envInhabitantObject();
+        var mesh = _envMountedRuntimeMesh();
+        if (!obj || !mesh || !_env3D.controls || !_env3D.camera) return false;
+        var sceneScale = Number((obj && obj.scale) || (mesh.userData && mesh.userData.baseScale) || 1);
+        var displayScale = _envCharacterWorkbenchDisplayScale(mesh, obj, sceneScale);
+        mesh.scale.setScalar(displayScale);
+        mesh.userData.baseScale = displayScale;
+        _envScene.cameraMode = 'focus';
+        _env3DResetPoseOffset();
+        _env3DFocusObject(String(obj.kind || _ENV_INHABITANT_OBJECT_KIND), String(obj.id || _ENV_INHABITANT_OBJECT_ID));
+        var navCfg = _env3DNavigationConfig();
+        _env3D.controls.minDistance = navCfg.minDistance;
+        _env3D.controls.maxDistance = navCfg.maxDistance;
+        var rig = _env3DDesiredCameraRig();
+        if (!rig) return false;
+        _env3D.controls.target.copy(rig.target);
+        _env3D.camera.position.copy(rig.position);
+        _env3D.rigMeta = rig.meta;
+        _env3D.camera.lookAt(rig.target);
+        _env3D.camera.updateProjectionMatrix();
+        _env3D.controls.update();
+        return true;
+    }
+
+    function _envSetTheaterMode(mode, actor, reason) {
+        var actorName = String(actor || _envManualActorId() || 'assistant').trim() || 'assistant';
+        var prevMode = _envTheaterMode();
+        var nextMode = _envSceneNormalizeTheaterMode(mode);
+        _envScene.theaterMode = nextMode;
+        if (nextMode === 'character') {
+            _envFocusInhabitant(actorName, reason || 'character theater mode');
+            if (_env3D.inited) _env3DApplyCharacterWorkbenchCamera();
+        } else if (prevMode === 'character') {
+            var focus = _envKernel.focus || {};
+            var hadCharacterFocus = String(focus.kind || '') === _ENV_INHABITANT_OBJECT_KIND
+                && String(focus.id || '') === _ENV_INHABITANT_OBJECT_ID;
+            if (hadCharacterFocus) _envSetFocus('scene', _envScenePrimarySnapshotName() || 'scene', actorName, { reason: 'theater_mode:' + nextMode });
+            _envScene.cameraMode = 'overview';
+            _envSceneResetCamera('', 'theater mode reset');
+            _env3DResetPoseOffset();
+            if (_env3D.inited) _env3DApplyCameraRig(true);
+        }
+        if (_env3D.inited && _env3D.controls) {
+            var navCfg = _env3DNavigationConfig();
+            _env3D.controls.minDistance = navCfg.minDistance;
+            _env3D.controls.maxDistance = navCfg.maxDistance;
+            _env3D.controls.update();
+        }
+        if (_env3D.inited) _env3DApplyTheaterModePresentation();
+        _envLogAction('control', 'Updated theater mode', actorName, { action: 'set_theater_mode', theater_mode: nextMode });
+        _envEmitBus('control', 'Updated theater mode', actorName, { action: 'set_theater_mode', theater_mode: nextMode });
+        _envSetBadge('running', 'THEATER ' + nextMode.toUpperCase());
+        _envScene.dirty = true;
+        _envStageUiState.forceStageRebuild = true;
+        _envScheduleLiveSync('theater_mode:' + nextMode, true);
+        renderEnvironmentView();
+        return true;
+    }
+
     // ═══════════════════════════════════════════════════════════════
     // END THREE.JS HABITAT ENGINE
     // ═══════════════════════════════════════════════════════════════
@@ -32882,6 +33457,7 @@
         var dominance = (_envScene && _envScene.dominance) || _envSceneDominanceContext();
         var failure = _envLatestFailureSurface(workflow, exec, traces);
         var cameraMode = _envSceneNormalizeCameraMode(_envScene.cameraMode || (((_envConfig || {}).scene || {}).defaultCameraMode) || 'overview');
+        var theaterMode = _envTheaterMode();
         var camera = _envScene.camera || {};
         var routeCount = Number(((_envScene.routes || []).length) || 0);
         var trajectoryCount = Number(((_envScene.trajectories || []).length) || 0);
@@ -32972,17 +33548,43 @@
             '</div>';
         _envScene.failureSurface = failure;
         var telemetryHtml = _envRenderHabitatTelemetry(workflow, exec, traces);
+        var workbench = theaterMode === 'character' ? _envCharacterWorkbenchSummary() : null;
+        var hudPanelTitle = theaterMode === 'character' ? 'Character Workbench' : 'Scene HUD';
+        var cockpitPanelTitle = theaterMode === 'character' ? 'Character Controls' : 'Theater Controls';
+        var theaterModeNote = theaterMode === 'character'
+            ? (workbench ? workbench.hudSecondary : 'Character workbench active.')
+            : ('Theater mode · ' + theaterMode);
+        var corroborationHtml = theaterMode === 'character' ? '' : _envRenderCorroborationHtml(corroboration);
+        var dominanceHtml = theaterMode === 'character'
+            ? ''
+            : ('<div class="envops-habitat-dominance">' +
+                '<span class="envops-habitat-dominance-chip mode-' + _esc(dominanceSummary.mode) + '">' + _esc(String(dominanceSummary.mode || 'ambient').toUpperCase()) + '</span>' +
+                (dominanceSummary.anchorLabel ? '<span class="envops-habitat-dominance-path">' + _esc(dominanceSummary.anchorLabel) + '</span>' : '<span class="envops-habitat-dominance-path">No active anchor</span>') +
+                '<span class="envops-habitat-dominance-target">' + _esc(failure.label + ' · ' + failure.kind) + '</span>' +
+                (replaySummary ? '<span class="envops-habitat-dominance-target">Replay · ' + _esc(replaySummary) + '</span>' : '') +
+                '<span class="envops-habitat-dominance-target">Routes ' + String(routeCount) + ' · Ribbons ' + String(trajectoryCount) + '</span>' +
+                '</div>');
+        var replayHtml = (theaterMode === 'character' || !(replaySummary || replay.active))
+            ? ''
+            : ('<div class="envops-habitat-scene-cockpit-head" style="margin-top:8px;"><span>Replay</span><span>' + _esc(replay.active ? 'playing' : 'ready') + '</span></div><div class="envops-kernel-note">' + _esc(replaySummary || String(replay.mode || 'samples')) + '</div>');
+        var theaterModeUiHtml = theaterMode === 'character'
+            ? ('<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.08);">' +
+                '<div class="envops-habitat-scene-cockpit-head"><span>Workbench</span><span>' + _esc(workbench ? workbench.sourceRigType : 'character') + '</span></div>' +
+                '<div class="envops-kernel-note">' + _esc(workbench ? ('Active clip · ' + workbench.activeClip) : 'Active clip · idle') + '</div>' +
+                '<div class="envops-kernel-note">' + _esc(workbench ? ('Bones · ' + (workbench.boneCount > 0 ? workbench.boneCount : 'primitive') + ' · Retarget ' + workbench.retargetingStatus) : 'Primitive preview') + '</div>' +
+                '</div>')
+            : (labelModeHtml + kindFilterHtml + assetBrowserCockpitHtml);
         var html = '<div class="' + _esc(habitatClasses.join(' ')) + '">' +
             '<div class="envops-habitat-scene">' +
             telemetryHtml +
-            '<div class="envops-habitat-shell envops-habitat-3d-container" id="envops-habitat-shell" style="position:relative;width:100%;height:100%;overflow:visible;" data-env-camera-mode="' + _esc(cameraMode) + '" data-env-dominance-mode="' + _esc(String((dominance && dominance.mode) || 'ambient')) + '">' +
+            '<div class="envops-habitat-shell envops-habitat-3d-container" id="envops-habitat-shell" style="position:relative;width:100%;height:100%;overflow:visible;" data-env-camera-mode="' + _esc(cameraMode) + '" data-env-dominance-mode="' + _esc(String((dominance && dominance.mode) || 'ambient')) + '" data-env-theater-mode="' + _esc(theaterMode) + '">' +
             '</div>' +
             scenePanelHtml +
             inspectorHtml +
             _envRenderOperationsRail(operations) +
             '<div class="envops-habitat-hud">' +
             '<div class="envops-overlay-panel-head envops-overlay-panel-head-hud" data-env-overlay-handle>' +
-            '<span class="envops-overlay-panel-title">Scene HUD</span>' +
+            '<span class="envops-overlay-panel-title">' + _esc(hudPanelTitle) + '</span>' +
             '<div class="envops-overlay-panel-actions">' +
             '<button type="button" class="btn-dim envops-overlay-mini-btn" data-env-action="reset-overlay-panel" data-env-overlay-id="hud" title="Reset panel position">↺</button>' +
             '<button type="button" class="btn-dim envops-overlay-mini-btn" data-env-action="toggle-overlay-panel" data-env-overlay-id="hud" title="Minimize panel">–</button>' +
@@ -32990,18 +33592,12 @@
             '</div>' +
             '<div class="envops-habitat-hud-primary" id="envops-habitat-hud-primary">' + _esc(hudCopy.primary) + '</div>' +
             '<div class="envops-habitat-hud-secondary" id="envops-habitat-hud-secondary">' + _esc(hudCopy.secondary) + '</div>' +
-            _envRenderCorroborationHtml(corroboration) +
-            '<div class="envops-habitat-dominance">' +
-            '<span class="envops-habitat-dominance-chip mode-' + _esc(dominanceSummary.mode) + '">' + _esc(String(dominanceSummary.mode || 'ambient').toUpperCase()) + '</span>' +
-            (dominanceSummary.anchorLabel ? '<span class="envops-habitat-dominance-path">' + _esc(dominanceSummary.anchorLabel) + '</span>' : '<span class="envops-habitat-dominance-path">No active anchor</span>') +
-            '<span class="envops-habitat-dominance-target">' + _esc(failure.label + ' · ' + failure.kind) + '</span>' +
-            (replaySummary ? '<span class="envops-habitat-dominance-target">Replay · ' + _esc(replaySummary) + '</span>' : '') +
-            '<span class="envops-habitat-dominance-target">Routes ' + String(routeCount) + ' · Ribbons ' + String(trajectoryCount) + '</span>' +
-            '</div>' +
+            corroborationHtml +
+            dominanceHtml +
             '</div>' +
             '<div class="envops-habitat-scene-cockpit">' +
             '<div class="envops-overlay-panel-head" data-env-overlay-handle>' +
-            '<span class="envops-overlay-panel-title">Theater Controls</span>' +
+            '<span class="envops-overlay-panel-title">' + _esc(cockpitPanelTitle) + '</span>' +
             '<div class="envops-overlay-panel-actions">' +
             '<button type="button" class="btn-dim envops-overlay-mini-btn" data-env-action="reset-overlay-panel" data-env-overlay-id="cockpit" title="Reset panel position">↺</button>' +
             '<button type="button" class="btn-dim envops-overlay-mini-btn" data-env-action="toggle-overlay-panel" data-env-overlay-id="cockpit" title="Minimize panel">–</button>' +
@@ -33010,11 +33606,10 @@
             '<div class="envops-habitat-scene-cockpit-head"><span>Camera</span><span>' + _esc(cameraMode) + '</span></div>' +
             '<div class="envops-focus-strip">' + cameraModes + '<span class="envops-focus-chip" data-env-action="reset-camera">Reset Drift</span></div>' +
             '<div class="envops-kernel-note">' + _esc(cameraOffset) + '</div>' +
-            (replaySummary || replay.active ? '<div class="envops-habitat-scene-cockpit-head" style="margin-top:8px;"><span>Replay</span><span>' + _esc(replay.active ? 'playing' : 'ready') + '</span></div><div class="envops-kernel-note">' + _esc(replaySummary || String(replay.mode || 'samples')) + '</div>' : '') +
+            '<div class="envops-kernel-note">' + _esc(theaterModeNote) + '</div>' +
+            replayHtml +
             inhabitantControlsHtml +
-            labelModeHtml +
-            kindFilterHtml +
-            assetBrowserCockpitHtml +
+            theaterModeUiHtml +
             '</div>' +
             _envRenderOverlayRestoreTray() +
             '</div>';
@@ -33601,6 +34196,7 @@
             '<option value="replay_next">replay_next</option>' +
             '<option value="set_replay_mode">set_replay_mode</option>' +
              '<option value="set_camera_mode">set_camera_mode</option>' +
+             '<option value="set_theater_mode">set_theater_mode</option>' +
              '<option value="camera_frame_overview">camera_frame_overview</option>' +
              '<option value="camera_frame_focus">camera_frame_focus</option>' +
              '<option value="camera_frame_replay">camera_frame_replay</option>' +
@@ -36081,33 +36677,7 @@
             if (!preserveSceneStage) {
                 _envRememberOpsRailScroll();
                 stageEl.innerHTML =
-                    '<div class="envops-stage-hero">' +
-                    '<div>' +
-                    '<div class="envops-stage-title">' + _esc(sceneSnapshotName || 'Environment Scene') + '</div>' +
-                    '<div class="envops-stage-subtitle">Snapshot-backed environment shell using the champion runtime as spatial control plane. Renderer target: ' + _esc(renderTarget) + ' · Deployment mode: ' + _esc(packageMode) + '</div>' +
-                    '</div>' +
-                    '<div class="envops-links">' +
-                    '<button class="btn-dim" onclick="_envOpenLinkedTab(\'workflows\')">OPEN WORKFLOWS</button>' +
-                    '<button class="btn-dim" onclick="_envOpenLinkedTab(\'debug\')">OPEN DEBUG</button>' +
-                    '<button class="btn-dim" onclick="_envOpenLinkedTab(\'memory\')">OPEN MEMORY</button>' +
-                    '<button class="btn-dim" onclick="_envOpenLinkedTab(\'tools\')">OPEN TOOLS</button>' +
-                    '</div>' +
-                    '</div>' +
-                    '<div class="envops-card-grid">' +
-                    '<div class="envops-card"><div class="envops-card-label">Scene Snapshot</div><div class="envops-card-value">' + _esc(sceneSnapshotName || 'unspecified') + '</div></div>' +
-                    '<div class="envops-card"><div class="envops-card-label">Persisted Objects</div><div class="envops-card-value">' + String(Number(((_envSpawnedObjects || []).length) || 0)) + ' staged</div></div>' +
-                    '<div class="envops-card"><div class="envops-card-label">Navigation</div><div class="envops-card-value">history ' + String(Number((_envNavigationState.history || []).length || 0)) + '</div></div>' +
-                    '<div class="envops-card"><div class="envops-card-label">Bootstrap</div><div class="envops-card-value">' + _esc(_envSceneBootstrapState.pending ? 'HYDRATING' : (_envSceneBootstrapState.hydratedTs ? 'READY' : 'IDLE')) + '</div></div>' +
-                    '<div class="envops-card"><div class="envops-card-label">Canonical Surface</div><div class="envops-card-value">' + _esc(sceneCanonical.surfaceSummary) + '</div></div>' +
-                    '<div class="envops-card"><div class="envops-card-label">Operator Truth</div><div class="envops-card-value">' + _esc(sceneCanonical.operatorSummary) + '</div></div>' +
-                    '<div class="envops-card"><div class="envops-card-label">Corroboration</div><div class="envops-card-value">' + _esc(sceneCanonical.corroborationSummary) + '</div></div>' +
-                    '<div class="envops-card"><div class="envops-card-label">Deferred Mismatch</div><div class="envops-card-value">' + _esc(sceneCanonical.mismatchSummary) + '</div></div>' +
-                    (sceneWorkflowId
-                        ? ('<div class="envops-card"><div class="envops-card-label">Workflow Context</div><div class="envops-card-value">' + _esc((sceneWorkflowMeta && (sceneWorkflowMeta.name || sceneWorkflowMeta.id)) || sceneWorkflowId || 'workflow') + '</div></div>' +
-                            '<div class="envops-card"><div class="envops-card-label">Run History</div><div class="envops-card-value">' + String((_envRunHistoryState.rows || []).length) + ' cached</div></div>' +
-                            '<div class="envops-card"><div class="envops-card-label">Health Probe</div><div class="envops-card-value">' + _esc(_envHealthPending() ? 'REQUESTED' : ((_envHealthState.refreshedTs || 0) ? 'READY' : 'IDLE')) + '</div></div>')
-                        : '<div class="envops-card"><div class="envops-card-label">Workflow Context</div><div class="envops-card-value">UNBOUND</div></div>') +
-                    '</div>' +
+                    _envRenderScenePrimaryHeroAndCards(sceneSnapshotName, renderTarget, packageMode, sceneCanonical, sceneWorkflowId, sceneWorkflowMeta) +
                     (sceneAuditHtml || '') +
                     '<div class="envops-stage-shell">' +
                     sceneHabitatHtml +
@@ -41426,6 +41996,9 @@
         var payload = typeof pose === 'string' ? pose : JSON.stringify(pose || {});
         _envQueueControl('camera_pose', payload, actor || 'assistant', note || 'external camera pose');
     };
+    window.envopsSetTheaterMode = function (mode, actor, reason) {
+        _envQueueControl('set_theater_mode', String(mode || 'environment'), actor || 'assistant', reason || 'external theater mode');
+    };
     window.envopsToggleIngress = function (actor) {
         if (_envKernel.ingress.active) _envStopIngressLoop(true);
         else _envStartIngressLoop();
@@ -41615,6 +42188,7 @@
                 enabled: !!_envScene.enabled,
                 fpsCap: Number(_envScene.fpsCap || 0),
                 cameraMode: String(_envSceneNormalizeCameraMode(_envScene.cameraMode || (((_envConfig || {}).scene || {}).defaultCameraMode) || 'overview')),
+                theaterMode: String(_envTheaterMode()),
                 workflow_id: String(_envScene.workflowId || ''),
                 execution_id: String(_envScene.executionId || ''),
                 object_count: _envSceneRenderedObjectCount(),

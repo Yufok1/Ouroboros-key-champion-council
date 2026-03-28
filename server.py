@@ -1386,6 +1386,7 @@ _ENV_CONTROL_PROXY_COMMANDS = frozenset({
     "capture_focus",
     "capture_probe",
     "scan_docs",
+    "set_theater_mode",
     "set_camera_mode",
     "set_replay_mode",
     "toggle_stream",
@@ -3687,7 +3688,9 @@ def _env_control_local_proxy_payload(args: dict | None = None) -> dict | None:
         "target": target_id,
         "actor": actor,
     }
-    if command.startswith("camera_"):
+    if command == "set_theater_mode":
+        payload["environment_effects"]["theater_mode_action"] = command
+    elif command.startswith("camera_"):
         payload["environment_effects"]["camera_action"] = command
     elif command in ("spawn_inhabitant", "despawn_inhabitant", "focus_inhabitant", "character_mount", "character_unmount", "character_focus", "character_move_to", "character_stop", "character_look_at", "toggle_inhabitant_fov_debug"):
         payload["environment_effects"]["character_runtime_action"] = command
