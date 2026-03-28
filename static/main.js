@@ -22960,6 +22960,16 @@
             seenActions[key] = true;
             return true;
         });
+        if (_envCharacterWorkbenchActive() && isMountedCharacterRuntime) {
+            var allowedWorkbenchSections = {
+                character: true,
+                embodiment: true,
+                activity: true
+            };
+            sections = sections.filter(function (section) {
+                return !!allowedWorkbenchSections[String((section || {}).key || '')];
+            });
+        }
         return { summary: summary, actions: actions.slice(0, 6), sections: sections };
     }
 
@@ -33796,6 +33806,9 @@
                 if (line) line.visible = !characterMode;
             });
         }
+        if (_env3D.themePickerWrap && _env3D.themePickerWrap.style) {
+            _env3D.themePickerWrap.style.display = characterMode ? 'none' : '';
+        }
     }
 
     function _env3DApplyCharacterWorkbenchCamera() {
@@ -33886,7 +33899,7 @@
         var habitatClasses = ['envops-habitat', 'mode-' + String((dominance && dominance.mode) || 'ambient'), 'failure-' + String((failure && failure.tone) || 'ok')];
         if (watch.autoFollowFailed || watch.autoBranchOnFailure || watch.autoSampleOnRuntime || watch.autoFocusLatestTrace) habitatClasses.push('watch-armed');
         if (((_envKernel.ingress || {}).processing)) habitatClasses.push('ingress-active');
-        if (_envHtmlPanelState.active) habitatClasses.push('surface-active');
+        if (_envHtmlPanelState.active && theaterMode !== 'character') habitatClasses.push('surface-active');
         var shellStyle = _envSceneShellStyle(camera, dominance);
         var dominanceSummary = _envSceneDominanceSummary();
         var cameraOffset = (Math.abs(Number(camera.offsetX || 0)) > 0.25 || Math.abs(Number(camera.offsetY || 0)) > 0.25 || Math.abs(Number((camera.zoomScale || 1) - 1)) > 0.02)
@@ -33966,6 +33979,11 @@
         _envScene.failureSurface = failure;
         var telemetryHtml = _envRenderHabitatTelemetry(workflow, exec, traces);
         var workbench = theaterMode === 'character' ? _envCharacterWorkbenchSummary() : null;
+        if (theaterMode === 'character') {
+            scenePanelHtml = '';
+            inhabitantControlsHtml = '';
+        }
+        var operationsRailHtml = theaterMode === 'character' ? '' : _envRenderOperationsRail(operations);
         var hudPanelTitle = theaterMode === 'character' ? 'Character Workbench' : 'Scene HUD';
         var cockpitPanelTitle = theaterMode === 'character' ? 'Character Controls' : 'Theater Controls';
         var theaterModeNote = theaterMode === 'character'
@@ -33994,7 +34012,7 @@
             '</div>' +
             scenePanelHtml +
             inspectorHtml +
-            _envRenderOperationsRail(operations) +
+            operationsRailHtml +
             '<div class="envops-habitat-hud">' +
             '<div class="envops-overlay-panel-head envops-overlay-panel-head-hud" data-env-overlay-handle>' +
             '<span class="envops-overlay-panel-title">' + _esc(hudPanelTitle) + '</span>' +
