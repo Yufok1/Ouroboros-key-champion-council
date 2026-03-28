@@ -19457,23 +19457,23 @@
 
     var _ENV_SCAFFOLD_SLOT_REGISTRY = {
         humanoid_biped: [
-            { slot: 'head', joint: 'head', geometry: 'sphere', scale: [0.12, 0.14, 0.13], color: 0xcccccc, up: [0, 0.07, 0] },
-            { slot: 'neck', joint: 'neck', target_joint: 'head', follow_child: true, geometry: 'capsule', scale: [0.04, 0.06, 0.04], color: 0xaaaaaa, up: [0, 0.03, 0] },
-            { slot: 'chest', joint: 'chest', geometry: 'box', scale: [0.28, 0.22, 0.16], color: 0xbbbbbb, up: [0, 0.11, 0] },
-            { slot: 'spine', joint: 'spine', target_joint: 'chest', follow_child: true, geometry: 'box', scale: [0.24, 0.14, 0.14], color: 0xaaaaaa, up: [0, 0.07, 0] },
-            { slot: 'hips', joint: 'hips', target_joint: 'spine', follow_child: true, geometry: 'box', scale: [0.26, 0.12, 0.16], color: 0x999999, up: [0, 0.06, 0] },
-            { slot: 'upper_arm_l', joint: 'upper_arm_l', target_joint: 'lower_arm_l', follow_child: true, geometry: 'capsule', scale: [0.05, 0.14, 0.05], color: 0xbb9977, up: [0, -0.07, 0] },
-            { slot: 'lower_arm_l', joint: 'lower_arm_l', target_joint: 'hand_l', follow_child: true, geometry: 'capsule', scale: [0.04, 0.13, 0.04], color: 0xaa8866, up: [0, -0.065, 0] },
-            { slot: 'hand_l', joint: 'hand_l', project_from_parent: true, geometry: 'box', scale: [0.06, 0.08, 0.03], color: 0xddaa88, up: [0, -0.04, 0] },
-            { slot: 'upper_arm_r', joint: 'upper_arm_r', target_joint: 'lower_arm_r', follow_child: true, geometry: 'capsule', scale: [0.05, 0.14, 0.05], color: 0xbb9977, up: [0, -0.07, 0] },
-            { slot: 'lower_arm_r', joint: 'lower_arm_r', target_joint: 'hand_r', follow_child: true, geometry: 'capsule', scale: [0.04, 0.13, 0.04], color: 0xaa8866, up: [0, -0.065, 0] },
-            { slot: 'hand_r', joint: 'hand_r', project_from_parent: true, geometry: 'box', scale: [0.06, 0.08, 0.03], color: 0xddaa88, up: [0, -0.04, 0] },
-            { slot: 'upper_leg_l', joint: 'upper_leg_l', target_joint: 'lower_leg_l', follow_child: true, geometry: 'capsule', scale: [0.07, 0.20, 0.07], color: 0x8888aa, up: [0, -0.10, 0] },
-            { slot: 'lower_leg_l', joint: 'lower_leg_l', target_joint: 'foot_l', follow_child: true, geometry: 'capsule', scale: [0.05, 0.20, 0.05], color: 0x777799, up: [0, -0.10, 0] },
-            { slot: 'foot_l', joint: 'foot_l', project_from_parent: true, geometry: 'box', axis: 'z', scale: [0.06, 0.04, 0.14], color: 0x666688, up: [0, -0.02, 0.03] },
-            { slot: 'upper_leg_r', joint: 'upper_leg_r', target_joint: 'lower_leg_r', follow_child: true, geometry: 'capsule', scale: [0.07, 0.20, 0.07], color: 0x8888aa, up: [0, -0.10, 0] },
-            { slot: 'lower_leg_r', joint: 'lower_leg_r', target_joint: 'foot_r', follow_child: true, geometry: 'capsule', scale: [0.05, 0.20, 0.05], color: 0x777799, up: [0, -0.10, 0] },
-            { slot: 'foot_r', joint: 'foot_r', project_from_parent: true, geometry: 'box', axis: 'z', scale: [0.06, 0.04, 0.14], color: 0x666688, up: [0, -0.02, 0.03] }
+            { slot: 'head', joint: 'head', geometry: 'ellipsoid', scale: [0.14, 0.18, 0.13], color: 0xc9c4bc, up: [0, 0.08, 0] },
+            { slot: 'neck', joint: 'neck', target_joint: 'head', follow_child: true, geometry: 'limb', scale: [0.032, 0.07, 0.024], color: 0xb4aea5, up: [0, 0.03, 0] },
+            { slot: 'chest', joint: 'chest', geometry: 'ellipsoid', scale: [0.30, 0.26, 0.18], color: 0xc3beb4, up: [0, 0.11, 0] },
+            { slot: 'spine', joint: 'spine', target_joint: 'chest', follow_child: true, geometry: 'ellipsoid', scale: [0.22, 0.16, 0.14], color: 0xb9b3aa, up: [0, 0.07, 0] },
+            { slot: 'hips', joint: 'hips', target_joint: 'spine', follow_child: true, geometry: 'ellipsoid', scale: [0.28, 0.15, 0.18], color: 0xada79f, up: [0, 0.05, 0] },
+            { slot: 'upper_arm_l', joint: 'upper_arm_l', target_joint: 'lower_arm_l', follow_child: true, geometry: 'limb', scale: [0.045, 0.14, 0.036], color: 0xc1b3a3, up: [0, -0.07, 0] },
+            { slot: 'lower_arm_l', joint: 'lower_arm_l', target_joint: 'hand_l', follow_child: true, geometry: 'limb', scale: [0.036, 0.13, 0.028], color: 0xb6a695, up: [0, -0.065, 0] },
+            { slot: 'hand_l', joint: 'hand_l', project_from_parent: true, geometry: 'ellipsoid', scale: [0.05, 0.085, 0.04], color: 0xcdb8a1, up: [0, -0.04, 0] },
+            { slot: 'upper_arm_r', joint: 'upper_arm_r', target_joint: 'lower_arm_r', follow_child: true, geometry: 'limb', scale: [0.045, 0.14, 0.036], color: 0xc1b3a3, up: [0, -0.07, 0] },
+            { slot: 'lower_arm_r', joint: 'lower_arm_r', target_joint: 'hand_r', follow_child: true, geometry: 'limb', scale: [0.036, 0.13, 0.028], color: 0xb6a695, up: [0, -0.065, 0] },
+            { slot: 'hand_r', joint: 'hand_r', project_from_parent: true, geometry: 'ellipsoid', scale: [0.05, 0.085, 0.04], color: 0xcdb8a1, up: [0, -0.04, 0] },
+            { slot: 'upper_leg_l', joint: 'upper_leg_l', target_joint: 'lower_leg_l', follow_child: true, geometry: 'limb', scale: [0.06, 0.20, 0.045], color: 0x969bad, up: [0, -0.10, 0] },
+            { slot: 'lower_leg_l', joint: 'lower_leg_l', target_joint: 'foot_l', follow_child: true, geometry: 'limb', scale: [0.045, 0.20, 0.034], color: 0x888ea2, up: [0, -0.10, 0] },
+            { slot: 'foot_l', joint: 'foot_l', project_from_parent: true, geometry: 'ellipsoid', axis: 'z', scale: [0.07, 0.05, 0.16], color: 0x7a8092, up: [0, -0.02, 0.03] },
+            { slot: 'upper_leg_r', joint: 'upper_leg_r', target_joint: 'lower_leg_r', follow_child: true, geometry: 'limb', scale: [0.06, 0.20, 0.045], color: 0x969bad, up: [0, -0.10, 0] },
+            { slot: 'lower_leg_r', joint: 'lower_leg_r', target_joint: 'foot_r', follow_child: true, geometry: 'limb', scale: [0.045, 0.20, 0.034], color: 0x888ea2, up: [0, -0.10, 0] },
+            { slot: 'foot_r', joint: 'foot_r', project_from_parent: true, geometry: 'ellipsoid', axis: 'z', scale: [0.07, 0.05, 0.16], color: 0x7a8092, up: [0, -0.02, 0.03] }
         ]
     };
 
@@ -33542,10 +33542,32 @@
         var x = Number(dims[0] || 0.1);
         var y = Number(dims[1] || dims[0] || 0.1);
         var z = Number(dims[2] || dims[0] || 0.1);
+        if (axis === 'x') x = Math.max(0.04, Number(renderedLength || x || 0.1));
+        else if (axis === 'z') z = Math.max(0.04, Number(renderedLength || z || 0.1));
+        else y = Math.max(0.04, Number(renderedLength || y || 0.1));
+        if (geometryType === 'ellipsoid') {
+            var ellipsoid = new THREE.SphereGeometry(1, 16, 12);
+            ellipsoid.scale(x * 0.5, y * 0.5, z * 0.5);
+            return {
+                geometry: ellipsoid,
+                axis: axis,
+                length: axis === 'x' ? x : (axis === 'z' ? z : y)
+            };
+        }
+        if (geometryType === 'limb') {
+            var radiusTop = Math.max(0.009, Number(dims[2] || dims[0] || 0.04));
+            var radiusBottom = Math.max(0.01, Number(dims[0] || dims[2] || 0.04));
+            var limbLength = Math.max((radiusTop + radiusBottom) * 1.8, Number(renderedLength || y || 0.1));
+            return {
+                geometry: new THREE.CylinderGeometry(radiusTop, radiusBottom, limbLength, 12, 1, false),
+                axis: 'y',
+                length: limbLength
+            };
+        }
         if (geometryType === 'sphere') {
             var sphere = new THREE.SphereGeometry(1, 12, 8);
-            sphere.scale(x, y, z);
-            return { geometry: sphere, axis: 'y', length: Math.max(x, y, z) };
+            sphere.scale(x * 0.5, y * 0.5, z * 0.5);
+            return { geometry: sphere, axis: axis, length: axis === 'x' ? x : (axis === 'z' ? z : y) };
         }
         if (geometryType === 'capsule' && typeof THREE.CapsuleGeometry === 'function') {
             var radius = Math.max(0.01, Number(dims[0] || dims[2] || 0.05));
@@ -33566,9 +33588,6 @@
                 length: cylinderLength
             };
         }
-        if (axis === 'x') x = Math.max(0.04, Number(renderedLength || x || 0.1));
-        else if (axis === 'z') z = Math.max(0.04, Number(renderedLength || z || 0.1));
-        else y = Math.max(0.04, Number(renderedLength || y || 0.1));
         return {
             geometry: new THREE.BoxGeometry(x, y, z),
             axis: axis,
@@ -33599,15 +33618,14 @@
         var key = String(kind || '').trim().toLowerCase();
         if (key === 'scaffold') {
             return new THREE.MeshStandardMaterial({
-                color: 0xf1c40f,
-                roughness: 0.68,
-                metalness: 0.06,
-                emissive: 0x111111,
-                emissiveIntensity: 0.02,
+                color: Number((slotDef && slotDef.color) || 0xbfb7aa),
+                roughness: 0.88,
+                metalness: 0.03,
+                emissive: 0x181614,
+                emissiveIntensity: 0.015,
                 transparent: true,
-                opacity: 0.95,
-                depthWrite: true,
-                map: _env3DResolvePatternTexture('crash_dummy') || null
+                opacity: 0.92,
+                depthWrite: true
             });
         }
         if (key === 'bone_joint') {
@@ -33659,7 +33677,9 @@
             if (!bone || bone.isBone !== true) return;
             var hasBoneRelation = !!(bone.parent && bone.parent.isBone === true);
             if (!hasBoneRelation && !_env3DScaffoldFirstChildBone(bone)) return;
-            var jointRadius = 0.02;
+            var firstChild = _env3DScaffoldFirstChildBone(bone);
+            var jointSpan = firstChild ? _env3DScaffoldVectorBetweenBones(bone, firstChild) : null;
+            var jointRadius = Math.max(0.012, Math.min(0.032, Number(jointSpan ? jointSpan.length() : 0.12) * 0.16));
             var joint = new THREE.Mesh(new THREE.SphereGeometry(jointRadius, 10, 8), jointMaterial);
             joint.name = '__bone_joint_' + String(bone.name || 'joint') + '__';
             joint.userData._envHelper = 'skeleton_helper';
@@ -33674,9 +33694,9 @@
                 var length = localVector.length();
                 if (!(length > 0.0001)) return;
                 var radius = _env3DWorkbenchBoneRadius(length);
-                var geometry = typeof THREE.CapsuleGeometry === 'function'
-                    ? new THREE.CapsuleGeometry(radius, Math.max(0.001, length - radius * 2), 5, 10)
-                    : new THREE.CylinderGeometry(radius, radius, length, 10);
+                var shaftRadius = Math.max(0.007, radius * 0.58);
+                var shaftLength = Math.max(0.001, length - jointRadius * 1.35);
+                var geometry = new THREE.CylinderGeometry(shaftRadius * 0.92, shaftRadius, shaftLength, 10, 1, false);
                 var segment = new THREE.Mesh(geometry, segmentMaterial);
                 segment.name = '__bone_segment_' + String(bone.name || 'bone') + '__';
                 segment.userData._envHelper = 'skeleton_helper';
@@ -33703,7 +33723,10 @@
         var mesh = _envMountedRuntimeMesh();
         if (!mesh || !mesh.userData || !_env3D.scene) return false;
         if (mesh.userData._skeletonHelper) {
-            mesh.userData._skeletonHelper.visible = !mesh.userData._skeletonHelper.visible;
+            var currentHelper = mesh.userData._skeletonHelper;
+            var nextVisible = currentHelper.visible === false;
+            currentHelper.visible = nextVisible;
+            if (currentHelper.parts) _env3DWorkbenchSetHelperPartsVisible(currentHelper.parts, nextVisible);
             return true;
         }
         var clone = mesh.userData.assetClone;
@@ -33726,6 +33749,20 @@
     function _env3DToggleWorkbenchSkeletonHelper() {
         var mesh = _envMountedRuntimeMesh();
         if (!mesh || !mesh.userData || !_env3D.scene) return false;
+        if (mesh.userData._skeletonHelper) {
+            var helper = mesh.userData._skeletonHelper;
+            var nextVisible = helper.visible === false;
+            helper.visible = nextVisible;
+            if (helper.parts) _env3DWorkbenchSetHelperPartsVisible(helper.parts, nextVisible);
+            return true;
+        }
+        var meshHelper = _env3DBuildWorkbenchBoneMeshes(mesh);
+        if (meshHelper && meshHelper.parts && meshHelper.parts.length) {
+            _env3DWorkbenchSetHelperPartsVisible(meshHelper.parts, true);
+            meshHelper.visible = true;
+            mesh.userData._skeletonHelper = meshHelper;
+            return true;
+        }
         return _env3DToggleWorkbenchSkeletonLineHelper();
     }
 
@@ -33917,14 +33954,7 @@
                 ? resolvedVector.vector.length()
                 : _env3DScaffoldPrimaryLength(scale, _env3DScaffoldAxisKey(slotDef));
             var geometryMeta = _env3DScaffoldCreateGeometry(slotDef, scale, spanLength);
-            var material = new THREE.MeshStandardMaterial({
-                color: slotDef.color || 0xaaaaaa,
-                roughness: 0.7,
-                metalness: 0.1,
-                transparent: true,
-                opacity: 0.85,
-                depthWrite: true
-            });
+            var material = _env3DWorkbenchHelperMaterial('scaffold', slotDef);
             var piece = new THREE.Mesh(geometryMeta.geometry, material);
             piece.name = '__scaffold_' + String(slotDef.slot || slotDef.joint || 'piece') + '__';
             piece.userData._envHelper = 'scaffold';
