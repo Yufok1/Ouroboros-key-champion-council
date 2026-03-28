@@ -1004,6 +1004,21 @@
         };
     }
 
+    function _envCreateInhabitantNavigationState() {
+        return {
+            status: 'idle',
+            target_scene: null,
+            target_world: null,
+            path_world: [],
+            path_scene: [],
+            generation: 0,
+            mesh_count: 0,
+            reroute_count: 0,
+            last_error: '',
+            last_build_ts: 0
+        };
+    }
+
     function _envCreateInhabitantRuntimeState() {
         return {
             enabled: false,
@@ -1026,11 +1041,45 @@
             support_kind: '',
             spawn_source: '',
             spawn_point: { x: 50, y: 52 },
+            nav: _envCreateInhabitantNavigationState(),
             perception: _envCreateInhabitantPerceptionState(),
             last_spawn_ts: 0,
             last_update_ts: 0
         };
     }
+
+    function _envInhabitantNavigationState() {
+        var state = _envInhabitantRuntimeState();
+        if (!state.nav || typeof state.nav !== 'object' || Array.isArray(state.nav)) {
+            state.nav = _envCreateInhabitantNavigationState();
+        }
+        return state.nav;
+    }
+
+    var _envRecastNav = {
+        available: false,
+        initialized: false,
+        initPromise: null,
+        buildPromise: null,
+        dirty: true,
+        build_status: 'idle',
+        build_error: '',
+        source_signature: '',
+        source_keys: [],
+        generation: 0,
+        last_build_ts: 0,
+        navMesh: null,
+        navMeshQuery: null,
+        crowd: null,
+        agent: null,
+        target: null,
+        path_world: [],
+        path_scene: [],
+        reroute_count: 0,
+        last_reroute_ts: 0,
+        agent_radius: 0.45,
+        agent_height: 2.0
+    };
 
     let _envScene = {
         enabled: true,
@@ -8681,6 +8730,9 @@
         var perception = state && state.perception && typeof state.perception === 'object' && !Array.isArray(state.perception)
             ? state.perception
             : _envCreateInhabitantPerceptionState();
+        var navState = state && state.nav && typeof state.nav === 'object' && !Array.isArray(state.nav)
+            ? state.nav
+            : _envCreateInhabitantNavigationState();
         var bootstrap = (_envScene && _envScene.bootstrap && typeof _envScene.bootstrap === 'object') ? _envScene.bootstrap : {};
         var navigation = (typeof _envNavigationState === 'object' && _envNavigationState) ? _envNavigationState : {};
         var environmentRef = String(navigation.currentSnapshot || bootstrap.snapshot_name || 'validation_habitat_v2_20260325');
@@ -8712,11 +8764,24 @@
             },
             command_surface: {
                 transport: 'env_control',
-                host_commands: ['character_mount', 'character_unmount', 'character_focus', 'character_look_at'],
+                host_commands: ['character_mount', 'character_unmount', 'character_focus', 'character_move_to', 'character_stop', 'character_look_at'],
                 legacy_host_commands: ['spawn_inhabitant', 'despawn_inhabitant', 'focus_inhabitant'],
-                implemented_verbs: ['mount', 'unmount', 'focus', 'look_at'],
+                implemented_verbs: ['mount', 'unmount', 'focus', 'move_to', 'stop', 'look_at'],
                 agent_bearing: false,
                 chat_overlay_eligible: false
+            },
+            navigation_surface: {
+                status: String(navState.status || 'idle'),
+                target_scene: _envCloneJson(navState.target_scene, null),
+                target_world: _envCloneJson(navState.target_world, null),
+                path_world: _envCloneJson(navState.path_world || [], []),
+                path_scene: _envCloneJson(navState.path_scene || [], []),
+                generation: Number(navState.generation || 0),
+                mesh_count: Number(navState.mesh_count || 0),
+                last_error: String(navState.last_error || ''),
+                last_build_ts: Number(navState.last_build_ts || 0),
+                nav_available: !!_envRecastNav.available,
+                nav_ready: !!(_envRecastNav.navMesh && _envRecastNav.navMeshQuery)
             },
             perception_surface: {
                 fov_degrees: Number(perception.fov_degrees || 110),
@@ -8783,6 +8848,7 @@
                 runtime_state: runtimeSurface.runtime_state,
                 mount_contract: runtimeSurface.mount_contract,
                 command_surface: runtimeSurface.command_surface,
+                navigation_surface: runtimeSurface.navigation_surface,
                 perception_surface: runtimeSurface.perception_surface,
                 capability_surface: runtimeSurface.capability_surface,
                 memory_surface: runtimeSurface.memory_surface
@@ -8865,7 +8931,12 @@
         var worldPoint = _env3DWorldPointFromScene(Number(point.x || 50), Number(point.y || 52));
         var support = _envInhabitantSupportRecordAtWorld(worldPoint.x, worldPoint.z, 0);
         if (!support || !support.grounded || !support.support_key) return false;
-        return _envInhabitantWorldPointHasClearance(worldPoint.x, Number(support.support_y || 0), worldPoint.z, support.support_key);
+        return _envInhabitantWorldPointHasClearance(
+            worldPoint.x,
+            _envInhabitantResolvedSupportY(support.support_y, 0),
+            worldPoint.z,
+            support.support_key
+        );
     }
 
     function _envInhabitantSupportSceneCandidates(seed) {
@@ -9141,14 +9212,16 @@
                 object: obj,
                 profile: profile,
                 support_kind: String(profile.kind || ''),
-                support_y: Number(box.max.y || fallback),
+                support_y: _envInhabitantResolvedSupportY(box.max && box.max.y, fallback),
                 explicit_support: !!profile.explicit_support,
                 priority: String(profile.priority || '').trim().toLowerCase()
             });
         });
         supportRows.sort(function (a, b) {
-            if (Number(b.support_y || -Infinity) !== Number(a.support_y || -Infinity)) {
-                return Number(b.support_y || -Infinity) - Number(a.support_y || -Infinity);
+            var by = _envInhabitantResolvedSupportY(b && b.support_y, -Infinity);
+            var ay = _envInhabitantResolvedSupportY(a && a.support_y, -Infinity);
+            if (by !== ay) {
+                return by - ay;
             }
             if (a.explicit_support !== b.explicit_support) return a.explicit_support ? -1 : 1;
             var priorityRank = function (value) {
@@ -9165,7 +9238,7 @@
                 support_key: String((row.profile || {}).object_key || ''),
                 support_kind: String((row.profile || {}).kind || row.support_kind || ''),
                 support_class: String((row.profile || {}).blocker_class || 'support'),
-                support_y: Number(row.support_y || fallback)
+                support_y: _envInhabitantResolvedSupportY(row.support_y, fallback)
             };
         }
         var hits = _envInhabitantSupportHitsAtWorld(worldX, worldZ);
@@ -9180,7 +9253,7 @@
                 support_key: String(profile.object_key || ''),
                 support_kind: String(profile.kind || hit.support_kind || ''),
                 support_class: String(profile.blocker_class || 'support'),
-                support_y: Number((hit.point && hit.point.y) || fallback)
+                support_y: _envInhabitantResolvedSupportY(hit.point && hit.point.y, fallback)
             };
         }
         return {
@@ -9190,6 +9263,93 @@
             support_class: 'support',
             support_y: Number(isFinite(groundY) ? groundY : fallback)
         };
+    }
+
+    function _envInhabitantUsesFallbackGroundSupport(support) {
+        var row = support && typeof support === 'object' ? support : {};
+        var supportKey = String(row.support_key || '').trim().toLowerCase();
+        var supportKind = String(row.support_kind || '').trim().toLowerCase();
+        return !supportKey || supportKey === 'ground::default' || supportKind === 'ground';
+    }
+
+    function _envInhabitantResolvedSupportY(value, fallback) {
+        var supportY = Number(value);
+        if (isFinite(supportY)) return supportY;
+        var fallbackY = Number(fallback);
+        return isFinite(fallbackY) ? fallbackY : 0;
+    }
+
+    function _envInhabitantRememberStableSupport(mesh, support) {
+        if (!mesh || !mesh.userData || !support || !support.grounded || _envInhabitantUsesFallbackGroundSupport(support)) return;
+        mesh.userData._lastStableSupport = {
+            x: Number(mesh.position.x || 0),
+            y: Number(mesh.position.y || 0),
+            z: Number(mesh.position.z || 0),
+            support_key: String(support.support_key || ''),
+            support_kind: String(support.support_kind || ''),
+            support_y: _envInhabitantResolvedSupportY(support.support_y, Number(mesh.position.y || 0))
+        };
+    }
+
+    function _envInhabitantCaptureNavStep(mesh, support) {
+        if (!mesh || !mesh.userData) return null;
+        var row = support && typeof support === 'object' ? support : _envInhabitantSupportRecordAtWorld(
+            Number(mesh.position.x || 0),
+            Number(mesh.position.z || 0),
+            Number(mesh.position.y || 0)
+        );
+        return {
+            x: Number(mesh.position.x || 0),
+            y: Number(mesh.position.y || 0),
+            z: Number(mesh.position.z || 0),
+            support_key: String(((row || {}).support_key) || ''),
+            support_kind: String(((row || {}).support_kind) || ''),
+            support_y: _envInhabitantResolvedSupportY((row || {}).support_y, Number(mesh.position.y || 0)),
+            grounded: !!((row || {}).grounded)
+        };
+    }
+
+    function _envInhabitantApplyNavStep(mesh, step) {
+        var row = step && typeof step === 'object' ? step : null;
+        if (!mesh || !mesh.userData || !row || typeof THREE === 'undefined') return false;
+        mesh.position.x = Number(row.x || 0);
+        mesh.position.z = Number(row.z || 0);
+        if (typeof mesh.updateWorldMatrix === 'function') mesh.updateWorldMatrix(true, true);
+        var supportY = _envInhabitantResolvedSupportY(row.support_y, Number(mesh.position.y || 0));
+        mesh.position.y = supportY + _envInhabitantSupportOffset(mesh);
+        mesh.userData.baseY = Number(mesh.position.y || 0);
+        mesh.userData._grounded = row.grounded !== false;
+        mesh.userData._supportKey = String(row.support_key || '');
+        mesh.userData._supportKind = String(row.support_kind || '');
+        return true;
+    }
+
+    function _envInhabitantRememberClearNavStep(mesh, support) {
+        if (!mesh || !mesh.userData) return;
+        var step = _envInhabitantCaptureNavStep(mesh, support);
+        if (!step) return;
+        mesh.userData._lastClearNavStep = step;
+    }
+
+    function _envInhabitantRestoreClearNavStep(mesh) {
+        var step = mesh && mesh.userData ? mesh.userData._lastClearNavStep : null;
+        if (!step) return false;
+        return _envInhabitantApplyNavStep(mesh, step);
+    }
+
+    function _envInhabitantRestoreStableSupport(mesh) {
+        var stable = mesh && mesh.userData ? mesh.userData._lastStableSupport : null;
+        if (!mesh || !mesh.userData || !stable || typeof THREE === 'undefined') return false;
+        mesh.position.x = Number(stable.x || 0);
+        mesh.position.z = Number(stable.z || 0);
+        if (typeof mesh.updateWorldMatrix === 'function') mesh.updateWorldMatrix(true, true);
+        var supportY = _envInhabitantResolvedSupportY(stable.support_y, Number(mesh.position.y || 0));
+        mesh.position.y = supportY + _envInhabitantSupportOffset(mesh);
+        mesh.userData.baseY = Number(mesh.position.y || 0);
+        mesh.userData._grounded = true;
+        mesh.userData._supportKey = String(stable.support_key || '');
+        mesh.userData._supportKind = String(stable.support_kind || '');
+        return true;
     }
 
     function _envInhabitantBodyBounds(mesh) {
@@ -9220,23 +9380,809 @@
         return new THREE.Box3().setFromObject(mesh);
     }
 
+    function _envInhabitantSupportOffset(mesh) {
+        if (!mesh || !mesh.userData || typeof THREE === 'undefined') return 1;
+        var cached = Number(mesh.userData._supportOffsetY);
+        if (isFinite(cached) && cached > 0.05 && cached < 4.5) return cached;
+        var bounds = _envInhabitantBodyBounds(mesh);
+        var size = bounds && typeof bounds.getSize === 'function'
+            ? bounds.getSize(new THREE.Vector3())
+            : new THREE.Vector3(0.8, 2.0, 0.8);
+        var height = isFinite(size.y) && size.y > 0.1 ? Number(size.y || 2.0) : 2.0;
+        var bottomOffset = Number(mesh.position.y || 0) - Number((bounds && bounds.min && bounds.min.y) || 0) + 0.02;
+        var maxOffset = Math.max(1.25, Math.min(4.5, height * 1.35));
+        if (!isFinite(bottomOffset) || bottomOffset <= 0.05 || bottomOffset > maxOffset) {
+            bottomOffset = Math.max(0.45, Math.min(2.4, (height * 0.5) + 0.02));
+        }
+        mesh.userData._supportOffsetY = Number(bottomOffset.toFixed(3));
+        return Number(mesh.userData._supportOffsetY || bottomOffset || 1);
+    }
+
     function _envInhabitantSnapMeshToSupport(mesh, fallbackY) {
         if (!mesh || typeof THREE === 'undefined') return Number(fallbackY || 0);
         if (typeof mesh.updateWorldMatrix === 'function') mesh.updateWorldMatrix(true, true);
-        var box = _envInhabitantBodyBounds(mesh);
-        var currentMinY = isFinite(box.min.y) ? Number(box.min.y || 0) : Number(mesh.position.y || 0);
-        var support = _envInhabitantSupportRecordAtWorld(mesh.position.x, mesh.position.z, Number(fallbackY || currentMinY));
-        var supportY = Number((support || {}).support_y || fallbackY || currentMinY);
-        if (!isFinite(supportY)) supportY = Number(fallbackY || currentMinY || 0);
-        var delta = (supportY + 0.02) - currentMinY;
-        if (Math.abs(delta) > 0.001) {
-            mesh.position.y += delta;
+        var support = _envInhabitantSupportRecordAtWorld(mesh.position.x, mesh.position.z, Number(fallbackY || mesh.position.y || 0));
+        var supportY = _envInhabitantResolvedSupportY((support || {}).support_y, Number(fallbackY || mesh.position.y || 0));
+        var targetY = supportY + _envInhabitantSupportOffset(mesh);
+        if (Math.abs(targetY - Number(mesh.position.y || 0)) > 0.001) {
+            mesh.position.y = targetY;
             mesh.userData.baseY = Number(mesh.position.y || 0);
         }
         mesh.userData._grounded = !!((support || {}).grounded);
         mesh.userData._supportKey = String(((support || {}).support_key) || '');
         mesh.userData._supportKind = String(((support || {}).support_kind) || '');
+        _envInhabitantRememberStableSupport(mesh, support);
         return Number(mesh.position.y || fallbackY || 0);
+    }
+
+    function _envRecastNavApi() {
+        return (typeof window !== 'undefined' && window && window.RecastNav && typeof window.RecastNav === 'object')
+            ? window.RecastNav
+            : null;
+    }
+
+    function _envRecastNavMarkDirty(reason) {
+        _envRecastNav.dirty = true;
+        if (reason) _envRecastNav.build_status = String(reason || 'dirty');
+    }
+
+    function _envRecastNavDestroyResources() {
+        try {
+            if (_envRecastNav.agent && _envRecastNav.crowd && typeof _envRecastNav.crowd.removeAgent === 'function') {
+                _envRecastNav.crowd.removeAgent(_envRecastNav.agent);
+            }
+        } catch (ignored) {}
+        try {
+            if (_envRecastNav.crowd && typeof _envRecastNav.crowd.destroy === 'function') {
+                _envRecastNav.crowd.destroy();
+            }
+        } catch (ignored) {}
+        try {
+            if (_envRecastNav.navMeshQuery && typeof _envRecastNav.navMeshQuery.destroy === 'function') {
+                _envRecastNav.navMeshQuery.destroy();
+            }
+        } catch (ignored) {}
+        try {
+            if (_envRecastNav.navMesh && typeof _envRecastNav.navMesh.destroy === 'function') {
+                _envRecastNav.navMesh.destroy();
+            }
+        } catch (ignored) {}
+        _envRecastNav.navMesh = null;
+        _envRecastNav.navMeshQuery = null;
+        _envRecastNav.crowd = null;
+        _envRecastNav.agent = null;
+        _envRecastNav.target = null;
+        _envRecastNav.path_world = [];
+        _envRecastNav.path_scene = [];
+    }
+
+    function _envRecastNavAgentDimensions(mesh) {
+        var bounds = _envInhabitantBodyBounds(mesh);
+        var size = typeof THREE !== 'undefined' ? bounds.getSize(new THREE.Vector3()) : { x: 0.8, y: 2.0, z: 0.8 };
+        var width = Math.max(0.6, Number(Math.max(size.x || 0, size.z || 0) || 0.8));
+        var height = Math.max(1.6, Number(size.y || 2.0));
+        return {
+            radius: Math.max(0.3, Number((width * 0.42).toFixed(3))),
+            height: Number(height.toFixed(3)),
+            climb: Math.max(0.2, Number(Math.min(height * 0.3, 0.75).toFixed(3)))
+        };
+    }
+
+    function _envRecastNavSourceRows() {
+        var rows = [];
+        var keys = {};
+        var authoredSupportRows = [];
+        var blockerRows = [];
+        function pushRow(key, mesh, options) {
+            if (!key || !mesh || keys[key]) return;
+            keys[key] = true;
+            rows.push({
+                key: key,
+                mesh: mesh,
+                walkable_only: !!(options && options.walkable_only),
+                obstacle_only: !!(options && options.obstacle_only)
+            });
+        }
+        Object.keys(_env3D.meshes || {}).forEach(function (key) {
+            var mesh = _env3D.meshes[key];
+            if (!mesh || mesh.visible === false) return;
+            if (key === _envInhabitantObjectKey()) return;
+            var obj = _envSceneObjectByKey(key) || ((mesh.userData || {}).sceneObject) || null;
+            if (!obj || typeof obj !== 'object') return;
+            if (_env3DIsAgentKind(String(obj.kind || ''))) return;
+            var profile = _envRuntimeBlockerProfileForObject(obj);
+            if (profile.support_surface) {
+                if (profile.blocker_class === 'decorative' || profile.blocker_class === 'soft' || profile.blocker_class === 'portal') return;
+                authoredSupportRows.push({ key: key, mesh: mesh });
+                return;
+            }
+            if (profile.traversal_blocking) blockerRows.push({ key: key, mesh: mesh });
+        });
+        if (_env3D.groundPlane && _env3D.groundPlane.visible !== false) {
+            pushRow('ground::default', _env3D.groundPlane, { walkable_only: true });
+        }
+        authoredSupportRows.forEach(function (row) {
+            pushRow(row.key, row.mesh, { walkable_only: true });
+        });
+        blockerRows.forEach(function (row) {
+            pushRow(row.key, row.mesh, { obstacle_only: true });
+        });
+        return rows;
+    }
+
+    function _envRecastNavGeneratorConfig() {
+        var mesh = _env3D.meshes ? _env3D.meshes[_envInhabitantObjectKey()] : null;
+        var dims = _envRecastNavAgentDimensions(mesh);
+        _envRecastNav.agent_radius = dims.radius;
+        _envRecastNav.agent_height = dims.height;
+        return {
+            cs: 0.2,
+            ch: 0.1,
+            walkableSlopeAngle: 50,
+            walkableHeight: dims.height,
+            walkableClimb: dims.climb,
+            walkableRadius: dims.radius,
+            maxEdgeLen: 12,
+            maxSimplificationError: 1.3,
+            minRegionArea: 4,
+            mergeRegionArea: 20,
+            maxVertsPerPoly: 6,
+            detailSampleDist: 6,
+            detailSampleMaxError: 1
+        };
+    }
+
+    function _envRecastNavApplyStatePatch(patch) {
+        var state = _envInhabitantRuntimeState();
+        if (!state) return;
+        var current = _envInhabitantNavigationState();
+        state.nav = Object.assign({}, current, patch || {});
+    }
+
+    function _envRecastNavResetRerouteState() {
+        _envRecastNav.reroute_count = 0;
+        _envRecastNav.last_reroute_ts = 0;
+    }
+
+    function _envRecastNavScenePathFromWorld(pathWorld) {
+        return (Array.isArray(pathWorld) ? pathWorld : []).map(function (point) {
+            var row = point && typeof point === 'object' ? point : {};
+            var projected = _env3DScenePointFromWorld(Number(row.x || 0), Number(row.z || 0));
+            return _envSceneClampPoint(projected.x, projected.y);
+        });
+    }
+
+    function _envRecastNavAllowsGroundSupport() {
+        if (_env3D && _env3D.groundPlane && _env3D.groundPlane.visible !== false) return true;
+        return Array.isArray(_envRecastNav.source_keys) && _envRecastNav.source_keys.indexOf('ground::default') >= 0;
+    }
+
+    function _envRecastNavQueryHalfExtents() {
+        var radius = Math.max(0.35, Number(_envRecastNav.agent_radius || 0.4));
+        var height = Math.max(1.6, Number(_envRecastNav.agent_height || 2.0));
+        return {
+            x: Math.max(2.0, Number((radius * 8).toFixed(3))),
+            y: Math.max(2.0, Number((height * 1.5).toFixed(3))),
+            z: Math.max(2.0, Number((radius * 8).toFixed(3)))
+        };
+    }
+
+    function _envRecastNavWalkSurfaceY() {
+        var groundY = Number((_env3D && _env3D.physics && _env3D.physics.ground_y) || 0);
+        if (!isFinite(groundY)) groundY = 0;
+        return groundY + 0.02;
+    }
+
+    function _envRecastNavObstacleInflation() {
+        var radius = Math.max(0.3, Number(_envRecastNav.agent_radius || 0.4));
+        var halfBodyWidth = 0;
+        var mesh = _env3D && _env3D.meshes ? _env3D.meshes[_envInhabitantObjectKey()] : null;
+        if (mesh && typeof THREE !== 'undefined') {
+            var bounds = _envInhabitantBodyBounds(mesh);
+            if (bounds && typeof bounds.getSize === 'function') {
+                var size = bounds.getSize(new THREE.Vector3());
+                halfBodyWidth = Math.max(0, Number(Math.max(size.x || 0, size.z || 0) / 2 || 0));
+            }
+        }
+        return Math.max(0.35, Number((Math.max(radius, halfBodyWidth) + 0.18).toFixed(3)));
+    }
+
+    function _envRecastNavAppendObstacleBounds(row, positions, indices) {
+        var mesh = row && row.mesh ? row.mesh : null;
+        var key = String((row && row.key) || '');
+        if (!mesh || typeof THREE === 'undefined') return 0;
+        var obj = _envSceneObjectByKey(key) || ((mesh.userData || {}).sceneObject) || null;
+        if (!obj || typeof obj !== 'object') return 0;
+        var spatial = _envSceneObjectSpatialMetrics(obj, mesh);
+        var box = spatial && spatial.box ? spatial.box : null;
+        if (!box) return 0;
+        var inflation = _envRecastNavObstacleInflation();
+        var minX = Number(box.min.x || 0) - inflation;
+        var maxX = Number(box.max.x || 0) + inflation;
+        var minZ = Number(box.min.z || 0) - inflation;
+        var maxZ = Number(box.max.z || 0) + inflation;
+        var topY = Number(box.max.y || 0);
+        var baseY = _envRecastNavWalkSurfaceY() - 0.02;
+        if (!isFinite(topY) || topY <= baseY + 0.05) topY = baseY + 1.5;
+        var pushed = 0;
+        function pushTriangle(ax, ay, az, bx, by, bz, cx, cy, cz) {
+            var offset = Number(positions.length || 0) / 3;
+            positions.push(
+                Number(ax || 0), Number(ay || 0), Number(az || 0),
+                Number(bx || 0), Number(by || 0), Number(bz || 0),
+                Number(cx || 0), Number(cy || 0), Number(cz || 0)
+            );
+            indices.push(offset, offset + 1, offset + 2);
+            pushed += 3;
+        }
+        // West wall
+        pushTriangle(minX, baseY, minZ, minX, topY, minZ, minX, topY, maxZ);
+        pushTriangle(minX, baseY, minZ, minX, topY, maxZ, minX, baseY, maxZ);
+        // East wall
+        pushTriangle(maxX, baseY, maxZ, maxX, topY, maxZ, maxX, topY, minZ);
+        pushTriangle(maxX, baseY, maxZ, maxX, topY, minZ, maxX, baseY, minZ);
+        // North wall
+        pushTriangle(minX, baseY, minZ, maxX, topY, minZ, minX, topY, minZ);
+        pushTriangle(minX, baseY, minZ, maxX, baseY, minZ, maxX, topY, minZ);
+        // South wall
+        pushTriangle(minX, baseY, maxZ, minX, topY, maxZ, maxX, topY, maxZ);
+        pushTriangle(minX, baseY, maxZ, maxX, topY, maxZ, maxX, baseY, maxZ);
+        return pushed;
+    }
+
+    function _envRecastNavAppendMeshGeometry(row, positions, indices) {
+        var mesh = row && row.mesh ? row.mesh : row;
+        var walkableOnly = !!(row && row.walkable_only);
+        var obstacleOnly = !!(row && row.obstacle_only);
+        if (!mesh || typeof THREE === 'undefined') return 0;
+        if (obstacleOnly) return _envRecastNavAppendObstacleBounds(row, positions, indices);
+        var vertexOffset = Number((positions && positions.length) || 0) / 3;
+        var pushed = 0;
+        if (typeof mesh.updateWorldMatrix === 'function') mesh.updateWorldMatrix(true, true);
+        if (typeof mesh.traverse !== 'function') return 0;
+        mesh.traverse(function (node) {
+            if (!node || !node.isMesh || !node.geometry || node.visible === false) return;
+            var geometry = node.geometry;
+            var positionAttr = geometry.attributes && geometry.attributes.position;
+            if (!positionAttr || !positionAttr.count) return;
+            var localToWorld = node.matrixWorld && typeof node.matrixWorld.clone === 'function'
+                ? node.matrixWorld.clone()
+                : null;
+            if (!localToWorld) return;
+            var a = new THREE.Vector3();
+            var b = new THREE.Vector3();
+            var c = new THREE.Vector3();
+            var ab = new THREE.Vector3();
+            var ac = new THREE.Vector3();
+            var normal = new THREE.Vector3();
+            function pushTriangle(i0, i1, i2) {
+                if (i0 === undefined || i1 === undefined || i2 === undefined) return;
+                a.fromBufferAttribute(positionAttr, Number(i0 || 0)).applyMatrix4(localToWorld);
+                b.fromBufferAttribute(positionAttr, Number(i1 || 0)).applyMatrix4(localToWorld);
+                c.fromBufferAttribute(positionAttr, Number(i2 || 0)).applyMatrix4(localToWorld);
+                if (walkableOnly || obstacleOnly) {
+                    ab.subVectors(b, a);
+                    ac.subVectors(c, a);
+                    normal.crossVectors(ab, ac).normalize();
+                    if (!isFinite(normal.y)) return;
+                    if (walkableOnly && Number(normal.y || 0) < 0.45) return;
+                    if (obstacleOnly && Number(normal.y || 0) >= 0.45) return;
+                }
+                if (walkableOnly) {
+                    var flattenedY = _envRecastNavWalkSurfaceY();
+                    a.y = flattenedY;
+                    b.y = flattenedY;
+                    c.y = flattenedY;
+                }
+                var nodeOffset = Number(positions.length || 0) / 3;
+                positions.push(
+                    Number(a.x || 0), Number(a.y || 0), Number(a.z || 0),
+                    Number(b.x || 0), Number(b.y || 0), Number(b.z || 0),
+                    Number(c.x || 0), Number(c.y || 0), Number(c.z || 0)
+                );
+                indices.push(nodeOffset, nodeOffset + 1, nodeOffset + 2);
+                pushed += 3;
+            }
+            if (geometry.index && geometry.index.count) {
+                for (var j = 0; j < geometry.index.count; j += 3) {
+                    pushTriangle(
+                        geometry.index.array[j],
+                        geometry.index.array[j + 1],
+                        geometry.index.array[j + 2]
+                    );
+                }
+            } else {
+                for (var k = 0; k + 2 < positionAttr.count; k += 3) {
+                    pushTriangle(k, k + 1, k + 2);
+                }
+            }
+        });
+        return Math.max(0, Number(positions.length || 0) / 3 - vertexOffset) > 0 ? pushed : 0;
+    }
+
+    function _envRecastNavGeometryData(rows) {
+        var positions = [];
+        var indices = [];
+        var sourceKeys = [];
+        (Array.isArray(rows) ? rows : []).forEach(function (row) {
+            if (!row || !row.mesh) return;
+            var before = Number(positions.length || 0);
+            var added = _envRecastNavAppendMeshGeometry(row, positions, indices);
+            if (added > 0 && Number(positions.length || 0) > before) {
+                sourceKeys.push(String(row.key || ''));
+            }
+        });
+        return {
+            positions: positions,
+            indices: indices,
+            source_keys: sourceKeys
+        };
+    }
+
+    function _envRecastNavRefreshSurface(reason, forceLiveSync) {
+        _envRefreshInhabitantRuntimeState(reason || 'nav');
+        _envScheduleLiveSync(reason || 'character_runtime:nav', !!forceLiveSync);
+        renderEnvironmentView();
+    }
+
+    function _envRecastNavEnsureInitialized() {
+        var api = _envRecastNavApi();
+        if (!api || typeof api.init !== 'function') {
+            _envRecastNav.available = false;
+            _envRecastNav.build_error = 'Recast bundle unavailable';
+            _envRecastNav.build_status = 'unavailable';
+            _envRecastNavApplyStatePatch({ status: 'error', last_error: _envRecastNav.build_error });
+            _envRecastNavRefreshSurface('character:nav_unavailable', true);
+            return Promise.resolve(null);
+        }
+        _envRecastNav.available = true;
+        if (_envRecastNav.initialized) return Promise.resolve(api);
+        if (_envRecastNav.initPromise) return _envRecastNav.initPromise;
+        _envRecastNav.build_status = 'initializing';
+        _envRecastNav.initPromise = Promise.resolve(api.init()).then(function () {
+            _envRecastNav.initialized = true;
+            _envRecastNav.build_status = 'initialized';
+            return api;
+        }).catch(function (err) {
+            _envRecastNav.build_error = err && err.message ? String(err.message) : String(err || 'Failed to initialize Recast');
+            _envRecastNav.build_status = 'init_failed';
+            _envRecastNav.initialized = false;
+            _envRecastNav.initPromise = null;
+            _envRecastNavApplyStatePatch({ status: 'error', last_error: _envRecastNav.build_error });
+            _envRecastNavRefreshSurface('character:nav_init_failed', true);
+            throw err;
+        });
+        return _envRecastNav.initPromise;
+    }
+
+    function _envRecastNavEnsureAgent() {
+        if (!_envRecastNav.crowd || !_envRecastNav.navMeshQuery) return false;
+        var mesh = _env3D.meshes ? _env3D.meshes[_envInhabitantObjectKey()] : null;
+        if (!mesh) return false;
+        var support = _envInhabitantSupportRecordAtWorld(
+            Number(mesh.position.x || 0),
+            Number(mesh.position.z || 0),
+            Number(mesh.position.y || 0)
+        );
+        var closest = _envRecastNav.navMeshQuery.findClosestPoint({
+            x: Number(mesh.position.x || 0),
+            y: Number(((support || {}).support_y) || mesh.position.y || 0),
+            z: Number(mesh.position.z || 0)
+        }, {
+            halfExtents: _envRecastNavQueryHalfExtents()
+        });
+        if (!closest || !closest.success || !closest.point) return false;
+        if (_envRecastNav.agent) {
+            _envRecastNav.agent.teleport(closest.point);
+            return true;
+        }
+        var api = _envRecastNavApi();
+        var defaults = api && api.crowdAgentParamsDefaults ? api.crowdAgentParamsDefaults : {};
+        _envRecastNav.agent = _envRecastNav.crowd.addAgent(closest.point, Object.assign({}, defaults, {
+            radius: _envRecastNav.agent_radius,
+            height: _envRecastNav.agent_height,
+            maxAcceleration: 10,
+            maxSpeed: 4,
+            collisionQueryRange: Math.max(2, _envRecastNav.agent_radius * 12),
+            pathOptimizationRange: Math.max(6, _envRecastNav.agent_radius * 24),
+            separationWeight: 2
+        }));
+        return !!_envRecastNav.agent;
+    }
+
+    function _envRecastNavRebuild(force) {
+        if (_envRecastNav.buildPromise) return _envRecastNav.buildPromise;
+        _envRecastNav.buildPromise = _envRecastNavEnsureInitialized().then(function (api) {
+            if (!api) return null;
+            var rows = _envRecastNavSourceRows();
+            var signature = rows.map(function (row) { return row.key; }).join('|') + '|' + String(_env3D.navHash || '');
+            if (!force && !_envRecastNav.dirty && _envRecastNav.navMesh && signature === _envRecastNav.source_signature) {
+                return _envRecastNav.navMesh;
+            }
+            if (!rows.length) {
+                _envRecastNav.build_status = 'empty';
+                _envRecastNav.build_error = 'No walkable environment meshes available for navmesh generation';
+                _envRecastNavApplyStatePatch({ status: 'error', last_error: _envRecastNav.build_error });
+                _envRecastNavRefreshSurface('character:nav_empty', true);
+                return null;
+            }
+            _envRecastNav.build_status = 'building';
+            _envRecastNav.build_error = '';
+            _envRecastNavDestroyResources();
+            var geometryData = _envRecastNavGeometryData(rows);
+            if (!geometryData.positions.length || !geometryData.indices.length) {
+                _envRecastNav.build_status = 'empty';
+                _envRecastNav.build_error = 'No hydrated geometry available for navmesh generation';
+                _envRecastNavApplyStatePatch({ status: 'error', last_error: _envRecastNav.build_error });
+                _envRecastNavRefreshSurface('character:nav_geometry_empty', true);
+                return null;
+            }
+            var result = api.generateSoloNavMesh(geometryData.positions, geometryData.indices, _envRecastNavGeneratorConfig());
+            if (!result || !result.success || !result.navMesh) {
+                _envRecastNav.build_status = 'failed';
+                _envRecastNav.build_error = String((result && result.error) || 'Navmesh generation failed');
+                _envRecastNavApplyStatePatch({ status: 'error', last_error: _envRecastNav.build_error });
+                _envRecastNavRefreshSurface('character:nav_build_failed', true);
+                return null;
+            }
+            _envRecastNav.navMesh = result.navMesh;
+            _envRecastNav.navMeshQuery = new api.NavMeshQuery(result.navMesh);
+            _envRecastNav.crowd = new api.Crowd(result.navMesh, {
+                maxAgents: 1,
+                maxAgentRadius: Math.max(0.35, _envRecastNav.agent_radius)
+            });
+            _envRecastNav.source_signature = signature;
+            _envRecastNav.source_keys = geometryData.source_keys;
+            _envRecastNav.generation += 1;
+            _envRecastNav.last_build_ts = Date.now();
+            _envRecastNav.dirty = false;
+            _envRecastNav.build_status = 'ready';
+            _envRecastNavEnsureAgent();
+            _envRecastNavApplyStatePatch({
+                status: 'ready',
+                generation: _envRecastNav.generation,
+                mesh_count: rows.length,
+                last_error: '',
+                last_build_ts: _envRecastNav.last_build_ts
+            });
+            return _envRecastNav.navMesh;
+        }).catch(function (err) {
+            _envRecastNav.build_status = 'failed';
+            _envRecastNav.build_error = err && err.message ? String(err.message) : String(err || 'Navmesh generation failed');
+            _envRecastNavApplyStatePatch({ status: 'error', last_error: _envRecastNav.build_error });
+            _envRecastNavRefreshSurface('character:nav_build_error', true);
+            return null;
+        }).finally(function () {
+            _envRecastNav.buildPromise = null;
+        });
+        return _envRecastNav.buildPromise;
+    }
+
+    function _envRecastNavStopMove(silent) {
+        if (_envRecastNav.agent && typeof _envRecastNav.agent.resetMoveTarget === 'function') {
+            _envRecastNav.agent.resetMoveTarget();
+        }
+        _envRecastNav.target = null;
+        _envRecastNav.path_world = [];
+        _envRecastNav.path_scene = [];
+        _envRecastNavResetRerouteState();
+        _envRecastNavApplyStatePatch({
+            status: 'idle',
+            target_scene: null,
+            target_world: null,
+            path_world: [],
+            path_scene: [],
+            generation: _envRecastNav.generation,
+            mesh_count: Number((_envRecastNav.source_keys || []).length || 0),
+            reroute_count: 0,
+            last_error: silent ? String((_envInhabitantNavigationState() || {}).last_error || '') : '',
+            last_build_ts: _envRecastNav.last_build_ts
+        });
+    }
+
+    function _envRecastNavRerouteFromWorld(startWorld, actorName, reason) {
+        var target = _envRecastNav.target;
+        if (!_envRecastNav.agent || !_envRecastNav.navMeshQuery || !_envRecastNav.crowd || !target || !target.world_point) return false;
+        var now = Date.now();
+        if (_envRecastNav.last_reroute_ts && (now - Number(_envRecastNav.last_reroute_ts || 0)) < 180) return false;
+        if (Number(_envRecastNav.reroute_count || 0) >= 4) return false;
+        var queryExtents = _envRecastNavQueryHalfExtents();
+        var startClosest = _envRecastNav.navMeshQuery.findClosestPoint(startWorld || { x: 0, y: 0, z: 0 }, {
+            halfExtents: queryExtents
+        });
+        if (!startClosest || !startClosest.success || !startClosest.point) return false;
+        var goalClosest = _envRecastNav.navMeshQuery.findClosestPoint(target.world_point, {
+            halfExtents: queryExtents
+        });
+        if (!goalClosest || !goalClosest.success || !goalClosest.point) return false;
+        var reroutePath = _envRecastNav.navMeshQuery.computePath(startClosest.point, goalClosest.point, {
+            halfExtents: queryExtents
+        });
+        var pathWorld = (reroutePath && reroutePath.success && Array.isArray(reroutePath.path)) ? reroutePath.path.slice() : [];
+        if (!pathWorld.length) return false;
+        if (typeof _envRecastNav.agent.teleport === 'function') {
+            _envRecastNav.agent.teleport({
+                x: Number(startClosest.point.x || 0),
+                y: Number(startClosest.point.y || 0),
+                z: Number(startClosest.point.z || 0)
+            });
+        }
+        if (!_envRecastNav.agent.requestMoveTarget(goalClosest.point)) return false;
+        _envRecastNav.target = Object.assign({}, target, {
+            world_point: _envCloneJson(goalClosest.point, null)
+        });
+        _envRecastNav.path_world = pathWorld;
+        _envRecastNav.path_scene = _envRecastNavScenePathFromWorld(pathWorld);
+        _envRecastNav.reroute_count = Number(_envRecastNav.reroute_count || 0) + 1;
+        _envRecastNav.last_reroute_ts = now;
+        _envRecastNavApplyStatePatch({
+            status: 'moving',
+            target_scene: _envCloneJson((_envRecastNav.target || {}).scene_point, null),
+            target_world: _envCloneJson((_envRecastNav.target || {}).world_point, null),
+            path_world: _envCloneJson(_envRecastNav.path_world, []),
+            path_scene: _envCloneJson(_envRecastNav.path_scene, []),
+            generation: _envRecastNav.generation,
+            mesh_count: Number((_envRecastNav.source_keys || []).length || 0),
+            reroute_count: Number(_envRecastNav.reroute_count || 0),
+            last_error: '',
+            last_build_ts: _envRecastNav.last_build_ts
+        });
+        _envLogAction('character', 'Rerouted character movement', actorName || 'system', {
+            action: 'character_move_to',
+            object_key: _envInhabitantObjectKey(),
+            reason: String(reason || 'reroute'),
+            reroute_count: Number(_envRecastNav.reroute_count || 0)
+        });
+        _envEmitBus('character', 'Rerouted character movement', actorName || 'system', {
+            action: 'character_move_to',
+            object_key: _envInhabitantObjectKey(),
+            reason: String(reason || 'reroute'),
+            reroute_count: Number(_envRecastNav.reroute_count || 0)
+        });
+        return true;
+    }
+
+    function _envRecastNavRequestMove(target, actorName, reason) {
+        _envRecastNavApplyStatePatch({
+            status: 'resolving',
+            target_scene: _envCloneJson((target || {}).scene_point, null),
+            target_world: _envCloneJson((target || {}).world_point, null),
+            path_world: [],
+            path_scene: [],
+            generation: _envRecastNav.generation,
+            mesh_count: Number((_envRecastNav.source_keys || []).length || 0),
+            reroute_count: 0,
+            last_error: '',
+            last_build_ts: _envRecastNav.last_build_ts
+        });
+        _envRecastNavRefreshSurface('character:move_request', false);
+        return _envRecastNavRebuild(false).then(function () {
+            if (!_envRecastNav.navMeshQuery || !_envRecastNav.crowd) {
+                var existingError = String(((_envInhabitantNavigationState() || {}).last_error || _envRecastNav.build_error || '')).trim();
+                var unavailable = existingError || 'Rejected character move_to: navigation runtime unavailable';
+                _envRecastNavApplyStatePatch({ status: 'error', last_error: unavailable });
+                _envLogAction('character', unavailable, actorName, { action: 'character_move_to', target: String((target || {}).raw || '') });
+                _envEmitBus('character', unavailable, actorName, { action: 'character_move_to', target: String((target || {}).raw || '') });
+                _envRecastNavRefreshSurface('character:move_nav_unavailable', true);
+                return false;
+            }
+            if (!_envRecastNavEnsureAgent()) {
+                var missingStart = 'Rejected character move_to: start point not on navmesh';
+                _envRecastNavApplyStatePatch({ status: 'error', last_error: missingStart });
+                _envLogAction('character', missingStart, actorName, { action: 'character_move_to', target: String((target || {}).raw || '') });
+                _envEmitBus('character', missingStart, actorName, { action: 'character_move_to', target: String((target || {}).raw || '') });
+                _envRecastNavRefreshSurface('character:move_start_unresolved', true);
+                return false;
+            }
+            var agentPosition = _envRecastNav.agent.position();
+            var closest = _envRecastNav.navMeshQuery.findClosestPoint(target.world_point || { x: 0, y: 0, z: 0 }, {
+                halfExtents: _envRecastNavQueryHalfExtents()
+            });
+            if (!closest || !closest.success || !closest.point) {
+                var unresolved = 'Rejected character move_to: destination not on navmesh';
+                _envRecastNavApplyStatePatch({ status: 'error', last_error: unresolved });
+                _envLogAction('character', unresolved, actorName, { action: 'character_move_to', target: String(target.raw || '') });
+                _envEmitBus('character', unresolved, actorName, { action: 'character_move_to', target: String(target.raw || '') });
+                _envRecastNavRefreshSurface('character:move_rejected', true);
+                return false;
+            }
+            var pathResult = _envRecastNav.navMeshQuery.computePath(agentPosition, closest.point, {
+                halfExtents: _envRecastNavQueryHalfExtents()
+            });
+            var pathWorld = (pathResult && pathResult.success && Array.isArray(pathResult.path)) ? pathResult.path.slice() : [];
+            if (!pathWorld.length) {
+                var noPath = 'Rejected character move_to: no nav path found';
+                _envRecastNavApplyStatePatch({ status: 'error', last_error: noPath });
+                _envLogAction('character', noPath, actorName, { action: 'character_move_to', target: String(target.raw || '') });
+                _envEmitBus('character', noPath, actorName, { action: 'character_move_to', target: String(target.raw || '') });
+                _envRecastNavRefreshSurface('character:move_no_path', true);
+                return false;
+            }
+            if (!_envRecastNav.agent.requestMoveTarget(closest.point)) {
+                var rejected = 'Rejected character move_to: crowd move request failed';
+                _envRecastNavApplyStatePatch({ status: 'error', last_error: rejected });
+                _envLogAction('character', rejected, actorName, { action: 'character_move_to', target: String(target.raw || '') });
+                _envEmitBus('character', rejected, actorName, { action: 'character_move_to', target: String(target.raw || '') });
+                _envRecastNavRefreshSurface('character:move_request_failed', true);
+                return false;
+            }
+            _envRecastNav.target = {
+                scene_point: _envCloneJson(target.scene_point, null),
+                world_point: _envCloneJson(closest.point, null),
+                object_key: String(target.object_key || ''),
+                label: String(target.label || ''),
+                raw: String(target.raw || '')
+            };
+            _envRecastNavResetRerouteState();
+            _envRecastNav.path_world = pathWorld;
+            _envRecastNav.path_scene = _envRecastNavScenePathFromWorld(pathWorld);
+            _envRecastNavApplyStatePatch({
+                status: 'moving',
+                target_scene: _envCloneJson(target.scene_point, null),
+                target_world: _envCloneJson(closest.point, null),
+                path_world: _envCloneJson(_envRecastNav.path_world, []),
+                path_scene: _envCloneJson(_envRecastNav.path_scene, []),
+                generation: _envRecastNav.generation,
+                mesh_count: Number((_envRecastNav.source_keys || []).length || 0),
+                reroute_count: 0,
+                last_error: '',
+                last_build_ts: _envRecastNav.last_build_ts
+            });
+            var state = _envInhabitantRuntimeState();
+            state.mode = 'directed';
+            state.behavior = 'move_to';
+            state.spawn_source = String(reason || 'character_move_to');
+            _envLogAction('character', 'Directed character move', actorName, {
+                action: 'character_move_to',
+                object_key: _envInhabitantObjectKey(),
+                target: String(target.raw || ''),
+                scene_point: _envCloneJson(target.scene_point, null)
+            });
+            _envEmitBus('character', 'Directed character move', actorName, {
+                action: 'character_move_to',
+                object_key: _envInhabitantObjectKey(),
+                target: String(target.raw || ''),
+                scene_point: _envCloneJson(target.scene_point, null)
+            });
+            _envSetBadge('running', 'CHAR PATH');
+            _envRecastNavRefreshSurface('character:move_start', true);
+            return true;
+        }).catch(function (err) {
+            var message = err && err.message ? String(err.message) : String(err || 'character_move_to failed');
+            _envRecastNavApplyStatePatch({ status: 'error', last_error: message });
+            _envLogAction('character', 'Rejected character move_to: ' + message, actorName, {
+                action: 'character_move_to',
+                target: String((target || {}).raw || '')
+            });
+            _envEmitBus('character', 'Rejected character move_to: ' + message, actorName, {
+                action: 'character_move_to',
+                target: String((target || {}).raw || '')
+            });
+            _envRecastNavRefreshSurface('character:move_exception', true);
+            return false;
+        });
+    }
+
+    function _envRecastNavUpdate(dt) {
+        var mesh = _env3D.meshes ? _env3D.meshes[_envInhabitantObjectKey()] : null;
+        if (!_envRecastNav.agent || !_envRecastNav.crowd || !mesh) return;
+        var stableBeforeStep = mesh.userData && mesh.userData._lastStableSupport
+            ? Object.assign({}, mesh.userData._lastStableSupport)
+            : null;
+        var clearBeforeStep = mesh.userData && mesh.userData._lastClearNavStep
+            ? Object.assign({}, mesh.userData._lastClearNavStep)
+            : _envInhabitantCaptureNavStep(mesh, null);
+        var agentBeforeStep = typeof _envRecastNav.agent.position === 'function'
+            ? Object.assign({}, _envRecastNav.agent.position())
+            : null;
+        _envRecastNav.crowd.update(Math.min(Math.max(Number(dt || 0), 0), 0.05));
+        var position = _envRecastNav.agent.position();
+        var velocity = _envRecastNav.agent.velocity();
+        mesh.position.x = Number(position.x || 0);
+        mesh.position.z = Number(position.z || 0);
+        mesh.userData._moving = Math.hypot(Number(velocity.x || 0), Number(velocity.z || 0)) > 0.02;
+        if (mesh.userData._moving) {
+            mesh.rotation.y = Math.atan2(Number(velocity.x || 0), Number(velocity.z || 0));
+        }
+        _envInhabitantSnapMeshToSupport(mesh, Number(position.y || mesh.position.y || 1));
+        var clearanceSupport = _envInhabitantSupportRecordAtWorld(
+            Number(mesh.position.x || 0),
+            Number(mesh.position.z || 0),
+            Number(position.y || mesh.position.y || 0)
+        );
+        if (!_envInhabitantWorldPointHasClearance(
+            Number(mesh.position.x || 0),
+            _envInhabitantResolvedSupportY((clearanceSupport || {}).support_y, Number(mesh.position.y || 0)),
+            Number(mesh.position.z || 0),
+            String((clearanceSupport || {}).support_key || '')
+        )) {
+            if (clearBeforeStep) _envInhabitantApplyNavStep(mesh, clearBeforeStep);
+            else if (stableBeforeStep) _envInhabitantRestoreStableSupport(mesh);
+            if (_envRecastNav.agent && agentBeforeStep && typeof _envRecastNav.agent.teleport === 'function') {
+                _envRecastNav.agent.teleport({
+                    x: Number(agentBeforeStep.x || 0),
+                    y: Number(agentBeforeStep.y || 0),
+                    z: Number(agentBeforeStep.z || 0)
+                });
+            }
+            if (clearBeforeStep && _envRecastNav.target && _envRecastNav.target.world_point) {
+                var rerouteStart = {
+                    x: Number(clearBeforeStep.x || 0),
+                    y: _envInhabitantResolvedSupportY(
+                        clearBeforeStep.support_y,
+                        _envInhabitantResolvedSupportY((clearanceSupport || {}).support_y, Number(mesh.position.y || 0))
+                    ),
+                    z: Number(clearBeforeStep.z || 0)
+                };
+                if (_envRecastNavRerouteFromWorld(rerouteStart, 'system', 'traversal_obstacle')) {
+                    mesh.userData._moving = true;
+                    _envSetBadge('running', 'CHAR REROUTE');
+                    _envRecastNavRefreshSurface('character:move_reroute', true);
+                    return;
+                }
+            }
+            _envRecastNavStopMove(true);
+            _envRecastNavApplyStatePatch({
+                status: 'error',
+                reroute_count: Number(_envRecastNav.reroute_count || 0),
+                last_error: 'Movement blocked by traversal obstacle'
+            });
+            mesh.userData._moving = false;
+            var blockedState = _envInhabitantRuntimeState();
+            blockedState.mode = blockedState.enabled ? 'anchored' : 'dormant';
+            blockedState.behavior = 'idle';
+            _envLogAction('character', 'Stopped character movement: traversal obstacle', 'system', {
+                action: 'character_move_to',
+                object_key: _envInhabitantObjectKey()
+            });
+            _envEmitBus('character', 'Stopped character movement: traversal obstacle', 'system', {
+                action: 'character_move_to',
+                object_key: _envInhabitantObjectKey()
+            });
+            _envSetBadge('running', 'CHAR READY');
+            _envRecastNavRefreshSurface('character:move_blocked', true);
+            return;
+        }
+        _envInhabitantRememberClearNavStep(mesh, clearanceSupport);
+        if (_envInhabitantUsesFallbackGroundSupport({
+            support_key: mesh.userData._supportKey,
+            support_kind: mesh.userData._supportKind
+        }) && !_envRecastNavAllowsGroundSupport()) {
+            if (stableBeforeStep) _envInhabitantRestoreStableSupport(mesh);
+            _envRecastNavStopMove(true);
+            _envRecastNavApplyStatePatch({
+                status: 'error',
+                last_error: 'Movement left authored support'
+            });
+            mesh.userData._moving = false;
+            var fallbackState = _envInhabitantRuntimeState();
+            fallbackState.mode = fallbackState.enabled ? 'anchored' : 'dormant';
+            fallbackState.behavior = 'idle';
+            _envLogAction('character', 'Stopped character movement: authored support lost', 'system', {
+                action: 'character_move_to',
+                object_key: _envInhabitantObjectKey()
+            });
+            _envEmitBus('character', 'Stopped character movement: authored support lost', 'system', {
+                action: 'character_move_to',
+                object_key: _envInhabitantObjectKey()
+            });
+            _envSetBadge('running', 'CHAR READY');
+            _envRecastNavRefreshSurface('character:move_support_lost', true);
+            return;
+        }
+        if (_envRecastNav.target && _envRecastNav.target.world_point) {
+            var goal = _envRecastNav.target.world_point;
+            var distance = Math.hypot(Number(mesh.position.x || 0) - Number(goal.x || 0), Number(mesh.position.z || 0) - Number(goal.z || 0));
+            if (distance <= Math.max(0.35, _envRecastNav.agent_radius * 0.9)) {
+                _envRecastNavStopMove(true);
+                var state = _envInhabitantRuntimeState();
+                state.mode = 'anchored';
+                state.behavior = 'idle';
+                mesh.userData._moving = false;
+                _envSetBadge('running', 'CHAR READY');
+                _envRecastNavRefreshSurface('character:move_complete', true);
+            }
+        }
     }
 
     function _envInhabitantBehaviorFromTarget(targetId, fallback) {
@@ -9326,6 +10272,10 @@
                 }
             }
             if (!scenePoint) {
+                var triple = raw.match(/^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/);
+                if (triple) setWorldPoint(triple[1], triple[3], 'world_triplet');
+            }
+            if (!scenePoint) {
                 var pair = raw.match(/^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/);
                 if (pair) setScenePoint(pair[1], pair[2], 'scene_pair');
             }
@@ -9350,7 +10300,7 @@
             scene_point: scenePoint,
             world_point: {
                 x: Number(worldBase.x || 0),
-                y: Number((support && support.support_y) || 1),
+                y: _envInhabitantResolvedSupportY(support && support.support_y, 1),
                 z: Number(worldBase.z || 0)
             }
         };
@@ -9621,7 +10571,8 @@
         var perception = enabled
             ? _envBuildInhabitantPerceptionState(state, obj, mesh, yaw)
             : _envCreateInhabitantPerceptionState();
-        var activity = enabled ? 'idle' : 'dormant';
+        var nav = _envInhabitantNavigationState();
+        var activity = enabled ? (String((nav || {}).status || 'idle') === 'moving' ? 'moving' : 'idle') : 'dormant';
         var next = Object.assign({}, state, {
             enabled: enabled,
             mode: enabled ? (String(state.mode || 'autonomous') === 'dormant' ? 'autonomous' : String(state.mode || 'autonomous')) : 'dormant',
@@ -9651,6 +10602,7 @@
             grounded: !!support.grounded,
             support_key: String(support.support_key || ''),
             support_kind: String(support.support_kind || ''),
+            nav: _envCloneJson(nav, _envCreateInhabitantNavigationState()),
             perception: perception,
             last_update_ts: Date.now()
         });
@@ -9668,6 +10620,7 @@
         var actorName = String(actor || _envManualActorId() || 'assistant').trim() || 'assistant';
         var state = _envInhabitantRuntimeState();
         if (!enabled) {
+            _envRecastNavStopMove(true);
             var hadFocus = String(((_envKernel.focus || {}).kind) || '') === _ENV_INHABITANT_OBJECT_KIND
                 && String(((_envKernel.focus || {}).id) || '') === _ENV_INHABITANT_OBJECT_ID;
             _env3DRemoveSceneObjectMesh(_envInhabitantObjectKey());
@@ -9724,6 +10677,7 @@
         else renderEnvironmentView();
         var spawnedMesh = _env3D.meshes ? _env3D.meshes[_envInhabitantObjectKey()] : null;
         if (spawnedMesh) _envInhabitantSnapMeshToSupport(spawnedMesh, Number((((state.position || {}).world || {}).y) || 1));
+        _envRecastNavMarkDirty('character_mount');
         _envRefreshInhabitantRuntimeState('spawn');
         _envLogAction('character_runtime', 'Mounted character runtime', actorName, {
             action: 'character_mount',
@@ -9810,9 +10764,67 @@
         return true;
     }
 
-    function _envMaintainInhabitantPresence() {
+    function _envCharacterMoveTo(actor, reason, targetId) {
+        var actorName = String(actor || _envManualActorId() || 'assistant').trim() || 'assistant';
+        var obj = _envInhabitantObject();
+        if (!obj) obj = _envSetInhabitantEnabled(true, actorName, reason || 'character move', 'idle');
+        if (!obj) return Promise.resolve(false);
+        var resolved = _envResolveCharacterCommandTarget(targetId);
+        if (!resolved) {
+            _envLogAction('character', 'Rejected character move_to: target unresolved', actorName, {
+                action: 'character_move_to',
+                target: String(targetId || '')
+            });
+            _envEmitBus('character', 'Rejected character move_to: target unresolved', actorName, {
+                action: 'character_move_to',
+                target: String(targetId || '')
+            });
+            _envSetBadge('warning', 'CHAR MOVE?');
+            _envRecastNavRefreshSurface('character:move_unresolved', true);
+            return Promise.resolve(false);
+        }
+        return _envRecastNavRequestMove(resolved, actorName, reason || 'character move').catch(function (err) {
+            var message = err && err.message ? String(err.message) : String(err || 'character_move_to failed');
+            _envRecastNavApplyStatePatch({ status: 'error', last_error: message });
+            _envLogAction('character', 'Rejected character move_to: ' + message, actorName, {
+                action: 'character_move_to',
+                target: String(targetId || '')
+            });
+            _envEmitBus('character', 'Rejected character move_to: ' + message, actorName, {
+                action: 'character_move_to',
+                target: String(targetId || '')
+            });
+            _envRecastNavRefreshSurface('character:move_exception', true);
+            return false;
+        });
+    }
+
+    function _envCharacterStop(actor, reason) {
+        var actorName = String(actor || _envManualActorId() || 'assistant').trim() || 'assistant';
+        var mesh = _env3D.meshes ? _env3D.meshes[_envInhabitantObjectKey()] : null;
+        _envRecastNavStopMove(false);
+        if (mesh) mesh.userData._moving = false;
+        var state = _envInhabitantRuntimeState();
+        state.mode = state.enabled ? 'anchored' : 'dormant';
+        state.behavior = 'idle';
+        state.last_update_ts = Date.now();
+        _envLogAction('character', 'Stopped character movement', actorName, {
+            action: 'character_stop',
+            object_key: _envInhabitantObjectKey()
+        });
+        _envEmitBus('character', 'Stopped character movement', actorName, {
+            action: 'character_stop',
+            object_key: _envInhabitantObjectKey()
+        });
+        _envSetBadge('running', 'CHAR READY');
+        _envRecastNavRefreshSurface('character:stop', true);
+        return true;
+    }
+
+    function _envMaintainInhabitantPresence(dt) {
         var state = _envInhabitantRuntimeState();
         if (!state.enabled) {
+            _envRecastNavStopMove(true);
             _envRefreshInhabitantRuntimeState('idle');
             return;
         }
@@ -9823,7 +10835,13 @@
         }
         var mesh = _env3D.meshes ? _env3D.meshes[_envInhabitantObjectKey()] : null;
         if (mesh) {
-            _envInhabitantSnapMeshToSupport(mesh, Number((mesh.position && mesh.position.y) || 1));
+            var navStatus = String(((_envInhabitantNavigationState() || {}).status) || '');
+            if (navStatus === 'moving') {
+                _envRecastNavUpdate(dt);
+            }
+            if (navStatus !== 'moving') {
+                _envInhabitantSnapMeshToSupport(mesh, Number((mesh.position && mesh.position.y) || 1));
+            }
             var bounds = _env3DWorldBoundsVector4();
             var margin = 3;
             if (mesh.position.x < Number(bounds.x) - margin
@@ -9840,6 +10858,7 @@
                 delete mesh.userData._targetZ;
                 mesh.userData._moving = false;
                 mesh.userData._waypoints = null;
+                _envRecastNavStopMove(true);
                 state.spawn_point = _envCloneJson(spawnPoint, spawnPoint);
                 _envLogAction('character_runtime', 'Recovered mounted character runtime to mount point', 'system', {
                     x: spawnPoint.x,
@@ -10306,7 +11325,7 @@
         if (command === 'branch_snapshot') return latestBranch ? ('branch::' + String(latestBranch.id || '')) : '';
         if (command === 'spawn_inhabitant' || command === 'despawn_inhabitant' || command === 'focus_inhabitant'
             || command === 'character_mount' || command === 'character_unmount' || command === 'character_focus'
-            || command === 'character_look_at') return _envInhabitantObjectKey();
+            || command === 'character_move_to' || command === 'character_stop' || command === 'character_look_at') return _envInhabitantObjectKey();
         if (command === 'set_camera_mode'
             || command === 'camera_frame_overview'
             || command === 'camera_frame_focus'
@@ -16516,6 +17535,14 @@
             _envFocusInhabitant(actorName, reason || 'control character runtime focus', targetId);
             return;
         }
+        if (command === 'character_move_to') {
+            _envCharacterMoveTo(actorName, reason || 'control character move', targetId);
+            return;
+        }
+        if (command === 'character_stop') {
+            _envCharacterStop(actorName, reason || 'control character stop');
+            return;
+        }
         if (command === 'character_look_at') {
             _envCharacterLookAt(actorName, reason || 'control character look', targetId);
             return;
@@ -21240,6 +22267,17 @@
                 _envInspectorMetric('Memory', memorySurface.available ? 'live' : String(memorySurface.backing || 'none'))
             ].join(''), {
                 meta: String((perceptionSurface.visible_object_keys || []).length || 0) + ' visible'
+            }));
+            var navigationSurface = mountedRuntimeSurface.navigation_surface || {};
+            sections.push(_envInspectorSection('navigation-surface', 'Navigation Surface', [
+                _envInspectorMetric('Status', String(navigationSurface.status || 'idle')),
+                _envInspectorMetric('Meshes', String(Number(navigationSurface.mesh_count || 0))),
+                _envInspectorMetric('Generation', String(Number(navigationSurface.generation || 0))),
+                _envInspectorMetric('Path', String(Number((navigationSurface.path_scene || []).length || 0)) + ' nodes'),
+                _envInspectorMetric('Ready', navigationSurface.nav_ready ? 'yes' : 'no'),
+                _envInspectorMetric('Error', String(navigationSurface.last_error || '—'))
+            ].join(''), {
+                meta: String(navigationSurface.status || 'idle')
             }));
         }
 
@@ -31076,6 +32114,7 @@
         }).filter(Boolean).join('|');
         if (navHash !== _env3D.navHash) {
             _env3D.navHash = navHash;
+            _envRecastNavMarkDirty('scene_sync');
         }
 
         // Build a hash to detect changes — skip full sync if nothing changed
@@ -31261,8 +32300,10 @@
             if (_env3DIsAgentKind(obj.kind) && mesh.userData.visualType === 'primitive') {
                 _env3DEnsureAgentSprite(mesh, obj);
             }
+            var isMountedCharacterRuntime = _envIsMountedCharacterRuntimeObject(obj)
+                || key === _envInhabitantObjectKey();
             if (!mesh.userData._locoInited) {
-                mesh.position.set(pos.x, pos.y, pos.z);
+                if (!isMountedCharacterRuntime) mesh.position.set(pos.x, pos.y, pos.z);
                 mesh.userData._locoInited = true;
             }
             delete mesh.userData._targetX;
@@ -31274,9 +32315,11 @@
                 || mesh.userData.visualType === 'vegetation_patch'
                 || (_envIsCustomSceneKind(obj.kind) && !_env3DIsAgentKind(obj.kind));
             if (fixedSurface || _env3DIsAgentKind(obj.kind)) {
-                mesh.position.set(pos.x, pos.y, pos.z);
-                mesh.userData._moving = false;
-                mesh.userData._waypoints = null;
+                if (!isMountedCharacterRuntime) {
+                    mesh.position.set(pos.x, pos.y, pos.z);
+                    mesh.userData._moving = false;
+                    mesh.userData._waypoints = null;
+                }
             } else if (!mesh.userData._moving) {
                 mesh.userData._waypoints = null;
             }
@@ -31650,7 +32693,7 @@
             _env3D.particleSystem.geometry.attributes.position.needsUpdate = true;
         }
 
-        _envMaintainInhabitantPresence();
+        _envMaintainInhabitantPresence(dt);
 
         // Update route lines to follow moving meshes (use stored keys, not index)
         _env3D.lineMeshes.forEach(function (line) {
@@ -32578,6 +33621,8 @@
              '<option value="character_mount">character_mount</option>' +
              '<option value="character_unmount">character_unmount</option>' +
              '<option value="character_focus">character_focus</option>' +
+             '<option value="character_move_to">character_move_to</option>' +
+             '<option value="character_stop">character_stop</option>' +
              '<option value="character_look_at">character_look_at</option>' +
              '<option value="focus_replay">focus_replay</option>' +
              '<option value="branch_snapshot">branch_snapshot</option>' +
@@ -40408,6 +41453,17 @@
     window.envopsCharacterFocus = function (actor, reason) {
         _envQueueControl('character_focus', '', actor || 'assistant', reason || 'external character runtime focus');
     };
+    window.envopsCharacterMoveTo = function (target, actor, reason) {
+        var payload = '';
+        if (typeof target === 'string') payload = target;
+        else if (target !== undefined && target !== null) {
+            try { payload = JSON.stringify(target); } catch (ignored) { payload = String(target || ''); }
+        }
+        _envQueueControl('character_move_to', payload, actor || 'assistant', reason || 'external character move');
+    };
+    window.envopsCharacterStop = function (actor, reason) {
+        _envQueueControl('character_stop', '', actor || 'assistant', reason || 'external character stop');
+    };
     window.envopsSetInhabitantEnabled = function (enabled, actor, reason, behavior) {
         _envQueueControl(enabled ? 'character_mount' : 'character_unmount', String(behavior || ''), actor || 'assistant', reason || (enabled ? 'external character runtime mount' : 'external character runtime unmount'));
     };
@@ -40619,6 +41675,7 @@
                     runtime_state: _envCloneJson(inhabitantSurface.runtime_state, null),
                     mount_contract: _envCloneJson(inhabitantSurface.mount_contract, null),
                     command_surface: _envCloneJson(inhabitantSurface.command_surface, null),
+                    navigation_surface: _envCloneJson(inhabitantSurface.navigation_surface, null),
                     perception_surface: _envCloneJson(inhabitantSurface.perception_surface, null),
                     capability_surface: _envCloneJson(inhabitantSurface.capability_surface, null),
                     memory_surface: _envCloneJson(inhabitantSurface.memory_surface, null)

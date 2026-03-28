@@ -1440,6 +1440,8 @@ _ENV_CONTROL_PROXY_COMMANDS = frozenset({
     "character_mount",
     "character_unmount",
     "character_focus",
+    "character_move_to",
+    "character_stop",
     "character_look_at",
     "toggle_inhabitant_fov_debug",
     "set_world_profile",
@@ -3687,7 +3689,7 @@ def _env_control_local_proxy_payload(args: dict | None = None) -> dict | None:
     }
     if command.startswith("camera_"):
         payload["environment_effects"]["camera_action"] = command
-    elif command in ("spawn_inhabitant", "despawn_inhabitant", "focus_inhabitant", "character_mount", "character_unmount", "character_focus", "character_look_at", "toggle_inhabitant_fov_debug"):
+    elif command in ("spawn_inhabitant", "despawn_inhabitant", "focus_inhabitant", "character_mount", "character_unmount", "character_focus", "character_move_to", "character_stop", "character_look_at", "toggle_inhabitant_fov_debug"):
         payload["environment_effects"]["character_runtime_action"] = command
     elif command in ("focus_surface", "inspect_surface", "open_surface", "close_surface", "surface_tab", "surface_scroll", "surface_action", "surface_click", "surface_input", "surface_submit", "close_inspector"):
         payload["environment_effects"]["surface_action"] = command

@@ -39,7 +39,14 @@ children/
 
 # One-off scripts (ingestion helpers already ran)
 scripts/
+!scripts/
+scripts/*
 !scripts/sync-pack-dataset.py
+!scripts/build-recast-nav.mjs
+!scripts/recast-nav-browser-entry.mjs
+
+# JS local dependencies
+node_modules/
 
 # Diagram scratch
 merril.d2/
