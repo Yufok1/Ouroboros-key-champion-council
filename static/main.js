@@ -16477,7 +16477,10 @@
         var retarget = obj ? _envSceneRetargetingForObject(obj) : null;
         var clipList = (mesh && mesh.userData && Array.isArray(mesh.userData._clipList)) ? mesh.userData._clipList : [];
         var activeClip = String(((mesh && mesh.userData && mesh.userData._previewClipName) || (mesh && mesh.userData && mesh.userData._currentClipName) || runtime.behavior || 'idle') || 'idle');
-        var sourceRigType = String((mesh && mesh.userData && mesh.userData._sourceRigType) || (mesh && mesh.userData && mesh.userData.assetClone ? 'undetected' : 'primitive'));
+        var sourceRig = (mesh && mesh.userData && mesh.userData._sourceRig) || {};
+        var sourceRigType = sourceRig.source && sourceRig.source !== 'none' && sourceRig.source !== 'unknown'
+            ? sourceRig.source
+            : String((retarget && retarget.source_rig_type) || (mesh && mesh.userData && mesh.userData.assetClone ? 'undetected' : 'primitive'));
         var boneCount = 0;
         if (mesh && mesh.userData && mesh.userData.assetClone && typeof mesh.userData.assetClone.traverse === 'function') {
             mesh.userData.assetClone.traverse(function (node) {
@@ -16559,10 +16562,17 @@
             if (node && node.isBone === true && node.name) boneNames.push(String(node.name));
         });
         if (!boneNames.length && !canonical.length) return '';
+        var jointMap = (mesh && mesh.userData && mesh.userData._canonicalJointMap) || {};
         var boneMap = {};
         boneNames.forEach(function (name) { boneMap[name] = true; });
-        var matched = canonical.filter(function (name) { return !!boneMap[name]; });
-        var missing = canonical.filter(function (name) { return !boneMap[name]; });
+        var matched = canonical.filter(function (canonKey) {
+            var mappedName = jointMap[canonKey];
+            return mappedName ? !!boneMap[mappedName] : !!boneMap[canonKey];
+        });
+        var missing = canonical.filter(function (canonKey) {
+            var mappedName = jointMap[canonKey];
+            return mappedName ? !boneMap[mappedName] : !boneMap[canonKey];
+        });
         var presentChips = boneNames.length
             ? ('<div class="envops-chip-row">' + boneNames.slice(0, 24).map(function (name) {
                 return '<span class="envops-focus-chip active" style="font-size:10px;padding:2px 6px;">' + _esc(name) + '</span>';
@@ -19186,6 +19196,98 @@
             min_clips: ['idle']
         }
     };
+
+    var _ENV_SOURCE_RIG_JOINT_MAPS = {
+        mixamo: {
+            hips: 'mixamorig:Hips', spine: 'mixamorig:Spine', chest: 'mixamorig:Spine1',
+            neck: 'mixamorig:Neck', head: 'mixamorig:Head',
+            shoulder_l: 'mixamorig:LeftShoulder', upper_arm_l: 'mixamorig:LeftArm',
+            lower_arm_l: 'mixamorig:LeftForeArm', hand_l: 'mixamorig:LeftHand',
+            shoulder_r: 'mixamorig:RightShoulder', upper_arm_r: 'mixamorig:RightArm',
+            lower_arm_r: 'mixamorig:RightForeArm', hand_r: 'mixamorig:RightHand',
+            upper_leg_l: 'mixamorig:LeftUpLeg', lower_leg_l: 'mixamorig:LeftLeg', foot_l: 'mixamorig:LeftFoot',
+            upper_leg_r: 'mixamorig:RightUpLeg', lower_leg_r: 'mixamorig:RightLeg', foot_r: 'mixamorig:RightFoot'
+        },
+        vrm: {
+            hips: 'J_Bip_C_Hips', spine: 'J_Bip_C_Spine', chest: 'J_Bip_C_Chest',
+            neck: 'J_Bip_C_Neck', head: 'J_Bip_C_Head',
+            shoulder_l: 'J_Bip_L_Shoulder', upper_arm_l: 'J_Bip_L_UpperArm',
+            lower_arm_l: 'J_Bip_L_LowerArm', hand_l: 'J_Bip_L_Hand',
+            shoulder_r: 'J_Bip_R_Shoulder', upper_arm_r: 'J_Bip_R_UpperArm',
+            lower_arm_r: 'J_Bip_R_LowerArm', hand_r: 'J_Bip_R_Hand',
+            upper_leg_l: 'J_Bip_L_UpperLeg', lower_leg_l: 'J_Bip_L_LowerLeg', foot_l: 'J_Bip_L_Foot',
+            upper_leg_r: 'J_Bip_R_UpperLeg', lower_leg_r: 'J_Bip_R_LowerLeg', foot_r: 'J_Bip_R_Foot'
+        },
+        rpm: {
+            hips: 'Hips', spine: 'Spine', chest: 'Spine1',
+            neck: 'Neck', head: 'Head',
+            shoulder_l: 'LeftShoulder', upper_arm_l: 'LeftArm',
+            lower_arm_l: 'LeftForeArm', hand_l: 'LeftHand',
+            shoulder_r: 'RightShoulder', upper_arm_r: 'RightArm',
+            lower_arm_r: 'RightForeArm', hand_r: 'RightHand',
+            upper_leg_l: 'LeftUpLeg', lower_leg_l: 'LeftLeg', foot_l: 'LeftFoot',
+            upper_leg_r: 'RightUpLeg', lower_leg_r: 'RightLeg', foot_r: 'RightFoot'
+        },
+        unreal: {
+            hips: 'pelvis', spine: 'spine_01', chest: 'spine_03',
+            neck: 'neck_01', head: 'head',
+            shoulder_l: 'clavicle_l', upper_arm_l: 'upperarm_l',
+            lower_arm_l: 'lowerarm_l', hand_l: 'hand_l',
+            shoulder_r: 'clavicle_r', upper_arm_r: 'upperarm_r',
+            lower_arm_r: 'lowerarm_r', hand_r: 'hand_r',
+            upper_leg_l: 'thigh_l', lower_leg_l: 'calf_l', foot_l: 'foot_l',
+            upper_leg_r: 'thigh_r', lower_leg_r: 'calf_r', foot_r: 'foot_r'
+        }
+    };
+
+    function _envDetectSourceRig(root) {
+        var boneNames = [];
+        if (root && typeof root.traverse === 'function') {
+            root.traverse(function (node) {
+                if (node && node.isBone === true && node.name) boneNames.push(String(node.name));
+            });
+        }
+        if (!boneNames.length) return { source: 'none', confidence: 0, boneNames: boneNames };
+        var mixamoCount = 0;
+        var vrmCount = 0;
+        var unrealCount = 0;
+        boneNames.forEach(function (name) {
+            if (name.indexOf('mixamorig:') === 0) mixamoCount++;
+            if (name.indexOf('J_Bip_') === 0 || name.indexOf('J_Sec_') === 0) vrmCount++;
+            if (/^(pelvis|spine_\d|thigh_[lr]|calf_[lr]|foot_[lr]|upperarm_[lr]|lowerarm_[lr]|hand_[lr]|neck_\d|head|clavicle_[lr])$/.test(name)) unrealCount++;
+        });
+        if (mixamoCount >= 5) return { source: 'mixamo', confidence: mixamoCount / boneNames.length, boneNames: boneNames };
+        if (vrmCount >= 5) return { source: 'vrm', confidence: vrmCount / boneNames.length, boneNames: boneNames };
+        if (unrealCount >= 5) return { source: 'unreal', confidence: unrealCount / boneNames.length, boneNames: boneNames };
+        var boneSet = {};
+        boneNames.forEach(function (name) { boneSet[name] = true; });
+        if (boneSet.Hips && boneSet.Spine && (boneSet.LeftUpLeg || boneSet.LeftArm)) {
+            return { source: 'rpm', confidence: 0.7, boneNames: boneNames };
+        }
+        return { source: 'unknown', confidence: 0, boneNames: boneNames };
+    }
+
+    function _envBuildCanonicalJointMap(sourceRig, boneNames) {
+        var table = _ENV_SOURCE_RIG_JOINT_MAPS[sourceRig.source];
+        if (!table) return { joint_map: null, matched: 0, total: 0, coverage: 0 };
+        var boneSet = {};
+        boneNames.forEach(function (name) { boneSet[name] = true; });
+        var canonical = Object.keys(table);
+        var joint_map = {};
+        var matched = 0;
+        canonical.forEach(function (key) {
+            if (boneSet[table[key]]) {
+                joint_map[key] = table[key];
+                matched++;
+            }
+        });
+        return {
+            joint_map: matched > 0 ? joint_map : null,
+            matched: matched,
+            total: canonical.length,
+            coverage: canonical.length ? matched / canonical.length : 0
+        };
+    }
 
     function _envNormalizeEmbodimentBoundingBox(value) {
         if (!Array.isArray(value) || value.length !== 3) return null;
@@ -31673,6 +31775,9 @@
             mesh.userData._currentAction = null;
             mesh.userData._currentClipName = '';
         }
+        mesh.userData._sourceRig = null;
+        mesh.userData._canonicalJointMap = null;
+        mesh.userData._jointMapCoverage = 0;
         if (clone && clone.parent) clone.parent.remove(clone);
         if (mesh.userData.assetRefApplied) _envDisposeAsset(mesh.userData.assetRefApplied);
         mesh.userData.assetClone = null;
@@ -31938,6 +32043,58 @@
                 mesh.userData._previewSpeed = 1;
                 mesh.userData._previewPaused = false;
                 mesh.userData._previewLoop = 'repeat';
+            }
+            mesh.userData._canonicalJointMap = null;
+            mesh.userData._jointMapCoverage = 0;
+            var _v133aData = obj && obj.data ? obj.data : (obj ? (obj.data = {}) : null);
+            if (obj) {
+                var _v133aRetarget = _envSceneRetargetingForObject(obj);
+                if (!_v133aRetarget) {
+                    _v133aRetarget = {};
+                    obj.retargeting = _v133aRetarget;
+                }
+                _v133aRetarget.source_rig_type = null;
+                _v133aRetarget.source_joint_map = null;
+                if (_v133aData) {
+                    if (!_v133aData.retargeting || typeof _v133aData.retargeting !== 'object') {
+                        _v133aData.retargeting = {};
+                    }
+                    _v133aData.retargeting.source_rig_type = null;
+                    _v133aData.retargeting.source_joint_map = null;
+                }
+            }
+            var _v133aClone = mesh.userData.assetClone || mesh;
+            var _v133aSourceRig = _envDetectSourceRig(_v133aClone);
+            mesh.userData._sourceRig = _v133aSourceRig;
+            if (_v133aSourceRig.source !== 'none' && _v133aSourceRig.source !== 'unknown') {
+                var _v133aMapping = _envBuildCanonicalJointMap(_v133aSourceRig, _v133aSourceRig.boneNames);
+                mesh.userData._canonicalJointMap = _v133aMapping.joint_map;
+                mesh.userData._jointMapCoverage = _v133aMapping.coverage;
+                if (obj && _v133aMapping.joint_map) {
+                    var _v133aEmb = _envSceneEmbodimentForObject(obj);
+                    if (!_v133aEmb) {
+                        _v133aEmb = {};
+                        obj.embodiment = _v133aEmb;
+                    }
+                    _v133aEmb.joint_map = _v133aMapping.joint_map;
+                    if (_v133aData) {
+                        if (!_v133aData.embodiment || typeof _v133aData.embodiment !== 'object') {
+                            _v133aData.embodiment = {};
+                        }
+                        _v133aData.embodiment.joint_map = _v133aMapping.joint_map;
+                    }
+                    _v133aRetarget.source_rig_type = _v133aSourceRig.source;
+                    var _v133aSourceJointMap = {};
+                    Object.keys(_v133aMapping.joint_map).forEach(function (canonKey) {
+                        var actual = _v133aMapping.joint_map[canonKey];
+                        if (actual) _v133aSourceJointMap[actual] = canonKey;
+                    });
+                    _v133aRetarget.source_joint_map = _v133aSourceJointMap;
+                    if (_v133aData) {
+                        _v133aData.retargeting.source_rig_type = _v133aSourceRig.source;
+                        _v133aData.retargeting.source_joint_map = _v133aSourceJointMap;
+                    }
+                }
             }
             _env3DSetPrimitiveOpacity(mesh, 0);
             _env3DApplyAssetState(
@@ -32822,11 +32979,14 @@
             mesh.userData._attachmentGizmosVisible = nextVisible;
             return true;
         }
+        var jointMap = (mesh.userData && mesh.userData._canonicalJointMap) || {};
         var gizmos = {};
         Object.keys(attachments).forEach(function (slotName) {
             var definition = attachments[slotName];
             if (!definition || typeof definition !== 'object') return;
-            var bone = _env3DFindBoneByName(mesh.userData.assetClone, definition.bone || definition.joint || definition.parent || '');
+            var requested = definition.joint || definition.bone || definition.parent || '';
+            var resolvedBoneName = jointMap[requested] || requested;
+            var bone = _env3DFindBoneByName(mesh.userData.assetClone, resolvedBoneName);
             if (!bone) return;
             var gizmo = new THREE.Mesh(
                 new THREE.SphereGeometry(0.04, 8, 8),
