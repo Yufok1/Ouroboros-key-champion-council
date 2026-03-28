@@ -16607,6 +16607,7 @@
         var hasAttachments = !!(attachmentPoints && Object.keys(attachmentPoints).length);
         var skeletonVisible = !!(mesh && mesh.userData && mesh.userData._skeletonHelper && mesh.userData._skeletonHelper.visible);
         var attachmentVisible = !!(mesh && mesh.userData && mesh.userData._attachmentGizmosVisible);
+        var scaffoldVisible = !!(mesh && mesh.userData && mesh.userData._scaffoldVisible);
         var turntableActive = !!(_env3D && _env3D.workbenchTurntable);
         var speedOptions = [0.25, 0.5, 1, 2];
         var clipHtml = clipEntries.length
@@ -16641,6 +16642,7 @@
                 ? '<span class="envops-focus-chip' + (attachmentVisible ? ' active' : '') + '" data-env-action="workbench-toggle-attachments">' + _esc(attachmentVisible ? 'Attach: ON' : 'Attach: OFF') + '</span>'
                 : '') +
             '<span class="envops-focus-chip' + (turntableActive ? ' active' : '') + '" data-env-action="workbench-toggle-turntable">' + _esc(turntableActive ? 'Turntable: ON' : 'Turntable: OFF') + '</span>' +
+            '<span class="envops-focus-chip' + (scaffoldVisible ? ' active' : '') + '" data-env-action="workbench-toggle-scaffold">' + _esc(scaffoldVisible ? 'Scaffold ON' : 'Scaffold OFF') + '</span>' +
             '</div>';
         return '' +
             '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.08);">' +
@@ -19238,6 +19240,28 @@
             upper_leg_l: 'thigh_l', lower_leg_l: 'calf_l', foot_l: 'foot_l',
             upper_leg_r: 'thigh_r', lower_leg_r: 'calf_r', foot_r: 'foot_r'
         }
+    };
+
+    var _ENV_SCAFFOLD_SLOT_REGISTRY = {
+        humanoid_biped: [
+            { slot: 'head', joint: 'head', geometry: 'sphere', scale: [0.12, 0.14, 0.13], color: 0xcccccc, up: [0, 0.07, 0] },
+            { slot: 'neck', joint: 'neck', geometry: 'capsule', scale: [0.04, 0.06, 0.04], color: 0xaaaaaa, up: [0, 0.03, 0] },
+            { slot: 'chest', joint: 'chest', geometry: 'box', scale: [0.28, 0.22, 0.16], color: 0xbbbbbb, up: [0, 0.11, 0] },
+            { slot: 'spine', joint: 'spine', geometry: 'box', scale: [0.24, 0.14, 0.14], color: 0xaaaaaa, up: [0, 0.07, 0] },
+            { slot: 'hips', joint: 'hips', geometry: 'box', scale: [0.26, 0.12, 0.16], color: 0x999999, up: [0, 0.06, 0] },
+            { slot: 'upper_arm_l', joint: 'upper_arm_l', geometry: 'capsule', scale: [0.05, 0.14, 0.05], color: 0xbb9977, up: [0, -0.07, 0] },
+            { slot: 'lower_arm_l', joint: 'lower_arm_l', geometry: 'capsule', scale: [0.04, 0.13, 0.04], color: 0xaa8866, up: [0, -0.065, 0] },
+            { slot: 'hand_l', joint: 'hand_l', geometry: 'box', scale: [0.06, 0.08, 0.03], color: 0xddaa88, up: [0, -0.04, 0] },
+            { slot: 'upper_arm_r', joint: 'upper_arm_r', geometry: 'capsule', scale: [0.05, 0.14, 0.05], color: 0xbb9977, up: [0, -0.07, 0] },
+            { slot: 'lower_arm_r', joint: 'lower_arm_r', geometry: 'capsule', scale: [0.04, 0.13, 0.04], color: 0xaa8866, up: [0, -0.065, 0] },
+            { slot: 'hand_r', joint: 'hand_r', geometry: 'box', scale: [0.06, 0.08, 0.03], color: 0xddaa88, up: [0, -0.04, 0] },
+            { slot: 'upper_leg_l', joint: 'upper_leg_l', geometry: 'capsule', scale: [0.07, 0.20, 0.07], color: 0x8888aa, up: [0, -0.10, 0] },
+            { slot: 'lower_leg_l', joint: 'lower_leg_l', geometry: 'capsule', scale: [0.05, 0.20, 0.05], color: 0x777799, up: [0, -0.10, 0] },
+            { slot: 'foot_l', joint: 'foot_l', geometry: 'box', scale: [0.06, 0.04, 0.14], color: 0x666688, up: [0, -0.02, 0.03] },
+            { slot: 'upper_leg_r', joint: 'upper_leg_r', geometry: 'capsule', scale: [0.07, 0.20, 0.07], color: 0x8888aa, up: [0, -0.10, 0] },
+            { slot: 'lower_leg_r', joint: 'lower_leg_r', geometry: 'capsule', scale: [0.05, 0.20, 0.05], color: 0x777799, up: [0, -0.10, 0] },
+            { slot: 'foot_r', joint: 'foot_r', geometry: 'box', scale: [0.06, 0.04, 0.14], color: 0x666688, up: [0, -0.02, 0.03] }
+        ]
     };
 
     function _envDetectSourceRig(root) {
@@ -31778,6 +31802,7 @@
         mesh.userData._sourceRig = null;
         mesh.userData._canonicalJointMap = null;
         mesh.userData._jointMapCoverage = 0;
+        _env3DDisposeScaffoldBody(mesh);
         if (clone && clone.parent) clone.parent.remove(clone);
         if (mesh.userData.assetRefApplied) _envDisposeAsset(mesh.userData.assetRefApplied);
         mesh.userData.assetClone = null;
@@ -32095,6 +32120,9 @@
                         _v133aData.retargeting.source_joint_map = _v133aSourceJointMap;
                     }
                 }
+            }
+            if (_envCharacterWorkbenchActive() && mesh.userData._canonicalJointMap) {
+                _env3DBuildScaffoldBody(mesh);
             }
             _env3DSetPrimitiveOpacity(mesh, 0);
             _env3DApplyAssetState(
@@ -32893,6 +32921,7 @@
     function _env3DDisposeWorkbenchRuntimeHelpers(mesh) {
         _env3DDisposeWorkbenchSkeletonHelper(mesh);
         _env3DDisposeWorkbenchAttachmentGizmos(mesh);
+        _env3DDisposeScaffoldBody(mesh);
         _env3DResetWorkbenchPreview(mesh);
     }
 
@@ -33098,6 +33127,93 @@
         position.z = preset.target.z + (distance * Math.sin(preset.phi) * Math.cos(preset.theta));
         _envScene.cameraMode = 'focus';
         return _env3DAnimateCameraToVectors(position, preset.target, 700, 'camera:workbench-shot:' + key);
+    }
+
+    function _env3DBuildScaffoldBody(mesh) {
+        _env3DDisposeScaffoldBody(mesh);
+        if (!mesh || !mesh.userData) return false;
+        var jointMap = mesh.userData._canonicalJointMap || {};
+        if (!jointMap || !Object.keys(jointMap).length) return false;
+        var clone = mesh.userData.assetClone;
+        if (!clone) return false;
+        var embodiment = _envSceneEmbodimentForObject(_envInhabitantObject()) || {};
+        var family = String(embodiment.family || 'humanoid_biped');
+        var slots = _ENV_SCAFFOLD_SLOT_REGISTRY[family] || [];
+        if (!slots.length) return false;
+        var pieces = {};
+        slots.forEach(function (slotDef) {
+            if (!slotDef || typeof slotDef !== 'object') return;
+            var actualBoneName = jointMap[slotDef.joint];
+            if (!actualBoneName) return;
+            var bone = _env3DFindBoneByName(clone, actualBoneName);
+            if (!bone) return;
+            var scale = Array.isArray(slotDef.scale) ? slotDef.scale : [0.1, 0.1, 0.1];
+            var geometry = null;
+            if (slotDef.geometry === 'sphere') {
+                geometry = new THREE.SphereGeometry(1, 12, 8);
+                geometry.scale(Number(scale[0] || 0.1), Number(scale[1] || scale[0] || 0.1), Number(scale[2] || scale[0] || 0.1));
+            } else if (slotDef.geometry === 'capsule' && typeof THREE.CapsuleGeometry === 'function') {
+                geometry = new THREE.CapsuleGeometry(Number(scale[0] || 0.05), Number(scale[1] || 0.1), 6, 12);
+            } else if (slotDef.geometry === 'capsule') {
+                geometry = new THREE.CylinderGeometry(Number(scale[0] || 0.05), Number(scale[2] || scale[0] || 0.05), Number(scale[1] || 0.1), 10);
+            } else {
+                geometry = new THREE.BoxGeometry(Number(scale[0] || 0.1), Number(scale[1] || 0.1), Number(scale[2] || 0.1));
+            }
+            var material = new THREE.MeshStandardMaterial({
+                color: slotDef.color || 0xaaaaaa,
+                roughness: 0.7,
+                metalness: 0.1,
+                transparent: true,
+                opacity: 0.85,
+                depthWrite: true
+            });
+            var piece = new THREE.Mesh(geometry, material);
+            piece.name = '__scaffold_' + String(slotDef.slot || slotDef.joint || 'piece') + '__';
+            piece.renderOrder = 500;
+            if (Array.isArray(slotDef.up)) {
+                piece.position.set(Number(slotDef.up[0] || 0), Number(slotDef.up[1] || 0), Number(slotDef.up[2] || 0));
+            }
+            bone.add(piece);
+            pieces[String(slotDef.slot || slotDef.joint || '')] = {
+                mesh: piece,
+                bone: bone,
+                definition: slotDef
+            };
+        });
+        mesh.userData._scaffoldPieces = pieces;
+        mesh.userData._scaffoldVisible = Object.keys(pieces).length > 0;
+        return mesh.userData._scaffoldVisible;
+    }
+
+    function _env3DDisposeScaffoldBody(mesh) {
+        if (!mesh || !mesh.userData) return;
+        var pieces = mesh.userData._scaffoldPieces;
+        if (pieces) {
+            Object.keys(pieces).forEach(function (slotName) {
+                var entry = pieces[slotName];
+                if (!entry || !entry.mesh) return;
+                if (entry.mesh.parent) entry.mesh.parent.remove(entry.mesh);
+                if (entry.mesh.geometry && typeof entry.mesh.geometry.dispose === 'function') entry.mesh.geometry.dispose();
+                if (entry.mesh.material) {
+                    var materials = Array.isArray(entry.mesh.material) ? entry.mesh.material : [entry.mesh.material];
+                    materials.forEach(function (material) {
+                        if (material && typeof material.dispose === 'function') material.dispose();
+                    });
+                }
+            });
+        }
+        mesh.userData._scaffoldPieces = null;
+        mesh.userData._scaffoldVisible = false;
+    }
+
+    function _env3DToggleWorkbenchScaffold() {
+        var mesh = _envMountedRuntimeMesh();
+        if (!mesh || !mesh.userData) return false;
+        if (mesh.userData._scaffoldVisible) {
+            _env3DDisposeScaffoldBody(mesh);
+            return true;
+        }
+        return _env3DBuildScaffoldBody(mesh);
     }
 
     function _env3DSyncObjects(objects) {
@@ -42025,6 +42141,13 @@
                 if (action === 'workbench-toggle-turntable') {
                     _env3D.workbenchTurntable = !_env3D.workbenchTurntable;
                     renderEnvironmentView();
+                    return;
+                }
+                if (action === 'workbench-toggle-scaffold') {
+                    if (_env3DToggleWorkbenchScaffold()) {
+                        _envScene.dirty = true;
+                        renderEnvironmentView();
+                    }
                     return;
                 }
                 if (action === 'toggle-overlay-panel') {
