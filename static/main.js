@@ -16516,6 +16516,143 @@
         };
     }
 
+    function _envCharacterWorkbenchClipEntries(mesh) {
+        var list = (mesh && mesh.userData && Array.isArray(mesh.userData._clipList)) ? mesh.userData._clipList : [];
+        return list.map(function (clip, idx) {
+            var rawName = String((clip && clip.name) || ('clip' + idx));
+            var normalizedName = _env3DNormalizeClipName(rawName) || rawName;
+            return {
+                clip: clip,
+                rawName: rawName,
+                normalizedName: normalizedName,
+                durationLabel: Number((clip && clip.duration) || 0).toFixed(1) + 's'
+            };
+        });
+    }
+
+    function _envCharacterWorkbenchPlaybackState(mesh) {
+        var action = mesh && mesh.userData ? mesh.userData._currentAction : null;
+        var loopMode = mesh && mesh.userData && mesh.userData._previewLoop
+            ? String(mesh.userData._previewLoop)
+            : ((action && action.loop === THREE.LoopOnce) ? 'once' : 'repeat');
+        var speed = mesh && mesh.userData && mesh.userData._previewSpeed !== undefined && mesh.userData._previewSpeed !== null
+            ? Number(mesh.userData._previewSpeed)
+            : (action && action.getEffectiveTimeScale ? Number(action.getEffectiveTimeScale()) : 1);
+        if (!(speed > 0)) speed = 1;
+        return {
+            paused: !!(mesh && mesh.userData && mesh.userData._previewPaused) || !!(action && action.paused),
+            speed: speed,
+            loopMode: loopMode
+        };
+    }
+
+    function _envCharacterWorkbenchBoneInventoryHtml(mesh, embodiment) {
+        var clone = mesh && mesh.userData ? mesh.userData.assetClone : null;
+        if (!clone || typeof clone.traverse !== 'function') return '';
+        var family = String((embodiment && embodiment.family) || 'custom');
+        var registry = _ENV_RIG_FAMILY_REGISTRY[family] || _ENV_RIG_FAMILY_REGISTRY.custom || {};
+        var canonical = registry.canonical_joints && typeof registry.canonical_joints === 'object'
+            ? Object.keys(registry.canonical_joints)
+            : [];
+        var boneNames = [];
+        clone.traverse(function (node) {
+            if (node && node.isBone === true && node.name) boneNames.push(String(node.name));
+        });
+        if (!boneNames.length && !canonical.length) return '';
+        var boneMap = {};
+        boneNames.forEach(function (name) { boneMap[name] = true; });
+        var matched = canonical.filter(function (name) { return !!boneMap[name]; });
+        var missing = canonical.filter(function (name) { return !boneMap[name]; });
+        var presentChips = boneNames.length
+            ? ('<div class="envops-chip-row">' + boneNames.slice(0, 24).map(function (name) {
+                return '<span class="envops-focus-chip active" style="font-size:10px;padding:2px 6px;">' + _esc(name) + '</span>';
+            }).join('') + '</div>')
+            : '<div class="envops-stage-empty">No bones detected on the mounted asset.</div>';
+        var canonicalHtml = canonical.length
+            ? ('<div class="envops-inspector-note">Canonical joints matched ' + String(matched.length) + '/' + String(canonical.length) + '</div>' +
+                (matched.length
+                    ? '<div class="envops-chip-row">' + matched.slice(0, 16).map(function (name) {
+                        return '<span class="envops-focus-chip active" style="font-size:10px;padding:2px 6px;">' + _esc(name) + '</span>';
+                    }).join('') + '</div>'
+                    : '<div class="envops-stage-empty">No canonical joints are mapped yet.</div>') +
+                (missing.length
+                    ? '<div class="envops-inspector-note">Missing · ' + _esc(missing.slice(0, 12).join(', ')) + (missing.length > 12 ? '…' : '') + '</div>'
+                    : '<div class="envops-inspector-note">Canonical joint coverage complete.</div>'))
+            : '<div class="envops-inspector-note">No canonical joint registry is defined for this family yet.</div>';
+        return '<div class="envops-inspector-note">Bone inventory · ' + String(boneNames.length) + '</div>' +
+            presentChips +
+            canonicalHtml;
+    }
+
+    function _envRenderCharacterWorkbenchControlsHtml(workbench) {
+        var mesh = _envMountedRuntimeMesh();
+        var obj = _envInhabitantObject();
+        var embodiment = obj ? _envSceneEmbodimentForObject(obj) : null;
+        var clipEntries = _envCharacterWorkbenchClipEntries(mesh);
+        var activeClip = String(((mesh && mesh.userData && mesh.userData._previewClipName) || (mesh && mesh.userData && mesh.userData._currentClipName) || (workbench && workbench.activeClip) || 'idle') || 'idle');
+        var playback = _envCharacterWorkbenchPlaybackState(mesh);
+        var attachmentPoints = embodiment && embodiment.attachment_points && typeof embodiment.attachment_points === 'object'
+            ? embodiment.attachment_points
+            : null;
+        var hasAttachments = !!(attachmentPoints && Object.keys(attachmentPoints).length);
+        var skeletonVisible = !!(mesh && mesh.userData && mesh.userData._skeletonHelper && mesh.userData._skeletonHelper.visible);
+        var attachmentVisible = !!(mesh && mesh.userData && mesh.userData._attachmentGizmosVisible);
+        var turntableActive = !!(_env3D && _env3D.workbenchTurntable);
+        var speedOptions = [0.25, 0.5, 1, 2];
+        var clipHtml = clipEntries.length
+            ? ('<div class="envops-focus-strip" style="flex-wrap:wrap;">' + clipEntries.map(function (entry) {
+                var active = entry.normalizedName === activeClip ? ' active' : '';
+                var title = entry.rawName !== entry.normalizedName ? (' title="' + _esc(entry.rawName) + '"') : '';
+                return '<span class="envops-focus-chip' + active + '" data-env-action="workbench-play-clip" data-env-clip-name="' + _esc(entry.normalizedName) + '"' + title + '>' +
+                    _esc(entry.normalizedName) + ' · ' + _esc(entry.durationLabel) +
+                    '</span>';
+            }).join('') + '</div>')
+            : '<div class="envops-stage-empty">No animation clips are loaded on this subject.</div>';
+        var transportHtml = '<div class="envops-focus-strip" style="flex-wrap:wrap;">' +
+            '<span class="envops-focus-chip' + (playback.paused ? '' : ' active') + '" data-env-action="workbench-toggle-pause">' + _esc(playback.paused ? 'Play' : 'Pause') + '</span>' +
+            speedOptions.map(function (speed) {
+                var active = Math.abs(playback.speed - speed) < 0.001 ? ' active' : '';
+                var label = (Math.floor(speed) === speed ? String(speed) : String(speed)).replace(/^0\./, '.');
+                return '<span class="envops-focus-chip' + active + '" data-env-action="workbench-set-speed" data-env-speed="' + String(speed) + '">' + _esc(label + 'x') + '</span>';
+            }).join('') +
+            '<span class="envops-focus-chip' + (playback.loopMode === 'repeat' ? ' active' : '') + '" data-env-action="workbench-toggle-loop">' + _esc(playback.loopMode === 'repeat' ? 'Loop' : 'Once') + '</span>' +
+            '</div>';
+        var shotHtml = '<div class="envops-focus-strip" style="flex-wrap:wrap;">' +
+            '<span class="envops-focus-chip" data-env-action="workbench-shot-preset" data-env-shot="front">Front</span>' +
+            '<span class="envops-focus-chip" data-env-action="workbench-shot-preset" data-env-shot="three_q">3/4</span>' +
+            '<span class="envops-focus-chip" data-env-action="workbench-shot-preset" data-env-shot="side">Side</span>' +
+            '<span class="envops-focus-chip" data-env-action="workbench-shot-preset" data-env-shot="back">Back</span>' +
+            '<span class="envops-focus-chip" data-env-action="workbench-shot-preset" data-env-shot="top">Top</span>' +
+            '<span class="envops-focus-chip" data-env-action="workbench-shot-preset" data-env-shot="face">Face</span>' +
+            '</div>';
+        var helperHtml = '<div class="envops-focus-strip" style="flex-wrap:wrap;">' +
+            '<span class="envops-focus-chip' + (skeletonVisible ? ' active' : '') + '" data-env-action="workbench-toggle-skeleton">' + _esc(skeletonVisible ? 'Bones: ON' : 'Bones: OFF') + '</span>' +
+            (hasAttachments
+                ? '<span class="envops-focus-chip' + (attachmentVisible ? ' active' : '') + '" data-env-action="workbench-toggle-attachments">' + _esc(attachmentVisible ? 'Attach: ON' : 'Attach: OFF') + '</span>'
+                : '') +
+            '<span class="envops-focus-chip' + (turntableActive ? ' active' : '') + '" data-env-action="workbench-toggle-turntable">' + _esc(turntableActive ? 'Turntable: ON' : 'Turntable: OFF') + '</span>' +
+            '</div>';
+        return '' +
+            '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.08);">' +
+            '<div class="envops-habitat-scene-cockpit-head"><span>Clip Browser</span><span>' + String(clipEntries.length) + '</span></div>' +
+            clipHtml +
+            '</div>' +
+            '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.08);">' +
+            '<div class="envops-habitat-scene-cockpit-head"><span>Transport</span><span>' + _esc(playback.paused ? 'paused' : 'playing') + '</span></div>' +
+            transportHtml +
+            '</div>' +
+            '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.08);">' +
+            '<div class="envops-habitat-scene-cockpit-head"><span>Shot Presets</span><span>autofit</span></div>' +
+            shotHtml +
+            '</div>' +
+            '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.08);">' +
+            '<div class="envops-habitat-scene-cockpit-head"><span>Helpers</span><span>' + _esc(workbench ? workbench.sourceRigType : 'character') + '</span></div>' +
+            helperHtml +
+            '<div class="envops-kernel-note">' + _esc(workbench ? ('Active clip · ' + workbench.activeClip) : 'Active clip · idle') + '</div>' +
+            '<div class="envops-kernel-note">' + _esc(workbench ? ('Bones · ' + (workbench.boneCount > 0 ? workbench.boneCount : 'primitive') + ' · Retarget ' + workbench.retargetingStatus) : 'Primitive preview') + '</div>' +
+            '</div>';
+    }
+
     function _envRenderScenePrimaryHeroAndCards(sceneSnapshotName, renderTarget, packageMode, sceneCanonical, sceneWorkflowId, sceneWorkflowMeta) {
         var workbench = _envTheaterMode() === 'character' ? _envCharacterWorkbenchSummary() : null;
         var title = workbench ? workbench.title : (sceneSnapshotName || 'Environment Scene');
@@ -22745,6 +22882,10 @@
                 _envInspectorMetric('Bounding Box', bbox),
                 _envInspectorMetric('Retarget', retarget ? (retarget.status || '—') : '—')
             ].join('');
+            if (_envCharacterWorkbenchActive() && _envIsMountedCharacterRuntimeObject(obj)) {
+                var workbenchMesh = _envMountedRuntimeMesh();
+                embodimentBody += _envCharacterWorkbenchBoneInventoryHtml(workbenchMesh, embodiment);
+            }
             sections.push(_envInspectorSection('embodiment', 'Embodiment', embodimentBody, {
                 meta: String(embodiment.family || 'body')
             }));
@@ -24115,6 +24256,7 @@
         container: null,
         animId: null,
         resizeObserver: null,
+        workbenchTurntable: false,
         lastObjectHash: '',
         navGrid: null,
         navGridSize: 50,
@@ -31509,6 +31651,7 @@
         if (!mesh || !mesh.userData) return;
         mesh.userData.assetLoadToken = Number(mesh.userData.assetLoadToken || 0) + 1;
         var clone = mesh.userData.assetClone || null;
+        _env3DDisposeWorkbenchRuntimeHelpers(mesh);
         if (mesh.userData._mixer) {
             mesh.userData._mixer.stopAllAction();
             if (clone && typeof mesh.userData._mixer.uncacheRoot === 'function') {
@@ -31782,6 +31925,9 @@
                     mesh.userData._currentAction.play();
                     mesh.userData._currentClipName = initialClip.name;
                 }
+                mesh.userData._previewSpeed = 1;
+                mesh.userData._previewPaused = false;
+                mesh.userData._previewLoop = 'repeat';
             }
             _env3DSetPrimitiveOpacity(mesh, 0);
             _env3DApplyAssetState(
@@ -32528,6 +32674,262 @@
         guides.focusSpine.position.y = 0;
     }
 
+    function _env3DDisposeWorkbenchSkeletonHelper(mesh) {
+        if (!mesh || !mesh.userData || !mesh.userData._skeletonHelper) return;
+        var helper = mesh.userData._skeletonHelper;
+        if (helper.parent) helper.parent.remove(helper);
+        if (helper.geometry && typeof helper.geometry.dispose === 'function') helper.geometry.dispose();
+        if (helper.material) {
+            var materials = Array.isArray(helper.material) ? helper.material : [helper.material];
+            materials.forEach(function (material) {
+                if (material && typeof material.dispose === 'function') material.dispose();
+            });
+        }
+        mesh.userData._skeletonHelper = null;
+    }
+
+    function _env3DDisposeWorkbenchAttachmentGizmos(mesh) {
+        if (!mesh || !mesh.userData || !mesh.userData._attachmentGizmos) {
+            if (mesh && mesh.userData) {
+                mesh.userData._attachmentGizmos = null;
+                mesh.userData._attachmentGizmosVisible = false;
+            }
+            return;
+        }
+        Object.keys(mesh.userData._attachmentGizmos).forEach(function (slot) {
+            var gizmo = mesh.userData._attachmentGizmos[slot];
+            if (!gizmo) return;
+            if (gizmo.parent) gizmo.parent.remove(gizmo);
+            if (gizmo.geometry && typeof gizmo.geometry.dispose === 'function') gizmo.geometry.dispose();
+            if (gizmo.material && typeof gizmo.material.dispose === 'function') gizmo.material.dispose();
+        });
+        mesh.userData._attachmentGizmos = null;
+        mesh.userData._attachmentGizmosVisible = false;
+    }
+
+    function _env3DResetWorkbenchPreview(mesh) {
+        if (!mesh || !mesh.userData) return;
+        mesh.userData._previewClipName = null;
+        mesh.userData._previewSpeed = null;
+        mesh.userData._previewPaused = false;
+        mesh.userData._previewLoop = null;
+        var action = mesh.userData._currentAction;
+        if (action) {
+            action.paused = false;
+            action.enabled = true;
+            if (typeof action.setEffectiveTimeScale === 'function') action.setEffectiveTimeScale(1);
+            if (typeof action.setLoop === 'function') action.setLoop(THREE.LoopRepeat, Infinity);
+            action.clampWhenFinished = false;
+        }
+    }
+
+    function _env3DDisposeWorkbenchRuntimeHelpers(mesh) {
+        _env3DDisposeWorkbenchSkeletonHelper(mesh);
+        _env3DDisposeWorkbenchAttachmentGizmos(mesh);
+        _env3DResetWorkbenchPreview(mesh);
+    }
+
+    function _env3DFindFirstBone(root) {
+        var found = null;
+        if (!root || typeof root.traverse !== 'function') return null;
+        root.traverse(function (node) {
+            if (!found && node && node.isBone === true) found = node;
+        });
+        return found;
+    }
+
+    function _env3DFindBoneByName(root, boneName) {
+        var target = String(boneName || '');
+        if (!target || !root || typeof root.traverse !== 'function') return null;
+        var found = null;
+        root.traverse(function (node) {
+            if (!found && node && node.isBone === true && String(node.name || '') === target) found = node;
+        });
+        return found;
+    }
+
+    function _env3DToggleWorkbenchSkeletonHelper() {
+        var mesh = _envMountedRuntimeMesh();
+        if (!mesh || !mesh.userData || !_env3D.scene) return false;
+        if (mesh.userData._skeletonHelper) {
+            mesh.userData._skeletonHelper.visible = !mesh.userData._skeletonHelper.visible;
+            return true;
+        }
+        var clone = mesh.userData.assetClone;
+        var rootBone = _env3DFindFirstBone(clone);
+        if (!clone || !rootBone) return false;
+        var helper = new THREE.SkeletonHelper(clone);
+        if (helper.material) {
+            helper.material.transparent = true;
+            helper.material.opacity = 0.9;
+            helper.material.depthTest = false;
+            helper.material.linewidth = 2;
+        }
+        helper.renderOrder = 998;
+        helper.visible = true;
+        _env3D.scene.add(helper);
+        mesh.userData._skeletonHelper = helper;
+        return true;
+    }
+
+    function _env3DWorkbenchAttachmentColor(slotName) {
+        var slot = String(slotName || '').toLowerCase();
+        if (slot.indexOf('head') >= 0) return 0x5ac8ff;
+        if (slot.indexOf('left') >= 0 || slot.indexOf('_l') >= 0 || slot.indexOf('hand_l') >= 0) return 0x4dff88;
+        if (slot.indexOf('right') >= 0 || slot.indexOf('_r') >= 0 || slot.indexOf('hand_r') >= 0) return 0xff7b7b;
+        if (slot.indexOf('back') >= 0 || slot.indexOf('spine') >= 0) return 0xffd166;
+        if (slot.indexOf('foot') >= 0 || slot.indexOf('leg') >= 0) return 0xc792ff;
+        return 0x7ef0e6;
+    }
+
+    function _env3DWorkbenchAttachmentOffset(definition) {
+        if (!definition || typeof definition !== 'object') return new THREE.Vector3(0, 0, 0);
+        var source = definition.offset !== undefined ? definition.offset
+            : (definition.position !== undefined ? definition.position : definition);
+        if (Array.isArray(source)) {
+            return new THREE.Vector3(Number(source[0] || 0), Number(source[1] || 0), Number(source[2] || 0));
+        }
+        if (source && typeof source === 'object') {
+            return new THREE.Vector3(Number(source.x || 0), Number(source.y || 0), Number(source.z || 0));
+        }
+        return new THREE.Vector3(0, 0, 0);
+    }
+
+    function _env3DToggleWorkbenchAttachmentGizmos() {
+        var mesh = _envMountedRuntimeMesh();
+        var obj = _envInhabitantObject();
+        var embodiment = obj ? _envSceneEmbodimentForObject(obj) : null;
+        var attachments = embodiment && embodiment.attachment_points && typeof embodiment.attachment_points === 'object'
+            ? embodiment.attachment_points
+            : null;
+        if (!mesh || !mesh.userData || !mesh.userData.assetClone || !attachments || !_env3D.scene) return false;
+        if (mesh.userData._attachmentGizmos) {
+            var nextVisible = !mesh.userData._attachmentGizmosVisible;
+            Object.keys(mesh.userData._attachmentGizmos).forEach(function (slot) {
+                var gizmo = mesh.userData._attachmentGizmos[slot];
+                if (gizmo) gizmo.visible = nextVisible;
+            });
+            mesh.userData._attachmentGizmosVisible = nextVisible;
+            return true;
+        }
+        var gizmos = {};
+        Object.keys(attachments).forEach(function (slotName) {
+            var definition = attachments[slotName];
+            if (!definition || typeof definition !== 'object') return;
+            var bone = _env3DFindBoneByName(mesh.userData.assetClone, definition.bone || definition.joint || definition.parent || '');
+            if (!bone) return;
+            var gizmo = new THREE.Mesh(
+                new THREE.SphereGeometry(0.04, 8, 8),
+                new THREE.MeshBasicMaterial({
+                    color: _env3DWorkbenchAttachmentColor(slotName),
+                    transparent: true,
+                    opacity: 0.95,
+                    depthWrite: false
+                })
+            );
+            gizmo.position.copy(_env3DWorkbenchAttachmentOffset(definition));
+            gizmo.renderOrder = 999;
+            bone.add(gizmo);
+            gizmos[slotName] = gizmo;
+        });
+        if (!Object.keys(gizmos).length) return false;
+        mesh.userData._attachmentGizmos = gizmos;
+        mesh.userData._attachmentGizmosVisible = true;
+        return true;
+    }
+
+    function _env3DAnimateCameraToVectors(endPos, endTarget, durationMs, reason) {
+        if (!_env3D.camera || !_env3D.controls || !endPos || !endTarget) return false;
+        durationMs = Math.max(0, Number(durationMs) || 700);
+        if (_env3D._cameraAnimFrame) {
+            cancelAnimationFrame(_env3D._cameraAnimFrame);
+            _env3D._cameraAnimFrame = null;
+        }
+        if (_env3D.manualCommitTimer) {
+            clearTimeout(_env3D.manualCommitTimer);
+            _env3D.manualCommitTimer = 0;
+        }
+        var startPos = _env3D.camera.position.clone();
+        var startTarget = _env3D.controls.target.clone();
+        var endPosition = endPos.clone();
+        var endFocus = endTarget.clone();
+        var startTime = performance.now();
+        function step() {
+            var elapsed = performance.now() - startTime;
+            var t = durationMs <= 0 ? 1 : Math.min(1, elapsed / durationMs);
+            var ease = t < 0.5 ? 2 * t * t : 1 - (Math.pow(-2 * t + 2, 2) / 2);
+            _env3D.camera.position.lerpVectors(startPos, endPosition, ease);
+            _env3D.controls.target.lerpVectors(startTarget, endFocus, ease);
+            _env3D.controls.update();
+            if (t < 1) {
+                _env3D._cameraAnimFrame = requestAnimationFrame(step);
+            } else {
+                _env3D._cameraAnimFrame = null;
+                _env3DCommitManualCamera(reason || 'camera:workbench-shot', true);
+            }
+        }
+        _env3D._cameraAnimFrame = requestAnimationFrame(step);
+        return true;
+    }
+
+    function _env3DWorkbenchFitDistance(height, width, fillRatio) {
+        var camera = _env3D.camera;
+        if (!camera) return 10;
+        var ratio = Math.max(0.1, Math.min(0.95, Number(fillRatio || 0.7)));
+        var vFov = THREE.MathUtils.degToRad(Number(camera.fov || 50));
+        var aspect = Math.max(0.1, Number(camera.aspect || 1));
+        var hFov = 2 * Math.atan(Math.tan(vFov * 0.5) * aspect);
+        var distHeight = (Math.max(0.1, Number(height || 0.1)) * 0.5) / (Math.tan(vFov * 0.5) * ratio);
+        var distWidth = (Math.max(0.1, Number(width || 0.1)) * 0.5) / (Math.tan(hFov * 0.5) * ratio);
+        return Math.max(1.2, distHeight, distWidth);
+    }
+
+    function _env3DWorkbenchShotPreset(presetId) {
+        var mesh = _envMountedRuntimeMesh();
+        if (!mesh || !_env3D.camera || !_env3D.controls) return false;
+        var box = null;
+        try {
+            mesh.updateWorldMatrix(true, true);
+            box = new THREE.Box3().setFromObject(mesh);
+        } catch (ignored) {
+            box = null;
+        }
+        if (!box || box.isEmpty()) return false;
+        var size = box.getSize(new THREE.Vector3());
+        var center = box.getCenter(new THREE.Vector3());
+        var key = String(presetId || 'front').trim().toLowerCase();
+        var preset = { theta: 0, phi: Math.PI * 0.5, fill: 0.7, width: Math.max(size.x, size.z), height: size.y, target: center.clone() };
+        if (key === 'three_q') {
+            preset.theta = Math.PI / 4;
+            preset.phi = THREE.MathUtils.degToRad(80);
+        } else if (key === 'side') {
+            preset.theta = Math.PI / 2;
+            preset.phi = Math.PI * 0.5;
+        } else if (key === 'back') {
+            preset.theta = Math.PI;
+            preset.phi = Math.PI * 0.5;
+        } else if (key === 'top') {
+            preset.theta = 0;
+            preset.phi = 0.17;
+            preset.fill = 0.76;
+        } else if (key === 'face') {
+            var headHeight = Math.max(size.y * 0.32, size.x * 0.55);
+            preset.theta = 0;
+            preset.phi = THREE.MathUtils.degToRad(85);
+            preset.fill = 0.72;
+            preset.height = headHeight;
+            preset.width = Math.max(size.x * 0.68, size.z * 0.68, 1);
+            preset.target = new THREE.Vector3(center.x, box.max.y - (size.y * 0.2), center.z);
+        }
+        var distance = _env3DWorkbenchFitDistance(preset.height, preset.width, preset.fill);
+        var position = new THREE.Vector3();
+        position.x = preset.target.x + (distance * Math.sin(preset.phi) * Math.sin(preset.theta));
+        position.y = preset.target.y + (distance * Math.cos(preset.phi));
+        position.z = preset.target.z + (distance * Math.sin(preset.phi) * Math.cos(preset.theta));
+        _envScene.cameraMode = 'focus';
+        return _env3DAnimateCameraToVectors(position, preset.target, 700, 'camera:workbench-shot:' + key);
+    }
+
     function _env3DSyncObjects(objects) {
         if (!_env3D.scene) return;
         objects = Array.isArray(objects) ? objects : [];
@@ -33011,7 +33413,8 @@
                 mesh.userData._moving = false;
                 mesh.userData._waypoints = null;
             }
-            if (mesh.userData._mixer && mesh.userData._clips) {
+            var previewOverrideActive = _envCharacterWorkbenchActive() && !!(mesh.userData && mesh.userData._previewClipName);
+            if (mesh.userData._mixer && mesh.userData._clips && !previewOverrideActive) {
                 var desiredClip = mesh.userData._moving ? 'walk'
                     : (state === 'running' ? 'run'
                     : (state === 'talking' ? 'talk'
@@ -33171,6 +33574,17 @@
         });
 
         if (!_env3D.manualControlActive && !_env3D._cameraAnimFrame) _env3DApplyCameraRig(false);
+        if (_envCharacterWorkbenchActive()
+            && _env3D.workbenchTurntable
+            && _env3D.controls
+            && !_env3D.manualControlActive
+            && !_env3D._cameraAnimFrame) {
+            var angle = 0.3 * dt;
+            var offset = new THREE.Vector3().subVectors(_env3D.camera.position, _env3D.controls.target);
+            offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), angle);
+            _env3D.camera.position.copy(_env3D.controls.target).add(offset);
+            _env3D.camera.lookAt(_env3D.controls.target);
+        }
         _env3D.controls.update();
         if (_env3D.composer) {
             _env3D.composer.render(dt);
@@ -33414,6 +33828,7 @@
         var actorName = String(actor || _envManualActorId() || 'assistant').trim() || 'assistant';
         var prevMode = _envTheaterMode();
         var nextMode = _envSceneNormalizeTheaterMode(mode);
+        var mountedMesh = _envMountedRuntimeMesh();
         _envScene.theaterMode = nextMode;
         if (nextMode === 'character') {
             _envFocusInhabitant(actorName, reason || 'character theater mode');
@@ -33426,6 +33841,8 @@
             _envScene.cameraMode = 'overview';
             _envSceneResetCamera('', 'theater mode reset');
             _env3DResetPoseOffset();
+            _env3D.workbenchTurntable = false;
+            _env3DDisposeWorkbenchRuntimeHelpers(mountedMesh);
             if (_env3D.inited) _env3DApplyCameraRig(true);
         }
         if (_env3D.inited && _env3D.controls) {
@@ -33568,11 +33985,7 @@
             ? ''
             : ('<div class="envops-habitat-scene-cockpit-head" style="margin-top:8px;"><span>Replay</span><span>' + _esc(replay.active ? 'playing' : 'ready') + '</span></div><div class="envops-kernel-note">' + _esc(replaySummary || String(replay.mode || 'samples')) + '</div>');
         var theaterModeUiHtml = theaterMode === 'character'
-            ? ('<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.08);">' +
-                '<div class="envops-habitat-scene-cockpit-head"><span>Workbench</span><span>' + _esc(workbench ? workbench.sourceRigType : 'character') + '</span></div>' +
-                '<div class="envops-kernel-note">' + _esc(workbench ? ('Active clip · ' + workbench.activeClip) : 'Active clip · idle') + '</div>' +
-                '<div class="envops-kernel-note">' + _esc(workbench ? ('Bones · ' + (workbench.boneCount > 0 ? workbench.boneCount : 'primitive') + ' · Retarget ' + workbench.retargetingStatus) : 'Primitive preview') + '</div>' +
-                '</div>')
+            ? _envRenderCharacterWorkbenchControlsHtml(workbench)
             : (labelModeHtml + kindFilterHtml + assetBrowserCockpitHtml);
         var html = '<div class="' + _esc(habitatClasses.join(' ')) + '">' +
             '<div class="envops-habitat-scene">' +
@@ -41348,6 +41761,92 @@
                 }
                 if (action === 'focus-inhabitant') {
                     _envQueueControl('character_focus', '', uiActor, 'cockpit character runtime focus');
+                    return;
+                }
+                if (action === 'workbench-play-clip') {
+                    var playMesh = _envMountedRuntimeMesh();
+                    var clipName = String(actionEl.getAttribute('data-env-clip-name') || '').trim();
+                    if (playMesh && playMesh.userData && playMesh.userData._mixer && clipName) {
+                        var resolved = _env3DResolveAnimationClip(playMesh, clipName);
+                        if (resolved && resolved.clip) {
+                            var prevAction = playMesh.userData._currentAction;
+                            var nextAction = playMesh.userData._mixer.clipAction(resolved.clip);
+                            var speed = playMesh.userData._previewSpeed !== undefined && playMesh.userData._previewSpeed !== null
+                                ? Number(playMesh.userData._previewSpeed)
+                                : 1;
+                            var loopMode = String(playMesh.userData._previewLoop || 'repeat') === 'once'
+                                ? THREE.LoopOnce
+                                : THREE.LoopRepeat;
+                            if (prevAction && prevAction !== nextAction) prevAction.fadeOut(0.3);
+                            nextAction.reset();
+                            nextAction.enabled = true;
+                            nextAction.paused = false;
+                            nextAction.clampWhenFinished = loopMode === THREE.LoopOnce;
+                            if (typeof nextAction.setEffectiveTimeScale === 'function') nextAction.setEffectiveTimeScale(speed > 0 ? speed : 1);
+                            if (typeof nextAction.setLoop === 'function') nextAction.setLoop(loopMode, loopMode === THREE.LoopOnce ? 1 : Infinity);
+                            if (prevAction && prevAction !== nextAction) nextAction.fadeIn(0.3);
+                            nextAction.play();
+                            playMesh.userData._currentAction = nextAction;
+                            playMesh.userData._currentClipName = resolved.name;
+                            playMesh.userData._previewClipName = resolved.name;
+                            playMesh.userData._previewPaused = false;
+                            if (!playMesh.userData._previewLoop) playMesh.userData._previewLoop = loopMode === THREE.LoopOnce ? 'once' : 'repeat';
+                            if (!(Number(playMesh.userData._previewSpeed) > 0)) playMesh.userData._previewSpeed = 1;
+                            renderEnvironmentView();
+                        }
+                    }
+                    return;
+                }
+                if (action === 'workbench-toggle-pause') {
+                    var pauseMesh = _envMountedRuntimeMesh();
+                    var pauseAction = pauseMesh && pauseMesh.userData ? pauseMesh.userData._currentAction : null;
+                    if (pauseAction) {
+                        pauseAction.paused = !pauseAction.paused;
+                        if (pauseMesh && pauseMesh.userData) pauseMesh.userData._previewPaused = !!pauseAction.paused;
+                        renderEnvironmentView();
+                    }
+                    return;
+                }
+                if (action === 'workbench-set-speed') {
+                    var speedMesh = _envMountedRuntimeMesh();
+                    var speedAction = speedMesh && speedMesh.userData ? speedMesh.userData._currentAction : null;
+                    var speedValue = Number(actionEl.getAttribute('data-env-speed') || 1);
+                    if (!(speedValue > 0)) speedValue = 1;
+                    if (speedAction && typeof speedAction.setEffectiveTimeScale === 'function') {
+                        speedAction.setEffectiveTimeScale(speedValue);
+                    }
+                    if (speedMesh && speedMesh.userData) speedMesh.userData._previewSpeed = speedValue;
+                    renderEnvironmentView();
+                    return;
+                }
+                if (action === 'workbench-toggle-loop') {
+                    var loopMesh = _envMountedRuntimeMesh();
+                    var loopAction = loopMesh && loopMesh.userData ? loopMesh.userData._currentAction : null;
+                    if (loopAction) {
+                        var nextLoop = loopAction.loop === THREE.LoopRepeat ? THREE.LoopOnce : THREE.LoopRepeat;
+                        if (typeof loopAction.setLoop === 'function') loopAction.setLoop(nextLoop, nextLoop === THREE.LoopOnce ? 1 : Infinity);
+                        loopAction.clampWhenFinished = nextLoop === THREE.LoopOnce;
+                        if (loopMesh && loopMesh.userData) loopMesh.userData._previewLoop = nextLoop === THREE.LoopOnce ? 'once' : 'repeat';
+                        renderEnvironmentView();
+                    }
+                    return;
+                }
+                if (action === 'workbench-toggle-skeleton') {
+                    if (_env3DToggleWorkbenchSkeletonHelper()) renderEnvironmentView();
+                    return;
+                }
+                if (action === 'workbench-toggle-attachments') {
+                    if (_env3DToggleWorkbenchAttachmentGizmos()) renderEnvironmentView();
+                    return;
+                }
+                if (action === 'workbench-shot-preset') {
+                    var shotId = String(actionEl.getAttribute('data-env-shot') || '').trim();
+                    if (shotId) _env3DWorkbenchShotPreset(shotId);
+                    return;
+                }
+                if (action === 'workbench-toggle-turntable') {
+                    _env3D.workbenchTurntable = !_env3D.workbenchTurntable;
+                    renderEnvironmentView();
                     return;
                 }
                 if (action === 'toggle-overlay-panel') {
