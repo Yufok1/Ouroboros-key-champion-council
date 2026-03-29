@@ -1,7 +1,7 @@
 # Champion Council Roadmap
 
 Status: Active
-Date: 2026-03-25
+Date: 2026-03-28
 Baseline commit: `abc2774`
 Runtime baseline: restored pre-underdepths environment runtime with generic fixes reapplied
 
@@ -90,6 +90,8 @@ Focus:
 
 - agent spatial presence
 - inhabitant embodiment
+- portable character runtime
+- animation command surface promotion
 - optional interaction/mechanics facilities
 - attachment/runtime assembly
 - clean procgen rebuild from a neutral ontology
@@ -155,6 +157,20 @@ Target:
 - retargeting-aware character normalization
 - animation/control seam for non-player actors
 
+Current state:
+
+- model identity lane stabilized
+- derived animation contract + clip resolver lane present
+- mounted export improved
+- mounted `animation_surface` now exports live browser/runtime state
+- mounted owned-surface animation control now works in the browser/runtime lane
+- remaining gap is upstream direct `env_control(character_*)` validation, not local playback plumbing
+
+Execution note:
+
+- validate on humanoid models first
+- do not mix animal/quadruped scaffold work into this slice
+
 #### v134 — Optional Interaction and Physics Facilities
 
 Target:
@@ -204,7 +220,9 @@ Design reference:
 ## Immediate Priorities
 
 1. Keep the restored runtime stable on `abc2774`
-2. Maintain the canonical identity: spatial substrate, agent workspace, verifiable runtime
-3. Write and execute `v132` as agent spatial presence, not a player controller
-4. Reconcile embodiment/runtime docs so facilities remain optional and version numbering matches reality
-5. Rebuild procedural generation later as a general scene system, not a cave-first system
+2. Keep the mounted animation surface and owned-surface command lane stable
+3. Align the remaining upstream agent ingress path for raw `character_*` animation verbs
+4. Validate the command lane on the current humanoid cohort before adding queue/interrupt complexity
+5. Reconcile roadmap/spec/command docs so fresh agents land on the same version truth
+6. Defer animal/quadruped embodiment work until the humanoid lane is stable
+7. Rebuild procedural generation later as a general scene system, not a cave-first system

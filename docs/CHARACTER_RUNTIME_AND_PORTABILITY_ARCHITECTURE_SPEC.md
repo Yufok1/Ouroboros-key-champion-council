@@ -1,7 +1,7 @@
 # Character Runtime, Embodiment, and Portability Architecture
 
-Status: Draft  
-Date: 2026-03-25  
+Status: Draft, updated for v133b.1 runtime checkpoint  
+Date: 2026-03-29  
 Scope: Canonical separation of environment products and character products, with mounted character runtime integration
 
 ## Purpose
@@ -27,6 +27,33 @@ This spec establishes:
 3. the character runtime facility and mount contract
 4. the theater workbench model for environment-scale and character-scale authoring
 5. the migration path away from actor-as-scene-object embodiment
+
+## Current Implementation Note
+
+As of 2026-03-29, the runtime already contains:
+
+- derived animation contract generation
+- clip inventory and clip resolution
+- retargeted clip inventory generation
+- mounted runtime refresh/export
+- mounted `animation_surface` export
+- mounted owned-surface animation control wired into the existing `character_*` handlers
+
+What it does not yet contain is fully aligned upstream direct validation for raw animation verbs through every `env_control` ingress path.
+
+The current public runtime bridge stops at:
+
+- `character_mount`
+- `character_unmount`
+- `character_focus`
+- `character_set_model`
+- `character_move_to`
+- `character_stop`
+- `character_look_at`
+
+The immediate remaining architecture task is to keep the mounted runtime animation surface stable and
+align any remaining upstream validated ingress to the same handlers, rather than building a second
+playback stack.
 
 ## Core Correction
 
@@ -355,7 +382,39 @@ Minimal mounted character shape:
   },
   command_surface: {
     version: '1.0.0',
-    verbs: ['move_to', 'stop', 'look_at', 'inspect', 'interact', 'speak']
+    verbs: [
+      'mount',
+      'unmount',
+      'focus',
+      'set_model',
+      'move_to',
+      'stop',
+      'look_at',
+      'play_clip',
+      'queue_clips',
+      'stop_clip',
+      'set_loop',
+      'set_speed',
+      'get_animation_state',
+      'play_reaction'
+    ]
+  },
+  animation_surface: {
+    available: true,
+    active_clip: 'idle',
+    active_clip_raw: 'Idle',
+    active_clip_source: 'native',
+    paused: false,
+    loop_mode: 'repeat',
+    speed: 1,
+    override_active: false,
+    queue: [],
+    queue_cursor: 0,
+    contract_clip_count: 12,
+    native_clip_count: 32,
+    last_command: '',
+    last_reaction: '',
+    updated_ts: 1774790000000
   },
   perception_surface: {
     support_key: '',
@@ -401,6 +460,34 @@ What changes is the host container:
 
 - these surfaces belong to the character runtime facility
 - they do not belong to a scene object kind
+
+### Animation Surface
+
+The mounted runtime must expose animation state as a first-class surface, not as hidden workbench UI
+state.
+
+Minimum required fields:
+
+- `available`
+- `active_clip`
+- `active_clip_raw`
+- `active_clip_source`
+- `paused`
+- `loop_mode`
+- `speed`
+- `override_active`
+- `queue`
+- `queue_cursor`
+- `contract_clip_count`
+- `native_clip_count`
+- `last_command`
+- `last_reaction`
+
+Implementation rule:
+
+- animation commands bind to the mounted runtime facility
+- clip resolution uses the existing contract/native resolver lane
+- workbench remains an inspection surface, not the canonical control surface
 
 ## Object Taxonomy Relationship
 

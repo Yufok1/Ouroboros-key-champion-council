@@ -1,0 +1,439 @@
+● Champion Council — Authoritative Version Map
+
+  As of: 2026-03-28 (late) | HEAD: bee4162 | Panel cache: v=130w | Branch: main
+
+  Identity: Inhabitable procedural media with agent co-presence. Not a game engine. Facilities breathe. Individual
+  embodied character = base sellable unit.
+
+  Note: From v130 forward, version numbers are a human roadmap layer backed by commits — not a literal panel.html
+  cache-bust sequence. The checked-in shell still points to main.js?v=130w.
+
+  ---
+  Pre-Spatial Era (v1–v59): Capsule + Space Infrastructure
+
+  ┌─────────┬──────────────────────────────────────────────────────────────────────────────┬───────────────────────┐
+  │  Range  │                                     What                                     │    Anchor Commits     │
+  ├─────────┼──────────────────────────────────────────────────────────────────────────────┼───────────────────────┤
+  │ v1–v20  │ Capsule system, web panel, auto-publish webhook, MCP server (SSE +           │ 2618fba, b9dc7ce      │
+  │         │ Streamable HTTP), activity tracking                                          │                       │
+  ├─────────┼──────────────────────────────────────────────────────────────────────────────┼───────────────────────┤
+  │ v21–v30 │ Agent orchestration, provider modal, slot chat, FelixBag persistence, cache  │ d62899b (v21 bust),   │
+  │         │ management                                                                   │ 796eebd (v30 bust)    │
+  ├─────────┼──────────────────────────────────────────────────────────────────────────────┼───────────────────────┤
+  │ v31–v40 │ Server-side agent loop with real tool execution, sequential multi-tool       │ c80e9ad→28d2a92       │
+  │         │ calls, reorientation prompts, live streaming, delegated orchestration        │                       │
+  ├─────────┼──────────────────────────────────────────────────────────────────────────────┼───────────────────────┤
+  │ v41–v50 │ Debug system: dynamic loop diagnostics, failure attribution, evidence gates, │ 7d0237e→e57144e       │
+  │         │  queued telemetry probes, cascade ops normalization                          │                       │
+  ├─────────┼──────────────────────────────────────────────────────────────────────────────┼───────────────────────┤
+  │         │ Dreamer learning (RSSM + critic + imagination), GPU fleet dashboards,        │ 92d3552, bc2b71d,     │
+  │ v51–v59 │ per-user HF Dataset persistence, FelixBag document versioning, modality      │ 3813600 (v59 bust)    │
+  │         │ stabilization — all 5 GREEN (ASR/TTS/LLM/Embedding/VLM)                      │                       │
+  └─────────┴──────────────────────────────────────────────────────────────────────────────┴───────────────────────┘
+
+  ---
+  Phase 1: HTML Agent Surface (v60–v86) — COMPLETE
+
+  ┌─────────┬───────────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │  Range  │                                                 What                                                  │
+  ├─────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ v60–v70 │ Browser shell, ops rail, scene rendering, scroll preservation, external snapshot loads, scene-first   │
+  │         │ docs                                                                                                  │
+  ├─────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ v71–v80 │ Inspector → focus shell → 3-layer HUD, scene object hydration, activity feed, HTML panel mode         │
+  ├─────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ v81–v86 │ Camera controls, env debug fidelity, Three.js runtime integration, live sync, zoom/focus              │
+  │         │ stabilization                                                                                         │
+  └─────────┴───────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+  Commit cluster: e8e1ebb→68cdb5f (the space: and Environment UI: prefixed commits)
+
+  ---
+  Phase 2: Operational Environment Runtime (v87–v129) — BASELINE COMPLETE; BROADER PHASE STILL OPEN FOR
+  ERGONOMICS/DOCS/VERIFICATION
+
+  v87–v99: Rendering Foundation
+
+  ┌───────────┬─────────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │  Version  │                                                What                                                 │
+  ├───────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ v87       │ Scene-active guard, 8 theme skins, camera controls                                                  │
+  ├───────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ v88–v89   │ Asset pipeline (GLB/glTF loader), rooms, portals, agent sprites                                     │
+  ├───────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ v90–v95   │ Locomotion, grid routing, GLB assets, bloom post-processing, trigger volumes                        │
+  ├───────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ v96–v97   │ Procedural terrain (noise-displaced mesh), ground decals, spawn race fix                            │
+  ├───────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ v98–v98.1 │ Snap-grid tiles, substrate recipes (extrude/lathe/tube/heightmap/composite), 8 PBR material presets │
+  ├───────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ v99a      │ Label toggle (L key), kind filter (K key), asset browser cockpit (A key)                            │
+  ├───────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ v99a.1    │ Fix cockpit click delegation, move theme picker                                                     │
+  ├───────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ v99b      │ Asset tool schema: download_url/download_mode/download_ext, bootstrap migration, hardened           │
+  │           │ asset_download                                                                                      │
+  └───────────┴─────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+  v100–v117: Object Runtime, Character Plans, Environment UI Buildout
+
+  ┌───────────┬─────────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │  Version  │                                                What                                                 │
+  ├───────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ v100      │ Disposal + SW cache alignment                                                                       │
+  ├───────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ v101      │ Surface & Character Plan — 6 phases, ~1,200 lines (inspector authoring, NPC prefab schema, asset    │
+  │           │ browser, character sprites, behavior/movement, model sourcing)                                      │
+  ├───────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ v102      │ Asset Ingestion Plan — pack manifests, generator scripts, Kenney + Quaternius proof-of-concept,     │
+  │           │ ~220 lines                                                                                          │
+  ├───────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ v103–v110 │ Environment UI: habitat perspective, structural coupling, enclosure/canopy parallax, volumetric     │
+  │           │ depthfield, event corridors, operator kernel                                                        │
+  ├───────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ v111–v115 │ Health/SLA surface, run comparison lens, product output lens, districts as focus targets, telemetry │
+  │           │  dampening                                                                                          │
+  ├───────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ v116–v117 │ Stage hydrate failures, render payload hardening, environment contracts, actor sessions, world      │
+  │           │ object runtime plan (mechanics/wind/vegetation ~715 lines), historical world expansion pipeline     │
+  └───────────┴─────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+  v118–v125: World Runtime & Content
+
+  ┌───────────┬─────────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │  Version  │                                                What                                                 │
+  ├───────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ v118–v120 │ World runtime foundation, deploy current state, local runtime groundwork                            │
+  ├───────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ v121–v125 │ LFS migration for binary assets, world building infrastructure, profile kit system, early content   │
+  │           │ ingest                                                                                              │
+  └───────────┴─────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+  v126–v129: World Building & Scene Truth
+
+  ┌─────────┬─────────────────┬────────────────────────────────────────────────────────────────────────────────────┐
+  │ Version │     Commit      │                                        What                                        │
+  ├─────────┼─────────────────┼────────────────────────────────────────────────────────────────────────────────────┤
+  │ v126f   │ 2636eda         │ MCP control proxy, mirror refresh, asset packs                                     │
+  ├─────────┼─────────────────┼────────────────────────────────────────────────────────────────────────────────────┤
+  │ v126g   │ 3476fe7         │ Profile kit immediate mirror refresh                                               │
+  ├─────────┼─────────────────┼────────────────────────────────────────────────────────────────────────────────────┤
+  │ v127a   │ 187d93a         │ Content foundation: 6 HDRIs, 42 underwater/jungle assets                           │
+  ├─────────┼─────────────────┼────────────────────────────────────────────────────────────────────────────────────┤
+  │ v127a2  │ 7f434b4         │ OS3A + NASA ingest: 481 CC0 assets, 8 new packs                                    │
+  ├─────────┼─────────────────┼────────────────────────────────────────────────────────────────────────────────────┤
+  │ v127b   │ 1a12f5c         │ 12-family biome registry: themes, profiles, rich kits                              │
+  ├─────────┼─────────────────┼────────────────────────────────────────────────────────────────────────────────────┤
+  │ v127c   │ 7c00024         │ Remove HDRI backgrounds                                                            │
+  ├─────────┼─────────────────┼────────────────────────────────────────────────────────────────────────────────────┤
+  │ v127d   │ e0e2607         │ Remove theme picker, neutralize world visuals                                      │
+  ├─────────┼─────────────────┼────────────────────────────────────────────────────────────────────────────────────┤
+  │ v128b   │ b2aa060,        │ Rapier-first embodiment roadmap, embodiment schema, env_control proxy, SW cache    │
+  │         │ 4ede38e         │                                                                                    │
+  ├─────────┼─────────────────┼────────────────────────────────────────────────────────────────────────────────────┤
+  │ v129t   │ 7999d15         │ Scene truth, attachments, hydration docs                                           │
+  ├─────────┼─────────────────┼────────────────────────────────────────────────────────────────────────────────────┤
+  │ v129t+  │ 3006401→3f39f79 │ Theater observer, Rapier runtime, debug alignment, observer physics, Gate 0        │
+  │         │                 │ certified 7/7 PASS                                                                 │
+  └─────────┴─────────────────┴────────────────────────────────────────────────────────────────────────────────────┘
+
+  End of Phase 2 baseline: 4,771+ CC0 GLB assets, 60+ packs, 12 biome families, full observer/capture system, hydration
+   contract certified.
+
+  ---
+  Phase 3: Agent Presence & Embodiment (v130–v136) — ACTIVE
+
+  v129u–v131b: Underdepths — ROLLED BACK
+
+  ┌─────────────┬──────────────────────────────────────────────────┐
+  │   Version   │                       What                       │
+  ├─────────────┼──────────────────────────────────────────────────┤
+  │ v129u       │ Underdepths foundation                           │
+  ├─────────────┼──────────────────────────────────────────────────┤
+  │ v130/v130o  │ Cave procedural generator + water/seabed shaping │
+  ├─────────────┼──────────────────────────────────────────────────┤
+  │ v131a/v131b │ Passage archetype expansion + cave scoring       │
+  └─────────────┴──────────────────────────────────────────────────┘
+
+  All removed at abc2774. Too cave-specific, violated identity principle. Replaced by Coquina spec.
+
+  Doctrine & Architecture Corrections
+
+  ┌─────────┬───────────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │ Commit  │                                                 What                                                  │
+  ├─────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ 24ace01 │ Post-rollback roadmap, v132 scope brief                                                               │
+  ├─────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ 8599b3e │ Coquina procedural system spec (5 cooperating systems)                                                │
+  ├─────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ e730edb │ Coquina data contracts (7 contracts)                                                                  │
+  ├─────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ caaab13 │ Identity shift: not a game engine — inhabitable procedural media                                      │
+  ├─────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ dea2906 │ Architecture correction: two-product model (environment + character) + mount contract. Character      │
+  │         │ runtime = facility of character product. Actors NOT scene objects.                                    │
+  └─────────┴───────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+  v132: Agent Spatial Presence — COMPLETE
+
+  ┌─────────┬─────────────────────────────────────────────────────────────┐
+  │ Commit  │                            What                             │
+  ├─────────┼─────────────────────────────────────────────────────────────┤
+  │ 8de7a11 │ v132 inhabitant presence and grounding seam                 │
+  ├─────────┼─────────────────────────────────────────────────────────────┤
+  │ 4b41c92 │ Inhabitant grounding and perception v1                      │
+  ├─────────┼─────────────────────────────────────────────────────────────┤
+  │ 361c9dd │ Harden validation habitat, pipeline docs                    │
+  ├─────────┼─────────────────────────────────────────────────────────────┤
+  │ dea2906 │ Two-product architecture correction                         │
+  ├─────────┼─────────────────────────────────────────────────────────────┤
+  │ 6cd3806 │ Refactor inhabitant into mounted character runtime surfaces │
+  ├─────────┼─────────────────────────────────────────────────────────────┤
+  │ e6fa064 │ Remove legacy character movement stack                      │
+  ├─────────┼─────────────────────────────────────────────────────────────┤
+  │ 7028778 │ Recast nav-backed grounded character movement               │
+  └─────────┴─────────────────────────────────────────────────────────────┘
+
+  Delivered: Inhabitant runtime state, visible entity, behavior-driven movement (idle/goto/patrol/wander/follow —
+  default idle/anchored), camera binding, spawn/recovery, perception v1 (FOV/LOS/visible/occluded/grounded), support
+  surface taxonomy, blocker taxonomy (6 classes), validation habitat (10 objects), Recast navigation (navmesh gen, path
+   queries, move_to/stop), transform ownership fix (nav owns XZ, grounding owns Y).
+
+  Phase A: Character Workbench — COMPLETE
+
+  ┌─────────┬───────────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │ Commit  │                                                 What                                                  │
+  ├─────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ 7c67d8c │ Theater mode foundation (environment/character/runtime submodes)                                      │
+  ├─────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ a45f19b │ Tier 1 inspection surfaces (clip browser, skeleton helper, attachment gizmos, shot presets,           │
+  │         │ turntable, bone inventory)                                                                            │
+  ├─────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ 5d4353a │ UI grammar remap (suppress environment surfaces in character mode)                                    │
+  ├─────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ b0b3927 │ Telemetry overlay class collision fix                                                                 │
+  └─────────┴───────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+  v133: Embodiment Pipeline — IN PROGRESS
+
+  ┌───────────┬──────────┬─────────────┬──────────────────────────────────────────────────────────────────────────┐
+  │    Sub    │  Commit  │   Status    │                                   What                                   │
+  ├───────────┼──────────┼─────────────┼──────────────────────────────────────────────────────────────────────────┤
+  │           │          │             │ Source rig detection (mixamo/vrm/rpm/unreal, 18 joints each), canonical  │
+  │ v133a     │ 3508c5c  │ COMPLETE    │ joint mapping, auto-detect on load, stale-state clearing, wired into     │
+  │           │          │             │ bone inventory/telemetry/gizmos                                          │
+  ├───────────┼──────────┼─────────────┼──────────────────────────────────────────────────────────────────────────┤
+  │           │          │             │ Humanoid scaffold body: 17-slot crash-test-dummy substrate, segmented    │
+  │ v133a.5   │ ad64031  │ COMPLETE    │ geometry parented to canonical joints, build/dispose/toggle, auto-builds │
+  │           │          │             │  in workbench                                                            │
+  ├───────────┼──────────┼─────────────┼──────────────────────────────────────────────────────────────────────────┤
+  │ v133      │          │             │ character_asset_ref in runtime state (single source of truth),           │
+  │ model     │ 8d55dc3, │ COMMITTED & │ character_set_model command, mounted record emits                        │
+  │ identity  │  9bba3c0 │  STABILIZED │ asset_ref/appearance.asset_ref/character.asset_ref, unmount preserves    │
+  │           │          │             │ model identity, theater overlay/grounding presentation stabilized        │
+  ├───────────┼──────────┼─────────────┼──────────────────────────────────────────────────────────────────────────┤
+  │ v133b     │ bee4162+ │ FIRST SLICE │ Animation contract derivation, extended clip classification              │
+  │ first     │          │  LANDED     │ (hit/death/block/blink), raw clip lookup, resolver improvements,        │
+  │ slice     │          │ (uncommit.) │ mounted export fix (clip_map + animation_contract + inverse             │
+  │           │          │             │ source_joint_map), generic clip fallback, retarget map direction fix     │
+  ├───────────┼──────────┼─────────────┼──────────────────────────────────────────────────────────────────────────┤
+  │ v133b.1   │ —        │ NEXT        │ Animation command verbs: character.play_clip, queue_clips, stop_clip,   │
+  │           │          │             │ set_loop, set_speed, get_animation_state, play_reaction                 │
+  ├───────────┼──────────┼─────────────┼──────────────────────────────────────────────────────────────────────────┤
+  │ v133b.2   │ —        │ PLANNED     │ Queue/sequence + interrupt semantics, priority, transition timing,      │
+  │           │          │             │ reaction hooks from goals/speech/perception/tool outcomes                │
+  ├───────────┼──────────┼─────────────┼──────────────────────────────────────────────────────────────────────────┤
+  │ v133c     │ —        │ PLANNED     │ Clip blending: locomotion blend tree (idle↔walk↔run crossfades)          │
+  ├───────────┼──────────┼─────────────┼──────────────────────────────────────────────────────────────────────────┤
+  │ v133d     │ —        │ PLANNED     │ Proxy lane: fallback for unrigged/static GLBs (billboard, static mesh,   │
+  │           │          │             │ hybrid)                                                                  │
+  └───────────┴──────────┴─────────────┴──────────────────────────────────────────────────────────────────────────┘
+
+  Theater Session Persistence — COMMITTED (bee4162)
+
+  localStorage save/restore via pagehide/beforeunload/visibilitychange. Captures: snapshot, theater mode, camera mode,
+  mounted model/runtime state, workbench helpers (skeleton/scaffold/attachments/turntable), clip preview state, camera
+  pose offset. Restores through existing mount/focus/camera seams after refresh.
+
+  Test asset: /static/assets/packs/os3a-tomb-chaser/GhostArmature.glb — RPM-style bones, 1 skin, 1 animation.
+
+  Tier 2: Assembly Surfaces — PLANNED
+
+  Slot manifest, per-slot picker, creature-part replacement on scaffold slots, proportion controls, shared-skeleton
+  multi-mesh assembly, character product save/summon/variant.
+
+  v134: Interaction/Physics Facilities — PLANNED
+
+  Action-ready state, optional projectile/physics, water/buoyancy when justified.
+
+  v135: Attachment + Equipment Facility — PLANNED
+
+  Slot-based attachment, equipment-driven appearance/state, runtime snap-point binding.
+
+  v136: Commercial Export Pipeline — PLANNED
+
+  Export-ready embodied assets, packaging, preview/metadata generation. GLB primary → VRM humanoid → USD composition →
+  MaterialX → KTX 2.0 → FBX compat.
+
+  ---
+  Phase 3→4 Bridge (v137–v142): Productization & Facilities — PLANNED
+
+  ┌─────────┬───────────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │ Version │                                                 What                                                  │
+  ├─────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ v137    │ Movement facility contract — backend family interface (surface/water/air/zero-g), wrap Recast as      │
+  │         │ backend 1, off-mesh connections                                                                       │
+  ├─────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │         │ Environment interaction parity — utility objects (tool-granting on proximity, 166+ tools, 9           │
+  │ v138    │ capability classes), workstations/control units (HTML panels bound to agents), overlay command        │
+  │         │ surfaces                                                                                              │
+  ├─────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ v139    │ Coquina v1 — 1 hull family + 1 affix + 1 detail set + 1 grammar rule + palette seed + 2 transforms +  │
+  │         │ 3 observer checks                                                                                     │
+  ├─────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ v140    │ Buyer API surface — HTTP JSON facade + OpenAPI, 14 canonical character commands, hide raw MCP tools   │
+  │         │ from buyers                                                                                           │
+  ├─────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ v141    │ Product packaging — bundles, previews, deployment payload, three delivery forms (asset-only /         │
+  │         │ mount-ready / fully inhabited), engine adapter notes (Unity/Godot/Unreal)                             │
+  ├─────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ v142    │ Buyer integration — sample requests, runbooks, portable export pipeline                               │
+  └─────────┴───────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+  ---
+  Phase 4: Agent Co-Presence & World Evolution (v143+) — FUTURE
+
+  ┌─────────┬───────────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │ Version │                                                 What                                                  │
+  ├─────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ v143    │ Agent co-presence foundation — multi-inhabitant mounting, shared perception, inter-agent              │
+  │         │ communication                                                                                         │
+  ├─────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ v144    │ Dynamic encounters — emergent group behavior, encounter triggers, social coordination                 │
+  ├─────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ v145    │ World evolution — facility orchestration, environment state progression, substrate mutations          │
+  ├─────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ v146+   │ Council-backed multi-agent coordination, human+agent co-presence, broader world families              │
+  └─────────┴───────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+  ---
+  Cross-Cutting Systems
+
+  Coquina Procedural Generation — SPEC COMPLETE, NOT IMPLEMENTED
+
+  5 systems: Atoms, Structural Grammar, Aspectation Grammar, Palette Evolution, Observer Audit. 7 data contracts. All
+  outputs through _envNormalizeSceneObjectRecord(). No parallel scene model. Spec committed at 8599b3e + e730edb.
+
+  Object Taxonomy (12 categories)
+
+  1–4 implemented (support surfaces, solid blockers, portals, landmarks), 12 implemented (passive props). 5–11 spec'd
+  (utility objects, workstations, fabrication, containers, transport, tools, interface objects). Embodiments removed
+  from scene taxonomy.
+
+  Product Contracts (4 artifacts written)
+
+  PRODUCT_MANIFEST_SPEC.md, CHARACTER_COMMAND_REGISTRY.md (14 commands), CHARACTER_TEMPLATE_SPEC.md,
+  RUNTIME_AND_PRODUCT_DELIVERY_MATRIX_2026-03-25.md.
+
+  Three Shipping Modes
+
+  ┌──────────────────┬─────────────────────────────────────────────────────────────────────────────┬──────────────┐
+  │       Mode       │                                 What Ships                                  │   Capsule    │
+  ├──────────────────┼─────────────────────────────────────────────────────────────────────────────┼──────────────┤
+  │ Capsule-Free     │ Assets, scenes, manifests, metadata, static viewers                         │ No           │
+  ├──────────────────┼─────────────────────────────────────────────────────────────────────────────┼──────────────┤
+  │ Capsule-Optional │ Above + runtime metadata + integration descriptors                          │ Not required │
+  ├──────────────────┼─────────────────────────────────────────────────────────────────────────────┼──────────────┤
+  │ Capsule-Required │ Above + runtime shell, seed state, command/perception surfaces, live mirror │ Yes          │
+  └──────────────────┴─────────────────────────────────────────────────────────────────────────────┴──────────────┘
+
+  Three Brain Source Variations
+
+  ┌──────────────────────────┬────────────────────────────────────────────────────────────┬─────────────────┐
+  │        Variation         │                            What                            │     Capsule     │
+  ├──────────────────────────┼────────────────────────────────────────────────────────────┼─────────────────┤
+  │ Husk / Uninhabited       │ Embodiment + metadata, buyer controls state                │ No              │
+  ├──────────────────────────┼────────────────────────────────────────────────────────────┼─────────────────┤
+  │ Single-Model Character   │ Character + one configured model                           │ Not necessarily │
+  ├──────────────────────────┼────────────────────────────────────────────────────────────┼─────────────────┤
+  │ Capsule-Backed Character │ Character + runtime shell + memory/tools/workflows/council │ Yes             │
+  └──────────────────────────┴────────────────────────────────────────────────────────────┴─────────────────┘
+
+  ---
+  Delivery Gates
+
+  ┌───────────────────────────────┬───────────────────────────────────────────────────┐
+  │             Gate              │                      Status                       │
+  ├───────────────────────────────┼───────────────────────────────────────────────────┤
+  │ 0: Hydration Continuity       │ PASS 7/7 (3f39f79)                                │
+  ├───────────────────────────────┼───────────────────────────────────────────────────┤
+  │ 1: Contract Ready             │ Partial — specs written, schema not exercised     │
+  ├───────────────────────────────┼───────────────────────────────────────────────────┤
+  │ 2: Runtime Presence Ready     │ PASS (v132)                                       │
+  ├───────────────────────────────┼───────────────────────────────────────────────────┤
+  │ 3: Validation Habitat Ready   │ PASS (361c9dd)                                    │
+  ├───────────────────────────────┼───────────────────────────────────────────────────┤
+  │ 4: Grounding/Perception Ready │ PASS (4b41c92)                                    │
+  ├───────────────────────────────┼───────────────────────────────────────────────────┤
+  │ 5: Buyer API Ready            │ Not started                                       │
+  ├───────────────────────────────┼───────────────────────────────────────────────────┤
+  │ 6: Portable Character Ready   │ In progress — detection + contract derivation done │
+  ├───────────────────────────────┼───────────────────────────────────────────────────┤
+  │ 7: Product Export Ready       │ Not started                                       │
+  └───────────────────────────────┴───────────────────────────────────────────────────┘
+
+  Production Pipeline Lanes
+
+  ┌────────────────────────────────┬──────────────────────────────┐
+  │              Lane              │            Status            │
+  ├────────────────────────────────┼──────────────────────────────┤
+  │ A. Doctrine & Contracts        │ Active — specs committed     │
+  ├────────────────────────────────┼──────────────────────────────┤
+  │ B. Runtime Foundation          │ Complete                     │
+  ├────────────────────────────────┼──────────────────────────────┤
+  │ C. Validation Habitat          │ Complete                     │
+  ├────────────────────────────────┼──────────────────────────────┤
+  │ D. Character Runtime           │ In progress — v133 active    │
+  ├────────────────────────────────┼──────────────────────────────┤
+  │ E. Facility & Workflow Surface │ Spec'd                       │
+  ├────────────────────────────────┼──────────────────────────────┤
+  │ F. Buyer API Surface           │ Not started                  │
+  ├────────────────────────────────┼──────────────────────────────┤
+  │ G. Embodiment & Asset Lane     │ In progress — detection +    │
+  │                                │ contract derivation done      │
+  ├────────────────────────────────┼──────────────────────────────┤
+  │ H. Product Packaging           │ Not started                  │
+  ├────────────────────────────────┼──────────────────────────────┤
+  │ I. Buyer Integration           │ Not started                  │
+  └────────────────────────────────┴──────────────────────────────┘
+
+  ---
+  Capsule State (2026-03-28)
+
+  Generation 8, fitness 0.606151. Dreamer active: 1,523 rewards, 47 training cycles. FelixBag: 248 items. Council: 0/32
+   slots. Quine hash: 158484cd025711a83c6711b1fc5f266e, integrity verified. Persistence: local-only (not HF-backed).
+  Pack dataset migration to HF in progress (7,187 files, 4.1 GiB).
+
+  ---
+  Next Milestone
+
+  v133b.1: Animation Command Verbs. The browser/runtime slice is now landed:
+  mounted animation handlers exist, mounted `animation_surface` exports live state, mounted owned-surface controls can
+  drive dissimilar clips through the existing resolver/mixer/session plumbing, and menu/highlight sync bugs were fixed.
+  The remaining gap is upstream direct `env_control(character_*)` validation for raw animation verbs. Then v133b.2
+  queue/sequence semantics, then v133c blend tree.
+
+  Immediate Execution Notes (2026-03-28)
+
+  - Validate v133b.1 on humanoids first. Current best local cohort:
+    - `static/assets/packs/kenney-mini-characters-1/character-male-a.glb` — 32 clips
+    - `static/assets/packs/kenney-mini-characters-1/character-female-a.glb` — 32 clips
+    - `static/assets/packs/kenney-mini-dungeon/character-human.glb` — 32 clips
+    - `static/assets/packs/kenney-graveyard-kit/character-skeleton.glb` — 32 clips
+  - Current reliable agent-control ingress is:
+    - `open_surface`
+    - `surface_input`
+    - `surface_action`
+    against `mounted_primary`, which delegates into the same `character_*` handlers in `static/main.js`.
+  - Do not mix quadruped/animal scaffold or body-plan work into v133b.1.
+  - Animal embodiment remains a later family-specific lane after the humanoid command surface is stable.

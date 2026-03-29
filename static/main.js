@@ -140,7 +140,8 @@
             lastOk: false,
             lastTs: 0,
             scrollY: 0
-        }
+        },
+        surfaceFormState: {}
     };
     let _envNavigationState = {
         currentSnapshot: '',
@@ -1025,6 +1026,26 @@
         };
     }
 
+    function _envCreateInhabitantAnimationState() {
+        return {
+            available: false,
+            active_clip: '',
+            active_clip_raw: '',
+            active_clip_source: 'none',
+            paused: true,
+            loop_mode: 'repeat',
+            speed: 1,
+            override_active: false,
+            queue: [],
+            queue_cursor: 0,
+            contract_clip_count: 0,
+            native_clip_count: 0,
+            last_command: '',
+            last_reaction: '',
+            updated_ts: 0
+        };
+    }
+
     function _envCreateInhabitantRuntimeState() {
         return {
             enabled: false,
@@ -1049,6 +1070,7 @@
             spawn_point: { x: 50, y: 52 },
             character_asset_ref: '',
             nav: _envCreateInhabitantNavigationState(),
+            animation: _envCreateInhabitantAnimationState(),
             perception: _envCreateInhabitantPerceptionState(),
             last_spawn_ts: 0,
             last_update_ts: 0
@@ -1061,6 +1083,28 @@
             state.nav = _envCreateInhabitantNavigationState();
         }
         return state.nav;
+    }
+
+    function _envInhabitantAnimationState(runtimeState) {
+        var state = runtimeState && typeof runtimeState === 'object' && !Array.isArray(runtimeState)
+            ? runtimeState
+            : _envInhabitantRuntimeState();
+        if (!state.animation || typeof state.animation !== 'object' || Array.isArray(state.animation)) {
+            state.animation = _envCreateInhabitantAnimationState();
+        }
+        return state.animation;
+    }
+
+    function _envNormalizeCharacterAnimationLoop(value, fallback) {
+        var loop = String(value || fallback || 'repeat').trim().toLowerCase();
+        return loop === 'once' ? 'once' : 'repeat';
+    }
+
+    function _envClampCharacterAnimationSpeed(value, fallback) {
+        var speed = Number(value);
+        if (!(speed > 0)) speed = Number(fallback || 1);
+        if (!(speed > 0)) speed = 1;
+        return Math.max(0.25, Math.min(4, speed));
     }
 
     var _envRecastNav = {
@@ -1861,23 +1905,157 @@
         };
     }
 
+    function _envSetSurfaceBridgeState(command, target, ok, state) {
+        var current = _envHtmlPanelState.bridgeState && typeof _envHtmlPanelState.bridgeState === 'object'
+            ? _envHtmlPanelState.bridgeState
+            : {};
+        var nextState = state && typeof state === 'object' ? state : {};
+        _envHtmlPanelState.bridgeState = {
+            activeTab: String(nextState.activeTab !== undefined ? nextState.activeTab : (current.activeTab || '')),
+            activeSection: String(nextState.activeSection !== undefined ? nextState.activeSection : (current.activeSection || '')),
+            lastCommand: String(command || ''),
+            lastTarget: String(target || ''),
+            lastOk: !!ok,
+            lastTs: Date.now(),
+            scrollY: Number(nextState.scrollY !== undefined ? nextState.scrollY : (current.scrollY || 0))
+        };
+        _envScheduleLiveSync('panel:bridge', true);
+    }
+
+    function _envMountedCharacterSurfaceFormDefaults(runtimeSurface) {
+        var surface = runtimeSurface && typeof runtimeSurface === 'object'
+            ? runtimeSurface
+            : _envRefreshInhabitantRuntimeState('mounted_surface_defaults');
+        var animation = surface && surface.animation_surface && typeof surface.animation_surface === 'object'
+            ? surface.animation_surface
+            : _envCreateInhabitantAnimationState();
+        return {
+            'cc-anim-clip': String(animation.active_clip || 'idle').trim() || 'idle',
+            'cc-anim-loop': _envNormalizeCharacterAnimationLoop(animation.loop_mode || 'repeat', 'repeat'),
+            'cc-anim-speed': String(_envClampCharacterAnimationSpeed(animation.speed || 1, 1)),
+            'cc-anim-reaction': String(animation.last_reaction || 'greet').trim() || 'greet'
+        };
+    }
+
+    function _envMountedCharacterSurfaceFormState(runtimeSurface, syncFromRuntime) {
+        var current = _envHtmlPanelState.surfaceFormState && typeof _envHtmlPanelState.surfaceFormState === 'object'
+            ? Object.assign({}, _envHtmlPanelState.surfaceFormState)
+            : {};
+        var defaults = _envMountedCharacterSurfaceFormDefaults(runtimeSurface);
+        if (syncFromRuntime) {
+            current['cc-anim-clip'] = defaults['cc-anim-clip'];
+            current['cc-anim-loop'] = defaults['cc-anim-loop'];
+            current['cc-anim-speed'] = defaults['cc-anim-speed'];
+            current['cc-anim-reaction'] = String(current['cc-anim-reaction'] || defaults['cc-anim-reaction'] || '').trim()
+                || defaults['cc-anim-reaction'];
+        } else {
+            Object.keys(defaults).forEach(function (key) {
+                if (current[key] === undefined || current[key] === null || String(current[key]).trim() === '') {
+                    current[key] = defaults[key];
+                }
+            });
+        }
+        _envHtmlPanelState.surfaceFormState = current;
+        return current;
+    }
+
+    function _envMountedCharacterSurfaceFieldKey(target) {
+        var key = String(target || '').trim().toLowerCase();
+        if (!key) return '';
+        if (key === 'cc-anim-clip' || key === 'clip' || key === 'clip_name' || key === 'name') return 'cc-anim-clip';
+        if (key === 'cc-anim-loop' || key === 'loop' || key === 'loop_mode' || key === 'mode') return 'cc-anim-loop';
+        if (key === 'cc-anim-speed' || key === 'speed' || key === 'value') return 'cc-anim-speed';
+        if (key === 'cc-anim-reaction' || key === 'reaction' || key === 'reaction_name' || key === 'id') return 'cc-anim-reaction';
+        return '';
+    }
+
+    function _envDispatchMountedCharacterSurfaceCommand(command, envelope, actorName, reason) {
+        var formState = _envMountedCharacterSurfaceFormState(null, false);
+        var commandName = String(command || '').trim();
+        var actionName = String(envelope && (envelope.action || envelope.target) || '').trim();
+        var targetName = String(envelope && envelope.target || '').trim();
+        var ok = false;
+        var bridgeCommand = commandName;
+        if (commandName === 'surface_input') {
+            var fieldKey = _envMountedCharacterSurfaceFieldKey(targetName || actionName);
+            if (fieldKey) {
+                if (fieldKey === 'cc-anim-loop') formState[fieldKey] = _envNormalizeCharacterAnimationLoop(envelope.value, formState[fieldKey] || 'repeat');
+                else if (fieldKey === 'cc-anim-speed') formState[fieldKey] = String(_envClampCharacterAnimationSpeed(envelope.value, formState[fieldKey] || 1));
+                else formState[fieldKey] = String(envelope.value || '').trim();
+                _envHtmlPanelState.surfaceFormState = formState;
+                ok = true;
+            }
+            _envSetSurfaceBridgeState('surface_input', fieldKey || targetName || actionName, ok);
+            renderEnvironmentView();
+            return true;
+        }
+        if (commandName === 'surface_submit' && !actionName) actionName = 'play_clip_action';
+        if (commandName !== 'surface_action' && commandName !== 'surface_click' && commandName !== 'surface_submit') return false;
+        if (actionName === 'play_clip_action') {
+            bridgeCommand = 'character_play_clip';
+            ok = _envCharacterPlayClip(actorName, reason || 'surface play clip', JSON.stringify({
+                clip: String(formState['cc-anim-clip'] || 'idle').trim() || 'idle',
+                loop: _envNormalizeCharacterAnimationLoop(formState['cc-anim-loop'] || 'repeat', 'repeat'),
+                speed: _envClampCharacterAnimationSpeed(formState['cc-anim-speed'] || 1, 1),
+                override: true
+            }));
+        } else if (actionName === 'set_speed_action') {
+            bridgeCommand = 'character_set_speed';
+            ok = _envCharacterSetSpeed(actorName, reason || 'surface set speed', String(formState['cc-anim-speed'] || 1));
+        } else if (actionName === 'set_loop_action') {
+            bridgeCommand = 'character_set_loop';
+            ok = _envCharacterSetLoop(actorName, reason || 'surface set loop', String(formState['cc-anim-loop'] || 'repeat'));
+        } else if (actionName === 'stop_clip_action') {
+            bridgeCommand = 'character_stop_clip';
+            ok = _envCharacterStopClip(actorName, reason || 'surface stop clip');
+        } else if (actionName === 'get_state_action') {
+            bridgeCommand = 'character_get_animation_state';
+            ok = !!_envCharacterGetAnimationState(actorName, reason || 'surface get animation state');
+        } else if (actionName === 'play_reaction_action') {
+            bridgeCommand = 'character_play_reaction';
+            ok = _envCharacterPlayReaction(actorName, reason || 'surface play reaction', JSON.stringify({
+                reaction: String(formState['cc-anim-reaction'] || 'greet').trim() || 'greet',
+                loop: 'once'
+            }));
+        }
+        _envMountedCharacterSurfaceFormState(_envRefreshInhabitantRuntimeState('mounted_surface_bridge'), true);
+        _envSetSurfaceBridgeState(bridgeCommand, actionName, ok);
+        renderEnvironmentView();
+        return true;
+    }
+
     function _envHandleSurfaceBridgeMessage(msg) {
         var payload = msg && typeof msg === 'object' ? msg : null;
         if (!payload || payload.__env_surface_bridge__ !== 'cc:v1' || payload.direction !== 'surface_to_shell') return false;
         var activeKey = String(_envHtmlPanelState.objectKey || '').trim();
         var payloadKey = String(payload.objectKey || '').trim();
         if (!activeKey || !payloadKey || payloadKey !== activeKey) return true;
+        if (String(payload.command || '').trim() === 'queue_control') {
+            var bridgeAction = String(payload.action || '').trim();
+            if (bridgeAction) {
+                _envQueueControl(
+                    bridgeAction,
+                    payload.target === undefined || payload.target === null ? '' : String(payload.target),
+                    String(payload.actor || _envManualActorId() || 'assistant') || 'assistant',
+                    String(payload.note || 'surface bridge control'),
+                    Object.assign({}, payload.meta && typeof payload.meta === 'object' ? payload.meta : {}, {
+                        source: 'surface_bridge',
+                        object_key: activeKey
+                    })
+                );
+            }
+        }
         var state = payload.state && typeof payload.state === 'object' ? payload.state : {};
-        _envHtmlPanelState.bridgeState = {
-            activeTab: String(state.activeTab || ''),
-            activeSection: String(state.activeSection || ''),
-            lastCommand: String(payload.type || payload.command || ''),
-            lastTarget: String(payload.target || ''),
-            lastOk: !!payload.ok,
-            lastTs: Date.now(),
-            scrollY: Number(state.scrollY || 0)
-        };
-        _envScheduleLiveSync('panel:bridge', true);
+        _envSetSurfaceBridgeState(
+            String(
+                (String(payload.command || '').trim() === 'queue_control' && payload.action)
+                    ? payload.action
+                    : (payload.type || payload.command || '')
+            ),
+            String(payload.target || ''),
+            !!payload.ok,
+            state
+        );
         return true;
     }
 
@@ -8892,24 +9070,14 @@
         var desiredPaused = desired.preview_paused !== false;
         var desiredSpeed = Math.max(0.25, Math.min(4, Number(desired.preview_speed || 1)));
         var action = mesh.userData._currentAction || null;
-        var resolved = desiredClip ? _env3DResolveAnimationClip(mesh, desiredClip) : null;
+        var resolved = desiredClip ? _envCharacterResolveAnimationClip(mesh, desiredClip) : null;
         if (resolved && resolved.clip && mesh.userData._mixer) {
-            var nextAction = mesh.userData._mixer.clipAction(resolved.clip);
-            if (action && action !== nextAction) action.fadeOut(0.15);
-            nextAction.reset();
-            nextAction.enabled = true;
-            nextAction.clampWhenFinished = desiredLoop === 'once';
-            if (typeof nextAction.setLoop === 'function') {
-                var loopMode = desiredLoop === 'once' ? THREE.LoopOnce : THREE.LoopRepeat;
-                nextAction.setLoop(loopMode, loopMode === THREE.LoopOnce ? 1 : Infinity);
-            }
-            if (typeof nextAction.setEffectiveTimeScale === 'function') nextAction.setEffectiveTimeScale(desiredSpeed);
-            if (action && action !== nextAction) nextAction.fadeIn(0.15);
-            nextAction.play();
-            nextAction.paused = !!desiredPaused;
-            mesh.userData._currentAction = nextAction;
-            mesh.userData._currentClipName = resolved.name;
-            mesh.userData._currentClipSource = String(resolved.source || 'native');
+            _envCharacterApplyResolvedClip(mesh, resolved, {
+                loop: desiredLoop,
+                speed: desiredSpeed,
+                paused: desiredPaused,
+                fadeSeconds: 0.15
+            });
         } else if (action) {
             if (typeof action.setLoop === 'function') {
                 var activeLoop = desiredLoop === 'once' ? THREE.LoopOnce : THREE.LoopRepeat;
@@ -8919,10 +9087,20 @@
             if (typeof action.setEffectiveTimeScale === 'function') action.setEffectiveTimeScale(desiredSpeed);
             action.paused = !!desiredPaused;
         }
-        if (desiredClip) mesh.userData._previewClipName = desiredClip;
+        mesh.userData._previewClipName = desiredClip || '';
+        if (!desiredClip) mesh.userData._previewClipRawName = '';
         mesh.userData._previewLoop = desiredLoop;
         mesh.userData._previewPaused = !!desiredPaused;
         mesh.userData._previewSpeed = desiredSpeed;
+        _envPatchInhabitantAnimationState(_envInhabitantRuntimeState(), {
+            override_active: !!desiredClip,
+            loop_mode: desiredLoop,
+            speed: desiredSpeed,
+            paused: !!desiredPaused,
+            active_clip: desiredClip || '',
+            active_clip_raw: String((mesh.userData._previewClipRawName || mesh.userData._currentClipRawName || desiredClip) || ''),
+            active_clip_source: String((mesh.userData._currentClipSource || 'native') || 'native')
+        });
         return true;
     }
 
@@ -9084,6 +9262,147 @@
         return _envScene.inhabitant;
     }
 
+    function _envCharacterAnimationContractClipCount(sceneObject) {
+        var obj = sceneObject && typeof sceneObject === 'object' ? sceneObject : _envInhabitantObject();
+        var embodiment = obj ? _envSceneEmbodimentForObject(obj) : null;
+        var contract = embodiment && embodiment.animation_contract && typeof embodiment.animation_contract === 'object'
+            && !Array.isArray(embodiment.animation_contract)
+            ? embodiment.animation_contract
+            : null;
+        var count = 0;
+        ['locomotion', 'action', 'gesture', 'facial', 'transition'].forEach(function (channel) {
+            var entries = contract && contract[channel] && typeof contract[channel] === 'object' && !Array.isArray(contract[channel])
+                ? contract[channel]
+                : null;
+            if (!entries) return;
+            count += Object.keys(entries).length;
+        });
+        return count;
+    }
+
+    function _envBuildInhabitantAnimationSurface(runtimeState, mesh, sceneObject) {
+        var state = runtimeState && typeof runtimeState === 'object' && !Array.isArray(runtimeState)
+            ? runtimeState
+            : _envInhabitantRuntimeState();
+        var obj = sceneObject && typeof sceneObject === 'object'
+            ? sceneObject
+            : _envInhabitantObject();
+        var animation = _envInhabitantAnimationState(state);
+        var contractInventory = _env3DClipInventory(mesh, 'contract');
+        var nativeInventory = _env3DClipInventory(mesh, 'playback');
+        var playback = _envCharacterWorkbenchPlaybackState(mesh);
+        var action = mesh && mesh.userData ? mesh.userData._currentAction : null;
+        var activeClip = String(((mesh && mesh.userData && mesh.userData._previewClipName)
+            || (mesh && mesh.userData && mesh.userData._currentClipName)
+            || animation.active_clip
+            || '')).trim();
+        var activeClipRaw = String((action && action._clip && action._clip.name)
+            || (mesh && mesh.userData && mesh.userData._currentClipRawName)
+            || (mesh && mesh.userData && mesh.userData._previewClipRawName)
+            || animation.active_clip_raw
+            || activeClip).trim();
+        var overrideActive = !!animation.override_active;
+        if (!overrideActive && _envCharacterWorkbenchActive()) {
+            overrideActive = !!(mesh && mesh.userData && mesh.userData._previewClipName);
+        }
+        var next = {
+            available: !!(mesh && mesh.userData && mesh.userData._mixer && (((nativeInventory.list || []).length) || ((contractInventory.list || []).length))),
+            active_clip: activeClip,
+            active_clip_raw: activeClipRaw,
+            active_clip_source: String(((mesh && mesh.userData && mesh.userData._currentClipSource)
+                || animation.active_clip_source
+                || nativeInventory.source
+                || 'native')).trim() || 'native',
+            paused: !!playback.paused,
+            loop_mode: _envNormalizeCharacterAnimationLoop(playback.loopMode, animation.loop_mode || 'repeat'),
+            speed: _envClampCharacterAnimationSpeed(playback.speed, animation.speed || 1),
+            override_active: overrideActive,
+            queue: Array.isArray(animation.queue) ? _envCloneJson(animation.queue, []) : [],
+            queue_cursor: Math.max(0, Number(animation.queue_cursor || 0)),
+            contract_clip_count: Math.max(0, Number(_envCharacterAnimationContractClipCount(obj) || 0)),
+            native_clip_count: Math.max(0, Number(((nativeInventory.list || []).length) || 0)),
+            last_command: String(animation.last_command || ''),
+            last_reaction: String(animation.last_reaction || ''),
+            updated_ts: Number(animation.updated_ts || 0)
+        };
+        state.animation = Object.assign({}, animation, next);
+        return _envCloneJson(state.animation, _envCreateInhabitantAnimationState());
+    }
+
+    function _envMountedCharacterControlSurfaceHtml(runtimeSurface) {
+        var surface = runtimeSurface && typeof runtimeSurface === 'object' ? runtimeSurface : {};
+        var animation = surface.animation_surface && typeof surface.animation_surface === 'object'
+            ? surface.animation_surface
+            : _envCreateInhabitantAnimationState();
+        var activeClip = String(animation.active_clip || 'idle').trim() || 'idle';
+        var loopMode = _envNormalizeCharacterAnimationLoop(animation.loop_mode || 'repeat', 'repeat');
+        var speed = _envClampCharacterAnimationSpeed(animation.speed || 1, 1);
+        var reaction = String(animation.last_reaction || 'greet').trim() || 'greet';
+        var objectKey = _envInhabitantObjectKey();
+        var statePreview = {
+            active_clip: String(animation.active_clip || ''),
+            paused: !!animation.paused,
+            loop_mode: loopMode,
+            speed: speed,
+            override_active: !!animation.override_active,
+            native_clip_count: Number(animation.native_clip_count || 0),
+            contract_clip_count: Number(animation.contract_clip_count || 0),
+            last_command: String(animation.last_command || ''),
+            last_reaction: String(animation.last_reaction || '')
+        };
+        var objectKeyJson = JSON.stringify(String(objectKey || 'character_runtime::mounted_primary'));
+        return '' +
+            '<div style="font:12px/1.45 ui-monospace,SFMono-Regular,Consolas,monospace;padding:16px;color:#e7ecf4;background:#0f1722;min-height:100%;">' +
+            '<div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:14px;">' +
+            '<div><div style="font-size:13px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;">Mounted Character Animation</div>' +
+            '<div style="opacity:0.8;margin-top:4px;">Surface bridge into the existing <code>character_*</code> command lane.</div></div>' +
+            '<div style="text-align:right;opacity:0.86;"><div>clip count: ' + String(Number(animation.native_clip_count || 0)) + '</div><div>active: ' + _esc(activeClip) + '</div></div>' +
+            '</div>' +
+            '<div style="display:grid;grid-template-columns:1.4fr 0.7fr 0.7fr;gap:10px;align-items:end;">' +
+            '<label style="display:block;"><div style="margin-bottom:4px;opacity:0.86;">Clip</div><input id="cc-anim-clip" name="clip_name" value="' + _esc(activeClip) + '" placeholder="walk / die / emote-yes" style="width:100%;padding:8px 10px;border:1px solid #314052;background:#121a26;color:#f5f7fb;border-radius:8px;" /></label>' +
+            '<label style="display:block;"><div style="margin-bottom:4px;opacity:0.86;">Loop</div><select id="cc-anim-loop" name="loop_mode" style="width:100%;padding:8px 10px;border:1px solid #314052;background:#121a26;color:#f5f7fb;border-radius:8px;"><option value="repeat"' + (loopMode === 'repeat' ? ' selected' : '') + '>repeat</option><option value="once"' + (loopMode === 'once' ? ' selected' : '') + '>once</option></select></label>' +
+            '<label style="display:block;"><div style="margin-bottom:4px;opacity:0.86;">Speed</div><input id="cc-anim-speed" name="speed" type="number" min="0.25" max="4" step="0.25" value="' + _esc(String(speed)) + '" style="width:100%;padding:8px 10px;border:1px solid #314052;background:#121a26;color:#f5f7fb;border-radius:8px;" /></label>' +
+            '</div>' +
+            '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;">' +
+            '<button type="button" data-surface-action="play_clip_action" style="padding:8px 12px;border:0;border-radius:999px;background:#5eead4;color:#082f31;font-weight:700;cursor:pointer;">Play Clip</button>' +
+            '<button type="button" data-surface-action="set_speed_action" style="padding:8px 12px;border:1px solid #314052;border-radius:999px;background:#16202d;color:#f5f7fb;cursor:pointer;">Set Speed</button>' +
+            '<button type="button" data-surface-action="set_loop_action" style="padding:8px 12px;border:1px solid #314052;border-radius:999px;background:#16202d;color:#f5f7fb;cursor:pointer;">Set Loop</button>' +
+            '<button type="button" data-surface-action="stop_clip_action" style="padding:8px 12px;border:1px solid #5b2a2a;border-radius:999px;background:#2a1616;color:#ffd7d7;cursor:pointer;">Stop Clip</button>' +
+            '<button type="button" data-surface-action="get_state_action" style="padding:8px 12px;border:1px solid #314052;border-radius:999px;background:#16202d;color:#f5f7fb;cursor:pointer;">Get State</button>' +
+            '</div>' +
+            '<div style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end;margin-top:14px;">' +
+            '<label style="display:block;"><div style="margin-bottom:4px;opacity:0.86;">Reaction</div><input id="cc-anim-reaction" name="reaction_name" value="' + _esc(reaction) + '" placeholder="greet / death / hit" style="width:100%;padding:8px 10px;border:1px solid #314052;background:#121a26;color:#f5f7fb;border-radius:8px;" /></label>' +
+            '<button type="button" data-surface-action="play_reaction_action" style="padding:8px 12px;border:0;border-radius:999px;background:#f59e0b;color:#1f1302;font-weight:700;cursor:pointer;">Play Reaction</button>' +
+            '</div>' +
+            '<div style="margin-top:14px;"><div style="opacity:0.86;margin-bottom:6px;">Live Surface Snapshot</div><pre id="cc-anim-state-preview" style="margin:0;padding:10px 12px;border-radius:10px;background:#0b1119;border:1px solid #263140;color:#c8d5e6;white-space:pre-wrap;">' + _esc(JSON.stringify(statePreview, null, 2)) + '</pre></div>' +
+            '<script>(function(){' +
+            'var SURFACE_KEY=' + objectKeyJson + ';' +
+            'function byId(id){return document.getElementById(id);}' +
+            'function val(id,fallback){var el=byId(id);return el&&el.value!==undefined?String(el.value||""):String(fallback||"");}' +
+            'function state(){return{scrollY:Number(window.pageYOffset||0)};}' +
+            'function report(command,ok,target){try{parent.postMessage({__env_surface_bridge__:"cc:v1",direction:"surface_to_shell",type:String(command||"surface_state"),ok:!!ok,objectKey:SURFACE_KEY,target:String(target||""),state:state()},"*");}catch(_){}}' +
+            'function queue(action,target,note){try{parent.postMessage({__env_surface_bridge__:"cc:v1",direction:"surface_to_shell",command:"queue_control",objectKey:SURFACE_KEY,action:String(action||""),target:String(target||""),note:String(note||"surface bridge control"),ok:true,state:state()}, "*");return true;}catch(_){return false;}}' +
+            'function setField(target,value){var el=byId(target);if(!el)return false;try{if(el.value!==undefined)el.value=String(value||"");else el.textContent=String(value||"");if(el.dispatchEvent){el.dispatchEvent(new Event("input",{bubbles:true}));el.dispatchEvent(new Event("change",{bubbles:true}));}return true;}catch(_){return false;}}' +
+            'function playClip(){var clip=val("cc-anim-clip","").trim();if(!clip)return false;var payload={clip:clip,loop:val("cc-anim-loop","repeat"),speed:Number(val("cc-anim-speed","1")||1),override:true};return queue("character_play_clip",JSON.stringify(payload),"surface play clip");}' +
+            'function setSpeed(){return queue("character_set_speed",val("cc-anim-speed","1"),"surface set speed");}' +
+            'function setLoop(){return queue("character_set_loop",val("cc-anim-loop","repeat"),"surface set loop");}' +
+            'function stopClip(){return queue("character_stop_clip","","surface stop clip");}' +
+            'function getState(){return queue("character_get_animation_state","","surface get animation state");}' +
+            'function playReaction(){var reaction=val("cc-anim-reaction","").trim();if(!reaction)return false;return queue("character_play_reaction",JSON.stringify({reaction:reaction,loop:"once"}),"surface play reaction");}' +
+            'var handlers={play_clip_action:playClip,set_speed_action:setSpeed,set_loop_action:setLoop,stop_clip_action:stopClip,get_state_action:getState,play_reaction_action:playReaction};' +
+            'document.addEventListener("click",function(event){var target=event.target&&event.target.closest?event.target.closest("[data-surface-action]"):null;if(!target)return;var action=String(target.getAttribute("data-surface-action")||"");if(!handlers[action])return;event.preventDefault();var ok=handlers[action]();report("surface_action",ok,action);});' +
+            'window.addEventListener("message",function(event){var msg=event&&event.data&&typeof event.data==="object"?event.data:null;if(!msg||msg.__env_surface_bridge__!=="cc:v1"||msg.direction!=="shell_to_surface")return;if(msg.objectKey&&String(msg.objectKey)!==SURFACE_KEY)return;var handled=false;var command=String(msg.command||"");if(command==="surface_input"){handled=setField(String(msg.target||""),msg.value===undefined?"":msg.value);}else if(command==="surface_action"){var action=String(msg.action||"").trim();handled=!!(action&&handlers[action]&&handlers[action]());}else if(command==="surface_click"){var clickAction=String(msg.target||msg.action||"").trim();handled=!!(clickAction&&handlers[clickAction]&&handlers[clickAction]());}report(command,handled,String(msg.target||msg.action||""));});' +
+            'window.addEventListener("load",function(){report("surface_state",true,"load");});' +
+            '})();<\/script>' +
+            '</div>';
+    }
+
+    function _envCharacterAnimationOverrideActive(mesh, runtimeState) {
+        var animation = _envInhabitantAnimationState(runtimeState);
+        return !!animation.override_active
+            || (_envCharacterWorkbenchActive() && !!(mesh && mesh.userData && mesh.userData._previewClipName));
+    }
+
     function _envInhabitantRuntimeSurfaceSnapshot(runtimeState) {
         var state = runtimeState && typeof runtimeState === 'object' ? runtimeState : _envInhabitantRuntimeState();
         var perception = state && state.perception && typeof state.perception === 'object' && !Array.isArray(state.perception)
@@ -9092,11 +9411,16 @@
         var navState = state && state.nav && typeof state.nav === 'object' && !Array.isArray(state.nav)
             ? state.nav
             : _envCreateInhabitantNavigationState();
+        var mountedMesh = _envMountedRuntimeMesh();
+        var animationSceneObject = mountedMesh && mountedMesh.userData
+            && mountedMesh.userData.sceneObject && typeof mountedMesh.userData.sceneObject === 'object'
+            ? mountedMesh.userData.sceneObject
+            : {};
+        var animation = _envBuildInhabitantAnimationSurface(state, mountedMesh, animationSceneObject);
         var bootstrap = (_envScene && _envScene.bootstrap && typeof _envScene.bootstrap === 'object') ? _envScene.bootstrap : {};
         var navigation = (typeof _envNavigationState === 'object' && _envNavigationState) ? _envNavigationState : {};
         var environmentRef = String(navigation.currentSnapshot || bootstrap.snapshot_name || 'validation_habitat_v2_20260325');
         var lastSeenKeys = Object.keys(perception.last_seen || {});
-        var mountedMesh = _envMountedRuntimeMesh();
         var helperOverlays = mountedMesh && mountedMesh.userData && mountedMesh.userData._workbenchHelperOverlays
             && typeof mountedMesh.userData._workbenchHelperOverlays === 'object'
             ? mountedMesh.userData._workbenchHelperOverlays
@@ -9130,12 +9454,23 @@
             },
             command_surface: {
                 transport: 'env_control',
-                host_commands: ['character_mount', 'character_unmount', 'character_focus', 'character_move_to', 'character_stop', 'character_look_at', 'character_set_model'],
+                host_commands: [
+                    'character_mount', 'character_unmount', 'character_focus', 'character_move_to',
+                    'character_stop', 'character_look_at', 'character_set_model',
+                    'character_play_clip', 'character_queue_clips', 'character_stop_clip',
+                    'character_set_loop', 'character_set_speed', 'character_get_animation_state',
+                    'character_play_reaction'
+                ],
                 legacy_host_commands: ['spawn_inhabitant', 'despawn_inhabitant', 'focus_inhabitant'],
-                implemented_verbs: ['mount', 'unmount', 'focus', 'move_to', 'stop', 'look_at', 'set_model'],
+                implemented_verbs: [
+                    'mount', 'unmount', 'focus', 'move_to', 'stop', 'look_at', 'set_model',
+                    'play_clip', 'queue_clips', 'stop_clip', 'set_loop', 'set_speed',
+                    'get_animation_state', 'play_reaction'
+                ],
                 agent_bearing: false,
                 chat_overlay_eligible: false
             },
+            animation_surface: animation,
             navigation_surface: {
                 status: String(navState.status || 'idle'),
                 target_scene: _envCloneJson(navState.target_scene, null),
@@ -9222,6 +9557,8 @@
             scale: 1.08,
             meta: 'Mounted character runtime surface.',
             color: '#7dd3fc',
+            html: _envMountedCharacterControlSurfaceHtml(runtimeSurface),
+            panel_mode: 'fullscreen',
             appearance: characterAssetRef ? { asset_ref: characterAssetRef } : undefined,
             character: {
                 archetype: 'custom',
@@ -9248,6 +9585,7 @@
                 runtime_state: runtimeSurface.runtime_state,
                 mount_contract: runtimeSurface.mount_contract,
                 command_surface: runtimeSurface.command_surface,
+                animation_surface: runtimeSurface.animation_surface,
                 navigation_surface: runtimeSurface.navigation_surface,
                 perception_surface: runtimeSurface.perception_surface,
                 capability_surface: runtimeSurface.capability_surface,
@@ -11079,6 +11417,7 @@
             ? _envBuildInhabitantPerceptionState(state, obj, mesh, yaw)
             : _envCreateInhabitantPerceptionState();
         var nav = _envInhabitantNavigationState();
+        var animation = _envBuildInhabitantAnimationSurface(state, mesh, obj);
         var activity = enabled ? (String((nav || {}).status || 'idle') === 'moving' ? 'moving' : 'idle') : 'dormant';
         var next = Object.assign({}, state, {
             enabled: enabled,
@@ -11110,6 +11449,7 @@
             support_key: String(support.support_key || ''),
             support_kind: String(support.support_kind || ''),
             nav: _envCloneJson(nav, _envCreateInhabitantNavigationState()),
+            animation: animation,
             perception: perception,
             last_update_ts: Date.now()
         });
@@ -11383,6 +11723,466 @@
         });
         _envSetBadge('running', 'CHAR READY');
         _envRecastNavRefreshSurface('character:stop', true);
+        return true;
+    }
+
+    function _envResolveCharacterAnimationContext(actor, reason, fallbackBehavior) {
+        var actorName = String(actor || _envManualActorId() || 'assistant').trim() || 'assistant';
+        var obj = _envInhabitantObject();
+        if (!obj) obj = _envSetInhabitantEnabled(true, actorName, reason || 'character animation', fallbackBehavior || 'idle');
+        var state = _envInhabitantRuntimeState();
+        return {
+            actorName: actorName,
+            obj: obj,
+            mesh: _envMountedRuntimeMesh(),
+            state: state,
+            animation: _envInhabitantAnimationState(state)
+        };
+    }
+
+    function _envParseCharacterAnimationEnvelope(targetId) {
+        var raw = String(targetId || '').trim();
+        var parsed = raw ? _safeJsonParse(raw) : null;
+        return {
+            raw: raw,
+            parsed: parsed,
+            payload: parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null,
+            list: Array.isArray(parsed) ? parsed : null
+        };
+    }
+
+    function _envNormalizeCharacterAnimationQueue(value, defaults) {
+        var source = [];
+        var fallback = defaults && typeof defaults === 'object' && !Array.isArray(defaults) ? defaults : {};
+        if (Array.isArray(value)) source = value.slice();
+        else if (typeof value === 'string') source = String(value || '').split(',');
+        return source.map(function (entry) {
+            if (entry === undefined || entry === null) return null;
+            if (typeof entry === 'string') {
+                var clipName = String(entry || '').trim();
+                return clipName ? {
+                    clip: clipName,
+                    loop: _envNormalizeCharacterAnimationLoop(fallback.loop, 'repeat'),
+                    speed: _envClampCharacterAnimationSpeed(fallback.speed, 1)
+                } : null;
+            }
+            if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return null;
+            var clip = String(entry.clip || entry.name || entry.raw_name || '').trim();
+            if (!clip) return null;
+            return {
+                clip: clip,
+                loop: _envNormalizeCharacterAnimationLoop(entry.loop, fallback.loop || 'repeat'),
+                speed: _envClampCharacterAnimationSpeed(entry.speed, fallback.speed || 1)
+            };
+        }).filter(Boolean).slice(0, 16);
+    }
+
+    function _envCharacterResolveAnimationClip(mesh, desiredName) {
+        return _env3DResolveAnimationClip(mesh, desiredName, 'contract')
+            || _env3DResolveAnimationClip(mesh, desiredName, 'playback')
+            || _env3DResolveAnimationClip(mesh, desiredName);
+    }
+
+    function _envPatchInhabitantAnimationState(runtimeState, patch) {
+        var state = runtimeState && typeof runtimeState === 'object' && !Array.isArray(runtimeState)
+            ? runtimeState
+            : _envInhabitantRuntimeState();
+        var animation = _envInhabitantAnimationState(state);
+        var next = Object.assign({}, animation, patch || {});
+        if (patch && patch.hasOwnProperty('queue')) {
+            next.queue = Array.isArray(patch.queue) ? _envCloneJson(patch.queue, []) : [];
+        }
+        next.loop_mode = _envNormalizeCharacterAnimationLoop(next.loop_mode, animation.loop_mode || 'repeat');
+        next.speed = _envClampCharacterAnimationSpeed(next.speed, animation.speed || 1);
+        next.queue_cursor = Math.max(0, Number(next.queue_cursor || 0));
+        next.updated_ts = Date.now();
+        state.animation = next;
+        state.last_update_ts = next.updated_ts;
+        return next;
+    }
+
+    function _envMarkCharacterAnimationUiDirty() {
+        _envScene.dirty = true;
+        _envStageUiState.forceStageRebuild = true;
+    }
+
+    function _envCharacterApplyResolvedClip(mesh, resolved, options) {
+        if (!mesh || !mesh.userData || !mesh.userData._mixer || !resolved || !resolved.clip) return false;
+        var opts = options && typeof options === 'object' && !Array.isArray(options) ? options : {};
+        var prevAction = mesh.userData._currentAction || null;
+        var nextAction = mesh.userData._mixer.clipAction(resolved.clip);
+        var loopName = _envNormalizeCharacterAnimationLoop(opts.loop, mesh.userData._previewLoop || 'repeat');
+        var loopMode = loopName === 'once' ? THREE.LoopOnce : THREE.LoopRepeat;
+        var speed = _envClampCharacterAnimationSpeed(opts.speed, mesh.userData._previewSpeed || 1);
+        var paused = !!opts.paused;
+        var fadeSeconds = Math.max(0, Number(opts.fadeSeconds || 0.3));
+        if (prevAction && prevAction !== nextAction) prevAction.fadeOut(fadeSeconds);
+        nextAction.reset();
+        nextAction.enabled = true;
+        nextAction.paused = false;
+        nextAction.clampWhenFinished = loopMode === THREE.LoopOnce;
+        if (typeof nextAction.setEffectiveTimeScale === 'function') nextAction.setEffectiveTimeScale(speed);
+        if (typeof nextAction.setLoop === 'function') nextAction.setLoop(loopMode, loopMode === THREE.LoopOnce ? 1 : Infinity);
+        if (prevAction && prevAction !== nextAction) nextAction.fadeIn(fadeSeconds);
+        nextAction.play();
+        nextAction.paused = paused;
+        mesh.userData._currentAction = nextAction;
+        mesh.userData._currentClipName = String(resolved.name || '');
+        mesh.userData._currentClipRawName = String((resolved.clip && resolved.clip.name) || resolved.name || '');
+        mesh.userData._currentClipSource = String(resolved.source || 'native');
+        mesh.userData._previewClipName = String(resolved.name || '');
+        mesh.userData._previewClipRawName = String((resolved.clip && resolved.clip.name) || resolved.name || '');
+        mesh.userData._previewPaused = paused;
+        mesh.userData._previewLoop = loopName;
+        mesh.userData._previewSpeed = speed;
+        return true;
+    }
+
+    function _envCharacterClearClipOverride(mesh) {
+        if (!mesh || !mesh.userData) return false;
+        var action = mesh.userData._currentAction || null;
+        if (action && typeof action.stop === 'function') action.stop();
+        mesh.userData._currentAction = null;
+        mesh.userData._currentClipName = '';
+        mesh.userData._currentClipRawName = '';
+        mesh.userData._currentClipSource = 'native';
+        mesh.userData._previewClipName = '';
+        mesh.userData._previewClipRawName = '';
+        mesh.userData._previewPaused = false;
+        return true;
+    }
+
+    function _envCharacterPlayClip(actor, reason, targetId, fallbackOptions) {
+        var ctx = _envResolveCharacterAnimationContext(actor, reason || 'character play clip', 'idle');
+        var envelope = _envParseCharacterAnimationEnvelope(targetId);
+        var payload = envelope.payload;
+        var clipName = String((payload && (payload.clip || payload.name || payload.raw_name)) || envelope.raw || '').trim();
+        if (!ctx.mesh || !ctx.mesh.userData || !ctx.mesh.userData._mixer || !clipName) {
+            _envLogAction('character', 'Rejected character play_clip: clip or mixer unavailable', ctx.actorName, {
+                action: 'character_play_clip',
+                target: String(targetId || '')
+            });
+            _envEmitBus('character', 'Rejected character play_clip: clip or mixer unavailable', ctx.actorName, {
+                action: 'character_play_clip',
+                target: String(targetId || '')
+            });
+            _envSetBadge('warning', 'CHAR CLIP?');
+            renderEnvironmentView();
+            return false;
+        }
+        var resolved = _envCharacterResolveAnimationClip(ctx.mesh, clipName);
+        if (!resolved || !resolved.clip) {
+            _envLogAction('character', 'Rejected character play_clip: clip unresolved', ctx.actorName, {
+                action: 'character_play_clip',
+                target: clipName
+            });
+            _envEmitBus('character', 'Rejected character play_clip: clip unresolved', ctx.actorName, {
+                action: 'character_play_clip',
+                target: clipName
+            });
+            _envSetBadge('warning', 'NO CLIP');
+            renderEnvironmentView();
+            return false;
+        }
+        var fallback = fallbackOptions && typeof fallbackOptions === 'object' && !Array.isArray(fallbackOptions) ? fallbackOptions : {};
+        if (!_envCharacterApplyResolvedClip(ctx.mesh, resolved, {
+            loop: payload && payload.loop !== undefined ? payload.loop : fallback.loop,
+            speed: payload && payload.speed !== undefined ? payload.speed : fallback.speed,
+            paused: payload && payload.paused !== undefined ? payload.paused : fallback.paused,
+            fadeSeconds: payload && payload.fadeSeconds !== undefined ? payload.fadeSeconds : fallback.fadeSeconds
+        })) return false;
+        _envPatchInhabitantAnimationState(ctx.state, {
+            active_clip: String(resolved.name || ''),
+            active_clip_raw: String((resolved.clip && resolved.clip.name) || resolved.name || ''),
+            active_clip_source: String(resolved.source || 'native'),
+            paused: !!(ctx.mesh.userData && ctx.mesh.userData._previewPaused),
+            loop_mode: String((ctx.mesh.userData && ctx.mesh.userData._previewLoop) || 'repeat'),
+            speed: Number((ctx.mesh.userData && ctx.mesh.userData._previewSpeed) || 1),
+            override_active: payload && payload.override !== undefined ? !!payload.override : true,
+            queue: fallback.preserveQueue ? ctx.animation.queue : [],
+            queue_cursor: fallback.preserveQueue ? Math.max(0, Number(ctx.animation.queue_cursor || 0)) : 0,
+            last_command: 'character_play_clip'
+        });
+        _envRefreshInhabitantRuntimeState('character_play_clip');
+        _envLogAction('character', 'Playing character clip', ctx.actorName, {
+            action: 'character_play_clip',
+            clip: String(resolved.name || ''),
+            clip_raw: String((resolved.clip && resolved.clip.name) || resolved.name || ''),
+            source: String(resolved.source || 'native')
+        });
+        _envEmitBus('character', 'Playing character clip', ctx.actorName, {
+            action: 'character_play_clip',
+            object_key: _envInhabitantObjectKey(),
+            clip: String(resolved.name || ''),
+            clip_raw: String((resolved.clip && resolved.clip.name) || resolved.name || ''),
+            source: String(resolved.source || 'native')
+        });
+        _envSetBadge('running', 'CLIP ' + String((resolved.name || 'play')).toUpperCase());
+        _envScheduleLiveSync('character:play_clip', true);
+        _envSaveTheaterSession('character_play_clip');
+        _envMarkCharacterAnimationUiDirty();
+        renderEnvironmentView();
+        return true;
+    }
+
+    function _envCharacterQueueClips(actor, reason, targetId) {
+        var ctx = _envResolveCharacterAnimationContext(actor, reason || 'character queue clips', 'idle');
+        var envelope = _envParseCharacterAnimationEnvelope(targetId);
+        var payload = envelope.payload;
+        var queue = _envNormalizeCharacterAnimationQueue(
+            envelope.list || (payload ? (payload.queue || payload.clips || []) : envelope.raw),
+            payload || {}
+        );
+        if (!queue.length) {
+            _envLogAction('character', 'Rejected character queue_clips: queue empty', ctx.actorName, {
+                action: 'character_queue_clips',
+                target: String(targetId || '')
+            });
+            _envEmitBus('character', 'Rejected character queue_clips: queue empty', ctx.actorName, {
+                action: 'character_queue_clips',
+                target: String(targetId || '')
+            });
+            _envSetBadge('warning', 'QUEUE?');
+            renderEnvironmentView();
+            return false;
+        }
+        var autoStart = payload ? payload.autostart !== false : true;
+        if (autoStart && ctx.mesh && ctx.mesh.userData && ctx.mesh.userData._mixer) {
+            var first = queue[0];
+            var resolved = _envCharacterResolveAnimationClip(ctx.mesh, first.clip);
+            if (resolved && resolved.clip) {
+                _envCharacterApplyResolvedClip(ctx.mesh, resolved, {
+                    loop: first.loop,
+                    speed: first.speed,
+                    paused: false,
+                    fadeSeconds: 0.3
+                });
+            }
+        }
+        _envPatchInhabitantAnimationState(ctx.state, {
+            active_clip: String((ctx.mesh && ctx.mesh.userData && ctx.mesh.userData._previewClipName) || ctx.animation.active_clip || ''),
+            active_clip_raw: String((ctx.mesh && ctx.mesh.userData && (ctx.mesh.userData._previewClipRawName || ctx.mesh.userData._currentClipRawName)) || ctx.animation.active_clip_raw || ''),
+            active_clip_source: String((ctx.mesh && ctx.mesh.userData && ctx.mesh.userData._currentClipSource) || ctx.animation.active_clip_source || 'native'),
+            paused: !!(ctx.mesh && ctx.mesh.userData && ctx.mesh.userData._previewPaused),
+            loop_mode: String((ctx.mesh && ctx.mesh.userData && ctx.mesh.userData._previewLoop) || ctx.animation.loop_mode || 'repeat'),
+            speed: Number((ctx.mesh && ctx.mesh.userData && ctx.mesh.userData._previewSpeed) || ctx.animation.speed || 1),
+            override_active: autoStart,
+            queue: queue,
+            queue_cursor: 0,
+            last_command: 'character_queue_clips'
+        });
+        _envRefreshInhabitantRuntimeState('character_queue_clips');
+        _envLogAction('character', 'Queued character clips', ctx.actorName, {
+            action: 'character_queue_clips',
+            clip_count: queue.length,
+            queued: queue
+        });
+        _envEmitBus('character', 'Queued character clips', ctx.actorName, {
+            action: 'character_queue_clips',
+            object_key: _envInhabitantObjectKey(),
+            clip_count: queue.length,
+            queued: queue
+        });
+        _envSetBadge('running', 'QUEUE ' + String(queue.length));
+        _envScheduleLiveSync('character:queue_clips', true);
+        _envSaveTheaterSession('character_queue_clips');
+        _envMarkCharacterAnimationUiDirty();
+        renderEnvironmentView();
+        return true;
+    }
+
+    function _envCharacterStopClip(actor, reason) {
+        var ctx = _envResolveCharacterAnimationContext(actor, reason || 'character stop clip', 'idle');
+        if (!ctx.mesh || !ctx.mesh.userData) {
+            _envSetBadge('warning', 'NO CLIP');
+            renderEnvironmentView();
+            return false;
+        }
+        _envCharacterClearClipOverride(ctx.mesh);
+        _envPatchInhabitantAnimationState(ctx.state, {
+            active_clip: '',
+            active_clip_raw: '',
+            active_clip_source: 'none',
+            paused: false,
+            override_active: false,
+            queue: [],
+            queue_cursor: 0,
+            last_command: 'character_stop_clip'
+        });
+        _envRefreshInhabitantRuntimeState('character_stop_clip');
+        _envLogAction('character', 'Stopped character clip override', ctx.actorName, {
+            action: 'character_stop_clip',
+            object_key: _envInhabitantObjectKey()
+        });
+        _envEmitBus('character', 'Stopped character clip override', ctx.actorName, {
+            action: 'character_stop_clip',
+            object_key: _envInhabitantObjectKey()
+        });
+        _envSetBadge('running', 'CLIP STOP');
+        _envScheduleLiveSync('character:stop_clip', true);
+        _envSaveTheaterSession('character_stop_clip');
+        _envMarkCharacterAnimationUiDirty();
+        renderEnvironmentView();
+        return true;
+    }
+
+    function _envCharacterSetLoop(actor, reason, targetId) {
+        var ctx = _envResolveCharacterAnimationContext(actor, reason || 'character set loop', 'idle');
+        var envelope = _envParseCharacterAnimationEnvelope(targetId);
+        var payload = envelope.payload;
+        var loopName = _envNormalizeCharacterAnimationLoop(
+            payload ? (payload.loop !== undefined ? payload.loop : payload.mode) : envelope.raw,
+            (ctx.mesh && ctx.mesh.userData && ctx.mesh.userData._previewLoop) || ctx.animation.loop_mode || 'repeat'
+        );
+        var action = ctx.mesh && ctx.mesh.userData ? ctx.mesh.userData._currentAction : null;
+        if (ctx.mesh && ctx.mesh.userData) ctx.mesh.userData._previewLoop = loopName;
+        if (action && typeof action.setLoop === 'function') {
+            var loopMode = loopName === 'once' ? THREE.LoopOnce : THREE.LoopRepeat;
+            action.setLoop(loopMode, loopMode === THREE.LoopOnce ? 1 : Infinity);
+            action.clampWhenFinished = loopMode === THREE.LoopOnce;
+        }
+        _envPatchInhabitantAnimationState(ctx.state, {
+            loop_mode: loopName,
+            paused: !!(ctx.mesh && ctx.mesh.userData && ctx.mesh.userData._previewPaused),
+            speed: Number((ctx.mesh && ctx.mesh.userData && ctx.mesh.userData._previewSpeed) || ctx.animation.speed || 1),
+            override_active: !!((ctx.mesh && ctx.mesh.userData && ctx.mesh.userData._previewClipName) || ctx.animation.override_active),
+            last_command: 'character_set_loop'
+        });
+        _envRefreshInhabitantRuntimeState('character_set_loop');
+        _envLogAction('character', 'Updated character animation loop', ctx.actorName, {
+            action: 'character_set_loop',
+            loop_mode: loopName
+        });
+        _envEmitBus('character', 'Updated character animation loop', ctx.actorName, {
+            action: 'character_set_loop',
+            object_key: _envInhabitantObjectKey(),
+            loop_mode: loopName
+        });
+        _envSetBadge('running', loopName === 'once' ? 'ONCE' : 'LOOP');
+        _envScheduleLiveSync('character:set_loop', true);
+        _envSaveTheaterSession('character_set_loop');
+        _envMarkCharacterAnimationUiDirty();
+        renderEnvironmentView();
+        return true;
+    }
+
+    function _envCharacterSetSpeed(actor, reason, targetId) {
+        var ctx = _envResolveCharacterAnimationContext(actor, reason || 'character set speed', 'idle');
+        var envelope = _envParseCharacterAnimationEnvelope(targetId);
+        var payload = envelope.payload;
+        var speed = _envClampCharacterAnimationSpeed(
+            payload ? (payload.speed !== undefined ? payload.speed : payload.value) : envelope.raw,
+            (ctx.mesh && ctx.mesh.userData && ctx.mesh.userData._previewSpeed) || ctx.animation.speed || 1
+        );
+        var action = ctx.mesh && ctx.mesh.userData ? ctx.mesh.userData._currentAction : null;
+        if (ctx.mesh && ctx.mesh.userData) ctx.mesh.userData._previewSpeed = speed;
+        if (action && typeof action.setEffectiveTimeScale === 'function') action.setEffectiveTimeScale(speed);
+        _envPatchInhabitantAnimationState(ctx.state, {
+            speed: speed,
+            paused: !!(ctx.mesh && ctx.mesh.userData && ctx.mesh.userData._previewPaused),
+            loop_mode: String((ctx.mesh && ctx.mesh.userData && ctx.mesh.userData._previewLoop) || ctx.animation.loop_mode || 'repeat'),
+            override_active: !!((ctx.mesh && ctx.mesh.userData && ctx.mesh.userData._previewClipName) || ctx.animation.override_active),
+            last_command: 'character_set_speed'
+        });
+        _envRefreshInhabitantRuntimeState('character_set_speed');
+        _envLogAction('character', 'Updated character animation speed', ctx.actorName, {
+            action: 'character_set_speed',
+            speed: speed
+        });
+        _envEmitBus('character', 'Updated character animation speed', ctx.actorName, {
+            action: 'character_set_speed',
+            object_key: _envInhabitantObjectKey(),
+            speed: speed
+        });
+        _envSetBadge('running', 'SPD ' + String(speed));
+        _envScheduleLiveSync('character:set_speed', true);
+        _envSaveTheaterSession('character_set_speed');
+        _envMarkCharacterAnimationUiDirty();
+        renderEnvironmentView();
+        return true;
+    }
+
+    function _envCharacterGetAnimationState(actor, reason) {
+        var ctx = _envResolveCharacterAnimationContext(actor, reason || 'character animation state', 'idle');
+        var surface = _envBuildInhabitantAnimationSurface(ctx.state, ctx.mesh, ctx.obj);
+        _envLogAction('character', 'Read character animation state', ctx.actorName, {
+            action: 'character_get_animation_state',
+            active_clip: String(surface.active_clip || ''),
+            paused: !!surface.paused,
+            contract_clip_count: Number(surface.contract_clip_count || 0),
+            native_clip_count: Number(surface.native_clip_count || 0)
+        });
+        _envEmitBus('character', 'Read character animation state', ctx.actorName, {
+            action: 'character_get_animation_state',
+            object_key: _envInhabitantObjectKey(),
+            active_clip: String(surface.active_clip || ''),
+            paused: !!surface.paused
+        });
+        return _envCloneJson(surface, _envCreateInhabitantAnimationState());
+    }
+
+    function _envCharacterReactionClipRequest(reactionId) {
+        var reaction = _env3DNormalizeClipName(reactionId);
+        if (reaction === 'hit' || reaction === 'death' || reaction === 'block' || reaction === 'talk' || reaction === 'emote' || reaction === 'sleep' || reaction === 'idle' || reaction === 'attack') {
+            return reaction;
+        }
+        if (reaction === 'pickup') return 'pickup';
+        if (reaction === 'run') return 'run';
+        if (reaction === 'walk') return 'walk';
+        if (reaction === 'blink') return 'blink';
+        var lookup = {
+            greet: 'emote',
+            acknowledge: 'emote',
+            yes: 'emote',
+            deny: 'emote',
+            no: 'emote',
+            alert: 'talk',
+            hurt: 'hit',
+            damage: 'hit',
+            flinch: 'hit',
+            die: 'death',
+            pickup: 'pickup',
+            idle_reset: 'idle',
+            locomotion_start: 'walk',
+            locomotion_stop: 'idle'
+        };
+        return String(lookup[reaction] || reaction || 'idle');
+    }
+
+    function _envCharacterPlayReaction(actor, reason, targetId) {
+        var envelope = _envParseCharacterAnimationEnvelope(targetId);
+        var payload = envelope.payload;
+        var reactionId = String((payload && (payload.reaction || payload.id || payload.name)) || envelope.raw || '').trim();
+        var requested = _envCharacterReactionClipRequest(reactionId);
+        var ok = _envCharacterPlayClip(actor, reason || 'character play reaction', JSON.stringify({
+            clip: requested,
+            loop: payload && payload.loop !== undefined ? payload.loop : (requested === 'death' ? 'once' : 'repeat'),
+            speed: payload && payload.speed !== undefined ? payload.speed : 1,
+            override: true
+        }));
+        if (!ok) return false;
+        var state = _envInhabitantRuntimeState();
+        _envPatchInhabitantAnimationState(state, {
+            last_command: 'character_play_reaction',
+            last_reaction: reactionId || requested
+        });
+        _envRefreshInhabitantRuntimeState('character_play_reaction');
+        _envLogAction('character', 'Played character reaction', String(actor || _envManualActorId() || 'assistant').trim() || 'assistant', {
+            action: 'character_play_reaction',
+            reaction: reactionId || requested,
+            clip: requested
+        });
+        _envEmitBus('character', 'Played character reaction', String(actor || _envManualActorId() || 'assistant').trim() || 'assistant', {
+            action: 'character_play_reaction',
+            object_key: _envInhabitantObjectKey(),
+            reaction: reactionId || requested,
+            clip: requested
+        });
+        _envSetBadge('running', 'REACT ' + String((reactionId || requested || 'clip')).toUpperCase());
+        _envScheduleLiveSync('character:play_reaction', true);
+        _envSaveTheaterSession('character_play_reaction');
+        _envMarkCharacterAnimationUiDirty();
+        renderEnvironmentView();
         return true;
     }
 
@@ -11849,8 +12649,33 @@
         return routes;
     }
 
-    function _envSceneResolveControlTargetKey(action, target) {
+    var _envCharacterCommandAliases = {
+        'character.spawn': 'character_mount',
+        'character.despawn': 'character_unmount',
+        'character.mount': 'character_mount',
+        'character.unmount': 'character_unmount',
+        'character.focus': 'character_focus',
+        'character.set_model': 'character_set_model',
+        'character.move_to': 'character_move_to',
+        'character.stop': 'character_stop',
+        'character.look_at': 'character_look_at',
+        'character.play_clip': 'character_play_clip',
+        'character.queue_clips': 'character_queue_clips',
+        'character.stop_clip': 'character_stop_clip',
+        'character.set_loop': 'character_set_loop',
+        'character.set_speed': 'character_set_speed',
+        'character.get_animation_state': 'character_get_animation_state',
+        'character.play_reaction': 'character_play_reaction'
+    };
+
+    function _envNormalizeCharacterCommandAlias(action) {
         var command = String(action || '').trim().toLowerCase();
+        if (!command) return '';
+        return String(_envCharacterCommandAliases[command] || command);
+    }
+
+    function _envSceneResolveControlTargetKey(action, target) {
+        var command = _envNormalizeCharacterCommandAlias(action);
         var targetId = String(target || '').trim();
         var latestSample = (_envKernel.samples || [])[0] || null;
         var latestBranch = (_envKernel.branches || [])[0] || null;
@@ -11890,7 +12715,10 @@
         if (command === 'branch_snapshot') return latestBranch ? ('branch::' + String(latestBranch.id || '')) : '';
         if (command === 'spawn_inhabitant' || command === 'despawn_inhabitant' || command === 'focus_inhabitant'
             || command === 'character_mount' || command === 'character_unmount' || command === 'character_focus'
-            || command === 'character_move_to' || command === 'character_stop' || command === 'character_look_at') return _envInhabitantObjectKey();
+            || command === 'character_move_to' || command === 'character_stop' || command === 'character_look_at'
+            || command === 'character_play_clip' || command === 'character_queue_clips' || command === 'character_stop_clip'
+            || command === 'character_set_loop' || command === 'character_set_speed'
+            || command === 'character_get_animation_state' || command === 'character_play_reaction') return _envInhabitantObjectKey();
         if (command === 'set_theater_mode') return _envScenePrimarySnapshotName() ? ('scene::' + _envScenePrimarySnapshotName()) : 'scene::scene';
         if (command === 'set_camera_mode'
             || command === 'camera_frame_overview'
@@ -16797,9 +17625,10 @@
     function _envQueueControl(action, target, actor, note, meta) {
         var actorName = _envNormalizeActorId(actor || _envManualActorId() || 'assistant') || 'assistant';
         var lane = _envActorEnsureLane(actorName);
+        var normalizedAction = _envNormalizeCharacterCommandAlias(action);
         var item = {
             id: _envActionId('ingress'),
-            action: String(action || '').trim(),
+            action: normalizedAction,
             target: String(target || '').trim(),
             actor: actorName,
             note: String(note || '').trim(),
@@ -18007,7 +18836,7 @@
     }
 
     function _envExecuteControlCommand(action, target, actor, note) {
-        var command = String(action || '').trim();
+        var command = _envNormalizeCharacterCommandAlias(action);
         var actorName = String(actor || 'assistant').trim() || 'assistant';
         var targetId = String(target || '').trim();
         var reason = String(note || '').trim();
@@ -18384,8 +19213,9 @@
             _envSetBadge('running', modelRef ? 'MODEL SET' : 'MODEL CLR');
             _envScheduleLiveSync('character_runtime:set_model', true);
             _envSaveTheaterSession('character_set_model');
-            if (_env3D.inited) _envSyncHabitatScene();
-            else renderEnvironmentView();
+            _envScene.dirty = true;
+            _envStageUiState.forceStageRebuild = true;
+            renderEnvironmentView();
             return;
         }
         if (command === 'spawn_inhabitant' || command === 'character_mount') {
@@ -18410,6 +19240,34 @@
         }
         if (command === 'character_look_at') {
             _envCharacterLookAt(actorName, reason || 'control character look', targetId);
+            return;
+        }
+        if (command === 'character_play_clip') {
+            _envCharacterPlayClip(actorName, reason || 'control character play clip', targetId);
+            return;
+        }
+        if (command === 'character_queue_clips') {
+            _envCharacterQueueClips(actorName, reason || 'control character queue clips', targetId);
+            return;
+        }
+        if (command === 'character_stop_clip') {
+            _envCharacterStopClip(actorName, reason || 'control character stop clip');
+            return;
+        }
+        if (command === 'character_set_loop') {
+            _envCharacterSetLoop(actorName, reason || 'control character set loop', targetId);
+            return;
+        }
+        if (command === 'character_set_speed') {
+            _envCharacterSetSpeed(actorName, reason || 'control character set speed', targetId);
+            return;
+        }
+        if (command === 'character_get_animation_state') {
+            _envCharacterGetAnimationState(actorName, reason || 'control character animation state');
+            return;
+        }
+        if (command === 'character_play_reaction') {
+            _envCharacterPlayReaction(actorName, reason || 'control character play reaction', targetId);
             return;
         }
         if (command === 'set_theater_mode') {
@@ -21737,6 +22595,10 @@
         var activeKey = String(_envHtmlPanelState.objectKey || '').trim();
         if (!activeKey) return false;
         if (envelope.objectKey && envelope.objectKey !== activeKey) return false;
+        var surfaceObj = envelope.object || _envSceneObjectByKey(activeKey);
+        if (_envIsMountedCharacterRuntimeObject(surfaceObj)) {
+            return _envDispatchMountedCharacterSurfaceCommand(command, envelope, actorName, reason);
+        }
         var frame = _envActiveSurfaceFrame();
         if (!frame || !frame.contentWindow) return false;
         try {
@@ -21908,8 +22770,12 @@
                 lastOk: false,
                 lastTs: 0,
                 scrollY: 0
-            }
+            },
+            surfaceFormState: {}
         };
+        if (_envIsMountedCharacterRuntimeObject(sourceObj)) {
+            _envHtmlPanelState.surfaceFormState = _envMountedCharacterSurfaceFormDefaults(_envRefreshInhabitantRuntimeState('panel_open'));
+        }
         // Panel possession: save previous focus and shift to panel
         _envPanelPreviousFocus = _envKernel.focus ? Object.assign({}, _envKernel.focus) : null;
         var panelActorName = _envNormalizeActorId(actor || 'assistant') || 'assistant';
@@ -21965,7 +22831,8 @@
                 lastOk: false,
                 lastTs: 0,
                 scrollY: 0
-            }
+            },
+            surfaceFormState: {}
         };
         // Restore focus to previous state (or scene) when panel closes
         var closeActorName = _envNormalizeActorId(actor || 'assistant') || 'assistant';
@@ -33091,6 +33958,9 @@
             );
             _envFlushDeferredMutationCapture(_env3DObjectKey(obj), 'settled');
             _envApplyTheaterSessionLive('asset_ready');
+            _envScene.dirty = true;
+            _envStageUiState.forceStageRebuild = true;
+            renderEnvironmentView();
         });
     }
 
@@ -34976,7 +35846,9 @@
                 mesh.userData._moving = false;
                 mesh.userData._waypoints = null;
             }
-            var previewOverrideActive = _envCharacterWorkbenchActive() && !!(mesh.userData && mesh.userData._previewClipName);
+            var previewOverrideActive = _envIsMountedCharacterRuntimeObject((mesh.userData || {}).sceneObject || null)
+                ? _envCharacterAnimationOverrideActive(mesh, _envInhabitantRuntimeState())
+                : (_envCharacterWorkbenchActive() && !!(mesh.userData && mesh.userData._previewClipName));
             if (mesh.userData._mixer && mesh.userData._clips && !previewOverrideActive) {
                 var desiredClip = mesh.userData._moving ? 'walk'
                     : (state === 'running' ? 'run'
@@ -36215,6 +37087,13 @@
              '<option value="character_move_to">character_move_to</option>' +
              '<option value="character_stop">character_stop</option>' +
              '<option value="character_look_at">character_look_at</option>' +
+             '<option value="character_play_clip">character_play_clip</option>' +
+             '<option value="character_queue_clips">character_queue_clips</option>' +
+             '<option value="character_stop_clip">character_stop_clip</option>' +
+             '<option value="character_set_loop">character_set_loop</option>' +
+             '<option value="character_set_speed">character_set_speed</option>' +
+             '<option value="character_get_animation_state">character_get_animation_state</option>' +
+             '<option value="character_play_reaction">character_play_reaction</option>' +
              '<option value="focus_replay">focus_replay</option>' +
              '<option value="branch_snapshot">branch_snapshot</option>' +
              '<option value="focus_workflow">focus_workflow</option>' +
@@ -43346,39 +44225,8 @@
                     return;
                 }
                 if (action === 'workbench-play-clip') {
-                    var playMesh = _envMountedRuntimeMesh();
                     var clipName = String(actionEl.getAttribute('data-env-clip-name') || '').trim();
-                    if (playMesh && playMesh.userData && playMesh.userData._mixer && clipName) {
-                        var resolved = _env3DResolveAnimationClip(playMesh, clipName);
-                        if (resolved && resolved.clip) {
-                            var prevAction = playMesh.userData._currentAction;
-                            var nextAction = playMesh.userData._mixer.clipAction(resolved.clip);
-                            var speed = playMesh.userData._previewSpeed !== undefined && playMesh.userData._previewSpeed !== null
-                                ? Number(playMesh.userData._previewSpeed)
-                                : 1;
-                            var loopMode = String(playMesh.userData._previewLoop || 'repeat') === 'once'
-                                ? THREE.LoopOnce
-                                : THREE.LoopRepeat;
-                            if (prevAction && prevAction !== nextAction) prevAction.fadeOut(0.3);
-                            nextAction.reset();
-                            nextAction.enabled = true;
-                            nextAction.paused = false;
-                            nextAction.clampWhenFinished = loopMode === THREE.LoopOnce;
-                            if (typeof nextAction.setEffectiveTimeScale === 'function') nextAction.setEffectiveTimeScale(speed > 0 ? speed : 1);
-                            if (typeof nextAction.setLoop === 'function') nextAction.setLoop(loopMode, loopMode === THREE.LoopOnce ? 1 : Infinity);
-                            if (prevAction && prevAction !== nextAction) nextAction.fadeIn(0.3);
-                            nextAction.play();
-                            playMesh.userData._currentAction = nextAction;
-                            playMesh.userData._currentClipName = resolved.name;
-                            playMesh.userData._currentClipSource = String(resolved.source || 'native');
-                            playMesh.userData._previewClipName = resolved.name;
-                            playMesh.userData._previewPaused = false;
-                            if (!playMesh.userData._previewLoop) playMesh.userData._previewLoop = loopMode === THREE.LoopOnce ? 'once' : 'repeat';
-                            if (!(Number(playMesh.userData._previewSpeed) > 0)) playMesh.userData._previewSpeed = 1;
-                            _envSaveTheaterSession('workbench:play_clip');
-                            renderEnvironmentView();
-                        }
-                    }
+                    if (clipName) _envQueueControl('character_play_clip', JSON.stringify({ clip: clipName, override: true }), uiActor, 'workbench play clip');
                     return;
                 }
                 if (action === 'workbench-toggle-pause') {
@@ -43388,34 +44236,22 @@
                         pauseAction.paused = !pauseAction.paused;
                         if (pauseMesh && pauseMesh.userData) pauseMesh.userData._previewPaused = !!pauseAction.paused;
                         _envSaveTheaterSession('workbench:pause');
+                        _envMarkCharacterAnimationUiDirty();
                         renderEnvironmentView();
                     }
                     return;
                 }
                 if (action === 'workbench-set-speed') {
-                    var speedMesh = _envMountedRuntimeMesh();
-                    var speedAction = speedMesh && speedMesh.userData ? speedMesh.userData._currentAction : null;
                     var speedValue = Number(actionEl.getAttribute('data-env-speed') || 1);
                     if (!(speedValue > 0)) speedValue = 1;
-                    if (speedAction && typeof speedAction.setEffectiveTimeScale === 'function') {
-                        speedAction.setEffectiveTimeScale(speedValue);
-                    }
-                    if (speedMesh && speedMesh.userData) speedMesh.userData._previewSpeed = speedValue;
-                    _envSaveTheaterSession('workbench:speed');
-                    renderEnvironmentView();
+                    _envQueueControl('character_set_speed', String(speedValue), uiActor, 'workbench set speed');
                     return;
                 }
                 if (action === 'workbench-toggle-loop') {
                     var loopMesh = _envMountedRuntimeMesh();
-                    var loopAction = loopMesh && loopMesh.userData ? loopMesh.userData._currentAction : null;
-                    if (loopAction) {
-                        var nextLoop = loopAction.loop === THREE.LoopRepeat ? THREE.LoopOnce : THREE.LoopRepeat;
-                        if (typeof loopAction.setLoop === 'function') loopAction.setLoop(nextLoop, nextLoop === THREE.LoopOnce ? 1 : Infinity);
-                        loopAction.clampWhenFinished = nextLoop === THREE.LoopOnce;
-                        if (loopMesh && loopMesh.userData) loopMesh.userData._previewLoop = nextLoop === THREE.LoopOnce ? 'once' : 'repeat';
-                        _envSaveTheaterSession('workbench:loop');
-                        renderEnvironmentView();
-                    }
+                    var playbackState = _envCharacterWorkbenchPlaybackState(loopMesh);
+                    var nextLoopName = playbackState.loopMode === 'once' ? 'repeat' : 'once';
+                    _envQueueControl('character_set_loop', nextLoopName, uiActor, 'workbench toggle loop');
                     return;
                 }
                 if (action === 'workbench-toggle-skeleton') {
@@ -44148,8 +44984,58 @@
         }
         _envQueueControl('character_look_at', payload, actor || 'assistant', reason || 'external character look');
     };
+    window.envopsCharacterPlayClip = function (clipSpec, actor, reason) {
+        var payload = '';
+        if (typeof clipSpec === 'string') payload = clipSpec;
+        else if (clipSpec !== undefined && clipSpec !== null) {
+            try { payload = JSON.stringify(clipSpec); } catch (ignored) { payload = String(clipSpec || ''); }
+        }
+        _envQueueControl('character_play_clip', payload, actor || 'assistant', reason || 'external character play clip');
+    };
+    window.envopsCharacterQueueClips = function (queueSpec, actor, reason) {
+        var payload = '';
+        if (typeof queueSpec === 'string') payload = queueSpec;
+        else if (queueSpec !== undefined && queueSpec !== null) {
+            try { payload = JSON.stringify(queueSpec); } catch (ignored) { payload = String(queueSpec || ''); }
+        }
+        _envQueueControl('character_queue_clips', payload, actor || 'assistant', reason || 'external character queue clips');
+    };
+    window.envopsCharacterStopClip = function (actor, reason) {
+        _envQueueControl('character_stop_clip', '', actor || 'assistant', reason || 'external character stop clip');
+    };
+    window.envopsCharacterSetLoop = function (loopSpec, actor, reason) {
+        var payload = '';
+        if (typeof loopSpec === 'string') payload = loopSpec;
+        else if (loopSpec !== undefined && loopSpec !== null) {
+            try { payload = JSON.stringify(loopSpec); } catch (ignored) { payload = String(loopSpec || ''); }
+        }
+        _envQueueControl('character_set_loop', payload, actor || 'assistant', reason || 'external character set loop');
+    };
+    window.envopsCharacterSetSpeed = function (speedSpec, actor, reason) {
+        var payload = '';
+        if (typeof speedSpec === 'string' || typeof speedSpec === 'number') payload = String(speedSpec);
+        else if (speedSpec !== undefined && speedSpec !== null) {
+            try { payload = JSON.stringify(speedSpec); } catch (ignored) { payload = String(speedSpec || ''); }
+        }
+        _envQueueControl('character_set_speed', payload, actor || 'assistant', reason || 'external character set speed');
+    };
+    window.envopsCharacterPlayReaction = function (reactionSpec, actor, reason) {
+        var payload = '';
+        if (typeof reactionSpec === 'string') payload = reactionSpec;
+        else if (reactionSpec !== undefined && reactionSpec !== null) {
+            try { payload = JSON.stringify(reactionSpec); } catch (ignored) { payload = String(reactionSpec || ''); }
+        }
+        _envQueueControl('character_play_reaction', payload, actor || 'assistant', reason || 'external character play reaction');
+    };
     window.envopsGetMountedCharacterRuntimeState = function () {
         return JSON.parse(JSON.stringify(_envRefreshInhabitantRuntimeState('external_state')));
+    };
+    window.envopsCharacterGetAnimationState = function () {
+        var state = _envRefreshInhabitantRuntimeState('external_animation_state');
+        return JSON.parse(JSON.stringify((state && state.animation) || _envCreateInhabitantAnimationState()));
+    };
+    window.envopsGetMountedCharacterAnimationState = function () {
+        return window.envopsCharacterGetAnimationState();
     };
     window.envopsGetInhabitantState = function () {
         return window.envopsGetMountedCharacterRuntimeState();
@@ -44346,6 +45232,7 @@
                     runtime_state: _envCloneJson(inhabitantSurface.runtime_state, null),
                     mount_contract: _envCloneJson(inhabitantSurface.mount_contract, null),
                     command_surface: _envCloneJson(inhabitantSurface.command_surface, null),
+                    animation_surface: _envCloneJson(inhabitantSurface.animation_surface, null),
                     navigation_surface: _envCloneJson(inhabitantSurface.navigation_surface, null),
                     perception_surface: _envCloneJson(inhabitantSurface.perception_surface, null),
                     capability_surface: _envCloneJson(inhabitantSurface.capability_surface, null),
@@ -44521,6 +45408,7 @@
                 retargeting: retargeting ? _envCloneJson(retargeting, null) : null,
                 mount_contract: mountedRuntime ? _envCloneJson(mountedRuntime.mount_contract, null) : null,
                 command_surface: mountedRuntime ? _envCloneJson(mountedRuntime.command_surface, null) : null,
+                animation_surface: mountedRuntime ? _envCloneJson(mountedRuntime.animation_surface, null) : null,
                 perception_surface: mountedRuntime ? _envCloneJson(mountedRuntime.perception_surface, null) : null,
                 capability_surface: mountedRuntime ? _envCloneJson(mountedRuntime.capability_surface, null) : null,
                 memory_surface: mountedRuntime ? _envCloneJson(mountedRuntime.memory_surface, null) : null,
