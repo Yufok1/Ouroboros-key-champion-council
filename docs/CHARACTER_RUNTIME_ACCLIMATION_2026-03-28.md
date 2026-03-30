@@ -34,7 +34,7 @@ Current runtime checkpoint:
 - mounted owned-surface control now works through `open_surface` + `surface_input` + `surface_action`
 - workbench/model-swap menu sync is fixed in the browser/runtime lane
 - animation-selection highlight lag is fixed in the browser/runtime lane
-- direct `env_control(command="character_play_clip")` style dispatch is still blocked by an upstream validated-command registry outside `static/main.js`
+- direct `env_control(command="character_play_clip")` style dispatch is now aligned through the editable shell proxy and validated live against the existing browser/runtime handlers
 
 ## Current Code Anchors
 
@@ -47,12 +47,13 @@ The current `HEAD` already contains the primitive animation machinery in `static
 - `_envRefreshInhabitantRuntimeState(...)`
 - `_envQueueControl(...)`
 
-Important limitation:
+Current ingress truth:
 
-- raw upstream `env_control(character_*)` validation is still incomplete for animation verbs
-- the working agent-control lane today is the mounted owned surface, not the upstream direct registry
+- raw `env_control(character_*)` ingress for the 7 animation verbs is now aligned through `server.py`
+- mounted owned-surface control remains the safest operator-facing lane
+- public browser helper bridge remains working
 
-That means the next step is ingress alignment and validation, not reinvention.
+That means the next step is cohort validation and queue/interrupt follow-through, not reinvention.
 
 ## Current Milestone
 
@@ -104,7 +105,7 @@ Representative clips on that family include:
 1. Keep dotted `character.*` names canonical in docs and buyer surfaces.
 2. Alias underscored runtime host ids internally instead of letting the two naming schemes diverge.
 3. Keep the mounted `animation_surface` and owned-surface control lane stable.
-4. Finish aligning the remaining agent ingress path so raw animation verbs are accepted upstream where required.
+4. Validate the now-aligned direct shell ingress path for raw animation verbs on the humanoid cohort.
 5. Validate the verb set on the humanoid cohort above with clearly dissimilar clips.
 6. Only after that, implement queue/interrupt semantics for `v133b.2`.
 

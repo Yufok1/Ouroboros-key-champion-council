@@ -95,6 +95,7 @@ Focus:
 - optional interaction/mechanics facilities
 - attachment/runtime assembly
 - clean procgen rebuild from a neutral ontology
+- desktop companion architecture (new delivery form — spec drafted 2026-03-29)
 
 ### Phase 4 — Agent Co-Presence and World Evolution
 
@@ -164,7 +165,7 @@ Current state:
 - mounted export improved
 - mounted `animation_surface` now exports live browser/runtime state
 - mounted owned-surface animation control now works in the browser/runtime lane
-- remaining gap is upstream direct `env_control(character_*)` validation, not local playback plumbing
+- direct shell-level `env_control(character_*)` ingress is now aligned in the editable runtime shell; remaining work is validation and follow-through, not local playback plumbing
 
 Execution note:
 
@@ -217,12 +218,29 @@ Design reference:
 
 - `docs/PROCEDURAL_ENVIRONMENT_GENERATION_ARCHITECTURE_2026-03-20.md`
 
+## Desktop Companion Architecture
+
+Status: Spec Draft (2026-03-29)
+
+Desktop companion is a new delivery form for character products — not a new product class. The same character product that mounts into the browser theater mounts into a desktop shell. Same GLB, same manifest, same command surface, same animation contract.
+
+Two product orientations:
+- Environment-Primary: 3D scene is the main resource, agent is actor/performer
+- Agent-Primary: 3D character IS the interface, summons environment fragments as needed
+
+Desktop Perception Surface tracks user interaction context (window focus, app launches, cursor position, user activity tempo) with opt-in permission tiers (Level 0–4).
+
+Implementation depends on the current v133 lane completing first — the animation system, command surface, and export pipeline are the foundation.
+
+Full spec: `docs/DESKTOP_COMPANION_ARCHITECTURE_SPEC_2026-03-29.md`
+
 ## Immediate Priorities
 
 1. Keep the restored runtime stable on `abc2774`
 2. Keep the mounted animation surface and owned-surface command lane stable
-3. Align the remaining upstream agent ingress path for raw `character_*` animation verbs
+3. Validate the aligned direct shell ingress path for raw `character_*` animation verbs on the humanoid cohort
 4. Validate the command lane on the current humanoid cohort before adding queue/interrupt complexity
 5. Reconcile roadmap/spec/command docs so fresh agents land on the same version truth
 6. Defer animal/quadruped embodiment work until the humanoid lane is stable
 7. Rebuild procedural generation later as a general scene system, not a cave-first system
+8. Desktop companion implementation deferred until v133 animation lane and v136 export pipeline are stable

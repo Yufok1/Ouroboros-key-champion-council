@@ -94,7 +94,9 @@ Potential contents:
 
 The execution shell that runs the mounted product.
 
-Potential contents:
+Two host runtime variants exist:
+
+#### D1. Browser Theater Shell (current)
 
 - `server.py`
 - `static/`
@@ -103,6 +105,18 @@ Potential contents:
 - environment capture loader
 - command facade
 - OpenAPI and adapter layers
+
+#### D2. Desktop Companion Shell (planned)
+
+- Electron main process
+- Three.js renderer (transparent window, alpha channel)
+- Desktop physics engine (window collision, gravity, surface detection)
+- Desktop perception surface (window awareness, cursor tracking, app classification)
+- System tray + chat popover
+- Speech bubble / text overlay
+- Click-through hit-testing (interactive on character pixels, transparent elsewhere)
+
+Both shells mount the same character product through the same mount contract. The character runtime facility is shell-agnostic.
 
 ### E. Capsule Facilities
 
@@ -447,6 +461,55 @@ Capsule required:
 
 - yes, or a compatible hosted runtime equivalent
 
+### Desktop Companion Deliveries
+
+#### H. Desktop Pet (Capsule-Free)
+
+Includes:
+
+- Electron desktop shell
+- character asset (GLB + manifest + animation contract)
+- desktop physics module
+- click-to-trigger animation interactions
+
+Capsule required:
+
+- no
+
+This is a static desktop pet. Animated character with no AI brain. Like Desktop Mate but with open character products.
+
+#### I. Desktop Companion (Capsule-Optional)
+
+Includes:
+
+- everything from desktop pet
+- provider bridge configuration
+- character command surface metadata
+- system tray chat interface
+
+Capsule required:
+
+- not necessarily — any compatible provider works
+
+Character comes alive when connected to a cognition source (local model, cloud API, capsule). Without a provider, functions as a desktop pet.
+
+#### J. Desktop Agent (Capsule-Required)
+
+Includes:
+
+- everything from desktop companion
+- capsule runtime (memory, tools, workflows, council)
+- desktop perception surface (window awareness, app classification, content awareness)
+- environment summoning capability
+- voice relay (ASR/TTS through character)
+- desktop action tools (app launch, file ops, typing — Level 4 permission)
+
+Capsule required:
+
+- yes
+
+Full agent companion. Desktop perception surface tracks user workflow context. Agent physically follows user's focus across windows. Offers contextual assistance based on app context and permission level.
+
 ## Environment Utilities and External Agents
 
 Environments can absolutely ship with utilities and interactive surfaces.
@@ -488,6 +551,10 @@ Current implemented bundle profiles in `server.py`:
 - `interface_product`
 - `agent_api_service`
 - `research_capsule`
+
+Planned bundle profile:
+
+- `desktop_companion` — Electron shell + character product + desktop physics + optional capsule
 
 ### `environment_product`
 
@@ -648,6 +715,25 @@ Include:
 - live command/perception/memory facilities
 - utility/workstation bindings
 - API or control-unit surfaces
+
+## Desktop Companion as Delivery Form
+
+The desktop companion is a delivery form, not a new product class. It uses the same two base product classes (environment product + character product) with a different host runtime shell.
+
+The desktop IS an environment in this model:
+
+| Desktop Element | Environment Analog | Physics Role |
+|---|---|---|
+| Taskbar | Ground plane / support surface | Primary walkable surface |
+| Window title bars | Platforms | Secondary walkable surfaces |
+| Window edges | Ledges | Grabbable/hangable |
+| Screen edges | Walls | Boundary blockers |
+| Cursor | Interactive entity | Grappable target, follow target |
+| App icons (taskbar) | Landmarks | Navigation references |
+
+The desktop perception surface is the analog to the environment perception surface (FOV/LOS/visible/occluded) but for the desktop context instead of the 3D environment.
+
+Full architecture spec: `docs/DESKTOP_COMPANION_ARCHITECTURE_SPEC_2026-03-29.md`
 
 ## Non-Goals
 

@@ -752,6 +752,21 @@ The underdepth / cave-first branch that occupied `v129u` through `v131b` was rol
 
 Those bundle numbers are treated as consumed historical exploration, not the current embodiment roadmap.
 
+## Desktop Companion Rendering Constraints
+
+When a character product mounts into the desktop companion shell instead of the browser theater, the embodiment runtime adapts:
+
+- **Triangle budget:** <20k triangles. Use lowest LOD. Desktop characters render at ~100-200px — high-poly detail is invisible.
+- **Lighting:** 1 directional light + ambient. No environment maps or HDR. The desktop IS the environment.
+- **Ground plane:** Transparent shadow catcher only. No visible floor geometry.
+- **Post-processing:** Minimal or none. Alpha channel compositing with the desktop requires clean transparency — bloom, SSAO, and similar effects bleed into the transparency boundary.
+- **Camera:** Fixed orthographic or tight perspective. No orbit controls — the character's position is driven by desktop physics, not user camera manipulation.
+- **Animation:** Full animation contract applies. All clip channels work. Locomotion blend tree is critical — the character walks along the taskbar, jumps between windows.
+
+The embodiment metadata, rig family, joint map, attachment points, and animation contract are identical between theater and desktop. Only the rendering parameters change.
+
+Full spec: `docs/DESKTOP_COMPANION_ARCHITECTURE_SPEC_2026-03-29.md`
+
 ## Non-Goals For The First Pass
 
 These are explicitly not required for the first implementation wave:

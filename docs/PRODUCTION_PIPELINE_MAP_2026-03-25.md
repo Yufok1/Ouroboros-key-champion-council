@@ -211,6 +211,30 @@ Purpose:
 
 - let a buyer evaluate quickly without learning MCP internals
 
+### J. Desktop Companion Delivery
+
+Required outputs:
+
+- Electron desktop shell (transparent window + Three.js renderer)
+- desktop physics engine (window collision, gravity, surface detection)
+- desktop perception surface (window awareness, cursor tracking, app classification)
+- character renderer adaptation (fixed camera, simplified lighting, transparent shadow catcher)
+- system tray + chat popover + speech bubble overlay
+- click-through hit-testing
+- desktop companion product packaging (`desktop_companion` bundle profile)
+- cursor interaction modes (follow, grapple, flee, ride)
+- environment summoning system (object placement, scene context, full theater transition)
+
+Purpose:
+
+- ship character products as desktop-native companions
+- same character product mounts into browser theater OR desktop shell
+- desktop perception surface enables reactive context-following
+
+Design reference:
+
+- `docs/DESKTOP_COMPANION_ARCHITECTURE_SPEC_2026-03-29.md`
+
 ## What Must Be Produced
 
 At minimum, the production pipeline must eventually emit all of the following categories.
@@ -263,6 +287,16 @@ At minimum, the production pipeline must eventually emit all of the following ca
 - packaging/install guidance
 - licensing/provenance statements
 - runtime and product delivery matrix
+
+### Gate 8: Desktop Companion Ready
+
+Pass when:
+
+- Electron shell renders a character on a transparent window
+- desktop physics places character on window surfaces
+- click-through works (transparent pixels pass through, character pixels interactive)
+- system tray chat connects to capsule
+- character command surface works through desktop shell
 
 ## Production Gates
 

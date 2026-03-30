@@ -23,3 +23,11 @@ Facilities and workstations are the preferred organizing language:
 - A workstation is a bound instance of that facility in the current environment
 
 This keeps the architecture breathable. The substrate can recruit, suspend, replace, or combine facilities without forcing every milestone through a fixed game-runtime ontology.
+
+The same character product can mount into multiple delivery environments:
+
+- Browser theater (current): full-window 3D scene, environment as primary resource
+- Desktop companion (planned): transparent overlay on user's desktop, agent as primary interface
+- Embedded widget (future): scoped panel within a host application
+
+The desktop IS an environment. Window title bars are support surfaces. The taskbar is ground. Screen edges are walls. The character product is portable across all delivery forms — same GLB, same manifest, same command surface, same animation contract.

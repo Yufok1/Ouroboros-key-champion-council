@@ -39,9 +39,9 @@ As of 2026-03-29, the runtime already contains:
 - mounted `animation_surface` export
 - mounted owned-surface animation control wired into the existing `character_*` handlers
 
-What it does not yet contain is fully aligned upstream direct validation for raw animation verbs through every `env_control` ingress path.
+The current worktree also aligns direct shell-level `env_control` ingress for the 7 animation verbs without touching the capsule.
 
-The current public runtime bridge stops at:
+The current public runtime bridge includes:
 
 - `character_mount`
 - `character_unmount`
@@ -50,10 +50,16 @@ The current public runtime bridge stops at:
 - `character_move_to`
 - `character_stop`
 - `character_look_at`
+- `character_play_clip`
+- `character_queue_clips`
+- `character_stop_clip`
+- `character_set_loop`
+- `character_set_speed`
+- `character_get_animation_state`
+- `character_play_reaction`
 
 The immediate remaining architecture task is to keep the mounted runtime animation surface stable and
-align any remaining upstream validated ingress to the same handlers, rather than building a second
-playback stack.
+validate the aligned ingress and UI/runtime state pairing, rather than building a second playback stack.
 
 ## Core Correction
 
@@ -646,3 +652,29 @@ The actor/runtime layer belongs to the character product.
 It mounts into environments.
 
 That separation is what makes portability, runtime embodiment, and cross-engine export sane.
+
+## Desktop Companion Renderer Adaptation
+
+The theater Three.js renderer adapts for desktop companion delivery with these changes:
+
+| Theater | Desktop |
+|---|---|
+| Orbit camera | Fixed orthographic or tight perspective |
+| Environment lighting + HDR | Simplified: 1 directional + ambient |
+| Visible ground plane | Transparent shadow catcher |
+| Full-scale scene | Character fills ~100-200px |
+| All LODs | Lowest LOD only, <20k triangles |
+| Full post-processing | Minimal or none (alpha channel issues) |
+
+What transfers directly from the theater renderer:
+
+- GLB/VRM loading pipeline
+- AnimationMixer + clip resolver
+- Rig detection + joint mapping
+- animation_surface state tracking
+- All animation command handlers
+- Character command surface
+
+The desktop companion is a new runtime host, not a new renderer. The character product is the same. The mount contract is the same. Only the shell and the environment perception surface differ.
+
+Full spec: `docs/DESKTOP_COMPANION_ARCHITECTURE_SPEC_2026-03-29.md`

@@ -1,6 +1,6 @@
 ● Champion Council — Authoritative Version Map
 
-  As of: 2026-03-28 (late) | HEAD: bee4162 | Panel cache: v=130w | Branch: main
+  As of: 2026-03-29 | HEAD: ef58c97 | Panel cache: v=130w | Branch: main
 
   Identity: Inhabitable procedural media with agent co-presence. Not a game engine. Facilities breathe. Individual
   embodied character = base sellable unit.
@@ -232,13 +232,16 @@
   │ identity  │  9bba3c0 │  STABILIZED │ asset_ref/appearance.asset_ref/character.asset_ref, unmount preserves    │
   │           │          │             │ model identity, theater overlay/grounding presentation stabilized        │
   ├───────────┼──────────┼─────────────┼──────────────────────────────────────────────────────────────────────────┤
-  │ v133b     │ bee4162+ │ FIRST SLICE │ Animation contract derivation, extended clip classification              │
-  │ first     │          │  LANDED     │ (hit/death/block/blink), raw clip lookup, resolver improvements,        │
-  │ slice     │          │ (uncommit.) │ mounted export fix (clip_map + animation_contract + inverse             │
+  │ v133b     │ ef58c97  │ COMMITTED   │ Animation contract derivation, extended clip classification              │
+  │ first     │          │             │ (hit/death/block/blink), raw clip lookup, resolver improvements,        │
+  │ slice     │          │             │ mounted export fix (clip_map + animation_contract + inverse             │
   │           │          │             │ source_joint_map), generic clip fallback, retarget map direction fix     │
   ├───────────┼──────────┼─────────────┼──────────────────────────────────────────────────────────────────────────┤
-  │ v133b.1   │ —        │ NEXT        │ Animation command verbs: character.play_clip, queue_clips, stop_clip,   │
-  │           │          │             │ set_loop, set_speed, get_animation_state, play_reaction                 │
+  │ v133b.1   │ ef58c97  │ COMMITTED   │ Animation command verbs: character.play_clip, queue_clips, stop_clip,   │
+  │           │          │             │ set_loop, set_speed, get_animation_state, play_reaction. animation_     │
+  │           │          │             │ surface export, owned-surface agent control, alias map, public bridge,  │
+  │           │          │             │ mounted control surface HTML, menu/highlight sync fixes. Current         │
+  │           │          │             │ worktree aligns direct shell env_control ingress for the same verbs.    │
   ├───────────┼──────────┼─────────────┼──────────────────────────────────────────────────────────────────────────┤
   │ v133b.2   │ —        │ PLANNED     │ Queue/sequence + interrupt semantics, priority, transition timing,      │
   │           │          │             │ reaction hooks from goals/speech/perception/tool outcomes                │
@@ -317,6 +320,31 @@
   └─────────┴───────────────────────────────────────────────────────────────────────────────────────────────────────┘
 
   ---
+  Desktop Companion Delivery Lane — SPEC DRAFT (2026-03-29)
+
+  New delivery form for character products: desktop-native 3D agent companion. Same character product,
+  same GLB, same manifest, same command surface, same animation contract — different runtime host.
+
+  Two product orientations:
+  - Orientation A (Environment-Primary): 3D scene is the main resource, agent is actor/performer within it
+  - Orientation B (Agent-Primary): 3D character IS the interface, summons environment fragments as needed
+
+  Desktop Perception Surface: Agent perceives and reacts to the user's desktop interaction context —
+  window focus, app launches, cursor position, user activity tempo. Permission tiers Level 0–4
+  (none → window awareness → app awareness → content awareness → action capability).
+
+  Stack: Electron + Three.js (transparent frameless window, click-through on transparent pixels).
+  Desktop physics: window title bars as platforms, taskbar as ground, screen edges as walls, cursor
+  as interactive entity. Character renderer adapted from theater (fixed camera, simplified lighting,
+  transparent shadow catcher, <20k triangles).
+
+  Phases: (1) Current v133 lane completes first — animation system IS the foundation. (2) Desktop
+  shell + physics. (3) Desktop intelligence (perception, cursor interaction). (4) Desktop agent
+  (voice, environment summoning, grapple/swing). (5) Desktop products (packaging, marketplace).
+
+  Full spec: docs/DESKTOP_COMPANION_ARCHITECTURE_SPEC_2026-03-29.md
+
+  ---
   Cross-Cutting Systems
 
   Coquina Procedural Generation — SPEC COMPLETE, NOT IMPLEMENTED
@@ -332,7 +360,7 @@
 
   Product Contracts (4 artifacts written)
 
-  PRODUCT_MANIFEST_SPEC.md, CHARACTER_COMMAND_REGISTRY.md (14 commands), CHARACTER_TEMPLATE_SPEC.md,
+  PRODUCT_MANIFEST_SPEC.md, CHARACTER_COMMAND_REGISTRY.md (26 commands), CHARACTER_TEMPLATE_SPEC.md,
   RUNTIME_AND_PRODUCT_DELIVERY_MATRIX_2026-03-25.md.
 
   Three Shipping Modes
@@ -377,9 +405,12 @@
   ├───────────────────────────────┼───────────────────────────────────────────────────┤
   │ 5: Buyer API Ready            │ Not started                                       │
   ├───────────────────────────────┼───────────────────────────────────────────────────┤
-  │ 6: Portable Character Ready   │ In progress — detection + contract derivation done │
+  │ 6: Portable Character Ready   │ In progress — detection + contract derivation +    │
+  │                               │ animation command handlers done                    │
   ├───────────────────────────────┼───────────────────────────────────────────────────┤
   │ 7: Product Export Ready       │ Not started                                       │
+  ├───────────────────────────────┼───────────────────────────────────────────────────┤
+  │ 8: Desktop Companion Ready   │ Spec draft (2026-03-29)                           │
   └───────────────────────────────┴───────────────────────────────────────────────────┘
 
   Production Pipeline Lanes
@@ -393,18 +424,23 @@
   ├────────────────────────────────┼──────────────────────────────┤
   │ C. Validation Habitat          │ Complete                     │
   ├────────────────────────────────┼──────────────────────────────┤
-  │ D. Character Runtime           │ In progress — v133 active    │
+  │ D. Character Runtime           │ In progress — v133b.1        │
+  │                                │ committed, cohort validation   │
+  │                                │ next                           │
   ├────────────────────────────────┼──────────────────────────────┤
   │ E. Facility & Workflow Surface │ Spec'd                       │
   ├────────────────────────────────┼──────────────────────────────┤
   │ F. Buyer API Surface           │ Not started                  │
   ├────────────────────────────────┼──────────────────────────────┤
   │ G. Embodiment & Asset Lane     │ In progress — detection +    │
-  │                                │ contract derivation done      │
+  │                                │ contract derivation + animation│
+  │                                │ handlers done                  │
   ├────────────────────────────────┼──────────────────────────────┤
   │ H. Product Packaging           │ Not started                  │
   ├────────────────────────────────┼──────────────────────────────┤
   │ I. Buyer Integration           │ Not started                  │
+  ├────────────────────────────────┼──────────────────────────────┤
+  │ J. Desktop Companion Delivery  │ Spec draft (2026-03-29)      │
   └────────────────────────────────┴──────────────────────────────┘
 
   ---
@@ -417,23 +453,57 @@
   ---
   Next Milestone
 
-  v133b.1: Animation Command Verbs. The browser/runtime slice is now landed:
-  mounted animation handlers exist, mounted `animation_surface` exports live state, mounted owned-surface controls can
-  drive dissimilar clips through the existing resolver/mixer/session plumbing, and menu/highlight sync bugs were fixed.
-  The remaining gap is upstream direct `env_control(character_*)` validation for raw animation verbs. Then v133b.2
-  queue/sequence semantics, then v133c blend tree.
+  v133b.1 is COMMITTED at ef58c97. All 7 animation command handlers working (play_clip, queue_clips, stop_clip,
+  set_loop, set_speed, get_animation_state, play_reaction). animation_surface exporting live state on mounted runtime
+  record. Owned-surface agent control working (open_surface + surface_input + surface_action). Alias map for
+  dotted↔underscored command names. Public bridge functions (window.envopsCharacter*). Mounted control surface HTML
+  with live state preview. Menu/highlight sync bugs fixed.
 
-  Immediate Execution Notes (2026-03-28)
+  Current worktree: direct shell `env_control(character_*)` ingress is aligned for the 7 animation verbs through the
+  editable runtime shell, and validated live against the existing browser/runtime handlers. No capsule edits.
 
-  - Validate v133b.1 on humanoids first. Current best local cohort:
+  Next steps in order:
+  1. Validate all 7 verbs on the humanoid test cohort (6 models, 32 clips each)
+  2. Confirm refresh persistence still works with animation state
+  3. Commit the shell/runtime/doc alignment cleanly
+  4. v133b.2 — queue/sequence + interrupt semantics
+  5. v133c — locomotion blend tree
+
+  Immediate Execution Notes (2026-03-29)
+
+  - Validate on humanoids first. Current best local cohort:
     - `static/assets/packs/kenney-mini-characters-1/character-male-a.glb` — 32 clips
     - `static/assets/packs/kenney-mini-characters-1/character-female-a.glb` — 32 clips
     - `static/assets/packs/kenney-mini-dungeon/character-human.glb` — 32 clips
     - `static/assets/packs/kenney-graveyard-kit/character-skeleton.glb` — 32 clips
-  - Current reliable agent-control ingress is:
-    - `open_surface`
-    - `surface_input`
-    - `surface_action`
-    against `mounted_primary`, which delegates into the same `character_*` handlers in `static/main.js`.
-  - Do not mix quadruped/animal scaffold or body-plan work into v133b.1.
+    - `static/assets/packs/kenney-graveyard-kit/character-vampire.glb` — 32 clips
+    - `static/assets/packs/kenney-graveyard-kit/character-zombie.glb` — 32 clips
+  - Current working agent-control ingress paths:
+    - `open_surface` → `surface_input` → `surface_action` against `mounted_primary` (WORKING)
+    - `window.envopsCharacter*()` bridge functions (WORKING)
+    - Direct `env_control(character_play_clip, ...)` (WORKING — shell proxy aligned)
+  - Do not mix quadruped/animal scaffold or body-plan work into the current slice.
   - Animal embodiment remains a later family-specific lane after the humanoid command surface is stable.
+
+  Source anchors (verified at ef58c97):
+    - _env3DBuildDerivedAnimationContract         line 33181
+    - _env3DClipInventory                         line 33274
+    - _env3DResolveAnimationClip                  line 33297
+    - _env3DBuildRetargetedClipInventory           line 33770
+    - _envRefreshInhabitantRuntimeState            line 11373
+    - _envQueueControl                             line 17625
+    - _envCharacterPlayClip                        line 11855
+    - _envCharacterQueueClips                      line 11928
+    - _envCharacterStopClip                        line 11994
+    - _envCharacterSetLoop                         line 12029
+    - _envCharacterSetSpeed                        line 12069
+    - _envCharacterGetAnimationState               line 12105
+    - _envCharacterPlayReaction                    line 12152
+    - _envCharacterCommandAliases                  line 12652
+    - _envInhabitantRuntimeSurfaceSnapshot         line 9406
+    - _envInhabitantMountedRecord                  line 9509
+    - _envMountedCharacterControlSurfaceHtml       line 9332
+    - window.envopsCharacterPlayClip               line 44987
+    - window.envopsCharacterGetAnimationState      line 45033
+    - host_commands array                          line 9460
+    - Command routing ingress                      line 12676–12721

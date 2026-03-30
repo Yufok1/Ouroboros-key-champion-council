@@ -1905,6 +1905,31 @@
         };
     }
 
+    function _envCharacterUiClipState(runtimeState, mesh) {
+        var state = runtimeState && typeof runtimeState === 'object' && !Array.isArray(runtimeState)
+            ? runtimeState
+            : _envInhabitantRuntimeState();
+        var animation = _envInhabitantAnimationState(state);
+        var clip = String(((mesh && mesh.userData && mesh.userData._previewClipName)
+            || (mesh && mesh.userData && mesh.userData._currentClipName)
+            || animation.active_clip
+            || '')).trim();
+        var raw = String(((mesh && mesh.userData && (mesh.userData._previewClipRawName || mesh.userData._currentClipRawName))
+            || animation.active_clip_raw
+            || clip
+            || '')).trim();
+        var source = clip
+            ? (String(((mesh && mesh.userData && mesh.userData._currentClipSource)
+                || animation.active_clip_source
+                || 'native')).trim() || 'native')
+            : 'none';
+        return {
+            clip: clip,
+            raw: raw,
+            source: source
+        };
+    }
+
     function _envSetSurfaceBridgeState(command, target, ok, state) {
         var current = _envHtmlPanelState.bridgeState && typeof _envHtmlPanelState.bridgeState === 'object'
             ? _envHtmlPanelState.bridgeState
@@ -1930,7 +1955,7 @@
             ? surface.animation_surface
             : _envCreateInhabitantAnimationState();
         return {
-            'cc-anim-clip': String(animation.active_clip || 'idle').trim() || 'idle',
+            'cc-anim-clip': String(animation.active_clip || '').trim(),
             'cc-anim-loop': _envNormalizeCharacterAnimationLoop(animation.loop_mode || 'repeat', 'repeat'),
             'cc-anim-speed': String(_envClampCharacterAnimationSpeed(animation.speed || 1, 1)),
             'cc-anim-reaction': String(animation.last_reaction || 'greet').trim() || 'greet'
@@ -1993,8 +2018,9 @@
         if (commandName !== 'surface_action' && commandName !== 'surface_click' && commandName !== 'surface_submit') return false;
         if (actionName === 'play_clip_action') {
             bridgeCommand = 'character_play_clip';
-            ok = _envCharacterPlayClip(actorName, reason || 'surface play clip', JSON.stringify({
-                clip: String(formState['cc-anim-clip'] || 'idle').trim() || 'idle',
+            var requestedClip = String(formState['cc-anim-clip'] || '').trim();
+            ok = !!requestedClip && _envCharacterPlayClip(actorName, reason || 'surface play clip', JSON.stringify({
+                clip: requestedClip,
                 loop: _envNormalizeCharacterAnimationLoop(formState['cc-anim-loop'] || 'repeat', 'repeat'),
                 speed: _envClampCharacterAnimationSpeed(formState['cc-anim-speed'] || 1, 1),
                 override: true
@@ -9334,7 +9360,7 @@
         var animation = surface.animation_surface && typeof surface.animation_surface === 'object'
             ? surface.animation_surface
             : _envCreateInhabitantAnimationState();
-        var activeClip = String(animation.active_clip || 'idle').trim() || 'idle';
+        var activeClip = String(animation.active_clip || '').trim();
         var loopMode = _envNormalizeCharacterAnimationLoop(animation.loop_mode || 'repeat', 'repeat');
         var speed = _envClampCharacterAnimationSpeed(animation.speed || 1, 1);
         var reaction = String(animation.last_reaction || 'greet').trim() || 'greet';
@@ -9356,7 +9382,7 @@
             '<div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:14px;">' +
             '<div><div style="font-size:13px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;">Mounted Character Animation</div>' +
             '<div style="opacity:0.8;margin-top:4px;">Surface bridge into the existing <code>character_*</code> command lane.</div></div>' +
-            '<div style="text-align:right;opacity:0.86;"><div>clip count: ' + String(Number(animation.native_clip_count || 0)) + '</div><div>active: ' + _esc(activeClip) + '</div></div>' +
+            '<div style="text-align:right;opacity:0.86;"><div>clip count: ' + String(Number(animation.native_clip_count || 0)) + '</div><div>active: ' + _esc(activeClip || '—') + '</div></div>' +
             '</div>' +
             '<div style="display:grid;grid-template-columns:1.4fr 0.7fr 0.7fr;gap:10px;align-items:end;">' +
             '<label style="display:block;"><div style="margin-bottom:4px;opacity:0.86;">Clip</div><input id="cc-anim-clip" name="clip_name" value="' + _esc(activeClip) + '" placeholder="walk / die / emote-yes" style="width:100%;padding:8px 10px;border:1px solid #314052;background:#121a26;color:#f5f7fb;border-radius:8px;" /></label>' +
@@ -17816,8 +17842,9 @@
         var contractInventory = _env3DClipInventory(mesh, 'contract');
         var nativeInventory = _env3DClipInventory(mesh, 'playback');
         var clipList = contractInventory.list || [];
-        var activeClip = String(((mesh && mesh.userData && mesh.userData._previewClipName) || (mesh && mesh.userData && mesh.userData._currentClipName) || runtime.behavior || 'idle') || 'idle');
-        var activeClipSource = String(((mesh && mesh.userData && mesh.userData._currentClipSource) || nativeInventory.source || 'native') || 'native');
+        var activeClipState = _envCharacterUiClipState(runtime, mesh);
+        var activeClip = String(activeClipState.clip || '');
+        var activeClipSource = String(activeClipState.source || 'none');
         var sourceRig = (mesh && mesh.userData && mesh.userData._sourceRig) || {};
         var sourceRigType = sourceRig.source && sourceRig.source !== 'none' && sourceRig.source !== 'unknown'
             ? sourceRig.source
@@ -17840,7 +17867,7 @@
             { label: 'Presentation', value: String(runtime.visual_mode || 'primitive') + ' · ' + String(runtime.activity || 'idle') },
             { label: 'Embodiment', value: String((((obj || {}).embodiment || {}).family) || 'humanoid_biped') + ' · ' + String((((obj || {}).embodiment || {}).locomotion_class) || 'biped') },
             { label: 'Rig Source', value: sourceRigType },
-            { label: 'Active Clip', value: (activeClip || 'idle') + ' · ' + activeClipSource },
+            { label: 'Active Clip', value: activeClip ? (activeClip + ' · ' + activeClipSource) : '—' },
             { label: 'Clip Inventory', value: String(clipList.length) + ' contract / ' + String((nativeInventory.list || []).length) + ' playable' },
             { label: 'Bone Count', value: boneCount > 0 ? String(boneCount) : 'primitive' },
             { label: 'Retargeting', value: retargetLabel }
@@ -17949,7 +17976,7 @@
         var obj = _envInhabitantObject();
         var embodiment = obj ? _envSceneEmbodimentForObject(obj) : null;
         var clipEntries = _envCharacterWorkbenchClipEntries(mesh);
-        var activeClip = String(((mesh && mesh.userData && mesh.userData._previewClipName) || (mesh && mesh.userData && mesh.userData._currentClipName) || (workbench && workbench.activeClip) || 'idle') || 'idle');
+        var activeClip = String(_envCharacterUiClipState(_envInhabitantRuntimeState(), mesh).clip || (workbench && workbench.activeClip) || '');
         var playback = _envCharacterWorkbenchPlaybackState(mesh);
         var attachmentPoints = embodiment && embodiment.attachment_points && typeof embodiment.attachment_points === 'object'
             ? embodiment.attachment_points
@@ -18011,7 +18038,7 @@
             '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.08);">' +
             '<div class="envops-habitat-scene-cockpit-head"><span>Helpers</span><span>' + _esc(workbench ? workbench.sourceRigType : 'character') + '</span></div>' +
             helperHtml +
-            '<div class="envops-kernel-note">' + _esc(workbench ? ('Active clip · ' + workbench.activeClip) : 'Active clip · idle') + '</div>' +
+            '<div class="envops-kernel-note">' + _esc(workbench ? ('Active clip · ' + (workbench.activeClip || '—')) : 'Active clip · —') + '</div>' +
             '<div class="envops-kernel-note">' + _esc(workbench ? ('Bones · ' + (workbench.boneCount > 0 ? workbench.boneCount : 'primitive') + ' · Retarget ' + workbench.retargetingStatus) : 'Primitive preview') + '</div>' +
             '</div>';
     }
@@ -19537,7 +19564,7 @@
                 '<div class="envops-habitat-scene-status">' +
                 characterChip('Mode', 'Character Workbench', 'active', 'mode') +
                 characterChip('Rig', workbench.sourceRigType, 'ok', 'rig') +
-                characterChip('Clip', workbench.activeClip || 'idle', 'ok', 'clip') +
+                characterChip('Clip', workbench.activeClip || '—', 'ok', 'clip') +
                 characterChip('Bones', workbench.boneCount > 0 ? String(workbench.boneCount) : 'primitive', 'ok', 'bones') +
                 '</div>' +
                 '<div class="envops-habitat-scene-status-meta">' +
@@ -35866,7 +35893,21 @@
                     next.reset().fadeIn(0.3).play();
                     mesh.userData._currentAction = next;
                     mesh.userData._currentClipName = resolvedClip.name;
+                    mesh.userData._currentClipRawName = String((resolvedClip.clip && resolvedClip.clip.name) || resolvedClip.name || '');
                     mesh.userData._currentClipSource = String(resolvedClip.source || 'native');
+                    if (_envIsMountedCharacterRuntimeObject((mesh.userData || {}).sceneObject || null)) {
+                        _envPatchInhabitantAnimationState(_envInhabitantRuntimeState(), {
+                            active_clip: String(resolvedClip.name || ''),
+                            active_clip_raw: String((resolvedClip.clip && resolvedClip.clip.name) || resolvedClip.name || ''),
+                            active_clip_source: String(resolvedClip.source || 'native'),
+                            paused: !!next.paused,
+                            loop_mode: next.loop === THREE.LoopOnce ? 'once' : 'repeat',
+                            speed: typeof next.getEffectiveTimeScale === 'function' ? Number(next.getEffectiveTimeScale()) : 1,
+                            override_active: false
+                        });
+                        _envMarkCharacterAnimationUiDirty();
+                        renderEnvironmentView();
+                    }
                 }
             }
             var mechanics = mesh.userData.mechanics && typeof mesh.userData.mechanics === 'object'
