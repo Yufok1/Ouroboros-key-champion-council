@@ -1034,6 +1034,11 @@
             active_clip_source: 'none',
             active_priority: 'normal',
             interrupt_policy: 'replace',
+            locomotion_preview: '',
+            locomotion_mode: '',
+            locomotion_speed: 0,
+            locomotion_blend_weights: { idle: 0, walk: 0, run: 0 },
+            locomotion_blend_active: false,
             paused: true,
             loop_mode: 'repeat',
             speed: 1,
@@ -8983,7 +8988,7 @@
             workbench.skeleton = !!(mesh.userData._skeletonHelper && mesh.userData._skeletonHelper.visible);
             workbench.scaffold = !!mesh.userData._scaffoldVisible;
             workbench.attachments = !!mesh.userData._attachmentGizmosVisible;
-            workbench.preview_clip = String(mesh.userData._previewClipName || mesh.userData._currentClipName || '');
+            workbench.preview_clip = String(mesh.userData._previewClipName || '').trim();
             workbench.preview_paused = !!mesh.userData._previewPaused;
             workbench.preview_loop = String(mesh.userData._previewLoop || 'repeat').trim().toLowerCase() === 'once' ? 'once' : 'repeat';
             workbench.preview_speed = Math.max(0.25, Math.min(4, Number(mesh.userData._previewSpeed || 1)));
@@ -9125,7 +9130,7 @@
             loop_mode: desiredLoop,
             speed: desiredSpeed,
             paused: !!desiredPaused,
-            active_clip: desiredClip || '',
+            active_clip: desiredClip || String(mesh.userData._currentClipName || ''),
             active_clip_raw: String((mesh.userData._previewClipRawName || mesh.userData._currentClipRawName || desiredClip) || ''),
             active_clip_source: String((mesh.userData._currentClipSource || 'native') || 'native')
         });
@@ -9320,6 +9325,11 @@
         var nativeInventory = _env3DClipInventory(mesh, 'playback');
         var playback = _envCharacterWorkbenchPlaybackState(mesh);
         var action = mesh && mesh.userData ? mesh.userData._currentAction : null;
+        var locomotionPreview = _envCharacterWorkbenchLocomotionPreview(mesh);
+        var locomotionMode = String((mesh && mesh.userData && mesh.userData._locomotionMode) || '').trim().toLowerCase();
+        var locomotionSpeed = Math.max(0, Number((mesh && mesh.userData && mesh.userData._locomotionSpeedSmoothed) || 0));
+        var locomotionBlendWeights = _envCharacterCreateLocomotionBlendWeights(mesh && mesh.userData ? mesh.userData._locomotionWeights : null);
+        var locomotionBlendActive = !!(mesh && mesh.userData && mesh.userData._locomotionBlendActive);
         var activeClip = String(((mesh && mesh.userData && mesh.userData._previewClipName)
             || (mesh && mesh.userData && mesh.userData._currentClipName)
             || animation.active_clip
@@ -9341,6 +9351,15 @@
                 || animation.active_clip_source
                 || nativeInventory.source
                 || 'native')).trim() || 'native',
+            locomotion_preview: locomotionPreview,
+            locomotion_mode: locomotionMode,
+            locomotion_speed: Number(locomotionSpeed.toFixed(3)),
+            locomotion_blend_weights: {
+                idle: Number(locomotionBlendWeights.idle.toFixed(3)),
+                walk: Number(locomotionBlendWeights.walk.toFixed(3)),
+                run: Number(locomotionBlendWeights.run.toFixed(3))
+            },
+            locomotion_blend_active: locomotionBlendActive,
             paused: !!playback.paused,
             loop_mode: _envNormalizeCharacterAnimationLoop(playback.loopMode, animation.loop_mode || 'repeat'),
             speed: _envClampCharacterAnimationSpeed(playback.speed, animation.speed || 1),
@@ -9382,6 +9401,11 @@
             active_clip: String(animation.active_clip || ''),
             active_priority: activePriority,
             interrupt_policy: interruptPolicy,
+            locomotion_preview: String(animation.locomotion_preview || ''),
+            locomotion_mode: String(animation.locomotion_mode || ''),
+            locomotion_speed: Number(animation.locomotion_speed || 0),
+            locomotion_blend_active: !!animation.locomotion_blend_active,
+            locomotion_blend_weights: animation.locomotion_blend_weights || { idle: 0, walk: 0, run: 0 },
             paused: !!animation.paused,
             loop_mode: loopMode,
             speed: speed,
@@ -10983,7 +11007,8 @@
         var velocity = _envRecastNav.agent.velocity();
         mesh.position.x = Number(position.x || 0);
         mesh.position.z = Number(position.z || 0);
-        mesh.userData._moving = Math.hypot(Number(velocity.x || 0), Number(velocity.z || 0)) > 0.02;
+        mesh.userData._navSpeed = Math.hypot(Number(velocity.x || 0), Number(velocity.z || 0));
+        mesh.userData._moving = mesh.userData._navSpeed > 0.02;
         if (mesh.userData._moving) {
             mesh.rotation.y = Math.atan2(Number(velocity.x || 0), Number(velocity.z || 0));
         }
@@ -11957,6 +11982,358 @@
             || _env3DResolveAnimationClip(mesh, desiredName);
     }
 
+    function _envCharacterResolveAnimationClipExact(mesh, desiredName, mode) {
+        if (!mesh || !mesh.userData) return null;
+        var inventory = _env3DClipInventory(mesh, mode);
+        var clips = inventory && inventory.clips ? inventory.clips : null;
+        if (!clips) return null;
+        var requestedName = String(desiredName || '').trim();
+        var normalizedDesired = _env3DNormalizeClipName(requestedName);
+        if (requestedName && clips[requestedName]) {
+            return { clip: clips[requestedName], name: requestedName, source: inventory.source };
+        }
+        if (normalizedDesired && clips[normalizedDesired]) {
+            return { clip: clips[normalizedDesired], name: normalizedDesired, source: inventory.source };
+        }
+        var clipMap = (((mesh.userData || {}).character) || {}).clip_map || null;
+        var clipMapKey = requestedName && clipMap && clipMap[requestedName] ? requestedName : normalizedDesired;
+        if (clipMap && clipMapKey && clipMap[clipMapKey]) {
+            var mappedName = _env3DNormalizeClipName(clipMap[clipMapKey]);
+            if (mappedName && clips[mappedName]) {
+                return { clip: clips[mappedName], name: clipMapKey, source: inventory.source };
+            }
+        }
+        return null;
+    }
+
+    function _envCharacterResolveAnimationClipExactAny(mesh, desiredName) {
+        return _envCharacterResolveAnimationClipExact(mesh, desiredName, 'contract')
+            || _envCharacterResolveAnimationClipExact(mesh, desiredName, 'playback')
+            || _envCharacterResolveAnimationClipExact(mesh, desiredName);
+    }
+
+    function _envCharacterResolveLocomotionClip(mesh, desiredName) {
+        var normalized = _env3DNormalizeClipName(desiredName);
+        var order = normalized === 'run'
+            ? ['run', 'walk', 'idle']
+            : (normalized === 'walk' ? ['walk', 'run', 'idle'] : ['idle', 'walk', 'run']);
+        for (var i = 0; i < order.length; i++) {
+            var resolved = _envCharacterResolveAnimationClipExactAny(mesh, order[i]);
+            if (resolved && resolved.clip) return resolved;
+        }
+        return _envCharacterResolveAnimationClip(mesh, normalized || 'idle');
+    }
+
+    function _envCharacterLocomotionPreviewFromClip(clipName, rawName) {
+        var normalized = _env3DNormalizeClipName(rawName || clipName);
+        return normalized === 'idle' || normalized === 'walk' || normalized === 'run' ? normalized : '';
+    }
+
+    function _envCharacterSetWorkbenchLocomotionPreview(mesh, sceneObject, previewMode) {
+        if (!mesh || !mesh.userData) return '';
+        var preview = _envNormalizeWorkbenchLocomotionPreview(previewMode);
+        mesh.userData._workbenchLocomotionPreview = preview;
+        if (!preview) {
+            mesh.userData._locomotionMode = '';
+            mesh.userData._locomotionSpeedSmoothed = 0;
+            return '';
+        }
+        var objectRecord = sceneObject && typeof sceneObject === 'object' && !Array.isArray(sceneObject)
+            ? sceneObject
+            : ((mesh.userData || {}).sceneObject || {});
+        var behaviorSpeed = Math.max(0.1, Number((((objectRecord || {}).data) || {}).behavior_speed || 2.6));
+        mesh.userData._locomotionMode = preview;
+        mesh.userData._locomotionSpeedSmoothed = preview === 'idle'
+            ? 0
+            : (preview === 'walk'
+                ? Math.max(0.18, behaviorSpeed * 0.45)
+                : Math.max(0.24, behaviorSpeed * 0.95));
+        return preview;
+    }
+
+    function _envCharacterSyncWorkbenchLocomotionPreviewForClip(mesh, sceneObject, clipName, rawName) {
+        var preview = _envCharacterLocomotionPreviewFromClip(clipName, rawName);
+        if (!preview) return '';
+        return _envCharacterSetWorkbenchLocomotionPreview(mesh, sceneObject, preview);
+    }
+
+    function _envCharacterCreateLocomotionBlendWeights(seed) {
+        var source = seed && typeof seed === 'object' && !Array.isArray(seed) ? seed : {};
+        return {
+            idle: Math.max(0, Number(source.idle || 0)),
+            walk: Math.max(0, Number(source.walk || 0)),
+            run: Math.max(0, Number(source.run || 0))
+        };
+    }
+
+    function _envCharacterSetBlendActionWeight(action, weight) {
+        if (!action) return;
+        var nextWeight = Math.max(0, Number(weight || 0));
+        if (typeof action.setEffectiveWeight === 'function') action.setEffectiveWeight(nextWeight);
+        else action.weight = nextWeight;
+        action.enabled = nextWeight > 0.001;
+    }
+
+    function _envCharacterResetLocomotionBlend(mesh) {
+        if (!mesh || !mesh.userData) return false;
+        var actions = mesh.userData._locomotionActions && typeof mesh.userData._locomotionActions === 'object'
+            ? mesh.userData._locomotionActions
+            : null;
+        if (actions) {
+            ['idle', 'walk', 'run'].forEach(function (key) {
+                var action = actions[key] || null;
+                if (!action) return;
+                _envCharacterSetBlendActionWeight(action, 0);
+                action.paused = false;
+                action.enabled = false;
+                action.clampWhenFinished = false;
+                if (typeof action.setLoop === 'function') action.setLoop(THREE.LoopRepeat, Infinity);
+                if (typeof action.setEffectiveTimeScale === 'function') action.setEffectiveTimeScale(1);
+                if (typeof action.stop === 'function') action.stop();
+            });
+        }
+        mesh.userData._locomotionActions = null;
+        mesh.userData._locomotionResolvedClips = null;
+        mesh.userData._locomotionWeights = _envCharacterCreateLocomotionBlendWeights();
+        mesh.userData._locomotionTargetWeights = _envCharacterCreateLocomotionBlendWeights();
+        mesh.userData._locomotionBlendActive = false;
+        return true;
+    }
+
+    function _envCharacterSuspendLocomotionBlend(mesh) {
+        if (!mesh || !mesh.userData) return false;
+        var actions = mesh.userData._locomotionActions && typeof mesh.userData._locomotionActions === 'object'
+            ? mesh.userData._locomotionActions
+            : null;
+        if (!actions) return false;
+        ['idle', 'walk', 'run'].forEach(function (key) {
+            var action = actions[key] || null;
+            if (!action) return;
+            _envCharacterSetBlendActionWeight(action, 0);
+            action.paused = false;
+        });
+        mesh.userData._locomotionWeights = _envCharacterCreateLocomotionBlendWeights();
+        mesh.userData._locomotionTargetWeights = _envCharacterCreateLocomotionBlendWeights();
+        mesh.userData._locomotionBlendActive = false;
+        return true;
+    }
+
+    function _envCharacterEnsureLocomotionBlend(mesh) {
+        if (!mesh || !mesh.userData || !mesh.userData._mixer || !mesh.userData._clips) return false;
+        if (mesh.userData._locomotionActions && mesh.userData._locomotionResolvedClips) return true;
+        var idleResolved = _envCharacterResolveAnimationClipExactAny(mesh, 'idle');
+        var walkResolved = _envCharacterResolveAnimationClipExactAny(mesh, 'walk');
+        var runResolved = _envCharacterResolveAnimationClipExactAny(mesh, 'run');
+        if (!idleResolved || !idleResolved.clip || (!walkResolved || !walkResolved.clip) && (!runResolved || !runResolved.clip)) {
+            _envCharacterResetLocomotionBlend(mesh);
+            return false;
+        }
+        var actions = {
+            idle: idleResolved && idleResolved.clip ? mesh.userData._mixer.clipAction(idleResolved.clip) : null,
+            walk: walkResolved && walkResolved.clip ? mesh.userData._mixer.clipAction(walkResolved.clip) : null,
+            run: runResolved && runResolved.clip ? mesh.userData._mixer.clipAction(runResolved.clip) : null
+        };
+        ['idle', 'walk', 'run'].forEach(function (key) {
+            var action = actions[key] || null;
+            if (!action) return;
+            action.enabled = false;
+            action.paused = false;
+            action.clampWhenFinished = false;
+            if (typeof action.setLoop === 'function') action.setLoop(THREE.LoopRepeat, Infinity);
+            if (typeof action.setEffectiveTimeScale === 'function') action.setEffectiveTimeScale(1);
+            _envCharacterSetBlendActionWeight(action, 0);
+        });
+        mesh.userData._locomotionActions = actions;
+        mesh.userData._locomotionResolvedClips = {
+            idle: idleResolved || null,
+            walk: walkResolved || null,
+            run: runResolved || null
+        };
+        mesh.userData._locomotionWeights = _envCharacterCreateLocomotionBlendWeights(mesh.userData._locomotionWeights);
+        mesh.userData._locomotionTargetWeights = _envCharacterCreateLocomotionBlendWeights(mesh.userData._locomotionTargetWeights);
+        mesh.userData._locomotionBlendActive = false;
+        return true;
+    }
+
+    function _envCharacterResolveLocomotionBlendTargets(mesh, sceneObject) {
+        var actions = mesh && mesh.userData && mesh.userData._locomotionActions && typeof mesh.userData._locomotionActions === 'object'
+            ? mesh.userData._locomotionActions
+            : {};
+        var objectRecord = sceneObject && typeof sceneObject === 'object' && !Array.isArray(sceneObject)
+            ? sceneObject
+            : ((mesh && mesh.userData && mesh.userData.sceneObject) || {});
+        var behaviorSpeed = Math.max(0.1, Number((((objectRecord || {}).data) || {}).behavior_speed || 2.6));
+        var normalizedSpeed = Math.max(0, Number((mesh && mesh.userData && mesh.userData._locomotionSpeedSmoothed) || 0)) / behaviorSpeed;
+        var weights = _envCharacterCreateLocomotionBlendWeights();
+        if (normalizedSpeed <= 0.1) {
+            weights.idle = 1;
+        } else if (normalizedSpeed <= 0.5) {
+            var idleWalkT = Math.max(0, Math.min(1, (normalizedSpeed - 0.1) / 0.4));
+            weights.idle = 1 - idleWalkT;
+            weights.walk = idleWalkT;
+        } else if (normalizedSpeed <= 0.85) {
+            var walkRunT = Math.max(0, Math.min(1, (normalizedSpeed - 0.5) / 0.35));
+            weights.walk = 1 - walkRunT;
+            weights.run = walkRunT;
+        } else {
+            weights.run = 1;
+        }
+        if (!actions.idle) {
+            if (actions.walk) weights.walk += weights.idle;
+            else weights.run += weights.idle;
+            weights.idle = 0;
+        }
+        if (!actions.walk) {
+            if (actions.run) weights.run += weights.walk;
+            else weights.idle += weights.walk;
+            weights.walk = 0;
+        }
+        if (!actions.run) {
+            if (actions.walk) weights.walk += weights.run;
+            else weights.idle += weights.run;
+            weights.run = 0;
+        }
+        return weights;
+    }
+
+    function _envCharacterApplyLocomotionBlend(mesh, sceneObject, dt) {
+        if (!_envCharacterEnsureLocomotionBlend(mesh)) return null;
+        var actions = mesh.userData._locomotionActions || {};
+        var targets = _envCharacterResolveLocomotionBlendTargets(mesh, sceneObject);
+        var weights = _envCharacterCreateLocomotionBlendWeights(mesh.userData._locomotionWeights);
+        var alpha = Math.max(0.08, Math.min(1, Number(dt || 0) * 6));
+        ['idle', 'walk', 'run'].forEach(function (key) {
+            weights[key] = weights[key] + ((Number(targets[key] || 0) - weights[key]) * alpha);
+        });
+        mesh.userData._locomotionTargetWeights = _envCharacterCreateLocomotionBlendWeights(targets);
+        mesh.userData._locomotionWeights = _envCharacterCreateLocomotionBlendWeights(weights);
+        var objectRecord = sceneObject && typeof sceneObject === 'object' && !Array.isArray(sceneObject)
+            ? sceneObject
+            : ((mesh.userData || {}).sceneObject || {});
+        var behaviorSpeed = Math.max(0.1, Number((((objectRecord || {}).data) || {}).behavior_speed || 2.6));
+        var smoothedSpeed = Math.max(0, Number(mesh.userData._locomotionSpeedSmoothed || 0));
+        var walkReferenceSpeed = Math.max(0.18, behaviorSpeed * 0.45);
+        var runReferenceSpeed = Math.max(0.24, behaviorSpeed * 0.95);
+        var dominantKey = 'idle';
+        var dominantWeight = -1;
+        ['idle', 'walk', 'run'].forEach(function (key) {
+            var action = actions[key] || null;
+            if (!action) return;
+            var weight = Math.max(0, Number(weights[key] || 0));
+            if (weight > dominantWeight) {
+                dominantWeight = weight;
+                dominantKey = key;
+            }
+            if (typeof action.setLoop === 'function') action.setLoop(THREE.LoopRepeat, Infinity);
+            action.clampWhenFinished = false;
+            action.paused = false;
+            if (typeof action.setEffectiveTimeScale === 'function') {
+                if (key === 'walk') action.setEffectiveTimeScale(Math.max(0.3, smoothedSpeed / walkReferenceSpeed));
+                else if (key === 'run') action.setEffectiveTimeScale(Math.max(0.5, smoothedSpeed / runReferenceSpeed));
+                else action.setEffectiveTimeScale(1);
+            }
+            if (weight > 0.001) action.play();
+            _envCharacterSetBlendActionWeight(action, weight);
+        });
+        var resolved = (mesh.userData._locomotionResolvedClips && mesh.userData._locomotionResolvedClips[dominantKey]) || null;
+        var dominantAction = actions[dominantKey] || null;
+        if (dominantAction) {
+            mesh.userData._currentAction = dominantAction;
+            mesh.userData._currentClipName = String((resolved && resolved.name) || dominantKey);
+            mesh.userData._currentClipRawName = String((resolved && resolved.clip && resolved.clip.name) || (resolved && resolved.name) || dominantKey);
+            mesh.userData._currentClipSource = String((resolved && resolved.source) || 'native');
+        }
+        mesh.userData._locomotionBlendActive = true;
+        return {
+            weights: _envCharacterCreateLocomotionBlendWeights(weights),
+            dominantKey: dominantKey,
+            dominantResolved: resolved || null,
+            active: true
+        };
+    }
+
+    function _envCharacterApplyAutoResolvedClip(mesh, resolved, options) {
+        if (!mesh || !mesh.userData || !mesh.userData._mixer || !resolved || !resolved.clip) return false;
+        var opts = options && typeof options === 'object' && !Array.isArray(options) ? options : {};
+        var prevAction = mesh.userData._currentAction || null;
+        var nextAction = mesh.userData._mixer.clipAction(resolved.clip);
+        var loopName = _envNormalizeCharacterAnimationLoop(opts.loop, 'repeat');
+        var loopMode = loopName === 'once' ? THREE.LoopOnce : THREE.LoopRepeat;
+        var speed = _envClampCharacterAnimationSpeed(opts.speed, 1);
+        var paused = !!opts.paused;
+        var fadeSeconds = Math.max(0, Number(opts.fadeSeconds || 0.3));
+        if (prevAction && prevAction !== nextAction) prevAction.fadeOut(fadeSeconds);
+        nextAction.reset();
+        nextAction.enabled = true;
+        nextAction.paused = false;
+        nextAction.clampWhenFinished = loopMode === THREE.LoopOnce;
+        if (typeof nextAction.setEffectiveWeight === 'function') nextAction.setEffectiveWeight(1);
+        if (typeof nextAction.setEffectiveTimeScale === 'function') nextAction.setEffectiveTimeScale(speed);
+        if (typeof nextAction.setLoop === 'function') nextAction.setLoop(loopMode, loopMode === THREE.LoopOnce ? 1 : Infinity);
+        if (prevAction && prevAction !== nextAction) nextAction.fadeIn(fadeSeconds);
+        nextAction.play();
+        nextAction.paused = paused;
+        mesh.userData._currentAction = nextAction;
+        mesh.userData._currentClipName = String(resolved.name || '');
+        mesh.userData._currentClipRawName = String((resolved.clip && resolved.clip.name) || resolved.name || '');
+        mesh.userData._currentClipSource = String(resolved.source || 'native');
+        return true;
+    }
+
+    function _envCharacterResolveMountedAutoClip(mesh, sceneObject, dt) {
+        if (!mesh || !mesh.userData) return null;
+        var objectRecord = sceneObject && typeof sceneObject === 'object' && !Array.isArray(sceneObject) ? sceneObject : {};
+        var rawState = String(objectRecord.state || '').trim().toLowerCase();
+        var behaviorSpeed = Math.max(0.1, Number((((objectRecord || {}).data) || {}).behavior_speed || 2.6));
+        var locomotionPreview = _envCharacterWorkbenchActive() ? _envCharacterWorkbenchLocomotionPreview(mesh) : '';
+        var moving = !!mesh.userData._moving;
+        var rawSpeed = Math.max(0, Number(mesh.userData._navSpeed || 0));
+        if (locomotionPreview === 'idle') {
+            moving = false;
+            rawSpeed = 0;
+        } else if (locomotionPreview === 'walk') {
+            moving = true;
+            rawSpeed = Math.max(0.18, behaviorSpeed * 0.45);
+        } else if (locomotionPreview === 'run') {
+            moving = true;
+            rawSpeed = Math.max(0.24, behaviorSpeed * 0.95);
+        }
+        var previousSmoothed = Math.max(0, Number(mesh.userData._locomotionSpeedSmoothed || 0));
+        var alpha = Math.max(0.08, Math.min(1, Number(dt || 0) * 8));
+        var smoothedSpeed = previousSmoothed + ((rawSpeed - previousSmoothed) * alpha);
+        mesh.userData._locomotionSpeedSmoothed = smoothedSpeed;
+        if (!moving && smoothedSpeed < 0.04) smoothedSpeed = 0;
+        var targetClip = '';
+        if (!moving) {
+            if (rawState === 'talking') targetClip = 'talk';
+            else if (rawState === 'attacking') targetClip = 'attack';
+            else if (rawState === 'emoting') targetClip = 'emote';
+            else if (rawState === 'sleeping') targetClip = 'sleep';
+        }
+        if (targetClip) {
+            mesh.userData._locomotionMode = targetClip;
+            return _envCharacterResolveAnimationClip(mesh, targetClip);
+        }
+        var normalizedSpeed = smoothedSpeed / behaviorSpeed;
+        var previousMode = String(mesh.userData._locomotionMode || '').trim().toLowerCase();
+        var nextMode = previousMode === 'run' ? 'run' : (previousMode === 'walk' ? 'walk' : 'idle');
+        if (!moving && normalizedSpeed < 0.08) {
+            nextMode = 'idle';
+        } else if (previousMode === 'run') {
+            nextMode = normalizedSpeed >= 0.52 ? 'run' : 'walk';
+        } else if (previousMode === 'walk') {
+            if (normalizedSpeed >= 0.82) nextMode = 'run';
+            else if (!moving && normalizedSpeed < 0.12) nextMode = 'idle';
+            else nextMode = 'walk';
+        } else {
+            if (normalizedSpeed >= 0.82) nextMode = 'run';
+            else if (moving || normalizedSpeed >= 0.12) nextMode = 'walk';
+            else nextMode = 'idle';
+        }
+        mesh.userData._locomotionMode = nextMode;
+        return _envCharacterResolveLocomotionClip(mesh, nextMode);
+    }
+
     function _envPatchInhabitantAnimationState(runtimeState, patch) {
         var state = runtimeState && typeof runtimeState === 'object' && !Array.isArray(runtimeState)
             ? runtimeState
@@ -11983,14 +12360,22 @@
         return next;
     }
 
-    function _envMarkCharacterAnimationUiDirty() {
+    function _envMarkCharacterAnimationUiDirty(forceStageRebuild) {
         _envScene.dirty = true;
+        if (forceStageRebuild === false) {
+            if (_env3D && _env3D.inited && document.getElementById('envops-habitat-shell')) {
+                _envStageUiState.pendingSceneRender = true;
+                return;
+            }
+            return;
+        }
         _envStageUiState.forceStageRebuild = true;
     }
 
     function _envCharacterApplyResolvedClip(mesh, resolved, options) {
         if (!mesh || !mesh.userData || !mesh.userData._mixer || !resolved || !resolved.clip) return false;
         var opts = options && typeof options === 'object' && !Array.isArray(options) ? options : {};
+        _envCharacterSuspendLocomotionBlend(mesh);
         var prevAction = mesh.userData._currentAction || null;
         var nextAction = mesh.userData._mixer.clipAction(resolved.clip);
         var loopName = _envNormalizeCharacterAnimationLoop(opts.loop, mesh.userData._previewLoop || 'repeat');
@@ -12003,6 +12388,7 @@
         nextAction.enabled = true;
         nextAction.paused = false;
         nextAction.clampWhenFinished = loopMode === THREE.LoopOnce;
+        if (typeof nextAction.setEffectiveWeight === 'function') nextAction.setEffectiveWeight(1);
         if (typeof nextAction.setEffectiveTimeScale === 'function') nextAction.setEffectiveTimeScale(speed);
         if (typeof nextAction.setLoop === 'function') nextAction.setLoop(loopMode, loopMode === THREE.LoopOnce ? 1 : Infinity);
         if (prevAction && prevAction !== nextAction) nextAction.fadeIn(fadeSeconds);
@@ -12046,6 +12432,28 @@
         if (typeof mixer.addEventListener === 'function') mixer.addEventListener('finished', handler);
         mesh.userData._boundMixer = mixer;
         mesh.userData._mixerFinishedHandler = handler;
+    }
+
+    function _envCharacterDetectFinishedAnimationFallback(mesh) {
+        if (!mesh || !mesh.userData || mesh.userData._pendingAnimationFinish) return false;
+        if (!_envIsMountedCharacterRuntimeObject((mesh.userData || {}).sceneObject || null)) return false;
+        var runtimeState = _envInhabitantRuntimeState();
+        var animation = _envInhabitantAnimationState(runtimeState);
+        if (!animation.override_active) return false;
+        var action = mesh.userData._currentAction || null;
+        if (!action || action.loop !== THREE.LoopOnce) return false;
+        var clip = null;
+        if (typeof action.getClip === 'function') clip = action.getClip();
+        if (!clip && action._clip) clip = action._clip;
+        var duration = Math.max(0, Number((clip && clip.duration) || 0));
+        if (!(duration > 0)) return false;
+        var actionTime = Math.max(0, Number(action.time || 0));
+        if (actionTime + 0.001 < duration) return false;
+        mesh.userData._pendingAnimationFinish = {
+            at: Date.now(),
+            clip_raw: String((clip && clip.name) || mesh.userData._currentClipRawName || '')
+        };
+        return true;
     }
 
     function _envCharacterPlayQueuedEntry(mesh, runtimeState, actorName, queue, startIndex, commandName) {
@@ -12247,7 +12655,9 @@
         mesh.userData._currentClipSource = 'native';
         mesh.userData._previewClipName = '';
         mesh.userData._previewClipRawName = '';
+        mesh.userData._previewLoop = 'repeat';
         mesh.userData._previewPaused = false;
+        mesh.userData._previewSpeed = 1;
         mesh.userData._pendingAnimationRequest = null;
         _envCharacterClearQueuedResume(mesh);
         return true;
@@ -12347,6 +12757,7 @@
                 ctx.mesh.userData._previewLoop = deferredLoop;
                 ctx.mesh.userData._previewSpeed = deferredSpeed;
                 ctx.mesh.userData._previewPaused = deferredPaused;
+                _envCharacterSyncWorkbenchLocomotionPreviewForClip(ctx.mesh, ctx.obj, clipName, clipName);
                 _envPatchInhabitantAnimationState(ctx.state, {
                     active_clip: clipName,
                     active_clip_raw: clipName,
@@ -12410,6 +12821,12 @@
             paused: payload && payload.paused !== undefined ? payload.paused : fallback.paused,
             fadeSeconds: payload && payload.fadeSeconds !== undefined ? payload.fadeSeconds : fallback.fadeSeconds
         })) return false;
+        _envCharacterSyncWorkbenchLocomotionPreviewForClip(
+            ctx.mesh,
+            ctx.obj,
+            String(resolved.name || clipName || ''),
+            String((resolved.clip && resolved.clip.name) || resolved.name || clipName || '')
+        );
         _envPatchInhabitantAnimationState(ctx.state, {
             active_clip: String(resolved.name || ''),
             active_clip_raw: String((resolved.clip && resolved.clip.name) || resolved.name || ''),
@@ -12695,6 +13112,7 @@
             active_clip: String(surface.active_clip || ''),
             active_priority: String(surface.active_priority || 'normal'),
             interrupt_policy: String(surface.interrupt_policy || 'replace'),
+            locomotion_blend_active: !!surface.locomotion_blend_active,
             paused: !!surface.paused,
             queue_length: Array.isArray(surface.queue) ? surface.queue.length : 0,
             queue_cursor: Math.max(0, Number(surface.queue_cursor || 0)),
@@ -12707,6 +13125,7 @@
             active_clip: String(surface.active_clip || ''),
             active_priority: String(surface.active_priority || 'normal'),
             interrupt_policy: String(surface.interrupt_policy || 'replace'),
+            locomotion_blend_active: !!surface.locomotion_blend_active,
             paused: !!surface.paused,
             queue_length: Array.isArray(surface.queue) ? surface.queue.length : 0,
             queue_cursor: Math.max(0, Number(surface.queue_cursor || 0))
@@ -18553,6 +18972,15 @@
         };
     }
 
+    function _envNormalizeWorkbenchLocomotionPreview(mode) {
+        var value = String(mode || '').trim().toLowerCase();
+        return value === 'idle' || value === 'walk' || value === 'run' ? value : '';
+    }
+
+    function _envCharacterWorkbenchLocomotionPreview(mesh) {
+        return _envNormalizeWorkbenchLocomotionPreview(mesh && mesh.userData ? mesh.userData._workbenchLocomotionPreview : '');
+    }
+
     function _envCharacterWorkbenchBoneInventoryHtml(mesh, embodiment) {
         var clone = mesh && mesh.userData ? mesh.userData.assetClone : null;
         if (!clone || typeof clone.traverse !== 'function') return '';
@@ -18605,6 +19033,7 @@
         var clipEntries = _envCharacterWorkbenchClipEntries(mesh);
         var activeClip = String(_envCharacterUiClipState(_envInhabitantRuntimeState(), mesh).clip || (workbench && workbench.activeClip) || '');
         var playback = _envCharacterWorkbenchPlaybackState(mesh);
+        var locomotionPreview = _envCharacterWorkbenchLocomotionPreview(mesh);
         var attachmentPoints = embodiment && embodiment.attachment_points && typeof embodiment.attachment_points === 'object'
             ? embodiment.attachment_points
             : null;
@@ -18633,6 +19062,12 @@
             }).join('') +
             '<span class="envops-focus-chip' + (playback.loopMode === 'repeat' ? ' active' : '') + '" data-env-action="workbench-toggle-loop">' + _esc(playback.loopMode === 'repeat' ? 'Loop' : 'Once') + '</span>' +
             '</div>';
+        var locomotionHtml = '<div class="envops-focus-strip" style="flex-wrap:wrap;">' +
+            '<span class="envops-focus-chip' + (!locomotionPreview ? ' active' : '') + '" data-env-action="workbench-set-locomotion" data-env-locomotion="">Auto</span>' +
+            '<span class="envops-focus-chip' + (locomotionPreview === 'idle' ? ' active' : '') + '" data-env-action="workbench-set-locomotion" data-env-locomotion="idle">Idle</span>' +
+            '<span class="envops-focus-chip' + (locomotionPreview === 'walk' ? ' active' : '') + '" data-env-action="workbench-set-locomotion" data-env-locomotion="walk">Walk</span>' +
+            '<span class="envops-focus-chip' + (locomotionPreview === 'run' ? ' active' : '') + '" data-env-action="workbench-set-locomotion" data-env-locomotion="run">Run</span>' +
+            '</div>';
         var shotHtml = '<div class="envops-focus-strip" style="flex-wrap:wrap;">' +
             '<span class="envops-focus-chip" data-env-action="workbench-shot-preset" data-env-shot="front">Front</span>' +
             '<span class="envops-focus-chip" data-env-action="workbench-shot-preset" data-env-shot="three_q">3/4</span>' +
@@ -18657,6 +19092,10 @@
             '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.08);">' +
             '<div class="envops-habitat-scene-cockpit-head"><span>Transport</span><span>' + _esc(playback.paused ? 'paused' : 'playing') + '</span></div>' +
             transportHtml +
+            '</div>' +
+            '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.08);">' +
+            '<div class="envops-habitat-scene-cockpit-head"><span>Locomotion Preview</span><span>' + _esc(locomotionPreview || 'auto') + '</span></div>' +
+            locomotionHtml +
             '</div>' +
             '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.08);">' +
             '<div class="envops-habitat-scene-cockpit-head"><span>Shot Presets</span><span>autofit</span></div>' +
@@ -34103,6 +34542,7 @@
         if (!mesh || !mesh.userData) return;
         mesh.userData.assetLoadToken = Number(mesh.userData.assetLoadToken || 0) + 1;
         var clone = mesh.userData.assetClone || null;
+        _envCharacterResetLocomotionBlend(mesh);
         _env3DDisposeWorkbenchRuntimeHelpers(mesh);
         _env3DDisposeAgentSprite(mesh);
         if (mesh.userData._boundMixer
@@ -34578,13 +35018,24 @@
                 mesh.userData._previewSpeed = previewSpeed;
                 mesh.userData._previewPaused = previewPaused;
                 mesh.userData._previewLoop = previewLoop;
-                mesh.userData._previewClipName = String(mesh.userData._currentClipName || '');
-                mesh.userData._previewClipRawName = String(mesh.userData._currentClipRawName || mesh.userData._currentClipName || '');
+                if (isMountedRuntimeAsset) {
+                    mesh.userData._previewClipName = '';
+                    mesh.userData._previewClipRawName = '';
+                } else {
+                    mesh.userData._previewClipName = String(mesh.userData._currentClipName || '');
+                    mesh.userData._previewClipRawName = String(mesh.userData._currentClipRawName || mesh.userData._currentClipName || '');
+                }
                 if (pendingRequest && pendingRequest.clip) {
                     var deferredActor = String(pendingRequest.actorName || 'system').trim() || 'system';
                     var deferredResolved = _envCharacterResolveAnimationClip(mesh, pendingRequest.clip);
                     if (deferredResolved && deferredResolved.clip
                         && _envCharacterApplyResolvedClip(mesh, deferredResolved, pendingRequest)) {
+                        _envCharacterSyncWorkbenchLocomotionPreviewForClip(
+                            mesh,
+                            sceneObject,
+                            String(deferredResolved.name || pendingRequest.clip || ''),
+                            String((deferredResolved.clip && deferredResolved.clip.name) || deferredResolved.name || pendingRequest.clip || '')
+                        );
                         if (isMountedRuntimeAsset) {
                             var deferredState = _envInhabitantRuntimeState();
                             var deferredAnimation = _envInhabitantAnimationState(deferredState);
@@ -35567,6 +36018,13 @@
         mesh.userData._previewSpeed = null;
         mesh.userData._previewPaused = false;
         mesh.userData._previewLoop = null;
+        mesh.userData._workbenchLocomotionPreview = '';
+        mesh.userData._navSpeed = 0;
+        mesh.userData._locomotionMode = '';
+        mesh.userData._locomotionSpeedSmoothed = 0;
+        mesh.userData._locomotionWeights = _envCharacterCreateLocomotionBlendWeights();
+        mesh.userData._locomotionTargetWeights = _envCharacterCreateLocomotionBlendWeights();
+        mesh.userData._locomotionBlendActive = false;
         var action = mesh.userData._currentAction;
         if (action) {
             action.paused = false;
@@ -36649,6 +37107,7 @@
             if (mesh.userData._mixer) {
                 mesh.userData._mixer.update(Math.min(dt, 0.1));
                 _env3DPinMountedRuntimeAssetFloor(mesh);
+                _envCharacterDetectFinishedAnimationFallback(mesh);
                 _envCharacterProcessFinishedAnimation(mesh);
             }
             if (mesh.userData.assetClone && _envIsMountedCharacterRuntimeObject((mesh.userData || {}).sceneObject || null)) {
@@ -36658,40 +37117,140 @@
                 mesh.userData._moving = false;
                 mesh.userData._waypoints = null;
             }
-            var previewOverrideActive = _envIsMountedCharacterRuntimeObject((mesh.userData || {}).sceneObject || null)
+            var mountedRuntimeObject = _envIsMountedCharacterRuntimeObject((mesh.userData || {}).sceneObject || null);
+            var previewOverrideActive = mountedRuntimeObject
                 ? _envCharacterAnimationOverrideActive(mesh, _envInhabitantRuntimeState())
                 : (_envCharacterWorkbenchActive() && !!(mesh.userData && mesh.userData._previewClipName));
-            if (mesh.userData._mixer && mesh.userData._clips && !previewOverrideActive) {
-                var desiredClip = mesh.userData._moving ? 'walk'
-                    : (state === 'running' ? 'run'
-                    : (state === 'talking' ? 'talk'
-                    : (state === 'attacking' ? 'attack'
-                    : (state === 'emoting' ? 'emote'
-                    : (state === 'sleeping' ? 'sleep' : 'idle')))));
-                var resolvedClip = _env3DResolveAnimationClip(mesh, desiredClip);
-                if (resolvedClip
-                    && resolvedClip.clip
-                    && mesh.userData._currentClipName !== resolvedClip.name) {
-                    var prev = mesh.userData._currentAction;
-                    var next = mesh.userData._mixer.clipAction(resolvedClip.clip);
-                    if (prev && prev !== next) prev.fadeOut(0.3);
-                    next.reset().fadeIn(0.3).play();
-                    mesh.userData._currentAction = next;
-                    mesh.userData._currentClipName = resolvedClip.name;
-                    mesh.userData._currentClipRawName = String((resolvedClip.clip && resolvedClip.clip.name) || resolvedClip.name || '');
-                    mesh.userData._currentClipSource = String(resolvedClip.source || 'native');
-                    if (_envIsMountedCharacterRuntimeObject((mesh.userData || {}).sceneObject || null)) {
-                        _envPatchInhabitantAnimationState(_envInhabitantRuntimeState(), {
-                            active_clip: String(resolvedClip.name || ''),
-                            active_clip_raw: String((resolvedClip.clip && resolvedClip.clip.name) || resolvedClip.name || ''),
-                            active_clip_source: String(resolvedClip.source || 'native'),
-                            paused: !!next.paused,
-                            loop_mode: next.loop === THREE.LoopOnce ? 'once' : 'repeat',
-                            speed: typeof next.getEffectiveTimeScale === 'function' ? Number(next.getEffectiveTimeScale()) : 1,
-                            override_active: false
-                        });
-                        _envMarkCharacterAnimationUiDirty();
-                        renderEnvironmentView();
+            if (mesh.userData._mixer && mesh.userData._clips) {
+                if (!previewOverrideActive) {
+                    var resolvedClip = mountedRuntimeObject
+                        ? _envCharacterResolveMountedAutoClip(mesh, (mesh.userData || {}).sceneObject || null, dt)
+                        : _env3DResolveAnimationClip(
+                            mesh,
+                            mesh.userData._moving ? 'walk'
+                                : (state === 'running' ? 'run'
+                                : (state === 'talking' ? 'talk'
+                                : (state === 'attacking' ? 'attack'
+                                : (state === 'emoting' ? 'emote'
+                                : (state === 'sleeping' ? 'sleep' : 'idle')))))
+                        );
+                    var activeAnimationState = mountedRuntimeObject ? _envInhabitantAnimationState(_envInhabitantRuntimeState()) : null;
+                    var resolvedRawName = String((resolvedClip && resolvedClip.clip && resolvedClip.clip.name) || (resolvedClip && resolvedClip.name) || '');
+                    var locomotionBlendState = mountedRuntimeObject
+                        && _envCharacterLocomotionPreviewFromClip(
+                            String((resolvedClip && resolvedClip.name) || (mesh.userData && mesh.userData._locomotionMode) || ''),
+                            resolvedRawName
+                        )
+                        ? _envCharacterApplyLocomotionBlend(mesh, (mesh.userData || {}).sceneObject || null, dt)
+                        : null;
+                    if (locomotionBlendState && locomotionBlendState.active) {
+                        var dominantResolved = locomotionBlendState.dominantResolved || resolvedClip || null;
+                        var dominantRawName = String(
+                            (dominantResolved && dominantResolved.clip && dominantResolved.clip.name)
+                            || (dominantResolved && dominantResolved.name)
+                            || ''
+                        );
+                        var blendWeights = locomotionBlendState.weights || _envCharacterCreateLocomotionBlendWeights();
+                        var blendStateDrift = !!(
+                            mountedRuntimeObject
+                            && activeAnimationState
+                            && (
+                                String(activeAnimationState.active_clip || '') !== String((dominantResolved && dominantResolved.name) || '')
+                                || String(activeAnimationState.active_clip_raw || '') !== dominantRawName
+                                || String(activeAnimationState.active_clip_source || 'native') !== String((dominantResolved && dominantResolved.source) || 'native')
+                                || !activeAnimationState.locomotion_blend_active
+                                || Math.abs(Number((((activeAnimationState.locomotion_blend_weights || {}).idle) || 0)) - Number(blendWeights.idle || 0)) > 0.025
+                                || Math.abs(Number((((activeAnimationState.locomotion_blend_weights || {}).walk) || 0)) - Number(blendWeights.walk || 0)) > 0.025
+                                || Math.abs(Number((((activeAnimationState.locomotion_blend_weights || {}).run) || 0)) - Number(blendWeights.run || 0)) > 0.025
+                                || !!activeAnimationState.override_active
+                                || String(activeAnimationState.loop_mode || 'repeat') !== 'repeat'
+                                || !!activeAnimationState.paused
+                            )
+                        );
+                        if (mountedRuntimeObject && blendStateDrift) {
+                            _envPatchInhabitantAnimationState(_envInhabitantRuntimeState(), {
+                                active_clip: String((dominantResolved && dominantResolved.name) || ''),
+                                active_clip_raw: dominantRawName,
+                                active_clip_source: String((dominantResolved && dominantResolved.source) || 'native'),
+                                active_priority: 'low',
+                                interrupt_policy: 'replace',
+                                locomotion_blend_weights: _envCharacterCreateLocomotionBlendWeights(blendWeights),
+                                locomotion_blend_active: true,
+                                paused: false,
+                                loop_mode: 'repeat',
+                                speed: (mesh.userData._currentAction && typeof mesh.userData._currentAction.getEffectiveTimeScale === 'function')
+                                    ? Number(mesh.userData._currentAction.getEffectiveTimeScale())
+                                    : 1,
+                                override_active: false
+                            });
+                            _envMarkCharacterAnimationUiDirty(false);
+                            renderEnvironmentView();
+                        }
+                    } else {
+                        if (mountedRuntimeObject) _envCharacterSuspendLocomotionBlend(mesh);
+                        var runtimeStateDrift = !!(
+                            mountedRuntimeObject
+                            && activeAnimationState
+                            && resolvedClip
+                            && resolvedClip.clip
+                            && (
+                                String(activeAnimationState.active_clip || '') !== String(resolvedClip.name || '')
+                                || String(activeAnimationState.active_clip_raw || '') !== resolvedRawName
+                                || String(activeAnimationState.active_clip_source || 'native') !== String(resolvedClip.source || 'native')
+                                || !!activeAnimationState.override_active
+                                || !!activeAnimationState.locomotion_blend_active
+                                || Math.abs(Number((((activeAnimationState.locomotion_blend_weights || {}).idle) || 0))) > 0.001
+                                || Math.abs(Number((((activeAnimationState.locomotion_blend_weights || {}).walk) || 0))) > 0.001
+                                || Math.abs(Number((((activeAnimationState.locomotion_blend_weights || {}).run) || 0))) > 0.001
+                                || String(activeAnimationState.loop_mode || 'repeat') !== 'repeat'
+                                || Math.abs(Number(activeAnimationState.speed || 1) - 1) > 0.001
+                                || !!activeAnimationState.paused
+                            )
+                        );
+                        if (resolvedClip
+                            && resolvedClip.clip
+                            && (
+                                mesh.userData._currentClipName !== resolvedClip.name
+                                || !mesh.userData._currentAction
+                                || mesh.userData._currentAction.paused
+                                || mesh.userData._currentAction.enabled === false
+                                || mesh.userData._currentAction.loop === THREE.LoopOnce
+                                || runtimeStateDrift
+                            )) {
+                            if (
+                                mesh.userData._currentClipName !== resolvedClip.name
+                                || !mesh.userData._currentAction
+                                || mesh.userData._currentAction.paused
+                                || mesh.userData._currentAction.enabled === false
+                                || mesh.userData._currentAction.loop === THREE.LoopOnce
+                            ) {
+                                _envCharacterApplyAutoResolvedClip(mesh, resolvedClip, {
+                                    loop: 'repeat',
+                                    speed: 1,
+                                    paused: false,
+                                    fadeSeconds: 0.3
+                                });
+                            }
+                            if (mountedRuntimeObject) {
+                                _envPatchInhabitantAnimationState(_envInhabitantRuntimeState(), {
+                                    active_clip: String(resolvedClip.name || ''),
+                                    active_clip_raw: resolvedRawName,
+                                    active_clip_source: String(resolvedClip.source || 'native'),
+                                    active_priority: 'low',
+                                    interrupt_policy: 'replace',
+                                    locomotion_blend_weights: _envCharacterCreateLocomotionBlendWeights(),
+                                    locomotion_blend_active: false,
+                                    paused: !!(mesh.userData._currentAction && mesh.userData._currentAction.paused),
+                                    loop_mode: (mesh.userData._currentAction && mesh.userData._currentAction.loop === THREE.LoopOnce) ? 'once' : 'repeat',
+                                    speed: (mesh.userData._currentAction && typeof mesh.userData._currentAction.getEffectiveTimeScale === 'function')
+                                        ? Number(mesh.userData._currentAction.getEffectiveTimeScale())
+                                        : 1,
+                                    override_active: false
+                                });
+                                _envMarkCharacterAnimationUiDirty(false);
+                                renderEnvironmentView();
+                            }
+                        }
                     }
                 }
             }
@@ -45078,6 +45637,51 @@
                     var playbackState = _envCharacterWorkbenchPlaybackState(loopMesh);
                     var nextLoopName = playbackState.loopMode === 'once' ? 'repeat' : 'once';
                     _envQueueControl('character_set_loop', nextLoopName, uiActor, 'workbench toggle loop');
+                    return;
+                }
+                if (action === 'workbench-set-locomotion') {
+                    var locomotionMesh = _envMountedRuntimeMesh();
+                    if (locomotionMesh && locomotionMesh.userData) {
+                        var locomotionState = _envInhabitantRuntimeState();
+                        var locomotionAnimation = _envInhabitantAnimationState(locomotionState);
+                        var activeClipName = String(
+                            locomotionMesh.userData._previewClipName
+                            || locomotionMesh.userData._currentClipName
+                            || locomotionAnimation.active_clip
+                            || ''
+                        ).trim();
+                        var activeClipRawName = String(
+                            locomotionMesh.userData._previewClipRawName
+                            || locomotionMesh.userData._currentClipRawName
+                            || locomotionAnimation.active_clip_raw
+                            || activeClipName
+                        ).trim();
+                        _envCharacterSetWorkbenchLocomotionPreview(
+                            locomotionMesh,
+                            _envInhabitantObject(),
+                            actionEl.getAttribute('data-env-locomotion') || ''
+                        );
+                        if (locomotionAnimation.override_active
+                            && !(Array.isArray(locomotionAnimation.queue) && locomotionAnimation.queue.length)
+                            && _envCharacterLocomotionPreviewFromClip(activeClipName, activeClipRawName)) {
+                            _envCharacterClearClipOverride(locomotionMesh);
+                            _envPatchInhabitantAnimationState(locomotionState, {
+                                active_clip: '',
+                                active_clip_raw: '',
+                                active_clip_source: 'none',
+                                active_priority: 'low',
+                                interrupt_policy: 'replace',
+                                paused: false,
+                                override_active: false,
+                                queue: [],
+                                queue_cursor: 0,
+                                last_command: 'workbench_set_locomotion'
+                            });
+                            _envRefreshInhabitantRuntimeState('workbench_set_locomotion');
+                        }
+                        _envMarkCharacterAnimationUiDirty();
+                        renderEnvironmentView();
+                    }
                     return;
                 }
                 if (action === 'workbench-toggle-skeleton') {
