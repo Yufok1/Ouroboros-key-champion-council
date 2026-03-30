@@ -1,6 +1,6 @@
 ● Champion Council — Authoritative Version Map
 
-  As of: 2026-03-30 | HEAD: de154a1 | Panel cache: v=130w | Branch: main
+  As of: 2026-03-30 | HEAD: 008bfe7 | Panel cache: v=130w | Branch: main
 
   Identity: Inhabitable procedural media with agent co-presence. Not a game engine. Facilities breathe. Individual
   embodied character = base sellable unit.
