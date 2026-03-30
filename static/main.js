@@ -1032,6 +1032,8 @@
             active_clip: '',
             active_clip_raw: '',
             active_clip_source: 'none',
+            active_priority: 'normal',
+            interrupt_policy: 'replace',
             paused: true,
             loop_mode: 'repeat',
             speed: 1,
@@ -9364,13 +9366,28 @@
         var loopMode = _envNormalizeCharacterAnimationLoop(animation.loop_mode || 'repeat', 'repeat');
         var speed = _envClampCharacterAnimationSpeed(animation.speed || 1, 1);
         var reaction = String(animation.last_reaction || 'greet').trim() || 'greet';
+        var activePriority = _envNormalizeCharacterAnimationPriority(animation.active_priority || 'normal', 'normal');
+        var interruptPolicy = _envNormalizeCharacterInterruptPolicy(animation.interrupt_policy || 'replace', 'replace');
+        var queue = Array.isArray(animation.queue) ? animation.queue : [];
+        var queueLength = Math.max(0, Number(queue.length || 0));
+        var queueCursor = Math.max(0, Number(animation.queue_cursor || 0));
+        var activeQueueEntry = queueLength && queue[queueCursor] && typeof queue[queueCursor] === 'object' ? queue[queueCursor] : null;
+        var fadeSeconds = Math.max(0, Number(
+            activeQueueEntry && (activeQueueEntry.fade_seconds !== undefined
+                ? activeQueueEntry.fade_seconds
+                : (activeQueueEntry.fadeSeconds !== undefined ? activeQueueEntry.fadeSeconds : 0.3))
+        ) || 0.3);
         var objectKey = _envInhabitantObjectKey();
         var statePreview = {
             active_clip: String(animation.active_clip || ''),
+            active_priority: activePriority,
+            interrupt_policy: interruptPolicy,
             paused: !!animation.paused,
             loop_mode: loopMode,
             speed: speed,
             override_active: !!animation.override_active,
+            queue_length: queueLength,
+            queue_cursor: queueCursor,
             native_clip_count: Number(animation.native_clip_count || 0),
             contract_clip_count: Number(animation.contract_clip_count || 0),
             last_command: String(animation.last_command || ''),
@@ -9388,6 +9405,11 @@
             '<label style="display:block;"><div style="margin-bottom:4px;opacity:0.86;">Clip</div><input id="cc-anim-clip" name="clip_name" value="' + _esc(activeClip) + '" placeholder="walk / die / emote-yes" style="width:100%;padding:8px 10px;border:1px solid #314052;background:#121a26;color:#f5f7fb;border-radius:8px;" /></label>' +
             '<label style="display:block;"><div style="margin-bottom:4px;opacity:0.86;">Loop</div><select id="cc-anim-loop" name="loop_mode" style="width:100%;padding:8px 10px;border:1px solid #314052;background:#121a26;color:#f5f7fb;border-radius:8px;"><option value="repeat"' + (loopMode === 'repeat' ? ' selected' : '') + '>repeat</option><option value="once"' + (loopMode === 'once' ? ' selected' : '') + '>once</option></select></label>' +
             '<label style="display:block;"><div style="margin-bottom:4px;opacity:0.86;">Speed</div><input id="cc-anim-speed" name="speed" type="number" min="0.25" max="4" step="0.25" value="' + _esc(String(speed)) + '" style="width:100%;padding:8px 10px;border:1px solid #314052;background:#121a26;color:#f5f7fb;border-radius:8px;" /></label>' +
+            '</div>' +
+            '<div style="display:grid;grid-template-columns:1fr 1fr 0.8fr;gap:10px;align-items:end;margin-top:10px;">' +
+            '<label style="display:block;"><div style="margin-bottom:4px;opacity:0.86;">Priority</div><select id="cc-anim-priority" name="priority" style="width:100%;padding:8px 10px;border:1px solid #314052;background:#121a26;color:#f5f7fb;border-radius:8px;"><option value="low"' + (activePriority === 'low' ? ' selected' : '') + '>low</option><option value="normal"' + (activePriority === 'normal' ? ' selected' : '') + '>normal</option><option value="high"' + (activePriority === 'high' ? ' selected' : '') + '>high</option><option value="critical"' + (activePriority === 'critical' ? ' selected' : '') + '>critical</option></select></label>' +
+            '<label style="display:block;"><div style="margin-bottom:4px;opacity:0.86;">Interrupt</div><select id="cc-anim-interrupt" name="interrupt_policy" style="width:100%;padding:8px 10px;border:1px solid #314052;background:#121a26;color:#f5f7fb;border-radius:8px;"><option value="replace"' + (interruptPolicy === 'replace' ? ' selected' : '') + '>replace</option><option value="resume"' + (interruptPolicy === 'resume' ? ' selected' : '') + '>resume</option><option value="hold"' + (interruptPolicy === 'hold' ? ' selected' : '') + '>hold</option></select></label>' +
+            '<label style="display:block;"><div style="margin-bottom:4px;opacity:0.86;">Fade</div><input id="cc-anim-fade" name="fade_seconds" type="number" min="0" max="2" step="0.05" value="' + _esc(String(fadeSeconds)) + '" style="width:100%;padding:8px 10px;border:1px solid #314052;background:#121a26;color:#f5f7fb;border-radius:8px;" /></label>' +
             '</div>' +
             '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;">' +
             '<button type="button" data-surface-action="play_clip_action" style="padding:8px 12px;border:0;border-radius:999px;background:#5eead4;color:#082f31;font-weight:700;cursor:pointer;">Play Clip</button>' +
@@ -9409,12 +9431,12 @@
             'function report(command,ok,target){try{parent.postMessage({__env_surface_bridge__:"cc:v1",direction:"surface_to_shell",type:String(command||"surface_state"),ok:!!ok,objectKey:SURFACE_KEY,target:String(target||""),state:state()},"*");}catch(_){}}' +
             'function queue(action,target,note){try{parent.postMessage({__env_surface_bridge__:"cc:v1",direction:"surface_to_shell",command:"queue_control",objectKey:SURFACE_KEY,action:String(action||""),target:String(target||""),note:String(note||"surface bridge control"),ok:true,state:state()}, "*");return true;}catch(_){return false;}}' +
             'function setField(target,value){var el=byId(target);if(!el)return false;try{if(el.value!==undefined)el.value=String(value||"");else el.textContent=String(value||"");if(el.dispatchEvent){el.dispatchEvent(new Event("input",{bubbles:true}));el.dispatchEvent(new Event("change",{bubbles:true}));}return true;}catch(_){return false;}}' +
-            'function playClip(){var clip=val("cc-anim-clip","").trim();if(!clip)return false;var payload={clip:clip,loop:val("cc-anim-loop","repeat"),speed:Number(val("cc-anim-speed","1")||1),override:true};return queue("character_play_clip",JSON.stringify(payload),"surface play clip");}' +
+            'function playClip(){var clip=val("cc-anim-clip","").trim();if(!clip)return false;var payload={clip:clip,loop:val("cc-anim-loop","repeat"),speed:Number(val("cc-anim-speed","1")||1),fadeSeconds:Number(val("cc-anim-fade","0.3")||0.3),priority:val("cc-anim-priority","normal"),interrupt_policy:val("cc-anim-interrupt","replace"),override:true};return queue("character_play_clip",JSON.stringify(payload),"surface play clip");}' +
             'function setSpeed(){return queue("character_set_speed",val("cc-anim-speed","1"),"surface set speed");}' +
             'function setLoop(){return queue("character_set_loop",val("cc-anim-loop","repeat"),"surface set loop");}' +
             'function stopClip(){return queue("character_stop_clip","","surface stop clip");}' +
             'function getState(){return queue("character_get_animation_state","","surface get animation state");}' +
-            'function playReaction(){var reaction=val("cc-anim-reaction","").trim();if(!reaction)return false;return queue("character_play_reaction",JSON.stringify({reaction:reaction,loop:"once"}),"surface play reaction");}' +
+            'function playReaction(){var reaction=val("cc-anim-reaction","").trim();if(!reaction)return false;return queue("character_play_reaction",JSON.stringify({reaction:reaction,loop:"once",priority:val("cc-anim-priority","normal"),interrupt_policy:val("cc-anim-interrupt","replace")}),"surface play reaction");}' +
             'var handlers={play_clip_action:playClip,set_speed_action:setSpeed,set_loop_action:setLoop,stop_clip_action:stopClip,get_state_action:getState,play_reaction_action:playReaction};' +
             'document.addEventListener("click",function(event){var target=event.target&&event.target.closest?event.target.closest("[data-surface-action]"):null;if(!target)return;var action=String(target.getAttribute("data-surface-action")||"");if(!handlers[action])return;event.preventDefault();var ok=handlers[action]();report("surface_action",ok,action);});' +
             'window.addEventListener("message",function(event){var msg=event&&event.data&&typeof event.data==="object"?event.data:null;if(!msg||msg.__env_surface_bridge__!=="cc:v1"||msg.direction!=="shell_to_surface")return;if(msg.objectKey&&String(msg.objectKey)!==SURFACE_KEY)return;var handled=false;var command=String(msg.command||"");if(command==="surface_input"){handled=setField(String(msg.target||""),msg.value===undefined?"":msg.value);}else if(command==="surface_action"){var action=String(msg.action||"").trim();handled=!!(action&&handlers[action]&&handlers[action]());}else if(command==="surface_click"){var clickAction=String(msg.target||msg.action||"").trim();handled=!!(clickAction&&handlers[clickAction]&&handlers[clickAction]());}report(command,handled,String(msg.target||msg.action||""));});' +
@@ -9585,7 +9607,12 @@
             color: '#7dd3fc',
             html: _envMountedCharacterControlSurfaceHtml(runtimeSurface),
             panel_mode: 'fullscreen',
-            appearance: characterAssetRef ? { asset_ref: characterAssetRef } : undefined,
+            appearance: characterAssetRef ? {
+                asset_ref: characterAssetRef,
+                material: {
+                    asset_tint_mode: 'preserve'
+                }
+            } : undefined,
             character: {
                 archetype: 'custom',
                 anim_set: 'humanoid',
@@ -10202,6 +10229,20 @@
             }
         });
         return found ? box : fallback;
+    }
+
+    function _env3DWorkbenchStableLocalBounds(mesh) {
+        if (!mesh || !mesh.userData || typeof THREE === 'undefined') return null;
+        var cached = mesh.userData._workbenchStableLocalBounds;
+        if (cached && typeof cached.clone === 'function' && typeof cached.isEmpty === 'function' && !cached.isEmpty()) {
+            return cached.clone();
+        }
+        var computed = _env3DAssetLocalBounds(mesh);
+        if (computed && typeof computed.isEmpty === 'function' && !computed.isEmpty()) {
+            mesh.userData._workbenchStableLocalBounds = computed.clone();
+            return computed;
+        }
+        return null;
     }
 
     function _env3DPinMountedRuntimeAssetFloor(mesh) {
@@ -11777,9 +11818,105 @@
         };
     }
 
+    function _envNormalizeCharacterAnimationPriority(value, fallback) {
+        var preferred = String(value !== undefined && value !== null ? value : fallback || 'normal').trim().toLowerCase();
+        if (preferred === 'background') preferred = 'low';
+        if (/^(low|normal|high|critical)$/.test(preferred)) return preferred;
+        var fallbackValue = String(fallback || 'normal').trim().toLowerCase();
+        if (fallbackValue === 'background') fallbackValue = 'low';
+        return /^(low|normal|high|critical)$/.test(fallbackValue) ? fallbackValue : 'normal';
+    }
+
+    function _envCharacterAnimationPriorityRank(value) {
+        var normalized = _envNormalizeCharacterAnimationPriority(value, 'normal');
+        if (normalized === 'critical') return 3;
+        if (normalized === 'high') return 2;
+        if (normalized === 'low') return 0;
+        return 1;
+    }
+
+    function _envCharacterDefaultInterruptPolicy(priority, fallback) {
+        return _envCharacterAnimationPriorityRank(priority) >= _envCharacterAnimationPriorityRank('critical')
+            ? 'hold'
+            : _envNormalizeCharacterInterruptPolicy(fallback, 'replace');
+    }
+
+    function _envNormalizeCharacterInterruptPolicy(value, fallback) {
+        var preferred = String(value !== undefined && value !== null ? value : fallback || 'replace').trim().toLowerCase();
+        if (preferred === 'interrupt' || preferred === 'override') preferred = 'replace';
+        if (preferred === 'resume_previous') preferred = 'resume';
+        if (/^(replace|resume|hold)$/.test(preferred)) return preferred;
+        var fallbackValue = String(fallback || 'replace').trim().toLowerCase();
+        if (fallbackValue === 'interrupt' || fallbackValue === 'override') fallbackValue = 'replace';
+        if (fallbackValue === 'resume_previous') fallbackValue = 'resume';
+        return /^(replace|resume|hold)$/.test(fallbackValue) ? fallbackValue : 'replace';
+    }
+
+    function _envCharacterInterruptDecision(animationState, incomingPriority, forceInterrupt) {
+        var animation = animationState && typeof animationState === 'object' && !Array.isArray(animationState)
+            ? animationState
+            : _envCreateInhabitantAnimationState();
+        var currentPriority = _envNormalizeCharacterAnimationPriority(animation.active_priority, 'normal');
+        var currentPolicy = _envNormalizeCharacterInterruptPolicy(
+            animation.interrupt_policy,
+            _envCharacterDefaultInterruptPolicy(currentPriority, 'replace')
+        );
+        var nextPriority = _envNormalizeCharacterAnimationPriority(incomingPriority, 'normal');
+        if (!!forceInterrupt || !animation.override_active) {
+            return {
+                allowed: true,
+                current_priority: currentPriority,
+                current_policy: currentPolicy,
+                incoming_priority: nextPriority
+            };
+        }
+        if (currentPolicy === 'hold'
+            && _envCharacterAnimationPriorityRank(nextPriority) <= _envCharacterAnimationPriorityRank(currentPriority)) {
+            return {
+                allowed: false,
+                reason: 'held',
+                current_priority: currentPriority,
+                current_policy: currentPolicy,
+                incoming_priority: nextPriority
+            };
+        }
+        if (_envCharacterAnimationPriorityRank(nextPriority) < _envCharacterAnimationPriorityRank(currentPriority)) {
+            return {
+                allowed: false,
+                reason: 'lower_priority',
+                current_priority: currentPriority,
+                current_policy: currentPolicy,
+                incoming_priority: nextPriority
+            };
+        }
+        return {
+            allowed: true,
+            current_priority: currentPriority,
+            current_policy: currentPolicy,
+            incoming_priority: nextPriority
+        };
+    }
+
+    function _envCharacterReactionPriority(reactionId) {
+        var reaction = _env3DNormalizeClipName(reactionId);
+        if (reaction === 'death' || reaction === 'die') return 'critical';
+        if (reaction === 'hit' || reaction === 'hurt' || reaction === 'damage' || reaction === 'attack' || reaction === 'alert' || reaction === 'block') return 'high';
+        if (reaction === 'walk' || reaction === 'run' || reaction === 'idle' || reaction === 'blink') return 'low';
+        return 'normal';
+    }
+
     function _envNormalizeCharacterAnimationQueue(value, defaults) {
         var source = [];
         var fallback = defaults && typeof defaults === 'object' && !Array.isArray(defaults) ? defaults : {};
+        var defaultLoop = fallback.loop !== undefined ? fallback.loop : 'once';
+        var defaultFadeSeconds = Math.max(0, Number(
+            fallback.fadeSeconds !== undefined ? fallback.fadeSeconds : (fallback.fade_seconds !== undefined ? fallback.fade_seconds : 0.3)
+        ));
+        var defaultPriority = _envNormalizeCharacterAnimationPriority(fallback.priority, 'normal');
+        var defaultInterruptPolicy = _envNormalizeCharacterInterruptPolicy(
+            fallback.interruptPolicy !== undefined ? fallback.interruptPolicy : fallback.interrupt_policy,
+            _envCharacterDefaultInterruptPolicy(defaultPriority, 'replace')
+        );
         if (Array.isArray(value)) source = value.slice();
         else if (typeof value === 'string') source = String(value || '').split(',');
         return source.map(function (entry) {
@@ -11788,8 +11925,11 @@
                 var clipName = String(entry || '').trim();
                 return clipName ? {
                     clip: clipName,
-                    loop: _envNormalizeCharacterAnimationLoop(fallback.loop, 'repeat'),
-                    speed: _envClampCharacterAnimationSpeed(fallback.speed, 1)
+                    loop: _envNormalizeCharacterAnimationLoop(defaultLoop, 'once'),
+                    speed: _envClampCharacterAnimationSpeed(fallback.speed, 1),
+                    fade_seconds: defaultFadeSeconds,
+                    priority: defaultPriority,
+                    interrupt_policy: defaultInterruptPolicy
                 } : null;
             }
             if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return null;
@@ -11797,8 +11937,16 @@
             if (!clip) return null;
             return {
                 clip: clip,
-                loop: _envNormalizeCharacterAnimationLoop(entry.loop, fallback.loop || 'repeat'),
-                speed: _envClampCharacterAnimationSpeed(entry.speed, fallback.speed || 1)
+                loop: _envNormalizeCharacterAnimationLoop(entry.loop, defaultLoop),
+                speed: _envClampCharacterAnimationSpeed(entry.speed, fallback.speed || 1),
+                fade_seconds: Math.max(0, Number(
+                    entry.fadeSeconds !== undefined ? entry.fadeSeconds : (entry.fade_seconds !== undefined ? entry.fade_seconds : defaultFadeSeconds)
+                )),
+                priority: _envNormalizeCharacterAnimationPriority(entry.priority, defaultPriority),
+                interrupt_policy: _envNormalizeCharacterInterruptPolicy(
+                    entry.interruptPolicy !== undefined ? entry.interruptPolicy : entry.interrupt_policy,
+                    defaultInterruptPolicy
+                )
             };
         }).filter(Boolean).slice(0, 16);
     }
@@ -11818,6 +11966,14 @@
         if (patch && patch.hasOwnProperty('queue')) {
             next.queue = Array.isArray(patch.queue) ? _envCloneJson(patch.queue, []) : [];
         }
+        next.active_priority = _envNormalizeCharacterAnimationPriority(
+            next.active_priority,
+            animation.active_priority || 'normal'
+        );
+        next.interrupt_policy = _envNormalizeCharacterInterruptPolicy(
+            next.interrupt_policy,
+            animation.interrupt_policy || _envCharacterDefaultInterruptPolicy(next.active_priority, 'replace')
+        );
         next.loop_mode = _envNormalizeCharacterAnimationLoop(next.loop_mode, animation.loop_mode || 'repeat');
         next.speed = _envClampCharacterAnimationSpeed(next.speed, animation.speed || 1);
         next.queue_cursor = Math.max(0, Number(next.queue_cursor || 0));
@@ -11864,6 +12020,223 @@
         return true;
     }
 
+    function _envCharacterClearQueuedResume(mesh) {
+        if (!mesh || !mesh.userData) return;
+        mesh.userData._resumeQueueCursor = null;
+        mesh.userData._resumeQueueRequestedTs = 0;
+        mesh.userData._pendingAnimationFinish = null;
+    }
+
+    function _envCharacterBindMixerLifecycle(mesh) {
+        if (!mesh || !mesh.userData || !mesh.userData._mixer) return;
+        var mixer = mesh.userData._mixer;
+        if (mesh.userData._boundMixer === mixer && mesh.userData._mixerFinishedHandler) return;
+        if (mesh.userData._boundMixer
+            && mesh.userData._mixerFinishedHandler
+            && typeof mesh.userData._boundMixer.removeEventListener === 'function') {
+            mesh.userData._boundMixer.removeEventListener('finished', mesh.userData._mixerFinishedHandler);
+        }
+        var handler = function (event) {
+            if (!mesh || !mesh.userData || mesh.userData._mixer !== mixer) return;
+            mesh.userData._pendingAnimationFinish = {
+                at: Date.now(),
+                clip_raw: String((event && event.action && event.action._clip && event.action._clip.name) || '')
+            };
+        };
+        if (typeof mixer.addEventListener === 'function') mixer.addEventListener('finished', handler);
+        mesh.userData._boundMixer = mixer;
+        mesh.userData._mixerFinishedHandler = handler;
+    }
+
+    function _envCharacterPlayQueuedEntry(mesh, runtimeState, actorName, queue, startIndex, commandName) {
+        if (!mesh || !mesh.userData || !mesh.userData._mixer) return false;
+        var state = runtimeState && typeof runtimeState === 'object' && !Array.isArray(runtimeState)
+            ? runtimeState
+            : _envInhabitantRuntimeState();
+        var list = Array.isArray(queue) ? _envCloneJson(queue, []) : [];
+        var index = Math.max(0, Number(startIndex || 0));
+        while (index < list.length) {
+            var entry = list[index];
+            var clipName = String((entry && entry.clip) || '').trim();
+            if (!clipName) {
+                index += 1;
+                continue;
+            }
+            var resolved = _envCharacterResolveAnimationClip(mesh, clipName);
+            if (resolved && resolved.clip && _envCharacterApplyResolvedClip(mesh, resolved, {
+                loop: entry.loop,
+                speed: entry.speed,
+                paused: false,
+                fadeSeconds: entry.fade_seconds
+            })) {
+                _envPatchInhabitantAnimationState(state, {
+                    active_clip: String(resolved.name || ''),
+                    active_clip_raw: String((resolved.clip && resolved.clip.name) || resolved.name || ''),
+                    active_clip_source: String(resolved.source || 'native'),
+                    active_priority: _envNormalizeCharacterAnimationPriority(entry.priority, 'normal'),
+                    interrupt_policy: _envNormalizeCharacterInterruptPolicy(
+                        entry.interrupt_policy,
+                        _envCharacterDefaultInterruptPolicy(entry.priority, 'replace')
+                    ),
+                    paused: false,
+                    loop_mode: String(mesh.userData._previewLoop || 'repeat'),
+                    speed: Number(mesh.userData._previewSpeed || 1),
+                    override_active: true,
+                    queue: list,
+                    queue_cursor: index,
+                    last_command: String(commandName || 'character_queue_clips')
+                });
+                return true;
+            }
+            _envLogAction('character', 'Skipped unresolved queued character clip', actorName, {
+                action: String(commandName || 'character_queue_clips'),
+                clip: clipName,
+                queue_index: index
+            });
+            _envEmitBus('character', 'Skipped unresolved queued character clip', actorName, {
+                action: String(commandName || 'character_queue_clips'),
+                object_key: _envInhabitantObjectKey(),
+                clip: clipName,
+                queue_index: index
+            });
+            index += 1;
+        }
+        return false;
+    }
+
+    function _envCharacterFinalizeQueuedSequence(mesh, runtimeState, actorName, reason, commandName) {
+        if (!mesh || !mesh.userData) return false;
+        _envCharacterClearQueuedResume(mesh);
+        _envCharacterClearClipOverride(mesh);
+        _envPatchInhabitantAnimationState(runtimeState, {
+            active_clip: '',
+            active_clip_raw: '',
+            active_clip_source: 'none',
+            active_priority: 'normal',
+            interrupt_policy: 'replace',
+            paused: false,
+            override_active: false,
+            queue: [],
+            queue_cursor: 0,
+            last_command: String(commandName || 'character_queue_clips')
+        });
+        _envRefreshInhabitantRuntimeState(reason || 'character_queue_complete');
+        _envLogAction('character', 'Completed queued character clip sequence', actorName, {
+            action: String(commandName || 'character_queue_clips'),
+            object_key: _envInhabitantObjectKey()
+        });
+        _envEmitBus('character', 'Completed queued character clip sequence', actorName, {
+            action: String(commandName || 'character_queue_clips'),
+            object_key: _envInhabitantObjectKey()
+        });
+        _envSetBadge('running', 'QUEUE DONE');
+        _envScheduleLiveSync('character:queue_complete', true);
+        _envSaveTheaterSession(reason || 'character_queue_complete');
+        _envMarkCharacterAnimationUiDirty();
+        renderEnvironmentView();
+        return true;
+    }
+
+    function _envCharacterProcessFinishedAnimation(mesh) {
+        if (!mesh || !mesh.userData || !mesh.userData._pendingAnimationFinish) return false;
+        if (!_envIsMountedCharacterRuntimeObject((mesh.userData || {}).sceneObject || null)) {
+            mesh.userData._pendingAnimationFinish = null;
+            return false;
+        }
+        var pending = mesh.userData._pendingAnimationFinish;
+        mesh.userData._pendingAnimationFinish = null;
+        var state = _envInhabitantRuntimeState();
+        var animation = _envInhabitantAnimationState(state);
+        var actorName = String(_envManualActorId() || 'system').trim() || 'system';
+        var queue = Array.isArray(animation.queue) ? _envCloneJson(animation.queue, []) : [];
+        var resumeCursor = mesh.userData._resumeQueueCursor;
+        if (resumeCursor !== undefined && resumeCursor !== null && queue.length) {
+            mesh.userData._resumeQueueCursor = null;
+            if (_envCharacterPlayQueuedEntry(mesh, state, actorName, queue, resumeCursor, 'character_queue_clips')) {
+                _envRefreshInhabitantRuntimeState('character_queue_resume');
+                _envLogAction('character', 'Resumed queued character clip after interruption', actorName, {
+                    action: 'character_queue_clips',
+                    object_key: _envInhabitantObjectKey(),
+                    queue_index: Math.max(0, Number(state.animation.queue_cursor || 0))
+                });
+                _envEmitBus('character', 'Resumed queued character clip after interruption', actorName, {
+                    action: 'character_queue_clips',
+                    object_key: _envInhabitantObjectKey(),
+                    queue_index: Math.max(0, Number(state.animation.queue_cursor || 0))
+                });
+                _envSetBadge('running', 'QUEUE RESUME');
+                _envScheduleLiveSync('character:queue_resume', true);
+                _envSaveTheaterSession('character_queue_resume');
+                _envMarkCharacterAnimationUiDirty();
+                renderEnvironmentView();
+                return true;
+            }
+        }
+        if (queue.length && animation.override_active) {
+            var nextIndex = Math.max(0, Number(animation.queue_cursor || 0)) + 1;
+            if (_envCharacterPlayQueuedEntry(mesh, state, actorName, queue, nextIndex, 'character_queue_clips')) {
+                _envRefreshInhabitantRuntimeState('character_queue_advance');
+                _envLogAction('character', 'Advanced queued character clip', actorName, {
+                    action: 'character_queue_clips',
+                    object_key: _envInhabitantObjectKey(),
+                    queue_index: Math.max(0, Number(state.animation.queue_cursor || 0)),
+                    clip_raw: String((pending && pending.clip_raw) || '')
+                });
+                _envEmitBus('character', 'Advanced queued character clip', actorName, {
+                    action: 'character_queue_clips',
+                    object_key: _envInhabitantObjectKey(),
+                    queue_index: Math.max(0, Number(state.animation.queue_cursor || 0)),
+                    clip_raw: String((pending && pending.clip_raw) || '')
+                });
+                _envSetBadge('running', 'QUEUE ' + String(Math.max(1, Number(state.animation.queue_cursor || 0) + 1)));
+                _envScheduleLiveSync('character:queue_advance', true);
+                _envSaveTheaterSession('character_queue_advance');
+                _envMarkCharacterAnimationUiDirty();
+                renderEnvironmentView();
+                return true;
+            }
+            return _envCharacterFinalizeQueuedSequence(mesh, state, actorName, 'character_queue_complete', 'character_queue_clips');
+        }
+        if (animation.override_active
+            && _envNormalizeCharacterAnimationLoop(
+                (mesh.userData._previewLoop !== undefined ? mesh.userData._previewLoop : animation.loop_mode),
+                animation.loop_mode || 'repeat'
+            ) === 'once') {
+            _envCharacterClearQueuedResume(mesh);
+            _envCharacterClearClipOverride(mesh);
+            _envPatchInhabitantAnimationState(state, {
+                active_clip: '',
+                active_clip_raw: '',
+                active_clip_source: 'none',
+                active_priority: 'normal',
+                interrupt_policy: 'replace',
+                paused: false,
+                override_active: false,
+                queue: [],
+                queue_cursor: 0,
+                last_command: 'character_play_clip'
+            });
+            _envRefreshInhabitantRuntimeState('character_play_clip_complete');
+            _envLogAction('character', 'Completed one-shot character clip override', actorName, {
+                action: 'character_play_clip',
+                object_key: _envInhabitantObjectKey(),
+                clip_raw: String((pending && pending.clip_raw) || '')
+            });
+            _envEmitBus('character', 'Completed one-shot character clip override', actorName, {
+                action: 'character_play_clip',
+                object_key: _envInhabitantObjectKey(),
+                clip_raw: String((pending && pending.clip_raw) || '')
+            });
+            _envSetBadge('running', 'CLIP DONE');
+            _envScheduleLiveSync('character:play_clip_complete', true);
+            _envSaveTheaterSession('character_play_clip_complete');
+            _envMarkCharacterAnimationUiDirty();
+            renderEnvironmentView();
+            return true;
+        }
+        return false;
+    }
+
     function _envCharacterClearClipOverride(mesh) {
         if (!mesh || !mesh.userData) return false;
         var action = mesh.userData._currentAction || null;
@@ -11875,6 +12248,8 @@
         mesh.userData._previewClipName = '';
         mesh.userData._previewClipRawName = '';
         mesh.userData._previewPaused = false;
+        mesh.userData._pendingAnimationRequest = null;
+        _envCharacterClearQueuedResume(mesh);
         return true;
     }
 
@@ -11883,7 +12258,126 @@
         var envelope = _envParseCharacterAnimationEnvelope(targetId);
         var payload = envelope.payload;
         var clipName = String((payload && (payload.clip || payload.name || payload.raw_name)) || envelope.raw || '').trim();
-        if (!ctx.mesh || !ctx.mesh.userData || !ctx.mesh.userData._mixer || !clipName) {
+        var fallback = fallbackOptions && typeof fallbackOptions === 'object' && !Array.isArray(fallbackOptions) ? fallbackOptions : {};
+        var requestedPriority = _envNormalizeCharacterAnimationPriority(
+            payload && payload.priority !== undefined ? payload.priority : fallback.priority,
+            'normal'
+        );
+        var requestedPolicy = _envNormalizeCharacterInterruptPolicy(
+            payload && (payload.interruptPolicy !== undefined
+                ? payload.interruptPolicy
+                : (payload.interrupt_policy !== undefined
+                    ? payload.interrupt_policy
+                    : payload.interrupt))
+                !== undefined
+                ? (payload.interruptPolicy !== undefined
+                    ? payload.interruptPolicy
+                    : (payload.interrupt_policy !== undefined ? payload.interrupt_policy : payload.interrupt))
+                : (fallback.interruptPolicy !== undefined
+                    ? fallback.interruptPolicy
+                    : (fallback.interrupt_policy !== undefined ? fallback.interrupt_policy : fallback.interrupt)),
+            _envCharacterDefaultInterruptPolicy(requestedPriority, 'replace')
+        );
+        var forceInterrupt = !!((payload && payload.force === true) || fallback.force === true);
+        if (ctx.mesh && ctx.mesh.userData && !fallback.preserveQueue) _envCharacterClearQueuedResume(ctx.mesh);
+        if (!ctx.mesh || !ctx.mesh.userData || !clipName) {
+            _envLogAction('character', 'Rejected character play_clip: clip or mixer unavailable', ctx.actorName, {
+                action: 'character_play_clip',
+                target: String(targetId || '')
+            });
+            _envEmitBus('character', 'Rejected character play_clip: clip or mixer unavailable', ctx.actorName, {
+                action: 'character_play_clip',
+                target: String(targetId || '')
+            });
+            _envSetBadge('warning', 'CHAR CLIP?');
+            renderEnvironmentView();
+            return false;
+        }
+        var interruptDecision = _envCharacterInterruptDecision(ctx.animation, requestedPriority, forceInterrupt);
+        if (!interruptDecision.allowed) {
+            _envLogAction('character', 'Rejected character play_clip: interrupt priority too low', ctx.actorName, {
+                action: 'character_play_clip',
+                target: clipName,
+                current_priority: interruptDecision.current_priority,
+                incoming_priority: interruptDecision.incoming_priority,
+                current_policy: interruptDecision.current_policy,
+                reason: interruptDecision.reason || ''
+            });
+            _envEmitBus('character', 'Rejected character play_clip: interrupt priority too low', ctx.actorName, {
+                action: 'character_play_clip',
+                object_key: _envInhabitantObjectKey(),
+                target: clipName,
+                current_priority: interruptDecision.current_priority,
+                incoming_priority: interruptDecision.incoming_priority,
+                current_policy: interruptDecision.current_policy,
+                reason: interruptDecision.reason || ''
+            });
+            _envSetBadge('warning', 'CLIP HOLD');
+            renderEnvironmentView();
+            return false;
+        }
+        if (!ctx.mesh.userData._mixer) {
+            if (ctx.mesh.userData.assetLoading) {
+                var deferredLoop = _envNormalizeCharacterAnimationLoop(
+                    payload && payload.loop !== undefined ? payload.loop : fallback.loop,
+                    (ctx.mesh.userData._previewLoop || ctx.animation.loop_mode || 'repeat')
+                );
+                var deferredSpeed = _envClampCharacterAnimationSpeed(
+                    payload && payload.speed !== undefined ? payload.speed : fallback.speed,
+                    (ctx.mesh.userData._previewSpeed || ctx.animation.speed || 1)
+                );
+                var deferredPaused = payload && payload.paused !== undefined
+                    ? !!payload.paused
+                    : (fallback.paused !== undefined ? !!fallback.paused : !!ctx.animation.paused);
+                ctx.mesh.userData._pendingAnimationRequest = {
+                    command: 'character_play_clip',
+                    actorName: ctx.actorName,
+                    clip: clipName,
+                    loop: deferredLoop,
+                    speed: deferredSpeed,
+                    paused: deferredPaused,
+                    fadeSeconds: payload && payload.fadeSeconds !== undefined ? payload.fadeSeconds : fallback.fadeSeconds,
+                    priority: requestedPriority,
+                    interrupt_policy: requestedPolicy,
+                    preserveQueue: !!fallback.preserveQueue,
+                    requestedTs: Date.now()
+                };
+                ctx.mesh.userData._previewClipName = clipName;
+                ctx.mesh.userData._previewClipRawName = clipName;
+                ctx.mesh.userData._previewLoop = deferredLoop;
+                ctx.mesh.userData._previewSpeed = deferredSpeed;
+                ctx.mesh.userData._previewPaused = deferredPaused;
+                _envPatchInhabitantAnimationState(ctx.state, {
+                    active_clip: clipName,
+                    active_clip_raw: clipName,
+                    active_clip_source: 'pending',
+                    active_priority: requestedPriority,
+                    interrupt_policy: requestedPolicy,
+                    paused: deferredPaused,
+                    loop_mode: deferredLoop,
+                    speed: deferredSpeed,
+                    override_active: payload && payload.override !== undefined ? !!payload.override : true,
+                    queue: fallback.preserveQueue ? ctx.animation.queue : [],
+                    queue_cursor: fallback.preserveQueue ? Math.max(0, Number(ctx.animation.queue_cursor || 0)) : 0,
+                    last_command: 'character_play_clip'
+                });
+                _envRefreshInhabitantRuntimeState('character_play_clip_pending');
+                _envLogAction('character', 'Deferred character play_clip until model asset is ready', ctx.actorName, {
+                    action: 'character_play_clip',
+                    target: clipName
+                });
+                _envEmitBus('character', 'Deferred character play_clip until model asset is ready', ctx.actorName, {
+                    action: 'character_play_clip',
+                    object_key: _envInhabitantObjectKey(),
+                    target: clipName
+                });
+                _envSetBadge('running', 'CLIP WAIT');
+                _envScheduleLiveSync('character:play_clip_pending', true);
+                _envSaveTheaterSession('character_play_clip_pending');
+                _envMarkCharacterAnimationUiDirty();
+                renderEnvironmentView();
+                return true;
+            }
             _envLogAction('character', 'Rejected character play_clip: clip or mixer unavailable', ctx.actorName, {
                 action: 'character_play_clip',
                 target: String(targetId || '')
@@ -11910,7 +12404,6 @@
             renderEnvironmentView();
             return false;
         }
-        var fallback = fallbackOptions && typeof fallbackOptions === 'object' && !Array.isArray(fallbackOptions) ? fallbackOptions : {};
         if (!_envCharacterApplyResolvedClip(ctx.mesh, resolved, {
             loop: payload && payload.loop !== undefined ? payload.loop : fallback.loop,
             speed: payload && payload.speed !== undefined ? payload.speed : fallback.speed,
@@ -11921,6 +12414,8 @@
             active_clip: String(resolved.name || ''),
             active_clip_raw: String((resolved.clip && resolved.clip.name) || resolved.name || ''),
             active_clip_source: String(resolved.source || 'native'),
+            active_priority: requestedPriority,
+            interrupt_policy: requestedPolicy,
             paused: !!(ctx.mesh.userData && ctx.mesh.userData._previewPaused),
             loop_mode: String((ctx.mesh.userData && ctx.mesh.userData._previewLoop) || 'repeat'),
             speed: Number((ctx.mesh.userData && ctx.mesh.userData._previewSpeed) || 1),
@@ -11955,11 +12450,11 @@
         var ctx = _envResolveCharacterAnimationContext(actor, reason || 'character queue clips', 'idle');
         var envelope = _envParseCharacterAnimationEnvelope(targetId);
         var payload = envelope.payload;
-        var queue = _envNormalizeCharacterAnimationQueue(
+        var incomingQueue = _envNormalizeCharacterAnimationQueue(
             envelope.list || (payload ? (payload.queue || payload.clips || []) : envelope.raw),
             payload || {}
         );
-        if (!queue.length) {
+        if (!incomingQueue.length) {
             _envLogAction('character', 'Rejected character queue_clips: queue empty', ctx.actorName, {
                 action: 'character_queue_clips',
                 target: String(targetId || '')
@@ -11972,41 +12467,103 @@
             renderEnvironmentView();
             return false;
         }
+        var appendQueue = !!(payload && payload.append === true);
+        var existingQueue = Array.isArray(ctx.animation.queue) ? _envCloneJson(ctx.animation.queue, []) : [];
+        var queueLengthBefore = Math.max(0, Number(existingQueue.length || 0));
+        var queue = appendQueue ? existingQueue.concat(incomingQueue).slice(0, 16) : incomingQueue;
+        var appendedCount = appendQueue ? Math.max(0, Number(queue.length || 0) - queueLengthBefore) : 0;
+        var activeQueueExtended = !!(appendQueue && ctx.animation.override_active && existingQueue.length);
         var autoStart = payload ? payload.autostart !== false : true;
-        if (autoStart && ctx.mesh && ctx.mesh.userData && ctx.mesh.userData._mixer) {
-            var first = queue[0];
-            var resolved = _envCharacterResolveAnimationClip(ctx.mesh, first.clip);
-            if (resolved && resolved.clip) {
-                _envCharacterApplyResolvedClip(ctx.mesh, resolved, {
-                    loop: first.loop,
-                    speed: first.speed,
-                    paused: false,
-                    fadeSeconds: 0.3
-                });
-            }
+        var startedQueuedClip = false;
+        var pendingQueuedClip = false;
+        if (ctx.mesh && ctx.mesh.userData && !activeQueueExtended) _envCharacterClearQueuedResume(ctx.mesh);
+        if (!activeQueueExtended && autoStart && ctx.mesh && ctx.mesh.userData && ctx.mesh.userData._mixer) {
+            startedQueuedClip = _envCharacterPlayQueuedEntry(ctx.mesh, ctx.state, ctx.actorName, queue, 0, 'character_queue_clips');
+        } else if (!activeQueueExtended && autoStart && ctx.mesh && ctx.mesh.userData && ctx.mesh.userData.assetLoading) {
+            var pendingFirst = queue[0];
+            pendingQueuedClip = true;
+            ctx.mesh.userData._pendingAnimationRequest = {
+                command: 'character_queue_clips',
+                actorName: ctx.actorName,
+                clip: String(pendingFirst.clip || ''),
+                loop: _envNormalizeCharacterAnimationLoop(pendingFirst.loop, 'repeat'),
+                speed: _envClampCharacterAnimationSpeed(pendingFirst.speed, 1),
+                paused: false,
+                fadeSeconds: pendingFirst.fade_seconds !== undefined ? pendingFirst.fade_seconds : 0.3,
+                priority: _envNormalizeCharacterAnimationPriority(pendingFirst.priority, 'normal'),
+                interrupt_policy: _envNormalizeCharacterInterruptPolicy(
+                    pendingFirst.interrupt_policy,
+                    _envCharacterDefaultInterruptPolicy(pendingFirst.priority, 'replace')
+                ),
+                preserveQueue: true,
+                requestedTs: Date.now()
+            };
+            ctx.mesh.userData._previewClipName = String(pendingFirst.clip || '');
+            ctx.mesh.userData._previewClipRawName = String(pendingFirst.clip || '');
+            ctx.mesh.userData._previewLoop = _envNormalizeCharacterAnimationLoop(pendingFirst.loop, ctx.animation.loop_mode || 'repeat');
+            ctx.mesh.userData._previewSpeed = _envClampCharacterAnimationSpeed(pendingFirst.speed, ctx.animation.speed || 1);
+            ctx.mesh.userData._previewPaused = false;
         }
         _envPatchInhabitantAnimationState(ctx.state, {
-            active_clip: String((ctx.mesh && ctx.mesh.userData && ctx.mesh.userData._previewClipName) || ctx.animation.active_clip || ''),
-            active_clip_raw: String((ctx.mesh && ctx.mesh.userData && (ctx.mesh.userData._previewClipRawName || ctx.mesh.userData._currentClipRawName)) || ctx.animation.active_clip_raw || ''),
-            active_clip_source: String((ctx.mesh && ctx.mesh.userData && ctx.mesh.userData._currentClipSource) || ctx.animation.active_clip_source || 'native'),
-            paused: !!(ctx.mesh && ctx.mesh.userData && ctx.mesh.userData._previewPaused),
-            loop_mode: String((ctx.mesh && ctx.mesh.userData && ctx.mesh.userData._previewLoop) || ctx.animation.loop_mode || 'repeat'),
-            speed: Number((ctx.mesh && ctx.mesh.userData && ctx.mesh.userData._previewSpeed) || ctx.animation.speed || 1),
-            override_active: autoStart,
+            active_clip: activeQueueExtended
+                ? String(ctx.animation.active_clip || '')
+                : String((ctx.mesh && ctx.mesh.userData && ctx.mesh.userData._previewClipName) || ctx.animation.active_clip || ''),
+            active_clip_raw: activeQueueExtended
+                ? String(ctx.animation.active_clip_raw || '')
+                : String((ctx.mesh && ctx.mesh.userData && (ctx.mesh.userData._previewClipRawName || ctx.mesh.userData._currentClipRawName)) || ctx.animation.active_clip_raw || ''),
+            active_clip_source: activeQueueExtended
+                ? String(ctx.animation.active_clip_source || 'native')
+                : String((ctx.mesh && ctx.mesh.userData && ctx.mesh.userData._currentClipSource) || ctx.animation.active_clip_source || 'native'),
+            active_priority: activeQueueExtended
+                ? _envNormalizeCharacterAnimationPriority(ctx.animation.active_priority, 'normal')
+                : (pendingQueuedClip && queue.length
+                ? _envNormalizeCharacterAnimationPriority(queue[0].priority, ctx.animation.active_priority || 'normal')
+                : (startedQueuedClip ? _envInhabitantAnimationState(ctx.state).active_priority : ctx.animation.active_priority)),
+            interrupt_policy: activeQueueExtended
+                ? _envNormalizeCharacterInterruptPolicy(
+                    ctx.animation.interrupt_policy,
+                    _envCharacterDefaultInterruptPolicy(ctx.animation.active_priority, 'replace')
+                )
+                : (pendingQueuedClip && queue.length
+                ? _envNormalizeCharacterInterruptPolicy(
+                    queue[0].interrupt_policy,
+                    _envCharacterDefaultInterruptPolicy(queue[0].priority, ctx.animation.interrupt_policy || 'replace')
+                )
+                : (startedQueuedClip ? _envInhabitantAnimationState(ctx.state).interrupt_policy : ctx.animation.interrupt_policy)),
+            paused: activeQueueExtended ? !!ctx.animation.paused : !!(ctx.mesh && ctx.mesh.userData && ctx.mesh.userData._previewPaused),
+            loop_mode: activeQueueExtended
+                ? _envNormalizeCharacterAnimationLoop(ctx.animation.loop_mode || 'repeat', 'repeat')
+                : String((ctx.mesh && ctx.mesh.userData && ctx.mesh.userData._previewLoop) || ctx.animation.loop_mode || 'repeat'),
+            speed: activeQueueExtended
+                ? Number(ctx.animation.speed || 1)
+                : Number((ctx.mesh && ctx.mesh.userData && ctx.mesh.userData._previewSpeed) || ctx.animation.speed || 1),
+            override_active: activeQueueExtended ? true : (startedQueuedClip || pendingQueuedClip),
             queue: queue,
-            queue_cursor: 0,
+            queue_cursor: activeQueueExtended
+                ? Math.max(0, Number(ctx.animation.queue_cursor || 0))
+                : (startedQueuedClip
+                ? Math.max(0, Number(_envInhabitantAnimationState(ctx.state).queue_cursor || 0))
+                : 0),
             last_command: 'character_queue_clips'
         });
         _envRefreshInhabitantRuntimeState('character_queue_clips');
-        _envLogAction('character', 'Queued character clips', ctx.actorName, {
+        _envLogAction('character', appendQueue ? 'Appended character clips' : 'Queued character clips', ctx.actorName, {
             action: 'character_queue_clips',
             clip_count: queue.length,
+            queue_length_before: queueLengthBefore,
+            queue_length_after: queue.length,
+            appended_count: appendedCount,
+            active_queue_extended: activeQueueExtended,
             queued: queue
         });
-        _envEmitBus('character', 'Queued character clips', ctx.actorName, {
+        _envEmitBus('character', appendQueue ? 'Appended character clips' : 'Queued character clips', ctx.actorName, {
             action: 'character_queue_clips',
             object_key: _envInhabitantObjectKey(),
             clip_count: queue.length,
+            queue_length_before: queueLengthBefore,
+            queue_length_after: queue.length,
+            appended_count: appendedCount,
+            active_queue_extended: activeQueueExtended,
             queued: queue
         });
         _envSetBadge('running', 'QUEUE ' + String(queue.length));
@@ -12029,6 +12586,8 @@
             active_clip: '',
             active_clip_raw: '',
             active_clip_source: 'none',
+            active_priority: 'normal',
+            interrupt_policy: 'replace',
             paused: false,
             override_active: false,
             queue: [],
@@ -12134,7 +12693,11 @@
         _envLogAction('character', 'Read character animation state', ctx.actorName, {
             action: 'character_get_animation_state',
             active_clip: String(surface.active_clip || ''),
+            active_priority: String(surface.active_priority || 'normal'),
+            interrupt_policy: String(surface.interrupt_policy || 'replace'),
             paused: !!surface.paused,
+            queue_length: Array.isArray(surface.queue) ? surface.queue.length : 0,
+            queue_cursor: Math.max(0, Number(surface.queue_cursor || 0)),
             contract_clip_count: Number(surface.contract_clip_count || 0),
             native_clip_count: Number(surface.native_clip_count || 0)
         });
@@ -12142,7 +12705,11 @@
             action: 'character_get_animation_state',
             object_key: _envInhabitantObjectKey(),
             active_clip: String(surface.active_clip || ''),
-            paused: !!surface.paused
+            active_priority: String(surface.active_priority || 'normal'),
+            interrupt_policy: String(surface.interrupt_policy || 'replace'),
+            paused: !!surface.paused,
+            queue_length: Array.isArray(surface.queue) ? surface.queue.length : 0,
+            queue_cursor: Math.max(0, Number(surface.queue_cursor || 0))
         });
         return _envCloneJson(surface, _envCreateInhabitantAnimationState());
     }
@@ -12176,16 +12743,76 @@
     }
 
     function _envCharacterPlayReaction(actor, reason, targetId) {
+        var ctx = _envResolveCharacterAnimationContext(actor, reason || 'character play reaction', 'idle');
         var envelope = _envParseCharacterAnimationEnvelope(targetId);
         var payload = envelope.payload;
         var reactionId = String((payload && (payload.reaction || payload.id || payload.name)) || envelope.raw || '').trim();
         var requested = _envCharacterReactionClipRequest(reactionId);
+        var queueWasActive = !!(ctx.animation.override_active && Array.isArray(ctx.animation.queue) && ctx.animation.queue.length);
+        var requestedPriority = _envNormalizeCharacterAnimationPriority(
+            payload && payload.priority !== undefined ? payload.priority : _envCharacterReactionPriority(reactionId || requested),
+            'normal'
+        );
+        var requestedPolicy = _envNormalizeCharacterInterruptPolicy(
+            payload && (payload.interruptPolicy !== undefined
+                ? payload.interruptPolicy
+                : (payload.interrupt_policy !== undefined ? payload.interrupt_policy : payload.interrupt)),
+            queueWasActive ? 'resume' : _envCharacterDefaultInterruptPolicy(requestedPriority, requested === 'death' ? 'hold' : 'replace')
+        );
+        var forceInterrupt = !!(payload && payload.force === true);
+        var interruptDecision = _envCharacterInterruptDecision(ctx.animation, requestedPriority, forceInterrupt);
+        if (!interruptDecision.allowed) {
+            _envLogAction('character', 'Rejected character reaction: interrupt priority too low', ctx.actorName, {
+                action: 'character_play_reaction',
+                reaction: reactionId || requested,
+                clip: requested,
+                current_priority: interruptDecision.current_priority,
+                incoming_priority: interruptDecision.incoming_priority,
+                current_policy: interruptDecision.current_policy,
+                reason: interruptDecision.reason || ''
+            });
+            _envEmitBus('character', 'Rejected character reaction: interrupt priority too low', ctx.actorName, {
+                action: 'character_play_reaction',
+                object_key: _envInhabitantObjectKey(),
+                reaction: reactionId || requested,
+                clip: requested,
+                current_priority: interruptDecision.current_priority,
+                incoming_priority: interruptDecision.incoming_priority,
+                current_policy: interruptDecision.current_policy,
+                reason: interruptDecision.reason || ''
+            });
+            _envSetBadge('warning', 'REACT HOLD');
+            renderEnvironmentView();
+            return false;
+        }
+        var shouldResumeQueue = !!(ctx.mesh && ctx.mesh.userData && payload ? payload.resume_previous !== false : true) && requestedPolicy === 'resume';
+        if (shouldResumeQueue
+            && ctx.mesh
+            && ctx.mesh.userData
+            && ctx.animation.override_active
+            && Array.isArray(ctx.animation.queue)
+            && ctx.animation.queue.length) {
+            ctx.mesh.userData._resumeQueueCursor = Math.max(0, Number(ctx.animation.queue_cursor || 0));
+            ctx.mesh.userData._resumeQueueRequestedTs = Date.now();
+        } else if (ctx.mesh && ctx.mesh.userData) {
+            ctx.mesh.userData._resumeQueueCursor = null;
+        }
+        var reactionLoop = payload && payload.loop !== undefined
+            ? payload.loop
+            : ((queueWasActive || requested === 'death') ? 'once' : 'repeat');
         var ok = _envCharacterPlayClip(actor, reason || 'character play reaction', JSON.stringify({
             clip: requested,
-            loop: payload && payload.loop !== undefined ? payload.loop : (requested === 'death' ? 'once' : 'repeat'),
+            loop: reactionLoop,
             speed: payload && payload.speed !== undefined ? payload.speed : 1,
+            priority: requestedPriority,
+            interrupt_policy: requestedPolicy,
             override: true
-        }));
+        }), {
+            force: forceInterrupt,
+            priority: requestedPriority,
+            interrupt_policy: requestedPolicy,
+            preserveQueue: shouldResumeQueue && queueWasActive
+        });
         if (!ok) return false;
         var state = _envInhabitantRuntimeState();
         _envPatchInhabitantAnimationState(state, {
@@ -27843,6 +28470,10 @@
                 cloned.userData = cloned.userData || {};
                 cloned.userData.envSceneCloneMaterial = true;
                 cloned.userData.envBaseColorHex = _env3DMaterialColorHex(material, 'color');
+                cloned.userData.envBaseEmissiveHex = _env3DMaterialColorHex(material, 'emissive');
+                cloned.userData.envBaseEmissiveIntensity = material.emissiveIntensity === undefined
+                    ? 0
+                    : Number(material.emissiveIntensity || 0);
                 _env3DMarkMaterialTexturesShared(cloned);
                 return cloned;
             };
@@ -31327,7 +31958,7 @@
         if (typeof mesh.updateWorldMatrix === 'function') mesh.updateWorldMatrix(true, true);
         var box = null;
         if (mesh.userData && mesh.userData.assetClone) {
-            var assetLocalBox = _env3DAssetLocalBounds(mesh);
+            var assetLocalBox = _env3DWorkbenchStableLocalBounds(mesh) || _env3DAssetLocalBounds(mesh);
             if (assetLocalBox && !assetLocalBox.isEmpty()) {
                 box = assetLocalBox.clone().applyMatrix4(mesh.matrixWorld);
             }
@@ -31370,7 +32001,12 @@
         var frameHalfWidth = Math.max(0.7, Math.max(Number(size.x || 0), Number(size.z || 0)) * 0.66);
         var distanceForHeight = frameHalfHeight / Math.max(0.08, Math.tan(verticalFov * 0.5) * fitFill);
         var distanceForWidth = frameHalfWidth / Math.max(0.08, Math.tan(horizontalFov * 0.5) * fitFill);
-        var radius = Math.max(2.8, Math.min(20, Math.max(distanceForHeight, distanceForWidth) * 1.14));
+        var nav = _env3DNavigationConfig();
+        var desiredRadius = Math.max(distanceForHeight, distanceForWidth) * 1.14;
+        var radius = Math.max(
+            Math.max(2.8, Number(nav.minDistance || 1.2) * 1.05),
+            Math.min(Math.max(24, Number(nav.maxDistance || 40) * 0.82), desiredRadius)
+        );
         var displayFloorY = _env3DCharacterWorkbenchDisplayFloorY(mesh, box);
         var target = center.clone();
         target.y = displayFloorY + Math.max(1.22, Number(size.y || 0) * 0.5);
@@ -33469,6 +34105,11 @@
         var clone = mesh.userData.assetClone || null;
         _env3DDisposeWorkbenchRuntimeHelpers(mesh);
         _env3DDisposeAgentSprite(mesh);
+        if (mesh.userData._boundMixer
+            && mesh.userData._mixerFinishedHandler
+            && typeof mesh.userData._boundMixer.removeEventListener === 'function') {
+            mesh.userData._boundMixer.removeEventListener('finished', mesh.userData._mixerFinishedHandler);
+        }
         if (mesh.userData._mixer) {
             mesh.userData._mixer.stopAllAction();
             if (clone && typeof mesh.userData._mixer.uncacheRoot === 'function') {
@@ -33479,6 +34120,8 @@
             mesh.userData._clipList = null;
             mesh.userData._currentAction = null;
             mesh.userData._currentClipName = '';
+            mesh.userData._currentClipRawName = '';
+            mesh.userData._currentClipSource = 'native';
         }
         mesh.userData._sourceRig = null;
         mesh.userData._canonicalJointMap = null;
@@ -33496,11 +34139,23 @@
         mesh.userData.assetLoadError = '';
         mesh.userData.materialObservation = null;
         mesh.userData._supportOffsetY = 0;
+        mesh.userData._workbenchStableLocalBounds = null;
+        mesh.userData._previewClipName = '';
+        mesh.userData._previewClipRawName = '';
+        mesh.userData._previewPaused = false;
+        mesh.userData._pendingAnimationRequest = null;
+        mesh.userData._boundMixer = null;
+        mesh.userData._mixerFinishedHandler = null;
+        mesh.userData._resumeQueueCursor = null;
+        mesh.userData._resumeQueueRequestedTs = 0;
+        mesh.userData._pendingAnimationFinish = null;
     }
 
     function _env3DApplyAssetState(mesh, obj, emissive, isFocused, intensityOverride) {
         if (!mesh || !mesh.userData || !mesh.userData.assetClone) return;
         var appearance = _envSceneAppearanceForObject(obj);
+        var mountedRuntime = _envIsMountedCharacterRuntimeObject(obj)
+            || _envIsMountedCharacterRuntimeObject(mesh.userData ? (mesh.userData.sceneObject || null) : null);
         var intensity = typeof intensityOverride === 'number'
             ? intensityOverride
             : (isFocused ? 0.9 : (obj.state === 'running' ? 0.45 : (obj.state === 'failed' ? 0.7 : 0.16)));
@@ -33512,8 +34167,19 @@
                 if (!material) return;
                 _env3DApplyAssetMaterialTint(material, appearance);
                 if (material.emissive && typeof material.emissive.setHex === 'function') {
-                    material.emissive.setHex(isFocused ? 0x00ff88 : emissive);
-                    material.emissiveIntensity = intensity;
+                    if (mountedRuntime) {
+                        var baseEmissiveHex = material.userData && material.userData.envBaseEmissiveHex !== undefined
+                            ? Number(material.userData.envBaseEmissiveHex || 0)
+                            : 0;
+                        var baseEmissiveIntensity = material.userData && material.userData.envBaseEmissiveIntensity !== undefined
+                            ? Math.max(0, Number(material.userData.envBaseEmissiveIntensity || 0))
+                            : 0;
+                        material.emissive.setHex(baseEmissiveHex);
+                        material.emissiveIntensity = baseEmissiveIntensity;
+                    } else {
+                        material.emissive.setHex(isFocused ? 0x00ff88 : emissive);
+                        material.emissiveIntensity = intensity;
+                    }
                 }
             });
         });
@@ -33869,7 +34535,18 @@
             var _v133aData = obj && obj.data ? obj.data : (obj ? (obj.data = {}) : null);
             if (clone.userData && Array.isArray(clone.userData.animations) && clone.userData.animations.length) {
                 var isMountedRuntimeAsset = _envIsMountedCharacterRuntimeObject(obj);
+                var pendingRequest = mesh.userData._pendingAnimationRequest
+                    && typeof mesh.userData._pendingAnimationRequest === 'object'
+                    && !Array.isArray(mesh.userData._pendingAnimationRequest)
+                    ? _envCloneJson(mesh.userData._pendingAnimationRequest, null)
+                    : null;
+                var previewSpeed = _envClampCharacterAnimationSpeed(mesh.userData._previewSpeed, 1);
+                var previewLoop = _envNormalizeCharacterAnimationLoop(mesh.userData._previewLoop, 'repeat');
+                var previewPaused = mesh.userData._previewPaused !== undefined
+                    ? !!mesh.userData._previewPaused
+                    : !!isMountedRuntimeAsset;
                 mesh.userData._mixer = new THREE.AnimationMixer(clone);
+                _envCharacterBindMixerLifecycle(mesh);
                 mesh.userData._clips = {};
                 mesh.userData._clipList = clone.userData.animations.map(function (clip) {
                     return _env3DSanitizeMountedRuntimeClip(obj, clip);
@@ -33881,17 +34558,79 @@
                 var initialClip = _env3DResolveAnimationClip(mesh, 'idle');
                 if (initialClip && initialClip.clip) {
                     mesh.userData._currentAction = mesh.userData._mixer.clipAction(initialClip.clip);
+                    if (typeof mesh.userData._currentAction.setEffectiveTimeScale === 'function') {
+                        mesh.userData._currentAction.setEffectiveTimeScale(previewSpeed);
+                    }
+                    if (typeof mesh.userData._currentAction.setLoop === 'function') {
+                        var initialLoopMode = previewLoop === 'once' ? THREE.LoopOnce : THREE.LoopRepeat;
+                        mesh.userData._currentAction.setLoop(initialLoopMode, initialLoopMode === THREE.LoopOnce ? 1 : Infinity);
+                        mesh.userData._currentAction.clampWhenFinished = initialLoopMode === THREE.LoopOnce;
+                    }
                     mesh.userData._currentAction.play();
                     mesh.userData._currentClipName = initialClip.name;
+                    mesh.userData._currentClipRawName = String((initialClip.clip && initialClip.clip.name) || initialClip.name || '');
                     mesh.userData._currentClipSource = String(initialClip.source || 'native');
-                    if (isMountedRuntimeAsset) {
+                    if (isMountedRuntimeAsset || previewPaused) {
                         mesh.userData._currentAction.time = 0;
-                        mesh.userData._currentAction.paused = true;
+                        mesh.userData._currentAction.paused = previewPaused;
                     }
                 }
-                mesh.userData._previewSpeed = 1;
-                mesh.userData._previewPaused = !!isMountedRuntimeAsset;
-                mesh.userData._previewLoop = 'repeat';
+                mesh.userData._previewSpeed = previewSpeed;
+                mesh.userData._previewPaused = previewPaused;
+                mesh.userData._previewLoop = previewLoop;
+                mesh.userData._previewClipName = String(mesh.userData._currentClipName || '');
+                mesh.userData._previewClipRawName = String(mesh.userData._currentClipRawName || mesh.userData._currentClipName || '');
+                if (pendingRequest && pendingRequest.clip) {
+                    var deferredActor = String(pendingRequest.actorName || 'system').trim() || 'system';
+                    var deferredResolved = _envCharacterResolveAnimationClip(mesh, pendingRequest.clip);
+                    if (deferredResolved && deferredResolved.clip
+                        && _envCharacterApplyResolvedClip(mesh, deferredResolved, pendingRequest)) {
+                        if (isMountedRuntimeAsset) {
+                            var deferredState = _envInhabitantRuntimeState();
+                            var deferredAnimation = _envInhabitantAnimationState(deferredState);
+                            _envPatchInhabitantAnimationState(deferredState, {
+                                active_clip: String(deferredResolved.name || ''),
+                                active_clip_raw: String((deferredResolved.clip && deferredResolved.clip.name) || deferredResolved.name || ''),
+                                active_clip_source: String(deferredResolved.source || 'native'),
+                                active_priority: _envNormalizeCharacterAnimationPriority(
+                                    pendingRequest.priority,
+                                    deferredAnimation.active_priority || 'normal'
+                                ),
+                                interrupt_policy: _envNormalizeCharacterInterruptPolicy(
+                                    pendingRequest.interrupt_policy,
+                                    deferredAnimation.interrupt_policy || _envCharacterDefaultInterruptPolicy(pendingRequest.priority, 'replace')
+                                ),
+                                paused: !!mesh.userData._previewPaused,
+                                loop_mode: String(mesh.userData._previewLoop || 'repeat'),
+                                speed: Number(mesh.userData._previewSpeed || 1),
+                                override_active: true,
+                                queue: pendingRequest.preserveQueue ? deferredAnimation.queue : [],
+                                queue_cursor: pendingRequest.preserveQueue ? Math.max(0, Number(deferredAnimation.queue_cursor || 0)) : 0,
+                                last_command: String(pendingRequest.command || 'character_play_clip')
+                            });
+                        }
+                        _envLogAction('character', 'Applied deferred character clip after model asset ready', deferredActor, {
+                            action: String(pendingRequest.command || 'character_play_clip'),
+                            clip: String(deferredResolved.name || pendingRequest.clip || '')
+                        });
+                        _envEmitBus('character', 'Applied deferred character clip after model asset ready', deferredActor, {
+                            action: String(pendingRequest.command || 'character_play_clip'),
+                            object_key: _envInhabitantObjectKey(),
+                            clip: String(deferredResolved.name || pendingRequest.clip || '')
+                        });
+                    } else {
+                        _envLogAction('character', 'Deferred character clip could not resolve after model asset ready', deferredActor, {
+                            action: String(pendingRequest.command || 'character_play_clip'),
+                            clip: String(pendingRequest.clip || '')
+                        });
+                        _envEmitBus('character', 'Deferred character clip could not resolve after model asset ready', deferredActor, {
+                            action: String(pendingRequest.command || 'character_play_clip'),
+                            object_key: _envInhabitantObjectKey(),
+                            clip: String(pendingRequest.clip || '')
+                        });
+                    }
+                    mesh.userData._pendingAnimationRequest = null;
+                }
             }
             mesh.userData._canonicalJointMap = null;
             mesh.userData._jointMapCoverage = 0;
@@ -33974,6 +34713,10 @@
                 mesh.userData._supportOffsetY = 0;
                 _env3DPinMountedRuntimeAssetFloor(mesh);
                 _envInhabitantSnapMeshToSupport(mesh, Number(mesh.position.y || 1));
+                var stableWorkbenchBounds = _env3DAssetLocalBounds(mesh);
+                mesh.userData._workbenchStableLocalBounds = stableWorkbenchBounds && !stableWorkbenchBounds.isEmpty()
+                    ? stableWorkbenchBounds.clone()
+                    : null;
             }
             _env3DSetPrimitiveOpacity(mesh, 0);
             _env3DApplyAssetState(
@@ -33983,6 +34726,12 @@
                 String(((_envKernel || {}).focus || {}).kind || '') === String(obj.kind || '')
                     && String(((_envKernel || {}).focus || {}).id || '') === String(obj.id || '')
             );
+            if (_envIsMountedCharacterRuntimeObject(obj)) {
+                _envRefreshInhabitantRuntimeState('character_asset_ready');
+                _envScheduleLiveSync('character:asset_ready', true);
+                _envSaveTheaterSession('character_asset_ready');
+                _envMarkCharacterAnimationUiDirty();
+            }
             _envFlushDeferredMutationCapture(_env3DObjectKey(obj), 'settled');
             _envApplyTheaterSessionLive('asset_ready');
             _envScene.dirty = true;
@@ -34028,12 +34777,43 @@
         var web3d = (((_envSceneConfig() || {}).web3d) || {});
         var nav = (web3d.navigation && typeof web3d.navigation === 'object') ? web3d.navigation : {};
         var characterMode = _envCharacterWorkbenchActive();
+        var characterBounds = null;
+        if (characterMode) {
+            var characterMesh = _envMountedRuntimeMesh();
+            if (characterMesh) {
+                var characterBox = _env3DCharacterWorkbenchWorldBox(characterMesh);
+                if (characterBox && !characterBox.isEmpty()) {
+                    var characterSize = characterBox.getSize(new THREE.Vector3());
+                    var characterWidth = Math.max(Number(characterSize.x || 0), Number(characterSize.z || 0), 0.8);
+                    var characterHeight = Math.max(Number(characterSize.y || 0), 1.2);
+                    var fitDistance = _env3DWorkbenchFitDistance(characterHeight * 1.12, characterWidth * 1.08, 0.68);
+                    var largestAxis = Math.max(characterWidth, characterHeight, 1.2);
+                    characterBounds = {
+                        minDistance: Math.max(1.2, Math.min(10, fitDistance * 0.18)),
+                        maxDistance: Math.max(
+                            40,
+                            Math.min(220, Math.max(fitDistance * 3.4, largestAxis * 4.2))
+                        )
+                    };
+                }
+            }
+        }
         return {
             minDistance: characterMode
-                ? Math.max(1.2, Math.min(6, Number(nav.characterMinDistance || 1.8)))
+                ? Math.max(
+                    1.2,
+                    Math.min(
+                        Number(characterBounds && characterBounds.minDistance || 6),
+                        Number(nav.characterMinDistance || (characterBounds && characterBounds.minDistance) || 1.8)
+                    )
+                )
                 : Math.max(8, Number(nav.minDistance || 18)),
             maxDistance: characterMode
-                ? Math.max(16, Number(nav.characterMaxDistance || 40))
+                ? Math.max(
+                    16,
+                    Number(nav.characterMaxDistance || (characterBounds && characterBounds.maxDistance) || 40),
+                    Number(characterBounds && characterBounds.maxDistance || 0)
+                )
                 : Math.max(48, Number(nav.maxDistance || 220)),
             wheelStep: Math.max(0.04, Number(characterMode ? (nav.characterWheelStep || 0.18) : (nav.wheelStep || 0.14)))
         };
@@ -34522,9 +35302,10 @@
         dirLight.shadow.bias = -0.0005;
         scene.add(dirLight);
 
-        var accentLight = new THREE.PointLight(0x00ff88, 0.6, 80);
+        var accentLight = new THREE.PointLight(0xf4f7ff, 0.32, 80);
         accentLight.position.set(0, 8, 0);
         scene.add(accentLight);
+        _env3D.accentLight = accentLight;
 
         // Particle field (ambient drift)
         _env3DBuildParticles(scene);
@@ -35829,9 +36610,12 @@
                     mesh.material.emissiveIntensity = emissiveIntensity;
                 }
                 if (mesh.userData.assetClone) {
+                    var assetSceneObj = mesh.userData.sceneObject && typeof mesh.userData.sceneObject === 'object'
+                        ? Object.assign({}, mesh.userData.sceneObject, { state: state })
+                        : { state: state };
                     _env3DApplyAssetState(
                         mesh,
-                        { state: state },
+                        assetSceneObj,
                         emissiveHex,
                         !!mesh.userData.focused,
                         emissiveIntensity
@@ -35865,6 +36649,7 @@
             if (mesh.userData._mixer) {
                 mesh.userData._mixer.update(Math.min(dt, 0.1));
                 _env3DPinMountedRuntimeAssetFloor(mesh);
+                _envCharacterProcessFinishedAnimation(mesh);
             }
             if (mesh.userData.assetClone && _envIsMountedCharacterRuntimeObject((mesh.userData || {}).sceneObject || null)) {
                 _env3DDisposeMountedRuntimeBillboards(mesh, (mesh.userData || {}).sceneObject || null);

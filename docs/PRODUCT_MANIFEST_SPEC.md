@@ -261,6 +261,8 @@ Recommended future hooks:
 
 - `trust_tier`
   - capability / permission level for the delivered form
+- `summoning_catalog`
+  - character-bound catalog of summonable object templates and placement defaults
 - `role_profile`
   - facility ecology, tool grants, memory namespace expectations for a role
 - `governance_policy`
@@ -275,6 +277,7 @@ These should extend the existing manifest through `configuration`, `requirements
 Reference:
 
 - `docs/COMPOUND_SYSTEMS_OPPORTUNITY_MAP_2026-03-29.md`
+- `docs/CHARACTER_SUMMONING_CATALOG_SPEC_2026-03-30.md`
 
 ### Runtime Facility Rule
 

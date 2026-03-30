@@ -1,7 +1,7 @@
 # Character Command Registry
 
-Status: Draft, updated for v133b.1 runtime checkpoint
-Date: 2026-03-29
+Status: Draft, updated for v133b.2 queue/interrupt checkpoint
+Date: 2026-03-30
 Scope: Buyer-facing command surface for one character product
 
 ## Purpose
@@ -12,8 +12,9 @@ These commands are the buyer vocabulary. They are not raw MCP tools.
 
 ## Current State
 
-As of 2026-03-29, the movement/presence lane is implemented in the runtime host surface, and the
-animation lane is working in the browser/runtime through the mounted owned-surface control path.
+As of 2026-03-30, the movement/presence lane is implemented in the runtime host surface, and the
+animation lane is working in the browser/runtime through the mounted owned-surface control path,
+the public bridge helpers, and direct shell `env_control(character_*)` ingress.
 
 Current implementation truth in `static/main.js`:
 
@@ -22,15 +23,14 @@ Current implementation truth in `static/main.js`:
 - retargeted clip inventory exists
 - mounted runtime refresh/export exists
 - mounted runtime exports a live `animation_surface`
-- mounted owned-surface control can drive `play_clip`, `set_loop`, `set_speed`, `stop_clip`, `get_animation_state`, and `play_reaction`
-- public direct `env_control(character_*)` validation still stops short of the animation verbs upstream
+- mounted owned-surface control can drive `play_clip`, `queue_clips`, `set_loop`, `set_speed`, `stop_clip`, `get_animation_state`, and `play_reaction`
+- public direct `env_control(character_*)` ingress admits all 7 animation verbs through the editable runtime shell proxy (committed `2df39d2`)
 
 This registry therefore distinguishes:
 
-- `live` commands already available through the mounted runtime host surface
-- `live via owned surface` commands already working for mounted runtime orchestration
-- `upstream pending` commands whose remaining gap is validated ingress rather than playback/runtime logic
-- `v133b.2` commands that depend on queue/interrupt semantics
+- `live` commands already available through the mounted runtime host surface and current shell ingress
+- `partial` commands whose broader product contract is not complete yet
+- `planned` commands not implemented yet
 
 ## Design Rules
 
@@ -66,13 +66,13 @@ This registry therefore distinguishes:
 | `character.set_goal` | action | planned | Set a higher-level goal or task | goal id, params | accepted, goal summary |
 | `character.speak` | action | planned | Emit text or trigger speech behavior | text, channel | accepted, utterance id |
 | `character.inspect` | action | planned | Inspect a target object or location | target ref | accepted, inspection state |
-| `character.play_clip` | action | live via owned surface, upstream pending | Resolve and play one clip using the existing resolver/mixer lane | clip id or raw name | accepted, active clip |
-| `character.queue_clips` | action | partial, semantics deferred to v133b.2 | Queue multiple clips for runtime playback | queue or clip list | accepted, queue summary |
-| `character.stop_clip` | action | live via owned surface, upstream pending | Stop clip override and return control to runtime behavior | optional reason | accepted, override cleared |
-| `character.set_loop` | action | live via owned surface, upstream pending | Set loop mode for the active clip | `repeat` or `once` | accepted, loop mode |
-| `character.set_speed` | action | live via owned surface, upstream pending | Set playback speed for the active clip | numeric speed | accepted, speed |
-| `character.get_animation_state` | query | live via owned surface, upstream pending | Read mounted animation state surface | `{}` | active clip, paused, queue, source |
-| `character.play_reaction` | action | live via owned surface, upstream pending | Request a high-level reaction intent resolved to clips | reaction id | accepted, reaction + clip |
+| `character.play_clip` | action | live | Resolve and play one clip using the existing resolver/mixer lane | clip id or raw name | accepted, active clip |
+| `character.queue_clips` | action | live | Queue clips with auto-advance, fade, priority, and interrupt controls | queue or clip list | accepted, queue summary |
+| `character.stop_clip` | action | live | Stop clip override and return control to runtime behavior | optional reason | accepted, override cleared |
+| `character.set_loop` | action | live | Set loop mode for the active clip | `repeat` or `once` | accepted, loop mode |
+| `character.set_speed` | action | live | Set playback speed for the active clip | numeric speed | accepted, speed |
+| `character.get_animation_state` | query | live | Read mounted animation state surface | `{}` | full animation surface: available, clip/raw/source, priority, interrupt policy, paused, loop, speed, override, queue, cursor, counts, last command/reaction, updated ts |
+| `character.play_reaction` | action | live | Request a high-level reaction intent resolved to clips | reaction id | accepted, reaction + clip |
 | `character.memory_read` | memory | planned | Read bounded memory namespace | namespace, key | value, found |
 | `character.memory_write` | memory | planned | Write bounded memory namespace | namespace, key, value | written, timestamp |
 | `character.config_get` | config | planned | Read supported config values | keys optional | config payload |
@@ -97,7 +97,7 @@ Implementation rule:
 - docs, specs, buyers, and product manifests use dotted names
 - runtime host handlers may keep underscored ids internally
 - the runtime must provide a stable alias map so these two forms do not drift
-- until upstream direct validation is aligned, agent orchestration may enter through mounted owned surfaces that delegate into the same underlying `character_*` handlers
+- agent orchestration may enter through mounted owned surfaces, public bridge helpers, or direct shell `env_control(character_*)` and still reach the same underlying `character_*` handlers
 
 ## Command Payload Contracts
 
