@@ -197,6 +197,35 @@ Target:
 - packaging for portable runtime/content products
 - preview and metadata generation
 
+## Named Compound Systems (2026-03-29 synthesis)
+
+The current specs imply several higher-order systems that should now be treated as named roadmap concepts rather than accidental side effects:
+
+- Trust-Graduated Agency Model — shipping mode + permission tier + capability unlock ladder
+- Facility App Runtime — workstations and utility objects as a spatial application platform
+- Observer QA / Audit Pipeline — capture/probe/compare + evaluation metadata
+- Role Synthesis Layer — same character product, different role ecology via facilities and tool grants
+- Catalog / Listing Schema — manifest-backed discovery and preview contract
+- Governance Plane — permission ceiling + tool policy + audit/oversight contract
+
+Immediate sequence after the current animation lane:
+
+1. Humanoid cohort validation
+2. `v133b.2`
+3. `v133c`
+4. Trust-Graduated Agency Model (schema/docs)
+5. `v134-thin` — one utility object + one workstation
+6. Role Synthesis Layer (schema/docs)
+7. Governance Plane (schema/docs)
+8. `v135`
+9. `v136`
+10. Catalog / Listing Schema
+11. Observer QA / Audit Pipeline after the first Coquina vocabulary pass
+
+Design reference:
+
+- `docs/COMPOUND_SYSTEMS_OPPORTUNITY_MAP_2026-03-29.md`
+
 ## Procedural Generation Status
 
 Procedural generation is still a strategic goal, but it is not present in the active tracked runtime.

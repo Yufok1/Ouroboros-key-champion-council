@@ -253,6 +253,29 @@ The same manifest family supports three commercial modes:
 
 The distinction is expressed through `requirements`, `integration`, and `deployment`, not by inventing a second manifest family.
 
+## Compound-System Extension Hooks
+
+The current architecture also supports several higher-order schema blocks that should be treated as future extension hooks rather than separate manifest families.
+
+Recommended future hooks:
+
+- `trust_tier`
+  - capability / permission level for the delivered form
+- `role_profile`
+  - facility ecology, tool grants, memory namespace expectations for a role
+- `governance_policy`
+  - permission ceiling, audit triggers, approval rules, observation cadence
+- `observer_evaluation`
+  - attached quality/evidence block from the observer pipeline
+- `catalog`
+  - storefront/listing metadata derived from the manifest and preview captures
+
+These should extend the existing manifest through `configuration`, `requirements`, `integration`, or `deployment` instead of forcing a new base manifest family.
+
+Reference:
+
+- `docs/COMPOUND_SYSTEMS_OPPORTUNITY_MAP_2026-03-29.md`
+
 ### Runtime Facility Rule
 
 For character products:

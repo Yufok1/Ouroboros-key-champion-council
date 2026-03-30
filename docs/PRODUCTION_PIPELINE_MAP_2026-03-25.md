@@ -248,6 +248,11 @@ At minimum, the production pipeline must eventually emit all of the following ca
 - habitat specs
 - facility specs
 - adapter specs
+- trust-tier schema / capability ladder
+- role-profile schema
+- governance-policy schema
+- catalog/listing schema
+- observer-evaluation attachment block
 
 ### Runtime Code
 
@@ -297,6 +302,21 @@ Pass when:
 - click-through works (transparent pixels pass through, character pixels interactive)
 - system tray chat connects to capsule
 - character command surface works through desktop shell
+
+## Compound-System Tail
+
+After the current animation lane is validated and the next embodiment milestones land, the production pipeline should explicitly capture these schema/runtime follow-ons:
+
+- Trust-Graduated Agency Model — document the capability ladder across shipping modes and permission levels
+- `v134-thin` Facility App Runtime proof — one utility object + one workstation + one granted workflow
+- Role Synthesis Layer — role profiles that package facility ecology around one character product
+- Governance Plane — named policy contract for permission ceilings, audit requirements, and approval triggers
+- Catalog / Listing Schema — manifest-backed storefront/discovery layer
+- Observer QA / Audit Pipeline — score and attach evaluation metadata to product outputs
+
+Reference:
+
+- `docs/COMPOUND_SYSTEMS_OPPORTUNITY_MAP_2026-03-29.md`
 
 ## Production Gates
 

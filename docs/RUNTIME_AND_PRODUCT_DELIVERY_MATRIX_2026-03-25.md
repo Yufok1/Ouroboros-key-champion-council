@@ -735,6 +735,30 @@ The desktop perception surface is the analog to the environment perception surfa
 
 Full architecture spec: `docs/DESKTOP_COMPANION_ARCHITECTURE_SPEC_2026-03-29.md`
 
+## Trust-Graduated Agency Model
+
+The current product/delivery docs also imply a single trust and capability ladder.
+
+This ladder is formed by combining:
+
+- capsule-free / capsule-optional / capsule-required shipping modes
+- desktop permission tiers
+- utility/workstation tool grants
+
+The same character product may therefore appear at multiple effective agency tiers without changing the embodiment package itself.
+
+Practical interpretation:
+
+- lower tiers ship as static or reactive companions with restricted awareness
+- middle tiers ship with provider-backed cognition and bounded capability
+- higher tiers ship with capsule-backed memory, tool use, and action surfaces
+
+This should be formalized as a named schema-layer later, not treated as an accidental commercial side effect.
+
+Reference:
+
+- `docs/COMPOUND_SYSTEMS_OPPORTUNITY_MAP_2026-03-29.md`
+
 ## Non-Goals
 
 - This document does not define specific game mechanics.
