@@ -1,6 +1,6 @@
 ● Champion Council — Authoritative Version Map
 
-  As of: 2026-03-30 | HEAD: 008bfe7 | Panel cache: v=130w | Branch: main
+  As of: 2026-03-30 | HEAD: 80270a8 | Panel cache: v=130w | Branch: main
 
   Identity: Inhabitable procedural media with agent co-presence. Not a game engine. Facilities breathe. Individual
   embodied character = base sellable unit.
@@ -243,10 +243,12 @@
   │           │          │             │ mounted control surface HTML, menu/highlight sync fixes. Current         │
   │           │          │             │ worktree aligns direct shell env_control ingress for the same verbs.    │
   ├───────────┼──────────┼─────────────┼──────────────────────────────────────────────────────────────────────────┤
-  │ v133b.2   │ —        │ PLANNED     │ Queue/sequence + interrupt semantics, priority, transition timing,      │
-  │           │          │             │ reaction hooks from goals/speech/perception/tool outcomes                │
+  │ v133b.2   │ 008bfe7  │ COMPLETE    │ Queue/sequence + interrupt semantics, explicit interrupt priority,       │
+  │           │          │             │ fade_seconds handling, queue resume/release behavior, runtime salvage    │
   ├───────────┼──────────┼─────────────┼──────────────────────────────────────────────────────────────────────────┤
-  │ v133c     │ —        │ PLANNED     │ Clip blending: locomotion blend tree (idle↔walk↔run crossfades)          │
+  │ v133c     │ 008bfe7  │ COMPLETE    │ Parametric locomotion blend tree: idle↔walk↔run weighting, override      │
+  │           │          │             │ suspend/resume, foot-slide prevention, blend diagnostics, one-shot       │
+  │           │          │             │ fallback                                                                  │
   ├───────────┼──────────┼─────────────┼──────────────────────────────────────────────────────────────────────────┤
   │ v133d     │ —        │ PLANNED     │ Proxy lane: fallback for unrigged/static GLBs (billboard, static mesh,   │
   │           │          │             │ hybrid)                                                                  │
@@ -347,10 +349,14 @@
   ---
   Cross-Cutting Systems
 
-  Coquina Procedural Generation — SPEC COMPLETE, NOT IMPLEMENTED
+  Coquina Procedural Generation — SPEC COMPLETE, CONTRACT BASELINE STARTED
 
   5 systems: Atoms, Structural Grammar, Aspectation Grammar, Palette Evolution, Observer Audit. 7 data contracts. All
   outputs through _envNormalizeSceneObjectRecord(). No parallel scene model. Spec committed at 8599b3e + e730edb.
+  Scene-atom schema baseline committed at 17ef0a0 (`schemas/coquina/` — Contracts 1, 2, 5, 6). Body-authoring
+  contract layer drafted at 80270a8 (`docs/COQUINA_BODY_AUTHORING_CONTRACTS.md`) for scaffold-first character
+  assembly. Next Coquina steps: body-authoring schemas, atom tagging/registry v1, palette resolver v1, scaffolded
+  character assembly v1.
 
   Object Taxonomy (12 categories)
 
@@ -405,8 +411,8 @@
   ├───────────────────────────────┼───────────────────────────────────────────────────┤
   │ 5: Buyer API Ready            │ Not started                                       │
   ├───────────────────────────────┼───────────────────────────────────────────────────┤
-  │ 6: Portable Character Ready   │ In progress — detection + contract derivation +    │
-  │                               │ animation command handlers done                    │
+  │ 6: Portable Character Ready   │ In progress — detection + retarget foundation +    │
+  │                               │ animation command system + blend tree done         │
   ├───────────────────────────────┼───────────────────────────────────────────────────┤
   │ 7: Product Export Ready       │ Not started                                       │
   ├───────────────────────────────┼───────────────────────────────────────────────────┤
@@ -424,17 +430,17 @@
   ├────────────────────────────────┼──────────────────────────────┤
   │ C. Validation Habitat          │ Complete                     │
   ├────────────────────────────────┼──────────────────────────────┤
-  │ D. Character Runtime           │ In progress — v133b.1        │
-  │                                │ committed, cohort validation   │
-  │                                │ next                           │
+  │ D. Character Runtime           │ In progress — v133b.2 + v133c │
+  │                                │ committed; next is scaffold-   │
+  │                                │ first body-authoring contracts │
   ├────────────────────────────────┼──────────────────────────────┤
   │ E. Facility & Workflow Surface │ Spec'd                       │
   ├────────────────────────────────┼──────────────────────────────┤
   │ F. Buyer API Surface           │ Not started                  │
   ├────────────────────────────────┼──────────────────────────────┤
-  │ G. Embodiment & Asset Lane     │ In progress — detection +    │
-  │                                │ contract derivation + animation│
-  │                                │ handlers done                  │
+  │ G. Embodiment & Asset Lane     │ In progress — family registry, │
+  │                                │ humanoid scaffold, command lane,│
+  │                                │ blend tree, Coquina contracts   │
   ├────────────────────────────────┼──────────────────────────────┤
   │ H. Product Packaging           │ Not started                  │
   ├────────────────────────────────┼──────────────────────────────┤
@@ -453,57 +459,43 @@
   ---
   Next Milestone
 
-  v133b.1 is COMMITTED at ef58c97. All 7 animation command handlers working (play_clip, queue_clips, stop_clip,
-  set_loop, set_speed, get_animation_state, play_reaction). animation_surface exporting live state on mounted runtime
-  record. Owned-surface agent control working (open_surface + surface_input + surface_action). Alias map for
-  dotted↔underscored command names. Public bridge functions (window.envopsCharacter*). Mounted control surface HTML
-  with live state preview. Menu/highlight sync bugs fixed.
+  Runtime animation lane is now committed through 008bfe7:
 
-  Current worktree: direct shell `env_control(character_*)` ingress is aligned for the 7 animation verbs through the
-  editable runtime shell, and validated live against the existing browser/runtime handlers. No capsule edits.
+  - `v133b.2` complete — queue/sequence + interrupt semantics, priority/fade handling follow-through, reaction and
+    resume behavior
+  - `v133c` complete — locomotion blend tree, idle↔walk↔run weighting, override suspend/resume, foot-slide
+    prevention, one-shot completion fallback
+
+  Coquina contract lane is now active:
+
+  - 17ef0a0 — scene-atom schema baseline landed under `schemas/coquina/`
+  - 80270a8 — body-authoring contract layer drafted in `docs/COQUINA_BODY_AUTHORING_CONTRACTS.md`
 
   Next steps in order:
-  1. Validate all 7 verbs on the humanoid test cohort (6 models, 32 clips each)
-  2. Confirm refresh persistence still works with animation state
-  3. Commit the shell/runtime/doc alignment cleanly
-  4. v133b.2 — queue/sequence + interrupt semantics
-  5. v133c — locomotion blend tree
+  1. Add body-authoring schemas for mount domain, body-plan overlay, and data-driven scaffold slots
+  2. Extend atom registry validation with conditional `body_binding`
+  3. Migrate humanoid scaffold slots from hardcoded JS into data
+  4. Tag existing CC0 assets as scene atoms first, then body atoms
+  5. Implement palette resolver v1
+  6. Build scaffolded character assembly v1 from family contract + scaffold + Coquina atoms
 
-  Immediate Execution Notes (2026-03-29)
+  Immediate Execution Notes (2026-03-30)
 
-  - Validate on humanoids first. Current best local cohort:
-    - `static/assets/packs/kenney-mini-characters-1/character-male-a.glb` — 32 clips
-    - `static/assets/packs/kenney-mini-characters-1/character-female-a.glb` — 32 clips
-    - `static/assets/packs/kenney-mini-dungeon/character-human.glb` — 32 clips
-    - `static/assets/packs/kenney-graveyard-kit/character-skeleton.glb` — 32 clips
-    - `static/assets/packs/kenney-graveyard-kit/character-vampire.glb` — 32 clips
-    - `static/assets/packs/kenney-graveyard-kit/character-zombie.glb` — 32 clips
-  - Current working agent-control ingress paths:
-    - `open_surface` → `surface_input` → `surface_action` against `mounted_primary` (WORKING)
-    - `window.envopsCharacter*()` bridge functions (WORKING)
-    - Direct `env_control(character_play_clip, ...)` (WORKING — shell proxy aligned)
-  - Do not mix quadruped/animal scaffold or body-plan work into the current slice.
-  - Animal embodiment remains a later family-specific lane after the humanoid command surface is stable.
+  - Keep humanoid authoring first. Do not mix quadruped/flying/serpentine scaffold implementation into the next slice.
+  - The current family registry already contains the six canonical families; the current scaffold authoring lane only
+    supports `humanoid_biped`.
+  - Body-authoring contracts use canonical family joint ids, not source-rig bone names.
+  - Palette checkpoints and affordance-slot/channel machinery should be reused for body authoring, not forked.
+  - `Tier 2: Assembly Surfaces` remains the practical workbench destination for scaffold-first character authoring.
 
-  Source anchors (verified at ef58c97):
-    - _env3DBuildDerivedAnimationContract         line 33181
-    - _env3DClipInventory                         line 33274
-    - _env3DResolveAnimationClip                  line 33297
-    - _env3DBuildRetargetedClipInventory           line 33770
-    - _envRefreshInhabitantRuntimeState            line 11373
-    - _envQueueControl                             line 17625
-    - _envCharacterPlayClip                        line 11855
-    - _envCharacterQueueClips                      line 11928
-    - _envCharacterStopClip                        line 11994
-    - _envCharacterSetLoop                         line 12029
-    - _envCharacterSetSpeed                        line 12069
-    - _envCharacterGetAnimationState               line 12105
-    - _envCharacterPlayReaction                    line 12152
-    - _envCharacterCommandAliases                  line 12652
-    - _envInhabitantRuntimeSurfaceSnapshot         line 9406
-    - _envInhabitantMountedRecord                  line 9509
-    - _envMountedCharacterControlSurfaceHtml       line 9332
-    - window.envopsCharacterPlayClip               line 44987
-    - window.envopsCharacterGetAnimationState      line 45033
-    - host_commands array                          line 9460
-    - Command routing ingress                      line 12676–12721
+  Source anchors (verified through 008bfe7 / 80270a8):
+    - _ENV_RIG_FAMILY_REGISTRY                    line 21641
+    - _ENV_SOURCE_RIG_JOINT_MAPS                 line 21714
+    - _ENV_SCAFFOLD_SLOT_REGISTRY                line 21757
+    - _envDetectSourceRig                        line 21779
+    - _envCharacterApplyLocomotionBlend          line 12199
+    - schemas/coquina/atom-registry.schema.json
+    - schemas/coquina/affordance-slot.schema.json
+    - schemas/coquina/palette-checkpoint.schema.json
+    - schemas/coquina/generation-checkpoint.schema.json
+    - docs/COQUINA_BODY_AUTHORING_CONTRACTS.md
