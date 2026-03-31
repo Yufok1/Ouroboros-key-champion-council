@@ -1259,10 +1259,32 @@
         return lineage.concat(descendants);
     }
 
+    function _envBuilderPartKeyForObject(objectKey, boneId) {
+        var targetObjectKey = String(objectKey || '').trim() || String(_envInhabitantObjectKey() || '').trim();
+        var targetBoneId = String(boneId || '').trim();
+        if (!targetObjectKey || !targetBoneId) return '';
+        return targetObjectKey + '#bone:' + targetBoneId;
+    }
+
     function _envBuilderPartKey(boneId) {
         var target = String(boneId || '').trim();
         if (!target) return '';
-        return _envInhabitantObjectKey() + '#bone:' + target;
+        return _envBuilderPartKeyForObject(_envInhabitantObjectKey(), target);
+    }
+
+    function _envBuilderPartTargetObjectKey(targetId) {
+        var raw = String(targetId || '').trim();
+        if (!raw) return '';
+        var parsed = raw ? _safeJsonParse(raw) : null;
+        var payload = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+        var objectKey = String(payload.object_key || '').trim();
+        if (objectKey) return _envObserverResolveObjectKey(objectKey) || objectKey;
+        var partKey = String(payload.part_key || payload.target || raw || '').trim();
+        var idx = partKey.indexOf('#bone:');
+        if (idx < 0) return '';
+        var ownerKey = String(partKey.slice(0, idx) || '').trim();
+        if (!ownerKey) return '';
+        return _envObserverResolveObjectKey(ownerKey) || ownerKey;
     }
 
     function _envBuilderPartTargetBoneId(targetId) {
@@ -1284,6 +1306,160 @@
             Number(value.y || 0),
             Number(value.z || 0)
         ];
+    }
+
+    function _envVector3FromArray(value, fallback) {
+        if (typeof THREE === 'undefined' || !THREE || typeof THREE.Vector3 !== 'function') return null;
+        var source = Array.isArray(value)
+            ? value
+            : (value && typeof value === 'object'
+                ? [value.x, value.y, value.z]
+                : (Array.isArray(fallback) ? fallback : [0, 0, 0]));
+        return new THREE.Vector3(
+            Number(source[0] || 0),
+            Number(source[1] || 0),
+            Number(source[2] || 0)
+        );
+    }
+
+    function _envBuilderPartBoundsMetrics(partSurface) {
+        if (!partSurface || typeof THREE === 'undefined') return null;
+        var anchor = _envVector3FromArray(partSurface.world_anchor, [0, 0, 0]);
+        if (!anchor) return null;
+        var boundsData = partSurface.world_bounds && typeof partSurface.world_bounds === 'object' ? partSurface.world_bounds : null;
+        var box = new THREE.Box3();
+        var hasBounds = false;
+        if (boundsData && Array.isArray(boundsData.min) && Array.isArray(boundsData.max)) {
+            try {
+                box.set(
+                    _envVector3FromArray(boundsData.min, [0, 0, 0]) || anchor.clone(),
+                    _envVector3FromArray(boundsData.max, [0, 0, 0]) || anchor.clone()
+                );
+                hasBounds = !box.isEmpty();
+            } catch (ignored) {
+                hasBounds = false;
+            }
+        }
+        if (!hasBounds) {
+            var maxRadius = Math.max(
+                0.04,
+                Number((((partSurface.radius_profile || [])[0]) || 0) || 0),
+                Number((((partSurface.radius_profile || [])[1]) || 0) || 0)
+            );
+            var fallbackSize = new THREE.Vector3(
+                Math.max(0.12, maxRadius * 4),
+                Math.max(0.12, Number(partSurface.length || 0.12), maxRadius * 5),
+                Math.max(0.12, maxRadius * 4)
+            );
+            box.setFromCenterAndSize(anchor.clone(), fallbackSize);
+            hasBounds = true;
+        }
+        var center = box.getCenter(new THREE.Vector3());
+        var size = box.getSize(new THREE.Vector3());
+        var extent = Math.max(
+            0.12,
+            Number(size.x || 0),
+            Number(size.y || 0),
+            Number(size.z || 0),
+            Number(partSurface.length || 0)
+        );
+        var maxRadius = Math.max(
+            0.04,
+            Number((((partSurface.radius_profile || [])[0]) || 0) || 0),
+            Number((((partSurface.radius_profile || [])[1]) || 0) || 0)
+        );
+        var fitHeight = Math.max(Number(size.y || 0), Number(partSurface.length || 0), maxRadius * 4);
+        var fitWidth = Math.max(Number(size.x || 0), Number(size.z || 0), maxRadius * 4, Number(partSurface.length || 0) * 0.7);
+        var fitDistance = _env3D && _env3D.camera ? _env3DWorkbenchFitDistance(fitHeight, fitWidth, 0.68) : 0;
+        return {
+            anchor: anchor,
+            center: center,
+            box: box,
+            size: size,
+            extent: extent,
+            distance: Math.max(1.2, Number(fitDistance || 0), extent * 2.6)
+        };
+    }
+
+    function _envBuilderPartCameraRecipes(partSurface) {
+        if (!partSurface || typeof THREE === 'undefined') return [];
+        var metrics = _envBuilderPartBoundsMetrics(partSurface);
+        if (!metrics) return [];
+        var basis = partSurface.local_basis && typeof partSurface.local_basis === 'object' ? partSurface.local_basis : {};
+        var forward = _envVector3FromArray(basis.forward, [0, 0, 1]) || new THREE.Vector3(0, 0, 1);
+        var up = _envVector3FromArray(basis.up, [0, 1, 0]) || new THREE.Vector3(0, 1, 0);
+        var right = _envVector3FromArray(basis.right, [1, 0, 0]) || new THREE.Vector3(1, 0, 0);
+        if (forward.lengthSq() < 1e-6) forward.set(0, 0, 1);
+        if (up.lengthSq() < 1e-6) up.set(0, 1, 0);
+        if (right.lengthSq() < 1e-6) right.set(1, 0, 0);
+        forward.normalize();
+        up.normalize();
+        right.normalize();
+        var target = _envVector3Array(metrics.anchor);
+        var distance = Number(metrics.distance || 1.2);
+        function makeRecipe(key, direction) {
+            var dir = direction && typeof direction.clone === 'function' ? direction.clone() : new THREE.Vector3(0, 0, 1);
+            if (dir.lengthSq() < 1e-6) dir.copy(forward);
+            dir.normalize();
+            var position = metrics.anchor.clone().add(dir.multiplyScalar(distance));
+            return {
+                key: String(key || 'front'),
+                position: _envVector3Array(position),
+                target: target
+            };
+        }
+        return [
+            makeRecipe('front', forward),
+            makeRecipe('back', forward.clone().multiplyScalar(-1)),
+            makeRecipe('left', right.clone().multiplyScalar(-1)),
+            makeRecipe('right', right),
+            makeRecipe('top', up),
+            makeRecipe('bottom', up.clone().multiplyScalar(-1)),
+            makeRecipe('iso_front', forward.clone().add(right).add(up)),
+            makeRecipe('iso_back', forward.clone().multiplyScalar(-1).add(right.clone().multiplyScalar(-1)).add(up))
+        ];
+    }
+
+    function _envBuilderPartCameraRecipe(partSurface, key) {
+        var targetKey = String(key || 'front').trim().toLowerCase() || 'front';
+        var recipes = _envBuilderPartCameraRecipes(partSurface);
+        var match = null;
+        recipes.some(function (recipe) {
+            if (String((recipe || {}).key || '').trim().toLowerCase() !== targetKey) return false;
+            match = recipe;
+            return true;
+        });
+        return match || (recipes.length ? recipes[0] : null);
+    }
+
+    function _envNormalizeWorkbenchFramePartTarget(targetId) {
+        var raw = String(targetId || '').trim();
+        var parsed = raw ? _safeJsonParse(raw) : null;
+        var payload = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+        var source = String(payload.part_key || payload.target || raw || '').trim();
+        var boneId = String(payload.bone_id || payload.bone || payload.id || '').trim();
+        if (!boneId) boneId = _envBuilderPartTargetBoneId(source || raw);
+        var objectKey = String(payload.object_key || '').trim();
+        if (!objectKey) objectKey = _envBuilderPartTargetObjectKey(source || raw);
+        if (!objectKey && boneId) objectKey = String(_envInhabitantObjectKey() || '').trim();
+        var viewKey = String(payload.view || payload.recipe || payload.key || 'front').trim().toLowerCase() || 'front';
+        return {
+            raw: raw,
+            payload: payload,
+            bone_id: boneId,
+            object_key: objectKey,
+            part_key: boneId ? _envBuilderPartKeyForObject(objectKey || _envInhabitantObjectKey(), boneId) : '',
+            view: viewKey
+        };
+    }
+
+    function _envResolveWorkbenchPartBoneId(requestedBoneId) {
+        var target = String(requestedBoneId || '').trim();
+        if (target) return target;
+        var selected = String(_envBuilderInteraction.selected_bone_id || '').trim();
+        if (selected) return selected;
+        var surface = _envMountedWorkbenchSurfaceState();
+        return String((((surface || {}).selected_part_surface || {}).bone_id) || ((surface || {}).selected_bone_id) || '').trim();
     }
 
     function _envBuilderComputePartSurface(boneId) {
@@ -1367,6 +1543,17 @@
             isolated: !!(_envBuilderSubject._isolatedBoneIds && _envBuilderSubject._isolatedBoneIds[target]),
             editing_mode: _envNormalizeBuilderEditingMode(_envBuilderInteraction.editing_mode || 'structure')
         };
+    }
+
+    function _envWorkbenchComputePartSurfaceWithRetry(boneId) {
+        var target = String(boneId || '').trim();
+        if (!target) return null;
+        var partSurface = _envBuilderComputePartSurface(target);
+        if (partSurface) return partSurface;
+        var mesh = _envMountedRuntimeMesh();
+        if (!mesh || !mesh.userData || !_envBuilderSubject.active) return null;
+        if (!_env3DSyncBuilderSubjectMesh(mesh)) return null;
+        return _envBuilderComputePartSurface(target);
     }
 
     function _envBuilderBlueprint(source) {
@@ -9952,7 +10139,7 @@
                 host_commands: [
                     'character_mount', 'character_unmount', 'character_focus', 'character_move_to',
                     'character_stop', 'character_look_at', 'character_set_model',
-                    'workbench_new_builder', 'workbench_get_blueprint', 'workbench_get_part_surface', 'workbench_set_bone',
+                    'workbench_new_builder', 'workbench_get_blueprint', 'workbench_get_part_surface', 'workbench_frame_part', 'workbench_set_bone',
                     'workbench_select_bone', 'workbench_set_editing_mode',
                     'workbench_isolate_chain', 'workbench_save_blueprint', 'workbench_load_blueprint',
                     'character_play_clip', 'character_queue_clips', 'character_stop_clip',
@@ -9963,7 +10150,7 @@
                 legacy_host_commands: ['spawn_inhabitant', 'despawn_inhabitant', 'focus_inhabitant'],
                 implemented_verbs: [
                     'mount', 'unmount', 'focus', 'move_to', 'stop', 'look_at', 'set_model',
-                    'new_builder', 'get_blueprint', 'get_part_surface', 'select_bone', 'set_editing_mode',
+                    'new_builder', 'get_blueprint', 'get_part_surface', 'frame_part', 'select_bone', 'set_editing_mode',
                     'set_bone', 'isolate_chain', 'save_blueprint', 'load_blueprint',
                     'play_clip', 'queue_clips', 'stop_clip', 'set_loop', 'set_speed',
                     'set_scaffold',
@@ -13907,8 +14094,8 @@
             return null;
         }
         var requestedBoneId = _envBuilderPartTargetBoneId(targetId);
-        var boneId = String(requestedBoneId || _envBuilderInteraction.selected_bone_id || '').trim();
-        var partSurface = _envBuilderComputePartSurface(boneId);
+        var boneId = _envResolveWorkbenchPartBoneId(requestedBoneId);
+        var partSurface = _envWorkbenchComputePartSurfaceWithRetry(boneId);
         if (!partSurface) {
             _envLogAction('character_runtime', 'Rejected builder part-surface read: bone unavailable', actorName, {
                 action: 'workbench_get_part_surface',
@@ -13933,6 +14120,92 @@
         _envScheduleLiveSync('workbench_get_part_surface:' + boneId, true);
         renderEnvironmentView();
         return partSurface;
+    }
+
+    function _envWorkbenchFramePart(actor, reason, targetId) {
+        var actorName = String(actor || _envManualActorId() || 'assistant').trim() || 'assistant';
+        if (!_envBuilderSubject.active) {
+            _envLogAction('character_runtime', 'Rejected builder part frame: no active builder subject', actorName, {
+                action: 'workbench_frame_part'
+            });
+            _envSetBadge('failed', 'NO BUILDER');
+            renderEnvironmentView();
+            return false;
+        }
+        if (!_env3D.inited || !_env3D.camera || !_env3D.controls) {
+            _envLogAction('character_runtime', 'Rejected builder part frame: 3D camera unavailable', actorName, {
+                action: 'workbench_frame_part'
+            });
+            _envSetBadge('failed', 'NO 3D');
+            renderEnvironmentView();
+            return false;
+        }
+        var spec = _envNormalizeWorkbenchFramePartTarget(targetId);
+        var boneId = _envResolveWorkbenchPartBoneId(spec.bone_id);
+        if (spec.object_key && String(spec.object_key || '') !== String(_envInhabitantObjectKey() || '')) {
+            _envLogAction('character_runtime', 'Rejected builder part frame: target not mounted builder subject', actorName, {
+                action: 'workbench_frame_part',
+                object_key: String(spec.object_key || ''),
+                bone_id: boneId
+            });
+            _envSetBadge('failed', 'BAD TARGET');
+            renderEnvironmentView();
+            return false;
+        }
+        var partSurface = _envWorkbenchComputePartSurfaceWithRetry(boneId);
+        if (!partSurface) {
+            _envLogAction('character_runtime', 'Rejected builder part frame: bone unavailable', actorName, {
+                action: 'workbench_frame_part',
+                bone_id: boneId
+            });
+            _envSetBadge('failed', boneId ? 'BAD BONE' : 'NO BONE');
+            renderEnvironmentView();
+            return false;
+        }
+        var recipe = _envBuilderPartCameraRecipe(partSurface, spec.view || 'front');
+        if (!recipe) {
+            _envLogAction('character_runtime', 'Rejected builder part frame: camera recipe unavailable', actorName, {
+                action: 'workbench_frame_part',
+                bone_id: boneId,
+                view: String(spec.view || 'front')
+            });
+            _envSetBadge('failed', 'NO VIEW');
+            renderEnvironmentView();
+            return false;
+        }
+        var position = _envVector3FromArray(recipe.position, [0, 0, 0]);
+        var target = _envVector3FromArray(recipe.target, [0, 0, 0]);
+        if (!position || !target) {
+            _envSetBadge('failed', 'BAD VIEW');
+            renderEnvironmentView();
+            return false;
+        }
+        _envScene.cameraMode = 'focus';
+        _envBuilderInteraction.selected_bone_id = boneId;
+        _envBuilderInteraction.hover_bone_id = boneId;
+        _envBuilderApplySelectionToMesh(_envMountedRuntimeMesh());
+        _env3DAnimateCameraToVectors(position, target, 700, 'camera:workbench_frame_part:' + String(recipe.key || 'front'));
+        _envRefreshInhabitantRuntimeState('workbench_frame_part');
+        _envLogAction('character_runtime', 'Framed builder part camera', actorName, {
+            action: 'workbench_frame_part',
+            bone_id: boneId,
+            part_key: String(partSurface.part_key || ''),
+            view: String(recipe.key || 'front'),
+            recipe: recipe
+        });
+        _envEmitBus('character_runtime', 'Framed builder part camera', actorName, {
+            action: 'workbench_frame_part',
+            object_key: _envInhabitantObjectKey(),
+            bone_id: boneId,
+            part_key: String(partSurface.part_key || ''),
+            view: String(recipe.key || 'front')
+        });
+        _envSetBadge('running', 'PART CAM');
+        _envScheduleLiveSync('workbench_frame_part:' + boneId + ':' + String(recipe.key || 'front'), true);
+        _envSaveTheaterSession('workbench_frame_part');
+        _envScene.dirty = true;
+        renderEnvironmentView();
+        return recipe;
     }
 
     function _envWorkbenchSelectBone(actor, reason, targetId) {
@@ -14894,6 +15167,7 @@
         'workbench.new_builder': 'workbench_new_builder',
         'workbench.get_blueprint': 'workbench_get_blueprint',
         'workbench.get_part_surface': 'workbench_get_part_surface',
+        'workbench.frame_part': 'workbench_frame_part',
         'workbench.set_bone': 'workbench_set_bone',
         'workbench.select_bone': 'workbench_select_bone',
         'workbench.set_editing_mode': 'workbench_set_editing_mode',
@@ -14961,7 +15235,7 @@
             || command === 'character_mount' || command === 'character_unmount' || command === 'character_focus'
             || command === 'character_move_to' || command === 'character_stop' || command === 'character_look_at'
             || command === 'workbench_new_builder' || command === 'workbench_get_blueprint'
-            || command === 'workbench_get_part_surface'
+            || command === 'workbench_get_part_surface' || command === 'workbench_frame_part'
             || command === 'workbench_set_bone' || command === 'workbench_select_bone'
             || command === 'workbench_set_editing_mode' || command === 'workbench_isolate_chain'
             || command === 'workbench_save_blueprint' || command === 'workbench_load_blueprint'
@@ -21218,11 +21492,11 @@
             return;
         }
         if (command === 'capture_focus') {
-            _envQueueCapture({ type: 'focus', object_key: targetId || '' });
+            _envQueueCapture({ type: 'focus', target_id: targetId || '', object_key: targetId || '' });
             return;
         }
         if (command === 'capture_probe') {
-            _envQueueCapture({ type: 'probe', object_key: targetId || '' });
+            _envQueueCapture({ type: 'probe', target_id: targetId || '', object_key: targetId || '' });
             return;
         }
         if (command === 'toggle_stream') {
@@ -21635,6 +21909,10 @@
         }
         if (command === 'workbench_get_part_surface') {
             _envWorkbenchGetPartSurface(actorName, reason || 'control workbench get part surface', targetId);
+            return;
+        }
+        if (command === 'workbench_frame_part') {
+            _envWorkbenchFramePart(actorName, reason || 'control workbench frame part', targetId);
             return;
         }
         if (command === 'workbench_select_bone') {
@@ -23376,6 +23654,7 @@
         var hoverBoneId = builderActive ? String(_envBuilderInteraction.hover_bone_id || '').trim() : '';
         var boneMap = builderActive ? _envBuilderBoneRecordMap((blueprint && blueprint.bones) || []) : {};
         var selectedPartSurface = builderActive && selectedBoneId ? _envBuilderComputePartSurface(selectedBoneId) : null;
+        var partCameraRecipes = selectedPartSurface ? _envBuilderPartCameraRecipes(selectedPartSurface) : [];
         return {
             subject_mode: builderActive ? String(_envBuilderSubject.subject_mode || 'preset_skeleton') : 'mounted_asset',
             builder_active: builderActive,
@@ -23402,6 +23681,7 @@
             gizmo_active: builderActive ? !!_envBuilderInteraction.gizmo_active : false,
             selected_bone: selectedBoneId ? _envCloneJson(boneMap[selectedBoneId] || null, null) : null,
             selected_part_surface: selectedPartSurface,
+            part_camera_recipes: partCameraRecipes,
             builder_blueprint: blueprint
         };
     }
@@ -28982,6 +29262,21 @@
         };
     }
 
+    function _envObserverBuildBoundsFromBox(box, fallbackCenter, fallbackSize, pointCount) {
+        if (!(box instanceof THREE.Box3) || box.isEmpty()) {
+            return _envObserverBuildBoundsFromPoints([], fallbackCenter, fallbackSize);
+        }
+        var center = box.getCenter(new THREE.Vector3());
+        var size = box.getSize(new THREE.Vector3());
+        return {
+            box: box.clone(),
+            center: center,
+            size: size,
+            radius: Math.max(1.2, Number(size.length() || 0) * 0.5, Math.max(size.x, size.y, size.z) * 0.8),
+            point_count: Math.max(1, Number(pointCount || 1))
+        };
+    }
+
     function _envObserverResolveObjectKey(objectKey) {
         var targetKey = String(objectKey || '').trim();
         if (!targetKey) return '';
@@ -29120,6 +29415,43 @@
             scale: Number(sceneObject.scale || 1),
             object: sceneObject,
             mesh: mesh
+        };
+    }
+
+    function _envObserverPartContext(targetId) {
+        var raw = String(targetId || '').trim();
+        if (!raw || raw.indexOf('#bone:') < 0) return null;
+        var spec = _envNormalizeWorkbenchFramePartTarget(raw);
+        var mountedObjectKey = String(_envInhabitantObjectKey() || '').trim();
+        var resolvedObjectKey = _envObserverResolveObjectKey(spec.object_key || mountedObjectKey) || String(spec.object_key || mountedObjectKey || '').trim();
+        if (!resolvedObjectKey || !spec.bone_id) return null;
+        if (mountedObjectKey && resolvedObjectKey !== mountedObjectKey) return null;
+        var ownerContext = _envObserverObjectContext(resolvedObjectKey);
+        var partSurface = _envBuilderComputePartSurface(spec.bone_id);
+        var metrics = _envBuilderPartBoundsMetrics(partSurface);
+        if (!ownerContext || !partSurface || !metrics || !metrics.box) return null;
+        return {
+            object_key: ownerContext.object_key,
+            part_key: String(partSurface.part_key || _envBuilderPartKeyForObject(resolvedObjectKey, spec.bone_id)),
+            bone_id: String(spec.bone_id || ''),
+            recipe_key: String(spec.view || 'front'),
+            label: String(ownerContext.label || ownerContext.object_key || '').trim() + ' · ' + String(spec.bone_id || ''),
+            kind: String(ownerContext.kind || '').trim().toLowerCase(),
+            category: String(ownerContext.category || '').trim().toLowerCase(),
+            appearance: _envCloneJson(ownerContext.appearance, null),
+            semantics: _envCloneJson(ownerContext.semantics, null),
+            semantics_observation: _envCloneJson(ownerContext.semantics_observation, null),
+            material_observation: _envCloneJson(ownerContext.material_observation, null),
+            physics_observation: _envCloneJson(ownerContext.physics_observation, null),
+            center: metrics.anchor.clone(),
+            size: metrics.size.clone(),
+            bounds: _env3DBoxSnapshot(metrics.box),
+            box: metrics.box,
+            scale: Number(ownerContext.scale || 1),
+            object: ownerContext.object,
+            mesh: ownerContext.mesh,
+            part_surface: partSurface,
+            camera_recipes: _envBuilderPartCameraRecipes(partSurface)
         };
     }
 
@@ -29853,7 +30185,10 @@
         var result = value.result && typeof value.result === 'object' ? value.result : value;
         var leadTile = Array.isArray(result.tiles) && result.tiles.length ? (result.tiles[0] || {}) : {};
         var targetKey = String(
-            result.object_key
+            result.part_key
+            || (((result.target || {}).part_key) || '')
+            || (((leadTile.target || {}).part_key) || '')
+            || result.object_key
             || (((result.target || {}).object_key) || '')
         ).trim();
         var summary = {
@@ -30029,6 +30364,60 @@
     }
 
     function _envCaptureFocus(objectKey) {
+        var partContext = _envObserverPartContext(objectKey);
+        if (partContext && partContext.part_surface) {
+            var partRecipe = _envBuilderPartCameraRecipe(partContext.part_surface, partContext.recipe_key || 'front');
+            var partBounds = _envObserverBuildBoundsFromBox(partContext.box, partContext.center, partContext.size, 1);
+            var partRender = _envObserverRenderDataUrl({
+                x: Number(((partRecipe || {}).position || [])[0] || 0),
+                y: Number(((partRecipe || {}).position || [])[1] || 0),
+                z: Number(((partRecipe || {}).position || [])[2] || 0),
+                tx: Number(((partRecipe || {}).target || [])[0] || 0),
+                ty: Number(((partRecipe || {}).target || [])[1] || 0),
+                tz: Number(((partRecipe || {}).target || [])[2] || 0)
+            }, {
+                width: 800,
+                height: 450,
+                annotationMode: 'focus',
+                focusKey: partContext.object_key,
+                includeKeys: [partContext.object_key],
+                bounds: partBounds,
+                projectionLimit: 6
+            });
+            if (partRender && partRender.error) {
+                return { type: 'focus', object_key: partContext.object_key, part_key: partContext.part_key, error: partRender.error, ts: Date.now() };
+            }
+            return {
+                type: 'focus',
+                object_key: partContext.object_key,
+                part_key: partContext.part_key,
+                bone_id: partContext.bone_id,
+                image_b64: partRender.image_b64,
+                width: Number(partRender.width || 800),
+                height: Number(partRender.height || 450),
+                camera: _envCloneJson(partRender.camera, null),
+                observation: _envCloneJson(partRender.observation, null),
+                camera_recipe: _envCloneJson(partRecipe, null),
+                target: {
+                    object_key: partContext.object_key,
+                    part_key: partContext.part_key,
+                    bone_id: partContext.bone_id,
+                    label: String(partContext.label || ''),
+                    kind: String(partContext.kind || ''),
+                    category: String(partContext.category || ''),
+                    appearance: _envCloneJson(partContext.appearance, null),
+                    semantics: _envCloneJson(partContext.semantics, null),
+                    semantics_observation: _envCloneJson(partContext.semantics_observation, null),
+                    material_observation: _envCloneJson(partContext.material_observation, null),
+                    physics_observation: _envCloneJson(partContext.physics_observation, null),
+                    position: _env3DVectorSnapshot(partContext.center),
+                    size: _env3DVectorSnapshot(partContext.size),
+                    part_surface: _envCloneJson(partContext.part_surface, null)
+                },
+                projections: _envCloneJson((partRender.observation || {}).projections || [], []),
+                ts: Date.now()
+            };
+        }
         var targetContext = _envObserverObjectContext(objectKey);
         if (!targetContext || !targetContext.center) {
             return { type: 'focus', object_key: String(objectKey || ''), error: 'object_not_found', ts: Date.now() };
@@ -30098,6 +30487,119 @@
     }
 
     function _envCaptureProbe(objectKey) {
+        var partContext = _envObserverPartContext(objectKey);
+        if (partContext && partContext.part_surface) {
+            var observer = _envObserverInit();
+            if (!observer || !_env3D.scene || !_env3D.inited) {
+                return { type: 'probe', object_key: partContext.object_key, part_key: partContext.part_key, error: 'environment_3d_not_ready', ts: Date.now() };
+            }
+            var atlasWidth = 1600;
+            var atlasHeight = 900;
+            var tileWidth = 400;
+            var tileHeight = 450;
+            observer.atlasCanvas.width = atlasWidth;
+            observer.atlasCanvas.height = atlasHeight;
+            var atlasCtx = observer.atlasCtx;
+            atlasCtx.clearRect(0, 0, atlasWidth, atlasHeight);
+            atlasCtx.fillStyle = '#05070d';
+            atlasCtx.fillRect(0, 0, atlasWidth, atlasHeight);
+            var recipes = _envBuilderPartCameraRecipes(partContext.part_surface);
+            var partBounds = _envObserverBuildBoundsFromBox(partContext.box, partContext.center, partContext.size, 1);
+            var tileResults = recipes.map(function (recipe, index) {
+                var render = _envObserverRenderComposite({
+                    x: Number(((recipe || {}).position || [])[0] || 0),
+                    y: Number(((recipe || {}).position || [])[1] || 0),
+                    z: Number(((recipe || {}).position || [])[2] || 0),
+                    tx: Number(((recipe || {}).target || [])[0] || 0),
+                    ty: Number(((recipe || {}).target || [])[1] || 0),
+                    tz: Number(((recipe || {}).target || [])[2] || 0)
+                }, {
+                    width: tileWidth,
+                    height: tileHeight,
+                    annotationMode: 'focus',
+                    focusKey: partContext.object_key,
+                    includeKeys: [partContext.object_key],
+                    bounds: partBounds,
+                    projectionLimit: 6
+                });
+                var col = index % 4;
+                var row = Math.floor(index / 4);
+                var x = col * tileWidth;
+                var y = row * tileHeight;
+                if (!render || render.error) {
+                    atlasCtx.fillStyle = '#1a1f2b';
+                    atlasCtx.fillRect(x, y, tileWidth, tileHeight);
+                    atlasCtx.fillStyle = '#ffffff';
+                    atlasCtx.font = '16px monospace';
+                    atlasCtx.fillText(String((recipe && recipe.key) || 'probe'), x + 12, y + 24);
+                    atlasCtx.font = '12px monospace';
+                    atlasCtx.fillText(String((render && render.error) || 'capture_failed'), x + 12, y + 44);
+                    return {
+                        label: String((recipe && recipe.key) || ''),
+                        pose: String((recipe && recipe.key) || 'custom'),
+                        x: x,
+                        y: y,
+                        width: tileWidth,
+                        height: tileHeight,
+                        error: String((render && render.error) || 'capture_failed')
+                    };
+                }
+                atlasCtx.drawImage(observer.compositeCanvas, x, y, tileWidth, tileHeight);
+                atlasCtx.fillStyle = 'rgba(0, 0, 0, 0.72)';
+                atlasCtx.fillRect(x, y, tileWidth, 22);
+                atlasCtx.fillStyle = '#ffffff';
+                atlasCtx.font = '12px monospace';
+                atlasCtx.textBaseline = 'middle';
+                atlasCtx.fillText(String((recipe && recipe.key) || ''), x + 10, y + 11);
+                return {
+                    label: String((recipe && recipe.key) || ''),
+                    pose: String((recipe && recipe.key) || 'custom'),
+                    x: x,
+                    y: y,
+                    width: tileWidth,
+                    height: tileHeight,
+                    camera: _envCloneJson(render.camera, null),
+                    observation: _envCloneJson(render.observation, null)
+                };
+            });
+            return {
+                type: 'probe',
+                object_key: partContext.object_key,
+                part_key: partContext.part_key,
+                bone_id: partContext.bone_id,
+                width: atlasWidth,
+                height: atlasHeight,
+                image_b64: observer.atlasCanvas.toDataURL('image/jpeg', 0.72),
+                target: {
+                    object_key: partContext.object_key,
+                    part_key: partContext.part_key,
+                    bone_id: partContext.bone_id,
+                    label: String(partContext.label || ''),
+                    kind: String(partContext.kind || ''),
+                    category: String(partContext.category || ''),
+                    appearance: _envCloneJson(partContext.appearance, null),
+                    semantics: _envCloneJson(partContext.semantics, null),
+                    semantics_observation: _envCloneJson(partContext.semantics_observation, null),
+                    material_observation: _envCloneJson(partContext.material_observation, null),
+                    physics_observation: _envCloneJson(partContext.physics_observation, null),
+                    position: _env3DVectorSnapshot(partContext.center),
+                    size: _env3DVectorSnapshot(partContext.size),
+                    part_surface: _envCloneJson(partContext.part_surface, null)
+                },
+                camera_recipes: _envCloneJson(recipes, []),
+                tiles: tileResults,
+                observation: {
+                    mode: 'probe',
+                    bounds: _envObserverBoundsSnapshot(partBounds),
+                    helper_suppression: {
+                        transform_controls: true,
+                        grid_helper: false
+                    }
+                },
+                render_truth: _envBuildRenderTruth(),
+                ts: Date.now()
+            };
+        }
         var targetContext = _envObserverObjectContext(objectKey);
         if (!targetContext || !targetContext.center) {
             return { type: 'probe', object_key: String(objectKey || ''), error: 'object_not_found', ts: Date.now() };
@@ -30321,9 +30823,9 @@
                 } else if (job.type === 'supercam') {
                     result = _envCaptureSupercam();
                 } else if (job.type === 'focus') {
-                    result = _envCaptureFocus(job.object_key || '');
+                    result = _envCaptureFocus(job.target_id || job.object_key || '');
                 } else if (job.type === 'probe') {
-                    result = _envCaptureProbe(job.object_key || '');
+                    result = _envCaptureProbe(job.target_id || job.object_key || '');
                 } else {
                     result = { type: String(job.type || 'capture'), error: 'unsupported_capture_type', ts: Date.now() };
                 }
@@ -40635,6 +41137,7 @@
              '<option value="workbench_new_builder">workbench_new_builder</option>' +
              '<option value="workbench_get_blueprint">workbench_get_blueprint</option>' +
              '<option value="workbench_get_part_surface">workbench_get_part_surface</option>' +
+             '<option value="workbench_frame_part">workbench_frame_part</option>' +
              '<option value="workbench_select_bone">workbench_select_bone</option>' +
              '<option value="workbench_set_editing_mode">workbench_set_editing_mode</option>' +
              '<option value="workbench_set_bone">workbench_set_bone</option>' +
@@ -48580,6 +49083,14 @@
             try { payload = JSON.stringify(target); } catch (ignored) { payload = String(target || ''); }
         }
         _envQueueControl('workbench_get_part_surface', payload, actor || 'assistant', reason || 'external workbench get part surface');
+    };
+    window.envopsWorkbenchFramePart = function (target, actor, reason) {
+        var payload = '';
+        if (typeof target === 'string') payload = target;
+        else if (target !== undefined && target !== null) {
+            try { payload = JSON.stringify(target); } catch (ignored) { payload = String(target || ''); }
+        }
+        _envQueueControl('workbench_frame_part', payload, actor || 'assistant', reason || 'external workbench frame part');
     };
     window.envopsWorkbenchSelectBone = function (target, actor, reason) {
         var payload = '';
