@@ -1,0 +1,319 @@
+[
+  {
+    "family": "humanoid_biped",
+    "slot": "head",
+    "joint": "head",
+    "geometry": "ellipsoid",
+    "default_scale": [0.14, 0.18, 0.13],
+    "parametric_ranges": {
+      "scale_x": [0.07, 0.28],
+      "scale_y": [0.09, 0.36],
+      "scale_z": [0.065, 0.26]
+    },
+    "surface_classes": ["skin", "hair", "horn"],
+    "region_class": "head",
+    "authoring_anchor": true,
+    "up_offset": [0, 0.08, 0],
+    "color": 13288636
+  },
+  {
+    "family": "humanoid_biped",
+    "slot": "neck",
+    "joint": "neck",
+    "geometry": "limb",
+    "default_scale": [0.032, 0.07, 0.024],
+    "parametric_ranges": {
+      "scale_x": [0.016, 0.064],
+      "scale_y": [0.035, 0.14],
+      "scale_z": [0.012, 0.048]
+    },
+    "surface_classes": ["skin"],
+    "region_class": "head",
+    "authoring_anchor": true,
+    "target_joint": "head",
+    "follow_child": true,
+    "up_offset": [0, 0.03, 0],
+    "color": 11841253
+  },
+  {
+    "family": "humanoid_biped",
+    "slot": "chest",
+    "joint": "chest",
+    "geometry": "ellipsoid",
+    "default_scale": [0.3, 0.26, 0.18],
+    "parametric_ranges": {
+      "scale_x": [0.15, 0.6],
+      "scale_y": [0.13, 0.52],
+      "scale_z": [0.09, 0.36]
+    },
+    "surface_classes": ["skin", "cloth", "armor"],
+    "region_class": "torso",
+    "authoring_anchor": true,
+    "up_offset": [0, 0.11, 0],
+    "color": 12828340
+  },
+  {
+    "family": "humanoid_biped",
+    "slot": "spine",
+    "joint": "spine",
+    "geometry": "ellipsoid",
+    "default_scale": [0.22, 0.16, 0.14],
+    "parametric_ranges": {
+      "scale_x": [0.11, 0.44],
+      "scale_y": [0.08, 0.32],
+      "scale_z": [0.07, 0.28]
+    },
+    "surface_classes": ["skin", "cloth", "armor"],
+    "region_class": "torso",
+    "authoring_anchor": true,
+    "target_joint": "chest",
+    "follow_child": true,
+    "up_offset": [0, 0.07, 0],
+    "color": 12170154
+  },
+  {
+    "family": "humanoid_biped",
+    "slot": "hips",
+    "joint": "hips",
+    "geometry": "ellipsoid",
+    "default_scale": [0.28, 0.15, 0.18],
+    "parametric_ranges": {
+      "scale_x": [0.14, 0.56],
+      "scale_y": [0.075, 0.3],
+      "scale_z": [0.09, 0.36]
+    },
+    "surface_classes": ["skin", "cloth", "armor"],
+    "region_class": "torso",
+    "authoring_anchor": true,
+    "target_joint": "spine",
+    "follow_child": true,
+    "up_offset": [0, 0.05, 0],
+    "color": 11315103
+  },
+  {
+    "family": "humanoid_biped",
+    "slot": "upper_arm_l",
+    "joint": "upper_arm_l",
+    "geometry": "limb",
+    "default_scale": [0.045, 0.14, 0.036],
+    "parametric_ranges": {
+      "scale_x": [0.0225, 0.09],
+      "scale_y": [0.07, 0.28],
+      "scale_z": [0.018, 0.072]
+    },
+    "surface_classes": ["skin", "cloth", "armor"],
+    "region_class": "arm",
+    "authoring_anchor": true,
+    "target_joint": "lower_arm_l",
+    "follow_child": true,
+    "up_offset": [0, -0.07, 0],
+    "color": 12694435
+  },
+  {
+    "family": "humanoid_biped",
+    "slot": "lower_arm_l",
+    "joint": "lower_arm_l",
+    "geometry": "limb",
+    "default_scale": [0.036, 0.13, 0.028],
+    "parametric_ranges": {
+      "scale_x": [0.018, 0.072],
+      "scale_y": [0.065, 0.26],
+      "scale_z": [0.014, 0.056]
+    },
+    "surface_classes": ["skin", "cloth", "armor"],
+    "region_class": "arm",
+    "authoring_anchor": true,
+    "target_joint": "hand_l",
+    "follow_child": true,
+    "up_offset": [0, -0.065, 0],
+    "color": 11970197
+  },
+  {
+    "family": "humanoid_biped",
+    "slot": "hand_l",
+    "joint": "hand_l",
+    "geometry": "ellipsoid",
+    "default_scale": [0.05, 0.085, 0.04],
+    "parametric_ranges": {
+      "scale_x": [0.025, 0.1],
+      "scale_y": [0.0425, 0.17],
+      "scale_z": [0.02, 0.08]
+    },
+    "surface_classes": ["skin", "glove"],
+    "region_class": "hand",
+    "authoring_anchor": true,
+    "project_from_parent": true,
+    "up_offset": [0, -0.04, 0],
+    "color": 13416609
+  },
+  {
+    "family": "humanoid_biped",
+    "slot": "upper_arm_r",
+    "joint": "upper_arm_r",
+    "geometry": "limb",
+    "default_scale": [0.045, 0.14, 0.036],
+    "parametric_ranges": {
+      "scale_x": [0.0225, 0.09],
+      "scale_y": [0.07, 0.28],
+      "scale_z": [0.018, 0.072]
+    },
+    "surface_classes": ["skin", "cloth", "armor"],
+    "region_class": "arm",
+    "authoring_anchor": true,
+    "target_joint": "lower_arm_r",
+    "follow_child": true,
+    "up_offset": [0, -0.07, 0],
+    "color": 12694435
+  },
+  {
+    "family": "humanoid_biped",
+    "slot": "lower_arm_r",
+    "joint": "lower_arm_r",
+    "geometry": "limb",
+    "default_scale": [0.036, 0.13, 0.028],
+    "parametric_ranges": {
+      "scale_x": [0.018, 0.072],
+      "scale_y": [0.065, 0.26],
+      "scale_z": [0.014, 0.056]
+    },
+    "surface_classes": ["skin", "cloth", "armor"],
+    "region_class": "arm",
+    "authoring_anchor": true,
+    "target_joint": "hand_r",
+    "follow_child": true,
+    "up_offset": [0, -0.065, 0],
+    "color": 11970197
+  },
+  {
+    "family": "humanoid_biped",
+    "slot": "hand_r",
+    "joint": "hand_r",
+    "geometry": "ellipsoid",
+    "default_scale": [0.05, 0.085, 0.04],
+    "parametric_ranges": {
+      "scale_x": [0.025, 0.1],
+      "scale_y": [0.0425, 0.17],
+      "scale_z": [0.02, 0.08]
+    },
+    "surface_classes": ["skin", "glove"],
+    "region_class": "hand",
+    "authoring_anchor": true,
+    "project_from_parent": true,
+    "up_offset": [0, -0.04, 0],
+    "color": 13416609
+  },
+  {
+    "family": "humanoid_biped",
+    "slot": "upper_leg_l",
+    "joint": "upper_leg_l",
+    "geometry": "limb",
+    "default_scale": [0.06, 0.2, 0.045],
+    "parametric_ranges": {
+      "scale_x": [0.03, 0.12],
+      "scale_y": [0.1, 0.4],
+      "scale_z": [0.0225, 0.09]
+    },
+    "surface_classes": ["skin", "cloth", "armor"],
+    "region_class": "leg",
+    "authoring_anchor": true,
+    "target_joint": "lower_leg_l",
+    "follow_child": true,
+    "up_offset": [0, -0.1, 0],
+    "color": 9872301
+  },
+  {
+    "family": "humanoid_biped",
+    "slot": "lower_leg_l",
+    "joint": "lower_leg_l",
+    "geometry": "limb",
+    "default_scale": [0.045, 0.2, 0.034],
+    "parametric_ranges": {
+      "scale_x": [0.0225, 0.09],
+      "scale_y": [0.1, 0.4],
+      "scale_z": [0.017, 0.068]
+    },
+    "surface_classes": ["skin", "cloth", "armor"],
+    "region_class": "leg",
+    "authoring_anchor": true,
+    "target_joint": "foot_l",
+    "follow_child": true,
+    "up_offset": [0, -0.1, 0],
+    "color": 8953506
+  },
+  {
+    "family": "humanoid_biped",
+    "slot": "foot_l",
+    "joint": "foot_l",
+    "geometry": "ellipsoid",
+    "default_scale": [0.07, 0.05, 0.16],
+    "parametric_ranges": {
+      "scale_x": [0.035, 0.14],
+      "scale_y": [0.025, 0.1],
+      "scale_z": [0.08, 0.32]
+    },
+    "surface_classes": ["skin", "boot"],
+    "region_class": "foot",
+    "authoring_anchor": true,
+    "project_from_parent": true,
+    "axis": "z",
+    "up_offset": [0, -0.02, 0.03],
+    "color": 8028306
+  },
+  {
+    "family": "humanoid_biped",
+    "slot": "upper_leg_r",
+    "joint": "upper_leg_r",
+    "geometry": "limb",
+    "default_scale": [0.06, 0.2, 0.045],
+    "parametric_ranges": {
+      "scale_x": [0.03, 0.12],
+      "scale_y": [0.1, 0.4],
+      "scale_z": [0.0225, 0.09]
+    },
+    "surface_classes": ["skin", "cloth", "armor"],
+    "region_class": "leg",
+    "authoring_anchor": true,
+    "target_joint": "lower_leg_r",
+    "follow_child": true,
+    "up_offset": [0, -0.1, 0],
+    "color": 9872301
+  },
+  {
+    "family": "humanoid_biped",
+    "slot": "lower_leg_r",
+    "joint": "lower_leg_r",
+    "geometry": "limb",
+    "default_scale": [0.045, 0.2, 0.034],
+    "parametric_ranges": {
+      "scale_x": [0.0225, 0.09],
+      "scale_y": [0.1, 0.4],
+      "scale_z": [0.017, 0.068]
+    },
+    "surface_classes": ["skin", "cloth", "armor"],
+    "region_class": "leg",
+    "authoring_anchor": true,
+    "target_joint": "foot_r",
+    "follow_child": true,
+    "up_offset": [0, -0.1, 0],
+    "color": 8953506
+  },
+  {
+    "family": "humanoid_biped",
+    "slot": "foot_r",
+    "joint": "foot_r",
+    "geometry": "ellipsoid",
+    "default_scale": [0.07, 0.05, 0.16],
+    "parametric_ranges": {
+      "scale_x": [0.035, 0.14],
+      "scale_y": [0.025, 0.1],
+      "scale_z": [0.08, 0.32]
+    },
+    "surface_classes": ["skin", "boot"],
+    "region_class": "foot",
+    "authoring_anchor": true,
+    "project_from_parent": true,
+    "axis": "z",
+    "up_offset": [0, -0.02, 0.03],
+    "color": 8028306
+  }
+]
