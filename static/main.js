@@ -9531,18 +9531,21 @@
                     'character_stop', 'character_look_at', 'character_set_model',
                     'character_play_clip', 'character_queue_clips', 'character_stop_clip',
                     'character_set_loop', 'character_set_speed', 'character_get_animation_state',
+                    'workbench_set_scaffold',
                     'character_play_reaction'
                 ],
                 legacy_host_commands: ['spawn_inhabitant', 'despawn_inhabitant', 'focus_inhabitant'],
                 implemented_verbs: [
                     'mount', 'unmount', 'focus', 'move_to', 'stop', 'look_at', 'set_model',
                     'play_clip', 'queue_clips', 'stop_clip', 'set_loop', 'set_speed',
+                    'set_scaffold',
                     'get_animation_state', 'play_reaction'
                 ],
                 agent_bearing: false,
                 chat_overlay_eligible: false
             },
             animation_surface: animation,
+            workbench_surface: _envMountedWorkbenchSurfaceState(mountedMesh, animationSceneObject),
             navigation_surface: {
                 status: String(navState.status || 'idle'),
                 target_scene: _envCloneJson(navState.target_scene, null),
@@ -13790,6 +13793,7 @@
             || command === 'character_move_to' || command === 'character_stop' || command === 'character_look_at'
             || command === 'character_play_clip' || command === 'character_queue_clips' || command === 'character_stop_clip'
             || command === 'character_set_loop' || command === 'character_set_speed'
+            || command === 'workbench_set_scaffold'
             || command === 'character_get_animation_state' || command === 'character_play_reaction') return _envInhabitantObjectKey();
         if (command === 'set_theater_mode') return _envScenePrimarySnapshotName() ? ('scene::' + _envScenePrimarySnapshotName()) : 'scene::scene';
         if (command === 'set_camera_mode'
@@ -20359,6 +20363,10 @@
             _envCharacterGetAnimationState(actorName, reason || 'control character animation state');
             return;
         }
+        if (command === 'workbench_set_scaffold') {
+            _envSetWorkbenchScaffold(actorName, reason || 'control workbench scaffold', targetId);
+            return;
+        }
         if (command === 'character_play_reaction') {
             _envCharacterPlayReaction(actorName, reason || 'control character play reaction', targetId);
             return;
@@ -21876,6 +21884,95 @@
                 _envScaffoldSlotRegistryState.promise = null;
             });
         return _envScaffoldSlotRegistryState.promise;
+    }
+
+    function _envNormalizeWorkbenchBooleanTarget(value) {
+        var text = String(value === undefined || value === null ? '' : value).trim().toLowerCase();
+        if (!text || text === 'toggle') return null;
+        if (text === '1' || text === 'true' || text === 'on' || text === 'yes') return true;
+        if (text === '0' || text === 'false' || text === 'off' || text === 'no') return false;
+        return null;
+    }
+
+    function _envMountedWorkbenchSurfaceState(mesh, sceneObject) {
+        var mountedMesh = mesh && mesh.userData ? mesh : _envMountedRuntimeMesh();
+        var helperOverlays = mountedMesh && mountedMesh.userData && mountedMesh.userData._workbenchHelperOverlays
+            && typeof mountedMesh.userData._workbenchHelperOverlays === 'object'
+            ? mountedMesh.userData._workbenchHelperOverlays
+            : {};
+        var scaffoldPieces = mountedMesh && mountedMesh.userData && mountedMesh.userData._scaffoldPieces
+            && typeof mountedMesh.userData._scaffoldPieces === 'object'
+            ? mountedMesh.userData._scaffoldPieces
+            : null;
+        var sourceObject = sceneObject && typeof sceneObject === 'object' && !Array.isArray(sceneObject)
+            ? sceneObject
+            : (mountedMesh && mountedMesh.userData && mountedMesh.userData.sceneObject && typeof mountedMesh.userData.sceneObject === 'object'
+                ? mountedMesh.userData.sceneObject
+                : null);
+        var embodiment = _envSceneEmbodimentForObject(sourceObject) || {};
+        var family = String(embodiment.family || 'humanoid_biped');
+        var registrySlots = _ENV_SCAFFOLD_SLOT_REGISTRY[family] || [];
+        return {
+            scaffold_visible: !!(mountedMesh && mountedMesh.userData && mountedMesh.userData._scaffoldVisible),
+            scaffold_piece_count: Number(scaffoldPieces ? Object.keys(scaffoldPieces).length : 0),
+            scaffold_slot_count: Number((registrySlots || []).length || 0),
+            scaffold_data_family: family,
+            scaffold_data_loaded: !!_envScaffoldSlotRegistryState.loaded,
+            scaffold_data_loading: !!_envScaffoldSlotRegistryState.loading,
+            scaffold_data_error: String(_envScaffoldSlotRegistryState.error || ''),
+            scaffold_data_loaded_ts: Number(_envScaffoldSlotRegistryState.loadedTs || 0),
+            scaffold_data_source: _envScaffoldSlotRegistryState.loaded ? 'json' : 'fallback',
+            scaffold_overlay_present: !!helperOverlays.scaffold
+        };
+    }
+
+    function _envSetWorkbenchScaffold(actorName, reason, targetId) {
+        var mesh = _envMountedRuntimeMesh();
+        if (!mesh || !mesh.userData) {
+            _envSetBadge('failed', 'NO MESH');
+            _envLogAction('character_runtime', 'Workbench scaffold command found no mounted mesh', actorName, {
+                action: 'workbench_set_scaffold',
+                target: String(targetId || '')
+            });
+            renderEnvironmentView();
+            return false;
+        }
+        var desired = _envNormalizeWorkbenchBooleanTarget(targetId);
+        var current = !!mesh.userData._scaffoldVisible;
+        if (desired !== null && desired === current) {
+            _envRefreshInhabitantRuntimeState('workbench_set_scaffold');
+            _envScheduleLiveSync('workbench_set_scaffold:' + (current ? 'on' : 'off'), true);
+            _envSetBadge('running', current ? 'SCAFFOLD ON' : 'SCAFFOLD OFF');
+            renderEnvironmentView();
+            return true;
+        }
+        if (!_env3DToggleWorkbenchScaffold()) {
+            _envSetBadge('failed', 'NO SCAFF');
+            _envLogAction('character_runtime', 'Workbench scaffold toggle failed', actorName, {
+                action: 'workbench_set_scaffold',
+                target: String(targetId || '')
+            });
+            renderEnvironmentView();
+            return false;
+        }
+        var nextVisible = !!mesh.userData._scaffoldVisible;
+        _envLogAction('character_runtime', 'Workbench scaffold ' + (nextVisible ? 'enabled' : 'disabled'), actorName, {
+            action: 'workbench_set_scaffold',
+            target: String(targetId || ''),
+            scaffold_visible: nextVisible,
+            reason: String(reason || 'control workbench scaffold')
+        });
+        _envEmitBus('character_runtime', 'Workbench scaffold ' + (nextVisible ? 'enabled' : 'disabled'), actorName, {
+            action: 'workbench_set_scaffold',
+            scaffold_visible: nextVisible
+        });
+        _envRefreshInhabitantRuntimeState('workbench_set_scaffold');
+        _envScheduleLiveSync('workbench_set_scaffold:' + (nextVisible ? 'on' : 'off'), true);
+        _envScene.dirty = true;
+        _envStageUiState.forceStageRebuild = true;
+        _envSetBadge('running', nextVisible ? 'SCAFFOLD ON' : 'SCAFFOLD OFF');
+        renderEnvironmentView();
+        return true;
     }
 
     function _envDetectSourceRig(root) {
@@ -38581,6 +38678,7 @@
              '<option value="character_set_loop">character_set_loop</option>' +
              '<option value="character_set_speed">character_set_speed</option>' +
              '<option value="character_get_animation_state">character_get_animation_state</option>' +
+             '<option value="workbench_set_scaffold">workbench_set_scaffold</option>' +
              '<option value="character_play_reaction">character_play_reaction</option>' +
              '<option value="focus_replay">focus_replay</option>' +
              '<option value="branch_snapshot">branch_snapshot</option>' +
@@ -46492,6 +46590,9 @@
     window.envopsCharacterSetModel = function (modelRef, actor, reason) {
         _envQueueControl('character_set_model', String(modelRef || ''), actor || 'assistant', reason || 'external character runtime set model');
     };
+    window.envopsWorkbenchSetScaffold = function (value, actor, reason) {
+        _envQueueControl('workbench_set_scaffold', value === undefined || value === null ? '' : String(value), actor || 'assistant', reason || 'external workbench scaffold');
+    };
     window.envopsCharacterMoveTo = function (target, actor, reason) {
         var payload = '';
         if (typeof target === 'string') payload = target;
@@ -46766,6 +46867,7 @@
                     mount_contract: _envCloneJson(inhabitantSurface.mount_contract, null),
                     command_surface: _envCloneJson(inhabitantSurface.command_surface, null),
                     animation_surface: _envCloneJson(inhabitantSurface.animation_surface, null),
+                    workbench_surface: _envCloneJson(inhabitantSurface.workbench_surface, null),
                     navigation_surface: _envCloneJson(inhabitantSurface.navigation_surface, null),
                     perception_surface: _envCloneJson(inhabitantSurface.perception_surface, null),
                     capability_surface: _envCloneJson(inhabitantSurface.capability_surface, null),
