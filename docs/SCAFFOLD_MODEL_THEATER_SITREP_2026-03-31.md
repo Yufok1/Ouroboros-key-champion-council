@@ -20,6 +20,48 @@ The target is:
 
 This brief is not a proposal for a second scene runtime.
 
+## Current State
+
+Committed HEAD is now:
+
+- `802e038` Add blank model theater builder subject (Slice 1)
+- `0bde3e7` Add structure-mode builder editing commands (Slice 2 - bone edit, chain isolate, blueprint save/load)
+
+Current local worktree contains an uncommitted Slice 3a interaction patch in:
+
+- `static/main.js`
+- `server.py`
+
+Slice 2 is complete and live-validated:
+
+- `workbench_set_bone`
+- `workbench_isolate_chain`
+- `workbench_save_blueprint`
+- `workbench_load_blueprint`
+- structure-mode editing loop closed
+
+Current local Slice 3a adds:
+
+- `_envBuilderInteraction`
+- `workbench_select_bone`
+- `workbench_set_editing_mode`
+- click selection on builder helper/scaffold meshes
+- selected/hover highlighting
+- mirrored selection state in `workbench_surface`
+- session persistence for selection and editing mode
+
+Current live truth for Slice 3a:
+
+- direct select via env control works
+- click selection works
+- real bone ids reach the mirror
+- `editing_mode` survives refresh
+
+Current open issue:
+
+- `selected_bone_id` restore across refresh is not yet proven cleanly
+- do not commit Slice 3a until that restore edge is fixed
+
 ## Repo-Proven Current State
 
 The current repo already proves several important pieces:
@@ -40,18 +82,15 @@ Recent committed arc:
 - `efabbf0` humanoid scaffold slots migrated to JSON-backed loading
 - `643f665` humanoid scaffold slot data source added
 
-Current local worktree also contains an uncommitted control/telemetry patch:
+The workbench mirror is now materially stronger than this brief originally assumed:
 
-- `server.py`
-- `static/main.js`
-
-That local patch adds:
-
-- `workbench_set_scaffold`
 - mirrored `workbench_surface`
 - agent-facing scaffold toggle/readback
+- builder blueprint readback
+- current selected bone readback
+- current editing-mode readback
 
-That patch is useful, but it does not change the deeper architectural fact below.
+That does not change the deeper architectural fact below, but it does change what can be reused for the next layer.
 
 ## What The Current System Actually Is
 
@@ -306,18 +345,217 @@ Do not require skinning/export in the first slice.
 
 Do not require quadruped scaffold authoring in the first slice.
 
+## Selection Substrate
+
+The selection substrate is now the practical bridge between whole-body builder work and part-focused authoring.
+
+Current doctrinal shape:
+
+- `selected_bone_id` identifies the active part
+- `hover_bone_id` is transient feedback only
+- `editing_mode` remains separate from structure truth
+- selection belongs to interaction/session state, not blueprint state
+
+The current workbench already supports:
+
+- direct command selection
+- click-to-select in the builder theater
+- mirrored selection state in `workbench_surface`
+
+This means the next layer should extend the existing workbench interaction substrate, not invent a separate part-editing runtime.
+
+## Body-Part Authoring Substrate
+
+The next serious extension after selection is a body-part-focused work cell inside the same workbench.
+
+This is not a new theater mode.
+
+It is a narrower focus scope inside the same character builder:
+
+- `body`
+  - current whole-skeleton builder view
+- `part`
+  - central isolated part work cell with reference rack
+- later `cluster`
+  - multi-part grouping derived from bones
+
+The intended body-part authoring view is:
+
+- one central active work cell
+- eight surrounding reference slots
+- arranged as two layers of four around the main work cell
+- each slot independently visible, hideable, promotable, and replaceable
+
+The central work cell is the live editable target.
+
+The rack is a comparison and checkpoint substrate.
+
+The rack is not the procgen system itself.
+
+## Subtarget Contract
+
+Body parts should become first-class observer subtargets, not fake scene objects.
+
+Start with bone-only identity:
+
+- `character_runtime::mounted_primary#bone:<bone_id>`
+
+Do not introduce separate `#chain:` or `#cluster:` identities yet.
+
+Chains and clusters should be derived views over the selected bone:
+
+- chain = current ancestor/descendant walk
+- cluster = named grouping resolved from registries/lookup tables
+
+Derived part surface contract:
+
+```json
+{
+  "part_key": "character_runtime::mounted_primary#bone:upper_arm_l",
+  "bone_id": "upper_arm_l",
+  "canonical_joint": "upper_arm_l",
+  "parent_id": "shoulder_l",
+  "child_ids": ["lower_arm_l"],
+  "mirror_of": "upper_arm_r",
+  "length": 0.18,
+  "orientation": [0, 0, 0.35],
+  "roll": 0,
+  "radius_profile": [0.05, 0.04],
+  "enabled": true,
+  "world_anchor": [0, 0, 0],
+  "world_bounds": { "min": [0, 0, 0], "max": [0, 0, 0] },
+  "local_basis": {
+    "forward": [0, 0, 1],
+    "up": [0, 1, 0],
+    "right": [1, 0, 0]
+  },
+  "adjacent_part_keys": [
+    "character_runtime::mounted_primary#bone:shoulder_l",
+    "character_runtime::mounted_primary#bone:lower_arm_l"
+  ],
+  "chain_ids": ["chest", "shoulder_l", "upper_arm_l", "lower_arm_l", "hand_l"],
+  "isolated": false,
+  "editing_mode": "structure"
+}
+```
+
+This contract should be derived on demand from:
+
+- `_envBuilderSubject.bones[]`
+- family registries
+- live mesh world state
+
+Do not store this contract as a second truth.
+
+## Variant Rack Model
+
+The body-part rack should live in interaction state, not blueprint state.
+
+Suggested shape:
+
+```json
+{
+  "enabled": false,
+  "layout": "ring_8",
+  "active_compare_slot": -1,
+  "promoted_slot": -1,
+  "slots": [
+    {
+      "slot_id": 0,
+      "occupied": false,
+      "label": "",
+      "content_type": "none",
+      "source_bone_id": "",
+      "source_part_record": null,
+      "visibility": true,
+      "pinned": false
+    }
+  ]
+}
+```
+
+Start with mixed slot content types:
+
+- `frozen_clone`
+- `capture_plane`
+- `none`
+
+Delay `live_linked` until the flat rack is stable.
+
+Critical rule:
+
+- blueprint save/load never includes rack contents
+- rack state is a workbench interaction substrate, not authored anatomy truth
+
+## Camera / Perspective Recipes
+
+Do not author camera arrays per body-part type.
+
+Part-local camera recipes should derive from:
+
+- `world_anchor`
+- `world_bounds`
+- `local_basis`
+
+That way dynamically generated or newly added parts inherit the same observer treatment automatically.
+
+The existing theater vision system should remain authoritative:
+
+- `capture_focus`
+- `capture_probe`
+- `capture_supercam`
+- `probe_compare`
+
+These commands should learn to resolve part subtargets rather than being replaced.
+
+Expected adaptations:
+
+- `capture_focus(part_key)`
+  - frame the selected part bounds
+- `capture_probe(part_key)`
+  - build a multi-angle atlas from derived part camera recipes
+- `capture_supercam(part_key or part cluster)`
+  - broader comparative survey around the part and its local context
+- `probe_compare(part current vs slot snapshot)`
+  - compare live center state against a rack snapshot
+
+## Build Order
+
+Revised post-Slice-2 build order:
+
+1. Slice 3a
+   - fix selection restore bug
+   - commit selection substrate
+2. Slice 3b
+   - derive and expose part surface contract
+3. Slice 3c
+   - part-local camera recipes
+   - extend observer/capture target resolution to part subtargets
+4. Slice 3d
+   - structure-mode gizmo bridge
+5. Slice 3e
+   - rack state model + basic slot commands
+6. Slice 3f
+   - rack rendering for frozen clones and capture planes
+7. Slice 4a
+   - pose-state substrate
+8. Slice 4b
+   - pose-mode gizmo bridge
+9. Slice 4c
+   - part-aware `probe_compare`
+
+Do not add recursive sub-grids until the flat 8-slot rack has survived real use.
+
 ## Immediate Implementation Sequence
 
-1. Stabilize the current local scaffold control/readback patch and keep it as a useful bridge for imported-model workbench inspection.
-2. Add a dedicated builder-subject state model for character workbench.
-3. Add an empty character-builder theater mode that does not require `asset_ref`.
-4. Add procedural skeleton rendering for builder subjects.
-5. Add bone/branch/full-system selection and editing.
-6. Add scaffold projection from builder skeleton for `humanoid_biped`.
-7. Add blueprint persistence.
-8. Add body-plan overlay support.
-9. Add Coquina body population into scaffold regions.
-10. Add surface-only and hybrid population modes.
+1. Fix `selected_bone_id` restore in the local Slice 3a patch.
+2. Commit Slice 3a once restore is proven.
+3. Add derived part surface readback.
+4. Extend theater vision target resolution from whole objects to body-part subtargets.
+5. Add central part work cell framing and display-scope controls.
+6. Add the flat 8-slot rack with frozen clone and capture-plane content types.
+7. Add structure-mode gizmo editing in the center work cell.
+8. Add pose-state substrate only after the structure-mode comparison loop is stable.
 
 ## What Must Be Updated In Doctrine
 
@@ -332,7 +570,21 @@ After this direction is accepted, the next docs to update are:
 - `docs/CHAMPION_COUNCIL_ROADMAP_2026-03-24.md`
   - insert blank model-theater / builder-subject milestone after current scaffold/runtime stabilization
 - `docs/rode.txt`
-  - add this as the next named milestone once implementation begins
+  - add this as the next named milestone after Slice 3a is committed
+
+## Invariants
+
+The following rules should remain hard constraints:
+
+- one theater
+- one renderer
+- one observer system
+- one builder truth for structure
+- structure and pose remain separate mutation paths
+- scaffold derives from structure, not pose
+- body-part views reuse existing theater/capture infrastructure where possible
+- rack state is interaction state, not blueprint state
+- recursive sub-grids wait until the flat rack is stable
 
 ## Questions For Opus
 
@@ -349,15 +601,20 @@ Use this brief to answer these concretely:
 Where we are now:
 
 - imported-model workbench exists
-- scaffold data exists
-- scaffold helper control/readback is nearly operator-complete
-- body-authoring doctrine exists
+- blank/preset builder subject exists
+- structure-mode editing loop is real
+- selection substrate exists locally
+- theater vision system exists and should be reused
+- body-part authoring now needs a subtarget and comparison substrate, not a second scene
 
 What does not exist yet:
 
-- blank model theater
-- procedural skeleton authoring subject
-- bone-by-bone builder flow
+- committed Slice 3a selection substrate
+- body-part observer subtargets
+- central part work cell
+- flat 8-slot reference rack
+- structure-mode gizmo bridge
+- pose-state substrate
 - scaffold-first builder independent of imported meshes
 
 The right move is not to overload the imported-model helper path.
