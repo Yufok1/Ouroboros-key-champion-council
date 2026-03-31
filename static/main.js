@@ -21775,6 +21775,108 @@
             { slot: 'foot_r', joint: 'foot_r', project_from_parent: true, geometry: 'ellipsoid', axis: 'z', scale: [0.07, 0.05, 0.16], color: 0x7a8092, up: [0, -0.02, 0.03] }
         ]
     };
+    var _envScaffoldSlotRegistryState = {
+        loaded: false,
+        loading: false,
+        error: '',
+        promise: null,
+        loadedTs: 0
+    };
+
+    function _envScaffoldNormalizeVector3(value, fallback) {
+        var source = Array.isArray(value) && value.length === 3 ? value : fallback;
+        if (!Array.isArray(source) || source.length !== 3) return null;
+        return source.map(function (entry, idx) {
+            var next = Number(entry);
+            if (!Number.isFinite(next)) {
+                var prior = Array.isArray(fallback) && fallback.length === 3 ? Number(fallback[idx]) : 0;
+                next = Number.isFinite(prior) ? prior : 0;
+            }
+            return next;
+        });
+    }
+
+    function _envScaffoldNormalizeLoadedSlot(entry) {
+        if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return null;
+        var family = String(entry.family || '').trim();
+        var slot = String(entry.slot || '').trim();
+        var joint = String(entry.joint || '').trim();
+        var geometry = String(entry.geometry || '').trim().toLowerCase();
+        if (!family || !slot || !joint) return null;
+        if (geometry !== 'ellipsoid' && geometry !== 'limb') return null;
+        var scale = _envScaffoldNormalizeVector3(entry.default_scale, [0.1, 0.1, 0.1]);
+        if (!scale) return null;
+        var normalized = {
+            family: family,
+            slot: slot,
+            joint: joint,
+            geometry: geometry,
+            scale: scale
+        };
+        if (entry.color !== undefined) {
+            var color = Number(entry.color);
+            if (Number.isFinite(color)) normalized.color = color;
+        }
+        var up = _envScaffoldNormalizeVector3(entry.up_offset, null);
+        if (up) normalized.up = up;
+        if (entry.target_joint !== undefined) {
+            var targetJoint = String(entry.target_joint || '').trim();
+            if (targetJoint) normalized.target_joint = targetJoint;
+        }
+        if (entry.follow_child !== undefined) normalized.follow_child = entry.follow_child === true;
+        if (entry.project_from_parent !== undefined) normalized.project_from_parent = entry.project_from_parent === true;
+        if (entry.axis !== undefined) {
+            var axis = String(entry.axis || '').trim().toLowerCase();
+            if (axis) normalized.axis = axis;
+        }
+        return normalized;
+    }
+
+    function _envScaffoldNormalizeLoadedRegistry(payload) {
+        var out = {};
+        var entries = Array.isArray(payload) ? payload : [];
+        entries.forEach(function (entry) {
+            var normalized = _envScaffoldNormalizeLoadedSlot(entry);
+            if (!normalized) return;
+            var family = normalized.family;
+            if (!out[family]) out[family] = [];
+            delete normalized.family;
+            out[family].push(normalized);
+        });
+        return out;
+    }
+
+    function _envLoadScaffoldSlotRegistry() {
+        if (_envScaffoldSlotRegistryState.promise) return _envScaffoldSlotRegistryState.promise;
+        _envScaffoldSlotRegistryState.loading = true;
+        _envScaffoldSlotRegistryState.error = '';
+        _envScaffoldSlotRegistryState.promise = fetch('/static/data/coquina/scaffold-slots-humanoid-biped.json', { method: 'GET', cache: 'no-store' })
+            .then(function (response) {
+                if (!response.ok) throw new Error('scaffold-slots ' + response.status);
+                return response.json();
+            })
+            .then(function (payload) {
+                var loaded = _envScaffoldNormalizeLoadedRegistry(payload);
+                Object.keys(loaded).forEach(function (family) {
+                    if (!loaded[family] || !loaded[family].length) return;
+                    _ENV_SCAFFOLD_SLOT_REGISTRY[family] = loaded[family];
+                });
+                _envScaffoldSlotRegistryState.loaded = Object.keys(loaded).some(function (family) {
+                    return Array.isArray(loaded[family]) && loaded[family].length > 0;
+                });
+                _envScaffoldSlotRegistryState.loadedTs = Date.now();
+                return _ENV_SCAFFOLD_SLOT_REGISTRY;
+            })
+            .catch(function (err) {
+                _envScaffoldSlotRegistryState.error = String((err && err.message) || err || 'scaffold slots unavailable');
+                return _ENV_SCAFFOLD_SLOT_REGISTRY;
+            })
+            .finally(function () {
+                _envScaffoldSlotRegistryState.loading = false;
+                _envScaffoldSlotRegistryState.promise = null;
+            });
+        return _envScaffoldSlotRegistryState.promise;
+    }
 
     function _envDetectSourceRig(root) {
         var boneNames = [];
@@ -22399,6 +22501,7 @@
     }
 
     try { _envLoadPaletteFamilies(); } catch (e) { }
+    try { _envLoadScaffoldSlotRegistry(); } catch (e) { }
 
     function _envSceneCharacterForObject(obj) {
         var data = _envObjectData(obj);
