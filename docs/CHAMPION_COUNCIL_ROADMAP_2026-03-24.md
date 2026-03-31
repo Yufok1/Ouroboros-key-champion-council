@@ -172,6 +172,22 @@ Execution note:
 - validate on humanoid models first
 - do not mix animal/quadruped scaffold work into this slice
 
+#### Next Embodiment Sub-Slice — Blank Model Theater
+
+Target:
+
+- builder-subject mode inside the existing character workbench
+- blank/preset character authoring without imported GLB dependency
+- procedural humanoid skeleton rendering
+- scaffold projection on procedural skeletons
+- agent-facing blueprint controls for bone, branch, and scaffold inspection
+
+Execution note:
+
+- keep the same theater and renderer
+- do not treat the current mounted-asset scaffold overlay as the final builder architecture
+- humanoid-first remains the required first lane
+
 #### v134 — Optional Interaction and Physics Facilities
 
 Target:

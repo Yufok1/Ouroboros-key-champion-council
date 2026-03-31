@@ -104,6 +104,44 @@ At runtime there are two related but distinct lanes:
 1. authored environment objects may carry appearance, character, embodiment, retargeting, attachment, and mechanics data
 2. a mounted character runtime may render through those embodiment contracts, but it is not stored as a normal environment object registry entry
 
+## Builder Subject Mode
+
+Character authoring must no longer be treated as imported-model-only.
+
+The theater needs a builder subject that can exist without an imported GLB while still obeying the same embodiment doctrine.
+
+This builder subject is not a second scene/runtime system. It is a workbench-only authoring subject for the same character product lane.
+
+The workbench should support three subject modes:
+
+1. `mounted_asset`
+   - current imported-model inspection and retargeting path
+2. `preset_skeleton`
+   - instantiate a canonical family skeleton in theater space without an imported asset
+3. `custom_skeleton`
+   - start from a seed bone or custom root and build outward under family/topology discipline
+
+Implementation rule:
+
+- keep one theater
+- keep one renderer
+- keep one embodiment contract
+- let imported assets remain validation/reference subjects, not the only way to enter character authoring
+
+The intended authoring order is:
+
+1. skeleton truth
+2. scaffold projection
+3. body shell / Coquina atom population
+4. surface and palette treatment
+5. runtime animation/export validation
+
+For MVP, "start anywhere" should be interpreted as seed-bone or anchor-driven authoring:
+
+- `hips` for standard humanoid entry
+- `head`, `foot_l`, or another canonical joint when the author wants a different anchor
+- branch or full-system isolation without abandoning canonical naming or articulation rules
+
 ### Layer A: Scene Object Envelope
 
 This is the existing environment object shell for authored environment objects:

@@ -438,6 +438,29 @@ These are compatibility profiles, not separate rig families.
 
 Both profiles still inherit from `humanoid_biped`.
 
+## Builder-Subject Mounting Context
+
+Body-authoring contracts must work against two mounting contexts:
+
+- mounted imported assets with a validated canonical joint map
+- procedural builder subjects that instantiate canonical joints directly in theater space
+
+This does not create a second body-authoring system.
+
+It means the same body-atom and scaffold contracts may project onto:
+
+- a mounted asset scaffold
+- a builder-subject scaffold
+
+The mounting context changes how the scaffold is produced.
+
+It does not change:
+
+- canonical family naming
+- body-binding semantics
+- palette/checkpoint semantics
+- affordance-slot/channel semantics
+
 ## Validation Rules
 
 ### 1. Skeleton truth first
@@ -480,16 +503,21 @@ Default to:
 
 ## Sequencing
 
-This document is a contract-layer draft only. It does not require immediate code changes.
-
-After this document, the next steps are:
+This document started as a contract-layer draft. Several of its immediate prerequisites are now landed:
 
 1. schema files for Contracts 8, 9, and 10 under `schemas/coquina/`
-2. extend `atom-registry.schema.json` with `mount_domain` and conditional `body_binding`
-3. migrate `_ENV_SCAFFOLD_SLOT_REGISTRY` from hardcoded JS into data
+2. `atom-registry.schema.json` extended with `mount_domain` and conditional `body_binding`
+3. `_ENV_SCAFFOLD_SLOT_REGISTRY` migrated from hardcoded JS into JSON-backed loading
+
+The correct next sequence is now:
+
+1. blank/preset builder subject in the character workbench
+2. procedural skeleton rendering for `humanoid_biped`
+3. scaffold projection onto builder subjects, not only mounted imported assets
 4. tag existing CC0 assets as scene atoms first, body atoms later
 5. build the palette resolver against the existing checkpoint/material lane
 6. build scaffolded character assembly on top of the scaffold/body-plan/atom contracts
+7. validate animation/export behavior on top of that assembly lane
 
 ## Decision Summary
 
