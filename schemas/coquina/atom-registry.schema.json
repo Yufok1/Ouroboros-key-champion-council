@@ -11,8 +11,7 @@
     "families",
     "scale_class",
     "palette_family",
-    "palette_role",
-    "placement_hints"
+    "palette_role"
   ],
   "properties": {
     "id": {
@@ -39,6 +38,13 @@
         "asset",
         "substrate",
         "tile"
+      ]
+    },
+    "mount_domain": {
+      "type": "string",
+      "enum": [
+        "scene",
+        "body"
       ]
     },
     "asset_pack_id": {
@@ -174,6 +180,55 @@
       },
       "additionalProperties": false
     },
+    "body_binding": {
+      "type": "object",
+      "required": [
+        "scaffold_slots",
+        "tracking_joints",
+        "deform_mode",
+        "symmetry",
+        "region_class"
+      ],
+      "properties": {
+        "scaffold_slots": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "tracking_joints": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "deform_mode": {
+          "type": "string",
+          "enum": [
+            "skinned",
+            "rigid",
+            "cloth"
+          ]
+        },
+        "symmetry": {
+          "type": "string",
+          "enum": [
+            "bilateral",
+            "unique",
+            "radial"
+          ]
+        },
+        "region_class": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
     "backface": {
       "type": "string",
       "enum": [
@@ -269,6 +324,54 @@
       "then": {
         "required": [
           "recipe"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "mount_domain": {
+            "const": "body"
+          }
+        },
+        "required": [
+          "mount_domain"
+        ]
+      },
+      "then": {
+        "required": [
+          "body_binding"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "mount_domain": {
+            "const": "scene"
+          }
+        },
+        "required": [
+          "mount_domain"
+        ]
+      },
+      "then": {
+        "required": [
+          "placement_hints"
+        ]
+      }
+    },
+    {
+      "if": {
+        "not": {
+          "required": [
+            "mount_domain"
+          ]
+        }
+      },
+      "then": {
+        "required": [
+          "placement_hints"
         ]
       }
     }

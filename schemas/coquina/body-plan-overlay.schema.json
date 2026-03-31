@@ -1,0 +1,147 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://champion-council.local/schemas/coquina/body-plan-overlay.schema.json",
+  "title": "Champion Council Coquina Body Plan Overlay",
+  "type": "object",
+  "required": [
+    "overlay_id",
+    "family",
+    "base_chains",
+    "chain_overrides"
+  ],
+  "properties": {
+    "overlay_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "family": {
+      "type": "string",
+      "enum": [
+        "humanoid_biped",
+        "quadruped",
+        "flying",
+        "serpentine",
+        "vehicle_ship",
+        "custom"
+      ]
+    },
+    "label": {
+      "type": "string",
+      "minLength": 1
+    },
+    "compatibility_grade": {
+      "type": "string",
+      "enum": [
+        "strict",
+        "extended",
+        "custom"
+      ]
+    },
+    "base_chains": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "chain_overrides": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/chainOverride"
+      }
+    },
+    "extra_chains": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/extraChain"
+      }
+    },
+    "scaffold_params": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "number"
+      }
+    },
+    "animation_notes": {
+      "type": "object",
+      "properties": {
+        "locomotion_affected": {
+          "type": "boolean"
+        },
+        "extra_channels_required": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "mirror_policy": {
+          "type": "string",
+          "enum": [
+            "mirror",
+            "independent",
+            "procedural"
+          ]
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "chainOverride": {
+      "type": "object",
+      "properties": {
+        "cardinality": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "segments": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "optional": {
+          "type": "boolean"
+        },
+        "mirror": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "extraChain": {
+      "type": "object",
+      "required": [
+        "chain_id",
+        "root_joint",
+        "segment_count"
+      ],
+      "properties": {
+        "chain_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "root_joint": {
+          "type": "string",
+          "minLength": 1
+        },
+        "segment_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "mirror": {
+          "type": "boolean"
+        },
+        "purpose": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
