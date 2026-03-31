@@ -1097,10 +1097,12 @@
                 enabled: true,
                 slot_family: ''
             },
+            isolated_chain: '',
             _skeletonGroup: null,
             _scaffoldPieces: null,
             _scaffoldVisible: false,
-            _skeletonVisible: true
+            _skeletonVisible: true,
+            _isolatedBoneIds: null
         };
     }
 
@@ -1131,6 +1133,72 @@
             mirror_of: bone.mirror_of === null || bone.mirror_of === undefined ? null : String(bone.mirror_of || '').trim(),
             enabled: bone.enabled !== false
         };
+    }
+
+    function _envBuilderBoneRecordMap(records) {
+        var map = {};
+        (Array.isArray(records) ? records : []).forEach(function (entry) {
+            var bone = _envBuilderNormalizeBoneRecord(entry);
+            if (!bone.id) return;
+            map[bone.id] = bone;
+        });
+        return map;
+    }
+
+    function _envBuilderBoneLengthValue(recordMap, jointId, fallback) {
+        var map = recordMap && typeof recordMap === 'object' && !Array.isArray(recordMap) ? recordMap : {};
+        var record = map[String(jointId || '')] || null;
+        if (record && record.enabled !== false) return Math.max(0.01, Number(record.length || fallback || 0.12));
+        return Math.max(0.01, Number(fallback || 0.12));
+    }
+
+    function _envBuilderParentMapFromBones(records) {
+        var out = {};
+        (Array.isArray(records) ? records : []).forEach(function (entry) {
+            var bone = _envBuilderNormalizeBoneRecord(entry);
+            if (!bone.id) return;
+            out[bone.id] = bone.parent_id === null || bone.parent_id === undefined ? null : String(bone.parent_id || '').trim() || null;
+        });
+        return out;
+    }
+
+    function _envBuilderResolveIsolatedBoneIds(records, targetBoneId) {
+        var target = String(targetBoneId || '').trim();
+        if (!target || target.toLowerCase() === 'all') return null;
+        var parentMap = _envBuilderParentMapFromBones(records);
+        if (!Object.prototype.hasOwnProperty.call(parentMap, target)) return undefined;
+        var isolated = {};
+        var current = target;
+        while (current) {
+            isolated[current] = true;
+            current = parentMap[current] === undefined ? null : parentMap[current];
+        }
+        var queue = [target];
+        while (queue.length) {
+            var next = String(queue.shift() || '').trim();
+            Object.keys(parentMap).forEach(function (candidate) {
+                if (isolated[candidate]) return;
+                if (String(parentMap[candidate] || '') !== next) return;
+                isolated[candidate] = true;
+                queue.push(candidate);
+            });
+        }
+        return isolated;
+    }
+
+    function _envBuilderSetIsolationState(state, targetBoneId) {
+        var builderState = state && typeof state === 'object' && !Array.isArray(state) ? state : _envBuilderSubject;
+        var target = String(targetBoneId || '').trim();
+        if (!target || target.toLowerCase() === 'all') {
+            builderState.isolated_chain = '';
+            builderState._isolatedBoneIds = null;
+            return true;
+        }
+        var isolated = _envBuilderResolveIsolatedBoneIds(builderState.bones, target);
+        if (isolated === undefined) return false;
+        builderState.isolated_chain = target;
+        builderState._isolatedBoneIds = isolated;
+        return true;
     }
 
     function _envBuilderBlueprint(source) {
@@ -1171,6 +1239,7 @@
         _envBuilderSubject._scaffoldPieces = null;
         _envBuilderSubject._scaffoldVisible = false;
         _envBuilderSubject._skeletonVisible = true;
+        _envBuilderSubject._isolatedBoneIds = _envBuilderResolveIsolatedBoneIds(_envBuilderSubject.bones, _envBuilderSubject.isolated_chain);
     }
 
     var _envBuilderSubject = _envCreateBuilderSubjectState();
@@ -8997,6 +9066,7 @@
                 turntable: false,
                 subject_mode: 'mounted_asset',
                 builder_subject: null,
+                isolated_chain: '',
                 preview_clip: '',
                 preview_paused: true,
                 preview_loop: 'repeat',
@@ -9054,6 +9124,7 @@
                 turntable: !!workbench.turntable,
                 subject_mode: workbenchSubjectMode,
                 builder_subject: _envNormalizeBuilderSubject(workbench.builder_subject || null),
+                isolated_chain: String(workbench.isolated_chain || '').trim(),
                 preview_clip: String(workbench.preview_clip || '').trim(),
                 preview_paused: workbench.preview_paused !== false,
                 preview_loop: String(workbench.preview_loop || 'repeat').trim().toLowerCase() === 'once' ? 'once' : 'repeat',
@@ -9095,6 +9166,7 @@
             ? String(_envBuilderSubject.subject_mode || 'preset_skeleton')
             : 'mounted_asset';
         workbench.builder_subject = _envBuilderSubject.active ? _envBuilderBlueprint(_envBuilderSubject) : null;
+        workbench.isolated_chain = _envBuilderSubject.active ? String(_envBuilderSubject.isolated_chain || '').trim() : '';
         return _envNormalizeTheaterSession({
             version: 1,
             saved_at: Date.now(),
@@ -9298,6 +9370,7 @@
                 if (desiredBuilderSubject && desiredBuilderSubject.active) {
                     _envBuilderSubject = desiredBuilderSubject;
                     _envBuilderResetRuntimeRefs();
+                    _envBuilderSetIsolationState(_envBuilderSubject, (session.workbench || {}).isolated_chain || '');
                     _envBuilderSubject._skeletonVisible = (session.workbench || {}).skeleton !== false;
                     _envBuilderSubject._scaffoldVisible = !!((session.workbench || {}).scaffold);
                     _envBuilderSubject.scaffold_projection.enabled = (session.workbench || {}).scaffold !== false
@@ -9653,7 +9726,8 @@
                 host_commands: [
                     'character_mount', 'character_unmount', 'character_focus', 'character_move_to',
                     'character_stop', 'character_look_at', 'character_set_model',
-                    'workbench_new_builder', 'workbench_get_blueprint',
+                    'workbench_new_builder', 'workbench_get_blueprint', 'workbench_set_bone',
+                    'workbench_isolate_chain', 'workbench_save_blueprint', 'workbench_load_blueprint',
                     'character_play_clip', 'character_queue_clips', 'character_stop_clip',
                     'character_set_loop', 'character_set_speed', 'character_get_animation_state',
                     'workbench_set_scaffold',
@@ -9662,7 +9736,7 @@
                 legacy_host_commands: ['spawn_inhabitant', 'despawn_inhabitant', 'focus_inhabitant'],
                 implemented_verbs: [
                     'mount', 'unmount', 'focus', 'move_to', 'stop', 'look_at', 'set_model',
-                    'new_builder', 'get_blueprint',
+                    'new_builder', 'get_blueprint', 'set_bone', 'isolate_chain', 'save_blueprint', 'load_blueprint',
                     'play_clip', 'queue_clips', 'stop_clip', 'set_loop', 'set_speed',
                     'set_scaffold',
                     'get_animation_state', 'play_reaction'
@@ -13301,6 +13375,83 @@
         };
     }
 
+    function _envNormalizeWorkbenchBoneEditSpec(targetId) {
+        var raw = String(targetId || '').trim();
+        var parsed = raw ? _safeJsonParse(raw) : null;
+        var payload = parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+            ? parsed
+            : (raw ? { bone_id: raw } : {});
+        var out = {
+            raw: raw,
+            payload: payload,
+            bone_id: String(payload.bone_id || payload.bone || payload.id || '').trim(),
+            has_length: payload.length !== undefined,
+            length: Math.max(0.01, Number(payload.length || 0)),
+            has_orientation: Array.isArray(payload.orientation),
+            orientation: [0, 0, 0],
+            has_roll: payload.roll !== undefined,
+            roll: Number(payload.roll || 0),
+            has_radius_profile: Array.isArray(payload.radius_profile),
+            radius_profile: [0.05, 0.04],
+            has_enabled: payload.enabled !== undefined,
+            enabled: payload.enabled !== false
+        };
+        if (out.has_orientation) {
+            out.orientation = payload.orientation.slice(0, 3);
+            while (out.orientation.length < 3) out.orientation.push(0);
+            out.orientation = out.orientation.map(function (value) { return Number(value || 0); });
+        }
+        if (out.has_radius_profile) {
+            out.radius_profile = payload.radius_profile.slice(0, 2);
+            while (out.radius_profile.length < 2) out.radius_profile.push(out.radius_profile.length ? out.radius_profile[out.radius_profile.length - 1] : 0.04);
+            out.radius_profile = out.radius_profile.map(function (value) { return Math.max(0.004, Number(value || 0.04)); });
+        }
+        return out;
+    }
+
+    function _envNormalizeWorkbenchBlueprintPayload(targetId) {
+        var raw = String(targetId || '').trim();
+        var parsed = raw ? _safeJsonParse(raw) : null;
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+            return {
+                raw: raw,
+                payload: null,
+                builder_subject: null,
+                error: raw ? 'invalid blueprint json' : 'missing blueprint payload'
+            };
+        }
+        var builderSubject = _envNormalizeBuilderSubject(parsed);
+        if (builderSubject.subject_mode === 'none') {
+            builderSubject.subject_mode = 'preset_skeleton';
+            builderSubject.active = true;
+        }
+        return {
+            raw: raw,
+            payload: parsed,
+            builder_subject: builderSubject,
+            error: ''
+        };
+    }
+
+    function _envDownloadJsonFile(filename, value) {
+        if (typeof document === 'undefined' || typeof Blob === 'undefined' || typeof URL === 'undefined' || typeof URL.createObjectURL !== 'function') {
+            return false;
+        }
+        var blob = new Blob([String(value || '')], { type: 'application/json;charset=utf-8' });
+        var url = URL.createObjectURL(blob);
+        var anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = String(filename || 'builder_blueprint.json');
+        anchor.style.display = 'none';
+        document.body.appendChild(anchor);
+        anchor.click();
+        setTimeout(function () {
+            try { document.body.removeChild(anchor); } catch (ignored) {}
+            try { URL.revokeObjectURL(url); } catch (ignored) {}
+        }, 0);
+        return true;
+    }
+
     function _envBuilderApplyEmbodimentToObject(obj, family) {
         if (!obj || typeof obj !== 'object') return null;
         var familyId = String(family || 'custom').trim() || 'custom';
@@ -13482,6 +13633,278 @@
         _envScheduleLiveSync('workbench_get_blueprint', true);
         renderEnvironmentView();
         return blueprint;
+    }
+
+    function _envWorkbenchSetBone(actor, reason, targetId) {
+        var actorName = String(actor || _envManualActorId() || 'assistant').trim() || 'assistant';
+        if (!_envBuilderSubject.active) {
+            _envLogAction('character_runtime', 'Rejected builder bone edit: no active builder subject', actorName, {
+                action: 'workbench_set_bone'
+            });
+            _envSetBadge('failed', 'NO BUILDER');
+            renderEnvironmentView();
+            return false;
+        }
+        var spec = _envNormalizeWorkbenchBoneEditSpec(targetId);
+        if (!spec.bone_id) {
+            _envLogAction('character_runtime', 'Rejected builder bone edit: missing bone id', actorName, {
+                action: 'workbench_set_bone',
+                target: String(targetId || '')
+            });
+            _envSetBadge('failed', 'NO BONE');
+            renderEnvironmentView();
+            return false;
+        }
+        var mesh = _envMountedRuntimeMesh();
+        if (!mesh || !mesh.userData) {
+            _envLogAction('character_runtime', 'Rejected builder bone edit: mounted runtime mesh unavailable', actorName, {
+                action: 'workbench_set_bone',
+                bone_id: spec.bone_id
+            });
+            _envSetBadge('failed', 'NO MESH');
+            renderEnvironmentView();
+            return false;
+        }
+        var boneIndex = -1;
+        var currentBone = null;
+        (_envBuilderSubject.bones || []).some(function (entry, index) {
+            var bone = _envBuilderNormalizeBoneRecord(entry);
+            if (bone.id !== spec.bone_id) return false;
+            boneIndex = index;
+            currentBone = bone;
+            return true;
+        });
+        if (boneIndex < 0 || !currentBone) {
+            _envLogAction('character_runtime', 'Rejected builder bone edit: bone unavailable', actorName, {
+                action: 'workbench_set_bone',
+                bone_id: spec.bone_id
+            });
+            _envSetBadge('failed', 'BAD BONE');
+            renderEnvironmentView();
+            return false;
+        }
+        var nextBonePayload = _envCloneJson(currentBone, {});
+        if (spec.has_length) nextBonePayload.length = spec.length;
+        if (spec.has_orientation) nextBonePayload.orientation = spec.orientation;
+        if (spec.has_roll) nextBonePayload.roll = spec.roll;
+        if (spec.has_radius_profile) nextBonePayload.radius_profile = spec.radius_profile;
+        if (spec.has_enabled) nextBonePayload.enabled = spec.enabled;
+        var nextBone = _envBuilderNormalizeBoneRecord(nextBonePayload);
+        var previousBones = _envCloneJson(_envBuilderSubject.bones || [], []);
+        _envBuilderSubject.bones[boneIndex] = nextBone;
+        if (!_env3DSyncBuilderSubjectMesh(mesh)) {
+            _envBuilderSubject.bones = (Array.isArray(previousBones) ? previousBones : []).map(_envBuilderNormalizeBoneRecord);
+            _env3DSyncBuilderSubjectMesh(mesh);
+            _envLogAction('character_runtime', 'Rejected builder bone edit: procedural rebuild failed', actorName, {
+                action: 'workbench_set_bone',
+                bone_id: spec.bone_id
+            });
+            _envSetBadge('failed', 'BONE ERR');
+            renderEnvironmentView();
+            return false;
+        }
+        _envRefreshInhabitantRuntimeState('workbench_set_bone');
+        _envLogAction('character_runtime', 'Updated builder bone', actorName, {
+            action: 'workbench_set_bone',
+            bone_id: spec.bone_id,
+            changed: {
+                length: !!spec.has_length,
+                orientation: !!spec.has_orientation,
+                roll: !!spec.has_roll,
+                radius_profile: !!spec.has_radius_profile,
+                enabled: !!spec.has_enabled
+            },
+            bone: nextBone
+        });
+        _envEmitBus('character_runtime', 'Updated builder bone', actorName, {
+            action: 'workbench_set_bone',
+            object_key: _envInhabitantObjectKey(),
+            bone_id: spec.bone_id
+        });
+        _envSetBadge('running', 'BONE');
+        _envScheduleLiveSync('workbench_set_bone:' + spec.bone_id, true);
+        _envSaveTheaterSession('workbench_set_bone');
+        _envScene.dirty = true;
+        _envStageUiState.forceStageRebuild = true;
+        renderEnvironmentView();
+        return nextBone;
+    }
+
+    function _envWorkbenchIsolateChain(actor, reason, targetId) {
+        var actorName = String(actor || _envManualActorId() || 'assistant').trim() || 'assistant';
+        if (!_envBuilderSubject.active) {
+            _envLogAction('character_runtime', 'Rejected builder isolation: no active builder subject', actorName, {
+                action: 'workbench_isolate_chain'
+            });
+            _envSetBadge('failed', 'NO BUILDER');
+            renderEnvironmentView();
+            return false;
+        }
+        var target = String(targetId || '').trim();
+        if (!_envBuilderSetIsolationState(_envBuilderSubject, target)) {
+            _envLogAction('character_runtime', 'Rejected builder isolation: bone unavailable', actorName, {
+                action: 'workbench_isolate_chain',
+                target: target
+            });
+            _envSetBadge('failed', 'BAD CHAIN');
+            renderEnvironmentView();
+            return false;
+        }
+        var mesh = _envMountedRuntimeMesh();
+        if (mesh && mesh.userData) _envBuilderApplyIsolationToMesh(mesh);
+        _envRefreshInhabitantRuntimeState('workbench_isolate_chain');
+        var isolatedCount = _envBuilderSubject._isolatedBoneIds ? Object.keys(_envBuilderSubject._isolatedBoneIds).length : 0;
+        var cleared = !_envBuilderSubject.isolated_chain;
+        _envLogAction('character_runtime', cleared ? 'Cleared builder chain isolation' : 'Isolated builder chain', actorName, {
+            action: 'workbench_isolate_chain',
+            isolated_chain: String(_envBuilderSubject.isolated_chain || ''),
+            isolated_bone_count: isolatedCount
+        });
+        _envEmitBus('character_runtime', cleared ? 'Cleared builder chain isolation' : 'Isolated builder chain', actorName, {
+            action: 'workbench_isolate_chain',
+            object_key: _envInhabitantObjectKey(),
+            isolated_chain: String(_envBuilderSubject.isolated_chain || ''),
+            isolated_bone_count: isolatedCount
+        });
+        _envSetBadge('running', cleared ? 'ALL BONES' : 'CHAIN');
+        _envScheduleLiveSync('workbench_isolate_chain:' + (cleared ? 'all' : _envBuilderSubject.isolated_chain), true);
+        _envSaveTheaterSession('workbench_isolate_chain');
+        _envScene.dirty = true;
+        _envStageUiState.forceStageRebuild = true;
+        renderEnvironmentView();
+        return true;
+    }
+
+    function _envWorkbenchSaveBlueprint(actor, reason) {
+        var actorName = String(actor || _envManualActorId() || 'assistant').trim() || 'assistant';
+        if (!_envBuilderSubject.active) {
+            _envLogAction('character_runtime', 'Rejected builder blueprint save: no active builder subject', actorName, {
+                action: 'workbench_save_blueprint'
+            });
+            _envSetBadge('failed', 'NO BUILDER');
+            renderEnvironmentView();
+            return false;
+        }
+        var blueprint = _envBuilderBlueprint(_envBuilderSubject);
+        var json = JSON.stringify(blueprint, null, 2);
+        var filename = 'builder_' + String(blueprint.family || 'custom').replace(/[^a-z0-9_-]+/ig, '_') + '_' + Date.now() + '.json';
+        if (!_envDownloadJsonFile(filename, json)) {
+            _envLogAction('character_runtime', 'Rejected builder blueprint save: download unavailable', actorName, {
+                action: 'workbench_save_blueprint',
+                filename: filename
+            });
+            _envSetBadge('failed', 'SAVE ERR');
+            renderEnvironmentView();
+            return false;
+        }
+        _envLogAction('character_runtime', 'Saved builder blueprint', actorName, {
+            action: 'workbench_save_blueprint',
+            filename: filename,
+            family: String(blueprint.family || ''),
+            bone_count: Array.isArray(blueprint.bones) ? blueprint.bones.length : 0
+        });
+        _envEmitBus('character_runtime', 'Saved builder blueprint', actorName, {
+            action: 'workbench_save_blueprint',
+            object_key: _envInhabitantObjectKey(),
+            filename: filename
+        });
+        _envSetBadge('running', 'SAVE BP');
+        _envScheduleLiveSync('workbench_save_blueprint:' + filename, true);
+        renderEnvironmentView();
+        return true;
+    }
+
+    function _envWorkbenchLoadBlueprint(actor, reason, targetId) {
+        var actorName = String(actor || _envManualActorId() || 'assistant').trim() || 'assistant';
+        var normalized = _envNormalizeWorkbenchBlueprintPayload(targetId);
+        if (normalized.error || !normalized.builder_subject) {
+            _envLogAction('character_runtime', 'Rejected builder blueprint load: ' + String(normalized.error || 'invalid payload'), actorName, {
+                action: 'workbench_load_blueprint',
+                target: String(targetId || '')
+            });
+            _envSetBadge('failed', 'BAD BP');
+            renderEnvironmentView();
+            return false;
+        }
+        var nextBuilder = normalized.builder_subject;
+        var family = String(nextBuilder.family || '').trim();
+        var registry = _ENV_RIG_FAMILY_REGISTRY[family] || null;
+        var slotRegistry = _ENV_SCAFFOLD_SLOT_REGISTRY[family] || [];
+        if (!registry || family === 'custom' || !slotRegistry.length || !Array.isArray(nextBuilder.bones) || !nextBuilder.bones.length) {
+            _envLogAction('character_runtime', 'Rejected builder blueprint load: family unavailable', actorName, {
+                action: 'workbench_load_blueprint',
+                family: family
+            });
+            _envSetBadge('failed', 'NO BUILDER');
+            renderEnvironmentView();
+            return false;
+        }
+        var state = _envInhabitantRuntimeState();
+        var obj = _envInhabitantObject();
+        if (!obj) obj = _envSetInhabitantEnabled(true, actorName, reason || 'workbench load blueprint', 'idle');
+        if (!obj) {
+            _envSetBadge('failed', 'NO MOUNT');
+            renderEnvironmentView();
+            return false;
+        }
+        if (_envTheaterMode() !== 'character') _envScene.theaterMode = 'character';
+        var mesh = _envMountedRuntimeMesh();
+        if (!mesh && _env3D.inited) {
+            _envSyncHabitatScene();
+            mesh = _envMountedRuntimeMesh();
+        }
+        if (!mesh || !mesh.userData) {
+            _envLogAction('character_runtime', 'Rejected builder blueprint load: mounted runtime mesh unavailable', actorName, {
+                action: 'workbench_load_blueprint',
+                family: family
+            });
+            _envSetBadge('failed', 'NO MESH');
+            renderEnvironmentView();
+            return false;
+        }
+        state.enabled = true;
+        state.behavior = 'idle';
+        state.mode = 'anchored';
+        _envBuilderClearMountedAsset(state, obj, mesh);
+        _envBuilderApplyEmbodimentToObject(obj, family);
+        _envBuilderSubject = nextBuilder;
+        _envBuilderResetRuntimeRefs();
+        if (!_env3DSyncBuilderSubjectMesh(mesh)) {
+            _envDeactivateBuilderSubject(mesh);
+            _envLogAction('character_runtime', 'Rejected builder blueprint load: procedural rebuild failed', actorName, {
+                action: 'workbench_load_blueprint',
+                family: family
+            });
+            _envSetBadge('failed', 'LOAD ERR');
+            renderEnvironmentView();
+            return false;
+        }
+        _envScene.cameraMode = 'focus';
+        _envSelectSceneObject(obj, actorName, 'builder_subject');
+        if (_env3D.inited) {
+            _env3DApplyCharacterWorkbenchCamera();
+            _env3DApplyCameraRig(true);
+        }
+        _envRefreshInhabitantRuntimeState('workbench_load_blueprint');
+        _envLogAction('character_runtime', 'Loaded builder blueprint', actorName, {
+            action: 'workbench_load_blueprint',
+            family: family,
+            subject_mode: String(nextBuilder.subject_mode || ''),
+            bone_count: Array.isArray(nextBuilder.bones) ? nextBuilder.bones.length : 0
+        });
+        _envEmitBus('character_runtime', 'Loaded builder blueprint', actorName, {
+            action: 'workbench_load_blueprint',
+            object_key: _envInhabitantObjectKey(),
+            family: family,
+            bone_count: Array.isArray(nextBuilder.bones) ? nextBuilder.bones.length : 0
+        });
+        _envSetBadge('running', 'LOAD BP');
+        _envScheduleLiveSync('workbench_load_blueprint:' + family, true);
+        _envSaveTheaterSession('workbench_load_blueprint');
+        _envScene.dirty = true;
+        _envStageUiState.forceStageRebuild = true;
+        renderEnvironmentView();
+        return true;
     }
 
     function _envCharacterReactionClipRequest(reactionId) {
@@ -14081,6 +14504,10 @@
         'character.set_model': 'character_set_model',
         'workbench.new_builder': 'workbench_new_builder',
         'workbench.get_blueprint': 'workbench_get_blueprint',
+        'workbench.set_bone': 'workbench_set_bone',
+        'workbench.isolate_chain': 'workbench_isolate_chain',
+        'workbench.save_blueprint': 'workbench_save_blueprint',
+        'workbench.load_blueprint': 'workbench_load_blueprint',
         'character.move_to': 'character_move_to',
         'character.stop': 'character_stop',
         'character.look_at': 'character_look_at',
@@ -14142,6 +14569,8 @@
             || command === 'character_mount' || command === 'character_unmount' || command === 'character_focus'
             || command === 'character_move_to' || command === 'character_stop' || command === 'character_look_at'
             || command === 'workbench_new_builder' || command === 'workbench_get_blueprint'
+            || command === 'workbench_set_bone' || command === 'workbench_isolate_chain'
+            || command === 'workbench_save_blueprint' || command === 'workbench_load_blueprint'
             || command === 'character_play_clip' || command === 'character_queue_clips' || command === 'character_stop_clip'
             || command === 'character_set_loop' || command === 'character_set_speed'
             || command === 'workbench_set_scaffold'
@@ -20809,6 +21238,22 @@
             _envWorkbenchGetBlueprint(actorName, reason || 'control workbench get blueprint');
             return;
         }
+        if (command === 'workbench_set_bone') {
+            _envWorkbenchSetBone(actorName, reason || 'control workbench set bone', targetId);
+            return;
+        }
+        if (command === 'workbench_isolate_chain') {
+            _envWorkbenchIsolateChain(actorName, reason || 'control workbench isolate chain', targetId);
+            return;
+        }
+        if (command === 'workbench_save_blueprint') {
+            _envWorkbenchSaveBlueprint(actorName, reason || 'control workbench save blueprint');
+            return;
+        }
+        if (command === 'workbench_load_blueprint') {
+            _envWorkbenchLoadBlueprint(actorName, reason || 'control workbench load blueprint', targetId);
+            return;
+        }
         if (command === 'workbench_set_scaffold') {
             _envSetWorkbenchScaffold(actorName, reason || 'control workbench scaffold', targetId);
             return;
@@ -22327,29 +22772,38 @@
         return Math.max(0.05, _envBuilderScaleHalf(source, axis, 0.12) * (String(geometry || '').trim().toLowerCase() === 'limb' ? 2 : 1.3));
     }
 
-    function _envBuilderHumanoidOffsetForJoint(jointId, slotMap) {
+    function _envBuilderHumanoidOffsetForJoint(jointId, slotMap, recordMap) {
         var hipsScale = _envBuilderSlotScale(slotMap.hips, [0.28, 0.15, 0.18]);
         var spineScale = _envBuilderSlotScale(slotMap.spine, [0.22, 0.16, 0.14]);
         var chestScale = _envBuilderSlotScale(slotMap.chest, [0.30, 0.26, 0.18]);
         var neckScale = _envBuilderSlotScale(slotMap.neck, [0.032, 0.07, 0.024]);
+        var headScale = _envBuilderSlotScale(slotMap.head, [0.14, 0.18, 0.13]);
         var upperArmScale = _envBuilderSlotScale(slotMap.upper_arm_l || slotMap.upper_arm_r, [0.045, 0.14, 0.036]);
         var lowerArmScale = _envBuilderSlotScale(slotMap.lower_arm_l || slotMap.lower_arm_r, [0.036, 0.13, 0.028]);
         var upperLegScale = _envBuilderSlotScale(slotMap.upper_leg_l || slotMap.upper_leg_r, [0.06, 0.20, 0.045]);
         var lowerLegScale = _envBuilderSlotScale(slotMap.lower_leg_l || slotMap.lower_leg_r, [0.045, 0.20, 0.034]);
         var footScale = _envBuilderSlotScale(slotMap.foot_l || slotMap.foot_r, [0.07, 0.05, 0.16]);
+        var spineLength = _envBuilderBoneLengthValue(recordMap, 'spine', _envBuilderBoneLengthFromScale(spineScale, slotMap.spine ? slotMap.spine.geometry : 'limb'));
+        var chestLength = _envBuilderBoneLengthValue(recordMap, 'chest', _envBuilderBoneLengthFromScale(chestScale, slotMap.chest ? slotMap.chest.geometry : 'ellipsoid'));
+        var neckLength = _envBuilderBoneLengthValue(recordMap, 'neck', _envBuilderBoneLengthFromScale(neckScale, slotMap.neck ? slotMap.neck.geometry : 'limb'));
+        var headLength = _envBuilderBoneLengthValue(recordMap, 'head', _envBuilderBoneLengthFromScale(headScale, slotMap.head ? slotMap.head.geometry : 'ellipsoid'));
+        var upperArmLength = _envBuilderBoneLengthValue(recordMap, 'upper_arm_l', _envBuilderBoneLengthFromScale(upperArmScale, 'limb'));
+        var lowerArmLength = _envBuilderBoneLengthValue(recordMap, 'lower_arm_l', _envBuilderBoneLengthFromScale(lowerArmScale, 'limb'));
+        var upperLegLength = _envBuilderBoneLengthValue(recordMap, 'upper_leg_l', _envBuilderBoneLengthFromScale(upperLegScale, 'limb'));
+        var lowerLegLength = _envBuilderBoneLengthValue(recordMap, 'lower_leg_l', _envBuilderBoneLengthFromScale(lowerLegScale, 'limb'));
         var shoulderX = Math.max(0.08, _envBuilderScaleHalf(chestScale, 0, 0.3) * 0.78);
         var shoulderY = Math.max(0.02, _envBuilderScaleHalf(chestScale, 1, 0.26) * 0.34);
-        var armUpperX = Math.max(0.08, _envBuilderBoneLengthFromScale(upperArmScale, 'limb') * 0.68);
-        var armLowerX = Math.max(0.08, _envBuilderBoneLengthFromScale(lowerArmScale, 'limb') * 0.74);
-        var legUpperY = Math.max(0.18, _envBuilderBoneLengthFromScale(upperLegScale, 'limb') * 0.9);
-        var legLowerY = Math.max(0.18, _envBuilderBoneLengthFromScale(lowerLegScale, 'limb') * 0.9);
+        var armUpperX = Math.max(0.08, upperArmLength);
+        var armLowerX = Math.max(0.08, lowerArmLength);
+        var legUpperY = Math.max(0.18, upperLegLength * 0.92);
+        var legLowerY = Math.max(0.18, lowerLegLength * 0.92);
         var legX = Math.max(0.05, _envBuilderScaleHalf(hipsScale, 0, 0.28) * 0.36);
         switch (String(jointId || '')) {
             case 'hips': return [0, 1.1, 0];
-            case 'spine': return [0, Math.max(0.08, _envBuilderScaleHalf(hipsScale, 1, 0.15) * 1.15), 0];
-            case 'chest': return [0, Math.max(0.08, _envBuilderScaleHalf(spineScale, 1, 0.16) * 1.15), 0];
-            case 'neck': return [0, Math.max(0.06, _envBuilderScaleHalf(chestScale, 1, 0.26) * 0.62), 0];
-            case 'head': return [0, Math.max(0.06, _envBuilderScaleHalf(neckScale, 1, 0.07) * 1.2), 0];
+            case 'spine': return [0, Math.max(0.08, spineLength * 0.78), 0];
+            case 'chest': return [0, Math.max(0.08, chestLength * 0.72), 0];
+            case 'neck': return [0, Math.max(0.05, neckLength * 0.9), 0];
+            case 'head': return [0, Math.max(0.05, headLength * 0.72), 0];
             case 'shoulder_l': return [shoulderX, shoulderY, 0];
             case 'upper_arm_l': return [armUpperX * 0.52, -Math.max(0.01, _envBuilderScaleHalf(upperArmScale, 1, 0.14) * 0.06), 0];
             case 'lower_arm_l': return [armUpperX, -Math.max(0.01, _envBuilderScaleHalf(upperArmScale, 1, 0.14) * 0.12), 0];
@@ -22527,6 +22981,8 @@
             scaffold_overlay_present: !!helperOverlays.scaffold,
             skeleton_visible: !!(mountedMesh && mountedMesh.userData && mountedMesh.userData._skeletonHelper && mountedMesh.userData._skeletonHelper.visible),
             bone_count: builderActive ? Number((blueprint && blueprint.bones && blueprint.bones.length) || 0) : 0,
+            isolated_chain: builderActive ? String(_envBuilderSubject.isolated_chain || '') : '',
+            isolated_bone_count: builderActive && _envBuilderSubject._isolatedBoneIds ? Object.keys(_envBuilderSubject._isolatedBoneIds).length : 0,
             builder_blueprint: blueprint
         };
     }
@@ -37101,6 +37557,7 @@
             var joint = new THREE.Mesh(new THREE.SphereGeometry(jointRadius, 10, 8), jointMaterial);
             joint.name = '__bone_joint_' + String(bone.name || 'joint') + '__';
             joint.userData._envHelper = 'skeleton_helper';
+            joint.userData._builderBoneId = String(bone.name || '');
             joint.renderOrder = 997;
             bone.add(joint);
             parts.push(joint);
@@ -37118,6 +37575,8 @@
                 var segment = new THREE.Mesh(geometry, segmentMaterial);
                 segment.name = '__bone_segment_' + String(bone.name || 'bone') + '__';
                 segment.userData._envHelper = 'skeleton_helper';
+                segment.userData._builderBoneStart = String(bone.name || '');
+                segment.userData._builderBoneEnd = String(child.name || '');
                 segment.renderOrder = 996;
                 segment.position.copy(localVector.clone().multiplyScalar(0.5));
                 segment.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), localVector.clone().normalize());
@@ -37249,6 +37708,7 @@
         group.userData._envHelper = 'builder_subject';
         group.userData._builderFamily = family;
         var slotMap = _envBuilderSlotMapForFamily(family);
+        var recordMap = _envBuilderBoneRecordMap(blueprint.bones);
         var boneMap = {};
         blueprint.bones.forEach(function (record) {
             if (!record || !record.id || record.enabled === false) return;
@@ -37264,9 +37724,15 @@
             var parentId = record.parent_id === null || record.parent_id === undefined ? null : String(record.parent_id || '').trim();
             var parent = parentId ? boneMap[parentId] : null;
             var offset = family === 'humanoid_biped'
-                ? _envBuilderHumanoidOffsetForJoint(record.id, slotMap)
+                ? _envBuilderHumanoidOffsetForJoint(record.id, slotMap, recordMap)
                 : [0, Math.max(0.08, Number(record.length || 0.12) * 0.82), 0];
             bone.position.set(Number(offset[0] || 0), Number(offset[1] || 0), Number(offset[2] || 0));
+            bone.rotation.set(
+                Number((record.orientation || [])[0] || 0),
+                Number((record.orientation || [])[1] || 0),
+                Number((record.orientation || [])[2] || 0)
+            );
+            if (Number(record.roll || 0)) bone.rotateZ(Number(record.roll || 0));
             if (parent) parent.add(bone);
             else group.add(bone);
         });
@@ -37313,6 +37779,8 @@
             var piece = new THREE.Mesh(geometryMeta.geometry, material);
             piece.name = '__builder_scaffold_' + String(slotDef.slot || slotDef.joint || 'piece') + '__';
             piece.userData._envHelper = 'scaffold';
+            piece.userData._builderBoneId = String(slotDef.joint || '');
+            piece.userData._builderSlot = String(slotDef.slot || slotDef.joint || '');
             piece.renderOrder = 500;
             _env3DScaffoldApplyPlacement(piece, slotDef, resolvedVector, geometryMeta);
             bone.add(piece);
@@ -37327,6 +37795,40 @@
         _envBuilderSubject._scaffoldPieces = pieces;
         _envBuilderSubject._scaffoldVisible = !!mesh.userData._scaffoldVisible;
         return mesh.userData._scaffoldVisible;
+    }
+
+    function _envBuilderApplyIsolationToMesh(mesh) {
+        if (!mesh || !mesh.userData || !_envBuilderSubject.active) return false;
+        var isolated = _envBuilderSubject._isolatedBoneIds;
+        var showAll = !isolated || !Object.keys(isolated).length;
+        var skeletonBaseVisible = !!(_envBuilderSubject._skeletonVisible !== false);
+        var helper = mesh.userData._skeletonHelper || null;
+        if (helper && Array.isArray(helper.parts)) {
+            helper.visible = skeletonBaseVisible;
+            helper.parts.forEach(function (part) {
+                if (!part) return;
+                var visible = skeletonBaseVisible;
+                if (visible && !showAll) {
+                    var boneId = String(((part.userData || {})._builderBoneId) || '').trim();
+                    var startId = String(((part.userData || {})._builderBoneStart) || '').trim();
+                    var endId = String(((part.userData || {})._builderBoneEnd) || '').trim();
+                    if (boneId) visible = !!isolated[boneId];
+                    else if (startId || endId) visible = !!isolated[startId] && !!isolated[endId];
+                }
+                part.visible = visible;
+            });
+        }
+        var scaffoldBaseVisible = !!mesh.userData._scaffoldVisible;
+        var pieces = mesh.userData._scaffoldPieces || null;
+        if (pieces) {
+            Object.keys(pieces).forEach(function (slotName) {
+                var entry = pieces[slotName];
+                if (!entry || !entry.mesh) return;
+                var jointId = String((((entry.definition || {}).joint) || ((entry.mesh.userData || {})._builderBoneId) || '')).trim();
+                entry.mesh.visible = scaffoldBaseVisible && (showAll || !!isolated[jointId]);
+            });
+        }
+        return true;
     }
 
     function _env3DSyncBuilderSubjectMesh(mesh) {
@@ -37345,6 +37847,7 @@
         }
         _env3DScaleBuilderSubjectForWorkbench(group);
         _env3DAlignBuilderSubjectToFloor(mesh, group);
+        _envBuilderApplyIsolationToMesh(mesh);
         _env3DUpdateWorkbenchGuides();
         return true;
     }
@@ -37386,17 +37889,17 @@
                 var existingBuilderHelper = mesh.userData._skeletonHelper;
                 var nextBuilderVisible = existingBuilderHelper.visible === false;
                 existingBuilderHelper.visible = nextBuilderVisible;
-                if (existingBuilderHelper.parts) _env3DWorkbenchSetHelperPartsVisible(existingBuilderHelper.parts, nextBuilderVisible);
                 _envBuilderSubject._skeletonVisible = nextBuilderVisible;
+                _envBuilderApplyIsolationToMesh(mesh);
                 _envSaveTheaterSession('workbench:skeleton');
                 return true;
             }
             var builderHelper = _env3DBuildWorkbenchBoneMeshesForRoot(mesh.userData._builderSubjectGroup);
             if (builderHelper && builderHelper.parts && builderHelper.parts.length) {
-                _env3DWorkbenchSetHelperPartsVisible(builderHelper.parts, true);
                 builderHelper.visible = true;
                 mesh.userData._skeletonHelper = builderHelper;
                 _envBuilderSubject._skeletonVisible = true;
+                _envBuilderApplyIsolationToMesh(mesh);
                 _envSaveTheaterSession('workbench:skeleton');
                 return true;
             }
@@ -37670,6 +38173,7 @@
             var proceduralBuilt = _env3DBuildProceduralScaffold(mesh, _envBuilderSubject);
             if (proceduralBuilt) {
                 _envBuilderSubject._scaffoldVisible = true;
+                _envBuilderApplyIsolationToMesh(mesh);
                 _envSaveTheaterSession('workbench:scaffold');
             }
             return proceduralBuilt;
@@ -39539,6 +40043,10 @@
              '<option value="character_set_model">character_set_model</option>' +
              '<option value="workbench_new_builder">workbench_new_builder</option>' +
              '<option value="workbench_get_blueprint">workbench_get_blueprint</option>' +
+             '<option value="workbench_set_bone">workbench_set_bone</option>' +
+             '<option value="workbench_isolate_chain">workbench_isolate_chain</option>' +
+             '<option value="workbench_save_blueprint">workbench_save_blueprint</option>' +
+             '<option value="workbench_load_blueprint">workbench_load_blueprint</option>' +
              '<option value="character_move_to">character_move_to</option>' +
              '<option value="character_stop">character_stop</option>' +
              '<option value="character_look_at">character_look_at</option>' +
@@ -47470,6 +47978,33 @@
     };
     window.envopsWorkbenchGetBlueprint = function (actor, reason) {
         _envQueueControl('workbench_get_blueprint', '', actor || 'assistant', reason || 'external workbench get blueprint');
+    };
+    window.envopsWorkbenchSetBone = function (spec, actor, reason) {
+        var payload = '';
+        if (typeof spec === 'string') payload = spec;
+        else if (spec !== undefined && spec !== null) {
+            try { payload = JSON.stringify(spec); } catch (ignored) { payload = String(spec || ''); }
+        }
+        _envQueueControl('workbench_set_bone', payload, actor || 'assistant', reason || 'external workbench set bone');
+    };
+    window.envopsWorkbenchIsolateChain = function (target, actor, reason) {
+        var payload = '';
+        if (typeof target === 'string') payload = target;
+        else if (target !== undefined && target !== null) {
+            try { payload = JSON.stringify(target); } catch (ignored) { payload = String(target || ''); }
+        }
+        _envQueueControl('workbench_isolate_chain', payload, actor || 'assistant', reason || 'external workbench isolate chain');
+    };
+    window.envopsWorkbenchSaveBlueprint = function (actor, reason) {
+        _envQueueControl('workbench_save_blueprint', '', actor || 'assistant', reason || 'external workbench save blueprint');
+    };
+    window.envopsWorkbenchLoadBlueprint = function (spec, actor, reason) {
+        var payload = '';
+        if (typeof spec === 'string') payload = spec;
+        else if (spec !== undefined && spec !== null) {
+            try { payload = JSON.stringify(spec); } catch (ignored) { payload = String(spec || ''); }
+        }
+        _envQueueControl('workbench_load_blueprint', payload, actor || 'assistant', reason || 'external workbench load blueprint');
     };
     window.envopsWorkbenchSetScaffold = function (value, actor, reason) {
         _envQueueControl('workbench_set_scaffold', value === undefined || value === null ? '' : String(value), actor || 'assistant', reason || 'external workbench scaffold');
