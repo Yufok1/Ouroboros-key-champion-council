@@ -1181,6 +1181,31 @@
             || Math.abs(Number(offset[2] || 0)) > 0.00001;
     }
 
+    function _envBuilderPoseOffsetMeaningful(offset) {
+        var vec = _envScaffoldNormalizeVector3(offset, _envBuilderPoseIdentityOffset()) || _envBuilderPoseIdentityOffset();
+        return Math.abs(Number(vec[0] || 0)) > 0.00001
+            || Math.abs(Number(vec[1] || 0)) > 0.00001
+            || Math.abs(Number(vec[2] || 0)) > 0.00001;
+    }
+
+    function _envBuilderBoneAllowsPoseOffset(boneId) {
+        var target = String(boneId || '').trim();
+        if (!target) return false;
+        var record = _envBuilderBoneRecordMap(_envBuilderSubject.bones || [])[target] || null;
+        if (!record) return false;
+        if (!record.parent_id) return true;
+        var anchorBone = String(_envBuilderSubject.anchor_bone || 'hips').trim() || 'hips';
+        return record.id === anchorBone
+            || String(record.canonical_joint || record.id || '').trim() === anchorBone
+            || String(record.canonical_joint || record.id || '').trim() === 'hips';
+    }
+
+    function _envBuilderSanitizePoseTransform(boneId, entry) {
+        var transform = _envNormalizeBuilderPoseTransform(entry);
+        if (!_envBuilderBoneAllowsPoseOffset(boneId)) transform.offset = _envBuilderPoseIdentityOffset();
+        return transform;
+    }
+
     function _envNormalizeBuilderPoseState(raw) {
         var src = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
         var transforms = {};
@@ -1190,7 +1215,7 @@
         Object.keys(sourceTransforms).forEach(function (boneId) {
             var key = String(boneId || '').trim();
             if (!key) return;
-            var transform = _envNormalizeBuilderPoseTransform(sourceTransforms[boneId]);
+            var transform = _envBuilderSanitizePoseTransform(key, sourceTransforms[boneId]);
             if (_envBuilderPoseTransformMeaningful(transform)) transforms[key] = transform;
         });
         return {
@@ -14628,7 +14653,11 @@
         _envBuilderInteraction.gizmo_mode = spec.gizmo_mode;
         _envBuilderInteraction.gizmo_active = false;
         _env3DUpdateBuilderGizmoAttachment('workbench_set_gizmo_mode');
-        var effectiveMode = _envNormalizeBuilderGizmoMode(_envBuilderInteraction.gizmo_mode || spec.gizmo_mode);
+        var effectiveMode = _env3DBuilderGizmoSupportedMode(
+            _envBuilderInteraction.gizmo_mode || spec.gizmo_mode,
+            _envBuilderInteraction.editing_mode || 'structure',
+            _envBuilderInteraction.selected_bone_id || ''
+        );
         _envRefreshInhabitantRuntimeState('workbench_set_gizmo_mode');
         _envLogAction('character_runtime', 'Set builder gizmo mode', actorName, {
             action: 'workbench_set_gizmo_mode',
@@ -14641,6 +14670,7 @@
         });
         var badge = 'GIZMO ROT';
         if (spec.gizmo_mode === 'scale' && effectiveMode !== 'scale') badge = 'NO POSE SCALE';
+        else if (spec.gizmo_mode === 'translate' && effectiveMode !== 'translate') badge = 'NO LIMB MOVE';
         else if (effectiveMode === 'translate') badge = 'GIZMO MOVE';
         else if (effectiveMode === 'scale') badge = 'GIZMO SCALE';
         else if (effectiveMode === 'none') badge = 'GIZMO OFF';
@@ -14736,14 +14766,26 @@
         }
         var poseState = _envBuilderPoseState();
         var current = poseState.transforms[spec.bone_id]
-            ? _envNormalizeBuilderPoseTransform(poseState.transforms[spec.bone_id])
+            ? _envBuilderSanitizePoseTransform(spec.bone_id, poseState.transforms[spec.bone_id])
             : _envNormalizeBuilderPoseTransform(null);
+        var offsetRejected = !!(spec.has_offset
+            && _envBuilderPoseOffsetMeaningful(spec.offset)
+            && !_envBuilderBoneAllowsPoseOffset(spec.bone_id));
+        if (offsetRejected && !spec.has_rotation) {
+            _envLogAction('character_runtime', 'Rejected builder pose offset: non-root offset would tear scaffold continuity', actorName, {
+                action: 'workbench_set_pose',
+                bone_id: spec.bone_id
+            });
+            _envSetBadge('failed', 'NO LIMB MOVE');
+            renderEnvironmentView();
+            return false;
+        }
         var nextTransform = {
             rotation: spec.has_rotation ? spec.rotation : current.rotation,
-            offset: spec.has_offset ? spec.offset : current.offset
+            offset: (spec.has_offset && !offsetRejected) ? spec.offset : current.offset
         };
         if (_envBuilderPoseTransformMeaningful(nextTransform)) {
-            poseState.transforms[spec.bone_id] = _envNormalizeBuilderPoseTransform(nextTransform);
+            poseState.transforms[spec.bone_id] = _envBuilderSanitizePoseTransform(spec.bone_id, nextTransform);
         } else {
             delete poseState.transforms[spec.bone_id];
         }
@@ -14779,7 +14821,7 @@
             object_key: _envInhabitantObjectKey(),
             bone_id: spec.bone_id
         });
-        _envSetBadge('running', 'POSE');
+        _envSetBadge('running', offsetRejected ? 'POSE ROT' : 'POSE');
         _envScheduleLiveSync('workbench_set_pose:' + spec.bone_id, true);
         _envSaveTheaterSession('workbench_set_pose');
         _envScene.dirty = true;
@@ -38457,12 +38499,13 @@
         return tc;
     }
 
-    function _env3DBuilderGizmoSupportedMode(value, editingMode) {
+    function _env3DBuilderGizmoSupportedMode(value, editingMode, boneId) {
         var mode = _envNormalizeBuilderGizmoMode(value || 'rotate');
         var normalizedEditingMode = _envNormalizeBuilderEditingMode(editingMode || _envBuilderInteraction.editing_mode || 'structure');
         if (mode === 'none') return 'none';
         if (normalizedEditingMode === 'pose') {
-            if (mode === 'translate') return 'translate';
+            var targetBoneId = String(boneId || _envBuilderInteraction.selected_bone_id || '').trim();
+            if (mode === 'translate' && _envBuilderBoneAllowsPoseOffset(targetBoneId)) return 'translate';
             return 'rotate';
         }
         if (mode === 'translate') return 'translate';
@@ -38516,7 +38559,7 @@
         var record = _envBuilderBoneRecordMap(_envBuilderSubject.bones || [])[boneId] || null;
         if (!record || typeof THREE === 'undefined') return null;
         var editingMode = _envNormalizeBuilderEditingMode(_envBuilderInteraction.editing_mode || 'structure');
-        var supportedMode = _env3DBuilderGizmoSupportedMode(_envBuilderInteraction.gizmo_mode || 'rotate', editingMode);
+        var supportedMode = _env3DBuilderGizmoSupportedMode(_envBuilderInteraction.gizmo_mode || 'rotate', editingMode, boneId);
         if (editingMode === 'pose' && (!bone.userData || !Array.isArray(bone.userData._restPosition) || !Array.isArray(bone.userData._restQuaternion))) {
             _env3DCacheBuilderBoneRestPose(bone);
         }
@@ -38577,6 +38620,7 @@
         var editingMode = _envNormalizeBuilderEditingMode(snapshot.editing_mode || 'structure');
         if (editingMode === 'pose') {
             if (snapshot.mode === 'scale') return null;
+            if (snapshot.mode === 'translate' && !_envBuilderBoneAllowsPoseOffset(snapshot.bone_id)) return null;
             var baselinePosition = snapshot.baseline_position ? snapshot.baseline_position.clone() : snapshot.position.clone();
             var baselineQuaternion = snapshot.baseline_quaternion ? snapshot.baseline_quaternion.clone() : snapshot.quaternion.clone();
             var poseQuaternion = baselineQuaternion.clone().invert().multiply(bone.quaternion.clone()).normalize();
@@ -38676,6 +38720,8 @@
             _env3DBuilderGizmoRestoreBaseline(snapshot);
             if (_envNormalizeBuilderEditingMode(snapshot.editing_mode || 'structure') === 'pose' && snapshot.mode === 'scale') {
                 _envSetBadge('warning', 'NO POSE SCALE');
+            } else if (_envNormalizeBuilderEditingMode(snapshot.editing_mode || 'structure') === 'pose' && snapshot.mode === 'translate') {
+                _envSetBadge('warning', 'NO LIMB MOVE');
             } else {
                 _envSetBadge('warning', 'GIZMO');
             }
@@ -38704,7 +38750,7 @@
         var selectedBoneId = String(_envBuilderInteraction.selected_bone_id || '').trim();
         var editingMode = _envNormalizeBuilderEditingMode(_envBuilderInteraction.editing_mode || 'structure');
         var requestedMode = _envNormalizeBuilderGizmoMode(_envBuilderInteraction.gizmo_mode || 'rotate');
-        var supportedMode = _env3DBuilderGizmoSupportedMode(requestedMode, editingMode);
+        var supportedMode = _env3DBuilderGizmoSupportedMode(requestedMode, editingMode, selectedBoneId);
         if (requestedMode !== supportedMode) _envBuilderInteraction.gizmo_mode = supportedMode;
         if (!controls || !builderActive || (editingMode !== 'structure' && editingMode !== 'pose') || !selectedBoneId || supportedMode === 'none') {
             _env3DBuilderGizmoDetach();
@@ -38899,6 +38945,12 @@
             if (key === 'g') {
                 event.preventDefault();
                 if (builderBoneId) {
+                    var builderEditingMode = _envNormalizeBuilderEditingMode(_envBuilderInteraction.editing_mode || 'structure');
+                    if (builderEditingMode === 'pose' && !_envBuilderBoneAllowsPoseOffset(builderBoneId)) {
+                        _envSetBadge('warning', 'NO LIMB MOVE');
+                        renderEnvironmentView();
+                        return;
+                    }
                     _envBuilderInteraction.gizmo_mode = 'translate';
                     _envBuilderInteraction.gizmo_active = false;
                     _env3DUpdateBuilderGizmoAttachment('workbench_gizmo_mode');
