@@ -521,41 +521,57 @@ Expected adaptations:
 
 ## Build Order
 
-Revised post-Slice-2 build order:
+Revised post-Slice-3d build order:
 
 1. Slice 3a
-   - fix selection restore bug
-   - commit selection substrate
+   - selection substrate
+   - landed
 2. Slice 3b
    - derive and expose part surface contract
+   - landed
 3. Slice 3c
    - part-local camera recipes
    - extend observer/capture target resolution to part subtargets
-4. Slice 3d
+   - landed
+4. Slice 3c.1 / 3c.2
+   - visual selection grammar
+   - display scopes
+   - landed
+5. Slice 3d
    - structure-mode gizmo bridge
-5. Slice 3e
-   - rack state model + basic slot commands
-6. Slice 3f
-   - rack rendering for frozen clones and capture planes
-7. Slice 4a
-   - pose-state substrate
-8. Slice 4b
-   - pose-mode gizmo bridge
-9. Slice 4c
-   - part-aware `probe_compare`
+   - `local_offset`
+   - part work-cell staging
+   - part-aware focus rig
+   - landed
+6. Slice 4a
+   - `pose_state` substrate
+7. Slice 4b
+   - reset verbs
+   - `workbench_clear_pose`
+   - `workbench_reset_bone`
+8. Slice 4c
+   - `joint_limits` data model
+9. Slice 4d
+   - pose-mode gizmo
+10. Slice 4e
+    - timeline / key-pose data model
+11. Slice 4f
+    - clip compiler into the existing playback contract
+12. Slice 4g
+    - `docs/rode.txt` milestone naming
 
 Do not add recursive sub-grids until the flat 8-slot rack has survived real use.
+Defer flat-rack comparison work until the structure and pose authoring loop is stable.
 
 ## Immediate Implementation Sequence
 
-1. Fix `selected_bone_id` restore in the local Slice 3a patch.
-2. Commit Slice 3a once restore is proven.
-3. Add derived part surface readback.
-4. Extend theater vision target resolution from whole objects to body-part subtargets.
-5. Add central part work cell framing and display-scope controls.
-6. Add the flat 8-slot rack with frozen clone and capture-plane content types.
-7. Add structure-mode gizmo editing in the center work cell.
-8. Add pose-state substrate only after the structure-mode comparison loop is stable.
+1. Add `pose_state` as a separate live overlay on top of structure.
+2. Add reset verbs for pose and structure cleanup.
+3. Add `joint_limits` as the guard-rail layer.
+4. Add pose-mode gizmo control on top of `pose_state`.
+5. Add timeline / key-pose shared state.
+6. Compile authored motion into the existing playback contract.
+7. Resume rack / frozen-clone comparison work after the structure and pose loop is stable.
 
 ## What Must Be Updated In Doctrine
 
@@ -570,7 +586,7 @@ After this direction is accepted, the next docs to update are:
 - `docs/CHAMPION_COUNCIL_ROADMAP_2026-03-24.md`
   - insert blank model-theater / builder-subject milestone after current scaffold/runtime stabilization
 - `docs/rode.txt`
-  - add this as the next named milestone after Slice 3a is committed
+  - add the post-structure-authoring milestone naming after Slice 3d
 
 ## Invariants
 
@@ -609,13 +625,13 @@ Where we are now:
 
 What does not exist yet:
 
-- committed Slice 3a selection substrate
-- body-part observer subtargets
-- central part work cell
+- `pose_state`
+- reset verbs
+- `joint_limits`
+- pose-mode gizmo
+- timeline / key-pose substrate
+- clip compiler
 - flat 8-slot reference rack
-- structure-mode gizmo bridge
-- pose-state substrate
-- scaffold-first builder independent of imported meshes
 
 The right move is not to overload the imported-model helper path.
 

@@ -1097,6 +1097,10 @@
                 enabled: true,
                 slot_family: ''
             },
+            pose: {
+                active: false,
+                transforms: {}
+            },
             isolated_chain: '',
             _skeletonGroup: null,
             _scaffoldPieces: null,
@@ -1117,6 +1121,105 @@
             gizmo_space: 'local',
             gizmo_active: false
         };
+    }
+
+    function _envBuilderPoseIdentityRotation() {
+        return [0, 0, 0, 1];
+    }
+
+    function _envBuilderPoseIdentityOffset() {
+        return [0, 0, 0];
+    }
+
+    function _envNormalizeBuilderPoseQuaternion(value, fallback) {
+        var source = Array.isArray(value) && value.length === 4
+            ? value
+            : (value && typeof value === 'object' && !Array.isArray(value)
+                ? [value.x, value.y, value.z, value.w]
+                : fallback);
+        var out = Array.isArray(source) ? source.slice(0, 4) : _envBuilderPoseIdentityRotation();
+        while (out.length < 4) out.push(out.length === 3 ? 1 : 0);
+        out = out.map(function (entry, idx) {
+            var next = Number(entry);
+            if (!Number.isFinite(next)) {
+                var prior = Array.isArray(fallback) && fallback.length === 4 ? Number(fallback[idx]) : (idx === 3 ? 1 : 0);
+                next = Number.isFinite(prior) ? prior : (idx === 3 ? 1 : 0);
+            }
+            return next;
+        });
+        var mag = Math.sqrt(
+            (out[0] * out[0])
+            + (out[1] * out[1])
+            + (out[2] * out[2])
+            + (out[3] * out[3])
+        );
+        if (!(mag > 0.000001)) return _envBuilderPoseIdentityRotation();
+        return out.map(function (entry) { return entry / mag; });
+    }
+
+    function _envNormalizeBuilderPoseTransform(entry) {
+        var src = entry && typeof entry === 'object' && !Array.isArray(entry) ? entry : {};
+        return {
+            rotation: _envNormalizeBuilderPoseQuaternion(src.rotation, _envBuilderPoseIdentityRotation()),
+            offset: _envScaffoldNormalizeVector3(
+                src.offset === null ? _envBuilderPoseIdentityOffset() : src.offset,
+                _envBuilderPoseIdentityOffset()
+            ) || _envBuilderPoseIdentityOffset()
+        };
+    }
+
+    function _envBuilderPoseTransformMeaningful(entry) {
+        var transform = _envNormalizeBuilderPoseTransform(entry);
+        var rotation = transform.rotation || _envBuilderPoseIdentityRotation();
+        var offset = transform.offset || _envBuilderPoseIdentityOffset();
+        return Math.abs(Number(rotation[0] || 0)) > 0.00001
+            || Math.abs(Number(rotation[1] || 0)) > 0.00001
+            || Math.abs(Number(rotation[2] || 0)) > 0.00001
+            || Math.abs(Number(rotation[3] || 1) - 1) > 0.00001
+            || Math.abs(Number(offset[0] || 0)) > 0.00001
+            || Math.abs(Number(offset[1] || 0)) > 0.00001
+            || Math.abs(Number(offset[2] || 0)) > 0.00001;
+    }
+
+    function _envNormalizeBuilderPoseState(raw) {
+        var src = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+        var transforms = {};
+        var sourceTransforms = src.transforms && typeof src.transforms === 'object' && !Array.isArray(src.transforms)
+            ? src.transforms
+            : {};
+        Object.keys(sourceTransforms).forEach(function (boneId) {
+            var key = String(boneId || '').trim();
+            if (!key) return;
+            var transform = _envNormalizeBuilderPoseTransform(sourceTransforms[boneId]);
+            if (_envBuilderPoseTransformMeaningful(transform)) transforms[key] = transform;
+        });
+        return {
+            active: Object.keys(transforms).length > 0,
+            transforms: transforms
+        };
+    }
+
+    function _envBuilderPoseState() {
+        var pose = _envNormalizeBuilderPoseState(_envBuilderSubject.pose || null);
+        var filtered = {};
+        Object.keys(pose.transforms || {}).forEach(function (boneId) {
+            if (_envBuilderHasBone(_envBuilderSubject.bones || [], boneId)) {
+                filtered[boneId] = pose.transforms[boneId];
+            }
+        });
+        pose.transforms = filtered;
+        pose.active = Object.keys(filtered).length > 0;
+        _envBuilderSubject.pose = pose;
+        return _envBuilderSubject.pose;
+    }
+
+    function _envBuilderPosedBoneIds(poseState) {
+        var pose = _envNormalizeBuilderPoseState(poseState || null);
+        return Object.keys(pose.transforms || {});
+    }
+
+    function _envBuilderPoseSuppressesScaffold(poseState) {
+        return !!_envNormalizeBuilderPoseState(poseState || _envBuilderSubject.pose || null).active;
     }
 
     function _envNormalizeBuilderEditingMode(value) {
@@ -1648,6 +1751,7 @@
         state.bones = blueprint.bones;
         state.overlays = blueprint.overlays;
         state.scaffold_projection = blueprint.scaffold_projection;
+        state.pose = _envNormalizeBuilderPoseState(null);
         return state;
     }
 
@@ -9499,6 +9603,10 @@
                 editing_mode: 'structure',
                 part_display_scope: 'body',
                 part_view: 'iso_front',
+                pose: {
+                    active: false,
+                    transforms: {}
+                },
                 gizmo_mode: 'rotate',
                 gizmo_space: 'local',
                 preview_clip: '',
@@ -9563,6 +9671,7 @@
                 editing_mode: _envNormalizeBuilderEditingMode(workbench.editing_mode || 'structure'),
                 part_display_scope: _envNormalizeBuilderDisplayScope(workbench.part_display_scope || 'body'),
                 part_view: _envNormalizeBuilderPartView(workbench.part_view || 'iso_front'),
+                pose: _envNormalizeBuilderPoseState(workbench.pose || null),
                 gizmo_mode: _envNormalizeBuilderGizmoMode(workbench.gizmo_mode || 'rotate'),
                 gizmo_space: _envNormalizeBuilderGizmoSpace(workbench.gizmo_space || 'local'),
                 preview_clip: String(workbench.preview_clip || '').trim(),
@@ -9612,11 +9721,13 @@
             workbench.selected_bone_id = String(_envBuilderInteraction.selected_bone_id || '').trim();
             workbench.part_display_scope = _envNormalizeBuilderDisplayScope(_envBuilderInteraction.part_display_scope || 'body');
             workbench.part_view = _envNormalizeBuilderPartView(_envBuilderInteraction.part_view || 'iso_front');
+            workbench.pose = _envNormalizeBuilderPoseState(_envBuilderSubject.pose || null);
         } else if (!preservePendingBuilderSession) {
             workbench.subject_mode = 'mounted_asset';
             workbench.builder_subject = null;
             workbench.isolated_chain = '';
             workbench.selected_bone_id = '';
+            workbench.pose = _envNormalizeBuilderPoseState(null);
         }
         workbench.editing_mode = _envNormalizeBuilderEditingMode(_envBuilderInteraction.editing_mode || 'structure');
         workbench.part_display_scope = _envNormalizeBuilderDisplayScope(_envBuilderInteraction.part_display_scope || 'body');
@@ -9826,6 +9937,7 @@
             if (mesh && mesh.userData) {
                 if (desiredBuilderSubject && desiredBuilderSubject.active) {
                     _envBuilderSubject = desiredBuilderSubject;
+                    _envBuilderSubject.pose = _envNormalizeBuilderPoseState((session.workbench || {}).pose || null);
                     _envBuilderInteraction = _envNormalizeBuilderInteraction(session.workbench || null);
                     _envBuilderResetRuntimeRefs();
                     _envBuilderSetIsolationState(_envBuilderSubject, (session.workbench || {}).isolated_chain || '');
@@ -10202,6 +10314,7 @@
                     'character_mount', 'character_unmount', 'character_focus', 'character_move_to',
                     'character_stop', 'character_look_at', 'character_set_model',
                     'workbench_new_builder', 'workbench_get_blueprint', 'workbench_get_part_surface', 'workbench_frame_part', 'workbench_set_bone',
+                    'workbench_set_pose', 'workbench_clear_pose', 'workbench_reset_angles',
                     'workbench_select_bone', 'workbench_set_editing_mode', 'workbench_set_display_scope',
                     'workbench_set_gizmo_mode', 'workbench_set_gizmo_space',
                     'workbench_isolate_chain', 'workbench_save_blueprint', 'workbench_load_blueprint',
@@ -10215,7 +10328,7 @@
                     'mount', 'unmount', 'focus', 'move_to', 'stop', 'look_at', 'set_model',
                     'new_builder', 'get_blueprint', 'get_part_surface', 'frame_part', 'select_bone', 'set_editing_mode', 'set_display_scope',
                     'set_gizmo_mode', 'set_gizmo_space',
-                    'set_bone', 'isolate_chain', 'save_blueprint', 'load_blueprint',
+                    'set_bone', 'set_pose', 'clear_pose', 'reset_angles', 'isolate_chain', 'save_blueprint', 'load_blueprint',
                     'play_clip', 'queue_clips', 'stop_clip', 'set_loop', 'set_speed',
                     'set_scaffold',
                     'get_animation_state', 'play_reaction'
@@ -13923,6 +14036,62 @@
         };
     }
 
+    function _envNormalizeWorkbenchPoseSpec(targetId) {
+        var raw = String(targetId || '').trim();
+        var parsed = raw ? _safeJsonParse(raw) : null;
+        var payload = parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+            ? parsed
+            : (raw ? { bone_id: raw } : {});
+        return {
+            raw: raw,
+            payload: payload,
+            bone_id: String(payload.bone_id || payload.bone || payload.id || '').trim(),
+            has_rotation: Object.prototype.hasOwnProperty.call(payload, 'rotation'),
+            rotation: _envNormalizeBuilderPoseQuaternion(payload.rotation, _envBuilderPoseIdentityRotation()),
+            has_offset: Object.prototype.hasOwnProperty.call(payload, 'offset'),
+            offset: _envScaffoldNormalizeVector3(
+                payload.offset === null ? _envBuilderPoseIdentityOffset() : payload.offset,
+                _envBuilderPoseIdentityOffset()
+            ) || _envBuilderPoseIdentityOffset()
+        };
+    }
+
+    function _envNormalizeWorkbenchClearPoseTarget(targetId) {
+        var raw = String(targetId || '').trim();
+        var parsed = raw ? _safeJsonParse(raw) : null;
+        var payload = parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+            ? parsed
+            : {};
+        var requestedBoneId = String(payload.bone_id || payload.bone || payload.id || raw || '').trim();
+        var clearAll = requestedBoneId.toLowerCase() === 'all'
+            || payload.all === true
+            || raw === '';
+        return {
+            raw: raw,
+            payload: payload,
+            clear_all: clearAll,
+            bone_id: clearAll ? 'all' : requestedBoneId
+        };
+    }
+
+    function _envNormalizeWorkbenchResetAnglesTarget(targetId) {
+        var raw = String(targetId || '').trim();
+        var parsed = raw ? _safeJsonParse(raw) : null;
+        var payload = parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+            ? parsed
+            : {};
+        var fallbackBoneId = String(_envBuilderInteraction.selected_bone_id || '').trim();
+        var requestedBoneId = String(payload.bone_id || payload.bone || payload.id || raw || fallbackBoneId || '').trim();
+        var resetAll = requestedBoneId.toLowerCase() === 'all'
+            || payload.all === true;
+        return {
+            raw: raw,
+            payload: payload,
+            reset_all: resetAll,
+            bone_id: resetAll ? 'all' : requestedBoneId
+        };
+    }
+
     function _envNormalizeWorkbenchBoneEditSpec(targetId) {
         var raw = String(targetId || '').trim();
         var parsed = raw ? _safeJsonParse(raw) : null;
@@ -14513,6 +14682,319 @@
         _envStageUiState.forceStageRebuild = true;
         renderEnvironmentView();
         return spec.gizmo_space;
+    }
+
+    function _envWorkbenchSetPose(actor, reason, targetId) {
+        var actorName = String(actor || _envManualActorId() || 'assistant').trim() || 'assistant';
+        if (!_envBuilderSubject.active) {
+            _envLogAction('character_runtime', 'Rejected builder pose edit: no active builder subject', actorName, {
+                action: 'workbench_set_pose'
+            });
+            _envSetBadge('failed', 'NO BUILDER');
+            renderEnvironmentView();
+            return false;
+        }
+        if (_envNormalizeBuilderEditingMode(_envBuilderInteraction.editing_mode || 'structure') !== 'pose') {
+            _envLogAction('character_runtime', 'Rejected builder pose edit: editing mode mismatch', actorName, {
+                action: 'workbench_set_pose',
+                editing_mode: String(_envBuilderInteraction.editing_mode || 'structure')
+            });
+            _envSetBadge('failed', 'MODE MISMATCH');
+            renderEnvironmentView();
+            return false;
+        }
+        var spec = _envNormalizeWorkbenchPoseSpec(targetId);
+        if (!spec.bone_id) {
+            _envLogAction('character_runtime', 'Rejected builder pose edit: missing bone id', actorName, {
+                action: 'workbench_set_pose',
+                target: String(targetId || '')
+            });
+            _envSetBadge('failed', 'NO BONE');
+            renderEnvironmentView();
+            return false;
+        }
+        if (!_envBuilderHasBone(_envBuilderSubject.bones || [], spec.bone_id)) {
+            _envLogAction('character_runtime', 'Rejected builder pose edit: bone unavailable', actorName, {
+                action: 'workbench_set_pose',
+                bone_id: spec.bone_id
+            });
+            _envSetBadge('failed', 'BAD BONE');
+            renderEnvironmentView();
+            return false;
+        }
+        var mesh = _envMountedRuntimeMesh();
+        if (!mesh || !mesh.userData || !mesh.userData._builderSubjectGroup) {
+            _envLogAction('character_runtime', 'Rejected builder pose edit: mounted runtime mesh unavailable', actorName, {
+                action: 'workbench_set_pose',
+                bone_id: spec.bone_id
+            });
+            _envSetBadge('failed', 'NO MESH');
+            renderEnvironmentView();
+            return false;
+        }
+        var poseState = _envBuilderPoseState();
+        var current = poseState.transforms[spec.bone_id]
+            ? _envNormalizeBuilderPoseTransform(poseState.transforms[spec.bone_id])
+            : _envNormalizeBuilderPoseTransform(null);
+        var nextTransform = {
+            rotation: spec.has_rotation ? spec.rotation : current.rotation,
+            offset: spec.has_offset ? spec.offset : current.offset
+        };
+        if (_envBuilderPoseTransformMeaningful(nextTransform)) {
+            poseState.transforms[spec.bone_id] = _envNormalizeBuilderPoseTransform(nextTransform);
+        } else {
+            delete poseState.transforms[spec.bone_id];
+        }
+        _envBuilderSubject.pose = _envNormalizeBuilderPoseState(poseState);
+        _envBuilderInteraction.selected_bone_id = spec.bone_id;
+        _envBuilderInteraction.hover_bone_id = spec.bone_id;
+        if (!_env3DApplyBuilderPoseState(mesh)) {
+            _envLogAction('character_runtime', 'Rejected builder pose edit: pose apply failed', actorName, {
+                action: 'workbench_set_pose',
+                bone_id: spec.bone_id
+            });
+            _envSetBadge('failed', 'POSE ERR');
+            renderEnvironmentView();
+            return false;
+        }
+        _env3DStageBuilderSubjectForWorkbench(mesh, mesh.userData._builderSubjectGroup || null);
+        _envBuilderApplySelectionToMesh(mesh);
+        _env3DUpdateBuilderGizmoAttachment('workbench_set_pose');
+        _env3DRefreshWorkbenchFocusRig(false);
+        _envRefreshInhabitantRuntimeState('workbench_set_pose');
+        _envLogAction('character_runtime', 'Updated builder pose transform', actorName, {
+            action: 'workbench_set_pose',
+            bone_id: spec.bone_id,
+            changed: {
+                rotation: !!spec.has_rotation,
+                offset: !!spec.has_offset
+            },
+            transform: _envCloneJson(_envBuilderSubject.pose.transforms[spec.bone_id] || null, null),
+            pose_active: !!_envBuilderSubject.pose.active
+        });
+        _envEmitBus('character_runtime', 'Updated builder pose transform', actorName, {
+            action: 'workbench_set_pose',
+            object_key: _envInhabitantObjectKey(),
+            bone_id: spec.bone_id
+        });
+        _envSetBadge('running', 'POSE');
+        _envScheduleLiveSync('workbench_set_pose:' + spec.bone_id, true);
+        _envSaveTheaterSession('workbench_set_pose');
+        _envScene.dirty = true;
+        _envStageUiState.forceStageRebuild = true;
+        renderEnvironmentView();
+        return spec.bone_id;
+    }
+
+    function _envWorkbenchClearPose(actor, reason, targetId) {
+        var actorName = String(actor || _envManualActorId() || 'assistant').trim() || 'assistant';
+        if (!_envBuilderSubject.active) {
+            _envLogAction('character_runtime', 'Rejected builder pose clear: no active builder subject', actorName, {
+                action: 'workbench_clear_pose'
+            });
+            _envSetBadge('failed', 'NO BUILDER');
+            renderEnvironmentView();
+            return false;
+        }
+        if (_envNormalizeBuilderEditingMode(_envBuilderInteraction.editing_mode || 'structure') !== 'pose') {
+            _envLogAction('character_runtime', 'Rejected builder pose clear: editing mode mismatch', actorName, {
+                action: 'workbench_clear_pose',
+                editing_mode: String(_envBuilderInteraction.editing_mode || 'structure')
+            });
+            _envSetBadge('failed', 'MODE MISMATCH');
+            renderEnvironmentView();
+            return false;
+        }
+        var spec = _envNormalizeWorkbenchClearPoseTarget(targetId);
+        if (!spec.clear_all && !spec.bone_id) {
+            _envLogAction('character_runtime', 'Rejected builder pose clear: missing bone id', actorName, {
+                action: 'workbench_clear_pose',
+                target: String(targetId || '')
+            });
+            _envSetBadge('failed', 'NO BONE');
+            renderEnvironmentView();
+            return false;
+        }
+        if (!spec.clear_all && !_envBuilderHasBone(_envBuilderSubject.bones || [], spec.bone_id)) {
+            _envLogAction('character_runtime', 'Rejected builder pose clear: bone unavailable', actorName, {
+                action: 'workbench_clear_pose',
+                bone_id: spec.bone_id
+            });
+            _envSetBadge('failed', 'BAD BONE');
+            renderEnvironmentView();
+            return false;
+        }
+        var mesh = _envMountedRuntimeMesh();
+        if (!mesh || !mesh.userData || !mesh.userData._builderSubjectGroup) {
+            _envLogAction('character_runtime', 'Rejected builder pose clear: mounted runtime mesh unavailable', actorName, {
+                action: 'workbench_clear_pose',
+                bone_id: spec.clear_all ? 'all' : spec.bone_id
+            });
+            _envSetBadge('failed', 'NO MESH');
+            renderEnvironmentView();
+            return false;
+        }
+        var poseState = _envBuilderPoseState();
+        if (spec.clear_all) {
+            poseState.transforms = {};
+        } else {
+            delete poseState.transforms[spec.bone_id];
+            _envBuilderInteraction.selected_bone_id = spec.bone_id;
+            _envBuilderInteraction.hover_bone_id = spec.bone_id;
+        }
+        _envBuilderSubject.pose = _envNormalizeBuilderPoseState(poseState);
+        if (!_env3DApplyBuilderPoseState(mesh)) {
+            _envLogAction('character_runtime', 'Rejected builder pose clear: pose apply failed', actorName, {
+                action: 'workbench_clear_pose',
+                bone_id: spec.clear_all ? 'all' : spec.bone_id
+            });
+            _envSetBadge('failed', 'POSE ERR');
+            renderEnvironmentView();
+            return false;
+        }
+        _env3DStageBuilderSubjectForWorkbench(mesh, mesh.userData._builderSubjectGroup || null);
+        _envBuilderApplySelectionToMesh(mesh);
+        _env3DUpdateBuilderGizmoAttachment('workbench_clear_pose');
+        _env3DRefreshWorkbenchFocusRig(false);
+        _envRefreshInhabitantRuntimeState('workbench_clear_pose');
+        _envLogAction('character_runtime', spec.clear_all ? 'Cleared all builder pose transforms' : 'Cleared builder pose transform', actorName, {
+            action: 'workbench_clear_pose',
+            bone_id: spec.clear_all ? 'all' : spec.bone_id,
+            pose_active: !!_envBuilderSubject.pose.active,
+            pose_transform_count: Object.keys((_envBuilderSubject.pose || {}).transforms || {}).length
+        });
+        _envEmitBus('character_runtime', spec.clear_all ? 'Cleared all builder pose transforms' : 'Cleared builder pose transform', actorName, {
+            action: 'workbench_clear_pose',
+            object_key: _envInhabitantObjectKey(),
+            bone_id: spec.clear_all ? 'all' : spec.bone_id
+        });
+        _envSetBadge('running', spec.clear_all ? 'POSE CLR' : 'POSE BONE CLR');
+        _envScheduleLiveSync('workbench_clear_pose:' + (spec.clear_all ? 'all' : spec.bone_id), true);
+        _envSaveTheaterSession('workbench_clear_pose');
+        _envScene.dirty = true;
+        _envStageUiState.forceStageRebuild = true;
+        renderEnvironmentView();
+        return spec.clear_all ? 'all' : spec.bone_id;
+    }
+
+    function _envBuilderDefaultAnglePresetForBone(record) {
+        var normalized = _envBuilderNormalizeBoneRecord(record);
+        var family = String(_envBuilderSubject.family || '').trim();
+        var anchorBone = String(_envBuilderSubject.anchor_bone || normalized.id || 'hips').trim() || 'hips';
+        var defaults = _envBuildPresetBuilderBones(family, anchorBone);
+        var matched = null;
+        defaults.some(function (entry) {
+            var preset = _envBuilderNormalizeBoneRecord(entry);
+            if (preset.id !== normalized.id && preset.canonical_joint !== normalized.canonical_joint) return false;
+            matched = preset;
+            return true;
+        });
+        return matched
+            ? {
+                orientation: matched.orientation.slice(0, 3),
+                roll: Number(matched.roll || 0)
+            }
+            : {
+                orientation: [0, 0, 0],
+                roll: 0
+            };
+    }
+
+    function _envWorkbenchResetAngles(actor, reason, targetId) {
+        var actorName = String(actor || _envManualActorId() || 'assistant').trim() || 'assistant';
+        if (!_envBuilderSubject.active) {
+            _envLogAction('character_runtime', 'Rejected builder angle reset: no active builder subject', actorName, {
+                action: 'workbench_reset_angles'
+            });
+            _envSetBadge('failed', 'NO BUILDER');
+            renderEnvironmentView();
+            return false;
+        }
+        if (_envNormalizeBuilderEditingMode(_envBuilderInteraction.editing_mode || 'structure') !== 'structure') {
+            _envLogAction('character_runtime', 'Rejected builder angle reset: editing mode mismatch', actorName, {
+                action: 'workbench_reset_angles',
+                editing_mode: String(_envBuilderInteraction.editing_mode || 'structure')
+            });
+            _envSetBadge('failed', 'MODE MISMATCH');
+            renderEnvironmentView();
+            return false;
+        }
+        var spec = _envNormalizeWorkbenchResetAnglesTarget(targetId);
+        if (!spec.reset_all && !spec.bone_id) {
+            _envLogAction('character_runtime', 'Rejected builder angle reset: missing bone id', actorName, {
+                action: 'workbench_reset_angles',
+                target: String(targetId || '')
+            });
+            _envSetBadge('failed', 'NO BONE');
+            renderEnvironmentView();
+            return false;
+        }
+        var mesh = _envMountedRuntimeMesh();
+        if (!mesh || !mesh.userData) {
+            _envLogAction('character_runtime', 'Rejected builder angle reset: mounted runtime mesh unavailable', actorName, {
+                action: 'workbench_reset_angles',
+                bone_id: spec.reset_all ? 'all' : spec.bone_id
+            });
+            _envSetBadge('failed', 'NO MESH');
+            renderEnvironmentView();
+            return false;
+        }
+        var previousBones = _envCloneJson(_envBuilderSubject.bones || [], []);
+        var matchedCount = 0;
+        _envBuilderSubject.bones = (_envBuilderSubject.bones || []).map(function (entry) {
+            var bone = _envBuilderNormalizeBoneRecord(entry);
+            if (!spec.reset_all && bone.id !== spec.bone_id) return bone;
+            var defaults = _envBuilderDefaultAnglePresetForBone(bone);
+            bone.orientation = defaults.orientation.slice(0, 3);
+            bone.roll = Number(defaults.roll || 0);
+            matchedCount += 1;
+            return bone;
+        });
+        if (!matchedCount) {
+            _envBuilderSubject.bones = (Array.isArray(previousBones) ? previousBones : []).map(_envBuilderNormalizeBoneRecord);
+            _envLogAction('character_runtime', 'Rejected builder angle reset: bone unavailable', actorName, {
+                action: 'workbench_reset_angles',
+                bone_id: spec.bone_id
+            });
+            _envSetBadge('failed', 'BAD BONE');
+            renderEnvironmentView();
+            return false;
+        }
+        if (!spec.reset_all) {
+            _envBuilderInteraction.selected_bone_id = spec.bone_id;
+            _envBuilderInteraction.hover_bone_id = spec.bone_id;
+        }
+        if (!_env3DSyncBuilderSubjectMesh(mesh)) {
+            _envBuilderSubject.bones = (Array.isArray(previousBones) ? previousBones : []).map(_envBuilderNormalizeBoneRecord);
+            _env3DSyncBuilderSubjectMesh(mesh);
+            _envLogAction('character_runtime', 'Rejected builder angle reset: procedural rebuild failed', actorName, {
+                action: 'workbench_reset_angles',
+                bone_id: spec.reset_all ? 'all' : spec.bone_id
+            });
+            _envSetBadge('failed', 'RESET ERR');
+            renderEnvironmentView();
+            return false;
+        }
+        _env3DUpdateBuilderGizmoAttachment('workbench_reset_angles');
+        _envRefreshInhabitantRuntimeState('workbench_reset_angles');
+        _envLogAction('character_runtime', spec.reset_all ? 'Reset builder angles for all bones' : 'Reset builder angles', actorName, {
+            action: 'workbench_reset_angles',
+            bone_id: spec.reset_all ? 'all' : spec.bone_id,
+            reset_count: matchedCount
+        });
+        _envEmitBus('character_runtime', spec.reset_all ? 'Reset builder angles for all bones' : 'Reset builder angles', actorName, {
+            action: 'workbench_reset_angles',
+            object_key: _envInhabitantObjectKey(),
+            bone_id: spec.reset_all ? 'all' : spec.bone_id,
+            reset_count: matchedCount
+        });
+        _envSetBadge('running', spec.reset_all ? 'ANGLES ALL' : 'ANGLES');
+        _envScheduleLiveSync('workbench_reset_angles:' + (spec.reset_all ? 'all' : spec.bone_id), true);
+        _envSaveTheaterSession('workbench_reset_angles');
+        _envScene.dirty = true;
+        _envStageUiState.forceStageRebuild = true;
+        renderEnvironmentView();
+        return spec.reset_all ? 'all' : spec.bone_id;
     }
 
     function _envWorkbenchSetBone(actor, reason, targetId) {
@@ -15407,6 +15889,9 @@
         'workbench.get_part_surface': 'workbench_get_part_surface',
         'workbench.frame_part': 'workbench_frame_part',
         'workbench.set_bone': 'workbench_set_bone',
+        'workbench.set_pose': 'workbench_set_pose',
+        'workbench.clear_pose': 'workbench_clear_pose',
+        'workbench.reset_angles': 'workbench_reset_angles',
         'workbench.select_bone': 'workbench_select_bone',
         'workbench.set_editing_mode': 'workbench_set_editing_mode',
         'workbench.set_display_scope': 'workbench_set_display_scope',
@@ -15477,7 +15962,8 @@
             || command === 'character_move_to' || command === 'character_stop' || command === 'character_look_at'
             || command === 'workbench_new_builder' || command === 'workbench_get_blueprint'
             || command === 'workbench_get_part_surface' || command === 'workbench_frame_part'
-            || command === 'workbench_set_bone' || command === 'workbench_select_bone'
+            || command === 'workbench_set_bone' || command === 'workbench_set_pose'
+            || command === 'workbench_clear_pose' || command === 'workbench_reset_angles' || command === 'workbench_select_bone'
             || command === 'workbench_set_editing_mode' || command === 'workbench_set_display_scope'
             || command === 'workbench_set_gizmo_mode' || command === 'workbench_set_gizmo_space'
             || command === 'workbench_isolate_chain'
@@ -22182,6 +22668,18 @@
             _envWorkbenchSetBone(actorName, reason || 'control workbench set bone', targetId);
             return;
         }
+        if (command === 'workbench_set_pose') {
+            _envWorkbenchSetPose(actorName, reason || 'control workbench set pose', targetId);
+            return;
+        }
+        if (command === 'workbench_clear_pose') {
+            _envWorkbenchClearPose(actorName, reason || 'control workbench clear pose', targetId);
+            return;
+        }
+        if (command === 'workbench_reset_angles') {
+            _envWorkbenchResetAngles(actorName, reason || 'control workbench reset angles', targetId);
+            return;
+        }
         if (command === 'workbench_isolate_chain') {
             _envWorkbenchIsolateChain(actorName, reason || 'control workbench isolate chain', targetId);
             return;
@@ -23913,6 +24411,7 @@
         var boneMap = builderActive ? _envBuilderBoneRecordMap((blueprint && blueprint.bones) || []) : {};
         var selectedPartSurface = builderActive && selectedBoneId ? _envBuilderComputePartSurface(selectedBoneId) : null;
         var partCameraRecipes = selectedPartSurface ? _envBuilderPartCameraRecipes(selectedPartSurface) : [];
+        var poseState = builderActive ? _envBuilderPoseState() : _envNormalizeBuilderPoseState(null);
         var selectedTargetVisible = builderActive && selectedBoneId ? _envBuilderSelectedTargetVisible(mountedMesh, selectedBoneId) : false;
         var gizmoAttached = builderActive
             && selectedBoneId
@@ -23933,7 +24432,9 @@
             subject_mode: builderActive ? String(_envBuilderSubject.subject_mode || 'preset_skeleton') : 'mounted_asset',
             builder_active: builderActive,
             builder_family: builderActive ? family : '',
-            scaffold_visible: !!(mountedMesh && mountedMesh.userData && mountedMesh.userData._scaffoldVisible),
+            scaffold_visible: !!(builderActive
+                ? (!!(mountedMesh && mountedMesh.userData && mountedMesh.userData._scaffoldVisible) && !_envBuilderPoseSuppressesScaffold(poseState))
+                : (mountedMesh && mountedMesh.userData && mountedMesh.userData._scaffoldVisible)),
             scaffold_piece_count: Number(scaffoldPieces ? Object.keys(scaffoldPieces).length : 0),
             scaffold_slot_count: Number((registrySlots || []).length || 0),
             scaffold_data_family: family,
@@ -23952,6 +24453,9 @@
             editing_mode: builderActive ? _envNormalizeBuilderEditingMode(_envBuilderInteraction.editing_mode || 'structure') : '',
             part_display_scope: effectiveDisplayScope,
             part_view: builderActive && selectedBoneId ? configuredPartView : '',
+            pose_active: builderActive ? !!poseState.active : false,
+            pose_transform_count: builderActive ? Object.keys(poseState.transforms || {}).length : 0,
+            posed_bone_ids: builderActive ? _envBuilderPosedBoneIds(poseState) : [],
             configured_display_scope: configuredDisplayScope,
             gizmo_mode: builderActive ? _envNormalizeBuilderGizmoMode(_envBuilderInteraction.gizmo_mode || 'rotate') : '',
             gizmo_space: builderActive ? _envNormalizeBuilderGizmoSpace(_envBuilderInteraction.gizmo_space || 'local') : '',
@@ -39506,6 +40010,7 @@
                 Number((record.orientation || [])[2] || 0)
             );
             if (Number(record.roll || 0)) bone.rotateZ(Number(record.roll || 0));
+            _env3DCacheBuilderBoneRestPose(bone);
             if (parent) parent.add(bone);
             else group.add(bone);
         });
@@ -39603,7 +40108,7 @@
                 part.visible = visible;
             });
         }
-        var scaffoldBaseVisible = !!mesh.userData._scaffoldVisible;
+        var scaffoldBaseVisible = !!mesh.userData._scaffoldVisible && !_envBuilderPoseSuppressesScaffold(_envBuilderSubject.pose || null);
         var pieces = mesh.userData._scaffoldPieces || null;
         if (pieces) {
             Object.keys(pieces).forEach(function (slotName) {
@@ -39882,6 +40387,77 @@
         });
     }
 
+    function _env3DCacheBuilderBoneRestPose(bone) {
+        if (!bone || typeof THREE === 'undefined') return false;
+        bone.userData = bone.userData || {};
+        bone.userData._restPosition = [
+            Number(bone.position.x || 0),
+            Number(bone.position.y || 0),
+            Number(bone.position.z || 0)
+        ];
+        bone.userData._restQuaternion = [
+            Number(bone.quaternion.x || 0),
+            Number(bone.quaternion.y || 0),
+            Number(bone.quaternion.z || 0),
+            Number(bone.quaternion.w || 1)
+        ];
+        return true;
+    }
+
+    function _env3DBuilderBoneRestPosition(bone) {
+        if (typeof THREE === 'undefined') return null;
+        var source = bone && bone.userData && Array.isArray(bone.userData._restPosition)
+            ? bone.userData._restPosition
+            : [Number((((bone || {}).position) || {}).x || 0), Number((((bone || {}).position) || {}).y || 0), Number((((bone || {}).position) || {}).z || 0)];
+        return new THREE.Vector3(Number(source[0] || 0), Number(source[1] || 0), Number(source[2] || 0));
+    }
+
+    function _env3DBuilderBoneRestQuaternion(bone) {
+        if (typeof THREE === 'undefined') return null;
+        var source = bone && bone.userData && Array.isArray(bone.userData._restQuaternion)
+            ? bone.userData._restQuaternion
+            : [Number((((bone || {}).quaternion) || {}).x || 0), Number((((bone || {}).quaternion) || {}).y || 0), Number((((bone || {}).quaternion) || {}).z || 0), Number((((bone || {}).quaternion) || {}).w || 1)];
+        return new THREE.Quaternion(Number(source[0] || 0), Number(source[1] || 0), Number(source[2] || 0), Number(source[3] || 1));
+    }
+
+    function _env3DApplyBuilderPoseState(mesh) {
+        if (!mesh || !mesh.userData || !_envBuilderSubject.active || typeof THREE === 'undefined') return false;
+        var boneMap = mesh.userData._builderBoneMap || {};
+        var poseState = _envBuilderPoseState();
+        Object.keys(boneMap).forEach(function (boneId) {
+            var bone = boneMap[boneId];
+            if (!bone) return;
+            if (!bone.userData || !Array.isArray(bone.userData._restPosition) || !Array.isArray(bone.userData._restQuaternion)) {
+                _env3DCacheBuilderBoneRestPose(bone);
+            }
+            var restPosition = _env3DBuilderBoneRestPosition(bone);
+            var restQuaternion = _env3DBuilderBoneRestQuaternion(bone);
+            if (restPosition) bone.position.copy(restPosition);
+            if (restQuaternion) bone.quaternion.copy(restQuaternion);
+            var transform = poseState.transforms && poseState.transforms[boneId]
+                ? _envNormalizeBuilderPoseTransform(poseState.transforms[boneId])
+                : null;
+            if (transform) {
+                bone.quaternion.multiply(new THREE.Quaternion(
+                    Number((transform.rotation || [])[0] || 0),
+                    Number((transform.rotation || [])[1] || 0),
+                    Number((transform.rotation || [])[2] || 0),
+                    Number((transform.rotation || [])[3] || 1)
+                ));
+                bone.position.add(new THREE.Vector3(
+                    Number((transform.offset || [])[0] || 0),
+                    Number((transform.offset || [])[1] || 0),
+                    Number((transform.offset || [])[2] || 0)
+                ));
+            }
+            if (typeof bone.updateMatrix === 'function') bone.updateMatrix();
+            if (typeof bone.updateWorldMatrix === 'function') bone.updateWorldMatrix(false, true);
+        });
+        var group = mesh.userData._builderSubjectGroup || null;
+        if (group && typeof group.updateWorldMatrix === 'function') group.updateWorldMatrix(true, true);
+        return true;
+    }
+
     function _env3DSyncBuilderSubjectMesh(mesh) {
         if (!mesh || !mesh.userData || !_envBuilderSubject.active) return false;
         _env3DBuilderGizmoDetach();
@@ -39897,6 +40473,7 @@
             _envBuilderSubject._scaffoldPieces = null;
             _envBuilderSubject._scaffoldVisible = false;
         }
+        _env3DApplyBuilderPoseState(mesh);
         _env3DStageBuilderSubjectForWorkbench(mesh, group);
         _envBuilderApplySelectionToMesh(mesh);
         _env3DUpdateWorkbenchGuides();
@@ -42107,6 +42684,9 @@
              '<option value="workbench_set_gizmo_mode">workbench_set_gizmo_mode</option>' +
              '<option value="workbench_set_gizmo_space">workbench_set_gizmo_space</option>' +
              '<option value="workbench_set_bone">workbench_set_bone</option>' +
+             '<option value="workbench_set_pose">workbench_set_pose</option>' +
+             '<option value="workbench_clear_pose">workbench_clear_pose</option>' +
+             '<option value="workbench_reset_angles">workbench_reset_angles</option>' +
              '<option value="workbench_isolate_chain">workbench_isolate_chain</option>' +
              '<option value="workbench_save_blueprint">workbench_save_blueprint</option>' +
              '<option value="workbench_load_blueprint">workbench_load_blueprint</option>' +
@@ -50105,6 +50685,30 @@
             try { payload = JSON.stringify(spec); } catch (ignored) { payload = String(spec || ''); }
         }
         _envQueueControl('workbench_set_bone', payload, actor || 'assistant', reason || 'external workbench set bone');
+    };
+    window.envopsWorkbenchSetPose = function (spec, actor, reason) {
+        var payload = '';
+        if (typeof spec === 'string') payload = spec;
+        else if (spec !== undefined && spec !== null) {
+            try { payload = JSON.stringify(spec); } catch (ignored) { payload = String(spec || ''); }
+        }
+        _envQueueControl('workbench_set_pose', payload, actor || 'assistant', reason || 'external workbench set pose');
+    };
+    window.envopsWorkbenchClearPose = function (target, actor, reason) {
+        var payload = '';
+        if (typeof target === 'string') payload = target;
+        else if (target !== undefined && target !== null) {
+            try { payload = JSON.stringify(target); } catch (ignored) { payload = String(target || ''); }
+        }
+        _envQueueControl('workbench_clear_pose', payload, actor || 'assistant', reason || 'external workbench clear pose');
+    };
+    window.envopsWorkbenchResetAngles = function (target, actor, reason) {
+        var payload = '';
+        if (typeof target === 'string') payload = target;
+        else if (target !== undefined && target !== null) {
+            try { payload = JSON.stringify(target); } catch (ignored) { payload = String(target || ''); }
+        }
+        _envQueueControl('workbench_reset_angles', payload, actor || 'assistant', reason || 'external workbench reset angles');
     };
     window.envopsWorkbenchIsolateChain = function (target, actor, reason) {
         var payload = '';
