@@ -10339,7 +10339,7 @@
                     'character_mount', 'character_unmount', 'character_focus', 'character_move_to',
                     'character_stop', 'character_look_at', 'character_set_model',
                     'workbench_new_builder', 'workbench_get_blueprint', 'workbench_get_part_surface', 'workbench_frame_part', 'workbench_set_bone',
-                    'workbench_set_pose', 'workbench_clear_pose', 'workbench_reset_angles',
+                    'workbench_set_pose', 'workbench_set_pose_batch', 'workbench_clear_pose', 'workbench_reset_angles',
                     'workbench_select_bone', 'workbench_set_editing_mode', 'workbench_set_display_scope',
                     'workbench_set_gizmo_mode', 'workbench_set_gizmo_space',
                     'workbench_isolate_chain', 'workbench_save_blueprint', 'workbench_load_blueprint',
@@ -10353,7 +10353,7 @@
                     'mount', 'unmount', 'focus', 'move_to', 'stop', 'look_at', 'set_model',
                     'new_builder', 'get_blueprint', 'get_part_surface', 'frame_part', 'select_bone', 'set_editing_mode', 'set_display_scope',
                     'set_gizmo_mode', 'set_gizmo_space',
-                    'set_bone', 'set_pose', 'clear_pose', 'reset_angles', 'isolate_chain', 'save_blueprint', 'load_blueprint',
+                    'set_bone', 'set_pose', 'set_pose_batch', 'clear_pose', 'reset_angles', 'isolate_chain', 'save_blueprint', 'load_blueprint',
                     'play_clip', 'queue_clips', 'stop_clip', 'set_loop', 'set_speed',
                     'set_scaffold',
                     'get_animation_state', 'play_reaction'
@@ -14081,6 +14081,29 @@
         };
     }
 
+    function _envNormalizeWorkbenchPoseBatchSpec(targetId) {
+        var raw = String(targetId || '').trim();
+        var parsed = raw ? _safeJsonParse(raw) : null;
+        var payload = parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+            ? parsed
+            : {};
+        var sourcePoses = Array.isArray(payload.poses)
+            ? payload.poses
+            : (Array.isArray(parsed) ? parsed : []);
+        var poses = sourcePoses.map(function (entry) {
+            var value = '';
+            try { value = JSON.stringify(entry || {}); } catch (ignored) { value = ''; }
+            return _envNormalizeWorkbenchPoseSpec(value);
+        }).filter(function (spec) {
+            return !!String(spec.bone_id || '').trim();
+        });
+        return {
+            raw: raw,
+            payload: payload,
+            poses: poses
+        };
+    }
+
     function _envNormalizeWorkbenchClearPoseTarget(targetId) {
         var raw = String(targetId || '').trim();
         var parsed = raw ? _safeJsonParse(raw) : null;
@@ -14828,6 +14851,133 @@
         _envStageUiState.forceStageRebuild = true;
         renderEnvironmentView();
         return spec.bone_id;
+    }
+
+    function _envWorkbenchSetPoseBatch(actor, reason, targetId) {
+        var actorName = String(actor || _envManualActorId() || 'assistant').trim() || 'assistant';
+        if (!_envBuilderSubject.active) {
+            _envLogAction('character_runtime', 'Rejected builder pose batch edit: no active builder subject', actorName, {
+                action: 'workbench_set_pose_batch'
+            });
+            _envSetBadge('failed', 'NO BUILDER');
+            renderEnvironmentView();
+            return false;
+        }
+        if (_envNormalizeBuilderEditingMode(_envBuilderInteraction.editing_mode || 'structure') !== 'pose') {
+            _envLogAction('character_runtime', 'Rejected builder pose batch edit: editing mode mismatch', actorName, {
+                action: 'workbench_set_pose_batch',
+                editing_mode: String(_envBuilderInteraction.editing_mode || 'structure')
+            });
+            _envSetBadge('failed', 'MODE MISMATCH');
+            renderEnvironmentView();
+            return false;
+        }
+        var spec = _envNormalizeWorkbenchPoseBatchSpec(targetId);
+        if (!spec.poses.length) {
+            _envLogAction('character_runtime', 'Rejected builder pose batch edit: empty pose list', actorName, {
+                action: 'workbench_set_pose_batch',
+                target: String(targetId || '')
+            });
+            _envSetBadge('failed', 'NO POSES');
+            renderEnvironmentView();
+            return false;
+        }
+        var mesh = _envMountedRuntimeMesh();
+        if (!mesh || !mesh.userData || !mesh.userData._builderSubjectGroup) {
+            _envLogAction('character_runtime', 'Rejected builder pose batch edit: mounted runtime mesh unavailable', actorName, {
+                action: 'workbench_set_pose_batch'
+            });
+            _envSetBadge('failed', 'NO MESH');
+            renderEnvironmentView();
+            return false;
+        }
+        var poseState = _envBuilderPoseState();
+        var applied = [];
+        var skipped = [];
+        var lastBoneId = '';
+        spec.poses.forEach(function (poseSpec) {
+            var boneId = String((poseSpec || {}).bone_id || '').trim();
+            if (!boneId) return;
+            if (!_envBuilderHasBone(_envBuilderSubject.bones || [], boneId)) {
+                skipped.push({ bone_id: boneId, reason: 'bad_bone' });
+                return;
+            }
+            var current = poseState.transforms[boneId]
+                ? _envBuilderSanitizePoseTransform(boneId, poseState.transforms[boneId])
+                : _envNormalizeBuilderPoseTransform(null);
+            var offsetRejected = !!(poseSpec.has_offset
+                && _envBuilderPoseOffsetMeaningful(poseSpec.offset)
+                && !_envBuilderBoneAllowsPoseOffset(boneId));
+            var nextTransform = {
+                rotation: poseSpec.has_rotation ? poseSpec.rotation : current.rotation,
+                offset: (poseSpec.has_offset && !offsetRejected) ? poseSpec.offset : current.offset
+            };
+            var sanitized = _envBuilderSanitizePoseTransform(boneId, nextTransform);
+            if (_envBuilderPoseTransformMeaningful(sanitized)) {
+                poseState.transforms[boneId] = sanitized;
+            } else {
+                delete poseState.transforms[boneId];
+            }
+            applied.push({
+                bone_id: boneId,
+                changed: {
+                    rotation: !!poseSpec.has_rotation,
+                    offset: !!(poseSpec.has_offset && !offsetRejected)
+                },
+                offset_rejected: !!offsetRejected
+            });
+            lastBoneId = boneId;
+        });
+        if (!applied.length) {
+            _envLogAction('character_runtime', 'Rejected builder pose batch edit: no valid bones', actorName, {
+                action: 'workbench_set_pose_batch',
+                requested_pose_count: Number(spec.poses.length || 0)
+            });
+            _envSetBadge('failed', 'BAD POSES');
+            renderEnvironmentView();
+            return false;
+        }
+        _envBuilderSubject.pose = _envNormalizeBuilderPoseState(poseState);
+        if (lastBoneId) {
+            _envBuilderInteraction.selected_bone_id = lastBoneId;
+            _envBuilderInteraction.hover_bone_id = lastBoneId;
+        }
+        if (!_env3DApplyBuilderPoseState(mesh)) {
+            _envLogAction('character_runtime', 'Rejected builder pose batch edit: pose apply failed', actorName, {
+                action: 'workbench_set_pose_batch',
+                applied_bone_count: Number(applied.length || 0)
+            });
+            _envSetBadge('failed', 'POSE ERR');
+            renderEnvironmentView();
+            return false;
+        }
+        _env3DStageBuilderSubjectForWorkbench(mesh, mesh.userData._builderSubjectGroup || null);
+        _envBuilderApplySelectionToMesh(mesh);
+        _env3DUpdateBuilderGizmoAttachment('workbench_set_pose_batch');
+        _env3DRefreshWorkbenchFocusRig(false);
+        _envRefreshInhabitantRuntimeState('workbench_set_pose_batch');
+        _envLogAction('character_runtime', 'Updated builder pose batch', actorName, {
+            action: 'workbench_set_pose_batch',
+            applied_bone_count: Number(applied.length || 0),
+            requested_pose_count: Number(spec.poses.length || 0),
+            skipped_bone_count: Number(skipped.length || 0),
+            applied: applied,
+            skipped: skipped,
+            pose_active: !!_envBuilderSubject.pose.active
+        });
+        _envEmitBus('character_runtime', 'Updated builder pose batch', actorName, {
+            action: 'workbench_set_pose_batch',
+            object_key: _envInhabitantObjectKey(),
+            applied_bone_count: Number(applied.length || 0),
+            requested_pose_count: Number(spec.poses.length || 0)
+        });
+        _envSetBadge('running', 'POSE BATCH');
+        _envScheduleLiveSync('workbench_set_pose_batch:' + String(applied.length || 0), true);
+        _envSaveTheaterSession('workbench_set_pose_batch');
+        _envScene.dirty = true;
+        _envStageUiState.forceStageRebuild = true;
+        renderEnvironmentView();
+        return applied.length;
     }
 
     function _envWorkbenchClearPose(actor, reason, targetId) {
@@ -15934,6 +16084,7 @@
         'workbench.frame_part': 'workbench_frame_part',
         'workbench.set_bone': 'workbench_set_bone',
         'workbench.set_pose': 'workbench_set_pose',
+        'workbench.set_pose_batch': 'workbench_set_pose_batch',
         'workbench.clear_pose': 'workbench_clear_pose',
         'workbench.reset_angles': 'workbench_reset_angles',
         'workbench.select_bone': 'workbench_select_bone',
@@ -16006,7 +16157,7 @@
             || command === 'character_move_to' || command === 'character_stop' || command === 'character_look_at'
             || command === 'workbench_new_builder' || command === 'workbench_get_blueprint'
             || command === 'workbench_get_part_surface' || command === 'workbench_frame_part'
-            || command === 'workbench_set_bone' || command === 'workbench_set_pose'
+            || command === 'workbench_set_bone' || command === 'workbench_set_pose' || command === 'workbench_set_pose_batch'
             || command === 'workbench_clear_pose' || command === 'workbench_reset_angles' || command === 'workbench_select_bone'
             || command === 'workbench_set_editing_mode' || command === 'workbench_set_display_scope'
             || command === 'workbench_set_gizmo_mode' || command === 'workbench_set_gizmo_space'
@@ -22714,6 +22865,10 @@
         }
         if (command === 'workbench_set_pose') {
             _envWorkbenchSetPose(actorName, reason || 'control workbench set pose', targetId);
+            return;
+        }
+        if (command === 'workbench_set_pose_batch') {
+            _envWorkbenchSetPoseBatch(actorName, reason || 'control workbench set pose batch', targetId);
             return;
         }
         if (command === 'workbench_clear_pose') {
@@ -42798,6 +42953,7 @@
              '<option value="workbench_set_gizmo_space">workbench_set_gizmo_space</option>' +
              '<option value="workbench_set_bone">workbench_set_bone</option>' +
              '<option value="workbench_set_pose">workbench_set_pose</option>' +
+             '<option value="workbench_set_pose_batch">workbench_set_pose_batch</option>' +
              '<option value="workbench_clear_pose">workbench_clear_pose</option>' +
              '<option value="workbench_reset_angles">workbench_reset_angles</option>' +
              '<option value="workbench_isolate_chain">workbench_isolate_chain</option>' +
@@ -50806,6 +50962,14 @@
             try { payload = JSON.stringify(spec); } catch (ignored) { payload = String(spec || ''); }
         }
         _envQueueControl('workbench_set_pose', payload, actor || 'assistant', reason || 'external workbench set pose');
+    };
+    window.envopsWorkbenchSetPoseBatch = function (spec, actor, reason) {
+        var payload = '';
+        if (typeof spec === 'string') payload = spec;
+        else if (spec !== undefined && spec !== null) {
+            try { payload = JSON.stringify(spec); } catch (ignored) { payload = String(spec || ''); }
+        }
+        _envQueueControl('workbench_set_pose_batch', payload, actor || 'assistant', reason || 'external workbench set pose batch');
     };
     window.envopsWorkbenchClearPose = function (target, actor, reason) {
         var payload = '';
