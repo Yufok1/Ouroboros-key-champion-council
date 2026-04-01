@@ -1101,6 +1101,12 @@
                 active: false,
                 transforms: {}
             },
+            timeline: {
+                key_poses: [],
+                cursor: 0,
+                duration: 2.0,
+                interpolation: 'slerp'
+            },
             isolated_chain: '',
             _skeletonGroup: null,
             _scaffoldPieces: null,
@@ -1308,6 +1314,221 @@
         // explicit scaffold toggle is more useful than hiding them in pose mode.
         _envNormalizeBuilderPoseState(poseState || _envBuilderSubject.pose || null);
         return false;
+    }
+
+    function _envCreateBuilderTimelineState() {
+        return {
+            key_poses: [],
+            cursor: 0,
+            duration: 2.0,
+            interpolation: 'slerp'
+        };
+    }
+
+    function _envNormalizeBuilderTimelineInterpolation(value) {
+        var mode = String(value || '').trim().toLowerCase();
+        if (mode === 'linear' || mode === 'step') return mode;
+        return 'slerp';
+    }
+
+    function _envNormalizeBuilderTimelineKeyPose(entry, fallbackIndex, fallbackTimestamp) {
+        var src = entry && typeof entry === 'object' && !Array.isArray(entry) ? entry : {};
+        var transforms = {};
+        var sourceTransforms = src.transforms && typeof src.transforms === 'object' && !Array.isArray(src.transforms)
+            ? src.transforms
+            : {};
+        Object.keys(sourceTransforms).forEach(function (boneId) {
+            var key = String(boneId || '').trim();
+            if (!key) return;
+            var transform = _envBuilderSanitizePoseTransform(key, sourceTransforms[boneId]);
+            if (_envBuilderPoseTransformMeaningful(transform)) transforms[key] = transform;
+        });
+        var poseIndex = Math.max(0, Number(fallbackIndex || 0));
+        var timestamp = Number(src.timestamp);
+        if (!Number.isFinite(timestamp)) timestamp = Math.max(0, Number(fallbackTimestamp || 0));
+        return {
+            id: String(src.id || ('pose_' + String(poseIndex + 1).padStart(3, '0'))).trim() || ('pose_' + String(poseIndex + 1).padStart(3, '0')),
+            label: String(src.label || ('Pose ' + String(poseIndex + 1))).trim() || ('Pose ' + String(poseIndex + 1)),
+            timestamp: Math.max(0, timestamp),
+            transforms: transforms
+        };
+    }
+
+    function _envNormalizeBuilderTimelineState(raw) {
+        var src = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+        var state = _envCreateBuilderTimelineState();
+        var sourceKeyPoses = Array.isArray(src.key_poses) ? src.key_poses : [];
+        state.key_poses = sourceKeyPoses.map(function (entry, idx) {
+            var prior = idx > 0 ? sourceKeyPoses[idx - 1] : null;
+            var priorTimestamp = idx > 0 ? Number(((prior || {}).timestamp) || 0) : 0;
+            var fallbackTimestamp = idx === 0 ? 0 : (priorTimestamp + Math.max(0.1, Number(src.duration || state.duration || 2) / Math.max(1, sourceKeyPoses.length - 1)));
+            return _envNormalizeBuilderTimelineKeyPose(entry, idx, fallbackTimestamp);
+        }).sort(function (left, right) {
+            return Number(left.timestamp || 0) - Number(right.timestamp || 0);
+        });
+        var lastTimestamp = state.key_poses.length ? Number((state.key_poses[state.key_poses.length - 1] || {}).timestamp || 0) : 0;
+        var duration = Number(src.duration);
+        if (!Number.isFinite(duration)) duration = Math.max(2.0, lastTimestamp);
+        state.duration = Math.max(0.01, duration, lastTimestamp);
+        var cursor = Number(src.cursor);
+        state.cursor = Number.isFinite(cursor) ? cursor : 0;
+        state.interpolation = _envNormalizeBuilderTimelineInterpolation(src.interpolation || state.interpolation);
+        return state;
+    }
+
+    function _envBuilderTimelineState() {
+        var timeline = _envNormalizeBuilderTimelineState(_envBuilderSubject.timeline || null);
+        var filtered = [];
+        (timeline.key_poses || []).forEach(function (entry, idx) {
+            var transforms = {};
+            Object.keys((entry && entry.transforms) || {}).forEach(function (boneId) {
+                if (_envBuilderHasBone(_envBuilderSubject.bones || [], boneId)) {
+                    transforms[boneId] = _envBuilderSanitizePoseTransform(boneId, entry.transforms[boneId]);
+                }
+            });
+            filtered.push({
+                id: String(entry.id || ('pose_' + String(idx + 1).padStart(3, '0'))).trim() || ('pose_' + String(idx + 1).padStart(3, '0')),
+                label: String(entry.label || ('Pose ' + String(idx + 1))).trim() || ('Pose ' + String(idx + 1)),
+                timestamp: Math.max(0, Number(entry.timestamp || 0)),
+                transforms: transforms
+            });
+        });
+        timeline.key_poses = filtered;
+        var lastTimestamp = filtered.length ? Number((filtered[filtered.length - 1] || {}).timestamp || 0) : 0;
+        timeline.duration = Math.max(0.01, Number(timeline.duration || 2), lastTimestamp);
+        _envBuilderSubject.timeline = timeline;
+        return _envBuilderSubject.timeline;
+    }
+
+    function _envBuilderClonePoseTransforms(sourceTransforms) {
+        var out = {};
+        var source = sourceTransforms && typeof sourceTransforms === 'object' && !Array.isArray(sourceTransforms)
+            ? sourceTransforms
+            : {};
+        Object.keys(source).forEach(function (boneId) {
+            var key = String(boneId || '').trim();
+            if (!key) return;
+            var transform = _envBuilderSanitizePoseTransform(key, source[key]);
+            if (_envBuilderPoseTransformMeaningful(transform)) out[key] = transform;
+        });
+        return out;
+    }
+
+    function _envBuilderTimelineNextPoseId(timelineState) {
+        var timeline = timelineState && typeof timelineState === 'object' ? timelineState : _envBuilderTimelineState();
+        var used = {};
+        (timeline.key_poses || []).forEach(function (entry) {
+            var poseId = String((entry || {}).id || '').trim();
+            if (poseId) used[poseId] = true;
+        });
+        for (var index = 1; index < 10000; index += 1) {
+            var nextId = 'pose_' + String(index).padStart(3, '0');
+            if (!used[nextId]) return nextId;
+        }
+        return 'pose_' + Date.now();
+    }
+
+    function _envBuilderTimelineNextTimestamp(timelineState, spec) {
+        var timeline = timelineState && typeof timelineState === 'object' ? timelineState : _envBuilderTimelineState();
+        var captureSpec = spec && typeof spec === 'object' ? spec : {};
+        if (captureSpec.has_timestamp) return Math.max(0, Number(captureSpec.timestamp || 0));
+        var poses = Array.isArray(timeline.key_poses) ? timeline.key_poses : [];
+        if (!poses.length) return 0;
+        if (poses.length === 1) return Math.max(1, Number(timeline.duration || 2));
+        var last = poses[poses.length - 1] || {};
+        var prev = poses[poses.length - 2] || {};
+        var gap = Math.max(0.1, Number(last.timestamp || 0) - Number(prev.timestamp || 0));
+        return Math.max(0, Number(last.timestamp || 0) + gap);
+    }
+
+    function _envBuilderResolveTimelinePoseIndex(timelineState, poseRef) {
+        var timeline = timelineState && typeof timelineState === 'object' ? timelineState : _envBuilderTimelineState();
+        var spec = poseRef && typeof poseRef === 'object' ? poseRef : {};
+        var poses = Array.isArray(timeline.key_poses) ? timeline.key_poses : [];
+        if (!poses.length) return -1;
+        if (spec.pose_id) {
+            for (var i = 0; i < poses.length; i += 1) {
+                if (String((poses[i] || {}).id || '').trim() === spec.pose_id) return i;
+            }
+        }
+        if (spec.has_index) return Math.max(0, Math.min(poses.length - 1, Number(spec.index || 0)));
+        return -1;
+    }
+
+    function _envBuilderInterpolatePoseRotation(fromRotation, toRotation, factor, interpolation) {
+        var mode = _envNormalizeBuilderTimelineInterpolation(interpolation || 'slerp');
+        var t = Math.max(0, Math.min(1, Number(factor || 0)));
+        var left = _envNormalizeBuilderPoseQuaternion(fromRotation, _envBuilderPoseIdentityRotation());
+        var right = _envNormalizeBuilderPoseQuaternion(toRotation, _envBuilderPoseIdentityRotation());
+        if (mode === 'step') return (t < 1 ? left : right).slice(0, 4);
+        if (typeof THREE !== 'undefined' && mode === 'slerp') {
+            var qa = new THREE.Quaternion(left[0], left[1], left[2], left[3]);
+            var qb = new THREE.Quaternion(right[0], right[1], right[2], right[3]);
+            qa.slerp(qb, t);
+            return [qa.x, qa.y, qa.z, qa.w];
+        }
+        return _envNormalizeBuilderPoseQuaternion([
+            left[0] + ((right[0] - left[0]) * t),
+            left[1] + ((right[1] - left[1]) * t),
+            left[2] + ((right[2] - left[2]) * t),
+            left[3] + ((right[3] - left[3]) * t)
+        ], left);
+    }
+
+    function _envBuilderInterpolatePoseOffset(fromOffset, toOffset, factor, interpolation) {
+        var mode = _envNormalizeBuilderTimelineInterpolation(interpolation || 'slerp');
+        var t = Math.max(0, Math.min(1, Number(factor || 0)));
+        var left = _envScaffoldNormalizeVector3(fromOffset, _envBuilderPoseIdentityOffset()) || _envBuilderPoseIdentityOffset();
+        var right = _envScaffoldNormalizeVector3(toOffset, _envBuilderPoseIdentityOffset()) || _envBuilderPoseIdentityOffset();
+        if (mode === 'step') return (t < 1 ? left : right).slice(0, 3);
+        return [
+            Number(left[0] || 0) + ((Number(right[0] || 0) - Number(left[0] || 0)) * t),
+            Number(left[1] || 0) + ((Number(right[1] || 0) - Number(left[1] || 0)) * t),
+            Number(left[2] || 0) + ((Number(right[2] || 0) - Number(left[2] || 0)) * t)
+        ];
+    }
+
+    function _envBuilderTimelinePoseAtTime(timelineState, absoluteTime) {
+        var timeline = timelineState && typeof timelineState === 'object' ? timelineState : _envBuilderTimelineState();
+        var poses = Array.isArray(timeline.key_poses) ? timeline.key_poses : [];
+        if (!poses.length) return _envNormalizeBuilderPoseState(null);
+        var time = Math.max(0, Number(absoluteTime || 0));
+        if (time <= Number((poses[0] || {}).timestamp || 0)) {
+            return _envNormalizeBuilderPoseState({ transforms: _envBuilderClonePoseTransforms((poses[0] || {}).transforms || {}) });
+        }
+        var last = poses[poses.length - 1] || {};
+        if (time >= Number(last.timestamp || 0)) {
+            return _envNormalizeBuilderPoseState({ transforms: _envBuilderClonePoseTransforms(last.transforms || {}) });
+        }
+        for (var index = 0; index < poses.length - 1; index += 1) {
+            var left = poses[index] || {};
+            var right = poses[index + 1] || {};
+            var leftTime = Number(left.timestamp || 0);
+            var rightTime = Number(right.timestamp || leftTime);
+            if (time < leftTime || time > rightTime) continue;
+            var span = Math.max(0.00001, rightTime - leftTime);
+            var factor = Math.max(0, Math.min(1, (time - leftTime) / span));
+            var transforms = {};
+            var union = {};
+            Object.keys(left.transforms || {}).forEach(function (boneId) { union[boneId] = true; });
+            Object.keys(right.transforms || {}).forEach(function (boneId) { union[boneId] = true; });
+            Object.keys(union).forEach(function (boneId) {
+                var leftTransform = left.transforms && left.transforms[boneId]
+                    ? _envBuilderSanitizePoseTransform(boneId, left.transforms[boneId])
+                    : _envNormalizeBuilderPoseTransform(null);
+                var rightTransform = right.transforms && right.transforms[boneId]
+                    ? _envBuilderSanitizePoseTransform(boneId, right.transforms[boneId])
+                    : _envNormalizeBuilderPoseTransform(null);
+                var nextTransform = {
+                    rotation: _envBuilderInterpolatePoseRotation(leftTransform.rotation, rightTransform.rotation, factor, timeline.interpolation),
+                    offset: _envBuilderInterpolatePoseOffset(leftTransform.offset, rightTransform.offset, factor, timeline.interpolation)
+                };
+                nextTransform = _envBuilderSanitizePoseTransform(boneId, nextTransform);
+                if (_envBuilderPoseTransformMeaningful(nextTransform)) transforms[boneId] = nextTransform;
+            });
+            return _envNormalizeBuilderPoseState({ transforms: transforms });
+        }
+        return _envNormalizeBuilderPoseState({ transforms: _envBuilderClonePoseTransforms(last.transforms || {}) });
     }
 
     function _envNormalizeBuilderEditingMode(value) {
@@ -1843,6 +2064,7 @@
         state.overlays = blueprint.overlays;
         state.scaffold_projection = blueprint.scaffold_projection;
         state.pose = _envNormalizeBuilderPoseState(null);
+        state.timeline = _envNormalizeBuilderTimelineState(src.timeline || null);
         return state;
     }
 
@@ -9772,6 +9994,7 @@
                 part_display_scope: _envNormalizeBuilderDisplayScope(workbench.part_display_scope || 'body'),
                 part_view: _envNormalizeBuilderPartView(workbench.part_view || 'iso_front'),
                 pose: _envNormalizeBuilderPoseState(workbench.pose || null),
+                timeline: _envNormalizeBuilderTimelineState(workbench.timeline || null),
                 gizmo_mode: _envNormalizeBuilderGizmoMode(workbench.gizmo_mode || 'rotate'),
                 gizmo_space: _envNormalizeBuilderGizmoSpace(workbench.gizmo_space || 'local'),
                 preview_clip: String(workbench.preview_clip || '').trim(),
@@ -9824,6 +10047,7 @@
             workbench.part_display_scope = _envNormalizeBuilderDisplayScope(_envBuilderInteraction.part_display_scope || 'body');
             workbench.part_view = _envNormalizeBuilderPartView(_envBuilderInteraction.part_view || 'iso_front');
             workbench.pose = _envNormalizeBuilderPoseState(_envBuilderSubject.pose || null);
+            workbench.timeline = _envNormalizeBuilderTimelineState(_envBuilderSubject.timeline || null);
         } else if (!preservePendingBuilderSession) {
             workbench.subject_mode = 'mounted_asset';
             workbench.builder_subject = null;
@@ -9832,6 +10056,7 @@
             workbench.selected_bone_id = '';
             workbench.primary_bone_id = '';
             workbench.pose = _envNormalizeBuilderPoseState(null);
+            workbench.timeline = _envNormalizeBuilderTimelineState(null);
         }
         workbench.editing_mode = _envNormalizeBuilderEditingMode(_envBuilderInteraction.editing_mode || 'structure');
         workbench.part_display_scope = _envNormalizeBuilderDisplayScope(_envBuilderInteraction.part_display_scope || 'body');
@@ -10042,6 +10267,7 @@
                 if (desiredBuilderSubject && desiredBuilderSubject.active) {
                     _envBuilderSubject = desiredBuilderSubject;
                     _envBuilderSubject.pose = _envNormalizeBuilderPoseState((session.workbench || {}).pose || null);
+                    _envBuilderSubject.timeline = _envNormalizeBuilderTimelineState((session.workbench || {}).timeline || null);
                     _envBuilderInteraction = _envNormalizeBuilderInteraction(session.workbench || null);
                     _envBuilderResetRuntimeRefs();
                     _envBuilderSetIsolationState(_envBuilderSubject, (session.workbench || {}).isolated_chain || '');
@@ -10422,7 +10648,9 @@
                     'character_mount', 'character_unmount', 'character_focus', 'character_move_to',
                     'character_stop', 'character_look_at', 'character_set_model',
                     'workbench_new_builder', 'workbench_get_blueprint', 'workbench_get_part_surface', 'workbench_frame_part', 'workbench_set_bone',
-                    'workbench_set_pose', 'workbench_set_pose_batch', 'workbench_clear_pose', 'workbench_reset_angles',
+                    'workbench_set_pose', 'workbench_set_pose_batch', 'workbench_clear_pose',
+                    'workbench_capture_pose', 'workbench_delete_pose', 'workbench_apply_pose', 'workbench_set_timeline_cursor',
+                    'workbench_reset_angles',
                     'workbench_select_bone', 'workbench_select_bones', 'workbench_set_editing_mode', 'workbench_set_display_scope',
                     'workbench_set_gizmo_mode', 'workbench_set_gizmo_space',
                     'workbench_isolate_chain', 'workbench_save_blueprint', 'workbench_load_blueprint',
@@ -10436,7 +10664,7 @@
                     'mount', 'unmount', 'focus', 'move_to', 'stop', 'look_at', 'set_model',
                     'new_builder', 'get_blueprint', 'get_part_surface', 'frame_part', 'select_bone', 'select_bones', 'set_editing_mode', 'set_display_scope',
                     'set_gizmo_mode', 'set_gizmo_space',
-                    'set_bone', 'set_pose', 'set_pose_batch', 'clear_pose', 'reset_angles', 'isolate_chain', 'save_blueprint', 'load_blueprint',
+                    'set_bone', 'set_pose', 'set_pose_batch', 'clear_pose', 'capture_pose', 'delete_pose', 'apply_pose', 'set_timeline_cursor', 'reset_angles', 'isolate_chain', 'save_blueprint', 'load_blueprint',
                     'play_clip', 'queue_clips', 'stop_clip', 'set_loop', 'set_speed',
                     'set_scaffold',
                     'get_animation_state', 'play_reaction'
@@ -14226,6 +14454,72 @@
         };
     }
 
+    function _envNormalizeWorkbenchCapturePoseSpec(targetId) {
+        var raw = String(targetId || '').trim();
+        var parsed = raw ? _safeJsonParse(raw) : null;
+        var payload = parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+            ? parsed
+            : (raw ? { label: raw } : {});
+        return {
+            raw: raw,
+            payload: payload,
+            label: String(payload.label || payload.name || '').trim(),
+            has_timestamp: Object.prototype.hasOwnProperty.call(payload, 'timestamp'),
+            timestamp: Math.max(0, Number(payload.timestamp || 0))
+        };
+    }
+
+    function _envNormalizeWorkbenchTimelinePoseRef(targetId) {
+        var raw = String(targetId || '').trim();
+        var parsed = raw ? _safeJsonParse(raw) : null;
+        var payload = parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+            ? parsed
+            : (raw && !/^-?\d+$/.test(raw) ? { pose_id: raw } : {});
+        var poseId = String(payload.pose_id || payload.id || raw || '').trim();
+        if (/^-?\d+$/.test(poseId)) poseId = '';
+        var index = Number(payload.index);
+        if (!Number.isFinite(index) && /^-?\d+$/.test(raw)) index = Number(raw);
+        return {
+            raw: raw,
+            payload: payload,
+            pose_id: poseId,
+            has_index: Number.isFinite(index),
+            index: Number.isFinite(index) ? Math.max(0, Math.floor(index)) : 0
+        };
+    }
+
+    function _envNormalizeWorkbenchTimelineCursorSpec(targetId) {
+        var raw = String(targetId || '').trim();
+        var parsed = raw ? _safeJsonParse(raw) : null;
+        var payload = parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+            ? parsed
+            : {};
+        var index = Number(payload.index);
+        var normalized = Number(payload.normalized);
+        var time = Number(payload.time);
+        var cursor = Number(payload.cursor);
+        if (!Number.isFinite(index) && /^-?\d+$/.test(raw)) index = Number(raw);
+        if (!Number.isFinite(normalized) && !Number.isFinite(time) && !Number.isFinite(index) && Number.isFinite(cursor)) {
+            if (cursor >= 0 && cursor <= 1 && Math.abs(cursor - Math.round(cursor)) > 0.00001) normalized = cursor;
+            else index = cursor;
+        }
+        if (!Number.isFinite(index) && !Number.isFinite(normalized) && !Number.isFinite(time) && Number.isFinite(Number(raw))) {
+            var numericRaw = Number(raw);
+            if (numericRaw >= 0 && numericRaw <= 1 && Math.abs(numericRaw - Math.round(numericRaw)) > 0.00001) normalized = numericRaw;
+            else index = numericRaw;
+        }
+        return {
+            raw: raw,
+            payload: payload,
+            has_index: Number.isFinite(index),
+            index: Number.isFinite(index) ? Math.max(0, Math.floor(index)) : 0,
+            has_normalized: Number.isFinite(normalized),
+            normalized: Number.isFinite(normalized) ? Math.max(0, Math.min(1, normalized)) : 0,
+            has_time: Number.isFinite(time),
+            time: Number.isFinite(time) ? Math.max(0, time) : 0
+        };
+    }
+
     function _envNormalizeWorkbenchResetAnglesTarget(targetId) {
         var raw = String(targetId || '').trim();
         var parsed = raw ? _safeJsonParse(raw) : null;
@@ -15197,6 +15491,292 @@
         _envStageUiState.forceStageRebuild = true;
         renderEnvironmentView();
         return spec.clear_all ? 'all' : spec.bone_id;
+    }
+
+    function _envBuilderApplyTimelinePoseToWorkbench(mesh, actionKey) {
+        if (!mesh || !mesh.userData || !mesh.userData._builderSubjectGroup) return false;
+        if (!_env3DApplyBuilderPoseState(mesh)) return false;
+        _env3DStageBuilderSubjectForWorkbench(mesh, mesh.userData._builderSubjectGroup || null);
+        _envBuilderApplySelectionToMesh(mesh);
+        _env3DUpdateBuilderGizmoAttachment(actionKey);
+        _env3DRefreshWorkbenchFocusRig(false);
+        _envRefreshInhabitantRuntimeState(actionKey);
+        return true;
+    }
+
+    function _envWorkbenchCapturePose(actor, reason, targetId) {
+        var actorName = String(actor || _envManualActorId() || 'assistant').trim() || 'assistant';
+        if (!_envBuilderSubject.active) {
+            _envLogAction('character_runtime', 'Rejected timeline capture: no active builder subject', actorName, {
+                action: 'workbench_capture_pose'
+            });
+            _envSetBadge('failed', 'NO BUILDER');
+            renderEnvironmentView();
+            return false;
+        }
+        if (_envNormalizeBuilderEditingMode(_envBuilderInteraction.editing_mode || 'structure') !== 'pose') {
+            _envLogAction('character_runtime', 'Rejected timeline capture: editing mode mismatch', actorName, {
+                action: 'workbench_capture_pose',
+                editing_mode: String(_envBuilderInteraction.editing_mode || 'structure')
+            });
+            _envSetBadge('failed', 'MODE MISMATCH');
+            renderEnvironmentView();
+            return false;
+        }
+        var poseState = _envBuilderPoseState();
+        var spec = _envNormalizeWorkbenchCapturePoseSpec(targetId);
+        var timeline = _envBuilderTimelineState();
+        var nextIndex = Number((timeline.key_poses || []).length || 0);
+        var poseId = _envBuilderTimelineNextPoseId(timeline);
+        var label = String(spec.label || ('Pose ' + String(nextIndex + 1))).trim() || ('Pose ' + String(nextIndex + 1));
+        var timestamp = _envBuilderTimelineNextTimestamp(timeline, spec);
+        timeline.key_poses.push({
+            id: poseId,
+            label: label,
+            timestamp: timestamp,
+            transforms: _envBuilderClonePoseTransforms(poseState.transforms || {})
+        });
+        timeline.duration = Math.max(Number(timeline.duration || 2), Number(timestamp || 0), 2);
+        timeline.cursor = Number((timeline.key_poses || []).length - 1);
+        _envBuilderSubject.timeline = _envNormalizeBuilderTimelineState(timeline);
+        _envRefreshInhabitantRuntimeState('workbench_capture_pose');
+        _envLogAction('character_runtime', 'Captured builder key pose', actorName, {
+            action: 'workbench_capture_pose',
+            pose_id: poseId,
+            label: label,
+            timestamp: timestamp,
+            key_pose_count: Number((_envBuilderSubject.timeline.key_poses || []).length || 0)
+        });
+        _envEmitBus('character_runtime', 'Captured builder key pose', actorName, {
+            action: 'workbench_capture_pose',
+            object_key: _envInhabitantObjectKey(),
+            pose_id: poseId,
+            key_pose_count: Number((_envBuilderSubject.timeline.key_poses || []).length || 0)
+        });
+        _envSetBadge('running', 'POSE CAP');
+        _envScheduleLiveSync('workbench_capture_pose:' + poseId, true);
+        _envSaveTheaterSession('workbench_capture_pose');
+        _envScene.dirty = true;
+        _envStageUiState.forceStageRebuild = true;
+        renderEnvironmentView();
+        return poseId;
+    }
+
+    function _envWorkbenchDeletePose(actor, reason, targetId) {
+        var actorName = String(actor || _envManualActorId() || 'assistant').trim() || 'assistant';
+        if (!_envBuilderSubject.active) {
+            _envLogAction('character_runtime', 'Rejected timeline delete: no active builder subject', actorName, {
+                action: 'workbench_delete_pose'
+            });
+            _envSetBadge('failed', 'NO BUILDER');
+            renderEnvironmentView();
+            return false;
+        }
+        var timeline = _envBuilderTimelineState();
+        if (!timeline.key_poses.length) {
+            _envLogAction('character_runtime', 'Rejected timeline delete: no key poses', actorName, {
+                action: 'workbench_delete_pose'
+            });
+            _envSetBadge('failed', 'NO KEYPOSE');
+            renderEnvironmentView();
+            return false;
+        }
+        var spec = _envNormalizeWorkbenchTimelinePoseRef(targetId);
+        var index = _envBuilderResolveTimelinePoseIndex(timeline, spec);
+        if (index < 0) {
+            _envLogAction('character_runtime', 'Rejected timeline delete: key pose unavailable', actorName, {
+                action: 'workbench_delete_pose',
+                pose_id: spec.pose_id,
+                index: spec.has_index ? spec.index : null
+            });
+            _envSetBadge('failed', 'BAD KEYPOSE');
+            renderEnvironmentView();
+            return false;
+        }
+        var removed = timeline.key_poses.splice(index, 1)[0] || null;
+        timeline.cursor = timeline.key_poses.length ? Math.max(0, Math.min(timeline.key_poses.length - 1, Number(timeline.cursor || 0))) : 0;
+        _envBuilderSubject.timeline = _envNormalizeBuilderTimelineState(timeline);
+        _envRefreshInhabitantRuntimeState('workbench_delete_pose');
+        _envLogAction('character_runtime', 'Deleted builder key pose', actorName, {
+            action: 'workbench_delete_pose',
+            pose_id: String((removed || {}).id || spec.pose_id || ''),
+            key_pose_count: Number((_envBuilderSubject.timeline.key_poses || []).length || 0)
+        });
+        _envEmitBus('character_runtime', 'Deleted builder key pose', actorName, {
+            action: 'workbench_delete_pose',
+            object_key: _envInhabitantObjectKey(),
+            pose_id: String((removed || {}).id || spec.pose_id || '')
+        });
+        _envSetBadge('running', 'POSE DEL');
+        _envScheduleLiveSync('workbench_delete_pose:' + String((removed || {}).id || index), true);
+        _envSaveTheaterSession('workbench_delete_pose');
+        _envScene.dirty = true;
+        _envStageUiState.forceStageRebuild = true;
+        renderEnvironmentView();
+        return String((removed || {}).id || '');
+    }
+
+    function _envWorkbenchApplyPose(actor, reason, targetId) {
+        var actorName = String(actor || _envManualActorId() || 'assistant').trim() || 'assistant';
+        if (!_envBuilderSubject.active) {
+            _envLogAction('character_runtime', 'Rejected timeline apply: no active builder subject', actorName, {
+                action: 'workbench_apply_pose'
+            });
+            _envSetBadge('failed', 'NO BUILDER');
+            renderEnvironmentView();
+            return false;
+        }
+        if (_envNormalizeBuilderEditingMode(_envBuilderInteraction.editing_mode || 'structure') !== 'pose') {
+            _envLogAction('character_runtime', 'Rejected timeline apply: editing mode mismatch', actorName, {
+                action: 'workbench_apply_pose',
+                editing_mode: String(_envBuilderInteraction.editing_mode || 'structure')
+            });
+            _envSetBadge('failed', 'MODE MISMATCH');
+            renderEnvironmentView();
+            return false;
+        }
+        var mesh = _envMountedRuntimeMesh();
+        if (!mesh || !mesh.userData || !mesh.userData._builderSubjectGroup) {
+            _envLogAction('character_runtime', 'Rejected timeline apply: mounted runtime mesh unavailable', actorName, {
+                action: 'workbench_apply_pose'
+            });
+            _envSetBadge('failed', 'NO MESH');
+            renderEnvironmentView();
+            return false;
+        }
+        var timeline = _envBuilderTimelineState();
+        var spec = _envNormalizeWorkbenchTimelinePoseRef(targetId);
+        var index = _envBuilderResolveTimelinePoseIndex(timeline, spec);
+        if (index < 0) {
+            _envLogAction('character_runtime', 'Rejected timeline apply: key pose unavailable', actorName, {
+                action: 'workbench_apply_pose',
+                pose_id: spec.pose_id,
+                index: spec.has_index ? spec.index : null
+            });
+            _envSetBadge('failed', 'BAD KEYPOSE');
+            renderEnvironmentView();
+            return false;
+        }
+        var keyPose = timeline.key_poses[index] || null;
+        timeline.cursor = index;
+        _envBuilderSubject.timeline = _envNormalizeBuilderTimelineState(timeline);
+        _envBuilderSubject.timeline.cursor = index;
+        _envBuilderSubject.pose = _envNormalizeBuilderPoseState({
+            transforms: _envBuilderClonePoseTransforms((keyPose || {}).transforms || {})
+        });
+        if (!_envBuilderApplyTimelinePoseToWorkbench(mesh, 'workbench_apply_pose')) {
+            _envLogAction('character_runtime', 'Rejected timeline apply: pose apply failed', actorName, {
+                action: 'workbench_apply_pose',
+                pose_id: String((keyPose || {}).id || spec.pose_id || '')
+            });
+            _envSetBadge('failed', 'POSE ERR');
+            renderEnvironmentView();
+            return false;
+        }
+        _envLogAction('character_runtime', 'Applied builder key pose', actorName, {
+            action: 'workbench_apply_pose',
+            pose_id: String((keyPose || {}).id || ''),
+            label: String((keyPose || {}).label || '')
+        });
+        _envEmitBus('character_runtime', 'Applied builder key pose', actorName, {
+            action: 'workbench_apply_pose',
+            object_key: _envInhabitantObjectKey(),
+            pose_id: String((keyPose || {}).id || '')
+        });
+        _envSetBadge('running', 'POSE APPLY');
+        _envScheduleLiveSync('workbench_apply_pose:' + String((keyPose || {}).id || index), true);
+        _envSaveTheaterSession('workbench_apply_pose');
+        _envScene.dirty = true;
+        _envStageUiState.forceStageRebuild = true;
+        renderEnvironmentView();
+        return String((keyPose || {}).id || '');
+    }
+
+    function _envWorkbenchSetTimelineCursor(actor, reason, targetId) {
+        var actorName = String(actor || _envManualActorId() || 'assistant').trim() || 'assistant';
+        if (!_envBuilderSubject.active) {
+            _envLogAction('character_runtime', 'Rejected timeline cursor: no active builder subject', actorName, {
+                action: 'workbench_set_timeline_cursor'
+            });
+            _envSetBadge('failed', 'NO BUILDER');
+            renderEnvironmentView();
+            return false;
+        }
+        if (_envNormalizeBuilderEditingMode(_envBuilderInteraction.editing_mode || 'structure') !== 'pose') {
+            _envLogAction('character_runtime', 'Rejected timeline cursor: editing mode mismatch', actorName, {
+                action: 'workbench_set_timeline_cursor',
+                editing_mode: String(_envBuilderInteraction.editing_mode || 'structure')
+            });
+            _envSetBadge('failed', 'MODE MISMATCH');
+            renderEnvironmentView();
+            return false;
+        }
+        var mesh = _envMountedRuntimeMesh();
+        if (!mesh || !mesh.userData || !mesh.userData._builderSubjectGroup) {
+            _envLogAction('character_runtime', 'Rejected timeline cursor: mounted runtime mesh unavailable', actorName, {
+                action: 'workbench_set_timeline_cursor'
+            });
+            _envSetBadge('failed', 'NO MESH');
+            renderEnvironmentView();
+            return false;
+        }
+        var timeline = _envBuilderTimelineState();
+        if (!timeline.key_poses.length) {
+            _envLogAction('character_runtime', 'Rejected timeline cursor: no key poses', actorName, {
+                action: 'workbench_set_timeline_cursor'
+            });
+            _envSetBadge('failed', 'NO KEYPOSE');
+            renderEnvironmentView();
+            return false;
+        }
+        var spec = _envNormalizeWorkbenchTimelineCursorSpec(targetId);
+        var duration = Math.max(0.01, Number(timeline.duration || 0), Number(((timeline.key_poses[timeline.key_poses.length - 1] || {}).timestamp) || 0));
+        var absoluteTime = 0;
+        var poseState = null;
+        if (spec.has_index) {
+            var index = Math.max(0, Math.min(timeline.key_poses.length - 1, Number(spec.index || 0)));
+            var keyPose = timeline.key_poses[index] || {};
+            timeline.cursor = index;
+            absoluteTime = Number(keyPose.timestamp || 0);
+            poseState = _envNormalizeBuilderPoseState({
+                transforms: _envBuilderClonePoseTransforms((keyPose || {}).transforms || {})
+            });
+        } else {
+            absoluteTime = spec.has_time ? Math.max(0, Math.min(duration, Number(spec.time || 0))) : (Math.max(0, Math.min(1, Number(spec.normalized || 0))) * duration);
+            timeline.cursor = spec.has_normalized ? Math.max(0, Math.min(1, Number(spec.normalized || 0))) : (duration > 0 ? (absoluteTime / duration) : 0);
+            poseState = _envBuilderTimelinePoseAtTime(timeline, absoluteTime);
+        }
+        _envBuilderSubject.timeline = _envNormalizeBuilderTimelineState(timeline);
+        _envBuilderSubject.timeline.cursor = timeline.cursor;
+        _envBuilderSubject.pose = poseState;
+        if (!_envBuilderApplyTimelinePoseToWorkbench(mesh, 'workbench_set_timeline_cursor')) {
+            _envLogAction('character_runtime', 'Rejected timeline cursor: pose apply failed', actorName, {
+                action: 'workbench_set_timeline_cursor',
+                cursor: timeline.cursor,
+                absolute_time: absoluteTime
+            });
+            _envSetBadge('failed', 'POSE ERR');
+            renderEnvironmentView();
+            return false;
+        }
+        _envLogAction('character_runtime', 'Updated builder timeline cursor', actorName, {
+            action: 'workbench_set_timeline_cursor',
+            cursor: _envBuilderSubject.timeline.cursor,
+            absolute_time: absoluteTime,
+            interpolation: String(_envBuilderSubject.timeline.interpolation || 'slerp')
+        });
+        _envEmitBus('character_runtime', 'Updated builder timeline cursor', actorName, {
+            action: 'workbench_set_timeline_cursor',
+            object_key: _envInhabitantObjectKey(),
+            cursor: _envBuilderSubject.timeline.cursor
+        });
+        _envSetBadge('running', 'POSE SCRUB');
+        _envScheduleLiveSync('workbench_set_timeline_cursor:' + String(_envBuilderSubject.timeline.cursor), true);
+        _envSaveTheaterSession('workbench_set_timeline_cursor');
+        _envScene.dirty = true;
+        _envStageUiState.forceStageRebuild = true;
+        renderEnvironmentView();
+        return _envBuilderSubject.timeline.cursor;
     }
 
     function _envBuilderDefaultAnglePresetForBone(record) {
@@ -16210,6 +16790,10 @@
         'workbench.set_pose': 'workbench_set_pose',
         'workbench.set_pose_batch': 'workbench_set_pose_batch',
         'workbench.clear_pose': 'workbench_clear_pose',
+        'workbench.capture_pose': 'workbench_capture_pose',
+        'workbench.delete_pose': 'workbench_delete_pose',
+        'workbench.apply_pose': 'workbench_apply_pose',
+        'workbench.set_timeline_cursor': 'workbench_set_timeline_cursor',
         'workbench.reset_angles': 'workbench_reset_angles',
         'workbench.select_bone': 'workbench_select_bone',
         'workbench.select_bones': 'workbench_select_bones',
@@ -16283,7 +16867,9 @@
             || command === 'workbench_new_builder' || command === 'workbench_get_blueprint'
             || command === 'workbench_get_part_surface' || command === 'workbench_frame_part'
             || command === 'workbench_set_bone' || command === 'workbench_set_pose' || command === 'workbench_set_pose_batch'
-            || command === 'workbench_clear_pose' || command === 'workbench_reset_angles' || command === 'workbench_select_bone'
+            || command === 'workbench_clear_pose' || command === 'workbench_capture_pose' || command === 'workbench_delete_pose'
+            || command === 'workbench_apply_pose' || command === 'workbench_set_timeline_cursor'
+            || command === 'workbench_reset_angles' || command === 'workbench_select_bone'
             || command === 'workbench_select_bones'
             || command === 'workbench_set_editing_mode' || command === 'workbench_set_display_scope'
             || command === 'workbench_set_gizmo_mode' || command === 'workbench_set_gizmo_space'
@@ -23005,6 +23591,22 @@
             _envWorkbenchClearPose(actorName, reason || 'control workbench clear pose', targetId);
             return;
         }
+        if (command === 'workbench_capture_pose') {
+            _envWorkbenchCapturePose(actorName, reason || 'control workbench capture pose', targetId);
+            return;
+        }
+        if (command === 'workbench_delete_pose') {
+            _envWorkbenchDeletePose(actorName, reason || 'control workbench delete pose', targetId);
+            return;
+        }
+        if (command === 'workbench_apply_pose') {
+            _envWorkbenchApplyPose(actorName, reason || 'control workbench apply pose', targetId);
+            return;
+        }
+        if (command === 'workbench_set_timeline_cursor') {
+            _envWorkbenchSetTimelineCursor(actorName, reason || 'control workbench set timeline cursor', targetId);
+            return;
+        }
         if (command === 'workbench_reset_angles') {
             _envWorkbenchResetAngles(actorName, reason || 'control workbench reset angles', targetId);
             return;
@@ -24743,6 +25345,7 @@
         var selectedPartSurface = builderActive && selectedBoneId ? _envBuilderComputePartSurface(selectedBoneId) : null;
         var partCameraRecipes = selectedPartSurface ? _envBuilderPartCameraRecipes(selectedPartSurface) : [];
         var poseState = builderActive ? _envBuilderPoseState() : _envNormalizeBuilderPoseState(null);
+        var timelineState = builderActive ? _envBuilderTimelineState() : _envNormalizeBuilderTimelineState(null);
         var selectedTargetVisible = builderActive && selectedBoneId ? _envBuilderSelectedTargetVisible(mountedMesh, selectedBoneId) : false;
         var currentEditingMode = _envNormalizeBuilderEditingMode(_envBuilderInteraction.editing_mode || 'structure');
         var gizmoAttached = builderActive
@@ -24794,6 +25397,10 @@
             pose_transform_count: builderActive ? Object.keys(poseState.transforms || {}).length : 0,
             posed_bone_ids: builderActive ? _envBuilderPosedBoneIds(poseState) : [],
             posed_bone_overlay_count: builderActive && mountedMesh && mountedMesh.userData ? Number(mountedMesh.userData._builderPoseOverlayCount || 0) : 0,
+            timeline_key_pose_count: builderActive ? Number((timelineState.key_poses || []).length || 0) : 0,
+            timeline_cursor: builderActive ? Number(timelineState.cursor || 0) : 0,
+            timeline_duration: builderActive ? Number(timelineState.duration || 0) : 0,
+            timeline_interpolation: builderActive ? String(timelineState.interpolation || 'slerp') : 'slerp',
             configured_display_scope: configuredDisplayScope,
             gizmo_mode: builderActive ? _envNormalizeBuilderGizmoMode(_envBuilderInteraction.gizmo_mode || 'rotate') : '',
             gizmo_space: builderActive ? _envNormalizeBuilderGizmoSpace(_envBuilderInteraction.gizmo_space || 'local') : '',
@@ -39041,6 +39648,7 @@
         var controls = _env3DInitTransformControls();
         var builderActive = _env3DBuilderSelectionActive();
         var selectedBoneId = String(_envBuilderInteraction.selected_bone_id || '').trim();
+        var selectedBoneCount = _envBuilderSelectedBoneIds(_envBuilderInteraction).length;
         var editingMode = _envNormalizeBuilderEditingMode(_envBuilderInteraction.editing_mode || 'structure');
         var requestedMode = _envNormalizeBuilderGizmoMode(_envBuilderInteraction.gizmo_mode || 'rotate');
         var supportedMode = _env3DBuilderGizmoSupportedMode(requestedMode, editingMode, selectedBoneId);
@@ -39065,6 +39673,10 @@
         if (controls.object !== bone) controls.attach(bone);
         if (typeof controls.setMode === 'function') controls.setMode(supportedMode);
         if (typeof controls.setSpace === 'function') controls.setSpace(_envNormalizeBuilderGizmoSpace(_envBuilderInteraction.gizmo_space || 'local'));
+        var gizmoSize = selectedBoneCount > 1 ? 0.72 : 0.8;
+        if (editingMode === 'pose' && selectedBoneCount > 1) gizmoSize = 0.66;
+        if (typeof controls.setSize === 'function') controls.setSize(gizmoSize);
+        else controls.size = gizmoSize;
         controls.visible = true;
         _env3D.builderGizmoBoneId = selectedBoneId;
         _env3D.builderGizmoTarget = bone;
@@ -40677,34 +41289,135 @@
         var existing = bone.userData._builderJointOverlay || null;
         if (existing && existing.group) return existing;
         var length = Math.max(0.04, Number(((record || {}).length) || 0.12));
-        var radius = Math.max(0.012, Math.min(0.03, length * 0.09));
-        var thickness = Math.max(0.0018, radius * 0.14);
+        var radius = Math.max(0.014, Math.min(0.028, length * 0.1));
+        var axisLength = Math.max(radius * 1.9, Math.min(0.082, length * 0.32));
+        var axisTipLength = Math.max(0.008, axisLength * 0.18);
+        var axisTipSpread = Math.max(0.004, radius * 0.42);
+        var offset = [
+            radius * 1.75,
+            Math.max(radius * 0.7, length * 0.08),
+            radius * 1.45
+        ];
         var group = new THREE.Group();
         group.name = '__builder_joint_overlay__';
         group.userData._envHelper = 'builder_joint_overlay';
+        group.position.set(
+            Number(offset[0] || 0),
+            Number(offset[1] || 0),
+            Number(offset[2] || 0)
+        );
         var rings = [];
+        var axisHelpers = [];
+        var ringColors = [];
+        var axisConfigs = [
+            { axis: 'x', color: 0xff6f61, rotation: [0, 0, -Math.PI * 0.5], endpoint: [axisLength, 0, 0] },
+            { axis: 'y', color: 0x69f0ae, rotation: [0, 0, 0], endpoint: [0, axisLength, 0] },
+            { axis: 'z', color: 0x5ab4ff, rotation: [Math.PI * 0.5, 0, 0], endpoint: [0, 0, axisLength] }
+        ];
+        function buildCirclePoints(circleRadius) {
+            var pts = [];
+            for (var i = 0; i < 32; i += 1) {
+                var theta = (Math.PI * 2 * i) / 32;
+                pts.push(new THREE.Vector3(
+                    Math.cos(theta) * circleRadius,
+                    Math.sin(theta) * circleRadius,
+                    0
+                ));
+            }
+            return pts;
+        }
         [[0, 0, 0], [Math.PI * 0.5, 0, 0], [0, Math.PI * 0.5, 0]].forEach(function (rotation, idx) {
-            var ring = new THREE.Mesh(
-                new THREE.TorusGeometry(radius, thickness, 8, 28),
-                new THREE.MeshBasicMaterial({
-                    color: 0xffa726,
+            var ringColor = idx === 0 ? 0xff6f61 : (idx === 1 ? 0x69f0ae : 0x5ab4ff);
+            var ring = new THREE.LineLoop(
+                new THREE.BufferGeometry().setFromPoints(buildCirclePoints(radius)),
+                new THREE.LineBasicMaterial({
+                    color: ringColor,
                     transparent: true,
-                    opacity: idx === 0 ? 0.75 : 0.48,
-                    depthTest: false
+                    opacity: 0.72,
+                    depthTest: false,
+                    depthWrite: false
                 })
             );
             ring.rotation.set(Number(rotation[0] || 0), Number(rotation[1] || 0), Number(rotation[2] || 0));
             ring.renderOrder = 999;
             group.add(ring);
             rings.push(ring);
+            ringColors.push(ringColor);
+        });
+        axisConfigs.forEach(function (config) {
+            var endpoint = [
+                Number((config.endpoint || [0, 0, 0])[0] || 0),
+                Number((config.endpoint || [0, 0, 0])[1] || 0),
+                Number((config.endpoint || [0, 0, 0])[2] || 0)
+            ];
+            var points = [
+                new THREE.Vector3(0, 0, 0),
+                new THREE.Vector3(endpoint[0], endpoint[1], endpoint[2])
+            ];
+            var line = new THREE.Line(
+                new THREE.BufferGeometry().setFromPoints(points),
+                new THREE.LineBasicMaterial({
+                    color: Number(config.color || 0xffffff),
+                    transparent: true,
+                    opacity: 0.82,
+                    depthTest: false,
+                    depthWrite: false
+                })
+            );
+            line.renderOrder = 999;
+            group.add(line);
+            var tipPoints = [];
+            if (config.axis === 'x') {
+                tipPoints = [
+                    new THREE.Vector3(endpoint[0], endpoint[1], endpoint[2]),
+                    new THREE.Vector3(endpoint[0] - axisTipLength, endpoint[1] + axisTipSpread, endpoint[2]),
+                    new THREE.Vector3(endpoint[0], endpoint[1], endpoint[2]),
+                    new THREE.Vector3(endpoint[0] - axisTipLength, endpoint[1] - axisTipSpread, endpoint[2])
+                ];
+            } else if (config.axis === 'y') {
+                tipPoints = [
+                    new THREE.Vector3(endpoint[0], endpoint[1], endpoint[2]),
+                    new THREE.Vector3(endpoint[0] + axisTipSpread, endpoint[1] - axisTipLength, endpoint[2]),
+                    new THREE.Vector3(endpoint[0], endpoint[1], endpoint[2]),
+                    new THREE.Vector3(endpoint[0] - axisTipSpread, endpoint[1] - axisTipLength, endpoint[2])
+                ];
+            } else {
+                tipPoints = [
+                    new THREE.Vector3(endpoint[0], endpoint[1], endpoint[2]),
+                    new THREE.Vector3(endpoint[0], endpoint[1] + axisTipSpread, endpoint[2] - axisTipLength),
+                    new THREE.Vector3(endpoint[0], endpoint[1], endpoint[2]),
+                    new THREE.Vector3(endpoint[0], endpoint[1] - axisTipSpread, endpoint[2] - axisTipLength)
+                ];
+            }
+            var tip = new THREE.LineSegments(
+                new THREE.BufferGeometry().setFromPoints(tipPoints),
+                new THREE.LineBasicMaterial({
+                    color: Number(config.color || 0xffffff),
+                    transparent: true,
+                    opacity: 0.82,
+                    depthTest: false,
+                    depthWrite: false
+                })
+            );
+            tip.renderOrder = 999;
+            group.add(tip);
+            axisHelpers.push({
+                line: line,
+                tip: tip,
+                color: Number(config.color || 0xffffff)
+            });
         });
         group.visible = false;
         bone.add(group);
         existing = {
             group: group,
             rings: rings,
-            base_radius: radius,
-            base_opacity: [0.75, 0.48, 0.48]
+            axes: axisHelpers,
+            ring_colors: ringColors,
+            base_opacity: [0.72, 0.72, 0.72],
+            axis_base_opacity: 0.82,
+            axis_tip_opacity: 0.82,
+            base_offset: offset
         };
         bone.userData._builderJointOverlay = existing;
         return existing;
@@ -40740,14 +41453,33 @@
             }
             overlay.group.visible = true;
             overlayCount += 1;
-            var color = state === 'primary' ? 0xffcc6b : (state === 'selected' ? 0xffb44d : 0xb98236);
-            var opacity = state === 'primary' ? 0.92 : (state === 'selected' ? 0.7 : 0.42);
-            var scale = state === 'primary' ? 1.08 : (state === 'selected' ? 0.98 : 0.88);
-            overlay.group.scale.setScalar(scale);
+            var opacity = state === 'primary' ? 0.98 : (state === 'selected' ? 0.84 : 0.64);
+            if (overlay.base_offset && overlay.group && overlay.group.position) {
+                overlay.group.position.set(
+                    Number(overlay.base_offset[0] || 0) * (state === 'primary' ? 1.08 : 1),
+                    Number(overlay.base_offset[1] || 0) * (state === 'primary' ? 1.08 : 1),
+                    Number(overlay.base_offset[2] || 0) * (state === 'primary' ? 1.08 : 1)
+                );
+            }
+            overlay.group.scale.setScalar(1);
             overlay.rings.forEach(function (ring, idx) {
                 if (!ring || !ring.material) return;
-                ring.material.color.setHex(color);
+                ring.visible = true;
+                ring.material.color.setHex(Number((overlay.ring_colors || [])[idx] || 0xffffff));
                 ring.material.opacity = opacity * Number((overlay.base_opacity || [1, 1, 1])[idx] || 1);
+            });
+            (overlay.axes || []).forEach(function (axisHelper) {
+                if (!axisHelper) return;
+                if (axisHelper.line && axisHelper.line.material) {
+                    axisHelper.line.visible = true;
+                    axisHelper.line.material.color.setHex(Number(axisHelper.color || 0xffffff));
+                    axisHelper.line.material.opacity = opacity * Number(overlay.axis_base_opacity || 0.78);
+                }
+                if (axisHelper.tip && axisHelper.tip.material) {
+                    axisHelper.tip.visible = true;
+                    axisHelper.tip.material.color.setHex(Number(axisHelper.color || 0xffffff));
+                    axisHelper.tip.material.opacity = opacity * Number(overlay.axis_tip_opacity || 0.86);
+                }
             });
         });
         mesh.userData._builderPoseOverlayCount = overlayCount;
@@ -43212,6 +43944,10 @@
              '<option value="workbench_set_pose">workbench_set_pose</option>' +
              '<option value="workbench_set_pose_batch">workbench_set_pose_batch</option>' +
              '<option value="workbench_clear_pose">workbench_clear_pose</option>' +
+             '<option value="workbench_capture_pose">workbench_capture_pose</option>' +
+             '<option value="workbench_delete_pose">workbench_delete_pose</option>' +
+             '<option value="workbench_apply_pose">workbench_apply_pose</option>' +
+             '<option value="workbench_set_timeline_cursor">workbench_set_timeline_cursor</option>' +
              '<option value="workbench_reset_angles">workbench_reset_angles</option>' +
              '<option value="workbench_isolate_chain">workbench_isolate_chain</option>' +
              '<option value="workbench_save_blueprint">workbench_save_blueprint</option>' +
@@ -51243,6 +51979,38 @@
             try { payload = JSON.stringify(target); } catch (ignored) { payload = String(target || ''); }
         }
         _envQueueControl('workbench_clear_pose', payload, actor || 'assistant', reason || 'external workbench clear pose');
+    };
+    window.envopsWorkbenchCapturePose = function (spec, actor, reason) {
+        var payload = '';
+        if (typeof spec === 'string') payload = spec;
+        else if (spec !== undefined && spec !== null) {
+            try { payload = JSON.stringify(spec); } catch (ignored) { payload = String(spec || ''); }
+        }
+        _envQueueControl('workbench_capture_pose', payload, actor || 'assistant', reason || 'external workbench capture pose');
+    };
+    window.envopsWorkbenchDeletePose = function (target, actor, reason) {
+        var payload = '';
+        if (typeof target === 'string') payload = target;
+        else if (target !== undefined && target !== null) {
+            try { payload = JSON.stringify(target); } catch (ignored) { payload = String(target || ''); }
+        }
+        _envQueueControl('workbench_delete_pose', payload, actor || 'assistant', reason || 'external workbench delete pose');
+    };
+    window.envopsWorkbenchApplyPose = function (target, actor, reason) {
+        var payload = '';
+        if (typeof target === 'string') payload = target;
+        else if (target !== undefined && target !== null) {
+            try { payload = JSON.stringify(target); } catch (ignored) { payload = String(target || ''); }
+        }
+        _envQueueControl('workbench_apply_pose', payload, actor || 'assistant', reason || 'external workbench apply pose');
+    };
+    window.envopsWorkbenchSetTimelineCursor = function (spec, actor, reason) {
+        var payload = '';
+        if (typeof spec === 'string') payload = spec;
+        else if (spec !== undefined && spec !== null) {
+            try { payload = JSON.stringify(spec); } catch (ignored) { payload = String(spec || ''); }
+        }
+        _envQueueControl('workbench_set_timeline_cursor', payload, actor || 'assistant', reason || 'external workbench set timeline cursor');
     };
     window.envopsWorkbenchResetAngles = function (target, actor, reason) {
         var payload = '';
