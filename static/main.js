@@ -1270,8 +1270,54 @@
             || String(record.canonical_joint || record.id || '').trim() === 'hips';
     }
 
+    function _envBuilderPoseMechanicsSpec(boneId) {
+        var target = String(boneId || '').trim();
+        if (!target) return null;
+        var canonical = String((((_envBuilderBoneRecordMap(_envBuilderSubject.bones || [])[target] || {}).canonical_joint) || target) || '').trim() || target;
+        switch (canonical) {
+            case 'lower_leg_l':
+            case 'lower_leg_r':
+                return {
+                    order: 'XYZ',
+                    x_min: 0,
+                    x_max: Math.PI * 0.84,
+                    y_min: -0.04,
+                    y_max: 0.04,
+                    z_min: -0.03,
+                    z_max: 0.03
+                };
+            case 'lower_arm_l':
+            case 'lower_arm_r':
+                return {
+                    order: 'XYZ',
+                    x_min: 0,
+                    x_max: Math.PI * 0.88,
+                    y_min: -0.08,
+                    y_max: 0.08,
+                    z_min: -0.08,
+                    z_max: 0.08
+                };
+            default:
+                return null;
+        }
+    }
+
+    function _envBuilderClampPoseMechanics(boneId, rotation) {
+        var spec = _envBuilderPoseMechanicsSpec(boneId);
+        var normalized = _envNormalizeBuilderPoseQuaternion(rotation, _envBuilderPoseIdentityRotation());
+        if (!spec || typeof THREE === 'undefined') return normalized;
+        var quaternion = new THREE.Quaternion(normalized[0], normalized[1], normalized[2], normalized[3]);
+        var euler = new THREE.Euler().setFromQuaternion(quaternion, spec.order || 'XYZ');
+        euler.x = Math.max(Number(spec.x_min), Math.min(Number(spec.x_max), Number(euler.x || 0)));
+        euler.y = Math.max(Number(spec.y_min), Math.min(Number(spec.y_max), Number(euler.y || 0)));
+        euler.z = Math.max(Number(spec.z_min), Math.min(Number(spec.z_max), Number(euler.z || 0)));
+        quaternion.setFromEuler(euler);
+        return _envNormalizeBuilderPoseQuaternion([quaternion.x, quaternion.y, quaternion.z, quaternion.w], normalized);
+    }
+
     function _envBuilderSanitizePoseTransform(boneId, entry) {
         var transform = _envNormalizeBuilderPoseTransform(entry);
+        transform.rotation = _envBuilderClampPoseMechanics(boneId, transform.rotation);
         if (!_envBuilderBoneAllowsPoseOffset(boneId)) transform.offset = _envBuilderPoseIdentityOffset();
         return transform;
     }
@@ -1688,7 +1734,9 @@
         if (!poses.length) return null;
         var rawSpec = spec && typeof spec === 'object' ? spec : {};
         var lastTimestamp = Number(((poses[poses.length - 1] || {}).timestamp) || 0);
-        var sourceDuration = Math.max(0.01, Number(timeline.duration || 0), lastTimestamp);
+        var sourceDuration = lastTimestamp > 0
+            ? Math.max(0.01, lastTimestamp)
+            : Math.max(0.01, Number(timeline.duration || 0));
         var targetDuration = rawSpec.has_duration ? Math.max(0.01, Number(rawSpec.duration || 0.01)) : sourceDuration;
         var scale = targetDuration / Math.max(0.00001, sourceDuration);
         var union = {};
@@ -25506,10 +25554,10 @@
             { slot: 'hand_r', joint: 'hand_r', project_from_parent: true, geometry: 'ellipsoid', scale: [0.05, 0.085, 0.04], color: 0xcdb8a1, up: [0, -0.04, 0] },
             { slot: 'upper_leg_l', joint: 'upper_leg_l', target_joint: 'lower_leg_l', follow_child: true, geometry: 'limb', scale: [0.06, 0.20, 0.045], color: 0x969bad, up: [0, -0.10, 0] },
             { slot: 'lower_leg_l', joint: 'lower_leg_l', target_joint: 'foot_l', follow_child: true, geometry: 'limb', scale: [0.045, 0.20, 0.034], color: 0x888ea2, up: [0, -0.10, 0] },
-            { slot: 'foot_l', joint: 'foot_l', project_from_parent: true, geometry: 'ellipsoid', axis: 'z', scale: [0.07, 0.05, 0.16], color: 0x7a8092, up: [0, -0.02, 0.03] },
+            { slot: 'foot_l', joint: 'foot_l', geometry: 'ellipsoid', axis: 'z', scale: [0.07, 0.05, 0.16], color: 0x7a8092, up: [0, -0.02, 0.08] },
             { slot: 'upper_leg_r', joint: 'upper_leg_r', target_joint: 'lower_leg_r', follow_child: true, geometry: 'limb', scale: [0.06, 0.20, 0.045], color: 0x969bad, up: [0, -0.10, 0] },
             { slot: 'lower_leg_r', joint: 'lower_leg_r', target_joint: 'foot_r', follow_child: true, geometry: 'limb', scale: [0.045, 0.20, 0.034], color: 0x888ea2, up: [0, -0.10, 0] },
-            { slot: 'foot_r', joint: 'foot_r', project_from_parent: true, geometry: 'ellipsoid', axis: 'z', scale: [0.07, 0.05, 0.16], color: 0x7a8092, up: [0, -0.02, 0.03] }
+            { slot: 'foot_r', joint: 'foot_r', geometry: 'ellipsoid', axis: 'z', scale: [0.07, 0.05, 0.16], color: 0x7a8092, up: [0, -0.02, 0.08] }
         ]
     };
     var _envScaffoldSlotRegistryState = {
@@ -25652,10 +25700,10 @@
             case 'hand_r': return [-armLowerX, -Math.max(0.01, _envBuilderScaleHalf(lowerArmScale, 1, 0.13) * 0.08), 0];
             case 'upper_leg_l': return [legX, -Math.max(0.04, _envBuilderScaleHalf(hipsScale, 1, 0.15) * 0.42), 0];
             case 'lower_leg_l': return [0, -legUpperY, 0];
-            case 'foot_l': return [0, -legLowerY, Math.max(0.03, _envBuilderScaleHalf(footScale, 2, 0.16) * 0.22)];
+            case 'foot_l': return [0, -legLowerY, 0];
             case 'upper_leg_r': return [-legX, -Math.max(0.04, _envBuilderScaleHalf(hipsScale, 1, 0.15) * 0.42), 0];
             case 'lower_leg_r': return [0, -legUpperY, 0];
-            case 'foot_r': return [0, -legLowerY, Math.max(0.03, _envBuilderScaleHalf(footScale, 2, 0.16) * 0.22)];
+            case 'foot_r': return [0, -legLowerY, 0];
             default: return [0, 0.1, 0];
         }
     }
@@ -41777,6 +41825,18 @@
         return localVector.lengthSq() > 0.000001 ? localVector : null;
     }
 
+    function _env3DScaffoldNormalizeSpanVector(slotDef, localSpan) {
+        if (!slotDef || !localSpan) return localSpan;
+        var slot = String(slotDef.slot || slotDef.joint || '').trim();
+        var targetJoint = String(slotDef.target_joint || '').trim();
+        if ((slot === 'lower_leg_l' || slot === 'lower_leg_r')
+            && (targetJoint === 'foot_l' || targetJoint === 'foot_r')) {
+            var spanY = Number(localSpan.y || 0);
+            if (Math.abs(spanY) > 0.000001) return new THREE.Vector3(0, spanY, 0);
+        }
+        return localSpan;
+    }
+
     function _env3DScaffoldProjectVectorFromParent(bone) {
         if (!bone || !bone.parent || bone.parent.isBone !== true || typeof THREE === 'undefined') return null;
         var parentWorld = new THREE.Vector3();
@@ -41802,7 +41862,7 @@
         }
         if (targetBone && targetBone !== bone) {
             var localSpan = _env3DScaffoldVectorBetweenBones(bone, targetBone);
-            if (localSpan) return { vector: localSpan, mode: 'span' };
+            if (localSpan) return { vector: _env3DScaffoldNormalizeSpanVector(slotDef, localSpan), mode: 'span' };
         }
         if (slotDef.project_from_parent) {
             var projected = _env3DScaffoldProjectVectorFromParent(bone);
