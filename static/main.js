@@ -15271,7 +15271,6 @@
             _envBuilderApplySelectionToMesh(mesh);
         }
         _env3DUpdateBuilderGizmoAttachment('workbench_select_bones');
-        _env3DRefreshWorkbenchFocusRig(true);
         _envRefreshInhabitantRuntimeState('workbench_select_bones');
         _envLogAction('character_runtime', nextBoneIds.length ? 'Selected builder bones' : 'Cleared builder bone selection', actorName, {
             action: 'workbench_select_bones',
@@ -15370,7 +15369,6 @@
             _env3DStageBuilderSubjectForWorkbench(mesh, mesh.userData._builderSubjectGroup || null);
             _envBuilderApplySelectionToMesh(mesh);
         }
-        _env3DRefreshWorkbenchFocusRig(true);
         _envRefreshInhabitantRuntimeState('workbench_set_display_scope');
         _envLogAction('character_runtime', 'Set builder display scope', actorName, {
             action: 'workbench_set_display_scope',
@@ -23517,8 +23515,27 @@
         } else if (command === 'camera_pose') {
             var poseInstruction = _envParseCameraPoseInstruction(targetId);
             if (_env3D.inited) {
-                _env3DAdjustPoseOffset(poseInstruction || {});
-                _env3DApplyCameraRig(true);
+                var observerView = _envNormalizeCaptureTimeStripCamera((poseInstruction || {}).observer_view || (poseInstruction || {}).camera || (poseInstruction || {}).view || '');
+                var observerRegion = _envNormalizeObserverBodyRegion((poseInstruction || {}).body_region || (poseInstruction || {}).region || '');
+                if (observerView) {
+                    _env3DAnimateCameraToObserverView({
+                        observer_view: observerView,
+                        body_region: observerRegion
+                    }, 'camera:observer_view:' + String(observerView || ''));
+                } else if (poseInstruction && poseInstruction.x !== undefined && poseInstruction.y !== undefined && poseInstruction.z !== undefined
+                    && poseInstruction.tx !== undefined && poseInstruction.ty !== undefined && poseInstruction.tz !== undefined
+                    && typeof THREE !== 'undefined') {
+                    _envScene.cameraMode = 'focus';
+                    _env3DAnimateCameraToVectors(
+                        new THREE.Vector3(Number(poseInstruction.x || 0), Number(poseInstruction.y || 0), Number(poseInstruction.z || 0)),
+                        new THREE.Vector3(Number(poseInstruction.tx || 0), Number(poseInstruction.ty || 0), Number(poseInstruction.tz || 0)),
+                        700,
+                        'camera:absolute_pose'
+                    );
+                } else {
+                    _env3DAdjustPoseOffset(poseInstruction || {});
+                    _env3DApplyCameraRig(true);
+                }
             }
             meta.pose = poseInstruction || {};
             label = 'Adjusted habitat camera pose';
@@ -23561,6 +23578,10 @@
         }
         if (command === 'capture_strip') {
             _envQueueCapture({ type: 'strip', count: parseInt(targetId, 10) || 4 });
+            return;
+        }
+        if (command === 'capture_time_strip') {
+            _envQueueCapture({ type: 'time_strip', spec: _envNormalizeCaptureTimeStripSpec(targetId) });
             return;
         }
         if (command === 'capture_supercam') {
@@ -25795,6 +25816,12 @@
         var poseState = builderActive ? _envBuilderPoseState() : _envNormalizeBuilderPoseState(null);
         var timelineState = builderActive ? _envBuilderTimelineState() : _envNormalizeBuilderTimelineState(null);
         var authoredClipState = builderActive ? _envBuilderAuthoredClipState() : _envCreateBuilderAuthoredClipState();
+        var latestCapture = _envMirrorState.latestCapture && typeof _envMirrorState.latestCapture === 'object'
+            ? _envMirrorState.latestCapture
+            : null;
+        var latestTimeStrip = latestCapture && String(latestCapture.type || '').trim().toLowerCase() === 'time_strip'
+            ? latestCapture
+            : null;
         var selectedTargetVisible = builderActive && selectedBoneId ? _envBuilderSelectedTargetVisible(mountedMesh, selectedBoneId) : false;
         var currentEditingMode = _envNormalizeBuilderEditingMode(_envBuilderInteraction.editing_mode || 'structure');
         var gizmoAttached = builderActive
@@ -25853,6 +25880,8 @@
             authored_clip_count: builderActive ? Number((authoredClipState.clips || []).length || 0) : 0,
             authored_clip_names: builderActive ? _envBuilderAuthoredClipNames(authoredClipState) : [],
             last_compiled_clip: builderActive ? String(authoredClipState.last_compiled_clip || '') : '',
+            last_time_strip_ts: latestTimeStrip ? Number(latestTimeStrip.timestamp || 0) : 0,
+            last_time_strip_frame_count: latestTimeStrip ? Number(latestTimeStrip.frame_count || 0) : 0,
             configured_display_scope: configuredDisplayScope,
             gizmo_mode: builderActive ? _envNormalizeBuilderGizmoMode(_envBuilderInteraction.gizmo_mode || 'rotate') : '',
             gizmo_space: builderActive ? _envNormalizeBuilderGizmoSpace(_envBuilderInteraction.gizmo_space || 'local') : '',
@@ -32018,6 +32047,48 @@
         };
     }
 
+    function _envObserverCameraClipRange(bounds) {
+        var info = bounds && typeof bounds === 'object' ? bounds : {};
+        var size = info.size && typeof info.size === 'object'
+            ? info.size
+            : new THREE.Vector3(40, 20, 40);
+        var span = Math.max(
+            0.05,
+            Number(size.x || 0),
+            Number(size.y || 0),
+            Number(size.z || 0),
+            Number(info.radius || 0) * 2
+        );
+        return {
+            near: Math.max(0.001, Math.min(0.1, span * 0.004)),
+            far: Math.max(64, span * 20, Number(info.radius || 0) * 28)
+        };
+    }
+
+    function _envObserverExpandedBounds(bounds, options) {
+        var info = bounds && typeof bounds === 'object' ? bounds : {};
+        var opts = options && typeof options === 'object' ? options : {};
+        var center = info.center && typeof info.center.clone === 'function'
+            ? info.center.clone()
+            : new THREE.Vector3(0, 0, 0);
+        var size = info.size && typeof info.size.clone === 'function'
+            ? info.size.clone()
+            : new THREE.Vector3(40, 20, 40);
+        size.x = Math.max(0.05, Number(size.x || 0.05) * Math.max(1, Number(opts.pad_x || 1)));
+        size.y = Math.max(0.05, Number(size.y || 0.05) * Math.max(1, Number(opts.pad_y || 1)));
+        size.z = Math.max(0.05, Number(size.z || 0.05) * Math.max(1, Number(opts.pad_z || 1)));
+        center.x += Number(opts.shift_x || 0) * size.x;
+        center.y += Number(opts.shift_y || 0) * size.y;
+        center.z += Number(opts.shift_z || 0) * size.z;
+        return {
+            box: info.box || null,
+            center: center,
+            size: size,
+            radius: Math.max(0.05, Number(info.radius || 0), size.length() * 0.5),
+            point_count: Math.max(0, Number(info.point_count || 0))
+        };
+    }
+
     function _envObserverSetPose(pose, boundsOverride) {
         var observer = _envObserverInit();
         if (!observer) return null;
@@ -32027,6 +32098,7 @@
         var center = bounds.center.clone();
         var size = bounds.size.clone();
         var radius = Number(bounds.radius || 40);
+        var clipRange = _envObserverCameraClipRange(bounds);
         var cam = observer.camera;
         var ortho = observer.orthoCamera;
         if (pose === 'current') {
@@ -32049,18 +32121,18 @@
         }
         if (pose === 'topdown') {
             var aspect = width / Math.max(1, height);
-            var halfSpanX = Math.max(18, size.x * 0.65);
-            var halfSpanZ = Math.max(18, size.z * 0.65);
+            var halfSpanX = Math.max(0.4, size.x * 0.72);
+            var halfSpanZ = Math.max(0.4, size.z * 0.72);
             var halfWidth = Math.max(halfSpanX, halfSpanZ * aspect);
             var halfHeight = Math.max(halfSpanZ, halfSpanX / Math.max(0.001, aspect));
             ortho.left = -halfWidth;
             ortho.right = halfWidth;
             ortho.top = halfHeight;
             ortho.bottom = -halfHeight;
-            ortho.near = 0.1;
-            ortho.far = Math.max(500, radius * 10);
+            ortho.near = clipRange.near;
+            ortho.far = Math.max(clipRange.far, radius * 10);
             ortho.zoom = 1;
-            ortho.position.set(center.x, center.y + Math.max(60, size.y + (radius * 1.8)), center.z);
+            ortho.position.set(center.x, center.y + Math.max(size.y + (radius * 1.8), radius * 2.4, 2), center.z);
             ortho.up.set(0, 0, -1);
             ortho.lookAt(center.x, center.y, center.z);
             ortho.updateProjectionMatrix();
@@ -32073,7 +32145,7 @@
             };
         }
         if (pose === 'overview') {
-            var overviewDist = Math.max(radius * 1.6, 28);
+            var overviewDist = Math.max(radius * 1.6, size.length() * 0.85, 2.2);
             var overviewTarget = new THREE.Vector3(center.x, center.y, center.z);
             cam.position.set(
                 center.x + (overviewDist * 0.82),
@@ -32081,8 +32153,8 @@
                 center.z + (overviewDist * 0.82)
             );
             cam.lookAt(overviewTarget);
-            cam.near = 0.1;
-            cam.far = Math.max(500, radius * 12);
+            cam.near = clipRange.near;
+            cam.far = Math.max(clipRange.far, radius * 12);
             cam.fov = 50;
             cam.aspect = width / Math.max(1, height);
             cam.updateProjectionMatrix();
@@ -32106,8 +32178,8 @@
                 Number(pose.z || 0)
             );
             cam.lookAt(target);
-            cam.near = 0.1;
-            cam.far = Math.max(500, radius * 12);
+            cam.near = clipRange.near;
+            cam.far = Math.max(clipRange.far, radius * 12);
             cam.fov = Number(pose.fov || 50);
             cam.aspect = width / Math.max(1, height);
             cam.updateProjectionMatrix();
@@ -32382,6 +32454,7 @@
             target: targetKey || (base.target !== undefined ? base.target : null),
             file: _envCaptureSummaryFile(root) || _envCaptureSummaryFile(result) || String(base.file || ''),
             timestamp: Number(root.ts || result.ts || Date.now()),
+            frame_count: Number(root.frame_count || result.frame_count || base.frame_count || 0),
             object_count: Number(
                 root.object_count
                 || result.object_count
@@ -32443,6 +32516,547 @@
             count: count,
             frames: frames,
             focus_candidates: _envObserverFocusCandidates(6),
+            render_truth: _envBuildRenderTruth(),
+            ts: Date.now()
+        };
+    }
+
+    function _envCaptureTimeStripApplyBuilderPose(mesh, actionKey) {
+        if (!mesh || !mesh.userData || !mesh.userData._builderSubjectGroup) return false;
+        if (!_env3DApplyBuilderPoseState(mesh)) return false;
+        _env3DStageBuilderSubjectForWorkbench(mesh, mesh.userData._builderSubjectGroup || null);
+        _envBuilderApplySelectionToMesh(mesh);
+        _env3DUpdateBuilderGizmoAttachment(actionKey || 'capture_time_strip');
+        return true;
+    }
+
+    function _envCaptureTimeStripClipBoneIds(clip) {
+        var out = {};
+        var tracks = clip && Array.isArray(clip.tracks) ? clip.tracks : [];
+        tracks.forEach(function (track) {
+            var name = String((track || {}).name || '').trim();
+            var idx = name.indexOf('.');
+            var boneId = idx >= 0 ? String(name.slice(0, idx) || '').trim() : name;
+            if (boneId) out[boneId] = true;
+        });
+        return Object.keys(out).sort();
+    }
+
+    function _envCaptureTimeStripBuilderSnapshot() {
+        return {
+            timeline: _envNormalizeBuilderTimelineState(_envBuilderSubject.timeline || null),
+            pose: _envNormalizeBuilderPoseState(_envBuilderSubject.pose || null)
+        };
+    }
+
+    function _envCaptureTimeStripPlaybackSnapshot(mesh) {
+        if (!mesh || !mesh.userData) return null;
+        var action = mesh.userData._currentAction || null;
+        var speed = action && typeof action.getEffectiveTimeScale === 'function'
+            ? Number(action.getEffectiveTimeScale())
+            : Number(mesh.userData._previewSpeed || 1);
+        return {
+            active: !!(action && String(mesh.userData._currentClipName || mesh.userData._previewClipName || '').trim()),
+            clip_name: String(mesh.userData._currentClipName || mesh.userData._previewClipName || '').trim(),
+            time: Math.max(0, Number(action && action.time !== undefined ? action.time : 0)),
+            paused: !!(action && action.paused),
+            speed: _envClampCharacterAnimationSpeed(speed, 1),
+            loop: (action && typeof THREE !== 'undefined' && action.loop === THREE.LoopOnce) ? 'once' : _envNormalizeCharacterAnimationLoop(mesh.userData._previewLoop || 'repeat', 'repeat')
+        };
+    }
+
+    function _envCaptureTimeStripRestorePlayback(mesh, snapshot) {
+        if (!mesh || !mesh.userData || !snapshot || !snapshot.active || !snapshot.clip_name) return false;
+        var payload = JSON.stringify({
+            clip: snapshot.clip_name,
+            loop: snapshot.loop,
+            speed: snapshot.speed,
+            fadeSeconds: 0,
+            override: true
+        });
+        var played = _envCharacterPlayClip('system', 'capture_time_strip_restore', payload);
+        var action = mesh.userData._currentAction || null;
+        if (played && action) {
+            action.time = Math.max(0, Number(snapshot.time || 0));
+            action.paused = !!snapshot.paused;
+            if (mesh.userData._mixer && typeof mesh.userData._mixer.update === 'function') {
+                mesh.userData._mixer.update(0);
+            }
+        }
+        return !!played;
+    }
+
+    function _envNormalizeObserverBodyRegion(value) {
+        var key = String(value || '').toLowerCase().trim();
+        if (key === 'upper' || key === 'upperbody' || key === 'upper_body') return 'upper_body';
+        if (key === 'lower' || key === 'lowerbody' || key === 'lower_body') return 'lower_body';
+        return 'full_body';
+    }
+
+    function _envObserverRegionBounds(rawBounds, region) {
+        if (!rawBounds || typeof THREE === 'undefined') return rawBounds;
+        var normalized = _envNormalizeObserverBodyRegion(region);
+        if (normalized === 'full_body') return rawBounds;
+        var center = rawBounds.center && typeof rawBounds.center.clone === 'function'
+            ? rawBounds.center.clone()
+            : new THREE.Vector3(0, 0, 0);
+        var size = rawBounds.size && typeof rawBounds.size.clone === 'function'
+            ? rawBounds.size.clone()
+            : new THREE.Vector3(1, 1, 1);
+        if (normalized === 'upper_body') {
+            center.y += size.y * 0.18;
+            size.y = Math.max(0.24, size.y * 0.72);
+            size.x = Math.max(0.24, size.x * 0.92);
+            size.z = Math.max(0.24, size.z * 0.92);
+        } else if (normalized === 'lower_body') {
+            center.y -= size.y * 0.2;
+            size.y = Math.max(0.24, size.y * 0.52);
+            size.x = Math.max(0.24, size.x * 0.96);
+            size.z = Math.max(0.24, size.z * 0.96);
+        }
+        return {
+            worldBox: new THREE.Box3().setFromCenterAndSize(center.clone(), size.clone()),
+            center: center,
+            size: size,
+            radius: size.length() * 0.5,
+            point_count: Number(rawBounds.point_count || 8)
+        };
+    }
+
+    function _envCaptureTimeStripCameraPose(spec, bounds) {
+        var settings = spec && typeof spec === 'object' ? spec : {};
+        var cameraKey = _envNormalizeCaptureTimeStripCamera(settings.camera || '');
+        var bodyRegion = _envNormalizeObserverBodyRegion(settings.body_region || settings.region || '');
+        if (!cameraKey) {
+            var current = _env3DCameraPoseSnapshot();
+            if (current && current.position && current.target) {
+                return {
+                    x: Number((current.position || {}).x || 0),
+                    y: Number((current.position || {}).y || 0),
+                    z: Number((current.position || {}).z || 0),
+                    tx: Number((current.target || {}).x || 0),
+                    ty: Number((current.target || {}).y || 0),
+                    tz: Number((current.target || {}).z || 0),
+                    fov: Number((_env3D.camera && _env3D.camera.fov) || 50)
+                };
+            }
+            return 'current';
+        }
+        if (cameraKey === 'top') return 'topdown';
+        if (cameraKey === 'bottom') {
+            var bottomBounds = _envObserverExpandedBounds(bounds, {
+                pad_x: 1.1,
+                pad_y: 1.18,
+                pad_z: 1.1,
+                shift_y: -0.08
+            });
+            var bottomCenter = bottomBounds.center.clone();
+            var bottomSize = bottomBounds.size.clone();
+            var bottomWidth = Math.max(0.2, Math.max(bottomSize.x, bottomSize.z) * 1.08);
+            var bottomHeight = Math.max(0.2, bottomSize.y * 1.2);
+            var bottomDistance = _env3DWorkbenchFitDistance(bottomHeight, bottomWidth, 0.6);
+            var bottomPosition = bottomCenter.clone().add(new THREE.Vector3(0, -bottomDistance, 0));
+            bottomCenter.y += Math.max(0.02, bottomHeight * 0.08);
+            return {
+                x: Number(bottomPosition.x || 0),
+                y: Number(bottomPosition.y || 0),
+                z: Number(bottomPosition.z || 0),
+                tx: Number(bottomCenter.x || 0),
+                ty: Number(bottomCenter.y || 0),
+                tz: Number(bottomCenter.z || 0),
+                fov: 50
+            };
+        }
+        var worldBox = bounds && bounds.worldBox && typeof bounds.worldBox.isEmpty === 'function' && !bounds.worldBox.isEmpty()
+            ? bounds.worldBox
+            : null;
+        var mesh = _envMountedRuntimeMesh();
+        if (!worldBox && mesh && typeof THREE !== 'undefined') {
+            try {
+                worldBox = _env3DCharacterWorkbenchWorldBox(mesh);
+            } catch (ignored) {
+                worldBox = null;
+            }
+        }
+        var isIso = cameraKey.indexOf('iso_') === 0;
+        var isSideLike = (cameraKey === 'side' || cameraKey === 'left' || cameraKey === 'right');
+        var regionalBounds = _envObserverRegionBounds(
+            worldBox && !worldBox.isEmpty()
+                ? {
+                    worldBox: worldBox,
+                    center: worldBox.getCenter(new THREE.Vector3()),
+                    size: worldBox.getSize(new THREE.Vector3()),
+                    radius: worldBox.getSize(new THREE.Vector3()).length() * 0.5,
+                    point_count: 8
+                }
+                : (bounds || null),
+            bodyRegion
+        );
+        var poseBounds = _envObserverExpandedBounds(
+            regionalBounds,
+            {
+                pad_x: bodyRegion === 'upper_body'
+                    ? (isIso ? 1.08 : (isSideLike ? 1.02 : 1.08))
+                    : (isIso ? 1.12 : (isSideLike ? 1.12 : 1.16)),
+                pad_y: bodyRegion === 'upper_body'
+                    ? (isIso ? 1.72 : (isSideLike ? 1.82 : 1.56))
+                    : (isIso ? 1.42 : (isSideLike ? 1.58 : 1.28)),
+                pad_z: bodyRegion === 'upper_body'
+                    ? (isIso ? 1.08 : (isSideLike ? 1.02 : 1.08))
+                    : (isIso ? 1.12 : (isSideLike ? 1.12 : 1.16)),
+                shift_y: bodyRegion === 'upper_body'
+                    ? (isIso ? 0.08 : (isSideLike ? 0.14 : 0.02))
+                    : (isIso ? -0.1 : (isSideLike ? 0.06 : -0.08))
+            }
+        );
+        var center = poseBounds.center.clone();
+        var size = poseBounds.size.clone();
+        var rawCenterY = Number(center.y || 0);
+        var width = Math.max(0.2, Number(Math.max(size.x, size.z) || 0.2));
+        var height = Math.max(0.2, Number(size.y || 0.2));
+        var stageGuide = bodyRegion === 'full_body' ? _envCurrentObserverWorkbenchStageGuide() : null;
+        if (stageGuide) {
+            center.x = Number((stageGuide.center || {}).x || 0);
+            center.z = Number((stageGuide.center || {}).z || 0);
+            center.y = Math.max(
+                rawCenterY,
+                Number(stageGuide.floorY || 0) + Math.max(0.24, height * (isIso ? 0.6 : (isSideLike ? 0.62 : 0.64)))
+            );
+        }
+        var reviewWidth = stageGuide
+            ? Math.max(
+                0.24,
+                Math.min(
+                    width,
+                    Math.max(
+                        height * (
+                            bodyRegion === 'upper_body'
+                                ? (isIso ? 1.08 : (isSideLike ? 0.72 : 0.94))
+                                : (isIso ? 1.55 : (isSideLike ? 0.9 : 1.18))
+                        ),
+                        0.9
+                    )
+                )
+            )
+            : width;
+        var fill = stageGuide
+            ? (
+                bodyRegion === 'upper_body'
+                    ? (isIso ? 0.92 : (isSideLike ? 0.98 : 0.94))
+                    : (isIso ? 0.84 : (isSideLike ? 0.92 : 0.88))
+            )
+            : (
+                bodyRegion === 'upper_body'
+                    ? (isIso ? 0.82 : (isSideLike ? 1.06 : 0.88))
+                    : (isIso ? 0.6 : (isSideLike ? 0.52 : 0.63))
+            );
+        var distance = _env3DWorkbenchFitDistance(height, reviewWidth, fill);
+        if (bodyRegion === 'upper_body') distance *= isIso ? 1.12 : (isSideLike ? 0.82 : 1.02);
+        var horizontal = new THREE.Vector3(0, 0, 1);
+        if (cameraKey === 'side' || cameraKey === 'right') horizontal.set(1, 0, 0);
+        else if (cameraKey === 'left') horizontal.set(-1, 0, 0);
+        else if (cameraKey === 'back') horizontal.set(0, 0, -1);
+        else if (cameraKey === 'iso_front') horizontal.set(1, 0, 1).normalize();
+        else if (cameraKey === 'iso_back') horizontal.set(-1, 0, -1).normalize();
+        var reviewHeight = stageGuide ? (height * (isIso ? 1.1 : (isSideLike ? 1.14 : 1.08))) : height;
+        var elevation = isIso
+            ? Math.max(reviewHeight * 0.16, distance * 0.14, 0.3)
+            : (isSideLike
+                ? Math.max(reviewHeight * 0.11, distance * 0.04, 0.16)
+                : Math.max(reviewHeight * 0.07, distance * 0.04, 0.12));
+        var position = center.clone().add(horizontal.multiplyScalar(distance));
+        position.y = center.y + elevation;
+        center.y -= Math.max(
+            0.02,
+            reviewHeight * (
+                bodyRegion === 'upper_body'
+                    ? (isIso ? 0.28 : (isSideLike ? 0.1 : 0.22))
+                    : (isIso ? 0.16 : (isSideLike ? 0.06 : 0.1))
+            )
+        );
+        return {
+            x: Number(position.x || 0),
+            y: Number(position.y || 0),
+            z: Number(position.z || 0),
+            tx: Number(center.x || 0),
+            ty: Number(center.y || 0),
+            tz: Number(center.z || 0),
+            fov: 50
+        };
+    }
+
+    function _envCurrentObserverCameraBounds(region) {
+        if (typeof THREE === 'undefined') return _envObserverSceneBounds();
+        var mesh = _envMountedRuntimeMesh();
+        if (mesh) {
+            try {
+                if (typeof mesh.updateWorldMatrix === 'function') mesh.updateWorldMatrix(true, true);
+                if (mesh.userData && mesh.userData._builderSubjectGroup && typeof mesh.userData._builderSubjectGroup.updateWorldMatrix === 'function') {
+                    mesh.userData._builderSubjectGroup.updateWorldMatrix(true, true);
+                }
+                var worldBox = _env3DCharacterWorkbenchWorldBox(mesh);
+                if (worldBox && typeof worldBox.isEmpty === 'function' && !worldBox.isEmpty()) {
+                    var size = worldBox.getSize(new THREE.Vector3());
+                    return _envObserverRegionBounds({
+                        worldBox: worldBox,
+                        center: worldBox.getCenter(new THREE.Vector3()),
+                        size: size,
+                        radius: size.length() * 0.5,
+                        point_count: 8
+                    }, region);
+                }
+            } catch (ignored) {}
+        }
+        return _envObserverRegionBounds(_envObserverSceneBounds(), region);
+    }
+
+    function _envCurrentObserverWorkbenchStageGuide() {
+        if (typeof THREE === 'undefined') return null;
+        if (typeof _env3DUpdateWorkbenchGuides === 'function') {
+            try { _env3DUpdateWorkbenchGuides(); } catch (ignored) {}
+        }
+        var guides = _env3D && _env3D.workbenchGuides;
+        if (!guides || !guides.group || !guides.group.visible) return null;
+        var center = guides.group.position && typeof guides.group.position.clone === 'function'
+            ? guides.group.position.clone()
+            : new THREE.Vector3(0, 0, 0);
+        return {
+            center: center,
+            floorY: Number(center.y || 0)
+        };
+    }
+
+    function _env3DAnimateCameraToObserverView(spec, reason) {
+        if (!_env3D.camera || !_env3D.controls || typeof THREE === 'undefined') return false;
+        var settings = spec && typeof spec === 'object' ? spec : {};
+        var cameraKey = _envNormalizeCaptureTimeStripCamera(settings.observer_view || settings.camera || settings.view || '');
+        var bodyRegion = _envNormalizeObserverBodyRegion(settings.body_region || settings.region || '');
+        if (!cameraKey) return false;
+        var bounds = _envCurrentObserverCameraBounds(bodyRegion);
+        var pose = _envCaptureTimeStripCameraPose({ camera: cameraKey, body_region: bodyRegion }, bounds);
+        if (!pose || pose === 'current') return false;
+        var endTarget = new THREE.Vector3(
+            Number(pose.tx || 0),
+            Number(pose.ty || 0),
+            Number(pose.tz || 0)
+        );
+        var endPos = new THREE.Vector3();
+        if (pose === 'topdown') {
+            var center = bounds && bounds.center && typeof bounds.center.clone === 'function'
+                ? bounds.center.clone()
+                : new THREE.Vector3(0, 0, 0);
+            var size = bounds && bounds.size && typeof bounds.size.clone === 'function'
+                ? bounds.size.clone()
+                : new THREE.Vector3(10, 10, 10);
+            var width = Math.max(0.2, Number(Math.max(size.x, size.z) || 0.2));
+            var height = Math.max(0.2, Number(size.y || 0.2) * 1.18);
+            var distance = _env3DWorkbenchFitDistance(height, width, 0.6);
+            endTarget.copy(center);
+            endPos.copy(center).add(new THREE.Vector3(0, distance, 0));
+        } else {
+            endPos.set(
+                Number(pose.x || 0),
+                Number(pose.y || 0),
+                Number(pose.z || 0)
+            );
+        }
+        _envScene.cameraMode = 'focus';
+        return _env3DAnimateCameraToVectors(endPos, endTarget, 700, reason || ('camera:observer_view:' + cameraKey));
+    }
+
+    function _envCaptureTimeStripUnionBounds(mesh, source, timelineSnapshot, tempMixer, frameCount, duration) {
+        if (!mesh || typeof THREE === 'undefined') return null;
+        var unionBox = new THREE.Box3();
+        var hasBounds = false;
+        for (var i = 0; i < frameCount; i += 1) {
+            var sampleTime = frameCount <= 1 ? 0 : (duration * (i / Math.max(1, frameCount - 1)));
+            if (source === 'clip') {
+                if (tempMixer && typeof tempMixer.setTime === 'function') tempMixer.setTime(sampleTime);
+            } else {
+                _envBuilderSubject.timeline = _envNormalizeBuilderTimelineState(timelineSnapshot || null);
+                _envBuilderSubject.timeline.cursor = duration > 0 ? (sampleTime / duration) : 0;
+                _envBuilderSubject.pose = _envBuilderTimelinePoseAtTime(timelineSnapshot || null, sampleTime);
+                if (!_envCaptureTimeStripApplyBuilderPose(mesh, 'capture_time_strip_probe')) continue;
+            }
+            if (typeof mesh.updateWorldMatrix === 'function') mesh.updateWorldMatrix(true, true);
+            if (mesh.userData && mesh.userData._builderSubjectGroup && typeof mesh.userData._builderSubjectGroup.updateWorldMatrix === 'function') {
+                mesh.userData._builderSubjectGroup.updateWorldMatrix(true, true);
+            }
+            var worldBox = _env3DCharacterWorkbenchWorldBox(mesh);
+            if (!worldBox || worldBox.isEmpty()) continue;
+            if (!hasBounds) {
+                unionBox.copy(worldBox);
+                hasBounds = true;
+            } else {
+                unionBox.union(worldBox);
+            }
+        }
+        if (!hasBounds) return null;
+        return {
+            worldBox: unionBox,
+            center: unionBox.getCenter(new THREE.Vector3()),
+            size: unionBox.getSize(new THREE.Vector3())
+        };
+    }
+
+    function _envCaptureTimeStrip(spec) {
+        var options = spec && typeof spec === 'object' ? spec : {};
+        var observer = _envObserverInit();
+        if (!observer || !_env3D.scene || !_env3D.inited) {
+            return { type: 'time_strip', error: 'environment_3d_not_ready', ts: Date.now() };
+        }
+        var mesh = _envMountedRuntimeMesh();
+        if (!mesh || !mesh.userData) {
+            return { type: 'time_strip', error: 'mounted_runtime_mesh_unavailable', ts: Date.now() };
+        }
+        var frameCount = Math.max(2, Math.min(24, parseInt(options.frame_count, 10) || 8));
+        var source = _envNormalizeCaptureTimeStripSource(options.source || 'timeline');
+        var bodyRegion = _envNormalizeObserverBodyRegion(options.body_region || options.region || '');
+        var bounds = _envObserverRegionBounds(_envObserverSceneBounds(), bodyRegion);
+        var pose = null;
+        var tileWidth = 400;
+        var tileHeight = 225;
+        var cols = Math.max(1, Math.min(5, frameCount <= 4 ? frameCount : Math.ceil(frameCount / 2)));
+        var rows = Math.max(1, Math.ceil(frameCount / cols));
+        observer.atlasCanvas.width = cols * tileWidth;
+        observer.atlasCanvas.height = rows * tileHeight;
+        var atlasCtx = observer.atlasCtx;
+        atlasCtx.clearRect(0, 0, observer.atlasCanvas.width, observer.atlasCanvas.height);
+        atlasCtx.fillStyle = '#05070d';
+        atlasCtx.fillRect(0, 0, observer.atlasCanvas.width, observer.atlasCanvas.height);
+        var builderSnapshot = _envCaptureTimeStripBuilderSnapshot();
+        var playbackSnapshot = _envCaptureTimeStripPlaybackSnapshot(mesh);
+        var frames = [];
+        var duration = 0;
+        var resolvedClip = null;
+        var tempMixer = null;
+        var tempAction = null;
+        var clipBoneIds = [];
+        try {
+            if (source === 'clip') {
+                var clipName = String(options.clip_name || '').trim()
+                    || String((mesh.userData && mesh.userData._currentClipName) || '')
+                    || String((_envBuilderAuthoredClipState().last_compiled_clip) || '');
+                resolvedClip = clipName ? _envCharacterResolveAnimationClip(mesh, clipName) : null;
+                if (!resolvedClip || !resolvedClip.clip || typeof THREE === 'undefined') {
+                    return { type: 'time_strip', error: 'clip_unavailable', clip_name: clipName, ts: Date.now() };
+                }
+                duration = Math.max(0.01, Number((resolvedClip.clip && resolvedClip.clip.duration) || 0.01));
+                clipBoneIds = _envCaptureTimeStripClipBoneIds(resolvedClip.clip);
+                tempMixer = new THREE.AnimationMixer(mesh.userData._builderSubjectGroup || mesh);
+                tempAction = tempMixer.clipAction(resolvedClip.clip);
+                tempAction.reset();
+                tempAction.play();
+            } else {
+                var timeline = _envBuilderTimelineState();
+                if (!(timeline.key_poses || []).length) {
+                    return { type: 'time_strip', error: 'no_key_poses', ts: Date.now() };
+                }
+                duration = Math.max(0.01, Number(timeline.duration || 0), Number((((timeline.key_poses || [])[timeline.key_poses.length - 1] || {}).timestamp) || 0));
+            }
+            var motionBounds = _envCaptureTimeStripUnionBounds(mesh, source, builderSnapshot.timeline || null, tempMixer, frameCount, duration);
+            pose = _envCaptureTimeStripCameraPose({
+                camera: options.camera,
+                view: options.view,
+                observer_view: options.observer_view,
+                body_region: bodyRegion
+            }, motionBounds || bounds);
+            for (var i = 0; i < frameCount; i += 1) {
+                var sampleTime = frameCount <= 1 ? 0 : (duration * (i / Math.max(1, frameCount - 1)));
+                var posedBoneIds = [];
+                if (source === 'clip') {
+                    if (tempMixer && typeof tempMixer.setTime === 'function') tempMixer.setTime(sampleTime);
+                    else if (tempAction) {
+                        tempAction.time = sampleTime;
+                        if (tempMixer && typeof tempMixer.update === 'function') tempMixer.update(0);
+                    }
+                    posedBoneIds = clipBoneIds.slice(0);
+                } else {
+                    var timelineCursor = duration > 0 ? (sampleTime / duration) : 0;
+                    _envBuilderSubject.timeline = _envNormalizeBuilderTimelineState(builderSnapshot.timeline || null);
+                    _envBuilderSubject.timeline.cursor = timelineCursor;
+                    _envBuilderSubject.pose = _envBuilderTimelinePoseAtTime(builderSnapshot.timeline || null, sampleTime);
+                    if (!_envCaptureTimeStripApplyBuilderPose(mesh, 'capture_time_strip')) {
+                        return { type: 'time_strip', error: 'pose_apply_failed', ts: Date.now() };
+                    }
+                    posedBoneIds = _envBuilderPosedBoneIds(_envBuilderSubject.pose || null);
+                }
+                var render = _envObserverRenderComposite(pose, {
+                    width: tileWidth,
+                    height: tileHeight,
+                    annotationMode: 'none',
+                    projectionLimit: 12
+                });
+                var col = i % cols;
+                var row = Math.floor(i / cols);
+                var x = col * tileWidth;
+                var y = row * tileHeight;
+                if (!render || render.error) {
+                    atlasCtx.fillStyle = '#1a1f2b';
+                    atlasCtx.fillRect(x, y, tileWidth, tileHeight);
+                    atlasCtx.fillStyle = '#ffffff';
+                    atlasCtx.font = '16px monospace';
+                    atlasCtx.fillText('Frame ' + i, x + 12, y + 24);
+                    atlasCtx.font = '12px monospace';
+                    atlasCtx.fillText(String((render && render.error) || 'capture_failed'), x + 12, y + 44);
+                    frames.push({
+                        index: i,
+                        time: Number(sampleTime.toFixed(4)),
+                        cursor: Number((duration > 0 ? (sampleTime / duration) : 0).toFixed(6)),
+                        posed_bone_ids: posedBoneIds,
+                        error: String((render && render.error) || 'capture_failed')
+                    });
+                    continue;
+                }
+                atlasCtx.drawImage(observer.compositeCanvas, x, y, tileWidth, tileHeight);
+                atlasCtx.fillStyle = 'rgba(0, 0, 0, 0.72)';
+                atlasCtx.fillRect(x, y, tileWidth, 22);
+                atlasCtx.fillStyle = '#ffffff';
+                atlasCtx.font = '12px monospace';
+                atlasCtx.textBaseline = 'middle';
+                atlasCtx.fillText('F' + i + ' · ' + sampleTime.toFixed(2) + 's', x + 10, y + 11);
+                frames.push({
+                    index: i,
+                    time: Number(sampleTime.toFixed(4)),
+                    cursor: Number((duration > 0 ? (sampleTime / duration) : 0).toFixed(6)),
+                    posed_bone_ids: posedBoneIds,
+                    camera: _envCloneJson(render.camera, null),
+                    observation: _envCloneJson(render.observation, null)
+                });
+            }
+        } finally {
+            if (tempAction && typeof tempAction.stop === 'function') tempAction.stop();
+            if (tempMixer && typeof tempMixer.stopAllAction === 'function') tempMixer.stopAllAction();
+            if (tempMixer && mesh.userData && mesh.userData._builderSubjectGroup && typeof tempMixer.uncacheRoot === 'function') {
+                tempMixer.uncacheRoot(mesh.userData._builderSubjectGroup);
+            }
+            var restored = _envCaptureTimeStripRestorePlayback(mesh, playbackSnapshot);
+            if (!restored) {
+                _envBuilderSubject.timeline = _envNormalizeBuilderTimelineState(builderSnapshot.timeline || null);
+                _envBuilderSubject.pose = _envNormalizeBuilderPoseState(builderSnapshot.pose || null);
+                _envCaptureTimeStripApplyBuilderPose(mesh, 'capture_time_strip_restore');
+            }
+        }
+        return {
+            type: 'time_strip',
+            width: observer.atlasCanvas.width,
+            height: observer.atlasCanvas.height,
+            frame_count: frameCount,
+            duration: Number(duration.toFixed(4)),
+            source: source,
+            clip_name: source === 'clip' ? String(((resolvedClip || {}).name) || options.clip_name || '') : '',
+            camera_preset: String(options.camera || 'current'),
+            body_region: bodyRegion,
+            image_b64: observer.atlasCanvas.toDataURL('image/jpeg', 0.72),
+            frames: frames,
+            observation: {
+                mode: 'time_strip',
+                bounds: _envObserverBoundsSnapshot(bounds),
+                helper_suppression: {
+                    transform_controls: true,
+                    grid_helper: false
+                }
+            },
             render_truth: _envBuildRenderTruth(),
             ts: Date.now()
         };
@@ -33006,6 +33620,8 @@
                     result = _envCaptureFrame(job.pose || 'current');
                 } else if (job.type === 'strip') {
                     result = _envCaptureStrip(job.count || 4);
+                } else if (job.type === 'time_strip') {
+                    result = _envCaptureTimeStrip(job.spec || {});
                 } else if (job.type === 'supercam') {
                     result = _envCaptureSupercam();
                 } else if (job.type === 'focus') {
@@ -36518,6 +37134,57 @@
             });
         }
         return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+    }
+
+    function _envNormalizeCaptureTimeStripSource(value) {
+        return String(value || '').trim().toLowerCase() === 'clip' ? 'clip' : 'timeline';
+    }
+
+    function _envNormalizeCaptureTimeStripCamera(value) {
+        var key = String(value || '').trim().toLowerCase();
+        if (key === 'front' || key === 'back'
+            || key === 'side' || key === 'left' || key === 'right'
+            || key === 'iso_front' || key === 'iso_back'
+            || key === 'top' || key === 'bottom') return key;
+        return '';
+    }
+
+    function _envNormalizeCaptureTimeStripSpec(targetId) {
+        var text = String(targetId || '').trim();
+        var parsed = null;
+        try {
+            parsed = text ? JSON.parse(text) : null;
+        } catch (ignored) {
+            parsed = null;
+        }
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+            parsed = {};
+            text.split(',').forEach(function (part) {
+                var segment = String(part || '').trim();
+                if (!segment) return;
+                var idx = segment.indexOf('=');
+                if (idx < 0) idx = segment.indexOf(':');
+                if (idx < 0) return;
+                var key = String(segment.slice(0, idx) || '').trim();
+                var value = String(segment.slice(idx + 1) || '').trim();
+                if (!key) return;
+                if (/^(true|false)$/i.test(value)) parsed[key] = /^true$/i.test(value);
+                else if (/^-?\d+(?:\.\d+)?$/.test(value)) parsed[key] = Number(value);
+                else parsed[key] = value;
+            });
+        }
+        var frameCount = Math.max(2, Math.min(24, parseInt(parsed.frame_count, 10) || parseInt(parsed.frames, 10) || 8));
+        var source = _envNormalizeCaptureTimeStripSource(parsed.source || 'timeline');
+        var camera = _envNormalizeCaptureTimeStripCamera(parsed.camera || parsed.pose || '');
+        var clipName = String(parsed.clip_name || parsed.clip || '').trim();
+        var bodyRegion = _envNormalizeObserverBodyRegion(parsed.body_region || parsed.region || '');
+        return {
+            frame_count: frameCount,
+            source: source,
+            camera: camera,
+            clip_name: clipName,
+            body_region: bodyRegion
+        };
     }
 
     function _env3DCameraPoseSnapshot() {
@@ -52420,6 +53087,11 @@
     window.envopsCameraPose = function (pose, actor, note) {
         var payload = typeof pose === 'string' ? pose : JSON.stringify(pose || {});
         _envQueueControl('camera_pose', payload, actor || 'assistant', note || 'external camera pose');
+    };
+    window.envopsCameraObserverView = function (view, actor, note) {
+        _envQueueControl('camera_pose', JSON.stringify({
+            observer_view: String(view || '')
+        }), actor || 'assistant', note || 'external observer camera pose');
     };
     window.envopsSetTheaterMode = function (mode, actor, reason) {
         _envQueueControl('set_theater_mode', String(mode || 'environment'), actor || 'assistant', reason || 'external theater mode');

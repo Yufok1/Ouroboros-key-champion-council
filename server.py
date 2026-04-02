@@ -1382,6 +1382,7 @@ _ENV_CONTROL_PROXY_COMMANDS = frozenset({
     "capture_frame",
     "capture_frame_overview",
     "capture_strip",
+    "capture_time_strip",
     "capture_supercam",
     "capture_focus",
     "capture_probe",
@@ -4120,6 +4121,7 @@ def _env_read_local_proxy_payload(args: dict | None = None) -> dict | None:
     query_map = {
         "frame": ("frame", "frame"),
         "frame_strip": ("strip", "frame_strip"),
+        "time_strip": ("time_strip", "time_strip"),
         "supercam": ("supercam", "supercam"),
         "probe": ("probe", "probe"),
     }
