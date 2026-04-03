@@ -457,48 +457,51 @@
   Pack dataset migration to HF in progress (7,187 files, 4.1 GiB).
 
   ---
-  Next Milestone
+Next Milestone
 
-  Runtime animation lane is now committed through 008bfe7:
+Motion authoring lane is now the active execution path through Slice 5f:
 
-  - `v133b.2` complete — queue/sequence + interrupt semantics, priority/fade handling follow-through, reaction and
-    resume behavior
-  - `v133c` complete — locomotion blend tree, idle↔walk↔run weighting, override suspend/resume, foot-slide
-    prevention, one-shot completion fallback
+- `5a` local pose capture/edit lane — workbench pose state, meaningful-transform filtering, and builder-safe pose
+  normalization are active in the mounted builder path
+- `5b` timeline/clip compiler lane — key-pose timeline state, interpolation, authored clip descriptor generation,
+  compile, and playback controls are active in the character workbench
+- `5c` joint mechanics lane — canonical per-joint limits and pose sanitization are active for shoulders, elbows,
+  wrists, spine/chest, neck/head, hips, knees, ankles
+- `5d` support/contact audit lane — motion diagnostics now ride the time-strip capture path and surface into the
+  workbench summary / latest capture metadata
+- `5e` preset motion lane — builder motion presets now compile into sanitized timeline poses and can be applied from
+  the workbench UI/command surface
+- `5f` milestone record — this `rode.txt` section now supersedes the stale Coquina-first note and records motion as the
+  current primary lane
 
-  Coquina/body-authoring lane is now active:
+Post-5f handoff:
 
-  - 17ef0a0 — scene-atom schema baseline landed under `schemas/coquina/`
-  - 80270a8 — body-authoring contract layer drafted in `docs/COQUINA_BODY_AUTHORING_CONTRACTS.md`
-  - 21bde2c — body-authoring schemas landed and atom registry extended
-  - efabbf0 — humanoid scaffold slots migrated to JSON-backed loading
-  - 643f665 — humanoid scaffold slot data source landed under `static/data/coquina/`
+- Coquina remains deferred until the motion lane is stable enough to close this slice cleanly
+- First post-5f artifact is `Coquina Atom Basis v1`
+- Coquina Layer 1 starts after that doc with the two-source atom doctrine:
+  - imported atoms from tagged CC0 GLBs
+  - procedural atoms from the geometric basis
 
-  Next steps in order:
-  1. Add blank model theater / builder subject mode to the character workbench
-  2. Render procedural `humanoid_biped` skeletons without imported GLB dependency
-  3. Project scaffold volumes onto builder subjects, not only mounted imported assets
-  4. Tag existing CC0 assets as scene atoms first, then body atoms
-  5. Implement palette resolver v1
-  6. Build scaffolded character assembly v1 from family contract + scaffold + Coquina atoms
+Immediate execution order after this record:
+1. Verify the builder motion preset lane in-browser against the mounted humanoid workbench
+2. Audit time-strip motion diagnostics on fresh preset captures instead of stale authored clips
+3. Close any remaining support/contact or UI regressions in the builder motion lane
+4. Only then resume Coquina Layer 1 entry work
 
-  Immediate Execution Notes (2026-03-31)
+Execution notes (2026-04-02):
 
-  - Keep humanoid authoring first. Do not mix quadruped/flying/serpentine scaffold implementation into the next slice.
-  - The current family registry already contains the six canonical families; the current scaffold authoring lane only
-    supports `humanoid_biped`.
-  - Body-authoring contracts use canonical family joint ids, not source-rig bone names.
-  - Palette checkpoints and affordance-slot/channel machinery should be reused for body authoring, not forked.
-  - `Tier 2: Assembly Surfaces` remains the practical workbench destination for scaffold-first character authoring.
+- Motion authoring remains the primary lane; do not let Ghost Broadcast or Coquina pull implementation focus yet
+- Use sanitized builder poses and fresh preset-derived timelines for motion evaluation, not stale authored clips
+- Keep humanoid-first scope; do not widen scaffold/mechanics work to other families before the humanoid lane closes
+- Coquina doctrine is now locked as two-source atoms feeding one registry and one grammar engine
 
-  Source anchors (verified through 643f665):
-    - _ENV_RIG_FAMILY_REGISTRY                    line 21641
-    - _ENV_SOURCE_RIG_JOINT_MAPS                 line 21714
-    - _ENV_SCAFFOLD_SLOT_REGISTRY                line 21757
-    - _envDetectSourceRig                        line 21779
-    - _envCharacterApplyLocomotionBlend          line 12199
-    - schemas/coquina/atom-registry.schema.json
-    - schemas/coquina/affordance-slot.schema.json
-    - schemas/coquina/palette-checkpoint.schema.json
-    - schemas/coquina/generation-checkpoint.schema.json
-    - docs/COQUINA_BODY_AUTHORING_CONTRACTS.md
+Source anchors (verified in current runtime):
+  - _envBuilderPoseMechanicsSpec                line 1274
+  - _envBuilderTimelinePoseAtTime               line 1700
+  - _envBuilderTimelineClipDescriptor           line 1797
+  - _envWorkbenchCompileClip                    line 16472
+  - _envWorkbenchPlayAuthoredClip               line 16533
+  - _envWorkbenchApplyMotionPreset              line 16593
+  - _envCaptureTimeStrip                        line 33787
+  - _envMountedWorkbenchSurfaceState            line 26603
+  - docs/COQUINA_BODY_AUTHORING_CONTRACTS.md

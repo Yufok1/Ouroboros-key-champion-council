@@ -21,6 +21,7 @@ This file is the continuity index for the Environment tab runtime and its operat
 - [WORLD_OBJECT_RUNTIME_PLAN.md](/F:/End-Game/champion_councl/docs/WORLD_OBJECT_RUNTIME_PLAN.md)
 - [V101_SURFACE_AND_CHARACTER_PLAN.md](/F:/End-Game/champion_councl/docs/V101_SURFACE_AND_CHARACTER_PLAN.md)
 - [CHARACTER_EMBODIMENT_SPEC.md](/F:/End-Game/champion_councl/docs/CHARACTER_EMBODIMENT_SPEC.md)
+- [GHOST_BROADCAST_SCREEN_SURFACE_PARALLEL_TRACK_2026-04-02.md](/F:/End-Game/champion_councl/docs/GHOST_BROADCAST_SCREEN_SURFACE_PARALLEL_TRACK_2026-04-02.md)
 
 ## Agent Guidance
 
@@ -30,6 +31,10 @@ This file is the continuity index for the Environment tab runtime and its operat
 - Use `capture_focus` when an individual object or local cluster needs closer visual inspection.
 - Use `env_read(query='debug_state')` when you need a compact summary of the current debug substrate without leaving the environment tool path.
 - Prefer procedural generation work that emits normal scene objects through the existing substrate over ad hoc one-off scene composition.
+- Treat display screens, billboards, kiosks, and HTML-driven scenic surfaces as environment-side scene objects/facilities, not character-workbench features.
+- Preserve bilateral theater utility:
+  - environment theater for world composition
+  - character forge for embodiment, pose, scaffold, and clip work
 - Trust the observer metadata over guesswork:
   - object keys
   - object semantics
