@@ -159,8 +159,10 @@ Keep these terms separate:
 - `scaffold` = parametric authoring envelope anchored to the skeleton
 - `body shell` / `body hulls` / `body atoms` = visible Coquina-mounted body pieces
 - `surface pass` = material, skin, decal, palette treatment
+- `load field` / support-weight overlay = scaffold-side diagnostic/control facility for support, contact, and stability reasoning
 
 Do not let `scaffold` mean both helper envelope and finished visible shell.
+Do not let scaffold-side support/load diagnostics get mistaken for a skin or surface-pass system.
 
 ## Architectural Decision
 

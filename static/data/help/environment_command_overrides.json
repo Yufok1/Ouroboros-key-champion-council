@@ -1,0 +1,342 @@
+{
+  "families": {
+    "camera_pose": {
+      "description": "Camera framing, orbit, pan, tilt, dolly, and reset controls for the theater view. Use these when you need repeatable framing instead of mouse-only inspection."
+    },
+    "builder_motion": {
+      "description": "Timeline, preset, authored clip, and scrub commands for builder-side motion work. These commands are easy to misunderstand if you assume preset apply means live playback."
+    },
+    "builder_workbench": {
+      "description": "Builder subject, scaffold, selection, and workbench editing commands for embodiment work in the character forge."
+    },
+    "capture_observer": {
+      "description": "Observer capture commands used to corroborate live scene, motion, and embodiment truth instead of trusting the viewport alone."
+    },
+    "character_runtime": {
+      "description": "Mounted runtime commands for imported asset inspection, inhabitant presence, animation state, and clip control."
+    },
+    "focus_navigation": {
+      "description": "Focus, replay, and sample navigation controls that steer what the theater shell is currently centered on."
+    },
+    "surface_bridge": {
+      "description": "Owned-surface controls for opening, focusing, inspecting, and sending input into browser-side panels."
+    },
+    "theater_profile_recipe": {
+      "description": "Top-level shell controls for theater mode, camera mode, replay mode, profiles, and recipes."
+    },
+    "environment_misc": {
+      "description": "Cross-cutting environment controls that affect shell state, profile kits, world profile, or scene filters."
+    }
+  },
+  "commands": {
+    "camera_frame_focus": {
+      "summary": "Frame the camera around the current focus target before capture or close inspection.",
+      "when_to_use": [
+        "Use this when focus changed and the camera did not leave you in a useful composition.",
+        "Use it before capture_probe or capture_supercam when you want a clean baseline frame."
+      ]
+    },
+    "focus_actor": {
+      "summary": "Move theater focus to the current actor target and let the shell rebuild around that actor context.",
+      "verification": [
+        "env_read(query='shared_state')",
+        "capture_supercam",
+        "feed(n=20)"
+      ]
+    },
+    "character_mount": {
+      "summary": "Mount the runtime character surface so the theater has an active character subject to inspect or animate.",
+      "gotchas": [
+        "Mounting creates the active runtime subject; many character commands are meaningless before this.",
+        "Builder mode and mounted runtime are related but not identical surfaces."
+      ]
+    },
+    "character_get_animation_state": {
+      "summary": "Read the mounted runtime animation state for the active subject instead of guessing from the viewport.",
+      "verification": [
+        "character_get_animation_state",
+        "env_read(query='shared_state')",
+        "capture_probe"
+      ]
+    },
+    "workbench_apply_motion_preset": {
+      "title": "Apply Builder Motion Preset",
+      "summary": "Load a preset builder timeline and apply the pose at cursor 0.",
+      "when_to_use": [
+        "Use this when you want the built-in builder motion catalog rather than an authored clip.",
+        "Current built-in preset ids in this build are idle_shift, step_left, brace_crouch, and torso_twist."
+      ],
+      "mode_notes": [
+        "Preset apply stages the builder timeline at frame 0, then the later pose must be inspected with timeline scrub or time-strip capture.",
+        "The current motion-validation lane uses step_left for single-support confirmation and idle_shift / brace_crouch / torso_twist for planted double-support confirmation."
+      ],
+      "gotchas": [
+        "Loads the preset timeline and applies frame 0 only; it does not auto-play motion.",
+        "Use workbench_set_timeline_cursor or capture_time_strip to inspect later parts of the preset.",
+        "Older names like neutral_standing, step_right, and crouch are not current catalog entries in this build."
+      ],
+      "verification": [
+        "capture_time_strip",
+        "workbench_set_timeline_cursor",
+        "capture_probe",
+        "env_read(query='shared_state')"
+      ],
+      "related_commands": [
+        "workbench_set_timeline_cursor",
+        "capture_time_strip",
+        "capture_probe"
+      ]
+    },
+    "workbench_set_timeline_cursor": {
+      "title": "Set Builder Timeline Cursor",
+      "summary": "Scrub the active builder timeline to a given normalized/time/index position and apply that pose to the workbench mesh.",
+      "verification": [
+        "capture_probe",
+        "capture_time_strip",
+        "env_read(query='shared_state')"
+      ]
+    },
+    "character_set_model": {
+      "title": "Set Mounted Character Model",
+      "summary": "Swap the mounted runtime to a direct asset ref and leave builder-subject mode for mesh-asset inspection.",
+      "when_to_use": [
+        "Use this when you need to inspect an imported rigged asset instead of the builder subject.",
+        "For ground-interaction checks, prefer a footed character asset such as /static/assets/npc.glb or /static/assets/packs/kenney-blocky-characters/character-a.glb."
+      ],
+      "gotchas": [
+        "Uses direct asset refs/URLs, not manifest aliases.",
+        "Switching model while builder is active deactivates the builder subject.",
+        "Do not use non-footed novelty rigs like GhostArmature as proof of planted feet or grounded motion."
+      ]
+    },
+    "workbench_new_builder": {
+      "title": "Create Builder Subject",
+      "summary": "Instantiate the preset builder subject, clear the mounted asset clone, and enter builder-subject workbench mode.",
+      "target_contract": {
+        "shape": "string_or_json",
+        "description": "Builder family id or JSON payload specifying family, mode, and anchor.",
+        "examples": [
+          "humanoid_biped",
+          "{\"family\":\"humanoid_biped\"}"
+        ]
+      }
+    },
+    "workbench_get_blueprint": {
+      "title": "Get Builder Blueprint",
+      "summary": "Return the serialized builder blueprint so the workbench state can be inspected as data instead of inferred visually.",
+      "verification": [
+        "workbench_get_blueprint",
+        "capture_probe",
+        "env_read(query='shared_state')"
+      ]
+    },
+    "capture_probe": {
+      "title": "Capture Probe",
+      "summary": "Capture the multi-angle local probe view for the current subject or focused object.",
+      "when_to_use": [
+        "Use this for close corroboration after timeline scrub, model swap, scaffold toggle, or load-field checks.",
+        "For mounted runtime validation, an explicit target hint like character_runtime::mounted_primary is the most reliable path."
+      ],
+      "mode_notes": [
+        "In the current theater lane this is an env_control command, not a standalone /api/tool/capture_probe endpoint.",
+        "Treat the saved probe_*.jpg as the proof artifact; mirror fields help but the file is the durable corroboration."
+      ],
+      "gotchas": [
+        "This is dispatched through the environment control lane; /api/tool/capture_probe is not a standalone tool in this build.",
+        "A blank target can still work when focus is stable, but explicit target ids are safer when the shell may have drifted."
+      ],
+      "verification": [
+        "static/captures/probe_*.jpg",
+        "env_read(query='shared_state')",
+        "probe_compare"
+      ]
+    },
+    "capture_supercam": {
+      "title": "Capture Supercam",
+      "summary": "Capture the broader overview observer montage for scene-scale corroboration."
+    },
+    "capture_time_strip": {
+      "title": "Capture Time Strip",
+      "summary": "Capture sampled frames across the current builder timeline to inspect staged motion without live playback.",
+      "when_to_use": [
+        "Use this after workbench_apply_motion_preset when you need evidence across the preset instead of a single scrubbed frame.",
+        "Use this for grounded motion validation because preset apply stages frame 0 and does not auto-play."
+      ],
+      "mode_notes": [
+        "In the current theater lane this is an env_control command, not a standalone /api/tool/capture_time_strip endpoint.",
+        "The saved time_strip_*.jpg is the primary artifact. latest_time_strip_motion_summary in shared_state can lag behind the written file."
+      ],
+      "gotchas": [
+        "This is dispatched through the environment control lane; /api/tool/capture_time_strip is not a standalone tool in this build.",
+        "The JPEG can be written before latest_time_strip_motion_summary settles in shared_state, so corroborate with the saved file when mirror fields lag."
+      ]
+    },
+    "open_surface": {
+      "title": "Open Surface",
+      "summary": "Open an owned browser surface inside the theater shell so it can be focused, inspected, or driven through bridge inputs."
+    },
+    "surface_input": {
+      "title": "Surface Input",
+      "summary": "Send text or value input to an owned browser surface without relying on manual typing in the live browser.",
+      "gotchas": [
+        "Surface input needs a valid surface id and target selector or control mapping.",
+        "Surface bridge success is easiest to confirm from visible browser behavior plus feed/shared_state."
+      ]
+    },
+    "workbench_set_load_field": {
+      "title": "Set Load Field",
+      "summary": "Toggle or set the builder load-field mechanic lane used by scaffold-side diagnostics.",
+      "gotchas": [
+        "This is the persistent runtime control, not the browser-local helper chip action.",
+        "Load mechanics can be active even when the visible load substrate is still intentionally minimal or deferred."
+      ]
+    },
+    "workbench_set_scaffold": {
+      "title": "Set Scaffold",
+      "summary": "Toggle scaffold presentation for the builder subject."
+    }
+  },
+  "ui_actions": {
+    "workbench-toggle-turntable": {
+      "title": "Toggle Workbench Turntable",
+      "summary": "Flip the browser-local turntable for the current workbench subject. This is session-local and not callable through env_control.",
+      "verification": [
+        "visible browser workbench subject",
+        "capture_probe"
+      ],
+      "gotchas": [
+        "Turntable is not a backend env_control command.",
+        "This action changes browser session state directly."
+      ]
+    },
+    "workbench-toggle-load-field": {
+      "title": "Toggle Workbench Load Field",
+      "summary": "Flip the helper-strip load toggle immediately in the browser and then dispatch workbench_set_load_field for persistence.",
+      "related_commands": [
+        "workbench_set_load_field",
+        "capture_probe",
+        "capture_time_strip"
+      ]
+    },
+    "workbench-toggle-scaffold": {
+      "title": "Toggle Workbench Scaffold",
+      "summary": "Flip scaffold visibility from the helper strip and then dispatch workbench_set_scaffold so the runtime state follows.",
+      "related_commands": [
+        "workbench_set_scaffold",
+        "capture_probe"
+      ]
+    },
+    "workbench-set-locomotion": {
+      "title": "Set Workbench Locomotion Preview",
+      "summary": "Change the browser-side locomotion preview lane for the current workbench clip without pretending that it is a persistent builder command.",
+      "gotchas": [
+        "Locomotion preview is browser-side preview state.",
+        "It can clear clip overrides in some cases when preview and clip state conflict."
+      ]
+    },
+    "workbench-toggle-pause": {
+      "title": "Toggle Workbench Pause",
+      "summary": "Pause or resume the local preview action object in the workbench clip strip.",
+      "gotchas": [
+        "This is local preview control, not the same thing as staged builder timeline scrub."
+      ]
+    },
+    "reset-camera": {
+      "title": "Reset Camera UI Control",
+      "summary": "Use the local cockpit control to forward camera reset through camera_reset_pose.",
+      "related_commands": [
+        "camera_reset_pose",
+        "capture_supercam"
+      ]
+    }
+  },
+  "playbooks": {
+    "mounted_asset_inspection": {
+      "title": "Mounted Asset Inspection",
+      "steps": [
+        "character_set_model('/static/assets/npc.glb')",
+        "capture_probe('character_runtime::mounted_primary')",
+        "capture_supercam",
+        "env_read(query='shared_state')"
+      ],
+      "notes": [
+        "Use this when validating imported assets outside builder-subject mode.",
+        "For ground-interaction validation, use a footed rig with a readable silhouette. npc.glb is the current default. GhostArmature is good for mounted-path plumbing, not planted-feet truth.",
+        "Corroborate floor planting with captures, not viewport impression alone."
+      ]
+    },
+    "motion_preset_validation": {
+      "title": "Motion Preset Validation",
+      "steps": [
+        "workbench_new_builder('humanoid_biped')",
+        "workbench_apply_motion_preset('step_left')",
+        "capture_time_strip",
+        "workbench_set_timeline_cursor('{\"normalized\":0.5}')",
+        "capture_probe('character_runtime::mounted_primary')"
+      ],
+      "notes": [
+        "Preset apply stages frame 0; it does not start live playback.",
+        "Use time-strip and timeline scrub together.",
+        "Current built-in preset ids are idle_shift, step_left, brace_crouch, and torso_twist.",
+        "capture_time_strip and capture_probe are env_control verbs in this environment lane, not standalone /api/tool/* endpoints."
+      ]
+    },
+    "grounded_motion_revalidation": {
+      "title": "Grounded Motion Re-validation",
+      "steps": [
+        "workbench_new_builder('humanoid_biped')",
+        "workbench_apply_motion_preset('idle_shift')",
+        "capture_time_strip",
+        "workbench_set_timeline_cursor('{\"normalized\":0.5}')",
+        "capture_probe('character_runtime::mounted_primary')",
+        "workbench_apply_motion_preset('step_left')",
+        "capture_time_strip",
+        "workbench_set_timeline_cursor('{\"normalized\":0.5}')",
+        "capture_probe('character_runtime::mounted_primary')",
+        "workbench_apply_motion_preset('brace_crouch')",
+        "capture_time_strip",
+        "workbench_set_timeline_cursor('{\"normalized\":0.5}')",
+        "capture_probe('character_runtime::mounted_primary')",
+        "workbench_apply_motion_preset('torso_twist')",
+        "capture_time_strip",
+        "workbench_set_timeline_cursor('{\"normalized\":0.5}')",
+        "capture_probe('character_runtime::mounted_primary')"
+      ],
+      "notes": [
+        "idle_shift mid-scrub should stay double_support with both feet grounded at support_y 0.02.",
+        "step_left mid-scrub should show single_support_right with foot_r planted at support_y 0.02 and foot_l in swing.",
+        "brace_crouch mid-scrub should stay double_support with both feet planted while CoM lowers.",
+        "torso_twist mid-scrub should keep the lower body anchored in double support.",
+        "If the saved time_strip JPEG exists but latest_time_strip_motion_summary is empty, treat that as mirror lag first and corroborate with the file plus a second shared_state read."
+      ]
+    },
+    "builder_helper_strip_review": {
+      "title": "Builder Helper Strip Review",
+      "steps": [
+        "workbench_new_builder('humanoid_biped')",
+        "capture_probe",
+        "env_help(topic='workbench-toggle-turntable')",
+        "env_help(topic='workbench-toggle-load-field')",
+        "env_help(topic='workbench-toggle-scaffold')"
+      ],
+      "notes": [
+        "Use this when validating what is browser-local versus what persists through runtime commands.",
+        "Turntable is local-only; scaffold and load helper toggles bridge into persistent commands."
+      ]
+    },
+    "builder_blueprint_roundtrip": {
+      "title": "Builder Blueprint Roundtrip",
+      "steps": [
+        "workbench_new_builder('humanoid_biped')",
+        "workbench_get_blueprint",
+        "workbench_save_blueprint",
+        "workbench_load_blueprint",
+        "capture_probe"
+      ],
+      "notes": [
+        "Use this when verifying builder state as serialized data instead of relying on the viewport.",
+        "Capture after reload so the rehydrated builder state is corroborated visually."
+      ]
+    }
+  }
+}

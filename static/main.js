@@ -1132,7 +1132,9 @@
             part_view: 'iso_front',
             gizmo_mode: 'rotate',
             gizmo_space: 'local',
-            gizmo_active: false
+            gizmo_active: false,
+            load_field_enabled: true,
+            load_field_overlay_visible: false
         };
     }
 
@@ -2165,7 +2167,573 @@
         }).join(' ');
     }
 
-    function _envBuilderMotionContactRows(mesh) {
+    function _envBuilderClamp01(value) {
+        return Math.max(0, Math.min(1, Number(value || 0)));
+    }
+
+    function _envWorkbenchSupportPlaneY() {
+        return 0.02;
+    }
+
+    function _envWorkbenchSupportRecordAtWorld(worldX, worldZ, fallbackY) {
+        var supportY = _envWorkbenchSupportPlaneY();
+        if (!isFinite(Number(supportY))) supportY = Number(fallbackY || 0);
+        return {
+            grounded: true,
+            support_key: 'workbench::floor',
+            support_kind: 'workbench_floor',
+            support_class: 'support',
+            support_y: Number(supportY || 0),
+            surface_normal: { x: 0, y: 1, z: 0 },
+            friction_class: 'studio_floor',
+            source: 'workbench_flat_plane'
+        };
+    }
+
+    function _envBuilderVector3Json(vector) {
+        var point = vector && typeof vector === 'object' ? vector : {};
+        return {
+            x: Number(Number(point.x || 0).toFixed(4)),
+            y: Number(Number(point.y || 0).toFixed(4)),
+            z: Number(Number(point.z || 0).toFixed(4))
+        };
+    }
+
+    function _envBuilderPoint2Json(vector) {
+        var point = vector && typeof vector === 'object' ? vector : {};
+        return {
+            x: Number(Number(point.x || 0).toFixed(4)),
+            z: Number(Number(point.z || 0).toFixed(4))
+        };
+    }
+
+    function _envBuilderMotionContactPosition(row) {
+        if (!row || typeof row !== 'object') return { x: 0, y: 0, z: 0 };
+        if (row.contact_position && typeof row.contact_position === 'object') return row.contact_position;
+        return row.position && typeof row.position === 'object' ? row.position : { x: 0, y: 0, z: 0 };
+    }
+
+    function _envBuilderFootContactPatch(mesh, canonicalJoint, supportRecord) {
+        if (!mesh || !mesh.userData || typeof THREE === 'undefined') return null;
+        var target = String(canonicalJoint || '').trim();
+        if (!target) return null;
+        var jointId = _envBuilderResolveCanonicalBoneId(target) || target;
+        if (!jointId) return null;
+        var family = String(_envBuilderSubject.family || 'humanoid_biped').trim() || 'humanoid_biped';
+        var slotMap = _envBuilderSlotMapForFamily(family);
+        var slotDef = slotMap[target] || slotMap[jointId] || null;
+        var boneMap = mesh.userData._builderBoneMap || {};
+        var bone = boneMap[jointId] || null;
+        var pieces = mesh.userData._scaffoldPieces || null;
+        var entry = pieces && (pieces[target] || pieces[jointId]) ? (pieces[target] || pieces[jointId]) : null;
+        if (!entry && !bone) return null;
+        var center = new THREE.Vector3();
+        var worldQuaternion = new THREE.Quaternion();
+        if (entry && entry.mesh) {
+            if (typeof entry.mesh.updateWorldMatrix === 'function') entry.mesh.updateWorldMatrix(true, true);
+            entry.mesh.getWorldPosition(center);
+            entry.mesh.getWorldQuaternion(worldQuaternion);
+        } else if (bone) {
+            if (typeof bone.updateWorldMatrix === 'function') bone.updateWorldMatrix(true, true);
+            bone.getWorldPosition(center);
+            bone.getWorldQuaternion(worldQuaternion);
+            var upOffset = _envScaffoldNormalizeVector3(slotDef && slotDef.up, [0, -0.02, 0.08]) || [0, -0.02, 0.08];
+            center.add(new THREE.Vector3(
+                Number(upOffset[0] || 0),
+                Number(upOffset[1] || 0),
+                Number(upOffset[2] || 0)
+            ).applyQuaternion(worldQuaternion));
+        }
+        var dims = _envBuilderSlotScale(slotDef, [0.07, 0.05, 0.16]);
+        var halfWidth = Math.max(0.018, Number(dims[0] || 0.07) * 0.5);
+        var halfHeight = Math.max(0.012, Number(dims[1] || 0.05) * 0.5);
+        var halfLength = Math.max(0.04, Number(dims[2] || 0.16) * 0.5);
+        var supportNormal = _envVector3FromArray((((supportRecord || {}).surface_normal) || [0, 1, 0]), null)
+            || new THREE.Vector3(0, 1, 0);
+        if (supportNormal.lengthSq() <= 0.000001) supportNormal.set(0, 1, 0);
+        supportNormal.normalize();
+        var forward = new THREE.Vector3(0, 0, 1).applyQuaternion(worldQuaternion);
+        if (forward.lengthSq() <= 0.000001) forward.set(0, 0, 1);
+        forward.sub(supportNormal.clone().multiplyScalar(forward.dot(supportNormal)));
+        if (forward.lengthSq() <= 0.000001) {
+            forward = new THREE.Vector3(1, 0, 0).applyQuaternion(worldQuaternion);
+            if (forward.lengthSq() <= 0.000001) forward.set(1, 0, 0);
+            forward.sub(supportNormal.clone().multiplyScalar(forward.dot(supportNormal)));
+        }
+        if (forward.lengthSq() <= 0.000001) forward.set(0, 0, 1);
+        forward.normalize();
+        var right = new THREE.Vector3().crossVectors(supportNormal, forward);
+        if (right.lengthSq() <= 0.000001) right.set(1, 0, 0);
+        right.normalize();
+        var soleCenter = center.clone().add(supportNormal.clone().multiplyScalar(-halfHeight));
+        var toe = soleCenter.clone().add(forward.clone().multiplyScalar(halfLength));
+        var heel = soleCenter.clone().add(forward.clone().multiplyScalar(-halfLength));
+        var footprintWorld = [
+            soleCenter.clone().add(right.clone().multiplyScalar(-halfWidth)).add(forward.clone().multiplyScalar(-halfLength)),
+            soleCenter.clone().add(right.clone().multiplyScalar(halfWidth)).add(forward.clone().multiplyScalar(-halfLength)),
+            soleCenter.clone().add(right.clone().multiplyScalar(halfWidth)).add(forward.clone().multiplyScalar(halfLength)),
+            soleCenter.clone().add(right.clone().multiplyScalar(-halfWidth)).add(forward.clone().multiplyScalar(halfLength))
+        ];
+        var patchMinY = Infinity;
+        var patchMaxY = -Infinity;
+        footprintWorld.forEach(function (point) {
+            patchMinY = Math.min(patchMinY, Number(point.y || 0));
+            patchMaxY = Math.max(patchMaxY, Number(point.y || 0));
+        });
+        patchMaxY = Math.max(patchMaxY, Number((center.y || 0) + halfHeight));
+        var supportY = Number((((supportRecord || {}).support_y) || _envWorkbenchSupportPlaneY()) || 0);
+        var clearance = patchMinY - supportY;
+        var plantedReference = new THREE.Vector3(0, 1, 0).applyQuaternion(worldQuaternion);
+        if (plantedReference.lengthSq() <= 0.000001) plantedReference.set(0, 1, 0);
+        plantedReference.normalize();
+        return {
+            canonical_joint: target,
+            bone_id: jointId,
+            sole_center: _envBuilderVector3Json(soleCenter),
+            toe: _envBuilderVector3Json(toe),
+            heel: _envBuilderVector3Json(heel),
+            normal: _envBuilderVector3Json(supportNormal),
+            footprint_world: footprintWorld.map(_envBuilderVector3Json),
+            footprint: footprintWorld.map(_envBuilderPoint2Json),
+            width: Number((halfWidth * 2).toFixed(4)),
+            length: Number((halfLength * 2).toFixed(4)),
+            support_y: Number(supportY.toFixed(4)),
+            patch_min_y: Number(patchMinY.toFixed(4)),
+            patch_max_y: Number(patchMaxY.toFixed(4)),
+            clearance: Number(clearance.toFixed(4)),
+            penetration: Number(Math.max(0, -clearance).toFixed(4)),
+            planted_alignment: Number(_envBuilderClamp01((Number(plantedReference.dot(supportNormal) || 0) - 0.2) / 0.8).toFixed(4))
+        };
+    }
+
+    function _envBuilderSupportPointKey(point) {
+        return String(Number(point.x || 0).toFixed(4)) + ':' + String(Number(point.z || 0).toFixed(4));
+    }
+
+    function _envBuilderConvexHull2D(points) {
+        var unique = [];
+        var seen = {};
+        (Array.isArray(points) ? points : []).forEach(function (point) {
+            if (!point || !isFinite(Number(point.x)) || !isFinite(Number(point.z))) return;
+            var normalized = { x: Number(point.x || 0), z: Number(point.z || 0) };
+            var key = _envBuilderSupportPointKey(normalized);
+            if (seen[key]) return;
+            seen[key] = true;
+            unique.push(normalized);
+        });
+        unique.sort(function (a, b) {
+            if (a.x !== b.x) return a.x - b.x;
+            return a.z - b.z;
+        });
+        if (unique.length <= 1) return unique;
+        var cross = function (origin, a, b) {
+            return (a.x - origin.x) * (b.z - origin.z) - (a.z - origin.z) * (b.x - origin.x);
+        };
+        var lower = [];
+        unique.forEach(function (point) {
+            while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], point) <= 0) {
+                lower.pop();
+            }
+            lower.push(point);
+        });
+        var upper = [];
+        for (var i = unique.length - 1; i >= 0; i -= 1) {
+            var next = unique[i];
+            while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], next) <= 0) {
+                upper.pop();
+            }
+            upper.push(next);
+        }
+        upper.pop();
+        lower.pop();
+        return lower.concat(upper);
+    }
+
+    function _envBuilderPointInPolygon2D(point, polygon) {
+        var poly = Array.isArray(polygon) ? polygon : [];
+        if (poly.length < 3) return false;
+        var inside = false;
+        for (var i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+            var xi = Number(poly[i].x || 0);
+            var zi = Number(poly[i].z || 0);
+            var xj = Number(poly[j].x || 0);
+            var zj = Number(poly[j].z || 0);
+            var intersects = ((zi > point.z) !== (zj > point.z))
+                && (point.x < (((xj - xi) * (point.z - zi)) / Math.max(0.000001, (zj - zi))) + xi);
+            if (intersects) inside = !inside;
+        }
+        return inside;
+    }
+
+    function _envBuilderDistancePointToSegment2D(point, a, b) {
+        var ax = Number(a.x || 0);
+        var az = Number(a.z || 0);
+        var bx = Number(b.x || 0);
+        var bz = Number(b.z || 0);
+        var px = Number(point.x || 0);
+        var pz = Number(point.z || 0);
+        var abx = bx - ax;
+        var abz = bz - az;
+        var abLenSq = (abx * abx) + (abz * abz);
+        if (abLenSq <= 0.000001) {
+            var dx0 = px - ax;
+            var dz0 = pz - az;
+            return Math.sqrt((dx0 * dx0) + (dz0 * dz0));
+        }
+        var t = (((px - ax) * abx) + ((pz - az) * abz)) / abLenSq;
+        t = Math.max(0, Math.min(1, t));
+        var cx = ax + (abx * t);
+        var cz = az + (abz * t);
+        var dx = px - cx;
+        var dz = pz - cz;
+        return Math.sqrt((dx * dx) + (dz * dz));
+    }
+
+    function _envBuilderSupportMargin2D(point, hull) {
+        var polygon = Array.isArray(hull) ? hull : [];
+        if (!polygon.length) return { inside: false, margin: -Infinity };
+        if (polygon.length === 1) {
+            var dx = Number(point.x || 0) - Number(polygon[0].x || 0);
+            var dz = Number(point.z || 0) - Number(polygon[0].z || 0);
+            var dist = Math.sqrt((dx * dx) + (dz * dz));
+            return { inside: dist <= 0.04, margin: dist <= 0.04 ? (0.04 - dist) : -dist };
+        }
+        var inside = _envBuilderPointInPolygon2D(point, polygon);
+        var minDist = Infinity;
+        for (var i = 0; i < polygon.length; i += 1) {
+            var a = polygon[i];
+            var b = polygon[(i + 1) % polygon.length];
+            minDist = Math.min(minDist, _envBuilderDistancePointToSegment2D(point, a, b));
+        }
+        return {
+            inside: inside,
+            margin: inside ? minDist : -minDist
+        };
+    }
+
+    function _envBuilderSupportLoadShares(projectedPoint, supports) {
+        var activeSupports = Array.isArray(supports) ? supports.filter(Boolean) : [];
+        var weights = {};
+        if (!activeSupports.length) return weights;
+        if (activeSupports.length === 1) {
+            weights[String(activeSupports[0].id || 'support_0')] = 1;
+            return weights;
+        }
+        var total = 0;
+        activeSupports.forEach(function (entry, index) {
+            var id = String(entry.id || ('support_' + String(index))).trim() || ('support_' + String(index));
+            var point = entry.point && typeof entry.point === 'object' ? entry.point : { x: 0, z: 0 };
+            var dx = Number(projectedPoint.x || 0) - Number(point.x || 0);
+            var dz = Number(projectedPoint.z || 0) - Number(point.z || 0);
+            var dist = Math.sqrt((dx * dx) + (dz * dz));
+            var weight = 1 / Math.max(0.045, dist);
+            weights[id] = weight;
+            total += weight;
+        });
+        if (total <= 0.000001) return weights;
+        Object.keys(weights).forEach(function (key) {
+            weights[key] = Number((weights[key] / total).toFixed(4));
+        });
+        return weights;
+    }
+
+    function _envBuilderSegmentMassDensity(slotName) {
+        var slot = String(slotName || '').trim();
+        if (!slot) return 0.85;
+        if (slot === 'hips' || slot === 'spine' || slot === 'chest') return 1.18;
+        if (slot === 'neck' || slot === 'head') return 0.9;
+        if (slot.indexOf('upper_leg') === 0 || slot.indexOf('lower_leg') === 0) return 1.04;
+        if (slot.indexOf('foot') === 0) return 0.78;
+        if (slot.indexOf('upper_arm') === 0 || slot.indexOf('lower_arm') === 0) return 0.84;
+        if (slot.indexOf('hand') === 0) return 0.7;
+        return 0.82;
+    }
+
+    function _envBuilderMassProxyRows(mesh) {
+        if (!mesh || !mesh.userData || typeof THREE === 'undefined') return [];
+        var family = String(_envBuilderSubject.family || 'humanoid_biped').trim() || 'humanoid_biped';
+        var slotMap = _envBuilderSlotMapForFamily(family);
+        var pieces = mesh.userData._scaffoldPieces || {};
+        var boneMap = mesh.userData._builderBoneMap || {};
+        return Object.keys(slotMap).map(function (slotName) {
+            var slotDef = slotMap[slotName];
+            if (!slotDef) return null;
+            var center = new THREE.Vector3();
+            var entry = pieces[slotName] || null;
+            var boneId = _envBuilderResolveCanonicalBoneId(slotDef.joint || slotName) || String(slotDef.joint || slotName || '').trim();
+            var bone = boneMap[boneId] || null;
+            if (entry && entry.mesh) {
+                if (typeof entry.mesh.updateWorldMatrix === 'function') entry.mesh.updateWorldMatrix(true, true);
+                entry.mesh.getWorldPosition(center);
+            } else if (bone) {
+                if (typeof bone.updateWorldMatrix === 'function') bone.updateWorldMatrix(true, true);
+                bone.getWorldPosition(center);
+                var upOffset = _envScaffoldNormalizeVector3(slotDef.up, [0, 0, 0]) || [0, 0, 0];
+                center.add(new THREE.Vector3(
+                    Number(upOffset[0] || 0),
+                    Number(upOffset[1] || 0),
+                    Number(upOffset[2] || 0)
+                ).applyQuaternion(bone.getWorldQuaternion(new THREE.Quaternion())));
+            } else {
+                return null;
+            }
+            var scale = _envBuilderSlotScale(slotDef, [0.08, 0.12, 0.08]);
+            var volume = Math.max(0.0001, Number(scale[0] || 0.08) * Number(scale[1] || 0.12) * Number(scale[2] || 0.08));
+            var mass = volume * _envBuilderSegmentMassDensity(slotName);
+            return {
+                slot: slotName,
+                bone_id: boneId,
+                mass: Number(mass || 0),
+                position: center
+            };
+        }).filter(Boolean);
+    }
+
+    function _envBuilderComputeLoadField(mesh, contacts, supportRecord) {
+        if (!mesh || typeof THREE === 'undefined') return null;
+        var supportY = Number((((supportRecord || {}).support_y) || _envWorkbenchSupportPlaneY()) || 0);
+        var massRows = _envBuilderMassProxyRows(mesh);
+        if (!massRows.length) return null;
+        var accum = new THREE.Vector3();
+        var totalMass = 0;
+        massRows.forEach(function (row) {
+            var mass = Math.max(0.0001, Number(row.mass || 0.0001));
+            totalMass += mass;
+            accum.add(row.position.clone().multiplyScalar(mass));
+        });
+        if (totalMass <= 0.000001) return null;
+        var centerOfMass = accum.multiplyScalar(1 / totalMass);
+        var projected = { x: Number(centerOfMass.x || 0), z: Number(centerOfMass.z || 0) };
+        var supportingFeet = (Array.isArray(contacts) ? contacts : []).filter(function (row) {
+            return row && row.supporting && row.group === 'foot' && row.contact_patch;
+        });
+        var supportCenters = supportingFeet.map(function (row) {
+            return {
+                id: String(row.canonical_joint || row.bone_id || ''),
+                point: {
+                    x: Number((((row.contact_patch || {}).sole_center || {}).x) || 0),
+                    z: Number((((row.contact_patch || {}).sole_center || {}).z) || 0)
+                },
+                side: String(row.side || '')
+            };
+        });
+        var polygonSeed = [];
+        supportingFeet.forEach(function (row) {
+            (Array.isArray((row.contact_patch || {}).footprint) ? row.contact_patch.footprint : []).forEach(function (point) {
+                polygonSeed.push({
+                    x: Number(point.x || 0),
+                    z: Number(point.z || 0)
+                });
+            });
+        });
+        var supportHull = _envBuilderConvexHull2D(polygonSeed);
+        var marginInfo = _envBuilderSupportMargin2D(projected, supportHull);
+        var supportSpan = 0;
+        supportCenters.forEach(function (entry, idx) {
+            supportCenters.forEach(function (other, jdx) {
+                if (jdx <= idx) return;
+                var dx = Number(entry.point.x || 0) - Number(other.point.x || 0);
+                var dz = Number(entry.point.z || 0) - Number(other.point.z || 0);
+                supportSpan = Math.max(supportSpan, Math.sqrt((dx * dx) + (dz * dz)));
+            });
+        });
+        if (!(supportSpan > 0.0001) && supportHull.length > 1) {
+            for (var i = 0; i < supportHull.length; i += 1) {
+                var a = supportHull[i];
+                var b = supportHull[(i + 1) % supportHull.length];
+                var hx = Number(a.x || 0) - Number(b.x || 0);
+                var hz = Number(a.z || 0) - Number(b.z || 0);
+                supportSpan = Math.max(supportSpan, Math.sqrt((hx * hx) + (hz * hz)));
+            }
+        }
+        supportSpan = Math.max(0.12, supportSpan);
+        var normalizedMargin = marginInfo.margin === -Infinity
+            ? 0
+            : _envBuilderClamp01(Number(marginInfo.margin || 0) / Math.max(0.08, supportSpan * 0.32));
+        var stabilityRisk = _envBuilderClamp01(1 - normalizedMargin + (marginInfo.inside ? 0 : 0.45));
+        var supportLoads = _envBuilderSupportLoadShares(projected, supportCenters);
+        var supportCount = Math.max(0, supportCenters.length);
+        var leftShare = Number(supportLoads.foot_l || 0);
+        var rightShare = Number(supportLoads.foot_r || 0);
+        var leftContact = supportingFeet.find(function (row) { return row.canonical_joint === 'foot_l'; }) || null;
+        var rightContact = supportingFeet.find(function (row) { return row.canonical_joint === 'foot_r'; }) || null;
+        var allLeftFoot = (Array.isArray(contacts) ? contacts : []).find(function (row) { return row && row.canonical_joint === 'foot_l'; }) || null;
+        var allRightFoot = (Array.isArray(contacts) ? contacts : []).find(function (row) { return row && row.canonical_joint === 'foot_r'; }) || null;
+        var massRowMap = {};
+        massRows.forEach(function (row) {
+            var key = String((row && (row.bone_id || row.slot)) || '').trim();
+            if (!key) return;
+            massRowMap[key] = row;
+        });
+        var recordMap = _envBuilderBoneRecordMap(_envBuilderSubject.bones || []);
+        var adjacency = {};
+        function addEdge(fromId, toId) {
+            var fromKey = String(fromId || '').trim();
+            var toKey = String(toId || '').trim();
+            if (!fromKey || !toKey) return;
+            if (!adjacency[fromKey]) adjacency[fromKey] = {};
+            if (!adjacency[toKey]) adjacency[toKey] = {};
+            adjacency[fromKey][toKey] = true;
+            adjacency[toKey][fromKey] = true;
+        }
+        Object.keys(recordMap).forEach(function (boneId) {
+            var record = recordMap[boneId];
+            if (!record) return;
+            addEdge(boneId, record.parent_id);
+        });
+        var supportCenterMap = {};
+        supportCenters.forEach(function (entry) {
+            supportCenterMap[String(entry.id || '')] = entry;
+        });
+        var baseSupportScores = {};
+        var graphSupportScores = {};
+        var queue = [];
+        function queueSupport(boneId, score) {
+            var key = String(boneId || '').trim();
+            var nextScore = Number(score || 0);
+            if (!key || nextScore <= 0) return;
+            var current = Number(graphSupportScores[key] || 0);
+            if (nextScore <= current + 0.0001) return;
+            graphSupportScores[key] = nextScore;
+            queue.push(key);
+        }
+        Object.keys(massRowMap).forEach(function (boneId) {
+            var row = massRowMap[boneId];
+            if (!row || !row.position) return;
+            var maxSupport = 0;
+            supportCenters.forEach(function (entry) {
+                var share = Number(supportLoads[String(entry.id || '')] || 0);
+                if (share <= 0) return;
+                var plantedRow = supportCenterMap[String(entry.id || '')];
+                var contactRow = plantedRow ? supportingFeet.find(function (rowItem) {
+                    return String(rowItem.canonical_joint || rowItem.bone_id || '') === String(plantedRow.id || '');
+                }) : null;
+                var patch = contactRow && contactRow.contact_patch ? contactRow.contact_patch : null;
+                var heightRange = Math.max(0.2, Number(centerOfMass.y || 0) - supportY);
+                var yNorm = _envBuilderClamp01((Number((row.position || {}).y || supportY) - supportY) / heightRange);
+                var columnCenterX = Number(entry.point.x || 0) + ((Number(projected.x || 0) - Number(entry.point.x || 0)) * yNorm);
+                var columnCenterZ = Number(entry.point.z || 0) + ((Number(projected.z || 0) - Number(entry.point.z || 0)) * yNorm);
+                var dx = Number((row.position || {}).x || 0) - columnCenterX;
+                var dz = Number((row.position || {}).z || 0) - columnCenterZ;
+                var distance = Math.sqrt((dx * dx) + (dz * dz));
+                var baseRadius = Math.max(
+                    0.14,
+                    Number((patch && patch.width) || 0.07) * 0.9,
+                    Number((patch && patch.length) || 0.16) * 0.45
+                );
+                var radius = baseRadius + (supportSpan * (0.35 + (0.95 * yNorm))) + (yNorm * 1.2);
+                var proximity = _envBuilderClamp01(1 - (distance / Math.max(0.12, radius)));
+                var supportStrength = proximity * Math.max(0.18, Math.min(1, 0.3 + (share * 0.9)));
+                maxSupport = Math.max(maxSupport, supportStrength);
+            });
+            baseSupportScores[boneId] = Number(_envBuilderClamp01(maxSupport).toFixed(4));
+            queueSupport(boneId, baseSupportScores[boneId]);
+        });
+        queueSupport('foot_l', leftContact ? Math.max(0.78, leftShare) : 0);
+        queueSupport('foot_r', rightContact ? Math.max(0.78, rightShare) : 0);
+        queueSupport('hips', supportCount > 0 ? Math.max(0.62, 1 - (stabilityRisk * 0.32)) : 0);
+        queueSupport('spine', supportCount > 0 ? Math.max(0.56, 1 - (stabilityRisk * 0.38)) : 0);
+        queueSupport('chest', supportCount > 0 ? Math.max(0.5, 1 - (stabilityRisk * 0.44)) : 0);
+        var safety = 0;
+        while (queue.length && safety < 512) {
+            safety += 1;
+            var sourceKey = queue.shift();
+            var sourceScore = Number(graphSupportScores[sourceKey] || 0);
+            var sourceRow = massRowMap[sourceKey] || null;
+            var neighbors = adjacency[sourceKey] ? Object.keys(adjacency[sourceKey]) : [];
+            neighbors.forEach(function (targetKey) {
+                var targetRow = massRowMap[targetKey] || null;
+                if (!sourceRow || !targetRow || !sourceRow.position || !targetRow.position) return;
+                var dx = Number((sourceRow.position || {}).x || 0) - Number((targetRow.position || {}).x || 0);
+                var dy = Number((sourceRow.position || {}).y || 0) - Number((targetRow.position || {}).y || 0);
+                var dz = Number((sourceRow.position || {}).z || 0) - Number((targetRow.position || {}).z || 0);
+                var length = Math.max(0.0001, Math.sqrt((dx * dx) + (dy * dy) + (dz * dz)));
+                var lateral = Math.sqrt((dx * dx) + (dz * dz));
+                var lateralRatio = _envBuilderClamp01(lateral / length);
+                var attenuation = 0.06 + (lateralRatio * 0.46);
+                var propagated = _envBuilderClamp01(sourceScore - attenuation);
+                if (propagated > Number(graphSupportScores[targetKey] || 0) + 0.0001) {
+                    graphSupportScores[targetKey] = propagated;
+                    queue.push(targetKey);
+                }
+            });
+        }
+        var segmentLoads = {};
+        Object.keys(massRowMap).forEach(function (boneId) {
+            var baseScore = Number(baseSupportScores[boneId] || 0);
+            var graphScore = Number(graphSupportScores[boneId] || 0);
+            var supportScore = _envBuilderClamp01(Math.max(baseScore, graphScore));
+            var riskLift = supportCount > 0 ? (stabilityRisk * 0.18) : 0.35;
+            var stress = _envBuilderClamp01(1 - supportScore + riskLift);
+            var loadShare = 0;
+            var mode = 'passive';
+            if (boneId === 'foot_l' || boneId === 'lower_leg_l' || boneId === 'upper_leg_l') {
+                loadShare = leftShare;
+            } else if (boneId === 'foot_r' || boneId === 'lower_leg_r' || boneId === 'upper_leg_r') {
+                loadShare = rightShare;
+            } else if (boneId === 'hips' || boneId === 'spine' || boneId === 'chest' || boneId === 'neck' || boneId === 'head') {
+                loadShare = Math.max(leftShare, rightShare, supportCount > 0 ? 0.82 : 0);
+            }
+            if (supportCount <= 0) {
+                mode = (boneId === 'foot_l' || boneId === 'foot_r') ? 'swing' : 'unsupported';
+                stress = Math.max(stress, boneId === 'foot_l' || boneId === 'foot_r' ? 0.76 : 0.88);
+            } else if ((boneId === 'foot_l' && leftContact) || (boneId === 'foot_r' && rightContact)) {
+                mode = 'support';
+            } else if ((boneId === 'foot_l' && allLeftFoot && (allLeftFoot.state === 'lifting' || allLeftFoot.state === 'airborne'))
+                || (boneId === 'foot_r' && allRightFoot && (allRightFoot.state === 'lifting' || allRightFoot.state === 'airborne'))) {
+                mode = 'swing';
+                stress = Math.max(stress, 0.62);
+            } else if (supportScore >= 0.72) {
+                mode = 'support';
+            } else if (supportScore >= 0.42) {
+                mode = 'passive';
+            } else {
+                mode = 'unsupported';
+            }
+            segmentLoads[boneId] = {
+                mode: mode,
+                stress: Number(stress.toFixed(4)),
+                load_share: Number(_envBuilderClamp01(loadShare).toFixed(4))
+            };
+        });
+        return {
+            enabled: _envBuilderInteraction.load_field_enabled !== false,
+            overlay_visible: false,
+            support: {
+                support_key: String((supportRecord || {}).support_key || 'workbench::floor'),
+                support_kind: String((supportRecord || {}).support_kind || 'workbench_floor'),
+                support_y: Number(supportY.toFixed(4))
+            },
+            mass_proxy_count: massRows.length,
+            total_mass_proxy: Number(totalMass.toFixed(4)),
+            center_of_mass: _envBuilderVector3Json(centerOfMass),
+            projected_center_of_mass: {
+                x: Number(Number(centerOfMass.x || 0).toFixed(4)),
+                y: Number(supportY.toFixed(4)),
+                z: Number(Number(centerOfMass.z || 0).toFixed(4))
+            },
+            support_polygon: supportHull.map(function (point) {
+                return {
+                    x: Number(Number(point.x || 0).toFixed(4)),
+                    z: Number(Number(point.z || 0).toFixed(4))
+                };
+            }),
+            support_count: supportCount,
+            support_span: Number(supportSpan.toFixed(4)),
+            stability_margin: Number(Number(marginInfo.margin || 0).toFixed(4)),
+            normalized_margin: Number(normalizedMargin.toFixed(4)),
+            inside_support_polygon: !!marginInfo.inside,
+            stability_risk: Number(stabilityRisk.toFixed(4)),
+            dominant_support_side: leftShare === rightShare ? 'balanced' : (leftShare > rightShare ? 'left' : 'right'),
+            support_loads: {
+                foot_l: Number(leftShare.toFixed(4)),
+                foot_r: Number(rightShare.toFixed(4))
+            },
+            segment_loads: segmentLoads
+        };
+    }
+
+    function _envBuilderMotionContactRows(mesh, supportRecord) {
         if (!mesh || !mesh.userData || typeof THREE === 'undefined') return [];
         var boneMap = mesh.userData._builderBoneMap || {};
         return _envBuilderMotionContactTargets().map(function (target) {
@@ -2173,13 +2741,18 @@
             var bone = boneId ? (boneMap[boneId] || null) : null;
             if (!bone || typeof bone.getWorldPosition !== 'function') return null;
             var position = bone.getWorldPosition(new THREE.Vector3());
+            var patch = String(target.group || '') === 'foot'
+                ? _envBuilderFootContactPatch(mesh, target.canonical_joint, supportRecord || null)
+                : null;
             return {
                 canonical_joint: String(target.canonical_joint || ''),
                 bone_id: String(boneId || ''),
                 label: String(target.label || boneId || ''),
                 group: String(target.group || ''),
                 side: String(target.side || ''),
-                position: position
+                position: _envBuilderVector3Json(position),
+                contact_position: patch && patch.sole_center ? patch.sole_center : _envBuilderVector3Json(position),
+                contact_patch: patch
             };
         }).filter(Boolean);
     }
@@ -2191,7 +2764,8 @@
         if (!metrics || !metrics.box || metrics.box.isEmpty()) return null;
         var size = metrics.size || metrics.box.getSize(new THREE.Vector3());
         var height = Math.max(0.4, Number((size || {}).y || 0.4));
-        var groundY = Number((((metrics.box || {}).min) || {}).y || 0);
+        var supportRecord = _envWorkbenchSupportRecordAtWorld(Number((metrics.center || {}).x || 0), Number((metrics.center || {}).z || 0), Number((((metrics.box || {}).min) || {}).y || 0));
+        var groundY = Number((((supportRecord || {}).support_y) || _envWorkbenchSupportPlaneY()) || 0);
         var touchGap = Math.max(0.025, height * 0.018);
         var nearGap = Math.max(0.08, height * 0.07);
         var plantDelta = Math.max(0.01, height * 0.012);
@@ -2202,16 +2776,20 @@
             var key = String((row && (row.canonical_joint || row.bone_id)) || '').trim();
             if (key) previousMap[key] = row;
         });
-        var contacts = _envBuilderMotionContactRows(mesh).map(function (row) {
+        var contacts = _envBuilderMotionContactRows(mesh, supportRecord).map(function (row) {
             var prev = previousMap[row.canonical_joint] || previousMap[row.bone_id] || null;
-            var currentX = Number((row.position || {}).x || 0);
-            var currentY = Number((row.position || {}).y || 0);
-            var currentZ = Number((row.position || {}).z || 0);
-            var dx = prev ? (currentX - Number(((prev.position || {}).x) || 0)) : 0;
-            var dy = prev ? (currentY - Number(((prev.position || {}).y) || 0)) : 0;
-            var dz = prev ? (currentZ - Number(((prev.position || {}).z) || 0)) : 0;
+            var currentPoint = _envBuilderMotionContactPosition(row);
+            var prevPoint = _envBuilderMotionContactPosition(prev);
+            var currentX = Number((currentPoint || {}).x || 0);
+            var currentY = Number((currentPoint || {}).y || 0);
+            var currentZ = Number((currentPoint || {}).z || 0);
+            var dx = prev ? (currentX - Number(((prevPoint || {}).x) || 0)) : 0;
+            var dy = prev ? (currentY - Number(((prevPoint || {}).y) || 0)) : 0;
+            var dz = prev ? (currentZ - Number(((prevPoint || {}).z) || 0)) : 0;
             var horizontalDelta = Math.sqrt((dx * dx) + (dz * dz));
-            var gap = Math.max(0, currentY - groundY);
+            var patch = row.contact_patch && typeof row.contact_patch === 'object' ? row.contact_patch : null;
+            var signedGap = patch ? Number(patch.clearance || 0) : (currentY - groundY);
+            var gap = Math.max(0, signedGap);
             var state = 'airborne';
             if (gap <= touchGap) {
                 state = prev
@@ -2229,6 +2807,7 @@
                 group: row.group,
                 side: row.side,
                 gap: Number(gap.toFixed(4)),
+                signed_gap: Number(signedGap.toFixed(4)),
                 state: state,
                 grounded: grounded,
                 supporting: supporting,
@@ -2236,6 +2815,9 @@
                 vertical_delta: Number(Math.abs(dy).toFixed(4)),
                 horizontal_speed: dt > 0 ? Number((horizontalDelta / dt).toFixed(4)) : 0,
                 vertical_speed: dt > 0 ? Number((Math.abs(dy) / dt).toFixed(4)) : 0,
+                support_key: String((supportRecord || {}).support_key || ''),
+                support_kind: String((supportRecord || {}).support_kind || ''),
+                contact_patch: patch ? _envCloneJson(patch, null) : null,
                 position: {
                     x: Number(currentX.toFixed(4)),
                     y: Number(currentY.toFixed(4)),
@@ -2243,6 +2825,7 @@
                 }
             };
         });
+        var loadField = _envBuilderComputeLoadField(mesh, contacts, supportRecord);
         var leftFoot = contacts.find(function (row) { return row.canonical_joint === 'foot_l'; }) || null;
         var rightFoot = contacts.find(function (row) { return row.canonical_joint === 'foot_r'; }) || null;
         var leftGrounded = !!(leftFoot && leftFoot.supporting);
@@ -2261,6 +2844,10 @@
         if (braceContacts.some(function (row) { return row.group === 'knee'; })) alerts.push('knee_brace');
         if (braceContacts.some(function (row) { return row.group === 'hand'; })) alerts.push('hand_brace');
         if (contacts.some(function (row) { return row.group === 'foot' && row.state === 'sliding'; })) alerts.push('foot_slide_risk');
+        if (contacts.some(function (row) { return row.group === 'foot' && Number(((row.contact_patch || {}).penetration) || 0) > 0.02; })) alerts.push('support_penetration');
+        if (loadField && !loadField.inside_support_polygon) alerts.push('outside_support_polygon');
+        if (loadField && Number(loadField.stability_risk || 0) >= 0.72) alerts.push('stability_risk');
+        if (loadField && Math.max(Number(((loadField.support_loads || {}).foot_l) || 0), Number(((loadField.support_loads || {}).foot_r) || 0)) >= 0.86) alerts.push('support_overload');
         return {
             support_phase: supportPhase,
             support_phase_label: _envBuilderMotionPhaseLabel(supportPhase),
@@ -2275,9 +2862,15 @@
                 plant_delta: Number(plantDelta.toFixed(4)),
                 vertical_delta: Number(verticalDelta.toFixed(4))
             },
+            support_surface: {
+                support_key: String((supportRecord || {}).support_key || ''),
+                support_kind: String((supportRecord || {}).support_kind || ''),
+                support_y: Number(groundY.toFixed(4))
+            },
             alerts: alerts,
             sample_time: Number(Number(sampleTime || 0).toFixed(4)),
-            contacts: contacts
+            contacts: contacts,
+            load_field: loadField ? _envCloneJson(loadField, null) : null
         };
     }
 
@@ -2897,6 +3490,8 @@
         state.gizmo_mode = _envNormalizeBuilderGizmoMode(src.gizmo_mode || state.gizmo_mode);
         state.gizmo_space = _envNormalizeBuilderGizmoSpace(src.gizmo_space || state.gizmo_space);
         state.gizmo_active = !!src.gizmo_active;
+        state.load_field_enabled = src.load_field_enabled !== false;
+        state.load_field_overlay_visible = false;
         return state;
     }
 
@@ -10765,6 +11360,8 @@
                 scaffold: false,
                 attachments: false,
                 turntable: false,
+                load_field_enabled: true,
+                load_field_overlay_visible: false,
                 subject_mode: 'mounted_asset',
                 builder_subject: null,
                 isolated_chain: '',
@@ -10846,6 +11443,8 @@
                 scaffold: !!workbench.scaffold,
                 attachments: !!workbench.attachments,
                 turntable: !!workbench.turntable,
+                load_field_enabled: workbench.load_field_enabled !== false,
+                load_field_overlay_visible: false,
                 subject_mode: workbenchSubjectMode,
                 builder_subject: _envNormalizeBuilderSubject(workbench.builder_subject || null),
                 isolated_chain: String(workbench.isolated_chain || '').trim(),
@@ -10898,6 +11497,8 @@
             workbench.preview_speed = Math.max(0.25, Math.min(4, Number(mesh.userData._previewSpeed || 1)));
         }
         workbench.turntable = !!(_env3D && _env3D.workbenchTurntable);
+        workbench.load_field_enabled = _envBuilderInteraction.load_field_enabled !== false;
+        workbench.load_field_overlay_visible = false;
         var preservePendingBuilderSession = !_envBuilderSubject.active
             && !!_envTheaterSessionRestore.pending
             && String((previous.workbench || {}).subject_mode || '').trim() !== 'mounted_asset';
@@ -11143,8 +11744,7 @@
                     _envBuilderSetIsolationState(_envBuilderSubject, (session.workbench || {}).isolated_chain || '');
                     _envBuilderSubject._skeletonVisible = (session.workbench || {}).skeleton !== false;
                     _envBuilderSubject._scaffoldVisible = !!((session.workbench || {}).scaffold);
-                    _envBuilderSubject.scaffold_projection.enabled = (session.workbench || {}).scaffold !== false
-                        && !(_envBuilderSubject.scaffold_projection && _envBuilderSubject.scaffold_projection.enabled === false);
+                    _envBuilderSubject.scaffold_projection.enabled = (session.workbench || {}).scaffold !== false;
                     var builderObject = _envInhabitantObject();
                     _envBuilderClearMountedAsset(state, builderObject, mesh);
                     _envBuilderApplyEmbodimentToObject(builderObject, _envBuilderSubject.family);
@@ -11527,7 +12127,7 @@
                     'workbench_isolate_chain', 'workbench_save_blueprint', 'workbench_load_blueprint',
                     'character_play_clip', 'character_queue_clips', 'character_stop_clip',
                     'character_set_loop', 'character_set_speed', 'character_get_animation_state',
-                    'workbench_set_scaffold',
+                    'workbench_set_scaffold', 'workbench_set_load_field',
                     'character_play_reaction'
                 ],
                 legacy_host_commands: ['spawn_inhabitant', 'despawn_inhabitant', 'focus_inhabitant'],
@@ -11537,7 +12137,7 @@
                     'set_gizmo_mode', 'set_gizmo_space',
                     'set_bone', 'set_pose', 'set_pose_batch', 'clear_pose', 'capture_pose', 'delete_pose', 'apply_pose', 'set_timeline_cursor', 'compile_clip', 'play_authored_clip', 'apply_motion_preset', 'reset_angles', 'isolate_chain', 'save_blueprint', 'load_blueprint',
                     'play_clip', 'queue_clips', 'stop_clip', 'set_loop', 'set_speed',
-                    'set_scaffold',
+                    'set_scaffold', 'set_load_field',
                     'get_animation_state', 'play_reaction'
                 ],
                 agent_bearing: false,
@@ -12273,6 +12873,8 @@
 
     function _env3DBuilderSubjectStableLocalBounds(mesh, group) {
         if (!mesh || !mesh.userData || typeof THREE === 'undefined') return null;
+        var scaffoldBox = _env3DBuilderScaffoldLocalBounds(mesh);
+        if (scaffoldBox && !scaffoldBox.isEmpty()) return scaffoldBox;
         var targetGroup = group || mesh.userData._builderSubjectGroup || null;
         if (!targetGroup || typeof THREE.Box3 !== 'function' || typeof THREE.Matrix4 !== 'function') return null;
         if (typeof mesh.updateWorldMatrix === 'function') mesh.updateWorldMatrix(true, true);
@@ -12289,15 +12891,69 @@
         return worldBox.clone().applyMatrix4(parentInverse);
     }
 
+    function _env3DBuilderScaffoldMetrics(mesh, targetBoneIds) {
+        if (!mesh || !mesh.userData || typeof THREE === 'undefined') return null;
+        var pieces = mesh.userData._scaffoldPieces || null;
+        if (!pieces || typeof pieces !== 'object') return null;
+        var ids = null;
+        if (Array.isArray(targetBoneIds) && targetBoneIds.length) {
+            ids = {};
+            targetBoneIds.forEach(function (boneId) {
+                var key = String(boneId || '').trim();
+                if (key) ids[key] = true;
+            });
+        }
+        var box = new THREE.Box3();
+        var hasBounds = false;
+        Object.keys(pieces).forEach(function (slotName) {
+            var entry = pieces[slotName];
+            if (!entry || !entry.mesh || entry.mesh.visible === false) return;
+            var jointId = String((((entry.definition || {}).joint) || ((entry.mesh.userData || {})._builderBoneId) || '')).trim();
+            if (ids && !ids[jointId]) return;
+            try {
+                var pieceBox = new THREE.Box3().setFromObject(entry.mesh);
+                if (pieceBox && !pieceBox.isEmpty()) {
+                    if (!hasBounds) box.copy(pieceBox);
+                    else box.union(pieceBox);
+                    hasBounds = true;
+                }
+            } catch (ignored) {}
+        });
+        if (!hasBounds) return null;
+        return {
+            box: box,
+            center: box.getCenter(new THREE.Vector3()),
+            size: box.getSize(new THREE.Vector3())
+        };
+    }
+
+    function _env3DBuilderScaffoldLocalBounds(mesh) {
+        if (!mesh || !mesh.userData || typeof THREE === 'undefined') return null;
+        var metrics = _env3DBuilderScaffoldMetrics(mesh, null);
+        if (!metrics || !metrics.box || metrics.box.isEmpty()) return null;
+        if (typeof mesh.updateWorldMatrix === 'function') mesh.updateWorldMatrix(true, true);
+        var parentInverse = new THREE.Matrix4();
+        parentInverse.copy(mesh.matrixWorld).invert();
+        return metrics.box.clone().applyMatrix4(parentInverse);
+    }
+
     function _env3DPinMountedRuntimeAssetFloor(mesh) {
         var obj = mesh && mesh.userData ? mesh.userData.sceneObject : null;
         if (!mesh || !mesh.userData || !mesh.userData.assetClone) return false;
         if (!_envIsMountedCharacterRuntimeObject(obj) || typeof THREE === 'undefined') return false;
         var box = _env3DAssetLocalBounds(mesh);
         if (!box || box.isEmpty()) return false;
-        var floorOffset = Number(box.min.y || 0);
+        var supportRecord = _envWorkbenchSupportRecordAtWorld(
+            Number((mesh.position || {}).x || 0),
+            Number((mesh.position || {}).z || 0),
+            Number(mesh.position.y || 0)
+        );
+        var supportY = Number((((supportRecord || {}).support_y) || _envWorkbenchSupportPlaneY()) || 0);
+        var meshScaleY = Math.max(0.0001, Number(((mesh.scale || {}).y) || 1));
+        var targetLocalFloor = (supportY - Number(mesh.position.y || 0)) / meshScaleY;
+        var floorOffset = Number(targetLocalFloor - Number(box.min.y || 0));
         if (!isFinite(floorOffset) || Math.abs(floorOffset) < 0.0005) return false;
-        mesh.userData.assetClone.position.y -= floorOffset;
+        mesh.userData.assetClone.position.y += floorOffset;
         mesh.userData._supportOffsetY = 0;
         return true;
     }
@@ -13600,24 +14256,17 @@
         if (!_envCharacterWorkbenchActive()) return baseScale;
         if (!mesh || !obj || !_envIsMountedCharacterRuntimeObject(obj)) return baseScale;
         if (_envBuilderSubject.active && mesh.userData && mesh.userData._builderSubjectGroup && typeof THREE !== 'undefined') {
-            var builderBox = null;
-            try {
-                builderBox = new THREE.Box3().setFromObject(mesh.userData._builderSubjectGroup);
-            } catch (ignored) {
-                builderBox = null;
-            }
-            if (builderBox && !builderBox.isEmpty()) {
-                var builderSize = new THREE.Vector3();
-                builderBox.getSize(builderSize);
-                var builderWidth = Math.max(Number(builderSize.x || 0), Number(builderSize.z || 0), 0.001);
-                var builderHeight = Math.max(Number(builderSize.y || 0), 0.001);
-                var builderTargetHeight = 24;
-                var builderTargetWidth = 15;
-                var builderFactor = Math.max(builderTargetHeight / builderHeight, builderTargetWidth / builderWidth);
-                builderFactor = Math.max(1, Math.min(24, Number(builderFactor || 1)));
-                return baseScale * builderFactor;
-            }
-            return Math.max(baseScale, 8);
+            var builderBox = _env3DBuilderScaffoldLocalBounds(mesh);
+            if (!builderBox || builderBox.isEmpty()) return baseScale;
+            var builderSize = new THREE.Vector3();
+            builderBox.getSize(builderSize);
+            var builderWidth = Math.max(Number(builderSize.x || 0), Number(builderSize.z || 0), 0.001);
+            var builderHeight = Math.max(Number(builderSize.y || 0), 0.001);
+            var builderTargetHeight = 16.5;
+            var builderTargetWidth = 10.5;
+            var builderFactor = Math.max(builderTargetHeight / builderHeight, builderTargetWidth / builderWidth);
+            builderFactor = Math.max(1, Math.min(18, Number(builderFactor || 1)));
+            return baseScale * builderFactor;
         }
         var width = 0;
         var height = 0;
@@ -17970,6 +18619,7 @@
         'workbench.isolate_chain': 'workbench_isolate_chain',
         'workbench.save_blueprint': 'workbench_save_blueprint',
         'workbench.load_blueprint': 'workbench_load_blueprint',
+        'workbench.set_load_field': 'workbench_set_load_field',
         'character.move_to': 'character_move_to',
         'character.stop': 'character_stop',
         'character.look_at': 'character_look_at',
@@ -18045,7 +18695,7 @@
             || command === 'workbench_save_blueprint' || command === 'workbench_load_blueprint'
             || command === 'character_play_clip' || command === 'character_queue_clips' || command === 'character_stop_clip'
             || command === 'character_set_loop' || command === 'character_set_speed'
-            || command === 'workbench_set_scaffold'
+            || command === 'workbench_set_scaffold' || command === 'workbench_set_load_field'
             || command === 'character_get_animation_state' || command === 'character_play_reaction') return _envInhabitantObjectKey();
         if (command === 'set_theater_mode') return _envScenePrimarySnapshotName() ? ('scene::' + _envScenePrimarySnapshotName()) : 'scene::scene';
         if (command === 'set_camera_mode'
@@ -23400,8 +24050,13 @@
             ? latestWorkbenchCapture.motion_diagnostics_summary
             : null;
         var builderMotionDiagnostics = builderActive ? _envBuilderCurrentMotionDiagnostics(mesh) : null;
+        var builderLoadField = builderMotionDiagnostics && builderMotionDiagnostics.load_field
+            && typeof builderMotionDiagnostics.load_field === 'object'
+            ? builderMotionDiagnostics.load_field
+            : null;
         var builderMotionPresetCatalog = builderActive ? _envBuilderMotionPresetCatalog() : [];
         var activeMotionPreset = builderActive ? _envBuilderMotionPresetMeta(_envBuilderSubject.last_motion_preset || '') : null;
+        var loadFieldEnabled = builderActive ? (_envBuilderInteraction.load_field_enabled !== false) : false;
         var speedOptions = [0.25, 0.5, 1, 2];
         var clipHtml = clipEntries.length
             ? ('<div class="envops-focus-strip" style="flex-wrap:wrap;">' + clipEntries.map(function (entry) {
@@ -23443,6 +24098,9 @@
                 : '') +
             '<span class="envops-focus-chip' + (turntableActive ? ' active' : '') + '" data-env-action="workbench-toggle-turntable">' + _esc(turntableActive ? 'Turntable: ON' : 'Turntable: OFF') + '</span>' +
             '<span class="envops-focus-chip' + (scaffoldVisible ? ' active' : '') + '" data-env-action="workbench-toggle-scaffold">' + _esc(scaffoldVisible ? 'Scaffold ON' : 'Scaffold OFF') + '</span>' +
+            (builderActive
+                ? '<span class="envops-focus-chip' + (loadFieldEnabled ? ' active' : '') + '" data-env-action="workbench-toggle-load-field">' + _esc(loadFieldEnabled ? 'Load: ON' : 'Load: OFF') + '</span>'
+                : '') +
             '</div>';
         var motionPresetHtml = builderMotionPresetCatalog.length
             ? ('<div class="envops-focus-strip" style="flex-wrap:wrap;">' + builderMotionPresetCatalog.map(function (preset) {
@@ -23476,6 +24134,7 @@
                 '<div class="envops-habitat-scene-cockpit-head"><span>Helpers</span><span>builder</span></div>' +
                 helperHtml +
                 '<div class="envops-kernel-note">' + _esc('Skeleton · ' + (skeletonVisible ? 'visible' : 'hidden') + ' · Scaffold · ' + (scaffoldVisible ? 'visible' : 'hidden')) + '</div>' +
+                '<div class="envops-kernel-note">' + _esc('Load field · ' + (loadFieldEnabled ? 'active' : 'off') + (builderLoadField ? (' · Margin ' + String(Number(builderLoadField.normalized_margin || 0).toFixed(2))) : '')) + '</div>' +
                 '</div>';
         }
         return '' +
@@ -24913,6 +25572,10 @@
             _envSetWorkbenchScaffold(actorName, reason || 'control workbench scaffold', targetId);
             return;
         }
+        if (command === 'workbench_set_load_field') {
+            _envWorkbenchSetLoadField(actorName, reason || 'control workbench load field', targetId);
+            return;
+        }
         if (command === 'character_play_reaction') {
             _envCharacterPlayReaction(actorName, reason || 'control character play reaction', targetId);
             return;
@@ -26323,10 +26986,10 @@
             { slot: 'hand_r', joint: 'hand_r', project_from_parent: true, geometry: 'ellipsoid', scale: [0.05, 0.085, 0.04], color: 0xcdb8a1, up: [0, -0.04, 0] },
             { slot: 'upper_leg_l', joint: 'upper_leg_l', target_joint: 'lower_leg_l', follow_child: true, geometry: 'limb', scale: [0.06, 0.20, 0.045], color: 0x969bad, up: [0, -0.10, 0] },
             { slot: 'lower_leg_l', joint: 'lower_leg_l', target_joint: 'foot_l', follow_child: true, geometry: 'limb', scale: [0.045, 0.20, 0.034], color: 0x888ea2, up: [0, -0.10, 0] },
-            { slot: 'foot_l', joint: 'foot_l', geometry: 'ellipsoid', axis: 'z', scale: [0.07, 0.05, 0.16], color: 0x7a8092, up: [0, -0.02, 0.08] },
+            { slot: 'foot_l', joint: 'foot_l', geometry: 'box', axis: 'z', scale: [0.16, 0.05, 0.28], color: 0x7a8092, up: [0, -0.05, 0.14] },
             { slot: 'upper_leg_r', joint: 'upper_leg_r', target_joint: 'lower_leg_r', follow_child: true, geometry: 'limb', scale: [0.06, 0.20, 0.045], color: 0x969bad, up: [0, -0.10, 0] },
             { slot: 'lower_leg_r', joint: 'lower_leg_r', target_joint: 'foot_r', follow_child: true, geometry: 'limb', scale: [0.045, 0.20, 0.034], color: 0x888ea2, up: [0, -0.10, 0] },
-            { slot: 'foot_r', joint: 'foot_r', geometry: 'ellipsoid', axis: 'z', scale: [0.07, 0.05, 0.16], color: 0x7a8092, up: [0, -0.02, 0.08] }
+            { slot: 'foot_r', joint: 'foot_r', geometry: 'box', axis: 'z', scale: [0.16, 0.05, 0.28], color: 0x7a8092, up: [0, -0.05, 0.14] }
         ]
     };
     var _envScaffoldSlotRegistryState = {
@@ -26437,7 +27100,7 @@
         var lowerArmScale = _envBuilderSlotScale(slotMap.lower_arm_l || slotMap.lower_arm_r, [0.036, 0.13, 0.028]);
         var upperLegScale = _envBuilderSlotScale(slotMap.upper_leg_l || slotMap.upper_leg_r, [0.06, 0.20, 0.045]);
         var lowerLegScale = _envBuilderSlotScale(slotMap.lower_leg_l || slotMap.lower_leg_r, [0.045, 0.20, 0.034]);
-        var footScale = _envBuilderSlotScale(slotMap.foot_l || slotMap.foot_r, [0.07, 0.05, 0.16]);
+        var footScale = _envBuilderSlotScale(slotMap.foot_l || slotMap.foot_r, [0.16, 0.05, 0.28]);
         var spineLength = _envBuilderBoneLengthValue(recordMap, 'spine', _envBuilderBoneLengthFromScale(spineScale, slotMap.spine ? slotMap.spine.geometry : 'limb'));
         var chestLength = _envBuilderBoneLengthValue(recordMap, 'chest', _envBuilderBoneLengthFromScale(chestScale, slotMap.chest ? slotMap.chest.geometry : 'ellipsoid'));
         var neckLength = _envBuilderBoneLengthValue(recordMap, 'neck', _envBuilderBoneLengthFromScale(neckScale, slotMap.neck ? slotMap.neck.geometry : 'limb'));
@@ -26517,7 +27180,13 @@
         var joint = String(entry.joint || '').trim();
         var geometry = String(entry.geometry || '').trim().toLowerCase();
         if (!family || !slot || !joint) return null;
-        if (geometry !== 'ellipsoid' && geometry !== 'limb') return null;
+        if (
+            geometry !== 'ellipsoid'
+            && geometry !== 'limb'
+            && geometry !== 'box'
+            && geometry !== 'sphere'
+            && geometry !== 'capsule'
+        ) return null;
         var scale = _envScaffoldNormalizeVector3(entry.default_scale, [0.1, 0.1, 0.1]);
         if (!scale) return null;
         var normalized = {
@@ -26542,6 +27211,12 @@
         if (entry.axis !== undefined) {
             var axis = String(entry.axis || '').trim().toLowerCase();
             if (axis) normalized.axis = axis;
+        }
+        var rotationDeg = _envScaffoldNormalizeVector3(entry.rotation_deg, null);
+        if (rotationDeg) normalized.rotation_deg = rotationDeg;
+        else {
+            var rotation = _envScaffoldNormalizeVector3(entry.rotation, null);
+            if (rotation) normalized.rotation = rotation;
         }
         return normalized;
     }
@@ -26598,6 +27273,57 @@
         if (text === '1' || text === 'true' || text === 'on' || text === 'yes') return true;
         if (text === '0' || text === 'false' || text === 'off' || text === 'no') return false;
         return null;
+    }
+
+    function _envNormalizeWorkbenchLoadFieldSpec(value) {
+        if (value && typeof value === 'object' && !Array.isArray(value)) {
+            return {
+                enabled: value.enabled === undefined ? undefined : !!value.enabled,
+                toggle_enabled: !!value.toggle_enabled
+            };
+        }
+        var text = String(value === undefined || value === null ? '' : value).trim();
+        if (!text) return { toggle_enabled: true };
+        if ((text.charAt(0) === '{' && text.charAt(text.length - 1) === '}')
+            || (text.charAt(0) === '[' && text.charAt(text.length - 1) === ']')) {
+            try {
+                return _envNormalizeWorkbenchLoadFieldSpec(JSON.parse(text));
+            } catch (ignored) { }
+        }
+        var lower = text.toLowerCase();
+        if (lower === 'toggle' || lower === 'load' || lower === 'enabled' || lower === 'mechanics') {
+            return { toggle_enabled: true };
+        }
+        if (lower === 'on' || lower === 'off') {
+            return { enabled: lower === 'on' };
+        }
+        return {};
+    }
+
+    function _envWorkbenchSetLoadField(actorName, reason, targetId) {
+        var patch = _envNormalizeWorkbenchLoadFieldSpec(targetId);
+        var currentEnabled = _envBuilderInteraction.load_field_enabled !== false;
+        var nextEnabled = currentEnabled;
+        if (patch && patch.toggle_enabled) nextEnabled = !currentEnabled;
+        else if (patch && patch.enabled !== undefined) nextEnabled = !!patch.enabled;
+        _envBuilderInteraction.load_field_enabled = nextEnabled;
+        _envBuilderInteraction.load_field_overlay_visible = false;
+        var mesh = _envMountedRuntimeMesh();
+        if (mesh && mesh.userData && _envBuilderSubject.active) {
+            _envBuilderApplySelectionToMesh(mesh);
+        }
+        _envRefreshInhabitantRuntimeState('workbench_set_load_field');
+        _envScheduleLiveSync('workbench_set_load_field:' + (nextEnabled ? 'on' : 'off'), true);
+        _envSaveTheaterSession('workbench_set_load_field');
+        _envSetBadge('running', 'LOAD ' + (nextEnabled ? 'ON' : 'OFF'));
+        _envLogAction('character_runtime', 'Updated workbench load field state', actorName, {
+            action: 'workbench_set_load_field',
+            load_field_enabled: nextEnabled,
+            load_field_overlay_visible: false,
+            reason: String(reason || '').trim()
+        });
+        renderEnvironmentView();
+        return true;
     }
 
     function _envMountedWorkbenchSurfaceState(mesh, sceneObject) {
@@ -26702,12 +27428,17 @@
             timeline_interpolation: builderActive ? String(timelineState.interpolation || 'slerp') : 'slerp',
             last_motion_preset: builderActive ? String(_envBuilderSubject.last_motion_preset || '') : '',
             motion_preset_catalog: motionPresetCatalog,
+            load_field_enabled: builderActive ? (_envBuilderInteraction.load_field_enabled !== false) : false,
+            load_field_overlay_visible: false,
             authored_clip_count: builderActive ? Number((authoredClipState.clips || []).length || 0) : 0,
             authored_clip_names: builderActive ? _envBuilderAuthoredClipNames(authoredClipState) : [],
             last_compiled_clip: builderActive ? String(authoredClipState.last_compiled_clip || '') : '',
             last_time_strip_ts: latestTimeStrip ? Number(latestTimeStrip.timestamp || 0) : 0,
             last_time_strip_frame_count: latestTimeStrip ? Number(latestTimeStrip.frame_count || 0) : 0,
             motion_diagnostics: currentMotionDiagnostics ? _envCloneJson(currentMotionDiagnostics, null) : null,
+            load_field: currentMotionDiagnostics && currentMotionDiagnostics.load_field
+                ? _envCloneJson(currentMotionDiagnostics.load_field, null)
+                : null,
             latest_time_strip_motion_summary: latestMotionDiagnosticsSummary ? _envCloneJson(latestMotionDiagnosticsSummary, null) : null,
             configured_display_scope: configuredDisplayScope,
             gizmo_mode: builderActive ? _envNormalizeBuilderGizmoMode(_envBuilderInteraction.gizmo_mode || 'rotate') : '',
@@ -33378,11 +34109,81 @@
         return Object.keys(out).sort();
     }
 
-    function _envCaptureTimeStripBuilderSnapshot() {
+    function _envCaptureTimeStripBuilderSnapshot(mesh) {
+        var group = mesh && mesh.userData ? (mesh.userData._builderSubjectGroup || null) : null;
+        var stableBounds = mesh && mesh.userData ? (mesh.userData._workbenchStableLocalBounds || null) : null;
         return {
             timeline: _envNormalizeBuilderTimelineState(_envBuilderSubject.timeline || null),
-            pose: _envNormalizeBuilderPoseState(_envBuilderSubject.pose || null)
+            pose: _envNormalizeBuilderPoseState(_envBuilderSubject.pose || null),
+            group_position: group ? [
+                Number(group.position.x || 0),
+                Number(group.position.y || 0),
+                Number(group.position.z || 0)
+            ] : null,
+            group_scale: group ? [
+                Number(group.scale.x || 1),
+                Number(group.scale.y || 1),
+                Number(group.scale.z || 1)
+            ] : null,
+            stable_local_bounds: stableBounds && typeof stableBounds.isEmpty === 'function' && !stableBounds.isEmpty()
+                ? {
+                    min: [
+                        Number((((stableBounds.min || {}).x) || 0)),
+                        Number((((stableBounds.min || {}).y) || 0)),
+                        Number((((stableBounds.min || {}).z) || 0))
+                    ],
+                    max: [
+                        Number((((stableBounds.max || {}).x) || 0)),
+                        Number((((stableBounds.max || {}).y) || 0)),
+                        Number((((stableBounds.max || {}).z) || 0))
+                    ]
+                }
+                : null
         };
+    }
+
+    function _envCaptureTimeStripRestoreBuilderStage(mesh, builderSnapshot) {
+        if (!mesh || !mesh.userData || typeof THREE === 'undefined') return false;
+        var group = mesh.userData._builderSubjectGroup || null;
+        if (group && Array.isArray(builderSnapshot && builderSnapshot.group_position)) {
+            group.position.set(
+                Number(builderSnapshot.group_position[0] || 0),
+                Number(builderSnapshot.group_position[1] || 0),
+                Number(builderSnapshot.group_position[2] || 0)
+            );
+        }
+        if (group && Array.isArray(builderSnapshot && builderSnapshot.group_scale)) {
+            group.scale.set(
+                Number(builderSnapshot.group_scale[0] || 1),
+                Number(builderSnapshot.group_scale[1] || 1),
+                Number(builderSnapshot.group_scale[2] || 1)
+            );
+            if (typeof group.updateWorldMatrix === 'function') group.updateWorldMatrix(true, true);
+        }
+        var stable = builderSnapshot && builderSnapshot.stable_local_bounds;
+        if (
+            stable
+            && Array.isArray(stable.min)
+            && stable.min.length === 3
+            && Array.isArray(stable.max)
+            && stable.max.length === 3
+        ) {
+            mesh.userData._workbenchStableLocalBounds = new THREE.Box3(
+                new THREE.Vector3(
+                    Number(stable.min[0] || 0),
+                    Number(stable.min[1] || 0),
+                    Number(stable.min[2] || 0)
+                ),
+                new THREE.Vector3(
+                    Number(stable.max[0] || 0),
+                    Number(stable.max[1] || 0),
+                    Number(stable.max[2] || 0)
+                )
+            );
+        } else {
+            delete mesh.userData._workbenchStableLocalBounds;
+        }
+        return !!group;
     }
 
     function _envCaptureTimeStripPlaybackSnapshot(mesh) {
@@ -33809,7 +34610,7 @@
         atlasCtx.clearRect(0, 0, observer.atlasCanvas.width, observer.atlasCanvas.height);
         atlasCtx.fillStyle = '#05070d';
         atlasCtx.fillRect(0, 0, observer.atlasCanvas.width, observer.atlasCanvas.height);
-        var builderSnapshot = _envCaptureTimeStripBuilderSnapshot();
+        var builderSnapshot = _envCaptureTimeStripBuilderSnapshot(mesh);
         var playbackSnapshot = _envCaptureTimeStripPlaybackSnapshot(mesh);
         var frames = [];
         var duration = 0;
@@ -33931,6 +34732,7 @@
                 _envBuilderSubject.pose = _envNormalizeBuilderPoseState(builderSnapshot.pose || null);
                 _envCaptureTimeStripApplyBuilderPose(mesh, 'capture_time_strip_restore');
             }
+            _envCaptureTimeStripRestoreBuilderStage(mesh, builderSnapshot);
         }
         return {
             type: 'time_strip',
@@ -38347,17 +39149,35 @@
         return box && !box.isEmpty() ? box : null;
     }
 
+    function _envBuilderLowestFootPatchY(mesh, supportRecord) {
+        if (!mesh || !_envBuilderSubject.active) return NaN;
+        var leftPatch = _envBuilderFootContactPatch(mesh, 'foot_l', supportRecord || null);
+        var rightPatch = _envBuilderFootContactPatch(mesh, 'foot_r', supportRecord || null);
+        var minY = Infinity;
+        [leftPatch, rightPatch].forEach(function (patch) {
+            if (!patch) return;
+            minY = Math.min(minY, Number(patch.patch_min_y || Infinity));
+        });
+        return isFinite(minY) ? minY : NaN;
+    }
+
     function _env3DCharacterWorkbenchDisplayFloorY(mesh, box) {
         if (!mesh) return 0;
+        var workbenchSupport = _envWorkbenchSupportRecordAtWorld(
+            Number((mesh.position || {}).x || 0),
+            Number((mesh.position || {}).z || 0),
+            _envWorkbenchSupportPlaneY()
+        );
+        var supportFloorY = Number((((workbenchSupport || {}).support_y) || _envWorkbenchSupportPlaneY()) || 0);
+        if (_envBuilderSubject.active && mesh.userData && mesh.userData._builderSubjectGroup) return supportFloorY;
+        var patchFloor = _envBuilderLowestFootPatchY(mesh, workbenchSupport);
+        if (isFinite(patchFloor)) return Number(patchFloor || 0);
+        var supportObj = mesh.userData ? (mesh.userData.sceneObject || null) : null;
+        if (_envIsMountedCharacterRuntimeObject(supportObj) && isFinite(supportFloorY)) return supportFloorY;
         var worldBox = box && typeof box.isEmpty === 'function' && !box.isEmpty()
             ? box
             : _env3DCharacterWorkbenchWorldBox(mesh);
         var floorY = worldBox ? Number(((worldBox.min || {}).y) || 0) : Number(mesh.position.y || 0);
-        var supportObj = mesh.userData ? (mesh.userData.sceneObject || null) : null;
-        if (_envIsMountedCharacterRuntimeObject(supportObj)) {
-            var rootY = Number(mesh.position.y || floorY);
-            if (isFinite(rootY) && Math.abs(rootY - floorY) > 0.08) return rootY;
-        }
         return isFinite(floorY) ? floorY : Number(mesh.position.y || 0);
     }
 
@@ -42821,10 +43641,16 @@
             } else {
                 piece.position.copy(localVector.multiplyScalar(0.5));
             }
-            return;
-        }
-        if (Array.isArray(slotDef.up)) {
+        } else if (Array.isArray(slotDef.up)) {
             piece.position.set(Number(slotDef.up[0] || 0), Number(slotDef.up[1] || 0), Number(slotDef.up[2] || 0));
+        }
+        var rotationDeg = Array.isArray(slotDef && slotDef.rotation_deg)
+            ? slotDef.rotation_deg
+            : (Array.isArray(slotDef && slotDef.rotation) ? slotDef.rotation : null);
+        if (rotationDeg) {
+            piece.rotation.x += (Number(rotationDeg[0] || 0) * Math.PI / 180);
+            piece.rotation.y += (Number(rotationDeg[1] || 0) * Math.PI / 180);
+            piece.rotation.z += (Number(rotationDeg[2] || 0) * Math.PI / 180);
         }
     }
 
@@ -42842,6 +43668,19 @@
                 depthWrite: true
             });
         }
+        if (key === 'bone_segment') {
+            return new THREE.MeshStandardMaterial({
+                color: 0xf4efe6,
+                roughness: 0.95,
+                metalness: 0.01,
+                emissive: 0x201a14,
+                emissiveIntensity: 0.025,
+                transparent: true,
+                opacity: 0.88,
+                depthTest: true,
+                depthWrite: false
+            });
+        }
         if (key === 'bone_joint') {
             return new THREE.MeshStandardMaterial({
                 color: 0xe1d3b4,
@@ -42850,9 +43689,9 @@
                 emissive: 0x3a3125,
                 emissiveIntensity: 0.05,
                 transparent: true,
-                opacity: 0.94,
+                opacity: 0.9,
                 depthTest: true,
-                depthWrite: true
+                depthWrite: false
             });
         }
         return new THREE.MeshStandardMaterial({
@@ -42899,7 +43738,7 @@
             joint.userData._envHelper = 'skeleton_helper';
             joint.userData._builderBoneId = String(bone.name || '');
             joint.userData._builderHelperKind = 'joint';
-            joint.renderOrder = 997;
+            joint.renderOrder = 121;
             bone.add(joint);
             parts.push(joint);
             if (!Array.isArray(bone.children)) return;
@@ -42920,7 +43759,7 @@
                 segment.userData._builderBoneStart = String(bone.name || '');
                 segment.userData._builderBoneEnd = String(child.name || '');
                 segment.userData._builderHelperKind = 'segment';
-                segment.renderOrder = 996;
+                segment.renderOrder = 120;
                 segment.position.copy(localVector.clone().multiplyScalar(0.5));
                 segment.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), localVector.clone().normalize());
                 bone.add(segment);
@@ -42996,47 +43835,42 @@
         mesh.userData._builderAnchorHidden = false;
     }
 
-    function _env3DScaleBuilderSubjectForWorkbench(group) {
+    function _env3DScaleBuilderSubjectForWorkbench(mesh, group) {
         if (!group || typeof THREE === 'undefined') return;
         group.scale.setScalar(1);
         if (typeof group.updateWorldMatrix === 'function') group.updateWorldMatrix(true, true);
-        var box = null;
-        try {
-            box = new THREE.Box3().setFromObject(group);
-        } catch (ignored) {
-            box = null;
-        }
-        if (!box || box.isEmpty()) return;
-        var size = new THREE.Vector3();
-        box.getSize(size);
-        var width = Math.max(Number(size.x || 0), Number(size.z || 0), 0.001);
-        var height = Math.max(Number(size.y || 0), 0.001);
-        var targetHeight = 16.5;
-        var targetWidth = 10.5;
-        var factor = Math.max(targetHeight / height, targetWidth / width);
-        factor = Math.max(1, Math.min(18, Number(factor || 1)));
-        group.scale.setScalar(factor);
-        if (typeof group.updateWorldMatrix === 'function') group.updateWorldMatrix(true, true);
+        // Workbench display scale is the sole size authority for the builder body.
     }
 
     function _env3DAlignBuilderSubjectToFloor(mesh, group) {
         if (!mesh || !group || typeof THREE === 'undefined') return;
-        if (typeof group.updateWorldMatrix === 'function') group.updateWorldMatrix(true, true);
-        var box = null;
-        try {
-            box = new THREE.Box3().setFromObject(group);
-        } catch (ignored) {
-            box = null;
-        }
-        if (!box || box.isEmpty()) return;
-        var targetFloor = 0.02;
         var parentScale = new THREE.Vector3(1, 1, 1);
         if (group.parent && typeof group.parent.getWorldScale === 'function') {
             group.parent.getWorldScale(parentScale);
         }
         var scaleY = Math.max(0.0001, Number(parentScale.y || 1));
-        var worldDelta = targetFloor - Number(((box.min || {}).y) || 0);
-        group.position.y += worldDelta / scaleY;
+        for (var attempt = 0; attempt < 3; attempt += 1) {
+            if (typeof group.updateWorldMatrix === 'function') group.updateWorldMatrix(true, true);
+            var box = null;
+            try {
+                box = new THREE.Box3().setFromObject(group);
+            } catch (ignored) {
+                box = null;
+            }
+            if (!box || box.isEmpty()) break;
+            var supportRecord = _envWorkbenchSupportRecordAtWorld(
+                Number((mesh.position || {}).x || 0),
+                Number((mesh.position || {}).z || 0),
+                Number((((box.min || {}).y) || 0))
+            );
+            var targetFloor = Number((((supportRecord || {}).support_y) || _envWorkbenchSupportPlaneY()) || 0);
+            var currentFloor = Number((((box.min || {}).y) || 0));
+            var patchFloor = _envBuilderLowestFootPatchY(mesh, supportRecord);
+            if (isFinite(patchFloor)) currentFloor = Number(patchFloor || 0);
+            var worldDelta = targetFloor - currentFloor;
+            if (Math.abs(worldDelta) <= 0.0005) break;
+            group.position.y += worldDelta / scaleY;
+        }
         if (typeof group.updateWorldMatrix === 'function') group.updateWorldMatrix(true, true);
     }
 
@@ -43058,6 +43892,11 @@
 
     function _env3DWorkbenchVisibleBuilderMetrics(mesh, targetBoneId) {
         if (!mesh || !mesh.userData || typeof THREE === 'undefined') return null;
+        var scaffoldMetrics = _env3DBuilderScaffoldMetrics(
+            mesh,
+            targetBoneId ? [String(targetBoneId || '').trim()] : null
+        );
+        if (scaffoldMetrics) return scaffoldMetrics;
         var box = new THREE.Box3();
         var hasBounds = false;
         var target = String(targetBoneId || '').trim();
@@ -43228,9 +44067,9 @@
         group.position.set(0, 0, 0);
         group.scale.setScalar(1);
         if (typeof group.updateWorldMatrix === 'function') group.updateWorldMatrix(true, true);
-        _env3DScaleBuilderSubjectForWorkbench(group);
+        _env3DScaleBuilderSubjectForWorkbench(mesh, group);
         _env3DAlignBuilderSubjectToFloor(mesh, group);
-        var baseMetrics = _env3DWorkbenchObjectMetrics(group);
+        var baseMetrics = _env3DWorkbenchVisibleBuilderMetrics(mesh) || _env3DWorkbenchObjectMetrics(group);
         _envBuilderApplyIsolationToMesh(mesh);
         if (baseMetrics) _env3DStageBuilderPartWorkCell(mesh, group, baseMetrics);
         return true;
@@ -43750,10 +44589,62 @@
         return posedMatch ? 'posed' : 'none';
     }
 
-    function _envBuilderApplyHighlightToNode(node, state) {
+    function _envBuilderCurrentLoadField(mesh) {
+        if (!_envBuilderSubject.active) return null;
+        var diagnostics = _envBuilderCurrentMotionDiagnostics(mesh);
+        var loadField = diagnostics && diagnostics.load_field && typeof diagnostics.load_field === 'object'
+            ? diagnostics.load_field
+            : null;
+        if (_envBuilderSubject) _envBuilderSubject._loadField = loadField;
+        if (mesh && mesh.userData) mesh.userData._builderLoadField = loadField;
+        return loadField;
+    }
+
+    function _envBuilderLoadFieldEntryForPart(part, loadField) {
+        var loads = loadField && loadField.segment_loads && typeof loadField.segment_loads === 'object'
+            ? loadField.segment_loads
+            : null;
+        if (!part || !loads) return null;
+        var data = part.userData || {};
+        var keys = [
+            String(data._builderBoneId || '').trim(),
+            String(data._builderBoneStart || '').trim(),
+            String(data._builderBoneEnd || '').trim()
+        ].filter(Boolean);
+        if (!keys.length) return null;
+        var entries = keys.map(function (key) { return loads[key] || null; }).filter(Boolean);
+        if (!entries.length) return null;
+        var merged = {
+            mode: 'passive',
+            stress: 0,
+            load_share: 0
+        };
+        var priority = { unsupported: 5, support: 4, brace: 3, swing: 2, passive: 1 };
+        entries.forEach(function (entry) {
+            if (!entry || typeof entry !== 'object') return;
+            var mode = String(entry.mode || 'passive').trim().toLowerCase() || 'passive';
+            if ((priority[mode] || 0) > (priority[merged.mode] || 0)) merged.mode = mode;
+            merged.stress = Math.max(merged.stress, Number(entry.stress || 0));
+            merged.load_share = Math.max(merged.load_share, Number(entry.load_share || 0));
+        });
+        merged.stress = Number(_envBuilderClamp01(merged.stress).toFixed(4));
+        merged.load_share = Number(_envBuilderClamp01(merged.load_share).toFixed(4));
+        return merged;
+    }
+
+    function _envBuilderLoadFieldVisualSpec(entry) {
+        // The first-pass solid scaffold tint reads like toy plastic and hides the
+        // actual support/contact work. Keep the load-field mechanics and diagnostics
+        // live, but leave scaffold rendering neutral until a proper scalar-field /
+        // internal skin treatment is ready.
+        return null;
+    }
+
+    function _envBuilderApplyHighlightToNode(node, state, loadField) {
         if (!node || !node.material) return;
         var selectedActive = _envBuilderSelectedBoneIds(_envBuilderInteraction).length > 0;
         var dimColor = typeof THREE !== 'undefined' ? new THREE.Color(0x3f4853) : null;
+        var loadSpec = null;
         var materials = Array.isArray(node.material) ? node.material : [node.material];
         materials.forEach(function (material) {
             if (!material) return;
@@ -43769,7 +44660,22 @@
                 material.userData._builderHighlightBaseOpacity = Number(material.opacity === undefined ? 1 : material.opacity);
             }
             if (material.userData._builderHighlightBaseColor !== undefined && material.color && typeof material.color.setHex === 'function') {
-                material.color.setHex(Number(material.userData._builderHighlightBaseColor || 0xffffff));
+                material.color.setHex(Number(loadSpec ? loadSpec.color : (material.userData._builderHighlightBaseColor || 0xffffff)));
+            }
+            if (material.userData._builderHighlightBaseEmissive !== undefined && material.emissive && typeof material.emissive.setHex === 'function') {
+                if (loadSpec) {
+                    material.emissive.setHex(Number(loadSpec.emissive || material.userData._builderHighlightBaseEmissive || 0));
+                    material.emissiveIntensity = Math.max(
+                        Number(material.userData._builderHighlightBaseEmissiveIntensity || 0),
+                        Number(loadSpec.emissive_intensity || 0)
+                    );
+                } else {
+                    material.emissive.setHex(Number(material.userData._builderHighlightBaseEmissive || 0));
+                    material.emissiveIntensity = Number(material.userData._builderHighlightBaseEmissiveIntensity || 0);
+                }
+            }
+            if (material.opacity !== undefined && material.userData._builderHighlightBaseOpacity !== undefined) {
+                material.opacity = Number(loadSpec ? loadSpec.opacity : (material.userData._builderHighlightBaseOpacity || 1));
             }
             if (state === 'primary') {
                 if (material.emissive && typeof material.emissive.setHex === 'function') material.emissive.setHex(0xffa726);
@@ -43791,20 +44697,24 @@
                 if (dimColor && material.color && typeof material.color.lerp === 'function') {
                     material.color.lerp(dimColor, 0.38);
                 }
-                if (material.userData._builderHighlightBaseEmissive !== undefined && material.emissive && typeof material.emissive.setHex === 'function') {
-                    material.emissive.setHex(Number(material.userData._builderHighlightBaseEmissive || 0));
-                    material.emissiveIntensity = Number(material.userData._builderHighlightBaseEmissiveIntensity || 0) * 0.18;
+                if (material.emissive && typeof material.emissive.setHex === 'function') {
+                    material.emissive.setHex(Number(loadSpec ? loadSpec.emissive : (material.userData._builderHighlightBaseEmissive || 0)));
+                    material.emissiveIntensity = (loadSpec
+                        ? Number(loadSpec.emissive_intensity || 0.08)
+                        : Number(material.userData._builderHighlightBaseEmissiveIntensity || 0)) * 0.42;
                 }
                 if (material.opacity !== undefined && material.userData._builderHighlightBaseOpacity !== undefined) {
-                    material.opacity = Number(material.userData._builderHighlightBaseOpacity || 1);
+                    material.opacity = Number(loadSpec ? loadSpec.opacity : (material.userData._builderHighlightBaseOpacity || 1));
                 }
             } else {
-                if (material.userData._builderHighlightBaseEmissive !== undefined && material.emissive && typeof material.emissive.setHex === 'function') {
-                    material.emissive.setHex(Number(material.userData._builderHighlightBaseEmissive || 0));
-                    material.emissiveIntensity = Number(material.userData._builderHighlightBaseEmissiveIntensity || 0);
+                if (material.emissive && typeof material.emissive.setHex === 'function') {
+                    material.emissive.setHex(Number(loadSpec ? loadSpec.emissive : (material.userData._builderHighlightBaseEmissive || 0)));
+                    material.emissiveIntensity = loadSpec
+                        ? Math.max(Number(loadSpec.emissive_intensity || 0), Number(material.userData._builderHighlightBaseEmissiveIntensity || 0))
+                        : Number(material.userData._builderHighlightBaseEmissiveIntensity || 0);
                 }
                 if (material.opacity !== undefined && material.userData._builderHighlightBaseOpacity !== undefined) {
-                    material.opacity = Number(material.userData._builderHighlightBaseOpacity || 1);
+                    material.opacity = Number(loadSpec ? loadSpec.opacity : (material.userData._builderHighlightBaseOpacity || 1));
                 }
             }
         });
@@ -43838,10 +44748,13 @@
 
     function _envBuilderApplySelectionToMesh(mesh) {
         if (!mesh || !mesh.userData || !_envBuilderSubject.active) return false;
+        var loadField = (_envBuilderInteraction.load_field_enabled !== false)
+            ? _envBuilderCurrentLoadField(mesh)
+            : null;
         var helper = mesh.userData._skeletonHelper || null;
         if (helper && Array.isArray(helper.parts)) {
             helper.parts.forEach(function (part) {
-                _envBuilderApplyHighlightToNode(part, _envBuilderVisualStateForPart(part));
+                _envBuilderApplyHighlightToNode(part, _envBuilderVisualStateForPart(part), loadField);
             });
         }
         var pieces = mesh.userData._scaffoldPieces || null;
@@ -43849,7 +44762,7 @@
             Object.keys(pieces).forEach(function (slotName) {
                 var entry = pieces[slotName];
                 if (!entry || !entry.mesh) return;
-                _envBuilderApplyHighlightToNode(entry.mesh, _envBuilderVisualStateForPart(entry.mesh));
+                _envBuilderApplyHighlightToNode(entry.mesh, _envBuilderVisualStateForPart(entry.mesh), loadField);
             });
         }
         _envBuilderApplyJointOverlays(mesh);
@@ -43859,6 +44772,9 @@
 
     function _envBuilderAnimateSelectionVisuals(mesh, time) {
         if (!mesh || !mesh.userData || !_envBuilderSubject.active) return;
+        if (_envBuilderInteraction.load_field_enabled !== false) {
+            _envBuilderApplySelectionToMesh(mesh);
+        }
         var selectedBoneId = _envBuilderPrimaryBoneId(_envBuilderInteraction);
         var helper = mesh.userData._skeletonHelper || null;
         if (!helper || !Array.isArray(helper.parts)) return;
@@ -44308,12 +45224,14 @@
         if (!mesh || !mesh.userData) return false;
         if (_envBuilderSubject.active && mesh.userData._builderSubjectGroup) {
             if (mesh.userData._scaffoldVisible) {
+                if (_envBuilderSubject.scaffold_projection) _envBuilderSubject.scaffold_projection.enabled = false;
                 _env3DDisposeScaffoldBody(mesh);
                 _envBuilderSubject._scaffoldPieces = null;
                 _envBuilderSubject._scaffoldVisible = false;
                 _envSaveTheaterSession('workbench:scaffold');
                 return true;
             }
+            if (_envBuilderSubject.scaffold_projection) _envBuilderSubject.scaffold_projection.enabled = true;
             var proceduralBuilt = _env3DBuildProceduralScaffold(mesh, _envBuilderSubject);
             if (proceduralBuilt) {
                 _envBuilderSubject._scaffoldVisible = true;
@@ -46223,8 +47141,9 @@
              '<option value="character_stop_clip">character_stop_clip</option>' +
              '<option value="character_set_loop">character_set_loop</option>' +
              '<option value="character_set_speed">character_set_speed</option>' +
-             '<option value="character_get_animation_state">character_get_animation_state</option>' +
-             '<option value="workbench_set_scaffold">workbench_set_scaffold</option>' +
+            '<option value="character_get_animation_state">character_get_animation_state</option>' +
+            '<option value="workbench_set_scaffold">workbench_set_scaffold</option>' +
+            '<option value="workbench_set_load_field">workbench_set_load_field</option>' +
              '<option value="character_play_reaction">character_play_reaction</option>' +
              '<option value="focus_replay">focus_replay</option>' +
              '<option value="branch_snapshot">branch_snapshot</option>' +
@@ -53478,6 +54397,15 @@
                     }
                     return;
                 }
+                if (action === 'workbench-toggle-load-field') {
+                    _envBuilderInteraction.load_field_enabled = !(_envBuilderInteraction.load_field_enabled !== false);
+                    _envBuilderInteraction.load_field_overlay_visible = false;
+                    var loadFieldMesh = _envMountedRuntimeMesh();
+                    if (loadFieldMesh && loadFieldMesh.userData && _envBuilderSubject.active) _envBuilderApplySelectionToMesh(loadFieldMesh);
+                    renderEnvironmentView();
+                    _envQueueControl('workbench_set_load_field', JSON.stringify({ enabled: _envBuilderInteraction.load_field_enabled }), uiActor, 'workbench toggle load field');
+                    return;
+                }
                 if (action === 'toggle-overlay-panel') {
                     var toggleOverlayId = String(actionEl.getAttribute('data-env-overlay-id') || '').trim();
                     if (toggleOverlayId) {
@@ -54366,6 +55294,14 @@
     };
     window.envopsWorkbenchSetScaffold = function (value, actor, reason) {
         _envQueueControl('workbench_set_scaffold', value === undefined || value === null ? '' : String(value), actor || 'assistant', reason || 'external workbench scaffold');
+    };
+    window.envopsWorkbenchSetLoadField = function (spec, actor, reason) {
+        var payload = '';
+        if (typeof spec === 'string') payload = spec;
+        else if (spec !== undefined && spec !== null) {
+            try { payload = JSON.stringify(spec); } catch (ignored) { payload = String(spec || ''); }
+        }
+        _envQueueControl('workbench_set_load_field', payload, actor || 'assistant', reason || 'external workbench load field');
     };
     window.envopsCharacterMoveTo = function (target, actor, reason) {
         var payload = '';

@@ -49,14 +49,17 @@ _SILENT_TOOLS = frozenset([
     'get_status', 'list_slots', 'bag_catalog', 'workflow_list',
     'verify_integrity', 'get_cached', 'get_identity', 'feed',
     'get_capabilities', 'get_help', 'get_onboarding', 'get_quickstart',
-    'hub_tasks', 'list_tools', 'heartbeat', 'api_health',
+    'hub_tasks', 'list_tools', 'heartbeat', 'api_health', 'env_help',
 ])
 
 _ENV_CAPTURE_DIR = Path("static") / "captures"
 _ENV_CAPTURE_INDEX_PATH = _ENV_CAPTURE_DIR / "_index.json"
 _ENV_CAPTURE_LIMIT = 20
+_ENV_HELP_DATA_PATH = Path("static") / "data" / "help" / "environment_command_registry.json"
 _env_capture_history: list[dict] = []
 _env_capture_lock = threading.Lock()
+_env_help_cache_lock = threading.Lock()
+_env_help_cache: dict[str, object] = {"mtime_ns": None, "data": None}
 
 
 def _normalize_activity_source(value: str | None) -> str | None:
@@ -1358,6 +1361,7 @@ _PRODUCT_BUNDLE_RUNTIME_COPY_SOURCES = (
 )
 
 _GUIDED_EXTERNAL_MCP_TOOLS = frozenset({
+    "env_help",
     "env_read",
     "env_control",
     "workflow_execute",
@@ -1479,6 +1483,7 @@ _ENV_CONTROL_PROXY_COMMANDS = frozenset({
     "character_get_animation_state",
     "character_play_reaction",
     "workbench_set_scaffold",
+    "workbench_set_load_field",
     "toggle_inhabitant_fov_debug",
     "set_world_profile",
     "apply_profile_kit",
@@ -2055,7 +2060,7 @@ def _workflow_local_proxy_tool_names() -> set[str]:
         "agent_chat_result", "agent_chat_purge", "workflow_execute", "workflow_status", "workflow_history",
         "hf_cache_status", "hf_cache_clear", "capsule_restart",
         "persist_status", "persist_restore_revision",
-        "env_control", "env_read",
+        "env_control", "env_read", "env_help",
     }
     try:
         if isinstance(_AGENT_LOCAL_TOOL_SPECS, dict):
@@ -3727,7 +3732,7 @@ def _env_control_local_proxy_payload(args: dict | None = None) -> dict | None:
         payload["environment_effects"]["theater_mode_action"] = command
     elif command.startswith("camera_"):
         payload["environment_effects"]["camera_action"] = command
-    elif command in ("spawn_inhabitant", "despawn_inhabitant", "focus_inhabitant", "character_mount", "character_unmount", "character_focus", "character_move_to", "character_stop", "character_look_at", "character_set_model", "workbench_new_builder", "workbench_get_blueprint", "workbench_get_part_surface", "workbench_frame_part", "workbench_select_bone", "workbench_select_bones", "workbench_set_editing_mode", "workbench_set_display_scope", "workbench_set_gizmo_mode", "workbench_set_gizmo_space", "workbench_set_bone", "workbench_set_pose", "workbench_set_pose_batch", "workbench_clear_pose", "workbench_capture_pose", "workbench_delete_pose", "workbench_apply_pose", "workbench_set_timeline_cursor", "workbench_compile_clip", "workbench_play_authored_clip", "workbench_apply_motion_preset", "workbench_reset_angles", "workbench_isolate_chain", "workbench_save_blueprint", "workbench_load_blueprint", "character_play_clip", "character_queue_clips", "character_stop_clip", "character_set_loop", "character_set_speed", "character_get_animation_state", "character_play_reaction", "toggle_inhabitant_fov_debug"):
+    elif command in ("spawn_inhabitant", "despawn_inhabitant", "focus_inhabitant", "character_mount", "character_unmount", "character_focus", "character_move_to", "character_stop", "character_look_at", "character_set_model", "workbench_new_builder", "workbench_get_blueprint", "workbench_get_part_surface", "workbench_frame_part", "workbench_select_bone", "workbench_select_bones", "workbench_set_editing_mode", "workbench_set_display_scope", "workbench_set_gizmo_mode", "workbench_set_gizmo_space", "workbench_set_bone", "workbench_set_pose", "workbench_set_pose_batch", "workbench_clear_pose", "workbench_capture_pose", "workbench_delete_pose", "workbench_apply_pose", "workbench_set_timeline_cursor", "workbench_compile_clip", "workbench_play_authored_clip", "workbench_apply_motion_preset", "workbench_reset_angles", "workbench_isolate_chain", "workbench_save_blueprint", "workbench_load_blueprint", "character_play_clip", "character_queue_clips", "character_stop_clip", "character_set_loop", "character_set_speed", "character_get_animation_state", "character_play_reaction", "toggle_inhabitant_fov_debug", "workbench_set_load_field"):
         payload["environment_effects"]["character_runtime_action"] = command
     elif command == "workbench_set_scaffold":
         payload["environment_effects"]["character_runtime_action"] = command
@@ -3736,6 +3741,300 @@ def _env_control_local_proxy_payload(args: dict | None = None) -> dict | None:
     elif command.startswith("capture_"):
         payload["environment_effects"]["capture_action"] = command
     return payload
+
+
+def _env_help_load_registry() -> dict:
+    path = _ENV_HELP_DATA_PATH
+    if not path.exists():
+        return {
+            "error": f"Environment help registry not found at {path.as_posix()}",
+            "hint": "Run `node scripts/generate-env-help-registry.js` to build the environment help registry.",
+        }
+    try:
+        stat = path.stat()
+        with _env_help_cache_lock:
+            cached_mtime = _env_help_cache.get("mtime_ns")
+            cached_data = _env_help_cache.get("data")
+            if cached_mtime == stat.st_mtime_ns and isinstance(cached_data, dict):
+                return cached_data
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(data, dict):
+            return {
+                "error": f"Environment help registry is invalid at {path.as_posix()}",
+                "hint": "Rebuild the registry with `node scripts/generate-env-help-registry.js`.",
+            }
+        with _env_help_cache_lock:
+            _env_help_cache["mtime_ns"] = stat.st_mtime_ns
+            _env_help_cache["data"] = data
+        return data
+    except Exception as exc:
+        return {
+            "error": f"Failed to load environment help registry: {exc}",
+            "hint": "Rebuild the registry with `node scripts/generate-env-help-registry.js`.",
+        }
+
+
+def _env_help_stringify(value) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, (int, float, bool)):
+        return str(value)
+    if isinstance(value, list):
+        return " ".join(_env_help_stringify(item) for item in value)
+    if isinstance(value, dict):
+        return " ".join(_env_help_stringify(item) for item in value.values())
+    return str(value)
+
+
+def _env_help_search_entries(registry: dict, search_text: str, limit: int = 12) -> list[dict]:
+    query = str(search_text or "").strip().lower()
+    if not query:
+        return []
+    query_tokens = [token for token in re.split(r"[^a-z0-9_]+", query) if token]
+    rows: list[dict] = []
+
+    def add_rows(kind: str, items: dict | None):
+        if not isinstance(items, dict):
+            return
+        for key, value in items.items():
+            if not isinstance(value, dict):
+                continue
+            haystack = f"{str(key or '')} {_env_help_stringify(value)}".lower().strip()
+            if not haystack:
+                continue
+            score = 0
+            if query == str(key).lower():
+                score += 120
+            if query in str(key).lower():
+                score += 80
+            if query in str(value.get("title") or "").lower():
+                score += 40
+            score += haystack.count(query) * 8
+            if query_tokens:
+                matched_tokens = 0
+                for token in query_tokens:
+                    if token in haystack:
+                        matched_tokens += 1
+                        score += 12
+                        if token == str(key).lower():
+                            score += 20
+                if matched_tokens == len(query_tokens):
+                    score += 30
+                elif matched_tokens > 0:
+                    score += matched_tokens * 4
+            if score <= 0:
+                continue
+            rows.append({
+                "kind": kind,
+                "id": str(key),
+                "title": str(value.get("title") or key),
+                "summary": str(value.get("summary") or value.get("description") or ""),
+                "score": score,
+            })
+
+    add_rows("command", registry.get("commands"))
+    add_rows("family", registry.get("families"))
+    add_rows("playbook", registry.get("playbooks"))
+    rows.sort(key=lambda item: (-int(item.get("score", 0)), str(item.get("kind", "")), str(item.get("id", ""))))
+    return rows[: max(1, int(limit or 12))]
+
+
+def _env_help_index_payload(registry: dict, normalized_args: dict) -> dict:
+    commands = registry.get("commands") if isinstance(registry.get("commands"), dict) else {}
+    families = registry.get("families") if isinstance(registry.get("families"), dict) else {}
+    playbooks = registry.get("playbooks") if isinstance(registry.get("playbooks"), dict) else {}
+    ui_action_count = sum(1 for value in commands.values() if isinstance(value, dict) and str(value.get("entry_kind") or "") == "ui_action")
+    env_command_count = max(0, len(commands) - ui_action_count)
+    family_rows = []
+    for key, value in sorted(families.items()):
+        if not isinstance(value, dict):
+            continue
+        family_rows.append({
+            "category": key,
+            "title": str(value.get("title") or key),
+            "count": int(value.get("count") or 0),
+            "description": str(value.get("description") or ""),
+        })
+    playbook_rows = []
+    for key, value in sorted(playbooks.items()):
+        if not isinstance(value, dict):
+            continue
+        playbook_rows.append({
+            "id": key,
+            "title": str(value.get("title") or key),
+            "step_count": len(value.get("steps") or []) if isinstance(value.get("steps"), list) else 0,
+        })
+    return {
+        "tool": "env_help",
+        "category": "environment",
+        "purpose": "Query the generated environment/browser command registry, command families, and operator playbooks.",
+        "status": "ok",
+        "summary": "Read environment help index",
+        "normalized_args": normalized_args,
+        "operation": "env_help",
+        "operation_status": "ok",
+        "entry_type": "index",
+        "index": {
+            "meta": registry.get("meta") if isinstance(registry.get("meta"), dict) else {},
+            "families": family_rows,
+            "playbooks": playbook_rows,
+            "entry_count": len(commands),
+            "env_command_count": env_command_count,
+            "ui_action_count": ui_action_count,
+            "examples": [
+                "env_help(topic='workbench_apply_motion_preset')",
+                "env_help(topic='workbench-toggle-turntable')",
+                "env_help(category='builder_motion')",
+                "env_help(topic='playbook:motion_preset_validation')",
+                "env_help(search='mounted asset floor')",
+            ],
+        },
+    }
+
+
+def _env_help_local_proxy_payload(args: dict | None = None) -> dict | None:
+    args = args or {}
+    topic = str(args.get("topic", "") or args.get("command", "") or "").strip()
+    search = str(args.get("search", "") or "").strip()
+    category = str(args.get("category", "") or "").strip()
+    registry = _env_help_load_registry()
+    if not isinstance(registry, dict):
+        return None
+    if registry.get("error"):
+        return {
+            "tool": "env_help",
+            "status": "error",
+            "summary": str(registry.get("error") or "Environment help unavailable"),
+            "normalized_args": {
+                "topic": topic,
+                "search": search,
+                "category": category,
+            },
+            "operation": "env_help",
+            "operation_status": "error",
+            "error": str(registry.get("error") or "Environment help unavailable"),
+            "hint": str(registry.get("hint") or ""),
+        }
+    commands = registry.get("commands") if isinstance(registry.get("commands"), dict) else {}
+    families = registry.get("families") if isinstance(registry.get("families"), dict) else {}
+    playbooks = registry.get("playbooks") if isinstance(registry.get("playbooks"), dict) else {}
+    alias_map: dict[str, str] = {}
+    for key, value in commands.items():
+        if not isinstance(value, dict):
+            continue
+        for alias in value.get("aliases") or []:
+            alias_key = str(alias or "").strip()
+            if alias_key and alias_key not in alias_map:
+                alias_map[alias_key] = str(key)
+        for alias in value.get("surface_entrypoints") or []:
+            alias_key = str(alias or "").strip()
+            if alias_key and alias_key not in alias_map:
+                alias_map[alias_key] = str(key)
+    normalized_args = {
+        "topic": topic,
+        "search": search,
+        "category": category,
+    }
+    topic_key = topic.lower()
+    if not topic and not search and not category:
+        return _env_help_index_payload(registry, normalized_args)
+    if topic_key in ("index", "overview", "help"):
+        return _env_help_index_payload(registry, normalized_args)
+    if category and category in families:
+        return {
+            "tool": "env_help",
+            "status": "ok",
+            "summary": f"Read environment help family {category}",
+            "normalized_args": normalized_args,
+            "operation": "env_help",
+            "operation_status": "ok",
+            "entry_type": "family",
+            "family": families.get(category),
+        }
+    if topic.startswith("playbook:"):
+        playbook_id = topic.split(":", 1)[1].strip()
+        if playbook_id in playbooks:
+            return {
+                "tool": "env_help",
+                "status": "ok",
+                "summary": f"Read environment help playbook {playbook_id}",
+                "normalized_args": normalized_args,
+                "operation": "env_help",
+                "operation_status": "ok",
+                "entry_type": "playbook",
+                "playbook": playbooks.get(playbook_id),
+            }
+    if topic in commands:
+        return {
+            "tool": "env_help",
+            "status": "ok",
+            "summary": f"Read environment help for command {topic}",
+            "normalized_args": normalized_args,
+            "operation": "env_help",
+            "operation_status": "ok",
+            "entry_type": "command",
+            "command_help": commands.get(topic),
+        }
+    if topic in alias_map and alias_map.get(topic) in commands:
+        resolved_key = alias_map.get(topic)
+        return {
+            "tool": "env_help",
+            "status": "ok",
+            "summary": f"Read environment help for command {resolved_key} via alias {topic}",
+            "normalized_args": normalized_args,
+            "operation": "env_help",
+            "operation_status": "ok",
+            "entry_type": "command",
+            "resolved_from_alias": topic,
+            "command_help": commands.get(resolved_key),
+        }
+    if topic in families:
+        return {
+            "tool": "env_help",
+            "status": "ok",
+            "summary": f"Read environment help family {topic}",
+            "normalized_args": normalized_args,
+            "operation": "env_help",
+            "operation_status": "ok",
+            "entry_type": "family",
+            "family": families.get(topic),
+        }
+    if topic in playbooks:
+        return {
+            "tool": "env_help",
+            "status": "ok",
+            "summary": f"Read environment help playbook {topic}",
+            "normalized_args": normalized_args,
+            "operation": "env_help",
+            "operation_status": "ok",
+            "entry_type": "playbook",
+            "playbook": playbooks.get(topic),
+        }
+    search_text = search or topic
+    results = _env_help_search_entries(registry, search_text)
+    if results:
+        return {
+            "tool": "env_help",
+            "status": "ok",
+            "summary": f"Read environment help search results for {search_text}",
+            "normalized_args": normalized_args,
+            "operation": "env_help",
+            "operation_status": "ok",
+            "entry_type": "search",
+            "results": results,
+        }
+    return {
+        "tool": "env_help",
+        "status": "partial",
+        "summary": f"No environment help found for {topic or search or category}",
+        "normalized_args": normalized_args,
+        "operation": "env_help",
+        "operation_status": "partial",
+        "error": f"No environment help found for '{topic or search or category}'",
+        "hint": "Try topic='index', category='builder_motion', or search='mounted asset floor'.",
+    }
 
 
 def _env_capture_safe_token(text: str) -> str:
@@ -7500,6 +7799,14 @@ async def proxy_tool_call(tool_name: str, request: Request):
             return JSONResponse(status_code=503, content=payload)
         return {"result": {"content": [{"type": "text", "text": json.dumps(payload)}], "isError": False}}
 
+    env_help_proxy_payload = _env_help_local_proxy_payload(body if isinstance(body, dict) else {}) if tool_name == "env_help" else None
+    if tool_name == "env_help" and env_help_proxy_payload is not None:
+        err_msg = env_help_proxy_payload.get("error") if isinstance(env_help_proxy_payload, dict) else None
+        _broadcast_activity(tool_name, body if isinstance(body, dict) else {}, env_help_proxy_payload, 0, err_msg, source=source, client_id=client_id)
+        if err_msg and str(env_help_proxy_payload.get("status") or "").lower() == "error":
+            return JSONResponse(status_code=404, content=env_help_proxy_payload)
+        return {"result": {"content": [{"type": "text", "text": json.dumps(env_help_proxy_payload)}], "isError": False}}
+
     env_control_proxy_payload = _env_control_local_proxy_payload(body if isinstance(body, dict) else {})
     if env_control_proxy_payload is not None:
         err_msg = env_control_proxy_payload.get("error") if isinstance(env_control_proxy_payload, dict) else None
@@ -9345,6 +9652,14 @@ async def _handle_streamable_rpc(obj: dict, client_id: str) -> dict | None:
             if err_msg:
                 return _rpc_error(rpc_id, -32603, err_msg, payload)
             return {"jsonrpc": "2.0", "id": rpc_id, "result": {"content": [{"type": "text", "text": json.dumps(payload)}], "isError": False}}
+
+        env_help_proxy_payload = _env_help_local_proxy_payload(args) if tool_name == "env_help" else None
+        if tool_name == "env_help" and env_help_proxy_payload is not None:
+            err_msg = env_help_proxy_payload.get("error") if isinstance(env_help_proxy_payload, dict) else None
+            _broadcast_activity(tool_name, args, env_help_proxy_payload, 0, err_msg, source="external", client_id=client_id)
+            if err_msg and str(env_help_proxy_payload.get("status") or "").lower() == "error":
+                return _rpc_error(rpc_id, -32603, err_msg, env_help_proxy_payload)
+            return {"jsonrpc": "2.0", "id": rpc_id, "result": {"content": [{"type": "text", "text": json.dumps(env_help_proxy_payload)}], "isError": False}}
 
         env_control_proxy_payload = _env_control_local_proxy_payload(args)
         if env_control_proxy_payload is not None:

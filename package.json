@@ -3,7 +3,8 @@
   "private": true,
   "scripts": {
     "compress-capsule": "node scripts/compress-capsule.js",
-    "build:recast-nav": "node scripts/build-recast-nav.mjs"
+    "build:recast-nav": "node scripts/build-recast-nav.mjs",
+    "build:env-help": "node scripts/generate-env-help-registry.js"
   },
   "dependencies": {
     "@recast-navigation/three": "^0.42.0",

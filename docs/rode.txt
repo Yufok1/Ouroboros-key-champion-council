@@ -476,17 +476,27 @@ Motion authoring lane is now the active execution path through Slice 5f:
 
 Post-5f handoff:
 
-- Coquina remains deferred until the motion lane is stable enough to close this slice cleanly
-- First post-5f artifact is `Coquina Atom Basis v1`
+- Ground interaction is the active bridge lane before Coquina resumes:
+  - support truth
+  - contact patches
+  - stability/load reasoning
+  - body/ground interaction validation
+- Defer the visual load-field overlay until the ground-contact lane is mechanically stable
+- When the load-field overlay returns, treat it as a scaffold-side diagnostic/control facility:
+  - not a skin
+  - not a surface pass
+  - not the visible proc-gen body shell
+- Coquina remains deferred until the ground-interaction lane closes cleanly
+- First post-ground-interaction artifact is `Coquina Atom Basis v1`
 - Coquina Layer 1 starts after that doc with the two-source atom doctrine:
   - imported atoms from tagged CC0 GLBs
   - procedural atoms from the geometric basis
 
 Immediate execution order after this record:
-1. Verify the builder motion preset lane in-browser against the mounted humanoid workbench
-2. Audit time-strip motion diagnostics on fresh preset captures instead of stale authored clips
-3. Close any remaining support/contact or UI regressions in the builder motion lane
-4. Only then resume Coquina Layer 1 entry work
+1. Verify ground/body interaction in-browser against the mounted humanoid workbench
+2. Audit time-strip support/contact diagnostics on fresh standing and stepping captures
+3. Close any remaining floor-alignment, contact, or support regressions before any visual load-field pass
+4. Only then resume Coquina entry work through `Coquina Atom Basis v1`
 
 Execution notes (2026-04-02):
 
@@ -494,6 +504,9 @@ Execution notes (2026-04-02):
 - Use sanitized builder poses and fresh preset-derived timelines for motion evaluation, not stale authored clips
 - Keep humanoid-first scope; do not widen scaffold/mechanics work to other families before the humanoid lane closes
 - Coquina doctrine is now locked as two-source atoms feeding one registry and one grammar engine
+- Keep scaffold mechanics and visible body treatment separate:
+  - scaffold can carry support/load diagnostics
+  - body shell / body atoms / surface pass remain the visible proc-gen treatment lane
 
 Source anchors (verified in current runtime):
   - _envBuilderPoseMechanicsSpec                line 1274

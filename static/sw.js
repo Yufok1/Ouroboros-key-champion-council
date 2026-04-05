@@ -14,7 +14,7 @@ var STATIC_ASSETS = [
     '/static/rapier3d-compat/rapier.es.js',
     '/static/rapier3d-compat/rapier_wasm3d.js',
     '/static/rapier3d-compat/rapier_wasm3d_bg.wasm',
-    '/static/main.js?v=129t',
+    '/static/main.js?v=130y',
     '/static/manifest.json',
     '/static/icon.svg',
     '/static/assets/packs/index.json',
