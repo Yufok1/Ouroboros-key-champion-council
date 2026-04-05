@@ -96,6 +96,72 @@
         "env_read(query='shared_state')"
       ]
     },
+    "workbench_preview_settle": {
+      "title": "Preview Builder Settle",
+      "summary": "Generate a short visible settle reaction timeline from current balance/load truth and stage it for scrubbed preview.",
+      "when_to_use": [
+        "Use this after a destabilizing pose edit or motion preset when you want the system to propose a corrective reaction.",
+        "This is the first builder-side balance controller surface: preview first, then decide whether to keep the generated motion."
+      ],
+      "mode_notes": [
+        "Preview settle forces pose mode when needed because the corrective reaction is emitted through batch pose transforms.",
+        "The generated settle is staged as a transient timeline and does not autoplay by itself.",
+        "When you call this through env_control, pass the settle spec as a JSON string in target_id. The browser command surface parses target_id into the settle spec."
+      ],
+      "gotchas": [
+        "Preview settle does not mutate authored clips or permanently rewrite the timeline until you commit it.",
+        "If the current diagnostics do not show a recoverable balance reaction, preview generation can legitimately return nothing.",
+        "Do not trust the first mirrored shared_state read right after dispatch. The ingress/live-sync loop can lag a few seconds even when preview generation succeeded.",
+        "Verify the result from workbench_surface.settle_preview, workbench_surface.pose_transform_count, and corroboration.last_action after a short wait instead of assuming an immediate mirror miss means failure."
+      ],
+      "failure_modes": [
+        "No builder subject active.",
+        "Mounted runtime mesh is missing.",
+        "Current balance diagnostics did not produce a recoverable settle reaction."
+      ],
+      "verification": [
+        "capture_probe",
+        "workbench_set_timeline_cursor",
+        "env_read(query='shared_state')",
+        "corroboration.last_action"
+      ],
+      "related_commands": [
+        "workbench_commit_settle",
+        "workbench_set_timeline_cursor",
+        "capture_probe"
+      ]
+    },
+    "workbench_commit_settle": {
+      "title": "Commit Builder Settle",
+      "summary": "Accept the staged settle preview and merge it into the builder timeline or compile it as a clip.",
+      "when_to_use": [
+        "Use this only after inspecting a generated settle preview that you want to keep.",
+        "Set target to clip when the corrective reaction should become a reusable authored clip instead of just extending the working timeline."
+      ],
+      "mode_notes": [
+        "Commit settle depends on an active preview; it does not regenerate a new settle plan by itself.",
+        "Commit can force pose mode before applying the merged settle result."
+      ],
+      "gotchas": [
+        "No-op unless a settle preview is already active.",
+        "Clip compilation happens only when target is clip; timeline is the default destination."
+      ],
+      "failure_modes": [
+        "No builder subject active.",
+        "No active settle preview exists to merge or compile.",
+        "Merged settle timeline or authored clip compile failed."
+      ],
+      "verification": [
+        "capture_time_strip",
+        "capture_probe",
+        "env_read(query='shared_state')"
+      ],
+      "related_commands": [
+        "workbench_preview_settle",
+        "workbench_compile_clip",
+        "capture_time_strip"
+      ]
+    },
     "character_set_model": {
       "title": "Set Mounted Character Model",
       "summary": "Swap the mounted runtime to a direct asset ref and leave builder-subject mode for mesh-asset inspection.",
@@ -120,6 +186,106 @@
           "{\"family\":\"humanoid_biped\"}"
         ]
       }
+    },
+    "workbench_set_pose": {
+      "title": "Set Builder Pose",
+      "summary": "Apply a single explicit pose transform to one builder bone using the pose gizmo contract instead of guessing through the viewport.",
+      "target_contract": {
+        "shape": "json",
+        "description": "Single-bone pose payload. Accepts bone_id/bone/canonical_joint plus either rotation quaternion or rotation_deg/rotation_degrees Euler triples. Offsets are honored only on hips/root-style bones.",
+        "examples": [
+          "{\"bone\":\"chest\",\"rotation_deg\":[0,0,18]}",
+          "{\"canonical_joint\":\"upper_arm_l\",\"rotation_deg\":[0,0,12]}",
+          "{\"bone_id\":\"hips\",\"offset\":{\"x\":0.35,\"y\":0,\"z\":0}}"
+        ]
+      },
+      "when_to_use": [
+        "Use this for isolated bone edits when you want one controlled nudge before reading the resulting balance/load shift.",
+        "Use batch only after you know the single-bone direction you want; this command is the simplest way to probe a specific joint."
+      ],
+      "what_it_changes": [
+        "One builder pose transform in the active pose store.",
+        "Workbench selection/focus moves to the edited bone so the gizmo and overlays follow the edit."
+      ],
+      "mode_notes": [
+        "Pose mode is required. Structure mode will reject the edit instead of silently staging it.",
+        "rotation_deg and rotation_degrees are valid shorthand for Euler degrees; raw rotation quaternion payloads still work too.",
+        "When you call this through env_control, pass the whole JSON pose payload as a string in target_id. The browser command surface reads target_id and normalizes it into the pose spec."
+      ],
+      "gotchas": [
+        "Non-root offsets are intentionally rejected to preserve scaffold continuity. If you need translational repositioning, use hips/root-aware offsets only.",
+        "A torso lean alone will often stay inside a broad two-foot support base, so settle may still classify the state as ankle/mild.",
+        "Immediate env_read(query='shared_state') snapshots can lie right after dispatch because the ingress/live-sync mirror has not caught up yet. Give the browser a short beat, then verify pose_transform_count, posed_bone_ids, and corroboration.last_action."
+      ],
+      "failure_modes": [
+        "No builder subject active.",
+        "Pose mode is not active.",
+        "Bone id is missing or not part of the current builder skeleton.",
+        "Mounted runtime mesh/workbench anchor is unavailable."
+      ],
+      "verification": [
+        "capture_probe",
+        "env_read(query='shared_state')",
+        "workbench_get_part_surface",
+        "corroboration.last_action"
+      ],
+      "related_commands": [
+        "workbench_set_pose_batch",
+        "workbench_clear_pose",
+        "workbench_preview_settle"
+      ]
+    },
+    "workbench_set_pose_batch": {
+      "title": "Set Builder Pose Batch",
+      "summary": "Apply multiple coordinated pose edits atomically across the builder skeleton so lean, leg placement, and counterbalance can move together in one operation.",
+      "target_contract": {
+        "shape": "json",
+        "description": "Batch pose payload with a poses array. Each entry accepts bone_id/bone/canonical_joint plus rotation quaternion or rotation_deg/rotation_degrees Euler triples. Offsets are still hips/root-only even inside the batch.",
+        "examples": [
+          "{\"poses\":[{\"bone\":\"spine\",\"rotation_deg\":[0,0,12]},{\"bone\":\"chest\",\"rotation_deg\":[0,0,18]},{\"bone\":\"upper_arm_l\",\"rotation_deg\":[0,0,12]}]}",
+          "{\"poses\":[{\"canonical_joint\":\"upper_leg_l\",\"rotation_deg\":[0,0,-18]},{\"canonical_joint\":\"lower_leg_l\",\"rotation_deg\":[0,0,14]},{\"canonical_joint\":\"foot_l\",\"rotation_deg\":[0,0,10]}]}",
+          "{\"poses\":[{\"bone\":\"hips\",\"offset\":{\"x\":0.35,\"y\":0,\"z\":0}},{\"bone\":\"chest\",\"rotation_deg\":[0,0,20]}]}"
+        ]
+      },
+      "when_to_use": [
+        "Use this when the body must move as a coupled system: legs, feet, torso, and arms in one atomic edit.",
+        "This is the right builder surface for destabilizing or rebalancing a stance before calling workbench_preview_settle."
+      ],
+      "what_it_changes": [
+        "Multiple builder pose transforms in one commit so the scaffold, gizmo state, and diagnostics update from the combined pose instead of partial intermediate steps.",
+        "The resulting motion diagnostics and load-field readings for the posed body."
+      ],
+      "mode_notes": [
+        "Pose mode is required. The batch command will reject the entire request if the workbench is still in structure mode.",
+        "Canonical joint names are accepted, so payloads can use the embodiment-level ids instead of only raw bone ids.",
+        "rotation_deg / rotation_degrees are the cleanest payload for tool-driven edits; you do not need to hand-build quaternions.",
+        "When you call this through env_control, pass the entire JSON batch payload as a string in target_id. The normalized batch spec is built from target_id."
+      ],
+      "gotchas": [
+        "Broad planted feet can keep the support polygon large even when the torso leans hard, so settle may still resolve to ankle/mild unless the support base is actually narrowed or skewed.",
+        "Offsets on non-hips bones are rejected even inside the batch. This is rotational pose editing, not arbitrary limb dragging.",
+        "If you want a real recover/step reaction, drive the legs and feet toward an asymmetric stance instead of only bending the chest.",
+        "The array key is poses, not bones. Older guesses like {\"bones\":[...]} normalize to an empty batch and make the command look inert.",
+        "Immediate shared_state reads can make a valid batch look dead. Wait a few seconds, then verify workbench_surface.pose_transform_count, workbench_surface.posed_bone_ids, and corroboration.last_action."
+      ],
+      "failure_modes": [
+        "No builder subject active.",
+        "Pose mode is not active.",
+        "Empty or invalid poses array.",
+        "Mounted runtime mesh/workbench anchor is unavailable."
+      ],
+      "verification": [
+        "capture_probe",
+        "env_read(query='shared_state')",
+        "workbench_preview_settle",
+        "corroboration.last_action"
+      ],
+      "related_commands": [
+        "workbench_set_pose",
+        "workbench_clear_pose",
+        "workbench_preview_settle",
+        "capture_probe"
+      ]
     },
     "workbench_get_blueprint": {
       "title": "Get Builder Blueprint",
