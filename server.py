@@ -60,8 +60,8 @@ _env_capture_history: list[dict] = []
 _env_capture_lock = threading.Lock()
 _env_help_cache_lock = threading.Lock()
 _env_help_cache: dict[str, object] = {"mtime_ns": None, "data": None}
-
-
+_env_live_cache_lock = threading.Lock()
+_env_live_cache: dict[str, object] = {"live_state": None, "updated_ms": 0}
 def _normalize_activity_source(value: str | None) -> str | None:
     if not value:
         return None
@@ -3837,6 +3837,7 @@ def _env_help_search_entries(registry: dict, search_text: str, limit: int = 12) 
             })
 
     add_rows("command", registry.get("commands"))
+    add_rows("query", registry.get("queries"))
     add_rows("family", registry.get("families"))
     add_rows("playbook", registry.get("playbooks"))
     rows.sort(key=lambda item: (-int(item.get("score", 0)), str(item.get("kind", "")), str(item.get("id", ""))))
@@ -3845,6 +3846,7 @@ def _env_help_search_entries(registry: dict, search_text: str, limit: int = 12) 
 
 def _env_help_index_payload(registry: dict, normalized_args: dict) -> dict:
     commands = registry.get("commands") if isinstance(registry.get("commands"), dict) else {}
+    queries = registry.get("queries") if isinstance(registry.get("queries"), dict) else {}
     families = registry.get("families") if isinstance(registry.get("families"), dict) else {}
     playbooks = registry.get("playbooks") if isinstance(registry.get("playbooks"), dict) else {}
     ui_action_count = sum(1 for value in commands.values() if isinstance(value, dict) and str(value.get("entry_kind") or "") == "ui_action")
@@ -3882,12 +3884,14 @@ def _env_help_index_payload(registry: dict, normalized_args: dict) -> dict:
             "meta": registry.get("meta") if isinstance(registry.get("meta"), dict) else {},
             "families": family_rows,
             "playbooks": playbook_rows,
-            "entry_count": len(commands),
+            "entry_count": len(commands) + len(queries),
+            "query_count": len(queries),
             "env_command_count": env_command_count,
             "ui_action_count": ui_action_count,
             "examples": [
                 "env_help(topic='workbench_apply_motion_preset')",
                 "env_help(topic='workbench-toggle-turntable')",
+                "env_help(topic='text_theater_embodiment')",
                 "env_help(category='builder_motion')",
                 "env_help(topic='playbook:motion_preset_validation')",
                 "env_help(search='mounted asset floor')",
@@ -3920,6 +3924,7 @@ def _env_help_local_proxy_payload(args: dict | None = None) -> dict | None:
             "hint": str(registry.get("hint") or ""),
         }
     commands = registry.get("commands") if isinstance(registry.get("commands"), dict) else {}
+    queries = registry.get("queries") if isinstance(registry.get("queries"), dict) else {}
     families = registry.get("families") if isinstance(registry.get("families"), dict) else {}
     playbooks = registry.get("playbooks") if isinstance(registry.get("playbooks"), dict) else {}
     alias_map: dict[str, str] = {}
@@ -3978,6 +3983,17 @@ def _env_help_local_proxy_payload(args: dict | None = None) -> dict | None:
             "operation_status": "ok",
             "entry_type": "command",
             "command_help": commands.get(topic),
+        }
+    if topic in queries:
+        return {
+            "tool": "env_help",
+            "status": "ok",
+            "summary": f"Read environment help for query {topic}",
+            "normalized_args": normalized_args,
+            "operation": "env_help",
+            "operation_status": "ok",
+            "entry_type": "query",
+            "query_help": queries.get(topic),
         }
     if topic in alias_map and alias_map.get(topic) in commands:
         resolved_key = alias_map.get(topic)
@@ -4412,6 +4428,165 @@ def _env_probe_compare_payload() -> dict:
     }
 
 
+def _env_sync_live_params_payload(args: dict | None = None) -> dict | None:
+    args = args or {}
+    if str(args.get("operation", "") or "").strip().lower() != "sync_live":
+        return None
+    params_raw = args.get("params")
+    params_obj = {}
+    if isinstance(params_raw, dict):
+        params_obj = params_raw
+    elif isinstance(params_raw, str):
+        try:
+            parsed = json.loads(params_raw)
+            if isinstance(parsed, dict):
+                params_obj = parsed
+        except Exception:
+            params_obj = {}
+    payload = params_obj.get("payload")
+    return payload if isinstance(payload, dict) else None
+
+
+def _env_merge_json(base, patch):
+    if not isinstance(patch, dict):
+        return _json_clone(patch)
+    seed = base if isinstance(base, dict) else {}
+    out = _json_clone(seed) if seed is not None else {}
+    if not isinstance(out, dict):
+        out = {}
+    for key, value in patch.items():
+        if isinstance(value, dict) and isinstance(out.get(key), dict):
+            out[key] = _env_merge_json(out.get(key), value)
+        else:
+            out[key] = _json_clone(value)
+    return out
+
+
+def _env_live_cache_store(payload: dict | None) -> dict | None:
+    if not isinstance(payload, dict):
+        return None
+    live_state = _json_clone(payload) if payload is not None else None
+    if not isinstance(live_state, dict):
+        return None
+    with _env_live_cache_lock:
+        current = _env_live_cache.get("live_state")
+        merged_state = _env_merge_json(current if isinstance(current, dict) else {}, live_state)
+        if not isinstance(merged_state, dict):
+            return None
+        merged_state["synced_at"] = float(time.time())
+        record = {
+            "live_state": merged_state,
+            "updated_ms": int(time.time() * 1000),
+        }
+        _env_live_cache["live_state"] = record["live_state"]
+        _env_live_cache["updated_ms"] = record["updated_ms"]
+    return _json_clone(record)
+
+
+def _env_live_cache_snapshot() -> dict | None:
+    with _env_live_cache_lock:
+        live_state = _env_live_cache.get("live_state")
+        updated_ms = _env_live_cache.get("updated_ms", 0)
+        if not isinstance(live_state, dict):
+            return None
+        return {
+            "live_state": _json_clone(live_state),
+            "updated_ms": int(updated_ms or 0),
+        }
+
+
+def _env_persist_local_proxy_payload(args: dict | None = None) -> dict | None:
+    payload = _env_sync_live_params_payload(args)
+    if not isinstance(payload, dict):
+        return None
+    cached = _env_live_cache_store(payload)
+    response = {
+        "tool": "env_persist",
+        "status": "ok",
+        "summary": "Updated server-local live mirror cache",
+        "normalized_args": {"operation": "sync_live"},
+        "delta": {
+            "updated": True,
+            "source": "server_live_cache",
+            "updated_ms": (cached or {}).get("updated_ms", 0),
+        },
+        "operation": "env_persist",
+        "operation_status": "ok",
+    }
+    if isinstance(payload.get("shared_state"), dict):
+        response["shared_state"] = _json_clone(payload.get("shared_state"))
+    if isinstance(payload.get("render_truth"), dict):
+        response["render_truth"] = _json_clone(payload.get("render_truth"))
+    if isinstance(payload.get("layout_snapshot"), dict):
+        response["layout_snapshot"] = _json_clone(payload.get("layout_snapshot"))
+    if payload.get("latest_capture") is not None:
+        response["latest_capture"] = _json_clone(payload.get("latest_capture"))
+    if payload.get("contracts") is not None:
+        response["contracts"] = _json_clone(payload.get("contracts"))
+    if payload.get("habitat_objects") is not None:
+        response["habitat_objects"] = _json_clone(payload.get("habitat_objects"))
+    return response
+
+
+def _env_read_live_cache_payload(query_text: str) -> dict | None:
+    query_lower = str(query_text or "").strip().lower()
+    if query_lower not in {
+        "live",
+        "shared_state",
+        "contracts",
+        "habitat_objects",
+        "text_theater_snapshot",
+        "text_theater",
+        "text_theater_embodiment",
+    }:
+        return None
+    cached = _env_live_cache_snapshot()
+    live_state = (cached or {}).get("live_state") if isinstance(cached, dict) else None
+    if not isinstance(live_state, dict):
+        return None
+    shared_state = live_state.get("shared_state") if isinstance(live_state.get("shared_state"), dict) else {}
+    text_theater = shared_state.get("text_theater") if isinstance(shared_state.get("text_theater"), dict) else {}
+    field_map = {
+        "text_theater_snapshot": "snapshot",
+        "text_theater": "theater",
+        "text_theater_embodiment": "embodiment",
+    }
+    if query_lower in field_map:
+        value = text_theater.get(field_map[query_lower])
+        if value in (None, "", {}):
+            return None
+        return {
+            "tool": "env_read",
+            "status": "ok",
+            "summary": f"Read {query_lower} from server live cache",
+            "normalized_args": {"query": query_text},
+            "delta": {"found": True, "type": query_lower, "updated_ms": (cached or {}).get("updated_ms", 0)},
+            "operation": "env_read",
+            "operation_status": "ok",
+            "query": query_text,
+            query_lower: _json_clone(value),
+        }
+    payload = {
+        "tool": "env_read",
+        "status": "ok",
+        "summary": f"Read {query_lower} from server live cache",
+        "normalized_args": {"query": query_text},
+        "delta": {"found": True, "type": query_lower, "updated_ms": (cached or {}).get("updated_ms", 0)},
+        "operation": "env_read",
+        "operation_status": "ok",
+        "query": query_text,
+    }
+    if query_lower == "live":
+        payload["live_state"] = _json_clone(live_state)
+    elif query_lower == "shared_state":
+        payload["shared_state"] = _json_clone(shared_state)
+    elif query_lower == "contracts":
+        payload["contracts"] = live_state.get("contracts") or {}
+    elif query_lower == "habitat_objects":
+        payload["habitat_objects"] = live_state.get("habitat_objects") or []
+    return payload
+
+
 def _env_read_local_proxy_payload(args: dict | None = None) -> dict | None:
     args = args or {}
     query_text = str(args.get("query", "list") or "list").strip() or "list"
@@ -4420,6 +4595,9 @@ def _env_read_local_proxy_payload(args: dict | None = None) -> dict | None:
         return _debug_state_payload(query_text)
     if query_lower == "probe_compare":
         return _env_probe_compare_payload()
+    cached_payload = _env_read_live_cache_payload(query_text)
+    if cached_payload is not None:
+        return cached_payload
     query_map = {
         "frame": ("frame", "frame"),
         "frame_strip": ("strip", "frame_strip"),
@@ -4458,6 +4636,10 @@ def _env_read_local_proxy_payload(args: dict | None = None) -> dict | None:
         "capture": entry,
     }
     return payload
+
+
+async def _env_read_local_proxy_payload_async(args: dict | None = None) -> dict | None:
+    return _env_read_local_proxy_payload(args)
 
 
 _env_capture_load_index()
@@ -7817,7 +7999,15 @@ async def proxy_tool_call(tool_name: str, request: Request):
             return JSONResponse(status_code=400, content=env_control_proxy_payload)
         return {"result": {"content": [{"type": "text", "text": json.dumps(env_control_proxy_payload)}], "isError": False}}
 
-    env_read_proxy_payload = _env_read_local_proxy_payload(body if isinstance(body, dict) else {})
+    env_persist_proxy_payload = _env_persist_local_proxy_payload(body if isinstance(body, dict) else {}) if tool_name == "env_persist" else None
+    if tool_name == "env_persist" and env_persist_proxy_payload is not None:
+        err_msg = env_persist_proxy_payload.get("error") if isinstance(env_persist_proxy_payload, dict) else None
+        _broadcast_activity(tool_name, body if isinstance(body, dict) else {}, env_persist_proxy_payload, 0, err_msg, source=source, client_id=client_id)
+        if err_msg:
+            return JSONResponse(status_code=400, content=env_persist_proxy_payload)
+        return {"result": {"content": [{"type": "text", "text": json.dumps(env_persist_proxy_payload)}], "isError": False}}
+
+    env_read_proxy_payload = await _env_read_local_proxy_payload_async(body if isinstance(body, dict) else {})
     if tool_name == "env_read" and env_read_proxy_payload is not None:
         err_msg = env_read_proxy_payload.get("error") if isinstance(env_read_proxy_payload, dict) else None
         env_read_query = str((body or {}).get("query", "") or "").strip().lower() if isinstance(body, dict) else ""
@@ -9671,7 +9861,15 @@ async def _handle_streamable_rpc(obj: dict, client_id: str) -> dict | None:
                 return _rpc_error(rpc_id, -32603, err_msg, env_control_proxy_payload)
             return {"jsonrpc": "2.0", "id": rpc_id, "result": {"content": [{"type": "text", "text": json.dumps(env_control_proxy_payload)}], "isError": False}}
 
-        env_read_proxy_payload = _env_read_local_proxy_payload(args)
+        env_persist_proxy_payload = _env_persist_local_proxy_payload(args) if tool_name == "env_persist" else None
+        if tool_name == "env_persist" and env_persist_proxy_payload is not None:
+            err_msg = env_persist_proxy_payload.get("error") if isinstance(env_persist_proxy_payload, dict) else None
+            _broadcast_activity(tool_name, args, env_persist_proxy_payload, 0, err_msg, source="external", client_id=client_id)
+            if err_msg:
+                return _rpc_error(rpc_id, -32603, err_msg, env_persist_proxy_payload)
+            return {"jsonrpc": "2.0", "id": rpc_id, "result": {"content": [{"type": "text", "text": json.dumps(env_persist_proxy_payload)}], "isError": False}}
+
+        env_read_proxy_payload = await _env_read_local_proxy_payload_async(args)
         if tool_name == "env_read" and env_read_proxy_payload is not None:
             err_msg = env_read_proxy_payload.get("error") if isinstance(env_read_proxy_payload, dict) else None
             _broadcast_activity(tool_name, args, env_read_proxy_payload, 0, err_msg, source="external", client_id=client_id)

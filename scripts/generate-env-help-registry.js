@@ -286,6 +286,19 @@ const FAMILY_DEFAULTS = {
     ],
     verification: ['env_read(query=\'shared_state\')', 'feed(n=20)'],
   },
+  observation_query: {
+    title: 'Observation Queries',
+    description: 'Read-only environment query surfaces that return live browser state or derived observation views.',
+    when_to_use: [
+      'Use these when you need fast readback from the live theater without dispatching a new control command.',
+      'These are the observation-bus surfaces for shared state, text theater, captures, and similar diagnostics.',
+    ],
+    mode_notes: [
+      'Observation queries do not mutate runtime state by themselves.',
+      'Freshness still matters: mirror lag or stale browser state can make a read truthful about old state rather than current intent.',
+    ],
+    verification: ['env_read(query=\'shared_state\')', 'env_read(query=\'text_theater_embodiment\')'],
+  },
 };
 
 const STANDALONE_UI_ACTIONS = new Set([
@@ -873,9 +886,11 @@ if (fs.existsSync(overridesPath)) {
 const commandOverrides = (overrides && overrides.commands && typeof overrides.commands === 'object') ? overrides.commands : {};
 const familyOverrides = (overrides && overrides.families && typeof overrides.families === 'object') ? overrides.families : {};
 const uiActionOverrides = (overrides && overrides.ui_actions && typeof overrides.ui_actions === 'object') ? overrides.ui_actions : {};
+const queryOverrides = (overrides && overrides.queries && typeof overrides.queries === 'object') ? overrides.queries : {};
 const playbooks = (overrides && overrides.playbooks && typeof overrides.playbooks === 'object') ? overrides.playbooks : {};
 
 const commands = {};
+const queries = {};
 const familyBuckets = new Map();
 commandNames.forEach((command) => {
   const family = familyForCommand(command);
@@ -951,6 +966,38 @@ Array.from(STANDALONE_UI_ACTIONS).sort((a, b) => a.localeCompare(b)).forEach((ac
   commands[action] = mergeObjects(baseEntry, uiActionOverrides[action] || {});
 });
 
+Object.keys(queryOverrides).sort((a, b) => a.localeCompare(b)).forEach((query) => {
+  const override = queryOverrides[query] || {};
+  const family = String(override.category || override.family || 'observation_query');
+  if (!familyBuckets.has(family)) familyBuckets.set(family, []);
+  familyBuckets.get(family).push(query);
+  const baseEntry = {
+    query,
+    entry_kind: 'env_read_query',
+    title: titleCase(query),
+    category: family,
+    status: 'live',
+    transport: {
+      env_read: true,
+      env_control: false,
+      browser_surface: false,
+      ui_local_only: false,
+      implemented_verb: false,
+    },
+    summary: `Read ${query} from the live environment/browser state.`,
+    when_to_use: whenToUseForEntry(query, family, 'env_read_query'),
+    what_it_changes: [],
+    mode_notes: modeNotesForEntry(query, family, 'env_read_query'),
+    verification: verificationForEntry(query, family, 'env_read_query'),
+    gotchas: gotchasForCommand(query, family, { env_control: false, browser_surface: false, ui_local_only: false, implemented_verb: false }, [], 'env_read_query'),
+    failure_modes: failureModesForEntry(query, family, 'env_read_query', []),
+    aliases: [],
+    related_commands: [],
+    source_anchors: [],
+  };
+  queries[query] = mergeObjects(baseEntry, override);
+});
+
 const families = {};
 Array.from(familyBuckets.keys()).sort((a, b) => a.localeCompare(b)).forEach((family) => {
   const base = {
@@ -966,9 +1013,11 @@ Array.from(familyBuckets.keys()).sort((a, b) => a.localeCompare(b)).forEach((fam
   families[family] = mergeObjects(base, familyOverrides[family] || {});
 });
 
-const entryCount = Object.keys(commands).length;
+const commandEntryCount = Object.keys(commands).length;
+const queryCount = Object.keys(queries).length;
+const entryCount = commandEntryCount + queryCount;
 const uiActionCount = Object.values(commands).filter((entry) => entry && entry.entry_kind === 'ui_action').length;
-const envCommandCount = entryCount - uiActionCount;
+const envCommandCount = commandEntryCount - uiActionCount;
 
 const registry = {
   meta: {
@@ -989,6 +1038,7 @@ const registry = {
       entries: entryCount,
       env_commands: envCommandCount,
       ui_actions: uiActionCount,
+      queries: queryCount,
       proxied_commands: proxyCommands.size,
       host_commands: hostCommands.size,
       families: Object.keys(families).length,
@@ -997,6 +1047,7 @@ const registry = {
   },
   families,
   commands,
+  queries,
   playbooks,
 };
 
@@ -1007,5 +1058,6 @@ console.log(`Wrote ${outputPath}`);
 console.log(`Entries: ${entryCount}`);
 console.log(`Env commands: ${envCommandCount}`);
 console.log(`UI actions: ${uiActionCount}`);
+console.log(`Queries: ${queryCount}`);
 console.log(`Families: ${Object.keys(families).length}`);
 console.log(`Playbooks: ${Object.keys(playbooks).length}`);

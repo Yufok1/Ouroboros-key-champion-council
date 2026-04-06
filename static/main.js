@@ -2193,6 +2193,22 @@
     }
 
     function _envWorkbenchSupportRecordAtWorld(worldX, worldZ, fallbackY) {
+        var sceneSupport = _envInhabitantSupportRecordAtWorld(Number(worldX || 0), Number(worldZ || 0), Number(fallbackY || 0));
+        if (sceneSupport && sceneSupport.grounded && !_envInhabitantUsesFallbackGroundSupport(sceneSupport)) {
+            var sceneSupportY = Number(sceneSupport.support_y);
+            if (isFinite(sceneSupportY)) {
+                return {
+                    grounded: true,
+                    support_key: String(sceneSupport.support_key || 'workbench::scene_support'),
+                    support_kind: String(sceneSupport.support_kind || 'scene_support'),
+                    support_class: String(sceneSupport.support_class || 'support'),
+                    support_y: Number(sceneSupportY || 0),
+                    surface_normal: { x: 0, y: 1, z: 0 },
+                    friction_class: 'scene_support',
+                    source: 'workbench_scene_support'
+                };
+            }
+        }
         var supportY = _envWorkbenchSupportPlaneY();
         if (!isFinite(Number(supportY))) supportY = Number(fallbackY || 0);
         return {
@@ -28325,6 +28341,756 @@
         };
     }
 
+    function _envTextTheaterRound(value, digits, fallback) {
+        var numeric = Number(value);
+        if (!isFinite(numeric)) return fallback !== undefined ? fallback : 0;
+        var places = Math.max(0, Math.min(6, parseInt(digits, 10) || 0));
+        return Number(numeric.toFixed(places));
+    }
+
+    function _envTextTheaterTitle(value) {
+        var text = String(value || '').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+        if (!text) return '';
+        return text.replace(/\b([a-z])/g, function (_, ch) { return ch.toUpperCase(); });
+    }
+
+    function _envTextTheaterVectorObject(value, digits) {
+        var src = value && typeof value === 'object' ? value : {};
+        return {
+            x: _envTextTheaterRound(src.x, digits || 3, 0),
+            y: _envTextTheaterRound(src.y, digits || 3, 0),
+            z: _envTextTheaterRound(src.z, digits || 3, 0)
+        };
+    }
+
+    function _envTextTheaterVectorArray(value, digits) {
+        var vector = _envTextTheaterVectorObject(value, digits || 3);
+        return [vector.x, vector.y, vector.z];
+    }
+
+    function _envTextTheaterNormalizeDirection(value) {
+        if (!(value && typeof value === 'object')) return { x: 0, y: 0, z: 0 };
+        var x = Number(value.x || 0);
+        var y = Number(value.y || 0);
+        var z = Number(value.z || 0);
+        var length = Math.sqrt((x * x) + (y * y) + (z * z));
+        if (!(length > 0.00001)) return { x: 0, y: 0, z: 0 };
+        return {
+            x: _envTextTheaterRound(x / length, 4, 0),
+            y: _envTextTheaterRound(y / length, 4, 0),
+            z: _envTextTheaterRound(z / length, 4, 0)
+        };
+    }
+
+    function _envTextTheaterScenePositionForObject(obj) {
+        var source = obj && typeof obj === 'object' ? obj : {};
+        var resolved = _env3DResolveSceneTransform(source);
+        var position = resolved && resolved.position ? resolved.position : {
+            x: Number(source.x || 0),
+            y: Number((source.position || {}).y || 0),
+            z: Number(source.y || 0)
+        };
+        return _envTextTheaterVectorObject(position, 3);
+    }
+
+    function _envTextTheaterSceneBounds(objects) {
+        var rows = Array.isArray(objects) ? objects : [];
+        if (!rows.length) {
+            return {
+                min: { x: 0, y: 0, z: 0 },
+                max: { x: 0, y: 0, z: 0 }
+            };
+        }
+        var minX = Infinity;
+        var minY = Infinity;
+        var minZ = Infinity;
+        var maxX = -Infinity;
+        var maxY = -Infinity;
+        var maxZ = -Infinity;
+        rows.forEach(function (obj) {
+            var position = _envTextTheaterScenePositionForObject(obj);
+            minX = Math.min(minX, Number(position.x || 0));
+            minY = Math.min(minY, Number(position.y || 0));
+            minZ = Math.min(minZ, Number(position.z || 0));
+            maxX = Math.max(maxX, Number(position.x || 0));
+            maxY = Math.max(maxY, Number(position.y || 0));
+            maxZ = Math.max(maxZ, Number(position.z || 0));
+        });
+        return {
+            min: {
+                x: _envTextTheaterRound(minX, 3, 0),
+                y: _envTextTheaterRound(minY, 3, 0),
+                z: _envTextTheaterRound(minZ, 3, 0)
+            },
+            max: {
+                x: _envTextTheaterRound(maxX, 3, 0),
+                y: _envTextTheaterRound(maxY, 3, 0),
+                z: _envTextTheaterRound(maxZ, 3, 0)
+            }
+        };
+    }
+
+    function _envTextTheaterFocusSceneObject(sharedState) {
+        var shared = sharedState && typeof sharedState === 'object' ? sharedState : {};
+        var focus = shared.focus && typeof shared.focus === 'object' ? shared.focus : {};
+        var targetClass = String(focus.target_class || '').trim().toLowerCase();
+        if (targetClass === 'mounted_character_runtime') return _envInhabitantObject();
+        var objectKey = String(focus.object_key || focus.source_key || '').trim();
+        if (objectKey) {
+            var direct = _envSceneObjectByKey(objectKey);
+            if (direct) return direct;
+        }
+        var focusKind = String(focus.kind || '').trim();
+        var focusId = String(focus.id || '').trim();
+        if (focusKind && focusId) {
+            var found = _envSceneFindObject(focusKind, focusId);
+            if (found) return found;
+        }
+        if (String(focusKind || '') === String(_ENV_INHABITANT_OBJECT_KIND || '')
+            && String(focusId || '') === String(_ENV_INHABITANT_OBJECT_ID || '')) {
+            return _envInhabitantObject();
+        }
+        return null;
+    }
+
+    function _envTextTheaterFocusNeighborhood(objects, focusObject, limit) {
+        var rows = Array.isArray(objects) ? objects : [];
+        var target = focusObject && typeof focusObject === 'object' ? focusObject : null;
+        if (!target) return [];
+        var focusPosition = _envTextTheaterScenePositionForObject(target);
+        return rows
+            .filter(function (obj) {
+                return _envSceneObjectKey(obj) !== _envSceneObjectKey(target);
+            })
+            .map(function (obj) {
+                var position = _envTextTheaterScenePositionForObject(obj);
+                var dx = Number(position.x || 0) - Number(focusPosition.x || 0);
+                var dy = Number(position.y || 0) - Number(focusPosition.y || 0);
+                var dz = Number(position.z || 0) - Number(focusPosition.z || 0);
+                return {
+                    object_key: _envSceneObjectKey(obj),
+                    kind: String((obj && obj.kind) || ''),
+                    category: String((obj && obj.category) || (obj && obj.kind) || ''),
+                    state: String((obj && obj.state) || ''),
+                    id: String((obj && obj.id) || ''),
+                    label: String((obj && obj.label) || (obj && obj.id) || _envSceneObjectKey(obj) || ''),
+                    distance: _envTextTheaterRound(Math.sqrt((dx * dx) + (dy * dy) + (dz * dz)), 3, 0),
+                    position: position,
+                    colors: _envCloneJson(_envSceneColorForObject(obj), null),
+                    color: String((obj && obj.color) || (_envSceneColorForObject(obj) || {}).edge || '')
+                };
+            })
+            .sort(function (left, right) {
+                return Number(left.distance || 0) - Number(right.distance || 0);
+            })
+            .slice(0, Math.max(0, parseInt(limit, 10) || 5));
+    }
+
+    function _envTextTheaterSceneObjectVisual(obj) {
+        var source = obj && typeof obj === 'object' ? obj : {};
+        var colors = _envSceneColorForObject(source);
+        return {
+            kind: String(source.kind || ''),
+            category: String(source.category || source.kind || ''),
+            state: String(source.state || ''),
+            color: String(source.color || colors.edge || ''),
+            fill: String(colors.fill || ''),
+            edge: String(colors.edge || ''),
+            glow: String(colors.glow || '')
+        };
+    }
+
+    function _envTextTheaterWorkbenchGuideVisual() {
+        var guide = _envCurrentObserverWorkbenchStageGuide();
+        if (!guide) return null;
+        var padRadius = Number(guide.padRadius || 0);
+        var frameSpan = Number(guide.frameSpan || 0);
+        return {
+            center: _envTextTheaterVectorObject(guide.center, 4),
+            floor_y: _envTextTheaterRound(guide.floorY, 4, 0),
+            pad_radius: _envTextTheaterRound(padRadius, 4, 0),
+            halo_inner_radius: _envTextTheaterRound(padRadius * 1.01, 4, 0),
+            halo_outer_radius: _envTextTheaterRound(padRadius * 1.08, 4, 0),
+            inner_ring_inner_radius: _envTextTheaterRound(padRadius * 0.4988, 4, 0),
+            inner_ring_outer_radius: _envTextTheaterRound(padRadius * 0.5246, 4, 0),
+            grid_span: _envTextTheaterRound(guide.gridSpan, 4, 0),
+            grid_divisions: 20,
+            frame_half_span: _envTextTheaterRound(frameSpan, 4, 0),
+            crosshair_extent: _envTextTheaterRound(padRadius * 1.0152, 4, 0),
+            palette: {
+                pad_fill: _env3DHexToCss(0x0d141d),
+                halo: _env3DHexToCss(0x6fe9d9),
+                inner_ring: _env3DHexToCss(0x5ac8ff),
+                grid_major: _env3DHexToCss(0x4fe9d0),
+                grid_minor: _env3DHexToCss(0x203544),
+                crosshair: _env3DHexToCss(0x8bf3de),
+                frame: _env3DHexToCss(0x75c6ff)
+            },
+            opacity: {
+                pad: 0.88,
+                halo: 0.24,
+                inner_ring: 0.14,
+                grid: 0.22,
+                crosshair: 0.26,
+                frame: 0.16
+            }
+        };
+    }
+
+    function _envTextTheaterBoneConnections(blueprint) {
+        var bones = blueprint && Array.isArray(blueprint.bones) ? blueprint.bones : [];
+        return bones.map(function (bone) {
+            var childId = String((bone && bone.id) || '').trim();
+            var parentId = String((bone && bone.parent_id) || '').trim();
+            return childId && parentId ? [parentId, childId] : null;
+        }).filter(Boolean);
+    }
+
+    function _envTextTheaterSelectedChainBoneIds(blueprint) {
+        var isolatedMap = _envBuilderSubject && _envBuilderSubject._isolatedBoneIds && typeof _envBuilderSubject._isolatedBoneIds === 'object'
+            ? _envBuilderSubject._isolatedBoneIds
+            : {};
+        var bones = blueprint && Array.isArray(blueprint.bones) ? blueprint.bones : [];
+        return bones.map(function (bone) {
+            return String((bone && bone.id) || '').trim();
+        }).filter(function (boneId) {
+            return !!boneId && !!isolatedMap[boneId];
+        });
+    }
+
+    function _envTextTheaterEmbodimentBones(blueprint, poseState, selectedBoneIds, mountedMesh) {
+        var bones = blueprint && Array.isArray(blueprint.bones) ? blueprint.bones : [];
+        var pose = _envNormalizeBuilderPoseState(poseState || null);
+        var transforms = pose && pose.transforms && typeof pose.transforms === 'object' ? pose.transforms : {};
+        var selectedMap = {};
+        (Array.isArray(selectedBoneIds) ? selectedBoneIds : []).forEach(function (boneId) {
+            var key = String(boneId || '').trim();
+            if (key) selectedMap[key] = true;
+        });
+        var boneMap = mountedMesh && mountedMesh.userData && mountedMesh.userData._builderBoneMap
+            && typeof mountedMesh.userData._builderBoneMap === 'object'
+            ? mountedMesh.userData._builderBoneMap
+            : {};
+        return bones.map(function (entry) {
+            var bone = entry && typeof entry === 'object' ? entry : {};
+            var boneId = String(bone.id || '').trim();
+            var runtimeBone = boneId ? (boneMap[boneId] || null) : null;
+            var worldPos = runtimeBone && typeof runtimeBone.getWorldPosition === 'function' && typeof THREE !== 'undefined'
+                ? runtimeBone.getWorldPosition(new THREE.Vector3())
+                : null;
+            var transform = boneId ? (transforms[boneId] || null) : null;
+            var rotationDeg = transform && transform.rotation
+                ? _envBuilderPoseQuaternionToEulerDegrees(transform.rotation)
+                : [0, 0, 0];
+            return {
+                id: boneId,
+                name: String(bone.label || bone.id || ''),
+                parent: String(bone.parent_id || '').trim() || null,
+                world_pos: worldPos ? _envTextTheaterVectorArray(worldPos, 3) : [0, 0, 0],
+                rotation_deg: [
+                    _envTextTheaterRound(rotationDeg[0], 3, 0),
+                    _envTextTheaterRound(rotationDeg[1], 3, 0),
+                    _envTextTheaterRound(rotationDeg[2], 3, 0)
+                ],
+                posed: !!transform,
+                selected: !!selectedMap[boneId],
+                chain_ids: _slotUniqueStrings(bone.chain_ids || []),
+                canonical_joint: String(bone.canonical_joint || boneId || '')
+            };
+        });
+    }
+
+    function _envTextTheaterSupportCentroid(points) {
+        var polygon = Array.isArray(points) ? points.filter(Boolean) : [];
+        if (!polygon.length) return { x: 0, z: 0 };
+        var accumX = 0;
+        var accumZ = 0;
+        polygon.forEach(function (point) {
+            accumX += Number(point.x || 0);
+            accumZ += Number(point.z || 0);
+        });
+        return {
+            x: _envTextTheaterRound(accumX / polygon.length, 4, 0),
+            z: _envTextTheaterRound(accumZ / polygon.length, 4, 0)
+        };
+    }
+
+    function _envTextTheaterRiskBand(value) {
+        var risk = Number(value || 0);
+        if (risk >= 0.72) return 'high';
+        if (risk >= 0.42) return 'medium';
+        return 'low';
+    }
+
+    function _envTextTheaterDriftDirection(dx, dz) {
+        var lateral = Math.abs(Number(dx || 0)) >= 0.02 ? (Number(dx || 0) > 0 ? 'right' : 'left') : '';
+        var sagittal = Math.abs(Number(dz || 0)) >= 0.02 ? (Number(dz || 0) > 0 ? 'forward' : 'backward') : '';
+        if (lateral && sagittal) return sagittal + '-' + lateral;
+        return sagittal || lateral || 'centered';
+    }
+
+    function _envTextTheaterRotationSummary(rotationDeg) {
+        var triplet = Array.isArray(rotationDeg) ? rotationDeg.slice(0, 3) : [0, 0, 0];
+        while (triplet.length < 3) triplet.push(0);
+        var axes = ['x', 'y', 'z'];
+        var parts = [];
+        triplet.forEach(function (value, index) {
+            var numeric = Number(value || 0);
+            if (Math.abs(numeric) < 0.1) return;
+            parts.push(axes[index] + '_' + _envTextTheaterRound(numeric, 2, 0));
+        });
+        return parts.length ? parts.join(',') : 'neutral';
+    }
+
+    function _envBuildTextTheaterSemantic(snapshot) {
+        var view = snapshot && typeof snapshot === 'object' ? snapshot : {};
+        var embodiment = view.embodiment && typeof view.embodiment === 'object' ? view.embodiment : {};
+        var workbench = view.workbench && typeof view.workbench === 'object' ? view.workbench : {};
+        var balance = view.balance && typeof view.balance === 'object' ? view.balance : {};
+        var settle = view.settle && typeof view.settle === 'object' ? view.settle : {};
+        var contacts = Array.isArray(view.contacts) ? view.contacts : [];
+        var triplets = [];
+        var supportPhase = String(balance.support_phase || '').trim();
+        if (supportPhase) triplets.push(['support_phase', 'is', supportPhase]);
+        contacts.forEach(function (contact) {
+            var joint = String((contact && contact.joint) || '').trim();
+            var state = String((contact && contact.state) || '').trim();
+            if (!joint || !state) return;
+            if (state === 'planted' || state === 'grounded') triplets.push([joint, 'planted_on', 'ground_plane']);
+            else if (state === 'sliding') triplets.push([joint, 'sliding_on', 'ground_plane']);
+            else if (state === 'lifting') triplets.push([joint, 'lifting', 'gap_' + _envTextTheaterRound((contact || {}).gap, 3, 0)]);
+            else if (state === 'airborne') triplets.push([joint, 'airborne', 'gap_' + _envTextTheaterRound((contact || {}).gap, 3, 0)]);
+        });
+        triplets.push(['CoM', balance.inside_polygon ? 'inside' : 'outside', 'support_polygon']);
+        var centroid = _envTextTheaterSupportCentroid(balance.support_polygon || []);
+        var projectedCom = balance.projected_com && typeof balance.projected_com === 'object' ? balance.projected_com : { x: 0, z: 0 };
+        var driftDirection = _envTextTheaterDriftDirection(
+            Number(projectedCom.x || 0) - Number(centroid.x || 0),
+            Number(projectedCom.z || 0) - Number(centroid.z || 0)
+        );
+        if (driftDirection && driftDirection !== 'centered') triplets.push(['CoM', 'drifting', driftDirection]);
+        triplets.push(['stability', _envTextTheaterRiskBand(balance.stability_risk) + '_risk', String(_envTextTheaterRound(balance.stability_risk, 3, 0))]);
+        if (String(balance.dominant_side || '') && String(balance.dominant_side || '') !== 'balanced') {
+            triplets.push(['balance', 'favoring', String(balance.dominant_side || '')]);
+        }
+        (Array.isArray(embodiment.bones) ? embodiment.bones : []).forEach(function (bone) {
+            if (bone && bone.posed) triplets.push([String(bone.id || ''), 'posed', _envTextTheaterRotationSummary(bone.rotation_deg)]);
+            if (bone && bone.selected) triplets.push([String(bone.id || ''), 'selected', 'true']);
+        });
+        if (String(workbench.editing_mode || '')) triplets.push(['editing_mode', 'is', String(workbench.editing_mode || '')]);
+        if (workbench.gizmo && typeof workbench.gizmo === 'object' && String(workbench.gizmo.mode || '')) {
+            triplets.push(['gizmo', 'is', String(workbench.gizmo.mode || '') + '_' + String(workbench.gizmo.space || 'local')]);
+        }
+        if (settle.active) triplets.push(['settle', 'active', String(settle.strategy || '') + '_' + String(settle.severity || '')]);
+        else triplets.push(['settle', 'inactive', 'no_preview']);
+        (Array.isArray(balance.alert_ids) ? balance.alert_ids : []).forEach(function (alertId) {
+            var key = String(alertId || '').trim();
+            if (key) triplets.push(['alert', key, 'global']);
+        });
+
+        var familyText = _envTextTheaterTitle(embodiment.family || 'subject');
+        var summaryParts = [];
+        if (familyText && supportPhase) summaryParts.push(familyText + ' in ' + supportPhase + '.');
+        else if (familyText) summaryParts.push(familyText + '.');
+        var plantedContacts = contacts.filter(function (contact) {
+            return contact && (contact.state === 'planted' || contact.state === 'grounded');
+        });
+        if (plantedContacts.length === 2 && plantedContacts.every(function (contact) { return String(contact.group || '') === 'foot'; })) {
+            summaryParts.push('Both feet planted.');
+        } else if (plantedContacts.length) {
+            summaryParts.push('Supporting contacts: ' + plantedContacts.map(function (contact) {
+                return String(contact.joint || '') + ' ' + String(contact.state || '');
+            }).join(', ') + '.');
+        } else if (contacts.length) {
+            summaryParts.push('No planted support contacts.');
+        }
+        var riskValue = _envTextTheaterRound(balance.stability_risk, 2, 0);
+        if (driftDirection && driftDirection !== 'centered') summaryParts.push('CoM drifting ' + driftDirection + ' (' + riskValue + ' risk).');
+        else summaryParts.push('CoM ' + (balance.inside_polygon ? 'inside' : 'outside') + ' support polygon (' + riskValue + ' risk).');
+        if (Array.isArray(workbench.selected_bone_ids) && workbench.selected_bone_ids.length) {
+            var selectionLabel = _envTextTheaterTitle(workbench.selected_bone_ids[0]);
+            var posedCount = Number((workbench.posed_bone_ids || []).length || 0);
+            summaryParts.push(selectionLabel + ' selected' + (posedCount ? (', ' + posedCount + ' posed bones active.') : '.'));
+        }
+        if (settle.active) summaryParts.push('Settle preview active: ' + String(settle.strategy || 'settle') + ' ' + String(settle.severity || '').trim() + '.');
+        return {
+            summary: summaryParts.slice(0, 5).join(' ').replace(/\s+/g, ' ').trim(),
+            triplets: triplets
+        };
+    }
+
+    function _envTextTheaterBoneTreeLines(bones, contacts) {
+        var rows = Array.isArray(bones) ? bones.slice() : [];
+        var contactMap = {};
+        (Array.isArray(contacts) ? contacts : []).forEach(function (contact) {
+            var key = String((contact && contact.joint) || (contact && contact.bone_id) || '').trim();
+            if (key) contactMap[key] = contact;
+        });
+        var byId = {};
+        var childMap = {};
+        rows.forEach(function (bone, index) {
+            var key = String((bone && bone.id) || '').trim();
+            if (!key) return;
+            byId[key] = Object.assign({ _index: index }, bone || {});
+            childMap[key] = childMap[key] || [];
+        });
+        var roots = [];
+        rows.forEach(function (bone) {
+            var key = String((bone && bone.id) || '').trim();
+            if (!key || !byId[key]) return;
+            var parentId = String((bone && bone.parent) || '').trim();
+            if (parentId && childMap[parentId]) childMap[parentId].push(byId[key]);
+            else roots.push(byId[key]);
+        });
+        Object.keys(childMap).forEach(function (key) {
+            childMap[key].sort(function (left, right) { return Number(left._index || 0) - Number(right._index || 0); });
+        });
+        roots.sort(function (left, right) { return Number(left._index || 0) - Number(right._index || 0); });
+        var lines = [];
+        function renderLabel(node) {
+            var label = String(node.name || node.id || 'bone');
+            if (node.selected) label += '*';
+            if (node.posed) label += '+';
+            var contact = contactMap[String(node.id || '')] || null;
+            if (contact && contact.state) label += ' [' + String(contact.state || '').toUpperCase() + ']';
+            return label;
+        }
+        function walk(node, prefix, isLast, depth) {
+            var level = Number(depth || 0);
+            var connector = level > 0 ? (isLast ? '\\- ' : '|- ') : '';
+            lines.push(prefix + connector + renderLabel(node));
+            var children = childMap[String(node.id || '')] || [];
+            var childPrefix = prefix + (level > 0 ? (isLast ? '   ' : '|  ') : '');
+            children.forEach(function (child, index) {
+                walk(child, childPrefix, index === (children.length - 1), level + 1);
+            });
+        }
+        roots.forEach(function (root, index) {
+            walk(root, '', index === (roots.length - 1), 0);
+        });
+        return lines.length ? lines : ['(no bones)'];
+    }
+
+    function _envRenderTextTheaterOutput(snapshot, mode) {
+        var view = snapshot && typeof snapshot === 'object' ? snapshot : {};
+        var theater = view.theater && typeof view.theater === 'object' ? view.theater : {};
+        var scene = view.scene && typeof view.scene === 'object' ? view.scene : {};
+        var runtime = view.runtime && typeof view.runtime === 'object' ? view.runtime : {};
+        var workbench = view.workbench && typeof view.workbench === 'object' ? view.workbench : {};
+        var embodiment = view.embodiment && typeof view.embodiment === 'object' ? view.embodiment : {};
+        var balance = view.balance && typeof view.balance === 'object' ? view.balance : {};
+        var settle = view.settle && typeof view.settle === 'object' ? view.settle : {};
+        var timeline = view.timeline && typeof view.timeline === 'object' ? view.timeline : {};
+        var semantic = view.semantic && typeof view.semantic === 'object' ? view.semantic : { summary: '', triplets: [] };
+        var nowTs = Number(view.snapshot_timestamp || 0);
+        var sourceTs = Number(view.source_timestamp || 0);
+        var syncAgeMs = nowTs && sourceTs ? Math.max(0, nowTs - sourceTs) : 0;
+        if (mode === 'theater') {
+            var neighborhood = (scene.focus_neighborhood || []).map(function (row) {
+                return String(row.label || row.object_key || '') + ' (' + _envTextTheaterRound(row.distance, 2, 0) + 'm)';
+            }).join(', ');
+            return [
+                'THEATER: ' + String(theater.mode || '') + ' / ' + String(theater.visual_mode || '') + ' / focus: ' + String((((theater.focus || {}).id) || ((theater.focus || {}).kind) || 'none')),
+                'CAMERA: ' + String(((theater.camera || {}).mode) || '') + ' / dist ' + _envTextTheaterRound((((theater.camera || {}).distance)), 2, 0)
+                    + ' / pos (' + _envTextTheaterRound((((theater.camera || {}).position || {}).x), 2, 0) + ', '
+                    + _envTextTheaterRound((((theater.camera || {}).position || {}).y), 2, 0) + ', '
+                    + _envTextTheaterRound((((theater.camera || {}).position || {}).z), 2, 0) + ')',
+                'BUNDLE: ' + String(view.bundle_version || '') + ' / ' + (view.stale_flags && view.stale_flags.mirror_lag ? 'lagged' : 'fresh')
+                    + ' / synced ' + _envTextTheaterRound(syncAgeMs / 1000, 2, 0) + 's ago',
+                'SCENE: ' + Number(scene.object_count || 0) + ' objects / bounds x ' + _envTextTheaterRound((((scene.bounds || {}).min || {}).x), 2, 0)
+                    + '..' + _envTextTheaterRound((((scene.bounds || {}).max || {}).x), 2, 0)
+                    + ' / z ' + _envTextTheaterRound((((scene.bounds || {}).min || {}).z), 2, 0)
+                    + '..' + _envTextTheaterRound((((scene.bounds || {}).max || {}).z), 2, 0),
+                'RUNTIME: ' + (runtime.enabled ? 'enabled' : 'disabled') + ' / ' + String(runtime.mode || '')
+                    + ' / behavior ' + String(runtime.behavior || '')
+                    + ' / activity ' + String(runtime.activity || ''),
+                neighborhood ? ('NEARBY: ' + neighborhood) : 'NEARBY: none'
+            ].join('\n');
+        }
+        var boneLines = _envTextTheaterBoneTreeLines(embodiment.bones, view.contacts);
+        var lines = [];
+        lines.push('EMBODIMENT: ' + String(embodiment.family || '') + ' / ' + (embodiment.builder_active ? 'builder' : 'runtime')
+            + ' / ' + String(workbench.editing_mode || '') + ' mode / scaffold ' + (embodiment.scaffold_visible ? 'visible' : 'hidden'));
+        lines.push('WORKBENCH: primary ' + String(workbench.primary_bone_id || 'none')
+            + ' / hover ' + String(workbench.hover_bone_id || 'none')
+            + ' / gizmo ' + String((((workbench.gizmo || {}).mode)) || 'none')
+            + ' ' + String((((workbench.gizmo || {}).space)) || '')
+            + ' ' + ((((workbench.gizmo || {}).attached)) ? 'attached' : 'detached'));
+        lines.push('BONES (' + Number((embodiment.bones || []).length || 0) + '): '
+            + Number((workbench.selected_bone_ids || []).length || 0) + ' selected'
+            + ((workbench.selected_bone_ids || []).length ? ' [' + (workbench.selected_bone_ids || []).join(', ') + ']' : '')
+            + ', ' + Number((workbench.posed_bone_ids || []).length || 0) + ' posed'
+            + ((workbench.posed_bone_ids || []).length ? ' [' + (workbench.posed_bone_ids || []).join(', ') + ']' : ''));
+        boneLines.forEach(function (line) { lines.push('  ' + line); });
+        lines.push('  (* selected, + posed, [STATE] contact)');
+        lines.push('BALANCE: ' + String(balance.support_phase || 'unknown')
+            + ' / risk ' + _envTextTheaterRound(balance.stability_risk, 2, 0)
+            + ' / margin ' + _envTextTheaterRound(balance.stability_margin, 2, 0)
+            + ' / ' + (balance.inside_polygon ? 'inside polygon' : 'outside polygon'));
+        lines.push('  CoM: (' + _envTextTheaterRound((((balance.projected_com || {}).x)), 2, 0) + ', '
+            + _envTextTheaterRound((((balance.projected_com || {}).z)), 2, 0) + ')'
+            + ' / dominant: ' + String(balance.dominant_side || 'balanced')
+            + ' / supporting: ' + ((balance.supporting_joint_ids || []).length ? (balance.supporting_joint_ids || []).join(', ') : 'none'));
+        (Array.isArray(view.contacts) ? view.contacts : []).forEach(function (contact) {
+            lines.push('  ' + String(contact.joint || '') + ': ' + String(contact.state || '')
+                + ' (gap ' + _envTextTheaterRound(contact.gap, 3, 0) + ')');
+        });
+        lines.push('  alerts: ' + ((balance.alert_ids || []).length ? (balance.alert_ids || []).join(', ') : 'none'));
+        lines.push('SETTLE: ' + (settle.active ? (String(settle.strategy || '') + ' / ' + String(settle.severity || '') + ' / ' + Number(settle.frame_count || 0) + ' frames') : 'inactive'));
+        lines.push('TIMELINE: cursor ' + _envTextTheaterRound(timeline.cursor, 3, 0)
+            + ' / duration ' + _envTextTheaterRound(timeline.duration, 3, 0)
+            + ' / ' + Number(timeline.key_pose_count || 0) + ' key poses / preset: ' + String(timeline.last_motion_preset || 'none'));
+        lines.push('SUMMARY: ' + String(semantic.summary || ''));
+        return lines.join('\n');
+    }
+
+    function _envBuildTextTheaterSnapshot(sharedState, context) {
+        var shared = sharedState && typeof sharedState === 'object' ? sharedState : {};
+        var options = context && typeof context === 'object' ? context : {};
+        var renderTruth = options.renderTruth && typeof options.renderTruth === 'object'
+            ? options.renderTruth
+            : (shared.render && typeof shared.render === 'object' ? shared.render : _envBuildRenderTruth());
+        var layoutSnapshot = options.layoutSnapshot && typeof options.layoutSnapshot === 'object'
+            ? options.layoutSnapshot
+            : (shared.layout && typeof shared.layout === 'object' ? shared.layout : _envBuildLayoutSnapshot());
+        var corroborationState = options.corroborationState && typeof options.corroborationState === 'object'
+            ? options.corroborationState
+            : (shared.corroboration && typeof shared.corroboration === 'object'
+                ? shared.corroboration
+                : _envBuildCorroborationState(renderTruth, layoutSnapshot));
+        var mountedRuntime = shared.mounted_character_runtime && typeof shared.mounted_character_runtime === 'object'
+            ? shared.mounted_character_runtime
+            : {};
+        var workbenchSurface = mountedRuntime.workbench_surface && typeof mountedRuntime.workbench_surface === 'object'
+            ? mountedRuntime.workbench_surface
+            : (options.inhabitantSurface && options.inhabitantSurface.workbench_surface && typeof options.inhabitantSurface.workbench_surface === 'object'
+                ? options.inhabitantSurface.workbench_surface
+                : null);
+        var mountedMesh = _envMountedRuntimeMesh();
+        var blueprint = workbenchSurface && workbenchSurface.builder_blueprint && typeof workbenchSurface.builder_blueprint === 'object'
+            ? workbenchSurface.builder_blueprint
+            : (_envBuilderSubject.active ? _envBuilderBlueprint(_envBuilderSubject) : null);
+        var poseState = _envBuilderSubject.active ? _envBuilderPoseState() : _envNormalizeBuilderPoseState(null);
+        var selectedBoneIds = workbenchSurface ? (workbenchSurface.selected_bone_ids || []) : [];
+        var sceneObjects = _envRenderableObjectPool();
+        var focusObject = _envTextTheaterFocusSceneObject(shared);
+        var sceneBounds = _envTextTheaterSceneBounds(sceneObjects);
+        var focusNeighborhood = _envTextTheaterFocusNeighborhood(sceneObjects, focusObject, 5);
+        var diagnostics = workbenchSurface && workbenchSurface.motion_diagnostics && typeof workbenchSurface.motion_diagnostics === 'object'
+            ? workbenchSurface.motion_diagnostics
+            : null;
+        var loadField = workbenchSurface && workbenchSurface.load_field && typeof workbenchSurface.load_field === 'object'
+            ? workbenchSurface.load_field
+            : (diagnostics && diagnostics.load_field && typeof diagnostics.load_field === 'object'
+                ? diagnostics.load_field
+                : null);
+        var balanceContacts = Array.isArray((diagnostics || {}).contacts) ? diagnostics.contacts : [];
+        var bundleVersion = String((renderTruth && renderTruth.bundle_version) || _envBundleVersion() || '');
+        var lastSyncReason = String(_envLiveSyncState.lastAttemptReason || _envLiveSyncState.pendingReason || _envLiveSyncState.lastSkippedReason || '').trim();
+        var now = Date.now();
+        var sourceTimestamp = Math.max(
+            Number((renderTruth && renderTruth.last_render_ts) || 0),
+            Number(_envLiveSyncState.lastSyncedTs || 0),
+            Number((shared.capture && shared.capture.timestamp) || 0)
+        );
+        var camera3d = shared.scene && shared.scene.camera3d && typeof shared.scene.camera3d === 'object'
+            ? shared.scene.camera3d
+            : (_env3DCameraPoseSnapshot() || {});
+        var cameraPosition = _envTextTheaterVectorObject((camera3d || {}).position, 3);
+        var cameraTarget = _envTextTheaterVectorObject((camera3d || {}).target, 3);
+        var viewportWidth = Number((((_env3D.renderer || {}).domElement || {}).clientWidth) || ((((shared.scene || {}).viewport) || {}).width) || 0);
+        var viewportHeight = Number((((_env3D.renderer || {}).domElement || {}).clientHeight) || ((((shared.scene || {}).viewport) || {}).height) || 0);
+        var cameraAspect = viewportWidth > 0 && viewportHeight > 0 ? Number((viewportWidth / viewportHeight).toFixed(4)) : 0;
+        var cameraFov = Number((((_env3D.camera || {}).fov)) || 50);
+        var cameraForward = _envTextTheaterNormalizeDirection({
+            x: Number(cameraTarget.x || 0) - Number(cameraPosition.x || 0),
+            y: Number(cameraTarget.y || 0) - Number(cameraPosition.y || 0),
+            z: Number(cameraTarget.z || 0) - Number(cameraPosition.z || 0)
+        });
+        var cameraUp = _env3D.camera && _env3D.camera.up ? _envTextTheaterNormalizeDirection(_env3D.camera.up) : { x: 0, y: 1, z: 0 };
+        var snapshot = {
+            version: 1,
+            snapshot_timestamp: Number(now || 0),
+            source_timestamp: Number(sourceTimestamp || 0),
+            bundle_version: bundleVersion,
+            last_action: String((((corroborationState || {}).last_action || {}).body) || ''),
+            last_sync_reason: lastSyncReason,
+            stale_flags: {
+                mirror_lag: !!(_envLiveSyncState.lastSyncedTs && (now - Number(_envLiveSyncState.lastSyncedTs || 0) > 3000)),
+                bundle_mismatch: String((renderTruth && renderTruth.bundle_version) || '') !== bundleVersion
+            },
+            theater: {
+                mode: String((((shared.scene || {}).theaterMode)) || _envTheaterMode() || ''),
+                visual_mode: String((mountedRuntime.visual_mode) || (workbenchSurface && workbenchSurface.builder_active ? 'builder_subject' : 'mesh_asset') || ''),
+                focus: shared.focus && typeof shared.focus === 'object'
+                    ? {
+                        kind: String((shared.focus || {}).kind || ''),
+                        id: String((shared.focus || {}).id || ''),
+                        target_class: String((shared.focus || {}).target_class || '')
+                    }
+                    : { kind: '', id: '', target_class: '' },
+                camera: {
+                    mode: String((camera3d || {}).mode || ''),
+                    distance: _envTextTheaterRound((camera3d || {}).distance, 3, 0),
+                    azimuth: _envTextTheaterRound((camera3d || {}).azimuth, 4, 0),
+                    polar: _envTextTheaterRound((camera3d || {}).polar, 4, 0),
+                    fov_degrees: _envTextTheaterRound(cameraFov, 3, 0),
+                    aspect: _envTextTheaterRound(cameraAspect, 4, 0),
+                    viewport: {
+                        width: Number(viewportWidth || 0),
+                        height: Number(viewportHeight || 0)
+                    },
+                    position: cameraPosition,
+                    target: cameraTarget,
+                    forward: cameraForward,
+                    up: cameraUp
+                }
+            },
+            scene: {
+                object_count: Number((shared.scene || {}).object_count || sceneObjects.length || 0),
+                bounds: sceneBounds,
+                focus_object_key: focusObject ? _envSceneObjectKey(focusObject) : '',
+                focus_neighborhood: focusNeighborhood
+            },
+            render: _envCloneJson(renderTruth, null),
+            layout: _envCloneJson(layoutSnapshot, null),
+            docs: _envCloneJson(shared.docs, null),
+            navigation: _envCloneJson(shared.navigation, null),
+            panel: _envCloneJson(shared.panel, null),
+            inspector: _envCloneJson(shared.inspector, null),
+            operations: _envCloneJson(shared.operations, null),
+            runtime: {
+                enabled: !!mountedRuntime.enabled,
+                mode: String(mountedRuntime.mode || ''),
+                behavior: String(mountedRuntime.behavior || ''),
+                activity: String(mountedRuntime.activity || ''),
+                camera_binding: String(mountedRuntime.camera_binding || ''),
+                grounded: !!mountedRuntime.grounded,
+                support_key: String(mountedRuntime.support_key || ''),
+                support_kind: String(mountedRuntime.support_kind || ''),
+                object_key: String(mountedRuntime.object_key || ''),
+                runtime_state: _envCloneJson(mountedRuntime.runtime_state, null),
+                surfaces: {
+                    command: _envCloneJson(mountedRuntime.command_surface, null),
+                    animation: _envCloneJson(mountedRuntime.animation_surface, null),
+                    navigation: _envCloneJson(mountedRuntime.navigation_surface, null),
+                    perception: _envCloneJson(mountedRuntime.perception_surface, null),
+                    capability: _envCloneJson(mountedRuntime.capability_surface, null),
+                    memory: _envCloneJson(mountedRuntime.memory_surface, null)
+                }
+            },
+            workbench: {
+                subject_mode: String((workbenchSurface || {}).subject_mode || ''),
+                editing_mode: String((workbenchSurface || {}).editing_mode || ''),
+                primary_bone_id: String((workbenchSurface || {}).primary_bone_id || ''),
+                hover_bone_id: String((workbenchSurface || {}).hover_bone_id || ''),
+                part_display_scope: String((workbenchSurface || {}).part_display_scope || ''),
+                part_view: String((workbenchSurface || {}).part_view || ''),
+                selected_bone_ids: _slotUniqueStrings((workbenchSurface || {}).selected_bone_ids || []),
+                posed_bone_ids: _slotUniqueStrings((workbenchSurface || {}).posed_bone_ids || []),
+                isolated_chain: String((workbenchSurface || {}).isolated_chain || ''),
+                selected_chain_bone_ids: _envTextTheaterSelectedChainBoneIds(blueprint),
+                turntable: !!(_env3D && _env3D.workbenchTurntable),
+                gizmo: {
+                    mode: String((workbenchSurface || {}).gizmo_mode || ''),
+                    space: String((workbenchSurface || {}).gizmo_space || ''),
+                    active: !!((workbenchSurface || {}).gizmo_active),
+                    attached: !!((workbenchSurface || {}).gizmo_attached)
+                },
+                selection_visual_state: _envCloneJson((workbenchSurface || {}).selection_visual_state, null),
+                selected_bone: _envCloneJson((workbenchSurface || {}).selected_bone, null),
+                selected_part_surface: _envCloneJson((workbenchSurface || {}).selected_part_surface, null),
+                part_camera_recipes: _envCloneJson((workbenchSurface || {}).part_camera_recipes, []),
+                motion_preset_catalog: _envCloneJson((workbenchSurface || {}).motion_preset_catalog, []),
+                last_motion_preset: String((workbenchSurface || {}).last_motion_preset || ''),
+                preview_clip: String((workbenchSurface || {}).preview_clip || ''),
+                preview_paused: !!((workbenchSurface || {}).preview_paused),
+                preview_loop: String((workbenchSurface || {}).preview_loop || ''),
+                preview_speed: _envTextTheaterRound((workbenchSurface || {}).preview_speed, 3, 0),
+                load_field_enabled: !!((workbenchSurface || {}).load_field_enabled),
+                scaffold_piece_count: Number((workbenchSurface || {}).scaffold_piece_count || 0),
+                scaffold_slot_count: Number((workbenchSurface || {}).scaffold_slot_count || 0),
+                motion_diagnostics: _envCloneJson((workbenchSurface || {}).motion_diagnostics, null),
+                load_field: _envCloneJson((workbenchSurface || {}).load_field, null),
+                latest_time_strip_motion_summary: _envCloneJson((workbenchSurface || {}).latest_time_strip_motion_summary, null),
+                builder_blueprint: _envCloneJson((workbenchSurface || {}).builder_blueprint, null)
+            },
+            embodiment: {
+                builder_active: !!((workbenchSurface || {}).builder_active),
+                family: String((workbenchSurface || {}).builder_family || ((blueprint || {}).family) || ''),
+                scaffold_visible: !!((workbenchSurface || {}).scaffold_visible),
+                editing_mode: String((workbenchSurface || {}).editing_mode || ''),
+                selected_bone_ids: _slotUniqueStrings((workbenchSurface || {}).selected_bone_ids || []),
+                posed_bone_ids: _slotUniqueStrings((workbenchSurface || {}).posed_bone_ids || []),
+                isolated_chain: String((workbenchSurface || {}).isolated_chain || ''),
+                selected_chain_bone_ids: _envTextTheaterSelectedChainBoneIds(blueprint),
+                bones: _envTextTheaterEmbodimentBones(blueprint, poseState, selectedBoneIds, mountedMesh),
+                connections: _envTextTheaterBoneConnections(blueprint)
+            },
+            balance: {
+                support_phase: String((diagnostics || {}).support_phase || ''),
+                com: loadField && loadField.center_of_mass ? _envTextTheaterVectorObject(loadField.center_of_mass, 4) : { x: 0, y: 0, z: 0 },
+                projected_com: loadField && loadField.projected_center_of_mass
+                    ? {
+                        x: _envTextTheaterRound((loadField.projected_center_of_mass || {}).x, 4, 0),
+                        z: _envTextTheaterRound((loadField.projected_center_of_mass || {}).z, 4, 0)
+                    }
+                    : { x: 0, z: 0 },
+                support_polygon: Array.isArray((loadField || {}).support_polygon)
+                    ? (loadField.support_polygon || []).map(function (point) {
+                        return {
+                            x: _envTextTheaterRound((point || {}).x, 4, 0),
+                            z: _envTextTheaterRound((point || {}).z, 4, 0)
+                        };
+                    })
+                    : [],
+                stability_margin: _envTextTheaterRound((loadField || {}).stability_margin, 4, 0),
+                normalized_margin: _envTextTheaterRound((loadField || {}).normalized_margin, 4, 0),
+                stability_risk: _envTextTheaterRound((loadField || {}).stability_risk, 4, 0),
+                inside_polygon: !!((loadField || {}).inside_support_polygon),
+                dominant_side: String((loadField || {}).dominant_support_side || 'balanced'),
+                supporting_joint_ids: _slotUniqueStrings((diagnostics || {}).supporting_ids || []),
+                alert_ids: _slotUniqueStrings((diagnostics || {}).alerts || [])
+            },
+            contacts: balanceContacts.map(function (contact) {
+                return {
+                    joint: String((contact || {}).bone_id || (contact || {}).canonical_joint || ''),
+                    state: String((contact || {}).state || ''),
+                    gap: _envTextTheaterRound((contact || {}).gap, 4, 0),
+                    supporting: !!((contact || {}).supporting),
+                    group: String((contact || {}).group || ''),
+                    side: String((contact || {}).side || '')
+                };
+            }),
+            settle: {
+                active: !!(((workbenchSurface || {}).settle_preview || {}).active),
+                strategy: String((((workbenchSurface || {}).settle_preview || {}).strategy) || ''),
+                severity: String((((workbenchSurface || {}).settle_preview || {}).severity) || ''),
+                frame_count: Number((((workbenchSurface || {}).settle_preview || {}).frame_count) || 0),
+                duration: _envTextTheaterRound((((workbenchSurface || {}).settle_preview || {}).duration), 3, 0)
+            },
+            timeline: {
+                cursor: _envTextTheaterRound((workbenchSurface || {}).timeline_cursor, 4, 0),
+                duration: _envTextTheaterRound((workbenchSurface || {}).timeline_duration, 4, 0),
+                key_pose_count: Number((workbenchSurface || {}).timeline_key_pose_count || 0),
+                interpolation: String((workbenchSurface || {}).timeline_interpolation || 'slerp'),
+                last_motion_preset: String((workbenchSurface || {}).last_motion_preset || '')
+            },
+            corroboration: _envCloneJson(corroborationState, null),
+            semantic: {
+                summary: '',
+                triplets: []
+            }
+        };
+        snapshot.scene.focus_object_visual = _envTextTheaterSceneObjectVisual(focusObject);
+        if (!snapshot.render || typeof snapshot.render !== 'object') snapshot.render = {};
+        snapshot.render.workbench_stage_guide = _envTextTheaterWorkbenchGuideVisual();
+        snapshot.render.focus_object_visual = _envTextTheaterSceneObjectVisual(focusObject);
+        snapshot.render.selection_palette = _envCloneJson((((workbenchSurface || {}).selection_visual_state) || {}), null);
+        snapshot.semantic = _envBuildTextTheaterSemantic(snapshot);
+        return snapshot;
+    }
+
     function _envSetWorkbenchScaffold(actorName, reason, targetId) {
         var mesh = _envMountedRuntimeMesh();
         if (!mesh || !mesh.userData) {
@@ -32366,6 +33132,25 @@
         return payload;
     }
 
+    function _envMergeMirrorValue(base, patch) {
+        if (!patch || typeof patch !== 'object' || Array.isArray(patch)) {
+            return _envCloneJson(patch, patch);
+        }
+        var out = (base && typeof base === 'object' && !Array.isArray(base))
+            ? _envCloneJson(base, {})
+            : {};
+        Object.keys(patch).forEach(function (key) {
+            var nextValue = patch[key];
+            if (nextValue && typeof nextValue === 'object' && !Array.isArray(nextValue)
+                && out[key] && typeof out[key] === 'object' && !Array.isArray(out[key])) {
+                out[key] = _envMergeMirrorValue(out[key], nextValue);
+            } else {
+                out[key] = _envCloneJson(nextValue, nextValue);
+            }
+        });
+        return out;
+    }
+
     function _envToolCarriesEnvironmentPayload(toolName, payload) {
         var tool = String(toolName || '');
         if ([
@@ -32450,20 +33235,20 @@
             liveState = _envLiveSyncState.inFlightPayload;
         }
         if (liveState) {
-            _envMirrorState.live = _envCloneJson(liveState, null);
-            _envMirrorState.sharedState = _envCloneJson((liveState && liveState.shared_state) || null, null);
-            _envMirrorState.contracts = _envCloneJson(
-                (liveState && (liveState.contracts || ((liveState.shared_state || {}).contracts))) || null,
-                null
+            _envMirrorState.live = _envMergeMirrorValue(_envMirrorState.live, liveState);
+            _envMirrorState.sharedState = _envMergeMirrorValue(_envMirrorState.sharedState, (liveState && liveState.shared_state) || null);
+            _envMirrorState.contracts = _envMergeMirrorValue(
+                _envMirrorState.contracts,
+                (liveState && (liveState.contracts || ((liveState.shared_state || {}).contracts))) || null
             );
             _envMirrorState.habitatObjects = _envCloneJson((liveState && liveState.habitat_objects) || [], []);
-            _envMirrorState.renderTruth = _envCloneJson(
-                (liveState && (liveState.render_truth || ((liveState.shared_state || {}).render))) || null,
-                null
+            _envMirrorState.renderTruth = _envMergeMirrorValue(
+                _envMirrorState.renderTruth,
+                (liveState && (liveState.render_truth || ((liveState.shared_state || {}).render))) || null
             );
-            _envMirrorState.layoutSnapshot = _envCloneJson(
-                (liveState && (liveState.layout_snapshot || ((liveState.shared_state || {}).layout))) || null,
-                null
+            _envMirrorState.layoutSnapshot = _envMergeMirrorValue(
+                _envMirrorState.layoutSnapshot,
+                (liveState && (liveState.layout_snapshot || ((liveState.shared_state || {}).layout))) || null
             );
             _envMirrorState.latestCapture = _envSummarizeCaptureMeta(
                 (liveState && (liveState.latest_capture || ((liveState.shared_state || {}).capture))) || null,
@@ -32475,7 +33260,7 @@
             changed = true;
         }
         if (Object.prototype.hasOwnProperty.call(payload, 'shared_state')) {
-            _envMirrorState.sharedState = _envCloneJson(payload.shared_state, null);
+            _envMirrorState.sharedState = _envMergeMirrorValue(_envMirrorState.sharedState, payload.shared_state);
             _envMirrorState.latestCapture = _envSummarizeCaptureMeta(
                 (((payload.shared_state || {}).capture) || null),
                 _envMirrorState.latestCapture
@@ -32483,7 +33268,7 @@
             changed = true;
         }
         if (Object.prototype.hasOwnProperty.call(payload, 'contracts')) {
-            _envMirrorState.contracts = _envCloneJson(payload.contracts, null);
+            _envMirrorState.contracts = _envMergeMirrorValue(_envMirrorState.contracts, payload.contracts);
             changed = true;
         }
         if (Object.prototype.hasOwnProperty.call(payload, 'habitat_objects')) {
@@ -32491,11 +33276,11 @@
             changed = true;
         }
         if (Object.prototype.hasOwnProperty.call(payload, 'render_truth')) {
-            _envMirrorState.renderTruth = _envCloneJson(payload.render_truth, null);
+            _envMirrorState.renderTruth = _envMergeMirrorValue(_envMirrorState.renderTruth, payload.render_truth);
             changed = true;
         }
         if (Object.prototype.hasOwnProperty.call(payload, 'layout_snapshot')) {
-            _envMirrorState.layoutSnapshot = _envCloneJson(payload.layout_snapshot, null);
+            _envMirrorState.layoutSnapshot = _envMergeMirrorValue(_envMirrorState.layoutSnapshot, payload.layout_snapshot);
             changed = true;
         }
         if (Object.prototype.hasOwnProperty.call(payload, 'latest_capture')) {
@@ -32859,6 +33644,12 @@
         _envToolOutputs.live_mirror = _envBuildLiveMirrorSurface();
     }
 
+    function _envMaybeRefreshLiveMirrorSurface(reason, force) {
+        if (!force && _envIsDeferredMirrorRefreshReason(reason)) return false;
+        _envRefreshLiveMirrorSurface();
+        return true;
+    }
+
     _envRefreshLiveMirrorSurface();
 
     // Recover persisted scene hydration after reconnect/hidden-tab resumes.
@@ -33157,6 +33948,49 @@
         };
     }
 
+    function _envIsCameraOnlyLiveSyncReason(reason) {
+        var text = String(reason || '').toLowerCase();
+        return text.indexOf('camera:manual') >= 0 || text.indexOf('camera:preset') >= 0 || text.indexOf('camera:view') >= 0;
+    }
+
+    function _envIsDeferredMirrorRefreshReason(reason) {
+        var text = String(reason || '').toLowerCase();
+        return text.indexOf('camera:manual:change') >= 0
+            || text.indexOf('camera:manual:wheel') >= 0
+            || text.indexOf('camera:preset:') >= 0;
+    }
+
+    function _envBuildCameraLiveSyncPayload(reason) {
+        if (typeof _env3DCameraPoseSnapshot !== 'function') return null;
+        var camera3d = _env3DCameraPoseSnapshot();
+        if (!camera3d || typeof camera3d !== 'object') return null;
+        var focusSnapshot = Object.assign({}, _envKernel.focus || {});
+        focusSnapshot.target_class = _envFocusTargetClass(focusSnapshot);
+        return {
+            version: 'env-live-v1',
+            source: 'envops-browser',
+            synced_from: 'environment_tab',
+            reason: String(reason || 'camera'),
+            tab_active: _isEnvironmentTabActive(),
+            partial: true,
+            partial_kind: 'camera3d',
+            shared_state: {
+                focus: focusSnapshot,
+                scene: {
+                    cameraMode: String(_envSceneNormalizeCameraMode(_envScene.cameraMode || (((_envConfig || {}).scene || {}).defaultCameraMode) || 'overview')),
+                    camera3d: _envCloneJson(camera3d, null)
+                }
+            }
+        };
+    }
+
+    function _envBuildPendingLiveSyncPayload(reason) {
+        var pendingReason = String(reason || 'render');
+        return _envIsCameraOnlyLiveSyncReason(pendingReason)
+            ? _envBuildCameraLiveSyncPayload(pendingReason)
+            : _envBuildLiveSyncPayload(pendingReason);
+    }
+
     function _envLiveSyncSignature(payload) {
         if (!payload || typeof payload !== 'object') return '';
         var shared = payload.shared_state && typeof payload.shared_state === 'object' ? payload.shared_state : {};
@@ -33283,14 +34117,70 @@
         if (force) return 0;
         var text = String(reason || '').toLowerCase();
         if (!text) return 240;
-        if (text.indexOf('camera') >= 0 || text.indexOf('manual') >= 0) return 120;
+        if (text.indexOf('camera') >= 0 || text.indexOf('manual') >= 0) return 0;
         if (text.indexOf('spawn') >= 0 || text.indexOf('mutate') >= 0 || text.indexOf('remove') >= 0) return 140;
         if (text.indexOf('focus') >= 0 || text.indexOf('control') >= 0 || text.indexOf('activity') >= 0) return 160;
         if (text.indexOf('render') >= 0) return 320;
         return 220;
     }
 
+    function _envHandleLiveSyncCompletion(syncPayload, errText) {
+        var completedReason = String(
+            (((_envLiveSyncState.inFlightPayload || {}).reason)
+                || (_envLiveSyncState.lastAttemptReason || _envLiveSyncState.pendingReason || ''))
+            || ''
+        );
+        _envLiveSyncState.inFlight = false;
+        _envLiveSyncState.timer = 0;
+        if (errText || (syncPayload && syncPayload.error) || (syncPayload && syncPayload.status === 'error')) {
+            _envLiveSyncState.error = String(errText || (syncPayload && syncPayload.error) || 'sync_live failed');
+            _envLiveSyncState.lastStatus = 'error';
+        } else {
+            _envLiveSyncState.error = '';
+            _envLiveSyncState.lastStatus = 'ok';
+            _envLiveSyncState.successCount = Number(_envLiveSyncState.successCount || 0) + 1;
+            if (syncPayload) _envStoreMirroredState(syncPayload, '__env_sync_live__', 'hydration');
+            _envLiveSyncState.lastSyncedSignature = _envLiveSyncState.inFlightSignature || _envLiveSyncState.lastSignature;
+            _envLiveSyncState.lastSyncedTs = Date.now();
+        }
+        _envLiveSyncState.inFlightPayload = null;
+        _envLiveSyncState.inFlightSignature = '';
+        var requeueSync = !!_envLiveSyncState.queued;
+        _envLiveSyncState.queued = false;
+        _envMaybeRefreshLiveMirrorSurface(completedReason, !requeueSync);
+        if (requeueSync) _envFlushLiveSync();
+    }
+
+    function _envDirectLiveSync(payload) {
+        return fetch('/api/tool/env_persist', {
+            method: 'POST',
+            cache: 'no-store',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                operation: 'sync_live',
+                params: JSON.stringify({ payload: payload }),
+                __source: 'hydration'
+            })
+        }).then(function (response) {
+            return response.text().then(function (text) {
+                var outer = null;
+                try { outer = JSON.parse(text); } catch (ignored) { }
+                var payloadObj = _envNormalizeEnvironmentPayload((outer && outer.result) ? outer.result : outer)
+                    || _envNormalizeEnvironmentPayload(text);
+                if (!response.ok) {
+                    if (!payloadObj || typeof payloadObj !== 'object') {
+                        payloadObj = { error: 'sync_live failed (' + String(response.status || 0) + ')' };
+                    } else if (!payloadObj.error) {
+                        payloadObj.error = 'sync_live failed (' + String(response.status || 0) + ')';
+                    }
+                }
+                return payloadObj;
+            });
+        });
+    }
+
     function _envFlushLiveSync() {
+        var pendingReason = String(_envLiveSyncState.pendingReason || 'render');
         if (_envLiveSyncState.timer) {
             clearTimeout(_envLiveSyncState.timer);
             _envLiveSyncState.timer = 0;
@@ -33298,14 +34188,14 @@
         if (!_envCanPublishLiveSync()) {
             _envLiveSyncState.lastStatus = 'gated';
             _envLiveSyncState.lastSkippedReason = 'environment_not_mounted';
-            _envRefreshLiveMirrorSurface();
+            _envMaybeRefreshLiveMirrorSurface(pendingReason, false);
             return false;
         }
-        var payload = _envBuildLiveSyncPayload(_envLiveSyncState.pendingReason || 'render');
+        var payload = _envBuildPendingLiveSyncPayload(pendingReason);
         if (!payload) {
             _envLiveSyncState.lastStatus = 'unavailable';
             _envLiveSyncState.lastSkippedReason = 'publisher_unavailable';
-            _envRefreshLiveMirrorSurface();
+            _envMaybeRefreshLiveMirrorSurface(pendingReason, false);
             return false;
         }
         var signature = _envLiveSyncSignature(payload);
@@ -33313,21 +34203,21 @@
         if (signature && signature === _envLiveSyncState.lastSyncedSignature) {
             _envLiveSyncState.lastStatus = 'deduped';
             _envLiveSyncState.lastSkippedReason = 'already_synced';
-            _envRefreshLiveMirrorSurface();
+            _envMaybeRefreshLiveMirrorSurface(pendingReason, false);
             return false;
         }
         if (_envLiveSyncState.inFlight) {
             if (!signature || signature === _envLiveSyncState.inFlightSignature) {
                 _envLiveSyncState.lastStatus = 'deduped';
                 _envLiveSyncState.lastSkippedReason = 'already_in_flight';
-                _envRefreshLiveMirrorSurface();
+                _envMaybeRefreshLiveMirrorSurface(pendingReason, false);
                 return false;
             }
             _envLiveSyncState.queued = true;
             _envLiveSyncState.pendingSignature = signature;
             _envLiveSyncState.lastStatus = 'queued';
             _envLiveSyncState.lastSkippedReason = '';
-            _envRefreshLiveMirrorSurface();
+            _envMaybeRefreshLiveMirrorSurface(pendingReason, false);
             return false;
         }
         _envLiveSyncState.inFlight = true;
@@ -33341,31 +34231,32 @@
         _envLiveSyncState.lastAttemptTs = Date.now();
         _envLiveSyncState.lastAttemptReason = String(_envLiveSyncState.pendingReason || 'render');
         _envLiveSyncState.attemptCount = Number(_envLiveSyncState.attemptCount || 0) + 1;
-        _envRefreshLiveMirrorSurface();
-        callTool('env_persist', {
-            operation: 'sync_live',
-            params: JSON.stringify({ payload: payload }),
-            __source: 'hydration'
-        }, '__env_sync_live__');
+        _envMaybeRefreshLiveMirrorSurface(pendingReason, false);
+        _envDirectLiveSync(payload).then(function (syncPayload) {
+            _envHandleLiveSyncCompletion(syncPayload || null, '');
+        }).catch(function (err) {
+            _envHandleLiveSyncCompletion(null, err && err.message ? String(err.message) : 'sync_live failed');
+        });
         return true;
     }
 
     function _envScheduleLiveSync(reason, force) {
+        var pendingReason = String(reason || 'render');
         if (!_envCanPublishLiveSync()) {
             _envLiveSyncState.lastStatus = 'gated';
             _envLiveSyncState.lastSkippedReason = 'environment_not_mounted';
-            _envRefreshLiveMirrorSurface();
+            _envMaybeRefreshLiveMirrorSurface(pendingReason, !!force);
             return false;
         }
-        var payload = _envBuildLiveSyncPayload(reason || 'render');
+        var payload = _envBuildPendingLiveSyncPayload(pendingReason);
         if (!payload) {
             _envLiveSyncState.lastStatus = 'unavailable';
             _envLiveSyncState.lastSkippedReason = 'publisher_unavailable';
-            _envRefreshLiveMirrorSurface();
+            _envMaybeRefreshLiveMirrorSurface(pendingReason, !!force);
             return false;
         }
         var signature = _envLiveSyncSignature(payload);
-        _envLiveSyncState.pendingReason = String(reason || 'render');
+        _envLiveSyncState.pendingReason = pendingReason;
         _envLiveSyncState.lastSignature = signature;
         if (!force) {
             if (signature && (signature === _envLiveSyncState.lastSyncedSignature
@@ -33375,7 +34266,7 @@
                 _envLiveSyncState.lastSkippedReason = signature === _envLiveSyncState.lastSyncedSignature
                     ? 'already_synced'
                     : 'already_pending';
-                _envRefreshLiveMirrorSurface();
+                _envMaybeRefreshLiveMirrorSurface(pendingReason, false);
                 return false;
             }
         }
@@ -33385,8 +34276,8 @@
         if (_envLiveSyncState.timer) clearTimeout(_envLiveSyncState.timer);
         _envLiveSyncState.timer = setTimeout(function () {
             _envFlushLiveSync();
-        }, _envLiveSyncDelayMs(reason, force));
-        _envRefreshLiveMirrorSurface();
+        }, _envLiveSyncDelayMs(pendingReason, force));
+        _envMaybeRefreshLiveMirrorSurface(pendingReason, !!force);
         return true;
     }
 
@@ -39949,11 +40840,12 @@
             _env3D.camera.position.lerpVectors(startPos, endPos, ease);
             _env3D.controls.target.lerpVectors(startTarget, endTarget, ease);
             _env3D.controls.update();
+            _env3DQueueLiveMirrorSync('camera:preset:' + String(presetId || ''), t >= 1);
             if (t < 1) {
                 _env3D._cameraAnimFrame = requestAnimationFrame(step);
             } else {
                 _env3D._cameraAnimFrame = null;
-                _env3DCommitManualCamera('camera:preset:' + String(presetId || ''), true);
+                _env3DCommitManualCamera('camera:preset:' + String(presetId || ''), false);
                 _env3DUpdateWorldProfileControl();
             }
         }
@@ -40291,6 +41183,24 @@
         }, forceSync ? 0 : 140);
     }
 
+    function _env3DQueueLiveMirrorSync(reason, immediate) {
+        var syncReason = String(reason || 'camera:manual');
+        var minGap = immediate ? 0 : 33;
+        if (_env3D.liveMirrorTimer) {
+            clearTimeout(_env3D.liveMirrorTimer);
+            _env3D.liveMirrorTimer = 0;
+        }
+        var now = Date.now();
+        var elapsed = now - Number(_env3D.lastLiveMirrorTs || 0);
+        var delay = minGap <= 0 ? 0 : Math.max(0, minGap - elapsed);
+        _env3D.lastLiveMirrorReason = syncReason;
+        _env3D.liveMirrorTimer = setTimeout(function () {
+            _env3D.liveMirrorTimer = 0;
+            _env3D.lastLiveMirrorTs = Date.now();
+            _envScheduleLiveSync(_env3D.lastLiveMirrorReason || syncReason, !!immediate);
+        }, delay);
+    }
+
     function _env3DBindControlLifecycle(controls) {
         if (!controls || controls._envopsLifecycleBound) return;
         controls._envopsLifecycleBound = true;
@@ -40303,11 +41213,12 @@
         });
         controls.addEventListener('change', function () {
             if (!_env3D.manualControlActive) return;
-            _env3DAbsorbCurrentCameraPose('camera:manual:change', false);
+            _env3DQueueLiveMirrorSync('camera:manual:change', false);
         });
         controls.addEventListener('end', function () {
             _env3D.manualControlActive = false;
-            _env3DScheduleManualCameraCommit('camera:manual:end', true);
+            _env3DQueueLiveMirrorSync('camera:manual:end', true);
+            _env3DCommitManualCamera('camera:manual:end', false);
             if (_envStageUiState.pendingSceneRender) {
                 _envStageUiState.pendingSceneRender = false;
                 if (_isEnvironmentTabActive()) {
@@ -43120,7 +44031,7 @@
         _env3D.camera.position.copy(target.clone().add(offset));
         _env3D.camera.updateProjectionMatrix();
         _env3D.controls.update();
-        _env3DAbsorbCurrentCameraPose('camera:manual:wheel', false);
+        _env3DQueueLiveMirrorSync('camera:manual:wheel', false);
         _env3DScheduleManualCameraCommit('camera:manual:wheel', false);
         return true;
     }
@@ -49222,25 +50133,7 @@
         if (toolName === '__env_sync_live__') {
             var rawSyncPayload = msg && !msg.error ? _envNormalizeEnvironmentPayload(msg.data) : null;
             var syncPayload = msg && msg.error ? { error: String(msg.error || 'sync_live failed') } : (rawSyncPayload || _envNormalizeEnvironmentPayload(rawText));
-            _envLiveSyncState.inFlight = false;
-            _envLiveSyncState.timer = 0;
-            if ((msg && msg.error) || (syncPayload && syncPayload.error) || (syncPayload && syncPayload.status === 'error')) {
-                _envLiveSyncState.error = String((msg && msg.error) || (syncPayload && syncPayload.error) || 'sync_live failed');
-                _envLiveSyncState.lastStatus = 'error';
-            } else {
-                _envLiveSyncState.error = '';
-                _envLiveSyncState.lastStatus = 'ok';
-                _envLiveSyncState.successCount = Number(_envLiveSyncState.successCount || 0) + 1;
-                if (syncPayload) _envStoreMirroredState(syncPayload, toolName, 'hydration');
-                _envLiveSyncState.lastSyncedSignature = _envLiveSyncState.inFlightSignature || _envLiveSyncState.lastSignature;
-                _envLiveSyncState.lastSyncedTs = Date.now();
-            }
-            _envLiveSyncState.inFlightPayload = null;
-            _envLiveSyncState.inFlightSignature = '';
-            var requeueSync = !!_envLiveSyncState.queued;
-            _envLiveSyncState.queued = false;
-            _envRefreshLiveMirrorSurface();
-            if (requeueSync) _envScheduleLiveSync('queued', false);
+            _envHandleLiveSyncCompletion(syncPayload || null, msg && msg.error ? String(msg.error || 'sync_live failed') : '');
             // A sync acknowledgement only updates mirror bookkeeping; rerendering
             // here creates an avoidable render -> sync -> ack churn loop.
             return;
@@ -56295,6 +57188,18 @@
     window.envopsGetLayoutSnapshot = function () {
         return JSON.parse(JSON.stringify(_envBuildLayoutSnapshot()));
     };
+    window.envopsGetTextTheaterSnapshot = function () {
+        var sharedState = window.envopsGetSharedState();
+        return JSON.parse(JSON.stringify((((sharedState || {}).text_theater || {}).snapshot) || null));
+    };
+    window.envopsGetTextTheaterOutput = function (mode) {
+        var sharedState = window.envopsGetSharedState();
+        var textTheater = ((sharedState || {}).text_theater) || {};
+        var targetMode = String(mode || 'embodiment').trim().toLowerCase();
+        if (targetMode === 'snapshot') return JSON.parse(JSON.stringify(textTheater.snapshot || null));
+        if (targetMode === 'theater') return String(textTheater.theater || '');
+        return String(textTheater.embodiment || '');
+    };
 
     function _envSceneObjectVisualContract(obj) {
         var sceneObject = obj && typeof obj === 'object' ? obj : {};
@@ -56344,7 +57249,7 @@
         var inhabitantSurface = _envInhabitantRuntimeSurfaceSnapshot(inhabitantState);
         var focusSnapshot = Object.assign({}, _envKernel.focus || {});
         focusSnapshot.target_class = _envFocusTargetClass(focusSnapshot);
-        return {
+        var sharedState = {
             config_source: _envBus.source || 'defaults',
             focus: focusSnapshot,
             sampler: {
@@ -56529,6 +57434,18 @@
             inspector: _envInspectorSnapshot(),
             contracts: contractSnapshot
         };
+        var textTheaterSnapshot = _envBuildTextTheaterSnapshot(sharedState, {
+            renderTruth: renderTruth,
+            layoutSnapshot: layoutSnapshot,
+            corroborationState: corroborationState,
+            inhabitantSurface: inhabitantSurface
+        });
+        sharedState.text_theater = {
+            snapshot: _envCloneJson(textTheaterSnapshot, null),
+            theater: _envRenderTextTheaterOutput(textTheaterSnapshot, 'theater'),
+            embodiment: _envRenderTextTheaterOutput(textTheaterSnapshot, 'embodiment')
+        };
+        return sharedState;
     };
     window.envopsGetHealthSnapshot = function () {
         var workflow = _envPrimaryWorkflow();

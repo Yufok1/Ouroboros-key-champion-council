@@ -362,6 +362,77 @@
       "summary": "Toggle scaffold presentation for the builder subject."
     }
   },
+  "queries": {
+    "text_theater_snapshot": {
+      "title": "Text Theater Snapshot",
+      "summary": "Read the canonical text-theater snapshot built in the live browser from theater, runtime, workbench, embodiment, balance, and corroboration state.",
+      "when_to_use": [
+        "Use this when you need the full machine-readable text-theater contract rather than a rendered paragraph or capture artifact.",
+        "This is the right surface for agents, debugging tools, and future popup/text renderers because it carries the full namespaced snapshot."
+      ],
+      "mode_notes": [
+        "The browser builds this snapshot from live runtime state and the server only passes it through.",
+        "The snapshot includes whole-theater context, not just bones or balance fields, so later renderers can stay paired to the same truth."
+      ],
+      "gotchas": [
+        "Freshness fields matter. If the browser has not synced recently, stale_flags will tell you the read may reflect older live state.",
+        "Use this when you need structure. If you only need a quick human-readable readout, text_theater or text_theater_embodiment is usually cheaper."
+      ],
+      "verification": [
+        "env_read(query='shared_state')",
+        "env_read(query='text_theater')",
+        "env_read(query='text_theater_embodiment')"
+      ],
+      "related_commands": [
+        "capture_probe",
+        "workbench_preview_settle"
+      ]
+    },
+    "text_theater": {
+      "title": "Text Theater Render",
+      "summary": "Read the paired text render derived from the canonical text-theater snapshot, with the live Scene plus Quarter/Profile companion views and camera/status footer.",
+      "when_to_use": [
+        "Use this instead of capture_probe when you need a quick theater-wide read without waiting for image artifacts.",
+        "This is the fast paired operator surface when you want the live scene, two orbit-style companion views, and camera/runtime context in one terminal read."
+      ],
+      "gotchas": [
+        "This is a rendered summary, not the full contract. Use text_theater_snapshot for full machine-readable state.",
+        "The output is truthful to the current live browser state, so freshness still depends on sync health.",
+        "Quarter/Profile are purpose-built text companion views, not raw topdown copies of the web capture tiles."
+      ],
+      "verification": [
+        "env_read(query='text_theater_snapshot')",
+        "env_read(query='shared_state')"
+      ],
+      "related_commands": [
+        "capture_supercam",
+        "capture_probe"
+      ]
+    },
+    "text_theater_embodiment": {
+      "title": "Text Theater Embodiment",
+      "summary": "Read the embodiment/workbench text render showing bone tree, workbench selection, gizmo state, contacts, balance, settle, and timeline.",
+      "when_to_use": [
+        "Use this instead of repeated captures when you need fast spatial reasoning about builder pose, workbench state, and settle truth.",
+        "This is the most useful Phase 1 text-theater readout during pose editing, batch pose work, and settle preview tuning.",
+        "Use it together with the render view when you want the visible paired body plus the structural bone/workbench state beside it."
+      ],
+      "gotchas": [
+        "The bone tree is only one part of the output. The render also depends on live workbench, contact, balance, and settle surfaces.",
+        "If the browser has not synced recently, freshness fields in text_theater_snapshot will tell you whether the paired read is lagging."
+      ],
+      "verification": [
+        "env_read(query='text_theater_snapshot')",
+        "env_read(query='shared_state')",
+        "capture_probe"
+      ],
+      "related_commands": [
+        "workbench_set_pose_batch",
+        "workbench_preview_settle",
+        "capture_probe"
+      ]
+    }
+  },
   "ui_actions": {
     "workbench-toggle-turntable": {
       "title": "Toggle Workbench Turntable",

@@ -21,6 +21,7 @@ pandas
 paramiko
 pypdf
 pygments
+pydrawille>=0.0.1.2
 python-multipart
 python-dotenv
 reportlab
