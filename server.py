@@ -12,6 +12,7 @@ import sys
 import json
 import base64
 import asyncio
+import importlib.util
 import subprocess
 import shutil
 import threading
@@ -62,6 +63,8 @@ _env_help_cache_lock = threading.Lock()
 _env_help_cache: dict[str, object] = {"mtime_ns": None, "data": None}
 _env_live_cache_lock = threading.Lock()
 _env_live_cache: dict[str, object] = {"live_state": None, "updated_ms": 0}
+_text_theater_module_lock = threading.Lock()
+_text_theater_module = None
 def _normalize_activity_source(value: str | None) -> str | None:
     if not value:
         return None
@@ -4587,6 +4590,102 @@ def _env_read_live_cache_payload(query_text: str) -> dict | None:
     return payload
 
 
+def _load_text_theater_module():
+    global _text_theater_module
+    if _text_theater_module is not None:
+        return _text_theater_module
+    with _text_theater_module_lock:
+        if _text_theater_module is not None:
+            return _text_theater_module
+        module_path = Path(__file__).resolve().parent / "scripts" / "text_theater.py"
+        spec = importlib.util.spec_from_file_location("champion_text_theater", module_path)
+        if spec is None or spec.loader is None:
+            raise RuntimeError(f"Unable to load text theater module from {module_path}")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        _text_theater_module = module
+        return module
+
+
+def _env_text_theater_view_payload(args: dict | None = None) -> dict:
+    args = args or {}
+    query_text = str(args.get("query", "text_theater_view") or "text_theater_view").strip() or "text_theater_view"
+    view_mode = str(args.get("view", "consult") or "consult").strip().lower() or "consult"
+    section_key = str(args.get("section", "theater") or "theater").strip().lower() or "theater"
+    try:
+        width = max(80, int(args.get("width", 140) or 140))
+    except Exception:
+        width = 140
+    try:
+        height = max(24, int(args.get("height", 44) or 44))
+    except Exception:
+        height = 44
+    try:
+        timeout = max(0.5, float(args.get("timeout", 5.0) or 5.0))
+    except Exception:
+        timeout = 5.0
+    diagnostics_value = args.get("diagnostics", False)
+    diagnostics = diagnostics_value if isinstance(diagnostics_value, bool) else str(diagnostics_value or "").strip().lower() in {"1", "true", "yes", "on"}
+    base_url = f"http://{os.environ.get('WEB_HOST', '127.0.0.1')}:{int(os.environ.get('WEB_PORT', '7866') or '7866')}"
+    try:
+        module = _load_text_theater_module()
+        rendered = module.render_text_theater_view(
+            base_url=base_url,
+            timeout=timeout,
+            view_mode=view_mode,
+            width=width,
+            height=height,
+            diagnostics_visible=diagnostics,
+            section_key=section_key,
+        )
+    except Exception as exc:
+        return {
+            "tool": "env_read",
+            "status": "error",
+            "summary": "Failed to render on-demand text theater view",
+            "normalized_args": {"query": query_text, "view": view_mode, "section": section_key, "width": width, "height": height},
+            "delta": {"found": False},
+            "operation": "env_read",
+            "operation_status": "error",
+            "query": query_text,
+            "error": str(exc),
+            "text_theater_view": None,
+        }
+    snapshot = rendered.get("snapshot") if isinstance(rendered.get("snapshot"), dict) else {}
+    return {
+        "tool": "env_read",
+        "status": "ok",
+        "summary": "Rendered on-demand text theater view",
+        "normalized_args": {
+            "query": query_text,
+            "view": rendered.get("view_mode"),
+            "section": rendered.get("section_key"),
+            "width": rendered.get("width"),
+            "height": rendered.get("height"),
+            "diagnostics": rendered.get("diagnostics"),
+        },
+        "delta": {
+            "found": True,
+            "type": "text_theater_view",
+            "snapshot_timestamp": snapshot.get("snapshot_timestamp", 0),
+            "last_sync_reason": snapshot.get("last_sync_reason", ""),
+        },
+        "operation": "env_read",
+        "operation_status": "ok",
+        "query": query_text,
+        "text_theater_view": {
+            "frame": rendered.get("frame", ""),
+            "view_mode": rendered.get("view_mode"),
+            "section_key": rendered.get("section_key"),
+            "width": rendered.get("width"),
+            "height": rendered.get("height"),
+            "diagnostics": rendered.get("diagnostics"),
+            "snapshot_timestamp": snapshot.get("snapshot_timestamp", 0),
+            "last_sync_reason": snapshot.get("last_sync_reason", ""),
+        },
+    }
+
+
 def _env_read_local_proxy_payload(args: dict | None = None) -> dict | None:
     args = args or {}
     query_text = str(args.get("query", "list") or "list").strip() or "list"
@@ -4595,6 +4694,8 @@ def _env_read_local_proxy_payload(args: dict | None = None) -> dict | None:
         return _debug_state_payload(query_text)
     if query_lower == "probe_compare":
         return _env_probe_compare_payload()
+    if query_lower == "text_theater_view":
+        return _env_text_theater_view_payload(args)
     cached_payload = _env_read_live_cache_payload(query_text)
     if cached_payload is not None:
         return cached_payload
