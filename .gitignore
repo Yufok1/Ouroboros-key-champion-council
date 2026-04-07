@@ -53,3 +53,6 @@ merril.d2/
 
 # Runtime capture outputs
 static/captures/
+
+# HF upload resume metadata for large pack syncs
+static/assets/**/.cache/
