@@ -50,3 +50,6 @@ node_modules/
 
 # Diagram scratch
 merril.d2/
+
+# Runtime capture outputs
+static/captures/

@@ -162,6 +162,38 @@
         "capture_time_strip"
       ]
     },
+    "workbench_assert_balance": {
+      "title": "Assert Builder Balance",
+      "summary": "Evaluate the current builder balance/load/contact truth and record a stale-aware pass, warn, or fail gate result in mirrored workbench state.",
+      "when_to_use": [
+        "Use this before committing a pose, compiling a clip, or trusting a staged stance when you need a deterministic gate instead of eyeballing balance.",
+        "This is the workbench-side logic gate for downstream agent loops: assert first, then preview or commit settle when the stance fails."
+      ],
+      "mode_notes": [
+        "This command evaluates current diagnostics only; it does not generate corrective motion.",
+        "Pass a JSON target_id payload to tune thresholds, for example {\"max_risk\":0.25,\"allow_braced_support\":true}.",
+        "The stored assertion becomes stale automatically when balance truth changes after the check."
+      ],
+      "gotchas": [
+        "A previous PASS can become stale after later pose edits, cursor scrubs, motion preset changes, or settle operations.",
+        "The default gate is intentionally strict enough to catch obvious airborne, outside-polygon, penetration, and high-risk states."
+      ],
+      "failure_modes": [
+        "No builder subject active.",
+        "Mounted runtime mesh is missing.",
+        "No current balance/load diagnostics are available to evaluate."
+      ],
+      "verification": [
+        "env_read(query='shared_state')",
+        "env_read(query='text_theater_embodiment')",
+        "capture_probe"
+      ],
+      "related_commands": [
+        "workbench_preview_settle",
+        "workbench_commit_settle",
+        "workbench_compile_clip"
+      ]
+    },
     "character_set_model": {
       "title": "Set Mounted Character Model",
       "summary": "Swap the mounted runtime to a direct asset ref and leave builder-subject mode for mesh-asset inspection.",
@@ -393,12 +425,14 @@
       "summary": "Read the paired text render derived from the canonical text-theater snapshot, with the live Scene plus Quarter/Profile companion views and camera/status footer.",
       "when_to_use": [
         "Use this instead of capture_probe when you need a quick theater-wide read without waiting for image artifacts.",
-        "This is the fast paired operator surface when you want the live scene, two orbit-style companion views, and camera/runtime context in one terminal read."
+        "This is the fast paired operator surface when you want the live scene, two orbit-style companion views, and camera/runtime context in one terminal read.",
+        "Use this when you want a direct read on demand; theater-affecting env_control results now attach paired text_theater observation automatically."
       ],
       "gotchas": [
         "This is a rendered summary, not the full contract. Use text_theater_snapshot for full machine-readable state.",
         "The output is truthful to the current live browser state, so freshness still depends on sync health.",
-        "Quarter/Profile are purpose-built text companion views, not raw topdown copies of the web capture tiles."
+        "Quarter/Profile are purpose-built text companion views, not raw topdown copies of the web capture tiles.",
+        "If a recent env_control result already attached text_theater.current_full/current_compact, prefer that payload first; it was captured for the command you just ran."
       ],
       "verification": [
         "env_read(query='text_theater_snapshot')",
@@ -430,6 +464,33 @@
         "workbench_set_pose_batch",
         "workbench_preview_settle",
         "capture_probe"
+      ]
+    },
+    "text_theater_view": {
+      "title": "Text Theater View",
+      "summary": "Render the on-demand text-theater frame from the current mirrored shared_state, with consult/render/split modes and explicit section selection.",
+      "when_to_use": [
+        "Use this when you need the actual current text-theater frame on demand instead of only the baked text strings or raw snapshot contract.",
+        "This is the direct manual read surface behind the command-attached observation payloads returned by theater-affecting env_control calls."
+      ],
+      "mode_notes": [
+        "view=split is the most complete operator frame because it carries Theater and Embodiment together.",
+        "view=consult is the compact orientation surface used for lighter attached reads.",
+        "Observation queries do not mutate runtime state by themselves."
+      ],
+      "gotchas": [
+        "Freshness still depends on mirror health. If the browser has not synced yet, the rendered frame can be truthful to older state.",
+        "When an env_control result already includes text_theater.current_full/current_compact plus freshness, prefer that payload first because it was captured in direct response to the command dispatch.",
+        "Use text_theater_snapshot when you need the full machine-readable contract instead of a rendered frame."
+      ],
+      "verification": [
+        "env_read(query='text_theater_snapshot')",
+        "env_read(query='shared_state')"
+      ],
+      "related_commands": [
+        "capture_probe",
+        "workbench_preview_settle",
+        "character_focus"
       ]
     }
   },

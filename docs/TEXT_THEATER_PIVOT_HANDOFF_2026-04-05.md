@@ -180,3 +180,35 @@ The current active state is:
 - the next pivot is to build a paired text-native observation surface over this live system
 
 If the text-theater build stalls or branches, resume from this file first, then continue the settle/contact lane.
+
+## 2026-04-07 Alignment Note
+
+The next mechanics/display return should be treated as bone-first, not scaffold-first.
+
+Alignment update:
+
+- mechanics truth remains on canonical joints, contact patches, mass proxies, and load/support diagnostics
+- scaffold may carry diagnostics when visible, but should not own the physics lane
+- future skin/body shell remains a later product-facing carrier
+
+See:
+
+- [`docs/BONE_FIRST_PHYSICS_ARCHITECTURE_2026-04-07.md`](/F:/End-Game/champion_councl/docs/BONE_FIRST_PHYSICS_ARCHITECTURE_2026-04-07.md)
+
+## 2026-04-07 Live Verification Addendum
+
+Post-refresh live MCP verification now confirms:
+
+- `env_control` is returning attached text-theater observation payloads
+- `workbench_assert_balance` is implemented and live
+- the attached text view shows `ASSERT: PASS double_support / risk 0.05 / supporting foot_l, foot_r`
+- attached snapshot freshness is honest and reports fresh cache advancement on the mutation path
+
+So the text-theater pivot is no longer only a query lane. It is now partially in the command/result loop.
+
+Immediate next text-theater trajectory from this handoff:
+
+1. keep command-attached `current` view live
+2. harden sync-classification / camera-only partial routing
+3. add payload-policy discipline
+4. then build primitive-first export and compare/on-deck

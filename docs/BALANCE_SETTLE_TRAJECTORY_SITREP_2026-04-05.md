@@ -306,3 +306,39 @@ That gives immediate value:
 3. Keep it rotational / root-aware first
 4. Use current balance truth as the control signal
 5. Only then consider runtime balance assist during async movement
+
+## 2026-04-07 Alignment Note
+
+The balance/load lane is now explicitly aligned with a bone-first diagnostic return.
+
+That means:
+
+- first visible load/stability overlay should attach to bones / joint helpers
+- scaffold stays a neutral optional carrier
+- later `supportingContacts` work should generalize the substrate beneath that overlay
+
+Reference:
+
+- [`docs/BONE_FIRST_PHYSICS_ARCHITECTURE_2026-04-07.md`](/F:/End-Game/champion_councl/docs/BONE_FIRST_PHYSICS_ARCHITECTURE_2026-04-07.md)
+
+## 2026-04-07 Live Verification Addendum
+
+Balance assertion is no longer a planned gate only.
+
+Live MCP verification after refresh confirmed:
+
+- `workbench_assert_balance` is callable through `env_control`
+- it returns attached text-theater observation in the same tool result
+- the current builder subject passes:
+  - `support_phase = double_support`
+  - `stability_risk = 0.0529`
+  - `inside_polygon = true`
+  - `supporting_ids = [foot_l, foot_r]`
+- the attached text surface reports:
+  - `ASSERT: PASS double_support / risk 0.05 / supporting foot_l, foot_r`
+
+The remaining balance-side watchpoint is unchanged:
+
+- mounted runtime `runtime_state.position.world.y` still reads `1.768`
+
+That remains a follow-up seam, not a reason to revert the support-offset fix.

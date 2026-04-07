@@ -152,6 +152,7 @@ function familyForCommand(command) {
     || command === 'workbench_set_timeline_cursor'
     || command === 'workbench_preview_settle'
     || command === 'workbench_commit_settle'
+    || command === 'workbench_assert_balance'
     || command === 'workbench_capture_pose'
     || command === 'workbench_delete_pose'
     || command === 'workbench_apply_pose'
@@ -730,6 +731,12 @@ function modeNotesForEntry(command, family, entryKind) {
 
 function gotchasForCommand(command, family, transports, bridgesTo, entryKind) {
   const out = [];
+  if (entryKind === 'env_command' && transports && transports.env_control) {
+    out.push('env_control results attach paired text_theater observation so agents can inspect current mirrored scene state without a separate env_read round-trip.');
+    out.push('Attached payload shape is text_theater.current_compact, text_theater.snapshot, and text_theater.freshness; include_full=true also returns current_full with theater plus embodiment.');
+    out.push('Check text_theater.freshness.cache_advanced_after_command and text_theater.freshness.matched_command_sync before trusting the attached frame as post-command truth; when false, you are looking at the newest mirrored state, but not a confirmed fresh sync for that command yet.');
+    out.push('Use env_read(query=\'text_theater_view\') only when you need the richer consult renderer on demand; the hot path should prefer the attached browser-authored text_theater payload.');
+  }
   if (command === 'workbench_apply_motion_preset') {
     out.push('Loads the preset timeline and applies frame 0 only; it does not auto-play motion.');
     out.push('Use workbench_set_timeline_cursor or capture_time_strip to inspect later parts of the preset.');
@@ -797,6 +804,7 @@ function failureModesForEntry(command, family, entryKind, bridgesTo) {
 function verificationForEntry(command, family, entryKind) {
   const base = (FAMILY_DEFAULTS[family] && FAMILY_DEFAULTS[family].verification) || [];
   const extra = [];
+  if (entryKind === 'env_command') extra.push('env_read(query=\'text_theater_view\')');
   if (command === 'character_get_animation_state') extra.push('character_get_animation_state');
   if (command === 'workbench_get_blueprint') extra.push('workbench_get_blueprint');
   if (command === 'workbench_apply_motion_preset') extra.push('workbench_set_timeline_cursor');

@@ -1476,6 +1476,7 @@ _ENV_CONTROL_PROXY_COMMANDS = frozenset({
     "workbench_apply_motion_preset",
     "workbench_preview_settle",
     "workbench_commit_settle",
+    "workbench_assert_balance",
     "workbench_reset_angles",
     "workbench_isolate_chain",
     "workbench_save_blueprint",
@@ -3737,7 +3738,7 @@ def _env_control_local_proxy_payload(args: dict | None = None) -> dict | None:
         payload["environment_effects"]["theater_mode_action"] = command
     elif command.startswith("camera_"):
         payload["environment_effects"]["camera_action"] = command
-    elif command in ("spawn_inhabitant", "despawn_inhabitant", "focus_inhabitant", "character_mount", "character_unmount", "character_focus", "character_move_to", "character_stop", "character_look_at", "character_set_model", "workbench_new_builder", "workbench_get_blueprint", "workbench_get_part_surface", "workbench_frame_part", "workbench_select_bone", "workbench_select_bones", "workbench_set_editing_mode", "workbench_set_display_scope", "workbench_set_gizmo_mode", "workbench_set_gizmo_space", "workbench_set_bone", "workbench_set_pose", "workbench_set_pose_batch", "workbench_clear_pose", "workbench_capture_pose", "workbench_delete_pose", "workbench_apply_pose", "workbench_set_timeline_cursor", "workbench_compile_clip", "workbench_play_authored_clip", "workbench_apply_motion_preset", "workbench_preview_settle", "workbench_commit_settle", "workbench_reset_angles", "workbench_isolate_chain", "workbench_save_blueprint", "workbench_load_blueprint", "character_play_clip", "character_queue_clips", "character_stop_clip", "character_set_loop", "character_set_speed", "character_get_animation_state", "character_play_reaction", "toggle_inhabitant_fov_debug", "workbench_set_load_field"):
+    elif command in ("spawn_inhabitant", "despawn_inhabitant", "focus_inhabitant", "character_mount", "character_unmount", "character_focus", "character_move_to", "character_stop", "character_look_at", "character_set_model", "workbench_new_builder", "workbench_get_blueprint", "workbench_get_part_surface", "workbench_frame_part", "workbench_select_bone", "workbench_select_bones", "workbench_set_editing_mode", "workbench_set_display_scope", "workbench_set_gizmo_mode", "workbench_set_gizmo_space", "workbench_set_bone", "workbench_set_pose", "workbench_set_pose_batch", "workbench_clear_pose", "workbench_capture_pose", "workbench_delete_pose", "workbench_apply_pose", "workbench_set_timeline_cursor", "workbench_compile_clip", "workbench_play_authored_clip", "workbench_apply_motion_preset", "workbench_preview_settle", "workbench_commit_settle", "workbench_assert_balance", "workbench_reset_angles", "workbench_isolate_chain", "workbench_save_blueprint", "workbench_load_blueprint", "character_play_clip", "character_queue_clips", "character_stop_clip", "character_set_loop", "character_set_speed", "character_get_animation_state", "character_play_reaction", "toggle_inhabitant_fov_debug", "workbench_set_load_field"):
         payload["environment_effects"]["character_runtime_action"] = command
     elif command == "workbench_set_scaffold":
         payload["environment_effects"]["character_runtime_action"] = command
@@ -3746,6 +3747,181 @@ def _env_control_local_proxy_payload(args: dict | None = None) -> dict | None:
     elif command.startswith("capture_"):
         payload["environment_effects"]["capture_action"] = command
     return payload
+
+
+def _env_bool_arg(value, default: bool = False) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return bool(default)
+    text = str(value).strip().lower()
+    if not text:
+        return bool(default)
+    if text in {"1", "true", "yes", "on"}:
+        return True
+    if text in {"0", "false", "no", "off"}:
+        return False
+    return bool(default)
+
+
+def _env_cached_text_theater_snapshot(cached: dict | None) -> dict:
+    if not isinstance(cached, dict):
+        return {}
+    live_state = cached.get("live_state") if isinstance(cached.get("live_state"), dict) else {}
+    shared_state = live_state.get("shared_state") if isinstance(live_state.get("shared_state"), dict) else {}
+    text_theater = shared_state.get("text_theater") if isinstance(shared_state.get("text_theater"), dict) else {}
+    snapshot = text_theater.get("snapshot") if isinstance(text_theater.get("snapshot"), dict) else {}
+    return snapshot
+
+
+def _env_live_cache_matches_env_control(command: str, cached: dict | None) -> bool:
+    cmd = str(command or "").strip().lower()
+    if not cmd:
+        return False
+    snapshot = _env_cached_text_theater_snapshot(cached)
+    last_reason = str(snapshot.get("last_sync_reason", "") or "").strip().lower()
+    if not last_reason:
+        return False
+    if cmd in last_reason:
+        return True
+    if cmd.startswith("camera_") and last_reason.startswith("camera:"):
+        return True
+    if cmd.startswith("capture_") and last_reason.startswith("capture:"):
+        return True
+    if cmd.startswith("character_") and (last_reason.startswith("character:") or last_reason.startswith("character_runtime:")):
+        return True
+    if cmd.startswith("workbench_") and last_reason.startswith("workbench_"):
+        return True
+    if cmd.startswith("focus_") and last_reason.startswith("focus:"):
+        return True
+    if cmd.startswith("set_") and (last_reason.startswith("theater_mode:") or last_reason.startswith("camera:")):
+        return True
+    return False
+
+
+async def _env_wait_for_live_cache_after_env_control(
+    command: str,
+    before_updated_ms: int = 0,
+    timeout_s: float = 1.8,
+    poll_s: float = 0.05,
+) -> tuple[dict | None, bool, int]:
+    before_updated_ms = int(before_updated_ms or 0)
+    deadline = time.time() + max(0.1, float(timeout_s or 0.1))
+    latest = _env_live_cache_snapshot()
+    matched = False
+    while time.time() < deadline:
+        current = _env_live_cache_snapshot()
+        if isinstance(current, dict):
+            latest = current
+            current_updated_ms = int(current.get("updated_ms") or 0)
+            if current_updated_ms > before_updated_ms:
+                matched = _env_live_cache_matches_env_control(command, current)
+                if matched:
+                    break
+        await asyncio.sleep(max(0.01, float(poll_s or 0.01)))
+    waited_ms = int(max(0.0, (time.time() - (deadline - max(0.1, float(timeout_s or 0.1)))) * 1000.0))
+    return latest, matched, waited_ms
+
+
+def _env_build_text_theater_observation(
+    cached: dict | None,
+    include_full: bool = True,
+) -> dict | None:
+    if not isinstance(cached, dict):
+        return None
+    live_state = cached.get("live_state") if isinstance(cached.get("live_state"), dict) else {}
+    shared_state = live_state.get("shared_state") if isinstance(live_state.get("shared_state"), dict) else {}
+    if not isinstance(shared_state, dict) or not shared_state:
+        return None
+    text_theater = shared_state.get("text_theater") if isinstance(shared_state.get("text_theater"), dict) else {}
+    snapshot = text_theater.get("snapshot") if isinstance(text_theater.get("snapshot"), dict) else {}
+    browser_theater = str(text_theater.get("theater") or "").strip()
+    browser_embodiment = str(text_theater.get("embodiment") or "").strip()
+    current_compact = browser_theater
+    current_full = ""
+    if browser_theater and browser_embodiment:
+        current_full = browser_theater + "\n\n" + browser_embodiment
+    elif browser_theater:
+        current_full = browser_theater
+    elif browser_embodiment:
+        current_full = browser_embodiment
+
+    if not isinstance(snapshot, dict) or not snapshot or not current_compact:
+        module = _load_text_theater_module()
+        synced_at = live_state.get("synced_at")
+        compact_render = module.render_text_theater_shared_state(
+            shared_state=shared_state,
+            synced_at=synced_at,
+            view_mode="consult",
+            width=100,
+            height=18,
+            diagnostics_visible=False,
+            section_key="theater",
+        )
+        snapshot = compact_render.get("snapshot") if isinstance(compact_render.get("snapshot"), dict) else {}
+        current_compact = str(compact_render.get("frame") or "")
+        if include_full:
+            full_render = module.render_text_theater_shared_state(
+                shared_state=shared_state,
+                synced_at=synced_at,
+                view_mode="split",
+                width=140,
+                height=44,
+                diagnostics_visible=False,
+                section_key="theater",
+            )
+            current_full = str(full_render.get("frame") or "")
+
+    stale_flags = snapshot.get("stale_flags") if isinstance(snapshot.get("stale_flags"), dict) else {}
+    payload = {
+        "mode": "current",
+        "current_compact": current_compact,
+        "snapshot": _json_clone(snapshot),
+        "freshness": {
+            "stale": bool(stale_flags.get("mirror_lag")),
+            "mirror_lag": bool(stale_flags.get("mirror_lag")),
+            "cache_updated_ms": int(cached.get("updated_ms") or 0),
+            "snapshot_timestamp": int(snapshot.get("snapshot_timestamp") or 0),
+            "source_timestamp": int(snapshot.get("source_timestamp") or 0),
+            "last_sync_reason": str(snapshot.get("last_sync_reason") or ""),
+        },
+    }
+    if include_full:
+        payload["current_full"] = current_full
+    return payload
+
+
+async def _env_control_attach_text_theater_observation(
+    payload: dict,
+    args: dict | None = None,
+    before_updated_ms: int = 0,
+) -> dict:
+    args = args or {}
+    out = dict(payload or {})
+    command = str(out.get("command", "") or "").strip()
+    include_full = _env_bool_arg(args.get("include_full"), True)
+    cached, matched_command_sync, waited_ms = await _env_wait_for_live_cache_after_env_control(
+        command=command,
+        before_updated_ms=before_updated_ms,
+    )
+    observation = _env_build_text_theater_observation(cached, include_full=include_full)
+    if observation:
+        freshness = observation.get("freshness") if isinstance(observation.get("freshness"), dict) else {}
+        cache_updated_ms = int((cached or {}).get("updated_ms") or 0)
+        cache_advanced = cache_updated_ms > int(before_updated_ms or 0)
+        freshness["cache_advanced_after_command"] = bool(cache_advanced)
+        freshness["matched_command_sync"] = bool(matched_command_sync)
+        freshness["waited_ms"] = int(waited_ms or 0)
+        freshness["stale"] = bool(freshness.get("stale") or not cache_advanced)
+        observation["freshness"] = freshness
+        out["text_theater"] = observation
+        delta = out.get("delta") if isinstance(out.get("delta"), dict) else {}
+        delta["text_theater_attached"] = True
+        delta["text_theater_waited_ms"] = int(waited_ms or 0)
+        delta["text_theater_cache_advanced"] = bool(cache_advanced)
+        delta["text_theater_matched_command_sync"] = bool(matched_command_sync)
+        out["delta"] = delta
+    return out
 
 
 def _env_help_load_registry() -> dict:
@@ -4473,6 +4649,22 @@ def _env_live_cache_store(payload: dict | None) -> dict | None:
         return None
     with _env_live_cache_lock:
         current = _env_live_cache.get("live_state")
+        is_camera_partial = bool(live_state.get("partial")) and str(live_state.get("partial_kind") or "").strip().lower() == "camera3d"
+        incoming_sync = 0
+        current_sync = 0
+        try:
+            incoming_sync = int((((live_state.get("shared_state") or {}).get("live_sync") or {}).get("camera_pulse_seq")) or 0)
+        except Exception:
+            incoming_sync = 0
+        try:
+            current_sync = int((((current or {}).get("shared_state") or {}).get("live_sync") or {}).get("camera_pulse_seq")) or 0
+        except Exception:
+            current_sync = 0
+        if is_camera_partial and current_sync > 0 and incoming_sync > 0 and incoming_sync <= current_sync:
+            return {
+                "live_state": _json_clone(current) if isinstance(current, dict) else {},
+                "updated_ms": int(_env_live_cache.get("updated_ms") or 0),
+            }
         merged_state = _env_merge_json(current if isinstance(current, dict) else {}, live_state)
         if not isinstance(merged_state, dict):
             return None
@@ -4572,6 +4764,34 @@ def _env_read_live_cache_payload(query_text: str) -> dict | None:
     }
     if query_lower in field_map:
         value = text_theater.get(field_map[query_lower])
+        rendered_snapshot = None
+        rendered_theater = None
+        rendered_embodiment = None
+        try:
+            if isinstance(shared_state, dict) and shared_state:
+                module = _load_text_theater_module()
+                rendered = module.render_text_theater_shared_state(
+                    shared_state=shared_state,
+                    synced_at=live_state.get("synced_at"),
+                    view_mode="split",
+                    width=140,
+                    height=44,
+                    diagnostics_visible=False,
+                    section_key="theater",
+                )
+                rendered_snapshot = rendered.get("snapshot") if isinstance(rendered.get("snapshot"), dict) else None
+                rendered_theater = str(rendered.get("theater_text") or "") if rendered.get("theater_text") is not None else None
+                rendered_embodiment = str(rendered.get("embodiment_text") or "") if rendered.get("embodiment_text") is not None else None
+        except Exception:
+            rendered_snapshot = None
+            rendered_theater = None
+            rendered_embodiment = None
+        if query_lower == "text_theater_snapshot" and isinstance(rendered_snapshot, dict) and rendered_snapshot:
+            value = rendered_snapshot
+        elif query_lower == "text_theater" and isinstance(rendered_theater, str) and rendered_theater:
+            value = rendered_theater
+        elif query_lower == "text_theater_embodiment" and isinstance(rendered_embodiment, str) and rendered_embodiment:
+            value = rendered_embodiment
         if value in (None, "", {}):
             return None
         return {
@@ -4695,6 +4915,10 @@ def _env_text_theater_view_payload(args: dict | None = None) -> dict:
         "query": query_text,
         "text_theater_view": {
             "frame": rendered.get("frame", ""),
+            "ansi_frame": rendered.get("ansi_frame", ""),
+            "snapshot": snapshot,
+            "theater_text": rendered.get("theater_text", ""),
+            "embodiment_text": rendered.get("embodiment_text", ""),
             "view_mode": rendered.get("view_mode"),
             "section_key": rendered.get("section_key"),
             "width": rendered.get("width"),
@@ -4702,6 +4926,66 @@ def _env_text_theater_view_payload(args: dict | None = None) -> dict:
             "diagnostics": rendered.get("diagnostics"),
             "snapshot_timestamp": snapshot.get("snapshot_timestamp", 0),
             "last_sync_reason": snapshot.get("last_sync_reason", ""),
+        },
+    }
+
+
+def _env_text_theater_live_payload(args: dict | None = None) -> dict:
+    args = args or {}
+    query_text = str(args.get("query", "text_theater_live") or "text_theater_live").strip() or "text_theater_live"
+    try:
+        cached = _env_live_cache_snapshot()
+        live_state = (cached or {}).get("live_state") if isinstance(cached, dict) else None
+        shared_state = live_state.get("shared_state") if isinstance((live_state or {}).get("shared_state"), dict) else None
+        if not isinstance(shared_state, dict):
+            raise RuntimeError("No shared_state available in live cache")
+        text_theater = shared_state.get("text_theater") if isinstance(shared_state.get("text_theater"), dict) else {}
+        snapshot = text_theater.get("snapshot") if isinstance(text_theater.get("snapshot"), dict) else {}
+        theater_text = str(text_theater.get("theater") or "")
+        embodiment_text = str(text_theater.get("embodiment") or "")
+        if not isinstance(snapshot, dict) or not snapshot or (not theater_text and not embodiment_text):
+            raise RuntimeError("Live cache does not include text_theater payload")
+        stale_flags = snapshot.get("stale_flags") if isinstance(snapshot.get("stale_flags"), dict) else {}
+    except Exception as exc:
+        return {
+            "tool": "env_read",
+            "status": "error",
+            "summary": "Failed to read lightweight live text theater payload",
+            "normalized_args": {"query": query_text},
+            "delta": {"found": False},
+            "operation": "env_read",
+            "operation_status": "error",
+            "query": query_text,
+            "error": str(exc),
+            "text_theater_live": None,
+        }
+    return {
+        "tool": "env_read",
+        "status": "ok",
+        "summary": "Read lightweight live text theater payload from server live cache",
+        "normalized_args": {"query": query_text},
+        "delta": {
+            "found": True,
+            "type": "text_theater_live",
+            "updated_ms": int((cached or {}).get("updated_ms") or 0),
+            "snapshot_timestamp": int(snapshot.get("snapshot_timestamp") or 0),
+            "last_sync_reason": str(snapshot.get("last_sync_reason") or ""),
+        },
+        "operation": "env_read",
+        "operation_status": "ok",
+        "query": query_text,
+        "text_theater_live": {
+            "snapshot": _json_clone(snapshot),
+            "theater_text": theater_text,
+            "embodiment_text": embodiment_text,
+            "freshness": {
+                "stale": bool(stale_flags.get("mirror_lag")),
+                "mirror_lag": bool(stale_flags.get("mirror_lag")),
+                "cache_updated_ms": int((cached or {}).get("updated_ms") or 0),
+                "snapshot_timestamp": int(snapshot.get("snapshot_timestamp") or 0),
+                "source_timestamp": int(snapshot.get("source_timestamp") or 0),
+                "last_sync_reason": str(snapshot.get("last_sync_reason") or ""),
+            },
         },
     }
 
@@ -4716,6 +5000,8 @@ def _env_read_local_proxy_payload(args: dict | None = None) -> dict | None:
         return _env_probe_compare_payload()
     if query_lower == "text_theater_view":
         return _env_text_theater_view_payload(args)
+    if query_lower == "text_theater_live":
+        return _env_text_theater_live_payload(args)
     cached_payload = _env_read_live_cache_payload(query_text)
     if cached_payload is not None:
         return cached_payload
@@ -8112,10 +8398,18 @@ async def proxy_tool_call(tool_name: str, request: Request):
             return JSONResponse(status_code=404, content=env_help_proxy_payload)
         return {"result": {"content": [{"type": "text", "text": json.dumps(env_help_proxy_payload)}], "isError": False}}
 
-    env_control_proxy_payload = _env_control_local_proxy_payload(body if isinstance(body, dict) else {})
+    env_control_args = body if isinstance(body, dict) else {}
+    env_control_proxy_payload = _env_control_local_proxy_payload(env_control_args)
     if env_control_proxy_payload is not None:
+        before_live_cache = _env_live_cache_snapshot()
+        before_updated_ms = int((before_live_cache or {}).get("updated_ms") or 0)
         err_msg = env_control_proxy_payload.get("error") if isinstance(env_control_proxy_payload, dict) else None
-        _broadcast_activity(tool_name, body if isinstance(body, dict) else {}, env_control_proxy_payload, 0, err_msg, source=source, client_id=client_id)
+        _broadcast_activity(tool_name, env_control_args, env_control_proxy_payload, 0, err_msg, source=source, client_id=client_id)
+        env_control_proxy_payload = await _env_control_attach_text_theater_observation(
+            env_control_proxy_payload,
+            args=env_control_args,
+            before_updated_ms=before_updated_ms,
+        )
         if err_msg:
             return JSONResponse(status_code=400, content=env_control_proxy_payload)
         return {"result": {"content": [{"type": "text", "text": json.dumps(env_control_proxy_payload)}], "isError": False}}
@@ -9047,6 +9341,36 @@ async def env_capture(request: Request):
         )
 
 
+@app.post("/api/live-sync")
+async def api_live_sync(request: Request):
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    payload = body.get("payload") if isinstance(body, dict) else None
+    if not isinstance(payload, dict):
+        return JSONResponse(status_code=400, content={"error": "Missing live sync payload"})
+    cached = _env_live_cache_store(payload)
+    if not isinstance(cached, dict):
+        return JSONResponse(status_code=500, content={"error": "Failed to update live cache"})
+    snapshot = _env_cached_text_theater_snapshot(cached)
+    return JSONResponse(content={
+        "ok": True,
+        "updated_ms": int((cached or {}).get("updated_ms") or 0),
+        "snapshot_timestamp": int((snapshot or {}).get("snapshot_timestamp") or 0),
+        "last_sync_reason": str((snapshot or {}).get("last_sync_reason") or ""),
+    })
+
+
+@app.get("/api/text-theater/live")
+async def api_text_theater_live():
+    payload = _env_text_theater_live_payload({"query": "text_theater_live"})
+    err_msg = payload.get("error") if isinstance(payload, dict) else None
+    if err_msg:
+        return JSONResponse(status_code=503, content=payload)
+    return JSONResponse(content=payload)
+
+
 @app.get("/", response_class=HTMLResponse)
 async def landing():
     return Path("static/index.html").read_text(encoding="utf-8")
@@ -9970,8 +10294,15 @@ async def _handle_streamable_rpc(obj: dict, client_id: str) -> dict | None:
 
         env_control_proxy_payload = _env_control_local_proxy_payload(args)
         if env_control_proxy_payload is not None:
+            before_live_cache = _env_live_cache_snapshot()
+            before_updated_ms = int((before_live_cache or {}).get("updated_ms") or 0)
             err_msg = env_control_proxy_payload.get("error") if isinstance(env_control_proxy_payload, dict) else None
             _broadcast_activity(tool_name, args, env_control_proxy_payload, 0, err_msg, source="external", client_id=client_id)
+            env_control_proxy_payload = await _env_control_attach_text_theater_observation(
+                env_control_proxy_payload,
+                args=args,
+                before_updated_ms=before_updated_ms,
+            )
             if err_msg:
                 return _rpc_error(rpc_id, -32603, err_msg, env_control_proxy_payload)
             return {"jsonrpc": "2.0", "id": rpc_id, "result": {"content": [{"type": "text", "text": json.dumps(env_control_proxy_payload)}], "isError": False}}

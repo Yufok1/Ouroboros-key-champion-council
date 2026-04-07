@@ -1,4 +1,5 @@
 import argparse
+import copy
 import colorsys
 import json
 import math
@@ -7,6 +8,7 @@ import re
 import shutil
 import sys
 import textwrap
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -143,6 +145,12 @@ def _post_json(url, payload, timeout):
         return json.loads(response.read().decode("utf-8"))
 
 
+def _get_json(url, timeout):
+    request = urllib.request.Request(url, method="GET")
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        return json.loads(response.read().decode("utf-8"))
+
+
 def _tool_response_text(response):
     content = (((response or {}).get("result") or {}).get("content") or [])
     if not content:
@@ -187,6 +195,52 @@ def _env_read_optional(base_url, query, timeout):
         return _env_read(base_url, query, timeout)
     except Exception:
         return None
+
+
+def _env_text_theater_view(base_url, timeout, view_mode, width, height, diagnostics_visible, section_key):
+    payload = _load_tool_payload(
+        base_url,
+        "env_read",
+        {
+            "query": "text_theater_view",
+            "view": view_mode,
+            "section": section_key,
+            "width": width,
+            "height": height,
+            "diagnostics": bool(diagnostics_visible),
+        },
+        timeout,
+    )
+    view = payload.get("text_theater_view") if isinstance(payload, dict) else None
+    if not isinstance(view, dict):
+        raise RuntimeError("env_read('text_theater_view') did not return text_theater_view")
+    snapshot = view.get("snapshot") if isinstance(view.get("snapshot"), dict) else {}
+    ansi_frame = str(view.get("ansi_frame") or "")
+    return {
+        "frame": ansi_frame or str(view.get("frame") or ""),
+        "snapshot": snapshot,
+        "theater_text": str(view.get("theater_text") or ""),
+        "embodiment_text": str(view.get("embodiment_text") or ""),
+        "view_mode": str(view.get("view_mode") or view_mode or "split"),
+        "section_key": str(view.get("section_key") or section_key or "theater"),
+        "width": int(view.get("width") or width or 140),
+        "height": int(view.get("height") or height or 44),
+        "diagnostics": bool(view.get("diagnostics") if "diagnostics" in view else diagnostics_visible),
+    }
+
+
+def _env_text_theater_live(base_url, timeout):
+    live_timeout = max(0.15, min(float(timeout or 5.0), 0.25))
+    payload = _get_json(f"{base_url}/api/text-theater/live", live_timeout)
+    live = payload.get("text_theater_live") if isinstance(payload, dict) else None
+    if not isinstance(live, dict):
+        raise RuntimeError("/api/text-theater/live did not return text_theater_live")
+    return {
+        "snapshot": live.get("snapshot") if isinstance(live.get("snapshot"), dict) else {},
+        "theater_text": str(live.get("theater_text") or ""),
+        "embodiment_text": str(live.get("embodiment_text") or ""),
+        "freshness": live.get("freshness") if isinstance(live.get("freshness"), dict) else {},
+    }
 
 
 def _merge_live_camera_into_snapshot(snapshot, live_state):
@@ -394,6 +448,112 @@ def _v_add(a, b):
 def _v_scale(a, scalar):
     value = float(scalar or 0.0)
     return (a[0] * value, a[1] * value, a[2] * value)
+
+
+def _quat4(value):
+    if isinstance(value, dict):
+        return (
+            float(value.get("x", 0.0) or 0.0),
+            float(value.get("y", 0.0) or 0.0),
+            float(value.get("z", 0.0) or 0.0),
+            float(value.get("w", 1.0) or 1.0),
+        )
+    if isinstance(value, (list, tuple)) and len(value) >= 4:
+        return (
+            float(value[0] or 0.0),
+            float(value[1] or 0.0),
+            float(value[2] or 0.0),
+            float(value[3] if value[3] is not None else 1.0),
+        )
+    return (0.0, 0.0, 0.0, 1.0)
+
+
+def _quat_norm(value):
+    qx, qy, qz, qw = _quat4(value)
+    length = math.sqrt((qx * qx) + (qy * qy) + (qz * qz) + (qw * qw))
+    if length <= 1e-6:
+        return (0.0, 0.0, 0.0, 1.0)
+    return (qx / length, qy / length, qz / length, qw / length)
+
+
+def _quat_rotate(quaternion, vector):
+    qx, qy, qz, qw = _quat_norm(quaternion)
+    vx, vy, vz = vector
+    uv = (
+        (qy * vz) - (qz * vy),
+        (qz * vx) - (qx * vz),
+        (qx * vy) - (qy * vx),
+    )
+    uuv = (
+        (qy * uv[2]) - (qz * uv[1]),
+        (qz * uv[0]) - (qx * uv[2]),
+        (qx * uv[1]) - (qy * uv[0]),
+    )
+    return (
+        vx + ((uv[0] * qw) + uuv[0]) * 2.0,
+        vy + ((uv[1] * qw) + uuv[1]) * 2.0,
+        vz + ((uv[2] * qw) + uuv[2]) * 2.0,
+    )
+
+
+def _scaffold_size_world(size_local, world_scale):
+    local = _vec3(size_local)
+    scale = _vec3(world_scale)
+    return (
+        abs(local[0] * scale[0]),
+        abs(local[1] * scale[1]),
+        abs(local[2] * scale[2]),
+    )
+
+
+def _scaffold_box_edge_segments(center, size_world, quaternion):
+    cx, cy, cz = _vec3(center)
+    sx, sy, sz = size_world
+    hx = max(0.001, float(sx) * 0.5)
+    hy = max(0.001, float(sy) * 0.5)
+    hz = max(0.001, float(sz) * 0.5)
+    corners = {}
+    for ix in (-1.0, 1.0):
+        for iy in (-1.0, 1.0):
+            for iz in (-1.0, 1.0):
+                local = (ix * hx, iy * hy, iz * hz)
+                rotated = _quat_rotate(quaternion, local)
+                corners[(ix, iy, iz)] = (cx + rotated[0], cy + rotated[1], cz + rotated[2])
+    edges = []
+    for iy in (-1.0, 1.0):
+        for iz in (-1.0, 1.0):
+            edges.append((corners[(-1.0, iy, iz)], corners[(1.0, iy, iz)]))
+    for ix in (-1.0, 1.0):
+        for iz in (-1.0, 1.0):
+            edges.append((corners[(ix, -1.0, iz)], corners[(ix, 1.0, iz)]))
+    for ix in (-1.0, 1.0):
+        for iy in (-1.0, 1.0):
+            edges.append((corners[(ix, iy, -1.0)], corners[(ix, iy, 1.0)]))
+    return edges
+
+
+def _scaffold_ellipsoid_ring_segments(center, size_world, quaternion, plane, count=18):
+    cx, cy, cz = _vec3(center)
+    sx, sy, sz = size_world
+    rx = max(0.001, float(sx) * 0.5)
+    ry = max(0.001, float(sy) * 0.5)
+    rz = max(0.001, float(sz) * 0.5)
+    total = max(10, int(count or 18))
+    points = []
+    for idx in range(total):
+        theta = (float(idx) / float(total)) * math.tau
+        if plane == "xy":
+            local = (math.cos(theta) * rx, math.sin(theta) * ry, 0.0)
+        elif plane == "yz":
+            local = (0.0, math.cos(theta) * ry, math.sin(theta) * rz)
+        else:
+            local = (math.cos(theta) * rx, 0.0, math.sin(theta) * rz)
+        rotated = _quat_rotate(quaternion, local)
+        points.append((cx + rotated[0], cy + rotated[1], cz + rotated[2]))
+    segments = []
+    for idx in range(len(points)):
+        segments.append((points[idx], points[(idx + 1) % len(points)]))
+    return segments
 
 
 def _ground_vec(a):
@@ -943,25 +1103,17 @@ def _body_stamp_offsets(radius, phase=0):
         return [(0, 0, "body_core", 4)]
     if radius == 1:
         patterns = [
-            [(0, 0, "body_core", 5), (-1, -1, "body_highlight", 2), (1, 1, "body_shadow", 2)],
-            [(0, 0, "body_core", 5), (0, -1, "body_highlight", 2), (0, 1, "body_shadow", 2)],
-            [(0, 0, "body_core", 5), (-1, 0, "body_highlight", 2), (1, 0, "body_shadow", 2)],
-            [(0, 0, "body_core", 5), (1, -1, "body_highlight", 1), (-1, 1, "body_shadow", 1)],
+            [(0, 0, "body_core", 5), (-1, 0, "body_edge", 2), (1, 0, "body_edge", 2)],
+            [(0, 0, "body_core", 5), (0, -1, "body_edge", 2), (0, 1, "body_edge", 2)],
         ]
         return patterns[int(phase or 0) % len(patterns)]
     offsets = [(0, 0, "body_core", 6)]
     offsets.extend([
-        (-1, -1, "body_highlight", 2),
-        (-1, 0, "body_highlight", 2),
-        (0, -1, "body_highlight", 2),
-        (1, 1, "body_shadow", 2),
-        (1, 0, "body_shadow", 2),
-        (0, 1, "body_shadow", 2),
+        (-1, 0, "body_edge", 2),
+        (1, 0, "body_edge", 2),
+        (0, -1, "body_edge", 2),
+        (0, 1, "body_edge", 2),
     ])
-    if (int(phase or 0) % 2) == 0:
-        offsets.extend([(1, -1, "body_core", 1), (-1, 1, "body_core", 1)])
-    else:
-        offsets.extend([(1, -1, "body_shadow", 1), (-1, 1, "body_highlight", 1)])
     return offsets
 
 
@@ -1034,6 +1186,8 @@ def _companion_camera(snapshot, model, mode):
     points = []
     for segment in model.get("segments") or []:
         points.extend([segment.get("start"), segment.get("end")])
+    for segment in model.get("scaffold_segments") or []:
+        points.extend([segment.get("start"), segment.get("end")])
     for patch in model.get("contact_patches") or []:
         points.extend(patch.get("points") or [])
     points.extend(model.get("support_polygon") or [])
@@ -1105,153 +1259,155 @@ def _collect_render_model(snapshot):
         if isinstance(scene, dict)
         else {}
     ) or ((render.get("focus_object_visual") or {}) if isinstance(render, dict) else {})
+    show_bones = bool(embodiment.get("skeleton_visible", True))
+    show_scaffold = bool(embodiment.get("scaffold_visible", False))
 
-    body_base_color = "#d2a074"
+    body_base_color = "#f0f3f7"
     body_style = _style_from_color(
         body_base_color,
-        "#d2a074",
-        1.0,
+        "#f0f3f7",
+        0.98,
         solid=True,
-        min_saturation=0.92,
-        target_lightness=0.54,
+        min_saturation=0.0,
+        target_lightness=0.95,
     )
     body_front_style = _style_from_color(
         body_base_color,
-        "#d2a074",
-        1.1,
+        "#ffffff",
+        1.0,
         solid=True,
-        min_saturation=0.92,
-        target_lightness=0.62,
+        min_saturation=0.0,
+        target_lightness=0.98,
     )
     body_back_style = _style_from_color(
         body_base_color,
-        "#d2a074",
+        "#adb5bf",
         0.82,
         solid=True,
-        min_saturation=0.84,
-        target_lightness=0.34,
+        min_saturation=0.0,
+        target_lightness=0.74,
     )
     body_edge_style = _style_from_color(
         body_base_color,
-        "#d2a074",
-        0.9,
+        "#d5dbe3",
+        0.88,
         solid=True,
-        min_saturation=0.86,
-        target_lightness=0.44,
+        min_saturation=0.0,
+        target_lightness=0.84,
     )
     bone_line_style = _style_from_color(
-        body_base_color,
-        "#7b6043",
-        0.52,
+        "#c7ced7",
+        "#c7ced7",
+        0.8,
         solid=True,
-        min_saturation=0.62,
-        target_lightness=0.26,
+        min_saturation=0.0,
+        target_lightness=0.72,
     )
     support_trace_style = _style_from_color(
-        body_base_color,
-        "#d2a074",
-        0.86,
+        "#d2d8e0",
+        "#d2d8e0",
+        0.84,
         solid=True,
-        min_saturation=0.84,
-        target_lightness=0.42,
+        min_saturation=0.0,
+        target_lightness=0.8,
     )
     posed_style = _style_from_color(
-        selection_palette.get("hover_color") or selection_palette.get("selected_color") or "#ffb44d",
-        "#ffb44d",
-        1.0,
+        "#dde3ea",
+        "#dde3ea",
+        0.96,
         solid=True,
-        min_saturation=0.92,
-        target_lightness=0.5,
+        min_saturation=0.0,
+        target_lightness=0.86,
     )
     selected_style = _style_from_color(
-        selection_palette.get("selected_color") or selection_palette.get("hover_color") or "#ffa726",
-        "#ffa726",
+        "#ffffff",
+        "#ffffff",
         1.0,
         solid=True,
-        min_saturation=0.95,
-        target_lightness=0.48,
+        min_saturation=0.0,
+        target_lightness=0.98,
     )
     support_style = _style_from_color(
-        body_base_color,
-        "#d2a074",
-        0.94,
+        "#e1e6ec",
+        "#e1e6ec",
+        0.92,
         solid=True,
-        min_saturation=0.88,
-        target_lightness=0.48,
+        min_saturation=0.0,
+        target_lightness=0.86,
     )
     airborne_style = support_style
     sliding_style = support_style
     minor_grid_style = _style_from_color(
         guide_palette.get("grid_minor") or "#203544",
         "#203544",
-        1.55,
+        1.7,
         solid=True,
-        min_saturation=0.72,
-        target_lightness=0.28,
+        min_saturation=0.76,
+        target_lightness=0.36,
     )
     major_grid_style = _style_from_color(
         guide_palette.get("grid_major") or "#4fe9d0",
         "#4fe9d0",
-        1.0,
+        1.08,
         solid=True,
-        min_saturation=0.92,
-        target_lightness=0.42,
+        min_saturation=0.94,
+        target_lightness=0.52,
     )
     crosshair_style = _style_from_color(
         guide_palette.get("crosshair") or guide_palette.get("halo") or "#8bf3de",
         "#8bf3de",
-        1.0,
+        1.08,
         solid=True,
-        min_saturation=0.9,
-        target_lightness=0.52,
+        min_saturation=0.92,
+        target_lightness=0.62,
     )
     frame_style = _style_from_color(
         guide_palette.get("frame") or guide_palette.get("inner_ring") or "#75c6ff",
         "#75c6ff",
-        1.0,
+        1.08,
         solid=True,
-        min_saturation=0.9,
-        target_lightness=0.46,
+        min_saturation=0.92,
+        target_lightness=0.58,
     )
     floor_minor_style = _style_from_color(
         "#6f756f",
         "#6f756f",
-        0.7,
+        0.82,
         solid=True,
         min_saturation=0.1,
-        target_lightness=0.34,
+        target_lightness=0.42,
     )
     floor_major_style = _style_from_color(
         "#988a74",
         "#988a74",
-        0.82,
+        0.94,
         solid=True,
-        min_saturation=0.18,
-        target_lightness=0.44,
+        min_saturation=0.2,
+        target_lightness=0.54,
     )
     halo_style = _style_from_color(
         guide_palette.get("halo") or "#6fe9d9",
         "#6fe9d9",
-        1.0,
+        1.08,
         solid=True,
-        min_saturation=0.82,
-        target_lightness=0.38,
+        min_saturation=0.86,
+        target_lightness=0.48,
     )
     pad_fill_style = _style_from_color(
         guide_palette.get("pad_fill") or "#0d141d",
         "#0d141d",
-        1.4,
+        1.5,
         solid=True,
         min_saturation=0.45,
-        target_lightness=0.13,
+        target_lightness=0.22,
     )
     inner_ring_style = _style_from_color(
         guide_palette.get("inner_ring") or "#5ac8ff",
         "#5ac8ff",
-        1.0,
+        1.08,
         solid=True,
-        min_saturation=0.88,
-        target_lightness=0.44,
+        min_saturation=0.9,
+        target_lightness=0.56,
     )
     focus_style = _style_from_color(
         focus_visual.get("edge") or guide_palette.get("crosshair") or "#7dd3fc",
@@ -1418,60 +1574,118 @@ def _collect_render_model(snapshot):
 
     segments = []
     projected_points = []
-    for start_id, end_id in connections:
-        a = bone_map.get(str(start_id))
-        b = bone_map.get(str(end_id))
-        if not a or not b:
-            continue
-        pa = _vec3(a.get("world_pos"))
-        pb = _vec3(b.get("world_pos"))
-        dims = blueprint_map.get(str(start_id)) or {"radius_start": 0.03, "radius_end": 0.025}
-        segments.append({
-            "start": pa,
-            "end": pb,
-            "radius_start": float(dims.get("radius_start") or 0.03),
-            "radius_end": float(dims.get("radius_end") or 0.025),
-            "bone_id": str(start_id),
-            "child_id": str(end_id),
-        })
-        projected_points.extend([pa, pb])
+    if show_bones:
+        for start_id, end_id in connections:
+            a = bone_map.get(str(start_id))
+            b = bone_map.get(str(end_id))
+            if not a or not b:
+                continue
+            pa = _vec3(a.get("world_pos"))
+            pb = _vec3(b.get("world_pos"))
+            dims = blueprint_map.get(str(start_id)) or {"radius_start": 0.03, "radius_end": 0.025}
+            segments.append({
+                "start": pa,
+                "end": pb,
+                "radius_start": float(dims.get("radius_start") or 0.03),
+                "radius_end": float(dims.get("radius_end") or 0.025),
+                "bone_id": str(start_id),
+                "child_id": str(end_id),
+            })
+            projected_points.extend([pa, pb])
+
+    scaffold_segments = []
+    if show_scaffold:
+        for row in embodiment.get("scaffold_pieces") or []:
+            if not isinstance(row, dict) or row.get("visible") is False:
+                continue
+            start = _vec3(row.get("segment_start"))
+            end = _vec3(row.get("segment_end"))
+            center = _vec3(row.get("center"))
+            size_world = _scaffold_size_world(row.get("size_local"), row.get("world_scale"))
+            quaternion = _quat_norm(row.get("quaternion"))
+            geometry = str(row.get("geometry") or "").strip().lower()
+            color_value = str(row.get("color") or "#bfb7aa")
+            segment_common = {
+                "slot": str(row.get("slot") or row.get("joint") or ""),
+                "geometry": geometry,
+                "body_style": _style_from_color(
+                    color_value,
+                    color_value or "#bfb7aa",
+                    1.08,
+                    solid=True,
+                    min_saturation=0.34,
+                    target_lightness=0.7,
+                ),
+                "edge_style": _style_from_color(
+                    color_value,
+                    color_value or "#a59b8d",
+                    0.92,
+                    solid=True,
+                    min_saturation=0.24,
+                    target_lightness=0.56,
+                ),
+                "priority": 5 if "foot" in str(row.get("slot") or "") else 4,
+            }
+            if geometry == "box":
+                for box_start, box_end in _scaffold_box_edge_segments(center, size_world, quaternion):
+                    scaffold_segments.append({
+                        **segment_common,
+                        "start": box_start,
+                        "end": box_end,
+                        "radius_start": 0.0,
+                        "radius_end": 0.0,
+                        "render_mode": "wire",
+                    })
+                    projected_points.extend([box_start, box_end])
+                continue
+            if geometry in {"ellipsoid", "sphere"}:
+                for plane in ("xz", "xy", "yz"):
+                    for ring_start, ring_end in _scaffold_ellipsoid_ring_segments(center, size_world, quaternion, plane, 18):
+                        scaffold_segments.append({
+                            **segment_common,
+                            "start": ring_start,
+                            "end": ring_end,
+                            "radius_start": 0.0,
+                            "radius_end": 0.0,
+                            "render_mode": "wire",
+                        })
+                        projected_points.extend([ring_start, ring_end])
+                continue
+            scaffold_segments.append({
+                **segment_common,
+                "start": start,
+                "end": end,
+                "radius_start": max(0.008, float(row.get("radius_start") or 0.02)),
+                "radius_end": max(0.008, float(row.get("radius_end") or 0.02)),
+                "render_mode": "solid",
+            })
+            projected_points.extend([start, end])
 
     contact_states = {str(row.get("joint") or ""): row for row in contacts}
     markers = []
-    for bone in bones:
-        point = _vec3(bone.get("world_pos"))
-        bone_id = str(bone.get("id") or bone.get("name") or "")
-        state = contact_states.get(bone_id)
-        landmark = _landmark_kind(bone_id)
-        label = "•"
-        if state:
-            label = CONTACT_MARKERS.get(str(state.get("state") or "").lower(), "o")
-        elif landmark == "head":
-            label = "●"
-        elif landmark == "hand":
-            label = "◦"
-        marker_style = selected_style if bool(bone.get("selected")) else (posed_style if bool(bone.get("posed")) else body_style)
-        marker_radius = 0
-        marker_priority = 5 if landmark else 4
-        if landmark == "head":
-            marker_style = body_front_style
-            marker_radius = 2
-            marker_priority = 7
-        elif landmark == "hand":
-            marker_style = posed_style if bool(bone.get("posed") or bone.get("selected")) else body_front_style
-            marker_radius = 1
-            marker_priority = 6
-        markers.append({
-            "id": bone_id,
-            "point": point,
-            "char": label,
-            "kind": landmark,
-            "posed": bool(bone.get("posed")),
-            "selected": bool(bone.get("selected")),
-            "style": marker_style,
-            "radius": marker_radius,
-            "priority": marker_priority,
-        })
+    if show_bones:
+        for bone in bones:
+            point = _vec3(bone.get("world_pos"))
+            bone_id = str(bone.get("id") or bone.get("name") or "")
+            state = contact_states.get(bone_id)
+            landmark = _landmark_kind(bone_id)
+            label = "•"
+            if state:
+                label = CONTACT_MARKERS.get(str(state.get("state") or "").lower(), "o")
+            marker_style = selected_style if bool(bone.get("selected")) else (posed_style if bool(bone.get("posed")) else body_style)
+            marker_radius = 0
+            marker_priority = 5 if state else 4
+            markers.append({
+                "id": bone_id,
+                "point": point,
+                "char": label,
+                "kind": landmark,
+                "posed": bool(bone.get("posed")),
+                "selected": bool(bone.get("selected")),
+                "style": marker_style,
+                "radius": marker_radius,
+                "priority": marker_priority,
+            })
 
     support_polygon = []
     for row in balance.get("support_polygon") or []:
@@ -1524,6 +1738,8 @@ def _collect_render_model(snapshot):
     perspective_points.extend(support_polygon)
     for segment in segments:
         perspective_points.extend([segment["start"], segment["end"]])
+    for segment in scaffold_segments:
+        perspective_points.extend([segment["start"], segment["end"]])
     for patch in contact_patches:
         perspective_points.extend(patch.get("points") or [])
     for marker in markers:
@@ -1533,6 +1749,7 @@ def _collect_render_model(snapshot):
 
     return {
         "segments": segments,
+        "scaffold_segments": scaffold_segments,
         "markers": markers,
         "support_polygon": support_polygon,
         "contact_patches": contact_patches,
@@ -1932,6 +2149,8 @@ def _render_projection(snapshot, width, height, mode, history=None):
                         )
 
     perspective_bone_layer = {}
+    perspective_scaffold_edge_layer = {}
+    perspective_scaffold_body_layer = {}
     for segment in model["segments"]:
         start = segment["start"]
         end = segment["end"]
@@ -2032,6 +2251,131 @@ def _render_projection(snapshot, width, height, mode, history=None):
                     style_key = "body_core" if style_slot == "body_core" else "body_edge"
                     _braille_put(canvas, x + dx, y + dy, priority=priority, style=model["styles"][style_key])
 
+    for segment in model.get("scaffold_segments") or []:
+        start = segment["start"]
+        end = segment["end"]
+        body_style = segment.get("body_style") or model["styles"]["body"]
+        edge_style = segment.get("edge_style") or model["styles"]["body_edge"]
+        render_mode = str(segment.get("render_mode") or "solid").strip().lower()
+        if use_cell_canvas:
+            start_coords = project(start)
+            end_coords = project(end)
+            if start_coords is None or end_coords is None:
+                continue
+            mapped_start = mapper(start_coords)
+            mapped_end = mapper(end_coords)
+            normal_x = 0.0
+            normal_y = 0.0
+            dir_x = float(mapped_end[0] - mapped_start[0])
+            dir_y = float(mapped_end[1] - mapped_start[1])
+            dir_len = math.sqrt((dir_x * dir_x) + (dir_y * dir_y))
+            if dir_len > 1e-6:
+                normal_x = (-dir_y / dir_len)
+                normal_y = (dir_x / dir_len)
+            thickness = 0 if render_mode == "wire" else _segment_thickness_band(segment.get("radius_start"), segment.get("radius_end"))
+            sample_count = 20 if render_mode == "wire" else (20 if thickness <= 0 else (24 if thickness == 1 else 30))
+            for point in _sample_segment_points(start, end, sample_count):
+                coords = project(point)
+                if coords is None:
+                    continue
+                x, y = mapper(coords)
+                if render_mode == "wire":
+                    put_mark(x, y, "·", priority=5, style=edge_style)
+                    continue
+                depth_char = _depth_char(point_depth(point), near_depth, far_depth, dense=True)
+                put_mark(x, y, depth_char, priority=5, style=body_style)
+                if thickness >= 1 and dir_len > 1e-6:
+                    put_mark(x + normal_x, y + normal_y, depth_char, priority=5, style=body_style)
+                    put_mark(x - normal_x, y - normal_y, depth_char, priority=5, style=body_style)
+                if thickness >= 2 and dir_len > 1e-6:
+                    put_mark(x + (normal_x * 2), y + (normal_y * 2), depth_char, priority=4, style=body_style)
+                    put_mark(x - (normal_x * 2), y - (normal_y * 2), depth_char, priority=4, style=body_style)
+        else:
+            if mode in {"perspective", "quarter", "profile"}:
+                start_coords = project(start)
+                end_coords = project(end)
+                if start_coords is None or end_coords is None:
+                    continue
+                mapped_start = mapper(start_coords)
+                mapped_end = mapper(end_coords)
+                start_depth = point_depth(start)
+                end_depth = point_depth(end)
+                if render_mode == "wire":
+                    sample_count = max(18, _perspective_segment_sample_count(mapped_start, mapped_end, 0))
+                    for point in _sample_segment_points(start, end, sample_count):
+                        coords = project(point)
+                        if coords is None:
+                            continue
+                        x, y = mapper(coords)
+                        depth = point_depth(point)
+                        if depth is None or depth <= 0.05:
+                            continue
+                        _depth_buffer_put(
+                            perspective_scaffold_edge_layer,
+                            x,
+                            y,
+                            depth + 0.0005,
+                            edge_style,
+                            priority=6,
+                        )
+                    continue
+                projected_radius = max(
+                    _project_radius_to_subcells(float(segment.get("radius_start") or 0.02), start_depth, render_height, camera_meta),
+                    _project_radius_to_subcells(float(segment.get("radius_end") or 0.02), end_depth, render_height, camera_meta),
+                )
+                sample_count = _perspective_segment_sample_count(mapped_start, mapped_end, projected_radius)
+                for idx, point in enumerate(_sample_segment_points(start, end, sample_count)):
+                    coords = project(point)
+                    if coords is None:
+                        continue
+                    x, y = mapper(coords)
+                    depth = point_depth(point)
+                    if depth is None or depth <= 0.05:
+                        continue
+                    _depth_buffer_put(
+                        perspective_scaffold_edge_layer,
+                        x,
+                        y,
+                        depth + 0.0005,
+                        edge_style,
+                        priority=6,
+                    )
+                    t = float(idx) / float(max(1, sample_count))
+                    radius_world = float(segment.get("radius_start") or 0.02) + (
+                        (float(segment.get("radius_end") or 0.02) - float(segment.get("radius_start") or 0.02)) * t
+                    )
+                    radius = _project_radius_to_subcells(radius_world, depth, render_height, camera_meta)
+                    if projected_radius >= 2 or radius_world >= 0.055:
+                        radius = max(1, radius)
+                    radius = int(_clamp(radius, 0, 2))
+                    for dx, dy, style_slot, priority in _body_stamp_offsets(radius, idx):
+                        _depth_buffer_put(
+                            perspective_scaffold_body_layer,
+                            x + dx,
+                            y + dy,
+                            depth + ((abs(dx) + abs(dy)) * 0.0004),
+                            body_style,
+                            priority=max(4, priority + 1),
+                        )
+                continue
+            sample_count = 24 if render_mode == "wire" else 30
+            for idx, point in enumerate(_sample_segment_points(start, end, sample_count)):
+                coords = project(point)
+                if coords is None:
+                    continue
+                x, y = mapper(coords)
+                if render_mode == "wire":
+                    _braille_put(canvas, x, y, priority=4, style=edge_style)
+                    continue
+                _braille_put(canvas, x, y, priority=3, style=edge_style)
+                t = float(idx) / float(max(1, sample_count))
+                radius_world = float(segment.get("radius_start") or 0.02) + (
+                    (float(segment.get("radius_end") or 0.02) - float(segment.get("radius_start") or 0.02)) * t
+                )
+                radius = _orthographic_stamp_radius(radius_world)
+                for dx, dy, style_slot, priority in _body_stamp_offsets(radius, idx):
+                    _braille_put(canvas, x + dx, y + dy, priority=max(3, priority + 1), style=body_style)
+
     if mode in {"perspective", "quarter", "profile"} and not use_cell_canvas:
         for (x, y), sample in sorted(
             perspective_bone_layer.items(),
@@ -2056,6 +2400,30 @@ def _render_projection(snapshot, width, height, mode, history=None):
                 y,
                 priority=int(sample.get("priority", 3)),
                 style=sample.get("style") or model["styles"]["body"],
+            )
+        for (x, y), sample in sorted(
+            perspective_scaffold_body_layer.items(),
+            key=lambda item: (item[1].get("depth", 1e9), item[1].get("priority", 0)),
+            reverse=True,
+        ):
+            _braille_put(
+                canvas,
+                x,
+                y,
+                priority=int(sample.get("priority", 4)),
+                style=sample.get("style") or model["styles"]["body"],
+            )
+        for (x, y), sample in sorted(
+            perspective_scaffold_edge_layer.items(),
+            key=lambda item: (item[1].get("depth", 1e9), item[1].get("priority", 0)),
+            reverse=True,
+        ):
+            _braille_put(
+                canvas,
+                x,
+                y,
+                priority=int(sample.get("priority", 6)),
+                style=sample.get("style") or model["styles"]["body_edge"],
             )
         for patch in model["contact_patches"]:
             points = patch.get("points") or []
@@ -2145,6 +2513,13 @@ def _compact_status_lines(snapshot, width):
         "keys: q quit | d diagnostics | tab cycle diag | 1 render | 2 theater | 3 embodiment | 4 snapshot | 5 split",
     ]
     return _wrap_block("\n".join(lines), width)
+
+
+def _snapshot_is_live_camera(snapshot):
+    if not isinstance(snapshot, dict):
+        return False
+    reason = str(snapshot.get("last_sync_reason") or "").strip().lower()
+    return reason.startswith("camera:")
 
 
 def _section_lines(snapshot, section_key, width):
@@ -2438,6 +2813,7 @@ def _render_consult_motion_text(snapshot):
     balance = snapshot.get("balance") if isinstance(snapshot.get("balance"), dict) else {}
     timeline = snapshot.get("timeline") if isinstance(snapshot.get("timeline"), dict) else {}
     settle = snapshot.get("settle") if isinstance(snapshot.get("settle"), dict) else {}
+    assertion = balance.get("assertion") if isinstance(balance.get("assertion"), dict) else {}
     contacts = snapshot.get("contacts") if isinstance(snapshot.get("contacts"), list) else []
     projected_com = balance.get("projected_com") if isinstance(balance.get("projected_com"), dict) else {}
     supporting = ", ".join(str(v) for v in (balance.get("supporting_joint_ids") or [])) or "none"
@@ -2465,6 +2841,12 @@ def _render_consult_motion_text(snapshot):
         + f"{float(projected_com.get('z') or 0.0):.2f})",
         "CONTACTS: " + contact_summary,
         "ALERTS: " + alerts,
+        "ASSERT: "
+        + (
+            (str(assertion.get("summary") or "unchecked") + (" / stale" if assertion.get("stale") else ""))
+            if assertion.get("active")
+            else "unchecked"
+        ),
         "SETTLE: "
         + ("active" if settle.get("active") else "inactive")
         + " / strategy "
@@ -2580,6 +2962,7 @@ def _render_local_embodiment_text(snapshot):
     workbench = snapshot.get("workbench") if isinstance(snapshot.get("workbench"), dict) else {}
     balance = snapshot.get("balance") if isinstance(snapshot.get("balance"), dict) else {}
     settle = snapshot.get("settle") if isinstance(snapshot.get("settle"), dict) else {}
+    assertion = balance.get("assertion") if isinstance(balance.get("assertion"), dict) else {}
     timeline = snapshot.get("timeline") if isinstance(snapshot.get("timeline"), dict) else {}
     semantic = snapshot.get("semantic") if isinstance(snapshot.get("semantic"), dict) else {}
     gizmo = workbench.get("gizmo") if isinstance(workbench.get("gizmo"), dict) else {}
@@ -2651,6 +3034,14 @@ def _render_local_embodiment_text(snapshot):
         )
     lines.append("  alerts: " + (", ".join(str(v) for v in (balance.get("alert_ids") or [])) if balance.get("alert_ids") else "none"))
     lines.append(
+        "ASSERT: "
+        + (
+            (str(assertion.get("summary") or "unchecked") + (" / stale" if assertion.get("stale") else ""))
+            if assertion.get("active")
+            else "unchecked"
+        )
+    )
+    lines.append(
         "SETTLE: "
         + (
             str(settle.get("strategy") or "")
@@ -2686,7 +3077,7 @@ def _local_text_outputs(snapshot, view_mode):
     return theater, embodiment
 
 
-def _render_render_view(snapshot, width, height, diagnostics_visible, section_key, history=None):
+def _render_render_view(snapshot, theater_text, width, height, diagnostics_visible, section_key, history=None):
     width = max(80, width)
     height = max(24, height)
     content_height = max(10, height - 5)
@@ -2694,14 +3085,26 @@ def _render_render_view(snapshot, width, height, diagnostics_visible, section_ke
         content_height = max(10, height - 17)
 
     lines = []
-    if width >= 120 and content_height >= 18:
+    live_camera = _snapshot_is_live_camera(snapshot)
+    render_history = None if live_camera else history
+    if live_camera and width >= 120 and content_height >= 18:
         left_width = max(48, int(width * 0.66))
         right_width = max(24, width - left_width - 1)
-        main_box = _box("Scene", _render_projection(snapshot, left_width - 2, content_height - 2, "perspective", history=history), left_width, content_height)
+        main_box = _box("Scene", _render_projection(snapshot, left_width - 2, content_height - 2, "perspective", history=render_history), left_width, content_height)
+        right_box = _box("Theater", _wrap_block(theater_text, right_width - 2), right_width, content_height)
+        row_count = max(len(main_box), len(right_box))
+        for idx in range(row_count):
+            left_line = main_box[idx] if idx < len(main_box) else (" " * left_width)
+            right_line = right_box[idx] if idx < len(right_box) else (" " * right_width)
+            lines.append(left_line + " " + right_line)
+    elif width >= 120 and content_height >= 18:
+        left_width = max(48, int(width * 0.66))
+        right_width = max(24, width - left_width - 1)
+        main_box = _box("Scene", _render_projection(snapshot, left_width - 2, content_height - 2, "perspective", history=render_history), left_width, content_height)
         top_height = max(8, content_height // 2)
         front_height = content_height - top_height
-        top_box = _box("Quarter", _render_projection(snapshot, right_width - 2, top_height - 2, "quarter", history=history), right_width, top_height)
-        front_box = _box("Profile", _render_projection(snapshot, right_width - 2, front_height - 2, "profile", history=history), right_width, front_height)
+        top_box = _box("Quarter", _render_projection(snapshot, right_width - 2, top_height - 2, "quarter", history=render_history), right_width, top_height)
+        front_box = _box("Profile", _render_projection(snapshot, right_width - 2, front_height - 2, "profile", history=render_history), right_width, front_height)
         right_lines = top_box + front_box
         row_count = max(len(main_box), len(right_lines))
         for idx in range(row_count):
@@ -2709,7 +3112,7 @@ def _render_render_view(snapshot, width, height, diagnostics_visible, section_ke
             right_line = right_lines[idx] if idx < len(right_lines) else (" " * right_width)
             lines.append(left_line + " " + right_line)
     else:
-        lines.extend(_box("Scene", _render_projection(snapshot, width - 2, content_height - 2, "perspective", history=history), width, content_height))
+        lines.extend(_box("Scene", _render_projection(snapshot, width - 2, content_height - 2, "perspective", history=render_history), width, content_height))
 
     if diagnostics_visible:
         lines.extend(_box(
@@ -2765,7 +3168,7 @@ def _render_frame(snapshot, theater_text, embodiment_text, view_mode, section_ke
     lines = [header]
 
     if view_mode == "render":
-        lines.extend(_render_render_view(snapshot, width, height - 1, diagnostics_visible, section_key, history=history))
+        lines.extend(_render_render_view(snapshot, theater_text, width, height - 1, diagnostics_visible, section_key, history=history))
     elif view_mode == "consult":
         lines.extend(_render_consult_view(snapshot, width, height - 1, diagnostics_visible, section_key))
     elif view_mode == "theater":
@@ -2879,6 +3282,20 @@ def render_text_theater_view(
     mode = str(view_mode or "split").strip().lower()
     if mode not in {"render", "split", "theater", "embodiment", "snapshot", "consult"}:
         mode = "split"
+    try:
+        rendered = _env_text_theater_view(
+            base_url=base_url,
+            timeout=timeout,
+            view_mode=mode,
+            width=width,
+            height=height,
+            diagnostics_visible=diagnostics_visible,
+            section_key=section_name,
+        )
+        if str(rendered.get("frame") or "").strip():
+            return rendered
+    except Exception:
+        pass
     snapshot, theater_text, embodiment_text = _fetch_all(base_url, timeout, mode)
     history = _append_motion_history([], snapshot)
     frame = _render_frame(
@@ -2894,6 +3311,7 @@ def render_text_theater_view(
     )
     return {
         "frame": ANSI_RE.sub("", frame),
+        "ansi_frame": frame,
         "snapshot": snapshot,
         "theater_text": theater_text,
         "embodiment_text": embodiment_text,
@@ -2926,16 +3344,23 @@ def render_text_theater_shared_state(
     shared = shared_state if isinstance(shared_state, dict) else {}
     text_theater = shared.get("text_theater") if isinstance(shared.get("text_theater"), dict) else {}
     snapshot = text_theater.get("snapshot") if isinstance(text_theater.get("snapshot"), dict) else {}
+    cached_theater_text = str(text_theater.get("theater") or "") if mode in {"theater", "split", "render", "consult"} else ""
+    cached_embodiment_text = str(text_theater.get("embodiment") or "") if mode in {"embodiment", "split", "render", "consult"} else ""
     if isinstance(snapshot, dict) and snapshot:
         live_state = {"shared_state": shared}
         if synced_at is not None:
             live_state["synced_at"] = synced_at
         snapshot = _merge_live_camera_into_snapshot(snapshot, live_state)
-        theater_text, embodiment_text = _local_text_outputs(snapshot, mode)
+        theater_text = cached_theater_text
+        embodiment_text = cached_embodiment_text
+        if not theater_text and mode in {"theater", "split", "render", "consult"}:
+            theater_text, _ = _local_text_outputs(snapshot, mode)
+        if not embodiment_text and mode in {"embodiment", "split", "render", "consult"}:
+            _, embodiment_text = _local_text_outputs(snapshot, mode)
     else:
         snapshot = {}
-        theater_text = str(text_theater.get("theater") or "") if mode in {"theater", "split"} else ""
-        embodiment_text = str(text_theater.get("embodiment") or "") if mode in {"embodiment", "split"} else ""
+        theater_text = cached_theater_text
+        embodiment_text = cached_embodiment_text
     history = _append_motion_history([], snapshot)
     frame = _render_frame(
         snapshot=snapshot,
@@ -2950,6 +3375,7 @@ def render_text_theater_shared_state(
     )
     return {
         "frame": ANSI_RE.sub("", frame),
+        "ansi_frame": frame,
         "snapshot": snapshot,
         "theater_text": theater_text,
         "embodiment_text": embodiment_text,
@@ -2974,6 +3400,56 @@ def _run(args):
     last_snapshot = None
     last_theater_text = ""
     last_embodiment_text = ""
+    live_cache = {
+        "lock": threading.Lock(),
+        "ready": False,
+        "snapshot": None,
+        "theater_text": "",
+        "embodiment_text": "",
+        "error": "",
+    }
+    stop_event = threading.Event()
+
+    def _set_live_cache(snapshot=None, theater_text="", embodiment_text="", error="", ready=False):
+        with live_cache["lock"]:
+            if ready:
+                live_cache["snapshot"] = snapshot if isinstance(snapshot, dict) else {}
+                live_cache["theater_text"] = str(theater_text or "")
+                live_cache["embodiment_text"] = str(embodiment_text or "")
+                live_cache["ready"] = True
+            live_cache["error"] = str(error or "")
+
+    def _get_live_cache():
+        with live_cache["lock"]:
+            return {
+                "ready": bool(live_cache["ready"]),
+                "snapshot": live_cache["snapshot"] if isinstance(live_cache["snapshot"], dict) else None,
+                "theater_text": str(live_cache["theater_text"] or ""),
+                "embodiment_text": str(live_cache["embodiment_text"] or ""),
+                "error": str(live_cache["error"] or ""),
+            }
+
+    def _live_worker():
+        poll_delay = max(0.005, min(float(args.interval or 0.02), 0.02))
+        while not stop_event.is_set():
+            try:
+                live_payload = _env_text_theater_live(
+                    base_url=base_url,
+                    timeout=args.timeout,
+                )
+                _set_live_cache(
+                    snapshot=live_payload.get("snapshot") if isinstance(live_payload.get("snapshot"), dict) else {},
+                    theater_text=str(live_payload.get("theater_text") or ""),
+                    embodiment_text=str(live_payload.get("embodiment_text") or ""),
+                    error="",
+                    ready=True,
+                )
+            except Exception as exc:
+                _set_live_cache(error=str(exc))
+            stop_event.wait(poll_delay)
+
+    live_thread = threading.Thread(target=_live_worker, name="text-theater-live", daemon=True)
+    live_thread.start()
 
     sys.stdout.write(ALT_SCREEN_ON + HIDE_CURSOR + CLEAR_SCREEN)
     sys.stdout.flush()
@@ -2982,32 +3458,55 @@ def _run(args):
             cycle_started = time.time()
             width, height = shutil.get_terminal_size((140, 44))
             try:
-                snapshot, theater_text, embodiment_text = _fetch_all(base_url, args.timeout, view_mode)
+                live_state = _get_live_cache()
+                if live_state["ready"]:
+                    snapshot = live_state["snapshot"] if isinstance(live_state["snapshot"], dict) else {}
+                    theater_text = live_state["theater_text"]
+                    embodiment_text = live_state["embodiment_text"]
+                    frame = _render_frame(
+                        snapshot=snapshot,
+                        theater_text=theater_text,
+                        embodiment_text=embodiment_text,
+                        view_mode=view_mode,
+                        section_key=PANE_SECTIONS[section_index][0],
+                        width=width,
+                        height=height,
+                        diagnostics_visible=diagnostics_visible,
+                        history=motion_history,
+                    )
+                    last_error = ""
+                else:
+                    rendered = _env_text_theater_view(
+                        base_url=base_url,
+                        timeout=args.timeout,
+                        view_mode=view_mode,
+                        width=width,
+                        height=height,
+                        diagnostics_visible=diagnostics_visible,
+                        section_key=PANE_SECTIONS[section_index][0],
+                    )
+                    snapshot = rendered.get("snapshot") if isinstance(rendered.get("snapshot"), dict) else {}
+                    theater_text = str(rendered.get("theater_text") or "")
+                    embodiment_text = str(rendered.get("embodiment_text") or "")
+                    frame = str(rendered.get("frame") or "")
                 last_snapshot = snapshot
                 last_theater_text = theater_text
                 last_embodiment_text = embodiment_text
-                motion_history = _append_motion_history(motion_history, snapshot)
-                frame = _render_frame(
-                    snapshot=snapshot,
-                    theater_text=theater_text,
-                    embodiment_text=embodiment_text,
-                    view_mode=view_mode,
-                    section_key=PANE_SECTIONS[section_index][0],
-                    width=width,
-                    height=height,
-                    diagnostics_visible=diagnostics_visible,
-                    history=motion_history,
-                )
-                last_error = ""
+                if isinstance(snapshot, dict) and snapshot:
+                    motion_history = _append_motion_history(motion_history, snapshot)
+                if not frame:
+                    raise RuntimeError("text_theater_live returned an empty frame")
             except (urllib.error.URLError, TimeoutError, RuntimeError, json.JSONDecodeError) as exc:
-                last_error = str(exc)
+                live_state = _get_live_cache()
+                last_error = str(live_state.get("error") or exc)
                 if isinstance(last_snapshot, dict):
-                    stale_flags = last_snapshot.get("stale_flags") if isinstance(last_snapshot.get("stale_flags"), dict) else {}
+                    error_snapshot = copy.deepcopy(last_snapshot)
+                    stale_flags = error_snapshot.get("stale_flags") if isinstance(error_snapshot.get("stale_flags"), dict) else {}
                     next_stale = dict(stale_flags)
                     next_stale["fetch_error"] = last_error
-                    last_snapshot["stale_flags"] = next_stale
+                    error_snapshot["stale_flags"] = next_stale
                     frame = _render_frame(
-                        snapshot=last_snapshot,
+                        snapshot=error_snapshot,
                         theater_text=last_theater_text,
                         embodiment_text=last_embodiment_text,
                         view_mode=view_mode,
@@ -3039,7 +3538,7 @@ def _run(args):
             while time.time() - started < remaining:
                 key = _read_key_nonblocking()
                 if key is None:
-                    time.sleep(0.02)
+                    time.sleep(0.005)
                     continue
                 if key.lower() == "q":
                     return 0
@@ -3090,6 +3589,9 @@ def _run(args):
             if args.once:
                 return 0
     finally:
+        stop_event.set()
+        if live_thread.is_alive():
+            live_thread.join(timeout=0.3)
         sys.stdout.write(RESET + SHOW_CURSOR + ALT_SCREEN_OFF)
         sys.stdout.flush()
         if last_error:
@@ -3100,7 +3602,7 @@ def main():
     parser = argparse.ArgumentParser(description="Terminal-native Text Theater view for Champion Council.")
     parser.add_argument("--host", default=os.environ.get("WEB_HOST", "127.0.0.1"))
     parser.add_argument("--port", type=int, default=int(os.environ.get("WEB_PORT", "7866")))
-    parser.add_argument("--interval", type=float, default=0.04, help="Refresh interval in seconds.")
+    parser.add_argument("--interval", type=float, default=0.02, help="Refresh interval in seconds.")
     parser.add_argument("--timeout", type=float, default=5.0, help="HTTP timeout in seconds.")
     parser.add_argument("--view", choices=["render", "consult", "split", "theater", "embodiment", "snapshot"], default="render")
     parser.add_argument("--diagnostics", action="store_true", help="Show diagnostics panes by default.")

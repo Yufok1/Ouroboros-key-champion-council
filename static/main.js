@@ -122,6 +122,10 @@
         attemptCount: 0,
         successCount: 0
     };
+    let _envTextTheaterState = {
+        bundle: null,
+        updatedTs: 0
+    };
     let _envAppliedContractTokens = {};
     let _envPanelPreviousFocus = null;
     let _envHtmlPanelState = {
@@ -1120,6 +1124,7 @@
             },
             isolated_chain: '',
             _settle_preview: null,
+            _balance_assertion: null,
             _skeletonGroup: null,
             _scaffoldPieces: null,
             _scaffoldVisible: false,
@@ -1472,6 +1477,28 @@
             baseline_pose: null,
             preview_timeline: null,
             analysis: null,
+            diagnostics: null
+        };
+    }
+
+    function _envCreateBuilderBalanceAssertionState() {
+        return {
+            active: false,
+            passed: false,
+            status: 'unchecked',
+            checked_at: 0,
+            summary: '',
+            support_phase: '',
+            stability_risk: 0,
+            inside_polygon: false,
+            support_contact_count: 0,
+            supporting_ids: [],
+            alert_ids: [],
+            hard_alerts: [],
+            soft_alerts: [],
+            fail_reasons: [],
+            spec: null,
+            diagnostics_signature: '',
             diagnostics: null
         };
     }
@@ -3480,6 +3507,128 @@
             generated_at: Number(preview.generated_at || 0),
             analysis: preview.analysis ? _envCloneJson(preview.analysis, null) : null,
             diagnostics: preview.diagnostics ? _envCloneJson(preview.diagnostics, null) : null
+        };
+    }
+
+    function _envBuilderBalanceAssertionSignature(diagnostics) {
+        var data = diagnostics && typeof diagnostics === 'object' && !Array.isArray(diagnostics) ? diagnostics : null;
+        var loadField = data && data.load_field && typeof data.load_field === 'object' ? data.load_field : {};
+        return JSON.stringify({
+            support_phase: String((data && data.support_phase) || ''),
+            support_contact_count: Number((data && data.support_contact_count) || 0),
+            stability_risk: Number(Number(loadField.stability_risk || 0).toFixed(4)),
+            inside_support_polygon: !!loadField.inside_support_polygon,
+            supporting_ids: _slotUniqueStrings((data && data.supporting_ids) || []).sort(),
+            alert_ids: _slotUniqueStrings((data && data.alerts) || []).sort()
+        });
+    }
+
+    function _envBuilderEvaluateBalanceAssertion(diagnostics, spec) {
+        var cfg = spec && typeof spec === 'object' && !Array.isArray(spec)
+            ? spec
+            : _envNormalizeWorkbenchBalanceAssertSpec('');
+        var data = diagnostics && typeof diagnostics === 'object' && !Array.isArray(diagnostics) ? diagnostics : null;
+        if (!data || !data.load_field || typeof data.load_field !== 'object') {
+            return Object.assign(_envCreateBuilderBalanceAssertionState(), {
+                active: true,
+                passed: false,
+                status: 'unavailable',
+                checked_at: Date.now(),
+                summary: 'FAIL unavailable / no balance diagnostics',
+                fail_reasons: ['no_diagnostics'],
+                spec: _envCloneJson(cfg, null),
+                diagnostics_signature: '',
+                diagnostics: data ? _envCloneJson(data, null) : null
+            });
+        }
+        var loadField = data.load_field;
+        var supportPhase = String(data.support_phase || '').trim().toLowerCase();
+        var risk = _envBuilderClamp01(Number(loadField.stability_risk || 0));
+        var insidePolygon = !!loadField.inside_support_polygon;
+        var supportContactCount = Math.max(0, Number(data.support_contact_count || 0));
+        var supportingIds = _slotUniqueStrings(data.supporting_ids || []);
+        var alertIds = _slotUniqueStrings(data.alerts || []);
+        var rejectAlerts = _slotUniqueStrings(cfg.reject_alerts || []);
+        var warnAlerts = _slotUniqueStrings(cfg.warn_alerts || []);
+        var hardAlerts = alertIds.filter(function (alertId) {
+            return rejectAlerts.indexOf(String(alertId || '').trim().toLowerCase()) >= 0;
+        });
+        var softAlerts = alertIds.filter(function (alertId) {
+            var key = String(alertId || '').trim().toLowerCase();
+            return hardAlerts.indexOf(alertId) < 0 && warnAlerts.indexOf(key) >= 0;
+        });
+        var failReasons = [];
+        if (Array.isArray(cfg.accepted_phases) && cfg.accepted_phases.length && cfg.accepted_phases.indexOf(supportPhase) < 0) failReasons.push('unsupported_phase');
+        if (!cfg.allow_braced_support && supportPhase === 'braced_support') failReasons.push('braced_support');
+        if (cfg.require_inside_polygon && !insidePolygon) failReasons.push('outside_support_polygon');
+        if (supportContactCount < Number(cfg.min_support_contacts || 0)) failReasons.push('insufficient_support_contacts');
+        if (risk > Number(cfg.max_risk || 0)) failReasons.push('stability_risk');
+        hardAlerts.forEach(function (alertId) {
+            if (failReasons.indexOf(alertId) < 0) failReasons.push(alertId);
+        });
+        var passed = !failReasons.length;
+        var status = passed ? ((softAlerts.length || risk > Number(cfg.warn_risk || 0)) ? 'warn' : 'pass') : 'fail';
+        var summary = '';
+        if (status === 'pass') {
+            summary = 'PASS ' + (supportPhase || 'unknown') + ' / risk ' + Number(risk.toFixed(2)) + ' / supporting ' + (supportingIds.length ? supportingIds.join(', ') : 'none');
+        } else if (status === 'warn') {
+            summary = 'WARN ' + (supportPhase || 'unknown') + ' / risk ' + Number(risk.toFixed(2)) + ' / alerts ' + ((softAlerts.length ? softAlerts : alertIds).join(', ') || 'none');
+        } else {
+            summary = 'FAIL ' + (supportPhase || 'unknown') + ' / ' + (failReasons.join(', ') || 'unverified') + ' / risk ' + Number(risk.toFixed(2));
+        }
+        return Object.assign(_envCreateBuilderBalanceAssertionState(), {
+            active: true,
+            passed: passed,
+            status: status,
+            checked_at: Date.now(),
+            summary: summary,
+            support_phase: supportPhase,
+            stability_risk: Number(risk.toFixed(4)),
+            inside_polygon: insidePolygon,
+            support_contact_count: supportContactCount,
+            supporting_ids: supportingIds,
+            alert_ids: alertIds,
+            hard_alerts: hardAlerts,
+            soft_alerts: softAlerts,
+            fail_reasons: _slotUniqueStrings(failReasons),
+            spec: _envCloneJson(cfg, null),
+            diagnostics_signature: _envBuilderBalanceAssertionSignature(data),
+            diagnostics: _envCloneJson(data, null)
+        });
+    }
+
+    function _envBuilderBalanceAssertionSummary(assertionState, diagnostics) {
+        var state = assertionState && typeof assertionState === 'object' && !Array.isArray(assertionState)
+            ? Object.assign(_envCreateBuilderBalanceAssertionState(), assertionState || {})
+            : _envCreateBuilderBalanceAssertionState();
+        var current = diagnostics && typeof diagnostics === 'object' && !Array.isArray(diagnostics) ? diagnostics : null;
+        var currentSignature = current ? _envBuilderBalanceAssertionSignature(current) : '';
+        var stale = !!(state.active && state.diagnostics_signature && currentSignature && state.diagnostics_signature !== currentSignature);
+        return {
+            active: !!state.active,
+            passed: !!state.passed,
+            status: String(state.status || 'unchecked'),
+            stale: stale,
+            checked_at: Number(state.checked_at || 0),
+            summary: String(state.summary || ''),
+            support_phase: String(state.support_phase || ''),
+            stability_risk: Number(state.stability_risk || 0),
+            inside_polygon: !!state.inside_polygon,
+            support_contact_count: Number(state.support_contact_count || 0),
+            supporting_ids: _slotUniqueStrings(state.supporting_ids || []),
+            alert_ids: _slotUniqueStrings(state.alert_ids || []),
+            hard_alerts: _slotUniqueStrings(state.hard_alerts || []),
+            soft_alerts: _slotUniqueStrings(state.soft_alerts || []),
+            fail_reasons: _slotUniqueStrings(state.fail_reasons || []),
+            spec: _envCloneJson(state.spec || null, null),
+            current: current ? {
+                support_phase: String(current.support_phase || ''),
+                stability_risk: Number(Number((((current.load_field || {}).stability_risk) || 0).toFixed(4))),
+                inside_polygon: !!(((current.load_field || {}).inside_support_polygon)),
+                support_contact_count: Number(current.support_contact_count || 0),
+                supporting_ids: _slotUniqueStrings(current.supporting_ids || []),
+                alert_ids: _slotUniqueStrings(current.alerts || [])
+            } : null
         };
     }
 
@@ -12733,7 +12882,7 @@
                     'workbench_set_pose', 'workbench_set_pose_batch', 'workbench_clear_pose',
                     'workbench_capture_pose', 'workbench_delete_pose', 'workbench_apply_pose', 'workbench_set_timeline_cursor',
                     'workbench_compile_clip', 'workbench_play_authored_clip', 'workbench_apply_motion_preset',
-                    'workbench_preview_settle', 'workbench_commit_settle',
+                    'workbench_preview_settle', 'workbench_commit_settle', 'workbench_assert_balance',
                     'workbench_reset_angles',
                     'workbench_select_bone', 'workbench_select_bones', 'workbench_set_editing_mode', 'workbench_set_display_scope',
                     'workbench_set_gizmo_mode', 'workbench_set_gizmo_space',
@@ -12748,7 +12897,7 @@
                     'mount', 'unmount', 'focus', 'move_to', 'stop', 'look_at', 'set_model',
                     'new_builder', 'get_blueprint', 'get_part_surface', 'frame_part', 'select_bone', 'select_bones', 'set_editing_mode', 'set_display_scope',
                     'set_gizmo_mode', 'set_gizmo_space',
-                    'set_bone', 'set_pose', 'set_pose_batch', 'clear_pose', 'capture_pose', 'delete_pose', 'apply_pose', 'set_timeline_cursor', 'compile_clip', 'play_authored_clip', 'apply_motion_preset', 'preview_settle', 'commit_settle', 'reset_angles', 'isolate_chain', 'save_blueprint', 'load_blueprint',
+                    'set_bone', 'set_pose', 'set_pose_batch', 'clear_pose', 'capture_pose', 'delete_pose', 'apply_pose', 'set_timeline_cursor', 'compile_clip', 'play_authored_clip', 'apply_motion_preset', 'preview_settle', 'commit_settle', 'assert_balance', 'reset_angles', 'isolate_chain', 'save_blueprint', 'load_blueprint',
                     'play_clip', 'queue_clips', 'stop_clip', 'set_loop', 'set_speed',
                     'set_scaffold', 'set_load_field',
                     'get_animation_state', 'play_reaction'
@@ -16746,6 +16895,39 @@
         };
     }
 
+    function _envNormalizeWorkbenchBalanceAssertSpec(targetId) {
+        var raw = String(targetId || '').trim();
+        var parsed = raw ? _safeJsonParse(raw) : null;
+        var payload = parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+            ? parsed
+            : {};
+        var maxRisk = Number(payload.max_risk);
+        var warnRisk = Number(payload.warn_risk);
+        var minSupportContacts = Number(payload.min_support_contacts !== undefined ? payload.min_support_contacts : payload.min_support);
+        var acceptedPhases = Array.isArray(payload.accepted_phases)
+            ? payload.accepted_phases.map(function (value) { return String(value || '').trim().toLowerCase(); }).filter(Boolean)
+            : ['double_support', 'single_support_left', 'single_support_right', 'braced_support'];
+        if (!acceptedPhases.length) acceptedPhases = ['double_support', 'single_support_left', 'single_support_right', 'braced_support'];
+        var rejectAlerts = Array.isArray(payload.reject_alerts)
+            ? payload.reject_alerts.map(function (value) { return String(value || '').trim().toLowerCase(); }).filter(Boolean)
+            : ['no_ground_contact', 'outside_support_polygon', 'support_penetration', 'stability_risk'];
+        var warnAlerts = Array.isArray(payload.warn_alerts)
+            ? payload.warn_alerts.map(function (value) { return String(value || '').trim().toLowerCase(); }).filter(Boolean)
+            : ['knee_brace', 'hand_brace', 'foot_slide_risk', 'support_overload'];
+        return {
+            raw: raw,
+            payload: payload,
+            max_risk: Number.isFinite(maxRisk) ? _envBuilderClamp01(maxRisk) : 0.35,
+            warn_risk: Number.isFinite(warnRisk) ? _envBuilderClamp01(warnRisk) : 0.18,
+            require_inside_polygon: payload.require_inside_polygon !== false,
+            min_support_contacts: Number.isFinite(minSupportContacts) ? Math.max(0, Math.min(8, Math.floor(minSupportContacts))) : 1,
+            allow_braced_support: payload.allow_braced_support !== false,
+            accepted_phases: acceptedPhases,
+            reject_alerts: rejectAlerts,
+            warn_alerts: warnAlerts
+        };
+    }
+
     function _envNormalizeWorkbenchMotionPresetSpec(targetId) {
         var raw = String(targetId || '').trim();
         var parsed = raw ? _safeJsonParse(raw) : null;
@@ -18196,6 +18378,60 @@
             : _envBuilderSettleSummary(_envCreateBuilderSettlePreviewState());
     }
 
+    function _envWorkbenchAssertBalance(actor, reason, targetId) {
+        var actorName = String(actor || _envManualActorId() || 'assistant').trim() || 'assistant';
+        if (!_envBuilderSubject.active) {
+            _envLogAction('character_runtime', 'Rejected balance assert: no active builder subject', actorName, {
+                action: 'workbench_assert_balance'
+            });
+            _envSetBadge('failed', 'NO BUILDER');
+            renderEnvironmentView();
+            return false;
+        }
+        var mesh = _envMountedRuntimeMesh();
+        if (!mesh || !mesh.userData || !mesh.userData._builderSubjectGroup) {
+            _envLogAction('character_runtime', 'Rejected balance assert: mounted runtime mesh unavailable', actorName, {
+                action: 'workbench_assert_balance'
+            });
+            _envSetBadge('failed', 'NO MESH');
+            renderEnvironmentView();
+            return false;
+        }
+        var spec = _envNormalizeWorkbenchBalanceAssertSpec(targetId);
+        var diagnostics = _envBuilderCurrentMotionDiagnostics(mesh);
+        var assertion = _envBuilderEvaluateBalanceAssertion(diagnostics, spec);
+        _envBuilderSubject._balance_assertion = _envCloneJson(assertion, null);
+        _envRefreshInhabitantRuntimeState('workbench_assert_balance');
+        _envLogAction('character_runtime', assertion.passed ? 'Asserted builder balance gate' : 'Rejected builder balance gate', actorName, {
+            action: 'workbench_assert_balance',
+            status: String(assertion.status || ''),
+            passed: !!assertion.passed,
+            support_phase: String(assertion.support_phase || ''),
+            stability_risk: Number(assertion.stability_risk || 0),
+            inside_polygon: !!assertion.inside_polygon,
+            support_contact_count: Number(assertion.support_contact_count || 0),
+            fail_reasons: _slotUniqueStrings(assertion.fail_reasons || []),
+            alert_ids: _slotUniqueStrings(assertion.alert_ids || [])
+        });
+        _envEmitBus('character_runtime', assertion.summary || 'Asserted balance gate', actorName, {
+            action: 'workbench_assert_balance',
+            object_key: _envInhabitantObjectKey(),
+            status: String(assertion.status || ''),
+            passed: !!assertion.passed,
+            support_phase: String(assertion.support_phase || ''),
+            stability_risk: Number(assertion.stability_risk || 0),
+            fail_reasons: _slotUniqueStrings(assertion.fail_reasons || [])
+        });
+        if (assertion.status === 'fail' || assertion.status === 'unavailable') _envSetBadge('failed', assertion.status === 'unavailable' ? 'BAL N/A' : 'BAL FAIL');
+        else _envSetBadge('running', assertion.status === 'warn' ? 'BAL WARN' : 'BAL PASS');
+        _envScheduleLiveSync('workbench_assert_balance:' + String(assertion.status || 'unchecked'), true);
+        _envSaveTheaterSession('workbench_assert_balance');
+        _envScene.dirty = true;
+        _envStageUiState.forceStageRebuild = true;
+        renderEnvironmentView();
+        return _envBuilderBalanceAssertionSummary(assertion, diagnostics);
+    }
+
     function _envWorkbenchCapturePose(actor, reason, targetId) {
         var actorName = String(actor || _envManualActorId() || 'assistant').trim() || 'assistant';
         if (!_envBuilderSubject.active) {
@@ -19491,6 +19727,7 @@
         'workbench.apply_motion_preset': 'workbench_apply_motion_preset',
         'workbench.preview_settle': 'workbench_preview_settle',
         'workbench.commit_settle': 'workbench_commit_settle',
+        'workbench.assert_balance': 'workbench_assert_balance',
         'workbench.reset_angles': 'workbench_reset_angles',
         'workbench.select_bone': 'workbench_select_bone',
         'workbench.select_bones': 'workbench_select_bones',
@@ -19570,6 +19807,7 @@
             || command === 'workbench_compile_clip' || command === 'workbench_play_authored_clip'
             || command === 'workbench_apply_motion_preset'
             || command === 'workbench_preview_settle' || command === 'workbench_commit_settle'
+            || command === 'workbench_assert_balance'
             || command === 'workbench_reset_angles' || command === 'workbench_select_bone'
             || command === 'workbench_select_bones'
             || command === 'workbench_set_editing_mode' || command === 'workbench_set_display_scope'
@@ -26443,6 +26681,10 @@
             _envWorkbenchCommitSettle(actorName, reason || 'control workbench commit settle', targetId);
             return;
         }
+        if (command === 'workbench_assert_balance') {
+            _envWorkbenchAssertBalance(actorName, reason || 'control workbench assert balance', targetId);
+            return;
+        }
         if (command === 'workbench_reset_angles') {
             _envWorkbenchResetAngles(actorName, reason || 'control workbench reset angles', targetId);
             return;
@@ -28296,6 +28538,7 @@
             scaffold_data_error: String(_envScaffoldSlotRegistryState.error || ''),
             scaffold_data_loaded_ts: Number(_envScaffoldSlotRegistryState.loadedTs || 0),
             scaffold_data_source: _envScaffoldSlotRegistryState.loaded ? 'json' : 'fallback',
+            scaffold_surface: _envTextTheaterScaffoldSurface(mountedMesh),
             scaffold_overlay_present: !!helperOverlays.scaffold,
             skeleton_visible: !!(mountedMesh && mountedMesh.userData && mountedMesh.userData._skeletonHelper && mountedMesh.userData._skeletonHelper.visible),
             bone_count: builderActive ? Number((blueprint && blueprint.bones && blueprint.bones.length) || 0) : 0,
@@ -28322,6 +28565,9 @@
             settle_preview: builderActive
                 ? _envBuilderSettleSummary(_envBuilderSettlePreviewState())
                 : _envBuilderSettleSummary(_envCreateBuilderSettlePreviewState()),
+            balance_assertion: builderActive
+                ? _envBuilderBalanceAssertionSummary(_envBuilderSubject._balance_assertion, currentMotionDiagnostics)
+                : _envBuilderBalanceAssertionSummary(_envCreateBuilderBalanceAssertionState(), null),
             load_field_enabled: builderActive ? (_envBuilderInteraction.load_field_enabled !== false) : false,
             load_field_overlay_visible: false,
             authored_clip_count: builderActive ? Number((authoredClipState.clips || []).length || 0) : 0,
@@ -28541,6 +28787,79 @@
                 frame: 0.16
             }
         };
+    }
+
+    function _envTextTheaterQuaternionArray(value, digits) {
+        var src = value && typeof value === 'object' ? value : {};
+        var places = Math.max(0, Math.min(6, parseInt(digits, 10) || 0));
+        return [
+            _envTextTheaterRound(src.x, places, 0),
+            _envTextTheaterRound(src.y, places, 0),
+            _envTextTheaterRound(src.z, places, 0),
+            _envTextTheaterRound(src.w === undefined ? 1 : src.w, places, 1)
+        ];
+    }
+
+    function _envTextTheaterScaffoldAxisInfo(sizeVector) {
+        var size = sizeVector && typeof sizeVector === 'object' ? sizeVector : {};
+        var x = Math.abs(Number(size.x || 0));
+        var y = Math.abs(Number(size.y || 0));
+        var z = Math.abs(Number(size.z || 0));
+        if (x >= y && x >= z) return { axis: 'x', length: x, thicknessA: y, thicknessB: z };
+        if (z >= x && z >= y) return { axis: 'z', length: z, thicknessA: x, thicknessB: y };
+        return { axis: 'y', length: y, thicknessA: x, thicknessB: z };
+    }
+
+    function _envTextTheaterScaffoldSurface(mountedMesh) {
+        if (!mountedMesh || !mountedMesh.userData || typeof THREE === 'undefined') return [];
+        var pieces = mountedMesh.userData._scaffoldPieces;
+        if (!pieces || typeof pieces !== 'object') return [];
+        if (typeof mountedMesh.updateWorldMatrix === 'function') mountedMesh.updateWorldMatrix(true, true);
+        return Object.keys(pieces).map(function (slotName) {
+            var entry = pieces[slotName];
+            var piece = entry && entry.mesh ? entry.mesh : null;
+            var definition = entry && typeof entry.definition === 'object' ? entry.definition : {};
+            if (!piece || !piece.geometry || typeof piece.localToWorld !== 'function') return null;
+            if (typeof piece.updateWorldMatrix === 'function') piece.updateWorldMatrix(true, false);
+            if (!piece.geometry.boundingBox && typeof piece.geometry.computeBoundingBox === 'function') {
+                piece.geometry.computeBoundingBox();
+            }
+            var localBox = piece.geometry.boundingBox;
+            if (!localBox || (typeof localBox.isEmpty === 'function' && localBox.isEmpty())) return null;
+            var localSize = localBox.getSize(new THREE.Vector3());
+            var localCenter = localBox.getCenter(new THREE.Vector3());
+            var axisInfo = _envTextTheaterScaffoldAxisInfo(localSize);
+            var axisVector = axisInfo.axis === 'x'
+                ? new THREE.Vector3(1, 0, 0)
+                : (axisInfo.axis === 'z' ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(0, 1, 0));
+            var halfLength = Math.max(0.0001, Number(axisInfo.length || 0.05) * 0.5);
+            var startWorld = piece.localToWorld(localCenter.clone().add(axisVector.clone().multiplyScalar(-halfLength)));
+            var endWorld = piece.localToWorld(localCenter.clone().add(axisVector.clone().multiplyScalar(halfLength)));
+            var position = piece.getWorldPosition(new THREE.Vector3());
+            var quaternion = piece.getWorldQuaternion(new THREE.Quaternion());
+            var worldScale = piece.getWorldScale(new THREE.Vector3());
+            var primaryRadius = Math.max(0.004, ((Number(axisInfo.thicknessA || 0) + Number(axisInfo.thicknessB || 0)) * 0.25) || 0.02);
+            var material = Array.isArray(piece.material) ? piece.material[0] : piece.material;
+            var colorHex = material && material.color && typeof material.color.getHex === 'function'
+                ? material.color.getHex()
+                : Number(definition.color);
+            return {
+                slot: String(slotName || definition.slot || definition.joint || ''),
+                joint: String(definition.joint || ''),
+                geometry: String(definition.geometry || ''),
+                axis: String(axisInfo.axis || ''),
+                visible: piece.visible !== false,
+                color: isFinite(colorHex) ? _env3DHexToCss(colorHex) : '',
+                center: _envTextTheaterVectorArray(position, 4),
+                quaternion: _envTextTheaterQuaternionArray(quaternion, 5),
+                world_scale: _envTextTheaterVectorArray(worldScale, 4),
+                size_local: _envTextTheaterVectorArray(localSize, 4),
+                segment_start: _envTextTheaterVectorArray(startWorld, 4),
+                segment_end: _envTextTheaterVectorArray(endWorld, 4),
+                radius_start: _envTextTheaterRound(primaryRadius, 4, 0.02),
+                radius_end: _envTextTheaterRound(primaryRadius, 4, 0.02)
+            };
+        }).filter(Boolean);
     }
 
     function _envTextTheaterBoneConnections(blueprint) {
@@ -28916,12 +29235,112 @@
                 + ' (gap ' + _envTextTheaterRound(contact.gap, 3, 0) + ')');
         });
         lines.push('  alerts: ' + ((balance.alert_ids || []).length ? (balance.alert_ids || []).join(', ') : 'none'));
+        var assertion = balance.assertion && typeof balance.assertion === 'object' ? balance.assertion : {};
+        lines.push('ASSERT: ' + (assertion.active
+            ? (String(assertion.summary || 'unchecked') + (assertion.stale ? ' / stale' : ''))
+            : 'unchecked'));
         lines.push('SETTLE: ' + (settle.active ? (String(settle.strategy || '') + ' / ' + String(settle.severity || '') + ' / ' + Number(settle.frame_count || 0) + ' frames') : 'inactive'));
         lines.push('TIMELINE: cursor ' + _envTextTheaterRound(timeline.cursor, 3, 0)
             + ' / duration ' + _envTextTheaterRound(timeline.duration, 3, 0)
             + ' / ' + Number(timeline.key_pose_count || 0) + ' key poses / preset: ' + String(timeline.last_motion_preset || 'none'));
         lines.push('SUMMARY: ' + String(semantic.summary || ''));
         return lines.join('\n');
+    }
+
+    function _envRememberTextTheaterBundle(bundle) {
+        if (!bundle || typeof bundle !== 'object') return null;
+        var snapshot = bundle.snapshot && typeof bundle.snapshot === 'object' ? bundle.snapshot : null;
+        var theater = String(bundle.theater || '').trim();
+        var embodiment = String(bundle.embodiment || '').trim();
+        if (!snapshot || (!theater && !embodiment)) return null;
+        _envTextTheaterState.bundle = _envCloneJson({
+            snapshot: snapshot,
+            theater: theater,
+            embodiment: embodiment
+        }, null);
+        _envTextTheaterState.updatedTs = Date.now();
+        return _envCloneJson(_envTextTheaterState.bundle, null);
+    }
+
+    function _envCachedTextTheaterBundle() {
+        if (_envTextTheaterState.bundle && typeof _envTextTheaterState.bundle === 'object') {
+            return _envCloneJson(_envTextTheaterState.bundle, null);
+        }
+        var mirrorShared = _envMirrorState && _envMirrorState.sharedState && typeof _envMirrorState.sharedState === 'object'
+            ? _envMirrorState.sharedState
+            : null;
+        var mirrorBundle = mirrorShared && mirrorShared.text_theater && typeof mirrorShared.text_theater === 'object'
+            ? mirrorShared.text_theater
+            : null;
+        return mirrorBundle ? _envRememberTextTheaterBundle(mirrorBundle) : null;
+    }
+
+    function _envPatchTextTheaterSnapshotForCamera(snapshot, camera3d, focusSnapshot, reason) {
+        if (!snapshot || typeof snapshot !== 'object') return null;
+        var patched = _envCloneJson(snapshot, null) || {};
+        var now = Date.now();
+        var cameraPosition = _envTextTheaterVectorObject((camera3d || {}).position, 3);
+        var cameraTarget = _envTextTheaterVectorObject((camera3d || {}).target, 3);
+        var viewportWidth = Number((((_env3D.renderer || {}).domElement || {}).clientWidth) || (((((patched.scene || {}).viewport) || {}).width)) || 0);
+        var viewportHeight = Number((((_env3D.renderer || {}).domElement || {}).clientHeight) || (((((patched.scene || {}).viewport) || {}).height)) || 0);
+        var cameraAspect = viewportWidth > 0 && viewportHeight > 0 ? Number((viewportWidth / viewportHeight).toFixed(4)) : 0;
+        var cameraFov = Number((((_env3D.camera || {}).fov)) || 50);
+        var cameraForward = _envTextTheaterNormalizeDirection({
+            x: Number(cameraTarget.x || 0) - Number(cameraPosition.x || 0),
+            y: Number(cameraTarget.y || 0) - Number(cameraPosition.y || 0),
+            z: Number(cameraTarget.z || 0) - Number(cameraPosition.z || 0)
+        });
+        var cameraUp = _env3D.camera && _env3D.camera.up ? _envTextTheaterNormalizeDirection(_env3D.camera.up) : { x: 0, y: 1, z: 0 };
+        patched.snapshot_timestamp = Number(now || 0);
+        patched.source_timestamp = Number(now || 0);
+        patched.last_sync_reason = String(reason || patched.last_sync_reason || '');
+        patched.stale_flags = Object.assign({}, patched.stale_flags || {}, { mirror_lag: false });
+        patched.theater = Object.assign({}, patched.theater || {}, {
+            focus: focusSnapshot && typeof focusSnapshot === 'object'
+                ? {
+                    kind: String(focusSnapshot.kind || ''),
+                    id: String(focusSnapshot.id || ''),
+                    target_class: String(focusSnapshot.target_class || '')
+                }
+                : Object.assign({}, ((patched.theater || {}).focus) || {}),
+            camera: {
+                mode: String((camera3d || {}).mode || (((patched.theater || {}).camera || {}).mode) || ''),
+                distance: _envTextTheaterRound((camera3d || {}).distance, 3, 0),
+                azimuth: _envTextTheaterRound((camera3d || {}).azimuth, 4, 0),
+                polar: _envTextTheaterRound((camera3d || {}).polar, 4, 0),
+                fov_degrees: _envTextTheaterRound(cameraFov, 3, 0),
+                aspect: _envTextTheaterRound(cameraAspect, 4, 0),
+                viewport: {
+                    width: Number(viewportWidth || 0),
+                    height: Number(viewportHeight || 0)
+                },
+                position: cameraPosition,
+                target: cameraTarget,
+                forward: cameraForward,
+                up: cameraUp
+            }
+        });
+        return patched;
+    }
+
+    function _envBuildCameraTextTheaterBundle(reason, camera3d, focusSnapshot) {
+        var cachedBundle = _envCachedTextTheaterBundle();
+        if (!cachedBundle && typeof window.envopsGetSharedState === 'function') {
+            try {
+                var sharedState = window.envopsGetSharedState();
+                if (sharedState && typeof sharedState === 'object' && sharedState.text_theater && typeof sharedState.text_theater === 'object') {
+                    cachedBundle = _envRememberTextTheaterBundle(sharedState.text_theater);
+                }
+            } catch (ignored) { }
+        }
+        if (!cachedBundle || typeof cachedBundle !== 'object') return null;
+        var snapshot = _envPatchTextTheaterSnapshotForCamera(cachedBundle.snapshot, camera3d, focusSnapshot, reason);
+        if (!snapshot || typeof snapshot !== 'object') return null;
+        return _envRememberTextTheaterBundle({
+            snapshot: snapshot,
+            theater: _envRenderTextTheaterOutput(snapshot, 'theater'),
+            embodiment: String(cachedBundle.embodiment || '')
+        });
     }
 
     function _envBuildTextTheaterSnapshot(sharedState, context) {
@@ -29093,12 +29512,16 @@
                 motion_diagnostics: _envCloneJson((workbenchSurface || {}).motion_diagnostics, null),
                 load_field: _envCloneJson((workbenchSurface || {}).load_field, null),
                 latest_time_strip_motion_summary: _envCloneJson((workbenchSurface || {}).latest_time_strip_motion_summary, null),
-                builder_blueprint: _envCloneJson((workbenchSurface || {}).builder_blueprint, null)
+                builder_blueprint: _envCloneJson((workbenchSurface || {}).builder_blueprint, null),
+                balance_assertion: _envCloneJson((workbenchSurface || {}).balance_assertion, null),
+                skeleton_visible: !!((workbenchSurface || {}).skeleton_visible)
             },
             embodiment: {
                 builder_active: !!((workbenchSurface || {}).builder_active),
                 family: String((workbenchSurface || {}).builder_family || ((blueprint || {}).family) || ''),
+                skeleton_visible: !!((workbenchSurface || {}).skeleton_visible),
                 scaffold_visible: !!((workbenchSurface || {}).scaffold_visible),
+                scaffold_pieces: _envCloneJson((workbenchSurface || {}).scaffold_surface, []),
                 editing_mode: String((workbenchSurface || {}).editing_mode || ''),
                 selected_bone_ids: _slotUniqueStrings((workbenchSurface || {}).selected_bone_ids || []),
                 posed_bone_ids: _slotUniqueStrings((workbenchSurface || {}).posed_bone_ids || []),
@@ -29130,7 +29553,8 @@
                 inside_polygon: !!((loadField || {}).inside_support_polygon),
                 dominant_side: String((loadField || {}).dominant_support_side || 'balanced'),
                 supporting_joint_ids: _slotUniqueStrings((diagnostics || {}).supporting_ids || []),
-                alert_ids: _slotUniqueStrings((diagnostics || {}).alerts || [])
+                alert_ids: _slotUniqueStrings((diagnostics || {}).alerts || []),
+                assertion: _envCloneJson((workbenchSurface || {}).balance_assertion, null)
             },
             contacts: balanceContacts.map(function (contact) {
                 return {
@@ -34049,7 +34473,9 @@
 
     function _envIsCameraOnlyLiveSyncReason(reason) {
         var text = String(reason || '').toLowerCase();
-        return text === 'camera' || text.indexOf('camera:') === 0;
+        return text === 'camera'
+            || text.indexOf('camera:') === 0
+            || text.indexOf('heartbeat:camera_drift') === 0;
     }
 
     function _envIsDeferredMirrorRefreshReason(reason) {
@@ -34062,7 +34488,12 @@
     function _envShouldAttachTextTheaterToCameraSync(reason) {
         var text = String(reason || '').toLowerCase();
         return text.indexOf('camera:manual:end') >= 0
-            || text.indexOf('camera:session_restore') >= 0;
+            || text.indexOf('camera:manual:change') >= 0
+            || text.indexOf('camera:session_restore') >= 0
+            || text.indexOf('camera:preset:') >= 0
+            || text.indexOf('camera:turntable') >= 0
+            || text.indexOf('camera:turntable:start') >= 0
+            || text.indexOf('camera:turntable:stop') >= 0;
     }
 
     function _envBuildCameraLiveSyncPayload(reason) {
@@ -34072,14 +34503,14 @@
         var focusSnapshot = Object.assign({}, _envKernel.focus || {});
         focusSnapshot.target_class = _envFocusTargetClass(focusSnapshot);
         var textTheater = null;
-        if (_envShouldAttachTextTheaterToCameraSync(reason)
-            && typeof window.envopsGetSharedState === 'function') {
-            try {
-                var sharedState = window.envopsGetSharedState();
-                if (sharedState && typeof sharedState === 'object' && sharedState.text_theater && typeof sharedState.text_theater === 'object') {
-                    textTheater = _envCloneJson(sharedState.text_theater, null);
-                }
-            } catch (ignored) { }
+        if (_envShouldAttachTextTheaterToCameraSync(reason)) {
+            textTheater = _envBuildCameraTextTheaterBundle(reason, camera3d, focusSnapshot);
+            if (textTheater && typeof textTheater === 'object') {
+                textTheater = {
+                    snapshot: _envCloneJson(textTheater.snapshot, null),
+                    theater: String(textTheater.theater || '')
+                };
+            }
         }
         var partialSharedState = {
             focus: focusSnapshot,
@@ -34089,6 +34520,9 @@
             },
             live_sync: _envCloneJson(_envLiveSyncDiagnosticSnapshot(Date.now()), null)
         };
+        if (partialSharedState.live_sync && typeof partialSharedState.live_sync === 'object') {
+            partialSharedState.live_sync.camera_pulse_seq = Number(_env3D.cameraPulseSeq || 0);
+        }
         if (textTheater) {
             partialSharedState.text_theater = textTheater;
         }
@@ -34270,6 +34704,13 @@
         return 4500;
     }
 
+    function _envLiveSyncCameraSupersedeGraceMs(reason) {
+        var text = String(reason || '').toLowerCase();
+        if (text.indexOf('turntable') >= 0) return 260;
+        if (text.indexOf('manual:change') >= 0 || text.indexOf('manual:wheel') >= 0) return 180;
+        return 120;
+    }
+
     function _envLiveSyncHasOrphanedQueue() {
         return !!(_envLiveSyncState.queued && !_envLiveSyncState.inFlight && !_envLiveSyncState.timer);
     }
@@ -34365,34 +34806,98 @@
                 try { controller.abort(); } catch (ignored) { }
             }, timeoutMs);
         }
-        return fetch('/api/tool/env_persist', {
+        return fetch('/api/live-sync', {
             method: 'POST',
             cache: 'no-store',
             headers: { 'Content-Type': 'application/json' },
             signal: controller ? controller.signal : undefined,
             body: JSON.stringify({
-                operation: 'sync_live',
-                params: JSON.stringify({ payload: payload }),
-                __source: 'hydration'
+                payload: payload
             })
         }).then(function (response) {
             return response.text().then(function (text) {
-                var outer = null;
-                try { outer = JSON.parse(text); } catch (ignored) { }
-                var payloadObj = _envNormalizeEnvironmentPayload((outer && outer.result) ? outer.result : outer)
-                    || _envNormalizeEnvironmentPayload(text);
+                var payloadObj = null;
+                try { payloadObj = JSON.parse(text); } catch (ignored) { }
                 if (!response.ok) {
                     if (!payloadObj || typeof payloadObj !== 'object') {
                         payloadObj = { error: 'sync_live failed (' + String(response.status || 0) + ')' };
                     } else if (!payloadObj.error) {
                         payloadObj.error = 'sync_live failed (' + String(response.status || 0) + ')';
                     }
+                } else {
+                    payloadObj = { live_state: _envCloneJson(payload, null) };
                 }
                 return payloadObj;
             });
         }).finally(function () {
             if (timeoutHandle) clearTimeout(timeoutHandle);
         });
+    }
+
+    function _env3DFlushQueuedCameraPulse() {
+        if (!_env3D.cameraPulseQueued) return false;
+        var queuedReason = String(_env3D.cameraPulseQueuedReason || 'camera:turntable');
+        _env3D.cameraPulseQueued = false;
+        _env3D.cameraPulseQueuedReason = '';
+        return _env3DSendCameraPulse(queuedReason);
+    }
+
+    function _env3DSendCameraPulse(reason) {
+        var syncReason = String(reason || 'camera:turntable');
+        if (!_envCanPublishLiveSync()) return false;
+        _env3D.cameraPulseSeq = Number(_env3D.cameraPulseSeq || 0) + 1;
+        var payload = _envBuildCameraLiveSyncPayload(syncReason);
+        if (!payload || typeof payload !== 'object') return false;
+        var signature = _envLiveSyncSignature(payload);
+        if (!signature) return false;
+        var now = Date.now();
+        if (!Number(_env3D.cameraPulseInFlightCount || 0)
+            && signature === String(_env3D.cameraPulseLastSignature || '')
+            && (now - Number(_env3D.cameraPulseLastTs || 0)) < 70) {
+            return false;
+        }
+        if (Number(_env3D.cameraPulseInFlightCount || 0) >= Math.max(1, Number(_env3D.cameraPulseMaxInFlight || 2))) {
+            _env3D.cameraPulseQueued = true;
+            _env3D.cameraPulseQueuedReason = syncReason;
+            return false;
+        }
+        _env3D.cameraPulseInFlightCount = Number(_env3D.cameraPulseInFlightCount || 0) + 1;
+        _env3D.cameraPulseLastSignature = signature;
+        _env3D.cameraPulseLastTs = now;
+        var controller = typeof AbortController === 'function' ? new AbortController() : null;
+        _env3D.cameraPulseController = controller;
+        var timeoutHandle = 0;
+        if (controller) {
+            timeoutHandle = setTimeout(function () {
+                try { controller.abort(); } catch (ignored) { }
+            }, 300);
+        }
+        fetch('/api/live-sync', {
+            method: 'POST',
+            cache: 'no-store',
+            headers: { 'Content-Type': 'application/json' },
+            signal: controller ? controller.signal : undefined,
+            body: JSON.stringify({
+                payload: payload
+            })
+        }).then(function (response) {
+            return response.text().then(function (text) {
+                var ack = null;
+                try { ack = JSON.parse(text); } catch (ignored) { }
+                if (response.ok && ack && typeof ack === 'object' && !ack.error) {
+                    _envStoreMirroredState({ live_state: _envCloneJson(payload, null) }, '__env_turntable_camera_pulse__', 'hydration');
+                }
+            });
+        }).catch(function (ignored) {
+        }).finally(function () {
+            if (timeoutHandle) clearTimeout(timeoutHandle);
+            _env3D.cameraPulseInFlightCount = Math.max(0, Number(_env3D.cameraPulseInFlightCount || 0) - 1);
+            _env3D.cameraPulseController = null;
+            if (Number(_env3D.cameraPulseInFlightCount || 0) < Math.max(1, Number(_env3D.cameraPulseMaxInFlight || 2))) {
+                _env3DFlushQueuedCameraPulse();
+            }
+        });
+        return true;
     }
 
     function _envFlushLiveSync(force) {
@@ -34436,6 +34941,33 @@
                 _envMaybeRefreshLiveMirrorSurface(pendingReason, false);
                 return false;
             }
+            var activeReason = String((((_envLiveSyncState.inFlightPayload || {}).reason) || '') || '');
+            var supersedeCameraOnly = _envIsCameraOnlyLiveSyncReason(pendingReason) && _envIsCameraOnlyLiveSyncReason(activeReason);
+            if (supersedeCameraOnly) {
+                var inFlightAgeMs = Math.max(0, Date.now() - Number(_envLiveSyncState.inFlightStartedTs || _envLiveSyncState.lastAttemptTs || 0));
+                var supersedeGraceMs = _envLiveSyncCameraSupersedeGraceMs(pendingReason || activeReason);
+                if (inFlightAgeMs < supersedeGraceMs) {
+                    _envLiveSyncState.queued = true;
+                    _envLiveSyncState.queuedForce = !!(_envLiveSyncState.queuedForce || effectiveForce);
+                    _envLiveSyncState.pendingSignature = signature;
+                    _envLiveSyncState.lastStatus = 'queued';
+                    _envLiveSyncState.lastSkippedReason = 'camera_only_waiting';
+                    _envMaybeRefreshLiveMirrorSurface(pendingReason, false);
+                    return false;
+                }
+                var activeController = _envLiveSyncState.activeAbortController;
+                if (activeController && typeof activeController.abort === 'function') {
+                    try { activeController.abort(); } catch (ignored) { }
+                }
+                _envLiveSyncState.activeAbortController = null;
+                _envLiveSyncState.activeRequestId = 0;
+                _envLiveSyncState.inFlight = false;
+                _envLiveSyncState.inFlightStartedTs = 0;
+                _envLiveSyncState.inFlightPayload = null;
+                _envLiveSyncState.inFlightSignature = '';
+                _envLiveSyncState.lastStatus = 'superseded';
+                _envLiveSyncState.lastSkippedReason = 'camera_only_replaced';
+            } else {
             _envLiveSyncState.queued = true;
             _envLiveSyncState.queuedForce = !!(_envLiveSyncState.queuedForce || effectiveForce);
             _envLiveSyncState.pendingSignature = signature;
@@ -34443,6 +34975,7 @@
             _envLiveSyncState.lastSkippedReason = '';
             _envMaybeRefreshLiveMirrorSurface(pendingReason, false);
             return false;
+            }
         }
         _envLiveSyncState.inFlight = true;
         _envLiveSyncState.queued = false;
@@ -34681,7 +35214,15 @@
         poseOffset: { azimuth: 0, polar: 0, distanceScale: 1, targetX: 0, targetY: 0, targetZ: 0 },
         manualControlActive: false,
         manualCommitTimer: 0,
-        lastManualReason: ''
+        lastManualReason: '',
+        cameraPulseInFlightCount: 0,
+        cameraPulseQueued: false,
+        cameraPulseQueuedReason: '',
+        cameraPulseController: null,
+        cameraPulseLastTs: 0,
+        cameraPulseLastSignature: '',
+        cameraPulseSeq: 0,
+        cameraPulseMaxInFlight: 2
     };
 
     function _env3DResolvePhysicsGroundY() {
@@ -41419,15 +41960,20 @@
 
     function _env3DQueueLiveMirrorSync(reason, immediate) {
         var syncReason = String(reason || 'camera:manual');
-        var minGap = immediate ? 0 : 33;
+        var text = syncReason.toLowerCase();
+        var minGap = 16;
+        if (immediate) minGap = 0;
+        else if (text.indexOf('camera:turntable') >= 0) minGap = 120;
+        else if (text.indexOf('camera:manual:change') >= 0 || text.indexOf('camera:manual:wheel') >= 0) minGap = 72;
+        _env3D.lastLiveMirrorReason = syncReason;
         if (_env3D.liveMirrorTimer) {
+            if (!immediate) return;
             clearTimeout(_env3D.liveMirrorTimer);
             _env3D.liveMirrorTimer = 0;
         }
         var now = Date.now();
         var elapsed = now - Number(_env3D.lastLiveMirrorTs || 0);
         var delay = minGap <= 0 ? 0 : Math.max(0, minGap - elapsed);
-        _env3D.lastLiveMirrorReason = syncReason;
         _env3D.liveMirrorTimer = setTimeout(function () {
             _env3D.liveMirrorTimer = 0;
             _env3D.lastLiveMirrorTs = Date.now();
@@ -46089,6 +46635,11 @@
         var baseMetrics = _env3DWorkbenchVisibleBuilderMetrics(mesh) || _env3DWorkbenchObjectMetrics(group);
         _envBuilderApplyIsolationToMesh(mesh);
         if (baseMetrics) _env3DStageBuilderPartWorkCell(mesh, group, baseMetrics);
+        if (_envIsMountedCharacterRuntimeObject(mesh.userData.sceneObject || null)) {
+            // Builder staging changes the visible body bounds, so the old support offset can be stale.
+            mesh.userData._supportOffsetY = 0;
+            _envInhabitantSnapMeshToSupport(mesh, Number(mesh.position.y || 0));
+        }
         return true;
     }
 
@@ -48059,6 +48610,11 @@
             offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), angle);
             _env3D.camera.position.copy(_env3D.controls.target).add(offset);
             _env3D.camera.lookAt(_env3D.controls.target);
+            var turntableNow = Date.now();
+            if ((turntableNow - Number(_env3D.cameraPulseLastTs || 0)) >= 50) {
+                _env3D.lastLiveMirrorReason = 'camera:turntable';
+                _env3DSendCameraPulse('camera:turntable');
+            }
         }
         _env3D.controls.update();
         if (_env3D.composer) {
@@ -49148,6 +49704,7 @@
             '<option value="workbench_apply_motion_preset">workbench_apply_motion_preset</option>' +
             '<option value="workbench_preview_settle">workbench_preview_settle</option>' +
             '<option value="workbench_commit_settle">workbench_commit_settle</option>' +
+            '<option value="workbench_assert_balance">workbench_assert_balance</option>' +
             '<option value="workbench_reset_angles">workbench_reset_angles</option>' +
              '<option value="workbench_isolate_chain">workbench_isolate_chain</option>' +
              '<option value="workbench_save_blueprint">workbench_save_blueprint</option>' +
@@ -56388,6 +56945,7 @@
                 if (action === 'workbench-toggle-turntable') {
                     _env3D.workbenchTurntable = !_env3D.workbenchTurntable;
                     _envSaveTheaterSession('workbench:turntable');
+                    _envScheduleLiveSync('camera:turntable:' + (_env3D.workbenchTurntable ? 'start' : 'stop'), true);
                     renderEnvironmentView();
                     return;
                 }
@@ -57282,6 +57840,14 @@
         }
         _envQueueControl('workbench_commit_settle', payload, actor || 'assistant', reason || 'external workbench commit settle');
     };
+    window.envopsWorkbenchAssertBalance = function (spec, actor, reason) {
+        var payload = '';
+        if (typeof spec === 'string') payload = spec;
+        else if (spec !== undefined && spec !== null) {
+            try { payload = JSON.stringify(spec); } catch (ignored) { payload = String(spec || ''); }
+        }
+        _envQueueControl('workbench_assert_balance', payload, actor || 'assistant', reason || 'external workbench assert balance');
+    };
     window.envopsWorkbenchResetAngles = function (target, actor, reason) {
         var payload = '';
         if (typeof target === 'string') payload = target;
@@ -57423,12 +57989,20 @@
         return JSON.parse(JSON.stringify(_envBuildLayoutSnapshot()));
     };
     window.envopsGetTextTheaterSnapshot = function () {
-        var sharedState = window.envopsGetSharedState();
-        return JSON.parse(JSON.stringify((((sharedState || {}).text_theater || {}).snapshot) || null));
+        var bundle = _envCachedTextTheaterBundle();
+        if (!bundle) {
+            var sharedState = window.envopsGetSharedState();
+            bundle = sharedState && typeof sharedState === 'object' ? _envRememberTextTheaterBundle(sharedState.text_theater) : null;
+        }
+        return JSON.parse(JSON.stringify(((bundle || {}).snapshot) || null));
     };
     window.envopsGetTextTheaterOutput = function (mode) {
-        var sharedState = window.envopsGetSharedState();
-        var textTheater = ((sharedState || {}).text_theater) || {};
+        var textTheater = _envCachedTextTheaterBundle();
+        if (!textTheater) {
+            var sharedState = window.envopsGetSharedState();
+            textTheater = sharedState && typeof sharedState === 'object' ? _envRememberTextTheaterBundle(sharedState.text_theater) : null;
+        }
+        textTheater = textTheater || {};
         var targetMode = String(mode || 'embodiment').trim().toLowerCase();
         if (targetMode === 'snapshot') return JSON.parse(JSON.stringify(textTheater.snapshot || null));
         if (targetMode === 'theater') return String(textTheater.theater || '');
@@ -57679,6 +58253,7 @@
             theater: _envRenderTextTheaterOutput(textTheaterSnapshot, 'theater'),
             embodiment: _envRenderTextTheaterOutput(textTheaterSnapshot, 'embodiment')
         };
+        _envRememberTextTheaterBundle(sharedState.text_theater);
         return sharedState;
     };
     window.envopsGetHealthSnapshot = function () {
