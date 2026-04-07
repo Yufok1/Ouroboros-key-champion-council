@@ -2905,6 +2905,62 @@ def render_text_theater_view(
     }
 
 
+def render_text_theater_shared_state(
+    shared_state,
+    synced_at=None,
+    view_mode="split",
+    width=140,
+    height=44,
+    diagnostics_visible=False,
+    section_key="theater",
+):
+    width = max(80, int(width or 80))
+    height = max(24, int(height or 24))
+    section_lookup = {key: label for key, label in PANE_SECTIONS}
+    section_name = str(section_key or "theater").strip().lower()
+    if section_name not in section_lookup:
+        section_name = "theater"
+    mode = str(view_mode or "split").strip().lower()
+    if mode not in {"render", "split", "theater", "embodiment", "snapshot", "consult"}:
+        mode = "split"
+    shared = shared_state if isinstance(shared_state, dict) else {}
+    text_theater = shared.get("text_theater") if isinstance(shared.get("text_theater"), dict) else {}
+    snapshot = text_theater.get("snapshot") if isinstance(text_theater.get("snapshot"), dict) else {}
+    if isinstance(snapshot, dict) and snapshot:
+        live_state = {"shared_state": shared}
+        if synced_at is not None:
+            live_state["synced_at"] = synced_at
+        snapshot = _merge_live_camera_into_snapshot(snapshot, live_state)
+        theater_text, embodiment_text = _local_text_outputs(snapshot, mode)
+    else:
+        snapshot = {}
+        theater_text = str(text_theater.get("theater") or "") if mode in {"theater", "split"} else ""
+        embodiment_text = str(text_theater.get("embodiment") or "") if mode in {"embodiment", "split"} else ""
+    history = _append_motion_history([], snapshot)
+    frame = _render_frame(
+        snapshot=snapshot,
+        theater_text=theater_text,
+        embodiment_text=embodiment_text,
+        view_mode=mode,
+        section_key=section_name,
+        width=width,
+        height=height,
+        diagnostics_visible=bool(diagnostics_visible),
+        history=history,
+    )
+    return {
+        "frame": ANSI_RE.sub("", frame),
+        "snapshot": snapshot,
+        "theater_text": theater_text,
+        "embodiment_text": embodiment_text,
+        "view_mode": mode,
+        "section_key": section_name,
+        "width": width,
+        "height": height,
+        "diagnostics": bool(diagnostics_visible),
+    }
+
+
 def _run(args):
     _configure_stdout()
     _enable_vt_mode()

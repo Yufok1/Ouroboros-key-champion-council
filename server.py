@@ -4535,6 +4535,7 @@ def _env_read_live_cache_payload(query_text: str) -> dict | None:
     query_lower = str(query_text or "").strip().lower()
     if query_lower not in {
         "live",
+        "live_sync",
         "shared_state",
         "contracts",
         "habitat_objects",
@@ -4549,6 +4550,21 @@ def _env_read_live_cache_payload(query_text: str) -> dict | None:
         return None
     shared_state = live_state.get("shared_state") if isinstance(live_state.get("shared_state"), dict) else {}
     text_theater = shared_state.get("text_theater") if isinstance(shared_state.get("text_theater"), dict) else {}
+    if query_lower == "live_sync":
+        live_sync = shared_state.get("live_sync")
+        if not isinstance(live_sync, dict):
+            return None
+        return {
+            "tool": "env_read",
+            "status": "ok",
+            "summary": "Read live_sync from server live cache",
+            "normalized_args": {"query": query_text},
+            "delta": {"found": True, "type": "live_sync", "updated_ms": (cached or {}).get("updated_ms", 0)},
+            "operation": "env_read",
+            "operation_status": "ok",
+            "query": query_text,
+            "live_sync": _json_clone(live_sync),
+        }
     field_map = {
         "text_theater_snapshot": "snapshot",
         "text_theater": "theater",
@@ -4626,12 +4642,16 @@ def _env_text_theater_view_payload(args: dict | None = None) -> dict:
         timeout = 5.0
     diagnostics_value = args.get("diagnostics", False)
     diagnostics = diagnostics_value if isinstance(diagnostics_value, bool) else str(diagnostics_value or "").strip().lower() in {"1", "true", "yes", "on"}
-    base_url = f"http://{os.environ.get('WEB_HOST', '127.0.0.1')}:{int(os.environ.get('WEB_PORT', '7866') or '7866')}"
     try:
+        cached = _env_live_cache_snapshot()
+        live_state = (cached or {}).get("live_state") if isinstance(cached, dict) else None
+        shared_state = live_state.get("shared_state") if isinstance((live_state or {}).get("shared_state"), dict) else None
+        if not isinstance(shared_state, dict):
+            raise RuntimeError("No shared_state available in live cache")
         module = _load_text_theater_module()
-        rendered = module.render_text_theater_view(
-            base_url=base_url,
-            timeout=timeout,
+        rendered = module.render_text_theater_shared_state(
+            shared_state=shared_state,
+            synced_at=(live_state or {}).get("synced_at"),
             view_mode=view_mode,
             width=width,
             height=height,
@@ -8111,12 +8131,6 @@ async def proxy_tool_call(tool_name: str, request: Request):
     env_read_proxy_payload = await _env_read_local_proxy_payload_async(body if isinstance(body, dict) else {})
     if tool_name == "env_read" and env_read_proxy_payload is not None:
         err_msg = env_read_proxy_payload.get("error") if isinstance(env_read_proxy_payload, dict) else None
-        env_read_query = str((body or {}).get("query", "") or "").strip().lower() if isinstance(body, dict) else ""
-        # debug_state is a local summary over the activity/debug mirror itself.
-        # Broadcasting it back into the activity stream creates a reflexive read
-        # path that can destabilize repeated debug_state calls.
-        if env_read_query != "debug_state":
-            _broadcast_activity(tool_name, body if isinstance(body, dict) else {}, env_read_proxy_payload, 0, err_msg, source=source, client_id=client_id)
         if err_msg:
             return JSONResponse(status_code=400, content=env_read_proxy_payload)
         return {"result": {"content": [{"type": "text", "text": json.dumps(env_read_proxy_payload)}], "isError": False}}
@@ -9973,7 +9987,6 @@ async def _handle_streamable_rpc(obj: dict, client_id: str) -> dict | None:
         env_read_proxy_payload = await _env_read_local_proxy_payload_async(args)
         if tool_name == "env_read" and env_read_proxy_payload is not None:
             err_msg = env_read_proxy_payload.get("error") if isinstance(env_read_proxy_payload, dict) else None
-            _broadcast_activity(tool_name, args, env_read_proxy_payload, 0, err_msg, source="external", client_id=client_id)
             if err_msg:
                 return _rpc_error(rpc_id, -32603, err_msg, env_read_proxy_payload)
             return {"jsonrpc": "2.0", "id": rpc_id, "result": {"content": [{"type": "text", "text": json.dumps(env_read_proxy_payload)}], "isError": False}}

@@ -101,6 +101,8 @@
         timer: 0,
         inFlight: false,
         queued: false,
+        queuedForce: false,
+        pendingForce: false,
         pendingReason: '',
         error: '',
         lastStatus: 'idle',
@@ -12392,7 +12394,7 @@
         }
         if (restoreRuntimeSyncNeeded) {
             _envRefreshInhabitantRuntimeState('theater_session_restore');
-            _envScheduleLiveSync('theater_session_restore', true);
+            _envScheduleLiveSync('camera:session_restore', true);
             _envSaveTheaterSession('theater_session_restore');
         }
         _envScene.dirty = true;
@@ -28723,6 +28725,80 @@
         };
     }
 
+    function _envBuildTextTheaterSceneSummary(snapshot) {
+        var view = snapshot && typeof snapshot === 'object' ? snapshot : {};
+        var theater = view.theater && typeof view.theater === 'object' ? view.theater : {};
+        var scene = view.scene && typeof view.scene === 'object' ? view.scene : {};
+        var runtime = view.runtime && typeof view.runtime === 'object' ? view.runtime : {};
+        var workbench = view.workbench && typeof view.workbench === 'object' ? view.workbench : {};
+        var balance = view.balance && typeof view.balance === 'object' ? view.balance : {};
+        var settle = view.settle && typeof view.settle === 'object' ? view.settle : {};
+        var semantic = view.semantic && typeof view.semantic === 'object' ? view.semantic : {};
+        var selectedBoneIds = Array.isArray(workbench.selected_bone_ids) ? workbench.selected_bone_ids : [];
+        var posedBoneIds = Array.isArray(workbench.posed_bone_ids) ? workbench.posed_bone_ids : [];
+        var supportingJointIds = Array.isArray(balance.supporting_joint_ids) ? balance.supporting_jointIds : null;
+        if (!Array.isArray(supportingJointIds)) supportingJointIds = Array.isArray(balance.supporting_joint_ids) ? balance.supporting_joint_ids : [];
+        var alertIds = Array.isArray(balance.alert_ids) ? balance.alert_ids : [];
+        var nearbyRows = (Array.isArray(scene.focus_neighborhood) ? scene.focus_neighborhood : []).slice(0, 3).map(function (row) {
+            return {
+                label: String((row && (row.label || row.object_key || row.id)) || ''),
+                kind: String((row && row.kind) || ''),
+                distance: _envTextTheaterRound((row || {}).distance, 2, 0)
+            };
+        });
+        var camera = theater.camera && typeof theater.camera === 'object' ? theater.camera : {};
+        var freshText = view.stale_flags && view.stale_flags.mirror_lag ? 'lagged' : 'fresh';
+        var textLines = [
+            'FOCUS: ' + String((((theater.focus || {}).kind) || 'unknown')) + ' / ' + String((((theater.focus || {}).id) || 'none')) + ' / ' + String(theater.visual_mode || ''),
+            'SELECTION: ' + (selectedBoneIds.length ? selectedBoneIds.join(', ') : 'none') + ' / posed ' + posedBoneIds.length,
+            'BALANCE: ' + String(balance.support_phase || 'unknown') + ' / risk ' + _envTextTheaterRound(balance.stability_risk, 2, 0) + ' / alerts ' + (alertIds.length ? alertIds.join(', ') : 'none'),
+            'CAMERA: ' + String(camera.mode || '') + ' / dist ' + _envTextTheaterRound(camera.distance, 2, 0),
+            'NEARBY: ' + (nearbyRows.length ? nearbyRows.map(function (row) {
+                return row.label + ' ' + String(row.distance) + 'm';
+            }).join(', ') : 'none'),
+            'LAST: ' + String(view.last_action || 'none') + ' / sync ' + String(view.last_sync_reason || 'unknown') + ' / ' + freshText
+        ];
+        return {
+            summary: String(semantic.summary || '').trim(),
+            text: textLines.join('\n'),
+            who: {
+                focus_kind: String((((theater.focus || {}).kind) || '')),
+                focus_id: String((((theater.focus || {}).id) || '')),
+                visual_mode: String(theater.visual_mode || ''),
+                runtime_mode: String(runtime.mode || ''),
+                selected_bone_ids: selectedBoneIds,
+                posed_bone_ids: posedBoneIds
+            },
+            where: {
+                camera_mode: String(camera.mode || ''),
+                camera_distance: _envTextTheaterRound(camera.distance, 2, 0),
+                camera_position: _envCloneJson(camera.position || null, null),
+                camera_target: _envCloneJson(camera.target || null, null),
+                scene_object_count: Number(scene.object_count || 0),
+                nearby: nearbyRows
+            },
+            what: {
+                support_phase: String(balance.support_phase || ''),
+                stability_risk: _envTextTheaterRound(balance.stability_risk, 3, 0),
+                dominant_side: String(balance.dominant_side || ''),
+                supporting_joint_ids: supportingJointIds,
+                alert_ids: alertIds,
+                settle: {
+                    active: !!settle.active,
+                    strategy: String(settle.strategy || ''),
+                    severity: String(settle.severity || '')
+                }
+            },
+            when: {
+                last_action: String(view.last_action || ''),
+                last_sync_reason: String(view.last_sync_reason || ''),
+                snapshot_timestamp: Number(view.snapshot_timestamp || 0),
+                source_timestamp: Number(view.source_timestamp || 0),
+                mirror_lag: !!(view.stale_flags && view.stale_flags.mirror_lag)
+            }
+        };
+    }
+
     function _envTextTheaterBoneTreeLines(bones, contacts) {
         var rows = Array.isArray(bones) ? bones.slice() : [];
         var contactMap = {};
@@ -33601,25 +33677,8 @@
     }
 
     function _envBuildLiveMirrorSurface() {
-        var hasLive = !!_envMirrorState.live;
         var now = Date.now();
-        var sync = {
-            status: String(_envLiveSyncState.lastStatus || (hasLive ? 'ok' : 'idle')),
-            error: String(_envLiveSyncState.error || ''),
-            queued: !!_envLiveSyncState.queued,
-            in_flight: !!_envLiveSyncState.inFlight,
-            eligible: _envCanPublishLiveSync(),
-            has_live_state: hasLive,
-            last_reason: String(_envLiveSyncState.lastAttemptReason || _envLiveSyncState.pendingReason || ''),
-            last_skipped_reason: String(_envLiveSyncState.lastSkippedReason || ''),
-            attempt_count: Number(_envLiveSyncState.attemptCount || 0),
-            success_count: Number(_envLiveSyncState.successCount || 0),
-            last_attempt_ts: Number(_envLiveSyncState.lastAttemptTs || 0),
-            last_synced_ts: Number(_envLiveSyncState.lastSyncedTs || 0),
-            last_signature: String(_envLiveSyncState.lastSignature || ''),
-            last_synced_signature: String(_envLiveSyncState.lastSyncedSignature || ''),
-            last_sync_age_ms: Number(_envLiveSyncState.lastSyncedTs ? Math.max(0, now - _envLiveSyncState.lastSyncedTs) : -1)
-        };
+        var sync = _envLiveSyncDiagnosticSnapshot(now);
         var surface = {
             sync: sync,
             state_excerpt: _envCloneJson(_envMirrorState.stateExcerpt, null),
@@ -33642,6 +33701,29 @@
             surface.corroboration = _envCloneJson(_envMirrorState.sharedState.corroboration, null);
         }
         return surface;
+    }
+
+    function _envLiveSyncDiagnosticSnapshot(now) {
+        var hasLive = !!_envMirrorState.live;
+        var currentTs = Number(now || Date.now() || 0);
+        return {
+            status: String(_envLiveSyncState.lastStatus || (hasLive ? 'ok' : 'idle')),
+            error: String(_envLiveSyncState.error || ''),
+            queued: !!_envLiveSyncState.queued,
+            in_flight: !!_envLiveSyncState.inFlight,
+            eligible: _envCanPublishLiveSync(),
+            has_live_state: hasLive,
+            last_reason: String(_envLiveSyncState.lastAttemptReason || _envLiveSyncState.pendingReason || ''),
+            last_skipped_reason: String(_envLiveSyncState.lastSkippedReason || ''),
+            attempt_count: Number(_envLiveSyncState.attemptCount || 0),
+            success_count: Number(_envLiveSyncState.successCount || 0),
+            last_attempt_ts: Number(_envLiveSyncState.lastAttemptTs || 0),
+            last_synced_ts: Number(_envLiveSyncState.lastSyncedTs || 0),
+            last_signature: String(_envLiveSyncState.lastSignature || ''),
+            last_synced_signature: String(_envLiveSyncState.lastSyncedSignature || ''),
+            last_sync_age_ms: Number(_envLiveSyncState.lastSyncedTs ? Math.max(0, currentTs - _envLiveSyncState.lastSyncedTs) : -1),
+            pending_force: !!(_envLiveSyncState.pendingForce || _envLiveSyncState.queuedForce)
+        };
     }
 
     function _envRefreshLiveMirrorSurface() {
@@ -33935,6 +34017,9 @@
             return null;
         }
         var sharedState = window.envopsGetSharedState();
+        var sharedStatePayload = _envCloneJson(sharedState, null);
+        if (!sharedStatePayload || typeof sharedStatePayload !== 'object') return null;
+        sharedStatePayload.live_sync = _envCloneJson(_envLiveSyncDiagnosticSnapshot(Date.now()), null);
         var latestCapture = _envCloneJson(_envMirrorState.latestCapture, null);
         var renderTruth = typeof window.envopsGetRenderTruth === 'function'
             ? window.envopsGetRenderTruth()
@@ -33950,7 +34035,7 @@
             tab_active: _isEnvironmentTabActive(),
             selected_workflow: _envCompactWorkflowMeta(_envEnvironmentSelectedWorkflow()),
             current_execution: _envCompactExecutionMeta(_envCurrentExecution()),
-            shared_state: _envCloneJson(sharedState, null),
+            shared_state: sharedStatePayload,
             render_truth: _envCloneJson(renderTruth, null),
             layout_snapshot: _envCloneJson(layoutSnapshot, null),
             latest_capture: latestCapture,
@@ -33964,7 +34049,7 @@
 
     function _envIsCameraOnlyLiveSyncReason(reason) {
         var text = String(reason || '').toLowerCase();
-        return text.indexOf('camera:manual') >= 0 || text.indexOf('camera:preset') >= 0 || text.indexOf('camera:view') >= 0;
+        return text === 'camera' || text.indexOf('camera:') === 0;
     }
 
     function _envIsDeferredMirrorRefreshReason(reason) {
@@ -33976,7 +34061,8 @@
 
     function _envShouldAttachTextTheaterToCameraSync(reason) {
         var text = String(reason || '').toLowerCase();
-        return text.indexOf('camera:manual:change') < 0;
+        return text.indexOf('camera:manual:end') >= 0
+            || text.indexOf('camera:session_restore') >= 0;
     }
 
     function _envBuildCameraLiveSyncPayload(reason) {
@@ -34000,7 +34086,8 @@
             scene: {
                 cameraMode: String(_envSceneNormalizeCameraMode(_envScene.cameraMode || (((_envConfig || {}).scene || {}).defaultCameraMode) || 'overview')),
                 camera3d: _envCloneJson(camera3d, null)
-            }
+            },
+            live_sync: _envCloneJson(_envLiveSyncDiagnosticSnapshot(Date.now()), null)
         };
         if (textTheater) {
             partialSharedState.text_theater = textTheater;
@@ -34087,7 +34174,8 @@
         var primaryOp = operations.primary && typeof operations.primary === 'object' ? operations.primary : {};
         var cameraSignature = _envLiveSyncCameraSignature(camera3d, focus, scene);
         if (payload.partial && partialKind === 'camera3d') {
-            return ['camera3d', cameraSignature].join('|');
+            var hasTextTheater = shared.text_theater && typeof shared.text_theater === 'object' && Object.keys(shared.text_theater).length > 0;
+            return ['camera3d', String(payload.reason || ''), hasTextTheater ? 'with_text_theater' : 'camera_only', cameraSignature].join('|');
         }
         return [
             String(workflow.id || ''),
@@ -34189,6 +34277,7 @@
     function _envNormalizeOrphanedLiveSyncQueue() {
         if (!_envLiveSyncHasOrphanedQueue()) return false;
         _envLiveSyncState.queued = false;
+        _envLiveSyncState.queuedForce = false;
         _envLiveSyncState.pendingSignature = '';
         return true;
     }
@@ -34218,6 +34307,7 @@
         _envLiveSyncState.inFlightSignature = '';
         if (!_envLiveSyncState.queued && !_envLiveSyncState.timer) {
             _envLiveSyncState.pendingSignature = '';
+            _envLiveSyncState.pendingForce = false;
         }
         _envLiveSyncState.error = 'sync_live timeout';
         _envLiveSyncState.lastStatus = 'timeout';
@@ -34226,7 +34316,7 @@
     }
 
     function _envHandleLiveSyncCompletion(syncPayload, errText, requestId) {
-        if (requestId && _envLiveSyncState.activeRequestId && requestId !== _envLiveSyncState.activeRequestId) {
+        if (requestId && requestId !== Number(_envLiveSyncState.activeRequestId || 0)) {
             return;
         }
         var completedReason = String(
@@ -34253,12 +34343,15 @@
         _envLiveSyncState.inFlightPayload = null;
         _envLiveSyncState.inFlightSignature = '';
         var requeueSync = !!_envLiveSyncState.queued;
+        var requeueForce = !!_envLiveSyncState.queuedForce;
         _envLiveSyncState.queued = false;
+        _envLiveSyncState.queuedForce = false;
         if (!requeueSync && !_envLiveSyncState.timer) {
             _envLiveSyncState.pendingSignature = '';
+            _envLiveSyncState.pendingForce = false;
         }
         _envMaybeRefreshLiveMirrorSurface(completedReason, !requeueSync);
-        if (requeueSync) _envFlushLiveSync();
+        if (requeueSync) _envFlushLiveSync(requeueForce);
     }
 
     function _envDirectLiveSync(payload, requestId, timeoutMs) {
@@ -34302,8 +34395,10 @@
         });
     }
 
-    function _envFlushLiveSync() {
+    function _envFlushLiveSync(force) {
         var pendingReason = String(_envLiveSyncState.pendingReason || 'render');
+        var effectiveForce = !!force || !!_envLiveSyncState.pendingForce;
+        _envLiveSyncState.pendingForce = false;
         if (_envLiveSyncState.timer) {
             clearTimeout(_envLiveSyncState.timer);
             _envLiveSyncState.timer = 0;
@@ -34327,7 +34422,7 @@
         }
         var signature = _envLiveSyncSignature(payload);
         _envLiveSyncState.lastSignature = signature;
-        if (signature && signature === _envLiveSyncState.lastSyncedSignature) {
+        if (!effectiveForce && signature && signature === _envLiveSyncState.lastSyncedSignature) {
             _envLiveSyncState.pendingSignature = '';
             _envLiveSyncState.lastStatus = 'deduped';
             _envLiveSyncState.lastSkippedReason = 'already_synced';
@@ -34335,13 +34430,14 @@
             return false;
         }
         if (_envLiveSyncState.inFlight) {
-            if (!signature || signature === _envLiveSyncState.inFlightSignature) {
+            if (!effectiveForce && (!signature || signature === _envLiveSyncState.inFlightSignature)) {
                 _envLiveSyncState.lastStatus = 'deduped';
                 _envLiveSyncState.lastSkippedReason = 'already_in_flight';
                 _envMaybeRefreshLiveMirrorSurface(pendingReason, false);
                 return false;
             }
             _envLiveSyncState.queued = true;
+            _envLiveSyncState.queuedForce = !!(_envLiveSyncState.queuedForce || effectiveForce);
             _envLiveSyncState.pendingSignature = signature;
             _envLiveSyncState.lastStatus = 'queued';
             _envLiveSyncState.lastSkippedReason = '';
@@ -34350,6 +34446,7 @@
         }
         _envLiveSyncState.inFlight = true;
         _envLiveSyncState.queued = false;
+        _envLiveSyncState.queuedForce = false;
         _envLiveSyncState.error = '';
         _envLiveSyncState.lastStatus = 'in_flight';
         _envLiveSyncState.lastSkippedReason = '';
@@ -34362,7 +34459,7 @@
         _envLiveSyncState.activeRequestId = Number(_envLiveSyncState.requestSerial || 0) + 1;
         _envLiveSyncState.requestSerial = _envLiveSyncState.activeRequestId;
         _envLiveSyncState.attemptCount = Number(_envLiveSyncState.attemptCount || 0) + 1;
-        _envMaybeRefreshLiveMirrorSurface(pendingReason, false);
+        _envMaybeRefreshLiveMirrorSurface(pendingReason, effectiveForce);
         var requestId = _envLiveSyncState.activeRequestId;
         _envDirectLiveSync(payload, requestId, _envLiveSyncTimeoutMs(pendingReason)).then(function (syncPayload) {
             _envHandleLiveSyncCompletion(syncPayload || null, '', requestId);
@@ -34406,12 +34503,13 @@
                 return false;
             }
         }
+        _envLiveSyncState.pendingForce = !!(_envLiveSyncState.pendingForce || force);
         _envLiveSyncState.pendingSignature = signature;
         _envLiveSyncState.lastStatus = force ? 'scheduled_now' : 'scheduled';
         _envLiveSyncState.lastSkippedReason = '';
         if (_envLiveSyncState.timer) clearTimeout(_envLiveSyncState.timer);
         _envLiveSyncState.timer = setTimeout(function () {
-            _envFlushLiveSync();
+            _envFlushLiveSync(!!force);
         }, _envLiveSyncDelayMs(pendingReason, force));
         _envMaybeRefreshLiveMirrorSurface(pendingReason, !!force);
         return true;

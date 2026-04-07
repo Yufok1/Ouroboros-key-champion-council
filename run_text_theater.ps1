@@ -4,6 +4,21 @@ Set-Location $root
 if (-not $env:WEB_HOST) { $env:WEB_HOST = "127.0.0.1" }
 if (-not $env:WEB_PORT) { $env:WEB_PORT = "7866" }
 
+$stateDir = Join-Path $root "data"
+$statePath = Join-Path $stateDir "text_theater_window.json"
+if (-not (Test-Path $stateDir)) {
+    New-Item -ItemType Directory -Path $stateDir | Out-Null
+}
+$state = [ordered]@{
+    pid = $PID
+    started_ts = [DateTimeOffset]::Now.ToUnixTimeMilliseconds()
+    launcher = $MyInvocation.MyCommand.Path
+    host = $(if ($env:WT_SESSION) { "windows-terminal-profile" } else { "powershell-process" })
+    web_host = $env:WEB_HOST
+    web_port = $env:WEB_PORT
+}
+$state | ConvertTo-Json -Depth 4 | Set-Content -Path $statePath -Encoding UTF8
+
 try {
     $fontStepDown = 6
     if ($env:TEXT_THEATER_FONT_STEP_DOWN) {

@@ -72,14 +72,13 @@ if ($useWtProfile) {
         "-File", ('"' + $launcher + '"')
     )
     $proc = Start-Process -FilePath $psExe -ArgumentList $argList -WorkingDirectory $root -PassThru
+    $state = [ordered]@{
+        pid = $proc.Id
+        started_ts = [DateTimeOffset]::Now.ToUnixTimeMilliseconds()
+        launcher = $launcher
+        host = "powershell-process"
+    }
+    $state | ConvertTo-Json -Depth 4 | Set-Content -Path $statePath -Encoding UTF8
 }
-
-$state = [ordered]@{
-    pid = $proc.Id
-    started_ts = [DateTimeOffset]::Now.ToUnixTimeMilliseconds()
-    launcher = $launcher
-    host = $(if ($useWtProfile) { "windows-terminal-profile" } else { "powershell-process" })
-}
-$state | ConvertTo-Json -Depth 4 | Set-Content -Path $statePath -Encoding UTF8
 
 Write-Host "Opened Text Theater (PID $($proc.Id))."
