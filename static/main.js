@@ -4261,7 +4261,11 @@
         if (!baseSurface) return null;
         var resolvedScope = _envNormalizeBuilderDisplayScope(scope || 'body');
         if (resolvedScope === 'body' || !_envBuilderSubject.active) {
-            return baseSurface;
+            var bodySurface = _envCloneJson(baseSurface, null) || baseSurface;
+            bodySurface.display_scope = 'body';
+            delete bodySurface.scope_bone_ids;
+            delete bodySurface.scope_part_keys;
+            return bodySurface;
         }
         var visibleMap = _envBuilderVisibleBoneIdsForDisplayScope(_envBuilderSubject.bones || [], target, resolvedScope);
         var scopeBoneIds = visibleMap ? Object.keys(visibleMap).filter(Boolean) : [];
