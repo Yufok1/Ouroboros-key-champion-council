@@ -3985,6 +3985,7 @@
         if (!partSurface || typeof THREE === 'undefined') return null;
         var anchor = _envVector3FromArray(partSurface.world_anchor, [0, 0, 0]);
         if (!anchor) return null;
+        var centerHint = _envVector3FromArray(partSurface.world_center, null);
         var boundsData = partSurface.world_bounds && typeof partSurface.world_bounds === 'object' ? partSurface.world_bounds : null;
         var box = new THREE.Box3();
         var hasBounds = false;
@@ -4013,7 +4014,8 @@
             box.setFromCenterAndSize(anchor.clone(), fallbackSize);
             hasBounds = true;
         }
-        var center = box.getCenter(new THREE.Vector3());
+        var center = hasBounds ? box.getCenter(new THREE.Vector3()) : (centerHint || anchor.clone());
+        if (centerHint && centerHint.isVector3) center.copy(centerHint);
         var size = box.getSize(new THREE.Vector3());
         var extent = Math.max(
             0.12,
@@ -4030,13 +4032,32 @@
         var fitHeight = Math.max(Number(size.y || 0), Number(partSurface.length || 0), maxRadius * 4);
         var fitWidth = Math.max(Number(size.x || 0), Number(size.z || 0), maxRadius * 4, Number(partSurface.length || 0) * 0.7);
         var fitDistance = _env3D && _env3D.camera ? _env3DWorkbenchFitDistance(fitHeight, fitWidth, 0.68) : 0;
+        var displayScope = _envNormalizeBuilderDisplayScope(partSurface.display_scope || 'body');
+        var scopedDistanceFactor = displayScope !== 'body' ? 1.25 : 2.9;
         return {
             anchor: anchor,
             center: center,
             box: box,
             size: size,
             extent: extent,
-            distance: Math.max(1.2, Number(fitDistance || 0), extent * 2.6)
+            distance: Math.max(1.4, Number(fitDistance || 0), extent * scopedDistanceFactor)
+        };
+    }
+
+    function _env3DWorkbenchScopedDisplayMetrics(mesh) {
+        if (!mesh || !_envBuilderSubject.active || typeof THREE === 'undefined') return null;
+        var selectedBoneId = String(_envBuilderInteraction.selected_bone_id || '').trim();
+        if (!selectedBoneId) return null;
+        var displayScope = _envNormalizeBuilderDisplayScope(_envBuilderInteraction.part_display_scope || 'body');
+        if (displayScope === 'body') return null;
+        var surface = _envBuilderComputeDisplaySurface(selectedBoneId, displayScope)
+            || _envWorkbenchComputePartSurfaceWithRetry(selectedBoneId);
+        var metrics = _envBuilderPartBoundsMetrics(surface);
+        if (!metrics || !metrics.box || metrics.box.isEmpty()) return null;
+        return {
+            surface: surface,
+            metrics: metrics,
+            scope: displayScope
         };
     }
 
@@ -4054,13 +4075,13 @@
         forward.normalize();
         up.normalize();
         right.normalize();
-        var target = _envVector3Array(metrics.anchor);
+        var target = _envVector3Array(metrics.center || metrics.anchor);
         var distance = Number(metrics.distance || 1.2);
         function makeRecipe(key, direction) {
             var dir = direction && typeof direction.clone === 'function' ? direction.clone() : new THREE.Vector3(0, 0, 1);
             if (dir.lengthSq() < 1e-6) dir.copy(forward);
             dir.normalize();
-            var position = metrics.anchor.clone().add(dir.multiplyScalar(distance));
+            var position = (metrics.center || metrics.anchor).clone().add(dir.multiplyScalar(distance));
             return {
                 key: String(key || 'front'),
                 position: _envVector3Array(position),
@@ -4160,6 +4181,23 @@
                 } catch (ignored) {}
             });
         }
+        var scaffoldPieces = mesh.userData._scaffoldPieces || null;
+        if (scaffoldPieces && typeof scaffoldPieces === 'object') {
+            Object.keys(scaffoldPieces).forEach(function (slotName) {
+                var entry = scaffoldPieces[slotName];
+                if (!entry || !entry.mesh) return;
+                var jointId = String((((entry.definition || {}).joint) || ((entry.mesh.userData || {})._builderBoneId) || '')).trim();
+                if (jointId !== target) return;
+                try {
+                    var pieceBox = new THREE.Box3().setFromObject(entry.mesh);
+                    if (!pieceBox.isEmpty()) {
+                        if (!hasBounds) bounds.copy(pieceBox);
+                        else bounds.union(pieceBox);
+                        hasBounds = true;
+                    }
+                } catch (ignored) {}
+            });
+        }
         var right = new THREE.Vector3(1, 0, 0).applyQuaternion(worldQuat).normalize();
         var up = new THREE.Vector3(0, 1, 0).applyQuaternion(worldQuat).normalize();
         var forward = new THREE.Vector3(0, 0, 1).applyQuaternion(worldQuat).normalize();
@@ -4189,6 +4227,7 @@
                 : [0, 0],
             enabled: record.enabled !== false,
             world_anchor: _envVector3Array(worldAnchor),
+            world_center: hasBounds ? _envVector3Array(bounds.getCenter(new THREE.Vector3())) : _envVector3Array(worldAnchor),
             world_bounds: hasBounds
                 ? { min: _envVector3Array(bounds.min), max: _envVector3Array(bounds.max) }
                 : null,
@@ -4213,6 +4252,73 @@
         if (!mesh || !mesh.userData || !_envBuilderSubject.active) return null;
         if (!_env3DSyncBuilderSubjectMesh(mesh)) return null;
         return _envBuilderComputePartSurface(target);
+    }
+
+    function _envBuilderComputeDisplaySurface(boneId, scope) {
+        var target = String(boneId || '').trim();
+        if (!target) return null;
+        var baseSurface = _envWorkbenchComputePartSurfaceWithRetry(target);
+        if (!baseSurface) return null;
+        var resolvedScope = _envNormalizeBuilderDisplayScope(scope || 'body');
+        if (resolvedScope === 'body' || !_envBuilderSubject.active) {
+            return baseSurface;
+        }
+        var visibleMap = _envBuilderVisibleBoneIdsForDisplayScope(_envBuilderSubject.bones || [], target, resolvedScope);
+        var scopeBoneIds = visibleMap ? Object.keys(visibleMap).filter(Boolean) : [];
+        if (!scopeBoneIds.length) {
+            return baseSurface;
+        }
+        var surfaces = [];
+        scopeBoneIds.forEach(function (boneId) {
+            var surface = _envWorkbenchComputePartSurfaceWithRetry(String(boneId || '').trim());
+            if (surface) surfaces.push(surface);
+        });
+        if (!surfaces.length) return baseSurface;
+        if (surfaces.length === 1) {
+            var singleSurface = _envCloneJson(surfaces[0], null) || surfaces[0];
+            singleSurface.display_scope = resolvedScope;
+            singleSurface.scope_bone_ids = scopeBoneIds.slice(0);
+            singleSurface.scope_part_keys = [String(singleSurface.part_key || '')].filter(Boolean);
+            return singleSurface;
+        }
+        if (typeof THREE === 'undefined') {
+            var cloneNoThree = _envCloneJson(baseSurface, null) || baseSurface;
+            cloneNoThree.display_scope = resolvedScope;
+            cloneNoThree.scope_bone_ids = scopeBoneIds.slice(0);
+            cloneNoThree.scope_part_keys = surfaces.map(function (surface) { return String((surface || {}).part_key || ''); }).filter(Boolean);
+            return cloneNoThree;
+        }
+        var unionBox = new THREE.Box3();
+        var hasBounds = false;
+        surfaces.forEach(function (surface) {
+            var metrics = _envBuilderPartBoundsMetrics(surface);
+            if (!metrics || !metrics.box || metrics.box.isEmpty()) return;
+            if (!hasBounds) unionBox.copy(metrics.box);
+            else unionBox.union(metrics.box);
+            hasBounds = true;
+        });
+        var scopedSurface = _envCloneJson(baseSurface, null) || baseSurface;
+        scopedSurface.display_scope = resolvedScope;
+        scopedSurface.scope_bone_ids = scopeBoneIds.slice(0);
+        scopedSurface.scope_part_keys = surfaces.map(function (surface) { return String((surface || {}).part_key || ''); }).filter(Boolean);
+        if (hasBounds) {
+            scopedSurface.world_center = _envVector3Array(unionBox.getCenter(new THREE.Vector3()));
+            scopedSurface.world_bounds = {
+                min: _envVector3Array(unionBox.min),
+                max: _envVector3Array(unionBox.max)
+            };
+            var unionSize = unionBox.getSize(new THREE.Vector3());
+            scopedSurface.length = Math.max(
+                Number(scopedSurface.length || 0),
+                Number(unionSize.y || 0),
+                Number(unionSize.x || 0),
+                Number(unionSize.z || 0)
+            );
+        }
+        if (resolvedScope === 'part_chain') {
+            scopedSurface.chain_ids = scopeBoneIds.slice(0);
+        }
+        return scopedSurface;
     }
 
     function _envBuilderBlueprint(source) {
@@ -17303,7 +17409,8 @@
             renderEnvironmentView();
             return false;
         }
-        var partSurface = _envWorkbenchComputePartSurfaceWithRetry(boneId);
+        var displayScope = _envNormalizeBuilderDisplayScope(_envBuilderInteraction.part_display_scope || 'body');
+        var partSurface = _envBuilderComputeDisplaySurface(boneId, displayScope);
         if (!partSurface) {
             _envLogAction('character_runtime', 'Rejected builder part frame: bone unavailable', actorName, {
                 action: 'workbench_frame_part',
@@ -17320,7 +17427,7 @@
             _env3DStageBuilderSubjectForWorkbench(mountedMesh, mountedMesh.userData._builderSubjectGroup || null);
             _envBuilderApplySelectionToMesh(mountedMesh);
         }
-        partSurface = _envWorkbenchComputePartSurfaceWithRetry(boneId);
+        partSurface = _envBuilderComputeDisplaySurface(boneId, displayScope);
         var recipe = _envBuilderPartCameraRecipe(partSurface, spec.view || 'front');
         if (!recipe) {
             _envLogAction('character_runtime', 'Rejected builder part frame: camera recipe unavailable', actorName, {
@@ -25148,6 +25255,9 @@
         var obj = _envInhabitantObject();
         var embodiment = obj ? _envSceneEmbodimentForObject(obj) : null;
         var builderActive = !!_envBuilderSubject.active;
+        var selectedBoneId = builderActive ? String(_envBuilderPrimaryBoneId(_envBuilderInteraction) || '').trim() : '';
+        var displayScope = builderActive ? _envNormalizeBuilderDisplayScope(_envBuilderInteraction.part_display_scope || 'body') : 'body';
+        var partView = builderActive ? _envNormalizeBuilderPartView(_envBuilderInteraction.part_view || 'iso_front') : 'iso_front';
         var clipEntries = _envCharacterWorkbenchClipEntries(mesh);
         var activeClip = String(_envCharacterUiClipState(_envInhabitantRuntimeState(), mesh).clip || (workbench && workbench.activeClip) || '');
         var playback = _envCharacterWorkbenchPlaybackState(mesh);
@@ -25232,6 +25342,24 @@
                 return '<span class="envops-focus-chip' + active + '" data-env-action="workbench-apply-motion-preset" data-env-motion-preset="' + _esc(presetId) + '"' + (title ? (' title="' + _esc(title) + '"') : '') + '>' + _esc(String((preset && preset.label) || presetId)) + '</span>';
             }).join('') + '</div>')
             : '<div class="envops-stage-empty">No builder motion presets are registered yet.</div>';
+        var partScopeHtml = selectedBoneId
+            ? ('<div class="envops-focus-strip" style="flex-wrap:wrap;">' + [
+                ['body', 'Body'],
+                ['part_only', 'Part Only'],
+                ['part_adjacent', 'Part Adjacent'],
+                ['part_chain', 'Part Chain']
+            ].map(function (entry) {
+                var value = String(entry[0] || '');
+                var label = String(entry[1] || value);
+                var active = displayScope === value ? ' active' : '';
+                return '<span class="envops-focus-chip' + active + '" data-env-action="workbench-set-display-scope" data-env-display-scope="' + _esc(value) + '">' + _esc(label) + '</span>';
+            }).join('') + '</div>')
+            : '<div class="envops-stage-empty">Select a bone to scope and frame a part work cell.</div>';
+        var partFrameHtml = selectedBoneId
+            ? ('<div class="envops-focus-strip" style="flex-wrap:wrap;">' +
+                '<span class="envops-focus-chip" data-env-action="workbench-frame-selected-part" data-env-bone-id="' + _esc(selectedBoneId) + '" data-env-part-view="' + _esc(partView) + '">Frame Selected</span>' +
+                '</div>')
+            : '';
         if (builderActive) {
             var builderBlueprint = _envBuilderBlueprint(_envBuilderSubject);
             return '' +
@@ -25240,6 +25368,12 @@
                 '<div class="envops-kernel-note">Mode · ' + _esc(String(builderBlueprint.subject_mode || 'preset_skeleton')) + ' · Anchor ' + _esc(String(builderBlueprint.anchor_bone || 'hips')) + '</div>' +
                 '<div class="envops-kernel-note">Bones · ' + String((builderBlueprint.bones || []).length) + ' · Scaffold slots ' + String(((_ENV_SCAFFOLD_SLOT_REGISTRY[String(builderBlueprint.family || '')] || []).length) || 0) + '</div>' +
                 '<div class="envops-kernel-note">Use `workbench_get_blueprint` for the serialized builder state and `character_set_model` to return to mounted-asset inspection.</div>' +
+                '</div>' +
+                '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.08);">' +
+                '<div class="envops-habitat-scene-cockpit-head"><span>Selected Part</span><span>' + _esc(selectedBoneId || 'none') + '</span></div>' +
+                partScopeHtml +
+                partFrameHtml +
+                '<div class="envops-kernel-note">' + _esc('Scope · ' + displayScope.replace(/_/g, ' ') + ' · View · ' + partView.replace(/_/g, ' ')) + '</div>' +
                 '</div>' +
                 '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.08);">' +
                 '<div class="envops-habitat-scene-cockpit-head"><span>Motion Presets</span><span>' + String(builderMotionPresetCatalog.length) + '</span></div>' +
@@ -28487,7 +28621,9 @@
         var configuredPartView = builderActive ? _envNormalizeBuilderPartView(_envBuilderInteraction.part_view || 'iso_front') : '';
         var effectiveDisplayScope = builderActive && selectedBoneId ? configuredDisplayScope : 'body';
         var boneMap = builderActive ? _envBuilderBoneRecordMap((blueprint && blueprint.bones) || []) : {};
-        var selectedPartSurface = builderActive && selectedBoneId ? _envBuilderComputePartSurface(selectedBoneId) : null;
+        var selectedPartSurface = builderActive && selectedBoneId
+            ? _envBuilderComputeDisplaySurface(selectedBoneId, effectiveDisplayScope)
+            : null;
         var partCameraRecipes = selectedPartSurface ? _envBuilderPartCameraRecipes(selectedPartSurface) : [];
         var poseState = builderActive ? _envBuilderPoseState() : _envNormalizeBuilderPoseState(null);
         var timelineState = builderActive ? _envBuilderTimelineState() : _envNormalizeBuilderTimelineState(null);
@@ -28810,6 +28946,29 @@
         return { axis: 'y', length: y, thicknessA: x, thicknessB: z };
     }
 
+    function _envTextTheaterScaffoldWorldRadius(axisInfo, worldScale) {
+        var axis = String((axisInfo || {}).axis || 'y').trim().toLowerCase();
+        var scale = worldScale && typeof worldScale === 'object' ? worldScale : {};
+        var scaleX = Math.abs(Number(scale.x || 1)) || 1;
+        var scaleY = Math.abs(Number(scale.y || 1)) || 1;
+        var scaleZ = Math.abs(Number(scale.z || 1)) || 1;
+        var thicknessA = Math.abs(Number((axisInfo || {}).thicknessA || 0));
+        var thicknessB = Math.abs(Number((axisInfo || {}).thicknessB || 0));
+        var worldThicknessA = thicknessA;
+        var worldThicknessB = thicknessB;
+        if (axis === 'x') {
+            worldThicknessA *= scaleY;
+            worldThicknessB *= scaleZ;
+        } else if (axis === 'z') {
+            worldThicknessA *= scaleX;
+            worldThicknessB *= scaleY;
+        } else {
+            worldThicknessA *= scaleX;
+            worldThicknessB *= scaleZ;
+        }
+        return Math.max(0.004, ((worldThicknessA + worldThicknessB) * 0.25) || 0.02);
+    }
+
     function _envTextTheaterScaffoldSurface(mountedMesh) {
         if (!mountedMesh || !mountedMesh.userData || typeof THREE === 'undefined') return [];
         var pieces = mountedMesh.userData._scaffoldPieces;
@@ -28838,7 +28997,7 @@
             var position = piece.getWorldPosition(new THREE.Vector3());
             var quaternion = piece.getWorldQuaternion(new THREE.Quaternion());
             var worldScale = piece.getWorldScale(new THREE.Vector3());
-            var primaryRadius = Math.max(0.004, ((Number(axisInfo.thicknessA || 0) + Number(axisInfo.thicknessB || 0)) * 0.25) || 0.02);
+            var primaryRadius = _envTextTheaterScaffoldWorldRadius(axisInfo, worldScale);
             var material = Array.isArray(piece.material) ? piece.material[0] : piece.material;
             var colorHex = material && material.color && typeof material.color.getHex === 'function'
                 ? material.color.getHex()
@@ -40349,6 +40508,7 @@
         var mountedKey = _envInhabitantObjectKey();
         var mountedRuntime = !!(obj && _envIsMountedCharacterRuntimeObject(obj)) || String(key || '') === mountedKey;
         if (characterMode) return mountedRuntime;
+        if (mountedRuntime) return false;
         if (!obj) return true;
         return _env3DKindFilterVisible(obj.kind) && !_env3DThemeSuppressesObject(obj);
     }
@@ -41708,6 +41868,11 @@
             _envWorkbenchSupportPlaneY()
         );
         var supportFloorY = Number((((workbenchSupport || {}).support_y) || _envWorkbenchSupportPlaneY()) || 0);
+        var scopedMetrics = _env3DWorkbenchScopedDisplayMetrics(mesh);
+        if (scopedMetrics && scopedMetrics.metrics && scopedMetrics.metrics.box && !scopedMetrics.metrics.box.isEmpty()) {
+            var scopedFloorY = Number(((scopedMetrics.metrics.box.min || {}).y) || 0);
+            if (isFinite(scopedFloorY)) return scopedFloorY;
+        }
         if (_envBuilderSubject.active && mesh.userData && mesh.userData._builderSubjectGroup) return supportFloorY;
         var patchFloor = _envBuilderLowestFootPatchY(mesh, workbenchSupport);
         if (isFinite(patchFloor)) return Number(patchFloor || 0);
@@ -41725,7 +41890,9 @@
         if (!_env3DBuilderShouldStagePartWorkCell(mesh)) return null;
         var boneId = String(_envBuilderInteraction.selected_bone_id || '').trim();
         if (!boneId) return null;
-        var partSurface = _envWorkbenchComputePartSurfaceWithRetry(boneId);
+        var displayScope = _envNormalizeBuilderDisplayScope(_envBuilderInteraction.part_display_scope || 'body');
+        var partSurface = _envBuilderComputeDisplaySurface(boneId, displayScope)
+            || _envWorkbenchComputePartSurfaceWithRetry(boneId);
         if (!partSurface) return null;
         var partView = _envNormalizeBuilderPartView(_envBuilderInteraction.part_view || 'iso_front');
         var recipe = _envBuilderPartCameraRecipe(partSurface, partView)
@@ -41993,7 +42160,8 @@
         });
         controls.addEventListener('change', function () {
             if (!_env3D.manualControlActive) return;
-            _env3DQueueLiveMirrorSync('camera:manual:change', false);
+            _env3D.lastLiveMirrorReason = 'camera:manual:change';
+            _env3DSendCameraPulse('camera:manual:change');
         });
         controls.addEventListener('end', function () {
             _env3D.manualControlActive = false;
@@ -44811,7 +44979,8 @@
         _env3D.camera.position.copy(target.clone().add(offset));
         _env3D.camera.updateProjectionMatrix();
         _env3D.controls.update();
-        _env3DQueueLiveMirrorSync('camera:manual:wheel', false);
+        _env3D.lastLiveMirrorReason = 'camera:manual:wheel';
+        _env3DSendCameraPulse('camera:manual:wheel');
         _env3DScheduleManualCameraCommit('camera:manual:wheel', true);
         return true;
     }
@@ -45906,9 +46075,12 @@
             guides.group.visible = false;
             return;
         }
+        var scopedMetrics = _env3DWorkbenchScopedDisplayMetrics(mesh);
         var box = null;
         try {
-            box = _env3DCharacterWorkbenchWorldBox(mesh);
+            box = scopedMetrics && scopedMetrics.metrics && scopedMetrics.metrics.box
+                ? scopedMetrics.metrics.box.clone()
+                : _env3DCharacterWorkbenchWorldBox(mesh);
         } catch (ignored) {
             box = null;
         }
@@ -45916,14 +46088,28 @@
             guides.group.visible = false;
             return;
         }
-        var size = box.getSize(new THREE.Vector3());
-        var center = box.getCenter(new THREE.Vector3());
+        var size = scopedMetrics && scopedMetrics.metrics && scopedMetrics.metrics.size
+            ? scopedMetrics.metrics.size.clone()
+            : box.getSize(new THREE.Vector3());
+        var center = scopedMetrics && scopedMetrics.metrics && scopedMetrics.metrics.center
+            ? scopedMetrics.metrics.center.clone()
+            : box.getCenter(new THREE.Vector3());
         var displayFloorY = _env3DCharacterWorkbenchDisplayFloorY(mesh, box);
-        var footprint = Math.max(8, Number(size.x || 0), Number(size.z || 0));
-        var vertical = Math.max(12, Number(size.y || 0));
-        var stageRadius = Math.max(6.5, footprint * 0.8, vertical * 0.26);
-        var gridSpan = Math.max(stageRadius * 2.3, footprint * 2.15);
-        var frameSpan = Math.max(stageRadius * 1.4, footprint * 0.96);
+        var footprint = scopedMetrics
+            ? Math.max(1.4, Number(size.x || 0), Number(size.z || 0))
+            : Math.max(8, Number(size.x || 0), Number(size.z || 0));
+        var vertical = scopedMetrics
+            ? Math.max(1.8, Number(size.y || 0))
+            : Math.max(12, Number(size.y || 0));
+        var stageRadius = scopedMetrics
+            ? Math.max(1.75, footprint * 0.78, vertical * 0.36)
+            : Math.max(6.5, footprint * 0.8, vertical * 0.26);
+        var gridSpan = scopedMetrics
+            ? Math.max(stageRadius * 2.15, footprint * 2.0)
+            : Math.max(stageRadius * 2.3, footprint * 2.15);
+        var frameSpan = scopedMetrics
+            ? Math.max(stageRadius * 1.24, footprint * 0.92)
+            : Math.max(stageRadius * 1.4, footprint * 0.96);
         guides.group.visible = true;
         guides.group.position.set(center.x, displayFloorY + 0.025, center.z);
         guides.pad.scale.set(stageRadius, stageRadius, stageRadius);
@@ -46579,49 +46765,18 @@
         if (!mesh || !mesh.userData || !_envBuilderSubject.active) return false;
         var selectedBoneId = String(_envBuilderInteraction.selected_bone_id || '').trim();
         if (!selectedBoneId) return false;
-        if (!_envBuilderHasIsolatedWorkbenchScope()) return false;
+        var displayScope = _envNormalizeBuilderDisplayScope(_envBuilderInteraction.part_display_scope || 'body');
+        if (!_envBuilderHasIsolatedWorkbenchScope() && displayScope === 'body') return false;
         return _envBuilderSelectedTargetVisible(mesh, selectedBoneId);
     }
 
     function _env3DStageBuilderPartWorkCell(mesh, group, baseMetrics) {
         if (!mesh || !group || typeof THREE === 'undefined') return false;
         if (!_env3DBuilderShouldStagePartWorkCell(mesh)) return false;
-        var selectedBoneId = String(_envBuilderInteraction.selected_bone_id || '').trim();
-        var referenceMetrics = _env3DWorkbenchBoneSetMetrics(mesh, _envBuilderWorkbenchScaleReferenceBoneIds(selectedBoneId));
-        var fullMetrics = referenceMetrics || baseMetrics || _env3DWorkbenchObjectMetrics(group);
-        var focusMetrics = _env3DWorkbenchVisibleBuilderMetrics(mesh);
-        if (!fullMetrics || !focusMetrics) return false;
-        var fullHeight = Math.max(0.001, Number((fullMetrics.size || {}).y || 0));
-        var fullWidth = Math.max(
-            0.001,
-            Number((fullMetrics.size || {}).x || 0),
-            Number((fullMetrics.size || {}).z || 0)
-        );
-        var focusHeight = Math.max(0.001, Number((focusMetrics.size || {}).y || 0));
-        var focusWidth = Math.max(
-            0.001,
-            Number((focusMetrics.size || {}).x || 0),
-            Number((focusMetrics.size || {}).z || 0)
-        );
-        var factor = Math.max(fullHeight / focusHeight, fullWidth / focusWidth);
-        factor = Math.max(1, Math.min(64, Number(factor || 1)));
-        if (!(factor > 1.0001)) factor = 1;
-        if (factor !== 1) {
-            group.scale.multiplyScalar(factor);
-            if (typeof group.updateWorldMatrix === 'function') group.updateWorldMatrix(true, true);
-            focusMetrics = _env3DWorkbenchVisibleBuilderMetrics(mesh) || focusMetrics;
-        }
-        var targetCenter = fullMetrics.center.clone();
-        var currentCenter = focusMetrics.center.clone();
-        var deltaWorld = targetCenter.sub(currentCenter);
-        var parentScale = new THREE.Vector3(1, 1, 1);
-        if (group.parent && typeof group.parent.getWorldScale === 'function') {
-            group.parent.getWorldScale(parentScale);
-        }
-        group.position.x += Number(deltaWorld.x || 0) / Math.max(0.0001, Number(parentScale.x || 1));
-        group.position.y += Number(deltaWorld.y || 0) / Math.max(0.0001, Number(parentScale.y || 1));
-        group.position.z += Number(deltaWorld.z || 0) / Math.max(0.0001, Number(parentScale.z || 1));
-        if (typeof group.updateWorldMatrix === 'function') group.updateWorldMatrix(true, true);
+        // Scoped part authoring should not mutate the live builder body's world transform.
+        // The previous work-cell scaling/recentering polluted the same world-space truth used
+        // for support contacts, load-field metrics, part bounds, and text-theater export.
+        // Use the part camera recipe for scoped emphasis instead of altering the body.
         return true;
     }
 
@@ -48866,6 +49021,17 @@
         return true;
     }
 
+    function _env3DNormalizeMountedRuntimeScenePresentation(mesh) {
+        if (!mesh || !mesh.userData) return false;
+        var obj = mesh.userData.sceneObject || _envInhabitantObject() || null;
+        var sceneScale = Math.max(0.001, Number((obj && obj.scale) || 1));
+        mesh.scale.setScalar(sceneScale);
+        mesh.userData.baseScale = sceneScale;
+        _env3DSetBuilderAnchorHidden(mesh, false);
+        if (mesh.userData._focusEdge) mesh.userData._focusEdge.visible = !!mesh.userData.focused;
+        return true;
+    }
+
     function _envSetTheaterMode(mode, actor, reason) {
         var actorName = String(actor || _envManualActorId() || 'assistant').trim() || 'assistant';
         var prevMode = _envTheaterMode();
@@ -48874,7 +49040,13 @@
         _envScene.theaterMode = nextMode;
         if (nextMode === 'character') {
             _envFocusInhabitant(actorName, reason || 'character theater mode');
-            if (_env3D.inited) _env3DApplyCharacterWorkbenchCamera();
+            if (_env3D.inited) {
+                mountedMesh = _envMountedRuntimeMesh();
+                if (_envBuilderSubject.active && mountedMesh && mountedMesh.userData && !mountedMesh.userData._builderSubjectGroup) {
+                    _env3DSyncBuilderSubjectMesh(mountedMesh);
+                }
+                _env3DApplyCharacterWorkbenchCamera();
+            }
         } else if (prevMode === 'character') {
             var focus = _envKernel.focus || {};
             var hadCharacterFocus = String(focus.kind || '') === _ENV_INHABITANT_OBJECT_KIND
@@ -48885,6 +49057,7 @@
             _env3DResetPoseOffset();
             _env3D.workbenchTurntable = false;
             _env3DDisposeWorkbenchRuntimeHelpers(mountedMesh);
+            _env3DNormalizeMountedRuntimeScenePresentation(mountedMesh);
             if (_env3D.inited) _env3DApplyCameraRig(true);
         }
         if (_env3D.inited && _env3D.controls) {
@@ -48894,6 +49067,7 @@
             _env3D.controls.update();
         }
         if (_env3D.inited) _env3DApplyTheaterModePresentation();
+        _envRefreshInhabitantRuntimeState('theater_mode:' + nextMode);
         _envLogAction('control', 'Updated theater mode', actorName, { action: 'set_theater_mode', theater_mode: nextMode });
         _envEmitBus('control', 'Updated theater mode', actorName, { action: 'set_theater_mode', theater_mode: nextMode });
         _envSetBadge('running', 'THEATER ' + nextMode.toUpperCase());
@@ -56940,6 +57114,24 @@
                 if (action === 'workbench-shot-preset') {
                     var shotId = String(actionEl.getAttribute('data-env-shot') || '').trim();
                     if (shotId) _env3DWorkbenchShotPreset(shotId);
+                    return;
+                }
+                if (action === 'workbench-set-display-scope') {
+                    var nextDisplayScope = String(actionEl.getAttribute('data-env-display-scope') || '').trim();
+                    if (nextDisplayScope) {
+                        _envWorkbenchSetDisplayScope(uiActor, 'workbench ui set display scope', nextDisplayScope);
+                    }
+                    return;
+                }
+                if (action === 'workbench-frame-selected-part') {
+                    var frameBoneId = String(actionEl.getAttribute('data-env-bone-id') || _envBuilderInteraction.selected_bone_id || '').trim();
+                    var framePartView = String(actionEl.getAttribute('data-env-part-view') || _envBuilderInteraction.part_view || 'iso_front').trim();
+                    if (frameBoneId) {
+                        _envWorkbenchFramePart(uiActor, 'workbench ui frame selected part', JSON.stringify({
+                            bone_id: frameBoneId,
+                            view: framePartView
+                        }));
+                    }
                     return;
                 }
                 if (action === 'workbench-toggle-turntable') {

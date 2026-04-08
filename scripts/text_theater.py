@@ -794,6 +794,18 @@ def _segment_thickness_band(radius_start, radius_end):
     return 0
 
 
+def _scaffold_segment_thickness_band(segment):
+    avg_radius = max(
+        0.0,
+        (float(segment.get("radius_start") or 0.0) + float(segment.get("radius_end") or 0.0)) * 0.5,
+    )
+    if avg_radius >= 0.05:
+        return 2
+    if avg_radius >= 0.016:
+        return 1
+    return 0
+
+
 def _sample_circle_points(center, radius, count):
     cx, cy, cz = center
     total = max(16, int(count or 16))
@@ -1107,6 +1119,23 @@ def _body_stamp_offsets(radius, phase=0):
             [(0, 0, "body_core", 5), (0, -1, "body_edge", 2), (0, 1, "body_edge", 2)],
         ]
         return patterns[int(phase or 0) % len(patterns)]
+    if radius >= 3:
+        offsets = [(0, 0, "body_core", 7)]
+        offsets.extend([
+            (-1, 0, "body_core", 6),
+            (1, 0, "body_core", 6),
+            (0, -1, "body_core", 6),
+            (0, 1, "body_core", 6),
+            (-1, -1, "body_edge", 4),
+            (1, -1, "body_edge", 4),
+            (-1, 1, "body_edge", 4),
+            (1, 1, "body_edge", 4),
+            (-2, 0, "body_edge", 3),
+            (2, 0, "body_edge", 3),
+            (0, -2, "body_edge", 3),
+            (0, 2, "body_edge", 3),
+        ])
+        return offsets
     offsets = [(0, 0, "body_core", 6)]
     offsets.extend([
         (-1, 0, "body_edge", 2),
@@ -1137,6 +1166,17 @@ def _orthographic_stamp_radius(radius_world):
     if radius >= 0.075:
         return 2
     if radius >= 0.032:
+        return 1
+    return 0
+
+
+def _orthographic_scaffold_stamp_radius(radius_world):
+    radius = float(radius_world or 0.0)
+    if radius >= 0.12:
+        return 3
+    if radius >= 0.05:
+        return 2
+    if radius >= 0.016:
         return 1
     return 0
 
@@ -1199,12 +1239,14 @@ def _companion_camera(snapshot, model, mode):
     motion = model.get("motion") or _extract_motion_sample(snapshot)
     forward = _v_norm(_ground_vec(motion.get("forward") or (0.0, 0.0, 1.0)), (0.0, 0.0, 1.0))
     right = _v_norm(_v_cross(forward, (0.0, 1.0, 0.0)), (1.0, 0.0, 0.0))
+    scoped_part_mode = bool(model.get("scoped_part_mode"))
+    radius_floor = 1.25 if scoped_part_mode else 10.0
     radius = max(
-        10.0,
+        radius_floor,
         float(bounds["radius"]) * 1.7,
         _v_len(bounds["size"]) * 0.9,
     )
-    lift = max(5.0, radius * 0.52)
+    lift = max(0.8 if scoped_part_mode else 5.0, radius * 0.52)
     if mode == "profile":
         offset = _v_add(_v_scale(right, radius * 1.08), (0.0, lift, 0.0))
     else:
@@ -1220,6 +1262,141 @@ def _companion_camera(snapshot, model, mode):
     }
 
 
+def _part_key_bone_id(value):
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    marker = "#bone:"
+    if marker in text:
+        return text.split(marker, 1)[1].strip()
+    return ""
+
+
+def _visible_bone_ids(snapshot):
+    workbench = snapshot.get("workbench") or {}
+    embodiment = snapshot.get("embodiment") or {}
+    bones = embodiment.get("bones") or []
+    all_ids = {
+        str((bone or {}).get("id") or (bone or {}).get("name") or "").strip()
+        for bone in bones
+        if isinstance(bone, dict)
+    }
+    all_ids.discard("")
+    if not all_ids:
+        return set()
+
+    visible_ids = set(all_ids)
+    isolated_chain = str(embodiment.get("isolated_chain") or workbench.get("isolated_chain") or "").strip()
+    isolated_ids = {
+        str(value or "").strip()
+        for value in (
+            embodiment.get("selected_chain_bone_ids")
+            or workbench.get("selected_chain_bone_ids")
+            or []
+        )
+    }
+    isolated_ids.discard("")
+    if isolated_chain and isolated_ids:
+        visible_ids &= isolated_ids
+
+    selected_surface = (
+        workbench.get("selected_part_surface")
+        if isinstance(workbench.get("selected_part_surface"), dict)
+        else {}
+    )
+    selected_ids = {
+        str(value or "").strip()
+        for value in (
+            workbench.get("selected_bone_ids")
+            or embodiment.get("selected_bone_ids")
+            or []
+        )
+    }
+    selected_ids.discard("")
+    primary_id = str(
+        workbench.get("primary_bone_id")
+        or selected_surface.get("bone_id")
+        or ""
+    ).strip()
+    if primary_id:
+        selected_ids.add(primary_id)
+
+    scope = str(workbench.get("part_display_scope") or "body").strip().lower() or "body"
+    scope_ids = set()
+    if scope == "part_only":
+        scope_ids = set(selected_ids)
+    elif scope == "part_adjacent":
+        scope_ids = set(selected_ids)
+        for part_key in selected_surface.get("adjacent_part_keys") or []:
+            bone_id = _part_key_bone_id(part_key)
+            if bone_id:
+                scope_ids.add(bone_id)
+    elif scope == "part_chain":
+        scope_ids = {
+            str(value or "").strip()
+            for value in (
+                selected_surface.get("chain_ids")
+                or embodiment.get("selected_chain_bone_ids")
+                or []
+            )
+        }
+        scope_ids.discard("")
+        if not scope_ids:
+            scope_ids = set(selected_ids)
+    if scope != "body" and scope_ids:
+        visible_ids &= scope_ids
+
+    return visible_ids
+
+
+def _selected_part_surface(snapshot):
+    workbench = snapshot.get("workbench") or {}
+    surface = workbench.get("selected_part_surface")
+    return surface if isinstance(surface, dict) else {}
+
+
+def _selected_part_camera_recipe(snapshot):
+    workbench = snapshot.get("workbench") or {}
+    view_key = str(workbench.get("part_view") or "iso_front").strip().lower() or "iso_front"
+    recipes = workbench.get("part_camera_recipes") or []
+    if not isinstance(recipes, list):
+        return None
+    fallback = None
+    for recipe in recipes:
+        if not isinstance(recipe, dict):
+            continue
+        key = str(recipe.get("key") or "").strip().lower()
+        if key == view_key:
+            return recipe
+        if fallback is None and key == "iso_front":
+            fallback = recipe
+        if fallback is None:
+            fallback = recipe
+    return fallback
+
+
+def _world_bounds_points(surface):
+    if not isinstance(surface, dict):
+        return []
+    bounds = surface.get("world_bounds")
+    if not isinstance(bounds, dict):
+        return []
+    min_point = _vec3(bounds.get("min"))
+    max_point = _vec3(bounds.get("max"))
+    min_x, min_y, min_z = min_point
+    max_x, max_y, max_z = max_point
+    return [
+        (min_x, min_y, min_z),
+        (min_x, min_y, max_z),
+        (min_x, max_y, min_z),
+        (min_x, max_y, max_z),
+        (max_x, min_y, min_z),
+        (max_x, min_y, max_z),
+        (max_x, max_y, min_z),
+        (max_x, max_y, max_z),
+    ]
+
+
 def _collect_render_model(snapshot):
     embodiment = snapshot.get("embodiment") or {}
     balance = snapshot.get("balance") or {}
@@ -1230,6 +1407,7 @@ def _collect_render_model(snapshot):
     bones = embodiment.get("bones") or []
     connections = embodiment.get("connections") or []
     bone_map = {str(bone.get("id") or bone.get("name") or ""): bone for bone in bones}
+    visible_bone_ids = _visible_bone_ids(snapshot)
     blueprint_bones = ((((workbench.get("builder_blueprint") or {}).get("bones")) or []))
     blueprint_map = {}
     for entry in blueprint_bones:
@@ -1261,6 +1439,9 @@ def _collect_render_model(snapshot):
     ) or ((render.get("focus_object_visual") or {}) if isinstance(render, dict) else {})
     show_bones = bool(embodiment.get("skeleton_visible", True))
     show_scaffold = bool(embodiment.get("scaffold_visible", False))
+    selected_surface = _selected_part_surface(snapshot)
+    scoped_part_mode = bool(visible_bone_ids) and str(workbench.get("part_display_scope") or "body").strip().lower() != "body"
+    selected_part_recipe = _selected_part_camera_recipe(snapshot) if scoped_part_mode else None
 
     body_base_color = "#f0f3f7"
     body_style = _style_from_color(
@@ -1446,12 +1627,25 @@ def _collect_render_model(snapshot):
     except Exception:
         pass
     focus_point = _snapshot_focus_point(snapshot)
+    selected_anchor = _vec3(
+        (selected_surface.get("world_center") if isinstance(selected_surface, dict) else None)
+        or (selected_surface.get("world_anchor") if isinstance(selected_surface, dict) else None)
+    ) if selected_surface else None
+    if scoped_part_mode and selected_anchor and _v_len(selected_anchor) > 0.001:
+        focus_point = selected_anchor
 
     scene_bounds = scene.get("bounds") or {}
     min_bound = scene_bounds.get("min") or {}
     max_bound = scene_bounds.get("max") or {}
     guide_grid_span = float(guide.get("grid_span") or 0.0) if isinstance(guide, dict) else 0.0
-    if guide_grid_span > 0.1:
+    selected_bounds_points = _world_bounds_points(selected_surface) if scoped_part_mode else []
+    if scoped_part_mode and selected_bounds_points:
+        scoped_bounds = _bounds3(selected_bounds_points)
+        min_x = float(scoped_bounds["min"][0]) - max(0.3, float(scoped_bounds["size"][0]) * 0.18)
+        max_x = float(scoped_bounds["max"][0]) + max(0.3, float(scoped_bounds["size"][0]) * 0.18)
+        min_z = float(scoped_bounds["min"][2]) - max(0.3, float(scoped_bounds["size"][2]) * 0.18)
+        max_z = float(scoped_bounds["max"][2]) + max(0.3, float(scoped_bounds["size"][2]) * 0.18)
+    elif guide_grid_span > 0.1:
         half_span = guide_grid_span * 0.5
         min_x = focus_point[0] - half_span
         max_x = focus_point[0] + half_span
@@ -1576,6 +1770,8 @@ def _collect_render_model(snapshot):
     projected_points = []
     if show_bones:
         for start_id, end_id in connections:
+            if visible_bone_ids and (str(start_id) not in visible_bone_ids or str(end_id) not in visible_bone_ids):
+                continue
             a = bone_map.get(str(start_id))
             b = bone_map.get(str(end_id))
             if not a or not b:
@@ -1597,6 +1793,9 @@ def _collect_render_model(snapshot):
     if show_scaffold:
         for row in embodiment.get("scaffold_pieces") or []:
             if not isinstance(row, dict) or row.get("visible") is False:
+                continue
+            slot_id = str(row.get("slot") or row.get("joint") or "").strip()
+            if visible_bone_ids and slot_id and slot_id not in visible_bone_ids:
                 continue
             start = _vec3(row.get("segment_start"))
             end = _vec3(row.get("segment_end"))
@@ -1639,6 +1838,8 @@ def _collect_render_model(snapshot):
                     projected_points.extend([box_start, box_end])
                 continue
             if geometry in {"ellipsoid", "sphere"}:
+                # Keep the structural cross-brace for volume legibility, but avoid
+                # the old shell-point fill that turned into noisy speckle.
                 for plane in ("xz", "xy", "yz"):
                     for ring_start, ring_end in _scaffold_ellipsoid_ring_segments(center, size_world, quaternion, plane, 18):
                         scaffold_segments.append({
@@ -1665,8 +1866,10 @@ def _collect_render_model(snapshot):
     markers = []
     if show_bones:
         for bone in bones:
-            point = _vec3(bone.get("world_pos"))
             bone_id = str(bone.get("id") or bone.get("name") or "")
+            if visible_bone_ids and bone_id not in visible_bone_ids:
+                continue
+            point = _vec3(bone.get("world_pos"))
             state = contact_states.get(bone_id)
             landmark = _landmark_kind(bone_id)
             label = "•"
@@ -1688,28 +1891,29 @@ def _collect_render_model(snapshot):
             })
 
     support_polygon = []
-    for row in balance.get("support_polygon") or []:
-        support_polygon.append((float(row.get("x") or 0), support_y, float(row.get("z") or 0)))
-    projected_points.extend(support_polygon)
-
     contact_patches = []
     diagnostic_contacts = (((workbench.get("motion_diagnostics") or {}).get("contacts")) or [])
-    for row in diagnostic_contacts:
-        patch = ((row or {}).get("contact_patch")) or {}
-        footprint_world = patch.get("footprint_world") or []
-        points = [_vec3(point) for point in footprint_world if isinstance(point, dict)]
-        if len(points) >= 3:
-            contact_patches.append({
-                "points": points,
-                "style": support_style if row.get("supporting") else posed_style,
-                "priority": 4 if row.get("supporting") else 3,
-            })
-            projected_points.extend(points)
+    if not scoped_part_mode:
+        for row in balance.get("support_polygon") or []:
+            support_polygon.append((float(row.get("x") or 0), support_y, float(row.get("z") or 0)))
+        projected_points.extend(support_polygon)
+        for row in diagnostic_contacts:
+            patch = ((row or {}).get("contact_patch")) or {}
+            footprint_world = patch.get("footprint_world") or []
+            points = [_vec3(point) for point in footprint_world if isinstance(point, dict)]
+            if len(points) >= 3:
+                contact_patches.append({
+                    "points": points,
+                    "style": support_style if row.get("supporting") else posed_style,
+                    "priority": 4 if row.get("supporting") else 3,
+                })
+                projected_points.extend(points)
 
-    com = _vec3(balance.get("com"))
-    projected_points.append(com)
-    projected_points.append(heading_origin)
-    projected_points.append(heading_tip)
+    com = _vec3(balance.get("com")) if not scoped_part_mode else focus_point
+    if not scoped_part_mode:
+        projected_points.append(com)
+        projected_points.append(heading_origin)
+        projected_points.append(heading_tip)
     projected_points.append(focus_point)
     for row in floor_points + pad_fill_points:
         projected_points.append(row["point"])
@@ -1719,23 +1923,26 @@ def _collect_render_model(snapshot):
         projected_points.extend(_sample_circle_points(row["center"], row["radius"], row["samples"]))
 
     objects = []
-    for index, obj in enumerate(scene.get("focus_neighborhood") or []):
-        point = _vec3(obj.get("position"))
-        objects.append({
-            "char": "·",
-            "label": str(obj.get("label") or obj.get("id") or obj.get("kind") or f"object_{index + 1}"),
-            "point": point,
-            "distance": obj.get("distance"),
-            "style": _style_from_color(
-                obj.get("color") or ((obj.get("colors") or {}).get("edge")) or "#66b8ff",
-                "#66b8ff",
-                1.0,
-            ),
-        })
-        projected_points.append(point)
+    if not scoped_part_mode:
+        for index, obj in enumerate(scene.get("focus_neighborhood") or []):
+            point = _vec3(obj.get("position"))
+            objects.append({
+                "char": "·",
+                "label": str(obj.get("label") or obj.get("id") or obj.get("kind") or f"object_{index + 1}"),
+                "point": point,
+                "distance": obj.get("distance"),
+                "style": _style_from_color(
+                    obj.get("color") or ((obj.get("colors") or {}).get("edge")) or "#66b8ff",
+                    "#66b8ff",
+                    1.0,
+                ),
+            })
+            projected_points.append(point)
 
-    perspective_points = [com, heading_origin, heading_tip, focus_point]
-    perspective_points.extend(support_polygon)
+    perspective_points = [focus_point]
+    if not scoped_part_mode:
+        perspective_points.extend([com, heading_origin, heading_tip])
+        perspective_points.extend(support_polygon)
     for segment in segments:
         perspective_points.extend([segment["start"], segment["end"]])
     for segment in scaffold_segments:
@@ -1759,6 +1966,9 @@ def _collect_render_model(snapshot):
         "heading_origin": heading_origin,
         "heading_length": heading_length,
         "heading_tip": heading_tip,
+        "scoped_part_mode": scoped_part_mode,
+        "selected_part_surface": selected_surface,
+        "part_camera_recipe": selected_part_recipe,
         "objects": objects,
         "floor_points": floor_points,
         "pad_fill_points": pad_fill_points,
@@ -2272,7 +2482,7 @@ def _render_projection(snapshot, width, height, mode, history=None):
             if dir_len > 1e-6:
                 normal_x = (-dir_y / dir_len)
                 normal_y = (dir_x / dir_len)
-            thickness = 0 if render_mode == "wire" else _segment_thickness_band(segment.get("radius_start"), segment.get("radius_end"))
+            thickness = 0 if render_mode == "wire" else _scaffold_segment_thickness_band(segment)
             sample_count = 20 if render_mode == "wire" else (20 if thickness <= 0 else (24 if thickness == 1 else 30))
             for point in _sample_segment_points(start, end, sample_count):
                 coords = project(point)
@@ -2345,9 +2555,13 @@ def _render_projection(snapshot, width, height, mode, history=None):
                         (float(segment.get("radius_end") or 0.02) - float(segment.get("radius_start") or 0.02)) * t
                     )
                     radius = _project_radius_to_subcells(radius_world, depth, render_height, camera_meta)
-                    if projected_radius >= 2 or radius_world >= 0.055:
+                    if projected_radius >= 1 or radius_world >= 0.016:
                         radius = max(1, radius)
-                    radius = int(_clamp(radius, 0, 2))
+                    if projected_radius >= 2 or radius_world >= 0.12:
+                        radius = max(2, radius)
+                    if projected_radius >= 3 or radius_world >= 0.6:
+                        radius = max(3, radius)
+                    radius = int(_clamp(radius, 0, 3))
                     for dx, dy, style_slot, priority in _body_stamp_offsets(radius, idx):
                         _depth_buffer_put(
                             perspective_scaffold_body_layer,
@@ -2372,7 +2586,11 @@ def _render_projection(snapshot, width, height, mode, history=None):
                 radius_world = float(segment.get("radius_start") or 0.02) + (
                     (float(segment.get("radius_end") or 0.02) - float(segment.get("radius_start") or 0.02)) * t
                 )
-                radius = _orthographic_stamp_radius(radius_world)
+                radius = _orthographic_scaffold_stamp_radius(radius_world)
+                if radius_world >= 0.12:
+                    radius = max(2, radius)
+                if radius_world >= 0.6:
+                    radius = max(3, radius)
                 for dx, dy, style_slot, priority in _body_stamp_offsets(radius, idx):
                     _braille_put(canvas, x + dx, y + dy, priority=max(3, priority + 1), style=body_style)
 

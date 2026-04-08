@@ -219,6 +219,43 @@
         ]
       }
     },
+    "workbench_set_display_scope": {
+      "title": "Set Workbench Display Scope",
+      "summary": "Change whether the workbench shows the whole builder subject or a scoped part/adjacent/chain view for the current selected bone.",
+      "target_contract": {
+        "shape": "string",
+        "description": "Builder display scope enum for the currently selected part.",
+        "examples": [
+          "body",
+          "part_only",
+          "part_adjacent",
+          "part_chain"
+        ]
+      },
+      "when_to_use": [
+        "Use this when you want the browser and text theater to stage the selected part or chain as the current work cell instead of the whole body.",
+        "This is the main scope switch for proc-gen body-part work, isolated chain review, and scoped framing parity checks."
+      ],
+      "mode_notes": [
+        "This depends on a selected builder bone; without selection, body scope is the only meaningful state.",
+        "Scope changes should be validated against both the web workbench guide and the paired text theater snapshot when parity matters."
+      ],
+      "gotchas": [
+        "Turntable/manual camera behavior is separate from scope; scope changes alter the staged visible set and part framing inputs.",
+        "If the attached text_theater payload reports stale freshness, corroborate with env_read(query='text_theater_snapshot') before trusting the scoped frame as final."
+      ],
+      "verification": [
+        "env_read(query='text_theater_snapshot')",
+        "env_read(query='shared_state')",
+        "capture_probe",
+        "workbench_frame_part"
+      ],
+      "related_commands": [
+        "workbench_select_bone",
+        "workbench_frame_part",
+        "capture_probe"
+      ]
+    },
     "workbench_set_pose": {
       "title": "Set Builder Pose",
       "summary": "Apply a single explicit pose transform to one builder bone using the pose gizmo contract instead of guessing through the viewport.",
@@ -634,6 +671,31 @@
       "notes": [
         "Use this when verifying builder state as serialized data instead of relying on the viewport.",
         "Capture after reload so the rehydrated builder state is corroborated visually."
+      ]
+    },
+    "dual_theater_isolation_review": {
+      "title": "Dual Theater Isolation Review",
+      "steps": [
+        "workbench_new_builder('humanoid_biped')",
+        "workbench_select_bone('head')",
+        "workbench_set_display_scope('body')",
+        "capture_probe('character_runtime::mounted_primary')",
+        "env_read(query='text_theater_snapshot')",
+        "workbench_set_display_scope('part_only')",
+        "workbench_frame_part('{\"bone_id\":\"head\",\"view\":\"iso_front\"}')",
+        "env_read(query='text_theater_snapshot')",
+        "workbench_set_display_scope('part_adjacent')",
+        "workbench_frame_part('{\"bone_id\":\"head\",\"view\":\"iso_front\"}')",
+        "env_read(query='text_theater_snapshot')",
+        "workbench_set_display_scope('part_chain')",
+        "workbench_frame_part('{\"bone_id\":\"head\",\"view\":\"iso_front\"}')",
+        "env_read(query='text_theater_snapshot')"
+      ],
+      "notes": [
+        "Use this when validating web/text parity for full body, isolated part, adjacent part, and chain staging.",
+        "The important corroboration fields are selected_part_surface, part_camera_recipes, workbench_stage_guide, and embodiment.scaffold_pieces visibility.",
+        "If body mode and text theater disagree on visible limb scaffold slots, treat that as a renderer/export regression and compare the browser-visible scaffold set against the text-rendered scaffold set.",
+        "Use the repo-local scripts/eval_isolation_scopes.py harness when you want repeatable browser-vs-text comparisons recorded as JSON."
       ]
     }
   }

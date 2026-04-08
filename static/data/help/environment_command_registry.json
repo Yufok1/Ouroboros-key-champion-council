@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at": "2026-04-07T15:52:58.888Z",
+    "generated_at": "2026-04-08T04:45:34.184Z",
     "generated_by": "scripts/generate-env-help-registry.js",
     "update_commands": [
       "node scripts/generate-env-help-registry.js",
@@ -21,7 +21,7 @@
       "proxied_commands": 119,
       "host_commands": 44,
       "families": 10,
-      "playbooks": 5
+      "playbooks": 6
     }
   },
   "families": {
@@ -450,22 +450,22 @@
         },
         {
           "file": "static/main.js",
-          "line": 26227,
+          "line": 26365,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57033,
+          "line": 57426,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 57360,
+          "line": 57753,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 57032,
+          "line": 57425,
           "kind": "ui_action"
         }
       ]
@@ -532,7 +532,7 @@
         },
         {
           "file": "static/main.js",
-          "line": 26796,
+          "line": 26934,
           "kind": "handler"
         }
       ]
@@ -606,22 +606,22 @@
         },
         {
           "file": "static/main.js",
-          "line": 19794,
+          "line": 19905,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 24605,
+          "line": 24716,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 25495,
+          "line": 25633,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 26212,
+          "line": 26350,
           "kind": "handler"
         }
       ]
@@ -692,7 +692,7 @@
         },
         {
           "file": "static/main.js",
-          "line": 26075,
+          "line": 26213,
           "kind": "handler"
         }
       ]
@@ -763,7 +763,7 @@
         },
         {
           "file": "static/main.js",
-          "line": 26079,
+          "line": 26217,
           "kind": "handler"
         }
       ]
@@ -834,7 +834,7 @@
         },
         {
           "file": "static/main.js",
-          "line": 26043,
+          "line": 26181,
           "kind": "handler"
         }
       ]
@@ -905,7 +905,7 @@
         },
         {
           "file": "static/main.js",
-          "line": 26035,
+          "line": 26173,
           "kind": "handler"
         }
       ]
@@ -976,7 +976,7 @@
         },
         {
           "file": "static/main.js",
-          "line": 26051,
+          "line": 26189,
           "kind": "handler"
         }
       ]
@@ -1047,7 +1047,7 @@
         },
         {
           "file": "static/main.js",
-          "line": 26059,
+          "line": 26197,
           "kind": "handler"
         }
       ]
@@ -1118,7 +1118,7 @@
         },
         {
           "file": "static/main.js",
-          "line": 26063,
+          "line": 26201,
           "kind": "handler"
         }
       ]
@@ -1189,7 +1189,7 @@
         },
         {
           "file": "static/main.js",
-          "line": 26098,
+          "line": 26236,
           "kind": "handler"
         }
       ]
@@ -1260,7 +1260,7 @@
         },
         {
           "file": "static/main.js",
-          "line": 26092,
+          "line": 26230,
           "kind": "handler"
         }
       ]
@@ -1331,7 +1331,7 @@
         },
         {
           "file": "static/main.js",
-          "line": 26095,
+          "line": 26233,
           "kind": "handler"
         }
       ]
@@ -1402,7 +1402,7 @@
         },
         {
           "file": "static/main.js",
-          "line": 26083,
+          "line": 26221,
           "kind": "handler"
         }
       ]
@@ -1473,7 +1473,7 @@
         },
         {
           "file": "static/main.js",
-          "line": 26086,
+          "line": 26224,
           "kind": "handler"
         }
       ]
@@ -1544,7 +1544,7 @@
         },
         {
           "file": "static/main.js",
-          "line": 26089,
+          "line": 26227,
           "kind": "handler"
         }
       ]
@@ -1615,17 +1615,17 @@
         },
         {
           "file": "static/main.js",
-          "line": 26101,
+          "line": 26239,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57423,
+          "line": 57816,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 57426,
+          "line": 57819,
           "kind": "bridge"
         }
       ]
@@ -1696,12 +1696,12 @@
         },
         {
           "file": "static/main.js",
-          "line": 26130,
+          "line": 26268,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 56635,
+          "line": 57010,
           "kind": "bridge"
         }
       ]
@@ -1772,7 +1772,7 @@
         },
         {
           "file": "static/main.js",
-          "line": 26071,
+          "line": 26209,
           "kind": "handler"
         }
       ]
@@ -1843,7 +1843,7 @@
         },
         {
           "file": "static/main.js",
-          "line": 26067,
+          "line": 26205,
           "kind": "handler"
         }
       ]
@@ -1920,7 +1920,7 @@
         },
         {
           "file": "static/main.js",
-          "line": 26180,
+          "line": 26318,
           "kind": "handler"
         }
       ]
@@ -1997,7 +1997,7 @@
         },
         {
           "file": "static/main.js",
-          "line": 26160,
+          "line": 26298,
           "kind": "handler"
         }
       ]
@@ -2074,7 +2074,7 @@
         },
         {
           "file": "static/main.js",
-          "line": 26164,
+          "line": 26302,
           "kind": "handler"
         }
       ]
@@ -2147,7 +2147,7 @@
         },
         {
           "file": "static/main.js",
-          "line": 26184,
+          "line": 26322,
           "kind": "handler"
         }
       ]
@@ -2224,7 +2224,7 @@
         },
         {
           "file": "static/main.js",
-          "line": 26168,
+          "line": 26306,
           "kind": "handler"
         }
       ]
@@ -2301,7 +2301,7 @@
         },
         {
           "file": "static/main.js",
-          "line": 26176,
+          "line": 26314,
           "kind": "handler"
         }
       ]
@@ -2375,7 +2375,7 @@
         },
         {
           "file": "static/main.js",
-          "line": 26172,
+          "line": 26310,
           "kind": "handler"
         }
       ]
@@ -2453,22 +2453,22 @@
         },
         {
           "file": "static/main.js",
-          "line": 56644,
+          "line": 57019,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 57132,
+          "line": 57525,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 57458,
+          "line": 57851,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 57703,
+          "line": 58096,
           "kind": "bridge"
         }
       ]
@@ -2545,7 +2545,7 @@
         },
         {
           "file": "static/main.js",
-          "line": 26584,
+          "line": 26722,
           "kind": "handler"
         }
       ]
@@ -2625,12 +2625,12 @@
         },
         {
           "file": "static/main.js",
-          "line": 26560,
+          "line": 26698,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57711,
+          "line": 58104,
           "kind": "bridge"
         }
       ]
@@ -2706,7 +2706,7 @@
         },
         {
           "file": "static/main.js",
-          "line": 57452,
+          "line": 57845,
           "kind": "bridge"
         }
       ]
@@ -2786,12 +2786,12 @@
         },
         {
           "file": "static/main.js",
-          "line": 26552,
+          "line": 26690,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57694,
+          "line": 58087,
           "kind": "bridge"
         }
       ]
@@ -2872,17 +2872,17 @@
         },
         {
           "file": "static/main.js",
-          "line": 26564,
+          "line": 26702,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 56649,
+          "line": 57024,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 57719,
+          "line": 58112,
           "kind": "bridge"
         }
       ]
@@ -2960,12 +2960,12 @@
         },
         {
           "file": "static/main.js",
-          "line": 26708,
+          "line": 26846,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57754,
+          "line": 58147,
           "kind": "bridge"
         }
       ]
@@ -3045,12 +3045,12 @@
         },
         {
           "file": "static/main.js",
-          "line": 26568,
+          "line": 26706,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57727,
+          "line": 58120,
           "kind": "bridge"
         }
       ]
@@ -3131,17 +3131,17 @@
         },
         {
           "file": "static/main.js",
-          "line": 26576,
+          "line": 26714,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 56674,
+          "line": 57049,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 57738,
+          "line": 58131,
           "kind": "bridge"
         }
       ]
@@ -3222,12 +3222,12 @@
         },
         {
           "file": "static/main.js",
-          "line": 26498,
+          "line": 26636,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57461,
+          "line": 57854,
           "kind": "bridge"
         }
       ]
@@ -3309,17 +3309,17 @@
         },
         {
           "file": "static/main.js",
-          "line": 26580,
+          "line": 26718,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 56667,
+          "line": 57042,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 57746,
+          "line": 58139,
           "kind": "bridge"
         }
       ]
@@ -3397,12 +3397,12 @@
         },
         {
           "file": "static/main.js",
-          "line": 26556,
+          "line": 26694,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57697,
+          "line": 58090,
           "kind": "bridge"
         }
       ]
@@ -3480,12 +3480,12 @@
         },
         {
           "file": "static/main.js",
-          "line": 26572,
+          "line": 26710,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57730,
+          "line": 58123,
           "kind": "bridge"
         }
       ]
@@ -3563,7 +3563,7 @@
         },
         {
           "file": "static/main.js",
-          "line": 57455,
+          "line": 57848,
           "kind": "bridge"
         }
       ]
@@ -3630,7 +3630,7 @@
         },
         {
           "file": "static/main.js",
-          "line": 26813,
+          "line": 26951,
           "kind": "handler"
         }
       ]
@@ -3709,22 +3709,22 @@
         },
         {
           "file": "static/main.js",
-          "line": 19780,
+          "line": 19891,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 26469,
+          "line": 26607,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57419,
+          "line": 57812,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 32559,
+          "line": 32818,
           "kind": "ui_action"
         }
       ]
@@ -3799,17 +3799,17 @@
         },
         {
           "file": "static/main.js",
-          "line": 19774,
+          "line": 19885,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 26449,
+          "line": 26587,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57378,
+          "line": 57771,
           "kind": "bridge"
         }
       ]
@@ -3959,32 +3959,32 @@
         },
         {
           "file": "static/main.js",
-          "line": 19767,
+          "line": 19878,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 26260,
+          "line": 26398,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57021,
+          "line": 57414,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 58069,
+          "line": 58471,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 48931,
+          "line": 49306,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 57020,
+          "line": 57413,
           "kind": "ui_action"
         }
       ]
@@ -4062,32 +4062,32 @@
         },
         {
           "file": "static/main.js",
-          "line": 19785,
+          "line": 19896,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 26282,
+          "line": 26420,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 56912,
+          "line": 57305,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 57198,
+          "line": 57591,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 49379,
+          "line": 49754,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 50316,
+          "line": 50691,
           "kind": "ui_entrypoint"
         }
       ]
@@ -4165,32 +4165,32 @@
         },
         {
           "file": "static/main.js",
-          "line": 19783,
+          "line": 19894,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 26364,
+          "line": 26502,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57206,
+          "line": 57599,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 57318,
+          "line": 57711,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 49360,
+          "line": 49735,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 57205,
+          "line": 57598,
           "kind": "ui_action"
         }
       ]
@@ -4264,17 +4264,17 @@
         },
         {
           "file": "static/main.js",
-          "line": 19789,
+          "line": 19900,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 26315,
+          "line": 26453,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57336,
+          "line": 57729,
           "kind": "bridge"
         }
       ]
@@ -4352,32 +4352,32 @@
         },
         {
           "file": "static/main.js",
-          "line": 19768,
+          "line": 19879,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 26271,
+          "line": 26409,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57182,
+          "line": 57575,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 57315,
+          "line": 57708,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 49375,
+          "line": 49750,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 57181,
+          "line": 57574,
           "kind": "ui_action"
         }
       ]
@@ -4455,27 +4455,27 @@
         },
         {
           "file": "static/main.js",
-          "line": 26487,
+          "line": 26625,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 56940,
+          "line": 57333,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 57309,
+          "line": 57702,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 50596,
+          "line": 50971,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 50601,
+          "line": 50976,
           "kind": "ui_entrypoint"
         }
       ]
@@ -4553,32 +4553,32 @@
         },
         {
           "file": "static/main.js",
-          "line": 24599,
+          "line": 24710,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 24617,
+          "line": 24728,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 26304,
+          "line": 26442,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 56954,
+          "line": 57347,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 49639,
+          "line": 50014,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 56952,
+          "line": 57345,
           "kind": "ui_entrypoint"
         }
       ]
@@ -4656,32 +4656,32 @@
         },
         {
           "file": "static/main.js",
-          "line": 19766,
+          "line": 19877,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 26375,
+          "line": 26513,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 56926,
+          "line": 57319,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 57327,
+          "line": 57720,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 50261,
+          "line": 50636,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 56925,
+          "line": 57318,
           "kind": "ui_action"
         }
       ]
@@ -4763,12 +4763,12 @@
         },
         {
           "file": "static/main.js",
-          "line": 48801,
+          "line": 49176,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 56643,
+          "line": 57018,
           "kind": "ui_action"
         }
       ]
@@ -4846,27 +4846,27 @@
         },
         {
           "file": "static/main.js",
-          "line": 19769,
+          "line": 19880,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 26476,
+          "line": 26614,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57194,
+          "line": 57587,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 49370,
+          "line": 49745,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 57193,
+          "line": 57586,
           "kind": "ui_action"
         }
       ]
@@ -4944,22 +4944,22 @@
         },
         {
           "file": "static/main.js",
-          "line": 26238,
+          "line": 26376,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57037,
+          "line": 57430,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 57363,
+          "line": 57756,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 57036,
+          "line": 57429,
           "kind": "ui_action"
         }
       ]
@@ -5033,17 +5033,17 @@
         },
         {
           "file": "static/main.js",
-          "line": 19790,
+          "line": 19901,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 26327,
+          "line": 26465,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57339,
+          "line": 57732,
           "kind": "bridge"
         }
       ]
@@ -5117,12 +5117,12 @@
         },
         {
           "file": "static/main.js",
-          "line": 26216,
+          "line": 26354,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57321,
+          "line": 57714,
           "kind": "bridge"
         }
       ]
@@ -5200,22 +5200,22 @@
         },
         {
           "file": "static/main.js",
-          "line": 26208,
+          "line": 26346,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 56615,
+          "line": 56990,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 57174,
+          "line": 57567,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 57173,
+          "line": 57566,
           "kind": "ui_action"
         }
       ]
@@ -5293,32 +5293,32 @@
         },
         {
           "file": "static/main.js",
-          "line": 19782,
+          "line": 19893,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 26353,
+          "line": 26491,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57202,
+          "line": 57595,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 57312,
+          "line": 57705,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 49365,
+          "line": 49740,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 57201,
+          "line": 57594,
           "kind": "ui_action"
         }
       ]
@@ -5396,22 +5396,22 @@
         },
         {
           "file": "static/main.js",
-          "line": 26771,
+          "line": 26909,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 32027,
+          "line": 32286,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 32577,
+          "line": 32836,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 32575,
+          "line": 32834,
           "kind": "ui_action"
         }
       ]
@@ -5486,12 +5486,12 @@
         },
         {
           "file": "static/main.js",
-          "line": 26405,
+          "line": 26543,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57369,
+          "line": 57762,
           "kind": "bridge"
         }
       ]
@@ -5569,32 +5569,32 @@
         },
         {
           "file": "static/main.js",
-          "line": 19784,
+          "line": 19895,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 25507,
+          "line": 25645,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 26293,
+          "line": 26431,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 56900,
+          "line": 57293,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 50711,
+          "line": 51086,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 56898,
+          "line": 57291,
           "kind": "ui_entrypoint"
         }
       ]
@@ -5668,17 +5668,17 @@
         },
         {
           "file": "static/main.js",
-          "line": 19791,
+          "line": 19902,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 26339,
+          "line": 26477,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57342,
+          "line": 57735,
           "kind": "bridge"
         }
       ]
@@ -5756,27 +5756,27 @@
         },
         {
           "file": "static/main.js",
-          "line": 19765,
+          "line": 19876,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 26388,
+          "line": 26526,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57178,
+          "line": 57571,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 49327,
+          "line": 49702,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 49439,
+          "line": 49814,
           "kind": "ui_entrypoint"
         }
       ]
@@ -5854,32 +5854,32 @@
         },
         {
           "file": "static/main.js",
-          "line": 25489,
+          "line": 25627,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 26750,
+          "line": 26888,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57186,
+          "line": 57579,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 57345,
+          "line": 57738,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 49328,
+          "line": 49703,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 49440,
+          "line": 49815,
           "kind": "ui_entrypoint"
         }
       ]
@@ -5954,12 +5954,12 @@
         },
         {
           "file": "static/main.js",
-          "line": 26417,
+          "line": 26555,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57372,
+          "line": 57765,
           "kind": "bridge"
         }
       ]
@@ -6038,27 +6038,27 @@
         },
         {
           "file": "static/main.js",
-          "line": 26733,
+          "line": 26871,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 56944,
+          "line": 57337,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 56975,
+          "line": 57368,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 50602,
+          "line": 50977,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 50616,
+          "line": 50991,
           "kind": "ui_entrypoint"
         }
       ]
@@ -6133,12 +6133,12 @@
         },
         {
           "file": "static/main.js",
-          "line": 26429,
+          "line": 26567,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57375,
+          "line": 57768,
           "kind": "bridge"
         }
       ]
@@ -6216,27 +6216,27 @@
         },
         {
           "file": "static/main.js",
-          "line": 26200,
+          "line": 26338,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 56607,
+          "line": 56982,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 57103,
+          "line": 57496,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 26899,
+          "line": 27037,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 49438,
+          "line": 49813,
           "kind": "ui_entrypoint"
         }
       ]
@@ -6314,27 +6314,27 @@
         },
         {
           "file": "static/main.js",
-          "line": 26196,
+          "line": 26334,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 56603,
+          "line": 56978,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 57099,
+          "line": 57492,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 26898,
+          "line": 27036,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 49437,
+          "line": 49812,
           "kind": "ui_entrypoint"
         }
       ]
@@ -6410,17 +6410,17 @@
         },
         {
           "file": "static/main.js",
-          "line": 26249,
+          "line": 26387,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 49289,
+          "line": 49664,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 49329,
+          "line": 49704,
           "kind": "ui_entrypoint"
         }
       ]
@@ -6498,32 +6498,32 @@
         },
         {
           "file": "static/main.js",
-          "line": 24590,
+          "line": 24701,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 26156,
+          "line": 26294,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57087,
+          "line": 57480,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 57297,
+          "line": 57690,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 49434,
+          "line": 49809,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 57086,
+          "line": 57479,
           "kind": "ui_action"
         }
       ]
@@ -6595,12 +6595,12 @@
         },
         {
           "file": "static/main.js",
-          "line": 26728,
+          "line": 26866,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57306,
+          "line": 57699,
           "kind": "bridge"
         }
       ]
@@ -6676,32 +6676,32 @@
         },
         {
           "file": "static/main.js",
-          "line": 26716,
+          "line": 26854,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 56623,
+          "line": 56998,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 57115,
+          "line": 57508,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 57366,
+          "line": 57759,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 48746,
+          "line": 49121,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 56618,
+          "line": 56993,
           "kind": "ui_action"
         }
       ]
@@ -6768,7 +6768,7 @@
         },
         {
           "file": "static/main.js",
-          "line": 26830,
+          "line": 26968,
           "kind": "handler"
         }
       ]
@@ -6844,27 +6844,27 @@
         },
         {
           "file": "static/main.js",
-          "line": 26204,
+          "line": 26342,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 56611,
+          "line": 56986,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 57107,
+          "line": 57500,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 26900,
+          "line": 27038,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 26901,
+          "line": 27039,
           "kind": "ui_entrypoint"
         }
       ]
@@ -6940,32 +6940,32 @@
         },
         {
           "file": "static/main.js",
-          "line": 19817,
+          "line": 19928,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 26712,
+          "line": 26850,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 56631,
+          "line": 57006,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 57123,
+          "line": 57516,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 25298,
+          "line": 25436,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 56626,
+          "line": 57001,
           "kind": "ui_action"
         }
       ]
@@ -7032,7 +7032,7 @@
         },
         {
           "file": "static/main.js",
-          "line": 26780,
+          "line": 26918,
           "kind": "handler"
         }
       ]
@@ -7180,7 +7180,7 @@
         },
         {
           "file": "static/main.js",
-          "line": 57393,
+          "line": 57786,
           "kind": "bridge"
         }
       ]
@@ -7255,7 +7255,7 @@
         },
         {
           "file": "static/main.js",
-          "line": 57400,
+          "line": 57793,
           "kind": "bridge"
         }
       ]
@@ -7327,12 +7327,12 @@
         },
         {
           "file": "static/main.js",
-          "line": 12811,
+          "line": 12921,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57406,
+          "line": 57799,
           "kind": "bridge"
         }
       ]
@@ -7407,7 +7407,7 @@
         },
         {
           "file": "static/main.js",
-          "line": 57387,
+          "line": 57780,
           "kind": "bridge"
         }
       ]
@@ -7482,7 +7482,7 @@
         },
         {
           "file": "static/main.js",
-          "line": 57413,
+          "line": 57806,
           "kind": "bridge"
         }
       ]
@@ -7557,7 +7557,7 @@
         },
         {
           "file": "static/main.js",
-          "line": 57381,
+          "line": 57774,
           "kind": "bridge"
         }
       ]
@@ -7708,27 +7708,27 @@
         },
         {
           "file": "static/main.js",
-          "line": 26192,
+          "line": 26330,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 56599,
+          "line": 56974,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 57095,
+          "line": 57488,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 26897,
+          "line": 27035,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 49436,
+          "line": 49811,
           "kind": "ui_entrypoint"
         }
       ]
@@ -7802,17 +7802,17 @@
         },
         {
           "file": "static/main.js",
-          "line": 26188,
+          "line": 26326,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57091,
+          "line": 57484,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 57300,
+          "line": 57693,
           "kind": "bridge"
         }
       ]
@@ -7897,27 +7897,27 @@
         },
         {
           "file": "static/main.js",
-          "line": 26668,
+          "line": 26806,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 56727,
+          "line": 57102,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 57624,
+          "line": 58017,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 25228,
+          "line": 25342,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 56722,
+          "line": 57097,
           "kind": "ui_action"
         }
       ]
@@ -7998,12 +7998,12 @@
         },
         {
           "file": "static/main.js",
-          "line": 26652,
+          "line": 26790,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57592,
+          "line": 57985,
           "kind": "bridge"
         }
       ]
@@ -8080,12 +8080,12 @@
         },
         {
           "file": "static/main.js",
-          "line": 26680,
+          "line": 26818,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57648,
+          "line": 58041,
           "kind": "bridge"
         }
       ]
@@ -8166,12 +8166,12 @@
         },
         {
           "file": "static/main.js",
-          "line": 26644,
+          "line": 26782,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57576,
+          "line": 57969,
           "kind": "bridge"
         }
       ]
@@ -8249,12 +8249,12 @@
         },
         {
           "file": "static/main.js",
-          "line": 26640,
+          "line": 26778,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57568,
+          "line": 57961,
           "kind": "bridge"
         }
       ]
@@ -8331,12 +8331,12 @@
         },
         {
           "file": "static/main.js",
-          "line": 26676,
+          "line": 26814,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57640,
+          "line": 58033,
           "kind": "bridge"
         }
       ]
@@ -8414,12 +8414,12 @@
         },
         {
           "file": "static/main.js",
-          "line": 26660,
+          "line": 26798,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57608,
+          "line": 58001,
           "kind": "bridge"
         }
       ]
@@ -8500,12 +8500,12 @@
         },
         {
           "file": "static/main.js",
-          "line": 26648,
+          "line": 26786,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57584,
+          "line": 57977,
           "kind": "bridge"
         }
       ]
@@ -8583,12 +8583,12 @@
         },
         {
           "file": "static/main.js",
-          "line": 26600,
+          "line": 26738,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57488,
+          "line": 57881,
           "kind": "bridge"
         }
       ]
@@ -8666,12 +8666,12 @@
         },
         {
           "file": "static/main.js",
-          "line": 26592,
+          "line": 26730,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57472,
+          "line": 57865,
           "kind": "bridge"
         }
       ]
@@ -8749,12 +8749,12 @@
         },
         {
           "file": "static/main.js",
-          "line": 26596,
+          "line": 26734,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57480,
+          "line": 57873,
           "kind": "bridge"
         }
       ]
@@ -8832,12 +8832,12 @@
         },
         {
           "file": "static/main.js",
-          "line": 26688,
+          "line": 26826,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57664,
+          "line": 58057,
           "kind": "bridge"
         }
       ]
@@ -8915,12 +8915,12 @@
         },
         {
           "file": "static/main.js",
-          "line": 26696,
+          "line": 26834,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57675,
+          "line": 58068,
           "kind": "bridge"
         }
       ]
@@ -9002,12 +9002,12 @@
         },
         {
           "file": "static/main.js",
-          "line": 26588,
+          "line": 26726,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57469,
+          "line": 57862,
           "kind": "bridge"
         }
       ]
@@ -9085,12 +9085,12 @@
         },
         {
           "file": "static/main.js",
-          "line": 26664,
+          "line": 26802,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57616,
+          "line": 58009,
           "kind": "bridge"
         }
       ]
@@ -9171,12 +9171,12 @@
         },
         {
           "file": "static/main.js",
-          "line": 26672,
+          "line": 26810,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57632,
+          "line": 58025,
           "kind": "bridge"
         }
       ]
@@ -9254,12 +9254,12 @@
         },
         {
           "file": "static/main.js",
-          "line": 26684,
+          "line": 26822,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57656,
+          "line": 58049,
           "kind": "bridge"
         }
       ]
@@ -9337,12 +9337,12 @@
         },
         {
           "file": "static/main.js",
-          "line": 26692,
+          "line": 26830,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57667,
+          "line": 58060,
           "kind": "bridge"
         }
       ]
@@ -9423,12 +9423,12 @@
         },
         {
           "file": "static/main.js",
-          "line": 26604,
+          "line": 26742,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57496,
+          "line": 57889,
           "kind": "bridge"
         }
       ]
@@ -9508,12 +9508,12 @@
         },
         {
           "file": "static/main.js",
-          "line": 26608,
+          "line": 26746,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57504,
+          "line": 57897,
           "kind": "bridge"
         }
       ]
@@ -9593,12 +9593,12 @@
         },
         {
           "file": "static/main.js",
-          "line": 26628,
+          "line": 26766,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57544,
+          "line": 57937,
           "kind": "bridge"
         }
       ]
@@ -9606,7 +9606,7 @@
     "workbench_set_display_scope": {
       "command": "workbench_set_display_scope",
       "entry_kind": "env_command",
-      "title": "Workbench Set Display Scope",
+      "title": "Set Workbench Display Scope",
       "category": "builder_workbench",
       "status": "live",
       "transport": {
@@ -9629,47 +9629,48 @@
       },
       "target_contract": {
         "shape": "string",
-        "description": "Workbench enum value understood by the builder UI/runtime handler.",
+        "description": "Builder display scope enum for the currently selected part.",
         "examples": [
-          "rotate",
-          "translate",
-          "local",
-          "world"
+          "body",
+          "part_only",
+          "part_adjacent",
+          "part_chain"
         ]
       },
-      "summary": "Change how much of the builder subject the workbench displays.",
+      "summary": "Change whether the workbench shows the whole builder subject or a scoped part/adjacent/chain view for the current selected bone.",
       "when_to_use": [
-        "Use these when editing or inspecting the builder subject instead of the mounted imported asset.",
-        "This is the main family for scaffold truth, selection, pose editing, and blueprint state."
+        "Use this when you want the browser and text theater to stage the selected part or chain as the current work cell instead of the whole body.",
+        "This is the main scope switch for proc-gen body-part work, isolated chain review, and scoped framing parity checks."
       ],
       "what_it_changes": [
         "Builder selection, scaffold state, workbench editing settings, or serialized blueprint data."
       ],
       "mode_notes": [
-        "Most builder workbench commands assume builder_subject mode is active.",
-        "If builder mode is not active, expect partial responses or no visible effect until a builder subject is created."
+        "This depends on a selected builder bone; without selection, body scope is the only meaningful state.",
+        "Scope changes should be validated against both the web workbench guide and the paired text theater snapshot when parity matters."
       ],
       "verification": [
-        "capture_probe",
+        "env_read(query='text_theater_snapshot')",
         "env_read(query='shared_state')",
-        "workbench_get_blueprint",
-        "env_read(query='text_theater_view')"
+        "capture_probe",
+        "workbench_frame_part"
       ],
       "gotchas": [
-        "env_control results attach paired text_theater observation so agents can inspect current mirrored scene state without a separate env_read round-trip.",
-        "Attached payload shape is text_theater.current_compact, text_theater.snapshot, and text_theater.freshness; include_full=true also returns current_full with theater plus embodiment.",
-        "Check text_theater.freshness.cache_advanced_after_command and text_theater.freshness.matched_command_sync before trusting the attached frame as post-command truth; when false, you are looking at the newest mirrored state, but not a confirmed fresh sync for that command yet.",
-        "Use env_read(query='text_theater_view') only when you need the richer consult renderer on demand; the hot path should prefer the attached browser-authored text_theater payload.",
-        "Most builder commands require builder_subject mode; mounted-asset inspection is not enough."
+        "Turntable/manual camera behavior is separate from scope; scope changes alter the staged visible set and part framing inputs.",
+        "If the attached text_theater payload reports stale freshness, corroborate with env_read(query='text_theater_snapshot') before trusting the scoped frame as final."
       ],
       "failure_modes": [
         "No builder subject active."
       ],
-      "aliases": [],
-      "surface_entrypoints": [],
+      "aliases": [
+        "workbench-set-display-scope"
+      ],
+      "surface_entrypoints": [
+        "workbench-set-display-scope"
+      ],
       "bridges_to": [],
       "related_commands": [
-        "workbench_get_blueprint",
+        "workbench_select_bone",
         "workbench_frame_part",
         "capture_probe"
       ],
@@ -9681,13 +9682,23 @@
         },
         {
           "file": "static/main.js",
-          "line": 26616,
+          "line": 26754,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57520,
+          "line": 57913,
           "kind": "bridge"
+        },
+        {
+          "file": "static/main.js",
+          "line": 25355,
+          "kind": "ui_entrypoint"
+        },
+        {
+          "file": "static/main.js",
+          "line": 57119,
+          "kind": "ui_action"
         }
       ]
     },
@@ -9769,12 +9780,12 @@
         },
         {
           "file": "static/main.js",
-          "line": 26612,
+          "line": 26750,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57512,
+          "line": 57905,
           "kind": "bridge"
         }
       ]
@@ -9857,12 +9868,12 @@
         },
         {
           "file": "static/main.js",
-          "line": 26620,
+          "line": 26758,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57528,
+          "line": 57921,
           "kind": "bridge"
         }
       ]
@@ -9945,12 +9956,12 @@
         },
         {
           "file": "static/main.js",
-          "line": 26624,
+          "line": 26762,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57536,
+          "line": 57929,
           "kind": "bridge"
         }
       ]
@@ -10029,17 +10040,17 @@
         },
         {
           "file": "static/main.js",
-          "line": 26704,
+          "line": 26842,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 56764,
+          "line": 57157,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 57686,
+          "line": 58079,
           "kind": "bridge"
         }
       ]
@@ -10124,12 +10135,12 @@
         },
         {
           "file": "static/main.js",
-          "line": 26632,
+          "line": 26770,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57552,
+          "line": 57945,
           "kind": "bridge"
         }
       ]
@@ -10218,12 +10229,12 @@
         },
         {
           "file": "static/main.js",
-          "line": 26636,
+          "line": 26774,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57560,
+          "line": 57953,
           "kind": "bridge"
         }
       ]
@@ -10304,12 +10315,12 @@
         },
         {
           "file": "static/main.js",
-          "line": 26700,
+          "line": 26838,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57678,
+          "line": 58071,
           "kind": "bridge"
         }
       ]
@@ -10395,12 +10406,12 @@
         },
         {
           "file": "static/main.js",
-          "line": 26656,
+          "line": 26794,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 57600,
+          "line": 57993,
           "kind": "bridge"
         }
       ]
@@ -10466,17 +10477,17 @@
       "source_anchors": [
         {
           "file": "static/main.js",
-          "line": 48767,
+          "line": 49142,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 56822,
+          "line": 57215,
           "kind": "ui_action"
         },
         {
           "file": "static/main.js",
-          "line": 57162,
+          "line": 57555,
           "kind": "ui_action"
         }
       ]
@@ -10542,17 +10553,17 @@
       "source_anchors": [
         {
           "file": "static/main.js",
-          "line": 48766,
+          "line": 49141,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 56817,
+          "line": 57210,
           "kind": "ui_action"
         },
         {
           "file": "static/main.js",
-          "line": 57157,
+          "line": 57550,
           "kind": "ui_action"
         }
       ]
@@ -10625,12 +10636,12 @@
       "source_anchors": [
         {
           "file": "static/main.js",
-          "line": 48868,
+          "line": 49243,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 56634,
+          "line": 57009,
           "kind": "ui_action"
         }
       ]
@@ -10701,22 +10712,22 @@
       "source_anchors": [
         {
           "file": "static/main.js",
-          "line": 20604,
+          "line": 20715,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 48850,
+          "line": 49225,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 48863,
+          "line": 49238,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 56786,
+          "line": 57179,
           "kind": "ui_action"
         }
       ]
@@ -10787,12 +10798,12 @@
       "source_anchors": [
         {
           "file": "static/main.js",
-          "line": 296,
+          "line": 300,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 56777,
+          "line": 57170,
           "kind": "ui_action"
         }
       ]
@@ -10858,22 +10869,22 @@
       "source_anchors": [
         {
           "file": "static/main.js",
-          "line": 40790,
+          "line": 41143,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 48755,
+          "line": 49130,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 48756,
+          "line": 49131,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 48757,
+          "line": 49132,
           "kind": "ui_entrypoint"
         }
       ]
@@ -10953,17 +10964,17 @@
       "source_anchors": [
         {
           "file": "static/main.js",
-          "line": 48800,
+          "line": 49175,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 56638,
+          "line": 57013,
           "kind": "ui_action"
         },
         {
           "file": "static/main.js",
-          "line": 57126,
+          "line": 57519,
           "kind": "ui_action"
         }
       ]
@@ -11032,17 +11043,17 @@
       "source_anchors": [
         {
           "file": "static/main.js",
-          "line": 48750,
+          "line": 49125,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 56809,
+          "line": 57202,
           "kind": "ui_action"
         },
         {
           "file": "static/main.js",
-          "line": 57149,
+          "line": 57542,
           "kind": "ui_action"
         }
       ]
@@ -11108,22 +11119,22 @@
       "source_anchors": [
         {
           "file": "static/main.js",
-          "line": 33811,
+          "line": 34070,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 48762,
+          "line": 49137,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 56804,
+          "line": 57197,
           "kind": "ui_action"
         },
         {
           "file": "static/main.js",
-          "line": 57144,
+          "line": 57537,
           "kind": "ui_action"
         }
       ]
@@ -11194,22 +11205,22 @@
       "source_anchors": [
         {
           "file": "static/main.js",
-          "line": 20605,
+          "line": 20716,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 48851,
+          "line": 49226,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 48864,
+          "line": 49239,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 56767,
+          "line": 57160,
           "kind": "ui_action"
         }
       ]
@@ -11287,12 +11298,12 @@
       "source_anchors": [
         {
           "file": "static/main.js",
-          "line": 25183,
+          "line": 25297,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 56647,
+          "line": 57022,
           "kind": "ui_action"
         }
       ]
@@ -11372,22 +11383,22 @@
       "source_anchors": [
         {
           "file": "static/main.js",
-          "line": 25198,
+          "line": 25312,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 25199,
+          "line": 25313,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 25200,
+          "line": 25314,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 25201,
+          "line": 25315,
           "kind": "ui_entrypoint"
         }
       ]
@@ -11470,12 +11481,12 @@
       "source_anchors": [
         {
           "file": "static/main.js",
-          "line": 25193,
+          "line": 25307,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 56664,
+          "line": 57039,
           "kind": "ui_action"
         }
       ]
@@ -11555,22 +11566,22 @@
       "source_anchors": [
         {
           "file": "static/main.js",
-          "line": 25204,
+          "line": 25318,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 25205,
+          "line": 25319,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 25206,
+          "line": 25320,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 25207,
+          "line": 25321,
           "kind": "ui_entrypoint"
         }
       ]
@@ -11646,12 +11657,12 @@
       "source_anchors": [
         {
           "file": "static/main.js",
-          "line": 25214,
+          "line": 25328,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 56735,
+          "line": 57110,
           "kind": "ui_action"
         }
       ]
@@ -11731,12 +11742,12 @@
       "source_anchors": [
         {
           "file": "static/main.js",
-          "line": 25219,
+          "line": 25333,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 56758,
+          "line": 57151,
           "kind": "ui_action"
         }
       ]
@@ -11814,12 +11825,12 @@
       "source_anchors": [
         {
           "file": "static/main.js",
-          "line": 25195,
+          "line": 25309,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 56670,
+          "line": 57045,
           "kind": "ui_action"
         }
       ]
@@ -11893,12 +11904,12 @@
       "source_anchors": [
         {
           "file": "static/main.js",
-          "line": 25189,
+          "line": 25303,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 56652,
+          "line": 57027,
           "kind": "ui_action"
         }
       ]
@@ -11976,12 +11987,12 @@
       "source_anchors": [
         {
           "file": "static/main.js",
-          "line": 25217,
+          "line": 25331,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 56751,
+          "line": 57144,
           "kind": "ui_action"
         }
       ]
@@ -12057,12 +12068,12 @@
       "source_anchors": [
         {
           "file": "static/main.js",
-          "line": 25212,
+          "line": 25326,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 56731,
+          "line": 57106,
           "kind": "ui_action"
         }
       ]
@@ -12136,12 +12147,12 @@
       "source_anchors": [
         {
           "file": "static/main.js",
-          "line": 25216,
+          "line": 25330,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 56744,
+          "line": 57137,
           "kind": "ui_action"
         }
       ]
@@ -12401,6 +12412,31 @@
       "notes": [
         "Use this when verifying builder state as serialized data instead of relying on the viewport.",
         "Capture after reload so the rehydrated builder state is corroborated visually."
+      ]
+    },
+    "dual_theater_isolation_review": {
+      "title": "Dual Theater Isolation Review",
+      "steps": [
+        "workbench_new_builder('humanoid_biped')",
+        "workbench_select_bone('head')",
+        "workbench_set_display_scope('body')",
+        "capture_probe('character_runtime::mounted_primary')",
+        "env_read(query='text_theater_snapshot')",
+        "workbench_set_display_scope('part_only')",
+        "workbench_frame_part('{\"bone_id\":\"head\",\"view\":\"iso_front\"}')",
+        "env_read(query='text_theater_snapshot')",
+        "workbench_set_display_scope('part_adjacent')",
+        "workbench_frame_part('{\"bone_id\":\"head\",\"view\":\"iso_front\"}')",
+        "env_read(query='text_theater_snapshot')",
+        "workbench_set_display_scope('part_chain')",
+        "workbench_frame_part('{\"bone_id\":\"head\",\"view\":\"iso_front\"}')",
+        "env_read(query='text_theater_snapshot')"
+      ],
+      "notes": [
+        "Use this when validating web/text parity for full body, isolated part, adjacent part, and chain staging.",
+        "The important corroboration fields are selected_part_surface, part_camera_recipes, workbench_stage_guide, and embodiment.scaffold_pieces visibility.",
+        "If body mode and text theater disagree on visible limb scaffold slots, treat that as a renderer/export regression and compare the browser-visible scaffold set against the text-rendered scaffold set.",
+        "Use the repo-local scripts/eval_isolation_scopes.py harness when you want repeatable browser-vs-text comparisons recorded as JSON."
       ]
     }
   }
