@@ -4061,6 +4061,31 @@
         };
     }
 
+    function _env3DWorkbenchScopedGuideMetrics(scopedMetrics) {
+        if (!scopedMetrics || !scopedMetrics.metrics) return null;
+        var metrics = scopedMetrics.metrics;
+        var surface = scopedMetrics.surface || null;
+        var partView = _envNormalizeBuilderPartView(_envBuilderInteraction.part_view || 'iso_front');
+        var activeRecipe = surface ? _envBuilderPartCameraRecipe(surface, partView) : null;
+        var guideDistance = Math.max(5.6, Number(metrics.distance || 0));
+        if (activeRecipe && Array.isArray(activeRecipe.position) && Array.isArray(activeRecipe.target)) {
+            var dx = Number((activeRecipe.position[0] || 0) - (activeRecipe.target[0] || 0));
+            var dy = Number((activeRecipe.position[1] || 0) - (activeRecipe.target[1] || 0));
+            var dz = Number((activeRecipe.position[2] || 0) - (activeRecipe.target[2] || 0));
+            var recipeDistance = Math.sqrt((dx * dx) + (dy * dy) + (dz * dz));
+            if (isFinite(recipeDistance) && recipeDistance > 0.01) guideDistance = Math.max(guideDistance, recipeDistance);
+        }
+        var stageRadius = Math.max(2.6, guideDistance * 0.46);
+        var gridSpan = Math.max(stageRadius * 2.45, guideDistance * 1.25);
+        var frameSpan = Math.max(stageRadius * 1.38, guideDistance * 0.65);
+        return {
+            guideDistance: guideDistance,
+            stageRadius: stageRadius,
+            gridSpan: gridSpan,
+            frameSpan: frameSpan
+        };
+    }
+
     function _envBuilderPartCameraRecipes(partSurface) {
         if (!partSurface || typeof THREE === 'undefined') return [];
         var metrics = _envBuilderPartBoundsMetrics(partSurface);
@@ -46105,14 +46130,15 @@
         var vertical = scopedMetrics
             ? Math.max(1.8, Number(size.y || 0))
             : Math.max(12, Number(size.y || 0));
-        var stageRadius = scopedMetrics
-            ? Math.max(1.75, footprint * 0.78, vertical * 0.36)
+        var scopedGuideMetrics = _env3DWorkbenchScopedGuideMetrics(scopedMetrics);
+        var stageRadius = scopedGuideMetrics
+            ? Number(scopedGuideMetrics.stageRadius || 0)
             : Math.max(6.5, footprint * 0.8, vertical * 0.26);
-        var gridSpan = scopedMetrics
-            ? Math.max(stageRadius * 2.15, footprint * 2.0)
+        var gridSpan = scopedGuideMetrics
+            ? Number(scopedGuideMetrics.gridSpan || 0)
             : Math.max(stageRadius * 2.3, footprint * 2.15);
-        var frameSpan = scopedMetrics
-            ? Math.max(stageRadius * 1.24, footprint * 0.92)
+        var frameSpan = scopedGuideMetrics
+            ? Number(scopedGuideMetrics.frameSpan || 0)
             : Math.max(stageRadius * 1.4, footprint * 0.96);
         guides.group.visible = true;
         guides.group.position.set(center.x, displayFloorY + 0.025, center.z);

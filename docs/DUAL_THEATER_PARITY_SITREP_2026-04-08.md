@@ -33,6 +33,14 @@ That polluted both surfaces:
 
 This is now corrected in `static/main.js` by deriving scoped guide floor, pad, frame, and camera fit from the selected display surface instead of the whole builder body.
 
+### 1.5. Scoped authoring boards now normalize from the active part-view recipe
+
+Even after the scoped guide started using the right selected surface, non-body scopes were still inheriting wildly different board sizes because the guide scale was being derived straight from raw chain dimensions.
+
+That made different isolated chains feel like different stages instead of one consistent authoring board.
+
+This is now corrected in `static/main.js` by normalizing scoped guide sizing from the active scoped part-view recipe distance instead of only from raw scope bounds.
+
 ### 2. Text renderer was collapsing limb scaffold cylinders into bone-looking lines
 
 In full-body perspective views, large scaffold limb radii were still projecting down to tiny stamp sizes.
@@ -80,6 +88,7 @@ From the latest recorded comparative sweep:
 - in `body` scope, browser-visible limb scaffold slots and text-rendered limb scaffold slots match
 - in scoped chain modes, the text renderer now matches the browser-exported visible scaffold set for the active scoped chain
 - scoped guide sizes are now materially smaller than full-body guide sizes instead of inheriting the giant full-body workbench board
+- scoped part/chain boards are now being normalized from the same staged framing path the browser uses for `Frame Selected`, rather than from a second parallel sizing heuristic
 
 That does **not** mean parity is "done forever."
 
@@ -123,8 +132,9 @@ The dual theaters can now support:
 1. checkpoint the current parity milestone
 2. keep using `scripts/eval_isolation_scopes.py` as the comparative harness
 3. extend `env_help` with a dual-theater isolation review playbook
-4. continue closing remaining parity defects from the browser export or renderer policy layer, not by ad hoc symptom fixes
-5. after the current parity lane is stable enough, move toward:
+4. refresh the live browser page and rerun the isolation sweep so the new scoped-board normalization is measured from live state, not only from source
+5. continue closing remaining parity defects from the browser export or renderer policy layer, not by ad hoc symptom fixes
+6. after the current parity lane is stable enough, move toward:
    - selective annotations
    - innerlay/load-field visualization
    - broader environment scene parity
