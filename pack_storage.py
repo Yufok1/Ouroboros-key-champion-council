@@ -154,19 +154,24 @@ def ensure_repo() -> bool:
     repo_id = get_repo_id()
     if not repo_id:
         return False
+    api = _get_api()
     try:
-        api = _get_api()
-        api.create_repo(
-            repo_id=repo_id,
-            repo_type="dataset",
-            private=True,
-            exist_ok=True,
-        )
-        _log(f"hf pack repo ready: {repo_id}")
+        api.repo_info(repo_id=repo_id, repo_type="dataset")
+        _log(f"hf pack repo reachable: {repo_id}")
         return True
-    except Exception as exc:
-        _log(f"hf pack repo ensure failed ({repo_id}): {exc}")
-        return False
+    except Exception as info_exc:
+        try:
+            api.create_repo(
+                repo_id=repo_id,
+                repo_type="dataset",
+                private=True,
+                exist_ok=True,
+            )
+            _log(f"hf pack repo ready: {repo_id}")
+            return True
+        except Exception as create_exc:
+            _log(f"hf pack repo ensure failed ({repo_id}): info={info_exc}; create={create_exc}")
+            return False
 
 
 def _normalize_relative_path(value: str) -> str | None:
@@ -234,6 +239,8 @@ async def bootstrap_runtime_packs() -> dict[str, Any]:
         return status()
     if _cache_index_path().exists():
         return status()
+    if _HF_ENABLED and get_repo_id():
+        return await sync_runtime_packs(force=False)
     if PACKS_SYNC_ON_START:
         return await sync_runtime_packs(force=False)
     return status()

@@ -135,6 +135,20 @@
             background: #000;
         }
 
+        .media-card .empty-state {
+            min-height: 168px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 22px;
+            border-radius: 8px;
+            border: 1px dashed rgba(255,255,255,0.14);
+            background: rgba(255,255,255,0.03);
+            color: #cbd5e1;
+            line-height: 1.6;
+        }
+
         .code-block {
             background: rgba(255,255,255,0.06);
             border: 1px solid rgba(255,255,255,0.1);
@@ -344,25 +358,20 @@ SPACE_ID=your_space_name</div>
         <h2 class="section-title">See It In Action</h2>
         <div class="media-grid">
             <div class="media-card">
-                <h3>Demo Video</h3>
-                <video controls preload="metadata" poster="/static/logo.png">
-                    <source src="/media/Champion_Council.mp4?v=2" type="video/mp4" />
-                    Your browser does not support the video element.
-                </video>
+                <h3>Runtime Demo Media</h3>
+                <div class="empty-state">
+                    Demo media is intentionally excluded from the private Space runtime repo so deployment stays lean.
+                </div>
                 <p class="section-lead" style="margin-top:10px; margin-bottom:0;">
-                    If playback stalls, <a href="/media/Champion_Council.mp4?v=2" target="_blank">open video directly</a>.
+                    Core runtime, docs, and orchestration surfaces are preserved here; large media artifacts are backed up outside the Space repo.
                 </p>
             </div>
             <div class="media-card">
-                <h3>Deep Dive - Orchestrating Local AI</h3>
-                <audio controls preload="metadata">
-                    <source src="/media/Orchestrating_Local_AI_With_Champion_Council.m4a?v=2" type="audio/mp4" />
-                    Your browser does not support the audio element.
-                </audio>
-                <p class="section-lead" style="margin-top:10px; margin-bottom:0;">A walkthrough of council mechanics, architecture, and operational patterns.</p>
-                <p class="section-lead" style="margin-top:8px; margin-bottom:0;">
-                    If playback stalls, <a href="/media/Orchestrating_Local_AI_With_Champion_Council.m4a?v=2" target="_blank">open audio directly</a>.
-                </p>
+                <h3>Operational Deep Dive</h3>
+                <div class="empty-state">
+                    Use the docs and control surfaces in this Space for the current operational reference.
+                </div>
+                <p class="section-lead" style="margin-top:10px; margin-bottom:0;">Council mechanics, architecture, and runtime behavior are documented directly in the repo and panel surfaces shipped with the Space.</p>
             </div>
         </div>
     </section>

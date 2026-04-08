@@ -1899,6 +1899,15 @@ async def lifespan(app: FastAPI):
                     f"[INIT] Pack storage (hf={ppack.get('hf_enabled')}, local_index={ppack.get('local_index_exists')}, "
                     f"cache_index={ppack.get('cache_index_exists')}, repo={ppack.get('repo_id')})..."
                 )
+                if hasattr(pack_storage, "bootstrap_runtime_packs"):
+                    try:
+                        ppack = await pack_storage.bootstrap_runtime_packs()
+                        print(
+                            f"[OK] Pack bootstrap complete (cache_index={ppack.get('cache_index_exists')}, "
+                            f"cache_manifests={ppack.get('cache_manifest_count')}, last_sync_ok={ppack.get('last_sync_ok')})"
+                        )
+                    except Exception as exc:
+                        print(f"[WARN] Pack bootstrap failed: {exc}")
 
             else:
                 print("[WARN] MCP connect failed (will retry on first request)")
@@ -9390,6 +9399,11 @@ async def root_envops_config():
 @app.get("/favicon.ico")
 async def root_favicon():
     return FileResponse(Path("static/logo.png"), media_type="image/png")
+
+
+@app.get("/manifest.json")
+async def root_manifest():
+    return FileResponse(Path("static/manifest.json"), media_type="application/json")
 
 
 @app.get("/api/packs/status")
