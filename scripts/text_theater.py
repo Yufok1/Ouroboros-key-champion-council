@@ -641,7 +641,6 @@ def _extract_motion_sample(snapshot):
     clip_name = str(
         animation.get("active_clip")
         or workbench.get("preview_clip")
-        or workbench.get("last_motion_preset")
         or ""
     ).strip()
     return {
@@ -2804,7 +2803,7 @@ def _section_lines(snapshot, section_key, width):
             f"posed={workbench.get('posed_bone_ids', [])}",
             f"gizmo mode={gizmo.get('mode', '')} space={gizmo.get('space', '')} active={gizmo.get('active', False)} attached={gizmo.get('attached', False)}",
             f"preview clip={workbench.get('preview_clip', '')} loop={workbench.get('preview_loop', '')} speed={workbench.get('preview_speed', 0)} paused={workbench.get('preview_paused', False)}",
-            f"motion_preset_count={len(workbench.get('motion_preset_catalog') or [])} load_field_enabled={workbench.get('load_field_enabled', False)}",
+            f"load_field_enabled={workbench.get('load_field_enabled', False)}",
         ]
         return _wrap_block("\n".join(rows), width)
     if section_key == "embodiment":
@@ -2847,7 +2846,6 @@ def _section_lines(snapshot, section_key, width):
         rows = [
             f"cursor={timeline.get('cursor', 0)} duration={timeline.get('duration', 0)}",
             f"key_pose_count={timeline.get('key_pose_count', 0)} interpolation={timeline.get('interpolation', '')}",
-            f"last_motion_preset={timeline.get('last_motion_preset', '')}",
         ]
         return _wrap_block("\n".join(rows), width)
     if section_key == "semantic":
@@ -3077,8 +3075,8 @@ def _render_consult_motion_text(snapshot):
         + f"{float(timeline.get('duration') or 0.0):.3f}".rstrip("0").rstrip(".")
         + " / key poses "
         + str(int(timeline.get("key_pose_count") or 0))
-        + " / preset "
-        + str(timeline.get("last_motion_preset") or "none"),
+        + " / key poses "
+        + str(int(timeline.get("key_pose_count") or 0)),
     ])
 
 
@@ -3279,8 +3277,7 @@ def _render_local_embodiment_text(snapshot):
         + f"{float(timeline.get('duration') or 0.0):.3f}".rstrip("0").rstrip(".")
         + " / "
         + str(int(timeline.get("key_pose_count") or 0))
-        + " key poses / preset: "
-        + str(timeline.get("last_motion_preset") or "none")
+        + " key poses"
     )
     if semantic.get("summary"):
         lines.append("SUMMARY: " + str(semantic.get("summary") or ""))

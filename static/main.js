@@ -1117,7 +1117,6 @@
                 duration: 2.0,
                 interpolation: 'slerp'
             },
-            last_motion_preset: '',
             authored_clips: {
                 clips: [],
                 last_compiled_clip: ''
@@ -1454,7 +1453,11 @@
             key_poses: [],
             cursor: 0,
             duration: 2.0,
-            interpolation: 'slerp'
+            interpolation: 'slerp',
+            source_motion_preset: '',
+            displacement_mode: 'in_place',
+            contact_phases: [],
+            root_trajectory: null
         };
     }
 
@@ -1509,6 +1512,26 @@
         return 'slerp';
     }
 
+    function _envNormalizeBuilderDisplacementMode(value, fallback) {
+        var mode = String(value || fallback || 'in_place').trim().toLowerCase();
+        if (mode === 'root_motion' || mode === 'contact_driven') return mode;
+        return 'in_place';
+    }
+
+    function _envNormalizeBuilderContactPhases(value) {
+        return (Array.isArray(value) ? value : []).map(function (entry) {
+            return entry && typeof entry === 'object' && !Array.isArray(entry)
+                ? _envCloneJson(entry, null)
+                : null;
+        }).filter(Boolean);
+    }
+
+    function _envNormalizeBuilderRootTrajectorySpec(value) {
+        return value && typeof value === 'object' && !Array.isArray(value)
+            ? _envCloneJson(value, null)
+            : null;
+    }
+
     function _envNormalizeBuilderTimelineKeyPose(entry, fallbackIndex, fallbackTimestamp) {
         var src = entry && typeof entry === 'object' && !Array.isArray(entry) ? entry : {};
         var transforms = {};
@@ -1551,6 +1574,12 @@
         var cursor = Number(src.cursor);
         state.cursor = Number.isFinite(cursor) ? cursor : 0;
         state.interpolation = _envNormalizeBuilderTimelineInterpolation(src.interpolation || state.interpolation);
+        state.source_motion_preset = String(src.source_motion_preset || '').trim();
+        state.displacement_mode = _envNormalizeBuilderDisplacementMode(src.displacement_mode || state.displacement_mode, 'in_place');
+        state.contact_phases = _envNormalizeBuilderContactPhases(src.contact_phases);
+        state.root_trajectory = state.displacement_mode === 'root_motion'
+            ? _envNormalizeBuilderRootTrajectorySpec(src.root_trajectory)
+            : null;
         return state;
     }
 
@@ -1609,7 +1638,13 @@
             tracks: tracks,
             compiled_at: Math.max(0, Number(src.compiled_at || 0)),
             source_timeline_duration: Math.max(0, Number(src.source_timeline_duration || 0)),
-            source_key_pose_count: Math.max(0, Math.floor(Number(src.source_key_pose_count || 0)))
+            source_key_pose_count: Math.max(0, Math.floor(Number(src.source_key_pose_count || 0))),
+            source_motion_preset: String(src.source_motion_preset || '').trim(),
+            displacement_mode: _envNormalizeBuilderDisplacementMode(src.displacement_mode || 'in_place', 'in_place'),
+            contact_phases: _envNormalizeBuilderContactPhases(src.contact_phases),
+            root_trajectory: _envNormalizeBuilderDisplacementMode(src.displacement_mode || 'in_place', 'in_place') === 'root_motion'
+                ? _envNormalizeBuilderRootTrajectorySpec(src.root_trajectory)
+                : null
         };
     }
 
@@ -1911,61 +1946,35 @@
             }
         });
         if (!tracks.length) return null;
+        var sourceMotionPreset = String(
+            rawSpec.source_motion_preset
+            || timeline.source_motion_preset
+            || ''
+        ).trim();
+        var displacementMode = _envNormalizeBuilderDisplacementMode(
+            rawSpec.displacement_mode || timeline.displacement_mode || 'in_place',
+            'in_place'
+        );
+        var contactPhases = rawSpec.contact_phases !== undefined
+            ? _envNormalizeBuilderContactPhases(rawSpec.contact_phases)
+            : _envNormalizeBuilderContactPhases(timeline.contact_phases);
+        var rootTrajectory = displacementMode === 'root_motion'
+            ? _envNormalizeBuilderRootTrajectorySpec(
+                rawSpec.root_trajectory !== undefined ? rawSpec.root_trajectory : timeline.root_trajectory
+            )
+            : null;
         return _envNormalizeBuilderAuthoredClipSpec({
             name: rawSpec.clip_name || '',
             duration: targetDuration,
             tracks: tracks,
             compiled_at: Date.now(),
             source_timeline_duration: sourceDuration,
-            source_key_pose_count: poses.length
+            source_key_pose_count: poses.length,
+            source_motion_preset: sourceMotionPreset,
+            displacement_mode: displacementMode,
+            contact_phases: contactPhases,
+            root_trajectory: rootTrajectory
         }, _envBuilderAuthoredClipState().clips.length);
-    }
-
-    function _envNormalizeBuilderMotionPresetId(value) {
-        return String(value || '').trim().toLowerCase()
-            .replace(/[\s\-]+/g, '_')
-            .replace(/[^a-z0-9_]+/g, '_')
-            .replace(/_+/g, '_')
-            .replace(/^_+|_+$/g, '');
-    }
-
-    function _envBuilderMotionPresetCatalog() {
-        return [
-            {
-                id: 'idle_shift',
-                label: 'Idle Shift',
-                duration: 3.2,
-                summary: 'Weight shift left and right while keeping the planted base readable.'
-            },
-            {
-                id: 'step_left',
-                label: 'Left Step',
-                duration: 1.6,
-                summary: 'Load right, lift the left leg, plant, then recover to neutral.'
-            },
-            {
-                id: 'brace_crouch',
-                label: 'Brace Crouch',
-                duration: 1.8,
-                summary: 'Controlled double-support crouch with clean knee and ankle bends.'
-            },
-            {
-                id: 'torso_twist',
-                label: 'Torso Twist',
-                duration: 1.35,
-                summary: 'Upper-body twist study that leaves the lower body anchored.'
-            }
-        ];
-    }
-
-    function _envBuilderMotionPresetMeta(presetId) {
-        var target = _envNormalizeBuilderMotionPresetId(presetId);
-        if (!target) return null;
-        var catalog = _envBuilderMotionPresetCatalog();
-        for (var i = 0; i < catalog.length; i += 1) {
-            if (String((catalog[i] || {}).id || '') === target) return catalog[i];
-        }
-        return null;
     }
 
     function _envBuilderResolveCanonicalBoneId(canonicalJoint) {
@@ -1996,201 +2005,6 @@
             'XYZ'
         ));
         return _envNormalizeBuilderPoseQuaternion([q.x, q.y, q.z, q.w], _envBuilderPoseIdentityRotation());
-    }
-
-    function _envBuilderMotionPresetTransforms(entries) {
-        var transforms = {};
-        (Array.isArray(entries) ? entries : []).forEach(function (entry) {
-            var spec = entry && typeof entry === 'object' && !Array.isArray(entry) ? entry : {};
-            var boneId = _envBuilderResolveCanonicalBoneId(spec.canonical_joint || spec.bone_id || spec.bone || spec.id || '');
-            if (!boneId) return;
-            var transform = _envBuilderSanitizePoseTransform(boneId, {
-                rotation: _envBuilderQuaternionFromEulerDegrees(spec.rotation_deg || spec.rotation || [0, 0, 0]),
-                offset: Array.isArray(spec.offset) ? spec.offset.slice(0, 3) : _envBuilderPoseIdentityOffset()
-            });
-            if (_envBuilderPoseTransformMeaningful(transform)) transforms[boneId] = transform;
-        });
-        return transforms;
-    }
-
-    function _envBuilderMotionPresetPhases(presetId) {
-        switch (_envNormalizeBuilderMotionPresetId(presetId)) {
-            case 'idle_shift':
-                return [
-                    { time: 0.0, label: 'Center', pose: [] },
-                    {
-                        time: 0.8,
-                        label: 'Load Left',
-                        pose: [
-                            { canonical_joint: 'upper_leg_l', rotation_deg: [6, 0, 7] },
-                            { canonical_joint: 'upper_leg_r', rotation_deg: [-4, 0, -5] },
-                            { canonical_joint: 'foot_l', rotation_deg: [2, 0, -2] },
-                            { canonical_joint: 'foot_r', rotation_deg: [0, 0, 2] },
-                            { canonical_joint: 'spine', rotation_deg: [2, 4, 0] },
-                            { canonical_joint: 'chest', rotation_deg: [0, 8, 0] }
-                        ]
-                    },
-                    { time: 1.6, label: 'Center', pose: [] },
-                    {
-                        time: 2.4,
-                        label: 'Load Right',
-                        pose: [
-                            { canonical_joint: 'upper_leg_l', rotation_deg: [-4, 0, 5] },
-                            { canonical_joint: 'upper_leg_r', rotation_deg: [6, 0, -7] },
-                            { canonical_joint: 'foot_l', rotation_deg: [0, 0, -2] },
-                            { canonical_joint: 'foot_r', rotation_deg: [2, 0, 2] },
-                            { canonical_joint: 'spine', rotation_deg: [2, -4, 0] },
-                            { canonical_joint: 'chest', rotation_deg: [0, -8, 0] }
-                        ]
-                    },
-                    { time: 3.2, label: 'Center', pose: [] }
-                ];
-            case 'step_left':
-                return [
-                    { time: 0.0, label: 'Neutral', pose: [] },
-                    {
-                        time: 0.35,
-                        label: 'Load Right',
-                        pose: [
-                            { canonical_joint: 'upper_leg_r', rotation_deg: [10, 0, -4] },
-                            { canonical_joint: 'lower_leg_r', rotation_deg: [14, 0, 0] },
-                            { canonical_joint: 'foot_r', rotation_deg: [4, 0, 0] },
-                            { canonical_joint: 'upper_leg_l', rotation_deg: [4, 0, 8] },
-                            { canonical_joint: 'spine', rotation_deg: [3, -6, 0] },
-                            { canonical_joint: 'chest', rotation_deg: [0, -10, 0] }
-                        ]
-                    },
-                    {
-                        time: 0.75,
-                        label: 'Lift Left',
-                        pose: [
-                            { canonical_joint: 'upper_leg_l', rotation_deg: [24, 0, 10] },
-                            { canonical_joint: 'lower_leg_l', rotation_deg: [36, 0, 0] },
-                            { canonical_joint: 'foot_l', rotation_deg: [-10, 0, 0] },
-                            { canonical_joint: 'upper_leg_r', rotation_deg: [8, 0, -4] },
-                            { canonical_joint: 'lower_leg_r', rotation_deg: [12, 0, 0] },
-                            { canonical_joint: 'spine', rotation_deg: [4, -4, 0] },
-                            { canonical_joint: 'chest', rotation_deg: [0, -6, 0] }
-                        ]
-                    },
-                    {
-                        time: 1.1,
-                        label: 'Plant Left',
-                        pose: [
-                            { canonical_joint: 'upper_leg_l', rotation_deg: [12, 0, 4] },
-                            { canonical_joint: 'lower_leg_l', rotation_deg: [16, 0, 0] },
-                            { canonical_joint: 'foot_l', rotation_deg: [6, 0, 0] },
-                            { canonical_joint: 'upper_leg_r', rotation_deg: [4, 0, -2] },
-                            { canonical_joint: 'lower_leg_r', rotation_deg: [8, 0, 0] },
-                            { canonical_joint: 'spine', rotation_deg: [1, 4, 0] },
-                            { canonical_joint: 'chest', rotation_deg: [0, 6, 0] }
-                        ]
-                    },
-                    { time: 1.6, label: 'Neutral', pose: [] }
-                ];
-            case 'brace_crouch':
-                return [
-                    { time: 0.0, label: 'Neutral', pose: [] },
-                    {
-                        time: 0.5,
-                        label: 'Descend',
-                        pose: [
-                            { canonical_joint: 'upper_leg_l', rotation_deg: [18, 0, 4] },
-                            { canonical_joint: 'upper_leg_r', rotation_deg: [18, 0, -4] },
-                            { canonical_joint: 'lower_leg_l', rotation_deg: [28, 0, 0] },
-                            { canonical_joint: 'lower_leg_r', rotation_deg: [28, 0, 0] },
-                            { canonical_joint: 'foot_l', rotation_deg: [6, 0, 0] },
-                            { canonical_joint: 'foot_r', rotation_deg: [6, 0, 0] },
-                            { canonical_joint: 'spine', rotation_deg: [4, 0, 0] },
-                            { canonical_joint: 'chest', rotation_deg: [-6, 0, 0] },
-                            { canonical_joint: 'neck', rotation_deg: [2, 0, 0] }
-                        ]
-                    },
-                    {
-                        time: 0.95,
-                        label: 'Brace',
-                        pose: [
-                            { canonical_joint: 'upper_leg_l', rotation_deg: [28, 0, 4] },
-                            { canonical_joint: 'upper_leg_r', rotation_deg: [28, 0, -4] },
-                            { canonical_joint: 'lower_leg_l', rotation_deg: [46, 0, 0] },
-                            { canonical_joint: 'lower_leg_r', rotation_deg: [46, 0, 0] },
-                            { canonical_joint: 'foot_l', rotation_deg: [10, 0, 0] },
-                            { canonical_joint: 'foot_r', rotation_deg: [10, 0, 0] },
-                            { canonical_joint: 'spine', rotation_deg: [8, 0, 0] },
-                            { canonical_joint: 'chest', rotation_deg: [-12, 0, 0] },
-                            { canonical_joint: 'neck', rotation_deg: [4, 0, 0] }
-                        ]
-                    },
-                    {
-                        time: 1.35,
-                        label: 'Recover',
-                        pose: [
-                            { canonical_joint: 'upper_leg_l', rotation_deg: [12, 0, 2] },
-                            { canonical_joint: 'upper_leg_r', rotation_deg: [12, 0, -2] },
-                            { canonical_joint: 'lower_leg_l', rotation_deg: [18, 0, 0] },
-                            { canonical_joint: 'lower_leg_r', rotation_deg: [18, 0, 0] },
-                            { canonical_joint: 'foot_l', rotation_deg: [4, 0, 0] },
-                            { canonical_joint: 'foot_r', rotation_deg: [4, 0, 0] },
-                            { canonical_joint: 'spine', rotation_deg: [3, 0, 0] },
-                            { canonical_joint: 'chest', rotation_deg: [-4, 0, 0] }
-                        ]
-                    },
-                    { time: 1.8, label: 'Neutral', pose: [] }
-                ];
-            case 'torso_twist':
-                return [
-                    { time: 0.0, label: 'Center', pose: [] },
-                    {
-                        time: 0.45,
-                        label: 'Twist Left',
-                        pose: [
-                            { canonical_joint: 'spine', rotation_deg: [0, 10, 0] },
-                            { canonical_joint: 'chest', rotation_deg: [0, 18, 0] },
-                            { canonical_joint: 'neck', rotation_deg: [0, 10, 0] },
-                            { canonical_joint: 'shoulder_l', rotation_deg: [0, 0, -8] },
-                            { canonical_joint: 'shoulder_r', rotation_deg: [0, 0, 8] }
-                        ]
-                    },
-                    {
-                        time: 0.9,
-                        label: 'Twist Right',
-                        pose: [
-                            { canonical_joint: 'spine', rotation_deg: [0, -10, 0] },
-                            { canonical_joint: 'chest', rotation_deg: [0, -18, 0] },
-                            { canonical_joint: 'neck', rotation_deg: [0, -10, 0] },
-                            { canonical_joint: 'shoulder_l', rotation_deg: [0, 0, 8] },
-                            { canonical_joint: 'shoulder_r', rotation_deg: [0, 0, -8] }
-                        ]
-                    },
-                    { time: 1.35, label: 'Center', pose: [] }
-                ];
-            default:
-                return [];
-        }
-    }
-
-    function _envBuilderMotionPresetTimeline(presetId, durationOverride) {
-        var meta = _envBuilderMotionPresetMeta(presetId);
-        if (!meta) return null;
-        var phases = _envBuilderMotionPresetPhases(meta.id);
-        if (!phases.length) return null;
-        var sourceDuration = Math.max(0.01, Number((phases[phases.length - 1] || {}).time || meta.duration || 0.01));
-        var targetDuration = durationOverride && Number(durationOverride) > 0
-            ? Math.max(0.01, Number(durationOverride))
-            : Math.max(0.01, Number(meta.duration || sourceDuration));
-        var scale = sourceDuration > 0 ? (targetDuration / sourceDuration) : 1;
-        return _envNormalizeBuilderTimelineState({
-            duration: targetDuration,
-            interpolation: 'slerp',
-            key_poses: phases.map(function (phase, index) {
-                return {
-                    id: 'preset_' + String(meta.id || 'motion') + '_' + String(index + 1).padStart(2, '0'),
-                    label: String((phase && phase.label) || ('Preset ' + String(index + 1))),
-                    timestamp: Math.max(0, Number(((phase || {}).time) || 0) * scale),
-                    transforms: _envBuilderMotionPresetTransforms((phase || {}).pose || [])
-                };
-            })
-        });
     }
 
     function _envBuilderMotionContactTargets() {
@@ -4405,7 +4219,6 @@
         state.scaffold_projection = blueprint.scaffold_projection;
         state.pose = _envNormalizeBuilderPoseState(null);
         state.timeline = _envNormalizeBuilderTimelineState(src.timeline || null);
-        state.last_motion_preset = String(src.last_motion_preset || '').trim();
         state.authored_clips = _envNormalizeBuilderAuthoredClipState(src.authored_clips || null);
         return state;
     }
@@ -12277,7 +12090,6 @@
                     duration: 2.0,
                     interpolation: 'slerp'
                 },
-                last_motion_preset: '',
                 authored_clips: {
                     clips: [],
                     last_compiled_clip: ''
@@ -12352,7 +12164,6 @@
                 part_view: _envNormalizeBuilderPartView(workbench.part_view || 'iso_front'),
                 pose: _envNormalizeBuilderPoseState(workbench.pose || null),
                 timeline: _envNormalizeBuilderTimelineState(workbench.timeline || null),
-                last_motion_preset: String(workbench.last_motion_preset || '').trim(),
                 authored_clips: _envNormalizeBuilderAuthoredClipState(workbench.authored_clips || null),
                 gizmo_mode: _envNormalizeBuilderGizmoMode(workbench.gizmo_mode || 'rotate'),
                 gizmo_space: _envNormalizeBuilderGizmoSpace(workbench.gizmo_space || 'local'),
@@ -12409,7 +12220,6 @@
             workbench.part_view = _envNormalizeBuilderPartView(_envBuilderInteraction.part_view || 'iso_front');
             workbench.pose = _envNormalizeBuilderPoseState(_envBuilderSubject.pose || null);
             workbench.timeline = _envNormalizeBuilderTimelineState(_envBuilderSubject.timeline || null);
-            workbench.last_motion_preset = String(_envBuilderSubject.last_motion_preset || '').trim();
             workbench.authored_clips = _envNormalizeBuilderAuthoredClipState(_envBuilderSubject.authored_clips || null);
         } else if (!preservePendingBuilderSession) {
             workbench.subject_mode = 'mounted_asset';
@@ -12420,7 +12230,6 @@
             workbench.primary_bone_id = '';
             workbench.pose = _envNormalizeBuilderPoseState(null);
             workbench.timeline = _envNormalizeBuilderTimelineState(null);
-            workbench.last_motion_preset = '';
             workbench.authored_clips = _envNormalizeBuilderAuthoredClipState(null);
         }
         workbench.editing_mode = _envNormalizeBuilderEditingMode(_envBuilderInteraction.editing_mode || 'structure');
@@ -12633,7 +12442,6 @@
                     _envBuilderSubject = desiredBuilderSubject;
                     _envBuilderSubject.pose = _envNormalizeBuilderPoseState((session.workbench || {}).pose || null);
                     _envBuilderSubject.timeline = _envNormalizeBuilderTimelineState((session.workbench || {}).timeline || null);
-                    _envBuilderSubject.last_motion_preset = String(((session.workbench || {}).last_motion_preset) || '').trim();
                     _envBuilderSubject.authored_clips = _envNormalizeBuilderAuthoredClipState((session.workbench || {}).authored_clips || null);
                     _envBuilderInteraction = _envNormalizeBuilderInteraction(session.workbench || null);
                     _envBuilderResetRuntimeRefs();
@@ -13016,7 +12824,7 @@
                     'workbench_new_builder', 'workbench_get_blueprint', 'workbench_get_part_surface', 'workbench_frame_part', 'workbench_set_bone',
                     'workbench_set_pose', 'workbench_set_pose_batch', 'workbench_clear_pose',
                     'workbench_capture_pose', 'workbench_delete_pose', 'workbench_apply_pose', 'workbench_set_timeline_cursor',
-                    'workbench_compile_clip', 'workbench_play_authored_clip', 'workbench_apply_motion_preset',
+                    'workbench_compile_clip', 'workbench_play_authored_clip',
                     'workbench_preview_settle', 'workbench_commit_settle', 'workbench_assert_balance',
                     'workbench_reset_angles',
                     'workbench_select_bone', 'workbench_select_bones', 'workbench_set_editing_mode', 'workbench_set_display_scope',
@@ -17063,24 +16871,6 @@
         };
     }
 
-    function _envNormalizeWorkbenchMotionPresetSpec(targetId) {
-        var raw = String(targetId || '').trim();
-        var parsed = raw ? _safeJsonParse(raw) : null;
-        var payload = parsed && typeof parsed === 'object' && !Array.isArray(parsed)
-            ? parsed
-            : (raw ? { preset: raw } : {});
-        var duration = Number(payload.duration);
-        return {
-            raw: raw,
-            payload: payload,
-            preset_id: _envNormalizeBuilderMotionPresetId(
-                payload.preset_id || payload.preset || payload.name || payload.label || raw || ''
-            ),
-            has_duration: Number.isFinite(duration),
-            duration: Number.isFinite(duration) ? Math.max(0.1, duration) : 0
-        };
-    }
-
     function _envNormalizeWorkbenchResetAnglesTarget(targetId) {
         var raw = String(targetId || '').trim();
         var parsed = raw ? _safeJsonParse(raw) : null;
@@ -18200,83 +17990,6 @@
             _envSaveTheaterSession('workbench_play_authored_clip');
         }
         return played ? clipName : false;
-    }
-
-    function _envWorkbenchApplyMotionPreset(actor, reason, targetId) {
-        var actorName = String(actor || _envManualActorId() || 'assistant').trim() || 'assistant';
-        if (!_envBuilderSubject.active) {
-            _envLogAction('character_runtime', 'Rejected motion preset apply: no active builder subject', actorName, {
-                action: 'workbench_apply_motion_preset'
-            });
-            _envSetBadge('failed', 'NO BUILDER');
-            renderEnvironmentView();
-            return false;
-        }
-        var mesh = _envMountedRuntimeMesh();
-        if (!mesh || !mesh.userData || !mesh.userData._builderSubjectGroup) {
-            _envLogAction('character_runtime', 'Rejected motion preset apply: mounted runtime mesh unavailable', actorName, {
-                action: 'workbench_apply_motion_preset'
-            });
-            _envSetBadge('failed', 'NO MESH');
-            renderEnvironmentView();
-            return false;
-        }
-        var spec = _envNormalizeWorkbenchMotionPresetSpec(targetId);
-        var presetMeta = _envBuilderMotionPresetMeta(spec.preset_id);
-        if (!presetMeta) {
-            _envLogAction('character_runtime', 'Rejected motion preset apply: preset unavailable', actorName, {
-                action: 'workbench_apply_motion_preset',
-                preset_id: String(spec.preset_id || ''),
-                target: String(targetId || '')
-            });
-            _envSetBadge('failed', 'BAD PRESET');
-            renderEnvironmentView();
-            return false;
-        }
-        var timeline = _envBuilderMotionPresetTimeline(presetMeta.id, spec.has_duration ? spec.duration : 0);
-        if (!timeline || !(timeline.key_poses || []).length) {
-            _envLogAction('character_runtime', 'Rejected motion preset apply: preset timeline unavailable', actorName, {
-                action: 'workbench_apply_motion_preset',
-                preset_id: String(presetMeta.id || '')
-            });
-            _envSetBadge('failed', 'NO TIMELINE');
-            renderEnvironmentView();
-            return false;
-        }
-        _envBuilderInteraction.editing_mode = 'pose';
-        _envBuilderSubject.timeline = timeline;
-        _envBuilderSubject.timeline.cursor = 0;
-        _envBuilderSubject.pose = _envBuilderTimelinePoseAtTime(timeline, 0);
-        _envBuilderSubject.last_motion_preset = String(presetMeta.id || '');
-        if (!_envBuilderApplyTimelinePoseToWorkbench(mesh, 'workbench_apply_motion_preset')) {
-            _envLogAction('character_runtime', 'Rejected motion preset apply: pose apply failed', actorName, {
-                action: 'workbench_apply_motion_preset',
-                preset_id: String(presetMeta.id || '')
-            });
-            _envSetBadge('failed', 'POSE ERR');
-            renderEnvironmentView();
-            return false;
-        }
-        _envRefreshInhabitantRuntimeState('workbench_apply_motion_preset');
-        _envLogAction('character_runtime', 'Applied builder motion preset', actorName, {
-            action: 'workbench_apply_motion_preset',
-            preset_id: String(presetMeta.id || ''),
-            duration: Number(_envBuilderSubject.timeline.duration || 0),
-            key_pose_count: Number((_envBuilderSubject.timeline.key_poses || []).length || 0)
-        });
-        _envEmitBus('character_runtime', 'Applied builder motion preset', actorName, {
-            action: 'workbench_apply_motion_preset',
-            object_key: _envInhabitantObjectKey(),
-            preset_id: String(presetMeta.id || ''),
-            key_pose_count: Number((_envBuilderSubject.timeline.key_poses || []).length || 0)
-        });
-        _envSetBadge('running', 'MOTION PRESET');
-        _envScheduleLiveSync('workbench_apply_motion_preset:' + String(presetMeta.id || ''), true);
-        _envSaveTheaterSession('workbench_apply_motion_preset');
-        _envScene.dirty = true;
-        _envStageUiState.forceStageRebuild = true;
-        renderEnvironmentView();
-        return String(presetMeta.id || '');
     }
 
     function _envWorkbenchPreviewSettle(actor, reason, targetId) {
@@ -19860,7 +19573,6 @@
         'workbench.set_timeline_cursor': 'workbench_set_timeline_cursor',
         'workbench.compile_clip': 'workbench_compile_clip',
         'workbench.play_authored_clip': 'workbench_play_authored_clip',
-        'workbench.apply_motion_preset': 'workbench_apply_motion_preset',
         'workbench.preview_settle': 'workbench_preview_settle',
         'workbench.commit_settle': 'workbench_commit_settle',
         'workbench.assert_balance': 'workbench_assert_balance',
@@ -19941,7 +19653,6 @@
             || command === 'workbench_clear_pose' || command === 'workbench_capture_pose' || command === 'workbench_delete_pose'
             || command === 'workbench_apply_pose' || command === 'workbench_set_timeline_cursor'
             || command === 'workbench_compile_clip' || command === 'workbench_play_authored_clip'
-            || command === 'workbench_apply_motion_preset'
             || command === 'workbench_preview_settle' || command === 'workbench_commit_settle'
             || command === 'workbench_assert_balance'
             || command === 'workbench_reset_angles' || command === 'workbench_select_bone'
@@ -25061,10 +24772,9 @@
                 && typeof latestCapture.motion_diagnostics_summary === 'object'
                 ? latestCapture.motion_diagnostics_summary
                 : null;
-            var lastPreset = _envBuilderMotionPresetMeta(_envBuilderSubject.last_motion_preset || '');
             return {
                 title: 'Character Workbench',
-                subtitle: 'Blank/preset builder subject using the mounted runtime as the workbench anchor. Imported asset inspection is bypassed in this mode.',
+                subtitle: 'Skeleton-first builder subject using the mounted runtime as the workbench anchor. Imported asset inspection is bypassed in this mode.',
                 hudPrimary: 'Builder: ' + builderFamily,
                 hudSecondary: 'Skeleton-first authoring subject. Scaffold projection, camera framing, and motion support diagnostics are live in theater space.',
                 cards: [
@@ -25081,10 +24791,6 @@
                         value: currentMotionDiagnostics
                             ? (String(currentMotionDiagnostics.support_phase_label || 'Unknown') + ' · ' + String(Number(currentMotionDiagnostics.support_contact_count || 0)) + ' contacts')
                             : 'unavailable'
-                    },
-                    {
-                        label: 'Motion Preset',
-                        value: lastPreset ? String(lastPreset.label || lastPreset.id || 'custom') : 'manual'
                     },
                     {
                         label: 'Last Time Strip',
@@ -25314,8 +25020,6 @@
             && typeof builderMotionDiagnostics.load_field === 'object'
             ? builderMotionDiagnostics.load_field
             : null;
-        var builderMotionPresetCatalog = builderActive ? _envBuilderMotionPresetCatalog() : [];
-        var activeMotionPreset = builderActive ? _envBuilderMotionPresetMeta(_envBuilderSubject.last_motion_preset || '') : null;
         var loadFieldEnabled = builderActive ? (_envBuilderInteraction.load_field_enabled !== false) : false;
         var speedOptions = [0.25, 0.5, 1, 2];
         var clipHtml = clipEntries.length
@@ -25362,15 +25066,6 @@
                 ? '<span class="envops-focus-chip' + (loadFieldEnabled ? ' active' : '') + '" data-env-action="workbench-toggle-load-field">' + _esc(loadFieldEnabled ? 'Load: ON' : 'Load: OFF') + '</span>'
                 : '') +
             '</div>';
-        var motionPresetHtml = builderMotionPresetCatalog.length
-            ? ('<div class="envops-focus-strip" style="flex-wrap:wrap;">' + builderMotionPresetCatalog.map(function (preset) {
-                var presetId = String((preset && preset.id) || '').trim();
-                if (!presetId) return '';
-                var active = activeMotionPreset && String(activeMotionPreset.id || '') === presetId ? ' active' : '';
-                var title = String((preset && preset.summary) || '').trim();
-                return '<span class="envops-focus-chip' + active + '" data-env-action="workbench-apply-motion-preset" data-env-motion-preset="' + _esc(presetId) + '"' + (title ? (' title="' + _esc(title) + '"') : '') + '>' + _esc(String((preset && preset.label) || presetId)) + '</span>';
-            }).join('') + '</div>')
-            : '<div class="envops-stage-empty">No builder motion presets are registered yet.</div>';
         var partScopeHtml = selectedBoneId
             ? ('<div class="envops-focus-strip" style="flex-wrap:wrap;">' + [
                 ['body', 'Body'],
@@ -25405,12 +25100,6 @@
                 '<div class="envops-kernel-note">' + _esc('Scope · ' + displayScope.replace(/_/g, ' ') + ' · View · ' + partView.replace(/_/g, ' ')) + '</div>' +
                 '</div>' +
                 '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.08);">' +
-                '<div class="envops-habitat-scene-cockpit-head"><span>Motion Presets</span><span>' + String(builderMotionPresetCatalog.length) + '</span></div>' +
-                motionPresetHtml +
-                '<div class="envops-kernel-note">' + _esc('Current · ' + (activeMotionPreset ? String(activeMotionPreset.label || activeMotionPreset.id || 'custom') : 'manual') + ' · Support ' + (builderMotionDiagnostics ? String(builderMotionDiagnostics.support_phase_label || 'Unknown') : 'unavailable')) + '</div>' +
-                '<div class="envops-kernel-note">' + _esc(builderTimeStripSummary ? ('Last strip · ' + String(builderTimeStripSummary.dominant_support_phase_label || 'Unknown') + ' · ' + String(Number(builderTimeStripSummary.evaluated_frame_count || 0)) + ' frames') : 'Last strip · not captured') + '</div>' +
-                '</div>' +
-                '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.08);">' +
                 '<div class="envops-habitat-scene-cockpit-head"><span>Shot Presets</span><span>autofit</span></div>' +
                 shotHtml +
                 '</div>' +
@@ -25418,6 +25107,7 @@
                 '<div class="envops-habitat-scene-cockpit-head"><span>Helpers</span><span>builder</span></div>' +
                 helperHtml +
                 '<div class="envops-kernel-note">' + _esc('Skeleton · ' + (skeletonVisible ? 'visible' : 'hidden') + ' · Scaffold · ' + (scaffoldVisible ? 'visible' : 'hidden')) + '</div>' +
+                '<div class="envops-kernel-note">' + _esc('Support · ' + (builderMotionDiagnostics ? String(builderMotionDiagnostics.support_phase_label || 'Unknown') : 'unavailable') + ' · ' + (builderTimeStripSummary ? ('Last strip ' + String(builderTimeStripSummary.dominant_support_phase_label || 'Unknown') + ' / ' + String(Number(builderTimeStripSummary.evaluated_frame_count || 0)) + ' frames') : 'Last strip not captured')) + '</div>' +
                 '<div class="envops-kernel-note">' + _esc('Load field · ' + (loadFieldEnabled ? 'active' : 'off') + (builderLoadField ? (' · Margin ' + String(Number(builderLoadField.normalized_margin || 0).toFixed(2))) : '')) + '</div>' +
                 '</div>';
         }
@@ -26830,10 +26520,6 @@
         }
         if (command === 'workbench_play_authored_clip') {
             _envWorkbenchPlayAuthoredClip(actorName, reason || 'control workbench play authored clip', targetId);
-            return;
-        }
-        if (command === 'workbench_apply_motion_preset') {
-            _envWorkbenchApplyMotionPreset(actorName, reason || 'control workbench apply motion preset', targetId);
             return;
         }
         if (command === 'workbench_preview_settle') {
@@ -28663,7 +28349,6 @@
         var latestTimeStrip = latestCapture && String(latestCapture.type || '').trim().toLowerCase() === 'time_strip'
             ? latestCapture
             : null;
-        var motionPresetCatalog = builderActive ? _envBuilderMotionPresetCatalog() : [];
         var currentMotionDiagnostics = builderActive ? _envBuilderCurrentMotionDiagnostics(mountedMesh) : null;
         var latestMotionDiagnosticsSummary = latestTimeStrip && latestTimeStrip.motion_diagnostics_summary
             && typeof latestTimeStrip.motion_diagnostics_summary === 'object'
@@ -28725,8 +28410,10 @@
             timeline_cursor: builderActive ? Number(timelineState.cursor || 0) : 0,
             timeline_duration: builderActive ? Number(timelineState.duration || 0) : 0,
             timeline_interpolation: builderActive ? String(timelineState.interpolation || 'slerp') : 'slerp',
-            last_motion_preset: builderActive ? String(_envBuilderSubject.last_motion_preset || '') : '',
-            motion_preset_catalog: motionPresetCatalog,
+            timeline_source_motion_preset: builderActive ? String(timelineState.source_motion_preset || '') : '',
+            timeline_displacement_mode: builderActive ? String(timelineState.displacement_mode || 'in_place') : 'in_place',
+            timeline_contact_phases: builderActive ? _envCloneJson(timelineState.contact_phases || [], []) : [],
+            timeline_root_trajectory: builderActive ? _envCloneJson(timelineState.root_trajectory, null) : null,
             settle_preview: builderActive
                 ? _envBuilderSettleSummary(_envBuilderSettlePreviewState())
                 : _envBuilderSettleSummary(_envCreateBuilderSettlePreviewState()),
@@ -28736,6 +28423,7 @@
             load_field_enabled: builderActive ? (_envBuilderInteraction.load_field_enabled !== false) : false,
             load_field_overlay_visible: false,
             authored_clip_count: builderActive ? Number((authoredClipState.clips || []).length || 0) : 0,
+            authored_clips: builderActive ? _envCloneJson(authoredClipState.clips || [], []) : [],
             authored_clip_names: builderActive ? _envBuilderAuthoredClipNames(authoredClipState) : [],
             last_compiled_clip: builderActive ? String(authoredClipState.last_compiled_clip || '') : '',
             last_time_strip_ts: latestTimeStrip ? Number(latestTimeStrip.timestamp || 0) : 0,
@@ -29430,7 +29118,7 @@
         lines.push('SETTLE: ' + (settle.active ? (String(settle.strategy || '') + ' / ' + String(settle.severity || '') + ' / ' + Number(settle.frame_count || 0) + ' frames') : 'inactive'));
         lines.push('TIMELINE: cursor ' + _envTextTheaterRound(timeline.cursor, 3, 0)
             + ' / duration ' + _envTextTheaterRound(timeline.duration, 3, 0)
-            + ' / ' + Number(timeline.key_pose_count || 0) + ' key poses / preset: ' + String(timeline.last_motion_preset || 'none'));
+            + ' / ' + Number(timeline.key_pose_count || 0) + ' key poses');
         lines.push('SUMMARY: ' + String(semantic.summary || ''));
         return lines.join('\n');
     }
@@ -29688,8 +29376,6 @@
                 selected_bone: _envCloneJson((workbenchSurface || {}).selected_bone, null),
                 selected_part_surface: _envCloneJson((workbenchSurface || {}).selected_part_surface, null),
                 part_camera_recipes: _envCloneJson((workbenchSurface || {}).part_camera_recipes, []),
-                motion_preset_catalog: _envCloneJson((workbenchSurface || {}).motion_preset_catalog, []),
-                last_motion_preset: String((workbenchSurface || {}).last_motion_preset || ''),
                 preview_clip: String((workbenchSurface || {}).preview_clip || ''),
                 preview_paused: !!((workbenchSurface || {}).preview_paused),
                 preview_loop: String((workbenchSurface || {}).preview_loop || ''),
@@ -29765,8 +29451,7 @@
                 cursor: _envTextTheaterRound((workbenchSurface || {}).timeline_cursor, 4, 0),
                 duration: _envTextTheaterRound((workbenchSurface || {}).timeline_duration, 4, 0),
                 key_pose_count: Number((workbenchSurface || {}).timeline_key_pose_count || 0),
-                interpolation: String((workbenchSurface || {}).timeline_interpolation || 'slerp'),
-                last_motion_preset: String((workbenchSurface || {}).last_motion_preset || '')
+                interpolation: String((workbenchSurface || {}).timeline_interpolation || 'slerp')
             },
             corroboration: _envCloneJson(corroborationState, null),
             semantic: {
@@ -47271,6 +46956,21 @@
         return 'none';
     }
 
+    function _envBuilderBoneVisibleInCurrentWorkbenchScope(boneId) {
+        var target = String(boneId || '').trim();
+        if (!target || !_envBuilderSubject.active) return false;
+        if (_envBuilderSubject._skeletonVisible === false) return false;
+        var isolated = _envBuilderSubject._isolatedBoneIds || null;
+        if (isolated && Object.keys(isolated).length && !isolated[target]) return false;
+        var scopeVisible = _envBuilderVisibleBoneIdsForDisplayScope(
+            _envBuilderSubject.bones || [],
+            String(_envBuilderInteraction.selected_bone_id || '').trim(),
+            _envBuilderInteraction.part_display_scope || 'body'
+        );
+        if (scopeVisible && !scopeVisible[target]) return false;
+        return true;
+    }
+
     function _envBuilderApplyJointOverlays(mesh) {
         if (!mesh || !mesh.userData || !_envBuilderSubject.active) return 0;
         var boneMap = mesh.userData._builderBoneMap || {};
@@ -47283,7 +46983,7 @@
             var state = _envBuilderOverlayVisualStateForBone(boneId, poseState);
             var overlay = _envBuilderEnsureJointOverlay(bone, recordMap[boneId] || null);
             if (!overlay || !overlay.group) return;
-            if (state === 'none') {
+            if (state === 'none' || !_envBuilderBoneVisibleInCurrentWorkbenchScope(boneId)) {
                 overlay.group.visible = false;
                 return;
             }
@@ -49905,7 +49605,6 @@
             '<option value="workbench_set_timeline_cursor">workbench_set_timeline_cursor</option>' +
             '<option value="workbench_compile_clip">workbench_compile_clip</option>' +
             '<option value="workbench_play_authored_clip">workbench_play_authored_clip</option>' +
-            '<option value="workbench_apply_motion_preset">workbench_apply_motion_preset</option>' +
             '<option value="workbench_preview_settle">workbench_preview_settle</option>' +
             '<option value="workbench_commit_settle">workbench_commit_settle</option>' +
             '<option value="workbench_assert_balance">workbench_assert_balance</option>' +
@@ -57124,15 +56823,6 @@
                     }
                     return;
                 }
-                if (action === 'workbench-apply-motion-preset') {
-                    var presetId = _envNormalizeBuilderMotionPresetId(actionEl.getAttribute('data-env-motion-preset') || '');
-                    if (presetId) {
-                        _envBuilderSubject.last_motion_preset = presetId;
-                        renderEnvironmentView();
-                        _envQueueControl('workbench_apply_motion_preset', JSON.stringify({ preset: presetId }), uiActor, 'workbench apply motion preset');
-                    }
-                    return;
-                }
                 if (action === 'workbench-toggle-skeleton') {
                     if (_env3DToggleWorkbenchSkeletonHelper()) renderEnvironmentView();
                     return;
@@ -58037,14 +57727,6 @@
             try { payload = JSON.stringify(spec); } catch (ignored) { payload = String(spec || ''); }
         }
         _envQueueControl('workbench_play_authored_clip', payload, actor || 'assistant', reason || 'external workbench play authored clip');
-    };
-    window.envopsWorkbenchApplyMotionPreset = function (spec, actor, reason) {
-        var payload = '';
-        if (typeof spec === 'string') payload = spec;
-        else if (spec !== undefined && spec !== null) {
-            try { payload = JSON.stringify(spec); } catch (ignored) { payload = String(spec || ''); }
-        }
-        _envQueueControl('workbench_apply_motion_preset', payload, actor || 'assistant', reason || 'external workbench apply motion preset');
     };
     window.envopsWorkbenchPreviewSettle = function (spec, actor, reason) {
         var payload = '';

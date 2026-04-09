@@ -4,7 +4,7 @@
       "description": "Camera framing, orbit, pan, tilt, dolly, and reset controls for the theater view. Use these when you need repeatable framing instead of mouse-only inspection."
     },
     "builder_motion": {
-      "description": "Timeline, preset, authored clip, and scrub commands for builder-side motion work. These commands are easy to misunderstand if you assume preset apply means live playback."
+      "description": "Timeline, authored clip, and scrub commands for builder-side motion work. These commands are easy to misunderstand if you assume staged timeline edits imply live playback."
     },
     "builder_workbench": {
       "description": "Builder subject, scaffold, selection, and workbench editing commands for embodiment work in the character forge."
@@ -59,34 +59,6 @@
         "capture_probe"
       ]
     },
-    "workbench_apply_motion_preset": {
-      "title": "Apply Builder Motion Preset",
-      "summary": "Load a preset builder timeline and apply the pose at cursor 0.",
-      "when_to_use": [
-        "Use this when you want the built-in builder motion catalog rather than an authored clip.",
-        "Current built-in preset ids in this build are idle_shift, step_left, brace_crouch, and torso_twist."
-      ],
-      "mode_notes": [
-        "Preset apply stages the builder timeline at frame 0, then the later pose must be inspected with timeline scrub or time-strip capture.",
-        "The current motion-validation lane uses step_left for single-support confirmation and idle_shift / brace_crouch / torso_twist for planted double-support confirmation."
-      ],
-      "gotchas": [
-        "Loads the preset timeline and applies frame 0 only; it does not auto-play motion.",
-        "Use workbench_set_timeline_cursor or capture_time_strip to inspect later parts of the preset.",
-        "Older names like neutral_standing, step_right, and crouch are not current catalog entries in this build."
-      ],
-      "verification": [
-        "capture_time_strip",
-        "workbench_set_timeline_cursor",
-        "capture_probe",
-        "env_read(query='shared_state')"
-      ],
-      "related_commands": [
-        "workbench_set_timeline_cursor",
-        "capture_time_strip",
-        "capture_probe"
-      ]
-    },
     "workbench_set_timeline_cursor": {
       "title": "Set Builder Timeline Cursor",
       "summary": "Scrub the active builder timeline to a given normalized/time/index position and apply that pose to the workbench mesh.",
@@ -100,7 +72,7 @@
       "title": "Preview Builder Settle",
       "summary": "Generate a short visible settle reaction timeline from current balance/load truth and stage it for scrubbed preview.",
       "when_to_use": [
-        "Use this after a destabilizing pose edit or motion preset when you want the system to propose a corrective reaction.",
+        "Use this after a destabilizing pose edit or timeline change when you want the system to propose a corrective reaction.",
         "This is the first builder-side balance controller surface: preview first, then decide whether to keep the generated motion."
       ],
       "mode_notes": [
@@ -394,8 +366,8 @@
       "title": "Capture Time Strip",
       "summary": "Capture sampled frames across the current builder timeline to inspect staged motion without live playback.",
       "when_to_use": [
-        "Use this after workbench_apply_motion_preset when you need evidence across the preset instead of a single scrubbed frame.",
-        "Use this for grounded motion validation because preset apply stages frame 0 and does not auto-play."
+        "Use this after timeline scrub, settle preview, or authored-clip staging when you need evidence across the current builder timeline instead of a single scrubbed frame.",
+        "Use this for grounded motion validation when the timeline is staged but not running as live playback."
       ],
       "mode_notes": [
         "In the current theater lane this is an env_control command, not a standalone /api/tool/capture_time_strip endpoint.",
@@ -598,51 +570,6 @@
         "Use this when validating imported assets outside builder-subject mode.",
         "For ground-interaction validation, use a footed rig with a readable silhouette. npc.glb is the current default. GhostArmature is good for mounted-path plumbing, not planted-feet truth.",
         "Corroborate floor planting with captures, not viewport impression alone."
-      ]
-    },
-    "motion_preset_validation": {
-      "title": "Motion Preset Validation",
-      "steps": [
-        "workbench_new_builder('humanoid_biped')",
-        "workbench_apply_motion_preset('step_left')",
-        "capture_time_strip",
-        "workbench_set_timeline_cursor('{\"normalized\":0.5}')",
-        "capture_probe('character_runtime::mounted_primary')"
-      ],
-      "notes": [
-        "Preset apply stages frame 0; it does not start live playback.",
-        "Use time-strip and timeline scrub together.",
-        "Current built-in preset ids are idle_shift, step_left, brace_crouch, and torso_twist.",
-        "capture_time_strip and capture_probe are env_control verbs in this environment lane, not standalone /api/tool/* endpoints."
-      ]
-    },
-    "grounded_motion_revalidation": {
-      "title": "Grounded Motion Re-validation",
-      "steps": [
-        "workbench_new_builder('humanoid_biped')",
-        "workbench_apply_motion_preset('idle_shift')",
-        "capture_time_strip",
-        "workbench_set_timeline_cursor('{\"normalized\":0.5}')",
-        "capture_probe('character_runtime::mounted_primary')",
-        "workbench_apply_motion_preset('step_left')",
-        "capture_time_strip",
-        "workbench_set_timeline_cursor('{\"normalized\":0.5}')",
-        "capture_probe('character_runtime::mounted_primary')",
-        "workbench_apply_motion_preset('brace_crouch')",
-        "capture_time_strip",
-        "workbench_set_timeline_cursor('{\"normalized\":0.5}')",
-        "capture_probe('character_runtime::mounted_primary')",
-        "workbench_apply_motion_preset('torso_twist')",
-        "capture_time_strip",
-        "workbench_set_timeline_cursor('{\"normalized\":0.5}')",
-        "capture_probe('character_runtime::mounted_primary')"
-      ],
-      "notes": [
-        "idle_shift mid-scrub should stay double_support with both feet grounded at support_y 0.02.",
-        "step_left mid-scrub should show single_support_right with foot_r planted at support_y 0.02 and foot_l in swing.",
-        "brace_crouch mid-scrub should stay double_support with both feet planted while CoM lowers.",
-        "torso_twist mid-scrub should keep the lower body anchored in double support.",
-        "If the saved time_strip JPEG exists but latest_time_strip_motion_summary is empty, treat that as mirror lag first and corroborate with the file plus a second shared_state read."
       ]
     },
     "builder_helper_strip_review": {
