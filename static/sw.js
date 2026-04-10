@@ -1,4 +1,4 @@
-var CACHE_NAME = 'champion-council-v130z';
+var CACHE_NAME = 'champion-council-v131a';
 var STATIC_ASSETS = [
     '/',
     '/static/panel.html',
@@ -14,7 +14,7 @@ var STATIC_ASSETS = [
     '/static/rapier3d-compat/rapier.es.js',
     '/static/rapier3d-compat/rapier_wasm3d.js',
     '/static/rapier3d-compat/rapier_wasm3d_bg.wasm',
-    '/static/main.js?v=130z',
+    '/static/main.js?v=131a',
     '/static/manifest.json',
     '/static/icon.svg',
     '/static/assets/packs/index.json',
@@ -53,6 +53,26 @@ self.addEventListener('fetch', function (event) {
     if (requestUrl.origin !== self.location.origin) return;
     if (requestUrl.pathname.indexOf('/api/') === 0 || requestUrl.pathname.indexOf('/mcp/') === 0) {
         event.respondWith(fetch(event.request));
+        return;
+    }
+    if (requestUrl.pathname === '/static/panel.html' || requestUrl.pathname === '/static/main.js' || requestUrl.pathname === '/static/sw.js') {
+        event.respondWith(
+            fetch(event.request).then(function (response) {
+                if (!response || response.status !== 200 || response.type !== 'basic') return response;
+                var copy = response.clone();
+                caches.open(CACHE_NAME).then(function (cache) {
+                    cache.put(event.request, copy);
+                });
+                return response;
+            }).catch(function () {
+                return caches.match(event.request).then(function (cached) {
+                    if (cached) return cached;
+                    var normalizedDynamic = new URL(event.request.url);
+                    normalizedDynamic.search = '';
+                    return caches.match(normalizedDynamic.toString());
+                });
+            })
+        );
         return;
     }
     if (requestUrl.pathname.indexOf('/static/assets/packs/') === 0 && /\.json$/i.test(requestUrl.pathname)) {

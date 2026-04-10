@@ -26,8 +26,9 @@ Use this as the current grounded baseline after the settle removal and pose-auth
 ### Pose Authority
 
 - `_envBuilderSanitizePoseTransform(...)` still normalizes pose payload shape and preserves the non-root offset gate
-- It no longer rewrites manual rotations through `_envBuilderClampPoseMechanics(...)`
-- The shared clamp removal applies across the builder pose path, not to one limb only
+- Manual rotations are authoritative for the general builder pose path
+- `_envBuilderClampPoseMechanics(...)` is now only used as a narrow lower-leg guard rail for `lower_leg_l` / `lower_leg_r`
+- No broad pose-wide clampback should silently rewrite live manual edits outside that two-bone guard rail
 
 ### Mechanics Substrate
 
@@ -88,17 +89,28 @@ Use this as the current grounded baseline after the settle removal and pose-auth
    - honest two-knee brace staging now works
    - mixed support sets like half-kneel, tripod brace, and forearm-plank are still awkward to author with raw single-bone rotations
    - multi-target staging still reduces requested contacts independently instead of jointly solving the intended support set
-4. Pan, the future contact placement router, is not built yet; it should consume blocked/accepted staging reports after primitives and affordances exist
-5. `supportingFeet -> supportingContacts` is still not complete; non-foot patch families remain underbuilt
-6. Terrain/support records still lean too hard on flat support assumptions
-7. Gravity-vector control is present in the contract but not yet exposed as a true live operator lane
-8. Runtime recovery/stumble/brace/fall behavior still needs to be rebuilt as a locomotion/runtime system
-9. The rich dev-only visual consumers remain partially dormant or missing:
+4. The existing batch pose lane is already the canonical mutation surface:
+   - `workbench_set_pose_batch` owns atomic coordinated pose commits
+   - grouped / chain / marionette-style authoring should feed native `{ poses:[...] }` payloads into that lane
+   - do not build a second pose substrate or gizmo-only commit path
+5. Pan, the future contact placement router, is not built yet; it should consume blocked/accepted staging reports after primitives and affordances exist
+6. Roadmap rigidity is now a real sequencing risk:
+   - some later named systems are required earlier in thin contract form
+   - if a deferred system is the minimum honest way to close the current blocker, pull forward its contract, not its full implementation
+   - current examples:
+     - Pan-style route reports over support-topology authoring
+     - blackboard-ready grouped-controller / corroboration exports
+     - primitive labels attached to support-transition macros and route outcomes
+7. `supportingFeet -> supportingContacts` is still not complete; non-foot patch families remain underbuilt
+8. Terrain/support records still lean too hard on flat support assumptions
+9. Gravity-vector control is present in the contract but not yet exposed as a true live operator lane
+10. Runtime recovery/stumble/brace/fall behavior still needs to be rebuilt as a locomotion/runtime system
+11. The rich dev-only visual consumers remain partially dormant or missing:
    - scaffold weight dynamics
    - bone carpenter
    - support polygon / CoM / drift / contact overlay
    - richer blackboard consumers
-10. The next mobility lane should be framed as a primitive-based reactive controller stack, not a special-case stunt mode:
+12. The next mobility lane should be framed as a primitive-based reactive controller stack, not a special-case stunt mode:
    - passive rebalance and aggressive traversal should ride the same contact/support substrate
    - see `docs/REACTIVE_MOBILITY_PRIMITIVES_TRAJECTORY_2026-04-10.md`
 
@@ -106,24 +118,38 @@ Use this as the current grounded baseline after the settle removal and pose-auth
 
 1. Keep mechanics verification live-operator-driven; do not reintroduce automated pose-sweep evals for contact placement
 2. Preserve `workbench_stage_contact` as the deterministic gate for chosen contact targets; do not treat it as a router
-3. Build the next operator-facing authoring substrate around support topology:
+3. Treat the existing batch pose lane as canonical:
+   - `workbench_set_pose_batch` stays the only commit surface for coordinated builder pose mutation
+   - grouped/chain controllers, macros, and future marionette-like handles should emit native batch-pose payloads instead of writing a parallel pose state
+4. Build the next operator-facing authoring substrate around support topology and controller parity:
    - grouped multi-bone / centroid pivots
    - chain selection via the existing isolation-chain substrate
+   - controller registry per body plan and dynamic grouped-controller allocation from selected chains / pairs / ad hoc selections
    - authored support-transition macros such as `half_kneel_l`, `half_kneel_r`, `rest_kneel`, `tripod_brace_l`, `tripod_brace_r`
-4. Use those authoring surfaces to continue the mechanics substrate return:
+   - honest export of grouped preview state for web view, text theater, and future blackboard parity
+5. Pull forward thin enabling contracts from later systems when they are the minimum honest path through the current blocker:
+   - Pan-v0 route report shape:
+     - intended support set
+     - realized support set
+     - missing support participants
+     - blocker summary
+     - next suggested adjustment
+   - blackboard-ready corroboration/export fields should move early when they are needed for theater parity
+   - primitive names may appear early on macros and route reports without claiming the full primitive/runtime system is finished
+6. Use those authoring surfaces to continue the mechanics substrate return:
    - generalize from `supportingFeet` to `supportingContacts`
    - add the next patch families
-5. Make terrain/support surfaces authoritative
-6. Add real gravity-control / reorientation inputs
-7. Formalize primitive vocabulary and affordance contracts before building Pan
-8. Build Pan as the contact placement router:
+7. Make terrain/support surfaces authoritative
+8. Add real gravity-control / reorientation inputs
+9. Formalize primitive vocabulary and affordance contracts before building full Pan
+10. Build full Pan as the contact placement router:
    - Tinkerbell points
    - Pan routes
    - code stays concrete as `contact_router` / `contact_placement_router`
    - route proposals can later be emitted as workflow DAG artifacts for inspection, replay, and reuse
-9. Rebuild runtime recovery as a locomotion/controller lane
-10. Rebuild dev-only visual consumers on top of that truthful substrate
-11. Keep product mode clean: grounded motion visible, diagnostics hidden
+11. Rebuild runtime recovery as a locomotion/controller lane
+12. Rebuild dev-only visual consumers on top of that truthful substrate
+13. Keep product mode clean: grounded motion visible, diagnostics hidden
 
 Workflow note:
 

@@ -130,6 +130,45 @@ and multi-target staging still reduces requested contacts independently instead 
 
 This is why chain-aware/grouped posing is now a more immediate operator-facing need than another isolated knee push.
 
+The important authority correction is:
+
+- `workbench_set_pose_batch` already exists as the canonical coordinated mutation lane
+- grouped pivots, chain selection, support-transition macros, and future marionette-like handles should produce native batch-pose payloads instead of creating a second pose substrate
+- `workbench_stage_contact` remains the deterministic contact gate / verifier after posing, not the authoring engine and not a hidden route solver
+
+## Sequencing Correction
+
+The roadmap should not be interpreted as "later named systems are forbidden until their numbered slice arrives."
+
+That would be too rigid and would misread the current blocker.
+
+Correct rule:
+
+- full systems can stay deferred
+- thin enabling contracts can move earlier when they are the minimum honest way to close the current blocker
+
+Current examples:
+
+- a Pan-shaped route report can appear before full Pan
+- blackboard-ready corroboration/export fields can appear before full blackboard rendering
+- primitive labels can attach to macros and route outcomes before the full runtime primitive controller ships
+
+What must stay deferred:
+
+- full autonomous contact routing
+- full blackboard/holographic consumer stack
+- full runtime reactive locomotion controller
+
+What may move earlier:
+
+- maneuver descriptor shape
+- intended vs realized support reporting
+- blocker / next-adjustment reporting
+- controller/export fields needed for theater-first parity
+
+This is not a roadmap violation.
+It is a dependency correction.
+
 ## The Right Architectural Read
 
 There are not two unrelated modes here.
@@ -308,6 +347,43 @@ That means the next operator-facing slice should be:
 This does not replace later routing.
 
 It gives the operator an honest way to author the mixed support sets that the routing/controller stack will later consume and automate.
+
+## Controller Interop Read
+
+The batch pose lane should stay canonical.
+
+What needs to improve is the authoring layer over it.
+
+Recommended structure:
+
+1. controller registry per body plan
+   - canonical chain/controller definitions
+   - root bones
+   - translation carriers
+   - pivot rules
+   - contact-family ownership
+
+2. dynamic grouped-controller allocation
+   - single chain
+   - mirrored pairs
+   - adjacent chains
+   - ad hoc selected bones when needed
+
+3. grouped preview session
+   - grouped pivot world position
+   - grouped mode / space
+   - preview-active flag
+   - affected controller ids / bone ids
+
+4. native batch-pose commit
+   - grouped drag end emits `{ poses:[...] }`
+   - support-transition macros are stored as named batch-pose artifacts or short sequences
+
+5. theater / blackboard parity
+   - the same grouped-controller export feeds web view, text theater, and later blackboard panels
+   - no renderer should guess grouped attachment state independently
+
+This avoids rebuilding a second pose system while still giving the operator a much richer body-part control surface.
 
 Likely policy families:
 
@@ -567,6 +643,12 @@ The themed surface label can be:
 - `PAN = Posture Affordance Navigator`
 
 Do not build Pan before the substrate below it is honest.
+
+Important sequencing clarification:
+
+- do not build full Pan before the substrate is honest
+- do allow Pan-v0 report contracts to appear earlier when the current blocker requires a standardized route/maneuver report
+- that thin Pan form should stay proposal-only and should still feed the existing `workbench_set_pose_batch` + `workbench_stage_contact` substrate
 
 ### Tinkerbell vs Pan
 

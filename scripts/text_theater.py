@@ -2976,6 +2976,8 @@ def _render_consult_pose_text(snapshot):
     workbench = snapshot.get("workbench") if isinstance(snapshot.get("workbench"), dict) else {}
     embodiment = snapshot.get("embodiment") if isinstance(snapshot.get("embodiment"), dict) else {}
     gizmo = workbench.get("gizmo") if isinstance(workbench.get("gizmo"), dict) else {}
+    active_controller = workbench.get("active_controller") if isinstance(workbench.get("active_controller"), dict) else {}
+    pivot = active_controller.get("pivot_world") if isinstance(active_controller.get("pivot_world"), dict) else {}
     return "\n".join([
         "POSE: primary "
         + str(workbench.get("primary_bone_id") or "none")
@@ -2999,6 +3001,18 @@ def _render_consult_pose_text(snapshot):
         + ("attached" if gizmo.get("attached") else "detached")
         + " / editing "
         + str(workbench.get("editing_mode") or ""),
+        "CONTROLLER: "
+        + str(active_controller.get("controller_id") or active_controller.get("label") or "none")
+        + " / "
+        + str(active_controller.get("controller_kind") or "none")
+        + " / members "
+        + str(len(active_controller.get("member_bone_ids") or []))
+        + " / pivot ("
+        + f"{float(pivot.get('x') or 0.0):.2f}, "
+        + f"{float(pivot.get('y') or 0.0):.2f}, "
+        + f"{float(pivot.get('z') or 0.0):.2f})"
+        + " / preview "
+        + ("active" if active_controller.get("preview_active") else "idle"),
         "EMBODIMENT: family "
         + str(embodiment.get("family") or "")
         + " / scaffold "
@@ -3164,6 +3178,8 @@ def _render_local_embodiment_text(snapshot):
     timeline = snapshot.get("timeline") if isinstance(snapshot.get("timeline"), dict) else {}
     semantic = snapshot.get("semantic") if isinstance(snapshot.get("semantic"), dict) else {}
     gizmo = workbench.get("gizmo") if isinstance(workbench.get("gizmo"), dict) else {}
+    active_controller = workbench.get("active_controller") if isinstance(workbench.get("active_controller"), dict) else {}
+    pivot = active_controller.get("pivot_world") if isinstance(active_controller.get("pivot_world"), dict) else {}
     projected_com = balance.get("projected_com") if isinstance(balance.get("projected_com"), dict) else {}
     contacts = snapshot.get("contacts") if isinstance(snapshot.get("contacts"), list) else []
     lines = [
@@ -3196,6 +3212,21 @@ def _render_local_embodiment_text(snapshot):
         + " posed"
         + (" [" + ", ".join(str(v) for v in (workbench.get("posed_bone_ids") or [])) + "]" if workbench.get("posed_bone_ids") else ""),
     ]
+    if active_controller:
+        lines.append(
+            "CONTROLLER: "
+            + str(active_controller.get("controller_id") or active_controller.get("label") or "selection")
+            + " / "
+            + str(active_controller.get("controller_kind") or "group")
+            + " / members "
+            + str(len(active_controller.get("member_bone_ids") or []))
+            + " / preview "
+            + ("active" if active_controller.get("preview_active") else "idle")
+            + " / pivot ("
+            + f"{float(pivot.get('x') or 0.0):.2f}, "
+            + f"{float(pivot.get('y') or 0.0):.2f}, "
+            + f"{float(pivot.get('z') or 0.0):.2f})"
+        )
     for line in _build_local_bone_tree_lines(snapshot):
         lines.append("  " + line)
     lines.append("  (* selected, + posed, [STATE] contact)")
@@ -3535,12 +3566,9 @@ def render_text_theater_shared_state(
         if synced_at is not None:
             live_state["synced_at"] = synced_at
         snapshot = _merge_live_camera_into_snapshot(snapshot, live_state)
-        theater_text = cached_theater_text
-        embodiment_text = cached_embodiment_text
-        if not theater_text and mode in {"theater", "split", "render", "consult"}:
-            theater_text, _ = _local_text_outputs(snapshot, mode)
-        if not embodiment_text and mode in {"embodiment", "split", "render", "consult"}:
-            _, embodiment_text = _local_text_outputs(snapshot, mode)
+        local_theater_text, local_embodiment_text = _local_text_outputs(snapshot, mode)
+        theater_text = local_theater_text or cached_theater_text
+        embodiment_text = local_embodiment_text or cached_embodiment_text
     else:
         snapshot = {}
         theater_text = cached_theater_text

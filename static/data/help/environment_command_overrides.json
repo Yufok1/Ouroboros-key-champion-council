@@ -162,6 +162,119 @@
         "capture_probe"
       ]
     },
+    "workbench_select_chain": {
+      "title": "Select Workbench Chain",
+      "summary": "Select the canonical bone chain rooted around a target bone so grouped authoring can operate on the whole linked body part instead of a single joint.",
+      "target_contract": {
+        "shape": "string_or_json",
+        "description": "Target chain seed as a bone id string or JSON payload with bone_id/bone/id.",
+        "examples": [
+          "lower_leg_l",
+          "{\"bone_id\":\"lower_leg_l\"}",
+          "{\"bone\":\"lower_arm_r\"}"
+        ]
+      },
+      "when_to_use": [
+        "Use this when you want the entire anatomical chain selected before switching gizmo mode or applying grouped pose edits.",
+        "Use this as the fastest way to move from single-joint inspection to chain-scoped authoring."
+      ],
+      "mode_notes": [
+        "This uses the existing chain extraction substrate. It does not create a new controller family by itself; it selects the chain so the grouped controller can attach.",
+        "If more than one bone ends up selected and the gizmo mode supports it, the grouped selection pivot can attach immediately."
+      ],
+      "gotchas": [
+        "The resulting primary bone stays tied to the requested chain seed, not necessarily the chain root.",
+        "Read the text theater render first after selection. It is the fastest way to see whether the intended chain actually became the active work cell.",
+        "Use the snapshot second when you need the exact selected bone ids and active_controller metadata."
+      ],
+      "verification": [
+        "env_read(query='text_theater_embodiment')",
+        "env_read(query='text_theater_snapshot')",
+        "capture_probe",
+        "env_read(query='shared_state')"
+      ],
+      "related_commands": [
+        "workbench_select_bones",
+        "workbench_set_gizmo_mode",
+        "workbench_frame_part"
+      ]
+    },
+    "workbench_select_controller": {
+      "title": "Select Workbench Controller",
+      "summary": "Select a registry-backed grouped controller such as a leg chain or mirror pair so the workbench attaches a grouped pivot over the full selected body-part set.",
+      "target_contract": {
+        "shape": "string_or_json",
+        "description": "Controller id string or JSON payload with controller_id/controller/id and optional primary_bone_id.",
+        "examples": [
+          "left_leg_chain",
+          "both_legs_pair",
+          "{\"controller_id\":\"both_legs_pair\"}",
+          "{\"controller\":\"left_arm_chain\",\"primary_bone_id\":\"lower_arm_l\"}"
+        ]
+      },
+      "when_to_use": [
+        "Use this when a body-plan controller is more meaningful than selecting bones manually, for example both_legs_pair for mirrored leg authoring.",
+        "Use this before grouped pan/rotate checks when you want the registry-defined controller metadata, pivot, and translation carriers to line up automatically."
+      ],
+      "mode_notes": [
+        "This is a grouped-authoring selector over the canonical batch-pose lane. It does not introduce a second pose system.",
+        "The active controller should appear in both text_theater_embodiment and text_theater_snapshot once selection lands."
+      ],
+      "gotchas": [
+        "This only works after the refreshed runtime has the controller registry loaded. If the snapshot says Unknown control command, the browser/backend is still on stale code.",
+        "Selection alone is not the proof. Confirm that the render shows gizmo attached/grouped and that the snapshot reports active_controller.attached = true.",
+        "Use text_theater_snapshot second for controller_registry, active_controller, and pivot_world details."
+      ],
+      "verification": [
+        "env_read(query='text_theater_embodiment')",
+        "env_read(query='text_theater_snapshot')",
+        "capture_probe",
+        "env_read(query='shared_state')"
+      ],
+      "related_commands": [
+        "workbench_select_chain",
+        "workbench_set_gizmo_mode",
+        "workbench_set_pose_batch"
+      ]
+    },
+    "workbench_apply_pose_macro": {
+      "title": "Apply Workbench Pose Macro",
+      "summary": "Apply a named body-plan pose macro such as half_kneel_l or half_kneel_r through the canonical batch-pose lane instead of hand-authoring every joint one at a time.",
+      "target_contract": {
+        "shape": "string_or_json",
+        "description": "Macro id string or JSON payload with macro_id/macro/id.",
+        "examples": [
+          "half_kneel_l",
+          "half_kneel_r",
+          "{\"macro_id\":\"half_kneel_l\"}",
+          "{\"macro\":\"half_kneel_r\"}"
+        ]
+      },
+      "when_to_use": [
+        "Use this when you want a repeatable support-topology starting pose before staging contacts or doing grouped refinement.",
+        "Use it to flip between mirrored authored poses quickly and then inspect what changed in theater."
+      ],
+      "mode_notes": [
+        "This does not introduce a second pose system. It normalizes a named macro into a native { poses:[...] } batch payload and commits through workbench_set_pose_batch.",
+        "The macro can also activate the relevant grouped controller so the follow-up gizmo session starts from the right body-part set."
+      ],
+      "gotchas": [
+        "A successful macro apply is not proof of grounded mixed support. Read the theater first, then use workbench_stage_contact only if you need to certify the requested support set.",
+        "Use text_theater_snapshot second for pose_macro_registry, suggested_stage_targets, and the exact per-bone rotations that landed.",
+        "If the snapshot says Unknown control command or the runtime host_commands list is missing workbench_apply_pose_macro, the browser is still on stale code."
+      ],
+      "verification": [
+        "env_read(query='text_theater_embodiment')",
+        "env_read(query='text_theater_snapshot')",
+        "capture_probe",
+        "env_read(query='shared_state')"
+      ],
+      "related_commands": [
+        "workbench_select_controller",
+        "workbench_set_pose_batch",
+        "workbench_stage_contact"
+      ]
+    },
     "workbench_set_pose": {
       "title": "Set Builder Pose",
       "summary": "Apply a single explicit pose transform to one builder bone using the pose gizmo contract instead of guessing through the viewport.",
@@ -581,6 +694,21 @@
         "Read the text render first and describe what the body is doing in plain language before trusting structured fields.",
         "Use the snapshot second for blocker lists, freshness, and structured contact/balance details.",
         "Use probe capture third when local silhouette, overlap, or renderer disagreement still matters."
+      ]
+    },
+    "grouped_controller_corroboration": {
+      "title": "Grouped Controller Corroboration",
+      "steps": [
+        "workbench_select_controller('both_legs_pair')",
+        "workbench_set_gizmo_mode('translate')",
+        "env_read(query='text_theater_embodiment')",
+        "env_read(query='text_theater_snapshot')",
+        "capture_probe('character_runtime::mounted_primary')"
+      ],
+      "notes": [
+        "Use this after grouped-authoring changes to confirm that controller selection, grouped pivot attachment, and theater export stay in parity.",
+        "The render proof is a grouped workbench line plus a CONTROLLER line naming the active controller and pivot.",
+        "The snapshot proof is workbench.gizmo.attached = true, attached_kind = selection_pivot, and active_controller.attached = true with the expected controller_id."
       ]
     },
     "mounted_asset_inspection": {
