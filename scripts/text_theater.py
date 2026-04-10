@@ -1897,9 +1897,9 @@ def _collect_render_model(snapshot):
         projected_points.extend(support_polygon)
         for row in diagnostic_contacts:
             patch = ((row or {}).get("contact_patch")) or {}
-            footprint_world = patch.get("footprint_world") or []
+            footprint_world = patch.get("active_manifold_world") or patch.get("footprint_world") or []
             points = [_vec3(point) for point in footprint_world if isinstance(point, dict)]
-            if len(points) >= 3:
+            if len(points) >= 1:
                 contact_patches.append({
                     "points": points,
                     "style": support_style if row.get("supporting") else posed_style,

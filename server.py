@@ -63,6 +63,8 @@ _env_help_cache_lock = threading.Lock()
 _env_help_cache: dict[str, object] = {"mtime_ns": None, "data": None}
 _env_live_cache_lock = threading.Lock()
 _env_live_cache: dict[str, object] = {"live_state": None, "updated_ms": 0}
+_env_control_command_seq_lock = threading.Lock()
+_env_control_command_seq = 0
 _text_theater_module_lock = threading.Lock()
 _text_theater_module = None
 def _normalize_activity_source(value: str | None) -> str | None:
@@ -1487,6 +1489,7 @@ _ENV_CONTROL_PROXY_COMMANDS = frozenset({
     "character_play_reaction",
     "workbench_set_scaffold",
     "workbench_set_load_field",
+    "workbench_stage_contact",
     "toggle_inhabitant_fov_debug",
     "set_world_profile",
     "apply_profile_kit",
@@ -3720,6 +3723,7 @@ def _env_control_local_proxy_payload(args: dict | None = None) -> dict | None:
         return None
     target_id = str(args.get("target_id", "") or "").strip()
     actor = str(args.get("actor", "assistant") or "assistant").strip() or "assistant"
+    command_sync_token = _env_next_control_sync_token(command)
     payload = {
         "status": "ok",
         "summary": f"Dispatched environment control command {command}",
@@ -3727,10 +3731,12 @@ def _env_control_local_proxy_payload(args: dict | None = None) -> dict | None:
             "command": command,
             "target_id": target_id,
             "actor": actor,
+            "command_sync_token": command_sync_token,
         },
         "delta": {
             "command": command,
             "target_id": target_id,
+            "command_sync_token": command_sync_token,
         },
         "environment_effects": {},
         "operation": "env_control",
@@ -3739,12 +3745,13 @@ def _env_control_local_proxy_payload(args: dict | None = None) -> dict | None:
         "target_id": target_id,
         "target": target_id,
         "actor": actor,
+        "command_sync_token": command_sync_token,
     }
     if command == "set_theater_mode":
         payload["environment_effects"]["theater_mode_action"] = command
     elif command.startswith("camera_"):
         payload["environment_effects"]["camera_action"] = command
-    elif command in ("spawn_inhabitant", "despawn_inhabitant", "focus_inhabitant", "character_mount", "character_unmount", "character_focus", "character_move_to", "character_stop", "character_look_at", "character_set_model", "workbench_new_builder", "workbench_get_blueprint", "workbench_get_part_surface", "workbench_frame_part", "workbench_select_bone", "workbench_select_bones", "workbench_set_editing_mode", "workbench_set_display_scope", "workbench_set_gizmo_mode", "workbench_set_gizmo_space", "workbench_set_bone", "workbench_set_pose", "workbench_set_pose_batch", "workbench_clear_pose", "workbench_capture_pose", "workbench_delete_pose", "workbench_apply_pose", "workbench_set_timeline_cursor", "workbench_compile_clip", "workbench_play_authored_clip", "workbench_assert_balance", "workbench_reset_angles", "workbench_isolate_chain", "workbench_save_blueprint", "workbench_load_blueprint", "character_play_clip", "character_queue_clips", "character_stop_clip", "character_set_loop", "character_set_speed", "character_get_animation_state", "character_play_reaction", "toggle_inhabitant_fov_debug", "workbench_set_load_field"):
+    elif command in ("spawn_inhabitant", "despawn_inhabitant", "focus_inhabitant", "character_mount", "character_unmount", "character_focus", "character_move_to", "character_stop", "character_look_at", "character_set_model", "workbench_new_builder", "workbench_get_blueprint", "workbench_get_part_surface", "workbench_frame_part", "workbench_select_bone", "workbench_select_bones", "workbench_set_editing_mode", "workbench_set_display_scope", "workbench_set_gizmo_mode", "workbench_set_gizmo_space", "workbench_set_bone", "workbench_set_pose", "workbench_set_pose_batch", "workbench_clear_pose", "workbench_capture_pose", "workbench_delete_pose", "workbench_apply_pose", "workbench_set_timeline_cursor", "workbench_compile_clip", "workbench_play_authored_clip", "workbench_assert_balance", "workbench_reset_angles", "workbench_isolate_chain", "workbench_save_blueprint", "workbench_load_blueprint", "character_play_clip", "character_queue_clips", "character_stop_clip", "character_set_loop", "character_set_speed", "character_get_animation_state", "character_play_reaction", "toggle_inhabitant_fov_debug", "workbench_set_load_field", "workbench_stage_contact"):
         payload["environment_effects"]["character_runtime_action"] = command
     elif command == "workbench_set_scaffold":
         payload["environment_effects"]["character_runtime_action"] = command
@@ -3780,11 +3787,24 @@ def _env_cached_text_theater_snapshot(cached: dict | None) -> dict:
     return snapshot
 
 
-def _env_live_cache_matches_env_control(command: str, cached: dict | None) -> bool:
+def _env_next_control_sync_token(command: str) -> str:
+    global _env_control_command_seq
+    with _env_control_command_seq_lock:
+        _env_control_command_seq += 1
+        seq = int(_env_control_command_seq)
+    safe_command = re.sub(r"[^a-z0-9_]+", "_", str(command or "").strip().lower()).strip("_") or "env_control"
+    return f"{safe_command}:{int(time.time() * 1000)}:{seq}"
+
+
+def _env_live_cache_matches_env_control(command: str, cached: dict | None, command_sync_token: str = "") -> bool:
     cmd = str(command or "").strip().lower()
     if not cmd:
         return False
     snapshot = _env_cached_text_theater_snapshot(cached)
+    expected_token = str(command_sync_token or "").strip()
+    observed_token = str(snapshot.get("command_sync_token", "") or "").strip()
+    if expected_token:
+        return bool(observed_token) and observed_token == expected_token
     last_reason = str(snapshot.get("last_sync_reason", "") or "").strip().lower()
     if not last_reason:
         return False
@@ -3808,6 +3828,7 @@ def _env_live_cache_matches_env_control(command: str, cached: dict | None) -> bo
 async def _env_wait_for_live_cache_after_env_control(
     command: str,
     before_updated_ms: int = 0,
+    command_sync_token: str = "",
     timeout_s: float = 1.8,
     poll_s: float = 0.05,
 ) -> tuple[dict | None, bool, int]:
@@ -3821,7 +3842,7 @@ async def _env_wait_for_live_cache_after_env_control(
             latest = current
             current_updated_ms = int(current.get("updated_ms") or 0)
             if current_updated_ms > before_updated_ms:
-                matched = _env_live_cache_matches_env_control(command, current)
+                matched = _env_live_cache_matches_env_control(command, current, command_sync_token)
                 if matched:
                     break
         await asyncio.sleep(max(0.01, float(poll_s or 0.01)))
@@ -3905,18 +3926,23 @@ async def _env_control_attach_text_theater_observation(
     args = args or {}
     out = dict(payload or {})
     command = str(out.get("command", "") or "").strip()
+    command_sync_token = str(out.get("command_sync_token", "") or "").strip()
     include_full = _env_bool_arg(args.get("include_full"), True)
     cached, matched_command_sync, waited_ms = await _env_wait_for_live_cache_after_env_control(
         command=command,
         before_updated_ms=before_updated_ms,
+        command_sync_token=command_sync_token,
     )
     observation = _env_build_text_theater_observation(cached, include_full=include_full)
     if observation:
         freshness = observation.get("freshness") if isinstance(observation.get("freshness"), dict) else {}
         cache_updated_ms = int((cached or {}).get("updated_ms") or 0)
         cache_advanced = cache_updated_ms > int(before_updated_ms or 0)
+        snapshot = observation.get("snapshot") if isinstance(observation.get("snapshot"), dict) else {}
         freshness["cache_advanced_after_command"] = bool(cache_advanced)
         freshness["matched_command_sync"] = bool(matched_command_sync)
+        freshness["expected_command_sync_token"] = command_sync_token
+        freshness["observed_command_sync_token"] = str(snapshot.get("command_sync_token", "") or "")
         freshness["waited_ms"] = int(waited_ms or 0)
         freshness["stale"] = bool(freshness.get("stale") or not cache_advanced)
         observation["freshness"] = freshness

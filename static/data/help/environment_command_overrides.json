@@ -7,7 +7,7 @@
       "description": "Timeline, authored clip, and scrub commands for builder-side motion work. These commands are easy to misunderstand if you assume staged timeline edits imply live playback."
     },
     "builder_workbench": {
-      "description": "Builder subject, scaffold, selection, and workbench editing commands for embodiment work in the character forge."
+      "description": "Builder subject, scaffold, selection, and workbench editing commands for embodiment work in the character forge. After any builder command that changes the staged body or camera, read the text theater render first, then the snapshot contract, then capture if visual triangulation is still needed."
     },
     "capture_observer": {
       "description": "Observer capture commands used to corroborate live scene, motion, and embodiment truth instead of trusting the viewport alone."
@@ -190,7 +190,9 @@
       "gotchas": [
         "Non-root offsets are intentionally rejected to preserve scaffold continuity. If you need translational repositioning, use hips/root-aware offsets only.",
         "A torso lean alone can still remain inside a broad two-foot support base even when the pose already looks unstable to the eye.",
-        "Immediate env_read(query='shared_state') snapshots can lie right after dispatch because the ingress/live-sync mirror has not caught up yet. Give the browser a short beat, then verify pose_transform_count, posed_bone_ids, and corroboration.last_action."
+        "Immediate shared_state reads can lie right after dispatch because the ingress/live-sync mirror has not caught up yet.",
+        "After a theater-affecting pose edit, read the attached text_theater payload first or run env_read(query='text_theater_embodiment') and figure out what the rendered body is actually doing before consulting machine-readable fields.",
+        "Use env_read(query='text_theater_snapshot') second when you need structured corroboration. Treat env_read(query='shared_state') as tertiary evidence, not the first read."
       ],
       "failure_modes": [
         "No builder subject active.",
@@ -199,10 +201,11 @@
         "Mounted runtime mesh/workbench anchor is unavailable."
       ],
       "verification": [
+        "env_read(query='text_theater_embodiment')",
+        "env_read(query='text_theater_snapshot')",
         "capture_probe",
-        "env_read(query='shared_state')",
         "workbench_get_part_surface",
-        "corroboration.last_action"
+        "env_read(query='shared_state')"
       ],
       "related_commands": [
         "workbench_set_pose_batch",
@@ -241,7 +244,9 @@
         "Offsets on non-hips bones are rejected even inside the batch. This is rotational pose editing, not arbitrary limb dragging.",
         "If you want a real recover/step reaction, drive the legs and feet toward an asymmetric stance instead of only bending the chest.",
         "The array key is poses, not bones. Older guesses like {\"bones\":[...]} normalize to an empty batch and make the command look inert.",
-        "Immediate shared_state reads can make a valid batch look dead. Wait a few seconds, then verify workbench_surface.pose_transform_count, workbench_surface.posed_bone_ids, and corroboration.last_action."
+        "Immediate shared_state reads can make a valid batch look dead.",
+        "For any batch that changes staged body position or balance, read text_theater_embodiment first and interpret the rendered pose before drilling into fields.",
+        "Use text_theater_snapshot second when you need structured contact/balance detail. Shared-state mirror reads stay tertiary because they can lag the actual theater."
       ],
       "failure_modes": [
         "No builder subject active.",
@@ -250,15 +255,44 @@
         "Mounted runtime mesh/workbench anchor is unavailable."
       ],
       "verification": [
+        "env_read(query='text_theater_embodiment')",
+        "env_read(query='text_theater_snapshot')",
         "capture_probe",
-        "env_read(query='shared_state')",
         "workbench_assert_balance",
-        "corroboration.last_action"
+        "env_read(query='shared_state')"
       ],
       "related_commands": [
         "workbench_set_pose",
         "workbench_clear_pose",
         "workbench_assert_balance",
+        "capture_probe"
+      ]
+    },
+    "workbench_frame_part": {
+      "title": "Workbench Frame Part",
+      "summary": "Reframe the builder camera around the selected part or supplied part id so the active work cell is visually legible before deeper analysis.",
+      "when_to_use": [
+        "Use this when the selected limb or contact family is too hard to interpret from the current body-wide camera.",
+        "Use this before capture_probe when the local shape of one bone or patch matters more than the full body silhouette."
+      ],
+      "mode_notes": [
+        "This changes camera framing and the staged workbench view. It does not change pose data by itself.",
+        "The attached text_theater payload after framing is the cheapest direct read of what the work cell now looks like."
+      ],
+      "gotchas": [
+        "Do not jump straight to shared_state after reframing. Read the attached text_theater render or env_read(query='text_theater_embodiment') first so the camera change is interpreted visually.",
+        "Use text_theater_snapshot second for structured part-camera and corroboration fields.",
+        "Capture is secondary here: use capture_probe when the text render still leaves ambiguity about local silhouette, depth, or body overlap."
+      ],
+      "verification": [
+        "env_read(query='text_theater_embodiment')",
+        "env_read(query='text_theater_snapshot')",
+        "capture_probe",
+        "env_read(query='shared_state')"
+      ],
+      "related_commands": [
+        "workbench_select_bone",
+        "workbench_set_display_scope",
         "capture_probe"
       ]
     },
@@ -276,20 +310,24 @@
       "summary": "Capture the multi-angle local probe view for the current subject or focused object.",
       "when_to_use": [
         "Use this for close corroboration after timeline scrub, model swap, scaffold toggle, or load-field checks.",
-        "For mounted runtime validation, an explicit target hint like character_runtime::mounted_primary is the most reliable path."
+        "For mounted runtime validation, an explicit target hint like character_runtime::mounted_primary is the most reliable path.",
+        "Use this after the text theater render when visual shape, overlap, or spatial ambiguity still matters or when the two renderers need to be triangulated."
       ],
       "mode_notes": [
         "In the current theater lane this is an env_control command, not a standalone /api/tool/capture_probe endpoint.",
-        "Treat the saved probe_*.jpg as the proof artifact; mirror fields help but the file is the durable corroboration."
+        "Treat the saved probe_*.jpg as the proof artifact; mirror fields help but the file is the durable corroboration.",
+        "This is slower and more expensive than a text-theater read, so it should usually be the second or third corroboration step, not the first."
       ],
       "gotchas": [
         "This is dispatched through the environment control lane; /api/tool/capture_probe is not a standalone tool in this build.",
-        "A blank target can still work when focus is stable, but explicit target ids are safer when the shell may have drifted."
+        "A blank target can still work when focus is stable, but explicit target ids are safer when the shell may have drifted.",
+        "If the text theater already makes the state obvious, do not burn time waiting for a probe just to repeat the same conclusion."
       ],
       "verification": [
         "static/captures/probe_*.jpg",
-        "env_read(query='shared_state')",
-        "probe_compare"
+        "env_read(query='text_theater_embodiment')",
+        "env_read(query='text_theater_snapshot')",
+        "env_read(query='shared_state')"
       ]
     },
     "capture_supercam": {
@@ -332,6 +370,36 @@
         "Load mechanics can be active even when the visible load substrate is still intentionally minimal or deferred."
       ]
     },
+    "workbench_stage_contact": {
+      "title": "Stage Support Contact",
+      "summary": "Choose one or more intended contact patches and stage the builder subject so that patch reaches the support plane without inventing support truth.",
+      "when_to_use": [
+        "Use this for deterministic contact probes after a pose or batch pose, for example {\"contacts\":[\"lower_leg_l\"]}.",
+        "Use this when loose posing is not sufficient to test whether a candidate knee, foot, or future palm patch can become an honest support contact."
+      ],
+      "mode_notes": [
+        "This is staging, not physics. It translates the staged builder subject against the support plane; it does not rotate joints, solve IK, or fake grounded state.",
+        "The manifold and balance classifiers remain authoritative after staging."
+      ],
+      "gotchas": [
+        "If the requested staging would bury another contact patch through the support plane, the command reports blocked instead of forcing the body through the ground.",
+        "For real routing, use workbench_set_pose_batch first to configure the joints, then run workbench_stage_contact to test the intended contact.",
+        "Read the text theater render first after staging. It is the fastest way to see whether the body actually moved toward a kneel/brace or just folded into another unsupported pose.",
+        "Use text_theater_snapshot second for blocker lists, patch floor values, and other structured staging details."
+      ],
+      "verification": [
+        "env_read(query='text_theater_embodiment')",
+        "env_read(query='text_theater_snapshot')",
+        "capture_probe",
+        "env_read(query='shared_state')",
+        "workbench_assert_balance"
+      ],
+      "related_commands": [
+        "workbench_set_pose_batch",
+        "workbench_assert_balance",
+        "workbench_set_load_field"
+      ]
+    },
     "workbench_set_scaffold": {
       "title": "Set Scaffold",
       "summary": "Toggle scaffold presentation for the builder subject."
@@ -343,7 +411,8 @@
       "summary": "Read the canonical text-theater snapshot built in the live browser from theater, runtime, workbench, embodiment, balance, and corroboration state.",
       "when_to_use": [
         "Use this when you need the full machine-readable text-theater contract rather than a rendered paragraph or capture artifact.",
-        "This is the right surface for agents, debugging tools, and future popup/text renderers because it carries the full namespaced snapshot."
+        "This is the right surface for agents, debugging tools, and future popup/text renderers because it carries the full namespaced snapshot.",
+        "Use this after you have already read the text theater render and understand what the theater appears to be doing."
       ],
       "mode_notes": [
         "The browser builds this snapshot from live runtime state and the server only passes it through.",
@@ -351,12 +420,14 @@
       ],
       "gotchas": [
         "Freshness fields matter. If the browser has not synced recently, stale_flags will tell you the read may reflect older live state.",
-        "Use this when you need structure. If you only need a quick human-readable readout, text_theater or text_theater_embodiment is usually cheaper."
+        "Use this when you need structure. If you only need a quick human-readable readout, text_theater or text_theater_embodiment is usually cheaper.",
+        "Do not let the snapshot replace the render as the first read after a theater-affecting command. The render is cheaper and better at exposing obvious visual nonsense immediately."
       ],
       "verification": [
-        "env_read(query='shared_state')",
+        "env_read(query='text_theater_embodiment')",
         "env_read(query='text_theater')",
-        "env_read(query='text_theater_embodiment')"
+        "capture_probe",
+        "env_read(query='shared_state')"
       ],
       "related_commands": [
         "capture_probe",
@@ -369,16 +440,19 @@
       "when_to_use": [
         "Use this instead of capture_probe when you need a quick theater-wide read without waiting for image artifacts.",
         "This is the fast paired operator surface when you want the live scene, two orbit-style companion views, and camera/runtime context in one terminal read.",
-        "Use this when you want a direct read on demand; theater-affecting env_control results now attach paired text_theater observation automatically."
+        "Use this when you want a direct read on demand; theater-affecting env_control results now attach paired text_theater observation automatically.",
+        "This should be the first read after any command that changes staged pose, staging, or camera."
       ],
       "gotchas": [
         "This is a rendered summary, not the full contract. Use text_theater_snapshot for full machine-readable state.",
         "The output is truthful to the current live browser state, so freshness still depends on sync health.",
         "Quarter/Profile are purpose-built text companion views, not raw topdown copies of the web capture tiles.",
-        "If a recent env_control result already attached text_theater.current_full/current_compact, prefer that payload first; it was captured for the command you just ran."
+        "If a recent env_control result already attached text_theater.current_full/current_compact, prefer that payload first; it was captured for the command you just ran.",
+        "When the render already tells you what happened, do not jump to shared_state first. Read the render, interpret it, then use the snapshot or capture for deeper corroboration."
       ],
       "verification": [
         "env_read(query='text_theater_snapshot')",
+        "capture_probe",
         "env_read(query='shared_state')"
       ],
       "related_commands": [
@@ -392,16 +466,18 @@
       "when_to_use": [
         "Use this instead of repeated captures when you need fast spatial reasoning about builder pose, workbench state, and live balance truth.",
         "This is the most useful Phase 1 text-theater readout during pose editing, batch pose work, and balance/assertion review.",
-        "Use it together with the render view when you want the visible paired body plus the structural bone/workbench state beside it."
+        "Use it together with the render view when you want the visible paired body plus the structural bone/workbench state beside it.",
+        "For builder commands that move body parts, this is the default first corroboration surface."
       ],
       "gotchas": [
         "The bone tree is only one part of the output. The render also depends on live workbench, contact, balance, and timeline surfaces.",
-        "If the browser has not synced recently, freshness fields in text_theater_snapshot will tell you whether the paired read is lagging."
+        "If the browser has not synced recently, freshness fields in text_theater_snapshot will tell you whether the paired read is lagging.",
+        "Interpret the render first. Only after you can describe what the body is doing should you drill into snapshot fields or probe imagery."
       ],
       "verification": [
         "env_read(query='text_theater_snapshot')",
-        "env_read(query='shared_state')",
-        "capture_probe"
+        "capture_probe",
+        "env_read(query='shared_state')"
       ],
       "related_commands": [
         "workbench_set_pose_batch",
@@ -424,7 +500,8 @@
       "gotchas": [
         "Freshness still depends on mirror health. If the browser has not synced yet, the rendered frame can be truthful to older state.",
         "When an env_control result already includes text_theater.current_full/current_compact plus freshness, prefer that payload first because it was captured in direct response to the command dispatch.",
-        "Use text_theater_snapshot when you need the full machine-readable contract instead of a rendered frame."
+        "Use text_theater_snapshot when you need the full machine-readable contract instead of a rendered frame.",
+        "This is still a renderer-first surface. Read the frame before you start privileging mirror metadata."
       ],
       "verification": [
         "env_read(query='text_theater_snapshot')",
@@ -492,6 +569,20 @@
     }
   },
   "playbooks": {
+    "theater_first_pose_corroboration": {
+      "title": "Theater-First Pose Corroboration",
+      "steps": [
+        "env_read(query='text_theater_embodiment')",
+        "env_read(query='text_theater_snapshot')",
+        "capture_probe('character_runtime::mounted_primary')"
+      ],
+      "notes": [
+        "Use this as the default order of evidence after any command that changes staged pose, contact staging, or local builder framing.",
+        "Read the text render first and describe what the body is doing in plain language before trusting structured fields.",
+        "Use the snapshot second for blocker lists, freshness, and structured contact/balance details.",
+        "Use probe capture third when local silhouette, overlap, or renderer disagreement still matters."
+      ]
+    },
     "mounted_asset_inspection": {
       "title": "Mounted Asset Inspection",
       "steps": [
