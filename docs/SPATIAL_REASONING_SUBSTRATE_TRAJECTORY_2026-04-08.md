@@ -73,22 +73,21 @@ The mechanics substrate already exists and is live:
 - support polygon
 - stability margin / risk
 - segment load/support scores
-- settle preview / commit
 - balance assertion
 
 References:
 
 - [`docs/BONE_FIRST_PHYSICS_ARCHITECTURE_2026-04-07.md`](/F:/End-Game/champion_councl/docs/BONE_FIRST_PHYSICS_ARCHITECTURE_2026-04-07.md)
-- [`docs/BALANCE_SETTLE_TRAJECTORY_SITREP_2026-04-05.md`](/F:/End-Game/champion_councl/docs/BALANCE_SETTLE_TRAJECTORY_SITREP_2026-04-05.md)
+- [`docs/BALANCE_SETTLE_TRAJECTORY_SITREP_2026-04-05.md`](/F:/End-Game/champion_councl/docs/BALANCE_SETTLE_TRAJECTORY_SITREP_2026-04-05.md) (historical; settle removed 2026-04-10)
 
-### Settle
+### Recovery Controller
 
-`settle` remains:
+Builder-side `settle` was removed on 2026-04-10.
 
 - explicit
-- builder-first
 - downstream of balance truth
-- preview/commit based
+- replaced in the near term by balance assertion and text-theater reporting only
+- deferred in the long term to a runtime recovery controller, not a builder authoring workflow
 
 It is not:
 
@@ -147,7 +146,7 @@ The next visible lane should remain:
 
 1. close remaining contract lies in web/text/shared-state/mechanics surfaces
 2. continue the mechanics substrate return:
-   - keep settle explicit
+   - defer recovery controller work to the runtime locomotion lane
    - unify support truth further
    - generalize from `supportingFeet` toward `supportingContacts`
 3. make the existing mechanics visible:
@@ -155,6 +154,7 @@ The next visible lane should remain:
    - innerlay/load visualization
 4. expand environment/text contract coverage where still partial
 5. only then wire Dreamer onto the same truthful substrate
+6. keep manual pose edits authoritative; advisory mechanics may annotate, but they must not silently rewrite a live edit
 
 ## Dreamer-Specific Next Step
 

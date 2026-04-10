@@ -64,7 +64,7 @@ It was reasonable for:
 
 - diagnostic readouts
 - command-attached observation
-- settle/assert verification
+- balance/assert verification
 - low-bandwidth consult views
 
 It is not the correct final architecture for:
@@ -84,7 +84,7 @@ The following pieces are still good and reusable:
 - the current embodied/support/contact diagnostics
 - command-attached observation
 - the consult/compare/assert renderer role
-- the motion history / timeline / settle review logic
+- the motion history / timeline / balance review logic
 
 These should survive as layers over the new contract.
 
@@ -168,7 +168,7 @@ Purpose:
 - exact current inspection
 - command-attached snapshots
 - compare
-- settle/assert
+- balance/assert
 - anomaly review
 
 Rules:

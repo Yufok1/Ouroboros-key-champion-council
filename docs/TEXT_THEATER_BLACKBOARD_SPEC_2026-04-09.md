@@ -133,7 +133,7 @@ Rows appear only when relevant:
 - Foot selected → foot-to-ground diagnostics show up
 - Gizmo attached → gizmo basis, delta, predicted effect show up
 - Scoped part mode → part bounds, camera recipe, screen occupancy show up
-- Settle preview active → predicted settle changes show up
+- Balance assertion active → failure reasons and support gaps show up
 - Prospect active → expected vs observed show up
 - None of those → those rows disappear
 
@@ -165,11 +165,19 @@ The blackboard is a structured data contract in shared state, not a text templat
 | Consumer | How it renders |
 |---|---|
 | Text theater | Camera-projected billboard layout (primary consumer) |
-| Web HUD | Selected rows as floating annotations on the 3D view (optional) |
+| Web theater dev overlay | Spatial annotations, leader lines, and pinned row slates in the 3D view (dev-only optional consumer) |
 | Dreamer observations | Structured input for learned policies |
 | env_read | Raw JSON for agent consumption |
 
-The blackboard contract lives in `shared_state.blackboard`. The text theater is one consumer. The web theater can consume it too (lighter display). Dreamer consumes it as observation. Same data, polymorphic rendering.
+The blackboard contract lives in `shared_state.blackboard`. The text theater is one consumer. The web theater can consume it too as a lighter dev overlay. Dreamer consumes it as observation. Same data, polymorphic rendering.
+
+### Dev-Only Presentation Rule
+
+Blackboard consumers are development facilities. They exist to expose mechanics truth while building product-grade motion.
+
+- In dev mode: show the instrumentation
+- In product mode: hide the instrumentation and ship only the resulting believable motion
+- The final Champion Council product should show grounded behavior, not diagnostics
 
 ## Camera-Relative Spatial Collation (Critical Architecture)
 
@@ -236,6 +244,37 @@ Rows whose anchors project to overlapping screen positions get arranged via:
 - **Default**: cartography-style label avoidance with thin lines connecting rows to their anchors
 - **Alternative**: grid snapping with directional indicators
 - **Pinned rows**: hold their position even when other rows would overlap
+
+### Near-Field / Far-Field Articulation
+
+The space immediately around the subject should carry the raw measurement surfaces:
+
+- contact patches
+- support polygon edges
+- CoM markers
+- joint-axis / gizmo deltas
+- local extents and angle marks
+
+The space behind and above the workbench can carry the expanded articulation of those measurements:
+
+- derived math
+- interpretation rows
+- corroboration rows
+- pinned mini-documents or grouped blackboard slates
+
+Near-field measurements and far-field readouts can be connected by leader lines, directional indicators, or tether marks. The immediate geometry tells you **where**. The far-field slate tells you **what it means**.
+
+### Visual Contrast Rule
+
+Do not reduce state to a binary red/green robot view. Use a graded contrast system:
+
+- green: healthy / within tolerance
+- yellow: watch
+- orange: degraded / approaching limit
+- red: failed / unstable
+- blue or neutral gray: contextual / informational rows
+
+The color mapping should key off tolerance state, trend, and confidence so the visual language is richer than a simple alarm light.
 
 The text theater renders the resolved layout as text positioned per screen-space coordinates. The web HUD can render it as floating DOM annotations. Same layout pass, different consumers.
 

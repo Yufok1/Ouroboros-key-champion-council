@@ -1,5 +1,11 @@
 # Text Theater Pivot Handoff 2026-04-05
 
+## STATUS: HISTORICAL 2026-04-10
+
+This doc reflects the now-removed settle workflow.
+Settle was deleted on 2026-04-10; preserve this file as historical reference
+only and do not treat its settle guidance as current runtime doctrine.
+
 Repo: `F:\End-Game\champion_councl`
 
 Purpose:

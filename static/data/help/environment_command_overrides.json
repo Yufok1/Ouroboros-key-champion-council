@@ -68,78 +68,12 @@
         "env_read(query='shared_state')"
       ]
     },
-    "workbench_preview_settle": {
-      "title": "Preview Builder Settle",
-      "summary": "Generate a short visible settle reaction timeline from current balance/load truth and stage it for scrubbed preview.",
-      "when_to_use": [
-        "Use this after a destabilizing pose edit or timeline change when you want the system to propose a corrective reaction.",
-        "This is the first builder-side balance controller surface: preview first, then decide whether to keep the generated motion."
-      ],
-      "mode_notes": [
-        "Preview settle forces pose mode when needed because the corrective reaction is emitted through batch pose transforms.",
-        "The generated settle is staged as a transient timeline and does not autoplay by itself.",
-        "When you call this through env_control, pass the settle spec as a JSON string in target_id. The browser command surface parses target_id into the settle spec."
-      ],
-      "gotchas": [
-        "Preview settle does not mutate authored clips or permanently rewrite the timeline until you commit it.",
-        "If the current diagnostics do not show a recoverable balance reaction, preview generation can legitimately return nothing.",
-        "Do not trust the first mirrored shared_state read right after dispatch. The ingress/live-sync loop can lag a few seconds even when preview generation succeeded.",
-        "Verify the result from workbench_surface.settle_preview, workbench_surface.pose_transform_count, and corroboration.last_action after a short wait instead of assuming an immediate mirror miss means failure."
-      ],
-      "failure_modes": [
-        "No builder subject active.",
-        "Mounted runtime mesh is missing.",
-        "Current balance diagnostics did not produce a recoverable settle reaction."
-      ],
-      "verification": [
-        "capture_probe",
-        "workbench_set_timeline_cursor",
-        "env_read(query='shared_state')",
-        "corroboration.last_action"
-      ],
-      "related_commands": [
-        "workbench_commit_settle",
-        "workbench_set_timeline_cursor",
-        "capture_probe"
-      ]
-    },
-    "workbench_commit_settle": {
-      "title": "Commit Builder Settle",
-      "summary": "Accept the staged settle preview and merge it into the builder timeline or compile it as a clip.",
-      "when_to_use": [
-        "Use this only after inspecting a generated settle preview that you want to keep.",
-        "Set target to clip when the corrective reaction should become a reusable authored clip instead of just extending the working timeline."
-      ],
-      "mode_notes": [
-        "Commit settle depends on an active preview; it does not regenerate a new settle plan by itself.",
-        "Commit can force pose mode before applying the merged settle result."
-      ],
-      "gotchas": [
-        "No-op unless a settle preview is already active.",
-        "Clip compilation happens only when target is clip; timeline is the default destination."
-      ],
-      "failure_modes": [
-        "No builder subject active.",
-        "No active settle preview exists to merge or compile.",
-        "Merged settle timeline or authored clip compile failed."
-      ],
-      "verification": [
-        "capture_time_strip",
-        "capture_probe",
-        "env_read(query='shared_state')"
-      ],
-      "related_commands": [
-        "workbench_preview_settle",
-        "workbench_compile_clip",
-        "capture_time_strip"
-      ]
-    },
     "workbench_assert_balance": {
       "title": "Assert Builder Balance",
       "summary": "Evaluate the current builder balance/load/contact truth and record a stale-aware pass, warn, or fail gate result in mirrored workbench state.",
       "when_to_use": [
         "Use this before committing a pose, compiling a clip, or trusting a staged stance when you need a deterministic gate instead of eyeballing balance.",
-        "This is the workbench-side logic gate for downstream agent loops: assert first, then preview or commit settle when the stance fails."
+        "This is the workbench-side logic gate for downstream agent loops when you need explicit corroboration before continuing builder edits or clip work."
       ],
       "mode_notes": [
         "This command evaluates current diagnostics only; it does not generate corrective motion.",
@@ -147,7 +81,7 @@
         "The stored assertion becomes stale automatically when balance truth changes after the check."
       ],
       "gotchas": [
-        "A previous PASS can become stale after later pose edits, cursor scrubs, motion preset changes, or settle operations.",
+        "A previous PASS can become stale after later pose edits, cursor scrubs, or clip recompiles.",
         "The default gate is intentionally strict enough to catch obvious airborne, outside-polygon, penetration, and high-risk states."
       ],
       "failure_modes": [
@@ -161,8 +95,8 @@
         "capture_probe"
       ],
       "related_commands": [
-        "workbench_preview_settle",
-        "workbench_commit_settle",
+        "workbench_set_pose",
+        "workbench_set_timeline_cursor",
         "workbench_compile_clip"
       ]
     },
@@ -255,7 +189,7 @@
       ],
       "gotchas": [
         "Non-root offsets are intentionally rejected to preserve scaffold continuity. If you need translational repositioning, use hips/root-aware offsets only.",
-        "A torso lean alone will often stay inside a broad two-foot support base, so settle may still classify the state as ankle/mild.",
+        "A torso lean alone can still remain inside a broad two-foot support base even when the pose already looks unstable to the eye.",
         "Immediate env_read(query='shared_state') snapshots can lie right after dispatch because the ingress/live-sync mirror has not caught up yet. Give the browser a short beat, then verify pose_transform_count, posed_bone_ids, and corroboration.last_action."
       ],
       "failure_modes": [
@@ -273,7 +207,7 @@
       "related_commands": [
         "workbench_set_pose_batch",
         "workbench_clear_pose",
-        "workbench_preview_settle"
+        "workbench_assert_balance"
       ]
     },
     "workbench_set_pose_batch": {
@@ -290,7 +224,7 @@
       },
       "when_to_use": [
         "Use this when the body must move as a coupled system: legs, feet, torso, and arms in one atomic edit.",
-        "This is the right builder surface for destabilizing or rebalancing a stance before calling workbench_preview_settle."
+        "This is the right builder surface for destabilizing or rebalancing a stance before checking the result against live balance truth."
       ],
       "what_it_changes": [
         "Multiple builder pose transforms in one commit so the scaffold, gizmo state, and diagnostics update from the combined pose instead of partial intermediate steps.",
@@ -303,7 +237,7 @@
         "When you call this through env_control, pass the entire JSON batch payload as a string in target_id. The normalized batch spec is built from target_id."
       ],
       "gotchas": [
-        "Broad planted feet can keep the support polygon large even when the torso leans hard, so settle may still resolve to ankle/mild unless the support base is actually narrowed or skewed.",
+        "Broad planted feet can keep the support polygon large even when the torso leans hard, so balance risk may stay deceptively low unless the support base is actually narrowed or skewed.",
         "Offsets on non-hips bones are rejected even inside the batch. This is rotational pose editing, not arbitrary limb dragging.",
         "If you want a real recover/step reaction, drive the legs and feet toward an asymmetric stance instead of only bending the chest.",
         "The array key is poses, not bones. Older guesses like {\"bones\":[...]} normalize to an empty batch and make the command look inert.",
@@ -318,13 +252,13 @@
       "verification": [
         "capture_probe",
         "env_read(query='shared_state')",
-        "workbench_preview_settle",
+        "workbench_assert_balance",
         "corroboration.last_action"
       ],
       "related_commands": [
         "workbench_set_pose",
         "workbench_clear_pose",
-        "workbench_preview_settle",
+        "workbench_assert_balance",
         "capture_probe"
       ]
     },
@@ -366,7 +300,7 @@
       "title": "Capture Time Strip",
       "summary": "Capture sampled frames across the current builder timeline to inspect staged motion without live playback.",
       "when_to_use": [
-        "Use this after timeline scrub, settle preview, or authored-clip staging when you need evidence across the current builder timeline instead of a single scrubbed frame.",
+        "Use this after timeline scrub or authored-clip staging when you need evidence across the current builder timeline instead of a single scrubbed frame.",
         "Use this for grounded motion validation when the timeline is staged but not running as live playback."
       ],
       "mode_notes": [
@@ -426,7 +360,7 @@
       ],
       "related_commands": [
         "capture_probe",
-        "workbench_preview_settle"
+        "workbench_assert_balance"
       ]
     },
     "text_theater": {
@@ -454,14 +388,14 @@
     },
     "text_theater_embodiment": {
       "title": "Text Theater Embodiment",
-      "summary": "Read the embodiment/workbench text render showing bone tree, workbench selection, gizmo state, contacts, balance, settle, and timeline.",
+      "summary": "Read the embodiment/workbench text render showing bone tree, workbench selection, gizmo state, contacts, balance, assertion, and timeline.",
       "when_to_use": [
-        "Use this instead of repeated captures when you need fast spatial reasoning about builder pose, workbench state, and settle truth.",
-        "This is the most useful Phase 1 text-theater readout during pose editing, batch pose work, and settle preview tuning.",
+        "Use this instead of repeated captures when you need fast spatial reasoning about builder pose, workbench state, and live balance truth.",
+        "This is the most useful Phase 1 text-theater readout during pose editing, batch pose work, and balance/assertion review.",
         "Use it together with the render view when you want the visible paired body plus the structural bone/workbench state beside it."
       ],
       "gotchas": [
-        "The bone tree is only one part of the output. The render also depends on live workbench, contact, balance, and settle surfaces.",
+        "The bone tree is only one part of the output. The render also depends on live workbench, contact, balance, and timeline surfaces.",
         "If the browser has not synced recently, freshness fields in text_theater_snapshot will tell you whether the paired read is lagging."
       ],
       "verification": [
@@ -471,7 +405,7 @@
       ],
       "related_commands": [
         "workbench_set_pose_batch",
-        "workbench_preview_settle",
+        "workbench_assert_balance",
         "capture_probe"
       ]
     },
@@ -498,7 +432,7 @@
       ],
       "related_commands": [
         "capture_probe",
-        "workbench_preview_settle",
+        "workbench_assert_balance",
         "character_focus"
       ]
     }

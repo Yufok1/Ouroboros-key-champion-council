@@ -1,5 +1,11 @@
 # Text Theater Delayed Loop Architecture 2026-04-07
 
+## STATUS: HISTORICAL 2026-04-10
+
+This doc references the now-removed settle workflow.
+Settle was deleted on 2026-04-10; preserve this file as historical reference
+only and do not use its settle-specific guidance as active doctrine.
+
 ## Question
 
 Can the text theater run slightly behind the browser/web theater, replaying the previous completed loop while the browser is already on the next loop, so that the two appear synchronized because they are the same repeatable sequence?

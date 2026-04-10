@@ -60,7 +60,6 @@ PANE_SECTIONS = [
     ("embodiment", "Embodiment"),
     ("balance", "Balance"),
     ("contacts", "Contacts"),
-    ("settle", "Settle"),
     ("timeline", "Timeline"),
     ("corroboration", "Corroboration"),
     ("semantic", "Semantic"),
@@ -2834,13 +2833,6 @@ def _section_lines(snapshot, section_key, width):
                 + (" support" if row.get("supporting") else "")
             )
         return rows or ["No contacts"]
-    if section_key == "settle":
-        settle = snapshot.get("settle") or {}
-        rows = [
-            f"active={settle.get('active', False)} strategy={settle.get('strategy', '')} severity={settle.get('severity', '')}",
-            f"frame_count={settle.get('frame_count', 0)} duration={settle.get('duration', 0)}",
-        ]
-        return _wrap_block("\n".join(rows), width)
     if section_key == "timeline":
         timeline = snapshot.get("timeline") or {}
         rows = [
@@ -2862,12 +2854,10 @@ def _section_lines(snapshot, section_key, width):
 
 def _build_status_lines(snapshot, section_key, width):
     balance = snapshot.get("balance") or {}
-    settle = snapshot.get("settle") or {}
     stale = snapshot.get("stale_flags") or {}
     runtime = snapshot.get("runtime") or {}
     lines = [
         f"phase={balance.get('support_phase', 'unknown')} risk={balance.get('stability_risk', '?')} margin={balance.get('stability_margin', '?')}",
-        f"settle={settle.get('strategy') or 'inactive'} severity={settle.get('severity') or '-'} active={bool(settle.get('active'))}",
         f"runtime={runtime.get('mode', '?')} grounded={runtime.get('grounded', '?')} sync_reason={snapshot.get('last_sync_reason', '')}",
         _motion_status_line(snapshot),
         f"section={section_key} mirror_lag={bool(stale.get('mirror_lag'))} bundle={snapshot.get('bundle_version', '?')}",
@@ -3028,7 +3018,6 @@ def _render_consult_motion_text(snapshot):
     snapshot = snapshot if isinstance(snapshot, dict) else {}
     balance = snapshot.get("balance") if isinstance(snapshot.get("balance"), dict) else {}
     timeline = snapshot.get("timeline") if isinstance(snapshot.get("timeline"), dict) else {}
-    settle = snapshot.get("settle") if isinstance(snapshot.get("settle"), dict) else {}
     assertion = balance.get("assertion") if isinstance(balance.get("assertion"), dict) else {}
     contacts = snapshot.get("contacts") if isinstance(snapshot.get("contacts"), list) else []
     projected_com = balance.get("projected_com") if isinstance(balance.get("projected_com"), dict) else {}
@@ -3063,12 +3052,6 @@ def _render_consult_motion_text(snapshot):
             if assertion.get("active")
             else "unchecked"
         ),
-        "SETTLE: "
-        + ("active" if settle.get("active") else "inactive")
-        + " / strategy "
-        + str(settle.get("strategy") or "none")
-        + " / severity "
-        + str(settle.get("severity") or "-"),
         "TIMELINE: cursor "
         + f"{float(timeline.get('cursor') or 0.0):.3f}".rstrip("0").rstrip(".")
         + " / duration "
@@ -3177,7 +3160,6 @@ def _render_local_embodiment_text(snapshot):
     embodiment = snapshot.get("embodiment") if isinstance(snapshot.get("embodiment"), dict) else {}
     workbench = snapshot.get("workbench") if isinstance(snapshot.get("workbench"), dict) else {}
     balance = snapshot.get("balance") if isinstance(snapshot.get("balance"), dict) else {}
-    settle = snapshot.get("settle") if isinstance(snapshot.get("settle"), dict) else {}
     assertion = balance.get("assertion") if isinstance(balance.get("assertion"), dict) else {}
     timeline = snapshot.get("timeline") if isinstance(snapshot.get("timeline"), dict) else {}
     semantic = snapshot.get("semantic") if isinstance(snapshot.get("semantic"), dict) else {}
@@ -3255,19 +3237,6 @@ def _render_local_embodiment_text(snapshot):
             (str(assertion.get("summary") or "unchecked") + (" / stale" if assertion.get("stale") else ""))
             if assertion.get("active")
             else "unchecked"
-        )
-    )
-    lines.append(
-        "SETTLE: "
-        + (
-            str(settle.get("strategy") or "")
-            + " / "
-            + str(settle.get("severity") or "")
-            + " / "
-            + str(int(settle.get("frame_count") or 0))
-            + " frames"
-            if settle.get("active")
-            else "inactive"
         )
     )
     lines.append(

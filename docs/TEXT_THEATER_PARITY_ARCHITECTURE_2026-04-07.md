@@ -51,9 +51,6 @@ That includes:
 - pose edits
 - batch pose edits
 - timeline scrub
-- motion preset apply
-- settle preview
-- settle commit
 - clip compile/play
 - scaffold toggle
 - load-field toggle
@@ -72,7 +69,7 @@ The current snapshot already carries:
 - scaffold visibility plus scaffold pieces
 - balance/load/support truth
 - contact rows
-- settle summary
+- balance assertion summary
 - timeline state
 - selection visual state
 - part camera recipes
@@ -113,7 +110,7 @@ It is not yet a proper paired operation surface with:
 - explicit delta summary
 - operator-friendly compare mode
 
-There are local baseline concepts in settle/timeline/gizmo lanes, but there is not yet a generic text-theater compare contract.
+There are local baseline concepts in timeline/gizmo/balance-assertion lanes, but there is not yet a generic text-theater compare contract.
 
 ### 3. Tool-Call Harmonization Policy
 
@@ -241,8 +238,6 @@ Examples:
 - `workbench_set_pose_batch` -> `before_after`
 - `workbench_set_timeline_cursor` -> `after_only`
 - `workbench_assert_balance` -> `after_only`
-- `workbench_preview_settle` -> `before_after`
-- `workbench_commit_settle` -> `before_after`
 - `character_play_clip` -> `sequence`
 - `capture_time_strip` -> `sequence`
 - scaffold toggle / skeleton toggle -> `after_only`

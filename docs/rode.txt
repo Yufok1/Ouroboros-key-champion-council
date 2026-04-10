@@ -461,16 +461,18 @@ Next Milestone
 
 Motion authoring lane is now the active execution path through Slice 5f:
 
-- `5a` local pose capture/edit lane — workbench pose state, meaningful-transform filtering, and builder-safe pose
-  normalization are active in the mounted builder path
+- `5a` local pose capture/edit lane — workbench pose state, meaningful-transform filtering, and exact manual pose
+  rotations are active in the mounted builder path; destructive live clampback was removed on 2026-04-10
 - `5b` timeline/clip compiler lane — key-pose timeline state, interpolation, authored clip descriptor generation,
   compile, and playback controls are active in the character workbench
-- `5c` joint mechanics lane — canonical per-joint limits and pose sanitization are active for shoulders, elbows,
-  wrists, spine/chest, neck/head, hips, knees, ankles
+- `5c` joint mechanics lane — canonical per-joint limits remain as advisory/reference mechanics metadata for
+  shoulders, elbows, wrists, spine/chest, neck/head, hips, knees, ankles; destructive live pose sanitization was
+  removed on 2026-04-10 after it fought manual posing
 - `5d` support/contact audit lane — motion diagnostics now ride the time-strip capture path and surface into the
   workbench summary / latest capture metadata
-- `5e` preset motion lane — builder motion presets now compile into sanitized timeline poses and can be applied from
-  the workbench UI/command surface
+- `5e` motion metadata lane — timeline/export surfaces carry honest motion metadata
+  (`source_motion_preset`, `displacement_mode`, `contact_phases`, `root_trajectory`) while the old motion-preset
+  command surface has been retired
 - `5f` milestone record — this `rode.txt` section now supersedes the stale Coquina-first note and records motion as the
   current primary lane
 
@@ -501,7 +503,8 @@ Immediate execution order after this record:
 Execution notes (2026-04-02):
 
 - Motion authoring remains the primary lane; do not let Ghost Broadcast or Coquina pull implementation focus yet
-- Use sanitized builder poses and fresh preset-derived timelines for motion evaluation, not stale authored clips
+- Use exact builder poses and fresh timeline state for motion evaluation, not stale authored clips or removed
+  preset-driven paths
 - Keep humanoid-first scope; do not widen scaffold/mechanics work to other families before the humanoid lane closes
 - Coquina doctrine is now locked as two-source atoms feeding one registry and one grammar engine
 - Keep scaffold mechanics and visible body treatment separate:
@@ -509,11 +512,11 @@ Execution notes (2026-04-02):
   - body shell / body atoms / surface pass remain the visible proc-gen treatment lane
 
 Source anchors (verified in current runtime):
-  - _envBuilderPoseMechanicsSpec                line 1274
-  - _envBuilderTimelinePoseAtTime               line 1700
-  - _envBuilderTimelineClipDescriptor           line 1797
-  - _envWorkbenchCompileClip                    line 16472
-  - _envWorkbenchPlayAuthoredClip               line 16533
+  - _envBuilderPoseMechanicsSpec                line 1286
+  - _envBuilderTimelinePoseAtTime               line 1769
+  - _envBuilderTimelineClipDescriptor           line 1866
+  - _envWorkbenchCompileClip                    line 17485
+  - _envWorkbenchPlayAuthoredClip               line 17546
   - _envWorkbenchApplyMotionPreset              line 16593
   - _envCaptureTimeStrip                        line 33787
   - _envMountedWorkbenchSurfaceState            line 26603

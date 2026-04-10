@@ -149,8 +149,6 @@ function familyForCommand(command) {
     command === 'workbench_play_authored_clip'
     || command === 'workbench_compile_clip'
     || command === 'workbench_set_timeline_cursor'
-    || command === 'workbench_preview_settle'
-    || command === 'workbench_commit_settle'
     || command === 'workbench_assert_balance'
     || command === 'workbench_capture_pose'
     || command === 'workbench_delete_pose'
@@ -337,8 +335,6 @@ const UI_ACTION_BRIDGES = {
 
 function summaryForCommand(command, family) {
   if (command === 'workbench_set_timeline_cursor') return 'Scrub the active builder timeline to a given normalized, time, or index position and apply that staged pose.';
-  if (command === 'workbench_preview_settle') return 'Generate a visible settle micro-timeline from current balance truth and stage it for scrubbed preview.';
-  if (command === 'workbench_commit_settle') return 'Commit the staged settle preview into the builder timeline or compile it as a clip.';
   if (command === 'character_set_model') return 'Swap the mounted runtime to a direct asset ref and leave builder-subject mode for mesh-asset inspection.';
   if (command === 'workbench_new_builder') return 'Instantiate a fresh builder subject, clear the mounted asset clone, and enter builder-subject mode.';
   if (command === 'workbench_get_blueprint') return 'Return the serialized builder blueprint describing the active builder subject.';
@@ -677,8 +673,6 @@ function whenToUseForEntry(command, family, entryKind) {
   const base = (FAMILY_DEFAULTS[family] && FAMILY_DEFAULTS[family].when_to_use) || [];
   const extra = [];
   if (command === 'workbench_set_timeline_cursor') extra.push('Use this when a preset or authored clip is loaded and you need a specific moment without autoplay.');
-  if (command === 'workbench_preview_settle') extra.push('Use this after a destabilizing pose edit or authored timeline change when you want the system to generate a corrective reaction instead of guessing by hand.');
-  if (command === 'workbench_commit_settle') extra.push('Use this only after reviewing a staged settle preview that you want to keep as authored motion.');
   if (command === 'character_set_model') extra.push('Use this when validating a mounted imported asset or leaving builder-subject mode on purpose.');
   if (command === 'workbench_get_blueprint') extra.push('Use this when you need the exact serialized builder truth instead of relying on the viewport alone.');
   if (command === 'workbench_set_load_field') extra.push('Use this when testing scaffold-side load mechanics or verifying helper-strip synchronization.');
@@ -700,8 +694,6 @@ function whatItChangesForEntry(command, family, entryKind) {
   if (family === 'environment_misc') out.push('Cross-cutting shell state such as profile kits, world profile, or scene filters.');
   if (entryKind === 'ui_action') out.unshift('Browser-local UI state that may or may not dispatch a persistent runtime command.');
   if (command === 'workbench_set_timeline_cursor') out.push('Repositions the staged builder timeline and updates the visible pose.');
-  if (command === 'workbench_preview_settle') out.push('Stages a transient corrective settle timeline without mutating authored motion until commit.');
-  if (command === 'workbench_commit_settle') out.push('Promotes the staged settle preview into authored timeline or clip state and clears the transient preview.');
   if (command === 'workbench-toggle-turntable') out.push('Local workbench turntable flag stored in the theater session.');
   return dedupeList(out);
 }
@@ -710,8 +702,6 @@ function modeNotesForEntry(command, family, entryKind) {
   const base = (FAMILY_DEFAULTS[family] && FAMILY_DEFAULTS[family].mode_notes) || [];
   const extra = [];
   if (command === 'workbench_set_timeline_cursor') extra.push('Works only when a builder timeline is currently loaded.');
-  if (command === 'workbench_preview_settle') extra.push('Preview settle forces pose-mode editing when needed because batch pose emission is pose-only.');
-  if (command === 'workbench_commit_settle') extra.push('Commit settle depends on an active preview; it does not generate a new settle plan on its own.');
   if (command === 'character_set_model') extra.push('Mounted-asset inspection and builder-subject mode are separate visual regimes.');
   if (entryKind === 'ui_action') extra.push('UI-local actions are discovered from browser source and are not guaranteed to be callable through env_control.');
   return dedupeList([...base, ...extra]);
@@ -727,13 +717,6 @@ function gotchasForCommand(command, family, transports, bridgesTo, entryKind) {
   }
   if (command === 'workbench_set_timeline_cursor') {
     out.push('Builder-only; timeline scrub will fail when no builder subject is active.');
-  }
-  if (command === 'workbench_preview_settle') {
-    out.push('Preview settle stages a transient micro-timeline but does not autoplay or mutate authored clips.');
-    out.push('It will force pose mode if needed because settle output is emitted through batch pose transforms.');
-  }
-  if (command === 'workbench_commit_settle') {
-    out.push('Commit settle needs an active preview generated first.');
   }
   if (command === 'character_set_model') {
     out.push('Uses direct asset refs/URLs, not manifest aliases.');
@@ -777,8 +760,6 @@ function failureModesForEntry(command, family, entryKind, bridgesTo) {
   if (family === 'capture_observer') out.push('Browser capture was queued but no saved output appeared yet.');
   if (entryKind === 'ui_action') out.push('The expected browser panel, helper strip, or workbench context is not currently visible.');
   if (command === 'workbench_set_timeline_cursor') out.push('No active timeline is loaded, so scrub has nothing to apply.');
-  if (command === 'workbench_preview_settle') out.push('Current balance diagnostics did not produce a recoverable settle reaction.');
-  if (command === 'workbench_commit_settle') out.push('No active settle preview exists to merge or compile.');
   if (command === 'character_set_model') out.push('The asset ref could not be loaded or produced an empty mounted runtime.');
   if (bridgesTo.includes('workbench_set_load_field')) out.push('Local helper chip flipped but persistent load-field readback stayed stale until sync completed.');
   return dedupeList(out);
@@ -791,8 +772,6 @@ function verificationForEntry(command, family, entryKind) {
   if (command === 'character_get_animation_state') extra.push('character_get_animation_state');
   if (command === 'workbench_get_blueprint') extra.push('workbench_get_blueprint');
   if (command === 'workbench_set_timeline_cursor') extra.push('capture_time_strip');
-  if (command === 'workbench_preview_settle') extra.push('capture_probe');
-  if (command === 'workbench_commit_settle') extra.push('capture_time_strip');
   if (command === 'workbench_set_load_field' || command === 'workbench-toggle-load-field') extra.push('capture_probe');
   if (entryKind === 'ui_action') extra.push('visible browser surface behavior');
   return dedupeList([...base, ...extra]);
@@ -800,8 +779,6 @@ function verificationForEntry(command, family, entryKind) {
 
 function relatedCommands(command, family, bridgesTo) {
   if (command === 'workbench_set_timeline_cursor') return ['workbench_compile_clip', 'capture_probe', 'capture_time_strip'];
-  if (command === 'workbench_preview_settle') return ['workbench_commit_settle', 'workbench_set_timeline_cursor', 'capture_probe'];
-  if (command === 'workbench_commit_settle') return ['workbench_preview_settle', 'workbench_compile_clip', 'capture_time_strip'];
   if (command === 'character_set_model') return ['workbench_new_builder', 'capture_probe', 'capture_supercam'];
   if (command === 'workbench_get_blueprint') return ['workbench_save_blueprint', 'workbench_load_blueprint', 'capture_probe'];
   if (command === 'workbench-toggle-turntable') return ['capture_probe', 'workbench-shot-preset'];

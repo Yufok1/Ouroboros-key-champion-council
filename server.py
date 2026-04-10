@@ -1473,8 +1473,6 @@ _ENV_CONTROL_PROXY_COMMANDS = frozenset({
     "workbench_set_timeline_cursor",
     "workbench_compile_clip",
     "workbench_play_authored_clip",
-    "workbench_preview_settle",
-    "workbench_commit_settle",
     "workbench_assert_balance",
     "workbench_reset_angles",
     "workbench_isolate_chain",
@@ -3746,7 +3744,7 @@ def _env_control_local_proxy_payload(args: dict | None = None) -> dict | None:
         payload["environment_effects"]["theater_mode_action"] = command
     elif command.startswith("camera_"):
         payload["environment_effects"]["camera_action"] = command
-    elif command in ("spawn_inhabitant", "despawn_inhabitant", "focus_inhabitant", "character_mount", "character_unmount", "character_focus", "character_move_to", "character_stop", "character_look_at", "character_set_model", "workbench_new_builder", "workbench_get_blueprint", "workbench_get_part_surface", "workbench_frame_part", "workbench_select_bone", "workbench_select_bones", "workbench_set_editing_mode", "workbench_set_display_scope", "workbench_set_gizmo_mode", "workbench_set_gizmo_space", "workbench_set_bone", "workbench_set_pose", "workbench_set_pose_batch", "workbench_clear_pose", "workbench_capture_pose", "workbench_delete_pose", "workbench_apply_pose", "workbench_set_timeline_cursor", "workbench_compile_clip", "workbench_play_authored_clip", "workbench_preview_settle", "workbench_commit_settle", "workbench_assert_balance", "workbench_reset_angles", "workbench_isolate_chain", "workbench_save_blueprint", "workbench_load_blueprint", "character_play_clip", "character_queue_clips", "character_stop_clip", "character_set_loop", "character_set_speed", "character_get_animation_state", "character_play_reaction", "toggle_inhabitant_fov_debug", "workbench_set_load_field"):
+    elif command in ("spawn_inhabitant", "despawn_inhabitant", "focus_inhabitant", "character_mount", "character_unmount", "character_focus", "character_move_to", "character_stop", "character_look_at", "character_set_model", "workbench_new_builder", "workbench_get_blueprint", "workbench_get_part_surface", "workbench_frame_part", "workbench_select_bone", "workbench_select_bones", "workbench_set_editing_mode", "workbench_set_display_scope", "workbench_set_gizmo_mode", "workbench_set_gizmo_space", "workbench_set_bone", "workbench_set_pose", "workbench_set_pose_batch", "workbench_clear_pose", "workbench_capture_pose", "workbench_delete_pose", "workbench_apply_pose", "workbench_set_timeline_cursor", "workbench_compile_clip", "workbench_play_authored_clip", "workbench_assert_balance", "workbench_reset_angles", "workbench_isolate_chain", "workbench_save_blueprint", "workbench_load_blueprint", "character_play_clip", "character_queue_clips", "character_stop_clip", "character_set_loop", "character_set_speed", "character_get_animation_state", "character_play_reaction", "toggle_inhabitant_fov_debug", "workbench_set_load_field"):
         payload["environment_effects"]["character_runtime_action"] = command
     elif command == "workbench_set_scaffold":
         payload["environment_effects"]["character_runtime_action"] = command
@@ -4131,11 +4129,103 @@ def _env_help_local_proxy_payload(args: dict | None = None) -> dict | None:
         "search": search,
         "category": category,
     }
+    retired_topics = {
+        "workbench_apply_motion_preset": {
+            "title": "Retired Motion Preset Command",
+            "status": "retired",
+            "summary": "Removed from the current runtime surface when the motion-preset lane was deleted from the rebuild baseline.",
+            "why_retired": [
+                "The current builder/runtime lane no longer exposes motion preset application as a live command surface.",
+                "Current motion authoring truth lives in explicit pose, timeline, and authored clip surfaces instead."
+            ],
+            "replacement_topics": [
+                "workbench_set_pose",
+                "workbench_set_timeline_cursor",
+                "workbench_compile_clip",
+                "workbench_play_authored_clip",
+                "capture_time_strip"
+            ],
+        },
+        "playbook:motion_preset_validation": {
+            "title": "Retired Motion Preset Validation Playbook",
+            "status": "retired",
+            "summary": "Retired with the motion-preset lane removal. Use explicit builder authoring and capture validation instead of preset playback checks.",
+            "why_retired": [
+                "The motion-preset validation path no longer matches the current runtime surface.",
+                "Validation should now target explicit pose/timeline/clip authoring plus mirrored shared-state and capture corroboration."
+            ],
+            "replacement_topics": [
+                "workbench_set_pose",
+                "workbench_set_timeline_cursor",
+                "workbench_compile_clip",
+                "workbench_play_authored_clip",
+                "builder_helper_strip_review"
+            ],
+        },
+        "motion_preset_validation": {
+            "title": "Retired Motion Preset Validation Playbook",
+            "status": "retired",
+            "summary": "Retired with the motion-preset lane removal. Use explicit builder authoring and capture validation instead of preset playback checks.",
+            "why_retired": [
+                "The motion-preset validation path no longer matches the current runtime surface.",
+                "Validation should now target explicit pose/timeline/clip authoring plus mirrored shared-state and capture corroboration."
+            ],
+            "replacement_topics": [
+                "workbench_set_pose",
+                "workbench_set_timeline_cursor",
+                "workbench_compile_clip",
+                "workbench_play_authored_clip",
+                "builder_helper_strip_review"
+            ],
+        },
+        "workbench_preview_settle": {
+            "title": "Retired Builder Settle Preview Command",
+            "status": "retired",
+            "summary": "Removed on 2026-04-10 when the settle workflow was deleted from the rebuild baseline.",
+            "why_retired": [
+                "Settle was removed as a first-class builder workflow because it kept fighting manual pose editing and added more friction than value.",
+                "The underlying balance/load/support substrate remains; future recovery behavior will return later as a runtime controller, not as settle preview/commit."
+            ],
+            "replacement_topics": [
+                "workbench_assert_balance",
+                "workbench_set_pose",
+                "workbench_set_timeline_cursor",
+                "workbench_compile_clip",
+                "capture_time_strip"
+            ],
+        },
+        "workbench_commit_settle": {
+            "title": "Retired Builder Settle Commit Command",
+            "status": "retired",
+            "summary": "Removed on 2026-04-10 with the rest of the settle workflow.",
+            "why_retired": [
+                "The settle preview/commit authoring path was deleted instead of patched.",
+                "Future rebalance, stumble, brace, and fall behavior will be rebuilt later as runtime movement logic that consumes the same balance substrate."
+            ],
+            "replacement_topics": [
+                "workbench_assert_balance",
+                "workbench_compile_clip",
+                "capture_time_strip",
+                "text_theater_snapshot"
+            ],
+        },
+    }
     topic_key = topic.lower()
     if not topic and not search and not category:
         return _env_help_index_payload(registry, normalized_args)
     if topic_key in ("index", "overview", "help"):
         return _env_help_index_payload(registry, normalized_args)
+    if topic in retired_topics:
+        return {
+            "tool": "env_help",
+            "status": "ok",
+            "summary": f"Read retired environment help topic {topic}",
+            "normalized_args": normalized_args,
+            "operation": "env_help",
+            "operation_status": "ok",
+            "entry_type": "retired",
+            "retired_help": retired_topics.get(topic),
+        }
     if category and category in families:
         return {
             "tool": "env_help",

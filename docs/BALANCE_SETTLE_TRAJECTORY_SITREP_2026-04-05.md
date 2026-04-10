@@ -1,5 +1,16 @@
 # Balance Settle Trajectory Sitrep 2026-04-05
 
+## STATUS: REMOVED 2026-04-10
+
+Settle was removed as a first-class facility on 2026-04-10 per user directive.
+It kept fighting manual pose edits and the cost of patching it exceeded the
+value of keeping it. The underlying balance/load/support substrate is preserved.
+
+Recovery behavior will be rebuilt later as a runtime rebalance controller in the
+locomotion lane, not as this settle workflow.
+
+This doc is retained as historical reference only. Do not build from it.
+
 Scope:
 
 - current ground/contact/load lane status

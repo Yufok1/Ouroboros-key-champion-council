@@ -1122,7 +1122,6 @@
                 last_compiled_clip: ''
             },
             isolated_chain: '',
-            _settle_preview: null,
             _balance_assertion: null,
             _skeletonGroup: null,
             _scaffoldPieces: null,
@@ -1399,7 +1398,6 @@
 
     function _envBuilderSanitizePoseTransform(boneId, entry) {
         var transform = _envNormalizeBuilderPoseTransform(entry);
-        transform.rotation = _envBuilderClampPoseMechanics(boneId, transform.rotation);
         if (!_envBuilderBoneAllowsPoseOffset(boneId)) transform.offset = _envBuilderPoseIdentityOffset();
         return transform;
     }
@@ -1465,22 +1463,6 @@
         return {
             clips: [],
             last_compiled_clip: ''
-        };
-    }
-
-    function _envCreateBuilderSettlePreviewState() {
-        return {
-            active: false,
-            strategy: '',
-            severity: '',
-            source_time: 0,
-            source_cursor: 0,
-            generated_at: 0,
-            baseline_timeline: null,
-            baseline_pose: null,
-            preview_timeline: null,
-            analysis: null,
-            diagnostics: null
         };
     }
 
@@ -2448,6 +2430,57 @@
             : _envBuilderClamp01(Number(marginInfo.margin || 0) / Math.max(0.08, supportSpan * 0.32));
         var stabilityRisk = _envBuilderClamp01(1 - normalizedMargin + (marginInfo.inside ? 0 : 0.45));
         var supportLoads = _envBuilderSupportLoadShares(projected, supportCenters);
+        var gravityVector = _envVector3FromArray(((supportRecord || {}).gravity_vector), [0, -1, 0]) || new THREE.Vector3(0, -1, 0);
+        var gravityMagnitude = Number(gravityVector.length() || 0);
+        var gravityDirection = gravityMagnitude > 0.000001
+            ? gravityVector.clone().normalize()
+            : new THREE.Vector3(0, 0, 0);
+        var upVector = gravityMagnitude > 0.000001
+            ? gravityDirection.clone().multiplyScalar(-1)
+            : new THREE.Vector3(0, 1, 0);
+        var supportNormal = _envVector3FromArray((((supportRecord || {}).surface_normal) || [0, 1, 0]), [0, 1, 0]) || new THREE.Vector3(0, 1, 0);
+        if (supportNormal.lengthSq() <= 0.000001) supportNormal.copy(upVector.lengthSq() > 0.000001 ? upVector : new THREE.Vector3(0, 1, 0));
+        supportNormal.normalize();
+        var supportFrameAxisZ = new THREE.Vector3(0, 0, 1);
+        supportFrameAxisZ.sub(supportNormal.clone().multiplyScalar(supportFrameAxisZ.dot(supportNormal)));
+        if (supportFrameAxisZ.lengthSq() <= 0.000001) {
+            supportFrameAxisZ = new THREE.Vector3(1, 0, 0);
+            supportFrameAxisZ.sub(supportNormal.clone().multiplyScalar(supportFrameAxisZ.dot(supportNormal)));
+        }
+        if (supportFrameAxisZ.lengthSq() <= 0.000001) supportFrameAxisZ.set(0, 0, 1);
+        supportFrameAxisZ.normalize();
+        var supportFrameAxisX = new THREE.Vector3().crossVectors(supportNormal, supportFrameAxisZ);
+        if (supportFrameAxisX.lengthSq() <= 0.000001) supportFrameAxisX.set(1, 0, 0);
+        else supportFrameAxisX.normalize();
+        var supportFrameOrigin = new THREE.Vector3(0, Number(supportY || 0), 0);
+        var projectedComWorld = centerOfMass.clone();
+        if (gravityMagnitude > 0.000001) {
+            var planeDelta = projectedComWorld.clone().sub(supportFrameOrigin);
+            var projectionDenom = gravityDirection.dot(supportNormal);
+            if (Math.abs(projectionDenom) > 0.000001) {
+                projectedComWorld.add(gravityDirection.clone().multiplyScalar(-planeDelta.dot(supportNormal) / projectionDenom));
+            } else {
+                projectedComWorld.set(Number(centerOfMass.x || 0), Number(supportY || 0), Number(centerOfMass.z || 0));
+            }
+        }
+        var supportPolygonWorld = supportHull.map(function (point) {
+            return {
+                x: Number(Number(point.x || 0).toFixed(4)),
+                y: Number(Number(projectedComWorld.y || supportY || 0).toFixed(4)),
+                z: Number(Number(point.z || 0).toFixed(4))
+            };
+        });
+        var supportingContacts = (Array.isArray(contacts) ? contacts : []).filter(function (row) {
+            return row && row.supporting;
+        });
+        var supportNormalAlignment = _envBuilderClamp01(Number(supportNormal.dot(upVector) || 0));
+        var hasNonFootSupport = supportingContacts.some(function (row) {
+            return String((row && row.group) || '') !== 'foot';
+        });
+        var balanceMode = 'supported';
+        if (gravityMagnitude <= 0.000001) balanceMode = 'free_float';
+        else if (!supportingContacts.length) balanceMode = 'falling';
+        else if (hasNonFootSupport || supportNormalAlignment < 0.85) balanceMode = 'braced';
         var supportCount = Math.max(0, supportCenters.length);
         var leftShare = Number(supportLoads.foot_l || 0);
         var rightShare = Number(supportLoads.foot_r || 0);
@@ -2602,11 +2635,16 @@
             },
             mass_proxy_count: massRows.length,
             total_mass_proxy: Number(totalMass.toFixed(4)),
+            gravity_vector: _envBuilderVector3Json(gravityVector),
             center_of_mass: _envBuilderVector3Json(centerOfMass),
-            projected_center_of_mass: {
-                x: Number(Number(centerOfMass.x || 0).toFixed(4)),
-                y: Number(supportY.toFixed(4)),
-                z: Number(Number(centerOfMass.z || 0).toFixed(4))
+            projected_center_of_mass: _envBuilderVector3Json(projectedComWorld),
+            projected_com_world: _envBuilderVector3Json(projectedComWorld),
+            support_frame: {
+                origin: _envBuilderVector3Json(supportFrameOrigin),
+                normal: _envBuilderVector3Json(supportNormal),
+                up: _envBuilderVector3Json(upVector),
+                axis_x: _envBuilderVector3Json(supportFrameAxisX),
+                axis_z: _envBuilderVector3Json(supportFrameAxisZ)
             },
             support_polygon: supportHull.map(function (point) {
                 return {
@@ -2614,12 +2652,14 @@
                     z: Number(Number(point.z || 0).toFixed(4))
                 };
             }),
+            support_polygon_world: supportPolygonWorld,
             support_count: supportCount,
             support_span: Number(supportSpan.toFixed(4)),
             stability_margin: Number(Number(marginInfo.margin || 0).toFixed(4)),
             normalized_margin: Number(normalizedMargin.toFixed(4)),
             inside_support_polygon: !!marginInfo.inside,
             stability_risk: Number(stabilityRisk.toFixed(4)),
+            balance_mode: balanceMode,
             dominant_support_side: leftShare === rightShare ? 'balanced' : (leftShare > rightShare ? 'left' : 'right'),
             support_loads: {
                 foot_l: Number(leftShare.toFixed(4)),
@@ -2772,6 +2812,7 @@
 
     function _envBuilderMotionDiagnosticsSummary(frames) {
         var phaseCounts = {};
+        var balanceModeCounts = {};
         var alertCounts = {};
         var supportingIds = {};
         var evaluated = 0;
@@ -2784,7 +2825,9 @@
             if (!diagnostics) return;
             evaluated += 1;
             var phase = String(diagnostics.support_phase || '').trim();
+            var balanceMode = String((((diagnostics.load_field || {}).balance_mode) || '')).trim();
             if (phase) phaseCounts[phase] = Number(phaseCounts[phase] || 0) + 1;
+            if (balanceMode) balanceModeCounts[balanceMode] = Number(balanceModeCounts[balanceMode] || 0) + 1;
             (Array.isArray(diagnostics.alerts) ? diagnostics.alerts : []).forEach(function (alert) {
                 var key = String(alert || '').trim();
                 if (!key) return;
@@ -2803,11 +2846,19 @@
                 dominantPhase = phase;
             }
         });
+        var dominantBalanceMode = '';
+        Object.keys(balanceModeCounts).forEach(function (mode) {
+            if (!dominantBalanceMode || Number(balanceModeCounts[mode] || 0) > Number(balanceModeCounts[dominantBalanceMode] || 0)) {
+                dominantBalanceMode = mode;
+            }
+        });
         return {
             evaluated_frame_count: evaluated,
             dominant_support_phase: dominantPhase,
             dominant_support_phase_label: _envBuilderMotionPhaseLabel(dominantPhase),
             support_phase_counts: phaseCounts,
+            dominant_balance_mode: dominantBalanceMode,
+            balance_mode_counts: balanceModeCounts,
             alert_counts: alertCounts,
             max_support_contact_count: maxSupport,
             max_ground_contact_count: maxContact,
@@ -2827,22 +2878,6 @@
             sampleTime = Number(cursor) * Math.max(0.01, Number(timeline.duration || 0));
         }
         return _envBuilderMotionDiagnostics(mesh, null, sampleTime, 0);
-    }
-
-    function _envBuilderSettlePreviewState() {
-        var preview = _envBuilderSubject._settle_preview;
-        if (!preview || typeof preview !== 'object' || Array.isArray(preview)) {
-            preview = _envCreateBuilderSettlePreviewState();
-        } else {
-            preview = Object.assign(_envCreateBuilderSettlePreviewState(), preview || {});
-        }
-        _envBuilderSubject._settle_preview = preview;
-        return _envBuilderSubject._settle_preview;
-    }
-
-    function _envBuilderClearSettlePreview() {
-        _envBuilderSubject._settle_preview = _envCreateBuilderSettlePreviewState();
-        return _envBuilderSubject._settle_preview;
     }
 
     function _envBuilderSupportPolygonCentroid(points) {
@@ -2989,341 +3024,6 @@
         return out;
     }
 
-    function _envBuilderSettleAnalysisFromDiagnostics(diagnostics) {
-        var data = diagnostics && typeof diagnostics === 'object' && !Array.isArray(diagnostics) ? diagnostics : null;
-        var loadField = data && data.load_field && typeof data.load_field === 'object' ? data.load_field : null;
-        if (!loadField) return null;
-        var polygon = Array.isArray(loadField.support_polygon) ? loadField.support_polygon : [];
-        var centroid = _envBuilderSupportPolygonCentroid(polygon);
-        var projected = loadField.projected_center_of_mass && typeof loadField.projected_center_of_mass === 'object'
-            ? loadField.projected_center_of_mass
-            : { x: 0, z: 0 };
-        var supportSpan = Math.max(0.12, Number(loadField.support_span || 0.12));
-        var driftX = Number(projected.x || 0) - Number(centroid.x || 0);
-        var driftZ = Number(projected.z || 0) - Number(centroid.z || 0);
-        var lateral = _envBuilderClamp01(Math.abs(driftX) / Math.max(0.08, supportSpan * 0.42)) * (driftX < 0 ? -1 : 1);
-        var sagittal = _envBuilderClamp01(Math.abs(driftZ) / Math.max(0.08, supportSpan * 0.55)) * (driftZ < 0 ? -1 : 1);
-        var stabilityRisk = _envBuilderClamp01(Number(loadField.stability_risk || 0));
-        var normalizedMargin = _envBuilderClamp01(Number(loadField.normalized_margin || 0));
-        var leftShare = Number((((loadField.support_loads || {}).foot_l)) || 0);
-        var rightShare = Number((((loadField.support_loads || {}).foot_r)) || 0);
-        var supportCount = Math.max(0, Number(loadField.support_count || 0));
-        var driftMagnitude = _envBuilderClamp01(Math.sqrt((lateral * lateral) + (sagittal * sagittal)) / Math.sqrt(2));
-        var edgePressure = _envBuilderClamp01(1 - normalizedMargin);
-        var responseSignal = _envBuilderClamp01(Math.max(
-            driftMagnitude,
-            Math.max(0, stabilityRisk - 0.02) * 1.08,
-            edgePressure * 0.88
-        ));
-        var hipWeight = _envBuilderClamp01(Math.pow(
-            _envBuilderClamp01(Math.max(responseSignal, stabilityRisk * 0.9, edgePressure * 0.82)),
-            1.35
-        ));
-        var stepSignal = _envBuilderClamp01(Math.max(
-            (Math.abs(lateral) * 0.58) + (Math.max(0, sagittal) * 0.42),
-            stabilityRisk * 0.98,
-            (edgePressure * 0.94) + (!loadField.inside_support_polygon ? 0.16 : 0)
-        ));
-        var stepWeight = _envBuilderClamp01(Math.pow(
-            stepSignal,
-            loadField.inside_support_polygon ? 2.35 : 1.45
-        ));
-        var ankleWeight = _envBuilderClamp01(1 - (hipWeight * 0.58) - (stepWeight * 0.9));
-        var weightTotal = ankleWeight + hipWeight + stepWeight;
-        if (weightTotal > 0.000001) {
-            ankleWeight = Number((ankleWeight / weightTotal).toFixed(4));
-            hipWeight = Number((hipWeight / weightTotal).toFixed(4));
-            stepWeight = Number((stepWeight / weightTotal).toFixed(4));
-        } else {
-            ankleWeight = 1;
-            hipWeight = 0;
-            stepWeight = 0;
-        }
-        var strategy = 'ankle';
-        var severity = 'mild';
-        if (stepWeight >= hipWeight && stepWeight >= (ankleWeight * 0.95)) {
-            strategy = 'step';
-            severity = (!loadField.inside_support_polygon || stepWeight >= 0.68) ? 'high' : 'medium';
-        } else if (hipWeight >= Math.max(ankleWeight * 0.78, 0.24)) {
-            strategy = 'hip';
-            severity = hipWeight >= 0.7 ? 'high' : 'medium';
-        }
-        var stepSide = 'right';
-        if (Math.abs(leftShare - rightShare) > 0.04) stepSide = leftShare < rightShare ? 'left' : 'right';
-        else if (Math.abs(lateral) > 0.06) stepSide = lateral < 0 ? 'left' : 'right';
-        else stepSide = rightShare <= leftShare ? 'right' : 'left';
-        return {
-            strategy: strategy,
-            severity: severity,
-            support_count: supportCount,
-            centroid: centroid,
-            projected: {
-                x: Number(Number(projected.x || 0).toFixed(4)),
-                z: Number(Number(projected.z || 0).toFixed(4))
-            },
-            drift: {
-                x: Number(driftX.toFixed(4)),
-                z: Number(driftZ.toFixed(4))
-            },
-            lateral: Number(lateral.toFixed(4)),
-            sagittal: Number(sagittal.toFixed(4)),
-            drift_magnitude: Number(driftMagnitude.toFixed(4)),
-            stability_risk: Number(stabilityRisk.toFixed(4)),
-            normalized_margin: Number(normalizedMargin.toFixed(4)),
-            response_gain: Number(responseSignal.toFixed(4)),
-            strategy_weights: {
-                ankle: Number(ankleWeight.toFixed(4)),
-                hip: Number(hipWeight.toFixed(4)),
-                step: Number(stepWeight.toFixed(4))
-            },
-            inside_support_polygon: !!loadField.inside_support_polygon,
-            dominant_support_side: String(loadField.dominant_support_side || 'balanced'),
-            step_side: stepSide,
-            stance_side: stepSide === 'left' ? 'right' : 'left',
-            support_surface: _envCloneJson((data.support_surface || loadField.support || null), null),
-            alerts: _envCloneJson(data.alerts || [], [])
-        };
-    }
-
-    function _envBuilderSettleFramePhases(strategy, frameCount) {
-        var targetCount = Math.max(String(strategy || '') === 'step' ? 5 : 4, Math.min(8, Math.floor(Number(frameCount || 4))));
-        if (String(strategy || '') === 'step') return [0, 0.22, 0.5, 0.78, 1].slice(0, targetCount);
-        if (targetCount <= 3) return [0, 0.55, 1];
-        if (targetCount === 4) return [0, 0.38, 0.72, 1];
-        return [0, 0.26, 0.54, 0.8, 1].slice(0, targetCount);
-    }
-
-    function _envBuilderSettleDeltaMapForPhase(analysis, phase) {
-        var info = analysis && typeof analysis === 'object' && !Array.isArray(analysis) ? analysis : null;
-        if (!info) return {};
-        var sideSign = String(info.step_side || 'right') === 'left' ? -1 : 1;
-        var lateral = Number(info.lateral || 0);
-        var sagittal = Number(info.sagittal || 0);
-        var lateralCounter = -lateral;
-        var sagittalCounter = -sagittal;
-        var responseGain = _envBuilderClamp01(Number(info.response_gain || 0));
-        var strategyWeights = info.strategy_weights && typeof info.strategy_weights === 'object' && !Array.isArray(info.strategy_weights)
-            ? info.strategy_weights
-            : {};
-        var ankleWeight = _envBuilderClamp01(Number(strategyWeights.ankle || 0));
-        var hipWeight = _envBuilderClamp01(Number(strategyWeights.hip || 0));
-        var stepWeight = _envBuilderClamp01(Number(strategyWeights.step || 0));
-        var sway = Math.sin(Math.PI * Math.max(0, Math.min(1, Number(phase || 0))));
-        function buildStepMap() {
-            var lift = phase <= 0.55 ? (phase / 0.55) : Math.max(0, 1 - ((phase - 0.55) / 0.45));
-            var plant = phase <= 0.55 ? 0 : Math.max(0, Math.min(1, (phase - 0.55) / 0.45));
-            var drive = Math.sin(Math.PI * Math.max(0, Math.min(1, Number(phase || 0) * 0.9)));
-            var outStep = {};
-            outStep.hips = {
-                rotation: [Number((sagittal * 3 * drive).toFixed(4)), 0, Number((lateral * 5 * drive).toFixed(4))],
-                offset: [
-                    Number(((lateral * 0.055 * drive) + (sideSign * 0.035 * lift)).toFixed(4)),
-                    0,
-                    Number(((Math.max(0, sagittal) * 0.06 * drive) + (0.045 * lift) - (0.018 * plant)).toFixed(4))
-                ]
-            };
-            outStep.spine = {
-                rotation: [
-                    Number((((-sagittalCounter * 4) + 4) * drive).toFixed(4)),
-                    0,
-                    Number((lateralCounter * 9 * drive).toFixed(4))
-                ]
-            };
-            outStep.chest = {
-                rotation: [
-                    Number((((-sagittalCounter * 6) + 7) * drive).toFixed(4)),
-                    0,
-                    Number((lateralCounter * 12 * drive).toFixed(4))
-                ]
-            };
-            outStep[String('upper_leg_' + info.step_side.charAt(0))] = {
-                rotation: [Number((18 * lift).toFixed(4)), 0, Number((sideSign * 12 * lift).toFixed(4))]
-            };
-            outStep[String('lower_leg_' + info.step_side.charAt(0))] = {
-                rotation: [Number((26 * lift).toFixed(4)), 0, 0]
-            };
-            outStep[String('foot_' + info.step_side.charAt(0))] = {
-                rotation: [Number(((-12 * lift) + (6 * plant)).toFixed(4)), 0, Number((sideSign * 4 * lift).toFixed(4))]
-            };
-            outStep[String('upper_leg_' + info.stance_side.charAt(0))] = {
-                rotation: [Number((7 * drive).toFixed(4)), 0, Number((-sideSign * 4 * drive).toFixed(4))]
-            };
-            outStep[String('lower_leg_' + info.stance_side.charAt(0))] = {
-                rotation: [Number((10 * drive).toFixed(4)), 0, 0]
-            };
-            outStep[String('foot_' + info.stance_side.charAt(0))] = {
-                rotation: [Number((3 * drive).toFixed(4)), 0, Number((-sideSign * 2 * drive).toFixed(4))]
-            };
-            outStep.shoulder_l = { rotation: [0, 0, Number((-8 * drive).toFixed(4))] };
-            outStep.shoulder_r = { rotation: [0, 0, Number((8 * drive).toFixed(4))] };
-            outStep.upper_arm_l = {
-                rotation: [
-                    Number((((info.step_side === 'left' ? -10 : 16) * drive)).toFixed(4)),
-                    0,
-                    Number(((-12 * drive) + (-sideSign * 3 * drive)).toFixed(4))
-                ]
-            };
-            outStep.upper_arm_r = {
-                rotation: [
-                    Number((((info.step_side === 'right' ? -10 : 16) * drive)).toFixed(4)),
-                    0,
-                    Number(((12 * drive) + (-sideSign * 3 * drive)).toFixed(4))
-                ]
-            };
-            outStep.lower_arm_l = { rotation: [Number((8 * drive).toFixed(4)), 0, 0] };
-            outStep.lower_arm_r = { rotation: [Number((8 * drive).toFixed(4)), 0, 0] };
-            outStep.neck = {
-                rotation: [
-                    Number((-2 * drive).toFixed(4)),
-                    0,
-                    Number((lateralCounter * 2.5 * drive).toFixed(4))
-                ]
-            };
-            outStep.head = {
-                rotation: [
-                    Number((-1.5 * drive).toFixed(4)),
-                    0,
-                    Number((lateralCounter * 1.8 * drive).toFixed(4))
-                ]
-            };
-            return outStep;
-        }
-        function buildBalanceMap(gain) {
-            var armSpread = 1.0 + (0.2 * gain);
-            return {
-                hips: {
-                    rotation: [
-                        Number((sagittal * 3.5 * gain * sway).toFixed(4)),
-                        0,
-                        Number((lateral * 5 * gain * sway).toFixed(4))
-                    ],
-                    offset: [
-                        Number((lateral * 0.03 * gain * sway).toFixed(4)),
-                        0,
-                        Number((sagittal * 0.04 * gain * sway).toFixed(4))
-                    ]
-                },
-                upper_leg_l: {
-                    rotation: [Number((Math.max(0, sagittal) * 6 * gain * sway).toFixed(4)), 0, Number((lateral * 3 * gain * sway).toFixed(4))]
-                },
-                upper_leg_r: {
-                    rotation: [Number((Math.max(0, sagittal) * 6 * gain * sway).toFixed(4)), 0, Number((lateral * 3 * gain * sway).toFixed(4))]
-                },
-                lower_leg_l: { rotation: [Number((Math.abs(sagittal) * 7 * gain * sway).toFixed(4)), 0, 0] },
-                lower_leg_r: { rotation: [Number((Math.abs(sagittal) * 7 * gain * sway).toFixed(4)), 0, 0] },
-                foot_l: {
-                    rotation: [Number((sagittalCounter * 4 * gain * sway).toFixed(4)), 0, Number((lateral * 4.5 * gain * sway).toFixed(4))]
-                },
-                foot_r: {
-                    rotation: [Number((sagittalCounter * 4 * gain * sway).toFixed(4)), 0, Number((lateral * 4.5 * gain * sway).toFixed(4))]
-                },
-                spine: {
-                    rotation: [
-                        Number((sagittalCounter * 4.5 * gain * sway).toFixed(4)),
-                        0,
-                        Number((lateralCounter * 7 * gain * sway).toFixed(4))
-                    ]
-                },
-                chest: {
-                    rotation: [
-                        Number((sagittalCounter * 6 * gain * sway).toFixed(4)),
-                        0,
-                        Number((lateralCounter * 10 * gain * sway).toFixed(4))
-                    ]
-                },
-                shoulder_l: { rotation: [0, 0, Number((-7 * armSpread * sway).toFixed(4))] },
-                shoulder_r: { rotation: [0, 0, Number((7 * armSpread * sway).toFixed(4))] },
-                upper_arm_l: {
-                    rotation: [
-                        Number((sagittal * 3 * gain * sway).toFixed(4)),
-                        0,
-                        Number((-11 * armSpread * sway).toFixed(4))
-                    ]
-                },
-                upper_arm_r: {
-                    rotation: [
-                        Number((sagittal * 3 * gain * sway).toFixed(4)),
-                        0,
-                        Number((11 * armSpread * sway).toFixed(4))
-                    ]
-                },
-                lower_arm_l: { rotation: [Number((6 * armSpread * sway).toFixed(4)), 0, 0] },
-                lower_arm_r: { rotation: [Number((6 * armSpread * sway).toFixed(4)), 0, 0] },
-                neck: {
-                    rotation: [
-                        Number((sagittalCounter * 1.2 * gain * sway).toFixed(4)),
-                        0,
-                        Number((lateralCounter * 1.6 * gain * sway).toFixed(4))
-                    ]
-                },
-                head: {
-                    rotation: [
-                        Number((sagittalCounter * 1.5 * gain * sway).toFixed(4)),
-                        0,
-                        Number((lateralCounter * 2.1 * gain * sway).toFixed(4))
-                    ]
-                }
-            };
-        }
-        return _envBuilderMergeDeltaMaps([
-            _envBuilderScaleDeltaMap(buildBalanceMap(1.0), responseGain * ankleWeight),
-            _envBuilderScaleDeltaMap(buildBalanceMap(1.8), responseGain * hipWeight),
-            _envBuilderScaleDeltaMap(buildStepMap(), responseGain * stepWeight)
-        ]);
-    }
-
-    function _envBuilderBuildSettleTimeline(poseState, diagnostics, spec) {
-        var basePose = _envNormalizeBuilderPoseState(poseState || null);
-        var analysis = _envBuilderSettleAnalysisFromDiagnostics(diagnostics);
-        if (!analysis || analysis.support_count <= 0) return null;
-        var strategy = String(analysis.strategy || 'ankle').trim() || 'ankle';
-        var duration = Number(spec && spec.duration);
-        if (!(duration > 0)) duration = strategy === 'step' ? 0.96 : (strategy === 'hip' ? 0.74 : 0.58);
-        duration = Math.max(0.18, Math.min(2.4, duration));
-        var phases = _envBuilderSettleFramePhases(strategy, spec && spec.frame_count);
-        var keyPoses = phases.map(function (phase, idx) {
-            return {
-                id: 'settle_' + String(idx + 1).padStart(3, '0'),
-                label: idx === 0 ? 'Settle Start' : (idx === phases.length - 1 ? 'Settle Stable' : ('Settle ' + String(idx + 1))),
-                timestamp: Number((duration * Number(phase || 0)).toFixed(4)),
-                transforms: _envBuilderPoseTransformsWithDeltaMap(
-                    basePose.transforms || {},
-                    _envBuilderSettleDeltaMapForPhase(analysis, Number(phase || 0))
-                )
-            };
-        });
-        return {
-            analysis: analysis,
-            timeline: _envNormalizeBuilderTimelineState({
-                key_poses: keyPoses,
-                cursor: 0,
-                duration: duration,
-                interpolation: 'slerp'
-            })
-        };
-    }
-
-    function _envBuilderSettleSummary(previewState) {
-        var preview = previewState && typeof previewState === 'object' && !Array.isArray(previewState)
-            ? previewState
-            : _envBuilderSettlePreviewState();
-        var timeline = preview.preview_timeline && typeof preview.preview_timeline === 'object'
-            ? _envNormalizeBuilderTimelineState(preview.preview_timeline)
-            : _envCreateBuilderTimelineState();
-        return {
-            active: !!preview.active,
-            strategy: String(preview.strategy || ''),
-            severity: String(preview.severity || ''),
-            frame_count: Number((timeline.key_poses || []).length || 0),
-            duration: Number(timeline.duration || 0),
-            source_time: Number(preview.source_time || 0),
-            source_cursor: Number(preview.source_cursor || 0),
-            generated_at: Number(preview.generated_at || 0),
-            analysis: preview.analysis ? _envCloneJson(preview.analysis, null) : null,
-            diagnostics: preview.diagnostics ? _envCloneJson(preview.diagnostics, null) : null
-        };
-    }
-
     function _envBuilderBalanceAssertionSignature(diagnostics) {
         var data = diagnostics && typeof diagnostics === 'object' && !Array.isArray(diagnostics) ? diagnostics : null;
         var loadField = data && data.load_field && typeof data.load_field === 'object' ? data.load_field : {};
@@ -3444,68 +3144,6 @@
                 alert_ids: _slotUniqueStrings(current.alerts || [])
             } : null
         };
-    }
-
-    function _envBuilderMergeSettlePreviewTimeline(previewState) {
-        var preview = previewState && typeof previewState === 'object' && !Array.isArray(previewState)
-            ? previewState
-            : _envBuilderSettlePreviewState();
-        var baseline = preview.baseline_timeline && typeof preview.baseline_timeline === 'object'
-            ? _envNormalizeBuilderTimelineState(preview.baseline_timeline)
-            : _envCreateBuilderTimelineState();
-        var settleTimeline = preview.preview_timeline && typeof preview.preview_timeline === 'object'
-            ? _envNormalizeBuilderTimelineState(preview.preview_timeline)
-            : _envCreateBuilderTimelineState();
-        if (!(settleTimeline.key_poses || []).length) return _envNormalizeBuilderTimelineState(baseline);
-        if (!(baseline.key_poses || []).length) return _envNormalizeBuilderTimelineState(settleTimeline);
-        var merged = {
-            key_poses: (baseline.key_poses || []).map(function (entry) {
-                return {
-                    id: String(entry.id || ''),
-                    label: String(entry.label || ''),
-                    timestamp: Number(entry.timestamp || 0),
-                    transforms: _envBuilderClonePoseTransforms((entry || {}).transforms || {})
-                };
-            }),
-            cursor: Number(baseline.cursor || 0),
-            duration: Math.max(Number(baseline.duration || 0), Number(settleTimeline.duration || 0)),
-            interpolation: String(baseline.interpolation || 'slerp')
-        };
-        var lastTimestamp = merged.key_poses.length
-            ? Number((merged.key_poses[merged.key_poses.length - 1] || {}).timestamp || 0)
-            : 0;
-        var mergeStart = Math.max(
-            lastTimestamp,
-            Number(preview.source_time || 0),
-            Number(baseline.duration || 0)
-        );
-        (settleTimeline.key_poses || []).forEach(function (entry, idx) {
-            if (idx === 0) return;
-            merged.key_poses.push({
-                id: 'settle_commit_' + String(idx).padStart(3, '0'),
-                label: String((entry && entry.label) || ('Settle ' + String(idx + 1))),
-                timestamp: Number((mergeStart + Number((entry && entry.timestamp) || 0)).toFixed(4)),
-                transforms: _envBuilderClonePoseTransforms((entry || {}).transforms || {})
-            });
-        });
-        merged.duration = merged.key_poses.length
-            ? Math.max(
-                Number(merged.duration || 0),
-                Number((merged.key_poses[merged.key_poses.length - 1] || {}).timestamp || 0)
-            )
-            : Number(merged.duration || 0);
-        merged.cursor = merged.key_poses.length ? Math.max(0, merged.key_poses.length - 1) : 0;
-        return _envNormalizeBuilderTimelineState(merged);
-    }
-
-    function _envBuilderRestoreSettleBaseline(mesh, previewState, actionKey) {
-        var preview = previewState && typeof previewState === 'object' && !Array.isArray(previewState)
-            ? previewState
-            : _envBuilderSettlePreviewState();
-        if (!preview.active || !preview.baseline_timeline || !preview.baseline_pose) return false;
-        _envBuilderSubject.timeline = _envNormalizeBuilderTimelineState(preview.baseline_timeline);
-        _envBuilderSubject.pose = _envNormalizeBuilderPoseState(preview.baseline_pose);
-        return _envBuilderApplyTimelinePoseToWorkbench(mesh, actionKey || 'workbench_preview_settle_restore');
     }
 
     function _envNormalizeBuilderEditingMode(value) {
@@ -12824,8 +12462,7 @@
                     'workbench_new_builder', 'workbench_get_blueprint', 'workbench_get_part_surface', 'workbench_frame_part', 'workbench_set_bone',
                     'workbench_set_pose', 'workbench_set_pose_batch', 'workbench_clear_pose',
                     'workbench_capture_pose', 'workbench_delete_pose', 'workbench_apply_pose', 'workbench_set_timeline_cursor',
-                    'workbench_compile_clip', 'workbench_play_authored_clip',
-                    'workbench_preview_settle', 'workbench_commit_settle', 'workbench_assert_balance',
+                    'workbench_compile_clip', 'workbench_play_authored_clip', 'workbench_assert_balance',
                     'workbench_reset_angles',
                     'workbench_select_bone', 'workbench_select_bones', 'workbench_set_editing_mode', 'workbench_set_display_scope',
                     'workbench_set_gizmo_mode', 'workbench_set_gizmo_space',
@@ -12840,7 +12477,7 @@
                     'mount', 'unmount', 'focus', 'move_to', 'stop', 'look_at', 'set_model',
                     'new_builder', 'get_blueprint', 'get_part_surface', 'frame_part', 'select_bone', 'select_bones', 'set_editing_mode', 'set_display_scope',
                     'set_gizmo_mode', 'set_gizmo_space',
-                    'set_bone', 'set_pose', 'set_pose_batch', 'clear_pose', 'capture_pose', 'delete_pose', 'apply_pose', 'set_timeline_cursor', 'compile_clip', 'play_authored_clip', 'apply_motion_preset', 'preview_settle', 'commit_settle', 'assert_balance', 'reset_angles', 'isolate_chain', 'save_blueprint', 'load_blueprint',
+                    'set_bone', 'set_pose', 'set_pose_batch', 'clear_pose', 'capture_pose', 'delete_pose', 'apply_pose', 'set_timeline_cursor', 'compile_clip', 'play_authored_clip', 'assert_balance', 'reset_angles', 'isolate_chain', 'save_blueprint', 'load_blueprint',
                     'play_clip', 'queue_clips', 'stop_clip', 'set_loop', 'set_speed',
                     'set_scaffold', 'set_load_field',
                     'get_animation_state', 'play_reaction'
@@ -16812,32 +16449,6 @@
         };
     }
 
-    function _envNormalizeWorkbenchSettleSpec(targetId) {
-        var raw = String(targetId || '').trim();
-        var parsed = raw ? _safeJsonParse(raw) : null;
-        var payload = parsed && typeof parsed === 'object' && !Array.isArray(parsed)
-            ? parsed
-            : {};
-        var frameCount = Number(payload.frame_count !== undefined ? payload.frame_count : payload.frames);
-        var duration = Number(payload.duration);
-        var target = String(payload.target || payload.mode || 'timeline').trim().toLowerCase();
-        if (target !== 'clip') target = 'timeline';
-        return {
-            raw: raw,
-            payload: payload,
-            frame_count: Number.isFinite(frameCount) ? Math.max(3, Math.min(8, Math.floor(frameCount))) : 4,
-            has_duration: Number.isFinite(duration),
-            duration: Number.isFinite(duration) ? Math.max(0.18, Math.min(2.4, duration)) : 0,
-            target: target,
-            clip_name: _envNormalizeBuilderAuthoredClipName(
-                payload.clip_name || payload.name || payload.label || 'settle_preview',
-                'settle_preview'
-            ),
-            force_pose_mode: payload.force_pose_mode !== false,
-            preserve_preview: payload.preserve_preview === true
-        };
-    }
-
     function _envNormalizeWorkbenchBalanceAssertSpec(targetId) {
         var raw = String(targetId || '').trim();
         var parsed = raw ? _safeJsonParse(raw) : null;
@@ -17990,241 +17601,6 @@
             _envSaveTheaterSession('workbench_play_authored_clip');
         }
         return played ? clipName : false;
-    }
-
-    function _envWorkbenchPreviewSettle(actor, reason, targetId) {
-        var actorName = String(actor || _envManualActorId() || 'assistant').trim() || 'assistant';
-        if (!_envBuilderSubject.active) {
-            _envLogAction('character_runtime', 'Rejected settle preview: no active builder subject', actorName, {
-                action: 'workbench_preview_settle'
-            });
-            _envSetBadge('failed', 'NO BUILDER');
-            renderEnvironmentView();
-            return false;
-        }
-        var mesh = _envMountedRuntimeMesh();
-        if (!mesh || !mesh.userData || !mesh.userData._builderSubjectGroup) {
-            _envLogAction('character_runtime', 'Rejected settle preview: mounted runtime mesh unavailable', actorName, {
-                action: 'workbench_preview_settle'
-            });
-            _envSetBadge('failed', 'NO MESH');
-            renderEnvironmentView();
-            return false;
-        }
-        var spec = _envNormalizeWorkbenchSettleSpec(targetId);
-        var priorPreview = _envCloneJson(_envBuilderSettlePreviewState(), null) || _envCreateBuilderSettlePreviewState();
-        var hadActivePreview = !!(priorPreview.active && priorPreview.preview_timeline);
-        if (hadActivePreview) {
-            _envBuilderRestoreSettleBaseline(mesh, priorPreview, 'workbench_preview_settle_restore');
-            _envBuilderClearSettlePreview();
-        }
-        var forcedPoseMode = false;
-        if (spec.force_pose_mode && _envNormalizeBuilderEditingMode(_envBuilderInteraction.editing_mode || 'structure') !== 'pose') {
-            _envBuilderInteraction.editing_mode = 'pose';
-            _envBuilderInteraction.gizmo_active = false;
-            _env3DUpdateBuilderGizmoAttachment('workbench_preview_settle_force_pose');
-            forcedPoseMode = true;
-        }
-        var baselineTimeline = _envNormalizeBuilderTimelineState(_envCloneJson(_envBuilderTimelineState(), null));
-        var baselinePose = _envNormalizeBuilderPoseState(_envCloneJson(_envBuilderPoseState(), null));
-        var diagnostics = _envBuilderCurrentMotionDiagnostics(mesh);
-        var settle = _envBuilderBuildSettleTimeline(baselinePose, diagnostics, {
-            frame_count: spec.frame_count,
-            duration: spec.has_duration ? spec.duration : 0
-        });
-        if (!settle || !settle.timeline || !Array.isArray(settle.timeline.key_poses) || !settle.timeline.key_poses.length) {
-            if (hadActivePreview && spec.preserve_preview) {
-                _envBuilderSubject._settle_preview = Object.assign(_envCreateBuilderSettlePreviewState(), priorPreview || {});
-                _envBuilderSubject.timeline = _envNormalizeBuilderTimelineState(priorPreview.preview_timeline);
-                _envBuilderSubject.pose = _envBuilderTimelinePoseAtTime(_envBuilderSubject.timeline, 0);
-                _envBuilderApplyTimelinePoseToWorkbench(mesh, 'workbench_preview_settle_reapply');
-            }
-            _envLogAction('character_runtime', 'Rejected settle preview: no recoverable balance reaction was generated', actorName, {
-                action: 'workbench_preview_settle',
-                support_count: Number((((diagnostics || {}).load_field || {}).support_contact_count) || 0)
-            });
-            _envSetBadge('failed', 'NO SETTLE');
-            renderEnvironmentView();
-            return false;
-        }
-        var sourceCursor = Number(baselineTimeline.cursor || 0);
-        var sourceDuration = Math.max(
-            0.01,
-            Number(baselineTimeline.duration || 0),
-            Number((((baselineTimeline.key_poses || [])[baselineTimeline.key_poses.length - 1] || {}).timestamp) || 0)
-        );
-        var sourceTime = 0;
-        if (Math.abs(sourceCursor - Math.round(sourceCursor)) < 0.00001 && (baselineTimeline.key_poses || []).length) {
-            var sourceIndex = Math.max(0, Math.min(baselineTimeline.key_poses.length - 1, Math.round(sourceCursor)));
-            sourceTime = Number(((baselineTimeline.key_poses[sourceIndex] || {}).timestamp) || 0);
-        } else if (sourceCursor >= 0 && sourceCursor <= 1) {
-            sourceTime = Number(sourceCursor) * sourceDuration;
-        }
-        _envBuilderSubject.timeline = _envNormalizeBuilderTimelineState(settle.timeline);
-        _envBuilderSubject.timeline.cursor = 0;
-        _envBuilderSubject.pose = _envBuilderTimelinePoseAtTime(_envBuilderSubject.timeline, 0);
-        _envBuilderSubject._settle_preview = {
-            active: true,
-            strategy: String(((settle.analysis || {}).strategy) || ''),
-            severity: String(((settle.analysis || {}).severity) || ''),
-            source_time: Number(sourceTime || 0),
-            source_cursor: Number(sourceCursor || 0),
-            generated_at: Date.now(),
-            baseline_timeline: _envCloneJson(baselineTimeline, null),
-            baseline_pose: _envCloneJson(baselinePose, null),
-            preview_timeline: _envCloneJson(_envBuilderSubject.timeline, null),
-            analysis: _envCloneJson(settle.analysis || null, null),
-            diagnostics: _envCloneJson(diagnostics, null)
-        };
-        if (!_envBuilderApplyTimelinePoseToWorkbench(mesh, 'workbench_preview_settle')) {
-            _envBuilderRestoreSettleBaseline(mesh, _envBuilderSettlePreviewState(), 'workbench_preview_settle_restore');
-            _envBuilderClearSettlePreview();
-            _envLogAction('character_runtime', 'Rejected settle preview: preview pose apply failed', actorName, {
-                action: 'workbench_preview_settle',
-                strategy: String(((settle.analysis || {}).strategy) || '')
-            });
-            _envSetBadge('failed', 'POSE ERR');
-            renderEnvironmentView();
-            return false;
-        }
-        _envLogAction('character_runtime', 'Generated settle preview timeline', actorName, {
-            action: 'workbench_preview_settle',
-            strategy: String(((settle.analysis || {}).strategy) || ''),
-            severity: String(((settle.analysis || {}).severity) || ''),
-            frame_count: Number((_envBuilderSubject.timeline.key_poses || []).length || 0),
-            duration: Number(_envBuilderSubject.timeline.duration || 0),
-            forced_pose_mode: forcedPoseMode
-        });
-        _envEmitBus('character_runtime', 'Generated settle preview timeline', actorName, {
-            action: 'workbench_preview_settle',
-            object_key: _envInhabitantObjectKey(),
-            strategy: String(((settle.analysis || {}).strategy) || ''),
-            severity: String(((settle.analysis || {}).severity) || '')
-        });
-        _envSetBadge('running', 'SETTLE PREVIEW');
-        _envScheduleLiveSync('workbench_preview_settle:' + String(((settle.analysis || {}).strategy) || ''), true);
-        _envSaveTheaterSession('workbench_preview_settle');
-        _envScene.dirty = true;
-        _envStageUiState.forceStageRebuild = true;
-        renderEnvironmentView();
-        return _envBuilderSettleSummary(_envBuilderSettlePreviewState());
-    }
-
-    function _envWorkbenchCommitSettle(actor, reason, targetId) {
-        var actorName = String(actor || _envManualActorId() || 'assistant').trim() || 'assistant';
-        if (!_envBuilderSubject.active) {
-            _envLogAction('character_runtime', 'Rejected settle commit: no active builder subject', actorName, {
-                action: 'workbench_commit_settle'
-            });
-            _envSetBadge('failed', 'NO BUILDER');
-            renderEnvironmentView();
-            return false;
-        }
-        var mesh = _envMountedRuntimeMesh();
-        if (!mesh || !mesh.userData || !mesh.userData._builderSubjectGroup) {
-            _envLogAction('character_runtime', 'Rejected settle commit: mounted runtime mesh unavailable', actorName, {
-                action: 'workbench_commit_settle'
-            });
-            _envSetBadge('failed', 'NO MESH');
-            renderEnvironmentView();
-            return false;
-        }
-        var previewState = _envBuilderSettlePreviewState();
-        if (!previewState.active || !previewState.preview_timeline) {
-            _envLogAction('character_runtime', 'Rejected settle commit: no active settle preview', actorName, {
-                action: 'workbench_commit_settle'
-            });
-            _envSetBadge('failed', 'NO PREVIEW');
-            renderEnvironmentView();
-            return false;
-        }
-        var spec = _envNormalizeWorkbenchSettleSpec(targetId);
-        var forcedPoseMode = false;
-        if (spec.force_pose_mode && _envNormalizeBuilderEditingMode(_envBuilderInteraction.editing_mode || 'structure') !== 'pose') {
-            _envBuilderInteraction.editing_mode = 'pose';
-            _envBuilderInteraction.gizmo_active = false;
-            _env3DUpdateBuilderGizmoAttachment('workbench_commit_settle_force_pose');
-            forcedPoseMode = true;
-        }
-        var mergedTimeline = _envBuilderMergeSettlePreviewTimeline(previewState);
-        if (!mergedTimeline || !Array.isArray(mergedTimeline.key_poses) || !mergedTimeline.key_poses.length) {
-            _envLogAction('character_runtime', 'Rejected settle commit: merged timeline was empty', actorName, {
-                action: 'workbench_commit_settle'
-            });
-            _envSetBadge('failed', 'NO TIMELINE');
-            renderEnvironmentView();
-            return false;
-        }
-        var previewTimeline = _envNormalizeBuilderTimelineState(_envCloneJson(_envBuilderTimelineState(), null));
-        var previewPose = _envNormalizeBuilderPoseState(_envCloneJson(_envBuilderPoseState(), null));
-        var committedTimeline = _envNormalizeBuilderTimelineState(mergedTimeline);
-        var commitTime = Number((((committedTimeline.key_poses || [])[committedTimeline.key_poses.length - 1] || {}).timestamp) || 0);
-        var committedPose = _envBuilderTimelinePoseAtTime(committedTimeline, commitTime);
-        _envBuilderSubject.timeline = committedTimeline;
-        _envBuilderSubject.pose = committedPose;
-        if (!_envBuilderApplyTimelinePoseToWorkbench(mesh, 'workbench_commit_settle')) {
-            _envBuilderSubject.timeline = previewTimeline;
-            _envBuilderSubject.pose = previewPose;
-            _envBuilderApplyTimelinePoseToWorkbench(mesh, 'workbench_commit_settle_restore');
-            _envLogAction('character_runtime', 'Rejected settle commit: committed pose apply failed', actorName, {
-                action: 'workbench_commit_settle',
-                strategy: String(previewState.strategy || '')
-            });
-            _envSetBadge('failed', 'POSE ERR');
-            renderEnvironmentView();
-            return false;
-        }
-        var compiledClipName = '';
-        if (spec.target === 'clip') {
-            var descriptor = _envWorkbenchCompileTimelineClip(mesh, {
-                clip_name: spec.clip_name,
-                has_duration: true,
-                duration: Number(committedTimeline.duration || 0)
-            });
-            if (!descriptor) {
-                _envBuilderSubject.timeline = previewTimeline;
-                _envBuilderSubject.pose = previewPose;
-                _envBuilderApplyTimelinePoseToWorkbench(mesh, 'workbench_commit_settle_restore');
-                _envLogAction('character_runtime', 'Rejected settle commit: authored clip compile failed', actorName, {
-                    action: 'workbench_commit_settle',
-                    strategy: String(previewState.strategy || ''),
-                    clip_name: String(spec.clip_name || '')
-                });
-                _envSetBadge('failed', 'CLIP ERR');
-                renderEnvironmentView();
-                return false;
-            }
-            compiledClipName = String(descriptor.name || '').trim();
-        }
-        _envBuilderClearSettlePreview();
-        _envRefreshInhabitantRuntimeState('workbench_commit_settle');
-        _envLogAction('character_runtime', 'Committed settle preview', actorName, {
-            action: 'workbench_commit_settle',
-            strategy: String(previewState.strategy || ''),
-            severity: String(previewState.severity || ''),
-            target: spec.target,
-            clip_name: compiledClipName,
-            duration: Number(committedTimeline.duration || 0),
-            key_pose_count: Number((committedTimeline.key_poses || []).length || 0),
-            forced_pose_mode: forcedPoseMode
-        });
-        _envEmitBus('character_runtime', 'Committed settle preview', actorName, {
-            action: 'workbench_commit_settle',
-            object_key: _envInhabitantObjectKey(),
-            strategy: String(previewState.strategy || ''),
-            severity: String(previewState.severity || ''),
-            target: spec.target,
-            clip_name: compiledClipName
-        });
-        _envSetBadge('running', spec.target === 'clip' ? 'SETTLE CLIP' : 'SETTLE COMMIT');
-        _envScheduleLiveSync('workbench_commit_settle:' + (compiledClipName || String(previewState.strategy || 'timeline')), true);
-        _envSaveTheaterSession('workbench_commit_settle');
-        _envScene.dirty = true;
-        _envStageUiState.forceStageRebuild = true;
-        renderEnvironmentView();
-        return spec.target === 'clip'
-            ? (compiledClipName || String(previewState.strategy || ''))
-            : _envBuilderSettleSummary(_envCreateBuilderSettlePreviewState());
     }
 
     function _envWorkbenchAssertBalance(actor, reason, targetId) {
@@ -19573,8 +18949,6 @@
         'workbench.set_timeline_cursor': 'workbench_set_timeline_cursor',
         'workbench.compile_clip': 'workbench_compile_clip',
         'workbench.play_authored_clip': 'workbench_play_authored_clip',
-        'workbench.preview_settle': 'workbench_preview_settle',
-        'workbench.commit_settle': 'workbench_commit_settle',
         'workbench.assert_balance': 'workbench_assert_balance',
         'workbench.reset_angles': 'workbench_reset_angles',
         'workbench.select_bone': 'workbench_select_bone',
@@ -19653,7 +19027,6 @@
             || command === 'workbench_clear_pose' || command === 'workbench_capture_pose' || command === 'workbench_delete_pose'
             || command === 'workbench_apply_pose' || command === 'workbench_set_timeline_cursor'
             || command === 'workbench_compile_clip' || command === 'workbench_play_authored_clip'
-            || command === 'workbench_preview_settle' || command === 'workbench_commit_settle'
             || command === 'workbench_assert_balance'
             || command === 'workbench_reset_angles' || command === 'workbench_select_bone'
             || command === 'workbench_select_bones'
@@ -26522,14 +25895,6 @@
             _envWorkbenchPlayAuthoredClip(actorName, reason || 'control workbench play authored clip', targetId);
             return;
         }
-        if (command === 'workbench_preview_settle') {
-            _envWorkbenchPreviewSettle(actorName, reason || 'control workbench preview settle', targetId);
-            return;
-        }
-        if (command === 'workbench_commit_settle') {
-            _envWorkbenchCommitSettle(actorName, reason || 'control workbench commit settle', targetId);
-            return;
-        }
         if (command === 'workbench_assert_balance') {
             _envWorkbenchAssertBalance(actorName, reason || 'control workbench assert balance', targetId);
             return;
@@ -28414,9 +27779,6 @@
             timeline_displacement_mode: builderActive ? String(timelineState.displacement_mode || 'in_place') : 'in_place',
             timeline_contact_phases: builderActive ? _envCloneJson(timelineState.contact_phases || [], []) : [],
             timeline_root_trajectory: builderActive ? _envCloneJson(timelineState.root_trajectory, null) : null,
-            settle_preview: builderActive
-                ? _envBuilderSettleSummary(_envBuilderSettlePreviewState())
-                : _envBuilderSettleSummary(_envCreateBuilderSettlePreviewState()),
             balance_assertion: builderActive
                 ? _envBuilderBalanceAssertionSummary(_envBuilderSubject._balance_assertion, currentMotionDiagnostics)
                 : _envBuilderBalanceAssertionSummary(_envCreateBuilderBalanceAssertionState(), null),
@@ -28848,11 +28210,12 @@
         var embodiment = view.embodiment && typeof view.embodiment === 'object' ? view.embodiment : {};
         var workbench = view.workbench && typeof view.workbench === 'object' ? view.workbench : {};
         var balance = view.balance && typeof view.balance === 'object' ? view.balance : {};
-        var settle = view.settle && typeof view.settle === 'object' ? view.settle : {};
         var contacts = Array.isArray(view.contacts) ? view.contacts : [];
         var triplets = [];
         var supportPhase = String(balance.support_phase || '').trim();
         if (supportPhase) triplets.push(['support_phase', 'is', supportPhase]);
+        var balanceMode = String(balance.balance_mode || '').trim();
+        if (balanceMode) triplets.push(['balance_mode', 'is', balanceMode]);
         contacts.forEach(function (contact) {
             var joint = String((contact && contact.joint) || '').trim();
             var state = String((contact && contact.state) || '').trim();
@@ -28882,8 +28245,6 @@
         if (workbench.gizmo && typeof workbench.gizmo === 'object' && String(workbench.gizmo.mode || '')) {
             triplets.push(['gizmo', 'is', String(workbench.gizmo.mode || '') + '_' + String(workbench.gizmo.space || 'local')]);
         }
-        if (settle.active) triplets.push(['settle', 'active', String(settle.strategy || '') + '_' + String(settle.severity || '')]);
-        else triplets.push(['settle', 'inactive', 'no_preview']);
         (Array.isArray(balance.alert_ids) ? balance.alert_ids : []).forEach(function (alertId) {
             var key = String(alertId || '').trim();
             if (key) triplets.push(['alert', key, 'global']);
@@ -28913,7 +28274,6 @@
             var posedCount = Number((workbench.posed_bone_ids || []).length || 0);
             summaryParts.push(selectionLabel + ' selected' + (posedCount ? (', ' + posedCount + ' posed bones active.') : '.'));
         }
-        if (settle.active) summaryParts.push('Settle preview active: ' + String(settle.strategy || 'settle') + ' ' + String(settle.severity || '').trim() + '.');
         return {
             summary: summaryParts.slice(0, 5).join(' ').replace(/\s+/g, ' ').trim(),
             triplets: triplets
@@ -28927,7 +28287,6 @@
         var runtime = view.runtime && typeof view.runtime === 'object' ? view.runtime : {};
         var workbench = view.workbench && typeof view.workbench === 'object' ? view.workbench : {};
         var balance = view.balance && typeof view.balance === 'object' ? view.balance : {};
-        var settle = view.settle && typeof view.settle === 'object' ? view.settle : {};
         var semantic = view.semantic && typeof view.semantic === 'object' ? view.semantic : {};
         var selectedBoneIds = Array.isArray(workbench.selected_bone_ids) ? workbench.selected_bone_ids : [];
         var posedBoneIds = Array.isArray(workbench.posed_bone_ids) ? workbench.posed_bone_ids : [];
@@ -28977,12 +28336,7 @@
                 stability_risk: _envTextTheaterRound(balance.stability_risk, 3, 0),
                 dominant_side: String(balance.dominant_side || ''),
                 supporting_joint_ids: supportingJointIds,
-                alert_ids: alertIds,
-                settle: {
-                    active: !!settle.active,
-                    strategy: String(settle.strategy || ''),
-                    severity: String(settle.severity || '')
-                }
+                alert_ids: alertIds
             },
             when: {
                 last_action: String(view.last_action || ''),
@@ -29054,7 +28408,6 @@
         var workbench = view.workbench && typeof view.workbench === 'object' ? view.workbench : {};
         var embodiment = view.embodiment && typeof view.embodiment === 'object' ? view.embodiment : {};
         var balance = view.balance && typeof view.balance === 'object' ? view.balance : {};
-        var settle = view.settle && typeof view.settle === 'object' ? view.settle : {};
         var timeline = view.timeline && typeof view.timeline === 'object' ? view.timeline : {};
         var semantic = view.semantic && typeof view.semantic === 'object' ? view.semantic : { summary: '', triplets: [] };
         var nowTs = Number(view.snapshot_timestamp || 0);
@@ -29115,7 +28468,6 @@
         lines.push('ASSERT: ' + (assertion.active
             ? (String(assertion.summary || 'unchecked') + (assertion.stale ? ' / stale' : ''))
             : 'unchecked'));
-        lines.push('SETTLE: ' + (settle.active ? (String(settle.strategy || '') + ' / ' + String(settle.severity || '') + ' / ' + Number(settle.frame_count || 0) + ' frames') : 'inactive'));
         lines.push('TIMELINE: cursor ' + _envTextTheaterRound(timeline.cursor, 3, 0)
             + ' / duration ' + _envTextTheaterRound(timeline.duration, 3, 0)
             + ' / ' + Number(timeline.key_pose_count || 0) + ' key poses');
@@ -29425,6 +28777,27 @@
                 normalized_margin: _envTextTheaterRound((loadField || {}).normalized_margin, 4, 0),
                 stability_risk: _envTextTheaterRound((loadField || {}).stability_risk, 4, 0),
                 inside_polygon: !!((loadField || {}).inside_support_polygon),
+                gravity_vector: loadField && loadField.gravity_vector
+                    ? _envTextTheaterVectorObject(loadField.gravity_vector, 4)
+                    : { x: 0, y: -1, z: 0 },
+                support_frame: loadField && loadField.support_frame
+                    ? {
+                        origin: _envTextTheaterVectorObject(((loadField.support_frame || {}).origin), 4),
+                        normal: _envTextTheaterVectorObject(((loadField.support_frame || {}).normal), 4),
+                        up: _envTextTheaterVectorObject(((loadField.support_frame || {}).up), 4),
+                        axis_x: _envTextTheaterVectorObject(((loadField.support_frame || {}).axis_x), 4),
+                        axis_z: _envTextTheaterVectorObject(((loadField.support_frame || {}).axis_z), 4)
+                    }
+                    : null,
+                projected_com_world: loadField && loadField.projected_com_world
+                    ? _envTextTheaterVectorObject(loadField.projected_com_world, 4)
+                    : { x: 0, y: 0, z: 0 },
+                support_polygon_world: Array.isArray((loadField || {}).support_polygon_world)
+                    ? (loadField.support_polygon_world || []).map(function (point) {
+                        return _envTextTheaterVectorObject(point, 4);
+                    })
+                    : [],
+                balance_mode: String((loadField || {}).balance_mode || ''),
                 dominant_side: String((loadField || {}).dominant_support_side || 'balanced'),
                 supporting_joint_ids: _slotUniqueStrings((diagnostics || {}).supporting_ids || []),
                 alert_ids: _slotUniqueStrings((diagnostics || {}).alerts || []),
@@ -29440,18 +28813,15 @@
                     side: String((contact || {}).side || '')
                 };
             }),
-            settle: {
-                active: !!(((workbenchSurface || {}).settle_preview || {}).active),
-                strategy: String((((workbenchSurface || {}).settle_preview || {}).strategy) || ''),
-                severity: String((((workbenchSurface || {}).settle_preview || {}).severity) || ''),
-                frame_count: Number((((workbenchSurface || {}).settle_preview || {}).frame_count) || 0),
-                duration: _envTextTheaterRound((((workbenchSurface || {}).settle_preview || {}).duration), 3, 0)
-            },
             timeline: {
                 cursor: _envTextTheaterRound((workbenchSurface || {}).timeline_cursor, 4, 0),
                 duration: _envTextTheaterRound((workbenchSurface || {}).timeline_duration, 4, 0),
                 key_pose_count: Number((workbenchSurface || {}).timeline_key_pose_count || 0),
-                interpolation: String((workbenchSurface || {}).timeline_interpolation || 'slerp')
+                interpolation: String((workbenchSurface || {}).timeline_interpolation || 'slerp'),
+                source_motion_preset: String((workbenchSurface || {}).timeline_source_motion_preset || ''),
+                displacement_mode: String((workbenchSurface || {}).timeline_displacement_mode || 'in_place'),
+                contact_phases: _envCloneJson((workbenchSurface || {}).timeline_contact_phases || [], []),
+                root_trajectory: _envCloneJson((workbenchSurface || {}).timeline_root_trajectory, null)
             },
             corroboration: _envCloneJson(corroborationState, null),
             semantic: {
@@ -48188,8 +47558,8 @@
                 var pulse = 1 + Math.sin(time * 3) * 0.08;
                 mesh.scale.setScalar(baseScale * pulse);
             } else if (mesh.userData.baseScale !== undefined && !transformDragging) {
-                var settle = Math.max(0.001, Number(mesh.userData.baseScale || 1));
-                mesh.scale.lerp(new THREE.Vector3(settle, settle, settle), 0.18);
+                var restScale = Math.max(0.001, Number(mesh.userData.baseScale || 1));
+                mesh.scale.lerp(new THREE.Vector3(restScale, restScale, restScale), 0.18);
             }
             if (mesh.userData._builderSubjectGroup && _envBuilderSubject.active) {
                 _envBuilderAnimateSelectionVisuals(mesh, time);
@@ -49605,8 +48975,6 @@
             '<option value="workbench_set_timeline_cursor">workbench_set_timeline_cursor</option>' +
             '<option value="workbench_compile_clip">workbench_compile_clip</option>' +
             '<option value="workbench_play_authored_clip">workbench_play_authored_clip</option>' +
-            '<option value="workbench_preview_settle">workbench_preview_settle</option>' +
-            '<option value="workbench_commit_settle">workbench_commit_settle</option>' +
             '<option value="workbench_assert_balance">workbench_assert_balance</option>' +
             '<option value="workbench_reset_angles">workbench_reset_angles</option>' +
              '<option value="workbench_isolate_chain">workbench_isolate_chain</option>' +
@@ -57727,22 +57095,6 @@
             try { payload = JSON.stringify(spec); } catch (ignored) { payload = String(spec || ''); }
         }
         _envQueueControl('workbench_play_authored_clip', payload, actor || 'assistant', reason || 'external workbench play authored clip');
-    };
-    window.envopsWorkbenchPreviewSettle = function (spec, actor, reason) {
-        var payload = '';
-        if (typeof spec === 'string') payload = spec;
-        else if (spec !== undefined && spec !== null) {
-            try { payload = JSON.stringify(spec); } catch (ignored) { payload = String(spec || ''); }
-        }
-        _envQueueControl('workbench_preview_settle', payload, actor || 'assistant', reason || 'external workbench preview settle');
-    };
-    window.envopsWorkbenchCommitSettle = function (spec, actor, reason) {
-        var payload = '';
-        if (typeof spec === 'string') payload = spec;
-        else if (spec !== undefined && spec !== null) {
-            try { payload = JSON.stringify(spec); } catch (ignored) { payload = String(spec || ''); }
-        }
-        _envQueueControl('workbench_commit_settle', payload, actor || 'assistant', reason || 'external workbench commit settle');
     };
     window.envopsWorkbenchAssertBalance = function (spec, actor, reason) {
         var payload = '';

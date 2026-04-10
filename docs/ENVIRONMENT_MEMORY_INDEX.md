@@ -17,7 +17,7 @@ This file is the continuity index for the Environment tab runtime and its operat
 - [THEATER_VISION_SYSTEM.md](/F:/End-Game/champion_councl/docs/THEATER_VISION_SYSTEM.md)
 - [ENVIRONMENT_HELP_SYSTEM_SPEC_2026-04-04.md](/F:/End-Game/champion_councl/docs/ENVIRONMENT_HELP_SYSTEM_SPEC_2026-04-04.md)
 - [ENV_HELP_SITREP_2026-04-04.md](/F:/End-Game/champion_councl/docs/ENV_HELP_SITREP_2026-04-04.md)
-- [BALANCE_SETTLE_TRAJECTORY_SITREP_2026-04-05.md](/F:/End-Game/champion_councl/docs/BALANCE_SETTLE_TRAJECTORY_SITREP_2026-04-05.md)
+- [BALANCE_SETTLE_TRAJECTORY_SITREP_2026-04-05.md](/F:/End-Game/champion_councl/docs/BALANCE_SETTLE_TRAJECTORY_SITREP_2026-04-05.md) (historical; settle removed 2026-04-10)
 - [TEXT_THEATER_TUI_SITREP_2026-04-05.md](/F:/End-Game/champion_councl/docs/TEXT_THEATER_TUI_SITREP_2026-04-05.md)
 - [TEXT_THEATER_PIVOT_HANDOFF_2026-04-05.md](/F:/End-Game/champion_councl/docs/TEXT_THEATER_PIVOT_HANDOFF_2026-04-05.md)
 - [ENVIRONMENT_HYDRATION_SPEC_2026-03-20.md](/F:/End-Game/champion_councl/docs/ENVIRONMENT_HYDRATION_SPEC_2026-03-20.md)

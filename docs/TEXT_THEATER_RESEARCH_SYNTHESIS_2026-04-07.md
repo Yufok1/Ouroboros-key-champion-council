@@ -1,5 +1,11 @@
 # Text Theater Research Synthesis 2026-04-07
 
+## STATUS: HISTORICAL 2026-04-10
+
+This doc references the now-removed settle workflow.
+Settle was deleted on 2026-04-10; preserve this file as historical reference
+only and do not use its settle-specific guidance as active doctrine.
+
 Repo: `F:\End-Game\champion_councl`
 
 Purpose:
