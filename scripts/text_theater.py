@@ -1,6 +1,7 @@
 import argparse
 import copy
 import colorsys
+from functools import lru_cache
 import json
 import math
 import os
@@ -10,6 +11,7 @@ import sys
 import textwrap
 import threading
 import time
+import unicodedata
 import urllib.error
 import urllib.request
 
@@ -17,6 +19,13 @@ try:
     from PyDrawille import CanvasSurface as _PyDrawilleCanvasSurface
 except Exception:
     _PyDrawilleCanvasSurface = None
+
+try:
+    from PIL import Image, ImageDraw, ImageFont
+except Exception:
+    Image = None
+    ImageDraw = None
+    ImageFont = None
 
 
 ALT_SCREEN_ON = "\x1b[?1049h"
@@ -37,6 +46,10 @@ BLUE = "\x1b[34m"
 GRAY = "\x1b[38;5;240m"
 LIGHT_GRAY = "\x1b[38;5;250m"
 ORANGE = "\x1b[38;5;214m"
+BG_GRAPHITE = "\x1b[48;5;235m"
+BG_STEEL = "\x1b[48;5;237m"
+PLATE_GRAIN = "\x1b[38;5;239m"
+PLATE_GRAIN_SOFT = "\x1b[38;5;238m"
 
 ANSI_RE = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
 HEX_COLOR_RE = re.compile(r"^#?([0-9a-fA-F]{6})$")
@@ -62,8 +75,13 @@ PANE_SECTIONS = [
     ("contacts", "Contacts"),
     ("timeline", "Timeline"),
     ("corroboration", "Corroboration"),
+    ("blackboard", "Blackboard"),
+    ("profiles", "Profiles"),
     ("semantic", "Semantic"),
 ]
+
+VIEW_MODES = {"render", "consult", "theater", "embodiment", "snapshot", "split"}
+SECTION_INDEX_BY_KEY = {key: idx for idx, (key, _label) in enumerate(PANE_SECTIONS)}
 
 CONTACT_MARKERS = {
     "grounded": "●",
@@ -91,6 +109,682 @@ try:
     )
 except Exception:
     TEXT_THEATER_PERSPECTIVE_SCALE = 1.0
+
+TEXT_THEATER_SURFACE_MODES = ("legacy", "sharp", "granular")
+TEXT_THEATER_SURFACE_MODE = str(os.environ.get("TEXT_THEATER_SURFACE_MODE", "sharp")).strip().lower() or "sharp"
+if TEXT_THEATER_SURFACE_MODE not in TEXT_THEATER_SURFACE_MODES:
+    TEXT_THEATER_SURFACE_MODE = "sharp"
+try:
+    TEXT_THEATER_SURFACE_DENSITY = max(
+        0.0,
+        min(1.0, float(os.environ.get("TEXT_THEATER_SURFACE_DENSITY", "0.42"))),
+    )
+except Exception:
+    TEXT_THEATER_SURFACE_DENSITY = 0.42
+
+
+def _control_help_text():
+    return "keys: m/6 main split | 2 consult | 3 theater | 4 embodiment | 5 snapshot | s surface | -/= density | d diagnostics | tab next | g blackboard | p profiles | h help | q quit"
+
+
+TEXT_UI_FONT_PATHS = (
+    r"C:\Windows\Fonts\times.ttf",
+    r"C:\Windows\Fonts\georgia.ttf",
+    r"C:\Windows\Fonts\cambria.ttc",
+    r"C:\Windows\Fonts\cour.ttf",
+    r"C:\Windows\Fonts\consola.ttf",
+)
+TEXT_UI_FONT_BOLD_PATHS = (
+    r"C:\Windows\Fonts\timesbd.ttf",
+    r"C:\Windows\Fonts\georgiab.ttf",
+    r"C:\Windows\Fonts\cambria.ttc",
+    r"C:\Windows\Fonts\courbd.ttf",
+    r"C:\Windows\Fonts\consolab.ttf",
+)
+
+
+def _control_menu_lines(width):
+    return [
+        "views  m/6 split | 2 consult | 3 theater | 4 embodiment | 5 snapshot",
+        "board  d diagnostics | tab next section | g blackboard | p profiles",
+        "surface s cycle spectrum | - density down | = density up",
+        "help   h help | q quit | r retry | direct  b theater | c scene | w render | e layout | u docs | o nav",
+    ]
+
+
+@lru_cache(maxsize=4)
+def _ui_font_path(bold=False):
+    candidates = TEXT_UI_FONT_BOLD_PATHS if bold else TEXT_UI_FONT_PATHS
+    for path in candidates:
+        if os.path.exists(path):
+            return path
+    return ""
+
+
+@lru_cache(maxsize=64)
+def _load_ui_font(size_px, bold=False):
+    size_px = max(6, int(size_px or 6))
+    if ImageFont is None:
+        return None
+    path = _ui_font_path(bool(bold))
+    if path:
+        try:
+            return ImageFont.truetype(path, size_px)
+        except Exception:
+            pass
+    try:
+        return ImageFont.load_default()
+    except Exception:
+        return None
+
+
+def _font_text_width(font, text):
+    if not text:
+        return 0
+    if font is None:
+        return len(text)
+    try:
+        return int(math.ceil(float(font.getlength(text))))
+    except Exception:
+        try:
+            bbox = font.getbbox(text)
+            return max(0, int(bbox[2] - bbox[0]))
+        except Exception:
+            return len(text)
+
+
+def _font_text_height(font):
+    if font is None:
+        return 8
+    try:
+        bbox = font.getbbox("Ag")
+        return max(1, int(bbox[3] - bbox[1]))
+    except Exception:
+        try:
+            ascent, descent = font.getmetrics()
+            return max(1, int(ascent + descent))
+        except Exception:
+            return 8
+
+
+def _token_tracking_px(size_px, text):
+    return 0
+
+
+def _token_draw_width(font, text, size_px=None):
+    text = str(text or "")
+    if not text:
+        return 0
+    return _font_text_width(font, text)
+
+
+@lru_cache(maxsize=2048)
+def _token_bitmap(text, size_px, bold=False):
+    text = str(text or "")
+    logical_size = max(6, int(size_px or 8))
+    font = _load_ui_font(logical_size, bold=bool(bold))
+    if font is None or Image is None or ImageDraw is None:
+        return {"width": 1, "height": 1, "points": []}
+    width = max(1, _token_draw_width(font, text, logical_size))
+    height = max(1, _font_text_height(font))
+    supersample = 3
+    pad = supersample * 2
+    hi_font = _load_ui_font(logical_size * supersample, bold=bool(bold))
+    if hi_font is None:
+        hi_font = font
+        supersample = 1
+        pad = 2
+    mask = Image.new("L", ((width * supersample) + pad, (height * supersample) + (pad * 2)), 0)
+    draw = ImageDraw.Draw(mask)
+    draw.text((0, 0), text, font=hi_font, fill=255)
+    pixels = mask.load()
+    points = []
+    # Keep enough stroke coverage that serif/typewriter forms survive the
+    # braille-cell reduction instead of collapsing into symbol noise.
+    coverage_threshold = 96 if logical_size >= 10 else 84
+    for py in range(height + 3):
+        for px in range(width + 1):
+            total = 0
+            samples = 0
+            for sy in range(supersample):
+                for sx in range(supersample):
+                    hx = (px * supersample) + sx
+                    hy = (py * supersample) + sy
+                    if 0 <= hx < mask.width and 0 <= hy < mask.height:
+                        total += int(pixels[hx, hy])
+                        samples += 1
+            if samples and (total / float(samples)) >= coverage_threshold:
+                points.append((px, py))
+    return {
+        "width": width,
+        "height": height + 3,
+        "points": tuple(points),
+    }
+
+
+def _bridge_bitmap_points(points, max_gap=1):
+    return tuple(points or ())
+
+
+def _bitmap_emboss_layers(points):
+    return {"highlight": (), "shadow": (), "body": ()}
+
+
+def _ansi_segments(text, default_style=""):
+    raw = str(text or "")
+    if not raw:
+        return []
+    segments = []
+    buffer = []
+    current_style = str(default_style or "")
+    index = 0
+    while index < len(raw):
+        if raw[index] == "\x1b":
+            match = ANSI_RE.match(raw, index)
+            if match:
+                if buffer:
+                    segments.append(("".join(buffer), current_style))
+                    buffer = []
+                code = match.group(0)
+                if code == RESET or code.endswith("[0m"):
+                    current_style = str(default_style or "")
+                else:
+                    current_style = (current_style + code) if current_style else code
+                index = match.end()
+                continue
+        buffer.append(raw[index])
+        index += 1
+    if buffer:
+        segments.append(("".join(buffer), current_style))
+    return segments
+
+
+def _char_display_width(char):
+    ch = str(char or "")
+    if not ch:
+        return 0
+    if ch == "\n":
+        return 0
+    if unicodedata.combining(ch):
+        return 0
+    if unicodedata.east_asian_width(ch) in {"F", "W"}:
+        return 2
+    return 1
+
+
+def _display_width(text):
+    raw = str(text or "")
+    width = 0
+    index = 0
+    while index < len(raw):
+        if raw[index] == "\x1b":
+            match = ANSI_RE.match(raw, index)
+            if match:
+                index = match.end()
+                continue
+        width += _char_display_width(raw[index])
+        index += 1
+    return width
+
+
+def _widen_char(char):
+    ch = str(char or "")
+    if not ch:
+        return ""
+    code = ord(ch)
+    if ch == " ":
+        return " "
+    if 0x21 <= code <= 0x7E:
+        return chr(code + 0xFEE0)
+    return ch
+
+
+def _widen_text(text):
+    return "".join(_widen_char(ch) for ch in str(text or ""))
+
+
+def _collapse_segment_runs(segments):
+    out = []
+    for text, style in segments:
+        if not text:
+            continue
+        if out and out[-1][1] == style:
+            out[-1] = (out[-1][0] + text, style)
+        else:
+            out.append((text, style))
+    return out
+
+
+def _tokenize_styled_segments(segments):
+    tokens = []
+    for text, style in segments:
+        for token in re.findall(r"\S+|\s+", str(text or "")):
+            tokens.append((token, style))
+    return tokens
+
+
+def _wrap_styled_display_line(text, width_cells, default_style="", widen=True):
+    width_cells = max(6, int(width_cells or 6))
+    tokens = _tokenize_styled_segments(_ansi_segments(text, default_style=default_style))
+    if not tokens:
+        return [[]]
+    wrapped = []
+    current = []
+    current_width = 0
+
+    def flush():
+        nonlocal current, current_width
+        trimmed = []
+        for chunk, style in current:
+            if chunk and not trimmed and chunk.isspace():
+                continue
+            trimmed.append((chunk, style))
+        while trimmed and trimmed[-1][0].isspace():
+            trimmed.pop()
+        wrapped.append(_collapse_segment_runs(trimmed))
+        current = []
+        current_width = 0
+
+    for token, style in tokens:
+        if not token:
+            continue
+        rendered = token if token.isspace() or not widen else _widen_text(token)
+        token_width = _display_width(rendered)
+        if token.isspace():
+            if current and (current_width + token_width) <= width_cells:
+                current.append((rendered, style))
+                current_width += token_width
+            continue
+        if current and (current_width + token_width) > width_cells:
+            flush()
+        if token_width <= width_cells:
+            current.append((rendered, style))
+            current_width += token_width
+            continue
+        for char in rendered:
+            char_width = _char_display_width(char)
+            if current and (current_width + char_width) > width_cells:
+                flush()
+            current.append((char, style))
+            current_width += char_width
+    if current or not wrapped:
+        flush()
+    return wrapped or [[]]
+
+
+def _segments_to_text(segments):
+    out = []
+    for text, style in list(segments or []):
+        if not text:
+            continue
+        if style:
+            out.append(f"{style}{text}{RESET}")
+        else:
+            out.append(text)
+    return "".join(out)
+
+
+def _render_wide_text_lines(lines, width_cells, max_rows, default_style=LIGHT_GRAY, align="left", widen=True):
+    width_cells = max(6, int(width_cells or 6))
+    max_rows = max(1, int(max_rows or 1))
+    if not lines:
+        return []
+    wrapped = []
+    for raw_line in list(lines or []):
+        plain = str(raw_line or "")
+        if not ANSI_RE.sub("", plain).strip():
+            wrapped.append([])
+            continue
+        wrapped.extend(_wrap_styled_display_line(plain.expandtabs(2), width_cells, default_style=default_style, widen=widen))
+    out = []
+    for segments in wrapped[:max_rows]:
+        row = _segments_to_text(segments)
+        visible = _display_width(row)
+        if align == "center":
+            row = (" " * max(0, (width_cells - visible) // 2)) + row
+        elif align == "right":
+            row = (" " * max(0, width_cells - visible)) + row
+        out.append(row)
+    return out
+
+
+def _wrap_styled_line(text, width_px, font, default_style=""):
+    width_px = max(8, int(width_px or 8))
+    tokens = _tokenize_styled_segments(_ansi_segments(text, default_style=default_style))
+    if not tokens:
+        return [[]]
+    wrapped = []
+    current = []
+    current_width = 0
+
+    def flush():
+        nonlocal current, current_width
+        trimmed = []
+        for chunk, style in current:
+            if chunk and not trimmed and chunk.isspace():
+                continue
+            trimmed.append((chunk, style))
+        while trimmed and trimmed[-1][0].isspace():
+            trimmed.pop()
+        wrapped.append(_collapse_segment_runs(trimmed))
+        current = []
+        current_width = 0
+
+    for token, style in tokens:
+        if not token:
+            continue
+        if token.isspace():
+            if current:
+                token_width = _token_draw_width(font, token, _font_text_height(font))
+                if (current_width + token_width) <= width_px:
+                    current.append((token, style))
+                    current_width += token_width
+            continue
+        token_width = _token_draw_width(font, token, _font_text_height(font))
+        if current and (current_width + token_width) > width_px:
+            flush()
+        if token_width <= width_px:
+            current.append((token, style))
+            current_width += token_width
+            continue
+        for char in token:
+            char_width = _font_text_width(font, char)
+            if current and (current_width + char_width) > width_px:
+                flush()
+            current.append((char, style))
+            current_width += char_width
+    if current or not wrapped:
+        flush()
+    return wrapped or [[]]
+
+
+def _wrap_raster_text_lines(lines, width_px, font, default_style=""):
+    wrapped = []
+    for raw_line in list(lines or []):
+        plain = str(raw_line or "")
+        if not ANSI_RE.sub("", plain).strip():
+            wrapped.append([])
+            continue
+        wrapped.extend(_wrap_styled_line(plain.expandtabs(2), width_px, font, default_style=default_style))
+    return wrapped
+
+
+def _estimate_raster_rows(wrapped_lines, font, gap_px=1):
+    line_height_px = _font_text_height(font)
+    y_px = 0
+    for line in list(wrapped_lines or []):
+        if line:
+            y_px += line_height_px + gap_px
+        else:
+            y_px += max(2, line_height_px // 2)
+    return max(0, int(math.ceil(max(0, y_px - gap_px) / 4.0)))
+
+
+def _render_raster_text_lines(
+    lines,
+    width_cells,
+    max_rows,
+    default_style=LIGHT_GRAY,
+    preferred_px=12,
+    min_px=8,
+    bold=False,
+    align="left",
+    plate_style=BG_GRAPHITE,
+    plate_texture="typewriter",
+    full_surface_style="",
+    full_surface_texture="paper",
+    full_surface_texture_style="",
+    full_surface_density=0.0,
+):
+    width_cells = max(8, int(width_cells or 8))
+    max_rows = max(1, int(max_rows or 1))
+    if not lines:
+        return []
+    if Image is None or ImageDraw is None or ImageFont is None:
+        fallback = _stack_wrapped_rows([ANSI_RE.sub("", str(line or "")) for line in lines], width_cells)
+        return fallback[:max_rows]
+
+    render_width_px = max(8, (width_cells * 2) - 2)
+    chosen_font = None
+    chosen_size_px = int(min_px or 7)
+    chosen_lines = []
+    chosen_gap = 1
+    for size_px in range(max(int(preferred_px or 10), int(min_px or 7)), int(min_px or 7) - 1, -1):
+        font = _load_ui_font(size_px, bold=bool(bold))
+        if font is None:
+            continue
+        gap_px = 1 if size_px >= 9 else 0
+        wrapped = _wrap_raster_text_lines(lines, render_width_px, font, default_style=default_style)
+        if _estimate_raster_rows(wrapped, font, gap_px=gap_px) <= max_rows:
+            chosen_font = font
+            chosen_size_px = int(size_px)
+            chosen_lines = wrapped
+            chosen_gap = gap_px
+            break
+    if chosen_font is None:
+        chosen_size_px = int(min_px or 7)
+        chosen_font = _load_ui_font(chosen_size_px, bold=bool(bold))
+        chosen_gap = 0
+        chosen_lines = _wrap_raster_text_lines(lines, render_width_px, chosen_font, default_style=default_style)
+
+    line_height_px = _font_text_height(chosen_font)
+    canvas = _make_braille_canvas(width_cells, max_rows)
+    if full_surface_style:
+        _braille_fill_rect(
+            canvas,
+            0,
+            0,
+            max(0, (width_cells * 2) - 1),
+            max(0, (max_rows * 4) - 1),
+            style=full_surface_style,
+            priority=0,
+        )
+        _braille_texture_rect(
+            canvas,
+            0,
+            0,
+            max(0, (width_cells * 2) - 1),
+            max(0, (max_rows * 4) - 1),
+            style=str(full_surface_texture_style or ""),
+            priority=0,
+            texture=full_surface_texture,
+            density=full_surface_density,
+        )
+    y_px = 0
+    for line_segments in chosen_lines:
+        step_px = (line_height_px + chosen_gap) if line_segments else max(2, line_height_px // 2)
+        if int(math.ceil((y_px + step_px) / 4.0)) > max_rows:
+            break
+        if line_segments:
+            line_width_px = sum(
+                _token_draw_width(chosen_font, text, chosen_size_px)
+                for text, _style in line_segments
+            )
+            if align == "center":
+                x_px = max(0, (render_width_px - line_width_px) // 2)
+            elif align == "right":
+                x_px = max(0, render_width_px - line_width_px)
+            else:
+                x_px = 0
+            if plate_style:
+                _braille_fill_rect(
+                    canvas,
+                    max(0, x_px - 2),
+                    max(0, y_px - 1),
+                    min((width_cells * 2) - 1, x_px + line_width_px + 2),
+                    min((max_rows * 4) - 1, y_px + line_height_px + 1),
+                    style=plate_style,
+                    priority=1,
+                )
+                _braille_texture_rect(
+                    canvas,
+                    max(0, x_px - 2),
+                    max(0, y_px - 1),
+                    min((width_cells * 2) - 1, x_px + line_width_px + 2),
+                    min((max_rows * 4) - 1, y_px + line_height_px + 1),
+                    style=(DIM + PLATE_GRAIN) if chosen_size_px >= 9 else PLATE_GRAIN_SOFT,
+                    priority=1,
+                    texture=plate_texture,
+                    density=1.0,
+                )
+            for segment_text, segment_style in line_segments:
+                if not segment_text:
+                    continue
+                style = (BOLD if bold else "") + str(segment_style or default_style or "")
+                edge_style = DIM + str(segment_style or default_style or LIGHT_GRAY)
+                shadow_style = DIM + GRAY
+                for token in re.findall(r"\S+|\s+", str(segment_text)):
+                    if not token:
+                        continue
+                    if token.isspace():
+                        x_px += max(1, _font_text_width(chosen_font, token))
+                        continue
+                    glyph = _token_bitmap(token, chosen_size_px, bool(bold))
+                    token_points = tuple(glyph.get("points") or ())
+                    for px, py in token_points:
+                        _braille_put(canvas, x_px + px, y_px + py, priority=3, style=style, glyph_mode="raster")
+                    x_px += max(1, int(glyph.get("width") or _token_draw_width(chosen_font, token, chosen_size_px) or 1))
+        y_px += step_px
+    return _braille_lines(canvas)[:max_rows]
+
+
+@lru_cache(maxsize=128)
+def _surface_cell_template(width_cells, max_rows, bg_style="", texture="paper", texture_style="", density_key=0):
+    width_cells = max(1, int(width_cells or 1))
+    max_rows = max(1, int(max_rows or 1))
+    bg = str(bg_style or "")
+    grain = str(texture_style or "")
+    fill_density = _normalize_surface_density(float(density_key or 0) / 100.0)
+    rows = []
+    for row_index in range(max_rows):
+        row = []
+        for col_index in range(width_cells):
+            char = _plate_texture_char(col_index, row_index, texture=texture, density=fill_density)
+            row.append((
+                char if char and char != " " else " ",
+                bg,
+                grain if char and char != " " else "",
+            ))
+        rows.append(tuple(row))
+    return tuple(rows)
+
+
+def _surface_cells(width_cells, max_rows, bg_style="", texture="paper", texture_style="", density=0.0):
+    width_cells = max(1, int(width_cells or 1))
+    max_rows = max(1, int(max_rows or 1))
+    bg = str(bg_style or "")
+    grain = str(texture_style or "")
+    density_key = int(round(_normalize_surface_density(density) * 100.0))
+    template = _surface_cell_template(
+        width_cells,
+        max_rows,
+        bg_style=bg,
+        texture=texture,
+        texture_style=grain,
+        density_key=density_key,
+    )
+    rows = []
+    for template_row in template:
+        row = []
+        for char, cell_bg, fg_style in template_row:
+            row.append({
+                "char": char,
+                "bg_style": cell_bg,
+                "fg_style": fg_style,
+            })
+        rows.append(row)
+    return rows
+
+
+def _overlay_surface_text(surface_rows, text_lines, start_row=0):
+    rows = list(surface_rows or [])
+    base_row = max(0, int(start_row or 0))
+    for row_offset, line in enumerate(list(text_lines or [])):
+        row_index = base_row + row_offset
+        if row_index >= len(rows):
+            break
+        cells = rows[row_index]
+        column = 0
+        for segment_text, segment_style in _ansi_segments(line):
+            style = str(segment_style or "")
+            for char in str(segment_text or ""):
+                char_width = _char_display_width(char)
+                if char_width <= 0:
+                    continue
+                if char.isspace():
+                    column += char_width
+                    continue
+                if column >= len(cells):
+                    break
+                cells[column]["char"] = char
+                cells[column]["fg_style"] = style
+                column += char_width
+            if column >= len(cells):
+                break
+    return rows
+
+
+def _surface_rows_to_text(surface_rows):
+    out = []
+    for row in list(surface_rows or []):
+        parts = []
+        for cell in list(row or []):
+            char = str((cell or {}).get("char") or " ")
+            style = str((cell or {}).get("bg_style") or "") + str((cell or {}).get("fg_style") or "")
+            if style:
+                parts.append(style + char + RESET)
+            else:
+                parts.append(char)
+        out.append("".join(parts))
+    return out
+
+
+def _render_surface_text_lines(
+    lines,
+    width_cells,
+    max_rows,
+    default_style=LIGHT_GRAY,
+    align="left",
+    widen=False,
+    bg_style=BG_GRAPHITE,
+    texture="paper",
+    texture_style=PLATE_GRAIN_SOFT,
+    density=0.35,
+):
+    text_rows = _render_wide_text_lines(
+        lines,
+        width_cells,
+        max_rows,
+        default_style=default_style,
+        align=align,
+        widen=widen,
+    )
+    surface = _surface_cells(
+        width_cells,
+        max_rows,
+        bg_style=bg_style,
+        texture=texture,
+        texture_style=texture_style,
+        density=density,
+    )
+    return _surface_rows_to_text(_overlay_surface_text(surface, text_rows))
+
+
+def _stack_wrapped_rows(rows, width):
+    width = max(20, int(width or 20))
+    out = []
+    for row in list(rows or []):
+        text = str(row or "")
+        if not text.strip():
+            if out and out[-1] != "":
+                out.append("")
+            elif not out:
+                out.append("")
+            continue
+        out.extend(_wrap_block(text, width))
+    while out and not str(out[-1]).strip():
+        out.pop()
+    return out
 
 
 def _enable_vt_mode():
@@ -144,6 +838,80 @@ def _clamp01(value):
     return num
 
 
+def _normalize_surface_mode(value, default=TEXT_THEATER_SURFACE_MODE):
+    mode = str(value or default or "legacy").strip().lower() or "legacy"
+    if mode not in TEXT_THEATER_SURFACE_MODES:
+        return str(default or "legacy")
+    return mode
+
+
+def _normalize_surface_density(value, default=TEXT_THEATER_SURFACE_DENSITY):
+    if value is None:
+        return _clamp01(default)
+    return _clamp01(value)
+
+
+def _cycle_surface_mode(current, step=1):
+    current_mode = _normalize_surface_mode(current)
+    index = TEXT_THEATER_SURFACE_MODES.index(current_mode)
+    return TEXT_THEATER_SURFACE_MODES[(index + int(step or 1)) % len(TEXT_THEATER_SURFACE_MODES)]
+
+
+def _surface_status_line(surface_mode, surface_density):
+    mode = _normalize_surface_mode(surface_mode)
+    density = _normalize_surface_density(surface_density)
+    return f"surface={mode} density={density:.2f}"
+
+
+def _surface_profile(surface_mode, surface_density):
+    mode = _normalize_surface_mode(surface_mode)
+    density = _normalize_surface_density(surface_density)
+    if mode == "granular":
+        return {
+            "mode": mode,
+            "density": density,
+            "title_mode": "raster",
+            "body_mode": "raster",
+            "title_widen": False,
+            "body_widen": False,
+            "surface_style": BG_GRAPHITE,
+            "surface_texture": "typewriter",
+            "surface_texture_style": DIM + PLATE_GRAIN,
+            "surface_texture_density": min(1.0, 0.35 + (density * 0.65)),
+            "raster_preferred_px": 11,
+            "raster_min_px": 7,
+        }
+    if mode == "sharp":
+        return {
+            "mode": mode,
+            "density": density,
+            "title_mode": "wide",
+            "body_mode": "wide",
+            "title_widen": False,
+            "body_widen": False,
+            "surface_style": BG_GRAPHITE,
+            "surface_texture": "paper",
+            "surface_texture_style": "",
+            "surface_texture_density": 0.0,
+            "raster_preferred_px": 10,
+            "raster_min_px": 7,
+        }
+    return {
+        "mode": "legacy",
+        "density": density,
+        "title_mode": "wide",
+        "body_mode": "wide",
+        "title_widen": True,
+        "body_widen": True,
+        "surface_style": "",
+        "surface_texture": "paper",
+        "surface_texture_style": "",
+        "surface_texture_density": 0.0,
+        "raster_preferred_px": 10,
+        "raster_min_px": 7,
+    }
+
+
 def _style_inline(text, style):
     if not style:
         return str(text or "")
@@ -187,6 +955,161 @@ def _balance_load_band(balance):
         return _load_band(0.0)
     risk = float(balance.get("stability_risk") or 0.0)
     return _load_band(risk)
+
+
+def _blackboard_row_style(row):
+    if not isinstance(row, dict):
+        return CYAN
+    state = str(row.get("tolerance_state") or "INFO").strip().upper()
+    if state == "CRITICAL":
+        return RED
+    if state == "DEGRADED":
+        return ORANGE
+    if state == "WATCH":
+        return YELLOW
+    if state == "WITHIN":
+        return GREEN
+    return CYAN
+
+
+def _blackboard_anchor_text(anchor):
+    if not isinstance(anchor, dict):
+        return "global"
+    kind = str(anchor.get("type") or "global").strip().lower() or "global"
+    if kind == "bone":
+        return f"bone:{str(anchor.get('id') or '')}"
+    if kind == "contact":
+        return f"contact:{str(anchor.get('id') or '')}"
+    if kind == "object":
+        return f"object:{str(anchor.get('key') or '')}"
+    if kind == "world":
+        pos = anchor.get("position") if isinstance(anchor.get("position"), dict) else {}
+        return "world:(" + f"{float(pos.get('x') or 0.0):.2f}, {float(pos.get('y') or 0.0):.2f}, {float(pos.get('z') or 0.0):.2f})"
+    if kind == "screen":
+        pos = anchor.get("position") if isinstance(anchor.get("position"), dict) else {}
+        return "screen:(" + f"{float(pos.get('x') or 0.0):.2f}, {float(pos.get('y') or 0.0):.2f})"
+    return kind
+
+
+def _format_blackboard_row(row):
+    if not isinstance(row, dict):
+        return ""
+    style = _blackboard_row_style(row)
+    source = str(row.get("source") or "MEAS").strip().upper()
+    state = str(row.get("tolerance_state") or "INFO").strip().upper()
+    family = str(row.get("family") or "misc").strip()
+    label = str(row.get("label") or row.get("id") or "row")
+    value_text = str(row.get("value_text") or row.get("value") or "").strip()
+    anchor_text = _blackboard_anchor_text(row.get("anchor"))
+    priority = float(row.get("priority") or 0.0)
+    session_weight = float(row.get("session_weight") or 0.0)
+    line = (
+        f"[{source}/{state}] "
+        + label
+        + (f": {value_text}" if value_text else "")
+        + f" / {family}"
+        + f" / @ {anchor_text}"
+        + f" / p {priority:.2f}"
+        + f" / s {session_weight:.2f}"
+    )
+    detail = str(row.get("detail") or "").strip()
+    if detail:
+        line += " / " + detail
+    return _style_inline(line, style)
+
+
+def _render_blackboard_section(snapshot, width):
+    snapshot = snapshot if isinstance(snapshot, dict) else {}
+    blackboard = snapshot.get("blackboard") if isinstance(snapshot.get("blackboard"), dict) else {}
+    working = blackboard.get("working_set") if isinstance(blackboard.get("working_set"), dict) else {}
+    focus = blackboard.get("focus") if isinstance(blackboard.get("focus"), dict) else {}
+    rows = blackboard.get("rows") if isinstance(blackboard.get("rows"), list) else []
+    families = blackboard.get("families") if isinstance(blackboard.get("families"), list) else []
+    lines = [
+        f"row_count={int(blackboard.get('row_count') or 0)} families={families}",
+        f"focus kind={focus.get('kind', '')} id={focus.get('id', '')} class={focus.get('target_class', '')}",
+        f"active_controller={working.get('active_controller_id', '')} active_route={working.get('active_route_id', '')}",
+        f"selection={working.get('selected_bone_ids', [])}",
+        f"intended_support={working.get('intended_support_set', [])} missing_support={working.get('missing_support_set', [])}",
+        f"lead_rows={working.get('lead_row_ids', [])}",
+    ]
+    for row in rows[:12]:
+        rendered = _format_blackboard_row(row)
+        if rendered:
+            lines.append(rendered)
+    return _wrap_block("\n".join(lines), width)
+
+
+def _render_profiles_section(snapshot, width):
+    snapshot = snapshot if isinstance(snapshot, dict) else {}
+    profiles = snapshot.get("text_theater_profiles") if isinstance(snapshot.get("text_theater_profiles"), dict) else {}
+    designation = profiles.get("designation_contract") if isinstance(profiles.get("designation_contract"), dict) else {}
+    families = profiles.get("families") if isinstance(profiles.get("families"), dict) else {}
+    surface_defaults = profiles.get("surface_defaults") if isinstance(profiles.get("surface_defaults"), dict) else {}
+    lines = [
+        f"registry_version={int(profiles.get('version') or 0)} default_family={profiles.get('default_family_id', '')}",
+        f"first_wave={profiles.get('first_wave_ids', [])}",
+        f"surface_defaults={surface_defaults}",
+        "designation="
+        + str(designation.get("source") or "blackboard_row_tolerance")
+        + " / states "
+        + str(designation.get("tolerance_states") or [])
+        + " / range "
+        + str(designation.get("range_mode") or "inherit"),
+    ]
+    for family_id, profile in list(families.items())[:12]:
+        if not isinstance(profile, dict):
+            continue
+        admission = profile.get("row_admission") if isinstance(profile.get("row_admission"), dict) else {}
+        lines.append(
+            f"{family_id}: {profile.get('family', '')} / variant {profile.get('default_variant', '')} / {profile.get('density', '')} / {profile.get('audience', '')} / wave {profile.get('rollout_wave', '')}"
+        )
+        lines.append(
+            "  promotes "
+            + str(profile.get("promoted_families") or [])
+            + " / suppresses "
+            + str(profile.get("suppressed_families") or [])
+        )
+        lines.append(
+            "  admission rows="
+            + str(admission.get("max_visible_rows", ""))
+            + " per_family="
+            + str(admission.get("max_per_family", ""))
+            + " sticky_ms="
+            + str(admission.get("sticky_decay_ms", ""))
+            + " session_boost="
+            + str(admission.get("session_weight_boost", ""))
+            + " blocker_auto_promote="
+            + str(bool(admission.get("blocker_auto_promote")))
+        )
+    return _wrap_block("\n".join(lines), width)
+
+
+def _render_help_overlay(snapshot, width, height, view_mode, section_key, diagnostics_visible, surface_mode=TEXT_THEATER_SURFACE_MODE, surface_density=TEXT_THEATER_SURFACE_DENSITY):
+    width = max(80, int(width or 80))
+    height = max(12, int(height or 12))
+    lines = []
+    lines.extend(_wrap_block("Main view is split. Use m or 6 to return there from anywhere.", width - 2))
+    lines.extend(_wrap_block("Views: 1 render | 2 consult | 3 theater | 4 embodiment | 5 snapshot | 6 split(main)", width - 2))
+    lines.extend(_wrap_block("Diagnostics: d toggle | tab next section | g jump to blackboard | p jump to profiles | s cycle surface | -/= density | h hide help | q quit | r retry", width - 2))
+    lines.extend(_wrap_block(
+        "Current: view=" + str(view_mode or "split")
+        + " | diagnostics=" + str(bool(diagnostics_visible))
+        + " | section=" + str(section_key or "theater")
+        + " | " + _surface_status_line(surface_mode, surface_density)
+        + " | focus=" + str((((snapshot.get('theater') or {}).get('focus') or {}).get('id') or 'none')),
+        width - 2,
+    ))
+    lines.append("")
+    lines.extend(_wrap_block(
+        "Legacy preserves the current depiction. Sharp adds a pane-wide operator substrate with finer text; granular pushes farther into glyph-field rendering without touching the raw scene lane.",
+        width - 2,
+    ))
+    lines.extend(_wrap_block(
+        "Profiles remain live in the registry. Use p for the profiles section; current text-theater spectrum state is shown in the status panel.",
+        width - 2,
+    ))
+    return _box("Help", lines, width, height, color=MAGENTA, surface_mode=surface_mode, surface_density=surface_density)
 
 
 def _post_json(url, payload, timeout):
@@ -367,7 +1290,7 @@ def _wrap_block(text, width):
 
 def _pad_line(text, width):
     raw = str(text or "")
-    visible = len(ANSI_RE.sub("", raw))
+    visible = _display_width(raw)
     if visible > width:
         out = []
         index = 0
@@ -381,9 +1304,13 @@ def _pad_line(text, width):
                     index = match.end()
                     saw_ansi = True
                     continue
-            out.append(raw[index])
+            char = raw[index]
+            char_width = _char_display_width(char)
+            if (taken + char_width) > width:
+                break
+            out.append(char)
             index += 1
-            taken += 1
+            taken += char_width
         clipped = "".join(out)
         if saw_ansi and not clipped.endswith(RESET):
             clipped += RESET
@@ -391,15 +1318,102 @@ def _pad_line(text, width):
     return raw + (" " * max(0, width - visible))
 
 
-def _box(title, lines, width, height, color=CYAN):
+def _box(title, lines, width, height, color=CYAN, body_mode="wide", surface_mode=None, surface_density=None):
     inner_width = max(1, width - 2)
     body_height = max(0, height - 2)
-    header = f"{color}{BOLD}{title}{RESET}"
-    top = "┌" + _pad_line(header, inner_width) + "┐"
+    top = "┌" + ("─" * inner_width) + "┐"
     out = [top]
     normalized = list(lines or [])
+    mode = str(body_mode or "wide").strip().lower() or "wide"
+    profile = _surface_profile(surface_mode, surface_density)
+    uses_surface_field = mode != "raw" and str(profile.get("mode") or "legacy") != "legacy"
+    title_mode = mode if mode == "raw" else str(profile.get("title_mode") or mode)
+    body_mode_effective = mode if mode != "wide" else str(profile.get("body_mode") or mode)
+    if title_mode == "wide" and body_height >= 2:
+        title_rows = _render_wide_text_lines(
+            [str(title or "")],
+            max(6, inner_width - 2),
+            max(1, min(3, body_height - 1)),
+            default_style=(BOLD + str(color or CYAN)),
+            align="center",
+            widen=bool(profile.get("title_widen", True)),
+        )
+    elif title_mode == "raster" and body_height >= 2:
+        title_rows = _render_raster_text_lines(
+            [str(title or "")],
+            max(6, inner_width - 2),
+            max(1, min(3, body_height - 1)),
+            default_style=color,
+            preferred_px=11,
+            min_px=8,
+            bold=True,
+            align="center",
+            full_surface_style="" if uses_surface_field else str(profile.get("surface_style") or ""),
+            full_surface_texture=str(profile.get("surface_texture") or "paper"),
+            full_surface_texture_style="" if uses_surface_field else str(profile.get("surface_texture_style") or ""),
+            full_surface_density=0.0 if uses_surface_field else float(profile.get("surface_texture_density") or 0.0),
+        )
+    else:
+        title_rows = []
+    use_display_title = bool(title_rows)
+    use_display_body = mode != "raw"
+    body_prefix = []
+    if use_display_title:
+        body_prefix.extend(title_rows)
+        body_prefix.append("")
+    else:
+        header = f"{color}{BOLD}{title}{RESET}"
+        out[0] = "┌" + _pad_line(header, inner_width) + "┐"
+    remaining_body_rows = max(0, body_height - len(body_prefix))
+    if use_display_body and remaining_body_rows > 0:
+        if body_mode_effective == "wide":
+            body_lines = _render_wide_text_lines(
+                normalized,
+                max(6, inner_width - 2),
+                remaining_body_rows,
+                default_style=str(color or LIGHT_GRAY),
+                align="left",
+                widen=bool(profile.get("body_widen", True)),
+            )
+        elif body_mode_effective == "raster":
+            body_lines = _render_raster_text_lines(
+                normalized,
+                max(6, inner_width - 2),
+                remaining_body_rows,
+                default_style=color,
+                preferred_px=int(profile.get("raster_preferred_px") or 10),
+                min_px=int(profile.get("raster_min_px") or 7),
+                align="left",
+                full_surface_style="" if uses_surface_field else str(profile.get("surface_style") or ""),
+                full_surface_texture=str(profile.get("surface_texture") or "paper"),
+                full_surface_texture_style="" if uses_surface_field else str(profile.get("surface_texture_style") or ""),
+                full_surface_density=0.0 if uses_surface_field else float(profile.get("surface_texture_density") or 0.0),
+            )
+        else:
+            body_lines = normalized
+    else:
+        body_lines = normalized
+    if uses_surface_field and body_height > 0:
+        surface_rows = _surface_cells(
+            inner_width,
+            body_height,
+            bg_style=str(profile.get("surface_style") or BG_GRAPHITE),
+            texture=str(profile.get("surface_texture") or "paper"),
+            texture_style=str(profile.get("surface_texture_style") or ""),
+            density=float(profile.get("surface_texture_density") or 0.0),
+        )
+        row_cursor = 0
+        if title_rows:
+            _overlay_surface_text(surface_rows, title_rows, start_row=row_cursor)
+            row_cursor += len(title_rows)
+            if row_cursor < body_height:
+                row_cursor += 1
+        _overlay_surface_text(surface_rows, body_lines, start_row=row_cursor)
+        display_lines = _surface_rows_to_text(surface_rows)
+    else:
+        display_lines = body_prefix + body_lines
     for idx in range(body_height):
-        line = normalized[idx] if idx < len(normalized) else ""
+        line = display_lines[idx] if idx < len(display_lines) else ""
         out.append("│" + _pad_line(line, inner_width) + "│")
     out.append("└" + ("─" * inner_width) + "┘")
     return out[:height] if height > 0 else []
@@ -947,7 +1961,18 @@ def _make_braille_canvas(width, height):
         "surface": None,
         "cells": [
             [
-                {"mask": 0, "style": "", "priority": 0, "weight": 0}
+                {
+                    "mask": 0,
+                    "style": "",
+                    "priority": 0,
+                    "weight": 0,
+                    "glyph_mode": "",
+                    "bg_style": "",
+                    "bg_priority": 0,
+                    "bg_char": "",
+                    "bg_char_style": "",
+                    "bg_char_priority": 0,
+                }
                 for _ in range(max(1, int(width or 1)))
             ]
             for _ in range(max(1, int(height or 1)))
@@ -966,7 +1991,7 @@ def _make_braille_canvas(width, height):
     return canvas
 
 
-def _braille_put(canvas, x, y, priority=1, style=""):
+def _braille_put(canvas, x, y, priority=1, style="", glyph_mode=""):
     if not canvas:
         return
     width = int(canvas.get("width") or 0)
@@ -996,6 +2021,8 @@ def _braille_put(canvas, x, y, priority=1, style=""):
         cell["priority"] = int(priority)
         if style:
             cell["style"] = style
+        if glyph_mode:
+            cell["glyph_mode"] = str(glyph_mode or "")
 
 
 def _braille_cluster(canvas, x, y, priority=1, style="", radius=0):
@@ -1005,6 +2032,70 @@ def _braille_cluster(canvas, x, y, priority=1, style="", radius=0):
             if (dx * dx) + (dy * dy) > max(1, radius * radius + radius):
                 continue
             _braille_put(canvas, x + dx, y + dy, priority=priority, style=style)
+
+
+def _braille_fill_rect(canvas, left, top, right, bottom, style="", priority=1):
+    if not canvas or not style:
+        return
+    width = int(canvas.get("width") or 0)
+    height = int(canvas.get("height") or 0)
+    if width <= 0 or height <= 0:
+        return
+    x0 = max(0, min(width - 1, int(math.floor(min(float(left or 0), float(right or 0)) / 2.0))))
+    x1 = max(0, min(width - 1, int(math.floor(max(float(left or 0), float(right or 0)) / 2.0))))
+    y0 = max(0, min(height - 1, int(math.floor(min(float(top or 0), float(bottom or 0)) / 4.0))))
+    y1 = max(0, min(height - 1, int(math.floor(max(float(top or 0), float(bottom or 0)) / 4.0))))
+    for cell_y in range(y0, y1 + 1):
+        for cell_x in range(x0, x1 + 1):
+            cell = canvas["cells"][cell_y][cell_x]
+            if int(priority) >= int(cell.get("bg_priority", 0)):
+                cell["bg_priority"] = int(priority)
+                cell["bg_style"] = str(style or "")
+
+
+def _plate_texture_char(cell_x, cell_y, texture="paper", density=1.0):
+    texture_id = str(texture or "paper").strip().lower()
+    seed = (int(cell_x) * 17) + (int(cell_y) * 31)
+    if texture_id == "paper":
+        pattern = (" ", " ", " ", " ", " ", "⠂", " ", " ", " ", "⠁", " ", " ", " ", " ")
+    elif texture_id == "typewriter":
+        pattern = (" ", " ", " ", "⠂", " ", " ", " ", "⠄", " ", " ", " ", "⠂", " ", " ", " ")
+    elif texture_id == "xray":
+        pattern = (" ", " ", " ", "⠁", " ", " ", "⠂", " ", " ", "⠄", " ", " ", " ")
+    else:
+        pattern = (" ", " ", " ", "⠂", " ", " ", "⠄", " ", " ", " ")
+    char = pattern[seed % len(pattern)]
+    if not char or char == " ":
+        return " "
+    keep_threshold = int(round(_normalize_surface_density(density) * 100.0))
+    if keep_threshold <= 0:
+        return " "
+    if (abs(seed) % 100) >= keep_threshold:
+        return " "
+    return char
+
+
+def _braille_texture_rect(canvas, left, top, right, bottom, style="", priority=1, texture="paper", density=1.0):
+    if not canvas:
+        return
+    width = int(canvas.get("width") or 0)
+    height = int(canvas.get("height") or 0)
+    if width <= 0 or height <= 0:
+        return
+    x0 = max(0, min(width - 1, int(math.floor(min(float(left or 0), float(right or 0)) / 2.0))))
+    x1 = max(0, min(width - 1, int(math.floor(max(float(left or 0), float(right or 0)) / 2.0))))
+    y0 = max(0, min(height - 1, int(math.floor(min(float(top or 0), float(bottom or 0)) / 4.0))))
+    y1 = max(0, min(height - 1, int(math.floor(max(float(top or 0), float(bottom or 0)) / 4.0))))
+    for cell_y in range(y0, y1 + 1):
+        for cell_x in range(x0, x1 + 1):
+            char = _plate_texture_char(cell_x, cell_y, texture=texture, density=density)
+            if not char or char == " ":
+                continue
+            cell = canvas["cells"][cell_y][cell_x]
+            if int(priority) >= int(cell.get("bg_char_priority", 0)):
+                cell["bg_char_priority"] = int(priority)
+                cell["bg_char"] = char
+                cell["bg_char_style"] = str(style or "")
 
 
 def _braille_lines(canvas):
@@ -1024,9 +2115,25 @@ def _braille_lines(canvas):
         for col_index, cell in enumerate(row):
             mask = int((cell or {}).get("mask") or 0)
             style = str((cell or {}).get("style") or "")
+            glyph_mode = str((cell or {}).get("glyph_mode") or "")
+            bg_style = str((cell or {}).get("bg_style") or "")
+            bg_char = str((cell or {}).get("bg_char") or "")
+            bg_char_style = str((cell or {}).get("bg_char_style") or "")
+            # Keep raster text on the braille occupancy substrate. Remapping
+            # those masks into block/quarter-block glyphs is what turned the
+            # readable fuzzy letters into symbol soup.
             char = raw[col_index] if col_index < len(raw) else (" " if mask <= 0 else chr(0x2800 + mask))
-            if style and char != " ":
-                parts.append(style + char + RESET)
+            combined_style = ""
+            if bg_style:
+                combined_style += bg_style
+            if style:
+                combined_style += style
+            if combined_style and char != " ":
+                parts.append(combined_style + char + RESET)
+            elif bg_style and bg_char and char == " ":
+                parts.append(bg_style + bg_char_style + bg_char + RESET)
+            elif bg_style and char == " ":
+                parts.append(bg_style + " " + RESET)
             else:
                 parts.append(char)
         rows.append("".join(parts).rstrip())
@@ -2863,16 +3970,55 @@ def _motion_status_line(snapshot):
     )
 
 
-def _compact_status_lines(snapshot, width):
+def _profile_status_line(snapshot):
+    snapshot = snapshot if isinstance(snapshot, dict) else {}
+    profiles = snapshot.get("text_theater_profiles") if isinstance(snapshot.get("text_theater_profiles"), dict) else {}
+    defaults = profiles.get("surface_defaults") if isinstance(profiles.get("surface_defaults"), dict) else {}
+    text_profile = str(defaults.get("text_theater") or profiles.get("default_family_id") or "operator_default")
+    blackboard_profile = str(defaults.get("blackboard") or "mechanics_telemetry")
+    chrome_profile = str(defaults.get("chrome") or "spectacle_showcase")
+    return (
+        "profiles text=" + text_profile
+        + " blackboard=" + blackboard_profile
+        + " chrome=" + chrome_profile
+    )
+
+
+def _compact_status_lines(snapshot, width, surface_mode=TEXT_THEATER_SURFACE_MODE, surface_density=TEXT_THEATER_SURFACE_DENSITY):
     balance = snapshot.get("balance") or {}
     runtime = snapshot.get("runtime") or {}
     theater = snapshot.get("theater") or {}
-    lines = [
+    base_rows = [
         f"focus={((theater.get('focus') or {}).get('id') or 'none')} phase={balance.get('support_phase', 'unknown')} risk={balance.get('stability_risk', '?')} grounded={runtime.get('grounded', '?')} bundle={snapshot.get('bundle_version', '?')}",
         _motion_status_line(snapshot),
-        "keys: q quit | d diagnostics | tab cycle diag | 1 render | 2 theater | 3 embodiment | 4 snapshot | 5 split",
+        _profile_status_line(snapshot),
+        _surface_status_line(surface_mode, surface_density),
     ]
-    return _wrap_block("\n".join(lines), width)
+    lines = _stack_wrapped_rows(base_rows, width)
+    menu_lines = _control_menu_lines(width)
+    if menu_lines:
+        if lines:
+            lines.append("")
+        lines.extend(menu_lines)
+    return lines
+
+
+def _split_status_lines(snapshot, width, surface_mode=TEXT_THEATER_SURFACE_MODE, surface_density=TEXT_THEATER_SURFACE_DENSITY):
+    snapshot = snapshot if isinstance(snapshot, dict) else {}
+    balance = snapshot.get("balance") or {}
+    runtime = snapshot.get("runtime") or {}
+    theater = snapshot.get("theater") or {}
+    rows = [
+        f"focus={((theater.get('focus') or {}).get('id') or 'none')}",
+        f"phase={balance.get('support_phase', 'unknown')}",
+        f"risk={balance.get('stability_risk', '?')} grd={runtime.get('grounded', '?')} b={snapshot.get('bundle_version', '?')}",
+        "views m/6 2 3 4 5",
+        "board d tab g p",
+        "surface s - =",
+        _surface_status_line(surface_mode, surface_density),
+        "help h q r",
+    ]
+    return _stack_wrapped_rows(rows, width)
 
 
 def _snapshot_is_live_camera(snapshot):
@@ -2995,6 +4141,10 @@ def _section_lines(snapshot, section_key, width):
             f"key_pose_count={timeline.get('key_pose_count', 0)} interpolation={timeline.get('interpolation', '')}",
         ]
         return _wrap_block("\n".join(rows), width)
+    if section_key == "blackboard":
+        return _render_blackboard_section(snapshot, width)
+    if section_key == "profiles":
+        return _render_profiles_section(snapshot, width)
     if section_key == "semantic":
         semantic = snapshot.get("semantic") or {}
         rows = [f"summary={semantic.get('summary', '')}"]
@@ -3007,18 +4157,25 @@ def _section_lines(snapshot, section_key, width):
     return _safe_json_lines(value, width)
 
 
-def _build_status_lines(snapshot, section_key, width):
+def _build_status_lines(snapshot, section_key, width, surface_mode=TEXT_THEATER_SURFACE_MODE, surface_density=TEXT_THEATER_SURFACE_DENSITY):
     balance = snapshot.get("balance") or {}
     stale = snapshot.get("stale_flags") or {}
     runtime = snapshot.get("runtime") or {}
-    lines = [
+    base_rows = [
         f"phase={balance.get('support_phase', 'unknown')} risk={balance.get('stability_risk', '?')} margin={balance.get('stability_margin', '?')}",
         f"runtime={runtime.get('mode', '?')} grounded={runtime.get('grounded', '?')} sync_reason={snapshot.get('last_sync_reason', '')}",
         _motion_status_line(snapshot),
         f"section={section_key} mirror_lag={bool(stale.get('mirror_lag'))} bundle={snapshot.get('bundle_version', '?')}",
-        "keys: q quit | d diagnostics | tab cycle diag | 1 render | 2 theater | 3 embodiment | 4 snapshot | 5 split",
+        _profile_status_line(snapshot),
+        _surface_status_line(surface_mode, surface_density),
     ]
-    return _wrap_block("\n".join(lines), width)
+    lines = _stack_wrapped_rows(base_rows, width)
+    menu_lines = _control_menu_lines(width)
+    if menu_lines:
+        if lines:
+            lines.append("")
+        lines.extend(menu_lines)
+    return lines
 
 
 def _render_local_theater_text(snapshot):
@@ -3329,17 +4486,17 @@ def _render_consult_motion_text(snapshot):
     ])
 
 
-def _render_consult_view(snapshot, width, height, diagnostics_visible, section_key):
+def _render_consult_view(snapshot, width, height, diagnostics_visible, section_key, surface_mode=TEXT_THEATER_SURFACE_MODE, surface_density=TEXT_THEATER_SURFACE_DENSITY):
     width = max(80, width)
     height = max(24, height)
-    main_height = max(12, height - (15 if diagnostics_visible else 5))
+    main_height = max(12, height - (15 if diagnostics_visible else 8))
     top_height = max(6, min(9, main_height // 3))
     middle_height = max(8, min(11, (main_height - top_height) // 2))
     bottom_height = max(8, main_height - top_height - middle_height)
     lines = []
-    lines.extend(_box("Orientation", _wrap_block(_render_consult_orientation_text(snapshot), width - 2), width, top_height, color=CYAN))
-    lines.extend(_box("Pose Control", _wrap_block(_render_consult_pose_text(snapshot), width - 2), width, middle_height, color=GREEN))
-    lines.extend(_box("Footing And Motion", _wrap_block(_render_consult_motion_text(snapshot), width - 2), width, bottom_height, color=ORANGE))
+    lines.extend(_box("Orientation", _wrap_block(_render_consult_orientation_text(snapshot), width - 2), width, top_height, color=CYAN, surface_mode=surface_mode, surface_density=surface_density))
+    lines.extend(_box("Pose Control", _wrap_block(_render_consult_pose_text(snapshot), width - 2), width, middle_height, color=GREEN, surface_mode=surface_mode, surface_density=surface_density))
+    lines.extend(_box("Footing And Motion", _wrap_block(_render_consult_motion_text(snapshot), width - 2), width, bottom_height, color=ORANGE, surface_mode=surface_mode, surface_density=surface_density))
     if diagnostics_visible:
         lines.extend(_box(
             f"Diagnostics · {dict(PANE_SECTIONS).get(section_key, section_key)}",
@@ -3347,10 +4504,12 @@ def _render_consult_view(snapshot, width, height, diagnostics_visible, section_k
             width,
             max(7, min(12, height - len(lines) - 3)),
             color=GREEN,
+            surface_mode=surface_mode,
+            surface_density=surface_density,
         ))
-        lines.extend(_box("Status", _build_status_lines(snapshot, section_key, width - 2), width, max(3, height - len(lines)), color=YELLOW))
+        lines.extend(_box("Status", _build_status_lines(snapshot, section_key, width - 2, surface_mode=surface_mode, surface_density=surface_density), width, max(3, height - len(lines)), color=YELLOW, surface_mode=surface_mode, surface_density=surface_density))
     else:
-        lines.extend(_box("Status", _compact_status_lines(snapshot, width - 2), width, max(3, height - len(lines)), color=YELLOW))
+        lines.extend(_box("Status", _compact_status_lines(snapshot, width - 2, surface_mode=surface_mode, surface_density=surface_density), width, max(3, height - len(lines)), color=YELLOW, surface_mode=surface_mode, surface_density=surface_density))
     return lines
 
 
@@ -3654,15 +4813,16 @@ def _render_local_embodiment_text(snapshot):
 def _local_text_outputs(snapshot, view_mode):
     if not isinstance(snapshot, dict):
         return "", ""
-    theater = _render_local_theater_text(snapshot) if view_mode in ("theater", "split") else ""
-    embodiment = _render_local_embodiment_text(snapshot) if view_mode in ("embodiment", "split") else ""
+    mode = str(view_mode or "split").strip().lower()
+    theater = _render_local_theater_text(snapshot) if mode in ("theater", "split", "render", "consult") else ""
+    embodiment = _render_local_embodiment_text(snapshot) if mode in ("embodiment", "split", "render", "consult") else ""
     return theater, embodiment
 
 
-def _render_render_view(snapshot, theater_text, width, height, diagnostics_visible, section_key, history=None):
+def _render_render_view(snapshot, theater_text, width, height, diagnostics_visible, section_key, history=None, surface_mode=TEXT_THEATER_SURFACE_MODE, surface_density=TEXT_THEATER_SURFACE_DENSITY):
     width = max(80, width)
     height = max(24, height)
-    content_height = max(10, height - 5)
+    content_height = max(10, height - 8)
     if diagnostics_visible:
         content_height = max(10, height - 17)
 
@@ -3672,8 +4832,8 @@ def _render_render_view(snapshot, theater_text, width, height, diagnostics_visib
     if live_camera and width >= 120 and content_height >= 18:
         left_width = max(48, int(width * 0.66))
         right_width = max(24, width - left_width - 1)
-        main_box = _box("Scene", _render_projection(snapshot, left_width - 2, content_height - 2, "perspective", history=render_history), left_width, content_height)
-        right_box = _box("Theater", _wrap_block(theater_text, right_width - 2), right_width, content_height)
+        main_box = _box("Scene", _render_projection(snapshot, left_width - 2, content_height - 2, "perspective", history=render_history), left_width, content_height, body_mode="raw")
+        right_box = _box("Theater", _wrap_block(theater_text, right_width - 2), right_width, content_height, body_mode="wide", surface_mode=surface_mode, surface_density=surface_density)
         row_count = max(len(main_box), len(right_box))
         for idx in range(row_count):
             left_line = main_box[idx] if idx < len(main_box) else (" " * left_width)
@@ -3682,11 +4842,11 @@ def _render_render_view(snapshot, theater_text, width, height, diagnostics_visib
     elif width >= 120 and content_height >= 18:
         left_width = max(48, int(width * 0.66))
         right_width = max(24, width - left_width - 1)
-        main_box = _box("Scene", _render_projection(snapshot, left_width - 2, content_height - 2, "perspective", history=render_history), left_width, content_height)
+        main_box = _box("Scene", _render_projection(snapshot, left_width - 2, content_height - 2, "perspective", history=render_history), left_width, content_height, body_mode="raw")
         top_height = max(8, content_height // 2)
         front_height = content_height - top_height
-        top_box = _box("Quarter", _render_projection(snapshot, right_width - 2, top_height - 2, "quarter", history=render_history), right_width, top_height)
-        front_box = _box("Profile", _render_projection(snapshot, right_width - 2, front_height - 2, "profile", history=render_history), right_width, front_height)
+        top_box = _box("Quarter", _render_projection(snapshot, right_width - 2, top_height - 2, "quarter", history=render_history), right_width, top_height, body_mode="raw")
+        front_box = _box("Profile", _render_projection(snapshot, right_width - 2, front_height - 2, "profile", history=render_history), right_width, front_height, body_mode="raw")
         right_lines = top_box + front_box
         row_count = max(len(main_box), len(right_lines))
         for idx in range(row_count):
@@ -3694,7 +4854,7 @@ def _render_render_view(snapshot, theater_text, width, height, diagnostics_visib
             right_line = right_lines[idx] if idx < len(right_lines) else (" " * right_width)
             lines.append(left_line + " " + right_line)
     else:
-        lines.extend(_box("Scene", _render_projection(snapshot, width - 2, content_height - 2, "perspective", history=render_history), width, content_height))
+        lines.extend(_box("Scene", _render_projection(snapshot, width - 2, content_height - 2, "perspective", history=render_history), width, content_height, body_mode="raw"))
 
     if diagnostics_visible:
         lines.extend(_box(
@@ -3703,17 +4863,19 @@ def _render_render_view(snapshot, theater_text, width, height, diagnostics_visib
             width,
             max(7, min(12, height - len(lines) - 3)),
             color=GREEN,
+            surface_mode=surface_mode,
+            surface_density=surface_density,
         ))
-        lines.extend(_box("Status", _build_status_lines(snapshot, section_key, width - 2), width, max(3, height - len(lines)), color=YELLOW))
+        lines.extend(_box("Status", _build_status_lines(snapshot, section_key, width - 2, surface_mode=surface_mode, surface_density=surface_density), width, max(3, height - len(lines)), color=YELLOW, surface_mode=surface_mode, surface_density=surface_density))
     else:
-        lines.extend(_box("Status", _compact_status_lines(snapshot, width - 2), width, max(3, height - len(lines)), color=YELLOW))
+        lines.extend(_box("Status", _compact_status_lines(snapshot, width - 2, surface_mode=surface_mode, surface_density=surface_density), width, max(3, height - len(lines)), color=YELLOW, surface_mode=surface_mode, surface_density=surface_density))
     return lines
 
 
-def _render_removed_view(width, height, diagnostics_visible, section_key):
+def _render_removed_view(width, height, diagnostics_visible, section_key, surface_mode=TEXT_THEATER_SURFACE_MODE, surface_density=TEXT_THEATER_SURFACE_DENSITY):
     width = max(80, width)
     height = max(24, height)
-    main_height = max(10, height - (15 if diagnostics_visible else 5))
+    main_height = max(10, height - (15 if diagnostics_visible else 8))
     lines = [
         "Scene render view removed pending rebuild.",
         "",
@@ -3725,7 +4887,7 @@ def _render_removed_view(width, height, diagnostics_visible, section_key):
         "  3 snapshot",
         "  4 split",
     ]
-    out = _box("Render Removed", lines, width, main_height, color=RED)
+    out = _box("Render Removed", lines, width, main_height, color=RED, surface_mode=surface_mode, surface_density=surface_density)
     if diagnostics_visible:
         out.extend(_box(
             f"Diagnostics · {dict(PANE_SECTIONS).get(section_key, section_key)}",
@@ -3733,29 +4895,49 @@ def _render_removed_view(width, height, diagnostics_visible, section_key):
             width,
             max(7, min(12, height - len(out) - 3)),
             color=GREEN,
+            surface_mode=surface_mode,
+            surface_density=surface_density,
         ))
-        out.extend(_box("Status", _build_status_lines(snapshot, section_key, width - 2), width, max(3, height - len(out)), color=YELLOW))
+        out.extend(_box("Status", _build_status_lines(snapshot, section_key, width - 2, surface_mode=surface_mode, surface_density=surface_density), width, max(3, height - len(out)), color=YELLOW, surface_mode=surface_mode, surface_density=surface_density))
     else:
-        out.extend(_box("Status", _compact_status_lines(snapshot, width - 2), width, max(3, height - len(out)), color=YELLOW))
+        out.extend(_box("Status", _compact_status_lines(snapshot, width - 2, surface_mode=surface_mode, surface_density=surface_density), width, max(3, height - len(out)), color=YELLOW, surface_mode=surface_mode, surface_density=surface_density))
     return out
 
 
-def _render_frame(snapshot, theater_text, embodiment_text, view_mode, section_key, width, height, diagnostics_visible, history=None):
+def _render_frame(snapshot, theater_text, embodiment_text, view_mode, section_key, width, height, diagnostics_visible, help_visible=False, history=None, surface_mode=TEXT_THEATER_SURFACE_MODE, surface_density=TEXT_THEATER_SURFACE_DENSITY):
     width = max(80, width)
     height = max(24, height)
-    header_title = "Text Theater"
-    header_note = f"view={view_mode}  focus={(((snapshot.get('theater') or {}).get('focus') or {}).get('id') or 'none')}"
-    header = f"{MAGENTA}{BOLD}{header_title}{RESET}  {DIM}{header_note}{RESET}"
+    focus_id = (((snapshot.get('theater') or {}).get('focus') or {}).get('id') or 'none')
+    banner_text = "MAIN SPLIT" if view_mode == "split" else str(view_mode or "render")
+    header_rows = [_style_inline("VIEW " + banner_text, MAGENTA)]
+    if diagnostics_visible:
+        section_label = dict(PANE_SECTIONS).get(section_key, str(section_key or "theater"))
+        header_rows.append(_style_inline("SECTION " + section_label, CYAN))
+    header_rows.append(_style_inline(
+        "FOCUS " + str(focus_id or "none") + " DIAG " + ("ON" if diagnostics_visible else "OFF"),
+        LIGHT_GRAY,
+    ))
+    lines = _render_wide_text_lines(
+        header_rows,
+        width - 2,
+        max(3, min(8, height // 4)),
+        default_style=LIGHT_GRAY,
+        align="left",
+    )
 
-    lines = [header]
+    if help_visible:
+        remaining_height = max(3, height - len(lines))
+        lines.extend(_render_help_overlay(snapshot, width, remaining_height, view_mode, section_key, diagnostics_visible, surface_mode=surface_mode, surface_density=surface_density))
+        return "\n".join(lines[:height])
 
+    remaining_height = max(6, height - len(lines))
     if view_mode == "render":
-        lines.extend(_render_render_view(snapshot, theater_text, width, height - 1, diagnostics_visible, section_key, history=history))
+        lines.extend(_render_render_view(snapshot, theater_text, width, remaining_height, diagnostics_visible, section_key, history=history, surface_mode=surface_mode, surface_density=surface_density))
     elif view_mode == "consult":
-        lines.extend(_render_consult_view(snapshot, width, height - 1, diagnostics_visible, section_key))
+        lines.extend(_render_consult_view(snapshot, width, remaining_height, diagnostics_visible, section_key, surface_mode=surface_mode, surface_density=surface_density))
     elif view_mode == "theater":
-        main_height = max(10, height - (15 if diagnostics_visible else 5))
-        lines.extend(_box("Theater", _wrap_block(theater_text, width - 2), width, main_height))
+        main_height = max(10, remaining_height - (15 if diagnostics_visible else 8))
+        lines.extend(_box("Theater", _wrap_block(theater_text, width - 2), width, main_height, body_mode="wide", surface_mode=surface_mode, surface_density=surface_density))
         if diagnostics_visible:
             lines.extend(_box(
                 f"Diagnostics · {dict(PANE_SECTIONS).get(section_key, section_key)}",
@@ -3763,13 +4945,15 @@ def _render_frame(snapshot, theater_text, embodiment_text, view_mode, section_ke
                 width,
                 max(7, min(12, height - len(lines) - 3)),
                 color=GREEN,
+                surface_mode=surface_mode,
+                surface_density=surface_density,
             ))
-            lines.extend(_box("Status", _build_status_lines(snapshot, section_key, width - 2), width, max(3, height - len(lines)), color=YELLOW))
+            lines.extend(_box("Status", _build_status_lines(snapshot, section_key, width - 2, surface_mode=surface_mode, surface_density=surface_density), width, max(3, height - len(lines)), color=YELLOW, surface_mode=surface_mode, surface_density=surface_density))
         else:
-            lines.extend(_box("Status", _compact_status_lines(snapshot, width - 2), width, max(3, height - len(lines)), color=YELLOW))
+            lines.extend(_box("Status", _compact_status_lines(snapshot, width - 2, surface_mode=surface_mode, surface_density=surface_density), width, max(3, height - len(lines)), color=YELLOW, surface_mode=surface_mode, surface_density=surface_density))
     elif view_mode == "embodiment":
-        main_height = max(10, height - (15 if diagnostics_visible else 5))
-        lines.extend(_box("Embodiment", _wrap_block(embodiment_text, width - 2), width, main_height))
+        main_height = max(10, remaining_height - (15 if diagnostics_visible else 8))
+        lines.extend(_box("Embodiment", _wrap_block(embodiment_text, width - 2), width, main_height, body_mode="wide", surface_mode=surface_mode, surface_density=surface_density))
         if diagnostics_visible:
             lines.extend(_box(
                 f"Diagnostics · {dict(PANE_SECTIONS).get(section_key, section_key)}",
@@ -3777,40 +4961,44 @@ def _render_frame(snapshot, theater_text, embodiment_text, view_mode, section_ke
                 width,
                 max(7, min(12, height - len(lines) - 3)),
                 color=GREEN,
+                surface_mode=surface_mode,
+                surface_density=surface_density,
             ))
-            lines.extend(_box("Status", _build_status_lines(snapshot, section_key, width - 2), width, max(3, height - len(lines)), color=YELLOW))
+            lines.extend(_box("Status", _build_status_lines(snapshot, section_key, width - 2, surface_mode=surface_mode, surface_density=surface_density), width, max(3, height - len(lines)), color=YELLOW, surface_mode=surface_mode, surface_density=surface_density))
         else:
-            lines.extend(_box("Status", _compact_status_lines(snapshot, width - 2), width, max(3, height - len(lines)), color=YELLOW))
+            lines.extend(_box("Status", _compact_status_lines(snapshot, width - 2, surface_mode=surface_mode, surface_density=surface_density), width, max(3, height - len(lines)), color=YELLOW, surface_mode=surface_mode, surface_density=surface_density))
     elif view_mode == "snapshot":
-        main_height = max(10, height - (15 if diagnostics_visible else 5))
+        main_height = max(10, remaining_height - (15 if diagnostics_visible else 8))
         snapshot_lines = _safe_json_lines(snapshot, width - 2)
-        lines.extend(_box("Snapshot", snapshot_lines, width, main_height))
+        lines.extend(_box("Snapshot", snapshot_lines, width, main_height, body_mode="wide", surface_mode=surface_mode, surface_density=surface_density))
         if diagnostics_visible:
-            lines.extend(_box("Status", _build_status_lines(snapshot, section_key, width - 2), width, max(3, height - len(lines)), color=YELLOW))
+            lines.extend(_box("Status", _build_status_lines(snapshot, section_key, width - 2, surface_mode=surface_mode, surface_density=surface_density), width, max(3, height - len(lines)), color=YELLOW, surface_mode=surface_mode, surface_density=surface_density))
         else:
-            lines.extend(_box("Status", _compact_status_lines(snapshot, width - 2), width, max(3, height - len(lines)), color=YELLOW))
+            lines.extend(_box("Status", _compact_status_lines(snapshot, width - 2, surface_mode=surface_mode, surface_density=surface_density), width, max(3, height - len(lines)), color=YELLOW, surface_mode=surface_mode, surface_density=surface_density))
     else:
-        main_height = max(10, height - (15 if diagnostics_visible else 5))
-        left_width = max(36, (width - 1) // 2)
-        right_width = max(36, width - left_width - 1)
-        left_box = _box("Theater", _wrap_block(theater_text, left_width - 2), left_width, main_height)
-        right_box = _box("Embodiment", _wrap_block(embodiment_text, right_width - 2), right_width, main_height)
-        row_count = max(len(left_box), len(right_box))
+        main_height = max(12, remaining_height)
+        left_width = max(48, int(width * 0.62))
+        right_width = max(28, width - left_width - 1)
+        info_height = min(12, max(11, main_height // 3))
+        right_top_height = max(4, main_height - info_height)
+        left_box = _box("Theater", _wrap_block(theater_text, left_width - 2), left_width, main_height, body_mode="wide", surface_mode=surface_mode, surface_density=surface_density)
+        right_top = _box("Embodiment", _wrap_block(embodiment_text, right_width - 2), right_width, right_top_height, body_mode="wide", surface_mode=surface_mode, surface_density=surface_density)
+        if diagnostics_visible:
+            info_title = f"Diagnostics · {dict(PANE_SECTIONS).get(section_key, section_key)}"
+            info_lines = list(_section_lines(snapshot, section_key, right_width - 2))
+            status_lines = _build_status_lines(snapshot, section_key, right_width - 2, surface_mode=surface_mode, surface_density=surface_density)
+            if info_lines and status_lines:
+                info_lines.append("")
+            info_lines.extend(status_lines)
+            right_bottom = _box(info_title, info_lines, right_width, info_height, color=GREEN, body_mode="wide", surface_mode=surface_mode, surface_density=surface_density)
+        else:
+            right_bottom = _box("Status", _split_status_lines(snapshot, right_width - 2, surface_mode=surface_mode, surface_density=surface_density), right_width, info_height, color=YELLOW, body_mode="wide", surface_mode=surface_mode, surface_density=surface_density)
+        right_lines = right_top + right_bottom
+        row_count = max(len(left_box), len(right_lines))
         for idx in range(row_count):
             left_line = left_box[idx] if idx < len(left_box) else (" " * left_width)
-            right_line = right_box[idx] if idx < len(right_box) else (" " * right_width)
+            right_line = right_lines[idx] if idx < len(right_lines) else (" " * right_width)
             lines.append(left_line + " " + right_line)
-        if diagnostics_visible:
-            lines.extend(_box(
-                f"Diagnostics · {dict(PANE_SECTIONS).get(section_key, section_key)}",
-                _section_lines(snapshot, section_key, width - 2),
-                width,
-                max(7, min(12, height - len(lines) - 3)),
-                color=GREEN,
-            ))
-            lines.extend(_box("Status", _build_status_lines(snapshot, section_key, width - 2), width, max(3, height - len(lines)), color=YELLOW))
-        else:
-            lines.extend(_box("Status", _compact_status_lines(snapshot, width - 2), width, max(3, height - len(lines)), color=YELLOW))
     return "\n".join(lines[:height])
 
 
@@ -3854,6 +5042,8 @@ def render_text_theater_view(
     height=44,
     diagnostics_visible=False,
     section_key="theater",
+    surface_mode=TEXT_THEATER_SURFACE_MODE,
+    surface_density=TEXT_THEATER_SURFACE_DENSITY,
 ):
     width = max(80, int(width or 80))
     height = max(24, int(height or 24))
@@ -3874,7 +5064,13 @@ def render_text_theater_view(
             diagnostics_visible=diagnostics_visible,
             section_key=section_name,
         )
-        if str(rendered.get("frame") or "").strip():
+        requested_surface_mode = _normalize_surface_mode(surface_mode)
+        requested_surface_density = _normalize_surface_density(surface_density)
+        if (
+            str(rendered.get("frame") or "").strip()
+            and requested_surface_mode == TEXT_THEATER_SURFACE_MODE
+            and abs(requested_surface_density - TEXT_THEATER_SURFACE_DENSITY) < 0.001
+        ):
             return rendered
     except Exception:
         pass
@@ -3890,6 +5086,8 @@ def render_text_theater_view(
         height=height,
         diagnostics_visible=bool(diagnostics_visible),
         history=history,
+        surface_mode=surface_mode,
+        surface_density=surface_density,
     )
     return {
         "frame": ANSI_RE.sub("", frame),
@@ -3913,6 +5111,8 @@ def render_text_theater_shared_state(
     height=44,
     diagnostics_visible=False,
     section_key="theater",
+    surface_mode=TEXT_THEATER_SURFACE_MODE,
+    surface_density=TEXT_THEATER_SURFACE_DENSITY,
 ):
     width = max(80, int(width or 80))
     height = max(24, int(height or 24))
@@ -3951,6 +5151,8 @@ def render_text_theater_shared_state(
         height=height,
         diagnostics_visible=bool(diagnostics_visible),
         history=history,
+        surface_mode=surface_mode,
+        surface_density=surface_density,
     )
     return {
         "frame": ANSI_RE.sub("", frame),
@@ -3970,15 +5172,22 @@ def _run(args):
     _configure_stdout()
     _enable_vt_mode()
     base_url = f"http://{args.host}:{args.port}"
-    view_mode = args.view
-    section_index = 0
-    diagnostics_visible = args.diagnostics
     last_error = ""
     motion_history = []
     last_frame = None
     last_snapshot = None
     last_theater_text = ""
     last_embodiment_text = ""
+    ui_lock = threading.Lock()
+    ui_state = {
+        "view_mode": str(args.view or "render").strip().lower() or "render",
+        "section_index": 0,
+        "diagnostics_visible": bool(args.diagnostics),
+        "help_visible": False,
+        "surface_mode": _normalize_surface_mode(getattr(args, "surface_mode", TEXT_THEATER_SURFACE_MODE)),
+        "surface_density": _normalize_surface_density(getattr(args, "surface_density", TEXT_THEATER_SURFACE_DENSITY)),
+        "remote_revision": 0,
+    }
     live_cache = {
         "lock": threading.Lock(),
         "ready": False,
@@ -3988,6 +5197,145 @@ def _run(args):
         "error": "",
     }
     stop_event = threading.Event()
+
+    def _get_ui_state():
+        with ui_lock:
+            return dict(ui_state)
+
+    def _update_ui_state(**changes):
+        with ui_lock:
+            for key, value in changes.items():
+                if key in ui_state:
+                    ui_state[key] = value
+            return dict(ui_state)
+
+    def _apply_remote_control(snapshot):
+        if not isinstance(snapshot, dict):
+            return False
+        control = snapshot.get("text_theater_control") if isinstance(snapshot.get("text_theater_control"), dict) else {}
+        revision = int(control.get("revision") or 0)
+        if revision <= 0:
+            return False
+        with ui_lock:
+            if revision <= int(ui_state.get("remote_revision") or 0):
+                return False
+            next_view_mode = str(control.get("view_mode") or ui_state["view_mode"]).strip().lower() or ui_state["view_mode"]
+            if next_view_mode not in VIEW_MODES:
+                next_view_mode = ui_state["view_mode"]
+            next_section_key = str(control.get("section_key") or "").strip().lower()
+            next_section_index = ui_state["section_index"]
+            if next_section_key in SECTION_INDEX_BY_KEY:
+                next_section_index = SECTION_INDEX_BY_KEY[next_section_key]
+            next_diagnostics_visible = ui_state["diagnostics_visible"]
+            if "diagnostics_visible" in control or "diagnostics" in control:
+                next_diagnostics_visible = bool(control.get("diagnostics_visible") if "diagnostics_visible" in control else control.get("diagnostics"))
+            next_surface_mode = ui_state["surface_mode"]
+            if "surface_mode" in control:
+                next_surface_mode = _normalize_surface_mode(control.get("surface_mode"), default=ui_state["surface_mode"])
+            next_surface_density = ui_state["surface_density"]
+            if "surface_density" in control:
+                next_surface_density = _normalize_surface_density(control.get("surface_density"), default=ui_state["surface_density"])
+            changed = (
+                next_view_mode != ui_state["view_mode"]
+                or next_section_index != ui_state["section_index"]
+                or next_diagnostics_visible != ui_state["diagnostics_visible"]
+                or next_surface_mode != ui_state["surface_mode"]
+                or next_surface_density != ui_state["surface_density"]
+            )
+            ui_state["view_mode"] = next_view_mode
+            ui_state["section_index"] = next_section_index
+            ui_state["diagnostics_visible"] = next_diagnostics_visible
+            ui_state["surface_mode"] = next_surface_mode
+            ui_state["surface_density"] = next_surface_density
+            ui_state["remote_revision"] = revision
+            return changed
+
+    def _handle_keypress(key):
+        if key is None:
+            return ""
+        lower = key.lower() if isinstance(key, str) else key
+        if lower == "q":
+            return "quit"
+        if lower == "r":
+            return "handled"
+        if lower == "h" or key == "?":
+            current_ui = _get_ui_state()
+            _update_ui_state(help_visible=not current_ui["help_visible"])
+            return "handled"
+        if key == "\t":
+            current_ui = _get_ui_state()
+            _update_ui_state(section_index=(current_ui["section_index"] + 1) % len(PANE_SECTIONS))
+            return "handled"
+        if lower == "m" or key == "0":
+            _update_ui_state(view_mode="split", help_visible=False)
+            return "handled"
+        if key == "1":
+            _update_ui_state(view_mode="render", help_visible=False)
+            return "handled"
+        if key == "2":
+            _update_ui_state(view_mode="consult", help_visible=False)
+            return "handled"
+        if key == "3":
+            _update_ui_state(view_mode="theater", help_visible=False)
+            return "handled"
+        if key == "4":
+            _update_ui_state(view_mode="embodiment", help_visible=False)
+            return "handled"
+        if key == "5":
+            _update_ui_state(view_mode="snapshot", help_visible=False)
+            return "handled"
+        if key == "6":
+            _update_ui_state(view_mode="split", help_visible=False)
+            return "handled"
+        if lower == "d":
+            current_ui = _get_ui_state()
+            _update_ui_state(diagnostics_visible=not current_ui["diagnostics_visible"])
+            return "handled"
+        if lower == "s":
+            current_ui = _get_ui_state()
+            _update_ui_state(surface_mode=_cycle_surface_mode(current_ui["surface_mode"]))
+            return "handled"
+        if key == "-" or key == "_":
+            current_ui = _get_ui_state()
+            _update_ui_state(surface_density=max(0.0, round(current_ui["surface_density"] - 0.12, 2)))
+            return "handled"
+        if key == "=" or key == "+":
+            current_ui = _get_ui_state()
+            _update_ui_state(surface_density=min(1.0, round(current_ui["surface_density"] + 0.12, 2)))
+            return "handled"
+        if lower == "b":
+            _update_ui_state(section_index=0)
+            return "handled"
+        if lower == "c":
+            _update_ui_state(section_index=1)
+            return "handled"
+        if lower == "w":
+            _update_ui_state(section_index=2)
+            return "handled"
+        if lower == "e":
+            _update_ui_state(section_index=3)
+            return "handled"
+        if lower == "u":
+            _update_ui_state(section_index=4)
+            return "handled"
+        if lower == "o":
+            _update_ui_state(section_index=5)
+            return "handled"
+        if lower == "g":
+            _update_ui_state(
+                diagnostics_visible=True,
+                help_visible=False,
+                section_index=SECTION_INDEX_BY_KEY.get("blackboard", 0),
+            )
+            return "handled"
+        if lower == "p":
+            _update_ui_state(
+                diagnostics_visible=True,
+                help_visible=False,
+                section_index=SECTION_INDEX_BY_KEY.get("profiles", 0),
+            )
+            return "handled"
+        return ""
 
     def _set_live_cache(snapshot=None, theater_text="", embodiment_text="", error="", ready=False):
         with live_cache["lock"]:
@@ -4041,10 +5389,14 @@ def _run(args):
                     base_url=base_url,
                     timeout=args.timeout,
                 )
+                snapshot = live_payload.get("snapshot") if isinstance(live_payload.get("snapshot"), dict) else {}
+                _apply_remote_control(snapshot)
+                current_ui = _get_ui_state()
+                local_theater_text, local_embodiment_text = _local_text_outputs(snapshot, current_ui["view_mode"])
                 _set_live_cache(
-                    snapshot=live_payload.get("snapshot") if isinstance(live_payload.get("snapshot"), dict) else {},
-                    theater_text=str(live_payload.get("theater_text") or ""),
-                    embodiment_text=str(live_payload.get("embodiment_text") or ""),
+                    snapshot=snapshot,
+                    theater_text=local_theater_text or str(live_payload.get("theater_text") or ""),
+                    embodiment_text=local_embodiment_text or str(live_payload.get("embodiment_text") or ""),
                     error="",
                     ready=True,
                 )
@@ -4071,34 +5423,56 @@ def _run(args):
                 live_state = _get_live_cache()
                 if live_state["ready"]:
                     snapshot = live_state["snapshot"] if isinstance(live_state["snapshot"], dict) else {}
+                    _apply_remote_control(snapshot)
+                    current_ui = _get_ui_state()
                     theater_text = live_state["theater_text"]
                     embodiment_text = live_state["embodiment_text"]
                     frame = _render_frame(
                         snapshot=snapshot,
                         theater_text=theater_text,
                         embodiment_text=embodiment_text,
-                        view_mode=view_mode,
-                        section_key=PANE_SECTIONS[section_index][0],
+                        view_mode=current_ui["view_mode"],
+                        section_key=PANE_SECTIONS[current_ui["section_index"]][0],
                         width=width,
                         height=height,
-                        diagnostics_visible=diagnostics_visible,
+                        diagnostics_visible=current_ui["diagnostics_visible"],
+                        help_visible=current_ui["help_visible"],
                         history=motion_history,
+                        surface_mode=current_ui["surface_mode"],
+                        surface_density=current_ui["surface_density"],
                     )
                     last_error = ""
                 else:
+                    current_ui = _get_ui_state()
                     rendered = _env_text_theater_view(
                         base_url=base_url,
                         timeout=args.timeout,
-                        view_mode=view_mode,
+                        view_mode=current_ui["view_mode"],
                         width=width,
                         height=height,
-                        diagnostics_visible=diagnostics_visible,
-                        section_key=PANE_SECTIONS[section_index][0],
+                        diagnostics_visible=current_ui["diagnostics_visible"],
+                        section_key=PANE_SECTIONS[current_ui["section_index"]][0],
                     )
                     snapshot = rendered.get("snapshot") if isinstance(rendered.get("snapshot"), dict) else {}
                     theater_text = str(rendered.get("theater_text") or "")
                     embodiment_text = str(rendered.get("embodiment_text") or "")
-                    frame = str(rendered.get("frame") or "")
+                    if isinstance(snapshot, dict) and snapshot:
+                        frame = _render_frame(
+                            snapshot=snapshot,
+                            theater_text=theater_text,
+                            embodiment_text=embodiment_text,
+                            view_mode=current_ui["view_mode"],
+                            section_key=PANE_SECTIONS[current_ui["section_index"]][0],
+                            width=width,
+                            height=height,
+                            diagnostics_visible=current_ui["diagnostics_visible"],
+                            help_visible=current_ui["help_visible"],
+                            history=motion_history,
+                            surface_mode=current_ui["surface_mode"],
+                            surface_density=current_ui["surface_density"],
+                        )
+                    else:
+                        frame = str(rendered.get("frame") or "")
                 last_snapshot = snapshot
                 last_theater_text = theater_text
                 last_embodiment_text = embodiment_text
@@ -4115,16 +5489,20 @@ def _run(args):
                     next_stale = dict(stale_flags)
                     next_stale["fetch_error"] = last_error
                     error_snapshot["stale_flags"] = next_stale
+                    current_ui = _get_ui_state()
                     frame = _render_frame(
                         snapshot=error_snapshot,
                         theater_text=last_theater_text,
                         embodiment_text=last_embodiment_text,
-                        view_mode=view_mode,
-                        section_key=PANE_SECTIONS[section_index][0],
+                        view_mode=current_ui["view_mode"],
+                        section_key=PANE_SECTIONS[current_ui["section_index"]][0],
                         width=width,
                         height=height,
-                        diagnostics_visible=diagnostics_visible,
+                        diagnostics_visible=current_ui["diagnostics_visible"],
+                        help_visible=current_ui["help_visible"],
                         history=motion_history,
+                        surface_mode=current_ui["surface_mode"],
+                        surface_density=current_ui["surface_density"],
                     )
                 else:
                     frame = "\n".join([
@@ -4143,59 +5521,22 @@ def _run(args):
                 sys.stdout.flush()
                 last_frame = frame
 
+            immediate = _handle_keypress(_read_key_nonblocking())
+            if immediate == "quit":
+                return 0
+            if immediate == "handled":
+                if args.once:
+                    return 0
+                continue
             remaining = max(0.0, float(args.interval) - (time.time() - cycle_started))
             started = time.time()
             while time.time() - started < remaining:
-                key = _read_key_nonblocking()
-                if key is None:
-                    time.sleep(0.005)
-                    continue
-                if key.lower() == "q":
+                outcome = _handle_keypress(_read_key_nonblocking())
+                if outcome == "quit":
                     return 0
-                if key.lower() == "r":
+                if outcome == "handled":
                     break
-                if key == "\t":
-                    section_index = (section_index + 1) % len(PANE_SECTIONS)
-                    break
-                if key == "1":
-                    view_mode = "render"
-                    break
-                if key == "2":
-                    view_mode = "consult"
-                    break
-                if key == "3":
-                    view_mode = "theater"
-                    break
-                if key == "4":
-                    view_mode = "embodiment"
-                    break
-                if key == "5":
-                    view_mode = "snapshot"
-                    break
-                if key == "6":
-                    view_mode = "split"
-                    break
-                if key.lower() == "d":
-                    diagnostics_visible = not diagnostics_visible
-                    break
-                if key.lower() == "b":
-                    section_index = 0
-                    break
-                if key.lower() == "c":
-                    section_index = 1
-                    break
-                if key.lower() == "w":
-                    section_index = 2
-                    break
-                if key.lower() == "e":
-                    section_index = 3
-                    break
-                if key.lower() == "u":
-                    section_index = 4
-                    break
-                if key.lower() == "o":
-                    section_index = 5
-                    break
+                time.sleep(0.005)
             if args.once:
                 return 0
     finally:
@@ -4216,6 +5557,8 @@ def main():
     parser.add_argument("--timeout", type=float, default=5.0, help="HTTP timeout in seconds.")
     parser.add_argument("--view", choices=["render", "consult", "split", "theater", "embodiment", "snapshot"], default="render")
     parser.add_argument("--diagnostics", action="store_true", help="Show diagnostics panes by default.")
+    parser.add_argument("--surface-mode", choices=list(TEXT_THEATER_SURFACE_MODES), default=TEXT_THEATER_SURFACE_MODE, help="Operator surface spectrum mode. Raw scene projection remains untouched.")
+    parser.add_argument("--surface-density", type=float, default=TEXT_THEATER_SURFACE_DENSITY, help="Operator surface substrate density from 0.0 to 1.0.")
     parser.add_argument("--once", action="store_true", help="Render once and exit.")
     raise SystemExit(_run(parser.parse_args()))
 

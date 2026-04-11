@@ -406,6 +406,34 @@ def _seed_bag_guard_baseline(count: int | None) -> None:
     _bag_guard_baseline_count = max(_bag_guard_baseline_count, count_i)
 
 
+def _copy_local_snapshot(files: dict[str, Path]) -> None:
+    for filename, src in files.items():
+        dest = _DATA_DIR / LOCAL_LAYOUT.get(filename, Path(filename))
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dest)
+        _log(f"local save: {filename} -> {dest}")
+
+
+def _upload_hf_snapshot(files: dict[str, Path]) -> None:
+    api = _get_api()
+    repo_id = _get_repo_id()
+    if not api or not repo_id:
+        return
+    for filename, src in files.items():
+        api.upload_file(
+            path_or_fileobj=str(src),
+            path_in_repo=filename,
+            repo_id=repo_id,
+            repo_type="dataset",
+            commit_message=f"autosave {filename} @ {datetime.now(timezone.utc).isoformat()}",
+        )
+        _log(f"hf upload: {filename} -> {repo_id}")
+
+
+def _cleanup_tmpdir(path: Path) -> None:
+    shutil.rmtree(path, ignore_errors=True)
+
+
 async def _restore_from_files(call_tool_fn: CallToolFn, files: dict[str, Path]) -> int:
     restored = 0
 
@@ -533,25 +561,11 @@ async def save_state(call_tool_fn: CallToolFn, force: bool = False) -> bool:
 
             # Local snapshot
             if _LOCAL_ENABLED:
-                for filename, src in files.items():
-                    dest = _DATA_DIR / LOCAL_LAYOUT.get(filename, Path(filename))
-                    dest.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copy2(src, dest)
-                    _log(f"local save: {filename} -> {dest}")
+                await asyncio.to_thread(_copy_local_snapshot, files)
 
             # Optional HF sync
             if _HF_ENABLED and _ensure_repo():
-                api = _get_api()
-                repo_id = _get_repo_id()
-                for filename, src in files.items():
-                    api.upload_file(
-                        path_or_fileobj=str(src),
-                        path_in_repo=filename,
-                        repo_id=repo_id,
-                        repo_type="dataset",
-                        commit_message=f"autosave {filename} @ {datetime.now(timezone.utc).isoformat()}",
-                    )
-                    _log(f"hf upload: {filename} -> {repo_id}")
+                await asyncio.to_thread(_upload_hf_snapshot, files)
 
             _last_save_ts = time.time()
             if current_bag_count is not None:
@@ -565,7 +579,7 @@ async def save_state(call_tool_fn: CallToolFn, force: bool = False) -> bool:
             _log(f"save failed: {exc}")
             return False
         finally:
-            shutil.rmtree(tmpdir, ignore_errors=True)
+            await asyncio.to_thread(_cleanup_tmpdir, tmpdir)
 
 
 async def restore_state(call_tool_fn: CallToolFn) -> bool:

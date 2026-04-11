@@ -131,6 +131,16 @@
         bundle: null,
         updatedTs: 0
     };
+    let _envTextTheaterControlState = {
+        view_mode: 'render',
+        section_key: 'theater',
+        diagnostics_visible: false,
+        surface_mode: 'sharp',
+        surface_density: 0.42,
+        revision: 0,
+        updated_ts: 0,
+        source: ''
+    };
     let _envAppliedContractTokens = {};
     let _envPanelPreviousFocus = null;
     let _envHtmlPanelState = {
@@ -14097,7 +14107,7 @@
                     'character_play_clip', 'character_queue_clips', 'character_stop_clip',
                     'character_set_loop', 'character_set_speed', 'character_get_animation_state',
                     'workbench_set_scaffold', 'workbench_set_load_field', 'workbench_stage_contact',
-                    'character_play_reaction'
+                    'character_play_reaction', 'text_theater_set_view'
                 ],
                 legacy_host_commands: ['spawn_inhabitant', 'despawn_inhabitant', 'focus_inhabitant'],
                 implemented_verbs: [
@@ -14107,7 +14117,7 @@
                     'set_bone', 'set_pose', 'set_pose_batch', 'clear_pose', 'capture_pose', 'delete_pose', 'apply_pose', 'apply_pose_macro', 'set_timeline_cursor', 'compile_clip', 'play_authored_clip', 'assert_balance', 'reset_angles', 'isolate_chain', 'save_blueprint', 'load_blueprint',
                     'play_clip', 'queue_clips', 'stop_clip', 'set_loop', 'set_speed',
                     'set_scaffold', 'set_load_field', 'stage_contact',
-                    'get_animation_state', 'play_reaction'
+                    'get_animation_state', 'play_reaction', 'set_text_theater_view'
                 ],
                 agent_bearing: false,
                 chat_overlay_eligible: false
@@ -20876,6 +20886,7 @@
         'workbench.load_blueprint': 'workbench_load_blueprint',
         'workbench.set_load_field': 'workbench_set_load_field',
         'workbench.stage_contact': 'workbench_stage_contact',
+        'text_theater.set_view': 'text_theater_set_view',
         'character.move_to': 'character_move_to',
         'character.stop': 'character_stop',
         'character.look_at': 'character_look_at',
@@ -27873,6 +27884,10 @@
             _envCharacterPlayReaction(actorName, reason || 'control character play reaction', targetId);
             return;
         }
+        if (command === 'text_theater_set_view') {
+            _envTextTheaterSetView(actorName, reason || 'control text theater set view', targetId);
+            return;
+        }
         if (command === 'set_theater_mode') {
             _envSetTheaterMode(targetId || 'environment', actorName, reason || 'control theater mode');
             return;
@@ -30432,6 +30447,604 @@
         };
     }
 
+    function _envBlackboardNormalizeAnchor(anchor, fallback) {
+        var preferred = anchor && typeof anchor === 'object' ? anchor : null;
+        var backup = fallback && typeof fallback === 'object' ? fallback : null;
+        var source = preferred || backup || { type: 'global' };
+        var normalized = { type: String(source.type || 'global') || 'global' };
+        if (source.id !== undefined) normalized.id = String(source.id || '');
+        if (source.key !== undefined) normalized.key = String(source.key || '');
+        if (source.position && typeof source.position === 'object') {
+            normalized.position = _envTextTheaterVectorObject(source.position, 4);
+        }
+        return normalized;
+    }
+
+    function _envBlackboardToleranceFromRisk(value) {
+        var risk = _envBuilderClamp01(Number(value || 0));
+        if (risk >= 0.84) return 'CRITICAL';
+        if (risk >= 0.64) return 'DEGRADED';
+        if (risk >= 0.4) return 'WATCH';
+        return 'WITHIN';
+    }
+
+    function _envBlackboardToleranceFromMargin(value, insidePolygon) {
+        var margin = Number(value || 0);
+        if (!insidePolygon || margin <= 0) return 'CRITICAL';
+        if (margin < 0.08) return 'DEGRADED';
+        if (margin < 0.18) return 'WATCH';
+        return 'WITHIN';
+    }
+
+    function _envBlackboardToleranceFromImbalance(value) {
+        var imbalance = _envBuilderClamp01(Number(value || 0));
+        if (imbalance >= 0.7) return 'CRITICAL';
+        if (imbalance >= 0.45) return 'DEGRADED';
+        if (imbalance >= 0.22) return 'WATCH';
+        return 'WITHIN';
+    }
+
+    function _envBlackboardToleranceFromContact(contact, intendedSet) {
+        var row = contact && typeof contact === 'object' ? contact : {};
+        var state = String(row.state || '').trim().toLowerCase();
+        var joint = String(row.joint || '').trim();
+        var intended = !!(joint && intendedSet && intendedSet[joint]);
+        var supporting = !!row.supporting;
+        var gap = Math.abs(Number(row.gap || 0));
+        if (state === 'sliding') return 'DEGRADED';
+        if (state === 'airborne') return intended ? 'CRITICAL' : 'WATCH';
+        if (state === 'lifting') {
+            if (intended && gap >= 0.05) return 'CRITICAL';
+            return intended ? 'DEGRADED' : 'WATCH';
+        }
+        if ((state === 'grounded' || state === 'planted') && supporting) return 'WITHIN';
+        if (state === 'grounded' || state === 'planted') return 'INFO';
+        return intended ? 'WATCH' : 'INFO';
+    }
+
+    function _envBlackboardPriority(value, fallback) {
+        var numeric = Number(value);
+        if (!Number.isFinite(numeric)) numeric = Number(fallback || 0);
+        return Number(_envBuilderClamp01(numeric).toFixed(4));
+    }
+
+    function _envBlackboardDisplayValue(value, unit) {
+        if (value === null || value === undefined) return '';
+        if (typeof value === 'number' && Number.isFinite(value)) {
+            var rendered = String(Number(value.toFixed(4))).replace(/\.0+$/, '').replace(/(\.\d*?)0+$/, '$1');
+            return unit ? (rendered + ' ' + unit) : rendered;
+        }
+        if (Array.isArray(value)) return value.join(', ');
+        if (typeof value === 'object') return JSON.stringify(value);
+        return unit ? (String(value) + ' ' + unit) : String(value);
+    }
+
+    function _envBlackboardMakeRow(spec) {
+        var source = spec && typeof spec === 'object' ? spec : {};
+        var unit = String(source.unit || '');
+        var value = source.value;
+        return {
+            id: String(source.id || ''),
+            family: String(source.family || 'misc'),
+            layer: String(source.layer || 'raw'),
+            source: String(source.source || 'MEAS'),
+            label: String(source.label || source.id || ''),
+            value: _envCloneJson(value, value),
+            value_text: String(source.value_text || _envBlackboardDisplayValue(value, unit)),
+            unit: unit,
+            tolerance_state: String(source.tolerance_state || 'INFO'),
+            confidence: _envBlackboardPriority(source.confidence, 1),
+            trend: String(source.trend || 'steady'),
+            priority: _envBlackboardPriority(source.priority, 0.5),
+            group_key: String(source.group_key || source.family || 'misc'),
+            sticky_ms: Math.max(0, Number(source.sticky_ms || 0) || 0),
+            session_weight: _envBlackboardPriority(source.session_weight, 0),
+            anchor: _envBlackboardNormalizeAnchor(source.anchor, { type: 'global' }),
+            detail: String(source.detail || ''),
+            tags: _slotUniqueStrings(source.tags || []),
+            trace: Array.isArray(source.trace)
+                ? source.trace.map(function (point) {
+                    return {
+                        t: Number((point || {}).t || 0),
+                        value: _envCloneJson((point || {}).value, null),
+                        label: String((point || {}).label || '')
+                    };
+                })
+                : [],
+            meta: _envCloneJson(source.meta || {}, {})
+        };
+    }
+
+    function _envBuildTextTheaterProfileRegistry() {
+        var generatedAt = Date.now();
+        var defaultFamilyId = 'operator_default';
+        var firstWaveIds = ['operator_default', 'mechanics_telemetry', 'route_telestrator', 'spectacle_showcase'];
+        return {
+            version: 1,
+            generated_at: Number(generatedAt || 0),
+            designation_contract: {
+                source: 'blackboard_row_tolerance',
+                range_mode: 'row_meta_ranges',
+                tolerance_states: ['WITHIN', 'WATCH', 'DEGRADED', 'CRITICAL', 'INFO'],
+                note: 'Profiles are consumers only. Color/tolerance semantics stay with blackboard row designation.'
+            },
+            default_family_id: defaultFamilyId,
+            first_wave_ids: firstWaveIds.slice(),
+            deferred_family_ids: ['drafting_authoring', 'archive_inspection', 'alert_high_contrast'],
+            deferred_notes: {
+                agent_narration: 'Deferred family for machine-to-operator explanation surfaces.'
+            },
+            surface_defaults: {
+                text_theater: 'operator_default',
+                blackboard: 'mechanics_telemetry',
+                consult: 'operator_default',
+                route: 'route_telestrator',
+                chrome: 'spectacle_showcase',
+                web_overlay: 'operator_default'
+            },
+            families: {
+                operator_default: {
+                    id: 'operator_default',
+                    family: 'Operator Default',
+                    default_variant: 'field_ledger',
+                    promoted_families: ['session', 'controller', 'corroboration'],
+                    suppressed_families: [],
+                    density: 'medium',
+                    audience: 'mixed',
+                    rollout_wave: 'first_wave',
+                    row_admission: {
+                        max_visible_rows: 12,
+                        max_per_family: 4,
+                        sticky_decay_ms: 5000,
+                        session_weight_boost: 1.35,
+                        blocker_auto_promote: true
+                    }
+                },
+                mechanics_telemetry: {
+                    id: 'mechanics_telemetry',
+                    family: 'Mechanics Telemetry',
+                    default_variant: 'medical_monitor',
+                    promoted_families: ['balance', 'load', 'support', 'contact'],
+                    suppressed_families: ['session'],
+                    density: 'dense',
+                    audience: 'mixed',
+                    rollout_wave: 'first_wave',
+                    row_admission: {
+                        max_visible_rows: 20,
+                        max_per_family: 6,
+                        sticky_decay_ms: 3200,
+                        session_weight_boost: 1.1,
+                        blocker_auto_promote: true
+                    }
+                },
+                drafting_authoring: {
+                    id: 'drafting_authoring',
+                    family: 'Drafting / Authoring',
+                    default_variant: 'drafting_vellum',
+                    promoted_families: ['controller', 'support', 'contact'],
+                    suppressed_families: ['session'],
+                    density: 'medium',
+                    audience: 'mixed',
+                    rollout_wave: 'deferred',
+                    row_admission: {
+                        max_visible_rows: 10,
+                        max_per_family: 4,
+                        sticky_decay_ms: 4800,
+                        session_weight_boost: 1.0,
+                        blocker_auto_promote: false
+                    }
+                },
+                route_telestrator: {
+                    id: 'route_telestrator',
+                    family: 'Route / Telestrator',
+                    default_variant: 'broadcast_telestrator',
+                    promoted_families: ['route', 'controller', 'corroboration'],
+                    suppressed_families: ['session'],
+                    density: 'medium',
+                    audience: 'mixed',
+                    rollout_wave: 'first_wave',
+                    row_admission: {
+                        max_visible_rows: 14,
+                        max_per_family: 5,
+                        sticky_decay_ms: 5200,
+                        session_weight_boost: 1.4,
+                        blocker_auto_promote: true
+                    }
+                },
+                archive_inspection: {
+                    id: 'archive_inspection',
+                    family: 'Archive / Inspection',
+                    default_variant: 'museum_plate',
+                    promoted_families: ['corroboration', 'session'],
+                    suppressed_families: ['load'],
+                    density: 'summary',
+                    audience: 'operator',
+                    rollout_wave: 'deferred',
+                    row_admission: {
+                        max_visible_rows: 9,
+                        max_per_family: 3,
+                        sticky_decay_ms: 9000,
+                        session_weight_boost: 1.2,
+                        blocker_auto_promote: false
+                    }
+                },
+                alert_high_contrast: {
+                    id: 'alert_high_contrast',
+                    family: 'Alert / High Contrast',
+                    default_variant: 'stencil_protest',
+                    promoted_families: ['route', 'balance', 'contact'],
+                    suppressed_families: ['session', 'corroboration'],
+                    density: 'summary',
+                    audience: 'mixed',
+                    rollout_wave: 'deferred',
+                    row_admission: {
+                        max_visible_rows: 5,
+                        max_per_family: 2,
+                        sticky_decay_ms: 4000,
+                        session_weight_boost: 1.6,
+                        blocker_auto_promote: true
+                    }
+                },
+                spectacle_showcase: {
+                    id: 'spectacle_showcase',
+                    family: 'Spectacle / Showcase',
+                    default_variant: 'casino_marquee',
+                    promoted_families: ['route', 'balance'],
+                    suppressed_families: [],
+                    density: 'summary',
+                    audience: 'mixed',
+                    rollout_wave: 'first_wave',
+                    row_admission: {
+                        max_visible_rows: 8,
+                        max_per_family: 3,
+                        sticky_decay_ms: 3600,
+                        session_weight_boost: 1.25,
+                        blocker_auto_promote: true
+                    }
+                }
+            },
+            composite_examples: {
+                diagnostic_cube: {
+                    composite: true,
+                    faces: {
+                        front: { family_id: 'mechanics_telemetry', promoted_families: ['balance', 'route'] },
+                        left: { family_id: 'mechanics_telemetry', promoted_families: ['contact'], filter: { side: 'left' } },
+                        right: { family_id: 'mechanics_telemetry', promoted_families: ['contact'], filter: { side: 'right' } },
+                        top: { family_id: 'mechanics_telemetry', promoted_families: ['load'] },
+                        back: { family_id: 'operator_default', promoted_families: ['session', 'corroboration'] },
+                        bottom: { family_id: 'route_telestrator', promoted_families: ['controller', 'route'] }
+                    }
+                }
+            }
+        };
+    }
+
+    function _envBuildBlackboardState(snapshot) {
+        var view = snapshot && typeof snapshot === 'object' ? snapshot : {};
+        var balance = view.balance && typeof view.balance === 'object' ? view.balance : {};
+        var contacts = Array.isArray(view.contacts) ? view.contacts : [];
+        var workbench = view.workbench && typeof view.workbench === 'object' ? view.workbench : {};
+        var theater = view.theater && typeof view.theater === 'object' ? view.theater : {};
+        var focus = theater.focus && typeof theater.focus === 'object' ? theater.focus : {};
+        var profileRegistry = view.text_theater_profiles && typeof view.text_theater_profiles === 'object'
+            ? view.text_theater_profiles
+            : _envBuildTextTheaterProfileRegistry();
+        var routeReport = workbench.route_report && typeof workbench.route_report === 'object' ? workbench.route_report : {};
+        var activeController = workbench.active_controller && typeof workbench.active_controller === 'object' ? workbench.active_controller : {};
+        var corroboration = view.corroboration && typeof view.corroboration === 'object' ? view.corroboration : {};
+        var maneuverProbeHistory = Array.isArray(workbench.maneuver_probe_history) ? workbench.maneuver_probe_history : [];
+        var supportingIds = _slotUniqueStrings(balance.supporting_joint_ids || []);
+        var selectedBoneIds = _slotUniqueStrings(workbench.selected_bone_ids || []);
+        var intendedSupport = _slotUniqueStrings(routeReport.intended_support_set || []);
+        var missingSupport = _slotUniqueStrings(routeReport.missing_support_participants || routeReport.missing_participants || []);
+        var intendedMap = {};
+        intendedSupport.forEach(function (jointId) { intendedMap[String(jointId || '')] = true; });
+        var sideLoads = balance.support_side_loads && typeof balance.support_side_loads === 'object' ? balance.support_side_loads : {};
+        var leftLoad = Number(sideLoads.left || 0);
+        var rightLoad = Number(sideLoads.right || 0);
+        var loadImbalance = Math.abs(leftLoad - rightLoad);
+        var pivotWorld = activeController.pivot_world && typeof activeController.pivot_world === 'object'
+            ? activeController.pivot_world
+            : null;
+        var rows = [];
+        rows.push(_envBlackboardMakeRow({
+            id: 'balance.stability_risk',
+            family: 'balance',
+            layer: 'derived',
+            source: 'DERV',
+            label: 'Stability Risk',
+            value: Number(balance.stability_risk || 0),
+            unit: '[0-1]',
+            tolerance_state: _envBlackboardToleranceFromRisk(balance.stability_risk),
+            priority: 0.98,
+            session_weight: 0.88,
+            group_key: 'balance',
+            sticky_ms: 1800,
+            anchor: { type: 'global' },
+            detail: String(balance.support_phase || 'unknown') + ' / ' + (balance.inside_polygon ? 'inside_polygon' : 'outside_polygon'),
+            trace: maneuverProbeHistory.slice(0, 6).reverse().map(function (probe) {
+                return {
+                    t: Number((probe || {}).timestamp || 0),
+                    value: Number((probe || {}).stability_risk || 0),
+                    label: String((probe || {}).support_phase || '')
+                };
+            }),
+            meta: {
+                watch: 0.4,
+                degraded: 0.64,
+                critical: 0.84
+            }
+        }));
+        rows.push(_envBlackboardMakeRow({
+            id: 'balance.stability_margin',
+            family: 'balance',
+            layer: 'derived',
+            source: 'DERV',
+            label: 'Stability Margin',
+            value: Number(balance.stability_margin || 0),
+            unit: 'm',
+            tolerance_state: _envBlackboardToleranceFromMargin(balance.stability_margin, balance.inside_polygon),
+            priority: 0.94,
+            session_weight: 0.82,
+            group_key: 'balance',
+            sticky_ms: 1800,
+            anchor: balance.nearest_edge && balance.nearest_edge.midpoint
+                ? { type: 'world', position: balance.nearest_edge.midpoint }
+                : { type: 'global' },
+            detail: balance.inside_polygon ? 'inside support polygon' : 'outside support polygon'
+        }));
+        rows.push(_envBlackboardMakeRow({
+            id: 'balance.load_imbalance',
+            family: 'load',
+            layer: 'derived',
+            source: 'DERV',
+            label: 'Load Imbalance',
+            value: loadImbalance,
+            unit: '[0-1]',
+            tolerance_state: _envBlackboardToleranceFromImbalance(loadImbalance),
+            priority: 0.72,
+            session_weight: 0.58,
+            group_key: 'load',
+            sticky_ms: 1600,
+            anchor: { type: 'global' },
+            detail: 'left ' + _envBlackboardDisplayValue(leftLoad, '') + ' / right ' + _envBlackboardDisplayValue(rightLoad, '')
+        }));
+        if (balance.nearest_edge && typeof balance.nearest_edge === 'object') {
+            rows.push(_envBlackboardMakeRow({
+                id: 'balance.nearest_edge',
+                family: 'support',
+                layer: 'derived',
+                source: 'DERV',
+                label: 'Nearest Support Edge',
+                value: Number((balance.nearest_edge || {}).distance || 0),
+                unit: 'm',
+                tolerance_state: _envBlackboardToleranceFromMargin(balance.nearest_edge.distance, balance.inside_polygon),
+                priority: 0.78,
+                session_weight: 0.61,
+                group_key: 'support',
+                sticky_ms: 1600,
+                anchor: (balance.nearest_edge || {}).midpoint
+                    ? { type: 'world', position: (balance.nearest_edge || {}).midpoint }
+                    : { type: 'global' },
+                detail: String((balance.nearest_edge || {}).kind || 'edge') + ' #' + String((balance.nearest_edge || {}).index || 0)
+            }));
+        }
+        rows.push(_envBlackboardMakeRow({
+            id: 'controller.active',
+            family: 'controller',
+            layer: 'raw',
+            source: 'MEAS',
+            label: 'Active Controller',
+            value: String(activeController.controller_id || activeController.label || 'none'),
+            tolerance_state: activeController.controller_id || activeController.label ? 'INFO' : 'WATCH',
+            priority: 0.7,
+            session_weight: 0.84,
+            group_key: 'controller',
+            sticky_ms: 2400,
+            anchor: pivotWorld ? { type: 'world', position: pivotWorld } : { type: 'global' },
+            detail: String(activeController.controller_kind || 'group') + ' / ' + String(activeController.propagation_mode || 'follow')
+        }));
+        if ((activeController.leader_bone_ids || []).length || (activeController.anchor_bone_ids || []).length || (activeController.carrier_bone_ids || []).length) {
+            rows.push(_envBlackboardMakeRow({
+                id: 'controller.roles',
+                family: 'controller',
+                layer: 'interpretation',
+                source: 'INTP',
+                label: 'Controller Roles',
+                value: {
+                    leader: _slotUniqueStrings(activeController.leader_bone_ids || []),
+                    anchor: _slotUniqueStrings(activeController.anchor_bone_ids || []),
+                    carrier: _slotUniqueStrings(activeController.carrier_bone_ids || [])
+                },
+                tolerance_state: 'INFO',
+                priority: 0.62,
+                session_weight: 0.74,
+                group_key: 'controller',
+                sticky_ms: 2400,
+                anchor: pivotWorld ? { type: 'world', position: pivotWorld } : { type: 'global' },
+                detail: 'leader '
+                    + (_slotUniqueStrings(activeController.leader_bone_ids || []).join(', ') || 'none')
+                    + ' / anchor '
+                    + (_slotUniqueStrings(activeController.anchor_bone_ids || []).join(', ') || 'none')
+                    + ' / carrier '
+                    + (_slotUniqueStrings(activeController.carrier_bone_ids || []).join(', ') || 'none')
+            }));
+        }
+        rows.push(_envBlackboardMakeRow({
+            id: 'route.status',
+            family: 'route',
+            layer: 'interpretation',
+            source: 'INTP',
+            label: 'Route Status',
+            value: String(routeReport.support_topology_label || routeReport.pose_macro_id || 'none'),
+            tolerance_state: missingSupport.length ? 'DEGRADED' : 'INFO',
+            priority: 0.84,
+            session_weight: 0.92,
+            group_key: 'route',
+            sticky_ms: 2600,
+            anchor: missingSupport[0] ? { type: 'bone', id: missingSupport[0] } : (pivotWorld ? { type: 'world', position: pivotWorld } : { type: 'global' }),
+            detail: 'intended '
+                + (intendedSupport.join(', ') || 'none')
+                + ' / realized '
+                + (_slotUniqueStrings(routeReport.realized_support_set || []).join(', ') || 'none')
+                + ' / missing '
+                + (missingSupport.join(', ') || 'none')
+        }));
+        if (routeReport.blocker_summary) {
+            rows.push(_envBlackboardMakeRow({
+                id: 'route.blocker',
+                family: 'route',
+                layer: 'interpretation',
+                source: 'INTP',
+                label: 'Route Blocker',
+                value: String(routeReport.blocker_summary || ''),
+                tolerance_state: 'CRITICAL',
+                priority: 0.91,
+                session_weight: 1,
+                group_key: 'route',
+                sticky_ms: 3200,
+                anchor: missingSupport[0] ? { type: 'bone', id: missingSupport[0] } : { type: 'global' },
+                detail: String(routeReport.stage_reason || '')
+            }));
+        }
+        if (routeReport.next_suggested_adjustment) {
+            rows.push(_envBlackboardMakeRow({
+                id: 'route.next_adjustment',
+                family: 'route',
+                layer: 'prediction',
+                source: 'PRED',
+                label: 'Next Suggested Adjustment',
+                value: String(routeReport.next_suggested_adjustment || ''),
+                tolerance_state: missingSupport.length ? 'WATCH' : 'INFO',
+                priority: 0.76,
+                session_weight: 0.94,
+                group_key: 'route',
+                sticky_ms: 3200,
+                anchor: missingSupport[0] ? { type: 'bone', id: missingSupport[0] } : { type: 'global' }
+            }));
+        }
+        contacts.slice(0).sort(function (left, right) {
+            var leftIntended = intendedMap[String((left || {}).joint || '')] ? 1 : 0;
+            var rightIntended = intendedMap[String((right || {}).joint || '')] ? 1 : 0;
+            if (leftIntended !== rightIntended) return rightIntended - leftIntended;
+            var leftSupporting = (left && left.supporting) ? 1 : 0;
+            var rightSupporting = (right && right.supporting) ? 1 : 0;
+            if (leftSupporting !== rightSupporting) return rightSupporting - leftSupporting;
+            return Math.abs(Number((left || {}).gap || 0)) - Math.abs(Number((right || {}).gap || 0));
+        }).slice(0, 6).forEach(function (contact) {
+            var jointId = String((contact || {}).joint || '').trim();
+            if (!jointId) return;
+            rows.push(_envBlackboardMakeRow({
+                id: 'contact.' + jointId,
+                family: 'contact',
+                layer: 'raw',
+                source: 'MEAS',
+                label: jointId,
+                value: String((contact || {}).state || ''),
+                tolerance_state: _envBlackboardToleranceFromContact(contact, intendedMap),
+                priority: intendedMap[jointId] ? 0.9 : ((contact || {}).supporting ? 0.68 : 0.46),
+                session_weight: selectedBoneIds.indexOf(jointId) >= 0 ? 0.88 : (intendedMap[jointId] ? 0.8 : 0.3),
+                group_key: 'contact:' + String((contact || {}).side || (contact || {}).group || 'global'),
+                sticky_ms: intendedMap[jointId] ? 2600 : 1200,
+                anchor: { type: 'bone', id: jointId },
+                detail: String((contact || {}).state || 'unknown')
+                    + ' / '
+                    + String((contact || {}).contact_mode || 'none')
+                    + ' / '
+                    + String((contact || {}).contact_bias || 'neutral')
+                    + ' / gap '
+                    + _envBlackboardDisplayValue(Number((contact || {}).gap || 0), 'm')
+            }));
+        });
+        if (corroboration && corroboration.narrative) {
+            rows.push(_envBlackboardMakeRow({
+                id: 'corroboration.narrative',
+                family: 'corroboration',
+                layer: 'corroboration',
+                source: 'CORB',
+                label: 'Mirror Narrative',
+                value: String(corroboration.narrative || ''),
+                tolerance_state: Number(((corroboration.layout || {}).overlap_count) || 0) > 0 ? 'WATCH' : 'INFO',
+                priority: 0.42,
+                session_weight: 0.24,
+                group_key: 'corroboration',
+                sticky_ms: 1200,
+                anchor: { type: 'global' },
+                detail: ((corroboration.notes || []).slice(0, 2)).join(' / ')
+            }));
+        }
+        if (view.last_action) {
+            rows.push(_envBlackboardMakeRow({
+                id: 'session.last_action',
+                family: 'session',
+                layer: 'raw',
+                source: 'MEAS',
+                label: 'Last Action',
+                value: String(view.last_action || ''),
+                tolerance_state: 'INFO',
+                priority: 0.48,
+                session_weight: 0.86,
+                group_key: 'session',
+                sticky_ms: 4000,
+                anchor: { type: 'global' }
+            }));
+        }
+        if (selectedBoneIds.length) {
+            rows.push(_envBlackboardMakeRow({
+                id: 'session.selection',
+                family: 'session',
+                layer: 'raw',
+                source: 'MEAS',
+                label: 'Selection',
+                value: selectedBoneIds,
+                tolerance_state: 'INFO',
+                priority: 0.52,
+                session_weight: 0.9,
+                group_key: 'session',
+                sticky_ms: 2600,
+                anchor: selectedBoneIds[0] ? { type: 'bone', id: selectedBoneIds[0] } : { type: 'global' },
+                detail: selectedBoneIds.join(', ')
+            }));
+        }
+        rows.sort(function (left, right) {
+            var leftScore = Number(left.priority || 0) + Number(left.session_weight || 0);
+            var rightScore = Number(right.priority || 0) + Number(right.session_weight || 0);
+            return rightScore - leftScore;
+        });
+        var familyMap = {};
+        rows.forEach(function (row) {
+            familyMap[String(row.family || 'misc')] = true;
+        });
+        return {
+            version: 1,
+            generated_at: Number(view.snapshot_timestamp || Date.now()),
+            source_snapshot_timestamp: Number(view.snapshot_timestamp || 0),
+            source_command_sync_token: String(view.command_sync_token || ''),
+            focus: {
+                kind: String(focus.kind || ''),
+                id: String(focus.id || ''),
+                target_class: String(focus.target_class || '')
+            },
+            working_set: {
+                selected_bone_ids: selectedBoneIds,
+                supporting_joint_ids: supportingIds,
+                intended_support_set: intendedSupport,
+                missing_support_set: missingSupport,
+                active_controller_id: String(activeController.controller_id || activeController.label || ''),
+                active_route_id: String(routeReport.pose_macro_id || routeReport.support_topology_label || ''),
+                active_profile_ids: _envCloneJson((profileRegistry || {}).surface_defaults || {}, {}),
+                lead_row_ids: rows.slice(0, 8).map(function (row) { return String(row.id || ''); }),
+                pinned_row_ids: []
+            },
+            profile_registry_version: Number((profileRegistry || {}).version || 1),
+            profile_first_wave_ids: _envCloneJson((profileRegistry || {}).first_wave_ids || [], []),
+            designation_contract: _envCloneJson((profileRegistry || {}).designation_contract || {}, {}),
+            families: Object.keys(familyMap).sort(),
+            row_count: rows.length,
+            rows: rows
+        };
+    }
+
     function _envBuildTextTheaterSceneSummary(snapshot) {
         var view = snapshot && typeof snapshot === 'object' ? snapshot : {};
         var theater = view.theater && typeof view.theater === 'object' ? view.theater : {};
@@ -30659,6 +31272,114 @@
         return lines.join('\n');
     }
 
+    function _envNormalizeTextTheaterViewMode(mode) {
+        var value = String(mode || '').trim().toLowerCase();
+        if (value === 'consult' || value === 'theater' || value === 'embodiment'
+            || value === 'snapshot' || value === 'split') {
+            return value;
+        }
+        return 'render';
+    }
+
+    function _envNormalizeTextTheaterSectionKey(key) {
+        var value = String(key || '').trim().toLowerCase();
+        if (value === 'theater' || value === 'scene' || value === 'render' || value === 'layout'
+            || value === 'docs' || value === 'navigation' || value === 'panel' || value === 'inspector'
+            || value === 'operations' || value === 'runtime' || value === 'workbench'
+            || value === 'embodiment' || value === 'balance' || value === 'contacts'
+            || value === 'timeline' || value === 'corroboration' || value === 'blackboard'
+            || value === 'profiles'
+            || value === 'semantic') {
+            return value;
+        }
+        return 'theater';
+    }
+
+    function _envCloneTextTheaterControlState() {
+        return _envCloneJson(_envTextTheaterControlState || {}, {
+            view_mode: 'render',
+            section_key: 'theater',
+            diagnostics_visible: false,
+            surface_mode: 'sharp',
+            surface_density: 0.42,
+            revision: 0,
+            updated_ts: 0,
+            source: ''
+        });
+    }
+
+    function _envTextTheaterSetView(actorName, reason, targetId) {
+        var payload = null;
+        if (targetId && typeof targetId === 'object' && !Array.isArray(targetId)) payload = targetId;
+        if (!payload) {
+            try {
+                payload = JSON.parse(String(targetId || '{}'));
+            } catch (ignored) {
+                payload = { view_mode: String(targetId || '').trim() };
+            }
+        }
+        payload = payload && typeof payload === 'object' && !Array.isArray(payload) ? payload : {};
+        var nextViewMode = _envTextTheaterControlState.view_mode;
+        if (payload.view_mode !== undefined || payload.view !== undefined) {
+            nextViewMode = _envNormalizeTextTheaterViewMode(
+                payload.view_mode !== undefined ? payload.view_mode : payload.view
+            );
+        }
+        var nextSectionKey = _envTextTheaterControlState.section_key;
+        if (payload.section_key !== undefined || payload.section !== undefined) {
+            nextSectionKey = _envNormalizeTextTheaterSectionKey(
+                payload.section_key !== undefined ? payload.section_key : payload.section
+            );
+        }
+        _envTextTheaterControlState.view_mode = nextViewMode;
+        _envTextTheaterControlState.section_key = nextSectionKey;
+        if (payload.toggle_diagnostics) {
+            _envTextTheaterControlState.diagnostics_visible = !_envTextTheaterControlState.diagnostics_visible;
+        } else if (payload.diagnostics_visible !== undefined) {
+            _envTextTheaterControlState.diagnostics_visible = !!payload.diagnostics_visible;
+        } else if (payload.diagnostics !== undefined) {
+            _envTextTheaterControlState.diagnostics_visible = !!payload.diagnostics;
+        }
+        if (payload.surface_mode !== undefined) {
+            var requestedSurfaceMode = String(payload.surface_mode || '').trim().toLowerCase();
+            if (requestedSurfaceMode === 'sharp' || requestedSurfaceMode === 'granular' || requestedSurfaceMode === 'legacy') {
+                _envTextTheaterControlState.surface_mode = requestedSurfaceMode;
+            }
+        }
+        if (payload.surface_density !== undefined) {
+            var requestedSurfaceDensity = Number(payload.surface_density);
+            if (Number.isFinite(requestedSurfaceDensity)) {
+                _envTextTheaterControlState.surface_density = Math.max(0, Math.min(1, requestedSurfaceDensity));
+            }
+        }
+        _envTextTheaterControlState.revision = Number(_envTextTheaterControlState.revision || 0) + 1;
+        _envTextTheaterControlState.updated_ts = Date.now();
+        _envTextTheaterControlState.source = String(actorName || '').trim() || 'assistant';
+        _envLogAction('control', 'Updated text theater view', actorName, {
+            action: 'text_theater_set_view',
+            view_mode: _envTextTheaterControlState.view_mode,
+            section_key: _envTextTheaterControlState.section_key,
+            diagnostics_visible: _envTextTheaterControlState.diagnostics_visible,
+            surface_mode: _envTextTheaterControlState.surface_mode,
+            surface_density: _envTextTheaterControlState.surface_density,
+            revision: _envTextTheaterControlState.revision,
+            reason: String(reason || '').trim()
+        });
+        _envEmitBus('control', 'Updated text theater view', actorName, {
+            action: 'text_theater_set_view',
+            view_mode: _envTextTheaterControlState.view_mode,
+            section_key: _envTextTheaterControlState.section_key,
+            diagnostics_visible: _envTextTheaterControlState.diagnostics_visible,
+            surface_mode: _envTextTheaterControlState.surface_mode,
+            surface_density: _envTextTheaterControlState.surface_density,
+            revision: _envTextTheaterControlState.revision
+        });
+        _envSetBadge('running', 'TEXT VIEW');
+        _envScheduleLiveSync('text_theater_set_view', true);
+        renderEnvironmentView();
+        return true;
+    }
+
     function _envRememberTextTheaterBundle(bundle) {
         if (!bundle || typeof bundle !== 'object') return null;
         var snapshot = bundle.snapshot && typeof bundle.snapshot === 'object' ? bundle.snapshot : null;
@@ -30734,7 +31455,10 @@
             contacts: _envCloneJson(source.contacts || [], []),
             timeline: _envCloneJson(source.timeline || {}, {}),
             semantic: _envCloneJson(source.semantic || {}, {}),
-            corroboration: _envCloneJson(source.corroboration || {}, {})
+            corroboration: _envCloneJson(source.corroboration || {}, {}),
+            text_theater_control: _envCloneJson(source.text_theater_control || {}, {}),
+            text_theater_profiles: _envCloneJson(source.text_theater_profiles || {}, {}),
+            blackboard: _envCloneJson(source.blackboard || {}, {})
         };
     }
 
@@ -30909,6 +31633,8 @@
                 mirror_lag: !!(_envLiveSyncState.lastSyncedTs && (now - Number(_envLiveSyncState.lastSyncedTs || 0) > 3000)),
                 bundle_mismatch: String((renderTruth && renderTruth.bundle_version) || '') !== bundleVersion
             },
+            text_theater_control: _envCloneTextTheaterControlState(),
+            text_theater_profiles: _envBuildTextTheaterProfileRegistry(),
             theater: {
                 mode: String((((shared.scene || {}).theaterMode)) || _envTheaterMode() || ''),
                 visual_mode: String((mountedRuntime.visual_mode) || (workbenchSurface && workbenchSurface.builder_active ? 'builder_subject' : 'mesh_asset') || ''),
@@ -31145,6 +31871,7 @@
         snapshot.render.focus_object_visual = _envTextTheaterSceneObjectVisual(focusObject);
         snapshot.render.selection_palette = _envCloneJson((((workbenchSurface || {}).selection_visual_state) || {}), null);
         snapshot.semantic = _envBuildTextTheaterSemantic(snapshot);
+        snapshot.blackboard = _envBuildBlackboardState(snapshot);
         return snapshot;
     }
 
@@ -36051,7 +36778,9 @@
         var text = String(reason || '').toLowerCase();
         return text.indexOf('camera:manual:end') >= 0
             || text.indexOf('camera:manual:change') >= 0
+            || text.indexOf('camera:manual:wheel') >= 0
             || text.indexOf('camera:session_restore') >= 0
+            || text.indexOf('camera:workbench-shot:') >= 0
             || text.indexOf('camera:workbench_frame_part:') >= 0
             || text.indexOf('camera:preset:') >= 0
             || text.indexOf('camera:turntable') >= 0
@@ -43618,6 +44347,7 @@
 
     function _env3DCommitManualCamera(reason, forceSync, commandSyncToken) {
         var actor = typeof _envManualActorId === 'function' ? _envManualActorId() : 'assistant';
+        _env3D.cameraPulseSeq = Number(_env3D.cameraPulseSeq || 0) + 1;
         _env3DAbsorbCurrentCameraPose(reason || 'camera:manual', !!forceSync, commandSyncToken);
         var snapshot = _env3DCameraPoseSnapshot();
         _envLogAction('camera', 'Adjusted habitat 3D camera', actor, {
@@ -59166,6 +59896,12 @@
                 }
                 if (action === 'workbench-toggle-turntable') {
                     _env3D.workbenchTurntable = !_env3D.workbenchTurntable;
+                    if (actionEl && actionEl.classList) {
+                        actionEl.classList.toggle('active', !!_env3D.workbenchTurntable);
+                        actionEl.setAttribute('data-env-state', _env3D.workbenchTurntable ? 'on' : 'off');
+                        actionEl.setAttribute('aria-pressed', _env3D.workbenchTurntable ? 'true' : 'false');
+                        actionEl.textContent = _env3D.workbenchTurntable ? 'Turntable: ON' : 'Turntable: OFF';
+                    }
                     _envSaveTheaterSession('workbench:turntable');
                     _envScheduleLiveSync('camera:turntable:' + (_env3D.workbenchTurntable ? 'start' : 'stop'), true);
                     renderEnvironmentView();
@@ -59772,6 +60508,12 @@
     };
     window.envopsQueueControl = function (action, target, actor, note, meta) {
         _envQueueControl(action || '', target || '', actor || 'assistant', note || '', meta || {});
+    };
+    window.envopsTextTheaterSetView = function (spec, actor, reason) {
+        var payload = spec && typeof spec === 'object' && !Array.isArray(spec)
+            ? JSON.stringify(spec)
+            : JSON.stringify({ view_mode: String(spec || '').trim() });
+        _envQueueControl('text_theater_set_view', payload, actor || 'assistant', reason || 'external text theater set view');
     };
     window.envopsBatchControl = function (commands, actor, notePrefix) {
         return _envQueueBatch(commands, actor, notePrefix, {});
@@ -60478,6 +61220,9 @@
             corroborationState: corroborationState,
             inhabitantSurface: inhabitantSurface
         });
+        sharedState.text_theater_control = _envCloneTextTheaterControlState();
+        sharedState.text_theater_profiles = _envCloneJson((textTheaterSnapshot || {}).text_theater_profiles || {}, {});
+        sharedState.blackboard = _envCloneJson((textTheaterSnapshot || {}).blackboard || {}, {});
         sharedState.text_theater = {
             snapshot: _envCloneJson(textTheaterSnapshot, null),
             theater: _envRenderTextTheaterOutput(textTheaterSnapshot, 'theater'),
