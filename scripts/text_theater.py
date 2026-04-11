@@ -2977,8 +2977,9 @@ def _render_consult_pose_text(snapshot):
     embodiment = snapshot.get("embodiment") if isinstance(snapshot.get("embodiment"), dict) else {}
     gizmo = workbench.get("gizmo") if isinstance(workbench.get("gizmo"), dict) else {}
     active_controller = workbench.get("active_controller") if isinstance(workbench.get("active_controller"), dict) else {}
+    route_report = workbench.get("route_report") if isinstance(workbench.get("route_report"), dict) else {}
     pivot = active_controller.get("pivot_world") if isinstance(active_controller.get("pivot_world"), dict) else {}
-    return "\n".join([
+    lines = [
         "POSE: primary "
         + str(workbench.get("primary_bone_id") or "none")
         + " / hover "
@@ -3025,7 +3026,26 @@ def _render_consult_pose_text(snapshot):
         + str(workbench.get("preview_loop") or "repeat")
         + " / speed "
         + str(workbench.get("preview_speed") or 0),
-    ])
+    ]
+    if route_report:
+        intended = ", ".join(str(v) for v in (route_report.get("intended_support_set") or [])) or "none"
+        realized = ", ".join(str(v) for v in (route_report.get("realized_support_set") or [])) or "none"
+        missing = ", ".join(str(v) for v in (route_report.get("missing_support_participants") or [])) or "none"
+        lines.append(
+            "ROUTE: "
+            + str(route_report.get("support_topology_label") or route_report.get("pose_macro_id") or "support intent")
+            + " / intended "
+            + intended
+            + " / realized "
+            + realized
+            + " / missing "
+            + missing
+        )
+        if route_report.get("blocker_summary"):
+            lines.append("BLOCKER: " + str(route_report.get("blocker_summary") or ""))
+        if route_report.get("next_suggested_adjustment"):
+            lines.append("NEXT: " + str(route_report.get("next_suggested_adjustment") or ""))
+    return "\n".join(lines)
 
 
 def _render_consult_motion_text(snapshot):
@@ -3179,6 +3199,7 @@ def _render_local_embodiment_text(snapshot):
     semantic = snapshot.get("semantic") if isinstance(snapshot.get("semantic"), dict) else {}
     gizmo = workbench.get("gizmo") if isinstance(workbench.get("gizmo"), dict) else {}
     active_controller = workbench.get("active_controller") if isinstance(workbench.get("active_controller"), dict) else {}
+    route_report = workbench.get("route_report") if isinstance(workbench.get("route_report"), dict) else {}
     pivot = active_controller.get("pivot_world") if isinstance(active_controller.get("pivot_world"), dict) else {}
     projected_com = balance.get("projected_com") if isinstance(balance.get("projected_com"), dict) else {}
     contacts = snapshot.get("contacts") if isinstance(snapshot.get("contacts"), list) else []
@@ -3262,6 +3283,24 @@ def _render_local_embodiment_text(snapshot):
             + ")"
         )
     lines.append("  alerts: " + (", ".join(str(v) for v in (balance.get("alert_ids") or [])) if balance.get("alert_ids") else "none"))
+    if route_report:
+        intended = ", ".join(str(v) for v in (route_report.get("intended_support_set") or [])) or "none"
+        realized = ", ".join(str(v) for v in (route_report.get("realized_support_set") or [])) or "none"
+        missing = ", ".join(str(v) for v in (route_report.get("missing_support_participants") or [])) or "none"
+        lines.append(
+            "ROUTE: "
+            + str(route_report.get("support_topology_label") or route_report.get("pose_macro_id") or "support intent")
+            + " / intended "
+            + intended
+            + " / realized "
+            + realized
+            + " / missing "
+            + missing
+        )
+        if route_report.get("blocker_summary"):
+            lines.append("  blocker: " + str(route_report.get("blocker_summary") or ""))
+        if route_report.get("next_suggested_adjustment"):
+            lines.append("  next: " + str(route_report.get("next_suggested_adjustment") or ""))
     lines.append(
         "ASSERT: "
         + (

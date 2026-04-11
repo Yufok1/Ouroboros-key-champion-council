@@ -1151,8 +1151,27 @@
             load_field_enabled: true,
             load_field_overlay_visible: false,
             support_contact_targets: [],
-            support_contact_stage_report: null
+            support_contact_stage_report: null,
+            last_pose_macro_id: '',
+            last_pose_macro_label: '',
+            last_pose_macro_controller_id: '',
+            last_pose_macro_stage_targets: []
         };
+    }
+
+    function _envBuilderClearPoseMacroIntent() {
+        _envBuilderInteraction.last_pose_macro_id = '';
+        _envBuilderInteraction.last_pose_macro_label = '';
+        _envBuilderInteraction.last_pose_macro_controller_id = '';
+        _envBuilderInteraction.last_pose_macro_stage_targets = [];
+    }
+
+    function _envBuilderSetPoseMacroIntent(macro) {
+        var record = macro && typeof macro === 'object' ? macro : {};
+        _envBuilderInteraction.last_pose_macro_id = String(record.macro_id || '').trim();
+        _envBuilderInteraction.last_pose_macro_label = String(record.label || record.macro_id || '').trim();
+        _envBuilderInteraction.last_pose_macro_controller_id = String(record.controller_id || '').trim();
+        _envBuilderInteraction.last_pose_macro_stage_targets = _envNormalizeBuilderSupportContactTargets(record.suggested_stage_targets || [], '');
     }
 
     function _envNormalizeBuilderBoneIdList(value, fallback) {
@@ -2703,6 +2722,222 @@
         return _envBuilderContactTargetAliases(target).some(function (alias) {
             return !!wanted[String(alias || '').trim().toLowerCase()];
         });
+    }
+
+    function _envBuilderContactRowAliases(row) {
+        if (!row || typeof row !== 'object') return [];
+        var joint = String(row.joint || row.id || row.bone_id || row.canonical_joint || '').trim();
+        var canonical = _envBuilderResolveCanonicalBoneId(joint) || joint;
+        var group = String(row.group || '').trim();
+        var side = String(row.side || '').trim();
+        return _slotUniqueStrings([
+            joint,
+            canonical,
+            group && side ? (group + '_' + side) : '',
+            side && group ? (side + '_' + group) : ''
+        ]);
+    }
+
+    function _envBuilderSupportTargetMatchesContactRow(targetId, row) {
+        var desired = _envNormalizeBuilderSupportContactTargets([targetId], '');
+        if (!desired.length) return false;
+        var wanted = {};
+        desired.forEach(function (id) { wanted[String(id || '').trim().toLowerCase()] = true; });
+        return _envBuilderContactRowAliases(row).some(function (alias) {
+            return !!wanted[String(alias || '').trim().toLowerCase()];
+        });
+    }
+
+    function _envBuilderCurrentRouteIntent(poseMacroRegistry, activeController) {
+        var registry = Array.isArray(poseMacroRegistry) ? poseMacroRegistry : [];
+        var explicitTargets = _envNormalizeBuilderSupportContactTargets(_envBuilderInteraction.support_contact_targets || [], '');
+        var macroId = String(_envBuilderInteraction.last_pose_macro_id || '').trim();
+        var macro = macroId ? _envBuilderPoseMacroRegistryEntry(registry, macroId) : null;
+        var macroLabel = String(_envBuilderInteraction.last_pose_macro_label || (macro && macro.label) || macroId || '').trim();
+        var macroControllerId = String(_envBuilderInteraction.last_pose_macro_controller_id || (macro && macro.controller_id) || '').trim();
+        var macroTargets = _envNormalizeBuilderSupportContactTargets(
+            _envBuilderInteraction.last_pose_macro_stage_targets || (macro && macro.suggested_stage_targets) || [],
+            ''
+        );
+        var intended = explicitTargets.length ? explicitTargets : macroTargets;
+        var routeSource = explicitTargets.length ? 'staging' : (macroId ? 'macro' : '');
+        var controllerId = String((activeController && activeController.controller_id) || macroControllerId || '').trim();
+        var controllerLabel = String((activeController && activeController.label) || controllerId || '').trim();
+        var controllerKind = String((activeController && activeController.controller_kind) || '').trim();
+        var topologyLabel = macroLabel || (intended.length ? intended.join(' + ') : '');
+        if (!intended.length && !controllerId && !macroId) return null;
+        return {
+            route_source: routeSource,
+            pose_macro_id: macroId,
+            pose_macro_label: macroLabel,
+            controller_id: controllerId,
+            controller_label: controllerLabel,
+            controller_kind: controllerKind,
+            support_topology_label: topologyLabel,
+            intended_support_set: intended
+        };
+    }
+
+    function _envBuilderMissingSupportSummary(missingRows) {
+        var rows = Array.isArray(missingRows) ? missingRows : [];
+        if (!rows.length) return '';
+        return rows.map(function (row) {
+            var joint = String(row.joint || row.id || row.bone_id || row.canonical_joint || '').trim();
+            var state = String(row.state || 'unknown').trim();
+            var gap = Number(row.gap || 0);
+            var manifold = Number(row.manifold_points || 0);
+            return joint + ' still ' + state + ' (gap ' + gap.toFixed(3) + ', manifold ' + manifold + ')';
+        }).join('; ');
+    }
+
+    function _envBuilderStageBlockerSummary(stageReport) {
+        var report = stageReport && typeof stageReport === 'object' ? stageReport : {};
+        var blockers = Array.isArray(report.blockers) ? report.blockers : [];
+        if (!blockers.length) return '';
+        return blockers.map(function (row) {
+            return String(row.id || '')
+                + ' would penetrate by '
+                + Number(row.penetration || 0).toFixed(3);
+        }).join('; ');
+    }
+
+    function _envBuilderNextSuggestedAdjustment(routeIntent, missingRows, stageReport, realizedSupportSet) {
+        var intent = routeIntent && typeof routeIntent === 'object' ? routeIntent : {};
+        var missing = Array.isArray(missingRows) ? missingRows : [];
+        var realized = Array.isArray(realizedSupportSet) ? realizedSupportSet : [];
+        var report = stageReport && typeof stageReport === 'object' ? stageReport : {};
+        if (!intent.intended_support_set || !intent.intended_support_set.length) return '';
+        if (!missing.length && !report.blocked) return 'Support topology realized; move to the next maneuver phase.';
+        if (report.blocked) {
+            var blockerIds = (Array.isArray(report.blockers) ? report.blockers : [])
+                .map(function (row) { return String(row.id || '').trim(); })
+                .filter(Boolean);
+            return 'Adjust pose to unload or raise '
+                + (blockerIds.length ? blockerIds.join(', ') : 'blocking contacts')
+                + ' before restaging '
+                + intent.intended_support_set.join(', ')
+                + '.';
+        }
+        if (missing.some(function (row) { return String(row.group || '') === 'knee'; })) {
+            return 'Lower hips and reorient the leg chain so the intended knee patch can land while preserving '
+                + (realized.length ? realized.join(', ') : 'current support')
+                + '.';
+        }
+        if (missing.some(function (row) { var group = String(row.group || ''); return group === 'hand' || group === 'forearm' || group === 'elbow'; })) {
+            return 'Rotate the arm chain toward the support surface and add torso compensation before staging again.';
+        }
+        if (missing.some(function (row) { return String(row.group || '') === 'foot'; })) {
+            return 'Shift load toward the intended planted foot and reorient the leg chain before staging again.';
+        }
+        return 'Adjust the whole-body pose so the missing supports come into reach before staging again.';
+    }
+
+    function _envBuilderSupportRouteReport(currentMotionDiagnostics, activeController, poseMacroRegistry) {
+        var routeIntent = _envBuilderCurrentRouteIntent(poseMacroRegistry, activeController);
+        if (!routeIntent) return null;
+        var motionDiagnostics = currentMotionDiagnostics && typeof currentMotionDiagnostics === 'object' ? currentMotionDiagnostics : {};
+        var contacts = Array.isArray(motionDiagnostics.contacts) ? motionDiagnostics.contacts : [];
+        var stageReport = _envBuilderInteraction.support_contact_stage_report && typeof _envBuilderInteraction.support_contact_stage_report === 'object'
+            ? _envBuilderInteraction.support_contact_stage_report
+            : null;
+        var realizedSupportRows = contacts.filter(function (row) {
+            return row && row.supporting;
+        });
+        var realizedSupportSet = _slotUniqueStrings(realizedSupportRows.map(function (row) {
+            return String(row.bone_id || row.canonical_joint || row.joint || row.id || '').trim();
+        }).filter(Boolean));
+        var missingRows = [];
+        var missingIds = [];
+        var realizedIntended = [];
+        (routeIntent.intended_support_set || []).forEach(function (targetId) {
+            var matchedSupporting = realizedSupportRows.find(function (row) {
+                return _envBuilderSupportTargetMatchesContactRow(targetId, row);
+            });
+            if (matchedSupporting) {
+                realizedIntended.push(String(targetId || '').trim());
+                return;
+            }
+            var matchingRow = contacts.find(function (row) {
+                return _envBuilderSupportTargetMatchesContactRow(targetId, row);
+            });
+            missingIds.push(String(targetId || '').trim());
+            if (matchingRow) missingRows.push(matchingRow);
+            else missingRows.push({ joint: String(targetId || '').trim(), state: 'missing', gap: 0, manifold_points: 0, group: '' });
+        });
+        var blockerSummary = '';
+        if (stageReport && stageReport.blocked) blockerSummary = _envBuilderStageBlockerSummary(stageReport);
+        if (!blockerSummary && missingRows.length) blockerSummary = _envBuilderMissingSupportSummary(missingRows);
+        if (!blockerSummary && routeIntent.intended_support_set.length) blockerSummary = 'All intended supports realized.';
+        var nextAdjustment = _envBuilderNextSuggestedAdjustment(routeIntent, missingRows, stageReport, realizedSupportSet);
+        var anchorId = String(routeIntent.controller_id || (activeController && activeController.controller_id) || '').trim();
+        var anchor = {
+            kind: anchorId ? 'controller' : 'support_topology',
+            id: anchorId,
+            focus_bone_id: String((activeController && activeController.focus_bone_id) || '').trim()
+        };
+        var sourceConfidence = contacts.length ? 'derived_live' : 'low';
+        return {
+            route_source: String(routeIntent.route_source || ''),
+            support_topology_label: String(routeIntent.support_topology_label || ''),
+            pose_macro_id: String(routeIntent.pose_macro_id || ''),
+            pose_macro_label: String(routeIntent.pose_macro_label || ''),
+            controller_id: String(routeIntent.controller_id || ''),
+            controller_label: String(routeIntent.controller_label || ''),
+            controller_kind: String(routeIntent.controller_kind || ''),
+            intended_support_set: _envCloneJson(routeIntent.intended_support_set || [], []),
+            realized_support_set: _envCloneJson(realizedSupportSet, []),
+            realized_intended_support_set: _envCloneJson(realizedIntended, []),
+            missing_support_participants: _envCloneJson(missingIds, []),
+            blocker_summary: String(blockerSummary || ''),
+            next_suggested_adjustment: String(nextAdjustment || ''),
+            stage_blocked: !!(stageReport && stageReport.blocked),
+            stage_reason: String((stageReport && stageReport.reason) || ''),
+            stage_report: _envCloneJson(stageReport, null),
+            anchor: anchor,
+            source_confidence: sourceConfidence,
+            rows: [
+                {
+                    key: 'intended_support_set',
+                    label: 'Intended Support',
+                    value: _envCloneJson(routeIntent.intended_support_set || [], []),
+                    unit: 'contact_set',
+                    anchor: _envCloneJson(anchor, null),
+                    source_confidence: sourceConfidence
+                },
+                {
+                    key: 'realized_support_set',
+                    label: 'Realized Support',
+                    value: _envCloneJson(realizedSupportSet, []),
+                    unit: 'contact_set',
+                    anchor: _envCloneJson(anchor, null),
+                    source_confidence: sourceConfidence
+                },
+                {
+                    key: 'missing_support_participants',
+                    label: 'Missing Support',
+                    value: _envCloneJson(missingIds, []),
+                    unit: 'contact_set',
+                    anchor: _envCloneJson(anchor, null),
+                    source_confidence: sourceConfidence
+                },
+                {
+                    key: 'blocker_summary',
+                    label: 'Blocker',
+                    value: String(blockerSummary || ''),
+                    unit: 'text',
+                    anchor: _envCloneJson(anchor, null),
+                    source_confidence: sourceConfidence
+                },
+                {
+                    key: 'next_suggested_adjustment',
+                    label: 'Next Adjustment',
+                    value: String(nextAdjustment || ''),
+                    unit: 'text',
+                    anchor: _envCloneJson(anchor, null),
+                    source_confidence: sourceConfidence
+                }
+            ]
+        };
     }
 
     function _envBuilderContactStageReport(mesh, supportRecord, targetIds) {
@@ -18521,6 +18756,7 @@
             renderEnvironmentView();
             return false;
         }
+        _envBuilderClearPoseMacroIntent();
         _env3DStageBuilderSubjectForWorkbench(mesh, mesh.userData._builderSubjectGroup || null);
         _envBuilderApplySelectionToMesh(mesh);
         _env3DUpdateBuilderGizmoAttachment('workbench_set_pose');
@@ -18642,6 +18878,7 @@
             renderEnvironmentView();
             return false;
         }
+        _envBuilderClearPoseMacroIntent();
         _env3DStageBuilderSubjectForWorkbench(mesh, mesh.userData._builderSubjectGroup || null);
         _envBuilderApplySelectionToMesh(mesh);
         _env3DUpdateBuilderGizmoAttachment('workbench_set_pose_batch');
@@ -18736,6 +18973,7 @@
             renderEnvironmentView();
             return false;
         }
+        _envBuilderClearPoseMacroIntent();
         _env3DStageBuilderSubjectForWorkbench(mesh, mesh.userData._builderSubjectGroup || null);
         _envBuilderApplySelectionToMesh(mesh);
         _env3DUpdateBuilderGizmoAttachment('workbench_clear_pose');
@@ -19134,6 +19372,7 @@
             renderEnvironmentView();
             return false;
         }
+        _envBuilderClearPoseMacroIntent();
         _envLogAction('character_runtime', 'Applied builder key pose', actorName, {
             action: 'workbench_apply_pose',
             pose_id: String((keyPose || {}).id || ''),
@@ -19198,6 +19437,7 @@
                 controller_id: String(macro.controller_id || '')
             }));
         }
+        _envBuilderSetPoseMacroIntent(macro);
         _envRefreshInhabitantRuntimeState('workbench_apply_pose_macro');
         _envLogAction('character_runtime', 'Applied builder pose macro', actorName, {
             action: 'workbench_apply_pose_macro',
@@ -29261,6 +29501,9 @@
                 gizmoAttachedKind
             )
             : null;
+        var supportRouteReport = builderActive
+            ? _envBuilderSupportRouteReport(currentMotionDiagnostics, activeController, poseMacroRegistry)
+            : null;
         var selectionVisualState = {
             active: selectedBoneIds.length > 0,
             outline_mode: 'shell',
@@ -29356,6 +29599,7 @@
             pose_macro_registry_family: String(family || ''),
             pose_macro_registry: _envCloneJson(poseMacroRegistry, []),
             active_controller: _envCloneJson(activeController, null),
+            route_report: _envCloneJson(supportRouteReport, null),
             selection_visual_state: selectionVisualState,
             builder_blueprint: blueprint
         };
@@ -30330,6 +30574,7 @@
                 pose_macro_registry_family: String((workbenchSurface || {}).pose_macro_registry_family || ''),
                 pose_macro_registry: _envCloneJson((workbenchSurface || {}).pose_macro_registry, []),
                 active_controller: _envCloneJson((workbenchSurface || {}).active_controller, null),
+                route_report: _envCloneJson((workbenchSurface || {}).route_report, null),
                 selection_visual_state: _envCloneJson((workbenchSurface || {}).selection_visual_state, null),
                 selected_bone: _envCloneJson((workbenchSurface || {}).selected_bone, null),
                 selected_part_surface: _envCloneJson((workbenchSurface || {}).selected_part_surface, null),
