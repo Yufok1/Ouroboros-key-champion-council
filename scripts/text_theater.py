@@ -132,6 +132,63 @@ def _read_key_nonblocking():
     return None
 
 
+def _clamp01(value):
+    try:
+        num = float(value)
+    except Exception:
+        num = 0.0
+    if num < 0.0:
+        return 0.0
+    if num > 1.0:
+        return 1.0
+    return num
+
+
+def _style_inline(text, style):
+    if not style:
+        return str(text or "")
+    return f"{style}{text}{RESET}"
+
+
+def _load_band(score):
+    value = _clamp01(score)
+    if value >= 0.84:
+        return {"id": "critical", "label": "CRITICAL", "style": RED}
+    if value >= 0.64:
+        return {"id": "strain", "label": "STRAIN", "style": ORANGE}
+    if value >= 0.4:
+        return {"id": "watch", "label": "WATCH", "style": YELLOW}
+    return {"id": "stable", "label": "STABLE", "style": GREEN}
+
+
+def _contact_load_band(contact):
+    if not isinstance(contact, dict):
+        return _load_band(0.0)
+    state = str(contact.get("state") or "").strip().lower()
+    gap = abs(float(contact.get("gap") or 0.0))
+    manifold = max(0.0, float(contact.get("manifold_points") or 0.0))
+    role = str(contact.get("support_role") or "").strip().lower()
+    score = 0.18
+    if state in ("grounded", "planted"):
+        score = 0.12 if role != "brace" else 0.32
+    elif state == "sliding":
+        score = 0.68
+    elif state == "lifting":
+        score = 0.72 if gap < 0.15 else 0.88
+    elif state == "airborne":
+        score = 0.92
+    if manifold >= 3 and state in ("grounded", "planted"):
+        score = min(score, 0.1)
+    return _load_band(score)
+
+
+def _balance_load_band(balance):
+    if not isinstance(balance, dict):
+        return _load_band(0.0)
+    risk = float(balance.get("stability_risk") or 0.0)
+    return _load_band(risk)
+
+
 def _post_json(url, payload, timeout):
     data = json.dumps(payload).encode("utf-8")
     request = urllib.request.Request(
@@ -2978,7 +3035,12 @@ def _render_consult_pose_text(snapshot):
     gizmo = workbench.get("gizmo") if isinstance(workbench.get("gizmo"), dict) else {}
     active_controller = workbench.get("active_controller") if isinstance(workbench.get("active_controller"), dict) else {}
     route_report = workbench.get("route_report") if isinstance(workbench.get("route_report"), dict) else {}
+    maneuver_probe_history = workbench.get("maneuver_probe_history") if isinstance(workbench.get("maneuver_probe_history"), list) else []
     pivot = active_controller.get("pivot_world") if isinstance(active_controller.get("pivot_world"), dict) else {}
+    leaders = [str(v) for v in (active_controller.get("leader_bone_ids") or []) if str(v)]
+    anchors = [str(v) for v in (active_controller.get("anchor_bone_ids") or []) if str(v)]
+    carriers = [str(v) for v in (active_controller.get("carrier_bone_ids") or []) if str(v)]
+    propagation_mode = str(active_controller.get("propagation_mode") or "follow")
     lines = [
         "POSE: primary "
         + str(workbench.get("primary_bone_id") or "none")
@@ -3008,6 +3070,14 @@ def _render_consult_pose_text(snapshot):
         + str(active_controller.get("controller_kind") or "none")
         + " / members "
         + str(len(active_controller.get("member_bone_ids") or []))
+        + " / "
+        + propagation_mode
+        + " / leader "
+        + (",".join(leaders) if leaders else "none")
+        + " / anchor "
+        + (",".join(anchors) if anchors else "none")
+        + " / carrier "
+        + (",".join(carriers) if carriers else "none")
         + " / pivot ("
         + f"{float(pivot.get('x') or 0.0):.2f}, "
         + f"{float(pivot.get('y') or 0.0):.2f}, "
@@ -3045,32 +3115,65 @@ def _render_consult_pose_text(snapshot):
             lines.append("BLOCKER: " + str(route_report.get("blocker_summary") or ""))
         if route_report.get("next_suggested_adjustment"):
             lines.append("NEXT: " + str(route_report.get("next_suggested_adjustment") or ""))
+    if maneuver_probe_history:
+        recent = maneuver_probe_history[:2]
+        for idx, probe in enumerate(recent, start=1):
+            if not isinstance(probe, dict):
+                continue
+            lines.append(
+                "TRACE "
+                + str(idx)
+                + ": "
+                + str(probe.get("action") or "probe")
+                + " / "
+                + str(probe.get("support_topology_label") or probe.get("pose_macro_id") or probe.get("controller_id") or "maneuver")
+                + " / realized "
+                + (", ".join(str(v) for v in (probe.get("realized_support_set") or [])) or "none")
+                + " / missing "
+                + (", ".join(str(v) for v in (probe.get("missing_support_participants") or [])) or "none")
+            )
+            if probe.get("blocker_summary"):
+                lines.append("TRACE " + str(idx) + " BLOCKER: " + str(probe.get("blocker_summary") or ""))
     return "\n".join(lines)
 
 
 def _render_consult_motion_text(snapshot):
     snapshot = snapshot if isinstance(snapshot, dict) else {}
+    workbench = snapshot.get("workbench") if isinstance(snapshot.get("workbench"), dict) else {}
     balance = snapshot.get("balance") if isinstance(snapshot.get("balance"), dict) else {}
     timeline = snapshot.get("timeline") if isinstance(snapshot.get("timeline"), dict) else {}
     assertion = balance.get("assertion") if isinstance(balance.get("assertion"), dict) else {}
     contacts = snapshot.get("contacts") if isinstance(snapshot.get("contacts"), list) else []
+    maneuver_probe_history = workbench.get("maneuver_probe_history") if isinstance(workbench.get("maneuver_probe_history"), list) else []
     projected_com = balance.get("projected_com") if isinstance(balance.get("projected_com"), dict) else {}
     supporting = ", ".join(str(v) for v in (balance.get("supporting_joint_ids") or [])) or "none"
     alerts = ", ".join(str(v) for v in (balance.get("alert_ids") or [])) or "none"
     contact_summary = ", ".join(
-        f"{str(row.get('joint') or '?')}={str(row.get('state') or '?')}"
+        (
+            f"{str(row.get('joint') or '?')}="
+            + str(row.get("state") or "?")
+            + ("/" + str(row.get("contact_mode") or "") if str(row.get("contact_mode") or "").strip() else "")
+            + ("/" + str(row.get("contact_bias") or "") if str(row.get("contact_bias") or "").strip() else "")
+        )
         for row in contacts[:6]
         if isinstance(row, dict)
     ) or "none"
+    side_loads = balance.get("support_side_loads") if isinstance(balance.get("support_side_loads"), dict) else {}
+    foot_loads = balance.get("foot_support_loads") if isinstance(balance.get("foot_support_loads"), dict) else {}
+    nearest_edge = balance.get("nearest_edge") if isinstance(balance.get("nearest_edge"), dict) else {}
+    midpoint = nearest_edge.get("midpoint") if isinstance(nearest_edge.get("midpoint"), dict) else {}
+    band = _balance_load_band(balance)
     return "\n".join([
-        "BALANCE: phase "
+        _style_inline("BALANCE: phase "
         + str(balance.get("support_phase") or "unknown")
         + " / risk "
         + f"{float(balance.get('stability_risk') or 0.0):.2f}".rstrip("0").rstrip(".")
         + " / margin "
         + f"{float(balance.get('stability_margin') or 0.0):.2f}".rstrip("0").rstrip(".")
         + " / "
-        + ("inside polygon" if balance.get("inside_polygon") else "outside polygon"),
+        + ("inside polygon" if balance.get("inside_polygon") else "outside polygon")
+        + " / "
+        + str(band.get("label") or "STABLE"), band.get("style")),
         "SUPPORT: "
         + supporting
         + " / dominant "
@@ -3078,6 +3181,37 @@ def _render_consult_motion_text(snapshot):
         + " / CoM ("
         + f"{float(projected_com.get('x') or 0.0):.2f}, "
         + f"{float(projected_com.get('z') or 0.0):.2f})",
+        "SURFACE: "
+        + str(balance.get("support_kind") or balance.get("support_key") or "unknown")
+        + " / supports "
+        + str(int(balance.get("support_count") or 0))
+        + " / span "
+        + f"{float(balance.get('support_span') or 0.0):.2f}".rstrip("0").rstrip(".")
+        + (
+            " / edge "
+            + str(nearest_edge.get("kind") or "edge")
+            + " #"
+            + str(int(nearest_edge.get("index") or 0))
+            + " @ "
+            + f"{float(nearest_edge.get('distance') or 0.0):.3f}".rstrip("0").rstrip(".")
+            + " near ("
+            + f"{float(midpoint.get('x') or 0.0):.2f}, "
+            + f"{float(midpoint.get('z') or 0.0):.2f})"
+            if nearest_edge
+            else ""
+        ),
+        _style_inline("LOADS: left "
+        + f"{float(side_loads.get('left') or 0.0):.2f}".rstrip("0").rstrip(".")
+        + " / right "
+        + f"{float(side_loads.get('right') or 0.0):.2f}".rstrip("0").rstrip(".")
+        + " / center "
+        + f"{float(side_loads.get('center') or 0.0):.2f}".rstrip("0").rstrip(".")
+        + " / feet L "
+        + f"{float(foot_loads.get('foot_l') or 0.0):.2f}".rstrip("0").rstrip(".")
+        + " R "
+        + f"{float(foot_loads.get('foot_r') or 0.0):.2f}".rstrip("0").rstrip(".")
+        + " / "
+        + str(band.get("label") or "STABLE"), band.get("style")),
         "CONTACTS: " + contact_summary,
         "ALERTS: " + alerts,
         "ASSERT: "
@@ -3189,6 +3323,39 @@ def _build_local_bone_tree_lines(snapshot):
     return lines or ["(no bones)"]
 
 
+def _format_local_contact_line(contact):
+    if not isinstance(contact, dict):
+        return ""
+    role = str(contact.get("support_role") or "").strip()
+    mode = str(contact.get("contact_mode") or "").strip()
+    bias = str(contact.get("contact_bias") or "").strip()
+    line = (
+        "  "
+        + str(contact.get("joint") or "")
+        + ": "
+        + str(contact.get("state") or "")
+    )
+    if role:
+        line += " / " + role
+    if mode:
+        line += " / " + mode
+    if bias:
+        line += " / " + bias
+    line += (
+        " (gap "
+        + f"{float(contact.get('gap') or 0.0):.3f}".rstrip("0").rstrip(".")
+        + " / heel "
+        + f"{float(contact.get('heel_clearance') or 0.0):.3f}".rstrip("0").rstrip(".")
+        + " / toe "
+        + f"{float(contact.get('toe_clearance') or 0.0):.3f}".rstrip("0").rstrip(".")
+        + " / manifold "
+        + str(int(contact.get("manifold_points") or 0))
+        + ")"
+    )
+    band = _contact_load_band(contact)
+    return _style_inline(line + " / " + str(band.get("label") or "STABLE"), band.get("style"))
+
+
 def _render_local_embodiment_text(snapshot):
     snapshot = snapshot if isinstance(snapshot, dict) else {}
     embodiment = snapshot.get("embodiment") if isinstance(snapshot.get("embodiment"), dict) else {}
@@ -3200,9 +3367,11 @@ def _render_local_embodiment_text(snapshot):
     gizmo = workbench.get("gizmo") if isinstance(workbench.get("gizmo"), dict) else {}
     active_controller = workbench.get("active_controller") if isinstance(workbench.get("active_controller"), dict) else {}
     route_report = workbench.get("route_report") if isinstance(workbench.get("route_report"), dict) else {}
+    maneuver_probe_history = workbench.get("maneuver_probe_history") if isinstance(workbench.get("maneuver_probe_history"), list) else []
     pivot = active_controller.get("pivot_world") if isinstance(active_controller.get("pivot_world"), dict) else {}
     projected_com = balance.get("projected_com") if isinstance(balance.get("projected_com"), dict) else {}
     contacts = snapshot.get("contacts") if isinstance(snapshot.get("contacts"), list) else []
+    band = _balance_load_band(balance)
     lines = [
         "EMBODIMENT: "
         + str(embodiment.get("family") or "")
@@ -3234,6 +3403,10 @@ def _render_local_embodiment_text(snapshot):
         + (" [" + ", ".join(str(v) for v in (workbench.get("posed_bone_ids") or [])) + "]" if workbench.get("posed_bone_ids") else ""),
     ]
     if active_controller:
+        leaders = [str(v) for v in (active_controller.get("leader_bone_ids") or []) if str(v)]
+        anchors = [str(v) for v in (active_controller.get("anchor_bone_ids") or []) if str(v)]
+        carriers = [str(v) for v in (active_controller.get("carrier_bone_ids") or []) if str(v)]
+        propagation_mode = str(active_controller.get("propagation_mode") or "follow")
         lines.append(
             "CONTROLLER: "
             + str(active_controller.get("controller_id") or active_controller.get("label") or "selection")
@@ -3241,6 +3414,14 @@ def _render_local_embodiment_text(snapshot):
             + str(active_controller.get("controller_kind") or "group")
             + " / members "
             + str(len(active_controller.get("member_bone_ids") or []))
+            + " / "
+            + propagation_mode
+            + " / leader "
+            + (",".join(leaders) if leaders else "none")
+            + " / anchor "
+            + (",".join(anchors) if anchors else "none")
+            + " / carrier "
+            + (",".join(carriers) if carriers else "none")
             + " / preview "
             + ("active" if active_controller.get("preview_active") else "idle")
             + " / pivot ("
@@ -3252,7 +3433,7 @@ def _render_local_embodiment_text(snapshot):
         lines.append("  " + line)
     lines.append("  (* selected, + posed, [STATE] contact)")
     lines.append(
-        "BALANCE: "
+        _style_inline("BALANCE: "
         + str(balance.get("support_phase") or "unknown")
         + " / risk "
         + f"{float(balance.get('stability_risk') or 0.0):.2f}".rstrip("0").rstrip(".")
@@ -3260,6 +3441,8 @@ def _render_local_embodiment_text(snapshot):
         + f"{float(balance.get('stability_margin') or 0.0):.2f}".rstrip("0").rstrip(".")
         + " / "
         + ("inside polygon" if balance.get("inside_polygon") else "outside polygon")
+        + " / "
+        + str(band.get("label") or "STABLE"), band.get("style"))
     )
     lines.append(
         "  CoM: ("
@@ -3270,18 +3453,50 @@ def _render_local_embodiment_text(snapshot):
         + " / supporting: "
         + (", ".join(str(v) for v in (balance.get("supporting_joint_ids") or [])) if balance.get("supporting_joint_ids") else "none")
     )
-    for contact in contacts:
-        if not isinstance(contact, dict):
-            continue
+    lines.append(
+        "  surface: "
+        + str(balance.get("support_kind") or balance.get("support_key") or "unknown")
+        + " / y "
+        + f"{float(balance.get('support_y') or 0.0):.3f}".rstrip("0").rstrip(".")
+        + " / supports "
+        + str(int(balance.get("support_count") or 0))
+        + " / span "
+        + f"{float(balance.get('support_span') or 0.0):.2f}".rstrip("0").rstrip(".")
+    )
+    side_loads = balance.get("support_side_loads") if isinstance(balance.get("support_side_loads"), dict) else {}
+    foot_loads = balance.get("foot_support_loads") if isinstance(balance.get("foot_support_loads"), dict) else {}
+    lines.append(
+        _style_inline("  loads: left "
+        + f"{float(side_loads.get('left') or 0.0):.2f}".rstrip("0").rstrip(".")
+        + " / right "
+        + f"{float(side_loads.get('right') or 0.0):.2f}".rstrip("0").rstrip(".")
+        + " / center "
+        + f"{float(side_loads.get('center') or 0.0):.2f}".rstrip("0").rstrip(".")
+        + " / feet L "
+        + f"{float(foot_loads.get('foot_l') or 0.0):.2f}".rstrip("0").rstrip(".")
+        + " R "
+        + f"{float(foot_loads.get('foot_r') or 0.0):.2f}".rstrip("0").rstrip(".")
+        + " / "
+        + str(band.get("label") or "STABLE"), band.get("style"))
+    )
+    nearest_edge = balance.get("nearest_edge") if isinstance(balance.get("nearest_edge"), dict) else {}
+    midpoint = nearest_edge.get("midpoint") if isinstance(nearest_edge.get("midpoint"), dict) else {}
+    if nearest_edge:
         lines.append(
-            "  "
-            + str(contact.get("joint") or "")
-            + ": "
-            + str(contact.get("state") or "")
-            + " (gap "
-            + f"{float(contact.get('gap') or 0.0):.3f}".rstrip("0").rstrip(".")
-            + ")"
+            "  polygon edge: "
+            + str(nearest_edge.get("kind") or "edge")
+            + " #"
+            + str(int(nearest_edge.get("index") or 0))
+            + " / dist "
+            + f"{float(nearest_edge.get('distance') or 0.0):.3f}".rstrip("0").rstrip(".")
+            + " / mid ("
+            + f"{float(midpoint.get('x') or 0.0):.2f}, "
+            + f"{float(midpoint.get('z') or 0.0):.2f})"
         )
+    for contact in contacts:
+        detail = _format_local_contact_line(contact)
+        if detail:
+            lines.append(detail)
     lines.append("  alerts: " + (", ".join(str(v) for v in (balance.get("alert_ids") or [])) if balance.get("alert_ids") else "none"))
     if route_report:
         intended = ", ".join(str(v) for v in (route_report.get("intended_support_set") or [])) or "none"
@@ -3301,6 +3516,21 @@ def _render_local_embodiment_text(snapshot):
             lines.append("  blocker: " + str(route_report.get("blocker_summary") or ""))
         if route_report.get("next_suggested_adjustment"):
             lines.append("  next: " + str(route_report.get("next_suggested_adjustment") or ""))
+    if maneuver_probe_history:
+        latest = maneuver_probe_history[0] if maneuver_probe_history else {}
+        if isinstance(latest, dict):
+            lines.append(
+                "TRACE: "
+                + str(latest.get("action") or "probe")
+                + " / "
+                + str(latest.get("support_topology_label") or latest.get("pose_macro_id") or latest.get("controller_id") or "maneuver")
+                + " / support_phase "
+                + str(latest.get("support_phase") or "unknown")
+                + " / risk "
+                + str(latest.get("stability_risk") or 0)
+            )
+            if latest.get("blocker_summary"):
+                lines.append("  trace_blocker: " + str(latest.get("blocker_summary") or ""))
     lines.append(
         "ASSERT: "
         + (

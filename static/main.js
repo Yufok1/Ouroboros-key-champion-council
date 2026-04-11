@@ -1141,6 +1141,8 @@
             selected_bone_ids: [],
             selected_bone_id: '',
             primary_bone_id: '',
+            selected_controller_id: '',
+            selected_controller_label: '',
             hover_bone_id: '',
             editing_mode: 'structure',
             part_display_scope: 'body',
@@ -1155,7 +1157,9 @@
             last_pose_macro_id: '',
             last_pose_macro_label: '',
             last_pose_macro_controller_id: '',
-            last_pose_macro_stage_targets: []
+            last_pose_macro_stage_targets: [],
+            maneuver_probe_history: [],
+            last_maneuver_probe_signature: ''
         };
     }
 
@@ -1172,6 +1176,115 @@
         _envBuilderInteraction.last_pose_macro_label = String(record.label || record.macro_id || '').trim();
         _envBuilderInteraction.last_pose_macro_controller_id = String(record.controller_id || '').trim();
         _envBuilderInteraction.last_pose_macro_stage_targets = _envNormalizeBuilderSupportContactTargets(record.suggested_stage_targets || [], '');
+    }
+
+    function _envBuilderShouldPreservePoseMacroIntentOnManualPoseEdit() {
+        var macroId = String(_envBuilderInteraction.last_pose_macro_id || '').trim();
+        if (!macroId) return false;
+        if ((_envBuilderInteraction.support_contact_targets || []).length) return true;
+        var selectedControllerId = String(_envBuilderInteraction.selected_controller_id || '').trim();
+        var macroControllerId = String(_envBuilderInteraction.last_pose_macro_controller_id || '').trim();
+        return !!(selectedControllerId && macroControllerId && selectedControllerId === macroControllerId);
+    }
+
+    function _envBuilderHandleManualPoseEditIntent() {
+        if (_envBuilderShouldPreservePoseMacroIntentOnManualPoseEdit()) return;
+        _envBuilderClearPoseMacroIntent();
+    }
+
+    function _envBuilderManeuverProbeHistoryLimit() {
+        return 12;
+    }
+
+    function _envBuilderManeuverProbeSignature(entry) {
+        var probe = entry && typeof entry === 'object' ? entry : {};
+        return JSON.stringify({
+            action: String(probe.action || ''),
+            macro: String(probe.pose_macro_id || ''),
+            controller: String(probe.controller_id || ''),
+            topology: String(probe.support_topology_label || ''),
+            intended: _envCloneJson(probe.intended_support_set || [], []),
+            realized: _envCloneJson(probe.realized_support_set || [], []),
+            missing: _envCloneJson(probe.missing_support_participants || [], []),
+            blocker: String(probe.blocker_summary || ''),
+            next: String(probe.next_suggested_adjustment || ''),
+            support_phase: String(probe.support_phase || ''),
+            balance_mode: String(probe.balance_mode || ''),
+            stability_risk: Number(probe.stability_risk || 0),
+            stage_blocked: !!probe.stage_blocked,
+            stage_reason: String(probe.stage_reason || '')
+        });
+    }
+
+    function _envBuilderBuildManeuverProbeEntry(surface, action, actor, reason) {
+        var workbenchSurface = surface && typeof surface === 'object' ? surface : {};
+        var routeReport = workbenchSurface.route_report && typeof workbenchSurface.route_report === 'object'
+            ? workbenchSurface.route_report
+            : null;
+        if (!routeReport) return null;
+        var diagnostics = workbenchSurface.motion_diagnostics && typeof workbenchSurface.motion_diagnostics === 'object'
+            ? workbenchSurface.motion_diagnostics
+            : {};
+        var activeController = workbenchSurface.active_controller && typeof workbenchSurface.active_controller === 'object'
+            ? workbenchSurface.active_controller
+            : {};
+        var topologyLabel = String(
+            routeReport.support_topology_label
+            || routeReport.pose_macro_label
+            || routeReport.pose_macro_id
+            || activeController.label
+            || activeController.controller_id
+            || ''
+        ).trim();
+        if (!topologyLabel
+            && !(routeReport.intended_support_set || []).length
+            && !(routeReport.realized_support_set || []).length
+            && !(routeReport.missing_support_participants || []).length) {
+            return null;
+        }
+        return {
+            timestamp: Date.now(),
+            action: String(action || '').trim(),
+            actor: String(actor || '').trim(),
+            reason: String(reason || '').trim(),
+            support_topology_label: topologyLabel,
+            pose_macro_id: String(routeReport.pose_macro_id || ''),
+            pose_macro_label: String(routeReport.pose_macro_label || ''),
+            controller_id: String(routeReport.controller_id || activeController.controller_id || ''),
+            controller_label: String(routeReport.controller_label || activeController.label || ''),
+            intended_support_set: _envCloneJson(routeReport.intended_support_set || [], []),
+            realized_support_set: _envCloneJson(routeReport.realized_support_set || [], []),
+            missing_support_participants: _envCloneJson(routeReport.missing_support_participants || [], []),
+            blocker_summary: String(routeReport.blocker_summary || ''),
+            next_suggested_adjustment: String(routeReport.next_suggested_adjustment || ''),
+            support_phase: String(diagnostics.support_phase || ''),
+            balance_mode: String(diagnostics.balance_mode || ''),
+            stability_risk: Number(diagnostics.stability_risk || 0),
+            dominant_support_side: String(diagnostics.dominant_support_side || ''),
+            stage_blocked: !!routeReport.stage_blocked,
+            stage_reason: String(routeReport.stage_reason || '')
+        };
+    }
+
+    function _envBuilderRecordManeuverProbe(mesh, action, actor, reason) {
+        if (!_envBuilderSubject.active) return null;
+        var mountedMesh = mesh && mesh.userData ? mesh : _envMountedRuntimeMesh();
+        if (!mountedMesh || !mountedMesh.userData || !mountedMesh.userData._builderSubjectGroup) return null;
+        var surface = _envMountedWorkbenchSurfaceState(mountedMesh, null);
+        var entry = _envBuilderBuildManeuverProbeEntry(surface, action, actor, reason);
+        if (!entry) return null;
+        var signature = _envBuilderManeuverProbeSignature(entry);
+        if (signature && signature === String(_envBuilderInteraction.last_maneuver_probe_signature || '')) {
+            return entry;
+        }
+        var history = Array.isArray(_envBuilderInteraction.maneuver_probe_history)
+            ? _envBuilderInteraction.maneuver_probe_history.slice(0)
+            : [];
+        history.unshift(entry);
+        if (history.length > _envBuilderManeuverProbeHistoryLimit()) history.length = _envBuilderManeuverProbeHistoryLimit();
+        _envBuilderInteraction.maneuver_probe_history = history;
+        _envBuilderInteraction.last_maneuver_probe_signature = signature;
+        return entry;
     }
 
     function _envNormalizeBuilderBoneIdList(value, fallback) {
@@ -1264,6 +1377,19 @@
         var hover = String(hoverBoneId === undefined ? normalized.primary_bone_id : hoverBoneId || '').trim();
         _envBuilderInteraction.hover_bone_id = hover;
         return normalized.selected_bone_id;
+    }
+
+    function _envBuilderRememberInteractionController(controller) {
+        var entry = controller && typeof controller === 'object' && !Array.isArray(controller) ? controller : {};
+        _envBuilderInteraction.selected_controller_id = String(entry.controller_id || '').trim();
+        _envBuilderInteraction.selected_controller_label = String(entry.label || entry.controller_id || '').trim();
+        return _envBuilderInteraction.selected_controller_id;
+    }
+
+    function _envBuilderClearInteractionController() {
+        _envBuilderInteraction.selected_controller_id = '';
+        _envBuilderInteraction.selected_controller_label = '';
+        return '';
     }
 
     function _envBuilderPoseIdentityRotation() {
@@ -3250,30 +3376,88 @@
 
     function _envBuilderSupportMargin2D(point, hull) {
         var polygon = Array.isArray(hull) ? hull : [];
-        if (!polygon.length) return { inside: false, margin: -Infinity };
+        if (!polygon.length) return { inside: false, margin: -Infinity, nearest_edge: null };
         if (polygon.length === 1) {
             var dx = Number(point.x || 0) - Number(polygon[0].x || 0);
             var dz = Number(point.z || 0) - Number(polygon[0].z || 0);
             var dist = Math.sqrt((dx * dx) + (dz * dz));
-            return { inside: dist <= 0.04, margin: dist <= 0.04 ? (0.04 - dist) : -dist };
+            return {
+                inside: dist <= 0.04,
+                margin: dist <= 0.04 ? (0.04 - dist) : -dist,
+                nearest_edge: {
+                    kind: 'point',
+                    index: 0,
+                    distance: Number(dist.toFixed(4)),
+                    a: {
+                        x: Number(Number(polygon[0].x || 0).toFixed(4)),
+                        z: Number(Number(polygon[0].z || 0).toFixed(4))
+                    },
+                    b: {
+                        x: Number(Number(polygon[0].x || 0).toFixed(4)),
+                        z: Number(Number(polygon[0].z || 0).toFixed(4))
+                    },
+                    midpoint: {
+                        x: Number(Number(polygon[0].x || 0).toFixed(4)),
+                        z: Number(Number(polygon[0].z || 0).toFixed(4))
+                    }
+                }
+            };
         }
         if (polygon.length === 2) {
             var segmentDistance = _envBuilderDistancePointToSegment2D(point, polygon[0], polygon[1]);
             return {
                 inside: segmentDistance <= 0.04,
-                margin: segmentDistance <= 0.04 ? (0.04 - segmentDistance) : -segmentDistance
+                margin: segmentDistance <= 0.04 ? (0.04 - segmentDistance) : -segmentDistance,
+                nearest_edge: {
+                    kind: 'segment',
+                    index: 0,
+                    distance: Number(segmentDistance.toFixed(4)),
+                    a: {
+                        x: Number(Number(polygon[0].x || 0).toFixed(4)),
+                        z: Number(Number(polygon[0].z || 0).toFixed(4))
+                    },
+                    b: {
+                        x: Number(Number(polygon[1].x || 0).toFixed(4)),
+                        z: Number(Number(polygon[1].z || 0).toFixed(4))
+                    },
+                    midpoint: {
+                        x: Number(((Number(polygon[0].x || 0) + Number(polygon[1].x || 0)) * 0.5).toFixed(4)),
+                        z: Number(((Number(polygon[0].z || 0) + Number(polygon[1].z || 0)) * 0.5).toFixed(4))
+                    }
+                }
             };
         }
         var inside = _envBuilderPointInPolygon2D(point, polygon);
         var minDist = Infinity;
+        var nearestEdge = null;
         for (var i = 0; i < polygon.length; i += 1) {
             var a = polygon[i];
             var b = polygon[(i + 1) % polygon.length];
-            minDist = Math.min(minDist, _envBuilderDistancePointToSegment2D(point, a, b));
+            var edgeDistance = _envBuilderDistancePointToSegment2D(point, a, b);
+            if (!(edgeDistance < minDist)) continue;
+            minDist = edgeDistance;
+            nearestEdge = {
+                kind: 'edge',
+                index: i,
+                distance: Number(edgeDistance.toFixed(4)),
+                a: {
+                    x: Number(Number(a.x || 0).toFixed(4)),
+                    z: Number(Number(a.z || 0).toFixed(4))
+                },
+                b: {
+                    x: Number(Number(b.x || 0).toFixed(4)),
+                    z: Number(Number(b.z || 0).toFixed(4))
+                },
+                midpoint: {
+                    x: Number(((Number(a.x || 0) + Number(b.x || 0)) * 0.5).toFixed(4)),
+                    z: Number(((Number(a.z || 0) + Number(b.z || 0)) * 0.5).toFixed(4))
+                }
+            };
         }
         return {
             inside: inside,
-            margin: inside ? minDist : -minDist
+            margin: inside ? minDist : -minDist,
+            nearest_edge: nearestEdge
         };
     }
 
@@ -3672,7 +3856,7 @@
         });
         return {
             enabled: _envBuilderInteraction.load_field_enabled !== false,
-            overlay_visible: false,
+            overlay_visible: _envBuilderInteraction.load_field_enabled !== false,
             support: {
                 support_key: String((supportRecord || {}).support_key || 'workbench::floor'),
                 support_kind: String((supportRecord || {}).support_kind || 'workbench_floor'),
@@ -3704,6 +3888,7 @@
             normalized_margin: Number(normalizedMargin.toFixed(4)),
             inside_support_polygon: !!marginInfo.inside,
             stability_risk: Number(stabilityRisk.toFixed(4)),
+            nearest_edge: marginInfo.nearest_edge ? _envCloneJson(marginInfo.nearest_edge, null) : null,
             balance_mode: balanceMode,
             dominant_support_side: dominantSupportSide,
             support_loads: supportLoadsRounded,
@@ -4488,15 +4673,30 @@
         var payload = spec && typeof spec === 'object' ? spec : {};
         var memberBoneIds = _envBuilderUniqueBoneIdList(payload.member_bone_ids || payload.bone_ids || []);
         if (!memberBoneIds.length) return null;
-        var translationCarrierIds = _envBuilderControllerTranslationCarrierIds(memberBoneIds);
+        var explicitCarrierIds = _envBuilderUniqueBoneIdList(payload.carrier_bone_ids || payload.translation_carrier_ids || []).filter(function (boneId) {
+            return memberBoneIds.indexOf(boneId) >= 0;
+        });
+        var translationCarrierIds = explicitCarrierIds.length
+            ? explicitCarrierIds.filter(function (boneId) { return _envBuilderBoneAllowsPoseOffset(boneId); })
+            : _envBuilderControllerTranslationCarrierIds(memberBoneIds);
         var allowedModes = _envBuilderUniqueBoneIdList(payload.allowed_modes || []);
         var focusBoneId = String(payload.focus_bone_id || payload.focus_bone || payload.bone_id || '').trim();
+        var leaderBoneIds = _envBuilderUniqueBoneIdList(payload.leader_bone_ids || payload.leaders || []).filter(function (boneId) {
+            return memberBoneIds.indexOf(boneId) >= 0;
+        });
+        var anchorBoneIds = _envBuilderUniqueBoneIdList(payload.anchor_bone_ids || payload.anchors || []).filter(function (boneId) {
+            return memberBoneIds.indexOf(boneId) >= 0;
+        });
+        var compensationBoneIds = _envBuilderUniqueBoneIdList(payload.compensation_bone_ids || payload.compensation_ids || []).filter(function (boneId) {
+            return memberBoneIds.indexOf(boneId) >= 0;
+        });
         if (!allowedModes.length) {
             allowedModes = translationCarrierIds.length ? ['rotate', 'translate'] : ['rotate'];
         }
         if (!focusBoneId || memberBoneIds.indexOf(focusBoneId) < 0) {
             focusBoneId = String((translationCarrierIds[0] || memberBoneIds[memberBoneIds.length - 1] || memberBoneIds[0] || '')).trim();
         }
+        if (!leaderBoneIds.length && focusBoneId) leaderBoneIds = [focusBoneId];
         return {
             controller_id: String(payload.controller_id || payload.id || '').trim(),
             label: String(payload.label || payload.controller_id || payload.id || '').trim(),
@@ -4505,8 +4705,13 @@
             member_bone_ids: memberBoneIds,
             root_bone_ids: _envBuilderControllerRootBoneIds(records, memberBoneIds),
             translation_carrier_ids: translationCarrierIds,
+            leader_bone_ids: leaderBoneIds,
+            anchor_bone_ids: anchorBoneIds,
+            carrier_bone_ids: translationCarrierIds.slice(0),
+            compensation_bone_ids: compensationBoneIds,
             focus_bone_id: focusBoneId,
             pivot_rule: String(payload.pivot_rule || 'centroid').trim(),
+            propagation_mode: String(payload.propagation_mode || 'follow').trim(),
             allowed_modes: allowedModes,
             mirror_id: String(payload.mirror_id || '').trim(),
             contact_family_ids: _envBuilderControllerContactFamiliesForBones(memberBoneIds)
@@ -4567,7 +4772,38 @@
                 controller_kind: 'mirror_pair',
                 member_bone_ids: _envBuilderUniqueBoneIdList([].concat(leftLeg, rightLeg)),
                 focus_bone_id: 'hips',
+                carrier_bone_ids: ['hips'],
                 allowed_modes: ['rotate', 'translate']
+            }),
+            _envBuilderControllerRecord(records, {
+                controller_id: 'half_kneel_l_topology',
+                label: 'Half Kneel Left Topology',
+                controller_kind: 'support_topology',
+                member_bone_ids: _envBuilderUniqueBoneIdList([].concat(leftLeg, rightLeg)),
+                focus_bone_id: 'lower_leg_l',
+                pivot_rule: 'leader_anchor_midpoint',
+                propagation_mode: 'leader_anchor',
+                leader_bone_ids: ['lower_leg_l'],
+                anchor_bone_ids: ['foot_r'],
+                carrier_bone_ids: ['hips'],
+                compensation_bone_ids: ['upper_leg_l', 'upper_leg_r', 'lower_leg_r', 'foot_l'],
+                allowed_modes: ['rotate', 'translate'],
+                mirror_id: 'half_kneel_r_topology'
+            }),
+            _envBuilderControllerRecord(records, {
+                controller_id: 'half_kneel_r_topology',
+                label: 'Half Kneel Right Topology',
+                controller_kind: 'support_topology',
+                member_bone_ids: _envBuilderUniqueBoneIdList([].concat(leftLeg, rightLeg)),
+                focus_bone_id: 'lower_leg_r',
+                pivot_rule: 'leader_anchor_midpoint',
+                propagation_mode: 'leader_anchor',
+                leader_bone_ids: ['lower_leg_r'],
+                anchor_bone_ids: ['foot_l'],
+                carrier_bone_ids: ['hips'],
+                compensation_bone_ids: ['upper_leg_r', 'upper_leg_l', 'lower_leg_l', 'foot_r'],
+                allowed_modes: ['rotate', 'translate'],
+                mirror_id: 'half_kneel_l_topology'
             }),
             _envBuilderControllerRecord(records, {
                 controller_id: 'both_arms_pair',
@@ -4598,7 +4834,7 @@
                 macro_id: 'half_kneel_l',
                 label: 'Half Kneel Left',
                 summary: 'Left knee-forward transition with the right foot as the planted support.',
-                controller_id: 'both_legs_pair',
+                controller_id: 'half_kneel_l_topology',
                 suggested_stage_targets: ['lower_leg_l', 'foot_r'],
                 batch: {
                     poses: [
@@ -4615,7 +4851,7 @@
                 macro_id: 'half_kneel_r',
                 label: 'Half Kneel Right',
                 summary: 'Right knee-forward transition with the left foot as the planted support.',
-                controller_id: 'both_legs_pair',
+                controller_id: 'half_kneel_r_topology',
                 suggested_stage_targets: ['lower_leg_r', 'foot_l'],
                 batch: {
                     poses: [
@@ -4652,7 +4888,7 @@
         return true;
     }
 
-    function _envBuilderControllerPivotWorld(mesh, boneIds) {
+    function _envBuilderControllerAverageWorldPoint(mesh, boneIds) {
         if (typeof THREE === 'undefined') return null;
         if (!mesh || !mesh.userData) return null;
         var boneMap = mesh.userData._builderBoneMap || {};
@@ -4668,19 +4904,63 @@
         });
         if (!count) return null;
         center.multiplyScalar(1 / count);
+        return center;
+    }
+
+    function _envBuilderControllerPivotWorld(mesh, boneIds, controller) {
+        if (typeof THREE === 'undefined') return null;
+        if (!mesh || !mesh.userData) return null;
+        var activeController = controller && typeof controller === 'object' && !Array.isArray(controller) ? controller : {};
+        var pivotRule = String(activeController.pivot_rule || 'centroid').trim().toLowerCase();
+        var focusPoint = _envBuilderControllerAverageWorldPoint(mesh, [String(activeController.focus_bone_id || '').trim()].filter(Boolean));
+        var leaderPoint = _envBuilderControllerAverageWorldPoint(mesh, activeController.leader_bone_ids || []);
+        var anchorPoint = _envBuilderControllerAverageWorldPoint(mesh, activeController.anchor_bone_ids || []);
+        var carrierPoint = _envBuilderControllerAverageWorldPoint(mesh, activeController.carrier_bone_ids || activeController.translation_carrier_ids || []);
+        var point = null;
+        if ((pivotRule === 'leader' || pivotRule === 'leader_bone') && (leaderPoint || focusPoint)) {
+            point = leaderPoint || focusPoint;
+        } else if (pivotRule === 'focus_bone' && focusPoint) {
+            point = focusPoint;
+        } else if (pivotRule === 'anchor' && anchorPoint) {
+            point = anchorPoint;
+        } else if (pivotRule === 'carrier' && carrierPoint) {
+            point = carrierPoint;
+        } else if (pivotRule === 'leader_anchor_midpoint' && (leaderPoint || focusPoint) && anchorPoint) {
+            point = (leaderPoint || focusPoint).clone().add(anchorPoint).multiplyScalar(0.5);
+        } else if (pivotRule === 'carrier_centroid' && carrierPoint) {
+            point = carrierPoint;
+        } else {
+            point = _envBuilderControllerAverageWorldPoint(mesh, boneIds);
+        }
+        if (!point) return null;
         return {
-            x: Number(center.x || 0),
-            y: Number(center.y || 0),
-            z: Number(center.z || 0)
+            x: Number(point.x || 0),
+            y: Number(point.y || 0),
+            z: Number(point.z || 0)
         };
     }
 
     function _envBuilderActiveControllerState(records, family, mesh, selectedBoneIds, registry, gizmoAttachedKind) {
         var memberBoneIds = _envBuilderUniqueBoneIdList(selectedBoneIds);
         if (memberBoneIds.length < 2) return null;
-        var matched = (Array.isArray(registry) ? registry : []).find(function (entry) {
-            return _envBuilderControllerSetsEqual(entry && entry.member_bone_ids, memberBoneIds);
-        }) || null;
+        var resolvedRegistry = Array.isArray(registry) ? registry : [];
+        var selectedControllerId = String(_envBuilderInteraction.selected_controller_id || '').trim();
+        var matched = null;
+        if (selectedControllerId) {
+            var explicit = _envBuilderControllerRegistryEntry(resolvedRegistry, selectedControllerId);
+            if (explicit && _envBuilderControllerSetsEqual(explicit.member_bone_ids, memberBoneIds)) matched = explicit;
+        }
+        if (!matched) {
+            matched = resolvedRegistry.find(function (entry) {
+                return String((entry && entry.controller_kind) || '').trim() !== 'support_topology'
+                    && _envBuilderControllerSetsEqual(entry && entry.member_bone_ids, memberBoneIds);
+            }) || null;
+        }
+        if (!matched) {
+            matched = resolvedRegistry.find(function (entry) {
+                return _envBuilderControllerSetsEqual(entry && entry.member_bone_ids, memberBoneIds);
+            }) || null;
+        }
         var active = matched
             ? _envCloneJson(matched, null)
             : _envBuilderControllerRecord(records, {
@@ -4693,7 +4973,7 @@
             });
         if (!active) return null;
         active.body_plan_family = String(family || '').trim();
-        active.pivot_world = _envBuilderControllerPivotWorld(mesh, memberBoneIds);
+        active.pivot_world = _envBuilderControllerPivotWorld(mesh, memberBoneIds, active);
         active.preview_active = !!(_envBuilderInteraction.gizmo_active && gizmoAttachedKind === 'selection_pivot');
         active.attached = gizmoAttachedKind === 'selection_pivot';
         active.attached_kind = active.attached ? 'selection_pivot' : '';
@@ -5163,6 +5443,8 @@
         state.selected_bone_ids = selection.selected_bone_ids;
         state.primary_bone_id = selection.primary_bone_id;
         state.selected_bone_id = selection.selected_bone_id;
+        state.selected_controller_id = String(src.selected_controller_id || '').trim();
+        state.selected_controller_label = String(src.selected_controller_label || '').trim();
         state.hover_bone_id = String(src.hover_bone_id || '').trim();
         state.editing_mode = _envNormalizeBuilderEditingMode(src.editing_mode || state.editing_mode);
         state.part_display_scope = _envNormalizeBuilderDisplayScope(src.part_display_scope || state.part_display_scope);
@@ -5171,7 +5453,7 @@
         state.gizmo_space = _envNormalizeBuilderGizmoSpace(src.gizmo_space || state.gizmo_space);
         state.gizmo_active = !!src.gizmo_active;
         state.load_field_enabled = src.load_field_enabled !== false;
-        state.load_field_overlay_visible = false;
+        state.load_field_overlay_visible = state.load_field_enabled;
         state.support_contact_targets = _envNormalizeBuilderSupportContactTargets(
             src.support_contact_targets || src.support_contacts || src.contact_targets,
             ''
@@ -13045,13 +13327,15 @@
                 attachments: false,
                 turntable: false,
                 load_field_enabled: true,
-                load_field_overlay_visible: false,
+                load_field_overlay_visible: true,
                 subject_mode: 'mounted_asset',
                 builder_subject: null,
                 isolated_chain: '',
                 selected_bone_ids: [],
                 selected_bone_id: '',
                 primary_bone_id: '',
+                selected_controller_id: '',
+                selected_controller_label: '',
                 editing_mode: 'structure',
                 part_display_scope: 'body',
                 part_view: 'iso_front',
@@ -13127,13 +13411,15 @@
                 attachments: !!workbench.attachments,
                 turntable: !!workbench.turntable,
                 load_field_enabled: workbench.load_field_enabled !== false,
-                load_field_overlay_visible: false,
+                load_field_overlay_visible: workbench.load_field_enabled !== false,
                 subject_mode: workbenchSubjectMode,
                 builder_subject: _envNormalizeBuilderSubject(workbench.builder_subject || null),
                 isolated_chain: String(workbench.isolated_chain || '').trim(),
                 selected_bone_ids: _envNormalizeBuilderBoneIdList(workbench.selected_bone_ids, workbench.selected_bone_id),
                 selected_bone_id: _envBuilderPrimaryBoneId(workbench) || '',
                 primary_bone_id: _envBuilderPrimaryBoneId(workbench) || '',
+                selected_controller_id: String(workbench.selected_controller_id || '').trim(),
+                selected_controller_label: String(workbench.selected_controller_label || '').trim(),
                 editing_mode: _envNormalizeBuilderEditingMode(workbench.editing_mode || 'structure'),
                 part_display_scope: _envNormalizeBuilderDisplayScope(workbench.part_display_scope || 'body'),
                 part_view: _envNormalizeBuilderPartView(workbench.part_view || 'iso_front'),
@@ -13180,7 +13466,7 @@
         }
         workbench.turntable = !!(_env3D && _env3D.workbenchTurntable);
         workbench.load_field_enabled = _envBuilderInteraction.load_field_enabled !== false;
-        workbench.load_field_overlay_visible = false;
+        workbench.load_field_overlay_visible = workbench.load_field_enabled !== false;
         var preservePendingBuilderSession = !_envBuilderSubject.active
             && !!_envTheaterSessionRestore.pending
             && String((previous.workbench || {}).subject_mode || '').trim() !== 'mounted_asset';
@@ -13191,6 +13477,8 @@
             workbench.selected_bone_ids = _envBuilderSelectedBoneIds(_envBuilderInteraction);
             workbench.selected_bone_id = String(_envBuilderPrimaryBoneId(_envBuilderInteraction) || '').trim();
             workbench.primary_bone_id = String(_envBuilderPrimaryBoneId(_envBuilderInteraction) || '').trim();
+            workbench.selected_controller_id = String(_envBuilderInteraction.selected_controller_id || '').trim();
+            workbench.selected_controller_label = String(_envBuilderInteraction.selected_controller_label || '').trim();
             workbench.part_display_scope = _envNormalizeBuilderDisplayScope(_envBuilderInteraction.part_display_scope || 'body');
             workbench.part_view = _envNormalizeBuilderPartView(_envBuilderInteraction.part_view || 'iso_front');
             workbench.pose = _envNormalizeBuilderPoseState(_envBuilderSubject.pose || null);
@@ -13203,6 +13491,8 @@
             workbench.selected_bone_ids = [];
             workbench.selected_bone_id = '';
             workbench.primary_bone_id = '';
+            workbench.selected_controller_id = '';
+            workbench.selected_controller_label = '';
             workbench.pose = _envNormalizeBuilderPoseState(null);
             workbench.timeline = _envNormalizeBuilderTimelineState(null);
             workbench.authored_clips = _envNormalizeBuilderAuthoredClipState(null);
@@ -18351,6 +18641,7 @@
             ? spec.primary_bone_id
             : (nextBoneIds[0] || '');
         _envBuilderSetInteractionSelection(nextBoneIds, nextPrimaryBoneId, nextPrimaryBoneId);
+        _envBuilderClearInteractionController();
         var mesh = _envMountedRuntimeMesh();
         if (mesh && mesh.userData) {
             _envBuilderApplySelectionToMesh(mesh);
@@ -18438,6 +18729,7 @@
             return false;
         }
         _envBuilderSetInteractionSelection(chainIds, boneId || chainIds[0], boneId || chainIds[0]);
+        _envBuilderClearInteractionController();
         var mesh = _envMountedRuntimeMesh();
         if (mesh && mesh.userData) _envBuilderApplySelectionToMesh(mesh);
         _env3DUpdateBuilderGizmoAttachment('workbench_select_chain');
@@ -18500,6 +18792,7 @@
         var primaryBoneId = String(spec.primary_bone_id || controller.focus_bone_id || boneIds[0] || '').trim();
         if (!primaryBoneId || boneIds.indexOf(primaryBoneId) < 0) primaryBoneId = String(boneIds[0] || '').trim();
         _envBuilderSetInteractionSelection(boneIds, primaryBoneId, primaryBoneId);
+        _envBuilderRememberInteractionController(controller);
         var mesh = _envMountedRuntimeMesh();
         if (mesh && mesh.userData) _envBuilderApplySelectionToMesh(mesh);
         _env3DUpdateBuilderGizmoAttachment('workbench_select_controller');
@@ -18756,12 +19049,13 @@
             renderEnvironmentView();
             return false;
         }
-        _envBuilderClearPoseMacroIntent();
+        _envBuilderHandleManualPoseEditIntent();
         _env3DStageBuilderSubjectForWorkbench(mesh, mesh.userData._builderSubjectGroup || null);
         _envBuilderApplySelectionToMesh(mesh);
         _env3DUpdateBuilderGizmoAttachment('workbench_set_pose');
         _env3DRefreshWorkbenchFocusRig(false);
         _envRefreshInhabitantRuntimeState('workbench_set_pose');
+        _envBuilderRecordManeuverProbe(mesh, 'workbench_set_pose', actorName, reason || 'workbench set pose');
         _envLogAction('character_runtime', 'Updated builder pose transform', actorName, {
             action: 'workbench_set_pose',
             bone_id: spec.bone_id,
@@ -18878,12 +19172,13 @@
             renderEnvironmentView();
             return false;
         }
-        _envBuilderClearPoseMacroIntent();
+        _envBuilderHandleManualPoseEditIntent();
         _env3DStageBuilderSubjectForWorkbench(mesh, mesh.userData._builderSubjectGroup || null);
         _envBuilderApplySelectionToMesh(mesh);
         _env3DUpdateBuilderGizmoAttachment('workbench_set_pose_batch');
         _env3DRefreshWorkbenchFocusRig(false);
         _envRefreshInhabitantRuntimeState('workbench_set_pose_batch');
+        _envBuilderRecordManeuverProbe(mesh, 'workbench_set_pose_batch', actorName, reason || 'workbench set pose batch');
         _envLogAction('character_runtime', 'Updated builder pose batch', actorName, {
             action: 'workbench_set_pose_batch',
             applied_bone_count: Number(applied.length || 0),
@@ -19439,6 +19734,7 @@
         }
         _envBuilderSetPoseMacroIntent(macro);
         _envRefreshInhabitantRuntimeState('workbench_apply_pose_macro');
+        _envBuilderRecordManeuverProbe(_envMountedRuntimeMesh(), 'workbench_apply_pose_macro', actorName, reason || 'workbench apply pose macro');
         _envLogAction('character_runtime', 'Applied builder pose macro', actorName, {
             action: 'workbench_apply_pose_macro',
             macro_id: String(macro.macro_id || ''),
@@ -29328,7 +29624,7 @@
         if (patch && patch.toggle_enabled) nextEnabled = !currentEnabled;
         else if (patch && patch.enabled !== undefined) nextEnabled = !!patch.enabled;
         _envBuilderInteraction.load_field_enabled = nextEnabled;
-        _envBuilderInteraction.load_field_overlay_visible = false;
+        _envBuilderInteraction.load_field_overlay_visible = nextEnabled;
         var mesh = _envMountedRuntimeMesh();
         if (mesh && mesh.userData && _envBuilderSubject.active) {
             _envBuilderApplySelectionToMesh(mesh);
@@ -29340,7 +29636,7 @@
         _envLogAction('character_runtime', 'Updated workbench load field state', actorName, {
             action: 'workbench_set_load_field',
             load_field_enabled: nextEnabled,
-            load_field_overlay_visible: false,
+            load_field_overlay_visible: nextEnabled,
             reason: String(reason || '').trim()
         });
         renderEnvironmentView();
@@ -29373,6 +29669,7 @@
             _env3DStageBuilderSubjectForWorkbench(mesh, mesh.userData._builderSubjectGroup || null);
             _envBuilderApplySelectionToMesh(mesh);
             _envRefreshInhabitantRuntimeState('workbench_stage_contact_clear');
+            _envBuilderRecordManeuverProbe(mesh, 'workbench_stage_contact_clear', actor, reason || spec.reason || 'workbench stage contact clear');
             _envScheduleLiveSync('workbench_stage_contact:clear', true);
             _envSaveTheaterSession('workbench_stage_contact_clear');
             _envSetBadge('running', 'CONTACT CLR');
@@ -29403,6 +29700,7 @@
         _envBuilderInteraction.support_contact_stage_report = _envCloneJson(report, null);
         if (!report.ok) {
             _envRefreshInhabitantRuntimeState('workbench_stage_contact_blocked');
+            _envBuilderRecordManeuverProbe(mesh, 'workbench_stage_contact_blocked', actor, reason || spec.reason || 'workbench stage contact blocked');
             _envScheduleLiveSync('workbench_stage_contact:blocked', true);
             _envSaveTheaterSession('workbench_stage_contact_blocked');
             _envSetBadge('failed', report.blocked ? 'CONTACT BLOCK' : 'CONTACT MISS');
@@ -29421,6 +29719,7 @@
         _envRefreshInhabitantRuntimeState('workbench_stage_contact');
         var afterReport = _envBuilderContactStageReport(mesh, supportRecord, spec.contact_targets);
         _envBuilderInteraction.support_contact_stage_report = _envCloneJson(afterReport, null);
+        _envBuilderRecordManeuverProbe(mesh, 'workbench_stage_contact', actor, reason || spec.reason || 'workbench stage contact');
         _envScheduleLiveSync('workbench_stage_contact:' + spec.contact_targets.join(','), true);
         _envSaveTheaterSession('workbench_stage_contact');
         _envStageUiState.forceStageRebuild = true;
@@ -29562,7 +29861,7 @@
                 ? _envBuilderBalanceAssertionSummary(_envBuilderSubject._balance_assertion, currentMotionDiagnostics)
                 : _envBuilderBalanceAssertionSummary(_envCreateBuilderBalanceAssertionState(), null),
             load_field_enabled: builderActive ? (_envBuilderInteraction.load_field_enabled !== false) : false,
-            load_field_overlay_visible: false,
+            load_field_overlay_visible: builderActive ? (_envBuilderInteraction.load_field_enabled !== false) : false,
             support_contact_targets: builderActive ? _envNormalizeBuilderSupportContactTargets(_envBuilderInteraction.support_contact_targets || [], '') : [],
             support_contact_stage: builderActive && mountedMesh && (_envBuilderInteraction.support_contact_targets || []).length
                 ? _envCloneJson(
@@ -29600,6 +29899,7 @@
             pose_macro_registry: _envCloneJson(poseMacroRegistry, []),
             active_controller: _envCloneJson(activeController, null),
             route_report: _envCloneJson(supportRouteReport, null),
+            maneuver_probe_history: _envCloneJson(_envBuilderInteraction.maneuver_probe_history || [], []),
             selection_visual_state: selectionVisualState,
             builder_blueprint: blueprint
         };
@@ -29644,6 +29944,54 @@
             y: _envTextTheaterRound(y / length, 4, 0),
             z: _envTextTheaterRound(z / length, 4, 0)
         };
+    }
+
+    function _envTextTheaterContactClearance(point, supportY) {
+        if (!(point && typeof point === 'object')) return 0;
+        return _envTextTheaterRound(Number(point.y || 0) - Number(supportY || 0), 4, 0);
+    }
+
+    function _envTextTheaterPatchForwardBias(patch) {
+        if (!(patch && typeof patch === 'object')) return 0;
+        var center = patch.patch_center || patch.sole_center || patch.active_manifold_center;
+        var target = patch.active_manifold_center || patch.patch_center || patch.sole_center;
+        var forward = patch.axis_forward || null;
+        if (!(center && target && forward)) return 0;
+        var dx = Number(target.x || 0) - Number(center.x || 0);
+        var dy = Number(target.y || 0) - Number(center.y || 0);
+        var dz = Number(target.z || 0) - Number(center.z || 0);
+        var fx = Number(forward.x || 0);
+        var fy = Number(forward.y || 0);
+        var fz = Number(forward.z || 0);
+        var halfLength = Math.max(0.0001, Number(patch.length || patch.active_manifold_length || 0) * 0.5);
+        return halfLength > 0.0001
+            ? _envTextTheaterRound(((dx * fx) + (dy * fy) + (dz * fz)) / halfLength, 4, 0)
+            : 0;
+    }
+
+    function _envTextTheaterContactBiasLabel(patch) {
+        if (!(patch && typeof patch === 'object')) return '';
+        var patchKind = String(patch.patch_kind || '').trim();
+        var mode = String(patch.contact_mode || '').trim();
+        if (!patchKind) return '';
+        if (mode === 'inverted') return 'inverted';
+        var bias = _envTextTheaterPatchForwardBias(patch);
+        if (patchKind === 'foot_sole') {
+            if (mode === 'full' && Math.abs(bias) < 0.24) return 'flat';
+            if (bias >= 0.6) return mode === 'edge' || mode === 'point' ? 'ball/toe edge' : 'ball/toe-biased';
+            if (bias >= 0.25) return mode === 'edge' || mode === 'point' ? 'ball edge' : 'ball-biased';
+            if (bias <= -0.45) return mode === 'edge' || mode === 'point' ? 'heel edge' : 'heel-biased';
+            return mode === 'edge' || mode === 'point' ? 'mid edge' : 'midfoot';
+        }
+        if (patchKind === 'knee_pad') {
+            if (bias >= 0.3) return 'distal-biased';
+            if (bias <= -0.3) return 'proximal-biased';
+            return 'centered';
+        }
+        if (mode === 'full' && Math.abs(bias) < 0.24) return 'centered';
+        if (bias >= 0.35) return 'forward-biased';
+        if (bias <= -0.35) return 'rear-biased';
+        return mode === 'edge' || mode === 'point' ? 'edge-biased' : 'centered';
     }
 
     function _envTextTheaterScenePositionForObject(obj) {
@@ -30269,13 +30617,35 @@
             + _envTextTheaterRound((((balance.projected_com || {}).z)), 2, 0) + ')'
             + ' / dominant: ' + String(balance.dominant_side || 'balanced')
             + ' / supporting: ' + ((balance.supporting_joint_ids || []).length ? (balance.supporting_joint_ids || []).join(', ') : 'none'));
+        lines.push('  surface: ' + String(balance.support_kind || balance.support_key || 'unknown')
+            + ' / y ' + _envTextTheaterRound(balance.support_y, 3, 0)
+            + ' / supports ' + Number(balance.support_count || 0)
+            + ' / span ' + _envTextTheaterRound(balance.support_span, 2, 0));
+        lines.push('  loads: left ' + _envTextTheaterRound((((balance.support_side_loads || {}).left)), 2, 0)
+            + ' / right ' + _envTextTheaterRound((((balance.support_side_loads || {}).right)), 2, 0)
+            + ' / center ' + _envTextTheaterRound((((balance.support_side_loads || {}).center)), 2, 0)
+            + ' / feet L ' + _envTextTheaterRound((((balance.foot_support_loads || {}).foot_l)), 2, 0)
+            + ' R ' + _envTextTheaterRound((((balance.foot_support_loads || {}).foot_r)), 2, 0));
+        if (balance.nearest_edge) {
+            lines.push('  polygon edge: ' + String(balance.nearest_edge.kind || 'edge')
+                + ' #' + String(balance.nearest_edge.index || 0)
+                + ' / dist ' + _envTextTheaterRound(balance.nearest_edge.distance, 3, 0)
+                + ' / mid (' + _envTextTheaterRound((((balance.nearest_edge.midpoint || {}).x)), 2, 0)
+                + ', ' + _envTextTheaterRound((((balance.nearest_edge.midpoint || {}).z)), 2, 0) + ')');
+        }
         (Array.isArray(view.contacts) ? view.contacts : []).forEach(function (contact) {
             var role = String((contact && contact.support_role) || '').trim();
             var mode = String((contact && contact.contact_mode) || '').trim();
+            var bias = String((contact && contact.contact_bias) || '').trim();
             lines.push('  ' + String(contact.joint || '') + ': ' + String(contact.state || '')
                 + (role ? ' / ' + role : '')
                 + (mode ? ' / ' + mode : '')
-                + ' (gap ' + _envTextTheaterRound(contact.gap, 3, 0) + ')');
+                + (bias ? ' / ' + bias : '')
+                + ' (gap ' + _envTextTheaterRound(contact.gap, 3, 0)
+                + ' / heel ' + _envTextTheaterRound(contact.heel_clearance, 3, 0)
+                + ' / toe ' + _envTextTheaterRound(contact.toe_clearance, 3, 0)
+                + ' / manifold ' + Number(contact.manifold_points || 0)
+                + ')');
         });
         lines.push('  alerts: ' + ((balance.alert_ids || []).length ? (balance.alert_ids || []).join(', ') : 'none'));
         var assertion = balance.assertion && typeof balance.assertion === 'object' ? balance.assertion : {};
@@ -30575,6 +30945,7 @@
                 pose_macro_registry: _envCloneJson((workbenchSurface || {}).pose_macro_registry, []),
                 active_controller: _envCloneJson((workbenchSurface || {}).active_controller, null),
                 route_report: _envCloneJson((workbenchSurface || {}).route_report, null),
+                maneuver_probe_history: _envCloneJson((workbenchSurface || {}).maneuver_probe_history, []),
                 selection_visual_state: _envCloneJson((workbenchSurface || {}).selection_visual_state, null),
                 selected_bone: _envCloneJson((workbenchSurface || {}).selected_bone, null),
                 selected_part_surface: _envCloneJson((workbenchSurface || {}).selected_part_surface, null),
@@ -30630,6 +31001,24 @@
                 normalized_margin: _envTextTheaterRound((loadField || {}).normalized_margin, 4, 0),
                 stability_risk: _envTextTheaterRound((loadField || {}).stability_risk, 4, 0),
                 inside_polygon: !!((loadField || {}).inside_support_polygon),
+                support_key: String((((loadField || {}).support || {}).support_key) || ''),
+                support_kind: String((((loadField || {}).support || {}).support_kind) || ''),
+                support_y: _envTextTheaterRound((((loadField || {}).support || {}).support_y), 4, 0),
+                support_count: Number((loadField || {}).support_count || 0),
+                support_span: _envTextTheaterRound((loadField || {}).support_span, 4, 0),
+                support_side_loads: _envCloneJson((loadField || {}).support_side_loads || null, null),
+                foot_support_loads: _envCloneJson((loadField || {}).foot_support_loads || null, null),
+                nearest_edge: loadField && loadField.nearest_edge
+                    ? {
+                        kind: String(((loadField.nearest_edge || {}).kind) || ''),
+                        index: Number(((loadField.nearest_edge || {}).index) || 0),
+                        distance: _envTextTheaterRound(((loadField.nearest_edge || {}).distance), 4, 0),
+                        midpoint: {
+                            x: _envTextTheaterRound((((loadField.nearest_edge || {}).midpoint || {}).x), 4, 0),
+                            z: _envTextTheaterRound((((loadField.nearest_edge || {}).midpoint || {}).z), 4, 0)
+                        }
+                    }
+                    : null,
                 gravity_vector: loadField && loadField.gravity_vector
                     ? _envTextTheaterVectorObject(loadField.gravity_vector, 4)
                     : { x: 0, y: -1, z: 0 },
@@ -30658,6 +31047,7 @@
             },
             contacts: balanceContacts.map(function (contact) {
                 var patch = ((contact || {}).contact_patch) || {};
+                var supportY = Number((patch || {}).support_y || ((((loadField || {}).support || {}).support_y) || 0));
                 return {
                     joint: String((contact || {}).bone_id || (contact || {}).canonical_joint || ''),
                     state: String((contact || {}).state || ''),
@@ -30667,10 +31057,21 @@
                     group: String((contact || {}).group || ''),
                     side: String((contact || {}).side || ''),
                     contact_mode: String((patch || {}).contact_mode || ''),
+                    contact_bias: _envTextTheaterContactBiasLabel(patch),
                     planted_alignment: _envTextTheaterRound((patch || {}).planted_alignment, 4, 0),
                     normal_alignment: _envTextTheaterRound((patch || {}).normal_alignment, 4, 0),
+                    support_key: String((contact || {}).support_key || ''),
+                    support_kind: String((contact || {}).support_kind || ''),
+                    support_y: _envTextTheaterRound(supportY, 4, 0),
+                    penetration: _envTextTheaterRound((patch || {}).penetration, 4, 0),
+                    candidate_area: _envTextTheaterRound((patch || {}).candidate_area, 4, 0),
+                    manifold_area: _envTextTheaterRound((patch || {}).active_manifold_area, 4, 0),
                     manifold_ratio: _envTextTheaterRound((patch || {}).active_manifold_ratio, 4, 0),
-                    manifold_points: Number((patch || {}).active_manifold_points || 0)
+                    manifold_points: Number((patch || {}).active_manifold_points || 0),
+                    manifold_width: _envTextTheaterRound((patch || {}).active_manifold_width, 4, 0),
+                    manifold_length: _envTextTheaterRound((patch || {}).active_manifold_length, 4, 0),
+                    toe_clearance: _envTextTheaterContactClearance((patch || {}).toe, supportY),
+                    heel_clearance: _envTextTheaterContactClearance((patch || {}).heel, supportY)
                 };
             }),
             timeline: {
@@ -46348,17 +46749,45 @@
         if (!mesh || !mesh.userData) return null;
         var entries = _env3DBuilderSelectionPivotSelectedEntries(mesh);
         if (entries.length < 2) return null;
-        var center = _env3DBuilderSelectionPivotCenter(entries);
+        var registry = _envBuilderBodyPlanControllerRegistry(_envBuilderSubject.bones || [], _envBuilderSubject.family || '');
+        var activeController = _envBuilderActiveControllerState(
+            _envBuilderSubject.bones || [],
+            _envBuilderSubject.family || '',
+            mesh,
+            entries.map(function (entry) { return String((entry && entry.bone_id) || '').trim(); }).filter(Boolean),
+            registry,
+            'selection_pivot'
+        );
+        var center = activeController && activeController.pivot_world
+            ? new THREE.Vector3(
+                Number((activeController.pivot_world || {}).x || 0),
+                Number((activeController.pivot_world || {}).y || 0),
+                Number((activeController.pivot_world || {}).z || 0)
+            )
+            : _env3DBuilderSelectionPivotCenter(entries);
         if (!center) return null;
         var snapshots = entries.map(function (entry) {
             return _env3DBuilderGizmoCaptureBaseline(entry.bone_id, entry.bone);
         }).filter(Boolean);
         if (snapshots.length < 2) return null;
         var requestedMode = _envNormalizeBuilderGizmoMode(_envBuilderInteraction.gizmo_mode || 'rotate');
+        var translationCarrierIds = activeController && Array.isArray(activeController.translation_carrier_ids) && activeController.translation_carrier_ids.length
+            ? activeController.translation_carrier_ids.slice(0)
+            : _env3DBuilderSelectionPivotTranslationCarrierIds(entries);
         return {
+            controller_id: String((activeController && activeController.controller_id) || '').trim(),
+            controller_kind: String((activeController && activeController.controller_kind) || '').trim(),
             selected_bone_ids: snapshots.map(function (entry) { return String(entry.bone_id || '').trim(); }).filter(Boolean),
-            root_bone_ids: _env3DBuilderSelectionPivotRootBoneIds(entries),
-            translation_carrier_ids: _env3DBuilderSelectionPivotTranslationCarrierIds(entries),
+            root_bone_ids: activeController && Array.isArray(activeController.root_bone_ids) && activeController.root_bone_ids.length
+                ? activeController.root_bone_ids.slice(0)
+                : _env3DBuilderSelectionPivotRootBoneIds(entries),
+            translation_carrier_ids: translationCarrierIds,
+            leader_bone_ids: _envCloneJson((activeController && activeController.leader_bone_ids) || [], []),
+            anchor_bone_ids: _envCloneJson((activeController && activeController.anchor_bone_ids) || [], []),
+            carrier_bone_ids: _envCloneJson((activeController && activeController.carrier_bone_ids) || translationCarrierIds, []),
+            compensation_bone_ids: _envCloneJson((activeController && activeController.compensation_bone_ids) || [], []),
+            propagation_mode: String((activeController && activeController.propagation_mode) || 'follow'),
+            pivot_rule: String((activeController && activeController.pivot_rule) || 'centroid'),
             center: _envVector3Array(center),
             pivot_position: _envVector3Array(center),
             pivot_quaternion: [0, 0, 0, 1],
@@ -46778,7 +47207,22 @@
         if (selectedBoneCount > 1 && editingMode === 'pose' && supportedMode !== 'none') {
             var pivot = _env3DBuilderSelectionPivotEnsure();
             var entries = _env3DBuilderSelectionPivotSelectedEntries(mesh);
-            var center = _env3DBuilderSelectionPivotCenter(entries);
+            var registry = _envBuilderBodyPlanControllerRegistry(_envBuilderSubject.bones || [], _envBuilderSubject.family || '');
+            var activeController = _envBuilderActiveControllerState(
+                _envBuilderSubject.bones || [],
+                _envBuilderSubject.family || '',
+                mesh,
+                entries.map(function (entry) { return String((entry && entry.bone_id) || '').trim(); }).filter(Boolean),
+                registry,
+                'selection_pivot'
+            );
+            var center = activeController && activeController.pivot_world
+                ? new THREE.Vector3(
+                    Number((activeController.pivot_world || {}).x || 0),
+                    Number((activeController.pivot_world || {}).y || 0),
+                    Number((activeController.pivot_world || {}).z || 0)
+                )
+                : _env3DBuilderSelectionPivotCenter(entries);
             var pivotMode = _env3DBuilderSelectionPivotSupportedMode(entries, requestedMode);
             if (!pivot || entries.length < 2 || !center) {
                 _env3DBuilderGizmoDetach();
@@ -46795,8 +47239,8 @@
             _envBuilderInteraction.gizmo_mode = pivotMode;
             if (typeof controls.setMode === 'function') controls.setMode(pivotMode);
             if (typeof controls.setSpace === 'function') controls.setSpace(_envNormalizeBuilderGizmoSpace(_envBuilderInteraction.gizmo_space || 'local'));
-            if (typeof controls.setSize === 'function') controls.setSize(1.05);
-            else controls.size = 1.05;
+            if (typeof controls.setSize === 'function') controls.setSize(activeController && activeController.controller_kind === 'support_topology' ? 1.18 : 1.05);
+            else controls.size = activeController && activeController.controller_kind === 'support_topology' ? 1.18 : 1.05;
             controls.visible = true;
             _env3D.builderGizmoBoneId = selectedBoneId;
             _env3D.builderGizmoTarget = pivot;
@@ -48835,18 +49279,69 @@
     }
 
     function _envBuilderLoadFieldVisualSpec(entry) {
-        // The first-pass solid scaffold tint reads like toy plastic and hides the
-        // actual support/contact work. Keep the load-field mechanics and diagnostics
-        // live, but leave scaffold rendering neutral until a proper scalar-field /
-        // internal skin treatment is ready.
-        return null;
+        if (!entry || typeof THREE === 'undefined') return null;
+        var mode = String(entry.mode || 'passive').trim().toLowerCase() || 'passive';
+        var stress = _envBuilderClamp01(Number(entry.stress || 0));
+        var loadShare = _envBuilderClamp01(Number(entry.load_share || 0));
+        var score = Math.max(stress, Math.min(1, (loadShare * 0.86) + (mode === 'support' ? 0.1 : (mode === 'brace' ? 0.05 : 0))));
+        var base = new THREE.Color(0x145e33);
+        var peak = new THREE.Color(0x79f2a3);
+        var emissive = new THREE.Color(0x0c2617);
+        var emissiveIntensity = 0.04;
+        var band = 'stable';
+        if (score >= 0.84) {
+            band = 'critical';
+            base.setHex(0x7c1616);
+            peak.setHex(0xff5a47);
+            emissive.setHex(0xff4a34);
+            emissiveIntensity = 0.2 + (stress * 0.24);
+        } else if (score >= 0.64) {
+            band = 'strain';
+            base.setHex(0xa64710);
+            peak.setHex(0xffb14a);
+            emissive.setHex(0xff9b2f);
+            emissiveIntensity = 0.12 + (stress * 0.18);
+        } else if (score >= 0.4) {
+            band = 'watch';
+            base.setHex(0x8b8212);
+            peak.setHex(0xfff06a);
+            emissive.setHex(0xe6d347);
+            emissiveIntensity = 0.08 + (stress * 0.1);
+        } else if (mode === 'swing') {
+            band = 'active';
+            base.setHex(0x0f5e57);
+            peak.setHex(0x4fe6d5);
+            emissive.setHex(0x2dd4bf);
+            emissiveIntensity = 0.06 + (loadShare * 0.06);
+        }
+        if (mode === 'unsupported') {
+            base.lerp(new THREE.Color(0x35424c), 0.42);
+            peak.lerp(new THREE.Color(0x738494), 0.48);
+            emissiveIntensity *= 0.4;
+        } else if (mode === 'brace' && band === 'stable') {
+            base.lerp(new THREE.Color(0x58731b), 0.35);
+            peak.lerp(new THREE.Color(0xcdf46d), 0.25);
+        }
+        var color = base.clone().lerp(peak, Math.max(0.12, Math.min(0.96, loadShare + (stress * 0.35))));
+        return {
+            color: color.getHex(),
+            emissive: emissive.getHex(),
+            emissive_intensity: Number(emissiveIntensity.toFixed(4)),
+            opacity: Number((0.88 + (loadShare * 0.1)).toFixed(4)),
+            mode: mode,
+            band: band,
+            stress: Number(stress.toFixed(4)),
+            load_share: Number(loadShare.toFixed(4))
+        };
     }
 
     function _envBuilderApplyHighlightToNode(node, state, loadField) {
         if (!node || !node.material) return;
         var selectedActive = _envBuilderSelectedBoneIds(_envBuilderInteraction).length > 0;
         var dimColor = typeof THREE !== 'undefined' ? new THREE.Color(0x3f4853) : null;
-        var loadSpec = null;
+        var loadSpec = (_envBuilderInteraction.load_field_enabled !== false && loadField)
+            ? _envBuilderLoadFieldVisualSpec(_envBuilderLoadFieldEntryForPart(node, loadField))
+            : null;
         var materials = Array.isArray(node.material) ? node.material : [node.material];
         materials.forEach(function (material) {
             if (!material) return;
@@ -48880,20 +49375,32 @@
                 material.opacity = Number(loadSpec ? loadSpec.opacity : (material.userData._builderHighlightBaseOpacity || 1));
             }
             if (state === 'primary') {
-                if (material.emissive && typeof material.emissive.setHex === 'function') material.emissive.setHex(0xffa726);
-                material.emissiveIntensity = Math.max(0.22, Number(material.userData._builderHighlightBaseEmissiveIntensity || 0) + 0.18);
+                if (material.emissive && typeof material.emissive.setHex === 'function') {
+                    material.emissive.setHex(Number(loadSpec ? loadSpec.emissive : 0xffa726));
+                }
+                material.emissiveIntensity = loadSpec
+                    ? Math.max(Number(loadSpec.emissive_intensity || 0), 0.12)
+                    : Math.max(0.22, Number(material.userData._builderHighlightBaseEmissiveIntensity || 0) + 0.18);
                 if (material.opacity !== undefined) material.opacity = Math.max(Number(material.userData._builderHighlightBaseOpacity || 1), 0.99);
             } else if (state === 'selected') {
-                if (material.emissive && typeof material.emissive.setHex === 'function') material.emissive.setHex(0xffc067);
-                material.emissiveIntensity = Math.max(0.16, Number(material.userData._builderHighlightBaseEmissiveIntensity || 0) + 0.1);
+                if (material.emissive && typeof material.emissive.setHex === 'function') {
+                    material.emissive.setHex(Number(loadSpec ? loadSpec.emissive : 0xffc067));
+                }
+                material.emissiveIntensity = loadSpec
+                    ? Math.max(Number(loadSpec.emissive_intensity || 0), 0.09)
+                    : Math.max(0.16, Number(material.userData._builderHighlightBaseEmissiveIntensity || 0) + 0.1);
                 if (material.opacity !== undefined) material.opacity = Math.max(Number(material.userData._builderHighlightBaseOpacity || 1), 0.98);
             } else if (state === 'posed') {
                 if (material.emissive && typeof material.emissive.setHex === 'function') material.emissive.setHex(0xd89b3c);
                 material.emissiveIntensity = Math.max(0.08, Number(material.userData._builderHighlightBaseEmissiveIntensity || 0) + 0.03);
                 if (material.opacity !== undefined) material.opacity = Math.max(Number(material.userData._builderHighlightBaseOpacity || 1), 0.94);
             } else if (state === 'hover') {
-                if (material.emissive && typeof material.emissive.setHex === 'function') material.emissive.setHex(0xffb44d);
-                material.emissiveIntensity = Math.max(0.12, Number(material.userData._builderHighlightBaseEmissiveIntensity || 0) + 0.08);
+                if (material.emissive && typeof material.emissive.setHex === 'function') {
+                    material.emissive.setHex(Number(loadSpec ? loadSpec.emissive : 0xffb44d));
+                }
+                material.emissiveIntensity = loadSpec
+                    ? Math.max(Number(loadSpec.emissive_intensity || 0), 0.08)
+                    : Math.max(0.12, Number(material.userData._builderHighlightBaseEmissiveIntensity || 0) + 0.08);
                 if (material.opacity !== undefined) material.opacity = Math.max(Number(material.userData._builderHighlightBaseOpacity || 1), 0.96);
             } else if (selectedActive && node.visible !== false) {
                 if (dimColor && material.color && typeof material.color.lerp === 'function') {
@@ -58623,7 +59130,7 @@
                 }
                 if (action === 'workbench-toggle-load-field') {
                     _envBuilderInteraction.load_field_enabled = !(_envBuilderInteraction.load_field_enabled !== false);
-                    _envBuilderInteraction.load_field_overlay_visible = false;
+                    _envBuilderInteraction.load_field_overlay_visible = _envBuilderInteraction.load_field_enabled;
                     var loadFieldMesh = _envMountedRuntimeMesh();
                     if (loadFieldMesh && loadFieldMesh.userData && _envBuilderSubject.active) _envBuilderApplySelectionToMesh(loadFieldMesh);
                     renderEnvironmentView();
