@@ -286,7 +286,7 @@ def _env_text_theater_view(base_url, timeout, view_mode, width, height, diagnost
 
 
 def _env_text_theater_live(base_url, timeout):
-    live_timeout = max(0.15, min(float(timeout or 5.0), 0.25))
+    live_timeout = max(0.5, min(float(timeout or 5.0), 2.4))
     payload = _get_json(f"{base_url}/api/text-theater/live", live_timeout)
     live = payload.get("text_theater_live") if isinstance(payload, dict) else None
     if not isinstance(live, dict):
@@ -588,22 +588,64 @@ def _scaffold_box_edge_segments(center, size_world, quaternion):
     return edges
 
 
-def _scaffold_ellipsoid_ring_segments(center, size_world, quaternion, plane, count=18):
+def _scaffold_ellipsoid_ring_segments(center, size_world, quaternion, plane, count=18, offset_norm=0.0):
     cx, cy, cz = _vec3(center)
     sx, sy, sz = size_world
     rx = max(0.001, float(sx) * 0.5)
     ry = max(0.001, float(sy) * 0.5)
     rz = max(0.001, float(sz) * 0.5)
     total = max(10, int(count or 18))
+    offset = max(-0.96, min(0.96, float(offset_norm or 0.0)))
+    slice_scale = math.sqrt(max(0.0, 1.0 - (offset * offset)))
     points = []
     for idx in range(total):
         theta = (float(idx) / float(total)) * math.tau
         if plane == "xy":
-            local = (math.cos(theta) * rx, math.sin(theta) * ry, 0.0)
+            local = (
+                math.cos(theta) * rx * slice_scale,
+                math.sin(theta) * ry * slice_scale,
+                offset * rz,
+            )
         elif plane == "yz":
-            local = (0.0, math.cos(theta) * ry, math.sin(theta) * rz)
+            local = (
+                offset * rx,
+                math.cos(theta) * ry * slice_scale,
+                math.sin(theta) * rz * slice_scale,
+            )
         else:
-            local = (math.cos(theta) * rx, 0.0, math.sin(theta) * rz)
+            local = (
+                math.cos(theta) * rx * slice_scale,
+                offset * ry,
+                math.sin(theta) * rz * slice_scale,
+            )
+        rotated = _quat_rotate(quaternion, local)
+        points.append((cx + rotated[0], cy + rotated[1], cz + rotated[2]))
+    segments = []
+    for idx in range(len(points)):
+        segments.append((points[idx], points[(idx + 1) % len(points)]))
+    return segments
+
+
+def _scaffold_ellipsoid_orbit_segments(center, size_world, quaternion, axis_u, axis_v, count=18):
+    cx, cy, cz = _vec3(center)
+    sx, sy, sz = size_world
+    rx = max(0.001, float(sx) * 0.5)
+    ry = max(0.001, float(sy) * 0.5)
+    rz = max(0.001, float(sz) * 0.5)
+    total = max(10, int(count or 18))
+    u = _v_norm(_vec3(axis_u), (1.0, 0.0, 0.0))
+    raw_v = _vec3(axis_v)
+    v = _v_sub(raw_v, _v_scale(u, _v_dot(raw_v, u)))
+    v = _v_norm(v, _v_norm(_v_cross((0.0, 1.0, 0.0), u), (0.0, 0.0, 1.0)))
+    points = []
+    for idx in range(total):
+        theta = (float(idx) / float(total)) * math.tau
+        direction = _v_add(_v_scale(u, math.cos(theta)), _v_scale(v, math.sin(theta)))
+        local = (
+            direction[0] * rx,
+            direction[1] * ry,
+            direction[2] * rz,
+        )
         rotated = _quat_rotate(quaternion, local)
         points.append((cx + rotated[0], cy + rotated[1], cz + rotated[2]))
     segments = []
@@ -806,6 +848,13 @@ def _sample_segment_points(start, end, count):
             start[2] + ((end[2] - start[2]) * t),
         ))
     return points
+
+
+def _detail_scaled_count(count, drag_lod=False, minimum=6):
+    steps = max(int(minimum or 2), int(count or minimum or 2))
+    if not drag_lod:
+        return steps
+    return max(int(minimum or 2), int(round(steps * 0.58)))
 
 
 def _line_char(start, end):
@@ -1453,6 +1502,7 @@ def _world_bounds_points(surface):
 
 
 def _collect_render_model(snapshot):
+    drag_lod = _snapshot_has_active_camera_motion(snapshot)
     embodiment = snapshot.get("embodiment") or {}
     balance = snapshot.get("balance") or {}
     contacts = snapshot.get("contacts") or []
@@ -1893,10 +1943,25 @@ def _collect_render_model(snapshot):
                     projected_points.extend([box_start, box_end])
                 continue
             if geometry in {"ellipsoid", "sphere"}:
-                # Keep the structural cross-brace for volume legibility, but avoid
-                # the old shell-point fill that turned into noisy speckle.
-                for plane in ("xz", "xy", "yz"):
-                    for ring_start, ring_end in _scaffold_ellipsoid_ring_segments(center, size_world, quaternion, plane, 18):
+                # Use six atom-like orbital contours so torso/head volumes feel
+                # carved in 3D instead of flat-filled or transparently hollow.
+                orbit_layouts = (
+                    ((1.0, 0.0, 0.0), (0.0, 0.0, 1.0), 14 if drag_lod else 20),
+                    ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), 12 if drag_lod else 18),
+                    ((0.0, 0.0, 1.0), (0.0, 1.0, 0.0), 12 if drag_lod else 18),
+                    ((math.cos(math.radians(36.0)), 0.0, math.sin(math.radians(36.0))), (0.0, 1.0, 0.0), 12 if drag_lod else 18),
+                    ((math.cos(math.radians(72.0)), 0.0, math.sin(math.radians(72.0))), (0.0, 1.0, 0.0), 12 if drag_lod else 18),
+                    ((math.cos(math.radians(108.0)), 0.0, math.sin(math.radians(108.0))), (0.0, 1.0, 0.0), 12 if drag_lod else 18),
+                )
+                for axis_u, axis_v, sample_count in orbit_layouts:
+                    for ring_start, ring_end in _scaffold_ellipsoid_orbit_segments(
+                        center,
+                        size_world,
+                        quaternion,
+                        axis_u,
+                        axis_v,
+                        sample_count,
+                    ):
                         scaffold_segments.append({
                             **segment_common,
                             "start": ring_start,
@@ -2010,6 +2075,7 @@ def _collect_render_model(snapshot):
         perspective_points.append(obj["point"])
 
     return {
+        "drag_lod": drag_lod,
         "segments": segments,
         "scaffold_segments": scaffold_segments,
         "markers": markers,
@@ -2063,6 +2129,7 @@ def _render_projection(snapshot, width, height, mode, history=None):
     width = max(20, width)
     height = max(8, height)
     model = _collect_render_model(snapshot)
+    drag_lod = bool(model.get("drag_lod"))
     motion = model.get("motion") or {}
     legend = []
     if mode == "perspective":
@@ -2212,7 +2279,8 @@ def _render_projection(snapshot, width, height, mode, history=None):
 
     if mode in {"perspective", "quarter", "profile"} and not use_cell_canvas:
         for ring in model["guide_rings"]:
-            for point in _sample_circle_points(ring["center"], ring["radius"], ring["samples"]):
+            ring_samples = _detail_scaled_count(ring["samples"], drag_lod, 18)
+            for point in _sample_circle_points(ring["center"], ring["radius"], ring_samples):
                 coords = project(point)
                 if coords is None:
                     continue
@@ -2225,7 +2293,11 @@ def _render_projection(snapshot, width, height, mode, history=None):
                     style=ring.get("style") or model["styles"]["floor_major"],
                 )
         for guide_row in model["guide_segments"]:
-            for point in _sample_segment_points(guide_row["start"], guide_row["end"], guide_row["samples"]):
+            for point in _sample_segment_points(
+                guide_row["start"],
+                guide_row["end"],
+                _detail_scaled_count(guide_row["samples"], drag_lod, 12),
+            ):
                 coords = project(point)
                 if coords is None:
                     continue
@@ -2240,7 +2312,11 @@ def _render_projection(snapshot, width, height, mode, history=None):
 
     if mode not in {"perspective", "quarter", "profile"} and not use_cell_canvas:
         for guide_row in model["guide_grid_lines"]:
-            for point in _sample_segment_points(guide_row["start"], guide_row["end"], guide_row["samples"]):
+            for point in _sample_segment_points(
+                guide_row["start"],
+                guide_row["end"],
+                _detail_scaled_count(guide_row["samples"], drag_lod, 12),
+            ):
                 coords = project(point)
                 if coords is None:
                     continue
@@ -2254,7 +2330,8 @@ def _render_projection(snapshot, width, height, mode, history=None):
                 )
 
         for ring in model["guide_rings"]:
-            for point in _sample_circle_points(ring["center"], ring["radius"], ring["samples"]):
+            ring_samples = _detail_scaled_count(ring["samples"], drag_lod, 18)
+            for point in _sample_circle_points(ring["center"], ring["radius"], ring_samples):
                 coords = project(point)
                 if coords is None:
                     continue
@@ -2268,7 +2345,11 @@ def _render_projection(snapshot, width, height, mode, history=None):
                 )
 
         for guide_row in model["guide_segments"] + model["guide_triangles"]:
-            for point in _sample_segment_points(guide_row["start"], guide_row["end"], guide_row["samples"]):
+            for point in _sample_segment_points(
+                guide_row["start"],
+                guide_row["end"],
+                _detail_scaled_count(guide_row["samples"], drag_lod, 12),
+            ):
                 coords = project(point)
                 if coords is None:
                     continue
@@ -2437,6 +2518,7 @@ def _render_projection(snapshot, width, height, mode, history=None):
                 normal_y = (dir_x / dir_len)
             thickness = _segment_thickness_band(segment.get("radius_start"), segment.get("radius_end"))
             sample_count = 18 if thickness <= 0 else (22 if thickness == 1 else 28)
+            sample_count = _detail_scaled_count(sample_count, drag_lod, 10)
             for point in _sample_segment_points(start, end, sample_count):
                 coords = project(point)
                 if coords is None:
@@ -2465,6 +2547,7 @@ def _render_projection(snapshot, width, height, mode, history=None):
                     _project_radius_to_subcells(float(segment.get("radius_end") or 0.02), end_depth, render_height, camera_meta),
                 )
                 sample_count = _perspective_segment_sample_count(mapped_start, mapped_end, projected_radius)
+                sample_count = _detail_scaled_count(sample_count, drag_lod, 10)
                 for idx, point in enumerate(_sample_segment_points(start, end, sample_count)):
                     coords = project(point)
                     if coords is None:
@@ -2500,7 +2583,7 @@ def _render_projection(snapshot, width, height, mode, history=None):
                             priority=priority,
                         )
                 continue
-            sample_count = 28
+            sample_count = _detail_scaled_count(28, drag_lod, 12)
             for idx, point in enumerate(_sample_segment_points(start, end, sample_count)):
                 coords = project(point)
                 if coords is None:
@@ -2539,6 +2622,7 @@ def _render_projection(snapshot, width, height, mode, history=None):
                 normal_y = (dir_x / dir_len)
             thickness = 0 if render_mode == "wire" else _scaffold_segment_thickness_band(segment)
             sample_count = 20 if render_mode == "wire" else (20 if thickness <= 0 else (24 if thickness == 1 else 30))
+            sample_count = _detail_scaled_count(sample_count, drag_lod, 10)
             for point in _sample_segment_points(start, end, sample_count):
                 coords = project(point)
                 if coords is None:
@@ -2567,6 +2651,7 @@ def _render_projection(snapshot, width, height, mode, history=None):
                 end_depth = point_depth(end)
                 if render_mode == "wire":
                     sample_count = max(18, _perspective_segment_sample_count(mapped_start, mapped_end, 0))
+                    sample_count = _detail_scaled_count(sample_count, drag_lod, 10)
                     for point in _sample_segment_points(start, end, sample_count):
                         coords = project(point)
                         if coords is None:
@@ -2589,6 +2674,7 @@ def _render_projection(snapshot, width, height, mode, history=None):
                     _project_radius_to_subcells(float(segment.get("radius_end") or 0.02), end_depth, render_height, camera_meta),
                 )
                 sample_count = _perspective_segment_sample_count(mapped_start, mapped_end, projected_radius)
+                sample_count = _detail_scaled_count(sample_count, drag_lod, 10)
                 for idx, point in enumerate(_sample_segment_points(start, end, sample_count)):
                     coords = project(point)
                     if coords is None:
@@ -2628,6 +2714,7 @@ def _render_projection(snapshot, width, height, mode, history=None):
                         )
                 continue
             sample_count = 24 if render_mode == "wire" else 30
+            sample_count = _detail_scaled_count(sample_count, drag_lod, 10)
             for idx, point in enumerate(_sample_segment_points(start, end, sample_count)):
                 coords = project(point)
                 if coords is None:
@@ -2793,6 +2880,17 @@ def _snapshot_is_live_camera(snapshot):
         return False
     reason = str(snapshot.get("last_sync_reason") or "").strip().lower()
     return reason.startswith("camera:")
+
+
+def _snapshot_has_active_camera_motion(snapshot):
+    if not isinstance(snapshot, dict):
+        return False
+    reason = str(snapshot.get("last_sync_reason") or "").strip().lower()
+    return (
+        reason.startswith("camera:manual:change")
+        or reason.startswith("camera:manual:wheel")
+        or reason.startswith("camera:turntable")
+    )
 
 
 def _section_lines(snapshot, section_key, width):
@@ -3910,9 +4008,34 @@ def _run(args):
                 "error": str(live_cache["error"] or ""),
             }
 
+    def _bootstrap_live_cache():
+        try:
+            rendered = _env_text_theater_view(
+                base_url=base_url,
+                timeout=args.timeout,
+                view_mode="split",
+                width=140,
+                height=44,
+                diagnostics_visible=False,
+                section_key="theater",
+            )
+            _set_live_cache(
+                snapshot=rendered.get("snapshot") if isinstance(rendered.get("snapshot"), dict) else {},
+                theater_text=str(rendered.get("theater_text") or ""),
+                embodiment_text=str(rendered.get("embodiment_text") or ""),
+                error="",
+                ready=True,
+            )
+            return True
+        except Exception as exc:
+            _set_live_cache(error=str(exc))
+            return False
+
     def _live_worker():
-        poll_delay = max(0.005, min(float(args.interval or 0.02), 0.02))
+        base_poll_delay = max(0.02, min(float(args.interval or 0.04), 0.05))
+        failure_streak = 0
         while not stop_event.is_set():
+            next_delay = base_poll_delay
             try:
                 live_payload = _env_text_theater_live(
                     base_url=base_url,
@@ -3925,10 +4048,16 @@ def _run(args):
                     error="",
                     ready=True,
                 )
+                failure_streak = 0
             except Exception as exc:
+                failure_streak = min(failure_streak + 1, 8)
                 _set_live_cache(error=str(exc))
-            stop_event.wait(poll_delay)
+                if not _get_live_cache()["ready"]:
+                    _bootstrap_live_cache()
+                next_delay = min(0.35, base_poll_delay * (1.0 + (failure_streak * 0.8)))
+            stop_event.wait(next_delay)
 
+    _bootstrap_live_cache()
     live_thread = threading.Thread(target=_live_worker, name="text-theater-live", daemon=True)
     live_thread.start()
 

@@ -30687,9 +30687,60 @@
         return mirrorBundle ? _envRememberTextTheaterBundle(mirrorBundle) : null;
     }
 
+    function _envCompactTextTheaterRuntimeForCamera(runtime) {
+        var source = runtime && typeof runtime === 'object' ? runtime : {};
+        var runtimeState = source.runtime_state && typeof source.runtime_state === 'object'
+            ? source.runtime_state
+            : {};
+        var position = runtimeState.position && typeof runtimeState.position === 'object'
+            ? runtimeState.position
+            : {};
+        var compactState = {};
+        if (position && typeof position === 'object' && Object.keys(position).length) {
+            compactState.position = _envCloneJson(position, null);
+        }
+        return {
+            enabled: !!source.enabled,
+            mode: String(source.mode || ''),
+            behavior: String(source.behavior || ''),
+            activity: String(source.activity || ''),
+            camera_binding: String(source.camera_binding || ''),
+            grounded: !!source.grounded,
+            support_key: String(source.support_key || ''),
+            support_kind: String(source.support_kind || ''),
+            object_key: String(source.object_key || ''),
+            runtime_state: compactState
+        };
+    }
+
+    function _envCompactTextTheaterSnapshotForCamera(snapshot) {
+        var source = snapshot && typeof snapshot === 'object' ? snapshot : {};
+        return {
+            version: Number(source.version || 1),
+            snapshot_timestamp: Number(source.snapshot_timestamp || 0),
+            source_timestamp: Number(source.source_timestamp || 0),
+            bundle_version: String(source.bundle_version || ''),
+            command_sync_token: String(source.command_sync_token || ''),
+            last_action: String(source.last_action || ''),
+            last_sync_reason: String(source.last_sync_reason || ''),
+            stale_flags: _envCloneJson(source.stale_flags || {}, {}),
+            theater: _envCloneJson(source.theater || {}, {}),
+            scene: _envCloneJson(source.scene || {}, {}),
+            render: _envCloneJson(source.render || {}, {}),
+            runtime: _envCompactTextTheaterRuntimeForCamera(source.runtime),
+            workbench: _envCloneJson(source.workbench || {}, {}),
+            embodiment: _envCloneJson(source.embodiment || {}, {}),
+            balance: _envCloneJson(source.balance || {}, {}),
+            contacts: _envCloneJson(source.contacts || [], []),
+            timeline: _envCloneJson(source.timeline || {}, {}),
+            semantic: _envCloneJson(source.semantic || {}, {}),
+            corroboration: _envCloneJson(source.corroboration || {}, {})
+        };
+    }
+
     function _envPatchTextTheaterSnapshotForCamera(snapshot, camera3d, focusSnapshot, reason) {
         if (!snapshot || typeof snapshot !== 'object') return null;
-        var patched = _envCloneJson(snapshot, null) || {};
+        var patched = _envCompactTextTheaterSnapshotForCamera(snapshot);
         var now = Date.now();
         var commandSyncToken = String(
             _envLiveSyncState.lastAttemptCommandToken
@@ -30769,12 +30820,10 @@
         if (!snapshot || typeof snapshot !== 'object') return null;
         var liveTheaterText = String(cachedBundle.theater || '');
         var liveEmbodimentText = String(cachedBundle.embodiment || '');
-        var shouldReuseCachedText = pulseReason.indexOf('camera:manual:change') >= 0
-            || pulseReason.indexOf('camera:manual:wheel') >= 0;
         return _envRememberTextTheaterBundle({
             snapshot: snapshot,
-            theater: shouldReuseCachedText ? liveTheaterText : _envRenderTextTheaterOutput(snapshot, 'theater'),
-            embodiment: shouldReuseCachedText ? liveEmbodimentText : _envRenderTextTheaterOutput(snapshot, 'embodiment')
+            theater: _envRenderTextTheaterOutput(snapshot, 'theater') || liveTheaterText,
+            embodiment: _envRenderTextTheaterOutput(snapshot, 'embodiment') || liveEmbodimentText
         });
     }
 
@@ -36022,7 +36071,8 @@
             if (textTheater && typeof textTheater === 'object') {
                 textTheater = {
                     snapshot: _envCloneJson(textTheater.snapshot, null),
-                    theater: String(textTheater.theater || '')
+                    theater: String(textTheater.theater || ''),
+                    embodiment: String(textTheater.embodiment || '')
                 };
             }
         }
@@ -36373,10 +36423,10 @@
         var now = Date.now();
         if (!Number(_env3D.cameraPulseInFlightCount || 0)
             && signature === String(_env3D.cameraPulseLastSignature || '')
-            && (now - Number(_env3D.cameraPulseLastTs || 0)) < 70) {
+            && (now - Number(_env3D.cameraPulseLastTs || 0)) < 24) {
             return false;
         }
-        if (Number(_env3D.cameraPulseInFlightCount || 0) >= Math.max(1, Number(_env3D.cameraPulseMaxInFlight || 2))) {
+        if (Number(_env3D.cameraPulseInFlightCount || 0) >= Math.max(1, Number(_env3D.cameraPulseMaxInFlight || 3))) {
             _env3D.cameraPulseQueued = true;
             _env3D.cameraPulseQueuedReason = syncReason;
             return false;
@@ -36390,7 +36440,7 @@
         if (controller) {
             timeoutHandle = setTimeout(function () {
                 try { controller.abort(); } catch (ignored) { }
-            }, 300);
+            }, 180);
         }
         fetch('/api/live-sync', {
             method: 'POST',
@@ -36413,7 +36463,7 @@
             if (timeoutHandle) clearTimeout(timeoutHandle);
             _env3D.cameraPulseInFlightCount = Math.max(0, Number(_env3D.cameraPulseInFlightCount || 0) - 1);
             _env3D.cameraPulseController = null;
-            if (Number(_env3D.cameraPulseInFlightCount || 0) < Math.max(1, Number(_env3D.cameraPulseMaxInFlight || 2))) {
+            if (Number(_env3D.cameraPulseInFlightCount || 0) < Math.max(1, Number(_env3D.cameraPulseMaxInFlight || 3))) {
                 _env3DFlushQueuedCameraPulse();
             }
         });
@@ -36759,7 +36809,7 @@
         cameraPulseLastTs: 0,
         cameraPulseLastSignature: '',
         cameraPulseSeq: 0,
-        cameraPulseMaxInFlight: 2
+        cameraPulseMaxInFlight: 3
     };
 
     function _env3DResolvePhysicsGroundY() {
@@ -43633,7 +43683,7 @@
         var minGap = 16;
         if (immediate) minGap = 0;
         else if (text.indexOf('camera:turntable') >= 0) minGap = 120;
-        else if (text.indexOf('camera:manual:change') >= 0 || text.indexOf('camera:manual:wheel') >= 0) minGap = 72;
+        else if (text.indexOf('camera:manual:change') >= 0 || text.indexOf('camera:manual:wheel') >= 0) minGap = 24;
         _env3D.lastLiveMirrorReason = syncReason;
         if (_env3D.liveMirrorTimer) {
             if (!immediate) return;
