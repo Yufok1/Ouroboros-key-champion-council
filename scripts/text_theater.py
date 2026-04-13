@@ -3217,18 +3217,27 @@ def _collect_render_model(snapshot):
         projected_points.extend(_sample_circle_points(row["center"], row["radius"], row["samples"]))
 
     objects = []
+    scene_object_rows = scene.get("objects") if isinstance(scene.get("objects"), list) else []
+    if not scene_object_rows:
+        scene_object_rows = scene.get("focus_neighborhood") if isinstance(scene.get("focus_neighborhood"), list) else []
     if not scoped_part_mode:
-        for index, obj in enumerate(scene.get("focus_neighborhood") or []):
+        for index, obj in enumerate(scene_object_rows):
+            if not isinstance(obj, dict):
+                continue
             point = _vec3(obj.get("position"))
+            obj_kind = str(obj.get("kind") or "").strip().lower()
+            obj_radius = 2 if obj_kind in {"panel", "portal", "zone", "structure", "prop"} else 1
             objects.append({
                 "char": "·",
                 "label": str(obj.get("label") or obj.get("id") or obj.get("kind") or f"object_{index + 1}"),
                 "point": point,
                 "distance": obj.get("distance"),
+                "radius": obj_radius,
+                "focused": bool(obj.get("focused")),
                 "style": _style_from_color(
                     obj.get("color") or ((obj.get("colors") or {}).get("edge")) or "#66b8ff",
                     "#66b8ff",
-                    1.0,
+                    1.18 if obj_radius > 1 else 1.0,
                 ),
             })
             projected_points.append(point)
@@ -3308,9 +3317,6 @@ def _render_projection(snapshot, width, height, mode, history=None):
     legend = []
     if mode == "perspective":
         legend.append("Perspective · fixed camera/stage/body projection")
-        object_bits = [f"· {obj['label']}" for obj in model["objects"][:4]]
-        if object_bits:
-            legend.append("Objects: " + " | ".join(object_bits))
     elif mode == "quarter":
         legend.append("Quarter view · companion orbit")
     elif mode == "profile":
@@ -3319,6 +3325,9 @@ def _render_projection(snapshot, width, height, mode, history=None):
         legend.append("Top view · paired body/floor projection")
     else:
         legend.append("Front view · paired body/floor projection")
+    object_bits = [f"· {obj['label']}" for obj in model["objects"][:6]]
+    if object_bits:
+        legend.append("Objects: " + " | ".join(object_bits))
     scene_height = max(4, height - len(legend))
     use_cell_canvas = False
     if use_cell_canvas:
@@ -3980,12 +3989,19 @@ def _render_projection(snapshot, width, height, mode, history=None):
     heading_tip_coords = project(model["heading_tip"])
     current_origin_coords = project(model.get("heading_origin"))
 
-    for obj in ([] if mode != "perspective" else model["objects"]):
+    for obj in model["objects"]:
         coords = project(obj["point"])
         if coords is None:
             continue
         x, y = mapper(coords)
-        put_mark(x, y, "·", priority=4, style=obj.get("style") or BLUE, radius=0)
+        put_mark(
+            x,
+            y,
+            "·",
+            priority=6 if obj.get("focused") else 5,
+            style=obj.get("style") or BLUE,
+            radius=int(obj.get("radius", 1)),
+        )
 
     for marker in model["markers"]:
         coords = project(marker.get("point"))
@@ -4051,12 +4067,22 @@ def _profile_status_line(snapshot):
     )
 
 
+def _parity_status_line(snapshot):
+    snapshot = snapshot if isinstance(snapshot, dict) else {}
+    parity = snapshot.get("parity") if isinstance(snapshot.get("parity"), dict) else {}
+    theater = snapshot.get("theater") if isinstance(snapshot.get("theater"), dict) else {}
+    mode = str(parity.get("mode") or theater.get("mode") or "unknown")
+    summary = str(parity.get("summary") or "").strip()
+    return "parity=" + mode + ((" " + summary) if summary else "")
+
+
 def _compact_status_lines(snapshot, width, surface_mode=TEXT_THEATER_SURFACE_MODE, surface_density=TEXT_THEATER_SURFACE_DENSITY):
     balance = snapshot.get("balance") or {}
     runtime = snapshot.get("runtime") or {}
     theater = snapshot.get("theater") or {}
     base_rows = [
         f"focus={((theater.get('focus') or {}).get('id') or 'none')} phase={balance.get('support_phase', 'unknown')} risk={balance.get('stability_risk', '?')} grounded={runtime.get('grounded', '?')} bundle={snapshot.get('bundle_version', '?')}",
+        _parity_status_line(snapshot),
         _motion_status_line(snapshot),
         _profile_status_line(snapshot),
         _surface_status_line(surface_mode, surface_density),
@@ -4111,6 +4137,7 @@ def _section_lines(snapshot, section_key, width):
         theater = snapshot.get("theater") or {}
         camera = theater.get("camera") or {}
         focus = theater.get("focus") or {}
+        parity = snapshot.get("parity") or {}
         rows = [
             f"mode={theater.get('mode', '')} visual_mode={theater.get('visual_mode', '')}",
             f"focus kind={focus.get('kind', '')} id={focus.get('id', '')} class={focus.get('target_class', '')}",
@@ -4119,6 +4146,12 @@ def _section_lines(snapshot, section_key, width):
             f"camera target={camera.get('target', {})}",
             f"camera forward={camera.get('forward', {})} up={camera.get('up', {})}",
         ]
+        if parity:
+            rows.append(f"parity mode={parity.get('mode', '')} summary={parity.get('summary', '')}")
+            rows.append(f"admitted={parity.get('admitted_surfaces', [])}")
+            rows.append(f"suppressed={parity.get('suppressed_surfaces', [])}")
+            rows.append(f"contaminated={parity.get('contaminated_surfaces', [])}")
+            rows.append(f"missing={parity.get('missing_surfaces', [])}")
         return _wrap_block("\n".join(rows), width)
     if section_key == "scene":
         scene = snapshot.get("scene") or {}
@@ -4231,6 +4264,7 @@ def _build_status_lines(snapshot, section_key, width, surface_mode=TEXT_THEATER_
     base_rows = [
         f"phase={balance.get('support_phase', 'unknown')} risk={balance.get('stability_risk', '?')} margin={balance.get('stability_margin', '?')}",
         f"runtime={runtime.get('mode', '?')} grounded={runtime.get('grounded', '?')} sync_reason={snapshot.get('last_sync_reason', '')}",
+        _parity_status_line(snapshot),
         _motion_status_line(snapshot),
         f"section={section_key} mirror_lag={bool(stale.get('mirror_lag'))} bundle={snapshot.get('bundle_version', '?')}",
         _profile_status_line(snapshot),
@@ -4250,6 +4284,7 @@ def _render_local_theater_text(snapshot):
     theater = snapshot.get("theater") if isinstance(snapshot.get("theater"), dict) else {}
     scene = snapshot.get("scene") if isinstance(snapshot.get("scene"), dict) else {}
     runtime = snapshot.get("runtime") if isinstance(snapshot.get("runtime"), dict) else {}
+    parity = snapshot.get("parity") if isinstance(snapshot.get("parity"), dict) else {}
     stale_flags = snapshot.get("stale_flags") if isinstance(snapshot.get("stale_flags"), dict) else {}
     focus = theater.get("focus") if isinstance(theater.get("focus"), dict) else {}
     camera = theater.get("camera") if isinstance(theater.get("camera"), dict) else {}
@@ -4287,6 +4322,10 @@ def _render_local_theater_text(snapshot):
         + ("lagged" if stale_flags.get("mirror_lag") else "fresh")
         + " / synced "
         + f"{sync_age:.2f}s ago",
+        "PARITY: "
+        + str(parity.get("mode") or theater.get("mode") or "unknown")
+        + " / "
+        + str(parity.get("summary") or "unknown"),
         "SCENE: "
         + str(int(scene.get("object_count") or 0))
         + " objects / bounds x "
@@ -4313,6 +4352,7 @@ def _render_consult_orientation_text(snapshot):
     snapshot = snapshot if isinstance(snapshot, dict) else {}
     theater = snapshot.get("theater") if isinstance(snapshot.get("theater"), dict) else {}
     scene = snapshot.get("scene") if isinstance(snapshot.get("scene"), dict) else {}
+    parity = snapshot.get("parity") if isinstance(snapshot.get("parity"), dict) else {}
     focus = theater.get("focus") if isinstance(theater.get("focus"), dict) else {}
     camera = theater.get("camera") if isinstance(theater.get("camera"), dict) else {}
     target = camera.get("target") if isinstance(camera.get("target"), dict) else {}
@@ -4338,6 +4378,10 @@ def _render_consult_orientation_text(snapshot):
         + f"{float(camera.get('azimuth') or 0.0):.3f}"
         + " / pol "
         + f"{float(camera.get('polar') or 0.0):.3f}",
+        "PARITY: "
+        + str(parity.get("mode") or theater.get("mode") or "unknown")
+        + " / "
+        + str(parity.get("summary") or "unknown"),
         "POS: ("
         + f"{float(position.get('x') or 0.0):.2f}, "
         + f"{float(position.get('y') or 0.0):.2f}, "
