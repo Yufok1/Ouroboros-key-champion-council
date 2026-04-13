@@ -201,6 +201,36 @@
             min-height: 100%;
         }
 
+        body.envops-shell-stage-max {
+            overflow: hidden;
+            background: var(--bg);
+        }
+
+        body.envops-shell-stage-max .header,
+        body.envops-shell-stage-max .tabs {
+            display: none;
+        }
+
+        body.envops-shell-stage-max .content-wrapper {
+            overflow: hidden;
+        }
+
+        body.envops-shell-stage-max .content:not(#tab-environment) {
+            display: none !important;
+        }
+
+        body.envops-shell-stage-max #tab-environment.active {
+            position: fixed;
+            inset: 0;
+            z-index: 4000;
+            display: flex !important;
+            flex-direction: column;
+            min-height: 100vh;
+            padding: 0;
+            background: var(--bg);
+            overflow: hidden;
+        }
+
         /* ── OVERVIEW TAB ── */
         .arch-flow {
             display: flex;
@@ -1441,6 +1471,38 @@
             flex-direction: column;
         }
 
+        .envops-toolbar .envops-view-toggle.active {
+            background: var(--accent);
+            color: #000;
+            border-color: var(--accent);
+        }
+
+        .envops-immersive-controls {
+            display: none;
+            position: fixed;
+            top: 12px;
+            right: 12px;
+            z-index: 4200;
+            gap: 8px;
+            align-items: center;
+            padding: 8px 10px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: rgba(7, 12, 18, 0.82);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
+        }
+
+        .envops-immersive-controls .hint {
+            color: var(--text-dim);
+            font-size: 10px;
+            letter-spacing: 0.7px;
+            text-transform: uppercase;
+        }
+
+        body.envops-shell-stage-max .envops-immersive-controls {
+            display: inline-flex;
+        }
+
         .envops-panel-head {
             padding: 8px 12px;
             border-bottom: 1px solid var(--border);
@@ -1519,6 +1581,103 @@
             background-image:
                 radial-gradient(circle at top right, rgba(0, 255, 136, 0.08), transparent 34%),
                 linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 42%);
+        }
+
+        #tab-environment.envops-stage-max .section-head {
+            display: none;
+        }
+
+        body.envops-shell-stage-max #tab-environment .envops-toolbar {
+            display: none;
+        }
+
+        #tab-environment.envops-stage-max .envops-grid {
+            display: flex;
+            flex: 1;
+            min-height: 0;
+            margin-bottom: 0;
+        }
+
+        #tab-environment.envops-stage-max .envops-grid>.envops-panel:first-child,
+        #tab-environment.envops-stage-max .envops-form-grid,
+        #tab-environment.envops-stage-max .envops-lower-grid,
+        #tab-environment.envops-stage-max .envops-ops-grid,
+        #tab-environment.envops-stage-max .envops-install-banner,
+        #tab-environment.envops-stage-max .envops-asset-browser {
+            display: none !important;
+        }
+
+        #tab-environment.envops-stage-max .envops-grid>.envops-panel:last-child {
+            flex: 1;
+            min-height: 0;
+            border: none;
+            background: transparent;
+        }
+
+        #tab-environment.envops-stage-max #envops-stage > :not(.envops-stage-shell):not(.envops-stage-empty) {
+            display: none !important;
+        }
+
+        #tab-environment.envops-stage-max .envops-grid>.envops-panel:last-child>.envops-panel-head {
+            display: none;
+        }
+
+        #tab-environment.envops-stage-max .envops-stage {
+            flex: 1;
+            min-height: 0;
+            max-height: none;
+            height: 100%;
+            overflow: hidden;
+            padding: 0;
+        }
+
+        #tab-environment.envops-stage-max .envops-grid>.envops-panel:last-child {
+            height: 100%;
+        }
+
+        #tab-environment.envops-stage-max #envops-stage > .envops-stage-shell {
+            flex: 1;
+            min-height: 0;
+            height: 100%;
+        }
+
+        #tab-environment.envops-stage-max .envops-stage-shell,
+        #tab-environment.envops-stage-max .envops-habitat-shell,
+        #tab-environment.envops-stage-max .envops-habitat-3d-container {
+            min-height: 100%;
+            height: 100%;
+        }
+
+        #tab-environment.envops-stage-max .envops-stage-shell {
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            flex: 1;
+            min-height: 0;
+            gap: 0;
+        }
+
+        #tab-environment.envops-stage-max .envops-focus-card {
+            display: none !important;
+        }
+
+        #tab-environment.envops-stage-max .envops-habitat {
+            flex: 1;
+            min-height: 0;
+            height: 100%;
+        }
+
+        #tab-environment.envops-stage-max .envops-habitat-scene {
+            min-height: 0;
+            height: 100%;
+            resize: none;
+            border-bottom: none;
+        }
+
+        #tab-environment.envops-stage-max .envops-habitat-scene-cockpit,
+        #tab-environment.envops-stage-max .envops-habitat-hud,
+        #tab-environment.envops-stage-max .envops-habitat-ops-rail {
+            max-height: calc(100% - 16px);
         }
 
         .envops-stage-empty {
@@ -10685,6 +10844,7 @@
                 <button class="btn-dim" id="envops-refresh-docs">SCAN DOCS</button>
                 <button class="btn-dim" id="envops-load">LOAD SELECTED</button>
                 <button id="envops-execute">RUN SYSTEM</button>
+                <button class="btn-dim envops-view-toggle" id="envops-toggle-stage-max" title="Make the theater the primary interactive surface.">THEATER MAX</button>
                 <button class="btn-dim" id="envops-open-workflows">OPEN WORKFLOWS</button>
                 <button class="btn-dim" id="envops-export-interface">EXPORT INTERFACE</button>
                 <button class="btn-dim" id="envops-export-world">EXPORT WORLD</button>
@@ -11204,9 +11364,11 @@
                 <div class="diag-section" style="padding:16px;">
                     <div
                         style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">
-                        CRITIC LOSS HISTORY</div>
+                        TRAINING HEALTH</div>
                     <canvas id="dr-loss-chart" width="400" height="160"
                         style="width:100%;height:160px;background:rgba(0,0,0,0.2);border-radius:4px;"></canvas>
+                    <div id="dr-loss-strip" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;font-size:10px;"></div>
+                    <div id="dr-loss-story" style="font-size:10px;color:var(--text-dim);line-height:1.6;margin-top:8px;">Waiting for training health...</div>
                     <div id="dr-last-train" style="font-size:10px;color:var(--text-dim);margin-top:6px;">No training
                         data yet</div>
                 </div>
@@ -11245,6 +11407,15 @@
                 </div>
             </div>
 
+            <div class="diag-section" style="padding:16px;margin-bottom:20px;">
+                <div
+                    style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">
+                    RECENT DREAMER TRAIL</div>
+                <div id="dr-history-strip" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;font-size:10px;"></div>
+                <div id="dr-history-rows"
+                    style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;font-size:10px;"></div>
+            </div>
+
             <!-- Buffer Fill Bars -->
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
                 <div class="diag-section" style="padding:12px;">
@@ -11275,6 +11446,70 @@
                             / 1000</span>
                     </div>
                 </div>
+            </div>
+
+            <div class="diag-section" style="padding:16px;margin-bottom:20px;">
+                <div
+                    style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">
+                    GROUNDING STATUS</div>
+                <div id="dr-grounding-strip"
+                    style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;font-size:10px;"></div>
+                <div id="dr-grounding-summary" style="font-size:10px;color:var(--text-dim);line-height:1.6;">
+                    Waiting for mechanics feed...
+                </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,0.8fr);gap:16px;margin-bottom:20px;">
+                <div class="diag-section" style="padding:16px;">
+                    <div
+                        style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">
+                        CURRENT MECHANICS SNAPSHOT</div>
+                    <div id="dr-mech-snapshot"
+                        style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:11px;margin-bottom:12px;"></div>
+                    <div
+                        style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">
+                        OBSERVATION VECTOR</div>
+                    <div id="dr-mech-vector"
+                        style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;font-size:10px;max-height:220px;overflow:auto;padding-right:4px;"></div>
+                </div>
+                <div class="diag-section" style="padding:16px;">
+                    <div
+                        style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">
+                        ACTION VOCABULARY</div>
+                    <div id="dr-mech-actions" style="display:grid;gap:8px;max-height:360px;overflow:auto;padding-right:4px;"></div>
+                </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;margin-bottom:20px;">
+                <div class="diag-section" style="padding:16px;">
+                    <div
+                        style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">
+                        OUTER LOOP PROPOSAL</div>
+                    <div id="dr-proposal-strip" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;font-size:10px;"></div>
+                    <div id="dr-proposal-best"
+                        style="border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:12px;background:rgba(255,255,255,0.03);min-height:120px;"></div>
+                    <div style="display:flex;gap:8px;margin-top:12px;">
+                        <button onclick="dreamerRefreshPreview()" style="flex:1;font-size:10px;">REFRESH PREVIEW</button>
+                        <button onclick="dreamerStepBest()" style="flex:1;font-size:10px;">STEP BEST</button>
+                        <button onclick="dreamerResetEpisode()" style="flex:1;font-size:10px;opacity:0.8;">RESET EPISODE</button>
+                    </div>
+                    <div id="dr-proposal-status" style="font-size:10px;color:var(--text-dim);margin-top:8px;line-height:1.5;">Waiting for bounded proposal preview...</div>
+                </div>
+                <div class="diag-section" style="padding:16px;">
+                    <div
+                        style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">
+                        RANKED ACTIONS</div>
+                    <div id="dr-proposal-list" style="display:grid;gap:8px;max-height:340px;overflow:auto;padding-right:4px;"></div>
+                </div>
+            </div>
+
+            <div class="diag-section" style="padding:16px;margin-bottom:20px;">
+                <div
+                    style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">
+                    DREAMER FIELD DOCUMENT</div>
+                <div id="dr-doc-strip" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;font-size:10px;"></div>
+                <pre id="dr-field-doc"
+                    style="margin:0;padding:14px;border-radius:8px;background:rgba(4,6,9,0.86);border:1px solid rgba(255,255,255,0.08);color:#d9e6f2;font:12px/1.5 'Cascadia Code','Fira Code','SFMono-Regular',monospace;white-space:pre-wrap;word-break:break-word;max-height:420px;overflow:auto;"></pre>
             </div>
 
             <!-- HOLD Protocol + Imagination Controls -->
@@ -11905,6 +12140,10 @@
         <div class="ctx-menu" id="ctx-menu" style="display:none;"></div>
 
     </div><!-- end content-wrapper -->
+    <div class="envops-immersive-controls" id="envops-immersive-controls">
+        <span class="hint">Theater Max · Esc exits</span>
+        <button class="btn-dim" id="envops-exit-stage-max">EXIT</button>
+    </div>
     <div class="mp-toast" id="mp-toast"></div>
 
     <!-- TOOL CATEGORIES (same JSON that buildHTML() injects) -->
@@ -11936,17 +12175,45 @@
             // ── Dreamer Tab ──────────────────────────────────────────
             let _dreamerPollId = null;
             let _dreamerState = null;
+            let _dreamerMechanics = null;
+            let _dreamerProposalPreview = null;
 
             async function fetchDreamerState() {
                 try {
-                    const r = await fetch('/api/dreamer/state');
-                    if (!r.ok) return;
-                    _dreamerState = await r.json();
-                    renderDreamerDashboard(_dreamerState);
+                    const [stateResp, mechResp, previewResp] = await Promise.all([
+                        fetch('/api/dreamer/state'),
+                        fetch('/api/dreamer/mechanics_obs'),
+                        fetch('/api/dreamer/proposal_preview?limit=6'),
+                    ]);
+                    if (stateResp.ok) {
+                        _dreamerState = await stateResp.json();
+                    }
+                    if (mechResp.ok) {
+                        _dreamerMechanics = await mechResp.json();
+                    } else {
+                        _dreamerMechanics = {
+                            status: 'error',
+                            error: 'Mechanics feed unavailable',
+                            http_status: mechResp.status,
+                        };
+                    }
+                    try {
+                        _dreamerProposalPreview = await previewResp.json();
+                        if (!previewResp.ok && _dreamerProposalPreview && !_dreamerProposalPreview.http_status) {
+                            _dreamerProposalPreview.http_status = previewResp.status;
+                        }
+                    } catch (ignored) {
+                        _dreamerProposalPreview = {
+                            status: 'error',
+                            error: 'Proposal preview unavailable',
+                            http_status: previewResp ? previewResp.status : 0,
+                        };
+                    }
+                    if (_dreamerState) renderDreamerDashboard(_dreamerState, _dreamerMechanics, _dreamerProposalPreview);
                 } catch (e) { console.warn('Dreamer poll error:', e); }
             }
 
-            function renderDreamerDashboard(s) {
+            function renderDreamerDashboard(s, mechanics, proposalPreview) {
                 const d = s.dreamer || {};
                 const rssm = s.rssm || {};
                 const w = s.weights || {};
@@ -12017,6 +12284,11 @@
 
                 // Draw loss chart
                 drawLossChart(s.history || {});
+                renderDreamerTrainingHealth(s.history || {}, d);
+                renderDreamerTrail(s.history || {}, s);
+                renderDreamerGrounding(d, mechanics);
+                renderDreamerProposal(proposalPreview, s.history || {});
+                renderDreamerFieldDocument(s, mechanics, proposalPreview);
             }
 
             function drawLossChart(history) {
@@ -12028,12 +12300,23 @@
 
                 const data = history.critic_loss || [];
                 if (data.length < 2) {
-                    ctx.fillStyle = 'rgba(255,255,255,0.2)';
-                    ctx.font = '12px sans-serif';
+                    const bg = ctx.createLinearGradient(0, 0, 0, H);
+                    bg.addColorStop(0, 'rgba(10,16,24,0.94)');
+                    bg.addColorStop(1, 'rgba(4,7,11,0.98)');
+                    ctx.fillStyle = bg;
+                    ctx.fillRect(0, 0, W, H);
+                    ctx.fillStyle = 'rgba(255,255,255,0.22)';
+                    ctx.font = '12px monospace';
                     ctx.textAlign = 'center';
-                    ctx.fillText('Waiting for training data...', W / 2, H / 2);
+                    ctx.fillText('Waiting for enough training cycles to chart health...', W / 2, H / 2);
                     return;
                 }
+
+                const bg = ctx.createLinearGradient(0, 0, 0, H);
+                bg.addColorStop(0, 'rgba(11,17,26,0.94)');
+                bg.addColorStop(1, 'rgba(4,8,13,0.98)');
+                ctx.fillStyle = bg;
+                ctx.fillRect(0, 0, W, H);
 
                 // Find range
                 let minV = Infinity, maxV = -Infinity;
@@ -12044,55 +12327,90 @@
                 const pad = (maxV - minV) * 0.1 || 0.001;
                 minV -= pad; maxV += pad;
 
-                const xStep = (W - 40) / (data.length - 1);
+                const xStep = (W - 48) / Math.max(1, data.length - 1);
+                const yOf = (value) => 12 + (H - 28) * (1 - (value - minV) / Math.max(1e-9, (maxV - minV)));
 
                 // Grid lines
-                ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+                ctx.strokeStyle = 'rgba(255,255,255,0.07)';
                 ctx.lineWidth = 1;
                 for (let i = 0; i < 4; i++) {
-                    const y = 10 + (H - 20) * i / 3;
-                    ctx.beginPath(); ctx.moveTo(30, y); ctx.lineTo(W, y); ctx.stroke();
+                    const y = 12 + (H - 28) * i / 3;
+                    ctx.beginPath(); ctx.moveTo(34, y); ctx.lineTo(W - 10, y); ctx.stroke();
                 }
+                ctx.fillStyle = 'rgba(255,255,255,0.24)';
+                ctx.font = '10px monospace';
+                ctx.textAlign = 'left';
+                ctx.fillText('lower error is better', 16, 14);
+
+                data.forEach((d, i) => {
+                    if (d.baseline == null || d.perturbed == null) return;
+                    const x = 34 + i * xStep;
+                    const yBase = yOf(d.baseline);
+                    const yPert = yOf(d.perturbed);
+                    const improved = Number(d.perturbed || 0) <= Number(d.baseline || 0);
+                    ctx.strokeStyle = improved ? 'rgba(34,197,94,0.45)' : 'rgba(239,68,68,0.45)';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.moveTo(x, yBase);
+                    ctx.lineTo(x, yPert);
+                    ctx.stroke();
+                });
 
                 // Baseline line (blue)
-                ctx.strokeStyle = '#60a5fa';
-                ctx.lineWidth = 2;
+                ctx.strokeStyle = 'rgba(96,165,250,0.95)';
+                ctx.lineWidth = 2.25;
                 ctx.beginPath();
                 data.forEach((d, i) => {
                     if (d.baseline == null) return;
-                    const x = 30 + i * xStep;
-                    const y = 10 + (H - 20) * (1 - (d.baseline - minV) / (maxV - minV));
+                    const x = 34 + i * xStep;
+                    const y = yOf(d.baseline);
                     i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
                 });
                 ctx.stroke();
 
-                // Perturbed line (green/red based on accepted)
-                ctx.lineWidth = 2;
+                // Perturbed line
+                ctx.strokeStyle = 'rgba(248,250,252,0.92)';
+                ctx.lineWidth = 1.5;
                 ctx.beginPath();
                 data.forEach((d, i) => {
                     if (d.perturbed == null) return;
-                    ctx.strokeStyle = d.accepted ? '#22c55e' : '#ef4444';
-                    const x = 30 + i * xStep;
-                    const y = 10 + (H - 20) * (1 - (d.perturbed - minV) / (maxV - minV));
+                    const x = 34 + i * xStep;
+                    const y = yOf(d.perturbed);
                     if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
                 });
                 ctx.stroke();
 
+                data.forEach((d, i) => {
+                    if (d.baseline == null) return;
+                    const x = 34 + i * xStep;
+                    const y = yOf(d.baseline);
+                    ctx.fillStyle = '#60a5fa';
+                    ctx.beginPath(); ctx.arc(x, y, 2.5, 0, Math.PI * 2); ctx.fill();
+                });
+
                 // Accept/reject dots
                 data.forEach((d, i) => {
                     if (d.perturbed == null) return;
-                    const x = 30 + i * xStep;
-                    const y = 10 + (H - 20) * (1 - (d.perturbed - minV) / (maxV - minV));
+                    const x = 34 + i * xStep;
+                    const y = yOf(d.perturbed);
                     ctx.fillStyle = d.accepted ? '#22c55e' : '#ef4444';
-                    ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill();
+                    ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill();
+                    ctx.strokeStyle = 'rgba(6,10,16,0.95)';
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
                 });
 
                 // Y-axis labels
-                ctx.fillStyle = 'rgba(255,255,255,0.3)';
+                ctx.fillStyle = 'rgba(255,255,255,0.28)';
                 ctx.font = '9px monospace';
                 ctx.textAlign = 'right';
-                ctx.fillText(maxV.toFixed(4), 28, 14);
-                ctx.fillText(minV.toFixed(4), 28, H - 4);
+                ctx.fillText(maxV.toFixed(4), 30, 18);
+                ctx.fillText(minV.toFixed(4), 30, H - 8);
+                ctx.textAlign = 'left';
+                ctx.fillStyle = 'rgba(96,165,250,0.82)';
+                ctx.fillText('baseline', W - 94, 18);
+                ctx.fillStyle = 'rgba(248,250,252,0.86)';
+                ctx.fillText('perturbed', W - 94, 32);
             }
 
             function setText(id, val) {
@@ -12108,6 +12426,383 @@
                 if (label) label.textContent = current + ' / ' + max;
             }
 
+            function dreamerBadge(label, value, color) {
+                return '<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:999px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);"><span style="color:var(--text-dim);text-transform:uppercase;letter-spacing:0.8px;">' + label + '</span><span style="color:' + (color || '#f9fafb') + ';font-weight:600;">' + value + '</span></span>';
+            }
+
+            function formatDreamerAgeMs(updatedMs) {
+                const numeric = Number(updatedMs || 0);
+                if (!numeric) return 'stale';
+                const delta = Math.max(0, Date.now() - numeric);
+                if (delta < 1000) return 'live';
+                if (delta < 60000) return Math.round(delta / 1000) + 's ago';
+                return Math.round(delta / 60000) + 'm ago';
+            }
+
+            function dreamerFmt(value, digits) {
+                const numeric = Number(value);
+                if (!Number.isFinite(numeric)) return '0';
+                return numeric.toFixed(digits == null ? 3 : digits);
+            }
+
+            function dreamerAngleGlyph(value, scale) {
+                const numeric = Number(value || 0);
+                if (!Number.isFinite(numeric) || Math.abs(numeric) < 0.001) return '.';
+                const count = Math.max(1, Math.min(6, Math.round(Math.abs(numeric) / Math.max(0.001, scale || 1))));
+                return (numeric > 0 ? '>' : '<').repeat(count);
+            }
+
+            function dreamerBarGlyph(value, maxUnits) {
+                const numeric = Math.max(0, Number(value || 0));
+                const width = Math.max(1, maxUnits || 8);
+                const filled = Math.max(0, Math.min(width, Math.round(numeric * width)));
+                return '#'.repeat(filled).padEnd(width, '-');
+            }
+
+            function renderDreamerTrainingHealth(history, dreamer) {
+                const strip = document.getElementById('dr-loss-strip');
+                const story = document.getElementById('dr-loss-story');
+                if (!strip || !story) return;
+                const critic = Array.isArray(history.critic_loss) ? history.critic_loss : [];
+                if (!critic.length) {
+                    strip.innerHTML = [
+                        dreamerBadge('health', 'waiting', '#f59e0b'),
+                        dreamerBadge('meaning', 'lower is better', '#60a5fa'),
+                    ].join('');
+                    story.textContent = 'This panel compares critic loss before and after each Dreamer perturbation. Lower loss is better. Accepted cycles mean the perturbation improved prediction quality.';
+                    return;
+                }
+                const latest = critic[critic.length - 1] || {};
+                const acceptedCount = critic.filter((row) => !!row.accepted).length;
+                const rejectedCount = Math.max(0, critic.length - acceptedCount);
+                const baseline = Number(latest.baseline || 0);
+                const perturbed = Number(latest.perturbed || 0);
+                const delta = perturbed - baseline;
+                const acceptanceRate = critic.length ? acceptedCount / critic.length : 0;
+                strip.innerHTML = [
+                    dreamerBadge('meaning', 'lower is better', '#60a5fa'),
+                    dreamerBadge('last delta', (delta >= 0 ? '+' : '') + dreamerFmt(delta, 6), delta <= 0 ? '#22c55e' : '#ef4444'),
+                    dreamerBadge('accepted', String(acceptedCount), '#22c55e'),
+                    dreamerBadge('rejected', String(rejectedCount), '#ef4444'),
+                    dreamerBadge('accept rate', Math.round(acceptanceRate * 100) + '%', '#a78bfa'),
+                    dreamerBadge('cycles', String(dreamer.training_cycles || critic.length), '#f59e0b'),
+                ].join('');
+                story.textContent = latest.accepted
+                    ? 'Latest perturbation reduced critic error, so Dreamer kept it. Blue is the current baseline critic; the white tested line landed lower and won.'
+                    : 'Latest perturbation increased critic error, so Dreamer rejected it. Blue is the current baseline critic; white points show the tested variant; green or red stems show whether the test helped or hurt.';
+            }
+
+            function dreamerActionDeltaSummary(entry) {
+                const delta = entry && entry.pose_delta ? entry.pose_delta : {};
+                const parts = [];
+                const offset = delta.offset || {};
+                const rotation = delta.rotation_deg || {};
+                Object.entries(offset).forEach(([bone, axes]) => {
+                    Object.entries(axes || {}).forEach(([axis, value]) => {
+                        parts.push(bone + ' ' + axis + ' ' + (Number(value) > 0 ? '+' : '') + value);
+                    });
+                });
+                Object.entries(rotation).forEach(([bone, axes]) => {
+                    if (Array.isArray(axes)) {
+                        const labels = ['pitch', 'yaw', 'roll'];
+                        axes.forEach((value, index) => {
+                            const numeric = Number(value || 0);
+                            if (!numeric) return;
+                            parts.push(bone + ' ' + labels[index] + ' ' + (numeric > 0 ? '+' : '') + numeric + 'deg');
+                        });
+                    }
+                });
+                return parts.join(' · ') || 'No delta specified';
+            }
+
+            function renderDreamerTrail(history, state) {
+                const strip = document.getElementById('dr-history-strip');
+                const rows = document.getElementById('dr-history-rows');
+                if (!strip || !rows) return;
+                const rewards = Array.isArray(history.reward_counts) ? history.reward_counts : [];
+                const fitness = Array.isArray(history.fitness) ? history.fitness : [];
+                const critic = Array.isArray(history.critic_loss) ? history.critic_loss : [];
+                const mechanicsRewards = Array.isArray(history.mechanics_rewards) ? history.mechanics_rewards : [];
+                const episodeSteps = Array.isArray(history.episode_steps) ? history.episode_steps : [];
+                const latestReward = rewards.length ? rewards[rewards.length - 1] : null;
+                const prevReward = rewards.length > 1 ? rewards[rewards.length - 2] : null;
+                const latestFitness = fitness.length ? fitness[fitness.length - 1] : null;
+                const prevFitness = fitness.length > 1 ? fitness[fitness.length - 2] : null;
+                const rewardDelta = latestReward && prevReward ? Number(latestReward.count || 0) - Number(prevReward.count || 0) : 0;
+                const fitnessDelta = latestFitness && prevFitness ? Number(latestFitness.value || 0) - Number(prevFitness.value || 0) : 0;
+                const latestMechanicsReward = mechanicsRewards.length ? mechanicsRewards[mechanicsRewards.length - 1] : null;
+                const latestEpisodeStep = episodeSteps.length ? episodeSteps[episodeSteps.length - 1] : null;
+                strip.innerHTML = [
+                    dreamerBadge('history', (state && state.history_source) || 'tab-poll', '#a78bfa'),
+                    dreamerBadge('samples', String(rewards.length), '#60a5fa'),
+                    dreamerBadge('reward Δ', (rewardDelta >= 0 ? '+' : '') + rewardDelta, rewardDelta >= 0 ? '#22c55e' : '#ef4444'),
+                    dreamerBadge('fitness Δ', (fitnessDelta >= 0 ? '+' : '') + dreamerFmt(fitnessDelta, 6), fitnessDelta >= 0 ? '#22c55e' : '#ef4444'),
+                    dreamerBadge('train events', String(critic.length), '#f59e0b'),
+                    dreamerBadge('outer steps', String(episodeSteps.length), '#34d399'),
+                    dreamerBadge('last mech reward', latestMechanicsReward ? dreamerFmt(latestMechanicsReward.total_reward, 4) : '—', latestMechanicsReward && Number(latestMechanicsReward.total_reward || 0) >= 0 ? '#22c55e' : '#ef4444'),
+                ].join('');
+
+                const criticRows = critic.slice(-4).reverse().map((row) => {
+                    const accepted = !!row.accepted;
+                    return '<div style="border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:10px;background:rgba(255,255,255,0.03);">'
+                        + '<div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:4px;"><span style="font-weight:700;color:' + (accepted ? '#22c55e' : '#ef4444') + ';">Cycle ' + (row.cycle || '?') + '</span><span style="color:var(--text-dim);">' + (accepted ? 'accepted' : 'rejected') + '</span></div>'
+                        + '<div style="color:var(--text-dim);line-height:1.5;">baseline ' + dreamerFmt(row.baseline, 6) + ' · perturbed ' + dreamerFmt(row.perturbed, 6) + '</div>'
+                        + '</div>';
+                });
+                const sampleRows = rewards.slice(-4).reverse().map((row, index) => {
+                    const fitRow = fitness[fitness.length - 1 - index] || {};
+                    const ts = Number(row.ts || 0);
+                    return '<div style="border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:10px;background:rgba(255,255,255,0.03);">'
+                        + '<div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:4px;"><span style="font-weight:700;">Sample</span><span style="color:var(--text-dim);">' + (ts ? new Date(ts * 1000).toLocaleTimeString() : '—') + '</span></div>'
+                        + '<div style="color:var(--text-dim);line-height:1.5;">rewards ' + String(row.count || 0) + ' · fitness ' + dreamerFmt(fitRow.value, 6) + '</div>'
+                        + '</div>';
+                });
+                const mechanicsRows = episodeSteps.slice(-3).reverse().map((row) => {
+                    const reward = Number(row.total_reward || 0);
+                    const ts = Number(row.ts || 0);
+                    const beforeGap = (((row.before || {}).contacts || {}).lower_leg_l || {}).gap;
+                    const afterGap = (((row.after || {}).contacts || {}).lower_leg_l || {}).gap;
+                    return '<div style="border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:10px;background:rgba(255,255,255,0.03);">'
+                        + '<div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:4px;"><span style="font-weight:700;color:' + (reward >= 0 ? '#22c55e' : '#ef4444') + ';">' + (row.label || row.action_key || 'step') + '</span><span style="color:var(--text-dim);">' + (ts ? new Date(ts * 1000).toLocaleTimeString() : '—') + '</span></div>'
+                        + '<div style="color:var(--text-dim);line-height:1.5;">reward ' + dreamerFmt(reward, 4) + ' · gap ' + dreamerFmt(beforeGap, 4) + ' → ' + dreamerFmt(afterGap, 4) + '</div>'
+                        + '</div>';
+                });
+                const cards = mechanicsRows.concat(criticRows, sampleRows);
+                rows.innerHTML = cards.join('') || '<div style="color:var(--text-dim);">No history sampled yet.</div>';
+            }
+
+            function renderDreamerGrounding(dreamer, mechanics) {
+                const strip = document.getElementById('dr-grounding-strip');
+                const summary = document.getElementById('dr-grounding-summary');
+                const snapshot = document.getElementById('dr-mech-snapshot');
+                const vector = document.getElementById('dr-mech-vector');
+                const actions = document.getElementById('dr-mech-actions');
+                if (!strip || !summary || !snapshot || !vector || !actions) return;
+
+                if (!mechanics || mechanics.status !== 'ok') {
+                    strip.innerHTML = [
+                        dreamerBadge('feed', 'offline', '#ef4444'),
+                        dreamerBadge('capsule obs', String(dreamer && dreamer.obs_buffer_size || 0), '#60a5fa'),
+                    ].join('');
+                    summary.textContent = mechanics && mechanics.error
+                        ? mechanics.error
+                        : 'Mechanics feed is unavailable.';
+                    snapshot.innerHTML = '<div style="grid-column:1 / -1;color:var(--text-dim);font-size:10px;">No mechanics snapshot available yet.</div>';
+                    vector.innerHTML = '';
+                    actions.innerHTML = '<div style="color:var(--text-dim);font-size:10px;">No correction vocabulary available.</div>';
+                    return;
+                }
+
+                const features = mechanics.features || {};
+                const route = features.route || {};
+                const balance = features.balance || {};
+                const contacts = features.contacts || {};
+                const controller = features.controller || {};
+                const focus = mechanics.focus || {};
+                const obsBufferSize = Number(dreamer && dreamer.obs_buffer_size || 0);
+                const feedState = obsBufferSize > 0 ? 'grounded' : 'inspect-only';
+
+                strip.innerHTML = [
+                    dreamerBadge('feed', feedState, obsBufferSize > 0 ? '#22c55e' : '#f59e0b'),
+                    dreamerBadge('schema', mechanics.schema_id || 'unknown', '#a78bfa'),
+                    dreamerBadge('task', mechanics.target_task || 'none', '#34d399'),
+                    dreamerBadge('freshness', formatDreamerAgeMs(mechanics.updated_ms), '#60a5fa'),
+                    dreamerBadge('focus', focus.object_key || 'none', '#f9fafb'),
+                    dreamerBadge('capsule obs', String(obsBufferSize), '#60a5fa'),
+                ].join('');
+
+                summary.textContent = obsBufferSize > 0
+                    ? 'Mechanics feed is live and the capsule observation buffer is receiving data.'
+                    : 'Mechanics feed is live, but the capsule observation buffer is still empty. Dreamer can be inspected honestly here, but episode grounding is not wired yet.';
+
+                snapshot.innerHTML = [
+                    '<div><span style="color:var(--text-dim);">Route:</span> <span style="font-weight:600;">' + (route.status || 'none') + '</span></div>',
+                    '<div><span style="color:var(--text-dim);">Phase:</span> <span style="font-weight:600;">' + (route.active_phase_label || route.active_phase_id || 'none') + '</span></div>',
+                    '<div><span style="color:var(--text-dim);">Stability Risk:</span> <span style="font-weight:600;color:' + (Number(balance.stability_risk || 0) >= 0.84 ? '#ef4444' : '#f59e0b') + ';">' + dreamerFmt(balance.stability_risk, 4) + '</span></div>',
+                    '<div><span style="color:var(--text-dim);">Stability Margin:</span> <span style="font-weight:600;">' + dreamerFmt(balance.stability_margin, 4) + ' m</span></div>',
+                    '<div><span style="color:var(--text-dim);">Balance Mode:</span> <span style="font-weight:600;">' + (balance.balance_mode || 'none') + '</span></div>',
+                    '<div><span style="color:var(--text-dim);">Support Count:</span> <span style="font-weight:600;">' + String(balance.support_count || 0) + '</span></div>',
+                    '<div><span style="color:var(--text-dim);">Controller:</span> <span style="font-weight:600;">' + (controller.controller_id || 'none') + '</span></div>',
+                    '<div><span style="color:var(--text-dim);">Roles:</span> <span style="font-weight:600;">L' + String(controller.leader_count || 0) + ' / A' + String(controller.anchor_count || 0) + ' / C' + String(controller.carrier_count || 0) + '</span></div>',
+                    '<div><span style="color:var(--text-dim);">lower_leg_l:</span> <span style="font-weight:600;">' + ((contacts.lower_leg_l || {}).state || 'none') + ' · gap ' + dreamerFmt((contacts.lower_leg_l || {}).gap, 4) + '</span></div>',
+                    '<div><span style="color:var(--text-dim);">foot_r:</span> <span style="font-weight:600;">' + ((contacts.foot_r || {}).state || 'none') + ' · gap ' + dreamerFmt((contacts.foot_r || {}).gap, 4) + '</span></div>',
+                ].join('');
+
+                const fields = Array.isArray(mechanics.field_names) ? mechanics.field_names : [];
+                const values = Array.isArray(mechanics.observation) ? mechanics.observation : [];
+                vector.innerHTML = fields.map((field, index) => {
+                    const value = index < values.length ? values[index] : 0;
+                    return '<div style="display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid rgba(255,255,255,0.04);padding:2px 0;"><span style="color:var(--text-dim);overflow:hidden;text-overflow:ellipsis;">' + field + '</span><span style="font-weight:600;">' + dreamerFmt(value, 4) + '</span></div>';
+                }).join('');
+
+                const correctionTable = Array.isArray(mechanics.correction_table) ? mechanics.correction_table : [];
+                actions.innerHTML = correctionTable.map((entry) => {
+                    return '<div style="border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:10px;background:rgba(255,255,255,0.03);">'
+                        + '<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline;margin-bottom:4px;"><span style="font-size:11px;font-weight:700;color:#f9fafb;">' + String(entry.action_id) + ' · ' + (entry.label || entry.action_key || 'action') + '</span><span style="font-size:10px;color:#34d399;">' + ((entry.targets || []).join(', ') || 'n/a') + '</span></div>'
+                        + '<div style="font-size:10px;color:var(--text-dim);line-height:1.5;margin-bottom:4px;">' + (entry.summary || '') + '</div>'
+                        + '<div style="font-size:10px;color:#60a5fa;line-height:1.5;">' + dreamerActionDeltaSummary(entry) + '</div>'
+                        + '</div>';
+                }).join('') || '<div style="color:var(--text-dim);font-size:10px;">No correction vocabulary available.</div>';
+            }
+
+            function renderDreamerProposal(preview, history) {
+                const strip = document.getElementById('dr-proposal-strip');
+                const best = document.getElementById('dr-proposal-best');
+                const list = document.getElementById('dr-proposal-list');
+                const status = document.getElementById('dr-proposal-status');
+                if (!strip || !best || !list || !status) return;
+
+                if (!preview || preview.status !== 'ok') {
+                    strip.innerHTML = [
+                        dreamerBadge('preview', 'offline', '#ef4444'),
+                        dreamerBadge('http', String(preview && preview.http_status || 0), '#60a5fa'),
+                    ].join('');
+                    best.innerHTML = '<div style="color:var(--text-dim);font-size:10px;line-height:1.6;">No bounded proposal preview available yet.</div>';
+                    list.innerHTML = '<div style="color:var(--text-dim);font-size:10px;">No ranked actions available.</div>';
+                    status.textContent = preview && preview.error ? preview.error : 'Proposal preview unavailable.';
+                    return;
+                }
+
+                const ranked = Array.isArray(preview.ranked_actions) ? preview.ranked_actions : [];
+                const bestAction = preview.best_action || ranked[0] || null;
+                const latestStep = Array.isArray(history.episode_steps) && history.episode_steps.length ? history.episode_steps[history.episode_steps.length - 1] : null;
+                const latestReward = Array.isArray(history.mechanics_rewards) && history.mechanics_rewards.length ? history.mechanics_rewards[history.mechanics_rewards.length - 1] : null;
+                const controlPlane = preview.control_plane || {};
+                const control = controlPlane.control_plane || {};
+                const observation = preview.current_observation || {};
+                const balance = observation.balance || {};
+                const knee = ((observation.contacts || {}).lower_leg_l) || {};
+                const foot = ((observation.contacts || {}).foot_r) || {};
+
+                strip.innerHTML = [
+                    dreamerBadge('mode', control.mode || 'passive', '#a78bfa'),
+                    dreamerBadge('task', preview.task || control.task || 'half_kneel_l', '#34d399'),
+                    dreamerBadge('source', preview.proposal_source || 'outer', '#60a5fa'),
+                    dreamerBadge('ranked', String(preview.available_actions || ranked.length), '#f59e0b'),
+                    dreamerBadge('last reward', latestReward ? dreamerFmt(latestReward.total_reward, 4) : '—', latestReward && Number(latestReward.total_reward || 0) >= 0 ? '#22c55e' : '#ef4444'),
+                ].join('');
+
+                if (bestAction) {
+                    best.innerHTML =
+                        '<div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:8px;">'
+                        + '<div>'
+                        + '<div style="font-size:12px;font-weight:700;color:#f9fafb;">' + (bestAction.label || bestAction.action_key || 'action') + '</div>'
+                        + '<div style="font-size:10px;color:var(--text-dim);margin-top:4px;line-height:1.5;">' + (bestAction.summary || 'No summary.') + '</div>'
+                        + '</div>'
+                        + '<div style="text-align:right;min-width:72px;">'
+                        + '<div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;">score</div>'
+                        + '<div style="font-size:18px;font-weight:700;color:' + (Number(bestAction.score || 0) >= 0 ? '#22c55e' : '#ef4444') + ';">' + dreamerFmt(bestAction.score, 3) + '</div>'
+                        + '</div>'
+                        + '</div>'
+                        + '<div style="font-size:10px;color:#60a5fa;line-height:1.5;margin-bottom:8px;">' + dreamerActionDeltaSummary(bestAction) + '</div>'
+                        + '<div style="font-size:10px;color:var(--text-dim);line-height:1.6;margin-bottom:8px;">'
+                        + 'knee gap ' + dreamerFmt(knee.gap, 4) + ' · right foot load ' + dreamerFmt(foot.load_share, 4) + ' · risk ' + dreamerFmt(balance.stability_risk, 4)
+                        + '</div>'
+                        + '<div style="display:flex;flex-wrap:wrap;gap:6px;">'
+                        + (Array.isArray(bestAction.reasons) ? bestAction.reasons.map((reason) => '<span style="display:inline-flex;padding:3px 8px;border-radius:999px;background:rgba(96,165,250,0.12);border:1px solid rgba(96,165,250,0.25);font-size:10px;color:#bfdbfe;">' + reason + '</span>').join('') : '')
+                        + '</div>';
+                } else {
+                    best.innerHTML = '<div style="color:var(--text-dim);font-size:10px;line-height:1.6;">No bounded action proposal is available for the current task.</div>';
+                }
+
+                list.innerHTML = ranked.map((entry) => {
+                    const score = Number(entry.score || 0);
+                    return '<div style="border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:10px;background:rgba(255,255,255,0.03);">'
+                        + '<div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;margin-bottom:4px;">'
+                        + '<div><div style="font-size:11px;font-weight:700;color:#f9fafb;">' + (entry.label || entry.action_key || 'action') + '</div><div style="font-size:10px;color:var(--text-dim);margin-top:2px;">' + (entry.summary || '') + '</div></div>'
+                        + '<div style="text-align:right;"><div style="font-size:10px;color:' + (score >= 0 ? '#22c55e' : '#ef4444') + ';font-weight:700;">' + dreamerFmt(score, 3) + '</div><button onclick="dreamerStepAction(' + Number(entry.action_id || 0) + ')" style="margin-top:6px;font-size:10px;">STEP</button></div>'
+                        + '</div>'
+                        + '<div style="font-size:10px;color:#60a5fa;line-height:1.5;margin-bottom:4px;">' + dreamerActionDeltaSummary(entry) + '</div>'
+                        + '<div style="font-size:10px;color:var(--text-dim);line-height:1.5;">' + ((entry.reasons || []).join(' · ') || 'No diagnostic reason emitted.') + '</div>'
+                        + '</div>';
+                }).join('') || '<div style="color:var(--text-dim);font-size:10px;">No ranked actions available.</div>';
+
+                if (latestStep) {
+                    status.textContent = 'Last step: ' + (latestStep.label || latestStep.action_key || 'action') + ' · reward ' + dreamerFmt(latestStep.total_reward, 4) + ' · gap ' + dreamerFmt((((latestStep.before || {}).contacts || {}).lower_leg_l || {}).gap, 4) + ' → ' + dreamerFmt((((latestStep.after || {}).contacts || {}).lower_leg_l || {}).gap, 4);
+                } else {
+                    status.textContent = 'Preview is live. Use STEP BEST or a ranked action to start the bounded outer loop.';
+                }
+            }
+
+            function renderDreamerFieldDocument(state, mechanics, preview) {
+                const strip = document.getElementById('dr-doc-strip');
+                const doc = document.getElementById('dr-field-doc');
+                if (!strip || !doc) return;
+
+                const dreamer = (state && state.dreamer) || {};
+                const history = (state && state.history) || {};
+                const rssm = (state && state.rssm) || {};
+                const features = (mechanics && mechanics.features) || {};
+                const route = features.route || {};
+                const balance = features.balance || {};
+                const contacts = features.contacts || {};
+                const pose = features.pose || {};
+                const control = ((preview && preview.control_plane) || {}).control_plane || {};
+                const latestStep = Array.isArray(history.episode_steps) && history.episode_steps.length ? history.episode_steps[history.episode_steps.length - 1] : null;
+                const latestReward = Array.isArray(history.mechanics_rewards) && history.mechanics_rewards.length ? history.mechanics_rewards[history.mechanics_rewards.length - 1] : null;
+                const bestAction = preview && preview.best_action ? preview.best_action : null;
+                const knee = contacts.lower_leg_l || {};
+                const foot = contacts.foot_r || {};
+                const lt = dreamer.last_train || {};
+
+                strip.innerHTML = [
+                    dreamerBadge('mode', control.mode || 'passive', '#a78bfa'),
+                    dreamerBadge('task', (preview && preview.task) || control.task || 'half_kneel_l', '#34d399'),
+                    dreamerBadge('route', route.status || 'none', '#60a5fa'),
+                    dreamerBadge('risk', dreamerFmt(balance.stability_risk, 4), Number(balance.stability_risk || 0) >= 0.84 ? '#ef4444' : '#f59e0b'),
+                    dreamerBadge('best action', bestAction ? (bestAction.label || bestAction.action_key || 'action') : 'none', '#f9fafb'),
+                    dreamerBadge('last reward', latestReward ? dreamerFmt(latestReward.total_reward, 4) : '—', latestReward && Number(latestReward.total_reward || 0) >= 0 ? '#22c55e' : '#ef4444'),
+                ].join('');
+
+                const contributions = latestReward && latestReward.contributions
+                    ? Object.entries(latestReward.contributions).map(([key, value]) => key + '=' + dreamerFmt(value, 4)).join(' | ')
+                    : 'no outer-loop reward yet';
+                const reasons = bestAction && Array.isArray(bestAction.reasons) && bestAction.reasons.length
+                    ? bestAction.reasons.join(' | ')
+                    : 'no ranked reasons yet';
+                const lastTrain = lt && lt.critic_baseline_loss != null
+                    ? 'cycle ' + (lt.training_count || '?') + ' :: baseline=' + dreamerFmt(lt.critic_baseline_loss, 6) + ' :: perturbed=' + dreamerFmt(lt.critic_perturbed_loss, 6) + ' :: ' + (lt.accepted ? 'accepted' : 'rejected')
+                    : 'no critic training event yet';
+                const latestStepLine = latestStep
+                    ? 'last step :: ' + (latestStep.label || latestStep.action_key || 'action') + ' :: reward=' + dreamerFmt(latestStep.total_reward, 4) + ' :: gap ' + dreamerFmt((((latestStep.before || {}).contacts || {}).lower_leg_l || {}).gap, 4) + ' -> ' + dreamerFmt((((latestStep.after || {}).contacts || {}).lower_leg_l || {}).gap, 4)
+                    : 'last step :: none yet';
+
+                const lines = [
+                    'DREAMER FIELD DOCUMENT',
+                    '======================',
+                    '',
+                    '[WORLD MODEL]',
+                    'runtime active=' + String(!!dreamer.active) + ' | rssm=' + String(!!dreamer.has_real_rssm) + ' | action_dim=' + String(rssm.action_dim || '—') + ' | horizon=' + String(rssm.imagine_horizon || '—'),
+                    'training cycles=' + String(dreamer.training_cycles || 0) + ' | reward buffer=' + String(dreamer.reward_buffer_size || 0) + ' | obs buffer=' + String(dreamer.obs_buffer_size || 0),
+                    lastTrain,
+                    '',
+                    '[GROUNDING]',
+                    'schema=' + String((mechanics && mechanics.schema_id) || 'unknown') + ' | updated=' + formatDreamerAgeMs((mechanics && mechanics.updated_ms) || 0) + ' | focus=' + String(((mechanics && mechanics.focus) || {}).object_key || 'none'),
+                    'route=' + String(route.status || 'none') + ' | phase=' + String(route.active_phase_label || route.active_phase_id || 'none') + ' | blocked=' + String(!!route.stage_blocked),
+                    'balance mode=' + String(balance.balance_mode || 'none') + ' | risk=' + dreamerFmt(balance.stability_risk, 4) + ' | margin=' + dreamerFmt(balance.stability_margin, 4),
+                    '',
+                    '[PROPOSER]',
+                    'best=' + String(bestAction ? (bestAction.label || bestAction.action_key || 'action') : 'none') + ' | score=' + dreamerFmt(bestAction && bestAction.score, 3),
+                    'reasons=' + reasons,
+                    latestStepLine,
+                    '',
+                    '[REWARD SCORER]',
+                    'latest contributions :: ' + contributions,
+                    '',
+                    '[BODY CHAIN]',
+                    '          chest  pitch=' + dreamerFmt(pose.chest_pitch_deg, 1) + ' ' + dreamerAngleGlyph(pose.chest_pitch_deg, 3),
+                    '            |',
+                    '          spine  pitch=' + dreamerFmt(pose.spine_pitch_deg, 1) + ' ' + dreamerAngleGlyph(pose.spine_pitch_deg, 3),
+                    '            |',
+                    '   hips  y=' + dreamerFmt(pose.hips_world_y, 3) + '  z=' + dreamerFmt(pose.hips_world_z, 3) + '  pitch=' + dreamerFmt(pose.hips_pitch_deg, 1),
+                    '      /                          \\',
+                    'knee_l state=' + String(knee.state || 'none').padEnd(9, ' ') + ' gap=' + dreamerFmt(knee.gap, 4) + ' pitch=' + dreamerFmt(pose.lower_leg_l_pitch_deg, 1) + ' ' + dreamerAngleGlyph(pose.lower_leg_l_pitch_deg, 10),
+                    'foot_r state=' + String(foot.state || 'none').padEnd(9, ' ') + ' load=' + dreamerFmt(foot.load_share, 3) + ' yaw=' + dreamerFmt(pose.foot_r_yaw_deg, 1) + ' ' + dreamerAngleGlyph(pose.foot_r_yaw_deg, 4),
+                    'support bars :: knee [' + dreamerBarGlyph(knee.supporting ? 1 : 0, 6) + ']  foot [' + dreamerBarGlyph(foot.load_share, 6) + ']',
+                ];
+                doc.textContent = lines.join('\n');
+            }
+
             // Dreamer actions
             window.dreamerAction = async function (tool) {
                 try {
@@ -12116,6 +12811,44 @@
                     console.log(tool, d);
                     fetchDreamerState();
                 } catch (e) { console.error(tool, e); }
+            };
+
+            window.dreamerRefreshPreview = async function () {
+                const status = document.getElementById('dr-proposal-status');
+                if (status) status.textContent = 'Refreshing bounded proposal preview...';
+                await fetchDreamerState();
+            };
+
+            async function dreamerEpisodeRequest(path, body, pendingLabel) {
+                const status = document.getElementById('dr-proposal-status');
+                if (status && pendingLabel) status.textContent = pendingLabel;
+                try {
+                    const r = await fetch(path, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(body || {}),
+                    });
+                    const d = await r.json();
+                    if (status) {
+                        if (r.ok && d && !d.error) status.textContent = d.summary || 'Dreamer outer-loop action completed.';
+                        else status.textContent = (d && d.error) || ('Request failed (' + r.status + ')');
+                    }
+                } catch (e) {
+                    if (status) status.textContent = 'Request error: ' + e.message;
+                }
+                await fetchDreamerState();
+            }
+
+            window.dreamerStepBest = async function () {
+                await dreamerEpisodeRequest('/api/dreamer/episode_step', {}, 'Applying best bounded Dreamer action...');
+            };
+
+            window.dreamerStepAction = async function (actionId) {
+                await dreamerEpisodeRequest('/api/dreamer/episode_step', { action_id: actionId }, 'Applying bounded Dreamer action ' + actionId + '...');
+            };
+
+            window.dreamerResetEpisode = async function () {
+                await dreamerEpisodeRequest('/api/dreamer/episode_reset', {}, 'Clearing bounded Dreamer episode trail...');
             };
 
             window.runDreamerImagination = async function () {
@@ -12151,31 +12884,69 @@
             };
 
             let _dreamerCfg = null;
+            let _dreamerCfgMeta = null;
             async function loadDreamerCfg() {
                 try {
                     const r = await fetch('/api/dreamer/config');
                     const d = await r.json();
-                    _dreamerCfg = d.config;
-                    renderCfgFields(d.config);
-                    setText('dr-cfg-status', 'Loaded from ' + d.source);
+                    _dreamerCfg = d.config || {};
+                    _dreamerCfgMeta = d || {};
+                    renderCfgFields(_dreamerCfg, _dreamerCfgMeta);
+                    const bits = ['Loaded from ' + (d.source || 'defaults')];
+                    const cp = (d.config && d.config.control_plane) || {};
+                    if (cp.mode) bits.push('mode ' + cp.mode);
+                    if (cp.task) bits.push('task ' + cp.task);
+                    if (d.schema_version != null) bits.push('schema v' + d.schema_version);
+                    if (d.runtime && d.runtime.action_dim != null) bits.push('runtime action dim ' + d.runtime.action_dim);
+                    if (Array.isArray(d.warnings) && d.warnings.length) bits.push(d.warnings.length + ' warning' + (d.warnings.length === 1 ? '' : 's'));
+                    setText('dr-cfg-status', bits.join(' · '));
                 } catch (e) { setText('dr-cfg-status', 'Error loading config'); }
             }
 
-            function renderCfgFields(cfg) {
+            function renderCfgFields(cfg, meta) {
                 const container = document.getElementById('dr-cfg-fields');
                 if (!container) return;
+                const readOnlySections = new Set((meta && Array.isArray(meta.read_only_sections)) ? meta.read_only_sections : ['architecture']);
+                const editableSchema = (meta && meta.editable_schema && typeof meta.editable_schema === 'object')
+                    ? meta.editable_schema
+                    : {};
+                const sectionOrder = ['control_plane', 'overlay', 'rewards', 'training', 'imagination', 'buffers', 'architecture'];
                 let html = '';
-                const colors = { rewards: '#60a5fa', training: '#22c55e', imagination: '#f59e0b', buffers: '#f97316', architecture: '#a78bfa' };
-                for (const [section, values] of Object.entries(cfg)) {
-                    const readOnly = section === 'architecture';
-                    html += '<div style="margin-bottom:12px;"><div style="font-weight:bold;margin-bottom:4px;padding:4px 8px;background:rgba(255,255,255,0.04);border-left:2px solid ' + (colors[section] || '#888') + ';font-size:10px;text-transform:uppercase;letter-spacing:1px;">' + section + (readOnly ? ' (read-only)' : '') + '</div>';
+                const colors = { control_plane: '#22d3ee', overlay: '#34d399', rewards: '#60a5fa', training: '#22c55e', imagination: '#f59e0b', buffers: '#f97316', architecture: '#a78bfa' };
+                const labels = { control_plane: 'Control Plane', overlay: 'Overlay', rewards: 'Rewards', training: 'Training', imagination: 'Imagination', buffers: 'Buffers', architecture: 'Architecture' };
+                const orderedSections = sectionOrder.filter(section => cfg && Object.prototype.hasOwnProperty.call(cfg, section));
+                for (const section of Object.keys(cfg || {})) {
+                    if (!orderedSections.includes(section)) orderedSections.push(section);
+                }
+                for (const section of orderedSections) {
+                    const values = cfg[section];
+                    if (!values || typeof values !== 'object') continue;
+                    const readOnly = readOnlySections.has(section);
+                    const sectionSchema = (editableSchema && editableSchema[section] && typeof editableSchema[section] === 'object')
+                        ? editableSchema[section]
+                        : {};
+                    html += '<div style="margin-bottom:12px;"><div style="font-weight:bold;margin-bottom:4px;padding:4px 8px;background:rgba(255,255,255,0.04);border-left:2px solid ' + (colors[section] || '#888') + ';font-size:10px;text-transform:uppercase;letter-spacing:1px;">' + (labels[section] || section) + (readOnly ? ' (read-only)' : '') + '</div>';
                     html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;padding:4px 8px;">';
                     for (const [key, val] of Object.entries(values)) {
                         const inputId = 'cfg-' + section + '-' + key;
-                        if (typeof val === 'boolean') {
+                        const spec = (sectionSchema && sectionSchema[key] && typeof sectionSchema[key] === 'object') ? sectionSchema[key] : {};
+                        const type = String(spec.type || (typeof val === 'boolean' ? 'bool' : 'float')).toLowerCase();
+                        const label = key.replace(/_/g, ' ');
+                        if (type === 'bool' || typeof val === 'boolean') {
                             html += '<label style="font-size:10px;display:flex;align-items:center;gap:4px;grid-column:span 1;"><input type="checkbox" id="' + inputId + '" ' + (val ? 'checked' : '') + (readOnly ? ' disabled' : '') + '> ' + key + '</label>';
+                        } else if (type === 'enum' && Array.isArray(spec.options)) {
+                            const options = spec.options.map(function (opt) {
+                                const selected = String(opt) === String(val) ? ' selected' : '';
+                                return '<option value="' + String(opt) + '"' + selected + '>' + String(opt) + '</option>';
+                            }).join('');
+                            html += '<div style="font-size:10px;display:flex;align-items:center;gap:4px;"><span style="color:var(--text-dim);min-width:120px;">' + label + ':</span><select id="' + inputId + '" style="width:160px;font-size:10px;" ' + (readOnly ? 'disabled' : '') + '>' + options + '</select></div>';
+                        } else if (type === 'string') {
+                            html += '<div style="font-size:10px;display:flex;align-items:center;gap:4px;"><span style="color:var(--text-dim);min-width:120px;">' + label + ':</span><input type="text" id="' + inputId + '" value="' + String(val ?? '') + '" style="width:160px;font-size:10px;" ' + (readOnly ? 'disabled' : '') + '></div>';
                         } else {
-                            html += '<div style="font-size:10px;display:flex;align-items:center;gap:4px;"><span style="color:var(--text-dim);min-width:120px;">' + key + ':</span><input type="number" id="' + inputId + '" value="' + val + '" step="any" style="width:80px;font-size:10px;" ' + (readOnly ? 'disabled' : '') + '></div>';
+                            const step = type === 'int' ? '1' : 'any';
+                            const minAttr = (spec.min != null) ? ' min="' + spec.min + '"' : '';
+                            const maxAttr = (spec.max != null) ? ' max="' + spec.max + '"' : '';
+                            html += '<div style="font-size:10px;display:flex;align-items:center;gap:4px;"><span style="color:var(--text-dim);min-width:120px;">' + label + ':</span><input type="number" id="' + inputId + '" value="' + val + '" step="' + step + '" style="width:80px;font-size:10px;"' + minAttr + maxAttr + ' ' + (readOnly ? 'disabled' : '') + '></div>';
                         }
                     }
                     html += '</div></div>';
@@ -12185,19 +12956,40 @@
 
             window.saveDreamerCfg = async function () {
                 if (!_dreamerCfg) return;
-                const cfg = JSON.parse(JSON.stringify(_dreamerCfg));
+                const editableSections = Array.isArray(_dreamerCfgMeta && _dreamerCfgMeta.editable_sections)
+                    ? _dreamerCfgMeta.editable_sections
+                    : Object.keys(_dreamerCfg || {}).filter(section => section !== 'architecture');
+                const cfg = {};
+                for (const section of editableSections) {
+                    if (_dreamerCfg && _dreamerCfg[section] && typeof _dreamerCfg[section] === 'object') {
+                        cfg[section] = JSON.parse(JSON.stringify(_dreamerCfg[section]));
+                    }
+                }
                 for (const [section, values] of Object.entries(cfg)) {
                     for (const [key, val] of Object.entries(values)) {
                         const el = document.getElementById('cfg-' + section + '-' + key);
                         if (!el) continue;
-                        if (typeof val === 'boolean') cfg[section][key] = el.checked;
-                        else cfg[section][key] = parseFloat(el.value) || 0;
+                        const sectionSchema = (_dreamerCfgMeta && _dreamerCfgMeta.editable_schema && _dreamerCfgMeta.editable_schema[section]) || {};
+                        const spec = (sectionSchema && sectionSchema[key]) || {};
+                        const type = String(spec.type || (typeof val === 'boolean' ? 'bool' : 'float')).toLowerCase();
+                        if (type === 'bool' || typeof val === 'boolean') cfg[section][key] = el.checked;
+                        else if (type === 'int') cfg[section][key] = parseInt(el.value || '0', 10) || 0;
+                        else if (type === 'float') cfg[section][key] = parseFloat(el.value) || 0;
+                        else cfg[section][key] = String(el.value || '').trim();
                     }
                 }
                 try {
-                    await fetch('/api/dreamer/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ config: cfg }) });
-                    setText('dr-cfg-status', 'Saved to FelixBag');
-                    _dreamerCfg = cfg;
+                    const r = await fetch('/api/dreamer/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ config: cfg }) });
+                    const d = await r.json();
+                    _dreamerCfg = d.config || cfg;
+                    _dreamerCfgMeta = d || {};
+                    renderCfgFields(_dreamerCfg, _dreamerCfgMeta);
+                    const bits = ['Saved to FelixBag'];
+                    const cp = (_dreamerCfg && _dreamerCfg.control_plane) || {};
+                    if (cp.mode) bits.push('mode ' + cp.mode);
+                    if (cp.task) bits.push('task ' + cp.task);
+                    if (Array.isArray(d.warnings) && d.warnings.length) bits.push(d.warnings.length + ' warning' + (d.warnings.length === 1 ? '' : 's'));
+                    setText('dr-cfg-status', bits.join(' · '));
                 } catch (e) { setText('dr-cfg-status', 'Save failed: ' + e.message); }
             };
 
@@ -12206,9 +12998,14 @@
                 try {
                     const r = await fetch('/api/dreamer/config/reset', { method: 'POST' });
                     const d = await r.json();
-                    _dreamerCfg = d.config;
-                    renderCfgFields(d.config);
-                    setText('dr-cfg-status', 'Reset to defaults');
+                    _dreamerCfg = d.config || {};
+                    _dreamerCfgMeta = d || {};
+                    renderCfgFields(_dreamerCfg, _dreamerCfgMeta);
+                    const cp = (_dreamerCfg && _dreamerCfg.control_plane) || {};
+                    const bits = ['Reset to defaults', 'schema v' + (d.schema_version || 1)];
+                    if (cp.mode) bits.push('mode ' + cp.mode);
+                    if (cp.task) bits.push('task ' + cp.task);
+                    setText('dr-cfg-status', bits.join(' · '));
                 } catch (e) { setText('dr-cfg-status', 'Reset failed'); }
             };
 

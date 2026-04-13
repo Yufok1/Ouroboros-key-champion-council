@@ -176,9 +176,9 @@ const FAMILY_DEFAULTS = {
     ],
     mode_notes: [
       'Most focus targets only work when matching items exist in the current ledger, replay state, or scene context.',
-      'Expect shared_state focus keys and side panels to move together after a successful navigation change.',
+      'Read the text theater first after navigation changes so the new focus is interpreted visually before consulting mirror metadata.',
     ],
-    verification: ['env_read(query=\'shared_state\')', 'capture_supercam', 'feed(n=20)'],
+    verification: ['env_read(query=\'text_theater_embodiment\')', 'env_read(query=\'text_theater_snapshot\')', 'capture_supercam'],
   },
   camera_pose: {
     title: 'Camera And Pose',
@@ -191,7 +191,7 @@ const FAMILY_DEFAULTS = {
       'Camera commands change viewer state, not embodiment or workbench data.',
       'Framing commands depend on there being a meaningful focus, replay target, or overview context.',
     ],
-    verification: ['capture_supercam', 'capture_probe', 'env_read(query=\'shared_state\')'],
+    verification: ['env_read(query=\'text_theater_embodiment\')', 'capture_supercam', 'capture_probe'],
   },
   capture_observer: {
     title: 'Capture And Observer',
@@ -201,10 +201,10 @@ const FAMILY_DEFAULTS = {
       'Capture commands are the main corroboration path for scale, floor truth, motion, and scene layout.',
     ],
     mode_notes: [
-      'A dispatched capture is not proven complete until the file exists or shared_state reports the latest capture.',
+      'A dispatched capture is not proven complete until the file exists or the text-theater/capture ledger reports the latest artifact.',
       'Different capture modes emphasize different truths: local detail, overview context, or motion across time.',
     ],
-    verification: ['static/captures/', 'env_read(query=\'shared_state\')', 'probe_compare'],
+    verification: ['static/captures/', 'env_read(query=\'text_theater_snapshot\')', 'probe_compare'],
   },
   surface_bridge: {
     title: 'Surface Bridge',
@@ -215,9 +215,9 @@ const FAMILY_DEFAULTS = {
     ],
     mode_notes: [
       'Surface bridge commands usually need a valid owned surface id first.',
-      'Success is easiest to confirm from visible browser behavior plus feed/shared_state.',
+      'Success is easiest to confirm from visible browser behavior plus feed, with text-theater or snapshot reads before raw shared_state.',
     ],
-    verification: ['env_read(query=\'shared_state\')', 'feed(n=20)', 'visible browser surface behavior'],
+    verification: ['env_read(query=\'text_theater_embodiment\')', 'feed(n=20)', 'visible browser surface behavior'],
   },
   theater_profile_recipe: {
     title: 'Theater / Profile / Recipe',
@@ -230,7 +230,7 @@ const FAMILY_DEFAULTS = {
       'A mode or profile change can invalidate assumptions about focus, camera, and visible inspectors.',
       'These commands often affect multiple panels or shell affordances at once.',
     ],
-    verification: ['env_read(query=\'shared_state\')', 'capture_supercam', 'feed(n=20)'],
+    verification: ['env_read(query=\'text_theater_embodiment\')', 'capture_supercam', 'feed(n=20)'],
   },
   character_runtime: {
     title: 'Character Runtime',
@@ -243,7 +243,7 @@ const FAMILY_DEFAULTS = {
       'Some commands assume a mounted subject already exists.',
       'Builder-subject mode and mounted-asset inspection can share the theater, but they are not the same runtime state.',
     ],
-    verification: ['capture_probe', 'capture_supercam', 'env_read(query=\'shared_state\')'],
+    verification: ['capture_probe', 'capture_supercam', 'env_read(query=\'text_theater_snapshot\')'],
   },
   builder_workbench: {
     title: 'Builder Workbench',
@@ -255,8 +255,9 @@ const FAMILY_DEFAULTS = {
     mode_notes: [
       'Most builder workbench commands assume builder_subject mode is active.',
       'If builder mode is not active, expect partial responses or no visible effect until a builder subject is created.',
+      'When the question is about route/support/blocker truth, prefer env_report(route_stability_diagnosis) after the theater and snapshot reads instead of jumping straight to shared_state.',
     ],
-    verification: ['capture_probe', 'env_read(query=\'shared_state\')', 'workbench_get_blueprint'],
+    verification: ['env_read(query=\'text_theater_embodiment\')', 'env_read(query=\'text_theater_snapshot\')', 'workbench_get_blueprint'],
   },
   builder_motion: {
     title: 'Builder Motion',
@@ -269,7 +270,7 @@ const FAMILY_DEFAULTS = {
       'Builder motion commands assume a builder subject and an active timeline or pose store.',
       'Preset apply does not imply autoplay; staged motion and live playback are different surfaces.',
     ],
-    verification: ['capture_time_strip', 'capture_probe', 'env_read(query=\'shared_state\')'],
+    verification: ['capture_time_strip', 'capture_probe', 'env_read(query=\'text_theater_snapshot\')'],
   },
   environment_misc: {
     title: 'Environment Misc',
@@ -282,7 +283,7 @@ const FAMILY_DEFAULTS = {
       'Misc commands often affect shell state more than a single subject.',
       'Read the individual entry carefully because the name alone is not always enough to infer scope.',
     ],
-    verification: ['env_read(query=\'shared_state\')', 'feed(n=20)'],
+    verification: ['env_read(query=\'text_theater_snapshot\')', 'feed(n=20)'],
   },
   observation_query: {
     title: 'Observation Queries',
@@ -295,7 +296,7 @@ const FAMILY_DEFAULTS = {
       'Observation queries do not mutate runtime state by themselves.',
       'Freshness still matters: mirror lag or stale browser state can make a read truthful about old state rather than current intent.',
     ],
-    verification: ['env_read(query=\'shared_state\')', 'env_read(query=\'text_theater_embodiment\')'],
+    verification: ['env_read(query=\'text_theater_embodiment\')', 'env_read(query=\'text_theater_snapshot\')'],
   },
 };
 

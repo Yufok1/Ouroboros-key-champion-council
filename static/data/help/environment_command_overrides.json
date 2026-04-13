@@ -486,8 +486,18 @@
     "workbench_stage_contact": {
       "title": "Stage Support Contact",
       "summary": "Choose one or more intended contact patches and stage the builder subject so that patch reaches the support plane without inventing support truth.",
+      "target_contract": {
+        "shape": "string_or_json",
+        "description": "Contact id string or JSON payload with contact_targets, contacts, contact_ids, or targets.",
+        "examples": [
+          "lower_leg_l",
+          "{\"contacts\":[\"lower_leg_l\"]}",
+          "{\"contact_targets\":[\"lower_leg_l\",\"foot_r\"]}",
+          "{\"targets\":[\"lower_leg_l\",\"foot_r\"]}"
+        ]
+      },
       "when_to_use": [
-        "Use this for deterministic contact probes after a pose or batch pose, for example {\"contacts\":[\"lower_leg_l\"]}.",
+        "Use this for deterministic contact probes after a pose or batch pose, for example {\"contacts\":[\"lower_leg_l\"]} or {\"contact_targets\":[\"lower_leg_l\",\"foot_r\"]}.",
         "Use this when loose posing is not sufficient to test whether a candidate knee, foot, or future palm patch can become an honest support contact."
       ],
       "mode_notes": [
@@ -497,14 +507,15 @@
       "gotchas": [
         "If the requested staging would bury another contact patch through the support plane, the command reports blocked instead of forcing the body through the ground.",
         "For real routing, use workbench_set_pose_batch first to configure the joints, then run workbench_stage_contact to test the intended contact.",
+        "JSON payloads may use contact_targets, contacts, contact_ids, or targets. They all normalize onto the same support-contact target list.",
         "Read the text theater render first after staging. It is the fastest way to see whether the body actually moved toward a kneel/brace or just folded into another unsupported pose.",
         "Use text_theater_snapshot second for blocker lists, patch floor values, and other structured staging details."
       ],
       "verification": [
         "env_read(query='text_theater_embodiment')",
         "env_read(query='text_theater_snapshot')",
+        "env_report(report_id='route_stability_diagnosis')",
         "capture_probe",
-        "env_read(query='shared_state')",
         "workbench_assert_balance"
       ],
       "related_commands": [
@@ -539,8 +550,8 @@
       "verification": [
         "env_read(query='text_theater_embodiment')",
         "env_read(query='text_theater')",
-        "capture_probe",
-        "env_read(query='shared_state')"
+        "env_report(report_id='route_stability_diagnosis')",
+        "capture_probe"
       ],
       "related_commands": [
         "capture_probe",
@@ -565,8 +576,8 @@
       ],
       "verification": [
         "env_read(query='text_theater_snapshot')",
-        "capture_probe",
-        "env_read(query='shared_state')"
+        "env_report(report_id='route_stability_diagnosis')",
+        "capture_probe"
       ],
       "related_commands": [
         "capture_supercam",
@@ -589,8 +600,8 @@
       ],
       "verification": [
         "env_read(query='text_theater_snapshot')",
-        "capture_probe",
-        "env_read(query='shared_state')"
+        "env_report(report_id='route_stability_diagnosis')",
+        "capture_probe"
       ],
       "related_commands": [
         "workbench_set_pose_batch",
@@ -618,7 +629,7 @@
       ],
       "verification": [
         "env_read(query='text_theater_snapshot')",
-        "env_read(query='shared_state')"
+        "env_report(report_id='route_stability_diagnosis')"
       ],
       "related_commands": [
         "capture_probe",
@@ -687,13 +698,29 @@
       "steps": [
         "env_read(query='text_theater_embodiment')",
         "env_read(query='text_theater_snapshot')",
+        "env_report(report_id='route_stability_diagnosis')",
         "capture_probe('character_runtime::mounted_primary')"
       ],
       "notes": [
         "Use this as the default order of evidence after any command that changes staged pose, contact staging, or local builder framing.",
         "Read the text render first and describe what the body is doing in plain language before trusting structured fields.",
         "Use the snapshot second for blocker lists, freshness, and structured contact/balance details.",
-        "Use probe capture third when local silhouette, overlap, or renderer disagreement still matters."
+        "Use env_report third when the question is specifically about route/support/blocker truth and next adjustment.",
+        "Use probe capture fourth when local silhouette, overlap, or renderer disagreement still matters."
+      ]
+    },
+    "theater_first_route_diagnosis": {
+      "title": "Theater-First Route Diagnosis",
+      "steps": [
+        "env_read(query='text_theater_embodiment')",
+        "env_read(query='text_theater_snapshot')",
+        "env_report(report_id='route_stability_diagnosis')",
+        "capture_probe('character_runtime::mounted_primary')"
+      ],
+      "notes": [
+        "Use this when a staged contact, pose macro, or grouped authoring step needs an explicit route/support diagnosis instead of a raw mirror dump.",
+        "The render is first intake, the snapshot is structured corroboration, and env_report is the scoped reasoning lane over blackboard/workbench truth.",
+        "Only open raw shared_state after this sequence if the report and captures still disagree."
       ]
     },
     "grouped_controller_corroboration": {
@@ -717,12 +744,12 @@
         "character_set_model('/static/assets/npc.glb')",
         "capture_probe('character_runtime::mounted_primary')",
         "capture_supercam",
-        "env_read(query='shared_state')"
+        "env_read(query='text_theater_snapshot')"
       ],
       "notes": [
         "Use this when validating imported assets outside builder-subject mode.",
         "For ground-interaction validation, use a footed rig with a readable silhouette. npc.glb is the current default. GhostArmature is good for mounted-path plumbing, not planted-feet truth.",
-        "Corroborate floor planting with captures, not viewport impression alone."
+        "Corroborate floor planting with captures and text-theater snapshot detail, not viewport impression alone."
       ]
     },
     "builder_helper_strip_review": {

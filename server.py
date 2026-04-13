@@ -51,6 +51,7 @@ _SILENT_TOOLS = frozenset([
     'verify_integrity', 'get_cached', 'get_identity', 'feed',
     'get_capabilities', 'get_help', 'get_onboarding', 'get_quickstart',
     'hub_tasks', 'list_tools', 'heartbeat', 'api_health', 'env_help',
+    'env_report',
 ])
 
 _ENV_CAPTURE_DIR = Path("static") / "captures"
@@ -63,6 +64,13 @@ _env_help_cache_lock = threading.Lock()
 _env_help_cache: dict[str, object] = {"mtime_ns": None, "data": None}
 _env_live_cache_lock = threading.Lock()
 _env_live_cache: dict[str, object] = {"live_state": None, "updated_ms": 0}
+_env_text_theater_read_gate_lock = threading.Lock()
+_env_text_theater_read_gate: dict[str, object] = {
+    "updated_ms": 0,
+    "snapshot_timestamp": 0,
+    "query": "",
+    "observed_at_ms": 0,
+}
 _env_control_command_seq_lock = threading.Lock()
 _env_control_command_seq = 0
 _text_theater_module_lock = threading.Lock()
@@ -1369,6 +1377,7 @@ _PRODUCT_BUNDLE_RUNTIME_COPY_SOURCES = (
 _GUIDED_EXTERNAL_MCP_TOOLS = frozenset({
     "env_help",
     "env_read",
+    "env_report",
     "env_control",
     "workflow_execute",
     "workflow_status",
@@ -1917,9 +1926,21 @@ async def lifespan(app: FastAPI):
             else:
                 print("[WARN] MCP connect failed (will retry on first request)")
 
+    global _dreamer_sampler_task
+    if _dreamer_sampler_task is None or _dreamer_sampler_task.done():
+        _dreamer_sampler_task = asyncio.create_task(_dreamer_sampler_loop())
+
     yield
 
     # Shutdown — save state before stopping
+    if _dreamer_sampler_task is not None:
+        _dreamer_sampler_task.cancel()
+        try:
+            await _dreamer_sampler_task
+        except asyncio.CancelledError:
+            pass
+        _dreamer_sampler_task = None
+
     if persistence.is_available():
         print("[SHUTDOWN] Saving state...")
         try:
@@ -2080,7 +2101,7 @@ def _workflow_local_proxy_tool_names() -> set[str]:
         "agent_chat_result", "agent_chat_purge", "workflow_execute", "workflow_status", "workflow_history",
         "hf_cache_status", "hf_cache_clear", "capsule_restart",
         "persist_status", "persist_restore_revision",
-        "env_control", "env_read", "env_help",
+        "env_control", "env_read", "env_help", "env_report",
     }
     try:
         if isinstance(_AGENT_LOCAL_TOOL_SPECS, dict):
@@ -3102,6 +3123,25 @@ _AGENT_LOCAL_TOOL_SPECS = {
                 "workflow_history_limit": {"type": "integer", "description": "Maximum workflow history rows to capture when included"}
             }
         }
+    },
+    "env_report": {
+        "description": "Build a scoped, theater-first diagnostic report over live environment state using a registered report recipe.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "report_id": {"type": "string", "description": "Stable report recipe id, e.g. route_stability_diagnosis"},
+                "raw_slice": {"type": "boolean", "description": "Opt in to a scoped raw evidence slice when the recipe allows it"},
+                "target": {
+                    "type": "object",
+                    "description": "Optional focus target with kind/id",
+                    "properties": {
+                        "kind": {"type": "string"},
+                        "id": {"type": "string"}
+                    }
+                }
+            },
+            "required": ["report_id"]
+        }
     }
 }
 
@@ -3794,6 +3834,976 @@ def _env_cached_text_theater_snapshot(cached: dict | None) -> dict:
     return snapshot
 
 
+def _env_note_text_theater_read(query_name: str, cached: dict | None, snapshot: dict | None = None) -> None:
+    cached = cached if isinstance(cached, dict) else {}
+    snap = snapshot if isinstance(snapshot, dict) else _env_cached_text_theater_snapshot(cached)
+    record = {
+        "updated_ms": int(cached.get("updated_ms") or 0),
+        "snapshot_timestamp": int((snap or {}).get("snapshot_timestamp") or 0),
+        "query": str(query_name or "").strip().lower(),
+        "observed_at_ms": int(time.time() * 1000),
+    }
+    with _env_text_theater_read_gate_lock:
+        _env_text_theater_read_gate.update(record)
+
+
+def _env_shared_state_prereq_payload(query_text: str, cached: dict | None) -> dict | None:
+    query_lower = str(query_text or "").strip().lower()
+    if query_lower not in {"shared_state", "live"}:
+        return None
+    cached = cached if isinstance(cached, dict) else {}
+    snapshot = _env_cached_text_theater_snapshot(cached)
+    current_updated_ms = int(cached.get("updated_ms") or 0)
+    current_snapshot_timestamp = int((snapshot or {}).get("snapshot_timestamp") or 0)
+    with _env_text_theater_read_gate_lock:
+        gate = dict(_env_text_theater_read_gate)
+    last_updated_ms = int(gate.get("updated_ms") or 0)
+    last_snapshot_timestamp = int(gate.get("snapshot_timestamp") or 0)
+    satisfied = False
+    if current_updated_ms and last_updated_ms >= current_updated_ms:
+        satisfied = True
+    elif current_snapshot_timestamp and last_snapshot_timestamp >= current_snapshot_timestamp:
+        satisfied = True
+    elif not current_updated_ms and not current_snapshot_timestamp and (last_updated_ms or last_snapshot_timestamp):
+        satisfied = True
+    if satisfied:
+        return None
+    return {
+        "tool": "env_read",
+        "status": "error",
+        "summary": "Text-theater read required before shared_state",
+        "normalized_args": {"query": query_text},
+        "delta": {
+            "found": False,
+            "blocked_by": "text_theater_first",
+            "updated_ms": current_updated_ms,
+            "snapshot_timestamp": current_snapshot_timestamp,
+        },
+        "operation": "env_read",
+        "operation_status": "error",
+        "query": query_text,
+        "error": "text_theater_first_required",
+        "message": (
+            "Read a fresh text theater render for the current live frame before opening shared_state or live. "
+            "Use text_theater/text_theater_embodiment first, snapshot second, env_report for scoped diagnosis, "
+            "visual captures after that, and raw shared_state last."
+        ),
+        "required_sequence": [
+            "env_read(query='text_theater_embodiment')",
+            "env_read(query='text_theater_snapshot')",
+            "env_report(report_id='route_stability_diagnosis') when you need route/support reasoning",
+            "capture_probe('character_runtime::mounted_primary') or capture_supercam or capture_frame/capture_strip",
+            f"env_read(query='{query_lower}')",
+        ],
+        "last_text_theater_read": gate,
+    }
+
+
+_ENV_REPORT_DEFAULT_SIZE_BYTES = 8 * 1024
+_ENV_REPORT_HARD_CAP_BYTES = 24 * 1024
+_ENV_REPORT_IDS = ("route_stability_diagnosis",)
+
+
+def _env_help_builtin_topics() -> dict[str, dict]:
+    return {
+        "env_report": {
+            "tool": "env_report",
+            "entry_kind": "env_tool",
+            "title": "Environment Report Broker",
+            "category": "observation_query",
+            "status": "live",
+            "transport": {
+                "local_proxy": True,
+                "browser_surface": False,
+                "ui_local_only": False,
+                "implemented_verb": True,
+            },
+            "target_contract": {
+                "shape": "json",
+                "description": "JSON payload with required report_id and optional target/raw_slice fields.",
+                "examples": [
+                    "{\"report_id\":\"route_stability_diagnosis\"}",
+                    "{\"report_id\":\"route_stability_diagnosis\",\"raw_slice\":true}",
+                ],
+            },
+        "summary": "Build a small, auditable report over blackboard, text-theater snapshot, and workbench truth without dumping raw shared_state.",
+        "when_to_use": [
+            "Use this after reading text theater and text_theater_snapshot when you need scoped reasoning instead of rummaging through raw shared_state.",
+            "Use route_stability_diagnosis when the question is about route status, support realization, blocker truth, next adjustment, or how bad the staged posture visibly is.",
+        ],
+            "what_it_changes": [
+            "Nothing. env_report is read-only and stateless.",
+        ],
+        "mode_notes": [
+            "env_report is a stateless materializer over existing truth. It does not plan routes, mutate builder state, or become a second authority plane.",
+            "The theater-first gate still applies. Read text_theater/text_theater_embodiment first, snapshot second, then ask for a scoped report.",
+            "The first recipe fuses text-theater embodiment evidence with blackboard/workbench truth so the report can tell you what the pose actually looks like, not just which rows are hot.",
+        ],
+            "verification": [
+                "env_read(query='text_theater_embodiment')",
+                "env_read(query='text_theater_snapshot')",
+                "env_report(report_id='route_stability_diagnosis')",
+                "capture_probe('character_runtime::mounted_primary')",
+                "env_read(query='shared_state')",
+            ],
+            "gotchas": [
+                "If no fresh text-theater read has been recorded for the current frame, env_report forwards the theater-first gate instead of bypassing it.",
+                "Reports are intentionally small. If you need broader evidence, follow recommended_next_reads or request raw_slice explicitly.",
+                "route_stability_diagnosis is the only live recipe right now; more recipes should be additive, not a rewrite of the broker core.",
+            ],
+            "failure_modes": [
+                "Unknown report_id.",
+                "Missing live fields for the requested recipe.",
+                "Gate blocked because text-theater intake has not been satisfied.",
+            ],
+            "aliases": [
+                "route_stability_diagnosis",
+                "report:route_stability_diagnosis",
+            ],
+            "surface_entrypoints": [],
+            "bridges_to": [
+                "shared_state.blackboard",
+                "shared_state.text_theater.snapshot",
+                "shared_state.workbench or shared_state.mounted_character_runtime.workbench_surface",
+            ],
+            "related_commands": [
+                "text_theater_embodiment",
+                "text_theater_snapshot",
+                "workbench_stage_contact",
+                "workbench_assert_balance",
+            ],
+        },
+        "dreamer_control_plane": {
+            "tool": "dreamer_control_plane",
+            "entry_kind": "operator_surface",
+            "title": "Dreamer Outer Control Plane",
+            "category": "dreamer",
+            "status": "live",
+            "transport": {
+                "local_proxy": False,
+                "browser_surface": True,
+                "ui_local_only": False,
+                "implemented_verb": False,
+            },
+            "target_contract": {
+                "shape": "config sections",
+                "description": "Operator-facing Dreamer settings persisted in the server layer. This does not mutate the inner capsule RSSM architecture.",
+                "examples": [
+                    "{\"control_plane\":{\"mode\":\"passive\",\"task\":\"half_kneel_l\",\"profile\":\"kneel_v1\"}}",
+                    "{\"overlay\":{\"theater_hud\":true,\"show_grounding\":true,\"detail_level\":\"diagnostic\"}}",
+                ],
+            },
+            "summary": "Orient the fixed capsule Dreamer through server-side config, mechanics observation, theater mirrors, and auditable trail surfaces.",
+            "when_to_use": [
+                "Use this when you need to understand which Dreamer settings are safe to adjust without touching champion_gen8.py or the capsule bundle.",
+                "Use this before treating Dreamer as an environment facility so the operator settings, overlay behavior, and observational contract stay aligned.",
+            ],
+            "what_it_changes": [
+                "Dreamer config sections served by /api/dreamer/config and /api/dreamer/config/effective.",
+                "Browser-facing Dreamer behavior such as mode labels, selected task/profile, and overlay preferences.",
+            ],
+            "mode_notes": [
+                "This is the outer control plane only. The capsule Dreamer remains fixed and should be treated as read-only infrastructure.",
+                "mode/task/profile/obs_schema/action_schema_id/reward_profile belong here; RSSM action_dim and latent architecture do not.",
+                "Environment association happens through env_help, the Dreamer tab, theater HUD work, blackboard/text-theater mirrors, and env_report recipes.",
+            ],
+            "verification": [
+                "env_help(topic='dreamer_control_plane')",
+                "env_help(topic='dreamer_mechanics_obs')",
+                "env_read(query='text_theater_embodiment')",
+                "env_read(query='text_theater_snapshot')",
+                "env_report(report_id='route_stability_diagnosis')",
+            ],
+            "gotchas": [
+                "Changing control-plane settings does not reconfigure the inner capsule Dreamer architecture.",
+                "The current outer loop is observation-first. Proposal preview and episode stepping are future server actions, not implied by these settings alone.",
+                "Do not treat this topic as permission to create a second proposal authority outside the existing mechanics/workbench substrate.",
+            ],
+            "failure_modes": [
+                "Confusing editable operator settings with read-only runtime architecture.",
+                "Assuming saved config implies live episode execution or proposal routing that has not been implemented yet.",
+            ],
+            "aliases": [
+                "dreamer",
+                "dreamer_config",
+                "dreamer_outer_loop",
+            ],
+            "surface_entrypoints": [
+                "Dreamer tab > Grounding Status",
+                "Dreamer tab > Recent Dreamer Trail",
+                "Dreamer tab > Dreamer Config",
+            ],
+            "bridges_to": [
+                "/api/dreamer/config",
+                "/api/dreamer/config/effective",
+                "/api/dreamer/state",
+                "/api/dreamer/mechanics_obs",
+                "shared_state.blackboard",
+                "shared_state.text_theater.snapshot",
+            ],
+            "related_commands": [
+                "env_report",
+                "text_theater_embodiment",
+                "text_theater_snapshot",
+            ],
+        },
+        "dreamer_mechanics_obs": {
+            "tool": "dreamer_mechanics_obs",
+            "entry_kind": "operator_surface",
+            "title": "Dreamer Mechanics Observation",
+            "category": "dreamer",
+            "status": "live",
+            "transport": {
+                "local_proxy": False,
+                "browser_surface": True,
+                "ui_local_only": False,
+                "implemented_verb": False,
+            },
+            "target_contract": {
+                "shape": "json payload",
+                "description": "Compact mechanics observation vector, grouped feature payload, and the current bounded correction vocabulary served by /api/dreamer/mechanics_obs.",
+                "examples": [
+                    "{\"schema_id\":\"dreamer_mechanics_v1\",\"target_task\":\"half_kneel_l\"}",
+                ],
+            },
+            "summary": "Read the compact mechanics observation Dreamer uses at the server layer: route, balance, contact, pose, and the 8-action kneel correction vocabulary.",
+            "when_to_use": [
+                "Use this when Dreamer needs to be grounded against real workbench truth instead of generic reward/training counters.",
+                "Use this before talking about kneel proposals, correction vocabularies, or environment-native Dreamer overlays.",
+            ],
+            "what_it_changes": [
+                "Nothing by itself. This is a read-only observation and vocabulary surface.",
+            ],
+            "mode_notes": [
+                "The current schema is dreamer_mechanics_v1 and is sourced from text_theater_snapshot/workbench truth at the server layer.",
+                "This is the outer-layer observation contract. It does not mean the inner capsule obs_buffer is already mechanics-grounded.",
+                "The correction table is bounded on purpose so Dreamer association stays inside the existing mechanics/workbench authority plane.",
+            ],
+            "verification": [
+                "env_help(topic='dreamer_mechanics_obs')",
+                "env_read(query='text_theater_snapshot')",
+                "env_report(report_id='route_stability_diagnosis')",
+            ],
+            "gotchas": [
+                "obs_buffer_size can still be zero even while this observation feed is live. That is expected until a separate episode/grounding bridge exists.",
+                "Do not confuse the mechanics observation vector with text-theater rendering; the latter is a readable mirror, not the numeric schema itself.",
+            ],
+            "failure_modes": [
+                "No fresh text_theater_snapshot available.",
+                "Workbench/contact fields missing for the target task.",
+            ],
+            "aliases": [
+                "dreamer_obs",
+                "dreamer_mechanics",
+                "mechanics_obs",
+            ],
+            "surface_entrypoints": [
+                "Dreamer tab > Grounding Status",
+                "Dreamer tab > Mechanics Snapshot",
+                "Dreamer tab > Observation Vector",
+            ],
+            "bridges_to": [
+                "/api/dreamer/mechanics_obs",
+                "shared_state.workbench.route_report",
+                "shared_state.workbench.motion_diagnostics",
+                "shared_state.workbench.active_controller",
+            ],
+            "related_commands": [
+                "env_report",
+                "workbench_stage_contact",
+                "workbench_assert_balance",
+            ],
+        },
+    }
+
+
+def _env_report_gate_state_snapshot() -> dict:
+    with _env_text_theater_read_gate_lock:
+        gate = dict(_env_text_theater_read_gate)
+    return {
+        "updated_ms": int(gate.get("updated_ms") or 0),
+        "snapshot_timestamp": int(gate.get("snapshot_timestamp") or 0),
+        "query": str(gate.get("query") or ""),
+        "observed_at_ms": int(gate.get("observed_at_ms") or 0),
+    }
+
+
+def _env_report_trim_text(value, limit: int) -> str:
+    text = str(value or "").strip()
+    if limit <= 0:
+        return ""
+    if len(text) <= limit:
+        return text
+    if limit <= 3:
+        return text[:limit]
+    return text[: limit - 3].rstrip() + "..."
+
+
+def _env_report_unique_strings(values, limit: int | None = None) -> list[str]:
+    if not isinstance(values, list):
+        return []
+    out: list[str] = []
+    seen: set[str] = set()
+    for entry in values:
+        text = str(entry or "").strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        out.append(text)
+        if limit is not None and len(out) >= limit:
+            break
+    return out
+
+
+def _env_report_strip_ansi(text) -> str:
+    return re.sub(r"\x1b\[[0-9;]*m", "", str(text or ""))
+
+
+def _env_report_extract_prefixed_lines(text, prefixes, *, limit: int = 6) -> list[str]:
+    cleaned = _env_report_strip_ansi(text)
+    if not cleaned:
+        return []
+    prefix_list = [str(prefix or "").strip().lower() for prefix in (prefixes or []) if str(prefix or "").strip()]
+    if not prefix_list:
+        return []
+    out: list[str] = []
+    seen: set[str] = set()
+    for raw_line in cleaned.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        lower_line = line.lower()
+        if not any(lower_line.startswith(prefix) for prefix in prefix_list):
+            continue
+        if line in seen:
+            continue
+        seen.add(line)
+        out.append(line)
+        if len(out) >= max(1, int(limit or 1)):
+            break
+    return out
+
+
+def _env_report_normalize_target(value, shared_state: dict | None = None) -> dict:
+    candidate = value
+    if isinstance(candidate, str):
+        text = candidate.strip()
+        if text.startswith("{"):
+            try:
+                candidate = json.loads(text)
+            except Exception:
+                candidate = text
+        elif "::" in text:
+            kind, ident = text.split("::", 1)
+            candidate = {"kind": kind, "id": ident}
+        elif text:
+            candidate = {"kind": "", "id": text}
+    if isinstance(candidate, dict):
+        kind = str(candidate.get("kind") or candidate.get("type") or "").strip()
+        ident = str(candidate.get("id") or candidate.get("target_id") or candidate.get("value") or "").strip()
+        if kind or ident:
+            return {"kind": kind, "id": ident}
+    state = shared_state if isinstance(shared_state, dict) else {}
+    blackboard = state.get("blackboard") if isinstance(state.get("blackboard"), dict) else {}
+    focus = blackboard.get("focus") if isinstance(blackboard.get("focus"), dict) else {}
+    if not focus and isinstance(state.get("focus"), dict):
+        focus = state.get("focus")
+    return {
+        "kind": str(focus.get("kind") or ""),
+        "id": str(focus.get("id") or ""),
+    }
+
+
+def _env_report_build_session_thread(shared_state: dict | None = None) -> dict:
+    state = shared_state if isinstance(shared_state, dict) else {}
+    blackboard = state.get("blackboard") if isinstance(state.get("blackboard"), dict) else {}
+    working_set = blackboard.get("working_set") if isinstance(blackboard.get("working_set"), dict) else {}
+    workbench = state.get("workbench") if isinstance(state.get("workbench"), dict) else {}
+    route_report = workbench.get("route_report") if isinstance(workbench.get("route_report"), dict) else {}
+    active_controller = workbench.get("active_controller") if isinstance(workbench.get("active_controller"), dict) else {}
+    return {
+        "selected_bone_ids": _env_report_unique_strings(working_set.get("selected_bone_ids") or []),
+        "supporting_joint_ids": _env_report_unique_strings(working_set.get("supporting_joint_ids") or []),
+        "intended_support_set": _env_report_unique_strings(working_set.get("intended_support_set") or []),
+        "missing_support_set": _env_report_unique_strings(working_set.get("missing_support_set") or []),
+        "active_controller_id": str(
+            working_set.get("active_controller_id")
+            or active_controller.get("controller_id")
+            or active_controller.get("label")
+            or ""
+        ),
+        "active_route_id": str(
+            working_set.get("active_route_id")
+            or route_report.get("pose_macro_id")
+            or route_report.get("support_topology_label")
+            or ""
+        ),
+        "pinned_row_ids": _env_report_unique_strings(working_set.get("pinned_row_ids") or []),
+        "lead_row_ids": _env_report_unique_strings(working_set.get("lead_row_ids") or [], limit=12),
+    }
+
+
+def _env_report_error_payload(
+    report_id: str,
+    normalized_args: dict,
+    *,
+    live_revision: int = 0,
+    summary: str,
+    operation_status: str,
+    error_code: str,
+    extra: dict | None = None,
+) -> dict:
+    payload = {
+        "tool": "env_report",
+        "status": "error",
+        "summary": _env_report_trim_text(summary, 140),
+        "normalized_args": _json_clone(normalized_args if isinstance(normalized_args, dict) else {}),
+        "delta": {
+            "found": False,
+            "report_id": str(report_id or ""),
+            "live_revision": int(live_revision or 0),
+        },
+        "operation": "env_report",
+        "operation_status": str(operation_status or "error"),
+        "report_id": str(report_id or ""),
+        "error": str(error_code or "error"),
+    }
+    if isinstance(extra, dict):
+        delta_extra = extra.pop("delta", None)
+        if isinstance(delta_extra, dict):
+            payload["delta"].update(_json_clone(delta_extra))
+        payload.update(_json_clone(extra))
+    return payload
+
+
+def _env_report_gate_blocked_payload(
+    report_id: str,
+    normalized_args: dict,
+    gate_payload: dict,
+    *,
+    live_revision: int = 0,
+) -> dict:
+    gate = gate_payload if isinstance(gate_payload, dict) else {}
+    extra = {
+        "message": str(gate.get("message") or "Text-theater read required before env_report"),
+        "required_sequence": _json_clone(gate.get("required_sequence") or []),
+        "last_text_theater_read": _json_clone(gate.get("last_text_theater_read") or {}),
+        "gate_state": _env_report_gate_state_snapshot(),
+        "delta": _json_clone(gate.get("delta") or {}),
+    }
+    return _env_report_error_payload(
+        report_id,
+        normalized_args,
+        live_revision=live_revision,
+        summary=str(gate.get("summary") or "Text-theater read required before env_report"),
+        operation_status="gate_blocked",
+        error_code=str(gate.get("error") or "text_theater_first_required"),
+        extra=extra,
+    )
+
+
+def _env_report_route_stability_diagnosis(
+    shared_state: dict,
+    target: dict,
+    *,
+    raw_slice: bool = False,
+    live_revision: int = 0,
+) -> dict:
+    state = shared_state if isinstance(shared_state, dict) else {}
+    blackboard = state.get("blackboard") if isinstance(state.get("blackboard"), dict) else None
+    workbench = state.get("workbench") if isinstance(state.get("workbench"), dict) else None
+    if not isinstance(workbench, dict):
+        mounted_runtime = state.get("mounted_character_runtime") if isinstance(state.get("mounted_character_runtime"), dict) else {}
+        fallback_workbench = mounted_runtime.get("workbench_surface") if isinstance(mounted_runtime.get("workbench_surface"), dict) else None
+        if isinstance(fallback_workbench, dict):
+            workbench = fallback_workbench
+    text_theater = state.get("text_theater") if isinstance(state.get("text_theater"), dict) else None
+    missing_paths: list[str] = []
+    if not isinstance(blackboard, dict):
+        missing_paths.append("shared_state.blackboard")
+    if not isinstance((blackboard or {}).get("rows"), list):
+        missing_paths.append("shared_state.blackboard.rows")
+    if not isinstance((blackboard or {}).get("working_set"), dict):
+        missing_paths.append("shared_state.blackboard.working_set")
+    if not isinstance(workbench, dict):
+        missing_paths.append("shared_state.workbench")
+    if not isinstance((text_theater or {}).get("snapshot"), dict):
+        missing_paths.append("shared_state.text_theater.snapshot")
+    if missing_paths:
+        return {
+            "__error__": "missing",
+            "missing_paths": missing_paths,
+        }
+
+    rows = blackboard.get("rows") if isinstance(blackboard.get("rows"), list) else []
+    row_index: dict[str, dict] = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        row_id = str(row.get("id") or "").strip()
+        if row_id and row_id not in row_index:
+            row_index[row_id] = _json_clone(row)
+
+    route_report = workbench.get("route_report") if isinstance(workbench.get("route_report"), dict) else {}
+    active_controller = workbench.get("active_controller") if isinstance(workbench.get("active_controller"), dict) else {}
+    snapshot = text_theater.get("snapshot") if isinstance(text_theater.get("snapshot"), dict) else {}
+    embodiment_text = str(text_theater.get("embodiment") or "")
+    session_thread = _env_report_build_session_thread(state)
+
+    lead_rows: list[str] = []
+    lead_seen: set[str] = set()
+    lead_candidates = [
+        "route.status",
+        "route.phase",
+        "route.blocker",
+        "route.next_adjustment",
+        "balance.stability_risk",
+        "balance.stability_margin",
+    ]
+    for candidate in session_thread.get("lead_row_ids") or []:
+        candidate = str(candidate or "").strip()
+        if candidate in row_index and candidate in lead_candidates and candidate not in lead_seen:
+            lead_rows.append(candidate)
+            lead_seen.add(candidate)
+    for candidate in lead_candidates:
+        if candidate in row_index and candidate not in lead_seen:
+            lead_rows.append(candidate)
+            lead_seen.add(candidate)
+        if len(lead_rows) >= 6:
+            break
+
+    supporting_rows: list[str] = []
+    supporting_candidates = [
+        "route.operational_state",
+        "route.phase_gate",
+        "controller.active",
+        "controller.roles",
+        "balance.load_imbalance",
+        "balance.nearest_edge",
+    ]
+    supporting_seen = set(lead_rows)
+    for candidate in supporting_candidates + list(session_thread.get("lead_row_ids") or []):
+        candidate = str(candidate or "").strip()
+        if candidate in row_index and candidate not in supporting_seen:
+            supporting_rows.append(candidate)
+            supporting_seen.add(candidate)
+        if len(supporting_rows) >= 12:
+            break
+
+    def _row_value(row_id: str, default: str = "") -> str:
+        row = row_index.get(row_id) if isinstance(row_index.get(row_id), dict) else {}
+        value = row.get("value")
+        if value is None:
+            return default
+        if isinstance(value, (dict, list)):
+            try:
+                return json.dumps(value)
+            except Exception:
+                return str(value)
+        return str(value)
+
+    def _row_number(row_id: str):
+        row = row_index.get(row_id) if isinstance(row_index.get(row_id), dict) else {}
+        value = row.get("value")
+        try:
+            return float(value)
+        except Exception:
+            return None
+
+    route_status = _row_value("route.status", str(route_report.get("support_topology_label") or route_report.get("pose_macro_id") or "none"))
+    route_phase = _row_value("route.phase", str(route_report.get("active_phase_label") or "none"))
+    route_blocker = _row_value("route.blocker", str(route_report.get("blocker_summary") or ""))
+    route_gate = _row_value("route.phase_gate", str(route_report.get("phase_gate_summary") or ""))
+    route_next = _row_value("route.next_adjustment", str(route_report.get("next_suggested_adjustment") or ""))
+    operational_state = _row_value("route.operational_state", str(route_report.get("operational_state_label") or ""))
+    stability_risk = _row_number("balance.stability_risk")
+    stability_margin = _row_number("balance.stability_margin")
+    observed_support = _env_report_unique_strings(session_thread.get("supporting_joint_ids") or [])
+    intended_support = _env_report_unique_strings(session_thread.get("intended_support_set") or [])
+    missing_support = _env_report_unique_strings(session_thread.get("missing_support_set") or [])
+    has_active_route = str(route_status or "").strip().lower() not in {"", "none"}
+    has_residual_support_posture = bool(observed_support or session_thread.get("active_controller_id") or active_controller)
+
+    severity = "ok"
+    if route_blocker or missing_support:
+        severity = "critical"
+    elif stability_margin is not None and stability_margin < 0:
+        severity = "critical" if (has_active_route or has_residual_support_posture) else "degraded"
+    elif stability_risk is not None and stability_risk >= 0.84:
+        severity = "critical" if (has_active_route or has_residual_support_posture) else "degraded"
+    elif stability_risk is not None and stability_risk >= 0.64:
+        severity = "degraded"
+    elif stability_risk is not None and stability_risk >= 0.4:
+        severity = "watch"
+
+    designation = "no_active_route"
+    if has_active_route and missing_support and len(observed_support) == 1 and len(intended_support) >= 2:
+        designation = "single_brace_collapse"
+    elif has_active_route and missing_support:
+        designation = "partial_support_realization"
+    elif has_active_route and route_blocker:
+        designation = "blocked_route"
+    elif has_active_route and severity in {"critical", "degraded"}:
+        designation = "unstable_route_realization"
+    elif has_active_route:
+        designation = "route_realized"
+    elif has_residual_support_posture and severity == "critical":
+        designation = "residual_braced_support"
+    elif has_residual_support_posture and severity in {"degraded", "watch"}:
+        designation = "residual_support_posture"
+
+    expected_vs_observed_read = "Expected support " + (", ".join(intended_support) if intended_support else "none")
+    expected_vs_observed_read += "; observed support " + (", ".join(observed_support) if observed_support else "none")
+    if missing_support:
+        expected_vs_observed_read += "; missing " + ", ".join(missing_support)
+    expected_vs_observed_read = _env_report_trim_text(expected_vs_observed_read + ".", 220)
+
+    if designation == "single_brace_collapse":
+        failure_character = _env_report_trim_text(
+            "Body has collapsed into a "
+            + (", ".join(observed_support) if observed_support else "single-contact")
+            + " brace while the intended "
+            + (", ".join(missing_support) if missing_support else "support")
+            + " never realized.",
+            180,
+        )
+    elif designation == "partial_support_realization":
+        failure_character = _env_report_trim_text(
+            "Only part of the intended support topology realized; the requested route is still missing "
+            + (", ".join(missing_support) if missing_support else "support")
+            + ".",
+            180,
+        )
+    elif designation == "blocked_route":
+        failure_character = "Route logic is active, but the intended support transition is blocked."
+    elif designation == "unstable_route_realization":
+        failure_character = "Support topology is active, but the body remains mechanically unstable."
+    elif designation == "route_realized":
+        failure_character = "The intended support topology appears realized."
+    elif designation == "residual_braced_support":
+        failure_character = _env_report_trim_text(
+            "No active route is running, but the body is still parked in a badly loaded braced support posture.",
+            180,
+        )
+    elif designation == "residual_support_posture":
+        failure_character = _env_report_trim_text(
+            "No active route is running, but the body is still carrying a residual support posture.",
+            180,
+        )
+    else:
+        failure_character = "No active route is currently being diagnosed."
+
+    contact_prefixes = [f"{contact_id}:" for contact_id in observed_support + missing_support]
+    embodiment_lines = _env_report_extract_prefixed_lines(
+        embodiment_text,
+        ["WORKBENCH:", "BALANCE:", "SUMMARY:"] + contact_prefixes,
+        limit=6,
+    )
+    if designation == "single_brace_collapse":
+        visual_read = _env_report_trim_text(
+            "The embodiment read shows "
+            + (", ".join(observed_support) if observed_support else "one remaining support")
+            + " carrying the body while "
+            + (", ".join(missing_support) if missing_support else "the intended support")
+            + " is still off the floor; it reads like a failed support transition, not a completed kneel.",
+            240,
+        )
+    elif designation == "partial_support_realization":
+        visual_read = _env_report_trim_text(
+            "The embodiment read shows a partial support transition: some requested contacts landed, but the full intended posture has not realized.",
+            240,
+        )
+    elif designation == "unstable_route_realization":
+        visual_read = _env_report_trim_text(
+            "The embodiment read shows the route posture shape, but the body still reads as unstable and badly loaded.",
+            240,
+        )
+    elif designation == "residual_braced_support":
+        visual_read = _env_report_trim_text(
+            "The embodiment read shows no active route, but the body is still visibly parked in a braced support pose with bad loading and support geometry.",
+            240,
+        )
+    elif designation == "residual_support_posture":
+        visual_read = _env_report_trim_text(
+            "The embodiment read shows no active route, but the body has not returned to a neutral support posture.",
+            240,
+        )
+    elif embodiment_lines:
+        summary_line = next((line for line in embodiment_lines if line.startswith("SUMMARY:")), "")
+        visual_read = _env_report_trim_text(summary_line.replace("SUMMARY:", "", 1).strip() or failure_character, 240)
+    else:
+        visual_read = _env_report_trim_text(failure_character, 240)
+
+    summary_head = operational_state or route_status or "No route"
+    if designation == "residual_braced_support":
+        summary_head = "Residual Braced Support"
+    elif designation == "residual_support_posture":
+        summary_head = "Residual Support Posture"
+    summary_parts = [summary_head, route_phase or "no phase"]
+    if route_blocker:
+        summary_parts.append("blocker " + route_blocker)
+    elif route_gate:
+        summary_parts.append(route_gate)
+    summary = _env_report_trim_text(" / ".join(part for part in summary_parts if part), 140)
+
+    why_parts = [
+        f"The active route is {route_status or 'none'}",
+        f"phase {route_phase or 'none'}",
+    ]
+    if intended_support:
+        why_parts.append("intended support " + ", ".join(intended_support))
+    if missing_support:
+        why_parts.append("missing support " + ", ".join(missing_support))
+    if stability_risk is not None:
+        why_parts.append(f"stability risk {stability_risk:.2f}")
+    if stability_margin is not None:
+        why_parts.append(f"margin {stability_margin:.3f} m")
+    if route_blocker:
+        why_parts.append("blocker " + route_blocker)
+    if route_next:
+        why_parts.append("next adjustment " + route_next)
+    why_this_matters = _env_report_trim_text(". ".join(part.rstrip(".") for part in why_parts if part) + ".", 400)
+
+    capture_target = "character_runtime::mounted_primary"
+    target_kind = str((target or {}).get("kind") or "").strip()
+    target_id = str((target or {}).get("id") or "").strip()
+    if target_kind and target_id:
+        capture_target = f"{target_kind}::{target_id}"
+    elif target_id:
+        capture_target = target_id
+
+    report = {
+        "report_id": "route_stability_diagnosis",
+        "intent": _env_report_trim_text("Explain current route/support stability state and next adjustment", 120),
+        "target": {
+            "kind": target_kind,
+            "id": target_id,
+        },
+        "summary": summary,
+        "lead_rows": lead_rows[:6],
+        "supporting_rows": supporting_rows[:12],
+        "why_this_matters": why_this_matters,
+        "severity": severity,
+        "designation": designation,
+        "visual_read": visual_read,
+        "expected_vs_observed": {
+            "expected_support": intended_support,
+            "observed_support": observed_support,
+            "missing_support": missing_support,
+            "topology_read": expected_vs_observed_read,
+        },
+        "failure_character": failure_character,
+        "embodied_evidence_lines": embodiment_lines,
+        "recommended_next_reads": [
+            {
+                "tool": "env_read",
+                "args": {"query": "text_theater_embodiment"},
+                "reason": "Compare the broker's visual read against the current embodiment render",
+            },
+            {
+                "tool": "env_read",
+                "args": {"query": "text_theater_snapshot"},
+                "reason": "Verify snapshot freshness and the structured rows that anchor the designation",
+            },
+            {
+                "tool": "env_read",
+                "args": {"query": "probe"},
+                "reason": "Review the latest probe capture if the blocker persists after the next adjustment",
+            },
+        ],
+        "recommended_captures": [
+            {
+                "tool": "env_control",
+                "args": {"command": "capture_probe", "target_id": capture_target, "actor": "assistant"},
+                "reason": "Get a fresh probe capture for the current route blocker",
+            },
+            {
+                "tool": "env_control",
+                "args": {"command": "capture_supercam", "target_id": capture_target, "actor": "assistant"},
+                "reason": "Get a higher-level corroborating camera view of the active support topology",
+            },
+        ],
+        "evidence_paths": [
+            "shared_state.blackboard.rows",
+            "shared_state.blackboard.working_set.lead_row_ids",
+            "shared_state.blackboard.working_set.intended_support_set",
+            "shared_state.blackboard.working_set.missing_support_set",
+            "shared_state.workbench.route_report or shared_state.mounted_character_runtime.workbench_surface.route_report",
+            "shared_state.workbench.active_controller or shared_state.mounted_character_runtime.workbench_surface.active_controller",
+            "shared_state.text_theater.embodiment",
+            "shared_state.text_theater.snapshot",
+        ],
+        "capture_ids": [],
+        "live_revision": int(live_revision or 0),
+        "snapshot_timestamp": int(snapshot.get("snapshot_timestamp") or 0),
+        "text_theater_anchor": "text_theater.embodiment" if embodiment_lines else None,
+        "gate_state": _env_report_gate_state_snapshot(),
+        "session_thread": session_thread,
+    }
+    if raw_slice:
+        scoped_rows = {}
+        for row_id in lead_rows + supporting_rows:
+            if row_id in row_index and row_id not in scoped_rows:
+                scoped_rows[row_id] = _json_clone(row_index[row_id])
+        report["raw_slice"] = {
+            "blackboard_rows": scoped_rows,
+            "working_set": _json_clone((blackboard or {}).get("working_set") or {}),
+            "route_report": _json_clone(route_report),
+            "active_controller": _json_clone(active_controller),
+            "text_theater_snapshot": {
+                "snapshot_timestamp": int(snapshot.get("snapshot_timestamp") or 0),
+                "source_timestamp": int(snapshot.get("source_timestamp") or 0),
+                "last_sync_reason": str(snapshot.get("last_sync_reason") or ""),
+            },
+            "text_theater_embodiment_lines": embodiment_lines,
+        }
+    return report
+
+
+def _env_report_local_proxy_payload(args: dict | None = None) -> dict | None:
+    args = args or {}
+    report_id = str(args.get("report_id", "") or "").strip()
+    target = args.get("target")
+    raw_slice = _env_bool_arg(args.get("raw_slice", False))
+    normalized_args = {
+        "report_id": report_id,
+        "target": _env_report_normalize_target(target),
+        "raw_slice": bool(raw_slice),
+    }
+    if not report_id:
+        return _env_report_error_payload(
+            report_id,
+            normalized_args,
+            summary="Missing report_id",
+            operation_status="unknown_report",
+            error_code="unknown_report",
+            extra={"available_reports": list(_ENV_REPORT_IDS)},
+        )
+    if report_id not in _ENV_REPORT_IDS:
+        return _env_report_error_payload(
+            report_id,
+            normalized_args,
+            summary=f"Unknown env_report recipe {report_id}",
+            operation_status="unknown_report",
+            error_code="unknown_report",
+            extra={"available_reports": list(_ENV_REPORT_IDS)},
+        )
+
+    cached = _env_live_cache_snapshot()
+    live_revision = int((cached or {}).get("updated_ms") or 0)
+    gate_payload = _env_shared_state_prereq_payload("shared_state", cached)
+    if gate_payload is not None:
+        return _env_report_gate_blocked_payload(report_id, normalized_args, gate_payload, live_revision=live_revision)
+
+    live_state = (cached or {}).get("live_state") if isinstance(cached, dict) else None
+    if not isinstance(live_state, dict):
+        return _env_report_error_payload(
+            report_id,
+            normalized_args,
+            live_revision=live_revision,
+            summary="Live cache unavailable for env_report",
+            operation_status="unavailable",
+            error_code="unavailable",
+            extra={"reason": "No live_state available in live cache", "cache_age_ms": 0},
+        )
+
+    shared_state = live_state.get("shared_state") if isinstance(live_state.get("shared_state"), dict) else None
+    if not isinstance(shared_state, dict):
+        return _env_report_error_payload(
+            report_id,
+            normalized_args,
+            live_revision=live_revision,
+            summary="shared_state unavailable for env_report",
+            operation_status="unavailable",
+            error_code="unavailable",
+            extra={"reason": "No shared_state available in live cache", "cache_age_ms": 0},
+        )
+
+    normalized_args["target"] = _env_report_normalize_target(target, shared_state)
+    try:
+        report = _env_report_route_stability_diagnosis(
+            shared_state,
+            normalized_args["target"],
+            raw_slice=raw_slice,
+            live_revision=live_revision,
+        )
+    except Exception as exc:
+        return _env_report_error_payload(
+            report_id,
+            normalized_args,
+            live_revision=live_revision,
+            summary=f"env_report recipe {report_id} failed",
+            operation_status="recipe_error",
+            error_code="recipe_error",
+            extra={
+                "recipe": report_id,
+                "exception_class": exc.__class__.__name__,
+                "message": str(exc),
+            },
+        )
+
+    if isinstance(report, dict) and report.get("__error__") == "missing":
+        return _env_report_error_payload(
+            report_id,
+            normalized_args,
+            live_revision=live_revision,
+            summary=f"env_report recipe {report_id} is missing live fields",
+            operation_status="missing",
+            error_code="missing",
+            extra={"missing_paths": _json_clone(report.get("missing_paths") or [])},
+        )
+
+    if not isinstance(report, dict):
+        return _env_report_error_payload(
+            report_id,
+            normalized_args,
+            live_revision=live_revision,
+            summary=f"env_report recipe {report_id} returned no report",
+            operation_status="recipe_error",
+            error_code="recipe_error",
+            extra={
+                "recipe": report_id,
+                "exception_class": "InvalidReport",
+                "message": "Recipe did not return a report dictionary",
+            },
+        )
+
+    report_bytes = len(json.dumps(report, separators=(",", ":"), ensure_ascii=False).encode("utf-8"))
+    if report_bytes > _ENV_REPORT_DEFAULT_SIZE_BYTES and report.get("raw_slice") is not None:
+        report.pop("raw_slice", None)
+        report_bytes = len(json.dumps(report, separators=(",", ":"), ensure_ascii=False).encode("utf-8"))
+    if report_bytes > _ENV_REPORT_HARD_CAP_BYTES:
+        return _env_report_error_payload(
+            report_id,
+            normalized_args,
+            live_revision=live_revision,
+            summary=f"env_report recipe {report_id} exceeded size budget",
+            operation_status="recipe_error",
+            error_code="recipe_error",
+            extra={
+                "recipe": report_id,
+                "exception_class": "ReportTooLarge",
+                "message": f"Serialized report size {report_bytes} exceeds hard cap {_ENV_REPORT_HARD_CAP_BYTES}",
+            },
+        )
+
+    return {
+        "tool": "env_report",
+        "status": "ok",
+        "summary": _env_report_trim_text(report.get("summary") or f"Built {report_id}", 140),
+        "normalized_args": _json_clone(normalized_args),
+        "delta": {
+            "found": True,
+            "report_id": report_id,
+            "live_revision": live_revision,
+            "report_bytes": report_bytes,
+        },
+        "operation": "env_report",
+        "operation_status": "ok",
+        "report": _json_clone(report),
+    }
+
+
 def _env_next_control_sync_token(command: str) -> str:
     global _env_control_command_seq
     with _env_control_command_seq_lock:
@@ -4067,6 +5077,7 @@ def _env_help_index_payload(registry: dict, normalized_args: dict) -> dict:
     queries = registry.get("queries") if isinstance(registry.get("queries"), dict) else {}
     families = registry.get("families") if isinstance(registry.get("families"), dict) else {}
     playbooks = registry.get("playbooks") if isinstance(registry.get("playbooks"), dict) else {}
+    builtin_topics = _env_help_builtin_topics()
     ui_action_count = sum(1 for value in commands.values() if isinstance(value, dict) and str(value.get("entry_kind") or "") == "ui_action")
     env_command_count = max(0, len(commands) - ui_action_count)
     family_rows = []
@@ -4102,14 +5113,20 @@ def _env_help_index_payload(registry: dict, normalized_args: dict) -> dict:
             "meta": registry.get("meta") if isinstance(registry.get("meta"), dict) else {},
             "families": family_rows,
             "playbooks": playbook_rows,
-            "entry_count": len(commands) + len(queries),
+            "entry_count": len(commands) + len(queries) + len(builtin_topics),
             "query_count": len(queries),
+            "tool_topic_count": len(builtin_topics),
             "env_command_count": env_command_count,
             "ui_action_count": ui_action_count,
             "examples": [
+                "env_help(topic='env_report')",
+                "env_help(topic='dreamer_control_plane')",
+                "env_help(topic='dreamer_mechanics_obs')",
                 "env_help(topic='workbench_set_timeline_cursor')",
+                "env_help(topic='workbench_stage_contact')",
                 "env_help(topic='workbench-toggle-turntable')",
                 "env_help(topic='text_theater_embodiment')",
+                "env_help(topic='playbook:theater_first_route_diagnosis')",
                 "env_help(category='builder_motion')",
                 "env_help(topic='capture_time_strip')",
                 "env_help(search='mounted asset floor')",
@@ -4145,6 +5162,7 @@ def _env_help_local_proxy_payload(args: dict | None = None) -> dict | None:
     queries = registry.get("queries") if isinstance(registry.get("queries"), dict) else {}
     families = registry.get("families") if isinstance(registry.get("families"), dict) else {}
     playbooks = registry.get("playbooks") if isinstance(registry.get("playbooks"), dict) else {}
+    builtin_topics = _env_help_builtin_topics()
     alias_map: dict[str, str] = {}
     for key, value in commands.items():
         if not isinstance(value, dict):
@@ -4259,6 +5277,29 @@ def _env_help_local_proxy_payload(args: dict | None = None) -> dict | None:
             "entry_type": "retired",
             "retired_help": retired_topics.get(topic),
         }
+    if topic in builtin_topics:
+        return {
+            "tool": "env_help",
+            "status": "ok",
+            "summary": f"Read environment help for tool {topic}",
+            "normalized_args": normalized_args,
+            "operation": "env_help",
+            "operation_status": "ok",
+            "entry_type": "tool",
+            "tool_help": builtin_topics.get(topic),
+        }
+    if topic in ("route_stability_diagnosis", "report:route_stability_diagnosis"):
+        return {
+            "tool": "env_help",
+            "status": "ok",
+            "summary": "Read environment help for tool env_report via recipe alias",
+            "normalized_args": normalized_args,
+            "operation": "env_help",
+            "operation_status": "ok",
+            "entry_type": "tool",
+            "resolved_from_alias": topic,
+            "tool_help": builtin_topics.get("env_report"),
+        }
     if category and category in families:
         return {
             "tool": "env_help",
@@ -4342,6 +5383,19 @@ def _env_help_local_proxy_payload(args: dict | None = None) -> dict | None:
         }
     search_text = search or topic
     results = _env_help_search_entries(registry, search_text)
+    builtin_results: list[dict] = []
+    search_terms = [term for term in str(search_text or "").lower().split() if term]
+    for key, value in builtin_topics.items():
+        haystack = f"{str(key or '')} {_env_help_stringify(value)}".lower().strip()
+        if search_terms and all(term in haystack for term in search_terms):
+            builtin_results.append({
+                "id": key,
+                "title": str(value.get("title") or key),
+                "entry_type": "tool",
+                "summary": str(value.get("summary") or ""),
+            })
+    if builtin_results:
+        results = builtin_results + results
     if results:
         return {
             "tool": "env_help",
@@ -4361,7 +5415,7 @@ def _env_help_local_proxy_payload(args: dict | None = None) -> dict | None:
         "operation": "env_help",
         "operation_status": "partial",
         "error": f"No environment help found for '{topic or search or category}'",
-        "hint": "Try topic='index', category='builder_motion', or search='mounted asset floor'.",
+        "hint": "Try topic='env_report', topic='index', category='builder_motion', or search='mounted asset floor'.",
     }
 
 
@@ -4873,6 +5927,9 @@ def _env_read_live_cache_payload(query_text: str) -> dict | None:
         return None
     shared_state = live_state.get("shared_state") if isinstance(live_state.get("shared_state"), dict) else {}
     text_theater = shared_state.get("text_theater") if isinstance(shared_state.get("text_theater"), dict) else {}
+    prereq_payload = _env_shared_state_prereq_payload(query_text, cached)
+    if prereq_payload is not None:
+        return prereq_payload
     if query_lower == "live_sync":
         live_sync = shared_state.get("live_sync")
         if not isinstance(live_sync, dict):
@@ -4925,6 +5982,8 @@ def _env_read_live_cache_payload(query_text: str) -> dict | None:
             value = rendered_embodiment
         if value in (None, "", {}):
             return None
+        gate_snapshot = rendered_snapshot if isinstance(rendered_snapshot, dict) and rendered_snapshot else _env_cached_text_theater_snapshot(cached)
+        _env_note_text_theater_read(query_lower, cached, gate_snapshot)
         return {
             "tool": "env_read",
             "status": "ok",
@@ -5028,6 +6087,7 @@ def _env_text_theater_view_payload(args: dict | None = None) -> dict:
             "text_theater_view": None,
         }
     snapshot = rendered.get("snapshot") if isinstance(rendered.get("snapshot"), dict) else {}
+    _env_note_text_theater_read(query_text, cached, snapshot)
     return {
         "tool": "env_read",
         "status": "ok",
@@ -5095,6 +6155,7 @@ def _env_text_theater_live_payload(args: dict | None = None) -> dict:
             "error": str(exc),
             "text_theater_live": None,
         }
+    _env_note_text_theater_read(query_text, cached, snapshot)
     return {
         "tool": "env_read",
         "status": "ok",
@@ -5183,6 +6244,10 @@ def _env_read_local_proxy_payload(args: dict | None = None) -> dict | None:
 
 async def _env_read_local_proxy_payload_async(args: dict | None = None) -> dict | None:
     return _env_read_local_proxy_payload(args)
+
+
+async def _env_report_local_proxy_payload_async(args: dict | None = None) -> dict | None:
+    return _env_report_local_proxy_payload(args)
 
 
 _env_capture_load_index()
@@ -8565,6 +9630,13 @@ async def proxy_tool_call(tool_name: str, request: Request):
             return JSONResponse(status_code=400, content=env_read_proxy_payload)
         return {"result": {"content": [{"type": "text", "text": json.dumps(env_read_proxy_payload)}], "isError": False}}
 
+    env_report_proxy_payload = await _env_report_local_proxy_payload_async(body if isinstance(body, dict) else {})
+    if tool_name == "env_report" and env_report_proxy_payload is not None:
+        err_msg = env_report_proxy_payload.get("error") if isinstance(env_report_proxy_payload, dict) else None
+        if err_msg:
+            return JSONResponse(status_code=400, content=env_report_proxy_payload)
+        return {"result": {"content": [{"type": "text", "text": json.dumps(env_report_proxy_payload)}], "isError": False}}
+
     product_bundle_payload = await _product_bundle_local_tool(tool_name, body if isinstance(body, dict) else {})
     if product_bundle_payload is not None:
         err_msg = product_bundle_payload.get("error") if isinstance(product_bundle_payload, dict) else None
@@ -9150,7 +10222,25 @@ async def api_agent_chat_inject(request: Request):
 
 # Dreamer state cache (avoid hammering capsule)
 _dreamer_cache = {"data": None, "ts": 0}
+_dreamer_fetch_lock = asyncio.Lock()
+_dreamer_sampler_task: asyncio.Task | None = None
 _dreamer_config_defaults = {
+    "control_plane": {
+        "mode": "passive",
+        "task": "half_kneel_l",
+        "profile": "kneel_v1",
+        "obs_schema": "dreamer_mechanics_v1",
+        "action_schema_id": "kneel_v1_8",
+        "reward_profile": "mechanics_v1",
+    },
+    "overlay": {
+        "theater_hud": True,
+        "show_grounding": True,
+        "show_trail": True,
+        "detail_level": "operator",
+        "mirror_to_blackboard": True,
+        "mirror_to_text_theater": True,
+    },
     "rewards": {
         "hold_accept": 1.0, "hold_override": -0.5, "bag_induct": 0.8,
         "bag_forget": -0.3, "workflow_save": 1.0, "workflow_success": 0.5,
@@ -9179,111 +10269,1320 @@ _dreamer_history = {
     "critic_loss": [],      # list of {ts, baseline, perturbed, accepted}
     "reward_counts": [],    # list of {ts, count}
     "fitness": [],          # list of {ts, value}
+    "mechanics_rewards": [],  # list of {ts, total_reward, action_key}
+    "episode_steps": [],      # list of bounded outer-loop step summaries
 }
 _dreamer_last_cycle = 0
 
+_DREAMER_MECHANICS_SCHEMA_ID = "dreamer_mechanics_v1"
+_DREAMER_CONFIG_SCHEMA_VERSION = 1
+_DREAMER_CONFIG_READ_ONLY_SECTIONS = ("architecture",)
+_DREAMER_CONTROL_PLANE_MODES = [
+    "off",
+    "passive",
+    "advisory",
+    "active",
+    "autonomous_eval",
+]
+_DREAMER_CONTROL_PLANE_PROFILES = [
+    "kneel_v1",
+    "passive_observer",
+    "gravity_balance_v1",
+]
+_DREAMER_ACTION_SCHEMAS = [
+    "kneel_v1_8",
+]
+_DREAMER_REWARD_PROFILES = [
+    "mechanics_v1",
+    "legacy_generic",
+]
+_DREAMER_OVERLAY_DETAIL_LEVELS = [
+    "compact",
+    "operator",
+    "diagnostic",
+]
+_DREAMER_CONFIG_EDITABLE_SCHEMA = {
+    "control_plane": {
+        "mode": {"type": "enum", "options": _DREAMER_CONTROL_PLANE_MODES},
+        "task": {"type": "string", "max_len": 64},
+        "profile": {"type": "enum", "options": _DREAMER_CONTROL_PLANE_PROFILES},
+        "obs_schema": {"type": "enum", "options": [_DREAMER_MECHANICS_SCHEMA_ID]},
+        "action_schema_id": {"type": "enum", "options": _DREAMER_ACTION_SCHEMAS},
+        "reward_profile": {"type": "enum", "options": _DREAMER_REWARD_PROFILES},
+    },
+    "overlay": {
+        "theater_hud": {"type": "bool"},
+        "show_grounding": {"type": "bool"},
+        "show_trail": {"type": "bool"},
+        "detail_level": {"type": "enum", "options": _DREAMER_OVERLAY_DETAIL_LEVELS},
+        "mirror_to_blackboard": {"type": "bool"},
+        "mirror_to_text_theater": {"type": "bool"},
+    },
+    "rewards": {
+        "hold_accept": {"type": "float", "min": -5.0, "max": 5.0},
+        "hold_override": {"type": "float", "min": -5.0, "max": 5.0},
+        "bag_induct": {"type": "float", "min": -5.0, "max": 5.0},
+        "bag_forget": {"type": "float", "min": -5.0, "max": 5.0},
+        "workflow_save": {"type": "float", "min": -5.0, "max": 5.0},
+        "workflow_success": {"type": "float", "min": -5.0, "max": 5.0},
+        "workflow_failure": {"type": "float", "min": -5.0, "max": 5.0},
+        "tool_success": {"type": "float", "min": -5.0, "max": 5.0},
+        "tool_error": {"type": "float", "min": -5.0, "max": 5.0},
+        "mutation_kept": {"type": "float", "min": -5.0, "max": 5.0},
+        "mutation_reverted": {"type": "float", "min": -5.0, "max": 5.0},
+        "normalize": {"type": "bool"},
+    },
+    "training": {
+        "enabled": {"type": "bool"},
+        "auto_train": {"type": "bool"},
+        "world_model_frequency": {"type": "int", "min": 8, "max": 512},
+        "critic_frequency": {"type": "int", "min": 8, "max": 512},
+        "full_cycle_frequency": {"type": "int", "min": 16, "max": 1024},
+        "batch_size": {"type": "int", "min": 8, "max": 256},
+        "noise_scale": {"type": "float", "min": 0.0001, "max": 0.25},
+        "gamma": {"type": "float", "min": 0.5, "max": 0.9999},
+        "lambda": {"type": "float", "min": 0.5, "max": 0.9999},
+        "critic_target_tau": {"type": "float", "min": 0.0001, "max": 0.5},
+        "timeout_budget_seconds": {"type": "int", "min": 1, "max": 300},
+    },
+    "imagination": {
+        "horizon": {"type": "int", "min": 1, "max": 128},
+        "n_actions": {"type": "int", "min": 1, "max": 64},
+        "auto_imagine_on_train": {"type": "bool"},
+    },
+    "buffers": {
+        "reward_buffer_max": {"type": "int", "min": 100, "max": 50000},
+        "obs_buffer_max": {"type": "int", "min": 100, "max": 20000},
+        "value_history_max": {"type": "int", "min": 10, "max": 5000},
+        "reward_rate_window": {"type": "int", "min": 5, "max": 5000},
+    },
+}
+_DREAMER_MECHANICS_FIELDS = [
+    "route.realized_support_count",
+    "route.missing_support_count",
+    "route.intended_support_count",
+    "route.phase_index",
+    "route.stage_blocked",
+    "route.has_active_route",
+    "balance.stability_risk",
+    "balance.stability_margin",
+    "balance.normalized_margin",
+    "balance.nearest_edge_distance",
+    "balance.support_count",
+    "balance.balance_mode_code",
+    "controller.present",
+    "controller.leader_count",
+    "controller.anchor_count",
+    "controller.carrier_count",
+    "contact.lower_leg_l.gap",
+    "contact.lower_leg_l.manifold_points",
+    "contact.lower_leg_l.load_share",
+    "contact.lower_leg_l.supporting",
+    "contact.foot_r.gap",
+    "contact.foot_r.manifold_points",
+    "contact.foot_r.load_share",
+    "contact.foot_r.supporting",
+    "pose.hips_pitch_deg",
+    "pose.hips_world_y",
+    "pose.hips_world_z",
+    "pose.spine_pitch_deg",
+    "pose.chest_pitch_deg",
+    "pose.lower_leg_l_pitch_deg",
+    "pose.foot_r_yaw_deg",
+]
+_DREAMER_BALANCE_MODE_CODES = {
+    "none": 0,
+    "balanced": 1,
+    "stable": 1,
+    "single_support_left": 2,
+    "single_support_right": 3,
+    "braced": 4,
+    "braced_support": 4,
+    "double_support": 5,
+    "falling": 6,
+}
+_DREAMER_KNEEL_CORRECTIONS = [
+    {
+        "action_id": 0,
+        "action_key": "drop_hips",
+        "label": "Drop Hips",
+        "summary": "Lower the carrier to bring the knee closer to contact.",
+        "task_scope": ["half_kneel_l"],
+        "targets": ["hips"],
+        "pose_delta": {"offset": {"hips": {"y": -0.03}}},
+        "workbench_set_pose_batch_template": {
+            "poses": [
+                {"bone": "hips", "offset": {"x": 0.0, "y": -0.15, "z": 0.05}}
+            ]
+        },
+    },
+    {
+        "action_id": 1,
+        "action_key": "raise_hips",
+        "label": "Raise Hips",
+        "summary": "Lift the carrier slightly if the kneel over-compresses or scrapes.",
+        "task_scope": ["half_kneel_l"],
+        "targets": ["hips"],
+        "pose_delta": {"offset": {"hips": {"y": 0.02}}},
+        "workbench_set_pose_batch_template": {
+            "poses": [
+                {"bone": "hips", "offset": {"x": 0.0, "y": -0.10, "z": 0.05}}
+            ]
+        },
+    },
+    {
+        "action_id": 2,
+        "action_key": "shift_hips_fore",
+        "label": "Shift Hips Forward",
+        "summary": "Move the carrier forward to project load toward the kneel lane.",
+        "task_scope": ["half_kneel_l"],
+        "targets": ["hips"],
+        "pose_delta": {"offset": {"hips": {"z": 0.02}}},
+        "workbench_set_pose_batch_template": {
+            "poses": [
+                {"bone": "hips", "offset": {"x": 0.0, "y": -0.12, "z": 0.07}}
+            ]
+        },
+    },
+    {
+        "action_id": 3,
+        "action_key": "shift_hips_aft",
+        "label": "Shift Hips Aft",
+        "summary": "Move the carrier backward to recover the support polygon when overloaded forward.",
+        "task_scope": ["half_kneel_l"],
+        "targets": ["hips"],
+        "pose_delta": {"offset": {"hips": {"z": -0.02}}},
+        "workbench_set_pose_batch_template": {
+            "poses": [
+                {"bone": "hips", "offset": {"x": 0.0, "y": -0.12, "z": 0.03}}
+            ]
+        },
+    },
+    {
+        "action_id": 4,
+        "action_key": "counter_rotate_spine",
+        "label": "Counter-Rotate Spine",
+        "summary": "Tilt the spine back to counter forward collapse during kneel contact.",
+        "task_scope": ["half_kneel_l"],
+        "targets": ["spine"],
+        "pose_delta": {"rotation_deg": {"spine": [-3, 0, 0]}},
+        "workbench_set_pose_batch_template": {
+            "poses": [
+                {"bone": "spine", "rotation_deg": [-9, 0, 0]}
+            ]
+        },
+    },
+    {
+        "action_id": 5,
+        "action_key": "counter_rotate_chest",
+        "label": "Counter-Rotate Chest",
+        "summary": "Shift the chest back to keep the upper body from pitching into the route.",
+        "task_scope": ["half_kneel_l"],
+        "targets": ["chest"],
+        "pose_delta": {"rotation_deg": {"chest": [-3, 0, 0]}},
+        "workbench_set_pose_batch_template": {
+            "poses": [
+                {"bone": "chest", "rotation_deg": [-11, 0, 0]}
+            ]
+        },
+    },
+    {
+        "action_id": 6,
+        "action_key": "tuck_lead_knee",
+        "label": "Tuck Lead Knee",
+        "summary": "Increase knee flexion to reduce the left knee contact gap.",
+        "task_scope": ["half_kneel_l"],
+        "targets": ["lower_leg_l"],
+        "pose_delta": {"rotation_deg": {"lower_leg_l": [5, 0, 0]}},
+        "workbench_set_pose_batch_template": {
+            "poses": [
+                {"bone": "lower_leg_l", "rotation_deg": [125, 0, 0]}
+            ]
+        },
+    },
+    {
+        "action_id": 7,
+        "action_key": "widen_anchor_foot",
+        "label": "Widen Anchor Foot",
+        "summary": "Yaw the planted right foot outward to improve the support polygon.",
+        "task_scope": ["half_kneel_l"],
+        "targets": ["foot_r"],
+        "pose_delta": {"rotation_deg": {"foot_r": [0, 3, 0]}},
+        "workbench_set_pose_batch_template": {
+            "poses": [
+                {"bone": "foot_r", "rotation_deg": [-25, 9, 0]}
+            ]
+        },
+    },
+]
 
-@app.get("/api/dreamer/state")
-async def dreamer_state():
-    """Aggregated dreamer state: get_status + show_rssm + show_weights in one call.
-    Caches for 3 seconds to avoid hammering the capsule on rapid polls."""
-    global _dreamer_last_cycle
-    now = time.time()
 
-    # Return cache if fresh (< 3s)
-    if _dreamer_cache["data"] and now - _dreamer_cache["ts"] < 3:
-        return _dreamer_cache["data"]
+def _dreamer_mechanics_number(value, fallback: float = 0.0) -> float:
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return float(fallback)
+    if numeric != numeric:
+        return float(fallback)
+    return float(numeric)
 
-    # Fetch all three in parallel-ish (sequential but fast internal calls)
-    status_raw = await _call_tool("get_status", {})
-    rssm_raw = await _call_tool("show_rssm", {})
-    weights_raw = await _call_tool("show_weights", {})
-    lora_raw = await _call_tool("show_lora", {})
 
-    status = _parse_mcp_result(status_raw.get("result")) or {}
-    rssm = _parse_mcp_result(rssm_raw.get("result")) or {}
-    weights = _parse_mcp_result(weights_raw.get("result")) or {}
-    lora = _parse_mcp_result(lora_raw.get("result")) or {}
+def _dreamer_mechanics_flag(value) -> float:
+    return 1.0 if bool(value) else 0.0
 
-    dreamer = status.get("dreamer", {}) if isinstance(status, dict) else {}
 
-    # Track training history for charts
-    cycles = dreamer.get("training_cycles", 0)
-    if cycles > _dreamer_last_cycle and dreamer.get("last_train"):
-        lt = dreamer["last_train"]
-        _dreamer_history["critic_loss"].append({
-            "ts": now, "cycle": cycles,
-            "baseline": lt.get("critic_baseline_loss"),
-            "perturbed": lt.get("critic_perturbed_loss"),
-            "accepted": lt.get("accepted"),
-        })
-        # Cap history at 200 entries
-        if len(_dreamer_history["critic_loss"]) > 200:
-            _dreamer_history["critic_loss"] = _dreamer_history["critic_loss"][-200:]
-        _dreamer_last_cycle = cycles
+def _dreamer_mechanics_live_snapshot() -> tuple[dict | None, int]:
+    payload = _env_read_live_cache_payload("text_theater_snapshot")
+    if not isinstance(payload, dict):
+        return None, 0
+    snapshot = payload.get("text_theater_snapshot")
+    if not isinstance(snapshot, dict):
+        return None, 0
+    delta = payload.get("delta") if isinstance(payload.get("delta"), dict) else {}
+    updated_ms = int(delta.get("updated_ms") or 0)
+    return snapshot, updated_ms
 
-    _dreamer_history["reward_counts"].append({"ts": now, "count": dreamer.get("reward_count", 0)})
-    _dreamer_history["fitness"].append({"ts": now, "value": dreamer.get("fitness", 0)})
-    # Cap
-    for k in ("reward_counts", "fitness"):
-        if len(_dreamer_history[k]) > 200:
-            _dreamer_history[k] = _dreamer_history[k][-200:]
 
-    if isinstance(rssm, dict):
-        # New champion show_rssm returns RSSM dims at top-level; keep legacy fallback.
-        rssm_view = rssm.get("metrics", {}).get("other", rssm)
-    else:
-        rssm_view = {}
+def _dreamer_mechanics_contact_row(contacts: list[dict], joint_id: str) -> dict:
+    target = str(joint_id or "").strip().lower()
+    if not target:
+        return {}
+    aliases = {target}
+    if "_" in target:
+        left, right = target.split("_", 1)
+        aliases.add(f"{right}_{left}")
+    for row in contacts:
+        if not isinstance(row, dict):
+            continue
+        row_joint = str(row.get("joint") or "").strip().lower()
+        row_group = str(row.get("group") or "").strip().lower()
+        row_side = str(row.get("side") or "").strip().lower()
+        row_aliases = {row_joint}
+        if row_group and row_side:
+            row_aliases.add(f"{row_group}_{row_side}")
+            row_aliases.add(f"{row_side}_{row_group}")
+        if aliases & row_aliases:
+            return row
+    return {}
 
-    result = {
-        "dreamer": dreamer,
-        "rssm": rssm_view,
-        "weights": weights,
-        "lora": lora,
-        "history": _dreamer_history,
-        "generation": status.get("generation") if isinstance(status, dict) else None,
-        "fitness": status.get("fitness") if isinstance(status, dict) else None,
+
+def _dreamer_mechanics_load_share(load_field: dict, target_id: str) -> float:
+    loads = load_field.get("support_loads") if isinstance(load_field.get("support_loads"), dict) else {}
+    target = str(target_id or "").strip().lower()
+    if not target or not loads:
+        return 0.0
+    aliases = {target}
+    if "_" in target:
+        left, right = target.split("_", 1)
+        aliases.add(f"{right}_{left}")
+    best = 0.0
+    for key, value in loads.items():
+        key_lower = str(key or "").strip().lower()
+        key_aliases = {key_lower}
+        if "_" in key_lower:
+            left, right = key_lower.split("_", 1)
+            key_aliases.add(f"{right}_{left}")
+        if aliases & key_aliases:
+            best = max(best, _dreamer_mechanics_number(value, 0.0))
+    return best
+
+
+def _dreamer_mechanics_bone_row(snapshot: dict, bone_id: str) -> dict:
+    embodiment = snapshot.get("embodiment") if isinstance(snapshot.get("embodiment"), dict) else {}
+    bones = embodiment.get("bones") if isinstance(embodiment.get("bones"), list) else []
+    target = str(bone_id or "").strip().lower()
+    for row in bones:
+        if not isinstance(row, dict):
+            continue
+        if str(row.get("id") or "").strip().lower() == target:
+            return row
+    return {}
+
+
+def _dreamer_mechanics_bone_rotation(snapshot: dict, bone_id: str, axis_index: int) -> float:
+    row = _dreamer_mechanics_bone_row(snapshot, bone_id)
+    rotation = row.get("rotation_deg") if isinstance(row.get("rotation_deg"), list) else []
+    return _dreamer_mechanics_number(rotation[axis_index] if axis_index < len(rotation) else 0.0, 0.0)
+
+
+def _dreamer_mechanics_bone_world(snapshot: dict, bone_id: str, axis_index: int) -> float:
+    row = _dreamer_mechanics_bone_row(snapshot, bone_id)
+    world_pos = row.get("world_pos") if isinstance(row.get("world_pos"), list) else []
+    return _dreamer_mechanics_number(world_pos[axis_index] if axis_index < len(world_pos) else 0.0, 0.0)
+
+
+def _dreamer_mechanics_phase_index(route_report: dict, timeline: dict) -> float:
+    phase_id = str(route_report.get("active_phase_id") or "").strip()
+    if not phase_id:
+        return -1.0
+    phases = timeline.get("contact_phases") if isinstance(timeline.get("contact_phases"), list) else []
+    for index, phase in enumerate(phases):
+        if not isinstance(phase, dict):
+            continue
+        if str(phase.get("phase_id") or "").strip() == phase_id:
+            return float(index)
+    return -1.0
+
+
+def _dreamer_mechanics_observation_payload(snapshot: dict, updated_ms: int) -> dict:
+    workbench = snapshot.get("workbench") if isinstance(snapshot.get("workbench"), dict) else {}
+    route_report = workbench.get("route_report") if isinstance(workbench.get("route_report"), dict) else {}
+    active_controller = workbench.get("active_controller") if isinstance(workbench.get("active_controller"), dict) else {}
+    load_field = workbench.get("load_field") if isinstance(workbench.get("load_field"), dict) else {}
+    timeline = snapshot.get("timeline") if isinstance(snapshot.get("timeline"), dict) else {}
+    balance = snapshot.get("balance") if isinstance(snapshot.get("balance"), dict) else {}
+    contacts = snapshot.get("contacts") if isinstance(snapshot.get("contacts"), list) else []
+
+    lower_leg_l = _dreamer_mechanics_contact_row(contacts, "lower_leg_l")
+    foot_r = _dreamer_mechanics_contact_row(contacts, "foot_r")
+    balance_mode = str(balance.get("balance_mode") or "").strip().lower()
+    intended_support = route_report.get("intended_support_set") if isinstance(route_report.get("intended_support_set"), list) else []
+    realized_support = route_report.get("realized_support_set") if isinstance(route_report.get("realized_support_set"), list) else []
+    missing_support = route_report.get("missing_support_participants") if isinstance(route_report.get("missing_support_participants"), list) else []
+
+    features = {
+        "route": {
+            "realized_support_count": len(realized_support),
+            "missing_support_count": len(missing_support),
+            "intended_support_count": len(intended_support),
+            "phase_index": _dreamer_mechanics_phase_index(route_report, timeline),
+            "stage_blocked": bool(route_report.get("stage_blocked")),
+            "has_active_route": bool(str(route_report.get("status") or "").strip() not in ("", "none")),
+            "status": str(route_report.get("status") or "none"),
+            "active_phase_id": str(route_report.get("active_phase_id") or ""),
+            "active_phase_label": str(route_report.get("active_phase_label") or ""),
+            "phase_gate_summary": str(route_report.get("phase_gate_summary") or ""),
+        },
+        "balance": {
+            "stability_risk": _dreamer_mechanics_number(balance.get("stability_risk"), 0.0),
+            "stability_margin": _dreamer_mechanics_number(balance.get("stability_margin"), 0.0),
+            "normalized_margin": _dreamer_mechanics_number(balance.get("normalized_margin"), 0.0),
+            "nearest_edge_distance": _dreamer_mechanics_number(((balance.get("nearest_edge") or {}).get("distance")), 0.0),
+            "support_count": int(_dreamer_mechanics_number(balance.get("support_count"), 0.0)),
+            "balance_mode": balance_mode or "none",
+            "balance_mode_code": int(_DREAMER_BALANCE_MODE_CODES.get(balance_mode or "none", 0)),
+            "supporting_joint_ids": list(balance.get("supporting_joint_ids") or []),
+            "alert_ids": list(balance.get("alert_ids") or []),
+        },
+        "controller": {
+            "present": bool(active_controller),
+            "controller_id": str(active_controller.get("controller_id") or ""),
+            "leader_count": len(active_controller.get("leader_bone_ids") or []),
+            "anchor_count": len(active_controller.get("anchor_bone_ids") or []),
+            "carrier_count": len(active_controller.get("carrier_bone_ids") or []),
+        },
+        "contacts": {
+            "lower_leg_l": {
+                "gap": _dreamer_mechanics_number(lower_leg_l.get("gap"), 0.0),
+                "manifold_points": int(_dreamer_mechanics_number(lower_leg_l.get("manifold_points"), 0.0)),
+                "load_share": _dreamer_mechanics_load_share(load_field, "lower_leg_l"),
+                "supporting": bool(lower_leg_l.get("supporting")),
+                "state": str(lower_leg_l.get("state") or ""),
+            },
+            "foot_r": {
+                "gap": _dreamer_mechanics_number(foot_r.get("gap"), 0.0),
+                "manifold_points": int(_dreamer_mechanics_number(foot_r.get("manifold_points"), 0.0)),
+                "load_share": _dreamer_mechanics_load_share(load_field, "foot_r"),
+                "supporting": bool(foot_r.get("supporting")),
+                "state": str(foot_r.get("state") or ""),
+            },
+        },
+        "pose": {
+            "hips_pitch_deg": _dreamer_mechanics_bone_rotation(snapshot, "hips", 0),
+            "hips_world_y": _dreamer_mechanics_bone_world(snapshot, "hips", 1),
+            "hips_world_z": _dreamer_mechanics_bone_world(snapshot, "hips", 2),
+            "spine_pitch_deg": _dreamer_mechanics_bone_rotation(snapshot, "spine", 0),
+            "chest_pitch_deg": _dreamer_mechanics_bone_rotation(snapshot, "chest", 0),
+            "lower_leg_l_pitch_deg": _dreamer_mechanics_bone_rotation(snapshot, "lower_leg_l", 0),
+            "foot_r_yaw_deg": _dreamer_mechanics_bone_rotation(snapshot, "foot_r", 1),
+        },
     }
-    _dreamer_cache["data"] = result
-    _dreamer_cache["ts"] = now
-    return result
+
+    observation = [
+        float(features["route"]["realized_support_count"]),
+        float(features["route"]["missing_support_count"]),
+        float(features["route"]["intended_support_count"]),
+        float(features["route"]["phase_index"]),
+        _dreamer_mechanics_flag(features["route"]["stage_blocked"]),
+        _dreamer_mechanics_flag(features["route"]["has_active_route"]),
+        float(features["balance"]["stability_risk"]),
+        float(features["balance"]["stability_margin"]),
+        float(features["balance"]["normalized_margin"]),
+        float(features["balance"]["nearest_edge_distance"]),
+        float(features["balance"]["support_count"]),
+        float(features["balance"]["balance_mode_code"]),
+        _dreamer_mechanics_flag(features["controller"]["present"]),
+        float(features["controller"]["leader_count"]),
+        float(features["controller"]["anchor_count"]),
+        float(features["controller"]["carrier_count"]),
+        float(features["contacts"]["lower_leg_l"]["gap"]),
+        float(features["contacts"]["lower_leg_l"]["manifold_points"]),
+        float(features["contacts"]["lower_leg_l"]["load_share"]),
+        _dreamer_mechanics_flag(features["contacts"]["lower_leg_l"]["supporting"]),
+        float(features["contacts"]["foot_r"]["gap"]),
+        float(features["contacts"]["foot_r"]["manifold_points"]),
+        float(features["contacts"]["foot_r"]["load_share"]),
+        _dreamer_mechanics_flag(features["contacts"]["foot_r"]["supporting"]),
+        float(features["pose"]["hips_pitch_deg"]),
+        float(features["pose"]["hips_world_y"]),
+        float(features["pose"]["hips_world_z"]),
+        float(features["pose"]["spine_pitch_deg"]),
+        float(features["pose"]["chest_pitch_deg"]),
+        float(features["pose"]["lower_leg_l_pitch_deg"]),
+        float(features["pose"]["foot_r_yaw_deg"]),
+    ]
+
+    return {
+        "status": "ok",
+        "schema_id": _DREAMER_MECHANICS_SCHEMA_ID,
+        "obs_source": "text_theater_snapshot",
+        "updated_ms": int(updated_ms or 0),
+        "observation_size": len(observation),
+        "field_names": list(_DREAMER_MECHANICS_FIELDS),
+        "observation": observation,
+        "features": features,
+        "target_task": "half_kneel_l",
+        "focus": {
+            "object_key": str((((snapshot.get("runtime") or {}).get("object_key")) or "")),
+            "mode": str((((snapshot.get("runtime") or {}).get("mode")) or "")),
+            "behavior": str((((snapshot.get("runtime") or {}).get("behavior")) or "")),
+            "activity": str((((snapshot.get("runtime") or {}).get("activity")) or "")),
+        },
+        "correction_table": _json_clone(_DREAMER_KNEEL_CORRECTIONS),
+        "mode_legend": {
+            "balance_mode_code": _json_clone(_DREAMER_BALANCE_MODE_CODES),
+        },
+    }
 
 
-@app.get("/api/dreamer/config")
-async def dreamer_config_get():
-    """Load dreamer config from FelixBag, falling back to defaults."""
+def _dreamer_history_append(key: str, entry: dict, limit: int = 60) -> None:
+    if key not in _dreamer_history:
+        _dreamer_history[key] = []
+    bucket = _dreamer_history.get(key)
+    if not isinstance(bucket, list):
+        bucket = []
+        _dreamer_history[key] = bucket
+    bucket.append(entry)
+    max_len = max(1, int(limit or 1))
+    if len(bucket) > max_len:
+        _dreamer_history[key] = bucket[-max_len:]
+
+
+async def _dreamer_effective_config() -> tuple[dict, str, list[str]]:
+    raw_config, source, warnings = await _dreamer_config_load_saved()
+    effective, normalized_warnings = _dreamer_config_normalize(raw_config or {})
+    merged_warnings = [str(item) for item in (warnings or []) + (normalized_warnings or []) if str(item or "").strip()]
+    return effective, source, merged_warnings
+
+
+def _dreamer_control_plane_view(config: dict | None = None) -> dict:
+    cfg = config if isinstance(config, dict) else {}
+    control_plane = cfg.get("control_plane") if isinstance(cfg.get("control_plane"), dict) else {}
+    overlay = cfg.get("overlay") if isinstance(cfg.get("overlay"), dict) else {}
+    return {
+        "control_plane": _json_clone(control_plane),
+        "overlay": _json_clone(overlay),
+    }
+
+
+def _dreamer_mechanics_current_payload() -> tuple[dict | None, str | None]:
+    snapshot, updated_ms = _dreamer_mechanics_live_snapshot()
+    if not isinstance(snapshot, dict):
+        return None, "No live text theater snapshot available"
+    return _dreamer_mechanics_observation_payload(snapshot, updated_ms), None
+
+
+def _dreamer_control_plane_task(config: dict | None = None) -> str:
+    control = _dreamer_control_plane_view(config).get("control_plane", {})
+    task = str(control.get("task") or "").strip()
+    return task or "half_kneel_l"
+
+
+def _dreamer_correction_table_for_task(task: str = "") -> list[dict]:
+    task_key = str(task or "").strip()
+    rows = []
+    for entry in _DREAMER_KNEEL_CORRECTIONS:
+        scope = entry.get("task_scope") if isinstance(entry.get("task_scope"), list) else []
+        if task_key and scope and task_key not in scope:
+            continue
+        rows.append(_json_clone(entry))
+    return rows
+
+
+def _dreamer_pick_contact(payload: dict, joint_id: str) -> dict:
+    features = payload.get("features") if isinstance(payload.get("features"), dict) else {}
+    contacts = features.get("contacts") if isinstance(features.get("contacts"), dict) else {}
+    contact = contacts.get(str(joint_id or "").strip()) if isinstance(contacts.get(str(joint_id or "").strip()), dict) else {}
+    return contact
+
+
+def _dreamer_reward_breakdown(previous_payload: dict, current_payload: dict) -> dict:
+    prev_features = previous_payload.get("features") if isinstance(previous_payload.get("features"), dict) else {}
+    curr_features = current_payload.get("features") if isinstance(current_payload.get("features"), dict) else {}
+    prev_route = prev_features.get("route") if isinstance(prev_features.get("route"), dict) else {}
+    curr_route = curr_features.get("route") if isinstance(curr_features.get("route"), dict) else {}
+    prev_balance = prev_features.get("balance") if isinstance(prev_features.get("balance"), dict) else {}
+    curr_balance = curr_features.get("balance") if isinstance(curr_features.get("balance"), dict) else {}
+    prev_knee = _dreamer_pick_contact(previous_payload, "lower_leg_l")
+    curr_knee = _dreamer_pick_contact(current_payload, "lower_leg_l")
+    prev_foot = _dreamer_pick_contact(previous_payload, "foot_r")
+    curr_foot = _dreamer_pick_contact(current_payload, "foot_r")
+
+    prev_gap = _dreamer_mechanics_number(prev_knee.get("gap"), 0.0)
+    curr_gap = _dreamer_mechanics_number(curr_knee.get("gap"), 0.0)
+    prev_phase = _dreamer_mechanics_number(prev_route.get("phase_index"), -1.0)
+    curr_phase = _dreamer_mechanics_number(curr_route.get("phase_index"), -1.0)
+    prev_risk = _dreamer_mechanics_number(prev_balance.get("stability_risk"), 0.0)
+    curr_risk = _dreamer_mechanics_number(curr_balance.get("stability_risk"), 0.0)
+    prev_margin = _dreamer_mechanics_number(prev_balance.get("stability_margin"), 0.0)
+    curr_margin = _dreamer_mechanics_number(curr_balance.get("stability_margin"), 0.0)
+    prev_manifold = _dreamer_mechanics_number(prev_knee.get("manifold_points"), 0.0) + _dreamer_mechanics_number(prev_foot.get("manifold_points"), 0.0)
+    curr_manifold = _dreamer_mechanics_number(curr_knee.get("manifold_points"), 0.0) + _dreamer_mechanics_number(curr_foot.get("manifold_points"), 0.0)
+    prev_support = set(prev_balance.get("supporting_joint_ids") or [])
+    curr_support = set(curr_balance.get("supporting_joint_ids") or [])
+    prev_alerts = set(prev_balance.get("alert_ids") or [])
+    curr_alerts = set(curr_balance.get("alert_ids") or [])
+
+    contributions: dict[str, float] = {}
+
+    gap_delta = prev_gap - curr_gap
+    if abs(gap_delta) > 0.0001:
+        contributions["gap_delta"] = round(max(-2.0, min(2.0, gap_delta * 4.0)), 4)
+
+    phase_delta = curr_phase - prev_phase
+    if phase_delta > 0:
+        contributions["phase_advance"] = round(min(4.0, phase_delta * 2.0), 4)
+    elif phase_delta < 0:
+        contributions["phase_regression"] = round(max(-4.0, phase_delta * 1.0), 4)
+
+    new_support = max(0, len(curr_support - prev_support))
+    lost_support = max(0, len(prev_support - curr_support))
+    if new_support:
+        contributions["support_realized"] = round(new_support * 1.5, 4)
+    if lost_support:
+        contributions["support_lost"] = round(-1.5 * lost_support, 4)
+
+    risk_delta = prev_risk - curr_risk
+    if abs(risk_delta) > 0.0001:
+        contributions["stability_gain"] = round(max(-2.0, min(2.0, risk_delta * 2.0)), 4)
+
+    margin_delta = curr_margin - prev_margin
+    if abs(margin_delta) > 0.0001:
+        contributions["margin_gain"] = round(max(-1.5, min(1.5, margin_delta * 0.75)), 4)
+
+    manifold_delta = curr_manifold - prev_manifold
+    if abs(manifold_delta) > 0.0001:
+        contributions["manifold_gain"] = round(max(-1.0, min(1.0, manifold_delta * 0.2)), 4)
+
+    new_alerts = curr_alerts - prev_alerts
+    if "support_penetration" in new_alerts:
+        contributions["support_penetration"] = -3.0
+    if bool(curr_route.get("stage_blocked")) and not bool(prev_route.get("stage_blocked")):
+        contributions["stage_blocked"] = -1.5
+    if str(curr_balance.get("balance_mode") or "").strip().lower() == "falling":
+        contributions["falling"] = -4.0
+
+    total_reward = round(sum(contributions.values()), 4)
+    return {
+        "total_reward": total_reward,
+        "contributions": contributions,
+        "delta": {
+            "lower_leg_l_gap": round(gap_delta, 4),
+            "phase_index": round(phase_delta, 4),
+            "stability_risk": round(risk_delta, 4),
+            "stability_margin": round(margin_delta, 4),
+            "manifold_points": round(manifold_delta, 4),
+            "new_supporting_joints": sorted(curr_support - prev_support),
+            "lost_supporting_joints": sorted(prev_support - curr_support),
+            "new_alerts": sorted(new_alerts),
+        },
+    }
+
+
+def _dreamer_rank_proposals(observation_payload: dict, config: dict | None = None) -> dict:
+    task = _dreamer_control_plane_task(config)
+    corrections = _dreamer_correction_table_for_task(task)
+    features = observation_payload.get("features") if isinstance(observation_payload.get("features"), dict) else {}
+    balance = features.get("balance") if isinstance(features.get("balance"), dict) else {}
+    contacts = features.get("contacts") if isinstance(features.get("contacts"), dict) else {}
+    pose = features.get("pose") if isinstance(features.get("pose"), dict) else {}
+    knee = contacts.get("lower_leg_l") if isinstance(contacts.get("lower_leg_l"), dict) else {}
+    foot = contacts.get("foot_r") if isinstance(contacts.get("foot_r"), dict) else {}
+    gap = _dreamer_mechanics_number(knee.get("gap"), 0.0)
+    risk = _dreamer_mechanics_number(balance.get("stability_risk"), 0.0)
+    margin = _dreamer_mechanics_number(balance.get("stability_margin"), 0.0)
+    hips_world_y = _dreamer_mechanics_number(pose.get("hips_world_y"), 0.0)
+    load_share = _dreamer_mechanics_number(foot.get("load_share"), 0.0)
+    supporting = bool(foot.get("supporting"))
+
+    ranked = []
+    for entry in corrections:
+        action_key = str(entry.get("action_key") or "")
+        score = 0.0
+        reasons: list[str] = []
+
+        if gap > 0.2:
+            if action_key == "drop_hips":
+                score += min(3.2, gap * 4.8)
+                reasons.append("left knee gap is still high")
+            if action_key == "tuck_lead_knee":
+                score += min(2.8, gap * 3.8)
+                reasons.append("knee flexion can close the contact gap")
+            if action_key == "shift_hips_fore":
+                score += 1.2
+                reasons.append("carrier projection can move load toward the kneel lane")
+            if action_key == "raise_hips":
+                score -= 0.8
+                reasons.append("raising the carrier would usually widen the kneel gap")
+
+        if risk >= 0.84 or margin < 0:
+            if action_key == "widen_anchor_foot":
+                score += 2.0
+                reasons.append("support polygon is failing and the planted foot can widen it")
+            if action_key == "counter_rotate_spine":
+                score += 1.4
+                reasons.append("upper-body counter-rotation can reduce forward collapse")
+            if action_key == "counter_rotate_chest":
+                score += 1.2
+                reasons.append("chest compensation can stabilize the braced posture")
+            if action_key == "shift_hips_aft":
+                score += 1.6
+                reasons.append("carrier is outside the support polygon")
+
+        if hips_world_y > 5.5 and action_key == "drop_hips":
+            score += 0.8
+            reasons.append("hips remain visually high for the kneel target")
+
+        if supporting and load_share >= 0.85 and action_key == "widen_anchor_foot":
+            score += 0.8
+            reasons.append("right foot is carrying nearly all support load")
+
+        if action_key == "raise_hips" and risk < 0.25 and gap < 0.08:
+            score += 0.4
+            reasons.append("carrier lift only helps if the kneel is already compressed")
+
+        ranked.append({
+            "action_id": entry.get("action_id"),
+            "action_key": action_key,
+            "label": entry.get("label"),
+            "summary": entry.get("summary"),
+            "score": round(score, 4),
+            "reasons": reasons,
+            "targets": _json_clone(entry.get("targets") or []),
+            "pose_delta": _json_clone(entry.get("pose_delta") or {}),
+            "workbench_set_pose_batch_template": _json_clone(entry.get("workbench_set_pose_batch_template") or {}),
+        })
+
+    ranked.sort(key=lambda item: (-float(item.get("score") or 0.0), int(item.get("action_id") or 0)))
+    best = ranked[0] if ranked else None
+    return {
+        "proposal_source": "outer_control_plane_heuristic_v1",
+        "task": task,
+        "ranked_actions": ranked,
+        "best_action": _json_clone(best) if isinstance(best, dict) else None,
+    }
+
+
+def _dreamer_compact_observation(payload: dict | None = None) -> dict:
+    source = payload if isinstance(payload, dict) else {}
+    features = source.get("features") if isinstance(source.get("features"), dict) else {}
+    route = features.get("route") if isinstance(features.get("route"), dict) else {}
+    balance = features.get("balance") if isinstance(features.get("balance"), dict) else {}
+    contacts = features.get("contacts") if isinstance(features.get("contacts"), dict) else {}
+    pose = features.get("pose") if isinstance(features.get("pose"), dict) else {}
+    knee = contacts.get("lower_leg_l") if isinstance(contacts.get("lower_leg_l"), dict) else {}
+    foot = contacts.get("foot_r") if isinstance(contacts.get("foot_r"), dict) else {}
+    return {
+        "updated_ms": int(source.get("updated_ms") or 0),
+        "target_task": str(source.get("target_task") or ""),
+        "route": {
+            "status": str(route.get("status") or ""),
+            "phase_index": _dreamer_mechanics_number(route.get("phase_index"), -1.0),
+            "stage_blocked": bool(route.get("stage_blocked")),
+        },
+        "balance": {
+            "stability_risk": _dreamer_mechanics_number(balance.get("stability_risk"), 0.0),
+            "stability_margin": _dreamer_mechanics_number(balance.get("stability_margin"), 0.0),
+            "balance_mode": str(balance.get("balance_mode") or ""),
+            "supporting_joint_ids": list(balance.get("supporting_joint_ids") or []),
+            "alert_ids": list(balance.get("alert_ids") or []),
+        },
+        "contacts": {
+            "lower_leg_l": {
+                "gap": _dreamer_mechanics_number(knee.get("gap"), 0.0),
+                "state": str(knee.get("state") or ""),
+                "supporting": bool(knee.get("supporting")),
+                "manifold_points": int(_dreamer_mechanics_number(knee.get("manifold_points"), 0.0)),
+            },
+            "foot_r": {
+                "gap": _dreamer_mechanics_number(foot.get("gap"), 0.0),
+                "state": str(foot.get("state") or ""),
+                "supporting": bool(foot.get("supporting")),
+                "load_share": _dreamer_mechanics_number(foot.get("load_share"), 0.0),
+                "manifold_points": int(_dreamer_mechanics_number(foot.get("manifold_points"), 0.0)),
+            },
+        },
+        "pose": {
+            "hips_world_y": _dreamer_mechanics_number(pose.get("hips_world_y"), 0.0),
+            "hips_world_z": _dreamer_mechanics_number(pose.get("hips_world_z"), 0.0),
+            "lower_leg_l_pitch_deg": _dreamer_mechanics_number(pose.get("lower_leg_l_pitch_deg"), 0.0),
+            "foot_r_yaw_deg": _dreamer_mechanics_number(pose.get("foot_r_yaw_deg"), 0.0),
+        },
+    }
+
+
+async def _dreamer_dispatch_env_control(args: dict, *, source: str = "webui", client_id: str | None = None) -> tuple[dict | None, str | None]:
+    env_control_proxy_payload = _env_control_local_proxy_payload(args)
+    if env_control_proxy_payload is None:
+        return None, "Command is not an environment-control proxy command"
+    before_live_cache = _env_live_cache_snapshot()
+    before_updated_ms = int((before_live_cache or {}).get("updated_ms") or 0)
+    err_msg = env_control_proxy_payload.get("error") if isinstance(env_control_proxy_payload, dict) else None
+    _broadcast_activity("env_control", args, env_control_proxy_payload, 0, err_msg, source=source, client_id=client_id)
+    payload = await _env_control_attach_text_theater_observation(
+        env_control_proxy_payload,
+        args=args,
+        before_updated_ms=before_updated_ms,
+    )
+    return payload, err_msg
+
+
+def _dreamer_select_ranked_action(ranked_actions: list[dict] | None, action_key: str = "", action_id=None) -> tuple[dict | None, str | None]:
+    rows = ranked_actions if isinstance(ranked_actions, list) else []
+    key = str(action_key or "").strip()
+    wanted_id = None
+    if action_id is not None and str(action_id).strip() != "":
+        try:
+            wanted_id = int(action_id)
+        except Exception:
+            return None, "Invalid action_id"
+    if key:
+        for entry in rows:
+            if str((entry or {}).get("action_key") or "").strip() == key:
+                return _json_clone(entry), None
+        return None, f"Unknown action_key '{key}'"
+    if wanted_id is not None:
+        for entry in rows:
+            try:
+                entry_id = int((entry or {}).get("action_id"))
+            except Exception:
+                entry_id = None
+            if entry_id == wanted_id:
+                return _json_clone(entry), None
+        return None, f"Unknown action_id '{wanted_id}'"
+    if rows:
+        return _json_clone(rows[0]), None
+    return None, "No ranked actions available"
+
+
+def _dreamer_config_default_value(section: str, key: str):
+    section_defaults = _dreamer_config_defaults.get(section)
+    if not isinstance(section_defaults, dict):
+        return None
+    return _json_clone(section_defaults.get(key))
+
+
+def _dreamer_config_coerce_bool(value, default: bool) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    if isinstance(value, str):
+        raw = value.strip().lower()
+        if raw in {"1", "true", "yes", "on"}:
+            return True
+        if raw in {"0", "false", "no", "off"}:
+            return False
+    return bool(default)
+
+
+def _dreamer_config_coerce_scalar(section: str, key: str, value, spec: dict, warnings: list[str]):
+    default = _dreamer_config_default_value(section, key)
+    kind = str(spec.get("type") or "float").strip().lower()
+    if kind == "bool":
+        return _dreamer_config_coerce_bool(value, bool(default))
+    if kind == "string":
+        text = str(value if value is not None else "").strip()
+        if not text:
+            if default is not None:
+                warnings.append(f"{section}.{key}: blank value; using default {default!r}")
+            return str(default or "")
+        max_len = spec.get("max_len")
+        if max_len is not None and len(text) > int(max_len):
+            warnings.append(f"{section}.{key}: trimmed to max_len {max_len}")
+            text = text[: int(max_len)]
+        return text
+    if kind == "enum":
+        options = [str(item or "").strip() for item in (spec.get("options") or []) if str(item or "").strip()]
+        fallback = str(default or "")
+        candidate = str(value if value is not None else "").strip()
+        if not candidate:
+            if fallback:
+                warnings.append(f"{section}.{key}: blank value; using default {fallback!r}")
+            return fallback
+        if options and candidate not in options:
+            warnings.append(f"{section}.{key}: invalid option {candidate!r}; using default {fallback!r}")
+            return fallback
+        return candidate
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        warnings.append(f"{section}.{key}: invalid value {value!r}; using default {default!r}")
+        numeric = float(default if default is not None else 0)
+    minimum = spec.get("min")
+    maximum = spec.get("max")
+    if minimum is not None and numeric < float(minimum):
+        warnings.append(f"{section}.{key}: clamped {numeric} to min {minimum}")
+        numeric = float(minimum)
+    if maximum is not None and numeric > float(maximum):
+        warnings.append(f"{section}.{key}: clamped {numeric} to max {maximum}")
+        numeric = float(maximum)
+    if kind == "int":
+        return int(round(numeric))
+    return float(numeric)
+
+
+def _dreamer_config_normalize(raw_config) -> tuple[dict, list[str]]:
+    warnings: list[str] = []
+    source = raw_config if isinstance(raw_config, dict) else {}
+    effective = {}
+    known_sections = set(_DREAMER_CONFIG_EDITABLE_SCHEMA.keys()) | set(_DREAMER_CONFIG_READ_ONLY_SECTIONS)
+
+    if source and not isinstance(raw_config, dict):
+        warnings.append("config root was not an object; using defaults")
+    for section in sorted(set(source.keys()) - known_sections):
+        warnings.append(f"unknown section ignored: {section}")
+
+    for section, schema in _DREAMER_CONFIG_EDITABLE_SCHEMA.items():
+        raw_section = source.get(section)
+        section_input = raw_section if isinstance(raw_section, dict) else {}
+        if raw_section is not None and not isinstance(raw_section, dict):
+            warnings.append(f"{section}: expected object; using defaults")
+        for key in sorted(set(section_input.keys()) - set(schema.keys())):
+            warnings.append(f"unknown key ignored: {section}.{key}")
+        effective[section] = {}
+        for key, spec in schema.items():
+            candidate = section_input.get(key, _dreamer_config_default_value(section, key))
+            effective[section][key] = _dreamer_config_coerce_scalar(section, key, candidate, spec, warnings)
+
+    effective["architecture"] = _json_clone(_dreamer_config_defaults.get("architecture") or {})
+    if "architecture" in source:
+        warnings.append("architecture is read-only and was ignored")
+    return effective, warnings
+
+
+def _dreamer_config_editable_view(config: dict) -> dict:
+    editable = {}
+    for section in _DREAMER_CONFIG_EDITABLE_SCHEMA.keys():
+        if isinstance(config.get(section), dict):
+            editable[section] = _json_clone(config.get(section) or {})
+    return editable
+
+
+async def _dreamer_config_load_saved() -> tuple[dict | None, str, list[str]]:
+    warnings: list[str] = []
     result = await _call_tool("bag_get", {"key": "dreamer_config"})
     parsed = _parse_mcp_result(result.get("result"))
     if parsed and isinstance(parsed, dict) and "value" in parsed:
         try:
-            return {"config": json.loads(parsed["value"]), "source": "bag"}
-        except (json.JSONDecodeError, TypeError):
-            pass
-    return {"config": _dreamer_config_defaults, "source": "defaults"}
+            loaded = json.loads(parsed["value"])
+            if isinstance(loaded, dict):
+                return loaded, "bag", warnings
+            warnings.append("saved dreamer_config was not an object; using defaults")
+        except (json.JSONDecodeError, TypeError) as exc:
+            warnings.append(f"saved dreamer_config was unreadable: {type(exc).__name__}")
+    return None, "defaults", warnings
+
+
+async def _dreamer_runtime_meta() -> dict:
+    now = time.time()
+    cached = _dreamer_cache["data"] if _dreamer_cache["data"] and now - _dreamer_cache["ts"] < 3 else None
+    if isinstance(cached, dict):
+        dreamer = cached.get("dreamer") if isinstance(cached.get("dreamer"), dict) else {}
+        rssm_view = cached.get("rssm") if isinstance(cached.get("rssm"), dict) else {}
+    else:
+        status_raw = await _call_tool("get_status", {})
+        rssm_raw = await _call_tool("show_rssm", {})
+        status = _parse_mcp_result(status_raw.get("result")) or {}
+        rssm = _parse_mcp_result(rssm_raw.get("result")) or {}
+        dreamer = status.get("dreamer") if isinstance(status.get("dreamer"), dict) else {}
+        if isinstance(rssm, dict):
+            rssm_view = rssm.get("metrics", {}).get("other", rssm)
+        else:
+            rssm_view = {}
+    return {
+        "action_dim": rssm_view.get("action_dim"),
+        "deter_dim": rssm_view.get("deter_dim"),
+        "stoch_dim": rssm_view.get("stoch_dim"),
+        "stoch_classes": rssm_view.get("stoch_classes"),
+        "total_latent": rssm_view.get("total_latent"),
+        "imagine_horizon": rssm_view.get("imagine_horizon"),
+        "obs_buffer_size": dreamer.get("obs_buffer_size"),
+        "reward_buffer_size": dreamer.get("reward_buffer_size"),
+        "reward_count": dreamer.get("reward_count"),
+        "training_cycles": dreamer.get("training_cycles"),
+        "has_real_rssm": dreamer.get("has_real_rssm"),
+    }
+
+
+async def _dreamer_config_payload(raw_config, source: str, extra_warnings: list[str] | None = None) -> dict:
+    effective, warnings = _dreamer_config_normalize(raw_config or {})
+    if extra_warnings:
+        warnings.extend([str(item) for item in extra_warnings if str(item or "").strip()])
+    runtime = await _dreamer_runtime_meta()
+    return {
+        "config": effective,
+        "effective_config": _json_clone(effective),
+        "saved_config": _dreamer_config_editable_view(effective),
+        "source": source,
+        "schema_version": _DREAMER_CONFIG_SCHEMA_VERSION,
+        "editable_sections": list(_DREAMER_CONFIG_EDITABLE_SCHEMA.keys()),
+        "editable_schema": _json_clone(_DREAMER_CONFIG_EDITABLE_SCHEMA),
+        "read_only_sections": list(_DREAMER_CONFIG_READ_ONLY_SECTIONS),
+        "warnings": warnings,
+        "runtime": runtime,
+    }
+
+
+@app.get("/api/dreamer/mechanics_obs")
+async def dreamer_mechanics_obs():
+    """Return a compact mechanics observation vector plus the first-kneel correction vocabulary."""
+    snapshot, updated_ms = _dreamer_mechanics_live_snapshot()
+    if not isinstance(snapshot, dict):
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "unavailable",
+                "schema_id": _DREAMER_MECHANICS_SCHEMA_ID,
+                "error": "No live text theater snapshot available",
+                "obs_source": "text_theater_snapshot",
+            },
+        )
+    return _dreamer_mechanics_observation_payload(snapshot, updated_ms)
+
+
+@app.get("/api/dreamer/proposal_preview")
+async def dreamer_proposal_preview(limit: int = 5):
+    limit = max(1, min(int(limit or 5), 16))
+    effective, config_source, warnings = await _dreamer_effective_config()
+    observation_payload, err = _dreamer_mechanics_current_payload()
+    if err:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "unavailable",
+                "error": err,
+                "control_plane": _dreamer_control_plane_view(effective),
+                "config_source": config_source,
+                "warnings": warnings,
+            },
+        )
+    ranked_payload = _dreamer_rank_proposals(observation_payload, effective)
+    ranked_actions = ranked_payload.get("ranked_actions") if isinstance(ranked_payload.get("ranked_actions"), list) else []
+    best_action = ranked_payload.get("best_action") if isinstance(ranked_payload.get("best_action"), dict) else None
+    return {
+        "status": "ok",
+        "proposal_source": str(ranked_payload.get("proposal_source") or "outer_control_plane_heuristic_v1"),
+        "task": str(ranked_payload.get("task") or _dreamer_control_plane_task(effective)),
+        "config_source": config_source,
+        "warnings": warnings,
+        "control_plane": _dreamer_control_plane_view(effective),
+        "current_observation": _dreamer_compact_observation(observation_payload),
+        "available_actions": len(ranked_actions),
+        "best_action": _json_clone(best_action),
+        "ranked_actions": _json_clone(ranked_actions[:limit]),
+    }
+
+
+@app.post("/api/dreamer/episode_reset")
+async def dreamer_episode_reset(request: Request):
+    source = _infer_activity_source(request, fallback="webui")
+    client_id = _extract_client_id(request)
+    cleared = {
+        "mechanics_rewards": len(_dreamer_history.get("mechanics_rewards") or []),
+        "episode_steps": len(_dreamer_history.get("episode_steps") or []),
+    }
+    _dreamer_history["mechanics_rewards"] = []
+    _dreamer_history["episode_steps"] = []
+    payload = {
+        "status": "ok",
+        "summary": "Cleared bounded Dreamer episode trail.",
+        "cleared": cleared,
+        "history": {
+            "mechanics_rewards": 0,
+            "episode_steps": 0,
+        },
+    }
+    _broadcast_activity("dreamer_episode_reset", {}, payload, 0, None, source=source, client_id=client_id)
+    return payload
+
+
+@app.post("/api/dreamer/episode_step")
+async def dreamer_episode_step(request: Request):
+    source = _infer_activity_source(request, fallback="webui")
+    client_id = _extract_client_id(request)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    body = body if isinstance(body, dict) else {}
+
+    effective, config_source, warnings = await _dreamer_effective_config()
+    before_payload, err = _dreamer_mechanics_current_payload()
+    if err or not isinstance(before_payload, dict):
+        payload = {
+            "status": "unavailable",
+            "error": err or "No mechanics observation available",
+            "control_plane": _dreamer_control_plane_view(effective),
+            "config_source": config_source,
+            "warnings": warnings,
+        }
+        _broadcast_activity("dreamer_episode_step", body, payload, 0, payload.get("error"), source=source, client_id=client_id)
+        return JSONResponse(status_code=503, content=payload)
+
+    ranked_payload = _dreamer_rank_proposals(before_payload, effective)
+    ranked_actions = ranked_payload.get("ranked_actions") if isinstance(ranked_payload.get("ranked_actions"), list) else []
+    selected_action, selection_error = _dreamer_select_ranked_action(
+        ranked_actions,
+        action_key=body.get("action_key"),
+        action_id=body.get("action_id"),
+    )
+    if selection_error or not isinstance(selected_action, dict):
+        payload = {
+            "status": "error",
+            "error": selection_error or "No ranked action available",
+            "proposal_source": str(ranked_payload.get("proposal_source") or "outer_control_plane_heuristic_v1"),
+            "task": str(ranked_payload.get("task") or _dreamer_control_plane_task(effective)),
+            "control_plane": _dreamer_control_plane_view(effective),
+            "config_source": config_source,
+            "warnings": warnings,
+            "current_observation": _dreamer_compact_observation(before_payload),
+            "ranked_actions": _json_clone(ranked_actions[:5]),
+        }
+        _broadcast_activity("dreamer_episode_step", body, payload, 0, payload.get("error"), source=source, client_id=client_id)
+        return JSONResponse(status_code=400, content=payload)
+
+    pose_batch_template = selected_action.get("workbench_set_pose_batch_template") if isinstance(selected_action.get("workbench_set_pose_batch_template"), dict) else {}
+    poses = pose_batch_template.get("poses") if isinstance(pose_batch_template.get("poses"), list) else []
+    if not poses:
+        payload = {
+            "status": "error",
+            "error": "Selected action has no pose batch template",
+            "selected_action": _json_clone(selected_action),
+            "control_plane": _dreamer_control_plane_view(effective),
+            "config_source": config_source,
+            "warnings": warnings,
+        }
+        _broadcast_activity("dreamer_episode_step", body, payload, 0, payload.get("error"), source=source, client_id=client_id)
+        return JSONResponse(status_code=400, content=payload)
+
+    actor = str(body.get("actor", "assistant") or "assistant").strip() or "assistant"
+    env_args = {
+        "command": "workbench_set_pose_batch",
+        "target_id": json.dumps(pose_batch_template),
+        "actor": actor,
+        "include_full": False,
+    }
+    env_payload, env_err = await _dreamer_dispatch_env_control(env_args, source=source, client_id=client_id)
+    if env_err or not isinstance(env_payload, dict):
+        payload = {
+            "status": "error",
+            "error": env_err or "Failed to dispatch workbench_set_pose_batch",
+            "selected_action": _json_clone(selected_action),
+            "control_plane": _dreamer_control_plane_view(effective),
+            "config_source": config_source,
+            "warnings": warnings,
+        }
+        _broadcast_activity("dreamer_episode_step", body, payload, 0, payload.get("error"), source=source, client_id=client_id)
+        return JSONResponse(status_code=503, content=payload)
+
+    after_payload, after_err = _dreamer_mechanics_current_payload()
+    if after_err or not isinstance(after_payload, dict):
+        payload = {
+            "status": "partial",
+            "error": after_err or "No post-step mechanics observation available",
+            "selected_action": _json_clone(selected_action),
+            "env_control": env_payload,
+            "control_plane": _dreamer_control_plane_view(effective),
+            "config_source": config_source,
+            "warnings": warnings,
+        }
+        _broadcast_activity("dreamer_episode_step", body, payload, 0, payload.get("error"), source=source, client_id=client_id)
+        return JSONResponse(status_code=503, content=payload)
+
+    reward_breakdown = _dreamer_reward_breakdown(before_payload, after_payload)
+    event_ts = time.time()
+    reward_row = {
+        "ts": event_ts,
+        "task": str(ranked_payload.get("task") or _dreamer_control_plane_task(effective)),
+        "action_key": str(selected_action.get("action_key") or ""),
+        "total_reward": float(reward_breakdown.get("total_reward") or 0.0),
+        "contributions": _json_clone(reward_breakdown.get("contributions") or {}),
+    }
+    step_row = {
+        "ts": event_ts,
+        "task": str(ranked_payload.get("task") or _dreamer_control_plane_task(effective)),
+        "action_id": selected_action.get("action_id"),
+        "action_key": str(selected_action.get("action_key") or ""),
+        "label": str(selected_action.get("label") or selected_action.get("action_key") or "action"),
+        "score": float(selected_action.get("score") or 0.0),
+        "total_reward": float(reward_breakdown.get("total_reward") or 0.0),
+        "before": _dreamer_compact_observation(before_payload),
+        "after": _dreamer_compact_observation(after_payload),
+        "delta": _json_clone(reward_breakdown.get("delta") or {}),
+    }
+    _dreamer_history_append("mechanics_rewards", reward_row, limit=120)
+    _dreamer_history_append("episode_steps", step_row, limit=80)
+
+    payload = {
+        "status": "ok",
+        "summary": f"Applied bounded Dreamer action {selected_action.get('action_key') or 'action'} through workbench_set_pose_batch.",
+        "proposal_source": str(ranked_payload.get("proposal_source") or "outer_control_plane_heuristic_v1"),
+        "task": str(ranked_payload.get("task") or _dreamer_control_plane_task(effective)),
+        "control_plane": _dreamer_control_plane_view(effective),
+        "config_source": config_source,
+        "warnings": warnings,
+        "selected_action": _json_clone(selected_action),
+        "current_observation": _dreamer_compact_observation(before_payload),
+        "next_observation": _dreamer_compact_observation(after_payload),
+        "reward_breakdown": reward_breakdown,
+        "env_control": env_payload,
+        "history_sizes": {
+            "mechanics_rewards": len(_dreamer_history.get("mechanics_rewards") or []),
+            "episode_steps": len(_dreamer_history.get("episode_steps") or []),
+        },
+    }
+    _broadcast_activity("dreamer_episode_step", body, payload, 0, None, source=source, client_id=client_id)
+    return payload
+
+
+async def _dreamer_refresh_state(force: bool = False, include_weights: bool = True) -> dict:
+    """Refresh aggregated Dreamer state and maintain a server-side trail independent of tab visibility."""
+    global _dreamer_last_cycle
+    now = time.time()
+
+    async with _dreamer_fetch_lock:
+        if not force and _dreamer_cache["data"] and now - _dreamer_cache["ts"] < 3:
+            return _dreamer_cache["data"]
+
+        status_raw = await _call_tool("get_status", {})
+        rssm_raw = await _call_tool("show_rssm", {})
+        if include_weights:
+            weights_raw = await _call_tool("show_weights", {})
+            lora_raw = await _call_tool("show_lora", {})
+            weights = _parse_mcp_result(weights_raw.get("result")) or {}
+            lora = _parse_mcp_result(lora_raw.get("result")) or {}
+        else:
+            cached = _dreamer_cache["data"] if isinstance(_dreamer_cache.get("data"), dict) else {}
+            weights = cached.get("weights") if isinstance(cached.get("weights"), dict) else {}
+            lora = cached.get("lora") if isinstance(cached.get("lora"), dict) else {}
+
+        status = _parse_mcp_result(status_raw.get("result")) or {}
+        rssm = _parse_mcp_result(rssm_raw.get("result")) or {}
+        dreamer = status.get("dreamer", {}) if isinstance(status, dict) else {}
+
+        cycles = dreamer.get("training_cycles", 0)
+        if cycles > _dreamer_last_cycle and dreamer.get("last_train"):
+            lt = dreamer["last_train"]
+            _dreamer_history["critic_loss"].append({
+                "ts": now,
+                "cycle": cycles,
+                "baseline": lt.get("critic_baseline_loss"),
+                "perturbed": lt.get("critic_perturbed_loss"),
+                "accepted": lt.get("accepted"),
+            })
+            if len(_dreamer_history["critic_loss"]) > 200:
+                _dreamer_history["critic_loss"] = _dreamer_history["critic_loss"][-200:]
+            _dreamer_last_cycle = cycles
+
+        _dreamer_history["reward_counts"].append({"ts": now, "count": dreamer.get("reward_count", 0)})
+        _dreamer_history["fitness"].append({"ts": now, "value": dreamer.get("fitness", 0)})
+        for key in ("reward_counts", "fitness"):
+            if len(_dreamer_history[key]) > 200:
+                _dreamer_history[key] = _dreamer_history[key][-200:]
+
+        if isinstance(rssm, dict):
+            rssm_view = rssm.get("metrics", {}).get("other", rssm)
+        else:
+            rssm_view = {}
+
+        result = {
+            "dreamer": dreamer,
+            "rssm": rssm_view,
+            "weights": weights,
+            "lora": lora,
+            "history": _dreamer_history,
+            "generation": status.get("generation") if isinstance(status, dict) else None,
+            "fitness": status.get("fitness") if isinstance(status, dict) else None,
+            "history_source": "server_sampler",
+            "history_updated_ts": now,
+        }
+        _dreamer_cache["data"] = result
+        _dreamer_cache["ts"] = now
+        return result
+
+
+async def _dreamer_sampler_loop():
+    while True:
+        try:
+            await _dreamer_refresh_state(force=True, include_weights=False)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            print(f"[WARN] Dreamer sampler failed: {exc}")
+        await asyncio.sleep(5)
+
+
+@app.get("/api/dreamer/state")
+async def dreamer_state():
+    """Aggregated Dreamer state for the dashboard.
+    History is advanced by a background sampler so the tab has useful context on arrival."""
+    return await _dreamer_refresh_state(force=False, include_weights=True)
+
+
+@app.get("/api/dreamer/config")
+async def dreamer_config_get():
+    """Load Dreamer config with validation, coercion, and runtime/read-only metadata."""
+    raw_config, source, warnings = await _dreamer_config_load_saved()
+    return await _dreamer_config_payload(raw_config, source, warnings)
+
+
+@app.get("/api/dreamer/config/effective")
+async def dreamer_config_effective():
+    """Alias for the normalized Dreamer config payload."""
+    raw_config, source, warnings = await _dreamer_config_load_saved()
+    return await _dreamer_config_payload(raw_config, source, warnings)
 
 
 @app.post("/api/dreamer/config")
 async def dreamer_config_save(request: Request):
-    """Save dreamer config to FelixBag."""
+    """Validate and save Dreamer config to FelixBag."""
     try:
         body = await request.json()
     except Exception:
         return JSONResponse(status_code=400, content={"error": "Invalid JSON"})
-    config = body.get("config", body)
+    config = body.get("config", body) if isinstance(body, dict) else body
+    effective, warnings = _dreamer_config_normalize(config if isinstance(config, dict) else {})
+    persistable = _dreamer_config_editable_view(effective)
     result = await _call_tool("bag_induct", {
         "key": "dreamer_config",
-        "content": json.dumps(config),
+        "content": json.dumps(persistable),
         "item_type": "config"
     })
     parsed = _parse_mcp_result(result.get("result"))
-    return {"status": "saved", "result": parsed}
+    payload = await _dreamer_config_payload(persistable, "bag", warnings)
+    payload["status"] = "saved"
+    payload["result"] = parsed
+    return payload
 
 
 @app.post("/api/dreamer/config/reset")
 async def dreamer_config_reset():
-    """Reset dreamer config to defaults (remove from bag, return defaults)."""
+    """Reset Dreamer config to defaults and return the normalized payload."""
     await _call_tool("bag_forget", {"key": "dreamer_config"})
-    return {"status": "reset", "config": _dreamer_config_defaults}
+    payload = await _dreamer_config_payload(None, "defaults")
+    payload["status"] = "reset"
+    return payload
 
 
 # Vast fleet state cache
@@ -10462,6 +12761,13 @@ async def _handle_streamable_rpc(obj: dict, client_id: str) -> dict | None:
             if err_msg:
                 return _rpc_error(rpc_id, -32603, err_msg, env_read_proxy_payload)
             return {"jsonrpc": "2.0", "id": rpc_id, "result": {"content": [{"type": "text", "text": json.dumps(env_read_proxy_payload)}], "isError": False}}
+
+        env_report_proxy_payload = await _env_report_local_proxy_payload_async(args)
+        if tool_name == "env_report" and env_report_proxy_payload is not None:
+            err_msg = env_report_proxy_payload.get("error") if isinstance(env_report_proxy_payload, dict) else None
+            if err_msg:
+                return _rpc_error(rpc_id, -32603, err_msg, env_report_proxy_payload)
+            return {"jsonrpc": "2.0", "id": rpc_id, "result": {"content": [{"type": "text", "text": json.dumps(env_report_proxy_payload)}], "isError": False}}
 
         product_bundle_payload = await _product_bundle_local_tool(tool_name, args)
         if product_bundle_payload is not None:

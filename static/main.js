@@ -1479,104 +1479,207 @@
             || String(record.canonical_joint || record.id || '').trim() === 'hips';
     }
 
+    function _envBuilderHalfKneelTransitionTemplate(side) {
+        var resolvedSide = String(side || 'left').trim().toLowerCase() === 'right' ? 'right' : 'left';
+        var leadSuffix = resolvedSide === 'right' ? 'r' : 'l';
+        var anchorSuffix = resolvedSide === 'right' ? 'l' : 'r';
+        var leadLabel = resolvedSide === 'right' ? 'Right' : 'Left';
+        var anchorLabel = resolvedSide === 'right' ? 'Left' : 'Right';
+        var anchorSide = resolvedSide === 'right' ? 'left' : 'right';
+        var leadKnee = 'lower_leg_' + leadSuffix;
+        var leadFoot = 'foot_' + leadSuffix;
+        var anchorFoot = 'foot_' + anchorSuffix;
+
+        function contactPlan(entries) {
+            var out = {};
+            (Array.isArray(entries) ? entries : []).forEach(function (entry) {
+                if (!entry || !entry.id) return;
+                out[String(entry.id || '').trim()] = {
+                    state: String(entry.state || '').trim(),
+                    weight_bias: Number(entry.weight_bias || 0)
+                };
+            });
+            return out;
+        }
+
+        return {
+            template_id: 'half_kneel_' + leadSuffix,
+            label: 'Half Kneel ' + leadLabel + ' Transition',
+            route_targets: [leadKnee, anchorFoot],
+            phases: [
+                {
+                    id: 'unload',
+                    label: 'Unload ' + leadLabel + ' Foot',
+                    summary: 'Shift support onto the ' + anchorLabel.toLowerCase() + ' foot and unload the ' + leadLabel.toLowerCase() + ' foot.',
+                    time: 0.0,
+                    support_phase: 'single_support_' + anchorSide,
+                    contacts: contactPlan([
+                        { id: anchorFoot, state: 'planted', weight_bias: 0.88 },
+                        { id: leadFoot, state: 'unloading', weight_bias: 0.12 }
+                    ]),
+                    criteria: {
+                        contacts: [
+                            { target_id: anchorFoot, supporting: true, support_role_in: ['plant', 'brace'] },
+                            { target_id: leadFoot, supporting: false }
+                        ],
+                        min_support_contacts: 1,
+                        max_stability_risk: 0.96
+                    }
+                },
+                {
+                    id: 'swing_clear',
+                    label: 'Swing Clear',
+                    summary: 'Keep the ' + leadLabel.toLowerCase() + ' foot unloaded and clear the knee path.',
+                    time: 0.18,
+                    support_phase: 'single_support_' + anchorSide,
+                    contacts: contactPlan([
+                        { id: anchorFoot, state: 'planted', weight_bias: 0.9 },
+                        { id: leadFoot, state: 'swing', weight_bias: 0.1 }
+                    ]),
+                    criteria: {
+                        contacts: [
+                            { target_id: anchorFoot, supporting: true, support_role_in: ['plant', 'brace'] },
+                            { target_id: leadFoot, supporting: false, state_in: ['lifting', 'airborne'] },
+                            { target_id: leadKnee, supporting: false }
+                        ],
+                        min_support_contacts: 1,
+                        max_stability_risk: 0.94
+                    }
+                },
+                {
+                    id: 'approach',
+                    label: 'Approach Knee Contact',
+                    summary: 'Bring the ' + leadLabel.toLowerCase() + ' knee toward the support surface without collapsing early.',
+                    time: 0.38,
+                    support_phase: 'single_support_' + anchorSide,
+                    contacts: contactPlan([
+                        { id: anchorFoot, state: 'planted', weight_bias: 0.82 },
+                        { id: leadKnee, state: 'approach', weight_bias: 0.18 }
+                    ]),
+                    criteria: {
+                        contacts: [
+                            { target_id: anchorFoot, supporting: true, support_role_in: ['plant', 'brace'] },
+                            { target_id: leadKnee, supporting: false, max_gap_multiplier: 1.75 }
+                        ],
+                        min_support_contacts: 1,
+                        max_stability_risk: 0.92
+                    }
+                },
+                {
+                    id: 'contact',
+                    label: 'Establish Knee Contact',
+                    summary: 'Land the ' + leadLabel.toLowerCase() + ' knee while preserving the planted ' + anchorLabel.toLowerCase() + ' foot.',
+                    time: 0.58,
+                    support_phase: 'braced_support',
+                    contacts: contactPlan([
+                        { id: anchorFoot, state: 'planted', weight_bias: 0.58 },
+                        { id: leadKnee, state: 'brace', weight_bias: 0.42 }
+                    ]),
+                    criteria: {
+                        contacts: [
+                            { target_id: anchorFoot, supporting: true, support_role_in: ['plant', 'brace'] },
+                            { target_id: leadKnee, supporting: true, support_role: 'brace' }
+                        ],
+                        min_support_contacts: 2,
+                        stage_not_blocked: true,
+                        max_stability_risk: 0.88
+                    }
+                },
+                {
+                    id: 'load_transfer',
+                    label: 'Load Transfer',
+                    summary: 'Shift meaningful load onto the ' + leadLabel.toLowerCase() + ' knee support.',
+                    time: 0.78,
+                    support_phase: 'braced_support',
+                    contacts: contactPlan([
+                        { id: anchorFoot, state: 'planted', weight_bias: 0.5 },
+                        { id: leadKnee, state: 'brace', weight_bias: 0.5 }
+                    ]),
+                    criteria: {
+                        contacts: [
+                            { target_id: anchorFoot, supporting: true, support_role_in: ['plant', 'brace'] },
+                            { target_id: leadKnee, supporting: true, support_role: 'brace', min_load_share: 0.08 }
+                        ],
+                        min_support_contacts: 2,
+                        stage_not_blocked: true,
+                        max_stability_risk: 0.8
+                    }
+                },
+                {
+                    id: 'stabilize',
+                    label: 'Stabilize',
+                    summary: 'Settle into the intended half-kneel support topology with acceptable stability margin.',
+                    time: 1.0,
+                    support_phase: 'braced_support',
+                    contacts: contactPlan([
+                        { id: anchorFoot, state: 'planted', weight_bias: 0.48 },
+                        { id: leadKnee, state: 'brace', weight_bias: 0.52 }
+                    ]),
+                    criteria: {
+                        contacts: [
+                            { target_id: anchorFoot, supporting: true, support_role_in: ['plant', 'brace'] },
+                            { target_id: leadKnee, supporting: true, support_role: 'brace', min_load_share: 0.12 }
+                        ],
+                        min_support_contacts: 2,
+                        support_phase_in: ['braced_support'],
+                        require_realized_targets: true,
+                        stage_not_blocked: true,
+                        max_stability_risk: 0.72
+                    }
+                }
+            ]
+        };
+    }
+
+    function _envBuilderBodyPlanMechanicsManifest(family) {
+        var currentFamily = _envBuilderSubject && typeof _envBuilderSubject === 'object' ? _envBuilderSubject.family : '';
+        var resolvedFamily = String(family || currentFamily || '').trim().toLowerCase();
+        if (!resolvedFamily) resolvedFamily = 'humanoid_biped';
+        if (resolvedFamily !== 'humanoid_biped') {
+            return {
+                joint_limits: {},
+                transition_templates: {}
+            };
+        }
+        return {
+            joint_limits: {
+                shoulder_l: { order: 'XYZ', x_min: -Math.PI * 0.55, x_max: Math.PI * 0.55, y_min: -Math.PI * 0.50, y_max: Math.PI * 0.50, z_min: -Math.PI * 0.44, z_max: Math.PI * 0.28 },
+                shoulder_r: { order: 'XYZ', x_min: -Math.PI * 0.55, x_max: Math.PI * 0.55, y_min: -Math.PI * 0.50, y_max: Math.PI * 0.50, z_min: -Math.PI * 0.44, z_max: Math.PI * 0.28 },
+                upper_arm_l: { order: 'XYZ', x_min: -Math.PI * 0.55, x_max: Math.PI * 0.55, y_min: -Math.PI * 0.50, y_max: Math.PI * 0.50, z_min: -Math.PI * 0.44, z_max: Math.PI * 0.28 },
+                upper_arm_r: { order: 'XYZ', x_min: -Math.PI * 0.55, x_max: Math.PI * 0.55, y_min: -Math.PI * 0.50, y_max: Math.PI * 0.50, z_min: -Math.PI * 0.44, z_max: Math.PI * 0.28 },
+                lower_leg_l: { order: 'XYZ', x_min: 0, x_max: Math.PI * 0.84, y_min: -0.04, y_max: 0.04, z_min: -0.03, z_max: 0.03 },
+                lower_leg_r: { order: 'XYZ', x_min: 0, x_max: Math.PI * 0.84, y_min: -0.04, y_max: 0.04, z_min: -0.03, z_max: 0.03 },
+                lower_arm_l: { order: 'XYZ', x_min: 0, x_max: Math.PI * 0.88, y_min: -0.08, y_max: 0.08, z_min: -0.08, z_max: 0.08 },
+                lower_arm_r: { order: 'XYZ', x_min: 0, x_max: Math.PI * 0.88, y_min: -0.08, y_max: 0.08, z_min: -0.08, z_max: 0.08 },
+                upper_leg_l: { order: 'XYZ', x_min: -Math.PI * 0.17, x_max: Math.PI * 0.67, y_min: -Math.PI * 0.25, y_max: Math.PI * 0.25, z_min: -Math.PI * 0.25, z_max: Math.PI * 0.17 },
+                upper_leg_r: { order: 'XYZ', x_min: -Math.PI * 0.17, x_max: Math.PI * 0.67, y_min: -Math.PI * 0.25, y_max: Math.PI * 0.25, z_min: -Math.PI * 0.25, z_max: Math.PI * 0.17 },
+                foot_l: { order: 'XYZ', x_min: -Math.PI * 0.11, x_max: Math.PI * 0.28, y_min: -Math.PI * 0.11, y_max: Math.PI * 0.11, z_min: -Math.PI * 0.06, z_max: Math.PI * 0.06 },
+                foot_r: { order: 'XYZ', x_min: -Math.PI * 0.11, x_max: Math.PI * 0.28, y_min: -Math.PI * 0.11, y_max: Math.PI * 0.11, z_min: -Math.PI * 0.06, z_max: Math.PI * 0.06 },
+                spine: { order: 'XYZ', x_min: -Math.PI * 0.17, x_max: Math.PI * 0.22, y_min: -Math.PI * 0.14, y_max: Math.PI * 0.14, z_min: -Math.PI * 0.14, z_max: Math.PI * 0.14 },
+                chest: { order: 'XYZ', x_min: -Math.PI * 0.17, x_max: Math.PI * 0.22, y_min: -Math.PI * 0.14, y_max: Math.PI * 0.14, z_min: -Math.PI * 0.14, z_max: Math.PI * 0.14 },
+                neck: { order: 'XYZ', x_min: -Math.PI * 0.33, x_max: Math.PI * 0.33, y_min: -Math.PI * 0.22, y_max: Math.PI * 0.22, z_min: -Math.PI * 0.39, z_max: Math.PI * 0.39 },
+                head: { order: 'XYZ', x_min: -Math.PI * 0.33, x_max: Math.PI * 0.33, y_min: -Math.PI * 0.22, y_max: Math.PI * 0.22, z_min: -Math.PI * 0.39, z_max: Math.PI * 0.39 },
+                hand_l: { order: 'XYZ', x_min: -Math.PI * 0.39, x_max: Math.PI * 0.44, y_min: -Math.PI * 0.11, y_max: Math.PI * 0.17, z_min: -Math.PI * 0.06, z_max: Math.PI * 0.06 },
+                hand_r: { order: 'XYZ', x_min: -Math.PI * 0.39, x_max: Math.PI * 0.44, y_min: -Math.PI * 0.11, y_max: Math.PI * 0.17, z_min: -Math.PI * 0.06, z_max: Math.PI * 0.06 }
+            },
+            transition_templates: {
+                half_kneel_l: _envBuilderHalfKneelTransitionTemplate('left'),
+                half_kneel_r: _envBuilderHalfKneelTransitionTemplate('right')
+            }
+        };
+    }
+
     function _envBuilderPoseMechanicsSpec(boneId) {
         var target = String(boneId || '').trim();
         if (!target) return null;
         var canonical = String((((_envBuilderBoneRecordMap(_envBuilderSubject.bones || [])[target] || {}).canonical_joint) || target) || '').trim() || target;
-        switch (canonical) {
-            case 'shoulder_l':
-            case 'shoulder_r':
-            case 'upper_arm_l':
-            case 'upper_arm_r':
-                return {
-                    order: 'XYZ',
-                    x_min: -Math.PI * 0.55,
-                    x_max: Math.PI * 0.55,
-                    y_min: -Math.PI * 0.50,
-                    y_max: Math.PI * 0.50,
-                    z_min: -Math.PI * 0.44,
-                    z_max: Math.PI * 0.28
-                };
-            case 'lower_leg_l':
-            case 'lower_leg_r':
-                return {
-                    order: 'XYZ',
-                    x_min: 0,
-                    x_max: Math.PI * 0.84,
-                    y_min: -0.04,
-                    y_max: 0.04,
-                    z_min: -0.03,
-                    z_max: 0.03
-                };
-            case 'lower_arm_l':
-            case 'lower_arm_r':
-                return {
-                    order: 'XYZ',
-                    x_min: 0,
-                    x_max: Math.PI * 0.88,
-                    y_min: -0.08,
-                    y_max: 0.08,
-                    z_min: -0.08,
-                    z_max: 0.08
-                };
-            case 'upper_leg_l':
-            case 'upper_leg_r':
-                return {
-                    order: 'XYZ',
-                    x_min: -Math.PI * 0.17,
-                    x_max: Math.PI * 0.67,
-                    y_min: -Math.PI * 0.25,
-                    y_max: Math.PI * 0.25,
-                    z_min: -Math.PI * 0.25,
-                    z_max: Math.PI * 0.17
-                };
-            case 'foot_l':
-            case 'foot_r':
-                return {
-                    order: 'XYZ',
-                    x_min: -Math.PI * 0.11,
-                    x_max: Math.PI * 0.28,
-                    y_min: -Math.PI * 0.11,
-                    y_max: Math.PI * 0.11,
-                    z_min: -Math.PI * 0.06,
-                    z_max: Math.PI * 0.06
-                };
-            case 'spine':
-            case 'chest':
-                return {
-                    order: 'XYZ',
-                    x_min: -Math.PI * 0.17,
-                    x_max: Math.PI * 0.22,
-                    y_min: -Math.PI * 0.14,
-                    y_max: Math.PI * 0.14,
-                    z_min: -Math.PI * 0.14,
-                    z_max: Math.PI * 0.14
-                };
-            case 'neck':
-            case 'head':
-                return {
-                    order: 'XYZ',
-                    x_min: -Math.PI * 0.33,
-                    x_max: Math.PI * 0.33,
-                    y_min: -Math.PI * 0.22,
-                    y_max: Math.PI * 0.22,
-                    z_min: -Math.PI * 0.39,
-                    z_max: Math.PI * 0.39
-                };
-            case 'hand_l':
-            case 'hand_r':
-                return {
-                    order: 'XYZ',
-                    x_min: -Math.PI * 0.39,
-                    x_max: Math.PI * 0.44,
-                    y_min: -Math.PI * 0.11,
-                    y_max: Math.PI * 0.17,
-                    z_min: -Math.PI * 0.06,
-                    z_max: Math.PI * 0.06
-                };
-            default:
-                return null;
-        }
+        var manifest = _envBuilderBodyPlanMechanicsManifest((_envBuilderSubject && _envBuilderSubject.family) || '');
+        var jointLimits = manifest && manifest.joint_limits && typeof manifest.joint_limits === 'object'
+            ? manifest.joint_limits
+            : {};
+        return jointLimits[canonical]
+            ? _envCloneJson(jointLimits[canonical], null)
+            : null;
     }
 
     function _envBuilderClampPoseMechanics(boneId, rotation) {
@@ -2209,6 +2312,14 @@
         if (phase === 'single_support_right') return 'Single Support · Right';
         if (phase === 'braced_support') return 'Braced Support';
         return phase.split('_').map(function (part) {
+            return part ? (part.charAt(0).toUpperCase() + part.slice(1)) : '';
+        }).join(' ');
+    }
+
+    function _envBuilderHumanizeStateLabel(value) {
+        var text = String(value || '').trim();
+        if (!text) return 'Unknown';
+        return text.split('_').map(function (part) {
             return part ? (part.charAt(0).toUpperCase() + part.slice(1)) : '';
         }).join(' ');
     }
@@ -2914,6 +3025,231 @@
         };
     }
 
+    function _envBuilderTransitionTemplateForMacro(macroId, family) {
+        var targetId = String(macroId || '').trim();
+        if (!targetId) return null;
+        var manifest = _envBuilderBodyPlanMechanicsManifest(family || ((_envBuilderSubject && _envBuilderSubject.family) || ''));
+        var registry = manifest && manifest.transition_templates && typeof manifest.transition_templates === 'object'
+            ? manifest.transition_templates
+            : {};
+        return registry[targetId]
+            ? _envCloneJson(registry[targetId], null)
+            : null;
+    }
+
+    function _envBuilderTemplateContactPhases(template) {
+        var record = template && typeof template === 'object' ? template : null;
+        return _envNormalizeBuilderContactPhases((record && Array.isArray(record.phases) ? record.phases : []).map(function (phase) {
+            return {
+                time: Number((phase && phase.time) || 0),
+                phase_id: String((phase && phase.id) || '').trim(),
+                label: String((phase && phase.label) || '').trim(),
+                support_phase: String((phase && phase.support_phase) || '').trim(),
+                contacts: _envCloneJson((phase && phase.contacts) || {}, {})
+            };
+        }));
+    }
+
+    function _envBuilderSeedTimelineContactPhasesForMacro(macroId) {
+        var template = _envBuilderTransitionTemplateForMacro(macroId, (_envBuilderSubject && _envBuilderSubject.family) || '');
+        if (!template) return [];
+        var timeline = _envBuilderTimelineState();
+        timeline.contact_phases = _envBuilderTemplateContactPhases(template);
+        _envBuilderSubject.timeline = _envNormalizeBuilderTimelineState(timeline);
+        return _envCloneJson(_envBuilderSubject.timeline.contact_phases || [], []);
+    }
+
+    function _envBuilderFindContactRowForTarget(contacts, targetId) {
+        var rows = Array.isArray(contacts) ? contacts : [];
+        var desired = String(targetId || '').trim();
+        if (!desired) return null;
+        for (var i = 0; i < rows.length; i += 1) {
+            if (_envBuilderSupportTargetMatchesContactRow(desired, rows[i])) return rows[i];
+        }
+        return null;
+    }
+
+    function _envBuilderSupportSetHasTarget(realizedSupportSet, targetId) {
+        var realized = _envNormalizeBuilderSupportContactTargets(realizedSupportSet || [], '');
+        var normalizedTarget = _envNormalizeBuilderSupportContactTargets([targetId], '')[0] || String(targetId || '').trim();
+        return realized.indexOf(normalizedTarget) >= 0;
+    }
+
+    function _envBuilderSupportLoadForTarget(loadField, targetId) {
+        var loads = loadField && typeof loadField === 'object' && loadField.support_loads && typeof loadField.support_loads === 'object'
+            ? loadField.support_loads
+            : {};
+        var normalizedTarget = _envNormalizeBuilderSupportContactTargets([targetId], '')[0] || String(targetId || '').trim();
+        if (!normalizedTarget) return 0;
+        var best = 0;
+        Object.keys(loads).forEach(function (key) {
+            var normalizedKey = _envNormalizeBuilderSupportContactTargets([key], '')[0] || String(key || '').trim();
+            if (normalizedKey === normalizedTarget) {
+                best = Math.max(best, Number(loads[key] || 0));
+            }
+        });
+        return Number(best || 0);
+    }
+
+    function _envBuilderEvaluateTransitionPhase(phase, context) {
+        var record = phase && typeof phase === 'object' ? phase : {};
+        var criteria = record.criteria && typeof record.criteria === 'object' ? record.criteria : {};
+        var contacts = Array.isArray(context.contacts) ? context.contacts : [];
+        var thresholds = context.thresholds && typeof context.thresholds === 'object' ? context.thresholds : {};
+        var supportPhase = String(context.support_phase || '').trim();
+        var stabilityRisk = Number(context.stability_risk || 0);
+        var supportContactCount = Number(context.support_contact_count || 0);
+        var stageReport = context.stage_report && typeof context.stage_report === 'object' ? context.stage_report : null;
+        var issues = [];
+        var blocked = false;
+
+        function addIssue(message, issueBlocked) {
+            var text = String(message || '').trim();
+            if (!text) return;
+            issues.push(text);
+            if (issueBlocked) blocked = true;
+        }
+
+        (Array.isArray(criteria.contacts) ? criteria.contacts : []).forEach(function (requirement) {
+            var targetId = String((requirement && requirement.target_id) || '').trim();
+            if (!targetId) return;
+            var row = _envBuilderFindContactRowForTarget(contacts, targetId);
+            var label = String((requirement && requirement.label) || targetId).trim();
+            if (!row) {
+                addIssue(label + ' unavailable', false);
+                return;
+            }
+            if (requirement.supporting !== undefined && !!row.supporting !== !!requirement.supporting) {
+                addIssue(label + (requirement.supporting ? ' must support' : ' must unload'), false);
+            }
+            var supportRole = String(row.support_role || '').trim();
+            var requiredSupportRoles = Array.isArray(requirement.support_role_in)
+                ? requirement.support_role_in.map(function (entry) { return String(entry || '').trim(); }).filter(Boolean)
+                : [];
+            if (requiredSupportRoles.length) {
+                if (requiredSupportRoles.indexOf(supportRole) < 0) {
+                    addIssue(label + ' must be ' + requiredSupportRoles.join('/'), false);
+                }
+            } else if (requirement.support_role && supportRole !== String(requirement.support_role || '').trim()) {
+                addIssue(label + ' must be ' + String(requirement.support_role || ''), false);
+            }
+            if (Array.isArray(requirement.state_in) && requirement.state_in.length) {
+                var currentState = String(row.state || '').trim();
+                if (requirement.state_in.indexOf(currentState) < 0) {
+                    addIssue(label + ' state ' + (currentState || 'unknown') + ' not in ' + requirement.state_in.join('/'), false);
+                }
+            }
+            var maxGap = null;
+            if (Number.isFinite(Number(requirement.max_gap))) {
+                maxGap = Number(requirement.max_gap);
+            } else if (Number.isFinite(Number(requirement.max_gap_multiplier))) {
+                maxGap = Number(thresholds.near_gap || 0) * Number(requirement.max_gap_multiplier || 0);
+            }
+            if (maxGap !== null && Number(row.gap || 0) > maxGap + 0.0001) {
+                addIssue(label + ' gap ' + Number(row.gap || 0).toFixed(3) + ' > ' + Number(maxGap || 0).toFixed(3), false);
+            }
+            if (Number.isFinite(Number(requirement.min_load_share))) {
+                var loadShare = _envBuilderSupportLoadForTarget(context.load_field, targetId);
+                if (loadShare + 0.0001 < Number(requirement.min_load_share || 0)) {
+                    addIssue(label + ' load ' + loadShare.toFixed(2) + ' < ' + Number(requirement.min_load_share || 0).toFixed(2), false);
+                }
+            }
+        });
+
+        if (Number.isFinite(Number(criteria.min_support_contacts)) && supportContactCount < Number(criteria.min_support_contacts || 0)) {
+            addIssue('support contacts ' + supportContactCount + ' < ' + Number(criteria.min_support_contacts || 0), false);
+        }
+        if (Array.isArray(criteria.support_phase_in) && criteria.support_phase_in.length && criteria.support_phase_in.indexOf(supportPhase) < 0) {
+            addIssue('support phase ' + (supportPhase || 'unknown') + ' not in ' + criteria.support_phase_in.join('/'), false);
+        }
+        if (Number.isFinite(Number(criteria.max_stability_risk)) && stabilityRisk > Number(criteria.max_stability_risk || 0) + 0.0001) {
+            addIssue('stability risk ' + stabilityRisk.toFixed(2) + ' > ' + Number(criteria.max_stability_risk || 0).toFixed(2), false);
+        }
+        if (criteria.require_realized_targets) {
+            var requiredTargets = Array.isArray(criteria.require_realized_targets)
+                ? criteria.require_realized_targets
+                : (Array.isArray(context.intended_support_set) ? context.intended_support_set : []);
+            requiredTargets.forEach(function (targetId) {
+                if (!_envBuilderSupportSetHasTarget(context.realized_support_set || [], targetId)) {
+                    addIssue(String(targetId || '').trim() + ' not realized', false);
+                }
+            });
+        }
+        if (criteria.stage_not_blocked && stageReport && stageReport.blocked) {
+            addIssue(_envBuilderStageBlockerSummary(stageReport) || 'stage blocked', true);
+        }
+        if (criteria.stage_ready && !(stageReport && stageReport.ok)) {
+            addIssue('stage not ready', !!(stageReport && stageReport.blocked));
+        }
+
+        return {
+            id: String(record.id || '').trim(),
+            label: String(record.label || record.id || '').trim(),
+            summary: String(record.summary || '').trim(),
+            support_phase: String(record.support_phase || '').trim(),
+            expected_contacts: _envCloneJson(record.contacts || {}, {}),
+            complete: issues.length === 0,
+            blocked: blocked,
+            issues: issues,
+            status: 'pending'
+        };
+    }
+
+    function _envBuilderEvaluateTransitionSequence(template, motionDiagnostics, stageReport, routeIntent, realizedSupportSet) {
+        var record = template && typeof template === 'object' ? template : null;
+        if (!record) return null;
+        var diagnostics = motionDiagnostics && typeof motionDiagnostics === 'object' ? motionDiagnostics : {};
+        var phases = Array.isArray(record.phases) ? record.phases : [];
+        if (!phases.length) return null;
+        var context = {
+            contacts: Array.isArray(diagnostics.contacts) ? diagnostics.contacts : [],
+            thresholds: diagnostics.thresholds && typeof diagnostics.thresholds === 'object' ? diagnostics.thresholds : {},
+            support_phase: String(diagnostics.support_phase || '').trim(),
+            stability_risk: Number((((diagnostics.load_field || {}).stability_risk) || 0)),
+            support_contact_count: Number(diagnostics.support_contact_count || 0),
+            load_field: diagnostics.load_field && typeof diagnostics.load_field === 'object' ? diagnostics.load_field : null,
+            stage_report: stageReport && typeof stageReport === 'object' ? stageReport : null,
+            intended_support_set: _envCloneJson((routeIntent && routeIntent.intended_support_set) || [], []),
+            realized_support_set: _envCloneJson(realizedSupportSet || [], [])
+        };
+        var evaluations = phases.map(function (phase) {
+            return _envBuilderEvaluateTransitionPhase(phase, context);
+        });
+        var contiguousComplete = 0;
+        while (contiguousComplete < evaluations.length && evaluations[contiguousComplete].complete) {
+            contiguousComplete += 1;
+        }
+        var activeIndex = contiguousComplete < evaluations.length
+            ? contiguousComplete
+            : Math.max(0, evaluations.length - 1);
+        evaluations.forEach(function (entry, idx) {
+            if (entry.complete) entry.status = 'complete';
+            else if (idx === activeIndex) entry.status = entry.blocked ? 'blocked' : 'active';
+            else entry.status = 'pending';
+        });
+        var activePhase = evaluations[activeIndex] || null;
+        var allComplete = contiguousComplete >= evaluations.length;
+        var gateSummary = 'All sequencer phases satisfied.';
+        if (!allComplete && activePhase) {
+            gateSummary = activePhase.issues.length
+                ? activePhase.issues.slice(0, 2).join('; ')
+                : ('Advance ' + String(activePhase.label || activePhase.id || 'current phase') + '.');
+        }
+        return {
+            template_id: String(record.template_id || '').trim(),
+            template_label: String(record.label || '').trim(),
+            phase_sequence: evaluations,
+            active_phase_id: String((activePhase && activePhase.id) || '').trim(),
+            active_phase_label: String((activePhase && activePhase.label) || '').trim(),
+            phase_status: allComplete ? 'complete' : String((activePhase && activePhase.status) || 'pending'),
+            completed_phase_ids: evaluations.slice(0, contiguousComplete).map(function (entry) { return String(entry.id || '').trim(); }).filter(Boolean),
+            pending_phase_ids: evaluations.slice(contiguousComplete).map(function (entry) { return String(entry.id || '').trim(); }).filter(Boolean),
+            phase_completion_ratio: Number((contiguousComplete / Math.max(1, evaluations.length)).toFixed(4)),
+            phase_gate_summary: String(gateSummary || '').trim(),
+            all_complete: allComplete
+        };
+    }
+
     function _envBuilderMissingSupportSummary(missingRows) {
         var rows = Array.isArray(missingRows) ? missingRows : [];
         if (!rows.length) return '';
@@ -2968,6 +3304,82 @@
         return 'Adjust the whole-body pose so the missing supports come into reach before staging again.';
     }
 
+    function _envBuilderClassifyRouteOperationalState(routeIntent, motionDiagnostics, transitionEvaluation, stageReport, realizedSupportSet, missingRows, blockerSummary) {
+        var intent = routeIntent && typeof routeIntent === 'object' ? routeIntent : {};
+        var diagnostics = motionDiagnostics && typeof motionDiagnostics === 'object' ? motionDiagnostics : {};
+        var loadField = diagnostics.load_field && typeof diagnostics.load_field === 'object' ? diagnostics.load_field : {};
+        var supportPhase = String(diagnostics.support_phase_label || _envBuilderMotionPhaseLabel(diagnostics.support_phase || '') || '').trim();
+        var balanceModeRaw = String(loadField.balance_mode || diagnostics.balance_mode || '').trim();
+        var balanceMode = balanceModeRaw ? _envBuilderHumanizeStateLabel(balanceModeRaw) : '';
+        var stabilityRisk = Number(loadField.stability_risk || diagnostics.stability_risk || 0);
+        var intendedCount = Array.isArray(intent.intended_support_set) ? intent.intended_support_set.length : 0;
+        var realizedCount = Array.isArray(realizedSupportSet) ? realizedSupportSet.length : 0;
+        var missingCount = Array.isArray(missingRows) ? missingRows.length : 0;
+        var phaseLabel = String((transitionEvaluation && transitionEvaluation.active_phase_label) || '').trim();
+        var phaseStatus = String((transitionEvaluation && transitionEvaluation.phase_status) || '').trim().toLowerCase();
+        var gateSummary = String((transitionEvaluation && transitionEvaluation.phase_gate_summary) || '').trim();
+        var lowerGate = gateSummary.toLowerCase();
+        var reason = String(blockerSummary || gateSummary || '').trim();
+        var label = 'Transitioning';
+        var stateId = 'transitioning';
+        var toleranceState = 'WATCH';
+
+        if (!intendedCount) {
+            stateId = 'idle';
+            label = 'Idle';
+            toleranceState = 'INFO';
+            reason = reason || 'No active support route.';
+        } else if (stageReport && stageReport.blocked) {
+            stateId = 'stage_blocked';
+            label = 'Stage Blocked';
+            toleranceState = 'CRITICAL';
+            reason = reason || 'Stage blockers still present.';
+        } else if (!missingCount && transitionEvaluation && transitionEvaluation.all_complete) {
+            stateId = 'topology_realized';
+            label = 'Topology Realized';
+            toleranceState = 'WITHIN';
+            reason = reason || 'All intended supports realized.';
+        } else if (lowerGate.indexOf('stability risk') >= 0 || lowerGate.indexOf('outside support polygon') >= 0 || (missingCount && stabilityRisk >= 0.84)) {
+            stateId = 'stability_limited';
+            label = 'Stability Limited';
+            toleranceState = stabilityRisk >= 0.84 ? 'CRITICAL' : 'DEGRADED';
+        } else if (missingCount) {
+            stateId = 'contact_limited';
+            label = 'Contact Limited';
+            toleranceState = stabilityRisk >= 0.64 ? 'DEGRADED' : 'WATCH';
+        } else if (lowerGate.indexOf('support phase') >= 0 || lowerGate.indexOf('support contacts') >= 0 || lowerGate.indexOf(' load ') >= 0) {
+            stateId = 'phase_limited';
+            label = 'Phase Limited';
+            toleranceState = 'DEGRADED';
+        } else if (phaseStatus === 'complete') {
+            stateId = 'support_realized';
+            label = 'Support Realized';
+            toleranceState = 'WITHIN';
+            reason = reason || 'Current support route is realized.';
+        } else if (!gateSummary) {
+            stateId = 'support_realized';
+            label = 'Support Realized';
+            toleranceState = 'INFO';
+            reason = reason || 'Current support route is realized.';
+        }
+
+        var summaryParts = [];
+        if (supportPhase) summaryParts.push(supportPhase);
+        if (balanceMode) summaryParts.push(balanceMode);
+        if (Number.isFinite(stabilityRisk)) summaryParts.push('risk ' + String(Number(stabilityRisk.toFixed(2))));
+        if (intendedCount) summaryParts.push('realized ' + realizedCount + '/' + intendedCount);
+        if (missingCount) summaryParts.push('missing ' + missingCount);
+        if (phaseLabel) summaryParts.push('phase ' + phaseLabel);
+
+        return {
+            state_id: stateId,
+            label: label,
+            summary: summaryParts.join(' / '),
+            reason: reason,
+            tolerance_state: toleranceState
+        };
+    }
+
     function _envBuilderSupportRouteReport(currentMotionDiagnostics, activeController, poseMacroRegistry) {
         var routeIntent = _envBuilderCurrentRouteIntent(poseMacroRegistry, activeController);
         if (!routeIntent) return null;
@@ -3005,6 +3417,21 @@
         if (!blockerSummary && missingRows.length) blockerSummary = _envBuilderMissingSupportSummary(missingRows);
         if (!blockerSummary && routeIntent.intended_support_set.length) blockerSummary = 'All intended supports realized.';
         var nextAdjustment = _envBuilderNextSuggestedAdjustment(routeIntent, missingRows, stageReport, realizedSupportSet);
+        var transitionTemplate = routeIntent.pose_macro_id
+            ? _envBuilderTransitionTemplateForMacro(routeIntent.pose_macro_id, (_envBuilderSubject && _envBuilderSubject.family) || '')
+            : null;
+        var transitionEvaluation = transitionTemplate
+            ? _envBuilderEvaluateTransitionSequence(transitionTemplate, motionDiagnostics, stageReport, routeIntent, realizedSupportSet)
+            : null;
+        var operationalState = _envBuilderClassifyRouteOperationalState(
+            routeIntent,
+            motionDiagnostics,
+            transitionEvaluation,
+            stageReport,
+            realizedSupportSet,
+            missingRows,
+            blockerSummary
+        );
         var anchorId = String(routeIntent.controller_id || (activeController && activeController.controller_id) || '').trim();
         var anchor = {
             kind: anchorId ? 'controller' : 'support_topology',
@@ -3012,6 +3439,78 @@
             focus_bone_id: String((activeController && activeController.focus_bone_id) || '').trim()
         };
         var sourceConfidence = contacts.length ? 'derived_live' : 'low';
+        var rows = [
+            {
+                key: 'intended_support_set',
+                label: 'Intended Support',
+                value: _envCloneJson(routeIntent.intended_support_set || [], []),
+                unit: 'contact_set',
+                anchor: _envCloneJson(anchor, null),
+                source_confidence: sourceConfidence
+            },
+            {
+                key: 'realized_support_set',
+                label: 'Realized Support',
+                value: _envCloneJson(realizedSupportSet, []),
+                unit: 'contact_set',
+                anchor: _envCloneJson(anchor, null),
+                source_confidence: sourceConfidence
+            },
+            {
+                key: 'missing_support_participants',
+                label: 'Missing Support',
+                value: _envCloneJson(missingIds, []),
+                unit: 'contact_set',
+                anchor: _envCloneJson(anchor, null),
+                source_confidence: sourceConfidence
+            },
+            {
+                key: 'blocker_summary',
+                label: 'Blocker',
+                value: String(blockerSummary || ''),
+                unit: 'text',
+                anchor: _envCloneJson(anchor, null),
+                source_confidence: sourceConfidence
+            },
+            {
+                key: 'next_suggested_adjustment',
+                label: 'Next Adjustment',
+                value: String(nextAdjustment || ''),
+                unit: 'text',
+                anchor: _envCloneJson(anchor, null),
+                source_confidence: sourceConfidence
+            }
+        ];
+        if (operationalState && operationalState.label) {
+            rows.push({
+                key: 'operational_state',
+                label: 'Operational State',
+                value: String(operationalState.label || ''),
+                unit: 'text',
+                anchor: _envCloneJson(anchor, null),
+                source_confidence: sourceConfidence
+            });
+        }
+        if (transitionEvaluation && transitionEvaluation.active_phase_label) {
+            rows.push({
+                key: 'active_phase',
+                label: 'Active Phase',
+                value: String(transitionEvaluation.active_phase_label || ''),
+                unit: 'text',
+                anchor: _envCloneJson(anchor, null),
+                source_confidence: sourceConfidence
+            });
+        }
+        if (transitionEvaluation && transitionEvaluation.phase_gate_summary) {
+            rows.push({
+                key: 'phase_gate_summary',
+                label: 'Phase Gate',
+                value: String(transitionEvaluation.phase_gate_summary || ''),
+                unit: 'text',
+                anchor: _envCloneJson(anchor, null),
+                source_confidence: sourceConfidence
+            });
+        }
         return {
             route_source: String(routeIntent.route_source || ''),
             support_topology_label: String(routeIntent.support_topology_label || ''),
@@ -3031,48 +3530,22 @@
             stage_report: _envCloneJson(stageReport, null),
             anchor: anchor,
             source_confidence: sourceConfidence,
-            rows: [
-                {
-                    key: 'intended_support_set',
-                    label: 'Intended Support',
-                    value: _envCloneJson(routeIntent.intended_support_set || [], []),
-                    unit: 'contact_set',
-                    anchor: _envCloneJson(anchor, null),
-                    source_confidence: sourceConfidence
-                },
-                {
-                    key: 'realized_support_set',
-                    label: 'Realized Support',
-                    value: _envCloneJson(realizedSupportSet, []),
-                    unit: 'contact_set',
-                    anchor: _envCloneJson(anchor, null),
-                    source_confidence: sourceConfidence
-                },
-                {
-                    key: 'missing_support_participants',
-                    label: 'Missing Support',
-                    value: _envCloneJson(missingIds, []),
-                    unit: 'contact_set',
-                    anchor: _envCloneJson(anchor, null),
-                    source_confidence: sourceConfidence
-                },
-                {
-                    key: 'blocker_summary',
-                    label: 'Blocker',
-                    value: String(blockerSummary || ''),
-                    unit: 'text',
-                    anchor: _envCloneJson(anchor, null),
-                    source_confidence: sourceConfidence
-                },
-                {
-                    key: 'next_suggested_adjustment',
-                    label: 'Next Adjustment',
-                    value: String(nextAdjustment || ''),
-                    unit: 'text',
-                    anchor: _envCloneJson(anchor, null),
-                    source_confidence: sourceConfidence
-                }
-            ]
+            transition_template_id: String((transitionEvaluation && transitionEvaluation.template_id) || ''),
+            transition_template_label: String((transitionEvaluation && transitionEvaluation.template_label) || ''),
+            phase_sequence: _envCloneJson((transitionEvaluation && transitionEvaluation.phase_sequence) || [], []),
+            active_phase_id: String((transitionEvaluation && transitionEvaluation.active_phase_id) || ''),
+            active_phase_label: String((transitionEvaluation && transitionEvaluation.active_phase_label) || ''),
+            phase_status: String((transitionEvaluation && transitionEvaluation.phase_status) || ''),
+            completed_phase_ids: _envCloneJson((transitionEvaluation && transitionEvaluation.completed_phase_ids) || [], []),
+            pending_phase_ids: _envCloneJson((transitionEvaluation && transitionEvaluation.pending_phase_ids) || [], []),
+            phase_completion_ratio: Number((transitionEvaluation && transitionEvaluation.phase_completion_ratio) || 0),
+            phase_gate_summary: String((transitionEvaluation && transitionEvaluation.phase_gate_summary) || ''),
+            operational_state_id: String((operationalState && operationalState.state_id) || ''),
+            operational_state_label: String((operationalState && operationalState.label) || ''),
+            operational_state_summary: String((operationalState && operationalState.summary) || ''),
+            operational_state_reason: String((operationalState && operationalState.reason) || ''),
+            operational_state_tolerance: String((operationalState && operationalState.tolerance_state) || 'INFO'),
+            rows: rows
         };
     }
 
@@ -4836,6 +5309,28 @@
         return null;
     }
 
+    function _envBuilderHalfKneelPoseSeed(side) {
+        var leadSide = String(side || '').trim().toLowerCase() === 'right' ? 'right' : 'left';
+        var leadSuffix = leadSide === 'right' ? 'r' : 'l';
+        var anchorSuffix = leadSide === 'right' ? 'l' : 'r';
+        var anchorYaw = leadSide === 'right' ? -6 : 6;
+        return [
+            {
+                bone: 'hips',
+                rotation_deg: [8, 0, 0],
+                offset: { x: 0, y: -0.12, z: 0.05 }
+            },
+            { bone: 'spine', rotation_deg: [-6, 0, 0] },
+            { bone: 'chest', rotation_deg: [-8, 0, 0] },
+            { bone: 'upper_leg_' + leadSuffix, rotation_deg: [35, 0, 0] },
+            { bone: 'lower_leg_' + leadSuffix, rotation_deg: [120, 0, 0] },
+            { bone: 'foot_' + leadSuffix, rotation_deg: [20, 0, 0] },
+            { bone: 'upper_leg_' + anchorSuffix, rotation_deg: [55, 0, 0] },
+            { bone: 'lower_leg_' + anchorSuffix, rotation_deg: [55, 0, 0] },
+            { bone: 'foot_' + anchorSuffix, rotation_deg: [-25, anchorYaw, 0] }
+        ];
+    }
+
     function _envBuilderBodyPlanPoseMacroRegistry(family) {
         var resolvedFamily = String(family || '').trim().toLowerCase();
         if (resolvedFamily !== 'humanoid_biped') return [];
@@ -4847,14 +5342,7 @@
                 controller_id: 'half_kneel_l_topology',
                 suggested_stage_targets: ['lower_leg_l', 'foot_r'],
                 batch: {
-                    poses: [
-                        { bone: 'upper_leg_l', rotation_deg: [35, 0, 0] },
-                        { bone: 'lower_leg_l', rotation_deg: [120, 0, 0] },
-                        { bone: 'foot_l', rotation_deg: [20, 0, 0] },
-                        { bone: 'upper_leg_r', rotation_deg: [55, 0, 0] },
-                        { bone: 'lower_leg_r', rotation_deg: [55, 0, 0] },
-                        { bone: 'foot_r', rotation_deg: [-25, 0, 0] }
-                    ]
+                    poses: _envBuilderHalfKneelPoseSeed('left')
                 }
             },
             {
@@ -4864,14 +5352,7 @@
                 controller_id: 'half_kneel_r_topology',
                 suggested_stage_targets: ['lower_leg_r', 'foot_l'],
                 batch: {
-                    poses: [
-                        { bone: 'upper_leg_r', rotation_deg: [35, 0, 0] },
-                        { bone: 'lower_leg_r', rotation_deg: [120, 0, 0] },
-                        { bone: 'foot_r', rotation_deg: [20, 0, 0] },
-                        { bone: 'upper_leg_l', rotation_deg: [55, 0, 0] },
-                        { bone: 'lower_leg_l', rotation_deg: [55, 0, 0] },
-                        { bone: 'foot_l', rotation_deg: [-25, 0, 0] }
-                    ]
+                    poses: _envBuilderHalfKneelPoseSeed('right')
                 }
             }
         ];
@@ -6894,6 +7375,7 @@
         var panel = document.getElementById('tab-' + tabName);
         if (btn) btn.classList.add('active');
         if (panel) panel.classList.add('active');
+        if (typeof _envApplyEnvironmentViewModes === 'function') _envApplyEnvironmentViewModes();
     }
 
     function _applyRuntimeMode(mode, mcpPolicy) {
@@ -6922,6 +7404,7 @@
             tab.classList.add('active');
             var target = document.getElementById('tab-' + tab.dataset.tab);
             if (target) target.classList.add('active');
+            if (typeof _envApplyEnvironmentViewModes === 'function') _envApplyEnvironmentViewModes();
             if (tab.dataset.tab !== 'workflows') {
                 _wfStopPolling();
             }
@@ -19743,6 +20226,7 @@
             }));
         }
         _envBuilderSetPoseMacroIntent(macro);
+        _envBuilderSeedTimelineContactPhasesForMacro(macro.macro_id || '');
         _envRefreshInhabitantRuntimeState('workbench_apply_pose_macro');
         _envBuilderRecordManeuverProbe(_envMountedRuntimeMesh(), 'workbench_apply_pose_macro', actorName, reason || 'workbench apply pose macro');
         _envLogAction('character_runtime', 'Applied builder pose macro', actorName, {
@@ -29621,7 +30105,8 @@
             || raw.toLowerCase() === 'clear'
             || raw.toLowerCase() === 'none'
             || raw.toLowerCase() === 'off';
-        var targetSource = payload.contacts || payload.contact_ids || payload.targets
+        var targetSource = payload.contact_targets || payload.support_contact_targets
+            || payload.contacts || payload.contact_ids || payload.targets
             || payload.contact_id || payload.bone_id || payload.bone || payload.id || raw;
         return {
             raw: raw,
@@ -30889,7 +31374,68 @@
                 + (_slotUniqueStrings(routeReport.realized_support_set || []).join(', ') || 'none')
                 + ' / missing '
                 + (missingSupport.join(', ') || 'none')
+                + ' / phase '
+                + String(routeReport.active_phase_label || routeReport.phase_status || 'none')
         }));
+        if (routeReport.operational_state_label) {
+            rows.push(_envBlackboardMakeRow({
+                id: 'route.operational_state',
+                family: 'route',
+                layer: 'interpretation',
+                source: 'INTP',
+                label: 'Operational State',
+                value: String(routeReport.operational_state_label || ''),
+                tolerance_state: String(routeReport.operational_state_tolerance || 'INFO'),
+                priority: 0.88,
+                session_weight: 0.97,
+                group_key: 'route',
+                sticky_ms: 3200,
+                anchor: missingSupport[0] ? { type: 'bone', id: missingSupport[0] } : (pivotWorld ? { type: 'world', position: pivotWorld } : { type: 'global' }),
+                detail: [
+                    String(routeReport.operational_state_summary || '').trim(),
+                    String(routeReport.operational_state_reason || '').trim()
+                ].filter(Boolean).join(' / ')
+            }));
+        }
+        if (routeReport.active_phase_label) {
+            rows.push(_envBlackboardMakeRow({
+                id: 'route.phase',
+                family: 'route',
+                layer: 'interpretation',
+                source: 'INTP',
+                label: 'Route Phase',
+                value: String(routeReport.active_phase_label || ''),
+                tolerance_state: String(routeReport.phase_status || '') === 'blocked'
+                    ? 'CRITICAL'
+                    : (String(routeReport.phase_status || '') === 'complete' ? 'INFO' : 'WATCH'),
+                priority: 0.86,
+                session_weight: 0.96,
+                group_key: 'route',
+                sticky_ms: 2800,
+                anchor: missingSupport[0] ? { type: 'bone', id: missingSupport[0] } : (pivotWorld ? { type: 'world', position: pivotWorld } : { type: 'global' }),
+                detail: String((routeReport.completed_phase_ids || []).length || 0)
+                    + '/'
+                    + String((routeReport.phase_sequence || []).length || 0)
+                    + ' complete / '
+                    + String(routeReport.phase_status || 'pending')
+            }));
+        }
+        if (routeReport.phase_gate_summary && String(routeReport.phase_status || '') !== 'complete') {
+            rows.push(_envBlackboardMakeRow({
+                id: 'route.phase_gate',
+                family: 'route',
+                layer: 'prediction',
+                source: 'PRED',
+                label: 'Phase Gate',
+                value: String(routeReport.phase_gate_summary || ''),
+                tolerance_state: String(routeReport.phase_status || '') === 'blocked' ? 'CRITICAL' : 'WATCH',
+                priority: 0.89,
+                session_weight: 0.98,
+                group_key: 'route',
+                sticky_ms: 3200,
+                anchor: missingSupport[0] ? { type: 'bone', id: missingSupport[0] } : { type: 'global' }
+            }));
+        }
         if (routeReport.blocker_summary) {
             rows.push(_envBlackboardMakeRow({
                 id: 'route.blocker',
@@ -31519,6 +32065,9 @@
 
     function _envBuildCameraTextTheaterBundle(reason, camera3d, focusSnapshot) {
         var pulseReason = String(reason || '').toLowerCase();
+        var hotCameraPulse = pulseReason.indexOf('camera:manual:change') >= 0
+            || pulseReason.indexOf('camera:manual:wheel') >= 0
+            || pulseReason.indexOf('camera:turntable') >= 0;
         var preferFreshSharedState = pulseReason.indexOf('camera:manual:change') < 0
             && pulseReason.indexOf('camera:manual:wheel') < 0;
         var cachedBundle = null;
@@ -31546,8 +32095,12 @@
         var liveEmbodimentText = String(cachedBundle.embodiment || '');
         return _envRememberTextTheaterBundle({
             snapshot: snapshot,
-            theater: _envRenderTextTheaterOutput(snapshot, 'theater') || liveTheaterText,
-            embodiment: _envRenderTextTheaterOutput(snapshot, 'embodiment') || liveEmbodimentText
+            theater: hotCameraPulse
+                ? liveTheaterText
+                : (_envRenderTextTheaterOutput(snapshot, 'theater') || liveTheaterText),
+            embodiment: hotCameraPulse
+                ? liveEmbodimentText
+                : (_envRenderTextTheaterOutput(snapshot, 'embodiment') || liveEmbodimentText)
         });
     }
 
@@ -41510,6 +42063,73 @@
     //  css array: [accent, card_border, card_bg_from, card_bg_to, card_glow, stage_bg, canvas_bg]
 
     var _envThemeId = 'default';
+    var _envTheaterViewModeStorageKey = 'env_theater_view_modes';
+    function _envLoadTheaterViewModes() {
+        var fallback = { stageMax: false };
+        try {
+            var raw = localStorage.getItem(_envTheaterViewModeStorageKey);
+            if (!raw) return fallback;
+            var parsed = JSON.parse(raw);
+            if (!parsed || typeof parsed !== 'object') return fallback;
+            return {
+                stageMax: !!parsed.stageMax
+            };
+        } catch (err) {
+            return fallback;
+        }
+    }
+    var _envTheaterViewModes = _envLoadTheaterViewModes();
+    function _envSaveTheaterViewModes() {
+        try {
+            localStorage.setItem(_envTheaterViewModeStorageKey, JSON.stringify(_envTheaterViewModes || {}));
+        } catch (err) {
+            return false;
+        }
+        return true;
+    }
+    function _envStageMaxEnabled() {
+        return !!((_envTheaterViewModes || {}).stageMax);
+    }
+    function _envScheduleEnvironmentStageResize() {
+        var runner = function () {
+            try { _env3DResize(); } catch (err) { return; }
+        };
+        if (typeof requestAnimationFrame === 'function') requestAnimationFrame(runner);
+        else setTimeout(runner, 0);
+    }
+    function _envStageMaxShellActive() {
+        return _envStageMaxEnabled() && _isEnvironmentTabActive();
+    }
+    function _envApplyEnvironmentViewModes() {
+        var tab = document.getElementById('tab-environment');
+        if (tab) {
+            tab.classList.toggle('envops-stage-max', _envStageMaxEnabled());
+        }
+        document.body.classList.toggle('envops-shell-stage-max', _envStageMaxShellActive());
+        var stageBtn = document.getElementById('envops-toggle-stage-max');
+        if (stageBtn) {
+            var stageActive = _envStageMaxEnabled();
+            stageBtn.classList.toggle('active', stageActive);
+            stageBtn.setAttribute('aria-pressed', stageActive ? 'true' : 'false');
+            stageBtn.textContent = stageActive ? 'THEATER MAX ON' : 'THEATER MAX';
+        }
+        var immersiveEl = document.getElementById('envops-immersive-controls');
+        if (immersiveEl) {
+            immersiveEl.setAttribute('aria-hidden', _envStageMaxShellActive() ? 'false' : 'true');
+        }
+        if (_env3D && _env3D.inited) _envScheduleEnvironmentStageResize();
+    }
+    function _envSetEnvironmentViewMode(modeKey, enabled) {
+        if (!_envTheaterViewModes || typeof _envTheaterViewModes !== 'object') {
+            _envTheaterViewModes = { stageMax: false };
+        }
+        _envTheaterViewModes[modeKey] = !!enabled;
+        _envSaveTheaterViewModes();
+        _envApplyEnvironmentViewModes();
+    }
+    function _envToggleEnvironmentViewMode(modeKey) {
+        _envSetEnvironmentViewMode(modeKey, !((_envTheaterViewModes || {})[modeKey]));
+    }
 
     var _envThemes = {
         default: {
@@ -54967,6 +55587,7 @@
         var busEl = document.getElementById('envops-bus');
         var configEl = document.getElementById('envops-config-panel');
         if (!listEl || !stageEl || !artifactsEl || !kernelEl) return;
+        _envApplyEnvironmentViewModes();
 
         var workflow = _envPrimaryWorkflow();
         var scenePrimary = _envUseScenePrimaryMode();
@@ -59595,6 +60216,24 @@
         });
     }
 
+    var envStageMaxBtn = document.getElementById('envops-toggle-stage-max');
+    if (envStageMaxBtn) {
+        envStageMaxBtn.addEventListener('click', function () {
+            _envToggleEnvironmentViewMode('stageMax');
+            _envLogAction('control', String(_envStageMaxEnabled() ? 'Enabled' : 'Disabled') + ' theater max mode', _envManualActorId(), { theater_max: _envStageMaxEnabled() });
+        });
+    }
+
+    var envExitStageMaxBtn = document.getElementById('envops-exit-stage-max');
+    if (envExitStageMaxBtn) {
+        envExitStageMaxBtn.addEventListener('click', function () {
+            _envSetEnvironmentViewMode('stageMax', false);
+            _envLogAction('control', 'Exited theater max mode', _envManualActorId(), { theater_max: false });
+        });
+    }
+
+    _envApplyEnvironmentViewModes();
+
     var envInstallActionBtn = document.getElementById('envops-install-action');
     if (envInstallActionBtn) {
         envInstallActionBtn.addEventListener('click', function () {
@@ -60047,6 +60686,12 @@
         }
         if (_envInspectorState.active) {
             _envCloseInspector(_envManualActorId(), 'escape');
+            e.preventDefault();
+            return;
+        }
+        if (_envStageMaxEnabled()) {
+            _envSetEnvironmentViewMode('stageMax', false);
+            _envLogAction('control', 'Exited theater max mode', _envManualActorId(), { theater_max: false, via: 'escape' });
             e.preventDefault();
         }
     });

@@ -4366,6 +4366,25 @@ def _render_consult_pose_text(snapshot):
             + " / missing "
             + missing
         )
+        if route_report.get("operational_state_label"):
+            state_line = "STATE: " + str(route_report.get("operational_state_label") or "")
+            if route_report.get("operational_state_summary"):
+                state_line += " / " + str(route_report.get("operational_state_summary") or "")
+            lines.append(state_line)
+        if route_report.get("active_phase_label"):
+            lines.append(
+                "PHASE: "
+                + str(route_report.get("active_phase_label") or "")
+                + " / "
+                + str(route_report.get("phase_status") or "pending")
+                + " / "
+                + str(len(route_report.get("completed_phase_ids") or []))
+                + "/"
+                + str(len(route_report.get("phase_sequence") or []))
+                + " complete"
+            )
+        if route_report.get("phase_gate_summary") and route_report.get("phase_status") != "complete":
+            lines.append("GATE: " + str(route_report.get("phase_gate_summary") or ""))
         if route_report.get("blocker_summary"):
             lines.append("BLOCKER: " + str(route_report.get("blocker_summary") or ""))
         if route_report.get("next_suggested_adjustment"):
@@ -4586,6 +4605,8 @@ def _format_local_contact_line(contact):
     role = str(contact.get("support_role") or "").strip()
     mode = str(contact.get("contact_mode") or "").strip()
     bias = str(contact.get("contact_bias") or "").strip()
+    planted_alignment = contact.get("planted_alignment")
+    normal_alignment = contact.get("normal_alignment")
     line = (
         "  "
         + str(contact.get("joint") or "")
@@ -4598,6 +4619,20 @@ def _format_local_contact_line(contact):
         line += " / " + mode
     if bias:
         line += " / " + bias
+    if planted_alignment is not None or normal_alignment is not None:
+        planted_text = (
+            f"{float(planted_alignment or 0.0):.2f}".rstrip("0").rstrip(".")
+            if planted_alignment is not None
+            else "-"
+        )
+        normal_text = (
+            f"{float(normal_alignment or 0.0):.2f}".rstrip("0").rstrip(".")
+            if normal_alignment is not None
+            else "-"
+        )
+        line += " / align p" + planted_text + " n" + normal_text
+    if mode == "inverted":
+        line += " / wrong-way"
     line += (
         " (gap "
         + f"{float(contact.get('gap') or 0.0):.3f}".rstrip("0").rstrip(".")
@@ -4769,6 +4804,25 @@ def _render_local_embodiment_text(snapshot):
             + " / missing "
             + missing
         )
+        if route_report.get("operational_state_label"):
+            state_line = "  state: " + str(route_report.get("operational_state_label") or "")
+            if route_report.get("operational_state_summary"):
+                state_line += " / " + str(route_report.get("operational_state_summary") or "")
+            lines.append(state_line)
+        if route_report.get("active_phase_label"):
+            lines.append(
+                "  phase: "
+                + str(route_report.get("active_phase_label") or "")
+                + " / "
+                + str(route_report.get("phase_status") or "pending")
+                + " / "
+                + str(len(route_report.get("completed_phase_ids") or []))
+                + "/"
+                + str(len(route_report.get("phase_sequence") or []))
+                + " complete"
+            )
+        if route_report.get("phase_gate_summary") and route_report.get("phase_status") != "complete":
+            lines.append("  gate: " + str(route_report.get("phase_gate_summary") or ""))
         if route_report.get("blocker_summary"):
             lines.append("  blocker: " + str(route_report.get("blocker_summary") or ""))
         if route_report.get("next_suggested_adjustment"):
