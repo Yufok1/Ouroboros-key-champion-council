@@ -3834,23 +3834,47 @@ def _env_cached_text_theater_snapshot(cached: dict | None) -> dict:
     return snapshot
 
 
-def _env_note_text_theater_read(query_name: str, cached: dict | None, snapshot: dict | None = None) -> None:
+def _env_note_text_theater_read(
+    query_name: str,
+    cached: dict | None,
+    snapshot: dict | None = None,
+    extra: dict | None = None,
+) -> None:
     cached = cached if isinstance(cached, dict) else {}
     snap = snapshot if isinstance(snapshot, dict) else _env_cached_text_theater_snapshot(cached)
+    extra = extra if isinstance(extra, dict) else {}
     record = {
         "updated_ms": int(cached.get("updated_ms") or 0),
         "snapshot_timestamp": int((snap or {}).get("snapshot_timestamp") or 0),
         "query": str(query_name or "").strip().lower(),
         "observed_at_ms": int(time.time() * 1000),
     }
+    view_mode = str(extra.get("view_mode") or "").strip().lower()
+    section_key = str(extra.get("section_key") or "").strip().lower()
+    if view_mode:
+        record["view_mode"] = view_mode
+    if section_key:
+        record["section_key"] = section_key
+    if "diagnostics" in extra:
+        record["diagnostics"] = bool(extra.get("diagnostics"))
+    if view_mode == "consult":
+        record["consult_updated_ms"] = record["updated_ms"]
+        record["consult_snapshot_timestamp"] = record["snapshot_timestamp"]
+        record["consult_query"] = record["query"]
+        record["consult_observed_at_ms"] = record["observed_at_ms"]
+        record["consult_view_mode"] = view_mode
+        record["consult_section_key"] = section_key or "theater"
+        record["consult_diagnostics"] = bool(extra.get("diagnostics"))
     with _env_text_theater_read_gate_lock:
         _env_text_theater_read_gate.update(record)
 
 
 def _env_shared_state_prereq_payload(query_text: str, cached: dict | None) -> dict | None:
     query_lower = str(query_text or "").strip().lower()
-    if query_lower not in {"shared_state", "live"}:
+    raw_state_queries = {"shared_state", "live", "contracts", "habitat_objects"}
+    if query_lower not in raw_state_queries and query_lower != "env_report":
         return None
+    require_query_work = query_lower in raw_state_queries
     cached = cached if isinstance(cached, dict) else {}
     snapshot = _env_cached_text_theater_snapshot(cached)
     current_updated_ms = int(cached.get("updated_ms") or 0)
@@ -3859,6 +3883,8 @@ def _env_shared_state_prereq_payload(query_text: str, cached: dict | None) -> di
         gate = dict(_env_text_theater_read_gate)
     last_updated_ms = int(gate.get("updated_ms") or 0)
     last_snapshot_timestamp = int(gate.get("snapshot_timestamp") or 0)
+    consult_updated_ms = int(gate.get("consult_updated_ms") or 0)
+    consult_snapshot_timestamp = int(gate.get("consult_snapshot_timestamp") or 0)
     satisfied = False
     if current_updated_ms and last_updated_ms >= current_updated_ms:
         satisfied = True
@@ -3866,30 +3892,50 @@ def _env_shared_state_prereq_payload(query_text: str, cached: dict | None) -> di
         satisfied = True
     elif not current_updated_ms and not current_snapshot_timestamp and (last_updated_ms or last_snapshot_timestamp):
         satisfied = True
-    if satisfied:
+    consult_satisfied = False
+    if current_updated_ms and consult_updated_ms >= current_updated_ms:
+        consult_satisfied = True
+    elif current_snapshot_timestamp and consult_snapshot_timestamp >= current_snapshot_timestamp:
+        consult_satisfied = True
+    elif not current_updated_ms and not current_snapshot_timestamp and (consult_updated_ms or consult_snapshot_timestamp):
+        consult_satisfied = True
+    if satisfied and (not require_query_work or consult_satisfied):
         return None
+    blocked_by = "text_theater_first"
+    if satisfied and require_query_work and not consult_satisfied:
+        blocked_by = "text_theater_query_work"
     return {
         "tool": "env_read",
         "status": "error",
-        "summary": "Text-theater read required before shared_state",
+        "summary": "Text-theater query work required before raw state"
+        if blocked_by == "text_theater_query_work"
+        else "Text-theater read required before shared_state",
         "normalized_args": {"query": query_text},
         "delta": {
             "found": False,
-            "blocked_by": "text_theater_first",
+            "blocked_by": blocked_by,
             "updated_ms": current_updated_ms,
             "snapshot_timestamp": current_snapshot_timestamp,
+            "consult_updated_ms": consult_updated_ms,
+            "consult_snapshot_timestamp": consult_snapshot_timestamp,
         },
         "operation": "env_read",
         "operation_status": "error",
         "query": query_text,
-        "error": "text_theater_first_required",
+        "error": "text_theater_query_work_required" if blocked_by == "text_theater_query_work" else "text_theater_first_required",
         "message": (
-            "Read a fresh text theater render for the current live frame before opening shared_state or live. "
-            "Use text_theater/text_theater_embodiment first, snapshot second, env_report for scoped diagnosis, "
-            "visual captures after that, and raw shared_state last."
+            "Read a fresh consult/query-work view for the current live frame before opening raw state. "
+            "Use text_theater/text_theater_embodiment first, consult/blackboard second, snapshot third, "
+            "env_report for scoped diagnosis after that, visual captures after that, and raw shared_state last."
+            if blocked_by == "text_theater_query_work"
+            else
+            "Read a fresh text theater render for the current live frame before opening raw state. "
+            "Use text_theater/text_theater_embodiment first, consult/blackboard second, snapshot third, "
+            "env_report for scoped diagnosis after that, visual captures after that, and raw shared_state last."
         ),
         "required_sequence": [
             "env_read(query='text_theater_embodiment')",
+            "env_read(query='text_theater_view', view='consult', section='blackboard', diagnostics=true)",
             "env_read(query='text_theater_snapshot')",
             "env_report(report_id='route_stability_diagnosis') when you need route/support reasoning",
             "capture_probe('character_runtime::mounted_primary') or capture_supercam or capture_frame/capture_strip",
@@ -3928,7 +3974,7 @@ def _env_help_builtin_topics() -> dict[str, dict]:
             },
         "summary": "Build a small, auditable report over blackboard, text-theater snapshot, and workbench truth without dumping raw shared_state.",
         "when_to_use": [
-            "Use this after reading text theater and text_theater_snapshot when you need scoped reasoning instead of rummaging through raw shared_state.",
+            "Use this after reading text theater, then the consult/blackboard query-work surface, then text_theater_snapshot when you need scoped reasoning instead of rummaging through raw shared_state.",
             "Use route_stability_diagnosis when the question is about route status, support realization, blocker truth, next adjustment, or how bad the staged posture visibly is.",
         ],
             "what_it_changes": [
@@ -3936,11 +3982,12 @@ def _env_help_builtin_topics() -> dict[str, dict]:
         ],
         "mode_notes": [
             "env_report is a stateless materializer over existing truth. It does not plan routes, mutate builder state, or become a second authority plane.",
-            "The theater-first gate still applies. Read text_theater/text_theater_embodiment first, snapshot second, then ask for a scoped report.",
+            "The theater-first gate still applies. Read text_theater/text_theater_embodiment first, use consult/blackboard as the visible query-work lane, read snapshot second, then ask for a scoped report.",
             "The first recipe fuses text-theater embodiment evidence with blackboard/workbench truth so the report can tell you what the pose actually looks like, not just which rows are hot.",
         ],
             "verification": [
                 "env_read(query='text_theater_embodiment')",
+                "env_read(query='text_theater_view', view='consult', section='blackboard', diagnostics=true)",
                 "env_read(query='text_theater_snapshot')",
                 "env_report(report_id='route_stability_diagnosis')",
                 "capture_probe('character_runtime::mounted_primary')",
@@ -4114,6 +4161,73 @@ def _env_help_builtin_topics() -> dict[str, dict]:
                 "workbench_assert_balance",
             ],
         },
+        "dreamer_transform_relay": {
+            "tool": "dreamer_transform_relay",
+            "entry_kind": "operator_surface",
+            "title": "Dreamer Transform Relay",
+            "category": "dreamer",
+            "status": "live",
+            "transport": {
+                "local_proxy": False,
+                "browser_surface": False,
+                "ui_local_only": False,
+                "implemented_verb": False,
+            },
+            "target_contract": {
+                "shape": "json payload",
+                "description": "Calibration relay over the live text-theater snapshot: per-bone observed pose, active local transform, macro baseline, and balance/support geometry.",
+                "examples": [
+                    "/api/dreamer/transform_relay",
+                    "/api/dreamer/transform_relay?task=half_kneel_l&bones=hips,spine,chest,lower_leg_l,foot_r",
+                ],
+            },
+            "summary": "Read exact calibration-facing pose and support geometry for the current Dreamer task without bypassing the theater-first doctrine.",
+            "when_to_use": [
+                "Use this when compact mechanics observations are not enough and you need exact per-bone relay data for calibration or carrier-chain diagnosis.",
+                "Use this before building bounded sweeps so the baseline local/world transform read is explicit and auditable.",
+            ],
+            "what_it_changes": [
+                "Nothing. This is a read-only calibration relay.",
+            ],
+            "mode_notes": [
+                "This surface is gated behind the same text-theater-first doctrine as deeper shared-state access.",
+                "It is intended for calibration, relay, and ranker retuning work, not as a replacement for text_theater_embodiment or env_report.",
+            ],
+            "verification": [
+                "env_read(query='text_theater_embodiment')",
+                "env_read(query='text_theater_snapshot')",
+                "env_help(topic='dreamer_transform_relay')",
+                "/api/dreamer/transform_relay",
+            ],
+            "gotchas": [
+                "If the theater-first gate has not been satisfied, the relay should be treated as blocked rather than worked around.",
+                "Observed world pose and active local pose transform are different readings and should not be collapsed together.",
+            ],
+            "failure_modes": [
+                "No fresh text_theater_snapshot available.",
+                "Live workbench pose state missing for one or more target bones.",
+            ],
+            "aliases": [
+                "transform_relay",
+                "dreamer_calibration_relay",
+            ],
+            "surface_entrypoints": [
+                "/api/dreamer/transform_relay",
+                "Dreamer calibration workflow (planned)",
+            ],
+            "bridges_to": [
+                "/api/dreamer/mechanics_obs",
+                "text_theater_embodiment",
+                "text_theater_snapshot",
+                "env_report(route_stability_diagnosis)",
+            ],
+            "related_commands": [
+                "dreamer_mechanics_obs",
+                "env_report",
+                "text_theater_embodiment",
+                "text_theater_snapshot",
+            ],
+        },
     }
 
 
@@ -4218,10 +4332,11 @@ def _env_report_build_session_thread(shared_state: dict | None = None) -> dict:
     state = shared_state if isinstance(shared_state, dict) else {}
     blackboard = state.get("blackboard") if isinstance(state.get("blackboard"), dict) else {}
     working_set = blackboard.get("working_set") if isinstance(blackboard.get("working_set"), dict) else {}
+    query_thread = working_set.get("query_thread") if isinstance(working_set.get("query_thread"), dict) else {}
     workbench = state.get("workbench") if isinstance(state.get("workbench"), dict) else {}
     route_report = workbench.get("route_report") if isinstance(workbench.get("route_report"), dict) else {}
     active_controller = workbench.get("active_controller") if isinstance(workbench.get("active_controller"), dict) else {}
-    return {
+    session_thread = {
         "selected_bone_ids": _env_report_unique_strings(working_set.get("selected_bone_ids") or []),
         "supporting_joint_ids": _env_report_unique_strings(working_set.get("supporting_joint_ids") or []),
         "intended_support_set": _env_report_unique_strings(working_set.get("intended_support_set") or []),
@@ -4241,6 +4356,20 @@ def _env_report_build_session_thread(shared_state: dict | None = None) -> dict:
         "pinned_row_ids": _env_report_unique_strings(working_set.get("pinned_row_ids") or []),
         "lead_row_ids": _env_report_unique_strings(working_set.get("lead_row_ids") or [], limit=12),
     }
+    if query_thread:
+        session_thread["query_thread"] = {
+            "objective_id": str(query_thread.get("objective_id") or ""),
+            "objective_label": str(query_thread.get("objective_label") or ""),
+            "visible_read": str(query_thread.get("visible_read") or ""),
+            "anchor_row_ids": _env_report_unique_strings(query_thread.get("anchor_row_ids") or [], limit=8),
+            "raw_state_guardrail": str(query_thread.get("raw_state_guardrail") or ""),
+            "next_reads": [
+                _json_clone(item)
+                for item in list(query_thread.get("next_reads") or [])[:4]
+                if isinstance(item, dict)
+            ],
+        }
+    return session_thread
 
 
 def _env_report_error_payload(
@@ -4691,7 +4820,7 @@ def _env_report_local_proxy_payload(args: dict | None = None) -> dict | None:
 
     cached = _env_live_cache_snapshot()
     live_revision = int((cached or {}).get("updated_ms") or 0)
-    gate_payload = _env_shared_state_prereq_payload("shared_state", cached)
+    gate_payload = _env_shared_state_prereq_payload("env_report", cached)
     if gate_payload is not None:
         return _env_report_gate_blocked_payload(report_id, normalized_args, gate_payload, live_revision=live_revision)
 
@@ -10390,6 +10519,11 @@ _DREAMER_MECHANICS_FIELDS = [
     "pose.lower_leg_l_pitch_deg",
     "pose.foot_r_yaw_deg",
 ]
+_DREAMER_TRANSFORM_RELAY_SCHEMA_ID = "dreamer_transform_relay_v1"
+_DREAMER_BOUNDED_SWEEP_SCHEMA_ID = "dreamer_bounded_sweep_v1"
+_DREAMER_CALIBRATION_DEFAULT_BONES = {
+    "half_kneel_l": ["hips", "spine", "chest", "upper_leg_l", "lower_leg_l", "foot_r"],
+}
 _DREAMER_BALANCE_MODE_CODES = {
     "none": 0,
     "balanced": 1,
@@ -10409,10 +10543,10 @@ _DREAMER_KNEEL_CORRECTIONS = [
         "summary": "Lower the carrier to bring the knee closer to contact.",
         "task_scope": ["half_kneel_l"],
         "targets": ["hips"],
-        "pose_delta": {"offset": {"hips": {"y": -0.03}}},
+        "pose_delta": {"offset": {"hips": {"y": -0.12}}},
         "workbench_set_pose_batch_template": {
             "poses": [
-                {"bone": "hips", "offset": {"x": 0.0, "y": -0.15, "z": 0.05}}
+                {"bone": "hips", "offset": {"x": 0.0, "y": -0.24, "z": 0.05}}
             ]
         },
     },
@@ -10493,10 +10627,10 @@ _DREAMER_KNEEL_CORRECTIONS = [
         "summary": "Increase knee flexion to reduce the left knee contact gap.",
         "task_scope": ["half_kneel_l"],
         "targets": ["lower_leg_l"],
-        "pose_delta": {"rotation_deg": {"lower_leg_l": [5, 0, 0]}},
+        "pose_delta": {"rotation_deg": {"lower_leg_l": [20, 0, 0]}},
         "workbench_set_pose_batch_template": {
             "poses": [
-                {"bone": "lower_leg_l", "rotation_deg": [125, 0, 0]}
+                {"bone": "lower_leg_l", "rotation_deg": [140, 0, 0]}
             ]
         },
     },
@@ -10507,10 +10641,10 @@ _DREAMER_KNEEL_CORRECTIONS = [
         "summary": "Yaw the planted right foot outward to improve the support polygon.",
         "task_scope": ["half_kneel_l"],
         "targets": ["foot_r"],
-        "pose_delta": {"rotation_deg": {"foot_r": [0, 3, 0]}},
+        "pose_delta": {"rotation_deg": {"foot_r": [0, 8, 0]}},
         "workbench_set_pose_batch_template": {
             "poses": [
-                {"bone": "foot_r", "rotation_deg": [-25, 9, 0]}
+                {"bone": "foot_r", "rotation_deg": [-25, 14, 0]}
             ]
         },
     },
@@ -10609,6 +10743,431 @@ def _dreamer_mechanics_bone_world(snapshot: dict, bone_id: str, axis_index: int)
     row = _dreamer_mechanics_bone_row(snapshot, bone_id)
     world_pos = row.get("world_pos") if isinstance(row.get("world_pos"), list) else []
     return _dreamer_mechanics_number(world_pos[axis_index] if axis_index < len(world_pos) else 0.0, 0.0)
+
+
+def _dreamer_transform_relay_bones(task_name: str = "", requested_bones=None) -> list[str]:
+    explicit = []
+    if isinstance(requested_bones, str):
+        explicit = [part.strip() for part in requested_bones.split(",") if str(part or "").strip()]
+    elif isinstance(requested_bones, list):
+        explicit = [str(part or "").strip() for part in requested_bones if str(part or "").strip()]
+    if explicit:
+        seen = set()
+        ordered = []
+        for bone_id in explicit:
+            if bone_id in seen:
+                continue
+            seen.add(bone_id)
+            ordered.append(bone_id)
+        return ordered
+    task_key = str(task_name or "").strip() or "half_kneel_l"
+    return list(_DREAMER_CALIBRATION_DEFAULT_BONES.get(task_key) or _DREAMER_CALIBRATION_DEFAULT_BONES["half_kneel_l"])
+
+
+def _dreamer_pose_triplet(value, fallback: list[float] | None = None) -> list[float]:
+    base = list(fallback) if isinstance(fallback, list) and len(fallback) >= 3 else [0.0, 0.0, 0.0]
+    if isinstance(value, list):
+        seq = value[:3]
+    elif isinstance(value, tuple):
+        seq = list(value[:3])
+    elif isinstance(value, dict):
+        seq = [value.get("x", base[0]), value.get("y", base[1]), value.get("z", base[2])]
+    else:
+        seq = base
+    out = []
+    for index in range(3):
+        seed = base[index] if index < len(base) else 0.0
+        raw = seq[index] if index < len(seq) else seed
+        out.append(_dreamer_mechanics_number(raw, seed))
+    return out
+
+
+def _dreamer_mechanics_pose_transform(snapshot: dict, bone_id: str) -> dict:
+    workbench = snapshot.get("workbench") if isinstance(snapshot.get("workbench"), dict) else {}
+    pose = workbench.get("pose") if isinstance(workbench.get("pose"), dict) else {}
+    transforms = pose.get("transforms") if isinstance(pose.get("transforms"), dict) else {}
+    return transforms.get(str(bone_id or "").strip()) if isinstance(transforms.get(str(bone_id or "").strip()), dict) else {}
+
+
+def _dreamer_mechanics_macro_pose_entry(snapshot: dict, task_name: str, bone_id: str) -> dict:
+    workbench = snapshot.get("workbench") if isinstance(snapshot.get("workbench"), dict) else {}
+    registry = workbench.get("pose_macro_registry")
+    target_task = str(task_name or "").strip()
+    target_bone = str(bone_id or "").strip()
+    if not target_task or not target_bone:
+        return {}
+    candidates = []
+    if isinstance(registry, dict):
+        direct = registry.get(target_task)
+        if isinstance(direct, dict):
+            candidates.append(direct)
+        for value in registry.values():
+            if isinstance(value, dict):
+                candidates.append(value)
+    elif isinstance(registry, list):
+        candidates = [row for row in registry if isinstance(row, dict)]
+    for candidate in candidates:
+        macro_id = str(candidate.get("macro_id") or candidate.get("id") or "").strip()
+        if macro_id and macro_id != target_task:
+            continue
+        batch = candidate.get("batch") if isinstance(candidate.get("batch"), list) else []
+        for entry in batch:
+            if not isinstance(entry, dict):
+                continue
+            if str(entry.get("bone") or entry.get("bone_id") or "").strip() == target_bone:
+                return entry
+    return {}
+
+
+def _dreamer_calibration_root_for_bone(snapshot: dict, task_name: str, bone_id: str) -> dict:
+    bone_row = _dreamer_mechanics_bone_row(snapshot, bone_id)
+    current_transform = _dreamer_mechanics_pose_transform(snapshot, bone_id)
+    macro_row = _dreamer_mechanics_macro_pose_entry(snapshot, task_name, bone_id)
+    observed_rotation = _dreamer_pose_triplet(bone_row.get("rotation_deg"))
+    observed_local_offset = _dreamer_pose_triplet(bone_row.get("local_offset"))
+    current_offset = _dreamer_pose_triplet(current_transform.get("offset"), observed_local_offset)
+    macro_offset = _dreamer_pose_triplet(macro_row.get("offset"))
+    macro_rotation = _dreamer_pose_triplet(macro_row.get("rotation_deg"))
+    return {
+        "bone_id": str(bone_id or "").strip(),
+        "rotation_deg": observed_rotation,
+        "offset": {"x": current_offset[0], "y": current_offset[1], "z": current_offset[2]},
+        "macro_offset": {"x": macro_offset[0], "y": macro_offset[1], "z": macro_offset[2]},
+        "macro_rotation_deg": macro_rotation,
+        "sources": {
+            "bone_row_present": bool(bone_row),
+            "current_pose_transform_present": bool(current_transform),
+            "macro_pose_entry_present": bool(macro_row),
+        },
+    }
+
+
+def _dreamer_calibration_root(snapshot: dict, task_name: str, bones: list[str] | None = None) -> dict:
+    rows = []
+    for bone_id in bones if isinstance(bones, list) else _dreamer_transform_relay_bones(task_name):
+        bone = str(bone_id or "").strip()
+        if not bone:
+            continue
+        rows.append(_dreamer_calibration_root_for_bone(snapshot, task_name, bone))
+    return {
+        "task": str(task_name or "").strip() or "half_kneel_l",
+        "bones": rows,
+        "bone_map": {str((row or {}).get("bone_id") or ""): row for row in rows if isinstance(row, dict) and str((row or {}).get("bone_id") or "")},
+    }
+
+
+def _dreamer_transform_relay_bone_entry(snapshot: dict, task_name: str, bone_id: str) -> dict:
+    bone_row = _dreamer_mechanics_bone_row(snapshot, bone_id)
+    current_transform = _dreamer_mechanics_pose_transform(snapshot, bone_id)
+    macro_row = _dreamer_mechanics_macro_pose_entry(snapshot, task_name, bone_id)
+    observed_rotation = _dreamer_pose_triplet(bone_row.get("rotation_deg"))
+    observed_world = _dreamer_pose_triplet(bone_row.get("world_pos"))
+    observed_local_offset = _dreamer_pose_triplet(bone_row.get("local_offset"))
+    current_offset = _dreamer_pose_triplet(
+        current_transform.get("offset"),
+        _dreamer_pose_triplet(macro_row.get("offset"), observed_local_offset),
+    )
+    macro_offset = _dreamer_pose_triplet(macro_row.get("offset"))
+    return {
+        "bone_id": str(bone_id or "").strip(),
+        "posed": bool(bone_row.get("posed") or current_transform),
+        "observed": {
+            "rotation_deg": observed_rotation,
+            "world_pos": observed_world,
+            "local_offset": observed_local_offset,
+        },
+        "current_pose_transform": {
+            "rotation_quat": _json_clone(current_transform.get("rotation")),
+            "offset": {"x": current_offset[0], "y": current_offset[1], "z": current_offset[2]},
+        },
+        "macro_pose_entry": {
+            "rotation_deg": _dreamer_pose_triplet(macro_row.get("rotation_deg")),
+            "offset": {"x": macro_offset[0], "y": macro_offset[1], "z": macro_offset[2]},
+        },
+        "sources": {
+            "bone_row_present": bool(bone_row),
+            "current_pose_transform_present": bool(current_transform),
+            "macro_pose_entry_present": bool(macro_row),
+        },
+    }
+
+
+def _dreamer_transform_relay_payload(snapshot: dict, updated_ms: int, task_name: str = "", requested_bones=None) -> dict:
+    task_key = str(task_name or "").strip() or "half_kneel_l"
+    observation_payload = _dreamer_mechanics_observation_payload(snapshot, updated_ms)
+    workbench = snapshot.get("workbench") if isinstance(snapshot.get("workbench"), dict) else {}
+    balance = snapshot.get("balance") if isinstance(snapshot.get("balance"), dict) else {}
+    route_report = workbench.get("route_report") if isinstance(workbench.get("route_report"), dict) else {}
+    bones = _dreamer_transform_relay_bones(task_key, requested_bones)
+    relay_bones = [_dreamer_transform_relay_bone_entry(snapshot, task_key, bone_id) for bone_id in bones]
+    support_polygon = balance.get("support_polygon") if isinstance(balance.get("support_polygon"), list) else []
+    projected_com = balance.get("projected_com") if isinstance(balance.get("projected_com"), dict) else {}
+    com = balance.get("com") if isinstance(balance.get("com"), dict) else {}
+    nearest_edge = balance.get("nearest_edge") if isinstance(balance.get("nearest_edge"), dict) else {}
+    pose = workbench.get("pose") if isinstance(workbench.get("pose"), dict) else {}
+    transforms = pose.get("transforms") if isinstance(pose.get("transforms"), dict) else {}
+    return {
+        "status": "ok",
+        "schema_id": _DREAMER_TRANSFORM_RELAY_SCHEMA_ID,
+        "target_task": task_key,
+        "updated_ms": int(updated_ms or 0),
+        "obs_source": "text_theater_snapshot",
+        "compact_observation": _dreamer_compact_observation(observation_payload),
+        "workbench": {
+            "pose_transform_count": len(transforms),
+            "posed_bone_ids": list(workbench.get("posed_bone_ids") or []),
+            "selected_controller_id": str(workbench.get("selected_controller_id") or ""),
+            "selected_controller_label": str(workbench.get("selected_controller_label") or ""),
+        },
+        "route": {
+            "status": str(route_report.get("status") or ""),
+            "active_phase_id": str(route_report.get("active_phase_id") or ""),
+            "active_phase_label": str(route_report.get("active_phase_label") or ""),
+            "phase_gate_summary": str(route_report.get("phase_gate_summary") or ""),
+            "realized_support_set": _json_clone(route_report.get("realized_support_set") or []),
+            "intended_support_set": _json_clone(route_report.get("intended_support_set") or []),
+            "missing_support_participants": _json_clone(route_report.get("missing_support_participants") or []),
+        },
+        "balance_geometry": {
+            "com": _json_clone(com),
+            "projected_com": _json_clone(projected_com),
+            "support_polygon": _json_clone(support_polygon),
+            "nearest_edge": _json_clone(nearest_edge),
+            "supporting_joint_ids": _json_clone(balance.get("supporting_joint_ids") or []),
+            "alert_ids": _json_clone(balance.get("alert_ids") or []),
+            "stability_margin": _dreamer_mechanics_number(balance.get("stability_margin"), 0.0),
+            "stability_risk": _dreamer_mechanics_number(balance.get("stability_risk"), 0.0),
+        },
+        "relay_bones": relay_bones,
+    }
+
+
+def _dreamer_sweep_axis_spec(axis_name: str) -> tuple[str, int] | None:
+    text = str(axis_name or "").strip().lower()
+    mapping = {
+        "rotation_x": ("rotation_deg", 0),
+        "rotation_y": ("rotation_deg", 1),
+        "rotation_z": ("rotation_deg", 2),
+        "offset_x": ("offset", 0),
+        "offset_y": ("offset", 1),
+        "offset_z": ("offset", 2),
+    }
+    return mapping.get(text)
+
+
+def _dreamer_sweep_values(start: float, stop: float, step: float) -> list[float]:
+    if step == 0:
+        return [round(float(start), 4)]
+    values = []
+    current = float(start)
+    forward = step > 0
+    max_iters = 512
+    while max_iters > 0:
+        values.append(round(current, 4))
+        max_iters -= 1
+        next_value = current + step
+        if forward:
+            if next_value > stop + 1e-9:
+                break
+        else:
+            if next_value < stop - 1e-9:
+                break
+        current = next_value
+    if values and abs(values[-1] - stop) > 1e-6:
+        values.append(round(float(stop), 4))
+    return values
+
+
+async def _dreamer_restore_task_baseline(task_name: str, *, source: str = "webui", client_id: str | None = None, actor: str = "assistant") -> tuple[dict | None, str | None]:
+    editing_payload, editing_err = await _dreamer_dispatch_env_control({
+        "command": "workbench_set_editing_mode",
+        "target_id": json.dumps({"editing_mode": "pose"}),
+        "actor": actor,
+        "include_full": False,
+    }, source=source, client_id=client_id)
+    if editing_err:
+        return None, editing_err
+    macro_payload, macro_err = await _dreamer_dispatch_env_control({
+        "command": "workbench_apply_pose_macro",
+        "target_id": json.dumps({"macro_id": str(task_name or "half_kneel_l")}),
+        "actor": actor,
+        "include_full": False,
+    }, source=source, client_id=client_id)
+    if macro_err:
+        return None, macro_err
+    return {"editing_mode": editing_payload, "macro": macro_payload}, None
+
+
+async def _dreamer_restore_neutral_baseline(*, source: str = "webui", client_id: str | None = None, actor: str = "assistant") -> tuple[dict | None, str | None]:
+    pose_payload, pose_err = await _dreamer_dispatch_env_control({
+        "command": "workbench_set_editing_mode",
+        "target_id": json.dumps({"editing_mode": "pose"}),
+        "actor": actor,
+        "include_full": False,
+    }, source=source, client_id=client_id)
+    if pose_err:
+        return None, pose_err
+    clear_payload, clear_err = await _dreamer_dispatch_env_control({
+        "command": "workbench_clear_pose",
+        "target_id": json.dumps({"all": True}),
+        "actor": actor,
+        "include_full": False,
+    }, source=source, client_id=client_id)
+    if clear_err:
+        return None, clear_err
+    return {"pose_mode": pose_payload, "clear": clear_payload}, None
+
+
+async def _dreamer_capture_stable_snapshot(after_updated_ms: int = 0, *, timeout_s: float = 2.2, poll_s: float = 0.05) -> tuple[dict | None, int]:
+    baseline_ms = int(after_updated_ms or 0)
+    deadline = time.time() + max(0.1, float(timeout_s or 0.1))
+    latest_snapshot = None
+    latest_updated_ms = 0
+    while time.time() < deadline:
+        snapshot, updated_ms = _dreamer_mechanics_live_snapshot()
+        if isinstance(snapshot, dict):
+            latest_snapshot = snapshot
+            latest_updated_ms = int(updated_ms or 0)
+            if latest_updated_ms > baseline_ms:
+                return latest_snapshot, latest_updated_ms
+        await asyncio.sleep(max(0.01, float(poll_s or 0.01)))
+    return latest_snapshot, latest_updated_ms
+
+
+async def _dreamer_capture_calibration_anchors(task_name: str, *, source: str = "webui", client_id: str | None = None, actor: str = "assistant", focus_bones: list[str] | None = None) -> tuple[dict | None, str | None]:
+    target_bones = focus_bones if isinstance(focus_bones, list) and focus_bones else _dreamer_transform_relay_bones(task_name)
+    neutral_restore, neutral_err = await _dreamer_restore_neutral_baseline(source=source, client_id=client_id, actor=actor)
+    if neutral_err:
+        return None, neutral_err
+    neutral_clear = neutral_restore.get("clear") if isinstance(neutral_restore, dict) and isinstance(neutral_restore.get("clear"), dict) else {}
+    neutral_text = neutral_clear.get("text_theater") if isinstance(neutral_clear.get("text_theater"), dict) else {}
+    neutral_snapshot = neutral_text.get("snapshot") if isinstance(neutral_text.get("snapshot"), dict) else {}
+    neutral_boundary_ms = int(
+        neutral_snapshot.get("source_timestamp")
+        or neutral_snapshot.get("snapshot_timestamp")
+        or ((neutral_text.get("freshness") if isinstance(neutral_text.get("freshness"), dict) else {}).get("cache_updated_ms") or 0)
+    )
+    current_neutral_snapshot, current_neutral_updated_ms = await _dreamer_capture_stable_snapshot(neutral_boundary_ms)
+    if not isinstance(current_neutral_snapshot, dict):
+        return None, "No live text theater snapshot available for neutral calibration anchor"
+    neutral_observation = _dreamer_mechanics_observation_payload(current_neutral_snapshot, current_neutral_updated_ms)
+    neutral_root = _dreamer_calibration_root(current_neutral_snapshot, "neutral", target_bones)
+
+    task_restore, task_err = await _dreamer_restore_task_baseline(task_name, source=source, client_id=client_id, actor=actor)
+    if task_err:
+        return None, task_err
+    task_macro = task_restore.get("macro") if isinstance(task_restore, dict) and isinstance(task_restore.get("macro"), dict) else {}
+    task_text = task_macro.get("text_theater") if isinstance(task_macro.get("text_theater"), dict) else {}
+    task_snapshot = task_text.get("snapshot") if isinstance(task_text.get("snapshot"), dict) else {}
+    task_boundary_ms = int(
+        task_snapshot.get("source_timestamp")
+        or task_snapshot.get("snapshot_timestamp")
+        or ((task_text.get("freshness") if isinstance(task_text.get("freshness"), dict) else {}).get("cache_updated_ms") or 0)
+    )
+    current_task_snapshot, current_task_updated_ms = await _dreamer_capture_stable_snapshot(task_boundary_ms)
+    if not isinstance(current_task_snapshot, dict):
+        return None, "No live text theater snapshot available for task calibration anchor"
+    task_observation = _dreamer_mechanics_observation_payload(current_task_snapshot, current_task_updated_ms)
+    task_root = _dreamer_calibration_root(current_task_snapshot, task_name, target_bones)
+    return {
+        "task": str(task_name or "").strip() or "half_kneel_l",
+        "bones": list(target_bones),
+        "neutral": {
+            "restore": neutral_restore,
+            "updated_ms": int(current_neutral_updated_ms or 0),
+            "observation": neutral_observation,
+            "root": neutral_root,
+        },
+        "task_root": {
+            "restore": task_restore,
+            "updated_ms": int(current_task_updated_ms or 0),
+            "observation": task_observation,
+            "root": task_root,
+        },
+    }, None
+
+
+def _dreamer_sweep_pose_batch(snapshot: dict, task_name: str, bone_id: str, axis_name: str, delta_value: float, baseline_root: dict | None = None) -> dict:
+    axis_spec = _dreamer_sweep_axis_spec(axis_name)
+    if not axis_spec:
+        return {"poses": []}
+    field_name, axis_index = axis_spec
+    bone_row = _dreamer_mechanics_bone_row(snapshot, bone_id)
+    macro_row = _dreamer_mechanics_macro_pose_entry(snapshot, task_name, bone_id)
+    current_transform = _dreamer_mechanics_pose_transform(snapshot, bone_id)
+    baseline_row = {}
+    if isinstance(baseline_root, dict):
+        bone_map = baseline_root.get("bone_map") if isinstance(baseline_root.get("bone_map"), dict) else {}
+        baseline_row = bone_map.get(str(bone_id or "").strip()) if isinstance(bone_map.get(str(bone_id or "").strip()), dict) else {}
+    row = {"bone": bone_id}
+    if field_name == "rotation_deg":
+        base_rotation = _dreamer_pose_triplet(
+            baseline_row.get("rotation_deg"),
+            _dreamer_pose_triplet(bone_row.get("rotation_deg"), _dreamer_pose_triplet(macro_row.get("rotation_deg"))),
+        )
+        next_rotation = list(base_rotation)
+        next_rotation[axis_index] = round(base_rotation[axis_index] + float(delta_value), 4)
+        row["rotation_deg"] = next_rotation
+    else:
+        base_offset = _dreamer_pose_triplet(
+            baseline_row.get("offset"),
+            _dreamer_pose_triplet(
+                current_transform.get("offset"),
+                _dreamer_pose_triplet(macro_row.get("offset"), _dreamer_pose_triplet(bone_row.get("local_offset"))),
+            ),
+        )
+        next_offset = list(base_offset)
+        next_offset[axis_index] = round(base_offset[axis_index] + float(delta_value), 4)
+        row["offset"] = {"x": next_offset[0], "y": next_offset[1], "z": next_offset[2]}
+    return {"poses": [row]}
+
+
+def _dreamer_delta_pose_batch(snapshot: dict, task_name: str, selected_action: dict) -> dict:
+    pose_delta = selected_action.get("pose_delta") if isinstance(selected_action.get("pose_delta"), dict) else {}
+    rotation_delta_map = pose_delta.get("rotation_deg") if isinstance(pose_delta.get("rotation_deg"), dict) else {}
+    offset_delta_map = pose_delta.get("offset") if isinstance(pose_delta.get("offset"), dict) else {}
+    template = selected_action.get("workbench_set_pose_batch_template") if isinstance(selected_action.get("workbench_set_pose_batch_template"), dict) else {}
+    template_poses = template.get("poses") if isinstance(template.get("poses"), list) else []
+    template_by_bone = {}
+    for row in template_poses:
+        if not isinstance(row, dict):
+            continue
+        bone = str(row.get("bone") or row.get("bone_id") or "").strip()
+        if bone:
+            template_by_bone[bone] = row
+    target_bones = set()
+    target_bones.update(str(key).strip() for key in rotation_delta_map.keys())
+    target_bones.update(str(key).strip() for key in offset_delta_map.keys())
+    poses = []
+    for bone_id in sorted(bone for bone in target_bones if bone):
+        row = {"bone": bone_id}
+        template_row = template_by_bone.get(bone_id) if isinstance(template_by_bone.get(bone_id), dict) else {}
+        macro_row = _dreamer_mechanics_macro_pose_entry(snapshot, task_name, bone_id)
+        current_transform = _dreamer_mechanics_pose_transform(snapshot, bone_id)
+        bone_row = _dreamer_mechanics_bone_row(snapshot, bone_id)
+        if bone_id in rotation_delta_map:
+            current_rotation = _dreamer_pose_triplet(
+                bone_row.get("rotation_deg"),
+                _dreamer_pose_triplet(template_row.get("rotation_deg"), _dreamer_pose_triplet(macro_row.get("rotation_deg"))),
+            )
+            delta_rotation = _dreamer_pose_triplet(rotation_delta_map.get(bone_id), [0.0, 0.0, 0.0])
+            row["rotation_deg"] = [round(current_rotation[i] + delta_rotation[i], 4) for i in range(3)]
+        if bone_id in offset_delta_map:
+            current_offset = _dreamer_pose_triplet(
+                current_transform.get("offset"),
+                _dreamer_pose_triplet(template_row.get("offset"), _dreamer_pose_triplet(macro_row.get("offset"))),
+            )
+            delta_offset = _dreamer_pose_triplet(offset_delta_map.get(bone_id), [0.0, 0.0, 0.0])
+            row["offset"] = {
+                "x": round(current_offset[0] + delta_offset[0], 4),
+                "y": round(current_offset[1] + delta_offset[1], 4),
+                "z": round(current_offset[2] + delta_offset[2], 4),
+            }
+        if len(row) > 1:
+            poses.append(row)
+    if poses:
+        return {"poses": poses}
+    return _json_clone(template) if isinstance(template, dict) else {"poses": []}
 
 
 def _dreamer_mechanics_phase_index(route_report: dict, timeline: dict) -> float:
@@ -10790,6 +11349,21 @@ def _dreamer_mechanics_current_payload() -> tuple[dict | None, str | None]:
     if not isinstance(snapshot, dict):
         return None, "No live text theater snapshot available"
     return _dreamer_mechanics_observation_payload(snapshot, updated_ms), None
+
+
+def _dreamer_mechanics_payload_from_env_control(env_payload: dict | None) -> tuple[dict | None, str | None, dict]:
+    payload = env_payload if isinstance(env_payload, dict) else {}
+    text_theater = payload.get("text_theater") if isinstance(payload.get("text_theater"), dict) else {}
+    snapshot = text_theater.get("snapshot") if isinstance(text_theater.get("snapshot"), dict) else {}
+    freshness = text_theater.get("freshness") if isinstance(text_theater.get("freshness"), dict) else {}
+    if not isinstance(snapshot, dict) or not snapshot:
+        return None, "No text theater snapshot attached to env control result", freshness
+    updated_ms = int(snapshot.get("source_timestamp") or snapshot.get("snapshot_timestamp") or 0)
+    if not updated_ms:
+        updated_ms = int(freshness.get("cache_updated_ms") or 0)
+    if not int(updated_ms or 0):
+        return None, "Attached text theater snapshot did not include a usable timestamp", freshness
+    return _dreamer_mechanics_observation_payload(snapshot, updated_ms), None, freshness
 
 
 def _dreamer_control_plane_task(config: dict | None = None) -> str:
@@ -11261,6 +11835,207 @@ async def dreamer_mechanics_obs():
     return _dreamer_mechanics_observation_payload(snapshot, updated_ms)
 
 
+@app.get("/api/dreamer/transform_relay")
+async def dreamer_transform_relay(task: str = "", bones: str = ""):
+    cached = _env_live_cache_snapshot()
+    gate_payload = _env_shared_state_prereq_payload("shared_state", cached)
+    if isinstance(gate_payload, dict) and str(gate_payload.get("status") or "").lower() == "error":
+        return JSONResponse(status_code=428, content=gate_payload)
+    snapshot, updated_ms = _dreamer_mechanics_live_snapshot()
+    if not isinstance(snapshot, dict):
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "unavailable",
+                "schema_id": _DREAMER_TRANSFORM_RELAY_SCHEMA_ID,
+                "error": "No live text theater snapshot available",
+                "obs_source": "text_theater_snapshot",
+            },
+        )
+    task_name = str(task or "").strip() or "half_kneel_l"
+    payload = _dreamer_transform_relay_payload(snapshot, updated_ms, task_name, bones)
+    payload["gate"] = {
+        "theater_first_satisfied": True,
+        "required_sequence": [
+            "env_read(query='text_theater_embodiment')",
+            "env_read(query='text_theater_snapshot')",
+            "env_report(report_id='route_stability_diagnosis')",
+            "env_read(query='shared_state')",
+        ],
+    }
+    return payload
+
+
+@app.post("/api/dreamer/bounded_sweep")
+async def dreamer_bounded_sweep(request: Request):
+    source = _infer_activity_source(request, fallback="webui")
+    client_id = _extract_client_id(request)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    body = body if isinstance(body, dict) else {}
+    cached = _env_live_cache_snapshot()
+    gate_payload = _env_shared_state_prereq_payload("shared_state", cached)
+    if isinstance(gate_payload, dict) and str(gate_payload.get("status") or "").lower() == "error":
+        return JSONResponse(status_code=428, content=gate_payload)
+
+    task_name = str(body.get("task") or "half_kneel_l").strip() or "half_kneel_l"
+    bone_id = str(body.get("bone_id") or body.get("bone") or "").strip()
+    axis_name = str(body.get("axis") or "").strip().lower()
+    axis_spec = _dreamer_sweep_axis_spec(axis_name)
+    if not bone_id or not axis_spec:
+        payload = {
+            "status": "error",
+            "error": "bone_id and axis are required",
+            "supported_axes": ["rotation_x", "rotation_y", "rotation_z", "offset_x", "offset_y", "offset_z"],
+        }
+        _broadcast_activity("dreamer_bounded_sweep", body, payload, 0, payload.get("error"), source=source, client_id=client_id)
+        return JSONResponse(status_code=400, content=payload)
+
+    start = _dreamer_mechanics_number(body.get("start"), 0.0)
+    stop = _dreamer_mechanics_number(body.get("stop"), start)
+    step = _dreamer_mechanics_number(body.get("step"), 0.0)
+    actor = str(body.get("actor", "assistant") or "assistant").strip() or "assistant"
+    values = _dreamer_sweep_values(start, stop, step)
+    if len(values) > 25:
+        values = values[:25]
+
+    calibration_anchors, baseline_err = await _dreamer_capture_calibration_anchors(
+        task_name,
+        source=source,
+        client_id=client_id,
+        actor=actor,
+        focus_bones=[bone_id],
+    )
+    if baseline_err or not isinstance(calibration_anchors, dict):
+        payload = {
+            "status": "error",
+            "error": baseline_err,
+            "task": task_name,
+            "bone_id": bone_id,
+            "axis": axis_name,
+        }
+        _broadcast_activity("dreamer_bounded_sweep", body, payload, 0, payload.get("error"), source=source, client_id=client_id)
+        return JSONResponse(status_code=503, content=payload)
+
+    task_anchor = calibration_anchors.get("task_root") if isinstance(calibration_anchors.get("task_root"), dict) else {}
+    baseline_snapshot, baseline_updated_ms = _dreamer_mechanics_live_snapshot()
+    if not isinstance(baseline_snapshot, dict):
+        payload = {
+            "status": "unavailable",
+            "error": "No live text theater snapshot available",
+            "task": task_name,
+            "bone_id": bone_id,
+            "axis": axis_name,
+        }
+        _broadcast_activity("dreamer_bounded_sweep", body, payload, 0, payload.get("error"), source=source, client_id=client_id)
+        return JSONResponse(status_code=503, content=payload)
+    baseline_observation = task_anchor.get("observation") if isinstance(task_anchor.get("observation"), dict) else _dreamer_mechanics_observation_payload(baseline_snapshot, baseline_updated_ms)
+    baseline_root = task_anchor.get("root") if isinstance(task_anchor.get("root"), dict) else _dreamer_calibration_root(baseline_snapshot, task_name, [bone_id])
+
+    sweep_rows = []
+    for delta_value in values:
+        restore_result, restore_err = await _dreamer_restore_task_baseline(task_name, source=source, client_id=client_id, actor=actor)
+        if restore_err:
+            sweep_rows.append({
+                "delta_value": delta_value,
+                "status": "error",
+                "error": restore_err,
+            })
+            continue
+        restore_macro = restore_result.get("macro") if isinstance(restore_result, dict) and isinstance(restore_result.get("macro"), dict) else {}
+        restore_text = restore_macro.get("text_theater") if isinstance(restore_macro.get("text_theater"), dict) else {}
+        restore_snapshot = restore_text.get("snapshot") if isinstance(restore_text.get("snapshot"), dict) else {}
+        restore_boundary_ms = int(
+            restore_snapshot.get("source_timestamp")
+            or restore_snapshot.get("snapshot_timestamp")
+            or ((restore_text.get("freshness") if isinstance(restore_text.get("freshness"), dict) else {}).get("cache_updated_ms") or 0)
+        )
+        current_snapshot, current_updated_ms = await _dreamer_capture_stable_snapshot(restore_boundary_ms)
+        if not isinstance(current_snapshot, dict):
+            sweep_rows.append({
+                "delta_value": delta_value,
+                "status": "unavailable",
+                "error": "No live text theater snapshot available",
+            })
+            continue
+        pose_batch = _dreamer_sweep_pose_batch(current_snapshot, task_name, bone_id, axis_name, delta_value, baseline_root=baseline_root)
+        poses = pose_batch.get("poses") if isinstance(pose_batch.get("poses"), list) else []
+        if not poses:
+            sweep_rows.append({
+                "delta_value": delta_value,
+                "status": "error",
+                "error": "No pose batch generated for sweep step",
+            })
+            continue
+        env_payload, env_err = await _dreamer_dispatch_env_control({
+            "command": "workbench_set_pose_batch",
+            "target_id": json.dumps(pose_batch),
+            "actor": actor,
+            "include_full": False,
+        }, source=source, client_id=client_id)
+        if env_err:
+            sweep_rows.append({
+                "delta_value": delta_value,
+                "status": "error",
+                "error": env_err,
+                "pose_batch": pose_batch,
+            })
+            continue
+        after_payload, after_err, after_freshness = _dreamer_mechanics_payload_from_env_control(env_payload)
+        if after_err or not isinstance(after_payload, dict):
+            sweep_rows.append({
+                "delta_value": delta_value,
+                "status": "partial",
+                "error": after_err or "No post-step mechanics observation available",
+                "pose_batch": pose_batch,
+                "env_control": env_payload,
+            })
+            continue
+        cache_advanced = bool(after_freshness.get("cache_advanced_after_command"))
+        matched_sync = bool(after_freshness.get("matched_command_sync"))
+        reward_breakdown = _dreamer_reward_breakdown(baseline_observation, after_payload)
+        row_status = "ok"
+        row_error = None
+        if not cache_advanced:
+            row_status = "stale"
+            row_error = "Post-step text theater cache did not advance after sweep command"
+        sweep_rows.append({
+            "delta_value": round(delta_value, 4),
+            "status": row_status,
+            "error": row_error,
+            "pose_batch": pose_batch,
+            "reward_breakdown": reward_breakdown,
+            "after": _dreamer_compact_observation(after_payload),
+            "freshness": _json_clone(after_freshness),
+        })
+
+    await _dreamer_restore_task_baseline(task_name, source=source, client_id=client_id, actor=actor)
+    best_row = None
+    ok_rows = [row for row in sweep_rows if isinstance(row, dict) and str(row.get("status") or "").lower() == "ok"]
+    if ok_rows:
+        best_row = max(ok_rows, key=lambda row: float(((row.get("reward_breakdown") or {}).get("total_reward") or 0.0)))
+    payload = {
+        "status": "ok",
+        "schema_id": _DREAMER_BOUNDED_SWEEP_SCHEMA_ID,
+        "summary": f"Ran bounded sweep for {bone_id} {axis_name} on task {task_name}.",
+            "task": task_name,
+            "bone_id": bone_id,
+            "axis": axis_name,
+            "values": values,
+            "neutral_baseline": _dreamer_compact_observation((calibration_anchors.get("neutral") or {}).get("observation")),
+            "baseline": _dreamer_compact_observation(baseline_observation),
+            "neutral_root": _json_clone((calibration_anchors.get("neutral") or {}).get("root")),
+            "baseline_root": _json_clone(baseline_root),
+            "restore": task_anchor.get("restore"),
+            "steps": sweep_rows,
+            "best_step": _json_clone(best_row),
+    }
+    _broadcast_activity("dreamer_bounded_sweep", body, payload, 0, None, source=source, client_id=client_id)
+    return payload
+
+
 @app.get("/api/dreamer/proposal_preview")
 async def dreamer_proposal_preview(limit: int = 5):
     limit = max(1, min(int(limit or 5), 16))
@@ -11328,17 +12103,32 @@ async def dreamer_episode_step(request: Request):
     body = body if isinstance(body, dict) else {}
 
     effective, config_source, warnings = await _dreamer_effective_config()
-    before_payload, err = _dreamer_mechanics_current_payload()
-    if err or not isinstance(before_payload, dict):
+    snapshot, updated_ms = _dreamer_mechanics_live_snapshot()
+    if not isinstance(snapshot, dict):
         payload = {
             "status": "unavailable",
-            "error": err or "No mechanics observation available",
+            "error": "No mechanics observation available",
             "control_plane": _dreamer_control_plane_view(effective),
             "config_source": config_source,
             "warnings": warnings,
         }
         _broadcast_activity("dreamer_episode_step", body, payload, 0, payload.get("error"), source=source, client_id=client_id)
         return JSONResponse(status_code=503, content=payload)
+    before_payload = _dreamer_mechanics_observation_payload(snapshot, updated_ms)
+
+    task_name = _dreamer_control_plane_task(effective)
+    try:
+        await _call_tool("observe", {
+            "signal_type": "mechanics_v1",
+            "data": json.dumps({
+                "schema_id": _DREAMER_MECHANICS_SCHEMA_ID,
+                "task": task_name,
+                "payload": before_payload,
+                "ts": time.time(),
+            }, ensure_ascii=False),
+        })
+    except Exception:
+        pass
 
     ranked_payload = _dreamer_rank_proposals(before_payload, effective)
     ranked_actions = ranked_payload.get("ranked_actions") if isinstance(ranked_payload.get("ranked_actions"), list) else []
@@ -11362,7 +12152,7 @@ async def dreamer_episode_step(request: Request):
         _broadcast_activity("dreamer_episode_step", body, payload, 0, payload.get("error"), source=source, client_id=client_id)
         return JSONResponse(status_code=400, content=payload)
 
-    pose_batch_template = selected_action.get("workbench_set_pose_batch_template") if isinstance(selected_action.get("workbench_set_pose_batch_template"), dict) else {}
+    pose_batch_template = _dreamer_delta_pose_batch(snapshot, task_name, selected_action)
     poses = pose_batch_template.get("poses") if isinstance(pose_batch_template.get("poses"), list) else []
     if not poses:
         payload = {
@@ -11414,14 +12204,14 @@ async def dreamer_episode_step(request: Request):
     event_ts = time.time()
     reward_row = {
         "ts": event_ts,
-        "task": str(ranked_payload.get("task") or _dreamer_control_plane_task(effective)),
+        "task": str(ranked_payload.get("task") or task_name),
         "action_key": str(selected_action.get("action_key") or ""),
         "total_reward": float(reward_breakdown.get("total_reward") or 0.0),
         "contributions": _json_clone(reward_breakdown.get("contributions") or {}),
     }
     step_row = {
         "ts": event_ts,
-        "task": str(ranked_payload.get("task") or _dreamer_control_plane_task(effective)),
+        "task": str(ranked_payload.get("task") or task_name),
         "action_id": selected_action.get("action_id"),
         "action_key": str(selected_action.get("action_key") or ""),
         "label": str(selected_action.get("label") or selected_action.get("action_key") or "action"),
@@ -11431,6 +12221,13 @@ async def dreamer_episode_step(request: Request):
         "after": _dreamer_compact_observation(after_payload),
         "delta": _json_clone(reward_breakdown.get("delta") or {}),
     }
+    try:
+        await _call_tool("observe", {
+            "signal_type": "mechanics_reward",
+            "data": json.dumps(reward_row, ensure_ascii=False),
+        })
+    except Exception:
+        pass
     _dreamer_history_append("mechanics_rewards", reward_row, limit=120)
     _dreamer_history_append("episode_steps", step_row, limit=80)
 

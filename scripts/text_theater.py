@@ -1022,22 +1022,89 @@ def _render_blackboard_section(snapshot, width):
     snapshot = snapshot if isinstance(snapshot, dict) else {}
     blackboard = snapshot.get("blackboard") if isinstance(snapshot.get("blackboard"), dict) else {}
     working = blackboard.get("working_set") if isinstance(blackboard.get("working_set"), dict) else {}
+    query_thread = working.get("query_thread") if isinstance(working.get("query_thread"), dict) else {}
     focus = blackboard.get("focus") if isinstance(blackboard.get("focus"), dict) else {}
     rows = blackboard.get("rows") if isinstance(blackboard.get("rows"), list) else []
     families = blackboard.get("families") if isinstance(blackboard.get("families"), list) else []
     lines = [
         f"row_count={int(blackboard.get('row_count') or 0)} families={families}",
         f"focus kind={focus.get('kind', '')} id={focus.get('id', '')} class={focus.get('target_class', '')}",
+        "query_objective="
+        + str(query_thread.get("objective_label") or query_thread.get("objective_id") or "scene_orientation"),
+        "visible_read=" + str(query_thread.get("visible_read") or ""),
+        "query_anchor_rows=" + str(query_thread.get("anchor_row_ids") or working.get("lead_row_ids", [])),
         f"active_controller={working.get('active_controller_id', '')} active_route={working.get('active_route_id', '')}",
         f"selection={working.get('selected_bone_ids', [])}",
         f"intended_support={working.get('intended_support_set', [])} missing_support={working.get('missing_support_set', [])}",
         f"lead_rows={working.get('lead_row_ids', [])}",
+        "query_next_reads="
+        + str(
+            [
+                (
+                    str((row or {}).get("tool") or "")
+                    + ":"
+                    + str((((row or {}).get("args") or {}).get("query") or (((row or {}).get("args") or {}).get("report_id")) or ""))
+                )
+                for row in list(query_thread.get("next_reads") or [])[:4]
+                if isinstance(row, dict)
+            ]
+        ),
+        "query_guardrail=" + str(query_thread.get("raw_state_guardrail") or ""),
     ]
     for row in rows[:12]:
         rendered = _format_blackboard_row(row)
         if rendered:
             lines.append(rendered)
     return _wrap_block("\n".join(lines), width)
+
+
+def _consult_query_thread(snapshot):
+    snapshot = snapshot if isinstance(snapshot, dict) else {}
+    blackboard = snapshot.get("blackboard") if isinstance(snapshot.get("blackboard"), dict) else {}
+    working = blackboard.get("working_set") if isinstance(blackboard.get("working_set"), dict) else {}
+    query_thread = working.get("query_thread") if isinstance(working.get("query_thread"), dict) else {}
+    objective = str(query_thread.get("objective_label") or query_thread.get("objective_id") or "Scene Orientation")
+    visible_read = str(query_thread.get("visible_read") or "")
+    anchor_rows = query_thread.get("anchor_row_ids") if isinstance(query_thread.get("anchor_row_ids"), list) else working.get("lead_row_ids", [])
+    return [
+        "OBJECTIVE: " + objective,
+        "VISIBLE READ: " + (visible_read or "n/a"),
+        "SEED: selected "
+        + str(working.get("selected_bone_ids", []))
+        + " / supporting "
+        + str(working.get("supporting_joint_ids", [])),
+        "ROUTE: active "
+        + str(working.get("active_route_id", ""))
+        + " / intended "
+        + str(working.get("intended_support_set", []))
+        + " / missing "
+        + str(working.get("missing_support_set", [])),
+        "ANCHOR ROWS: " + str(anchor_rows or []),
+    ]
+
+
+def _consult_query_evidence(snapshot):
+    snapshot = snapshot if isinstance(snapshot, dict) else {}
+    blackboard = snapshot.get("blackboard") if isinstance(snapshot.get("blackboard"), dict) else {}
+    working = blackboard.get("working_set") if isinstance(blackboard.get("working_set"), dict) else {}
+    query_thread = working.get("query_thread") if isinstance(working.get("query_thread"), dict) else {}
+    next_reads = query_thread.get("next_reads") if isinstance(query_thread.get("next_reads"), list) else []
+    lines = []
+    for index, row in enumerate(next_reads[:4], start=1):
+        if not isinstance(row, dict):
+            continue
+        tool = str(row.get("tool") or "")
+        args = row.get("args") if isinstance(row.get("args"), dict) else {}
+        if tool == "env_read":
+            label = "env_read(query='" + str(args.get("query") or "") + "')"
+        elif tool == "env_report":
+            label = "env_report(report_id='" + str(args.get("report_id") or "") + "')"
+        else:
+            label = tool or "read"
+        lines.append(str(index) + ". " + label + " — " + str(row.get("reason") or ""))
+    lines.append("GUARDRAIL: " + str(query_thread.get("raw_state_guardrail") or "raw shared_state last"))
+    lines.append("PINNED: " + str(working.get("pinned_row_ids") or []))
+    return lines
 
 
 def _render_profiles_section(snapshot, width):
@@ -4514,8 +4581,8 @@ def _render_consult_view(snapshot, width, height, diagnostics_visible, section_k
     bottom_height = max(8, main_height - top_height - middle_height)
     lines = []
     lines.extend(_box("Orientation", _wrap_block(_render_consult_orientation_text(snapshot), width - 2), width, top_height, color=CYAN, surface_mode=surface_mode, surface_density=surface_density))
-    lines.extend(_box("Pose Control", _wrap_block(_render_consult_pose_text(snapshot), width - 2), width, middle_height, color=GREEN, surface_mode=surface_mode, surface_density=surface_density))
-    lines.extend(_box("Footing And Motion", _wrap_block(_render_consult_motion_text(snapshot), width - 2), width, bottom_height, color=ORANGE, surface_mode=surface_mode, surface_density=surface_density))
+    lines.extend(_box("Query Work", _wrap_block("\n".join(_consult_query_thread(snapshot)), width - 2), width, middle_height, color=GREEN, surface_mode=surface_mode, surface_density=surface_density))
+    lines.extend(_box("Evidence Lane", _wrap_block("\n".join(_consult_query_evidence(snapshot)), width - 2), width, bottom_height, color=ORANGE, surface_mode=surface_mode, surface_density=surface_density))
     if diagnostics_visible:
         lines.extend(_box(
             f"Diagnostics · {dict(PANE_SECTIONS).get(section_key, section_key)}",
@@ -5057,6 +5124,11 @@ def _render_frame(snapshot, theater_text, embodiment_text, view_mode, section_ke
 
 
 def _fetch_all(base_url, timeout, view_mode):
+    snapshot = _env_read(base_url, "text_theater_snapshot", timeout)
+    if isinstance(snapshot, dict):
+        theater, embodiment = _local_text_outputs(snapshot, view_mode)
+        return snapshot, theater, embodiment
+
     shared_state = _env_read_optional(base_url, "shared_state", timeout)
     if isinstance(shared_state, dict):
         text_theater = shared_state.get("text_theater") if isinstance(shared_state.get("text_theater"), dict) else {}
@@ -5076,15 +5148,12 @@ def _fetch_all(base_url, timeout, view_mode):
             theater, embodiment = _local_text_outputs(snapshot, view_mode)
             return snapshot, theater, embodiment
 
-    snapshot = _env_read(base_url, "text_theater_snapshot", timeout)
-    theater, embodiment = _local_text_outputs(snapshot, view_mode)
-    if not isinstance(snapshot, dict):
-        theater = ""
-        embodiment = ""
-        if view_mode in ("theater", "split"):
-            theater = _env_read(base_url, "text_theater", timeout)
-        if view_mode in ("embodiment", "split"):
-            embodiment = _env_read(base_url, "text_theater_embodiment", timeout)
+    theater = ""
+    embodiment = ""
+    if view_mode in ("theater", "split"):
+        theater = _env_read(base_url, "text_theater", timeout)
+    if view_mode in ("embodiment", "split"):
+        embodiment = _env_read(base_url, "text_theater_embodiment", timeout)
     return snapshot, theater, embodiment
 
 
