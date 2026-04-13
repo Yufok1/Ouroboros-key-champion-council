@@ -104,6 +104,7 @@
         queuedForce: false,
         pendingForce: false,
         pendingReason: '',
+        pendingRelayTier: '',
         pendingCommandToken: '',
         commandContextToken: '',
         error: '',
@@ -115,8 +116,10 @@
         lastSyncedSignature: '',
         lastAttemptTs: 0,
         lastAttemptReason: '',
+        lastAttemptRelayTier: '',
         lastAttemptCommandToken: '',
         lastSyncedTs: 0,
+        lastSyncedRelayTier: '',
         lastSyncedCommandToken: '',
         inFlightStartedTs: 0,
         inFlightPayload: null,
@@ -32222,6 +32225,51 @@
         );
     }
 
+    function _envCurrentTextTheaterSnapshotSource() {
+        if (_envTextTheaterState.bundle && _envTextTheaterState.bundle.snapshot && typeof _envTextTheaterState.bundle.snapshot === 'object') {
+            return _envTextTheaterState.bundle.snapshot;
+        }
+        var mirrorShared = _envMirrorState && _envMirrorState.sharedState && typeof _envMirrorState.sharedState === 'object'
+            ? _envMirrorState.sharedState
+            : null;
+        var mirrorTextTheater = mirrorShared && mirrorShared.text_theater && typeof mirrorShared.text_theater === 'object'
+            ? mirrorShared.text_theater
+            : null;
+        if (mirrorTextTheater && mirrorTextTheater.snapshot && typeof mirrorTextTheater.snapshot === 'object') {
+            return mirrorTextTheater.snapshot;
+        }
+        return null;
+    }
+
+    function _envIsHotCameraTextTheaterReason(reason) {
+        var text = String(reason || '').toLowerCase();
+        return text.indexOf('camera:manual:change') >= 0
+            || text.indexOf('camera:manual:wheel') >= 0
+            || text.indexOf('camera:turntable') >= 0;
+    }
+
+    function _envBuildHotCameraTextTheaterBundle(reason, camera3d, focusSnapshot) {
+        var sourceSnapshot = _envCurrentTextTheaterSnapshotSource();
+        var snapshotPatch = _envBuildTextTheaterCameraSnapshotPatch(sourceSnapshot, camera3d, focusSnapshot, reason);
+        if (!snapshotPatch || typeof snapshotPatch !== 'object') return null;
+        if (_envTextTheaterState.bundle && typeof _envTextTheaterState.bundle === 'object') {
+            _envTextTheaterState.bundle.snapshot = _envMergeMirrorValue(
+                _envTextTheaterState.bundle.snapshot || {},
+                snapshotPatch
+            );
+            _envTextTheaterState.updatedTs = Date.now();
+        }
+        if (_envMirrorState && _envMirrorState.sharedState && typeof _envMirrorState.sharedState === 'object') {
+            var mirrorTextTheater = _envMirrorState.sharedState.text_theater && typeof _envMirrorState.sharedState.text_theater === 'object'
+                ? _envMirrorState.sharedState.text_theater
+                : null;
+            if (mirrorTextTheater) {
+                mirrorTextTheater.snapshot = _envMergeMirrorValue(mirrorTextTheater.snapshot || {}, snapshotPatch);
+            }
+        }
+        return { snapshot: snapshotPatch };
+    }
+
     function _envBuildCameraTextTheaterBundle(reason, camera3d, focusSnapshot) {
         var pulseReason = String(reason || '').toLowerCase();
         var hotCameraPulse = pulseReason.indexOf('camera:manual:change') >= 0
@@ -37122,6 +37170,8 @@
     function _envLiveSyncDiagnosticSnapshot(now) {
         var hasLive = !!_envMirrorState.live;
         var currentTs = Number(now || Date.now() || 0);
+        var pendingReason = String(_envLiveSyncState.pendingReason || '');
+        var lastReason = String(_envLiveSyncState.lastAttemptReason || pendingReason || '');
         return {
             status: String(_envLiveSyncState.lastStatus || (hasLive ? 'ok' : 'idle')),
             error: String(_envLiveSyncState.error || ''),
@@ -37129,7 +37179,10 @@
             in_flight: !!_envLiveSyncState.inFlight,
             eligible: _envCanPublishLiveSync(),
             has_live_state: hasLive,
-            last_reason: String(_envLiveSyncState.lastAttemptReason || _envLiveSyncState.pendingReason || ''),
+            last_reason: lastReason,
+            last_relay_tier: String(_envLiveSyncState.lastAttemptRelayTier || _envRelayTierForSyncReason(lastReason, (((_envLiveSyncState.inFlightPayload || {}).partial_kind) || ''))),
+            pending_relay_tier: String(_envLiveSyncState.pendingRelayTier || _envRelayTierForSyncReason(pendingReason, '')),
+            last_synced_relay_tier: String(_envLiveSyncState.lastSyncedRelayTier || ''),
             last_skipped_reason: String(_envLiveSyncState.lastSkippedReason || ''),
             attempt_count: Number(_envLiveSyncState.attemptCount || 0),
             success_count: Number(_envLiveSyncState.successCount || 0),
@@ -37441,10 +37494,14 @@
             || typeof window.envopsGetHabitatObjects !== 'function') {
             return null;
         }
+        var relayTier = _envRelayTierForSyncReason(reason, '');
         var sharedState = window.envopsGetSharedState();
         var sharedStatePayload = _envCloneJson(sharedState, null);
         if (!sharedStatePayload || typeof sharedStatePayload !== 'object') return null;
         sharedStatePayload.live_sync = _envCloneJson(_envLiveSyncDiagnosticSnapshot(Date.now()), null);
+        if (sharedStatePayload.live_sync && typeof sharedStatePayload.live_sync === 'object') {
+            sharedStatePayload.live_sync.relay_tier = relayTier;
+        }
         var latestCapture = _envCloneJson(_envMirrorState.latestCapture, null);
         var renderTruth = typeof window.envopsGetRenderTruth === 'function'
             ? window.envopsGetRenderTruth()
@@ -37456,6 +37513,7 @@
             version: 'env-live-v1',
             source: 'envops-browser',
             synced_from: 'environment_tab',
+            relay_tier: relayTier,
             reason: String(reason || 'render'),
             tab_active: _isEnvironmentTabActive(),
             selected_workflow: _envCompactWorkflowMeta(_envEnvironmentSelectedWorkflow()),
@@ -37479,6 +37537,14 @@
             || text.indexOf('heartbeat:camera_drift') === 0;
     }
 
+    function _envRelayTierForSyncReason(reason, partialKind) {
+        var text = String(reason || '').toLowerCase();
+        var kind = String(partialKind || '').toLowerCase();
+        if (kind === 'camera3d' && _envIsHotCameraTextTheaterReason(text)) return 'hot';
+        if (text.indexOf('capture') >= 0 || text.indexOf('checkpoint') >= 0 || text.indexOf('episode') >= 0) return 'archive';
+        return 'settled';
+    }
+
     function _envIsDeferredMirrorRefreshReason(reason) {
         var text = String(reason || '').toLowerCase();
         return text.indexOf('camera:manual:change') >= 0
@@ -37489,14 +37555,10 @@
     function _envShouldAttachTextTheaterToCameraSync(reason) {
         var text = String(reason || '').toLowerCase();
         return text.indexOf('camera:manual:end') >= 0
-            || text.indexOf('camera:manual:change') >= 0
-            || text.indexOf('camera:manual:wheel') >= 0
             || text.indexOf('camera:session_restore') >= 0
             || text.indexOf('camera:workbench-shot:') >= 0
             || text.indexOf('camera:workbench_frame_part:') >= 0
             || text.indexOf('camera:preset:') >= 0
-            || text.indexOf('camera:turntable') >= 0
-            || text.indexOf('camera:turntable:start') >= 0
             || text.indexOf('camera:turntable:stop') >= 0;
     }
 
@@ -37504,10 +37566,13 @@
         if (typeof _env3DCameraPoseSnapshot !== 'function') return null;
         var camera3d = _env3DCameraPoseSnapshot();
         if (!camera3d || typeof camera3d !== 'object') return null;
+        var relayTier = _envRelayTierForSyncReason(reason, 'camera3d');
         var focusSnapshot = Object.assign({}, _envKernel.focus || {});
         focusSnapshot.target_class = _envFocusTargetClass(focusSnapshot);
         var textTheater = null;
-        if (_envShouldAttachTextTheaterToCameraSync(reason)) {
+        if (_envIsHotCameraTextTheaterReason(reason)) {
+            textTheater = _envBuildHotCameraTextTheaterBundle(reason, camera3d, focusSnapshot);
+        } else if (_envShouldAttachTextTheaterToCameraSync(reason)) {
             textTheater = _envBuildCameraTextTheaterBundle(reason, camera3d, focusSnapshot);
             if (textTheater && typeof textTheater === 'object') {
                 var compactTextTheater = {};
@@ -37533,6 +37598,7 @@
         };
         if (partialSharedState.live_sync && typeof partialSharedState.live_sync === 'object') {
             partialSharedState.live_sync.camera_pulse_seq = Number(_env3D.cameraPulseSeq || 0);
+            partialSharedState.live_sync.relay_tier = relayTier;
         }
         if (textTheater) {
             partialSharedState.text_theater = textTheater;
@@ -37541,6 +37607,7 @@
             version: 'env-live-v1',
             source: 'envops-browser',
             synced_from: 'environment_tab',
+            relay_tier: relayTier,
             reason: String(reason || 'camera'),
             tab_active: _isEnvironmentTabActive(),
             partial: true,
@@ -37613,6 +37680,7 @@
         var camera = scene.camera && typeof scene.camera === 'object' ? scene.camera : {};
         var camera3d = scene.camera3d && typeof scene.camera3d === 'object' ? scene.camera3d : {};
         var partialKind = String(payload.partial_kind || '');
+        var relayTier = String(payload.relay_tier || _envRelayTierForSyncReason(payload.reason, partialKind));
         var workflow = payload.selected_workflow && typeof payload.selected_workflow === 'object' ? payload.selected_workflow : {};
         var exec = payload.current_execution && typeof payload.current_execution === 'object' ? payload.current_execution : {};
         var operations = shared.operations && typeof shared.operations === 'object' ? shared.operations : {};
@@ -37620,9 +37688,10 @@
         var cameraSignature = _envLiveSyncCameraSignature(camera3d, focus, scene);
         if (payload.partial && partialKind === 'camera3d') {
             var hasTextTheater = shared.text_theater && typeof shared.text_theater === 'object' && Object.keys(shared.text_theater).length > 0;
-            return ['camera3d', String(payload.reason || ''), hasTextTheater ? 'with_text_theater' : 'camera_only', cameraSignature].join('|');
+            return ['camera3d', relayTier, String(payload.reason || ''), hasTextTheater ? 'with_text_theater' : 'camera_only', cameraSignature].join('|');
         }
         return [
+            relayTier,
             String(workflow.id || ''),
             String(exec.execution_id || ''),
             String(exec.status || ''),
@@ -37794,6 +37863,7 @@
             if (syncPayload) _envStoreMirroredState(syncPayload, '__env_sync_live__', 'hydration');
             _envLiveSyncState.lastSyncedSignature = _envLiveSyncState.inFlightSignature || _envLiveSyncState.lastSignature;
             _envLiveSyncState.lastSyncedTs = Date.now();
+            _envLiveSyncState.lastSyncedRelayTier = String(((_envLiveSyncState.inFlightPayload || {}).relay_tier) || _envLiveSyncState.lastAttemptRelayTier || '');
             _envLiveSyncState.lastSyncedCommandToken = String(_envLiveSyncState.inFlightCommandToken || _envLiveSyncState.lastAttemptCommandToken || '');
         }
         _envLiveSyncState.inFlightPayload = null;
@@ -37805,6 +37875,7 @@
         _envLiveSyncState.queuedForce = false;
         if (!requeueSync && !_envLiveSyncState.timer) {
             _envLiveSyncState.pendingSignature = '';
+            _envLiveSyncState.pendingRelayTier = '';
             _envLiveSyncState.pendingForce = false;
             _envLiveSyncState.pendingCommandToken = '';
         }
@@ -37930,6 +38001,7 @@
         _envNormalizeOrphanedLiveSyncQueue();
         if (!_envCanPublishLiveSync()) {
             _envLiveSyncState.pendingSignature = '';
+            _envLiveSyncState.pendingRelayTier = '';
             _envLiveSyncState.pendingCommandToken = '';
             _envLiveSyncState.lastStatus = 'gated';
             _envLiveSyncState.lastSkippedReason = 'environment_not_mounted';
@@ -37939,6 +38011,7 @@
         var payload = _envBuildPendingLiveSyncPayload(pendingReason);
         if (!payload) {
             _envLiveSyncState.pendingSignature = '';
+            _envLiveSyncState.pendingRelayTier = '';
             _envLiveSyncState.pendingCommandToken = '';
             _envLiveSyncState.lastStatus = 'unavailable';
             _envLiveSyncState.lastSkippedReason = 'publisher_unavailable';
@@ -38012,6 +38085,7 @@
         _envLiveSyncState.lastAttemptTs = Date.now();
         _envLiveSyncState.inFlightStartedTs = _envLiveSyncState.lastAttemptTs;
         _envLiveSyncState.lastAttemptReason = String(_envLiveSyncState.pendingReason || 'render');
+        _envLiveSyncState.lastAttemptRelayTier = String(payload.relay_tier || _envLiveSyncState.pendingRelayTier || '');
         _envLiveSyncState.lastAttemptCommandToken = pendingCommandToken;
         _envLiveSyncState.inFlightCommandToken = pendingCommandToken;
         _envLiveSyncState.activeRequestId = Number(_envLiveSyncState.requestSerial || 0) + 1;
@@ -38034,6 +38108,7 @@
         _envNormalizeOrphanedLiveSyncQueue();
         if (!_envCanPublishLiveSync()) {
             _envLiveSyncState.pendingSignature = '';
+            _envLiveSyncState.pendingRelayTier = '';
             _envLiveSyncState.pendingCommandToken = '';
             _envLiveSyncState.lastStatus = 'gated';
             _envLiveSyncState.lastSkippedReason = 'environment_not_mounted';
@@ -38043,6 +38118,7 @@
         var payload = _envBuildPendingLiveSyncPayload(pendingReason);
         if (!payload) {
             _envLiveSyncState.pendingSignature = '';
+            _envLiveSyncState.pendingRelayTier = '';
             _envLiveSyncState.pendingCommandToken = '';
             _envLiveSyncState.lastStatus = 'unavailable';
             _envLiveSyncState.lastSkippedReason = 'publisher_unavailable';
@@ -38051,6 +38127,7 @@
         }
         var signature = _envLiveSyncSignature(payload);
         _envLiveSyncState.pendingReason = pendingReason;
+        _envLiveSyncState.pendingRelayTier = String(payload.relay_tier || '');
         _envLiveSyncState.pendingCommandToken = nextCommandToken;
         _envLiveSyncState.lastSignature = signature;
         if (!force) {
