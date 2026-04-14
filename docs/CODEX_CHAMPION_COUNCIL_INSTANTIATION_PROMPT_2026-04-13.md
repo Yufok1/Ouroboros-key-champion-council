@@ -112,11 +112,16 @@ If you are starting from cold:
    - `docs/CURRENT_ACTIVE_TRAJECTORY_2026-04-13.md`
    - `docs/OPUS_CORRECTED_TRAJECTORY_REPORT_2026-04-13.md`
    - any current topic-specific docs directly relevant to the active seam
+   - if the current seam is blackboard deepening, breadcrumb/root-sequence work, associative field reasoning, or blackboard as the orienting surface for weather/gravity/load-style effects:
+     - `docs/BLACKBOARD_FIELD_UNIFICATION_SITREP_2026-04-14.md`
+     - `docs/QUERY_ROOT_SEQUENCE_PROTOCOL_2026-04-13.md`
+     - `docs/BLACKBOARD_QUERY_PROCUREMENT_DEEP_DIVE_2026-04-13.md`
    - if the current seam is elemental weather, text-theater environment depiction, or carrying text/glyph rendering into the web theater:
      - `docs/WEATHER_WEB_OVERLAY_SITREP_2026-04-14.md`
      - `docs/GLYPH_FIELD_ELEMENTAL_SUBSTRATE_SPEC_2026-04-13.md`
    - if the user is asking about quine systems, proc-gen frameworks, speciation, lineage, or parent architecture:
      - `docs/OPUS_SUBSTRATE_FIRST_ACCLIMATION_2026-03-29.md`
+     - `docs/COQUINE_FRAMEWORK_NOTE_2026-04-13.md`
      - upstream files in `F:\End-Game\ouroboros-key`
 4. Check the repo state:
    - `git status --short`
@@ -128,8 +133,10 @@ If you are starting from cold:
    - `scripts/text_theater.py`
    - any adjacent files actually implicated by source
 6. Use live MCP/runtime surfaces when the issue is behavioral or parity-related:
+   - `env_read(query='text_theater_embodiment')`
+   - `env_read(query='text_theater_view', view='consult', section='blackboard', diagnostics=true)`
    - `env_read(query='text_theater_snapshot')`
-   - `env_read(query='text_theater_view', ...)`
+   - `env_read(query='contracts')`
    - `env_report(...)`
    - `env_help(...)`
    - `get_help(...)`
@@ -154,11 +161,16 @@ Before making new edits after any interruption, context compression, or long thr
    - `docs/CURRENT_ACTIVE_TRAJECTORY_2026-04-13.md`
    - `docs/OPUS_CORRECTED_TRAJECTORY_REPORT_2026-04-13.md`
    - any current topic-specific docs directly relevant to the active seam
+   - if the current seam is blackboard deepening, breadcrumb/root-sequence work, associative field reasoning, or blackboard as the orienting surface for weather/gravity/load-style effects:
+     - `docs/BLACKBOARD_FIELD_UNIFICATION_SITREP_2026-04-14.md`
+     - `docs/QUERY_ROOT_SEQUENCE_PROTOCOL_2026-04-13.md`
+     - `docs/BLACKBOARD_QUERY_PROCUREMENT_DEEP_DIVE_2026-04-13.md`
    - if the current seam is elemental weather, text-theater environment depiction, or carrying text/glyph rendering into the web theater:
      - `docs/WEATHER_WEB_OVERLAY_SITREP_2026-04-14.md`
      - `docs/GLYPH_FIELD_ELEMENTAL_SUBSTRATE_SPEC_2026-04-13.md`
    - if the user is asking about quine systems, proc-gen frameworks, speciation, lineage, or parent architecture:
      - `docs/OPUS_SUBSTRATE_FIRST_ACCLIMATION_2026-03-29.md`
+     - `docs/COQUINE_FRAMEWORK_NOTE_2026-04-13.md`
      - upstream files in `F:\End-Game\ouroboros-key`
 
 3. Check the repo state:
@@ -173,8 +185,10 @@ Before making new edits after any interruption, context compression, or long thr
    - any adjacent files actually implicated by source
 
 5. Use live MCP/runtime surfaces when the issue is behavioral or parity-related:
+   - `env_read(query='text_theater_embodiment')`
+   - `env_read(query='text_theater_view', view='consult', section='blackboard', diagnostics=true)`
    - `env_read(query='text_theater_snapshot')`
-   - `env_read(query='text_theater_view', ...)`
+   - `env_read(query='contracts')`
    - `env_report(...)`
    - `env_help(...)`
    - `get_help(...)`
@@ -227,11 +241,13 @@ These rules are active unless the user explicitly changes them:
 
 When investigating a live behavior, use this sequence:
 
-1. text theater visible read
+1. `text_theater_embodiment`
 2. consult / blackboard query-work
 3. text theater snapshot
-4. `env_report(...)` scoped diagnosis
+4. `contracts` or `env_report(...)` scoped diagnosis
 5. raw `shared_state` only if the prior layers still disagree
+
+If `contracts` or scoped reports are gated, treat the gate as the active objective rather than widening around it.
 
 The blackboard is not decoration. It is the visible worksheet.
 

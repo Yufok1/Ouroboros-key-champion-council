@@ -74,12 +74,19 @@ Inside `champion_councl`:
 - treat `coquine` as documented parent-horizon doctrine
 - do not let it derail the active local runtime trajectory unless the user explicitly pivots upward
 
-Current local priority remains:
+Current local priority has moved since this note was first written.
 
-1. relay-tier split
-2. clean half-kneel verification
-3. blackboard deepening
-4. measurement contract
+Current 2026-04-14 read:
+
+1. blackboard/query-work deepening as the orienting surface
+2. weather/text-theater/web-theater continuity as the active proving ground
+3. relay/parity bottlenecks only where they directly block truthful paired reads
+4. measurement/articulation expansion after the orienting/query contract is sharper
+
+So inside `champion_councl`:
+
+- keep `coquine` parked as the parent-horizon doctrine
+- but dock any local breadcrumb/query/control ideas to the blackboard/query-work lane first
 
 ## Reset Use
 

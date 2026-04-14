@@ -132,6 +132,15 @@ If you are starting from cold:
    - `docs/CURRENT_ACTIVE_TRAJECTORY_2026-04-13.md`
    - `docs/OPUS_CORRECTED_TRAJECTORY_REPORT_2026-04-13.md`
    - any seam-specific report directly tied to the active problem
+   - if the current seam is blackboard deepening, breadcrumb/root-sequence work, associative field reasoning, or blackboard as the orienting surface for weather/gravity/load-style effects:
+     - `docs/BLACKBOARD_FIELD_UNIFICATION_SITREP_2026-04-14.md`
+     - `docs/QUERY_ROOT_SEQUENCE_PROTOCOL_2026-04-13.md`
+     - `docs/BLACKBOARD_QUERY_PROCUREMENT_DEEP_DIVE_2026-04-13.md`
+   - if the current seam is elemental weather, text-theater environment depiction, or carrying text/glyph rendering into the web theater:
+     - `docs/WEATHER_WEB_OVERLAY_SITREP_2026-04-14.md`
+     - `docs/GLYPH_FIELD_ELEMENTAL_SUBSTRATE_SPEC_2026-04-13.md`
+   - if the user is asking about parent architecture, quine frameworks, lineage, speciation, or proc-gen substrate direction:
+     - `docs/COQUINE_FRAMEWORK_NOTE_2026-04-13.md`
 4. Check repo state:
    - `git status --short`
    - recent checkpoints
@@ -147,7 +156,12 @@ If you are starting from cold:
      - transport / relay
      - renderer / consumer
    - do not broaden into a repo sweep unless the seam truly spans it
-6. Use live MCP/runtime reads only when current truth could have drifted or the issue is behavioral.
+6. Use live MCP/runtime reads when current truth could have drifted or the issue is behavioral, and use the imposed order:
+   - `env_read(query='text_theater_embodiment')`
+   - `env_read(query='text_theater_view', view='consult', section='blackboard', diagnostics=true)`
+   - `env_read(query='text_theater_snapshot')`
+   - `env_read(query='contracts')`
+   - `env_report(...)`
 7. Write down:
    - verified
    - inferred
@@ -162,10 +176,14 @@ Do not pretend you remember continuity you have not earned.
 After interruption, compaction, or long-thread drift:
 
 1. recover objective, priority, recent corrections, and unresolved seams from chat
-2. re-read active trajectory docs and advisory docs
+2. re-read active trajectory docs and advisory docs, including the seam-specific sitrep if one now exists
 3. re-check repo state and recent checkpoints
 4. re-correlate implicated source
-5. re-check runtime only if needed
+5. re-check runtime when needed in the imposed order:
+   - `text_theater_embodiment`
+   - consult / blackboard query-work
+   - `text_theater_snapshot`
+   - `contracts` or `env_report(...)`
 6. re-state the current truth state before giving implementation guidance
 
 Do not paper over uncertainty with momentum.
@@ -204,11 +222,13 @@ These rules remain active:
 
 When the question is about live behavior:
 
-1. text theater visible read
+1. `text_theater_embodiment`
 2. blackboard / consult / query-work
 3. text theater snapshot
-4. `env_report(...)`
+4. `contracts` or `env_report(...)`
 5. raw `shared_state` only if the earlier layers still disagree
+
+If `contracts` or scoped reports are gated, the gate is part of the active seam.
 
 Use this order as an analysis discipline, not a slogan.
 

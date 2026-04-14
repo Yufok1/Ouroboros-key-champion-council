@@ -13,6 +13,13 @@ Purpose:
 - remove the bad blackboard/web pairing rule from the prior writeups
 - keep the next trajectory grounded in the current source, current runtime findings, and the user's actual direction
 
+2026-04-14 live seam correction:
+
+- read this together with `docs/BLACKBOARD_FIELD_UNIFICATION_SITREP_2026-04-14.md`
+- current live orientation is blackboard/query-work first
+- current live blackboard objective is `Surface Alignment Review`
+- weather/rain is the active field exemplar inside that orientation
+
 Constraints:
 
 - no capsule edits

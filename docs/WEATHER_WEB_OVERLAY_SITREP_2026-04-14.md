@@ -145,3 +145,19 @@ Current architectural recommendation:
 
 - rain/web overlay consumer is the cleanest next lane
 - but the text-theater scene under-depiction remains the clearest visible parity weakness
+
+If the user is orienting around:
+
+- blackboard deepening
+- breadcrumb/root-sequence work
+- associative field reasoning
+- weather as one field exemplar among several
+
+then pair this sitrep with:
+
+- `docs/BLACKBOARD_FIELD_UNIFICATION_SITREP_2026-04-14.md`
+
+In that framing:
+
+- blackboard/query-work is the orienting surface
+- weather/rain remains the current proving-ground consumer

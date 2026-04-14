@@ -76,10 +76,10 @@ See:
 
 Current doctrinal order:
 
-1. text theater visible read
+1. `text_theater_embodiment`
 2. consult / blackboard query-work
 3. text theater snapshot
-4. `env_report(...)`
+4. `contracts` or `env_report(...)`
 5. captures / mirrors
 6. raw state last
 

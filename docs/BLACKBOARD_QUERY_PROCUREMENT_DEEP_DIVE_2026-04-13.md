@@ -155,12 +155,18 @@ The important fact is:
 
 The repo already implies this order:
 
-1. read the text theater
-2. use blackboard/query-work to justify the next read
+1. read `text_theater_embodiment`
+2. use consult / blackboard query-work to justify the next read
 3. read the snapshot
-4. use `env_help` and `env_report` for scoped interpretation
-5. use mirror/contracts/captures when comparative corroboration is needed
+4. use `contracts`, `env_help`, and `env_report` for scoped interpretation
+5. use mirror/captures when comparative corroboration is needed
 6. open raw `shared_state` last
+
+Current live corroboration on 2026-04-14:
+
+- the live blackboard objective is `Surface Alignment Review`
+- weather/rain and parity contamination are already entering through this query path
+- so blackboard is already the proper orientation surface for the active weather-associated lane
 
 That is already the shape of a scientific method loop:
 

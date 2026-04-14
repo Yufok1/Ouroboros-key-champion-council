@@ -11,6 +11,29 @@ Purpose:
 
 This doc is the current operative handoff. It does not delete the earlier trajectory/sitrep docs. It supersedes them only where this report names a corrected execution order or a corrected source reading.
 
+## 0. 2026-04-14 Live Seam Correction
+
+Read this doc together with:
+
+- `docs/WEATHER_WEB_OVERLAY_SITREP_2026-04-14.md`
+- `docs/BLACKBOARD_FIELD_UNIFICATION_SITREP_2026-04-14.md`
+
+Current live correction:
+
+- the repo still carries the relay/parity concerns described below
+- but the active orienting surface on the live 2026-04-14 frame is blackboard/query-work
+- the live blackboard objective is `Surface Alignment Review`
+- weather/rain is the active field exemplar inside that orientation
+
+So do not read this file as license to skip:
+
+1. `text_theater_embodiment`
+2. consult / blackboard query-work
+3. text theater snapshot
+4. `contracts` or `env_report(...)`
+
+And do not treat relay-tier work as the only possible first move for every current seam.
+
 ## 1. Non-Negotiable Rules
 
 1. One truth source, no duplicate authority systems.
