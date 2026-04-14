@@ -445,7 +445,25 @@
     },
     "capture_supercam": {
       "title": "Capture Supercam",
-      "summary": "Capture the broader overview observer montage for scene-scale corroboration."
+      "summary": "Capture the broader overview observer montage for scene-scale corroboration.",
+      "when_to_use": [
+        "Use this when the question is scene-scale parity or surface alignment and you need a browser-visible overview to compare against the text-theater frame.",
+        "Use this after the text theater render and snapshot when the browser scene itself must be inspected instead of inferred from contract rows alone."
+      ],
+      "mode_notes": [
+        "This is an observer corroboration surface, not a second truth source.",
+        "Resets and refreshes remain operator-owned test boundaries; do not act as if a capture crossed one unless the operator explicitly says it did."
+      ],
+      "gotchas": [
+        "Do not start here. Read the text theater first so you know what the browser capture is being held against.",
+        "Use mirror contracts or live-state excerpts before raw shared_state when you are comparing surfaces rather than debugging producer truth."
+      ],
+      "verification": [
+        "static/captures/supercam_*.jpg",
+        "env_read(query='text_theater_view')",
+        "env_read(query='text_theater_snapshot')",
+        "env_read(query='contracts')"
+      ]
     },
     "capture_time_strip": {
       "title": "Capture Time Strip",
@@ -545,7 +563,8 @@
       "gotchas": [
         "Freshness fields matter. If the browser has not synced recently, stale_flags will tell you the read may reflect older live state.",
         "Use this when you need structure. If you only need a quick human-readable readout, text_theater or text_theater_embodiment is usually cheaper.",
-        "Do not let the snapshot replace the render as the first read after a theater-affecting command. The render is cheaper and better at exposing obvious visual nonsense immediately."
+        "Do not let the snapshot replace the render as the first read after a theater-affecting command. The render is cheaper and better at exposing obvious visual nonsense immediately.",
+        "When the job is surface comparison, hold this snapshot against the actual text-theater frame and a browser-side capture or contracts read before treating shared_state as the answer."
       ],
       "verification": [
         "env_read(query='text_theater_embodiment')",
@@ -625,11 +644,14 @@
         "Freshness still depends on mirror health. If the browser has not synced yet, the rendered frame can be truthful to older state.",
         "When an env_control result already includes text_theater.current_full/current_compact plus freshness, prefer that payload first because it was captured in direct response to the command dispatch.",
         "Use text_theater_snapshot when you need the full machine-readable contract instead of a rendered frame.",
-        "This is still a renderer-first surface. Read the frame before you start privileging mirror metadata."
+        "This is still a renderer-first surface. Read the frame before you start privileging mirror metadata.",
+        "For surface debugging, compare this frame against the snapshot and a browser-side capture or contracts read before escalating to raw shared_state."
       ],
       "verification": [
         "env_read(query='text_theater_snapshot')",
-        "env_report(report_id='route_stability_diagnosis')"
+        "env_report(report_id='route_stability_diagnosis')",
+        "capture_supercam",
+        "env_read(query='contracts')"
       ],
       "related_commands": [
         "capture_probe",
@@ -697,6 +719,7 @@
       "title": "Theater-First Pose Corroboration",
       "steps": [
         "env_read(query='text_theater_embodiment')",
+        "env_read(query='text_theater_view', view='consult', section='blackboard', diagnostics=true)",
         "env_read(query='text_theater_snapshot')",
         "env_report(report_id='route_stability_diagnosis')",
         "capture_probe('character_runtime::mounted_primary')"
@@ -704,22 +727,26 @@
       "notes": [
         "Use this as the default order of evidence after any command that changes staged pose, contact staging, or local builder framing.",
         "Read the text render first and describe what the body is doing in plain language before trusting structured fields.",
-        "Use the snapshot second for blocker lists, freshness, and structured contact/balance details.",
-        "Use env_report third when the question is specifically about route/support/blocker truth and next adjustment.",
-        "Use probe capture fourth when local silhouette, overlap, or renderer disagreement still matters."
+        "Use the consult/blackboard view second so the next read is justified before you open deeper state.",
+        "Use the snapshot third for blocker lists, freshness, and structured contact/balance details.",
+        "Use env_report fourth when the question is specifically about route/support/blocker truth and next adjustment.",
+        "Use probe capture fifth when local silhouette, overlap, or renderer disagreement still matters.",
+        "If the task is comparative surface debugging, bring in browser-visible capture or contracts after this sequence and before raw shared_state.",
+        "Resets and refreshes remain operator-owned boundaries; do not quietly assume one happened."
       ]
     },
     "theater_first_route_diagnosis": {
       "title": "Theater-First Route Diagnosis",
       "steps": [
         "env_read(query='text_theater_embodiment')",
+        "env_read(query='text_theater_view', view='consult', section='blackboard', diagnostics=true)",
         "env_read(query='text_theater_snapshot')",
         "env_report(report_id='route_stability_diagnosis')",
         "capture_probe('character_runtime::mounted_primary')"
       ],
       "notes": [
         "Use this when a staged contact, pose macro, or grouped authoring step needs an explicit route/support diagnosis instead of a raw mirror dump.",
-        "The render is first intake, the snapshot is structured corroboration, and env_report is the scoped reasoning lane over blackboard/workbench truth.",
+        "The render is first intake, the consult/blackboard view is the visible query-work lane, the snapshot is structured corroboration, and env_report is the scoped reasoning lane over blackboard/workbench truth.",
         "Only open raw shared_state after this sequence if the report and captures still disagree."
       ]
     },

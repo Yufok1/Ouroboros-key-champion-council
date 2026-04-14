@@ -1040,12 +1040,16 @@ def _render_blackboard_section(snapshot, width):
         "query_next_reads="
         + str(
             [
-                (
-                    str((row or {}).get("tool") or "")
-                    + ":"
-                    + str((((row or {}).get("args") or {}).get("query") or (((row or {}).get("args") or {}).get("report_id")) or ""))
-                )
+                _format_query_lane_entry(row)
                 for row in list(query_thread.get("next_reads") or [])[:4]
+                if isinstance(row, dict)
+            ]
+        ),
+        "query_help_lane="
+        + str(
+            [
+                _format_query_lane_entry(row)
+                for row in list(query_thread.get("help_lane") or [])[:3]
                 if isinstance(row, dict)
             ]
         ),
@@ -1058,6 +1062,28 @@ def _render_blackboard_section(snapshot, width):
     return _wrap_block("\n".join(lines), width)
 
 
+def _format_query_lane_entry(row):
+    row = row if isinstance(row, dict) else {}
+    tool = str(row.get("tool") or "")
+    args = row.get("args") if isinstance(row.get("args"), dict) else {}
+    if tool == "env_read":
+        return "env_read(query='" + str(args.get("query") or "") + "')"
+    if tool == "env_report":
+        return "env_report(report_id='" + str(args.get("report_id") or "") + "')"
+    if tool == "env_help":
+        topic = str(args.get("topic") or "")
+        category = str(args.get("category") or "")
+        search = str(args.get("search") or "")
+        if topic:
+            return "env_help(topic='" + topic + "')"
+        if category:
+            return "env_help(category='" + category + "')"
+        if search:
+            return "env_help(search='" + search + "')"
+        return "env_help(topic='index')"
+    return tool or "read"
+
+
 def _consult_query_thread(snapshot):
     snapshot = snapshot if isinstance(snapshot, dict) else {}
     blackboard = snapshot.get("blackboard") if isinstance(snapshot.get("blackboard"), dict) else {}
@@ -1066,6 +1092,7 @@ def _consult_query_thread(snapshot):
     objective = str(query_thread.get("objective_label") or query_thread.get("objective_id") or "Scene Orientation")
     visible_read = str(query_thread.get("visible_read") or "")
     anchor_rows = query_thread.get("anchor_row_ids") if isinstance(query_thread.get("anchor_row_ids"), list) else working.get("lead_row_ids", [])
+    help_lane = query_thread.get("help_lane") if isinstance(query_thread.get("help_lane"), list) else []
     return [
         "OBJECTIVE: " + objective,
         "VISIBLE READ: " + (visible_read or "n/a"),
@@ -1080,6 +1107,8 @@ def _consult_query_thread(snapshot):
         + " / missing "
         + str(working.get("missing_support_set", [])),
         "ANCHOR ROWS: " + str(anchor_rows or []),
+        "HELP AUTHORITY: env_help",
+        "HELP LANE: " + str([_format_query_lane_entry(row) for row in help_lane[:2] if isinstance(row, dict)]),
     ]
 
 
@@ -1089,19 +1118,19 @@ def _consult_query_evidence(snapshot):
     working = blackboard.get("working_set") if isinstance(blackboard.get("working_set"), dict) else {}
     query_thread = working.get("query_thread") if isinstance(working.get("query_thread"), dict) else {}
     next_reads = query_thread.get("next_reads") if isinstance(query_thread.get("next_reads"), list) else []
+    help_lane = query_thread.get("help_lane") if isinstance(query_thread.get("help_lane"), list) else []
     lines = []
-    for index, row in enumerate(next_reads[:4], start=1):
+    max_next_reads = 3 if help_lane else 4
+    for index, row in enumerate(next_reads[:max_next_reads], start=1):
         if not isinstance(row, dict):
             continue
-        tool = str(row.get("tool") or "")
-        args = row.get("args") if isinstance(row.get("args"), dict) else {}
-        if tool == "env_read":
-            label = "env_read(query='" + str(args.get("query") or "") + "')"
-        elif tool == "env_report":
-            label = "env_report(report_id='" + str(args.get("report_id") or "") + "')"
-        else:
-            label = tool or "read"
+        label = _format_query_lane_entry(row)
         lines.append(str(index) + ". " + label + " — " + str(row.get("reason") or ""))
+    for index, row in enumerate(help_lane[:2], start=1):
+        if not isinstance(row, dict):
+            continue
+        label = _format_query_lane_entry(row)
+        lines.append("H" + str(index) + ". " + label + " — " + str(row.get("reason") or ""))
     lines.append("GUARDRAIL: " + str(query_thread.get("raw_state_guardrail") or "raw shared_state last"))
     lines.append("PINNED: " + str(working.get("pinned_row_ids") or []))
     return lines
@@ -2034,6 +2063,9 @@ def _make_braille_canvas(width, height):
                     "priority": 0,
                     "weight": 0,
                     "glyph_mode": "",
+                    "overlay_char": "",
+                    "overlay_style": "",
+                    "overlay_priority": 0,
                     "bg_style": "",
                     "bg_priority": 0,
                     "bg_char": "",
@@ -2090,6 +2122,25 @@ def _braille_put(canvas, x, y, priority=1, style="", glyph_mode=""):
             cell["style"] = style
         if glyph_mode:
             cell["glyph_mode"] = str(glyph_mode or "")
+
+
+def _braille_overlay_char(canvas, x, y, char, priority=1, style=""):
+    if not canvas:
+        return
+    text = str(char or "")
+    if not text:
+        return
+    width = int(canvas.get("width") or 0)
+    height = int(canvas.get("height") or 0)
+    cell_x = int(round(float(x or 0.0) / 2.0))
+    cell_y = int(round(float(y or 0.0) / 4.0))
+    if cell_x < 0 or cell_y < 0 or cell_x >= width or cell_y >= height:
+        return
+    cell = canvas["cells"][cell_y][cell_x]
+    if int(priority) >= int(cell.get("overlay_priority", 0)):
+        cell["overlay_priority"] = int(priority)
+        cell["overlay_char"] = text[0]
+        cell["overlay_style"] = str(style or "")
 
 
 def _braille_cluster(canvas, x, y, priority=1, style="", radius=0):
@@ -2183,6 +2234,9 @@ def _braille_lines(canvas):
             mask = int((cell or {}).get("mask") or 0)
             style = str((cell or {}).get("style") or "")
             glyph_mode = str((cell or {}).get("glyph_mode") or "")
+            overlay_char = str((cell or {}).get("overlay_char") or "")
+            overlay_style = str((cell or {}).get("overlay_style") or "")
+            overlay_priority = int((cell or {}).get("overlay_priority") or 0)
             bg_style = str((cell or {}).get("bg_style") or "")
             bg_char = str((cell or {}).get("bg_char") or "")
             bg_char_style = str((cell or {}).get("bg_char_style") or "")
@@ -2190,10 +2244,14 @@ def _braille_lines(canvas):
             # those masks into block/quarter-block glyphs is what turned the
             # readable fuzzy letters into symbol soup.
             char = raw[col_index] if col_index < len(raw) else (" " if mask <= 0 else chr(0x2800 + mask))
+            if overlay_char and (overlay_priority >= int((cell or {}).get("priority", 0)) or mask <= 0):
+                char = overlay_char
             combined_style = ""
             if bg_style:
                 combined_style += bg_style
-            if style:
+            if overlay_char and overlay_style and (overlay_priority >= int((cell or {}).get("priority", 0)) or mask <= 0):
+                combined_style += overlay_style
+            elif style:
                 combined_style += style
             if combined_style and char != " ":
                 parts.append(combined_style + char + RESET)
@@ -2675,12 +2733,256 @@ def _world_bounds_points(surface):
     ]
 
 
+def _fract(value):
+    number = float(value or 0.0)
+    return number - math.floor(number)
+
+
+def _weather_chars(weather):
+    chars = "".join(ch for ch in str((weather or {}).get("glyphs") or "") if not ch.isspace())
+    return chars or "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+
+def _weather_volume_bounds(weather):
+    source = weather if isinstance(weather, dict) else {}
+    volume = source.get("volume") if isinstance(source.get("volume"), dict) else {}
+    min_point = _vec3(volume.get("min"))
+    max_point = _vec3(volume.get("max"))
+    center_point = volume.get("center")
+    size_point = volume.get("size")
+    center = _vec3(center_point) if center_point is not None else (
+        (min_point[0] + max_point[0]) * 0.5,
+        (min_point[1] + max_point[1]) * 0.5,
+        (min_point[2] + max_point[2]) * 0.5,
+    )
+    size = _vec3(size_point) if size_point is not None else (
+        max(0.01, max_point[0] - min_point[0]),
+        max(0.01, max_point[1] - min_point[1]),
+        max(0.01, max_point[2] - min_point[2]),
+    )
+    corners = [
+        (min_point[0], min_point[1], min_point[2]),
+        (min_point[0], min_point[1], max_point[2]),
+        (min_point[0], max_point[1], min_point[2]),
+        (min_point[0], max_point[1], max_point[2]),
+        (max_point[0], min_point[1], min_point[2]),
+        (max_point[0], min_point[1], max_point[2]),
+        (max_point[0], max_point[1], min_point[2]),
+        (max_point[0], max_point[1], max_point[2]),
+    ]
+    return {
+        "min": min_point,
+        "max": max_point,
+        "center": center,
+        "size": size,
+        "corners": corners,
+    }
+
+
+def _weather_flow_axes(direction):
+    flow = _v_norm(_vec3(direction), (0.0, -1.0, 0.0))
+    ref = (0.0, 1.0, 0.0) if abs(_v_dot(flow, (0.0, 1.0, 0.0))) < 0.92 else (1.0, 0.0, 0.0)
+    axis_u = _v_norm(_v_cross(flow, ref), (1.0, 0.0, 0.0))
+    axis_v = _v_norm(_v_cross(axis_u, flow), (0.0, 0.0, 1.0))
+    return flow, axis_u, axis_v
+
+
+def _weather_half_extents(volume, flow, axis_u, axis_v):
+    center = volume.get("center") or (0.0, 0.0, 0.0)
+    half_flow = 1.0
+    half_u = 1.0
+    half_v = 1.0
+    for corner in volume.get("corners") or []:
+        rel = _v_sub(corner, center)
+        half_flow = max(half_flow, abs(_v_dot(rel, flow)))
+        half_u = max(half_u, abs(_v_dot(rel, axis_u)))
+        half_v = max(half_v, abs(_v_dot(rel, axis_v)))
+    return half_flow, half_u, half_v
+
+
+def _weather_style(weather):
+    color = str((weather or {}).get("color_hint") or "#7dd3fc")
+    return {
+        "bright": _style_from_color(color, color, 1.04, solid=True, min_saturation=0.82, target_lightness=0.62),
+        "mid": _style_from_color(color, color, 0.94, solid=True, min_saturation=0.78, target_lightness=0.52),
+        "dim": _style_from_color(color, color, 0.78, solid=True, min_saturation=0.6, target_lightness=0.42),
+    }
+
+
+def _weather_lod_bands(weather):
+    source = (weather or {}).get("lod_bands")
+    source = source if isinstance(source, dict) else {}
+    legacy = (weather or {}).get("lod")
+    legacy = legacy if isinstance(legacy, dict) else {}
+    reference = float(source.get("reference_min_subcells") or legacy.get("reference_subcells") or 6.0)
+    fused = float(source.get("fused_min_subcells") or legacy.get("fused_subcells") or 3.2)
+    granular = float(source.get("granular_min_subcells") or legacy.get("granular_subcells") or 1.5)
+    blob = float(source.get("blob_min_subcells") or legacy.get("blob_subcells") or 0.75)
+    reference = max(0.1, reference)
+    fused = _clamp(fused, 0.1, reference)
+    granular = _clamp(granular, 0.1, fused)
+    blob = _clamp(blob, 0.0, granular)
+    return {
+        "reference_min_subcells": reference,
+        "fused_min_subcells": fused,
+        "granular_min_subcells": granular,
+        "blob_min_subcells": blob,
+        "medium_penalty": _clamp(float(source.get("medium_penalty") or 0.28), 0.0, 0.95),
+        "orientation_floor": _clamp(float(source.get("orientation_floor") or 0.58), 0.0, 1.0),
+        "depth_soft_cap": max(1.0, float(source.get("depth_soft_cap") or 18.0)),
+    }
+
+
+def _weather_is_precipitation(weather):
+    source = weather if isinstance(weather, dict) else {}
+    flow_class = str(source.get("flow_class") or "").strip().lower()
+    kind = str(source.get("kind") or "").strip().lower()
+    return flow_class == "precipitation" or kind in {"rain", "drip", "hail", "sleet"}
+
+
+def _scene_object_marker(kind, focused=False):
+    obj_kind = str(kind or "").strip().lower()
+    radius = 1 if focused else 0
+    if obj_kind == "panel":
+        return {"char": "▮", "radius": radius}
+    if obj_kind == "portal":
+        return {"char": "◎", "radius": radius}
+    if obj_kind == "tile":
+        return {"char": "▭", "radius": radius}
+    if obj_kind == "marker":
+        return {"char": "◆", "radius": 0}
+    if obj_kind == "zone":
+        return {"char": "◌", "radius": radius}
+    if obj_kind in {"structure", "prop"}:
+        return {"char": "▣", "radius": radius}
+    return {"char": "•", "radius": radius}
+
+
+def _project_world_size_to_subcells(size_world, depth, render_height, camera_meta=None):
+    if depth is None or depth <= 0.05:
+        return 0.0
+    camera = camera_meta if isinstance(camera_meta, dict) else {}
+    fov_degrees = float(camera.get("fov_degrees") or 50.0)
+    tan_half = math.tan(math.radians(max(1.0, min(179.0, fov_degrees))) * 0.5)
+    tan_half = tan_half if tan_half > 1e-6 else math.tan(math.radians(50.0) * 0.5)
+    screen_radius = ((max(0.0, float(size_world or 0.0)) * 0.5) / depth) / tan_half
+    screen_radius *= max(1.0, float(render_height or 1.0) * 0.40)
+    return max(0.0, screen_radius * 2.0)
+
+
+def _orthographic_world_size_to_subcells(size_world, mapper_meta, render_width, render_height, padding=4):
+    bounds = mapper_meta.get("bounds") if isinstance(mapper_meta, dict) else None
+    if not bounds or len(bounds) != 4:
+        return max(0.0, float(size_world or 0.0))
+    min_x, max_x, min_y, max_y = bounds
+    usable_w = max(1.0, float(render_width or 1.0) - (padding * 2.0))
+    usable_h = max(1.0, float(render_height or 1.0) - (padding * 2.0))
+    span_x = max(1e-6, float(max_x) - float(min_x))
+    span_y = max(1e-6, float(max_y) - float(min_y))
+    scale = min(usable_w / span_x, usable_h / span_y)
+    return max(0.0, float(size_world or 0.0) * scale)
+
+
+def _weather_band(projected_subcells, depth, medium_density, local_orientation, readability_required, lod_bands):
+    bands = lod_bands if isinstance(lod_bands, dict) else {}
+    effective = max(0.0, float(projected_subcells or 0.0))
+    medium_penalty = _clamp(float(medium_density or 0.0), 0.0, 1.0) * float(bands.get("medium_penalty") or 0.0)
+    orientation_floor = float(bands.get("orientation_floor") or 0.58)
+    orientation_mix = max(orientation_floor, _clamp(float(local_orientation or 0.0), 0.0, 1.0))
+    effective *= orientation_mix
+    effective *= max(0.05, 1.0 - medium_penalty)
+    if depth is not None:
+        soft_cap = max(1.0, float(bands.get("depth_soft_cap") or 18.0))
+        if depth > soft_cap:
+            overflow = (float(depth) - soft_cap) / soft_cap
+            effective *= max(0.4, 1.0 - min(0.55, overflow * 0.45))
+    if not readability_required:
+        effective *= 0.94
+    if effective >= float(bands.get("reference_min_subcells") or 6.0):
+        return "reference"
+    if effective >= float(bands.get("fused_min_subcells") or 3.2):
+        return "fused"
+    if effective >= float(bands.get("granular_min_subcells") or 1.5):
+        return "granular"
+    if effective >= float(bands.get("blob_min_subcells") or 0.75):
+        return "blob"
+    return "spec"
+
+
+def _weather_rows(snapshot, drag_lod=False):
+    snapshot = snapshot if isinstance(snapshot, dict) else {}
+    weather = snapshot.get("weather") if isinstance(snapshot.get("weather"), dict) else {}
+    if not weather or not weather.get("enabled"):
+        return []
+    volume = _weather_volume_bounds(weather)
+    flow, axis_u, axis_v = _weather_flow_axes(weather.get("direction"))
+    half_flow, half_u, half_v = _weather_half_extents(volume, flow, axis_u, axis_v)
+    drift = _vec3(weather.get("drift"))
+    glyphs = _weather_chars(weather)
+    density = float(weather.get("density") or 0.0)
+    base_count = int(weather.get("sample_count") or max(24, round(42 + (density * 72.0))))
+    count = max(12, int(round(base_count * (0.58 if drag_lod else 1.0))))
+    speed = max(0.02, float(weather.get("speed") or 1.0))
+    turbulence = max(0.0, float(weather.get("turbulence") or 0.0))
+    glyph_world_size = max(0.08, float(weather.get("glyph_world_size") or 0.44))
+    glyph_world_jitter = max(0.0, float(weather.get("glyph_world_jitter") or (glyph_world_size * 0.45)))
+    flow_hint = _v_norm(_v_add(flow, _v_scale(drift, 0.35)), flow)
+    trail_scale = 0.72 + (speed * 0.48) + (turbulence * 0.35)
+    if str(weather.get("flow_class") or "").strip().lower() == "current":
+        trail_scale *= 1.35
+    if str(weather.get("kind") or "").strip().lower() in {"mist", "fog", "smoke"}:
+        trail_scale *= 0.58
+    timestamp_s = float(snapshot.get("snapshot_timestamp") or 0.0) / 1000.0
+    seed_text = "|".join([
+        str(weather.get("profile_active") or ""),
+        str(weather.get("profile_family") or ""),
+        str(weather.get("kind") or ""),
+        str(weather.get("flow_class") or ""),
+    ])
+    seed_base = sum((idx + 1) * ord(ch) for idx, ch in enumerate(seed_text))
+    rows = []
+    center = volume.get("center") or (0.0, 0.0, 0.0)
+    for idx in range(count):
+        h1 = _fract(math.sin((seed_base + (idx * 13) + 1) * 12.9898) * 43758.5453)
+        h2 = _fract(math.sin((seed_base + (idx * 17) + 3) * 78.233) * 19642.3491)
+        h3 = _fract(math.sin((seed_base + (idx * 19) + 5) * 54.127) * 30219.8164)
+        h4 = _fract(math.sin((seed_base + (idx * 23) + 7) * 93.221) * 15731.9487)
+        phase = _fract(h3 + (timestamp_s * speed * (0.22 + (h4 * 0.86))))
+        travel = (0.5 - phase) * (half_flow * 2.0)
+        lateral_u = ((h1 * 2.0) - 1.0) * half_u
+        lateral_v = ((h2 * 2.0) - 1.0) * half_v
+        drift_wave = math.sin((timestamp_s * speed * 1.7) + (idx * 0.41)) * turbulence
+        point = _v_add(
+            center,
+            _v_add(
+                _v_scale(axis_u, lateral_u + (drift[0] * drift_wave)),
+                _v_add(
+                    _v_scale(axis_v, lateral_v + (drift[1] * drift_wave)),
+                    _v_add(
+                        _v_scale(flow, travel),
+                        _v_scale(drift, drift_wave * 0.75),
+                    ),
+                ),
+            ),
+        )
+        size_world = glyph_world_size + (((h4 * 2.0) - 1.0) * glyph_world_jitter)
+        trail_length = max(0.14, abs(size_world) * trail_scale)
+        rows.append({
+            "glyph": glyphs[int(math.floor(h2 * len(glyphs))) % max(1, len(glyphs))],
+            "point": point,
+            "world_size": max(0.08, size_world),
+            "trail_start": _v_sub(point, _v_scale(flow_hint, trail_length)),
+        })
+    return rows
+
+
 def _collect_render_model(snapshot):
     drag_lod = _snapshot_has_active_camera_motion(snapshot)
     embodiment = snapshot.get("embodiment") or {}
     balance = snapshot.get("balance") or {}
     contacts = snapshot.get("contacts") or []
     scene = snapshot.get("scene") or {}
+    weather = snapshot.get("weather") if isinstance(snapshot.get("weather"), dict) else {}
     render = snapshot.get("render") or {}
     workbench = snapshot.get("workbench") or {}
     bones = embodiment.get("bones") or []
@@ -3217,27 +3519,29 @@ def _collect_render_model(snapshot):
         projected_points.extend(_sample_circle_points(row["center"], row["radius"], row["samples"]))
 
     objects = []
-    scene_object_rows = scene.get("objects") if isinstance(scene.get("objects"), list) else []
-    if not scene_object_rows:
-        scene_object_rows = scene.get("focus_neighborhood") if isinstance(scene.get("focus_neighborhood"), list) else []
-    if not scoped_part_mode:
+    scene_object_rows = []
+    if _scene_proximity_enabled(snapshot):
+        scene_object_rows = scene.get("objects") if isinstance(scene.get("objects"), list) else []
+        if not scene_object_rows:
+            scene_object_rows = scene.get("focus_neighborhood") if isinstance(scene.get("focus_neighborhood"), list) else []
+    if not scoped_part_mode and scene_object_rows:
         for index, obj in enumerate(scene_object_rows):
             if not isinstance(obj, dict):
                 continue
             point = _vec3(obj.get("position"))
             obj_kind = str(obj.get("kind") or "").strip().lower()
-            obj_radius = 2 if obj_kind in {"panel", "portal", "zone", "structure", "prop"} else 1
+            marker = _scene_object_marker(obj_kind, focused=bool(obj.get("focused")))
             objects.append({
-                "char": "·",
+                "char": marker["char"],
                 "label": str(obj.get("label") or obj.get("id") or obj.get("kind") or f"object_{index + 1}"),
                 "point": point,
                 "distance": obj.get("distance"),
-                "radius": obj_radius,
+                "radius": int(marker["radius"]),
                 "focused": bool(obj.get("focused")),
                 "style": _style_from_color(
                     obj.get("color") or ((obj.get("colors") or {}).get("edge")) or "#66b8ff",
                     "#66b8ff",
-                    1.18 if obj_radius > 1 else 1.0,
+                    1.18 if bool(obj.get("focused")) else 1.0,
                 ),
             })
             projected_points.append(point)
@@ -3256,6 +3560,10 @@ def _collect_render_model(snapshot):
         perspective_points.append(marker["point"])
     for obj in objects:
         perspective_points.append(obj["point"])
+    if weather.get("enabled"):
+        weather_volume = _weather_volume_bounds(weather)
+        projected_points.extend(weather_volume.get("corners") or [])
+        perspective_points.extend(weather_volume.get("corners") or [])
 
     return {
         "drag_lod": drag_lod,
@@ -3267,6 +3575,7 @@ def _collect_render_model(snapshot):
         "com": com,
         "focus_point": focus_point,
         "motion": motion,
+        "weather": weather if weather.get("enabled") else {},
         "heading_origin": heading_origin,
         "heading_length": heading_length,
         "heading_tip": heading_tip,
@@ -3308,7 +3617,7 @@ def _collect_render_model(snapshot):
     }
 
 
-def _render_projection(snapshot, width, height, mode, history=None):
+def _render_projection(snapshot, width, height, mode, history=None, surface_mode=TEXT_THEATER_SURFACE_MODE):
     width = max(20, width)
     height = max(8, height)
     model = _collect_render_model(snapshot)
@@ -3329,6 +3638,9 @@ def _render_projection(snapshot, width, height, mode, history=None):
     if object_bits:
         legend.append("Objects: " + " | ".join(object_bits))
     scene_height = max(4, height - len(legend))
+    # Keep the scene projection on the braille backend. The cell backend
+    # makes status/help text crisper, but it degrades body/environment
+    # silhouettes too much for the actual render surface.
     use_cell_canvas = False
     if use_cell_canvas:
         canvas = _make_canvas(width, scene_height)
@@ -3989,19 +4301,134 @@ def _render_projection(snapshot, width, height, mode, history=None):
     heading_tip_coords = project(model["heading_tip"])
     current_origin_coords = project(model.get("heading_origin"))
 
+    weather = model.get("weather") if isinstance(model.get("weather"), dict) else {}
+    if weather.get("enabled"):
+        weather_rows = _weather_rows(snapshot, drag_lod=drag_lod)
+        weather_styles = _weather_style(weather)
+        lod_bands = _weather_lod_bands(weather)
+        medium_density = float(weather.get("density") or 0.0)
+        readability_required = bool(weather.get("readability_required"))
+        precipitation_like = _weather_is_precipitation(weather)
+        flow = _v_norm(_vec3(weather.get("direction")), (0.0, -1.0, 0.0))
+        if depth_basis is not None:
+            view_forward = _v_norm(depth_basis[3], (0.0, 0.0, 1.0))
+            local_orientation = 1.0 - abs(_v_dot(flow, view_forward))
+        else:
+            local_orientation = 1.0 - abs(float(flow[1]))
+        local_orientation = _clamp(local_orientation, 0.0, 1.0)
+        for row in weather_rows:
+            point = row.get("point")
+            coords = project(point)
+            if coords is None:
+                continue
+            x, y = mapper(coords)
+            trail_start = row.get("trail_start")
+            if trail_start is not None:
+                trail_points = []
+                trail_samples = 4 if use_cell_canvas else (10 if precipitation_like else 6)
+                for sample_point in _sample_segment_points(trail_start, point, trail_samples):
+                    sample_coords = project(sample_point)
+                    if sample_coords is None:
+                        continue
+                    trail_points.append(mapper(sample_coords))
+                if use_cell_canvas:
+                    for trail_x, trail_y in trail_points[:-1]:
+                        put_mark(trail_x, trail_y, "|" if precipitation_like else "·", priority=1, style=weather_styles["dim"])
+                else:
+                    for trail_x, trail_y in trail_points[:-1]:
+                        _braille_put(canvas, trail_x, trail_y, priority=1, style=weather_styles["dim"])
+            depth = point_depth(point)
+            if depth_basis is not None:
+                projected_subcells = _project_world_size_to_subcells(
+                    row.get("world_size"),
+                    depth,
+                    render_height,
+                    camera_meta,
+                )
+            else:
+                projected_subcells = _orthographic_world_size_to_subcells(
+                    row.get("world_size"),
+                    mapper_meta,
+                    render_width,
+                    render_height,
+                )
+            band = _weather_band(
+                projected_subcells,
+                depth,
+                medium_density,
+                local_orientation,
+                readability_required,
+                lod_bands,
+            )
+            glyph = str(row.get("glyph") or "A")[:1]
+            if use_cell_canvas:
+                if precipitation_like:
+                    head_char = glyph if band == "reference" else "|"
+                    head_style = weather_styles["bright"] if band in {"reference", "fused"} else weather_styles["mid"]
+                    put_mark(x, y, head_char, priority=4 if band == "reference" else 3, style=head_style)
+                elif band == "reference":
+                    put_mark(x, y, glyph, priority=4, style=weather_styles["bright"])
+                elif band == "fused":
+                    put_mark(x, y, glyph, priority=3, style=weather_styles["mid"])
+                elif band == "granular":
+                    put_mark(x, y, glyph, priority=2, style=weather_styles["dim"])
+                elif band == "blob":
+                    put_mark(x, y, "•", priority=2, style=weather_styles["mid"])
+                else:
+                    put_mark(x, y, "·", priority=1, style=weather_styles["dim"])
+                continue
+            if precipitation_like:
+                head_priority = 4 if band == "reference" else (3 if band in {"fused", "granular"} else 2)
+                head_style = weather_styles["bright"] if band in {"reference", "fused"} else weather_styles["mid"]
+                _braille_put(canvas, x, y, priority=head_priority, style=head_style)
+                if band == "reference":
+                    _braille_overlay_char(canvas, x, y, glyph, priority=5, style=weather_styles["bright"])
+                elif band == "fused":
+                    _braille_overlay_char(canvas, x, y, "│", priority=4, style=weather_styles["mid"])
+                continue
+            if band == "reference":
+                _braille_cluster(canvas, x, y, priority=1, style=weather_styles["mid"], radius=1)
+                _braille_overlay_char(canvas, x, y, glyph, priority=4, style=weather_styles["bright"])
+            elif band == "fused":
+                _braille_cluster(canvas, x, y, priority=1, style=weather_styles["mid"], radius=1)
+                _braille_overlay_char(canvas, x, y, glyph, priority=3, style=weather_styles["mid"])
+            elif band == "granular":
+                _braille_cluster(canvas, x, y, priority=2, style=weather_styles["dim"], radius=1)
+                _braille_overlay_char(canvas, x, y, glyph, priority=2, style=weather_styles["dim"])
+            elif band == "blob":
+                _braille_cluster(
+                    canvas,
+                    x,
+                    y,
+                    priority=2,
+                    style=weather_styles["mid"],
+                    radius=1 if projected_subcells < 1.25 else 2,
+                )
+            else:
+                _braille_put(canvas, x, y, priority=2, style=weather_styles["dim"])
+
     for obj in model["objects"]:
         coords = project(obj["point"])
         if coords is None:
             continue
         x, y = mapper(coords)
-        put_mark(
-            x,
-            y,
-            "·",
-            priority=6 if obj.get("focused") else 5,
-            style=obj.get("style") or BLUE,
-            radius=int(obj.get("radius", 1)),
-        )
+        obj_char = str(obj.get("char") or "•")[:1]
+        obj_priority = 6 if obj.get("focused") else 5
+        obj_style = obj.get("style") or BLUE
+        obj_radius = int(obj.get("radius", 0))
+        if use_cell_canvas:
+            put_mark(
+                x,
+                y,
+                obj_char,
+                priority=obj_priority,
+                style=obj_style,
+                radius=obj_radius,
+            )
+        else:
+            if obj_radius > 0:
+                _braille_cluster(canvas, x, y, priority=max(1, obj_priority - 1), style=obj_style, radius=obj_radius)
+            _braille_overlay_char(canvas, x, y, obj_char, priority=obj_priority, style=obj_style)
 
     for marker in model["markers"]:
         coords = project(marker.get("point"))
@@ -4074,6 +4501,14 @@ def _parity_status_line(snapshot):
     mode = str(parity.get("mode") or theater.get("mode") or "unknown")
     summary = str(parity.get("summary") or "").strip()
     return "parity=" + mode + ((" " + summary) if summary else "")
+
+
+def _scene_proximity_enabled(snapshot):
+    snapshot = snapshot if isinstance(snapshot, dict) else {}
+    parity = snapshot.get("parity") if isinstance(snapshot.get("parity"), dict) else {}
+    theater = snapshot.get("theater") if isinstance(snapshot.get("theater"), dict) else {}
+    mode = str(parity.get("mode") or theater.get("mode") or "").strip().lower()
+    return mode == "environment"
 
 
 def _compact_status_lines(snapshot, width, surface_mode=TEXT_THEATER_SURFACE_MODE, surface_density=TEXT_THEATER_SURFACE_DENSITY):
@@ -4283,6 +4718,7 @@ def _render_local_theater_text(snapshot):
     snapshot = snapshot if isinstance(snapshot, dict) else {}
     theater = snapshot.get("theater") if isinstance(snapshot.get("theater"), dict) else {}
     scene = snapshot.get("scene") if isinstance(snapshot.get("scene"), dict) else {}
+    weather = snapshot.get("weather") if isinstance(snapshot.get("weather"), dict) else {}
     runtime = snapshot.get("runtime") if isinstance(snapshot.get("runtime"), dict) else {}
     parity = snapshot.get("parity") if isinstance(snapshot.get("parity"), dict) else {}
     stale_flags = snapshot.get("stale_flags") if isinstance(snapshot.get("stale_flags"), dict) else {}
@@ -4292,7 +4728,7 @@ def _render_local_theater_text(snapshot):
     bounds_min = bounds.get("min") if isinstance(bounds.get("min"), dict) else {}
     bounds_max = bounds.get("max") if isinstance(bounds.get("max"), dict) else {}
     position = camera.get("position") if isinstance(camera.get("position"), dict) else {}
-    neighborhood = scene.get("focus_neighborhood") if isinstance(scene.get("focus_neighborhood"), list) else []
+    neighborhood = scene.get("focus_neighborhood") if _scene_proximity_enabled(snapshot) and isinstance(scene.get("focus_neighborhood"), list) else []
     snapshot_ts = float(snapshot.get("snapshot_timestamp") or 0.0)
     source_ts = float(snapshot.get("source_timestamp") or 0.0)
     sync_age = max(0.0, (snapshot_ts - source_ts) / 1000.0) if snapshot_ts > 0.0 and source_ts > 0.0 else 0.0
@@ -4301,6 +4737,22 @@ def _render_local_theater_text(snapshot):
         for row in neighborhood[:8]
         if isinstance(row, dict)
     ) or "none"
+    weather_line = "none"
+    if weather.get("enabled"):
+        direction = weather.get("direction") if isinstance(weather.get("direction"), dict) else {}
+        weather_line = (
+            str(weather.get("kind") or "weather")
+            + " / "
+            + str(weather.get("flow_class") or "")
+            + " / dens "
+            + f"{float(weather.get('density') or 0.0):.2f}"
+            + " / speed "
+            + f"{float(weather.get('speed') or 0.0):.2f}"
+            + " / dir ("
+            + f"{float(direction.get('x') or 0.0):.2f}, "
+            + f"{float(direction.get('y') or 0.0):.2f}, "
+            + f"{float(direction.get('z') or 0.0):.2f})"
+        )
     return "\n".join([
         "THEATER: "
         + str(theater.get("mode") or "")
@@ -4336,6 +4788,7 @@ def _render_local_theater_text(snapshot):
         + f"{float(bounds_min.get('z') or 0.0):.2f}"
         + ".."
         + f"{float(bounds_max.get('z') or 0.0):.2f}",
+        "WEATHER: " + weather_line,
         "RUNTIME: "
         + ("enabled" if runtime.get("enabled") else "disabled")
         + " / "
@@ -4352,17 +4805,29 @@ def _render_consult_orientation_text(snapshot):
     snapshot = snapshot if isinstance(snapshot, dict) else {}
     theater = snapshot.get("theater") if isinstance(snapshot.get("theater"), dict) else {}
     scene = snapshot.get("scene") if isinstance(snapshot.get("scene"), dict) else {}
+    weather = snapshot.get("weather") if isinstance(snapshot.get("weather"), dict) else {}
     parity = snapshot.get("parity") if isinstance(snapshot.get("parity"), dict) else {}
     focus = theater.get("focus") if isinstance(theater.get("focus"), dict) else {}
     camera = theater.get("camera") if isinstance(theater.get("camera"), dict) else {}
     target = camera.get("target") if isinstance(camera.get("target"), dict) else {}
     position = camera.get("position") if isinstance(camera.get("position"), dict) else {}
-    neighborhood = scene.get("focus_neighborhood") if isinstance(scene.get("focus_neighborhood"), list) else []
+    neighborhood = scene.get("focus_neighborhood") if _scene_proximity_enabled(snapshot) and isinstance(scene.get("focus_neighborhood"), list) else []
     nearby = ", ".join(
         f"{str(row.get('label') or row.get('object_key') or '?')} {float(row.get('distance') or 0.0):.2f}m"
         for row in neighborhood[:6]
         if isinstance(row, dict)
     ) or "none"
+    weather_line = "none"
+    if weather.get("enabled"):
+        weather_line = (
+            str(weather.get("kind") or "weather")
+            + " / "
+            + str(weather.get("flow_class") or "")
+            + " / dens "
+            + f"{float(weather.get('density') or 0.0):.2f}"
+            + " / speed "
+            + f"{float(weather.get('speed') or 0.0):.2f}"
+        )
     return "\n".join([
         "FOCUS: "
         + str(focus.get("id") or focus.get("kind") or "none")
@@ -4382,6 +4847,7 @@ def _render_consult_orientation_text(snapshot):
         + str(parity.get("mode") or theater.get("mode") or "unknown")
         + " / "
         + str(parity.get("summary") or "unknown"),
+        "WEATHER: " + weather_line,
         "POS: ("
         + f"{float(position.get('x') or 0.0):.2f}, "
         + f"{float(position.get('y') or 0.0):.2f}, "
@@ -4997,7 +5463,7 @@ def _render_render_view(snapshot, theater_text, width, height, diagnostics_visib
     if live_camera and width >= 120 and content_height >= 18:
         left_width = max(48, int(width * 0.66))
         right_width = max(24, width - left_width - 1)
-        main_box = _box("Scene", _render_projection(snapshot, left_width - 2, content_height - 2, "perspective", history=render_history), left_width, content_height, body_mode="raw")
+        main_box = _box("Scene", _render_projection(snapshot, left_width - 2, content_height - 2, "perspective", history=render_history, surface_mode=surface_mode), left_width, content_height, body_mode="raw")
         right_box = _box("Theater", _wrap_block(theater_text, right_width - 2), right_width, content_height, body_mode="wide", surface_mode=surface_mode, surface_density=surface_density)
         row_count = max(len(main_box), len(right_box))
         for idx in range(row_count):
@@ -5007,11 +5473,11 @@ def _render_render_view(snapshot, theater_text, width, height, diagnostics_visib
     elif width >= 120 and content_height >= 18:
         left_width = max(48, int(width * 0.66))
         right_width = max(24, width - left_width - 1)
-        main_box = _box("Scene", _render_projection(snapshot, left_width - 2, content_height - 2, "perspective", history=render_history), left_width, content_height, body_mode="raw")
+        main_box = _box("Scene", _render_projection(snapshot, left_width - 2, content_height - 2, "perspective", history=render_history, surface_mode=surface_mode), left_width, content_height, body_mode="raw")
         top_height = max(8, content_height // 2)
         front_height = content_height - top_height
-        top_box = _box("Quarter", _render_projection(snapshot, right_width - 2, top_height - 2, "quarter", history=render_history), right_width, top_height, body_mode="raw")
-        front_box = _box("Profile", _render_projection(snapshot, right_width - 2, front_height - 2, "profile", history=render_history), right_width, front_height, body_mode="raw")
+        top_box = _box("Quarter", _render_projection(snapshot, right_width - 2, top_height - 2, "quarter", history=render_history, surface_mode=surface_mode), right_width, top_height, body_mode="raw")
+        front_box = _box("Profile", _render_projection(snapshot, right_width - 2, front_height - 2, "profile", history=render_history, surface_mode=surface_mode), right_width, front_height, body_mode="raw")
         right_lines = top_box + front_box
         row_count = max(len(main_box), len(right_lines))
         for idx in range(row_count):
@@ -5019,7 +5485,7 @@ def _render_render_view(snapshot, theater_text, width, height, diagnostics_visib
             right_line = right_lines[idx] if idx < len(right_lines) else (" " * right_width)
             lines.append(left_line + " " + right_line)
     else:
-        lines.extend(_box("Scene", _render_projection(snapshot, width - 2, content_height - 2, "perspective", history=render_history), width, content_height, body_mode="raw"))
+        lines.extend(_box("Scene", _render_projection(snapshot, width - 2, content_height - 2, "perspective", history=render_history, surface_mode=surface_mode), width, content_height, body_mode="raw"))
 
     if diagnostics_visible:
         lines.extend(_box(

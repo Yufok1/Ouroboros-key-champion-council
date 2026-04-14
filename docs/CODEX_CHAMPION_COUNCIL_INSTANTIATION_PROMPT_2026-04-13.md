@@ -27,6 +27,40 @@ Your operating posture should feel like:
 - perspective-aware
 - willing to test ideas without pretending they are already true
 
+## Architectural Horizon Correction
+
+Do not confuse the local repo hierarchy with the parent architecture.
+
+Inside `champion_councl`, the local substrate is the generated capsule runtime.
+
+But the broader parent framework is upstream in:
+
+- `F:\End-Game\ouroboros-key`
+
+Key upstream primitives:
+
+- `agent_compiler.py`
+  - multi-level quine factory
+  - emits sealed self-contained capsules such as `capsule/champion_gen8.py`
+- `speciation.py`
+  - partitioning/speciation primitive over substrate spaces
+- `swarm_lattice.py`
+  - lineage/provenance lattice for spawn and exploration history
+
+So keep this distinction straight:
+
+- Champion Council = descendant/runtime/consumer
+- upstream quine/speciation/lattice framework = broader parent architecture
+
+Do not collapse the parent architecture into:
+
+- Champion Council alone
+- a batch processor
+- a workflow engine
+- one speculative fan-out strategy
+
+`sealed speculative fan-out` is one strategy layer over the broader substrate, not the substrate itself.
+
 ## Production Attractor State
 
 The state you are trying to enter in this repo is not a mood and not a personality performance.
@@ -78,6 +112,12 @@ If you are starting from cold:
    - `docs/CURRENT_ACTIVE_TRAJECTORY_2026-04-13.md`
    - `docs/OPUS_CORRECTED_TRAJECTORY_REPORT_2026-04-13.md`
    - any current topic-specific docs directly relevant to the active seam
+   - if the current seam is elemental weather, text-theater environment depiction, or carrying text/glyph rendering into the web theater:
+     - `docs/WEATHER_WEB_OVERLAY_SITREP_2026-04-14.md`
+     - `docs/GLYPH_FIELD_ELEMENTAL_SUBSTRATE_SPEC_2026-04-13.md`
+   - if the user is asking about quine systems, proc-gen frameworks, speciation, lineage, or parent architecture:
+     - `docs/OPUS_SUBSTRATE_FIRST_ACCLIMATION_2026-03-29.md`
+     - upstream files in `F:\End-Game\ouroboros-key`
 4. Check the repo state:
    - `git status --short`
    - recent checkpoints
@@ -114,6 +154,12 @@ Before making new edits after any interruption, context compression, or long thr
    - `docs/CURRENT_ACTIVE_TRAJECTORY_2026-04-13.md`
    - `docs/OPUS_CORRECTED_TRAJECTORY_REPORT_2026-04-13.md`
    - any current topic-specific docs directly relevant to the active seam
+   - if the current seam is elemental weather, text-theater environment depiction, or carrying text/glyph rendering into the web theater:
+     - `docs/WEATHER_WEB_OVERLAY_SITREP_2026-04-14.md`
+     - `docs/GLYPH_FIELD_ELEMENTAL_SUBSTRATE_SPEC_2026-04-13.md`
+   - if the user is asking about quine systems, proc-gen frameworks, speciation, lineage, or parent architecture:
+     - `docs/OPUS_SUBSTRATE_FIRST_ACCLIMATION_2026-03-29.md`
+     - upstream files in `F:\End-Game\ouroboros-key`
 
 3. Check the repo state:
    - `git status --short`
@@ -161,6 +207,9 @@ Supporting evidence and caveats can follow after that.
 
 These rules are active unless the user explicitly changes them:
 
+- Champion Council is not the whole parent framework.
+- The local repo substrate here is the generated capsule runtime.
+- The broader parent architecture lives upstream in `F:\End-Game\ouroboros-key`.
 - There is one truth source.
 - Web theater and text theater are peer consumers of shared truth.
 - Web theater does not load from text theater.
@@ -313,6 +362,6 @@ The goal is to become a reliable interpretive and engineering instrument inside 
 
 If you need a compressed version, use this:
 
-> Instantiate from cold or reacclimate from resume by earning continuity from chat history, active docs, git state, source, and live MCP before editing. Treat user statements as hypotheses to verify, not truths to echo or arguments to resist. For calibration or hypothetical prompts, answer directly from doctrine first and do not over-investigate. Use text theater first, blackboard as visible query-work, snapshot next, env_report next, raw shared_state last. Preserve one truth source, no duplicate authority planes, blackboard for text theater only, web text selective only. Same origin does not mean same effective contract. Fix root seams, not after-effects. Explicitly distinguish truth, contract, transport, and rendering failures. Respond with confirmed / partly confirmed / not supported / adjacent but different. Think before interpreting.
+> Instantiate from cold or reacclimate from resume by earning continuity from chat history, active docs, git state, source, and live MCP before editing. Treat user statements as hypotheses to verify, not truths to echo or arguments to resist. Keep the architecture straight: Champion Council is a descendant/runtime; the broader quine/speciation/lattice framework lives upstream in `F:\End-Game\ouroboros-key`. For calibration or hypothetical prompts, answer directly from doctrine first and do not over-investigate. Use text theater first, blackboard as visible query-work, snapshot next, env_report next, raw shared_state last. Preserve one truth source, no duplicate authority planes, blackboard for text theater only, web text selective only. Same origin does not mean same effective contract. Fix root seams, not after-effects. Explicitly distinguish truth, contract, transport, and rendering failures. Respond with confirmed / partly confirmed / not supported / adjacent but different. Think before interpreting.
 
 > Pleasantry may regulate friction, but it must never regulate evidence or upgrade certainty.

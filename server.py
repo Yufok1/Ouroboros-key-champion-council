@@ -3208,6 +3208,51 @@ def _sanitize_tool_spec(tool: dict) -> dict | None:
     return item
 
 
+def _proxy_tool_schema_overrides(name: str, schema: dict) -> dict:
+    tool_name = str(name or "").strip()
+    base = dict(schema) if isinstance(schema, dict) else {}
+    if tool_name != "env_read":
+        return base
+    return {
+        "type": "object",
+        "properties": {
+            "query": {
+                "type": "string",
+                "description": (
+                    "Read target. Supports standard env_read queries plus text-theater lanes such as "
+                    "text_theater_embodiment, text_theater_snapshot, text_theater_view, "
+                    "text_theater_blackboard, and text_theater_query_work."
+                ),
+            },
+            "view": {
+                "type": "string",
+                "description": "Optional text theater view mode for text_theater_view queries, e.g. consult, render, or split.",
+            },
+            "section": {
+                "type": "string",
+                "description": "Optional text theater section for text_theater_view queries, e.g. theater, blackboard, embodiment, or snapshot.",
+            },
+            "width": {
+                "type": "integer",
+                "description": "Optional render width for text_theater_view queries.",
+            },
+            "height": {
+                "type": "integer",
+                "description": "Optional render height for text_theater_view queries.",
+            },
+            "timeout": {
+                "type": "number",
+                "description": "Optional render timeout in seconds for text_theater_view queries.",
+            },
+            "diagnostics": {
+                "type": "boolean",
+                "description": "Enable diagnostics for text_theater_view queries.",
+            },
+        },
+        "required": ["query"],
+    }
+
+
 def _agent_augment_tools_list(tools: list[dict]) -> list[dict]:
     merged = []
     seen = set()
@@ -3218,6 +3263,7 @@ def _agent_augment_tools_list(tools: list[dict]) -> list[dict]:
         name = str(fixed.get("name", "") or "").strip()
         if not name:
             continue
+        fixed["inputSchema"] = _schema_sanitize(_proxy_tool_schema_overrides(name, fixed.get("inputSchema", {})))
         seen.add(name)
         merged.append(fixed)
     for t in _agent_local_tools_manifest():
@@ -6170,8 +6216,16 @@ def _load_text_theater_module():
 def _env_text_theater_view_payload(args: dict | None = None) -> dict:
     args = args or {}
     query_text = str(args.get("query", "text_theater_view") or "text_theater_view").strip() or "text_theater_view"
-    view_mode = str(args.get("view", "consult") or "consult").strip().lower() or "consult"
-    section_key = str(args.get("section", "theater") or "theater").strip().lower() or "theater"
+    query_lower = query_text.lower()
+    alias_defaults = {}
+    if query_lower in {"text_theater_blackboard", "text_theater_query_work"}:
+        alias_defaults = {
+            "view": "consult",
+            "section": "blackboard",
+            "diagnostics": True,
+        }
+    view_mode = str(args.get("view", alias_defaults.get("view", "consult")) or "consult").strip().lower() or "consult"
+    section_key = str(args.get("section", alias_defaults.get("section", "theater")) or "theater").strip().lower() or "theater"
     try:
         width = max(80, int(args.get("width", 140) or 140))
     except Exception:
@@ -6184,7 +6238,7 @@ def _env_text_theater_view_payload(args: dict | None = None) -> dict:
         timeout = max(0.5, float(args.get("timeout", 5.0) or 5.0))
     except Exception:
         timeout = 5.0
-    diagnostics_value = args.get("diagnostics", False)
+    diagnostics_value = args.get("diagnostics", alias_defaults.get("diagnostics", False))
     diagnostics = diagnostics_value if isinstance(diagnostics_value, bool) else str(diagnostics_value or "").strip().lower() in {"1", "true", "yes", "on"}
     try:
         cached = _env_live_cache_snapshot()
@@ -6216,7 +6270,16 @@ def _env_text_theater_view_payload(args: dict | None = None) -> dict:
             "text_theater_view": None,
         }
     snapshot = rendered.get("snapshot") if isinstance(rendered.get("snapshot"), dict) else {}
-    _env_note_text_theater_read(query_text, cached, snapshot)
+    _env_note_text_theater_read(
+        query_text,
+        cached,
+        snapshot,
+        {
+            "view_mode": rendered.get("view_mode"),
+            "section_key": rendered.get("section_key"),
+            "diagnostics": rendered.get("diagnostics"),
+        },
+    )
     return {
         "tool": "env_read",
         "status": "ok",
@@ -6324,7 +6387,7 @@ def _env_read_local_proxy_payload(args: dict | None = None) -> dict | None:
         return _debug_state_payload(query_text)
     if query_lower == "probe_compare":
         return _env_probe_compare_payload()
-    if query_lower == "text_theater_view":
+    if query_lower in {"text_theater_view", "text_theater_blackboard", "text_theater_query_work"}:
         return _env_text_theater_view_payload(args)
     if query_lower == "text_theater_live":
         return _env_text_theater_live_payload(args)

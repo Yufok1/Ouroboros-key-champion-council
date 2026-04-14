@@ -30494,6 +30494,209 @@
         };
     }
 
+    function _envTextTheaterVectorMagnitude(value) {
+        if (!(value && typeof value === 'object')) return 0;
+        var x = Number(value.x || 0);
+        var y = Number(value.y || 0);
+        var z = Number(value.z || 0);
+        return Math.sqrt((x * x) + (y * y) + (z * z));
+    }
+
+    function _envTextTheaterWorldProfileSurface(sharedState, renderTruth) {
+        var shared = sharedState && typeof sharedState === 'object' ? sharedState : {};
+        var sharedSurface = shared.world_profile && typeof shared.world_profile === 'object'
+            ? shared.world_profile
+            : null;
+        var renderSurface = renderTruth && renderTruth.world_profile && typeof renderTruth.world_profile === 'object'
+            ? renderTruth.world_profile
+            : null;
+        var source = sharedSurface || renderSurface || {};
+        return {
+            active: String(source.active || _env3D.activeWorldProfile || ''),
+            family: String(source.family || ''),
+            strata: _envCloneJson(source.strata || (_env3D.strata || null), null),
+            physics: _envCloneJson(source.physics || _env3DPhysicsSnapshot(), null)
+        };
+    }
+
+    function _envTextTheaterWeatherGlyphSet(kind) {
+        return 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    }
+
+    function _envTextTheaterWeatherVolume(sceneBounds, worldProfile, effectKind) {
+        var bounds = sceneBounds && typeof sceneBounds === 'object' ? sceneBounds : { min: {}, max: {} };
+        var strata = worldProfile && worldProfile.strata && typeof worldProfile.strata === 'object' ? worldProfile.strata : {};
+        var minX = Number((((bounds.min || {}).x)) || 0);
+        var maxX = Number((((bounds.max || {}).x)) || 0);
+        var minY = Number((((bounds.min || {}).y)) || 0);
+        var maxY = Number((((bounds.max || {}).y)) || 0);
+        var minZ = Number((((bounds.min || {}).z)) || 0);
+        var maxZ = Number((((bounds.max || {}).z)) || 0);
+        var spanX = Math.max(6, Math.abs(maxX - minX));
+        var spanY = Math.max(4, Math.abs(maxY - minY));
+        var spanZ = Math.max(6, Math.abs(maxZ - minZ));
+        minX -= spanX * 0.18;
+        maxX += spanX * 0.18;
+        minZ -= spanZ * 0.18;
+        maxZ += spanZ * 0.18;
+        var surfaceLevel = Number(strata.surfaceLevel !== undefined ? strata.surfaceLevel : maxY || 0);
+        var waterLevel = strata.waterLevel !== undefined && strata.waterLevel !== null ? Number(strata.waterLevel) : null;
+        var seabedLevel = strata.seabedLevel !== undefined && strata.seabedLevel !== null ? Number(strata.seabedLevel) : null;
+        var ceilingLevel = strata.ceilingLevel !== undefined && strata.ceilingLevel !== null ? Number(strata.ceilingLevel) : null;
+        var effect = String(effectKind || '').trim().toLowerCase();
+        if (effect === 'current') {
+            minY = seabedLevel !== null ? seabedLevel + 0.8 : (minY - 1.5);
+            maxY = waterLevel !== null ? Math.max(minY + 2.4, waterLevel - 0.6) : (maxY + 1.5);
+        } else if (effect === 'drip') {
+            minY = Math.min(surfaceLevel - 0.8, minY - 0.5);
+            maxY = ceilingLevel !== null ? ceilingLevel : Math.max(maxY + 4, surfaceLevel + 6);
+        } else {
+            minY = seabedLevel !== null ? Math.min(minY - 1.5, seabedLevel) : (minY - Math.max(2.0, spanY * 0.35));
+            maxY = Math.max(maxY + 10, surfaceLevel + 12, ceilingLevel !== null ? ceilingLevel : -Infinity);
+        }
+        return {
+            min: {
+                x: _envTextTheaterRound(minX, 3, 0),
+                y: _envTextTheaterRound(minY, 3, 0),
+                z: _envTextTheaterRound(minZ, 3, 0)
+            },
+            max: {
+                x: _envTextTheaterRound(maxX, 3, 0),
+                y: _envTextTheaterRound(maxY, 3, 0),
+                z: _envTextTheaterRound(maxZ, 3, 0)
+            },
+            center: {
+                x: _envTextTheaterRound((minX + maxX) * 0.5, 3, 0),
+                y: _envTextTheaterRound((minY + maxY) * 0.5, 3, 0),
+                z: _envTextTheaterRound((minZ + maxZ) * 0.5, 3, 0)
+            },
+            size: {
+                x: _envTextTheaterRound(Math.max(0.01, maxX - minX), 3, 0),
+                y: _envTextTheaterRound(Math.max(0.01, maxY - minY), 3, 0),
+                z: _envTextTheaterRound(Math.max(0.01, maxZ - minZ), 3, 0)
+            }
+        };
+    }
+
+    function _envBuildTextTheaterWeatherSurface(sharedState, renderTruth, sceneBounds, theaterMode, cameraForward) {
+        var shared = sharedState && typeof sharedState === 'object' ? sharedState : {};
+        if (_envSceneNormalizeTheaterMode(theaterMode || 'environment') !== 'environment') {
+            return {
+                enabled: false,
+                kind: '',
+                flow_class: '',
+                profile_active: '',
+                profile_family: '',
+                summary: 'weather disabled outside environment mode'
+            };
+        }
+        var worldProfile = _envTextTheaterWorldProfileSurface(shared, renderTruth);
+        var family = String(worldProfile.family || '').trim().toLowerCase();
+        var kind = 'rain';
+        var flowClass = 'precipitation';
+        var density = 0.62;
+        var speed = 1.0;
+        var turbulence = 0.18;
+        var colorHint = '#7dd3fc';
+        var direction = { x: 0, y: -1, z: 0 };
+        var drift = { x: 0.12, y: 0, z: 0.05 };
+        if (family === 'underwater') {
+            kind = 'current';
+            flowClass = 'current';
+            density = 0.74;
+            speed = 0.62;
+            turbulence = 0.12;
+            colorHint = '#4ce3ff';
+            direction = _envTextTheaterNormalizeDirection({
+                x: Number((cameraForward || {}).x || 0.82),
+                y: 0,
+                z: Number((cameraForward || {}).z || 0.38)
+            });
+            if (_envTextTheaterVectorMagnitude(direction) <= 0.0001) direction = { x: 0.86, y: 0, z: 0.34 };
+            drift = { x: 0, y: 0.06, z: 0 };
+        } else if (family === 'volcanic') {
+            kind = 'ash';
+            flowClass = 'drift';
+            density = 0.58;
+            speed = 0.86;
+            turbulence = 0.26;
+            colorHint = '#ff8b54';
+            direction = _envTextTheaterNormalizeDirection({ x: -0.18, y: -1, z: 0.14 });
+            drift = { x: 0.16, y: 0.04, z: -0.08 };
+        } else if (family === 'alpine') {
+            kind = 'snow';
+            flowClass = 'precipitation';
+            density = 0.56;
+            speed = 0.42;
+            turbulence = 0.22;
+            colorHint = '#e9f6ff';
+            direction = _envTextTheaterNormalizeDirection({ x: 0.08, y: -1, z: 0.12 });
+            drift = { x: 0.12, y: 0, z: -0.06 };
+        } else if (family === 'desert') {
+            kind = 'sand';
+            flowClass = 'drift';
+            density = 0.64;
+            speed = 0.92;
+            turbulence = 0.28;
+            colorHint = '#d8bf7f';
+            direction = _envTextTheaterNormalizeDirection({ x: 0.72, y: -0.18, z: 0.26 });
+            drift = { x: 0.18, y: 0.02, z: -0.05 };
+        } else if (family === 'cave') {
+            kind = 'drip';
+            flowClass = 'precipitation';
+            density = 0.34;
+            speed = 0.58;
+            turbulence = 0.08;
+            colorHint = '#7fd6ff';
+            direction = { x: 0, y: -1, z: 0 };
+            drift = { x: 0.01, y: 0, z: 0.01 };
+        } else if (family === 'swamp' || family === 'jungle') {
+            kind = 'mist';
+            flowClass = 'drift';
+            density = 0.68;
+            speed = 0.46;
+            turbulence = 0.14;
+            colorHint = '#96f0c5';
+            direction = _envTextTheaterNormalizeDirection({ x: 0.28, y: -0.12, z: 0.08 });
+            drift = { x: 0.08, y: 0.06, z: 0.03 };
+        }
+        var volume = _envTextTheaterWeatherVolume(sceneBounds, worldProfile, kind);
+        var glyphWorldSize = kind === 'current' ? 0.52 : (kind === 'drip' ? 0.36 : 0.44);
+        var sampleCount = Math.max(24, Math.round(42 + (density * 72)));
+        return {
+            enabled: true,
+            source: 'world_profile',
+            profile_active: String(worldProfile.active || ''),
+            profile_family: String(family || ''),
+            kind: String(kind || ''),
+            flow_class: String(flowClass || ''),
+            summary: String(kind || '') + ' / ' + String(flowClass || '') + ' / glyph-flow',
+            density: _envTextTheaterRound(density, 3, 0),
+            speed: _envTextTheaterRound(speed, 3, 0),
+            turbulence: _envTextTheaterRound(turbulence, 3, 0),
+            sample_count: Number(sampleCount || 0),
+            glyphs: _envTextTheaterWeatherGlyphSet(kind),
+            glyph_profile: 'default_alphanumeric',
+            glyph_world_size: _envTextTheaterRound(glyphWorldSize, 3, 0),
+            glyph_world_jitter: _envTextTheaterRound(glyphWorldSize * 0.45, 3, 0),
+            readability_required: false,
+            direction: _envCloneJson(direction, null),
+            drift: _envCloneJson(drift, null),
+            color_hint: String(colorHint || '#7dd3fc'),
+            wrap_mode: 'volume_loop',
+            lod_bands: {
+                reference_min_subcells: 6.0,
+                fused_min_subcells: 3.2,
+                granular_min_subcells: 1.5,
+                blob_min_subcells: 0.75,
+                medium_penalty: 0.28,
+                orientation_floor: 0.58,
+                depth_soft_cap: 18.0
+            },
+            volume: _envCloneJson(volume, null)
+        };
+    }
+
     function _envTextTheaterContactClearance(point, supportY) {
         if (!(point && typeof point === 'object')) return 0;
         return _envTextTheaterRound(Number(point.y || 0) - Number(supportY || 0), 4, 0);
@@ -31316,6 +31519,8 @@
         var contacts = Array.isArray(view.contacts) ? view.contacts : [];
         var workbench = view.workbench && typeof view.workbench === 'object' ? view.workbench : {};
         var theater = view.theater && typeof view.theater === 'object' ? view.theater : {};
+        var weather = view.weather && typeof view.weather === 'object' ? view.weather : {};
+        var parity = view.parity && typeof view.parity === 'object' ? view.parity : {};
         var focus = theater.focus && typeof theater.focus === 'object' ? theater.focus : {};
         var profileRegistry = view.text_theater_profiles && typeof view.text_theater_profiles === 'object'
             ? view.text_theater_profiles
@@ -31338,6 +31543,9 @@
         var pivotWorld = activeController.pivot_world && typeof activeController.pivot_world === 'object'
             ? activeController.pivot_world
             : null;
+        var contaminatedSurfaces = _slotUniqueStrings(parity.contaminated_surfaces || []);
+        var missingSurfaces = _slotUniqueStrings(parity.missing_surfaces || []);
+        var surfaceComparisonNeeded = !!(weather.enabled && (contaminatedSurfaces.length || missingSurfaces.length));
         var queryObjectiveId = 'scene_orientation';
         var queryObjectiveLabel = 'Scene Orientation';
         var queryReason = 'No active route or controller is steering the read yet, so stay with visible orientation first.';
@@ -31356,9 +31564,30 @@
             queryObjectiveLabel = 'Support / Balance Orientation';
             queryReason = 'Support and balance truth are live, so the next scoped read should stay grounded in support/balance evidence.';
             queryNeedsRouteBroker = true;
+        } else if (surfaceComparisonNeeded) {
+            queryObjectiveId = 'surface_alignment_review';
+            queryObjectiveLabel = 'Surface Alignment Review';
+            queryReason = 'The active scene carries parity contamination while a live elemental field is on-screen, so compare the actual text frame against browser-visible evidence and mirrored contracts before raw shared_state.';
+        } else if (weather.enabled) {
+            queryObjectiveId = 'weather_scene_orientation';
+            queryObjectiveLabel = 'Weather / Scene Orientation';
+            queryReason = 'An active elemental field is live on the scene, so query work should acknowledge the weather contract before deeper raw-state reads.';
         }
         var queryVisibleRead = String(semantic.summary || '').trim();
-        var queryGuardrail = 'text_theater -> consult/blackboard -> snapshot -> env_report -> raw shared_state';
+        var queryGuardrail = 'text_theater -> consult/blackboard -> snapshot -> env_help/env_report -> raw shared_state';
+        function _envFormatBlackboardQueryStep(row) {
+            var tool = String((row || {}).tool || '');
+            var args = row && typeof row.args === 'object' ? row.args : {};
+            if (tool === 'env_read') return "env_read(" + String(args.query || '') + ")";
+            if (tool === 'env_report') return "env_report(" + String(args.report_id || '') + ")";
+            if (tool === 'env_help') {
+                if (args.topic) return "env_help(" + String(args.topic || '') + ")";
+                if (args.category) return "env_help(category:" + String(args.category || '') + ")";
+                if (args.search) return "env_help(search:" + String(args.search || '') + ")";
+                return 'env_help(index)';
+            }
+            return tool || 'read';
+        }
         var queryNextReads = [
             {
                 tool: 'env_read',
@@ -31366,12 +31595,96 @@
                 reason: 'Confirm the visible read against the structured snapshot rows and freshness fields.'
             }
         ];
+        var queryHelpLane = [];
+        var queryHelpSeen = {};
+        function _envPushBlackboardHelp(args, reason) {
+            var payload = args && typeof args === 'object' ? args : {};
+            var topic = String(payload.topic || '').trim();
+            var category = String(payload.category || '').trim();
+            var search = String(payload.search || '').trim();
+            var helpArgs = {};
+            var dedupeKey = '';
+            if (topic) {
+                helpArgs.topic = topic;
+                dedupeKey = 'topic:' + topic;
+            } else if (category) {
+                helpArgs.category = category;
+                dedupeKey = 'category:' + category;
+            } else if (search) {
+                helpArgs.search = search;
+                dedupeKey = 'search:' + search;
+            } else {
+                helpArgs.topic = 'index';
+                dedupeKey = 'topic:index';
+            }
+            if (queryHelpSeen[dedupeKey]) return;
+            queryHelpSeen[dedupeKey] = true;
+            queryHelpLane.push({
+                tool: 'env_help',
+                args: helpArgs,
+                reason: String(reason || '').trim()
+            });
+        }
+        _envPushBlackboardHelp(
+            { topic: 'text_theater_embodiment' },
+            'Use env_help as the local reference for what the embodiment/text-theater surface exposes and how to verify it.'
+        );
         if (queryNeedsRouteBroker) {
             queryNextReads.push({
                 tool: 'env_report',
                 args: { report_id: 'route_stability_diagnosis' },
                 reason: 'Use the scoped broker lane instead of jumping straight to raw shared_state.'
             });
+            _envPushBlackboardHelp(
+                { topic: 'env_report' },
+                'Use env_help to read the scoped broker contract, recipe expectations, and gotchas before widening the query.'
+            );
+            _envPushBlackboardHelp(
+                { topic: 'playbook:theater_first_route_diagnosis' },
+                'Keep route/support diagnosis on the theater-first evidence order instead of improvising a raw-state jump.'
+            );
+        } else if (selectedBoneIds.length) {
+            _envPushBlackboardHelp(
+                { category: 'builder_motion' },
+                'Use env_help as the discoverability surface for selection-driven builder/workbench motion commands, helpers, and families.'
+            );
+        } else if (surfaceComparisonNeeded) {
+            queryNextReads.push({
+                tool: 'capture_supercam',
+                args: {},
+                reason: 'Bring in a browser-visible overview so the web theater can be compared against the current text-theater frame instead of inferred.'
+            });
+            queryNextReads.push({
+                tool: 'env_read',
+                args: { query: 'contracts' },
+                reason: 'Read the mirrored contracts after the frame and capture so browser-side surfaces can be compared before raw shared_state.'
+            });
+            _envPushBlackboardHelp(
+                { topic: 'text_theater_view' },
+                'Use env_help to keep the current text-theater frame primary while you compare it against the browser-visible scene.'
+            );
+            _envPushBlackboardHelp(
+                { topic: 'capture_supercam' },
+                'Use env_help to keep browser capture as corroboration for comparative theater analysis instead of treating it as a new truth source.'
+            );
+            _envPushBlackboardHelp(
+                { topic: 'text_theater_snapshot' },
+                'Use env_help to correlate the rendered text frame against the structured snapshot and mirrored render contract before escalating.'
+            );
+        } else if (weather.enabled) {
+            _envPushBlackboardHelp(
+                { topic: 'set_world_profile' },
+                'Use env_help to verify which world profile is producing the active elemental field before changing scene truth.'
+            );
+            _envPushBlackboardHelp(
+                { topic: 'text_theater_snapshot' },
+                'Use env_help to confirm the text-theater snapshot contract and correlate the visible weather field against structured rows.'
+            );
+        } else {
+            _envPushBlackboardHelp(
+                { topic: 'playbook:theater_first_pose_corroboration' },
+                'Use the theater-first corroboration playbook when the question is general pose or scene orientation before deeper state reads.'
+            );
         }
         queryNextReads.push({
             tool: 'env_read',
@@ -31731,18 +32044,27 @@
             detail: 'Only open raw shared_state when the visible read and scoped diagnosis still disagree.'
         }));
         rows.push(_envBlackboardMakeRow({
+            id: 'session.query_help_lane',
+            family: 'session',
+            layer: 'interpretation',
+            source: 'INTP',
+            label: 'Help Lane',
+            value: queryHelpLane.map(function (row) { return _envFormatBlackboardQueryStep(row); }),
+            tolerance_state: 'INFO',
+            priority: 0.6,
+            session_weight: 0.95,
+            group_key: 'session',
+            sticky_ms: 4200,
+            anchor: { type: 'global' },
+            detail: queryHelpLane.map(function (row) { return String((row || {}).reason || ''); }).join(' / ')
+        }));
+        rows.push(_envBlackboardMakeRow({
             id: 'session.query_next_reads',
             family: 'session',
             layer: 'prediction',
             source: 'PRED',
             label: 'Next Reads',
-            value: queryNextReads.map(function (row) {
-                var tool = String((row || {}).tool || '');
-                var args = row && typeof row.args === 'object' ? row.args : {};
-                if (tool === 'env_read') return "env_read(" + String(args.query || '') + ")";
-                if (tool === 'env_report') return "env_report(" + String(args.report_id || '') + ")";
-                return tool || 'read';
-            }),
+            value: queryNextReads.map(function (row) { return _envFormatBlackboardQueryStep(row); }),
             tolerance_state: 'INFO',
             priority: 0.58,
             session_weight: 0.92,
@@ -31762,8 +32084,9 @@
             objective_label: queryObjectiveLabel,
             visible_read: queryVisibleRead,
             anchor_row_ids: leadRowIds.slice(0, 4),
+            help_lane: queryHelpLane,
             next_reads: queryNextReads,
-            raw_state_guardrail: 'Only open raw shared_state after text theater, consult/blackboard, snapshot, and any needed scoped report.'
+            raw_state_guardrail: 'Only open raw shared_state after text theater, consult/blackboard, snapshot, env_help, and any needed scoped report.'
         };
         var familyMap = {};
         rows.forEach(function (row) {
@@ -31804,6 +32127,7 @@
         var view = snapshot && typeof snapshot === 'object' ? snapshot : {};
         var theater = view.theater && typeof view.theater === 'object' ? view.theater : {};
         var scene = view.scene && typeof view.scene === 'object' ? view.scene : {};
+        var weather = view.weather && typeof view.weather === 'object' ? view.weather : {};
         var runtime = view.runtime && typeof view.runtime === 'object' ? view.runtime : {};
         var workbench = view.workbench && typeof view.workbench === 'object' ? view.workbench : {};
         var balance = view.balance && typeof view.balance === 'object' ? view.balance : {};
@@ -31814,7 +32138,8 @@
         var supportingJointIds = Array.isArray(balance.supporting_joint_ids) ? balance.supporting_jointIds : null;
         if (!Array.isArray(supportingJointIds)) supportingJointIds = Array.isArray(balance.supporting_joint_ids) ? balance.supporting_joint_ids : [];
         var alertIds = Array.isArray(balance.alert_ids) ? balance.alert_ids : [];
-        var nearbyRows = (Array.isArray(scene.focus_neighborhood) ? scene.focus_neighborhood : []).slice(0, 3).map(function (row) {
+        var showSceneProximity = _envTextTheaterSceneProximityEnabled(theater.mode || '');
+        var nearbyRows = (showSceneProximity && Array.isArray(scene.focus_neighborhood) ? scene.focus_neighborhood : []).slice(0, 3).map(function (row) {
             return {
                 label: String((row && (row.label || row.object_key || row.id)) || ''),
                 kind: String((row && row.kind) || ''),
@@ -31829,6 +32154,9 @@
             'SELECTION: ' + (selectedBoneIds.length ? selectedBoneIds.join(', ') : 'none') + ' / posed ' + posedBoneIds.length,
             'BALANCE: ' + String(balance.support_phase || 'unknown') + ' / risk ' + _envTextTheaterRound(balance.stability_risk, 2, 0) + ' / alerts ' + (alertIds.length ? alertIds.join(', ') : 'none'),
             'CAMERA: ' + String(camera.mode || '') + ' / dist ' + _envTextTheaterRound(camera.distance, 2, 0),
+            'WEATHER: ' + (weather.enabled
+                ? (String(weather.kind || 'weather') + ' / ' + String(weather.flow_class || '') + ' / dens ' + _envTextTheaterRound(weather.density, 2, 0) + ' / speed ' + _envTextTheaterRound(weather.speed, 2, 0))
+                : 'none'),
             'NEARBY: ' + (nearbyRows.length ? nearbyRows.map(function (row) {
                 return row.label + ' ' + String(row.distance) + 'm';
             }).join(', ') : 'none'),
@@ -31853,6 +32181,13 @@
                 scene_object_count: Number(scene.object_count || 0),
                 nearby: nearbyRows
             },
+            weather: weather.enabled ? {
+                kind: String(weather.kind || ''),
+                flow_class: String(weather.flow_class || ''),
+                density: _envTextTheaterRound(weather.density, 3, 0),
+                speed: _envTextTheaterRound(weather.speed, 3, 0),
+                direction: _envCloneJson(weather.direction || null, null)
+            } : null,
             what: {
                 support_phase: String(balance.support_phase || ''),
                 stability_risk: _envTextTheaterRound(balance.stability_risk, 3, 0),
@@ -31926,6 +32261,7 @@
         var view = snapshot && typeof snapshot === 'object' ? snapshot : {};
         var theater = view.theater && typeof view.theater === 'object' ? view.theater : {};
         var scene = view.scene && typeof view.scene === 'object' ? view.scene : {};
+        var weather = view.weather && typeof view.weather === 'object' ? view.weather : {};
         var runtime = view.runtime && typeof view.runtime === 'object' ? view.runtime : {};
         var workbench = view.workbench && typeof view.workbench === 'object' ? view.workbench : {};
         var embodiment = view.embodiment && typeof view.embodiment === 'object' ? view.embodiment : {};
@@ -31937,7 +32273,8 @@
         var sourceTs = Number(view.source_timestamp || 0);
         var syncAgeMs = nowTs && sourceTs ? Math.max(0, nowTs - sourceTs) : 0;
         if (mode === 'theater') {
-            var neighborhood = (scene.focus_neighborhood || []).map(function (row) {
+            var showSceneProximity = _envTextTheaterSceneProximityEnabled(theater.mode || '');
+            var neighborhood = (showSceneProximity ? (scene.focus_neighborhood || []) : []).map(function (row) {
                 return String(row.label || row.object_key || '') + ' (' + _envTextTheaterRound(row.distance, 2, 0) + 'm)';
             }).join(', ');
             return [
@@ -31953,6 +32290,14 @@
                     + '..' + _envTextTheaterRound((((scene.bounds || {}).max || {}).x), 2, 0)
                     + ' / z ' + _envTextTheaterRound((((scene.bounds || {}).min || {}).z), 2, 0)
                     + '..' + _envTextTheaterRound((((scene.bounds || {}).max || {}).z), 2, 0),
+                'WEATHER: ' + (weather.enabled
+                    ? (String(weather.kind || 'weather') + ' / ' + String(weather.flow_class || '')
+                        + ' / dens ' + _envTextTheaterRound(weather.density, 2, 0)
+                        + ' / speed ' + _envTextTheaterRound(weather.speed, 2, 0)
+                        + ' / dir (' + _envTextTheaterRound((((weather.direction || {}).x)), 2, 0)
+                        + ', ' + _envTextTheaterRound((((weather.direction || {}).y)), 2, 0)
+                        + ', ' + _envTextTheaterRound((((weather.direction || {}).z)), 2, 0) + ')')
+                    : 'none'),
                 'RUNTIME: ' + (runtime.enabled ? 'enabled' : 'disabled') + ' / ' + String(runtime.mode || '')
                     + ' / behavior ' + String(runtime.behavior || '')
                     + ' / activity ' + String(runtime.activity || ''),
@@ -32391,6 +32736,7 @@
         var suppressed = [];
         var contaminated = [];
         var missing = [];
+        if (mode !== 'environment') suppressed.push('scene_objects', 'scene_proximity');
         if (mountedRuntime && mountedRuntime.enabled) admitted.push('runtime');
         if (mode === 'character') {
             admitted.push('workbench', 'embodiment', 'balance', 'contacts', 'timeline', 'selection');
@@ -32421,10 +32767,15 @@
         };
     }
 
+    function _envTextTheaterSceneProximityEnabled(theaterMode) {
+        return _envSceneNormalizeTheaterMode(theaterMode || 'environment') === 'environment';
+    }
+
     function _envBuildTextTheaterSnapshot(sharedState, context) {
         var shared = sharedState && typeof sharedState === 'object' ? sharedState : {};
         var options = context && typeof context === 'object' ? context : {};
         var theaterMode = _envSceneNormalizeTheaterMode((((shared.scene || {}).theaterMode)) || _envTheaterMode() || 'environment');
+        var sceneProximityEnabled = _envTextTheaterSceneProximityEnabled(theaterMode);
         var renderTruth = options.renderTruth && typeof options.renderTruth === 'object'
             ? options.renderTruth
             : (shared.render && typeof shared.render === 'object' ? shared.render : _envBuildRenderTruth());
@@ -32489,15 +32840,19 @@
         }
         var parity = _envBuildTextTheaterParityState(theaterMode, focusState, mountedRuntime, rawWorkbenchSurface, selectedBoneIds, focusFallbackUsed);
         var sceneBounds = _envTextTheaterSceneBounds(sceneObjects);
-        var sceneRenderableRows = theaterMode === 'environment'
+        var sceneRenderableRows = sceneProximityEnabled
             ? sceneObjects.filter(function (obj) { return !_envIsMountedCharacterRuntimeObject(obj); })
-            : sceneObjects;
-        var sceneObjectRows = _envTextTheaterSceneObjectRows(
-            sceneRenderableRows,
-            focusObject,
-            64
-        );
-        var focusNeighborhood = _envTextTheaterFocusNeighborhood(sceneRenderableRows, focusObject, 8);
+            : [];
+        var sceneObjectRows = sceneProximityEnabled
+            ? _envTextTheaterSceneObjectRows(
+                sceneRenderableRows,
+                focusObject,
+                64
+            )
+            : [];
+        var focusNeighborhood = sceneProximityEnabled
+            ? _envTextTheaterFocusNeighborhood(sceneRenderableRows, focusObject, 8)
+            : [];
         var diagnostics = embodimentSurface && embodimentSurface.motion_diagnostics && typeof embodimentSurface.motion_diagnostics === 'object'
             ? embodimentSurface.motion_diagnostics
             : null;
@@ -32533,6 +32888,8 @@
             z: Number(cameraTarget.z || 0) - Number(cameraPosition.z || 0)
         });
         var cameraUp = _env3D.camera && _env3D.camera.up ? _envTextTheaterNormalizeDirection(_env3D.camera.up) : { x: 0, y: 1, z: 0 };
+        var worldProfileSurface = _envTextTheaterWorldProfileSurface(shared, renderTruth);
+        var weatherSurface = _envBuildTextTheaterWeatherSurface(shared, renderTruth, sceneBounds, theaterMode, cameraForward);
         var snapshot = {
             version: 1,
             snapshot_timestamp: Number(now || 0),
@@ -32577,10 +32934,12 @@
             scene: {
                 object_count: Number((shared.scene || {}).object_count || sceneObjects.length || 0),
                 bounds: sceneBounds,
-                focus_object_key: focusObject ? _envSceneObjectKey(focusObject) : '',
+                focus_object_key: sceneProximityEnabled && focusObject ? _envSceneObjectKey(focusObject) : '',
                 objects: sceneObjectRows,
                 focus_neighborhood: focusNeighborhood
             },
+            world_profile: _envCloneJson(worldProfileSurface, null),
+            weather: _envCloneJson(weatherSurface, null),
             render: _envCloneJson(renderTruth, null),
             layout: _envCloneJson(layoutSnapshot, null),
             docs: _envCloneJson(shared.docs, null),
@@ -62184,6 +62543,14 @@
         var inhabitantSurface = _envInhabitantRuntimeSurfaceSnapshot(inhabitantState);
         var focusSnapshot = Object.assign({}, _envKernel.focus || {});
         focusSnapshot.target_class = _envFocusTargetClass(focusSnapshot);
+        var worldProfileSurface = renderTruth && renderTruth.world_profile && typeof renderTruth.world_profile === 'object'
+            ? _envCloneJson(renderTruth.world_profile, null)
+            : {
+                active: String(_env3D.activeWorldProfile || ''),
+                family: '',
+                strata: _envCloneJson(_env3D.strata || null, null),
+                physics: _env3DPhysicsSnapshot()
+            };
         var sharedState = {
             config_source: _envBus.source || 'defaults',
             focus: focusSnapshot,
@@ -62298,6 +62665,7 @@
                     height: Number((((_env3D.renderer || {}).domElement || {}).clientHeight) || 0)
                 }
             },
+            world_profile: worldProfileSurface,
             mounted_character_runtime: Object.assign(
                 _envCloneJson(inhabitantState, _envCreateInhabitantRuntimeState()),
                 {
