@@ -703,6 +703,7 @@ def _recommended_repo_docs(seam_id: str, cwd: str = "") -> list[str]:
         return []
     candidates = [
         "docs/CODEX_CHAMPION_COUNCIL_INSTANTIATION_PROMPT_2026-04-13.md",
+        "docs/CONTINUITY_DOCS_PLANNING_SURFACE_SPEC_2026-04-20.md",
         "docs/CURRENT_ACTIVE_TRAJECTORY_2026-04-13.md",
         "docs/OPERATIVE_MEMORY_ALIGNMENT_SPEC_2026-04-15.md",
         "docs/STATIC_SURFACE_CORRELATION_SPEC_2026-04-15.md",
@@ -1027,7 +1028,7 @@ def continuity_restore_payload(
     codex_home: str | None = None,
 ) -> dict[str, Any]:
     summary_text = str(summary or "").strip()
-    cwd_hint = str(cwd or "").strip()
+    cwd_hint = str(cwd or "").strip() or str(Path(__file__).resolve().parent)
     resolved_limit = max(1, min(int(limit or 3), 10))
 
     target_session_path = str(session_path or "").strip()

@@ -15,6 +15,8 @@ This doc is the current operative handoff. It does not delete the earlier trajec
 
 Read this doc together with:
 
+- `docs/CONTINUITY_DOCS_PLANNING_SURFACE_SPEC_2026-04-20.md`
+- `docs/FRACTAL_QUERY_CONTINUITY_SURFACE_SPEC_2026-04-21.md`
 - `docs/ASSOCIATIVE_SYSTEMS_CONVERGENCE_BRIEF_2026-04-20.md`
 - `docs/OPERATIVE_MEMORY_ALIGNMENT_SPEC_2026-04-15.md`
 - `docs/TINKERBELL_HOLD_SHUTTER_DREAMER_CODE_ALIGNMENT_CHECKPOINT_2026-04-19.md`

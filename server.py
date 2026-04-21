@@ -5015,6 +5015,8 @@ def _env_report_normalize_output_state(output_state: dict | None = None) -> dict
     trajectory_correlator = state.get("trajectory_correlator") if isinstance(state.get("trajectory_correlator"), dict) else {}
     continuity_cue = state.get("continuity_cue") if isinstance(state.get("continuity_cue"), dict) else {}
     tinkerbell_attention = state.get("tinkerbell_attention") if isinstance(state.get("tinkerbell_attention"), dict) else {}
+    docs_packet = state.get("docs_packet") if isinstance(state.get("docs_packet"), dict) else {}
+    continuity_packet = state.get("continuity_packet") if isinstance(state.get("continuity_packet"), dict) else {}
     technolit_distribution_packet = (
         state.get("technolit_distribution_packet")
         if isinstance(state.get("technolit_distribution_packet"), dict)
@@ -5124,6 +5126,44 @@ def _env_report_normalize_output_state(output_state: dict | None = None) -> dict
             "next_action": str(continuity_cue.get("next_action") or ""),
             "prompt": str(continuity_cue.get("prompt") or ""),
             "recommended_reads": _env_report_unique_strings(continuity_cue.get("recommended_reads") or [], limit=8),
+        },
+        "docs_packet": {
+            "active": bool(docs_packet.get("active")),
+            "band": str(docs_packet.get("band") or ""),
+            "posture": str(docs_packet.get("posture") or ""),
+            "summary": str(docs_packet.get("summary") or ""),
+            "expected_context_kind": str(docs_packet.get("expected_context_kind") or ""),
+            "context_kind": str(docs_packet.get("context_kind") or ""),
+            "context_id": str(docs_packet.get("context_id") or ""),
+            "query": str(docs_packet.get("query") or ""),
+            "result_count": int(docs_packet.get("result_count") or 0),
+            "active_doc": str(docs_packet.get("active_doc") or ""),
+            "continuity_index": str(docs_packet.get("continuity_index") or ""),
+            "search_prefix": str(docs_packet.get("search_prefix") or ""),
+            "search_limit": int(docs_packet.get("search_limit") or 0),
+            "top_results": [
+                _json_clone(item)
+                for item in list(docs_packet.get("top_results") or [])[:5]
+                if isinstance(item, dict)
+            ],
+            "update_lane": _env_report_unique_strings(docs_packet.get("update_lane") or [], limit=8),
+        },
+        "continuity_packet": {
+            "active": bool(continuity_packet.get("active")),
+            "band": str(continuity_packet.get("band") or ""),
+            "posture": str(continuity_packet.get("posture") or ""),
+            "summary": str(continuity_packet.get("summary") or ""),
+            "query_key": str(continuity_packet.get("query_key") or ""),
+            "objective_id": str(continuity_packet.get("objective_id") or ""),
+            "subject_key": str(continuity_packet.get("subject_key") or ""),
+            "current_pivot_id": str(continuity_packet.get("current_pivot_id") or ""),
+            "open_loops": _env_report_unique_strings(continuity_packet.get("open_loops") or [], limit=4),
+            "recent_pressures": _env_report_unique_strings(continuity_packet.get("recent_pressures") or [], limit=4),
+            "hot_tools": _env_report_unique_strings(continuity_packet.get("hot_tools") or [], limit=6),
+            "recommended_docs": _env_report_unique_strings(continuity_packet.get("recommended_docs") or [], limit=6),
+            "best_session_id": str(continuity_packet.get("best_session_id") or ""),
+            "matched_session_count": int(continuity_packet.get("matched_session_count") or 0),
+            "update_lane": _env_report_unique_strings(continuity_packet.get("update_lane") or [], limit=5),
         },
         "tinkerbell_attention": {
             "band": str(tinkerbell_attention.get("band") or ""),
@@ -5405,8 +5445,16 @@ def _env_report_normalize_output_state(output_state: dict | None = None) -> dict
         "receipts": {
             "last_action": str(receipts.get("last_action") or ""),
             "last_sync_reason": str(receipts.get("last_sync_reason") or ""),
+            "command_sync_token": str(receipts.get("command_sync_token") or ""),
             "active_doc": str(receipts.get("active_doc") or ""),
             "latest_execution_id": str(receipts.get("latest_execution_id") or ""),
+            "operation_count": int(receipts.get("operation_count") or 0),
+            "checkpoint_id": str(receipts.get("checkpoint_id") or ""),
+            "diff_ref": str(receipts.get("diff_ref") or ""),
+            "workflow_id": str(receipts.get("workflow_id") or ""),
+            "bag_doc_key": str(receipts.get("bag_doc_key") or ""),
+            "slot_experiment_id": str(receipts.get("slot_experiment_id") or ""),
+            "last_modified_paths": _env_report_unique_strings(receipts.get("last_modified_paths") or [], limit=6),
         },
         "freshness": {
             "snapshot_timestamp": int(freshness.get("snapshot_timestamp") or 0),
@@ -5739,6 +5787,192 @@ def _env_report_build_paired_state(shared_state: dict | None = None, live_revisi
         "reset_boundary": reset_boundary,
         "severity": severity,
         "designation": designation,
+    }
+
+
+def _env_report_compact_query_state_for_pairing(query_state: dict | None = None) -> dict:
+    query = query_state if isinstance(query_state, dict) else {}
+    priority_pivots: list[str] = []
+    for item in list(query.get("priority_pivots") or [])[:4]:
+        if isinstance(item, dict):
+            pivot_id = str(item.get("id") or item.get("pivot_id") or item.get("key") or "").strip()
+            if pivot_id:
+                priority_pivots.append(pivot_id)
+    return {
+        "sequence_id": str(query.get("sequence_id") or ""),
+        "segment_id": str(query.get("segment_id") or ""),
+        "session_id": str(query.get("session_id") or ""),
+        "subject_key": str(query.get("subject_key") or ""),
+        "status": str(query.get("status") or ""),
+        "current_pivot_id": str(query.get("current_pivot_id") or ""),
+        "objective_id": str(query.get("objective_id") or ""),
+        "objective_label": str(query.get("objective_label") or ""),
+        "visible_read": _env_report_trim_text(str(query.get("visible_read") or ""), 220),
+        "anchor_row_ids": _env_report_unique_strings(query.get("anchor_row_ids") or [], limit=6),
+        "priority_pivots": _env_report_unique_strings(priority_pivots, limit=4),
+        "help_lane": _env_report_unique_strings(
+            [_env_report_query_lane_key(entry) for entry in list(query.get("help_lane") or [])[:6]],
+            limit=6,
+        ),
+        "next_reads": _env_report_unique_strings(
+            [_env_report_query_lane_key(entry) for entry in list(query.get("next_reads") or [])[:6]],
+            limit=6,
+        ),
+    }
+
+
+def _env_report_compact_session_match_for_pairing(session: dict | None = None) -> dict:
+    value = session if isinstance(session, dict) else {}
+    return {
+        "session_id": str(value.get("session_id") or value.get("id") or ""),
+        "session_path": _env_report_trim_text(str(value.get("session_path") or value.get("path") or ""), 180),
+        "score": value.get("score"),
+        "modified": str(value.get("modified") or value.get("mtime") or value.get("created_at") or ""),
+        "summary": _env_report_trim_text(str(value.get("summary") or value.get("task_complete_message") or ""), 260),
+    }
+
+
+def _env_report_compact_output_state_for_pairing(output_state: dict | None = None) -> dict:
+    state = output_state if isinstance(output_state, dict) else {}
+    desired = state.get("desired") if isinstance(state.get("desired"), dict) else {}
+    observed = state.get("observed") if isinstance(state.get("observed"), dict) else {}
+    docs_packet = state.get("docs_packet") if isinstance(state.get("docs_packet"), dict) else {}
+    continuity_packet = state.get("continuity_packet") if isinstance(state.get("continuity_packet"), dict) else {}
+    equilibrium = state.get("equilibrium") if isinstance(state.get("equilibrium"), dict) else {}
+    field_disposition = state.get("field_disposition") if isinstance(state.get("field_disposition"), dict) else {}
+    pan_probe = state.get("pan_probe") if isinstance(state.get("pan_probe"), dict) else {}
+    watch_board = state.get("watch_board") if isinstance(state.get("watch_board"), dict) else {}
+    receipts = state.get("receipts") if isinstance(state.get("receipts"), dict) else {}
+    freshness = state.get("freshness") if isinstance(state.get("freshness"), dict) else {}
+    confidence = state.get("confidence") if isinstance(state.get("confidence"), dict) else {}
+    sources = state.get("sources") if isinstance(state.get("sources"), dict) else {}
+    return {
+        "orientation_id": str(state.get("orientation_id") or ""),
+        "summary": _env_report_trim_text(str(state.get("summary") or ""), 220),
+        "desired": {
+            "sequence_id": str(desired.get("sequence_id") or ""),
+            "segment_id": str(desired.get("segment_id") or ""),
+            "current_pivot_id": str(desired.get("current_pivot_id") or ""),
+            "objective_id": str(desired.get("objective_id") or ""),
+            "objective_label": str(desired.get("objective_label") or ""),
+            "subject_key": str(desired.get("subject_key") or ""),
+            "anchor_row_ids": _env_report_unique_strings(desired.get("anchor_row_ids") or [], limit=6),
+        },
+        "observed": {
+            "theater_mode": str(observed.get("theater_mode") or ""),
+            "visual_mode": str(observed.get("visual_mode") or ""),
+            "focus_key": str(observed.get("focus_key") or ""),
+            "last_action": str(observed.get("last_action") or ""),
+            "last_sync_reason": str(observed.get("last_sync_reason") or ""),
+            "docs_context_kind": str(observed.get("docs_context_kind") or ""),
+        },
+        "docs_packet": {
+            "active": bool(docs_packet.get("active")),
+            "band": str(docs_packet.get("band") or ""),
+            "posture": str(docs_packet.get("posture") or ""),
+            "summary": _env_report_trim_text(str(docs_packet.get("summary") or ""), 220),
+            "active_doc": str(docs_packet.get("active_doc") or ""),
+            "continuity_index": str(docs_packet.get("continuity_index") or ""),
+            "update_lane": _env_report_unique_strings(docs_packet.get("update_lane") or [], limit=5),
+        },
+        "continuity_packet": {
+            "active": bool(continuity_packet.get("active")),
+            "band": str(continuity_packet.get("band") or ""),
+            "posture": str(continuity_packet.get("posture") or ""),
+            "summary": _env_report_trim_text(str(continuity_packet.get("summary") or ""), 260),
+            "query_key": str(continuity_packet.get("query_key") or ""),
+            "best_session_id": str(continuity_packet.get("best_session_id") or ""),
+            "matched_session_count": int(continuity_packet.get("matched_session_count") or 0),
+            "open_loops": _env_report_unique_strings(continuity_packet.get("open_loops") or [], limit=3),
+            "recommended_docs": _env_report_unique_strings(continuity_packet.get("recommended_docs") or [], limit=5),
+        },
+        "equilibrium": {
+            "band": str(equilibrium.get("band") or ""),
+            "score": equilibrium.get("score"),
+            "summary": _env_report_trim_text(str(equilibrium.get("summary") or ""), 220),
+            "issues": _env_report_unique_strings(equilibrium.get("issues") or [], limit=5),
+        },
+        "field_disposition": {
+            "medium_kind": str(field_disposition.get("medium_kind") or ""),
+            "settling_band": str(field_disposition.get("settling_band") or ""),
+            "summary": _env_report_trim_text(str(field_disposition.get("summary") or ""), 220),
+            "coupled_surfaces": _env_report_unique_strings(field_disposition.get("coupled_surfaces") or [], limit=8),
+            "risks": _env_report_unique_strings(field_disposition.get("risks") or [], limit=5),
+        },
+        "pan_probe": {
+            "mode": str(pan_probe.get("mode") or ""),
+            "band": str(pan_probe.get("band") or ""),
+            "summary": _env_report_trim_text(str(pan_probe.get("summary") or ""), 220),
+            "selected_contact_state": str(pan_probe.get("selected_contact_state") or ""),
+        },
+        "watch_board": {
+            "band": str(watch_board.get("band") or ""),
+            "signals": _env_report_unique_strings(watch_board.get("signals") or [], limit=6),
+            "alerts": _env_report_unique_strings(watch_board.get("alerts") or [], limit=6),
+        },
+        "receipts": {
+            "active_doc": str(receipts.get("active_doc") or ""),
+            "workflow_id": str(receipts.get("workflow_id") or ""),
+            "checkpoint_id": str(receipts.get("checkpoint_id") or ""),
+            "diff_ref": _env_report_trim_text(str(receipts.get("diff_ref") or ""), 180),
+            "slot_experiment_id": str(receipts.get("slot_experiment_id") or ""),
+            "last_modified_paths": _env_report_unique_strings(receipts.get("last_modified_paths") or [], limit=4),
+        },
+        "freshness": _json_clone(freshness),
+        "confidence": _json_clone(confidence),
+        "sources": {
+            key: {
+                "ready": bool(value.get("ready")),
+                "status": str(value.get("status") or value.get("band") or value.get("posture") or ""),
+            }
+            for key, value in sources.items()
+            if isinstance(value, dict)
+        },
+    }
+
+
+def _env_report_compact_paired_state_for_report(paired_state: dict | None = None, live_output_state: dict | None = None) -> dict:
+    state = paired_state if isinstance(paired_state, dict) else {}
+    archive_surface_prime = state.get("archive_surface_prime") if isinstance(state.get("archive_surface_prime"), dict) else {}
+    drift = state.get("drift") if isinstance(state.get("drift"), dict) else {}
+    reset_boundary = state.get("reset_boundary") if isinstance(state.get("reset_boundary"), dict) else {}
+    return {
+        "archive_query_state": _env_report_compact_query_state_for_pairing(state.get("archive_query_state")),
+        "live_query_state": _env_report_compact_query_state_for_pairing(state.get("live_query_state")),
+        "live_output_state": _env_report_compact_output_state_for_pairing(live_output_state),
+        "archive_surface_prime": {
+            "summary": _env_report_trim_text(str(archive_surface_prime.get("summary") or ""), 260),
+            "packet_kind": str(archive_surface_prime.get("packet_kind") or ""),
+            "corroboration_surfaces": _env_report_unique_strings(archive_surface_prime.get("corroboration_surfaces") or [], limit=6),
+            "paired_state_status": str(archive_surface_prime.get("paired_state_status") or ""),
+        },
+        "live_mirror_context": _json_clone(state.get("live_mirror_context") or {}),
+        "drift": {
+            "status": str(drift.get("status") or ""),
+            "agreement_points": _env_report_unique_strings(drift.get("agreement_points") or [], limit=8),
+            "discrepancies": [
+                {
+                    "field": str(item.get("field") or ""),
+                    "classification": str(item.get("classification") or ""),
+                    "status": str(item.get("status") or ""),
+                    "note": _env_report_trim_text(str(item.get("note") or ""), 180),
+                }
+                for item in list(drift.get("discrepancies") or [])[:6]
+                if isinstance(item, dict)
+            ],
+            "decision": _env_report_trim_text(str(drift.get("decision") or ""), 260),
+        },
+        "freshness": _json_clone(state.get("freshness") or {}),
+        "required_recorroboration": _env_report_unique_strings(state.get("required_recorroboration") or [], limit=6),
+        "recommended_next_reads": _env_report_unique_strings(
+            [_env_report_query_lane_key(entry) for entry in list(state.get("recommended_next_reads") or [])[:8]],
+            limit=8,
+        ),
+        "reset_boundary": {
+            "boundary_kind": str(reset_boundary.get("boundary_kind") or ""),
+            "requires_fresh_live_read": bool(reset_boundary.get("requires_fresh_live_read")),
+            "reason": _env_report_trim_text(str(reset_boundary.get("reason") or ""), 180),
+        },
     }
 
 
@@ -6193,6 +6427,11 @@ def _env_report_paired_state_alignment(
     archive_query_state = paired_state.get("archive_query_state") if isinstance(paired_state.get("archive_query_state"), dict) else {}
     live_query_state = paired_state.get("live_query_state") if isinstance(paired_state.get("live_query_state"), dict) else {}
     live_output_state = _env_report_normalize_output_state(state.get("output_state"))
+    compact_output_state = _env_report_compact_output_state_for_pairing(live_output_state)
+    compact_paired_state = _env_report_compact_paired_state_for_report(
+        paired_state,
+        live_output_state=live_output_state,
+    )
     drift = paired_state.get("drift") if isinstance(paired_state.get("drift"), dict) else {}
     designation = str(paired_state.get("designation") or "partly_confirmed")
     severity = str(paired_state.get("severity") or "watch")
@@ -6239,26 +6478,22 @@ def _env_report_paired_state_alignment(
         "severity": severity,
         "designation": designation,
         "shared_query_identity": _json_clone(paired_state.get("shared_query_identity") or {}),
-        "output_state": _json_clone(live_output_state),
-        "paired_state": {
-            "archive_query_state": _json_clone(archive_query_state),
-            "live_query_state": _json_clone(live_query_state),
-            "live_output_state": _json_clone(live_output_state),
-            "archive_surface_prime": _json_clone(paired_state.get("archive_surface_prime") or {}),
-            "live_mirror_context": _json_clone(paired_state.get("live_mirror_context") or {}),
-            "drift": _json_clone(drift),
-            "freshness": _json_clone(paired_state.get("freshness") or {}),
-            "required_recorroboration": _json_clone(paired_state.get("required_recorroboration") or []),
-            "recommended_next_reads": _json_clone(paired_state.get("recommended_next_reads") or []),
-            "reset_boundary": _json_clone(paired_state.get("reset_boundary") or {}),
-        },
+        "output_state": _json_clone(compact_output_state),
+        "paired_state": _json_clone(compact_paired_state),
         "archive_match": {
             "status": str(archive_restore.get("status") or ""),
             "summary": str(archive_restore.get("summary") or ""),
-            "best_session": _json_clone(archive_best_session),
-            "matched_sessions": _json_clone(archive_restore.get("archive_matched_sessions") or []),
+            "best_session": _env_report_compact_session_match_for_pairing(archive_best_session),
+            "matched_sessions": [
+                _env_report_compact_session_match_for_pairing(item)
+                for item in list(archive_restore.get("archive_matched_sessions") or [])[:3]
+                if isinstance(item, dict)
+            ],
         },
-        "recommended_next_reads": _json_clone(paired_state.get("recommended_next_reads") or []),
+        "recommended_next_reads": _env_report_unique_strings(
+            [_env_report_query_lane_key(entry) for entry in list(paired_state.get("recommended_next_reads") or [])[:8]],
+            limit=8,
+        ),
         "evidence_paths": [
             "continuity_restore(summary=<live objective + subject + pivot>, cwd=<repo>)",
             "shared_state.blackboard.working_set.query_thread",
@@ -6270,7 +6505,12 @@ def _env_report_paired_state_alignment(
         "snapshot_timestamp": int(snapshot.get("snapshot_timestamp") or 0),
         "text_theater_anchor": "text_theater.snapshot",
         "gate_state": _env_report_gate_state_snapshot(),
-        "session_thread": _env_report_build_session_thread(state),
+        "session_thread": {
+            "selected_bone_ids": _env_report_unique_strings(working_set.get("selected_bone_ids") or [], limit=6),
+            "supporting_joint_ids": _env_report_unique_strings(working_set.get("supporting_joint_ids") or [], limit=6),
+            "lead_row_ids": _env_report_unique_strings(working_set.get("lead_row_ids") or [], limit=8),
+            "query_thread": _env_report_compact_query_state_for_pairing(query_thread),
+        },
     }
     if raw_slice:
         report["raw_slice"] = {

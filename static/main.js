@@ -76,6 +76,18 @@
         activeDocMeta: null,
         activeDocContent: ''
     };
+    let _envContinuityState = {
+        queryKey: '',
+        summary: '',
+        pendingQueryKey: '',
+        pendingSummary: '',
+        lastRequestTs: 0,
+        refreshedTs: 0,
+        error: '',
+        bestSession: null,
+        matchedSessions: [],
+        packet: null
+    };
     let _envWorkflowLoadState = {
         workflowId: '',
         pending: false,
@@ -954,7 +966,7 @@
             docs: {
                 searchPrefix: 'docs/',
                 searchLimit: 8,
-                continuityIndex: 'docs/ENVIRONMENT_MEMORY_INDEX.md'
+                continuityIndex: 'docs/CONTINUITY_DOCS_PLANNING_SURFACE_SPEC_2026-04-20.md'
             },
             bus: {
                 maxEvents: 160,
@@ -13800,7 +13812,14 @@
         if (raw.docs && typeof raw.docs === 'object') {
             if (raw.docs.searchPrefix) cfg.docs.searchPrefix = String(raw.docs.searchPrefix);
             if (raw.docs.searchLimit !== undefined) cfg.docs.searchLimit = Math.max(1, Number(raw.docs.searchLimit) || cfg.docs.searchLimit);
-            if (raw.docs.continuityIndex) cfg.docs.continuityIndex = String(raw.docs.continuityIndex);
+            if (raw.docs.continuityIndex) {
+                var continuityIndex = String(raw.docs.continuityIndex);
+                // Migrate the old environment-memory default to the planning-surface index.
+                if (continuityIndex === 'docs/ENVIRONMENT_MEMORY_INDEX.md') {
+                    continuityIndex = 'docs/CONTINUITY_DOCS_PLANNING_SURFACE_SPEC_2026-04-20.md';
+                }
+                cfg.docs.continuityIndex = continuityIndex;
+            }
         }
         if (raw.bus && typeof raw.bus === 'object') {
             if (raw.bus.maxEvents !== undefined) cfg.bus.maxEvents = Math.max(24, Number(raw.bus.maxEvents) || cfg.bus.maxEvents);
@@ -23069,6 +23088,194 @@
             count: entries.length,
             primary: entries[0] || null,
             recent: entries
+        };
+    }
+
+    function _envRecentActivityEntries(limit, filterFn) {
+        var take = Math.max(1, Math.min(64, Number(limit || 24)));
+        var rows = [];
+        for (var i = _activityLog.length - 1; i >= 0 && rows.length < take; i--) {
+            var entry = _activityLog[i];
+            if (!entry || typeof entry !== 'object') continue;
+            if (typeof filterFn === 'function' && !filterFn(entry)) continue;
+            rows.push(entry);
+        }
+        return rows;
+    }
+
+    function _envReceiptNormalizeDocKey(value) {
+        var text = _decodeDocKey(String(value || '')).replace(/\\/g, '/').trim();
+        if (!text) return '';
+        var lower = text.toLowerCase();
+        var idx = lower.indexOf('/docs/');
+        if (idx >= 0) text = text.substring(idx + 1);
+        lower = text.toLowerCase();
+        idx = lower.indexOf('docs/');
+        if (idx >= 0) text = text.substring(idx);
+        return text.indexOf('docs/') === 0 ? text : '';
+    }
+
+    function _envReceiptLooksPathLike(value) {
+        var text = _decodeDocKey(String(value || '')).trim();
+        if (!text) return false;
+        if (_envReceiptNormalizeDocKey(text)) return true;
+        return (
+            text.indexOf('/') >= 0 ||
+            text.indexOf('\\') >= 0 ||
+            /\.(md|json|pt|txt|js|py)$/i.test(text)
+        );
+    }
+
+    function _envReceiptPushUnique(list, seen, value, maxLen) {
+        var text = _decodeDocKey(String(value || '')).replace(/\s+/g, ' ').trim();
+        if (!text || !_envReceiptLooksPathLike(text) || seen[text]) return;
+        seen[text] = 1;
+        list.push(text);
+        if (maxLen && list.length > maxLen) list.length = maxLen;
+    }
+
+    function _envReceiptCollectPaths(event, out, seen, limit) {
+        var args = event && event.args && typeof event.args === 'object' ? event.args : {};
+        var resultObj = _unwrapActivityResult(event && event.result);
+        var result = resultObj && typeof resultObj === 'object' && !Array.isArray(resultObj) ? resultObj : {};
+        function push(value) {
+            _envReceiptPushUnique(out, seen, value, limit);
+        }
+        [
+            args.path, args.key, args.old_path, args.new_path, args.source_path, args.dest_path, args.output_path, args.file_path,
+            result.path, result.key, result.source_key, result.source_path, result.dest_path, result.output_path, result.file_path
+        ].forEach(push);
+        (Array.isArray(args.paths) ? args.paths : []).forEach(push);
+        (Array.isArray(result.paths) ? result.paths : []).forEach(push);
+        (Array.isArray(result.modified_paths) ? result.modified_paths : []).forEach(push);
+        (Array.isArray(result.modified_files) ? result.modified_files : []).forEach(push);
+        return out;
+    }
+
+    function _envReceiptBuildDiffRef(event) {
+        if (!event || typeof event !== 'object') return '';
+        var tool = String(event.tool || '').trim();
+        var args = event.args && typeof event.args === 'object' ? event.args : {};
+        var resultObj = _unwrapActivityResult(event.result);
+        var result = resultObj && typeof resultObj === 'object' && !Array.isArray(resultObj) ? resultObj : {};
+        var target =
+            _envReceiptNormalizeDocKey(result.path || result.key || args.path || args.key)
+            || _decodeDocKey(String(result.path || result.key || args.path || args.key || '')).trim();
+        var fromCheckpoint = String(args.from_checkpoint || result.from_checkpoint || '').trim();
+        var toCheckpoint = String(args.to_checkpoint || result.to_checkpoint || 'current').trim() || 'current';
+        var trace = _activityTraceDescriptor(event);
+        var parts = [tool || 'diff'];
+        if (target) parts.push(target);
+        if (fromCheckpoint || toCheckpoint) parts.push((fromCheckpoint || 'latest') + '→' + toCheckpoint);
+        if (trace && trace.shortId) parts.push('trace ' + trace.shortId);
+        return parts.join(' / ');
+    }
+
+    function _envReceiptBuildSlotExperimentId(event) {
+        if (!event || typeof event !== 'object') return '';
+        var tool = String(event.tool || '').trim();
+        if (!tool) return '';
+        var args = event.args && typeof event.args === 'object' ? event.args : {};
+        var resultObj = _unwrapActivityResult(event.result);
+        var result = resultObj && typeof resultObj === 'object' && !Array.isArray(resultObj) ? resultObj : {};
+        var slots = [];
+        var seen = {};
+        function pushSlot(value) {
+            var num = parseInt(value, 10);
+            if (isNaN(num) || num < 0) return;
+            var label = 'S' + String(num + 1);
+            if (seen[label]) return;
+            seen[label] = 1;
+            slots.push(label);
+        }
+        pushSlot(args.slot);
+        pushSlot(result.slot);
+        pushSlot(args.slot_a);
+        pushSlot(args.slot_b);
+        pushSlot(result.slot_a);
+        pushSlot(result.slot_b);
+        (Array.isArray(args.slots) ? args.slots : []).forEach(pushSlot);
+        (Array.isArray(result.slots) ? result.slots : []).forEach(pushSlot);
+        if (!slots.length) return '';
+        var trace = _activityTraceDescriptor(event);
+        var parts = [tool, slots.join('-')];
+        if (trace && trace.shortId) parts.push('trace ' + trace.shortId);
+        return parts.join(' / ');
+    }
+
+    function _envBuildReceiptsPacket(state, view, docs, comparison, scene, operations) {
+        var recent = _envRecentActivityEntries(48);
+        var mutationTools = {
+            bag_put: 1, bag_induct: 1, bag_checkpoint: 1, bag_restore: 1,
+            file_write: 1, file_edit: 1, file_append: 1, file_prepend: 1,
+            file_delete: 1, file_rename: 1, file_copy: 1, file_checkpoint: 1,
+            file_restore: 1, save_state: 1
+        };
+        var diffTools = { file_diff: 1, bag_diff: 1 };
+        var experimentTools = {
+            mutate_slot: 1, compare: 1, clone_slot: 1, invoke_slot: 1,
+            swap_slots: 1, plug_model: 1, hub_plug: 1, vast_load_model: 1
+        };
+        var lastModifiedPaths = [];
+        var seenPaths = {};
+        var checkpointId = '';
+        var diffRef = '';
+        var workflowId = String((comparison || {}).workflow_id || (scene || {}).workflow_id || '').trim();
+        var bagDocKey = _envReceiptNormalizeDocKey((docs || {}).active_doc || '');
+        var slotExperimentId = '';
+
+        recent.forEach(function (event) {
+            if (!event || typeof event !== 'object') return;
+            var tool = String(event.tool || '').trim().toLowerCase();
+            if (!tool) return;
+            var args = event.args && typeof event.args === 'object' ? event.args : {};
+            var resultObj = _unwrapActivityResult(event.result);
+            var result = resultObj && typeof resultObj === 'object' && !Array.isArray(resultObj) ? resultObj : {};
+            if (!workflowId) {
+                workflowId = String(
+                    args.workflow_id || args._workflow_id || result.workflow_id || ''
+                ).trim();
+            }
+            if (!checkpointId) {
+                checkpointId = String(
+                    result.checkpoint_id || result.checkpoint_key || args.checkpoint_key || ''
+                ).trim();
+            }
+            if (!diffRef && diffTools[tool]) {
+                diffRef = _envReceiptBuildDiffRef(event);
+            }
+            if (!slotExperimentId && experimentTools[tool]) {
+                slotExperimentId = _envReceiptBuildSlotExperimentId(event);
+            }
+            var localPaths = [];
+            _envReceiptCollectPaths(event, localPaths, {}, 8);
+            if (!bagDocKey) {
+                for (var i = 0; i < localPaths.length; i++) {
+                    var docKey = _envReceiptNormalizeDocKey(localPaths[i]);
+                    if (docKey) {
+                        bagDocKey = docKey;
+                        break;
+                    }
+                }
+            }
+            if (mutationTools[tool]) {
+                _envReceiptCollectPaths(event, lastModifiedPaths, seenPaths, 6);
+            }
+        });
+
+        return {
+            last_action: String(view.last_action || ''),
+            last_sync_reason: String(view.last_sync_reason || ''),
+            command_sync_token: String(view.command_sync_token || ''),
+            active_doc: String((docs || {}).active_doc || ''),
+            latest_execution_id: String((comparison || {}).latest_execution_id || ''),
+            operation_count: Number((((operations || {}).recent) || []).length || 0),
+            checkpoint_id: checkpointId,
+            diff_ref: diffRef,
+            workflow_id: workflowId,
+            bag_doc_key: bagDocKey,
+            slot_experiment_id: slotExperimentId,
+            last_modified_paths: lastModifiedPaths
         };
     }
 
@@ -34427,6 +34634,207 @@
         ];
     }
 
+    function _envBuildDocsPacket(docs, expectedDocsContext, docsContextAligned, docsBand) {
+        var state = docs && typeof docs === 'object' ? docs : {};
+        var searchPrefix = String((((_envConfig || {}).docs || {}).searchPrefix) || 'docs/').trim() || 'docs/';
+        var searchLimit = Math.max(1, Number((((_envConfig || {}).docs || {}).searchLimit) || 8));
+        var continuityIndex = String((((_envConfig || {}).docs || {}).continuityIndex) || '').trim();
+        var results = Array.isArray(_envDocState.results) ? _envDocState.results : [];
+        var contextKind = String(state.context_kind || _envDocState.contextKind || '').trim();
+        var contextId = String(state.context_id || _envDocState.contextId || '').trim();
+        var query = String(state.query || _envDocState.query || '').trim();
+        var activeDoc = String(state.active_doc || _envDocState.activeDocId || '').trim();
+        var resultCount = Math.max(Number(state.result_count || 0), results.length);
+        var posture = 'idle';
+        if (contextKind && !docsContextAligned) posture = 'mismatch';
+        else if (resultCount > 0) posture = docsContextAligned ? 'loaded' : 'watch';
+        else if (query) posture = 'query_only';
+        else if (continuityIndex) posture = 'index_only';
+        var topResults = results.slice(0, Math.min(searchLimit, 5)).map(function (doc) {
+            var row = doc && typeof doc === 'object' ? doc : {};
+            return {
+                key: String(row.key || row.path || '').trim(),
+                score: Number(row.score || 0),
+                preview: _envProductCollapseText(String(row.preview || ''), 140)
+            };
+        }).filter(function (row) {
+            return !!row.key;
+        });
+        var checkpointPath = activeDoc || continuityIndex;
+        var updateLane = [
+            'bag_search_docs(prefix=\'' + searchPrefix + '\')',
+            activeDoc ? ('bag_read_doc(key=\'' + activeDoc + '\')') : '',
+            checkpointPath ? ('file_checkpoint(path=\'' + checkpointPath + '\')') : '',
+            checkpointPath ? ('file_write(path=\'' + checkpointPath + '\')') : ''
+        ].filter(Boolean);
+        return {
+            active: !!(contextKind || contextId || query || resultCount || activeDoc || continuityIndex),
+            band: String(docsBand || (resultCount ? 'watch' : 'empty')),
+            posture: posture,
+            summary: _envProductCollapseText([
+                contextKind || expectedDocsContext || 'docs',
+                'results ' + String(resultCount || 0),
+                activeDoc ? ('active ' + activeDoc) : 'active none',
+                continuityIndex ? ('index ' + continuityIndex) : ''
+            ].filter(Boolean).join(' / '), 180),
+            expected_context_kind: String(expectedDocsContext || ''),
+            context_kind: contextKind,
+            context_id: contextId,
+            query: query,
+            result_count: Number(resultCount || 0),
+            active_doc: activeDoc,
+            continuity_index: continuityIndex,
+            search_prefix: searchPrefix,
+            search_limit: searchLimit,
+            top_results: topResults,
+            update_lane: updateLane
+        };
+    }
+
+    function _envCurrentContinuityContext(sharedState, snapshot) {
+        var state = sharedState && typeof sharedState === 'object' ? sharedState : {};
+        var view = snapshot && typeof snapshot === 'object' ? snapshot : {};
+        var blackboard = state.blackboard && typeof state.blackboard === 'object'
+            ? state.blackboard
+            : (view.blackboard && typeof view.blackboard === 'object' ? view.blackboard : {});
+        var working = blackboard.working_set && typeof blackboard.working_set === 'object'
+            ? blackboard.working_set
+            : {};
+        var queryThread = working.query_thread && typeof working.query_thread === 'object'
+            ? working.query_thread
+            : {};
+        var objectiveId = String(queryThread.objective_id || '').trim();
+        var objectiveLabel = String(queryThread.objective_label || objectiveId).trim();
+        var subjectKey = String(queryThread.subject_key || '').trim();
+        var currentPivotId = String(queryThread.current_pivot_id || '').trim();
+        var docsActive = String(_envDocState.activeDocId || '').trim();
+        var queryKey = [objectiveId || objectiveLabel, subjectKey, currentPivotId].filter(Boolean).join('::');
+        return {
+            active: !!queryKey,
+            queryKey: queryKey,
+            summary: [objectiveLabel || objectiveId, subjectKey, currentPivotId, docsActive].filter(Boolean).join(' / '),
+            objective_id: objectiveId,
+            objective_label: objectiveLabel,
+            subject_key: subjectKey,
+            current_pivot_id: currentPivotId,
+            active_doc: docsActive
+        };
+    }
+
+    function _envRefreshContinuitySurface(sharedState, snapshot, reason, actor, force) {
+        var context = _envCurrentContinuityContext(sharedState, snapshot);
+        if (!context.active) return;
+        if (_envContinuityState.pendingQueryKey === context.queryKey) return;
+        if (!force && _envContinuityState.queryKey === context.queryKey && _envContinuityState.packet) return;
+        _envContinuityState.queryKey = context.queryKey;
+        _envContinuityState.summary = context.summary;
+        _envContinuityState.pendingQueryKey = context.queryKey;
+        _envContinuityState.pendingSummary = context.summary;
+        _envContinuityState.lastRequestTs = Date.now();
+        _envContinuityState.error = '';
+        callTool('continuity_restore', {
+            summary: context.summary,
+            limit: 1,
+            since_days: 365
+        }, 'continuity_restore');
+        _envLogAction('continuity', 'Refreshing continuity packet' + (reason ? ' · ' + reason : ''), actor || 'system', {
+            query_key: context.queryKey,
+            summary: context.summary,
+            objective_id: context.objective_id,
+            subject_key: context.subject_key,
+            current_pivot_id: context.current_pivot_id
+        });
+    }
+
+    function _envBuildContinuityPacket(sharedState, snapshot) {
+        var context = _envCurrentContinuityContext(sharedState, snapshot);
+        var packet = _envContinuityState.packet && typeof _envContinuityState.packet === 'object'
+            ? _envContinuityState.packet
+            : {};
+        var queryState = packet.query_state && typeof packet.query_state === 'object' ? packet.query_state : {};
+        var resumeFocus = packet.resume_focus && typeof packet.resume_focus === 'object' ? packet.resume_focus : {};
+        var surfacePrime = packet.surface_prime && typeof packet.surface_prime === 'object' ? packet.surface_prime : {};
+        var pairedState = packet.paired_state_resource && typeof packet.paired_state_resource === 'object' ? packet.paired_state_resource : {};
+        var openLoops = (Array.isArray(packet.open_loops) ? packet.open_loops : []).map(function (item) {
+            return _envProductCollapseText(String(item || '').trim(), 140);
+        }).filter(Boolean).slice(0, 3);
+        var recentPressures = (Array.isArray(resumeFocus.recent_pressures) ? resumeFocus.recent_pressures : []).map(function (item) {
+            return _envProductCollapseText(String(item || '').trim(), 140);
+        }).filter(Boolean).slice(0, 3);
+        var recentUserMessages = (Array.isArray(packet.recent_user_messages) ? packet.recent_user_messages : []).map(function (item) {
+            return _envProductCollapseText(String(item || '').trim(), 140);
+        }).filter(Boolean).slice(-3);
+        var recentAssistantMessages = (Array.isArray(packet.recent_assistant_messages) ? packet.recent_assistant_messages : []).map(function (item) {
+            return _envProductCollapseText(String(item || '').trim(), 140);
+        }).filter(Boolean).slice(-2);
+        var resumeHints = (Array.isArray(packet.resume_hints) ? packet.resume_hints : []).map(function (item) {
+            return _envProductCollapseText(String(item || '').trim(), 160);
+        }).filter(Boolean).slice(0, 4);
+        var hotTools = _slotUniqueStrings(Array.isArray(resumeFocus.hot_tools) ? resumeFocus.hot_tools : []).slice(0, 6);
+        var hotTerms = _slotUniqueStrings(Array.isArray(resumeFocus.hot_terms) ? resumeFocus.hot_terms : []).slice(0, 6);
+        var recommendedDocs = _slotUniqueStrings(Array.isArray(surfacePrime.recommended_docs) ? surfacePrime.recommended_docs : []).slice(0, 6);
+        var bestSession = _envContinuityState.bestSession && typeof _envContinuityState.bestSession === 'object'
+            ? _envContinuityState.bestSession
+            : {};
+        var matchedSessions = Array.isArray(_envContinuityState.matchedSessions) ? _envContinuityState.matchedSessions : [];
+        var pending = !!_envContinuityState.pendingQueryKey;
+        var hasPacket = !!Object.keys(packet).length;
+        var posture = 'idle';
+        if (_envContinuityState.error) posture = 'error';
+        else if (pending) posture = 'refreshing';
+        else if (hasPacket) posture = 'loaded';
+        else if (context.active) posture = 'primed';
+        var band = _envContinuityState.error
+            ? 'error'
+            : (pending
+                ? 'watch'
+                : (openLoops.length
+                    ? 'active'
+                    : (hasPacket ? 'aligned' : 'idle')));
+        return {
+            active: !!(context.active || pending || hasPacket || _envContinuityState.error),
+            band: band,
+            posture: posture,
+            summary: _envProductCollapseText([
+                context.objective_label || context.objective_id || queryState.objective_label || queryState.objective_id || 'continuity',
+                context.subject_key || String(queryState.subject_key || ''),
+                context.current_pivot_id || String(queryState.current_pivot_id || ''),
+                bestSession.session_id ? ('session ' + String(bestSession.session_id || '')) : '',
+                openLoops.length ? ('loops ' + String(openLoops.length)) : ''
+            ].filter(Boolean).join(' / '), 180),
+            packet_kind: String(packet.packet_kind || ''),
+            query_key: String(context.queryKey || _envContinuityState.queryKey || ''),
+            objective_id: String(queryState.objective_id || context.objective_id || ''),
+            objective_label: String(queryState.objective_label || context.objective_label || ''),
+            subject_key: String(queryState.subject_key || context.subject_key || ''),
+            current_pivot_id: String(queryState.current_pivot_id || context.current_pivot_id || ''),
+            archive_resume_only: !!queryState.archive_resume_only,
+            task_complete_message: _envProductCollapseText(String(packet.task_complete_message || resumeFocus.last_stable_answer || '').trim(), 220),
+            open_loops: openLoops,
+            recent_pressures: recentPressures,
+            recent_user_messages: recentUserMessages,
+            recent_assistant_messages: recentAssistantMessages,
+            hot_tools: hotTools,
+            hot_terms: hotTerms,
+            resume_hints: resumeHints,
+            recommended_docs: recommendedDocs,
+            best_session_id: String(bestSession.session_id || ''),
+            best_session_path: String(bestSession.session_path || ''),
+            matched_session_count: Number(matchedSessions.length || 0),
+            refreshed_ts: Number(_envContinuityState.refreshedTs || 0),
+            pending: pending,
+            help_lane: _envOutputStateLanePreview(queryState.help_lane, 3),
+            next_reads: _envOutputStateLanePreview(queryState.next_reads, 4),
+            corroboration_surfaces: _slotUniqueStrings(Array.isArray(surfacePrime.corroboration_surfaces) ? surfacePrime.corroboration_surfaces : []).slice(0, 6),
+            paired_state_status: String((((pairedState.drift || {}).status) || '')),
+            update_lane: [
+                'continuity_restore(summary=<objective + subject + pivot>)',
+                'env_report(report_id=\'paired_state_alignment\')',
+                'bag_search_docs(prefix=\'docs/\')'
+            ]
+        };
+    }
+
     function _envBuildPanProbe(sharedState, snapshot, mirrorSync) {
         var state = sharedState && typeof sharedState === 'object' ? sharedState : {};
         var view = snapshot && typeof snapshot === 'object' ? snapshot : {};
@@ -35703,6 +36111,10 @@
         var docsContextKind = String((docs || {}).context_kind || '').trim();
         var docsContextAligned = !!(docsContextKind && docsContextKind === expectedDocsContext);
         var docsBand = docsContextKind ? (docsContextAligned ? 'aligned' : 'mismatch') : 'empty';
+        var docsPacket = _envBuildDocsPacket(docs, expectedDocsContext, docsContextAligned, docsBand);
+        var continuityPacket = state.continuity && typeof state.continuity === 'object'
+            ? state.continuity
+            : _envBuildContinuityPacket(state, view);
         var subjectKind = String(queryThread.subject_kind || '').trim();
         var subjectId = String(queryThread.subject_id || '').trim();
         var subjectKey = String(queryThread.subject_key || '').trim();
@@ -35811,7 +36223,16 @@
             docs: {
                 ready: !!(docsContextKind || String((docs || {}).query || '').trim()),
                 context_kind: docsContextKind,
-                result_count: Number((docs || {}).result_count || 0)
+                result_count: Number((docs || {}).result_count || 0),
+                active_doc: String((docs || {}).active_doc || ''),
+                continuity_index: String(docsPacket.continuity_index || '')
+            },
+            continuity: {
+                ready: !!continuityPacket.active,
+                band: String(continuityPacket.band || ''),
+                posture: String(continuityPacket.posture || ''),
+                best_session_id: String(continuityPacket.best_session_id || ''),
+                open_loop_count: Number((continuityPacket.open_loops || []).length || 0)
             },
             corroboration: {
                 ready: !!(corroboration && typeof corroboration === 'object' && Object.keys(corroboration).length),
@@ -35868,6 +36289,7 @@
             'parity',
             'live_mirror',
             docsContextKind ? 'docs' : '',
+            continuityPacket.active ? 'continuity' : '',
             queryThread.sequence_id ? 'blackboard' : '',
             ingress.queue_depth || ingress.processing ? 'ingress' : ''
         ]);
@@ -35896,6 +36318,17 @@
             watchAlerts.push('missing surfaces');
         }
         if (docsContextKind && !docsContextAligned) watchAlerts.push('docs mismatch');
+        if (continuityPacket.active) {
+            equilibriumSignals.push('continuity ' + String(continuityPacket.posture || continuityPacket.band || 'packet'));
+            if (String(continuityPacket.posture || '') === 'error') {
+                dispositionRisks.push('continuity error');
+                watchAlerts.push('continuity error');
+            } else if (String(continuityPacket.posture || '') === 'loaded') {
+                watchSignals.push('continuity loaded');
+            } else if (String(continuityPacket.posture || '') === 'refreshing') {
+                watchSignals.push('continuity refreshing');
+            }
+        }
         if (queryThread.current_pivot_id) watchSignals.push('pivot ' + String(queryThread.current_pivot_id || ''));
         if (queryThread.objective_label || queryThread.objective_id) watchSignals.push('objective ' + String(queryThread.objective_label || queryThread.objective_id || ''));
         var panProbe = _envBuildPanProbe(state, view, mirrorSync);
@@ -35942,6 +36375,14 @@
                 band: 'watch',
                 note: 'Docs context diverges from the active theater mode.',
                 source: 'docs'
+            });
+        }
+        if (continuityPacket.active) {
+            trackedEvents.push({
+                kind: 'continuity_packet',
+                band: String(continuityPacket.band || 'watch'),
+                note: String(continuityPacket.summary || ''),
+                source: 'continuity'
             });
         }
         if (contaminatedSurfaces.length) {
@@ -36232,6 +36673,8 @@
                 prompt: continuityNeeded ? 'run the continuity drill and pick up where we left off' : '',
                 recommended_reads: returnPath
             },
+            docs_packet: docsPacket,
+            continuity_packet: continuityPacket,
             tinkerbell_attention: tinkerbellAttention,
             field_disposition: fieldDisposition,
             pan_probe: panProbe,
@@ -36346,14 +36789,7 @@
                 actual_docs_context: docsContextKind
             },
             next_reads: _envCloneJson(nextReads, []),
-            receipts: {
-                last_action: String(view.last_action || ''),
-                last_sync_reason: String(view.last_sync_reason || ''),
-                command_sync_token: String(view.command_sync_token || ''),
-                active_doc: String((docs || {}).active_doc || ''),
-                latest_execution_id: String((comparison || {}).latest_execution_id || ''),
-                operation_count: Number((((state.operations || {}).recent) || []).length || 0)
-            },
+            receipts: _envBuildReceiptsPacket(state, view, docs, comparison, scene, operations),
             freshness: {
                 snapshot_timestamp: Number(view.snapshot_timestamp || 0),
                 source_timestamp: Number(view.source_timestamp || 0),
@@ -59967,6 +60403,33 @@
             }
             return;
         }
+        if (toolName === 'continuity_restore' && _envContinuityState.pendingQueryKey) {
+            var continuityPayload = _normalizeToolPayload(rawText) || {};
+            if (msg && msg.error) continuityPayload = { status: 'error', error: String(msg.error) };
+            var responseQueryKey = _envContinuityState.pendingQueryKey;
+            var responseSummary = _envContinuityState.pendingSummary;
+            _envContinuityState.pendingQueryKey = '';
+            _envContinuityState.pendingSummary = '';
+            _envContinuityState.queryKey = responseQueryKey;
+            _envContinuityState.summary = String((((continuityPayload || {}).query || {}).summary) || responseSummary || '');
+            _envContinuityState.refreshedTs = Date.now();
+            _envContinuityState.error = String((continuityPayload || {}).error || '');
+            _envContinuityState.bestSession = continuityPayload.best_session && typeof continuityPayload.best_session === 'object'
+                ? continuityPayload.best_session
+                : null;
+            _envContinuityState.matchedSessions = Array.isArray(continuityPayload.matched_sessions)
+                ? continuityPayload.matched_sessions.slice(0, 4)
+                : [];
+            _envContinuityState.packet = continuityPayload.continuity_packet && typeof continuityPayload.continuity_packet === 'object'
+                ? continuityPayload.continuity_packet
+                : null;
+            _envLogAction('continuity', _envContinuityState.error ? 'Continuity packet failed' : 'Continuity packet loaded', 'assistant', {
+                query_key: responseQueryKey,
+                error: _envContinuityState.error
+            });
+            renderEnvironmentView();
+            return;
+        }
         if (toolName === 'bag_search_docs') {
             var searchPayload = _normalizeToolPayload(rawText) || {};
             _envDocState.pendingSearch = '';
@@ -67305,6 +67768,8 @@
         sharedState.text_theater_control = _envCloneTextTheaterControlState();
         sharedState.text_theater_profiles = _envCloneJson((textTheaterSnapshot || {}).text_theater_profiles || {}, {});
         sharedState.blackboard = _envCloneJson((textTheaterSnapshot || {}).blackboard || {}, {});
+        _envRefreshContinuitySurface(sharedState, textTheaterSnapshot, 'query spine update', 'system', false);
+        sharedState.continuity = _envCloneJson(_envBuildContinuityPacket(sharedState, textTheaterSnapshot), {});
         sharedState.output_state = _envCloneJson(_envBuildOutputState(sharedState, textTheaterSnapshot), {});
         _envMaybeDispatchHoldDoorComediaReaction(sharedState.output_state);
         textTheaterSnapshot.output_state = _envCloneJson(sharedState.output_state, {});

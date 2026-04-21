@@ -1033,6 +1033,8 @@ def _render_blackboard_section(snapshot, width):
     correlator = _output_state_correlator(output_state)
     continuity_cue = _output_state_continuity_cue(output_state)
     tinkerbell_attention = _output_state_tinkerbell_attention(output_state)
+    docs_packet = _output_state_docs_packet(output_state)
+    continuity_packet = _output_state_continuity_packet(output_state)
     technolit_measure = _output_state_technolit_measure(output_state)
     technolit_distribution_packet = _output_state_technolit_distribution_packet(output_state)
     technolit_treasury_bridge_packet = _output_state_technolit_treasury_bridge_packet(output_state)
@@ -1163,6 +1165,38 @@ def _render_blackboard_section(snapshot, width):
         + str(active_pointer.get("why_now") or active_pointer.get("why_this_spot") or tinkerbell_attention.get("summary") or "")
         + " / next "
         + str(active_pointer.get("expected_read") or ""),
+        "docs_packet="
+        + str(docs_packet.get("band") or "empty")
+        + " posture="
+        + str(docs_packet.get("posture") or "")
+        + " context="
+        + str(docs_packet.get("context_kind") or "")
+        + " results="
+        + str(int(docs_packet.get("result_count") or 0)),
+        "docs_summary=" + str(docs_packet.get("summary") or ""),
+        "docs_active="
+        + str(docs_packet.get("active_doc") or "")
+        + " / index "
+        + str(docs_packet.get("continuity_index") or ""),
+        "docs_top_results="
+        + str(
+            [
+                str((row or {}).get("key") or "")
+                for row in list(docs_packet.get("top_results") or [])[:3]
+                if isinstance(row, dict)
+            ]
+        ),
+        "docs_update_lane=" + str(list(docs_packet.get("update_lane") or [])[:4]),
+        "continuity_packet="
+        + str(continuity_packet.get("band") or "empty")
+        + " posture="
+        + str(continuity_packet.get("posture") or "")
+        + " session="
+        + str(continuity_packet.get("best_session_id") or ""),
+        "continuity_summary=" + str(continuity_packet.get("summary") or ""),
+        "continuity_open_loops=" + str(list(continuity_packet.get("open_loops") or [])[:3]),
+        "continuity_recent_pressures=" + str(list(continuity_packet.get("recent_pressures") or [])[:3]),
+        "continuity_update_lane=" + str(list(continuity_packet.get("update_lane") or [])[:4]),
         "placement="
         + str(placement.get("subject") or "")
         + " / "
@@ -1272,6 +1306,16 @@ def _output_state_continuity_cue(output_state):
 def _output_state_tinkerbell_attention(output_state):
     output_state = output_state if isinstance(output_state, dict) else {}
     return output_state.get("tinkerbell_attention") if isinstance(output_state.get("tinkerbell_attention"), dict) else {}
+
+
+def _output_state_docs_packet(output_state):
+    output_state = output_state if isinstance(output_state, dict) else {}
+    return output_state.get("docs_packet") if isinstance(output_state.get("docs_packet"), dict) else {}
+
+
+def _output_state_continuity_packet(output_state):
+    output_state = output_state if isinstance(output_state, dict) else {}
+    return output_state.get("continuity_packet") if isinstance(output_state.get("continuity_packet"), dict) else {}
 
 
 def _output_state_technolit_measure(output_state):
@@ -1762,6 +1806,22 @@ def _consult_query_evidence(snapshot):
             + str(receipts.get("last_action") or "n/a")
             + " / sync "
             + str(receipts.get("last_sync_reason") or "n/a")
+        )
+        lines.append(
+            "MUTATION RECEIPTS: checkpoint "
+            + str(receipts.get("checkpoint_id") or "n/a")
+            + " / diff "
+            + str(receipts.get("diff_ref") or "n/a")
+            + " / workflow "
+            + str(receipts.get("workflow_id") or "n/a")
+        )
+        lines.append(
+            "MUTATION LANE: doc "
+            + str(receipts.get("bag_doc_key") or receipts.get("active_doc") or "n/a")
+            + " / slot "
+            + str(receipts.get("slot_experiment_id") or "n/a")
+            + " / paths "
+            + str(list(receipts.get("last_modified_paths") or [])[:4])
         )
         lines.append(
             "OUTPUT FRESHNESS: age_ms "
