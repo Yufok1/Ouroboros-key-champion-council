@@ -155,11 +155,14 @@ The important fact is:
 
 The repo already implies this order:
 
-1. read `text_theater_embodiment`
-2. use consult / blackboard query-work to justify the next read
-3. read the snapshot
-4. use `contracts`, `env_help`, and `env_report` for scoped interpretation
-5. use mirror/captures when comparative corroboration is needed
+1. read `text_theater_view(render)` or `text_theater_embodiment`
+2. bring in browser-visible corroboration through the existing capture lane:
+   - `capture_supercam`
+   - `env_read(query='supercam')`
+   - `capture_probe(...)` / `env_read(query='probe')` when the local subject matters
+3. use consult / blackboard query-work to justify the next read after those render surfaces are in hand
+4. read the snapshot
+5. use `contracts`, `env_help`, and `env_report` for scoped interpretation
 6. open raw `shared_state` last
 
 Current live corroboration on 2026-04-14:
@@ -171,10 +174,10 @@ Current live corroboration on 2026-04-14:
 That is already the shape of a scientific method loop:
 
 - observe
+- compare render surfaces
 - form local hypothesis
 - choose next evidence
 - acquire scoped corroboration
-- compare surfaces
 - only then widen to raw state
 
 The failure has not been architectural absence. The failure has been incomplete operationalization.

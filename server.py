@@ -38,6 +38,7 @@ import time
 import uuid
 import persistence
 import pack_storage
+from continuity_restore import continuity_restore_payload, continuity_status_payload
 
 # Ensure Starlette static serving emits correct MIME for audio container files.
 mimetypes.add_type("audio/mp4", ".m4a")
@@ -70,12 +71,93 @@ _env_text_theater_read_gate: dict[str, object] = {
     "snapshot_timestamp": 0,
     "query": "",
     "observed_at_ms": 0,
+    "visual_updated_ms": 0,
+    "visual_snapshot_timestamp": 0,
+    "visual_query": "",
+    "visual_capture_ts": 0,
+    "visual_observed_at_ms": 0,
 }
 _env_control_command_seq_lock = threading.Lock()
 _env_control_command_seq = 0
 _text_theater_module_lock = threading.Lock()
 _text_theater_module = None
 _text_theater_module_mtime_ns = None
+
+
+def _env_help_unique_list(values) -> list[str]:
+    out: list[str] = []
+    seen: set[str] = set()
+    for value in values or []:
+        text = str(value or "").strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        out.append(text)
+    return out
+
+
+def _env_help_apply_registry_overrides(data: dict) -> dict:
+    if not isinstance(data, dict):
+        return data
+    commands = data.get("commands") if isinstance(data.get("commands"), dict) else None
+    if not commands:
+        return data
+
+    editing_entry = commands.get("workbench_set_editing_mode")
+    if isinstance(editing_entry, dict):
+        patched = dict(editing_entry)
+        patched["summary"] = "Switch the builder between pose and structure editing modes."
+        target_contract = dict(patched.get("target_contract") or {})
+        target_contract.update({
+            "shape": "string_or_json",
+            "description": "Builder editing mode. Valid modes are pose and structure; JSON payloads may use an editing_mode field.",
+            "examples": [
+                "pose",
+                "structure",
+                "{\"editing_mode\":\"pose\"}",
+                "{\"editing_mode\":\"structure\"}",
+            ],
+        })
+        patched["target_contract"] = target_contract
+        availability = dict(patched.get("availability") or {})
+        availability["valid_editing_modes"] = ["pose", "structure"]
+        patched["availability"] = availability
+        patched["gotchas"] = _env_help_unique_list([
+            *(patched.get("gotchas") or []),
+            "Valid builder editing modes are pose and structure.",
+            "Local gizmo modes such as rotate/translate and spaces such as local/world are separate controls; use workbench_set_gizmo_mode or workbench_set_gizmo_space for those.",
+        ])
+        commands["workbench_set_editing_mode"] = patched
+
+    reset_entry = commands.get("workbench_reset_angles")
+    if isinstance(reset_entry, dict):
+        patched = dict(reset_entry)
+        patched["summary"] = "Reset the selected builder bone, a supplied target bone, or all bones back toward neutral angles."
+        target_contract = dict(patched.get("target_contract") or {})
+        target_contract.update({
+            "shape": "string_or_json",
+            "description": "Reset target for the builder angle reset path. Accepts one bone id, all, or JSON payloads naming bone/all.",
+            "examples": [
+                "hips",
+                "all",
+                "{\"bone\":\"hips\"}",
+                "{\"all\":true}",
+            ],
+        })
+        patched["target_contract"] = target_contract
+        availability = dict(patched.get("availability") or {})
+        availability["required_editing_mode"] = ["structure"]
+        patched["availability"] = availability
+        patched["gotchas"] = _env_help_unique_list([
+            *(patched.get("gotchas") or []),
+            "workbench_reset_angles is gated to structure mode; pose mode rejects the reset.",
+            "Without an explicit target, the reset falls back to the currently selected bone.",
+        ])
+        commands["workbench_reset_angles"] = patched
+
+    return data
+
+
 def _normalize_activity_source(value: str | None) -> str | None:
     if not value:
         return None
@@ -1304,6 +1386,34 @@ _HF_ROUTER_REQUEST_TIMEOUT_SECONDS = max(
     float(os.environ.get("HF_ROUTER_REQUEST_TIMEOUT_SECONDS", str(_MCP_TOOL_TIMEOUT_SECONDS))),
 )
 HF_ROUTER_BASE = os.environ.get("HF_ROUTER_BASE", "https://router.huggingface.co").rstrip("/")
+_PI_ROUTER_REQUEST_TIMEOUT_SECONDS = max(
+    30.0,
+    float(os.environ.get("PI_ROUTER_REQUEST_TIMEOUT_SECONDS", str(_MCP_TOOL_TIMEOUT_SECONDS))),
+)
+_PI_ROUTER_MAX_PROMPT_CHARS = max(
+    4096,
+    int(os.environ.get("PI_ROUTER_MAX_PROMPT_CHARS", "64000")),
+)
+_PI_ROUTER_SYSTEM_PROMPT_MAX_CHARS = max(
+    1024,
+    int(os.environ.get("PI_ROUTER_SYSTEM_PROMPT_MAX_CHARS", "12000")),
+)
+_PI_ROUTER_ALLOWED_PROVIDERS = frozenset({
+    "anthropic",
+    "cerebras",
+    "github-copilot",
+    "google-antigravity",
+    "groq",
+    "openai-codex",
+    "openrouter",
+})
+_PI_ROUTER_PROVIDER_ALIASES = {
+    "claude": "anthropic",
+    "codex": "openai-codex",
+    "copilot": "github-copilot",
+    "gemini": "google-antigravity",
+    "google": "google-antigravity",
+}
 APP_MODE = str(os.environ.get("APP_MODE", "development") or "development").strip().lower()
 if APP_MODE not in ("development", "product"):
     APP_MODE = "development"
@@ -1531,6 +1641,24 @@ def _external_mcp_policy_note() -> str:
     if MCP_EXTERNAL_POLICY == "closed":
         return " External MCP policy: closed."
     return ""
+
+
+def _external_mcp_local_bridge_note() -> str:
+    return (
+        " Proxy bridge note: this server exposes local proxy tools beyond the capsule-generated "
+        "help surfaces. Do not conclude a tool is absent from capsule get_help(...) alone; use "
+        "tools/list as the availability authority. Important proxy-local tools include "
+        "continuity_status, continuity_restore, env_help, env_report, agent_delegate, "
+        "agent_chat_inject, agent_chat_sessions, agent_chat_result, agent_chat_purge, "
+        "hf_cache_status, hf_cache_clear, capsule_restart, persist_status, "
+        "persist_restore_revision, product_bundle_profiles, and product_bundle_export. "
+        "For continuity after compaction, call continuity_restore(summary=<objective + subject + "
+        "pivot>, cwd=<repo>) and treat it as archive-side reacclimation only; fresh live "
+        "theater/blackboard corroboration still decides current truth. For environment/browser/"
+        "runtime work, treat get_help('environment') as the umbrella capsule view and "
+        "env_help(topic='env_help') plus env_help(topic='index') as the richer local registry. "
+        "Use env_report(...) for scoped diagnosis once fresh text-theater and snapshot reads exist."
+    )
 
 
 def _filter_external_mcp_tools_list(tools_list: list[dict]) -> list[dict]:
@@ -2407,6 +2535,242 @@ def _normalize_remote_provider_model_id(model_id: str) -> tuple[str, bool]:
     return rebuilt, changed
 
 
+def _pi_router_normalize_provider(provider: str | None) -> str | None:
+    raw = str(provider or "").strip().lower()
+    if not raw:
+        return None
+    normalized = _PI_ROUTER_PROVIDER_ALIASES.get(raw, raw)
+    return normalized if normalized in _PI_ROUTER_ALLOWED_PROVIDERS else None
+
+
+def _pi_router_cli_prefix() -> list[str] | None:
+    candidates: list[str] = []
+    explicit = str(os.environ.get("PI_CLI_PATH", "") or "").strip()
+    if explicit:
+        candidates.append(explicit)
+    if os.name == "nt":
+        for name in ("pi.cmd", "pi", "pi.ps1"):
+            hit = shutil.which(name)
+            if hit:
+                candidates.append(hit)
+    else:
+        for name in ("pi", "pi.cmd", "pi.ps1"):
+            hit = shutil.which(name)
+            if hit:
+                candidates.append(hit)
+
+    seen: set[str] = set()
+    for candidate in candidates:
+        key = candidate.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        suffix = Path(candidate).suffix.lower()
+        if suffix == ".ps1":
+            pwsh = shutil.which("pwsh") or shutil.which("powershell")
+            if pwsh:
+                return [pwsh, "-File", candidate]
+            continue
+        return [candidate]
+    return None
+
+
+def _pi_router_strip_ansi(text: str) -> str:
+    return re.sub(r"\x1b\[[0-9;?]*[ -/]*[@-~]", "", str(text or ""))
+
+
+def _pi_router_trim_text(text: str, max_chars: int, keep_tail: bool = False) -> str:
+    value = str(text or "")
+    if max_chars <= 0 or len(value) <= max_chars:
+        return value
+    marker = "\n\n[Earlier content truncated]\n\n"
+    room = max(0, max_chars - len(marker))
+    if room <= 0:
+        return value[-max_chars:] if keep_tail else value[:max_chars]
+    return marker + value[-room:] if keep_tail else value[:room] + marker
+
+
+def _pi_router_content_to_text(content) -> str:
+    if content is None:
+        return ""
+    if isinstance(content, str):
+        return content.strip()
+    if isinstance(content, list):
+        parts: list[str] = []
+        for item in content:
+            if isinstance(item, str):
+                text = item.strip()
+                if text:
+                    parts.append(text)
+                continue
+            if not isinstance(item, dict):
+                continue
+            item_type = str(item.get("type") or "").strip().lower()
+            if item_type in ("text", "input_text"):
+                text = str(item.get("text") or item.get("input_text") or "").strip()
+                if text:
+                    parts.append(text)
+            elif item_type in ("image_url", "input_image", "image"):
+                parts.append("[image input omitted for Pi bridge]")
+            elif item_type == "input_audio":
+                fmt = ""
+                payload = item.get("input_audio")
+                if isinstance(payload, dict):
+                    fmt = str(payload.get("format") or "").strip().lower()
+                parts.append(
+                    "[audio input omitted for Pi bridge"
+                    + (f": {fmt}" if fmt else "")
+                    + "]"
+                )
+            elif "text" in item:
+                text = str(item.get("text") or "").strip()
+                if text:
+                    parts.append(text)
+        return "\n".join(part for part in parts if part).strip()
+    if isinstance(content, dict):
+        text = content.get("text")
+        if isinstance(text, str) and text.strip():
+            return text.strip()
+        try:
+            return json.dumps(content, ensure_ascii=False)
+        except Exception:
+            return str(content)
+    return str(content).strip()
+
+
+def _pi_router_build_prompt(messages, fallback_prompt: str = "", max_tokens=None) -> tuple[str, str]:
+    convo_parts: list[str] = []
+    system_parts: list[str] = []
+
+    for msg in messages if isinstance(messages, list) else []:
+        if not isinstance(msg, dict):
+            continue
+        role = str(msg.get("role") or "user").strip().lower() or "user"
+        text = _pi_router_content_to_text(msg.get("content"))
+        if role == "system":
+            if text:
+                system_parts.append(text)
+            continue
+        if not text:
+            continue
+        convo_parts.append(f"{role.upper()}:\n{text}")
+
+    fallback_text = str(fallback_prompt or "").strip()
+    if not convo_parts and fallback_text:
+        convo_parts.append(f"USER:\n{fallback_text}")
+    if not convo_parts:
+        convo_parts.append("USER:\n")
+
+    convo_text = _pi_router_trim_text(
+        "\n\n".join(convo_parts).strip(),
+        _PI_ROUTER_MAX_PROMPT_CHARS,
+        keep_tail=True,
+    )
+
+    base_instruction = (
+        "You are operating inside Champion Council as a remote council slot. "
+        "Continue the conversation faithfully and return only the assistant's next reply."
+    )
+    try:
+        if max_tokens is not None:
+            max_token_int = max(1, int(max_tokens))
+            base_instruction += f" Keep the reply under approximately {max_token_int} tokens."
+    except Exception:
+        pass
+
+    system_prompt = "\n\n".join(part for part in system_parts if part).strip()
+    if system_prompt:
+        system_prompt = system_prompt + "\n\n" + base_instruction
+    else:
+        system_prompt = base_instruction
+    system_prompt = _pi_router_trim_text(
+        system_prompt,
+        _PI_ROUTER_SYSTEM_PROMPT_MAX_CHARS,
+        keep_tail=False,
+    )
+    prompt = f"Conversation so far:\n\n{convo_text}\n\nASSISTANT:"
+    return system_prompt, prompt
+
+
+def _pi_router_run_completion_sync(
+    provider: str,
+    model: str,
+    system_prompt: str,
+    prompt: str,
+    thinking: str | None = None,
+) -> dict:
+    prefix = _pi_router_cli_prefix()
+    if not prefix:
+        raise RuntimeError("Pi CLI not found on PATH. Set PI_CLI_PATH or install pi locally.")
+
+    cmd = list(prefix) + [
+        "--provider", provider,
+        "--model", model,
+        "--print",
+        "--no-session",
+        "--no-tools",
+        "--no-extensions",
+        "--no-skills",
+        "--no-prompt-templates",
+        "--no-context-files",
+    ]
+    thinking_value = str(thinking or "").strip().lower()
+    if thinking_value in {"off", "minimal", "low", "medium", "high", "xhigh"}:
+        cmd += ["--thinking", thinking_value]
+    if system_prompt:
+        cmd += ["--system-prompt", system_prompt]
+    cmd.append(prompt)
+
+    env = os.environ.copy()
+    env.setdefault("NO_COLOR", "1")
+    env.setdefault("TERM", "dumb")
+
+    proc = subprocess.run(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=_PI_ROUTER_REQUEST_TIMEOUT_SECONDS,
+        env=env,
+    )
+    stdout = _pi_router_strip_ansi(proc.stdout or "").strip()
+    stderr = _pi_router_strip_ansi(proc.stderr or "").strip()
+    if proc.returncode != 0:
+        raise RuntimeError(stderr or stdout or f"Pi CLI exited with status {proc.returncode}")
+    if not stdout:
+        raise RuntimeError("Pi CLI returned empty output")
+    return {"text": stdout, "stderr": stderr}
+
+
+async def _pi_router_run_completion(
+    provider: str,
+    model: str,
+    system_prompt: str,
+    prompt: str,
+    thinking: str | None = None,
+) -> dict:
+    return await asyncio.to_thread(
+        _pi_router_run_completion_sync,
+        provider,
+        model,
+        system_prompt,
+        prompt,
+        thinking,
+    )
+
+
+def _pi_router_feature_not_supported(provider: str, feature: str) -> JSONResponse:
+    return JSONResponse(
+        status_code=501,
+        content={
+            "error": f"Pi router does not expose {feature} for provider '{provider}'",
+            "hint": "Use a dedicated embedding/audio slot or a direct OpenAI-compatible endpoint for that capability.",
+        },
+    )
+
+
 _DOC_KEY_PREFIX = "__docv2__"
 _DOC_KEY_SUFFIX = "__k"
 
@@ -3104,6 +3468,30 @@ _AGENT_LOCAL_TOOL_SPECS = {
             "required": ["revision"]
         }
     },
+    "continuity_status": {
+        "description": "Inspect local Codex session archives that can be used for continuity restore after context compaction.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "limit": {"type": "integer", "description": "Maximum number of recent sessions to return"},
+                "codex_home": {"type": "string", "description": "Optional explicit .codex home override"}
+            }
+        }
+    },
+    "continuity_restore": {
+        "description": "Restore operational continuity from local Codex session archives using a summary or cwd hint as the lookup key.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "summary": {"type": "string", "description": "Compaction summary or semantic recall prompt"},
+                "cwd": {"type": "string", "description": "Optional cwd hint to bias matching toward the right worktree"},
+                "limit": {"type": "integer", "description": "Maximum number of matched sessions to surface"},
+                "since_days": {"type": "integer", "description": "Only search sessions newer than this many days"},
+                "session_path": {"type": "string", "description": "Optional exact rollout JSONL path to restore from"},
+                "codex_home": {"type": "string", "description": "Optional explicit .codex home override"}
+            }
+        }
+    },
     "product_bundle_profiles": {
         "description": "List canonical product bundle export profiles for the current shell runtime.",
         "inputSchema": {"type": "object", "properties": {}}
@@ -3141,6 +3529,17 @@ _AGENT_LOCAL_TOOL_SPECS = {
                 }
             },
             "required": ["report_id"]
+        }
+    },
+    "env_help": {
+        "description": "Query the local environment/browser/runtime help registry. Use this first to learn environment-specific commands, query surfaces, command families, and playbooks.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "topic": {"type": "string", "description": "Specific environment topic, command, query, builtin topic, or playbook alias"},
+                "category": {"type": "string", "description": "Environment help family/category such as builder_motion"},
+                "search": {"type": "string", "description": "Free-text search over environment commands, queries, families, playbooks, and builtin topics"}
+            }
         }
     }
 }
@@ -3522,6 +3921,13 @@ def _product_bundle_provider_descriptor(source: str) -> dict:
     if "hf-router" in segments:
         kind = "huggingface_router"
         idx = segments.index("hf-router")
+        if idx + 1 < len(segments):
+            candidate = segments[idx + 1]
+            if candidate and candidate != "v1":
+                router_provider = candidate
+    elif "pi-router" in segments:
+        kind = "pi_router"
+        idx = segments.index("pi-router")
         if idx + 1 < len(segments):
             candidate = segments[idx + 1]
             if candidate and candidate != "v1":
@@ -3915,12 +4321,32 @@ def _env_note_text_theater_read(
         _env_text_theater_read_gate.update(record)
 
 
+def _env_note_visual_corroboration_read(
+    query_name: str,
+    cached: dict | None,
+    capture_entry: dict | None = None,
+) -> None:
+    cached = cached if isinstance(cached, dict) else {}
+    snapshot = _env_cached_text_theater_snapshot(cached)
+    entry = capture_entry if isinstance(capture_entry, dict) else {}
+    record = {
+        "visual_updated_ms": int(cached.get("updated_ms") or 0),
+        "visual_snapshot_timestamp": int((snapshot or {}).get("snapshot_timestamp") or 0),
+        "visual_query": str(query_name or "").strip().lower(),
+        "visual_capture_ts": int(entry.get("ts") or 0),
+        "visual_observed_at_ms": int(time.time() * 1000),
+    }
+    with _env_text_theater_read_gate_lock:
+        _env_text_theater_read_gate.update(record)
+
+
 def _env_shared_state_prereq_payload(query_text: str, cached: dict | None) -> dict | None:
     query_lower = str(query_text or "").strip().lower()
     raw_state_queries = {"shared_state", "live", "contracts", "habitat_objects"}
     if query_lower not in raw_state_queries and query_lower != "env_report":
         return None
     require_query_work = query_lower in raw_state_queries
+    require_visual_corroboration = True
     cached = cached if isinstance(cached, dict) else {}
     snapshot = _env_cached_text_theater_snapshot(cached)
     current_updated_ms = int(cached.get("updated_ms") or 0)
@@ -3931,6 +4357,8 @@ def _env_shared_state_prereq_payload(query_text: str, cached: dict | None) -> di
     last_snapshot_timestamp = int(gate.get("snapshot_timestamp") or 0)
     consult_updated_ms = int(gate.get("consult_updated_ms") or 0)
     consult_snapshot_timestamp = int(gate.get("consult_snapshot_timestamp") or 0)
+    visual_updated_ms = int(gate.get("visual_updated_ms") or 0)
+    visual_snapshot_timestamp = int(gate.get("visual_snapshot_timestamp") or 0)
     satisfied = False
     if current_updated_ms and last_updated_ms >= current_updated_ms:
         satisfied = True
@@ -3945,15 +4373,26 @@ def _env_shared_state_prereq_payload(query_text: str, cached: dict | None) -> di
         consult_satisfied = True
     elif not current_updated_ms and not current_snapshot_timestamp and (consult_updated_ms or consult_snapshot_timestamp):
         consult_satisfied = True
-    if satisfied and (not require_query_work or consult_satisfied):
+    visual_satisfied = False
+    if current_updated_ms and visual_updated_ms >= current_updated_ms:
+        visual_satisfied = True
+    elif current_snapshot_timestamp and visual_snapshot_timestamp >= current_snapshot_timestamp:
+        visual_satisfied = True
+    elif not current_updated_ms and not current_snapshot_timestamp and (visual_updated_ms or visual_snapshot_timestamp):
+        visual_satisfied = True
+    if satisfied and (not require_visual_corroboration or visual_satisfied) and (not require_query_work or consult_satisfied):
         return None
     blocked_by = "text_theater_first"
-    if satisfied and require_query_work and not consult_satisfied:
+    if satisfied and require_visual_corroboration and not visual_satisfied:
+        blocked_by = "visual_corroboration"
+    elif satisfied and require_query_work and not consult_satisfied:
         blocked_by = "text_theater_query_work"
     return {
         "tool": "env_read",
         "status": "error",
-        "summary": "Text-theater query work required before raw state"
+        "summary": "Visual corroboration required before deeper state"
+        if blocked_by == "visual_corroboration"
+        else "Text-theater query work required before raw state"
         if blocked_by == "text_theater_query_work"
         else "Text-theater read required before shared_state",
         "normalized_args": {"query": query_text},
@@ -3962,29 +4401,42 @@ def _env_shared_state_prereq_payload(query_text: str, cached: dict | None) -> di
             "blocked_by": blocked_by,
             "updated_ms": current_updated_ms,
             "snapshot_timestamp": current_snapshot_timestamp,
+            "visual_updated_ms": visual_updated_ms,
+            "visual_snapshot_timestamp": visual_snapshot_timestamp,
             "consult_updated_ms": consult_updated_ms,
             "consult_snapshot_timestamp": consult_snapshot_timestamp,
         },
         "operation": "env_read",
         "operation_status": "error",
         "query": query_text,
-        "error": "text_theater_query_work_required" if blocked_by == "text_theater_query_work" else "text_theater_first_required",
+        "error": "visual_corroboration_required"
+        if blocked_by == "visual_corroboration"
+        else "text_theater_query_work_required" if blocked_by == "text_theater_query_work" else "text_theater_first_required",
         "message": (
+            "Read a fresh text-theater frame, then bring in browser-visible corroboration for the same live frame before widening. "
+            "Use text_theater_view(render) or text_theater_embodiment first, then capture_supercam and env_read(query='supercam') "
+            "(and capture_probe/env_read(query='probe') when the local subject matters), then consult/blackboard, then snapshot, "
+            "then env_report or contracts, and raw shared_state last."
+            if blocked_by == "visual_corroboration"
+            else
             "Read a fresh consult/query-work view for the current live frame before opening raw state. "
-            "Use text_theater/text_theater_embodiment first, consult/blackboard second, snapshot third, "
-            "env_report for scoped diagnosis after that, visual captures after that, and raw shared_state last."
+            "Use text_theater_view(render) or text_theater_embodiment first, then browser-visible corroboration, "
+            "consult/blackboard after that, snapshot next, env_report for scoped diagnosis after that, and raw shared_state last."
             if blocked_by == "text_theater_query_work"
             else
             "Read a fresh text theater render for the current live frame before opening raw state. "
-            "Use text_theater/text_theater_embodiment first, consult/blackboard second, snapshot third, "
-            "env_report for scoped diagnosis after that, visual captures after that, and raw shared_state last."
+            "Use text_theater_view(render) or text_theater_embodiment first, then browser-visible corroboration, "
+            "consult/blackboard after that, snapshot next, env_report for scoped diagnosis after that, and raw shared_state last."
         ),
         "required_sequence": [
-            "env_read(query='text_theater_embodiment')",
+            "env_read(query='text_theater_view', view='render', diagnostics=true) or env_read(query='text_theater_embodiment')",
+            "env_control(command='capture_supercam')",
+            "env_read(query='supercam')",
+            "env_control(command='capture_probe', target_id='character_runtime::mounted_primary') when local/body detail matters",
+            "env_read(query='probe') when a fresh probe capture was requested",
             "env_read(query='text_theater_view', view='consult', section='blackboard', diagnostics=true)",
             "env_read(query='text_theater_snapshot')",
             "env_report(report_id='route_stability_diagnosis') when you need route/support reasoning",
-            "capture_probe('character_runtime::mounted_primary') or capture_supercam or capture_frame/capture_strip",
             f"env_read(query='{query_lower}')",
         ],
         "last_text_theater_read": gate,
@@ -3993,11 +4445,88 @@ def _env_shared_state_prereq_payload(query_text: str, cached: dict | None) -> di
 
 _ENV_REPORT_DEFAULT_SIZE_BYTES = 8 * 1024
 _ENV_REPORT_HARD_CAP_BYTES = 24 * 1024
-_ENV_REPORT_IDS = ("route_stability_diagnosis",)
+_ENV_REPORT_IDS = ("route_stability_diagnosis", "paired_state_alignment")
 
 
 def _env_help_builtin_topics() -> dict[str, dict]:
     return {
+        "env_help": {
+            "tool": "env_help",
+            "entry_kind": "env_tool",
+            "title": "Environment Help Registry",
+            "category": "observation_query",
+            "status": "live",
+            "transport": {
+                "local_proxy": True,
+                "browser_surface": False,
+                "ui_local_only": False,
+                "implemented_verb": True,
+            },
+            "target_contract": {
+                "shape": "json",
+                "description": "JSON payload with topic/category/search fields. Use topic='env_help' or topic='index' for cold-start guidance.",
+                "examples": [
+                    "{}",
+                    "{\"topic\":\"env_help\"}",
+                    "{\"topic\":\"index\"}",
+                    "{\"topic\":\"env_report\"}",
+                    "{\"category\":\"builder_motion\"}",
+                    "{\"search\":\"mounted asset floor\"}",
+                ],
+            },
+            "summary": "Query the local environment/browser/runtime help registry. This is the richer server-side environment guide that cold agents should use to learn commands, query surfaces, categories, and playbooks.",
+            "when_to_use": [
+                "Use this first when you are cold to the server and need to discover the environment/browser/runtime surfaces before poking deeper state.",
+                "Use this instead of guessing command names, command families, query names, or playbook ids from stale memory or transcript fragments.",
+                "Use this after capsule get_help('environment') if you need the richer local registry, local builtin topics, and server-side sequencing guidance.",
+            ],
+            "what_it_changes": [
+                "Nothing. env_help is read-only and only materializes the current registry, builtin topics, and search/index responses.",
+            ],
+            "mode_notes": [
+                "env_help is the environment-side equivalent of targeted get_help(...), not a replacement for the entire capsule help system.",
+                "Capsule get_help('environment') is the umbrella/capsule view; env_help(...) is the richer local registry exposed by this server for environment/browser/runtime surfaces.",
+                "Cold start order: env_help(topic='env_help'), then env_help(topic='index'), then the specific topic/category/search you actually need.",
+            ],
+            "verification": [
+                "env_help(topic='env_help')",
+                "env_help(topic='index')",
+                "env_help(topic='output_state')",
+                "env_help(topic='env_report')",
+                "env_help(topic='continuity_reacclimation')",
+            ],
+            "gotchas": [
+                "If you only ask capsule get_help('environment') and stop there, you can miss local env_help topics, aliases, and sequencing notes.",
+                "env_help returns structured reference and search/index responses; it does not mutate runtime state or bypass theater-first gates for deeper observation tools.",
+                "Use topic/category/search intentionally; the goal is to resolve the next valid surface, not to dump raw shared_state.",
+            ],
+            "failure_modes": [
+                "Environment registry unavailable or stale.",
+                "Cold agent queries the capsule help only and never follows the bridge into env_help.",
+                "Operator confuses env_help(topic='env_help') with get_help('env_help'); the first is local and rich, the second may be absent in the capsule registry.",
+            ],
+            "aliases": [
+                "environment_help",
+                "help:environment",
+                "help:env_help",
+                "envhelp",
+            ],
+            "surface_entrypoints": [],
+            "bridges_to": [
+                "commands",
+                "queries",
+                "families",
+                "playbooks",
+                "env_report",
+                "continuity_restore",
+            ],
+            "related_commands": [
+                "env_report",
+                "continuity_restore",
+                "text_theater_embodiment",
+                "text_theater_snapshot",
+            ],
+        },
         "env_report": {
             "tool": "env_report",
             "entry_kind": "env_tool",
@@ -4016,12 +4545,14 @@ def _env_help_builtin_topics() -> dict[str, dict]:
                 "examples": [
                     "{\"report_id\":\"route_stability_diagnosis\"}",
                     "{\"report_id\":\"route_stability_diagnosis\",\"raw_slice\":true}",
+                    "{\"report_id\":\"paired_state_alignment\"}",
                 ],
             },
         "summary": "Build a small, auditable report over blackboard, text-theater snapshot, and workbench truth without dumping raw shared_state.",
         "when_to_use": [
             "Use this after reading text theater, then the consult/blackboard query-work surface, then text_theater_snapshot when you need scoped reasoning instead of rummaging through raw shared_state.",
             "Use route_stability_diagnosis when the question is about route status, support realization, blocker truth, next adjustment, or how bad the staged posture visibly is.",
+            "Use paired_state_alignment when you need to compare recovered archive posture against the current live query thread on the same sequence spine.",
         ],
             "what_it_changes": [
             "Nothing. env_report is read-only and stateless.",
@@ -4042,7 +4573,7 @@ def _env_help_builtin_topics() -> dict[str, dict]:
             "gotchas": [
                 "If no fresh text-theater read has been recorded for the current frame, env_report forwards the theater-first gate instead of bypassing it.",
                 "Reports are intentionally small. If you need broader evidence, follow recommended_next_reads or request raw_slice explicitly.",
-                "route_stability_diagnosis is the only live recipe right now; more recipes should be additive, not a rewrite of the broker core.",
+                "Recipes should stay additive and small; paired_state_alignment compares archive/live query posture and does not replace the live blackboard authority.",
             ],
             "failure_modes": [
                 "Unknown report_id.",
@@ -4052,6 +4583,8 @@ def _env_help_builtin_topics() -> dict[str, dict]:
             "aliases": [
                 "route_stability_diagnosis",
                 "report:route_stability_diagnosis",
+                "paired_state_alignment",
+                "report:paired_state_alignment",
             ],
             "surface_entrypoints": [],
             "bridges_to": [
@@ -4404,11 +4937,29 @@ def _env_report_build_session_thread(shared_state: dict | None = None) -> dict:
     }
     if query_thread:
         session_thread["query_thread"] = {
+            "sequence_id": str(query_thread.get("sequence_id") or ""),
+            "segment_id": str(query_thread.get("segment_id") or ""),
+            "session_id": str(query_thread.get("session_id") or ""),
+            "subject_kind": str(query_thread.get("subject_kind") or ""),
+            "subject_id": str(query_thread.get("subject_id") or ""),
+            "subject_key": str(query_thread.get("subject_key") or ""),
+            "status": str(query_thread.get("status") or ""),
+            "current_pivot_id": str(query_thread.get("current_pivot_id") or ""),
             "objective_id": str(query_thread.get("objective_id") or ""),
             "objective_label": str(query_thread.get("objective_label") or ""),
             "visible_read": str(query_thread.get("visible_read") or ""),
             "anchor_row_ids": _env_report_unique_strings(query_thread.get("anchor_row_ids") or [], limit=8),
             "raw_state_guardrail": str(query_thread.get("raw_state_guardrail") or ""),
+            "priority_pivots": [
+                _json_clone(item)
+                for item in list(query_thread.get("priority_pivots") or [])[:4]
+                if isinstance(item, dict)
+            ],
+            "help_lane": [
+                _json_clone(item)
+                for item in list(query_thread.get("help_lane") or [])[:4]
+                if isinstance(item, dict)
+            ],
             "next_reads": [
                 _json_clone(item)
                 for item in list(query_thread.get("next_reads") or [])[:4]
@@ -4416,6 +4967,779 @@ def _env_report_build_session_thread(shared_state: dict | None = None) -> dict:
             ],
         }
     return session_thread
+
+
+def _env_report_normalize_query_state(query_state: dict | None = None) -> dict:
+    query = query_state if isinstance(query_state, dict) else {}
+    return {
+        "sequence_id": str(query.get("sequence_id") or ""),
+        "segment_id": str(query.get("segment_id") or ""),
+        "session_id": str(query.get("session_id") or ""),
+        "subject_kind": str(query.get("subject_kind") or ""),
+        "subject_id": str(query.get("subject_id") or ""),
+        "subject_key": str(query.get("subject_key") or ""),
+        "status": str(query.get("status") or ""),
+        "current_pivot_id": str(query.get("current_pivot_id") or ""),
+        "objective_id": str(query.get("objective_id") or ""),
+        "objective_label": str(query.get("objective_label") or ""),
+        "visible_read": str(query.get("visible_read") or ""),
+        "anchor_row_ids": _env_report_unique_strings(query.get("anchor_row_ids") or [], limit=8),
+        "priority_pivots": [
+            _json_clone(item)
+            for item in list(query.get("priority_pivots") or [])[:6]
+            if isinstance(item, dict)
+        ],
+        "help_lane": [
+            _json_clone(item)
+            for item in list(query.get("help_lane") or [])[:6]
+            if isinstance(item, dict)
+        ],
+        "next_reads": [
+            _json_clone(item)
+            for item in list(query.get("next_reads") or [])[:6]
+            if isinstance(item, dict)
+        ],
+        "raw_state_guardrail": str(query.get("raw_state_guardrail") or ""),
+        "archive_resume_only": bool(query.get("archive_resume_only")),
+        "opened_at_ms": int(query.get("opened_at_ms") or 0),
+        "last_seen_at_ms": int(query.get("last_seen_at_ms") or 0),
+    }
+
+
+def _env_report_normalize_output_state(output_state: dict | None = None) -> dict:
+    state = output_state if isinstance(output_state, dict) else {}
+    desired = state.get("desired") if isinstance(state.get("desired"), dict) else {}
+    observed = state.get("observed") if isinstance(state.get("observed"), dict) else {}
+    derived = state.get("derived") if isinstance(state.get("derived"), dict) else {}
+    placement = state.get("placement") if isinstance(state.get("placement"), dict) else {}
+    trajectory_correlator = state.get("trajectory_correlator") if isinstance(state.get("trajectory_correlator"), dict) else {}
+    continuity_cue = state.get("continuity_cue") if isinstance(state.get("continuity_cue"), dict) else {}
+    tinkerbell_attention = state.get("tinkerbell_attention") if isinstance(state.get("tinkerbell_attention"), dict) else {}
+    technolit_distribution_packet = (
+        state.get("technolit_distribution_packet")
+        if isinstance(state.get("technolit_distribution_packet"), dict)
+        else {}
+    )
+    technolit_treasury_bridge_packet = (
+        state.get("technolit_treasury_bridge_packet")
+        if isinstance(state.get("technolit_treasury_bridge_packet"), dict)
+        else {}
+    )
+    holder_snapshot_packet = (
+        state.get("holder_snapshot_packet")
+        if isinstance(state.get("holder_snapshot_packet"), dict)
+        else {}
+    )
+    raid_contribution_packet = (
+        state.get("raid_contribution_packet")
+        if isinstance(state.get("raid_contribution_packet"), dict)
+        else {}
+    )
+    settlement_epoch_packet = (
+        state.get("settlement_epoch_packet")
+        if isinstance(state.get("settlement_epoch_packet"), dict)
+        else {}
+    )
+    hold_door_raid_report_packet = (
+        state.get("hold_door_raid_report_packet")
+        if isinstance(state.get("hold_door_raid_report_packet"), dict)
+        else {}
+    )
+    hold_door_comedia_packet = (
+        state.get("hold_door_comedia_packet")
+        if isinstance(state.get("hold_door_comedia_packet"), dict)
+        else {}
+    )
+    threat_bounty_packet = (
+        state.get("threat_bounty_packet")
+        if isinstance(state.get("threat_bounty_packet"), dict)
+        else {}
+    )
+    pan_probe = state.get("pan_probe") if isinstance(state.get("pan_probe"), dict) else {}
+    equilibrium = state.get("equilibrium") if isinstance(state.get("equilibrium"), dict) else {}
+    technolit_measure = (
+        equilibrium.get("technolit_measure")
+        if isinstance(equilibrium.get("technolit_measure"), dict)
+        else {}
+    )
+    drift = state.get("drift") if isinstance(state.get("drift"), dict) else {}
+    field_disposition = state.get("field_disposition") if isinstance(state.get("field_disposition"), dict) else {}
+    watch_board = state.get("watch_board") if isinstance(state.get("watch_board"), dict) else {}
+    receipts = state.get("receipts") if isinstance(state.get("receipts"), dict) else {}
+    freshness = state.get("freshness") if isinstance(state.get("freshness"), dict) else {}
+    confidence = state.get("confidence") if isinstance(state.get("confidence"), dict) else {}
+    sources = state.get("sources") if isinstance(state.get("sources"), dict) else {}
+    return {
+        "orientation_id": str(state.get("orientation_id") or ""),
+        "summary": str(state.get("summary") or ""),
+        "desired": {
+            "sequence_id": str(desired.get("sequence_id") or ""),
+            "segment_id": str(desired.get("segment_id") or ""),
+            "session_id": str(desired.get("session_id") or ""),
+            "current_pivot_id": str(desired.get("current_pivot_id") or ""),
+            "objective_id": str(desired.get("objective_id") or ""),
+            "objective_label": str(desired.get("objective_label") or ""),
+            "subject_key": str(desired.get("subject_key") or ""),
+            "anchor_row_ids": _env_report_unique_strings(desired.get("anchor_row_ids") or [], limit=8),
+            "priority_pivots": _env_report_unique_strings(desired.get("priority_pivots") or [], limit=6),
+        },
+        "observed": {
+            "theater_mode": str(observed.get("theater_mode") or ""),
+            "visual_mode": str(observed.get("visual_mode") or ""),
+            "focus_key": str(observed.get("focus_key") or ""),
+            "docs_context_kind": str(observed.get("docs_context_kind") or ""),
+            "parity_summary": str(observed.get("parity_summary") or ""),
+            "render_last_tool_applied": str(observed.get("render_last_tool_applied") or ""),
+            "render_last_tool_source": str(observed.get("render_last_tool_source") or ""),
+            "health_tone": str(observed.get("health_tone") or ""),
+            "last_action": str(observed.get("last_action") or ""),
+            "last_sync_reason": str(observed.get("last_sync_reason") or ""),
+        },
+        "derived": {
+            "fixed_points": _json_clone(derived.get("fixed_points") or {}),
+            "active_bands": _json_clone(derived.get("active_bands") or {}),
+            "source_ready": _env_report_unique_strings(derived.get("source_ready") or [], limit=8),
+            "source_missing": _env_report_unique_strings(derived.get("source_missing") or [], limit=8),
+        },
+        "placement": {
+            "subject": str(placement.get("subject") or ""),
+            "objective": str(placement.get("objective") or ""),
+            "seam": str(placement.get("seam") or ""),
+            "evidence": _json_clone(placement.get("evidence") or {}),
+            "drift": _json_clone(placement.get("drift") or {}),
+            "next": _json_clone(placement.get("next") or {}),
+        },
+        "trajectory_correlator": {
+            "intended": _json_clone(trajectory_correlator.get("intended") or {}),
+            "actual": _json_clone(trajectory_correlator.get("actual") or {}),
+            "correlation": _json_clone(trajectory_correlator.get("correlation") or {}),
+            "grade": str(trajectory_correlator.get("grade") or ""),
+            "return_path": _json_clone(trajectory_correlator.get("return_path") or {}),
+        },
+        "continuity_cue": {
+            "needed": bool(continuity_cue.get("needed")),
+            "severity": str(continuity_cue.get("severity") or ""),
+            "reasons": _env_report_unique_strings(continuity_cue.get("reasons") or [], limit=8),
+            "last_good_sequence": str(continuity_cue.get("last_good_sequence") or ""),
+            "next_action": str(continuity_cue.get("next_action") or ""),
+            "prompt": str(continuity_cue.get("prompt") or ""),
+            "recommended_reads": _env_report_unique_strings(continuity_cue.get("recommended_reads") or [], limit=8),
+        },
+        "tinkerbell_attention": {
+            "band": str(tinkerbell_attention.get("band") or ""),
+            "summary": str(tinkerbell_attention.get("summary") or ""),
+            "attention_kind": str(tinkerbell_attention.get("attention_kind") or ""),
+            "attention_target": str(tinkerbell_attention.get("attention_target") or ""),
+            "attention_confidence": tinkerbell_attention.get("attention_confidence"),
+            "hold_candidate": bool(tinkerbell_attention.get("hold_candidate")),
+            "active_pointer": _json_clone(tinkerbell_attention.get("active_pointer") or {}),
+            "prospect_candidates": [
+                _json_clone(item)
+                for item in list(tinkerbell_attention.get("prospect_candidates") or [])[:8]
+                if isinstance(item, dict)
+            ],
+        },
+        "technolit_distribution_packet": {
+            "active": bool(technolit_distribution_packet.get("active")),
+            "coin_id": str(technolit_distribution_packet.get("coin_id") or ""),
+            "symbol": str(technolit_distribution_packet.get("symbol") or ""),
+            "packet_kind": str(technolit_distribution_packet.get("packet_kind") or ""),
+            "policy_id": str(technolit_distribution_packet.get("policy_id") or ""),
+            "stage": str(technolit_distribution_packet.get("stage") or ""),
+            "intake_mode": str(technolit_distribution_packet.get("intake_mode") or ""),
+            "body_mode": str(technolit_distribution_packet.get("body_mode") or ""),
+            "raid_mode": str(technolit_distribution_packet.get("raid_mode") or ""),
+            "shield_mode": str(technolit_distribution_packet.get("shield_mode") or ""),
+            "forge_mode": str(technolit_distribution_packet.get("forge_mode") or ""),
+            "tokenized_agent_mode": str(technolit_distribution_packet.get("tokenized_agent_mode") or ""),
+            "routing_posture": str(technolit_distribution_packet.get("routing_posture") or ""),
+            "next_contract": str(technolit_distribution_packet.get("next_contract") or ""),
+            "public_line": str(technolit_distribution_packet.get("public_line") or ""),
+            "macro_split_bps": _json_clone(technolit_distribution_packet.get("macro_split_bps") or {}),
+            "settlement_clock": _json_clone(technolit_distribution_packet.get("settlement_clock") or {}),
+            "summary": str(technolit_distribution_packet.get("summary") or ""),
+            "signals": _env_report_unique_strings(technolit_distribution_packet.get("signals") or [], limit=8),
+            "issues": _env_report_unique_strings(technolit_distribution_packet.get("issues") or [], limit=8),
+        },
+        "technolit_treasury_bridge_packet": {
+            "active": bool(technolit_treasury_bridge_packet.get("active")),
+            "coin_id": str(technolit_treasury_bridge_packet.get("coin_id") or ""),
+            "symbol": str(technolit_treasury_bridge_packet.get("symbol") or ""),
+            "packet_kind": str(technolit_treasury_bridge_packet.get("packet_kind") or ""),
+            "bridge_id": str(technolit_treasury_bridge_packet.get("bridge_id") or ""),
+            "settlement_asset": str(technolit_treasury_bridge_packet.get("settlement_asset") or ""),
+            "treasury_mode": str(technolit_treasury_bridge_packet.get("treasury_mode") or ""),
+            "treasury_wallet_mode": str(technolit_treasury_bridge_packet.get("treasury_wallet_mode") or ""),
+            "settlement_style": str(technolit_treasury_bridge_packet.get("settlement_style") or ""),
+            "redemption_mode": str(technolit_treasury_bridge_packet.get("redemption_mode") or ""),
+            "reference_ratio_mode": str(technolit_treasury_bridge_packet.get("reference_ratio_mode") or ""),
+            "reserve_floor_mode": str(technolit_treasury_bridge_packet.get("reserve_floor_mode") or ""),
+            "stage": str(technolit_treasury_bridge_packet.get("stage") or ""),
+            "next_contract": str(technolit_treasury_bridge_packet.get("next_contract") or ""),
+            "source_policy_id": str(technolit_treasury_bridge_packet.get("source_policy_id") or ""),
+            "epoch_clock": _json_clone(technolit_treasury_bridge_packet.get("epoch_clock") or {}),
+            "public_line": str(technolit_treasury_bridge_packet.get("public_line") or ""),
+            "summary": str(technolit_treasury_bridge_packet.get("summary") or ""),
+            "signals": _env_report_unique_strings(technolit_treasury_bridge_packet.get("signals") or [], limit=8),
+            "issues": _env_report_unique_strings(technolit_treasury_bridge_packet.get("issues") or [], limit=8),
+        },
+        "holder_snapshot_packet": {
+            "active": bool(holder_snapshot_packet.get("active")),
+            "coin_id": str(holder_snapshot_packet.get("coin_id") or ""),
+            "symbol": str(holder_snapshot_packet.get("symbol") or ""),
+            "packet_kind": str(holder_snapshot_packet.get("packet_kind") or ""),
+            "snapshot_id": str(holder_snapshot_packet.get("snapshot_id") or ""),
+            "camp_label": str(holder_snapshot_packet.get("camp_label") or ""),
+            "qualification_mode": str(holder_snapshot_packet.get("qualification_mode") or ""),
+            "qualification_window": str(holder_snapshot_packet.get("qualification_window") or ""),
+            "anti_snipe_mode": str(holder_snapshot_packet.get("anti_snipe_mode") or ""),
+            "body_split_bps": holder_snapshot_packet.get("body_split_bps"),
+            "stage": str(holder_snapshot_packet.get("stage") or ""),
+            "retention_band": str(holder_snapshot_packet.get("retention_band") or ""),
+            "concentration_band": str(holder_snapshot_packet.get("concentration_band") or ""),
+            "anti_snipe_band": str(holder_snapshot_packet.get("anti_snipe_band") or ""),
+            "public_line": str(holder_snapshot_packet.get("public_line") or ""),
+            "summary": str(holder_snapshot_packet.get("summary") or ""),
+            "signals": _env_report_unique_strings(holder_snapshot_packet.get("signals") or [], limit=8),
+            "issues": _env_report_unique_strings(holder_snapshot_packet.get("issues") or [], limit=8),
+        },
+        "raid_contribution_packet": {
+            "active": bool(raid_contribution_packet.get("active")),
+            "coin_id": str(raid_contribution_packet.get("coin_id") or ""),
+            "symbol": str(raid_contribution_packet.get("symbol") or ""),
+            "packet_kind": str(raid_contribution_packet.get("packet_kind") or ""),
+            "raid_id": str(raid_contribution_packet.get("raid_id") or ""),
+            "raid_label": str(raid_contribution_packet.get("raid_label") or ""),
+            "evidence_mode": str(raid_contribution_packet.get("evidence_mode") or ""),
+            "scoring_formula": str(raid_contribution_packet.get("scoring_formula") or ""),
+            "role_families": _env_report_unique_strings(raid_contribution_packet.get("role_families") or [], limit=8),
+            "common_pool_bps": raid_contribution_packet.get("common_pool_bps"),
+            "jackpot_pool_bps": raid_contribution_packet.get("jackpot_pool_bps"),
+            "carry_pool_bps": raid_contribution_packet.get("carry_pool_bps"),
+            "raid_split_bps": raid_contribution_packet.get("raid_split_bps"),
+            "stage": str(raid_contribution_packet.get("stage") or ""),
+            "public_line": str(raid_contribution_packet.get("public_line") or ""),
+            "summary": str(raid_contribution_packet.get("summary") or ""),
+            "signals": _env_report_unique_strings(raid_contribution_packet.get("signals") or [], limit=8),
+            "issues": _env_report_unique_strings(raid_contribution_packet.get("issues") or [], limit=8),
+        },
+        "settlement_epoch_packet": {
+            "active": bool(settlement_epoch_packet.get("active")),
+            "coin_id": str(settlement_epoch_packet.get("coin_id") or ""),
+            "symbol": str(settlement_epoch_packet.get("symbol") or ""),
+            "packet_kind": str(settlement_epoch_packet.get("packet_kind") or ""),
+            "epoch_id": str(settlement_epoch_packet.get("epoch_id") or ""),
+            "settlement_asset": str(settlement_epoch_packet.get("settlement_asset") or ""),
+            "settlement_style": str(settlement_epoch_packet.get("settlement_style") or ""),
+            "release_governance": str(settlement_epoch_packet.get("release_governance") or ""),
+            "circuit_breaker_mode": str(settlement_epoch_packet.get("circuit_breaker_mode") or ""),
+            "reserve_cover_target_epochs": settlement_epoch_packet.get("reserve_cover_target_epochs"),
+            "macro_split_bps": _json_clone(settlement_epoch_packet.get("macro_split_bps") or {}),
+            "epoch_clock": _json_clone(settlement_epoch_packet.get("epoch_clock") or {}),
+            "game_clock": _json_clone(settlement_epoch_packet.get("game_clock") or {}),
+            "failure_watches": _env_report_unique_strings(settlement_epoch_packet.get("failure_watches") or [], limit=8),
+            "stage": str(settlement_epoch_packet.get("stage") or ""),
+            "next_contract": str(settlement_epoch_packet.get("next_contract") or ""),
+            "public_line": str(settlement_epoch_packet.get("public_line") or ""),
+            "summary": str(settlement_epoch_packet.get("summary") or ""),
+            "signals": _env_report_unique_strings(settlement_epoch_packet.get("signals") or [], limit=8),
+            "issues": _env_report_unique_strings(settlement_epoch_packet.get("issues") or [], limit=8),
+        },
+        "hold_door_raid_report_packet": {
+            "active": bool(hold_door_raid_report_packet.get("active")),
+            "coin_id": str(hold_door_raid_report_packet.get("coin_id") or ""),
+            "symbol": str(hold_door_raid_report_packet.get("symbol") or ""),
+            "packet_kind": str(hold_door_raid_report_packet.get("packet_kind") or ""),
+            "report_id": str(hold_door_raid_report_packet.get("report_id") or ""),
+            "display_name": str(hold_door_raid_report_packet.get("display_name") or ""),
+            "camp_label": str(hold_door_raid_report_packet.get("camp_label") or ""),
+            "raid_label": str(hold_door_raid_report_packet.get("raid_label") or ""),
+            "custody_asset": str(hold_door_raid_report_packet.get("custody_asset") or ""),
+            "stage": str(hold_door_raid_report_packet.get("stage") or ""),
+            "title_line": str(hold_door_raid_report_packet.get("title_line") or ""),
+            "cadence_line": str(hold_door_raid_report_packet.get("cadence_line") or ""),
+            "safety_line": str(hold_door_raid_report_packet.get("safety_line") or ""),
+            "public_line": str(hold_door_raid_report_packet.get("public_line") or ""),
+            "summary": str(hold_door_raid_report_packet.get("summary") or ""),
+            "signals": _env_report_unique_strings(hold_door_raid_report_packet.get("signals") or [], limit=8),
+            "issues": _env_report_unique_strings(hold_door_raid_report_packet.get("issues") or [], limit=8),
+        },
+        "hold_door_comedia_packet": {
+            "active": bool(hold_door_comedia_packet.get("active")),
+            "coin_id": str(hold_door_comedia_packet.get("coin_id") or ""),
+            "symbol": str(hold_door_comedia_packet.get("symbol") or ""),
+            "packet_kind": str(hold_door_comedia_packet.get("packet_kind") or ""),
+            "engine_id": str(hold_door_comedia_packet.get("engine_id") or ""),
+            "persona_id": str(hold_door_comedia_packet.get("persona_id") or ""),
+            "stage": str(hold_door_comedia_packet.get("stage") or ""),
+            "mood": str(hold_door_comedia_packet.get("mood") or ""),
+            "reaction": str(hold_door_comedia_packet.get("reaction") or ""),
+            "spam_level": hold_door_comedia_packet.get("spam_level"),
+            "caption_mode": str(hold_door_comedia_packet.get("caption_mode") or ""),
+            "caption_line": str(hold_door_comedia_packet.get("caption_line") or ""),
+            "caption_tokens": _env_report_unique_strings(hold_door_comedia_packet.get("caption_tokens") or [], limit=8),
+            "audio_mode": str(hold_door_comedia_packet.get("audio_mode") or ""),
+            "tempo_bpm": hold_door_comedia_packet.get("tempo_bpm"),
+            "utterance_gap_ms": hold_door_comedia_packet.get("utterance_gap_ms"),
+            "trajectory_trigger": str(hold_door_comedia_packet.get("trajectory_trigger") or ""),
+            "public_line": str(hold_door_comedia_packet.get("public_line") or ""),
+            "summary": str(hold_door_comedia_packet.get("summary") or ""),
+            "signals": _env_report_unique_strings(hold_door_comedia_packet.get("signals") or [], limit=8),
+            "issues": _env_report_unique_strings(hold_door_comedia_packet.get("issues") or [], limit=8),
+        },
+        "threat_bounty_packet": {
+            "active": bool(threat_bounty_packet.get("active")),
+            "coin_id": str(threat_bounty_packet.get("coin_id") or ""),
+            "symbol": str(threat_bounty_packet.get("symbol") or ""),
+            "packet_kind": str(threat_bounty_packet.get("packet_kind") or ""),
+            "bounty_id": str(threat_bounty_packet.get("bounty_id") or ""),
+            "lane_family": str(threat_bounty_packet.get("lane_family") or ""),
+            "jackpot_mode": str(threat_bounty_packet.get("jackpot_mode") or ""),
+            "adjacent_reward_mode": str(threat_bounty_packet.get("adjacent_reward_mode") or ""),
+            "verification_mode": str(threat_bounty_packet.get("verification_mode") or ""),
+            "critical_trigger_mode": str(threat_bounty_packet.get("critical_trigger_mode") or ""),
+            "panic_farming_penalty": str(threat_bounty_packet.get("panic_farming_penalty") or ""),
+            "active_threats": _env_report_unique_strings(threat_bounty_packet.get("active_threats") or [], limit=8),
+            "stage": str(threat_bounty_packet.get("stage") or ""),
+            "public_line": str(threat_bounty_packet.get("public_line") or ""),
+            "summary": str(threat_bounty_packet.get("summary") or ""),
+            "signals": _env_report_unique_strings(threat_bounty_packet.get("signals") or [], limit=8),
+            "issues": _env_report_unique_strings(threat_bounty_packet.get("issues") or [], limit=8),
+        },
+        "equilibrium": {
+            "band": str(equilibrium.get("band") or ""),
+            "score": equilibrium.get("score"),
+            "summary": str(equilibrium.get("summary") or ""),
+            "signals": _env_report_unique_strings(equilibrium.get("signals") or [], limit=8),
+            "issues": _env_report_unique_strings(equilibrium.get("issues") or [], limit=8),
+            "technolit_measure": {
+                "active": bool(technolit_measure.get("active")),
+                "coin_id": str(technolit_measure.get("coin_id") or ""),
+                "symbol": str(technolit_measure.get("symbol") or ""),
+                "label": str(technolit_measure.get("label") or ""),
+                "band": str(technolit_measure.get("band") or ""),
+                "score": technolit_measure.get("score"),
+                "measurement_unit": str(technolit_measure.get("measurement_unit") or ""),
+                "sequencing_bridge": str(technolit_measure.get("sequencing_bridge") or ""),
+                "bridge_surface": str(technolit_measure.get("bridge_surface") or ""),
+                "market_cap_usd": technolit_measure.get("market_cap_usd"),
+                "liquidity_usd": technolit_measure.get("liquidity_usd"),
+                "bonding_curve_pct": technolit_measure.get("bonding_curve_pct"),
+                "creator_rewards_unclaimed_sol": technolit_measure.get("creator_rewards_unclaimed_sol"),
+                "creator_rewards_unclaimed_usd": technolit_measure.get("creator_rewards_unclaimed_usd"),
+                "flow_posture": str(technolit_measure.get("flow_posture") or ""),
+                "distribution_posture": str(technolit_measure.get("distribution_posture") or ""),
+                "burn_gate": str(technolit_measure.get("burn_gate") or ""),
+                "summary": str(technolit_measure.get("summary") or ""),
+                "signals": _env_report_unique_strings(technolit_measure.get("signals") or [], limit=8),
+                "issues": _env_report_unique_strings(technolit_measure.get("issues") or [], limit=8),
+            },
+        },
+        "field_disposition": {
+            "medium_kind": str(field_disposition.get("medium_kind") or ""),
+            "profile_family": str(field_disposition.get("profile_family") or ""),
+            "profile_active": str(field_disposition.get("profile_active") or ""),
+            "propagation_mode": str(field_disposition.get("propagation_mode") or ""),
+            "settling_band": str(field_disposition.get("settling_band") or ""),
+            "activation_threshold": field_disposition.get("activation_threshold"),
+            "density": field_disposition.get("density"),
+            "speed": field_disposition.get("speed"),
+            "turbulence": field_disposition.get("turbulence"),
+            "flow_bias": _json_clone(field_disposition.get("flow_bias") or {}),
+            "drift_bias": _json_clone(field_disposition.get("drift_bias") or {}),
+            "gravity_bias": _json_clone(field_disposition.get("gravity_bias") or {}),
+            "support_bias": _json_clone(field_disposition.get("support_bias") or {}),
+            "coupled_surfaces": _env_report_unique_strings(field_disposition.get("coupled_surfaces") or [], limit=8),
+            "summary": str(field_disposition.get("summary") or ""),
+            "signals": _env_report_unique_strings(field_disposition.get("signals") or [], limit=8),
+            "risks": _env_report_unique_strings(field_disposition.get("risks") or [], limit=8),
+        },
+        "pan_probe": {
+            "mode": str(pan_probe.get("mode") or ""),
+            "band": str(pan_probe.get("band") or ""),
+            "summary": str(pan_probe.get("summary") or ""),
+            "selected_bone_id": str(pan_probe.get("selected_bone_id") or ""),
+            "selected_contact_joint": str(pan_probe.get("selected_contact_joint") or ""),
+            "selected_contact_state": str(pan_probe.get("selected_contact_state") or ""),
+            "support_role": str(pan_probe.get("support_role") or ""),
+            "contact_bias": str(pan_probe.get("contact_bias") or ""),
+            "rotational_grounding": bool(pan_probe.get("rotational_grounding")),
+            "planted_alignment": pan_probe.get("planted_alignment"),
+            "normal_alignment": pan_probe.get("normal_alignment"),
+            "toe_clearance": pan_probe.get("toe_clearance"),
+            "heel_clearance": pan_probe.get("heel_clearance"),
+            "support_phase": str(pan_probe.get("support_phase") or ""),
+            "timeline": _json_clone(pan_probe.get("timeline") or {}),
+            "motion_sample_time": pan_probe.get("motion_sample_time"),
+            "support_surface": _json_clone(pan_probe.get("support_surface") or {}),
+            "writer_identity": _json_clone(pan_probe.get("writer_identity") or {}),
+            "association_surfaces": _env_report_unique_strings(pan_probe.get("association_surfaces") or [], limit=8),
+            "capture_surfaces": [
+                _json_clone(item)
+                for item in list(pan_probe.get("capture_surfaces") or [])[:8]
+                if isinstance(item, dict)
+            ],
+        },
+        "drift": {
+            "band": str(drift.get("band") or ""),
+            "issues": _env_report_unique_strings(drift.get("issues") or [], limit=8),
+            "contaminated_surfaces": _env_report_unique_strings(drift.get("contaminated_surfaces") or [], limit=8),
+            "missing_surfaces": _env_report_unique_strings(drift.get("missing_surfaces") or [], limit=8),
+            "expected_docs_context": str(drift.get("expected_docs_context") or ""),
+            "actual_docs_context": str(drift.get("actual_docs_context") or ""),
+        },
+        "watch_board": {
+            "band": str(watch_board.get("band") or ""),
+            "tracked_events": [
+                _json_clone(item)
+                for item in list(watch_board.get("tracked_events") or [])[:8]
+                if isinstance(item, dict)
+            ],
+            "intercept_candidates": _env_report_unique_strings(watch_board.get("intercept_candidates") or [], limit=8),
+            "help_candidates": _env_report_unique_strings(watch_board.get("help_candidates") or [], limit=8),
+            "current_front": _json_clone(watch_board.get("current_front") or {}),
+            "queue_pressure": _json_clone(watch_board.get("queue_pressure") or {}),
+            "signals": _env_report_unique_strings(watch_board.get("signals") or [], limit=8),
+            "alerts": _env_report_unique_strings(watch_board.get("alerts") or [], limit=8),
+        },
+        "receipts": {
+            "last_action": str(receipts.get("last_action") or ""),
+            "last_sync_reason": str(receipts.get("last_sync_reason") or ""),
+            "active_doc": str(receipts.get("active_doc") or ""),
+            "latest_execution_id": str(receipts.get("latest_execution_id") or ""),
+        },
+        "freshness": {
+            "snapshot_timestamp": int(freshness.get("snapshot_timestamp") or 0),
+            "source_timestamp": int(freshness.get("source_timestamp") or 0),
+            "age_ms": int(freshness.get("age_ms") or 0),
+            "mirror_lag": bool(freshness.get("mirror_lag")),
+            "bundle_mismatch": bool(freshness.get("bundle_mismatch")),
+            "live_sync_status": str(freshness.get("live_sync_status") or ""),
+            "live_sync_age_ms": int(freshness.get("live_sync_age_ms") or -1),
+        },
+        "confidence": {
+            "band": str(confidence.get("band") or ""),
+            "score": confidence.get("score"),
+            "source_count": int(confidence.get("source_count") or 0),
+            "missing_sources": _env_report_unique_strings(confidence.get("missing_sources") or [], limit=8),
+        },
+        "sources": {
+            str(key): _json_clone(value)
+            for key, value in list(sources.items())[:8]
+            if isinstance(value, dict)
+        },
+    }
+
+
+def _env_report_query_lane_key(entry: dict | None = None) -> str:
+    row = entry if isinstance(entry, dict) else {}
+    tool = str(row.get("tool") or "").strip()
+    args = row.get("args") if isinstance(row.get("args"), dict) else {}
+    if tool == "env_read":
+        return "env_read:" + str(args.get("query") or "").strip()
+    if tool == "env_report":
+        return "env_report:" + str(args.get("report_id") or "").strip()
+    if tool == "env_help":
+        topic = str(args.get("topic") or "").strip()
+        category = str(args.get("category") or "").strip()
+        search = str(args.get("search") or "").strip()
+        return "env_help:" + (topic or category or search)
+    if tool:
+        try:
+            return tool + ":" + json.dumps(args, sort_keys=True, separators=(",", ":"))
+        except Exception:
+            return tool + ":" + str(args)
+    return ""
+
+
+def _env_report_merge_query_lanes(*lanes) -> list[dict]:
+    merged: list[dict] = []
+    seen: set[str] = set()
+    for lane in lanes:
+        for entry in list(lane or []):
+            if not isinstance(entry, dict):
+                continue
+            key = _env_report_query_lane_key(entry)
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            merged.append(_json_clone(entry))
+    return merged
+
+
+def _env_report_restore_archive_continuity(query_thread: dict | None = None) -> dict:
+    query = query_thread if isinstance(query_thread, dict) else {}
+    summary_parts = [
+        str(query.get("objective_label") or query.get("objective_id") or "").strip(),
+        str(query.get("subject_key") or "").strip(),
+        str(query.get("current_pivot_id") or "").strip(),
+    ]
+    summary = " ".join(part for part in summary_parts if part).strip()
+    payload = continuity_restore_payload(
+        summary=summary or None,
+        cwd=str(Path(__file__).resolve().parent),
+        limit=1,
+        since_days=365,
+    )
+    if not isinstance(payload, dict):
+        return {
+            "status": "error",
+            "error": "invalid_archive_payload",
+            "archive_query_state": {},
+            "archive_surface_prime": {},
+            "archive_best_session": {},
+        }
+    continuity_packet = payload.get("continuity_packet") if isinstance(payload.get("continuity_packet"), dict) else {}
+    return {
+        "status": str(payload.get("status") or "error"),
+        "summary": str((payload.get("query") if isinstance(payload.get("query"), dict) else {}).get("summary") or summary),
+        "error": str(payload.get("error") or ""),
+        "archive_query_state": _env_report_normalize_query_state(continuity_packet.get("query_state")),
+        "archive_surface_prime": _json_clone(continuity_packet.get("surface_prime") or {}),
+        "archive_paired_state": _json_clone(continuity_packet.get("paired_state_resource") or {}),
+        "archive_best_session": _json_clone(payload.get("best_session") or {}),
+        "archive_matched_sessions": [
+            _json_clone(item)
+            for item in list(payload.get("matched_sessions") or [])[:4]
+            if isinstance(item, dict)
+        ],
+    }
+
+
+def _env_report_build_live_mirror_context(shared_state: dict | None = None) -> dict:
+    state = shared_state if isinstance(shared_state, dict) else {}
+    text_theater = state.get("text_theater") if isinstance(state.get("text_theater"), dict) else {}
+    snapshot = text_theater.get("snapshot") if isinstance(text_theater.get("snapshot"), dict) else {}
+    stale_flags = snapshot.get("stale_flags") if isinstance(snapshot.get("stale_flags"), dict) else {}
+    return {
+        "snapshot_timestamp": int(snapshot.get("snapshot_timestamp") or 0),
+        "source_timestamp": int(snapshot.get("source_timestamp") or 0),
+        "last_sync_reason": str(snapshot.get("last_sync_reason") or ""),
+        "stale_flags": _json_clone(stale_flags),
+        "mirror_lag": bool(stale_flags.get("mirror_lag")),
+    }
+
+
+def _env_report_build_paired_state(shared_state: dict | None = None, live_revision: int = 0) -> dict:
+    session_thread = _env_report_build_session_thread(shared_state)
+    live_query_state = _env_report_normalize_query_state(
+        (session_thread.get("query_thread") if isinstance(session_thread.get("query_thread"), dict) else {})
+    )
+    archive_restore = _env_report_restore_archive_continuity(live_query_state)
+    archive_query_state = archive_restore.get("archive_query_state") if isinstance(archive_restore.get("archive_query_state"), dict) else {}
+    archive_surface_prime = archive_restore.get("archive_surface_prime") if isinstance(archive_restore.get("archive_surface_prime"), dict) else {}
+    live_mirror_context = _env_report_build_live_mirror_context(shared_state)
+
+    agreement_points: list[str] = []
+    discrepancies: list[dict] = []
+
+    def add_discrepancy(
+        field: str,
+        classification: str,
+        archive_value,
+        live_value,
+        *,
+        status: str = "open",
+        note: str = "",
+    ) -> None:
+        discrepancies.append(
+            {
+                "field": str(field or ""),
+                "classification": str(classification or "mismatch"),
+                "archive_value": _json_clone(archive_value),
+                "live_value": _json_clone(live_value),
+                "status": str(status or "open"),
+                "note": str(note or ""),
+            }
+        )
+
+    archive_status = str(archive_restore.get("status") or "")
+    if archive_status != "ok" or not archive_query_state:
+        add_discrepancy(
+            "archive_query_state",
+            "no_archive_match",
+            archive_restore.get("error") or "missing",
+            "live_only",
+            note="No matching continuity archive could be paired for the current live query thread.",
+        )
+    else:
+        archive_objective = str(archive_query_state.get("objective_id") or "")
+        live_objective = str(live_query_state.get("objective_id") or "")
+        if archive_objective and live_objective and archive_objective == live_objective:
+            agreement_points.append("objective_id")
+        else:
+            add_discrepancy(
+                "objective_id",
+                "truth",
+                archive_objective,
+                live_objective,
+                note="Archive and live query posture disagree on the active objective.",
+            )
+
+        archive_subject = str(archive_query_state.get("subject_key") or "")
+        live_subject = str(live_query_state.get("subject_key") or "")
+        if archive_subject and live_subject and archive_subject == live_subject:
+            agreement_points.append("subject_key")
+        else:
+            add_discrepancy(
+                "subject_key",
+                "truth",
+                archive_subject,
+                live_subject,
+                note="Archive and live query posture disagree on the active subject.",
+            )
+
+        archive_pivot = str(archive_query_state.get("current_pivot_id") or "")
+        live_pivot = str(live_query_state.get("current_pivot_id") or "")
+        if archive_pivot and live_pivot and archive_pivot == live_pivot:
+            agreement_points.append("current_pivot_id")
+        else:
+            add_discrepancy(
+                "current_pivot_id",
+                "contract",
+                archive_pivot,
+                live_pivot,
+                note="Archive and live query posture disagree on the top pivot.",
+            )
+
+        archive_help = set(_env_report_query_lane_key(entry) for entry in archive_query_state.get("help_lane") or [])
+        live_help = set(_env_report_query_lane_key(entry) for entry in live_query_state.get("help_lane") or [])
+        archive_help.discard("")
+        live_help.discard("")
+        if archive_help and live_help and archive_help.intersection(live_help):
+            agreement_points.append("help_lane_overlap")
+        elif archive_help or live_help:
+            add_discrepancy(
+                "help_lane",
+                "contract",
+                sorted(archive_help),
+                sorted(live_help),
+                note="Archive and live help lanes are not yet aligned.",
+            )
+
+        archive_next = set(_env_report_query_lane_key(entry) for entry in archive_query_state.get("next_reads") or [])
+        live_next = set(_env_report_query_lane_key(entry) for entry in live_query_state.get("next_reads") or [])
+        archive_next.discard("")
+        live_next.discard("")
+        if archive_next and live_next and archive_next.intersection(live_next):
+            agreement_points.append("next_reads_overlap")
+        elif archive_next or live_next:
+            add_discrepancy(
+                "next_reads",
+                "contract",
+                sorted(archive_next),
+                sorted(live_next),
+                note="Archive and live next reads diverge.",
+            )
+
+    anchor_rows = _env_report_unique_strings(live_query_state.get("anchor_row_ids") or [], limit=8)
+    if anchor_rows:
+        agreement_points.append("anchor_row_ids_present")
+    else:
+        add_discrepancy(
+            "anchor_row_ids",
+            "contract",
+            _env_report_unique_strings(archive_query_state.get("anchor_row_ids") or [], limit=8),
+            [],
+            note="The live query thread does not currently expose anchor rows.",
+        )
+
+    freshness = {
+        "live_revision": int(live_revision or 0),
+        "snapshot_timestamp": int(live_mirror_context.get("snapshot_timestamp") or 0),
+        "source_timestamp": int(live_mirror_context.get("source_timestamp") or 0),
+        "last_sync_reason": str(live_mirror_context.get("last_sync_reason") or ""),
+        "mirror_lag": bool(live_mirror_context.get("mirror_lag")),
+        "stale": bool(live_mirror_context.get("mirror_lag")),
+        "archive_last_seen_at_ms": int(archive_query_state.get("last_seen_at_ms") or 0),
+        "archive_opened_at_ms": int(archive_query_state.get("opened_at_ms") or 0),
+        "reset_boundary_kind": str(
+            (((archive_surface_prime.get("reset_boundary") if isinstance(archive_surface_prime.get("reset_boundary"), dict) else {}) or {}).get("boundary_kind") or "")
+        ),
+        "requires_fresh_live_read": bool(
+            (((archive_surface_prime.get("reset_boundary") if isinstance(archive_surface_prime.get("reset_boundary"), dict) else {}) or {}).get("requires_fresh_live_read"))
+        ),
+    }
+    if freshness["snapshot_timestamp"] and freshness["archive_last_seen_at_ms"] and freshness["snapshot_timestamp"] >= freshness["archive_last_seen_at_ms"]:
+        agreement_points.append("snapshot_postdates_archive")
+    if freshness["stale"]:
+        add_discrepancy(
+            "freshness",
+            "freshness",
+            {"archive_last_seen_at_ms": freshness["archive_last_seen_at_ms"]},
+            {
+                "snapshot_timestamp": freshness["snapshot_timestamp"],
+                "mirror_lag": freshness["mirror_lag"],
+            },
+            note="The live text-theater mirror is stale or lagging, so the pair cannot be trusted yet.",
+        )
+
+    required_recorroboration = [
+        str(item or "")
+        for item in list(archive_surface_prime.get("corroboration_surfaces") or [])[:8]
+        if str(item or "").strip()
+    ]
+    recommended_next_reads = _env_report_merge_query_lanes(
+        archive_query_state.get("help_lane"),
+        archive_query_state.get("next_reads"),
+        live_query_state.get("help_lane"),
+        live_query_state.get("next_reads"),
+    )
+
+    reset_boundary = _json_clone(archive_surface_prime.get("reset_boundary") or {})
+    if not isinstance(reset_boundary, dict):
+        reset_boundary = {}
+
+    if discrepancies:
+        if any(str(item.get("classification") or "") == "no_archive_match" for item in discrepancies):
+            designation = "no_archive_match"
+            severity = "watch"
+        elif any(str(item.get("classification") or "") == "freshness" for item in discrepancies):
+            designation = "stale_live_mirror"
+            severity = "degraded"
+        elif "objective_id" in agreement_points and ("subject_key" in agreement_points or "current_pivot_id" in agreement_points):
+            designation = "partly_confirmed"
+            severity = "watch"
+        else:
+            designation = "mismatch"
+            severity = "degraded"
+    else:
+        designation = "confirmed"
+        severity = "ok"
+
+    decision = {
+        "confirmed": "Archive and live posture align closely enough to continue on the shared query spine.",
+        "partly_confirmed": "Archive and live posture overlap, but one or more comparison fields still need explicit corroboration.",
+        "stale_live_mirror": "The archive match is usable, but the live mirror must be refreshed before trusting the pair.",
+        "mismatch": "Archive and live posture diverge; continue through the live query thread and use the archive only as a recovery hint.",
+        "no_archive_match": "No archive candidate matched the current live query thread; continue live and wait for a stronger archive seam.",
+    }.get(designation, "Continue through the live query thread.")
+
+    return {
+        "archive_restore": archive_restore,
+        "archive_query_state": archive_query_state,
+        "live_query_state": live_query_state,
+        "archive_surface_prime": archive_surface_prime,
+        "live_mirror_context": live_mirror_context,
+        "shared_query_identity": {
+            "objective_id": str(live_query_state.get("objective_id") or archive_query_state.get("objective_id") or ""),
+            "objective_label": str(live_query_state.get("objective_label") or archive_query_state.get("objective_label") or ""),
+            "subject_key": str(live_query_state.get("subject_key") or archive_query_state.get("subject_key") or ""),
+            "current_pivot_id": str(live_query_state.get("current_pivot_id") or archive_query_state.get("current_pivot_id") or ""),
+        },
+        "drift": {
+            "status": designation,
+            "agreement_points": agreement_points,
+            "discrepancies": discrepancies,
+            "decision": decision,
+        },
+        "freshness": freshness,
+        "required_recorroboration": required_recorroboration,
+        "recommended_next_reads": recommended_next_reads[:8],
+        "reset_boundary": reset_boundary,
+        "severity": severity,
+        "designation": designation,
+    }
 
 
 def _env_report_error_payload(
@@ -4835,6 +6159,133 @@ def _env_report_route_stability_diagnosis(
     return report
 
 
+def _env_report_paired_state_alignment(
+    shared_state: dict,
+    target: dict,
+    *,
+    raw_slice: bool = False,
+    live_revision: int = 0,
+) -> dict:
+    state = shared_state if isinstance(shared_state, dict) else {}
+    blackboard = state.get("blackboard") if isinstance(state.get("blackboard"), dict) else {}
+    working_set = blackboard.get("working_set") if isinstance(blackboard.get("working_set"), dict) else {}
+    query_thread = working_set.get("query_thread") if isinstance(working_set.get("query_thread"), dict) else {}
+    text_theater = state.get("text_theater") if isinstance(state.get("text_theater"), dict) else {}
+    snapshot = text_theater.get("snapshot") if isinstance(text_theater.get("snapshot"), dict) else {}
+    missing_paths: list[str] = []
+    if not isinstance(blackboard, dict):
+        missing_paths.append("shared_state.blackboard")
+    if not isinstance(working_set, dict):
+        missing_paths.append("shared_state.blackboard.working_set")
+    if not isinstance(query_thread, dict):
+        missing_paths.append("shared_state.blackboard.working_set.query_thread")
+    if not isinstance(snapshot, dict):
+        missing_paths.append("shared_state.text_theater.snapshot")
+    if missing_paths:
+        return {
+            "__error__": "missing",
+            "missing_paths": missing_paths,
+        }
+
+    paired_state = _env_report_build_paired_state(state, live_revision=live_revision)
+    archive_restore = paired_state.get("archive_restore") if isinstance(paired_state.get("archive_restore"), dict) else {}
+    archive_best_session = archive_restore.get("archive_best_session") if isinstance(archive_restore.get("archive_best_session"), dict) else {}
+    archive_query_state = paired_state.get("archive_query_state") if isinstance(paired_state.get("archive_query_state"), dict) else {}
+    live_query_state = paired_state.get("live_query_state") if isinstance(paired_state.get("live_query_state"), dict) else {}
+    live_output_state = _env_report_normalize_output_state(state.get("output_state"))
+    drift = paired_state.get("drift") if isinstance(paired_state.get("drift"), dict) else {}
+    designation = str(paired_state.get("designation") or "partly_confirmed")
+    severity = str(paired_state.get("severity") or "watch")
+    objective = str(
+        (paired_state.get("shared_query_identity") if isinstance(paired_state.get("shared_query_identity"), dict) else {}).get("objective_label")
+        or live_query_state.get("objective_label")
+        or live_query_state.get("objective_id")
+        or archive_query_state.get("objective_label")
+        or archive_query_state.get("objective_id")
+        or "Query posture"
+    )
+    subject_key = str(
+        (paired_state.get("shared_query_identity") if isinstance(paired_state.get("shared_query_identity"), dict) else {}).get("subject_key")
+        or live_query_state.get("subject_key")
+        or archive_query_state.get("subject_key")
+        or "n/a"
+    )
+    summary = _env_report_trim_text(objective + " / " + subject_key + " / " + designation, 140)
+
+    why_parts = [
+        "This report pairs archive continuity posture with the live blackboard query thread.",
+        "Archive status " + str(archive_restore.get("status") or "error") + ".",
+        "Drift decision " + str(drift.get("decision") or "continue through live query thread") + ".",
+    ]
+    if archive_best_session:
+        why_parts.append(
+            "Best archive session "
+            + str(archive_best_session.get("session_id") or archive_best_session.get("session_path") or "")
+            + "."
+        )
+    why_this_matters = _env_report_trim_text(" ".join(part for part in why_parts if part), 400)
+
+    report = {
+        "report_id": "paired_state_alignment",
+        "intent": _env_report_trim_text("Pair archived continuity posture with the live query thread on one authoring surface", 120),
+        "target": {
+            "kind": str((target or {}).get("kind") or ""),
+            "id": str((target or {}).get("id") or ""),
+        },
+        "summary": summary,
+        "lead_rows": _env_report_unique_strings(live_query_state.get("anchor_row_ids") or [], limit=8),
+        "supporting_rows": _env_report_unique_strings((working_set.get("lead_row_ids") or []), limit=12),
+        "why_this_matters": why_this_matters,
+        "severity": severity,
+        "designation": designation,
+        "shared_query_identity": _json_clone(paired_state.get("shared_query_identity") or {}),
+        "output_state": _json_clone(live_output_state),
+        "paired_state": {
+            "archive_query_state": _json_clone(archive_query_state),
+            "live_query_state": _json_clone(live_query_state),
+            "live_output_state": _json_clone(live_output_state),
+            "archive_surface_prime": _json_clone(paired_state.get("archive_surface_prime") or {}),
+            "live_mirror_context": _json_clone(paired_state.get("live_mirror_context") or {}),
+            "drift": _json_clone(drift),
+            "freshness": _json_clone(paired_state.get("freshness") or {}),
+            "required_recorroboration": _json_clone(paired_state.get("required_recorroboration") or []),
+            "recommended_next_reads": _json_clone(paired_state.get("recommended_next_reads") or []),
+            "reset_boundary": _json_clone(paired_state.get("reset_boundary") or {}),
+        },
+        "archive_match": {
+            "status": str(archive_restore.get("status") or ""),
+            "summary": str(archive_restore.get("summary") or ""),
+            "best_session": _json_clone(archive_best_session),
+            "matched_sessions": _json_clone(archive_restore.get("archive_matched_sessions") or []),
+        },
+        "recommended_next_reads": _json_clone(paired_state.get("recommended_next_reads") or []),
+        "evidence_paths": [
+            "continuity_restore(summary=<live objective + subject + pivot>, cwd=<repo>)",
+            "shared_state.blackboard.working_set.query_thread",
+            "shared_state.text_theater.snapshot",
+            "shared_state.blackboard.working_set.lead_row_ids",
+        ],
+        "capture_ids": [],
+        "live_revision": int(live_revision or 0),
+        "snapshot_timestamp": int(snapshot.get("snapshot_timestamp") or 0),
+        "text_theater_anchor": "text_theater.snapshot",
+        "gate_state": _env_report_gate_state_snapshot(),
+        "session_thread": _env_report_build_session_thread(state),
+    }
+    if raw_slice:
+        report["raw_slice"] = {
+            "archive_restore": _json_clone(archive_restore),
+            "live_query_thread": _json_clone(query_thread),
+            "text_theater_snapshot": {
+                "snapshot_timestamp": int(snapshot.get("snapshot_timestamp") or 0),
+                "source_timestamp": int(snapshot.get("source_timestamp") or 0),
+                "last_sync_reason": str(snapshot.get("last_sync_reason") or ""),
+                "stale_flags": _json_clone(snapshot.get("stale_flags") or {}),
+            },
+        }
+    return report
+
+
 def _env_report_local_proxy_payload(args: dict | None = None) -> dict | None:
     args = args or {}
     report_id = str(args.get("report_id", "") or "").strip()
@@ -4896,12 +6347,20 @@ def _env_report_local_proxy_payload(args: dict | None = None) -> dict | None:
 
     normalized_args["target"] = _env_report_normalize_target(target, shared_state)
     try:
-        report = _env_report_route_stability_diagnosis(
-            shared_state,
-            normalized_args["target"],
-            raw_slice=raw_slice,
-            live_revision=live_revision,
-        )
+        if report_id == "paired_state_alignment":
+            report = _env_report_paired_state_alignment(
+                shared_state,
+                normalized_args["target"],
+                raw_slice=raw_slice,
+                live_revision=live_revision,
+            )
+        else:
+            report = _env_report_route_stability_diagnosis(
+                shared_state,
+                normalized_args["target"],
+                raw_slice=raw_slice,
+                live_revision=live_revision,
+            )
     except Exception as exc:
         return _env_report_error_payload(
             report_id,
@@ -5168,6 +6627,7 @@ def _env_help_load_registry() -> dict:
                 "error": f"Environment help registry is invalid at {path.as_posix()}",
                 "hint": "Rebuild the registry with `node scripts/generate-env-help-registry.js`.",
             }
+        data = _env_help_apply_registry_overrides(data)
         with _env_help_cache_lock:
             _env_help_cache["mtime_ns"] = stat.st_mtime_ns
             _env_help_cache["data"] = data
@@ -5191,6 +6651,223 @@ def _env_help_stringify(value) -> str:
     if isinstance(value, dict):
         return " ".join(_env_help_stringify(item) for item in value.values())
     return str(value)
+
+
+def _env_help_extra_topics() -> dict[str, dict]:
+    return {
+        "continuity_reacclimation": {
+            "tool": "continuity_restore",
+            "entry_kind": "resume_playbook",
+            "title": "Continuity Reacclimation",
+            "category": "observation_query",
+            "status": "live",
+            "transport": {
+                "local_proxy": True,
+                "browser_surface": False,
+                "ui_local_only": False,
+                "implemented_verb": True,
+            },
+            "target_contract": {
+                "shape": "json payload",
+                "description": "Use continuity_restore with summary/cwd hints to recover archived operational continuity, then re-open live corroboration surfaces in theater-first order.",
+                "examples": [
+                    "{\"summary\":\"context compression continuity restore\",\"cwd\":\"D:\\\\End-Game\\\\champion_councl\"}",
+                    "{\"summary\":\"surface alignment review rain parity\",\"cwd\":\"D:\\\\End-Game\\\\champion_councl\",\"limit\":1}",
+                ],
+            },
+            "summary": "Recover archive-backed continuity after context compression, then restore the next valid evidence posture through text theater, blackboard, help, and scoped broker surfaces.",
+            "when_to_use": [
+                "Use this immediately after a context reset, compaction, or long-thread interruption when the real loss is working posture rather than just missing text.",
+                "Use this before inventing a fresh plan when a recent rollout already contains the hot files, tools, objective pressure, and last stable answer.",
+            ],
+            "what_it_changes": [
+                "Nothing by itself. continuity_restore is read-only and returns a reacclimation packet over archived session artifacts.",
+            ],
+            "mode_notes": [
+                "Archive continuity is not live truth. Recover sequence first, then reacquire live corroboration through text theater, browser-visible capture, consult/blackboard, snapshot, and only then contracts/env_report.",
+                "The continuity packet now carries query_state, resume_focus, and surface_prime metadata so restore can recover posture instead of just a recap.",
+                "This topic keeps continuity recovery inside the existing env_help / blackboard / env_report doctrine rather than spinning up a second authority plane.",
+            ],
+            "verification": [
+                "continuity_restore(summary='...', cwd='D:\\\\End-Game\\\\champion_councl')",
+                "env_read(query='text_theater_embodiment')",
+                "capture_supercam",
+                "env_read(query='text_theater_view', view='consult', section='blackboard', diagnostics=true)",
+                "env_read(query='text_theater_snapshot')",
+                "env_help(topic='env_report')",
+            ],
+            "gotchas": [
+                "continuity_restore does not recover hidden chain-of-thought; it recovers operational continuity from session artifacts.",
+                "Do not treat archive continuity as permission to skip the fresh live read order.",
+                "If the resumed seam is route/support diagnosis, use env_report only after the fresh theater and snapshot intake is satisfied.",
+            ],
+            "failure_modes": [
+                "No matching session archive found.",
+                "Recovered packet is stale because no fresh live corroboration was performed after restore.",
+                "Operator treats archive summary as authority instead of using it to seed the next valid reads.",
+            ],
+            "aliases": [
+                "continuity_restore_reacclimation",
+                "reacclimation",
+                "context_compression_resume",
+            ],
+            "surface_entrypoints": [],
+            "bridges_to": [
+                "continuity_restore",
+                "shared_state.text_theater",
+                "shared_state.blackboard",
+                "env_help",
+                "env_report",
+            ],
+            "related_commands": [
+                "text_theater_embodiment",
+                "text_theater_snapshot",
+                "env_report",
+                "capture_supercam",
+            ],
+        },
+        "output_state": {
+            "tool": "env_read",
+            "entry_kind": "derived_surface",
+            "title": "Output State",
+            "category": "observation_query",
+            "status": "live",
+            "transport": {
+                "local_proxy": True,
+                "browser_surface": True,
+                "ui_local_only": False,
+                "implemented_verb": True,
+            },
+            "target_contract": {
+                "shape": "shared_state.text_theater.snapshot.output_state",
+                "description": "Use the derived orienting surface to read current sequence, placement, equilibrium, drift, freshness, and next-read posture without inventing a second authority plane.",
+                "examples": [
+                    "{\"query\":\"text_theater_snapshot\"}",
+                    "{\"query\":\"text_theater_view\",\"view\":\"consult\",\"section\":\"blackboard\",\"diagnostics\":true}",
+                    "{\"report_id\":\"paired_state_alignment\"}",
+                ],
+            },
+            "summary": "Read the derived orienting surface that normalizes query posture, equilibrium, drift, freshness, and next reads across blackboard, mirror, docs, and corroboration.",
+            "when_to_use": [
+                "Use this when you need one compact read of where the system stands right now instead of mentally merging blackboard rows, mirror freshness, docs context, and snapshot posture yourself.",
+                "Use this after continuity restore or during route/support diagnosis when the next action should follow the current carried sequence instead of improvising from raw state.",
+                "Use this when you need the trajectory correlator to tell you whether the current operations are matching, widening, drifting, or breaking the carried sequence.",
+            ],
+            "what_it_changes": [
+                "Nothing. output_state is read-only and is derived from existing live surfaces.",
+            ],
+            "mode_notes": [
+                "output_state is a crane, not a controller: it orients the read across surfaces but does not replace blackboard, mirror, docs, or runtime authority.",
+                "The placement block is the relational summary handle: subject, objective, seam, evidence, drift, and next lanes on one carried surface.",
+                "trajectory_correlator interviews the current operation against the intended sequence and gives a smallest honest return path instead of silently letting drift accumulate.",
+                "continuity_cue rings the bell when a continuity drill is warranted; it should alert the operator, not secretly mutate the system.",
+                "Treat freshness as the current currency gauge for this surface; if freshness is stale or mirror_lag is true, corroborate before escalating conclusions.",
+            ],
+            "verification": [
+                "env_read(query='text_theater_snapshot')",
+                "env_read(query='text_theater_view', view='consult', section='blackboard', diagnostics=true)",
+                "env_report(report_id='paired_state_alignment')",
+            ],
+            "gotchas": [
+                "output_state summarizes live surfaces; it is not permission to skip the theater-first read order.",
+                "If output_state disagrees with visible theater, trust the freshness fields and re-run corroboration before treating it as a contradiction.",
+            ],
+            "failure_modes": [
+                "Sequence is live but placement is empty because the query thread was never seeded.",
+                "Freshness is lagged, so the orienting read is behind the current visible runtime.",
+                "Consumers expect legacy field names instead of the canonical band/placement contract.",
+                "trajectory_correlator can only grade what the live surfaces expose; if receipts or visible_read are absent, it will correctly stay conservative.",
+            ],
+            "aliases": [
+                "derived_orienting_surface",
+                "placement_lattice",
+                "equilibrium_surface",
+                "trajectory_correlator",
+                "continuity_cue",
+            ],
+            "surface_entrypoints": [],
+            "bridges_to": [
+                "shared_state.output_state",
+                "shared_state.text_theater.snapshot.output_state",
+                "shared_state.blackboard.working_set.query_thread",
+                "env_report",
+                "dreamer_state",
+            ],
+            "related_commands": [
+                "text_theater_snapshot",
+                "text_theater_view",
+                "paired_state_alignment",
+                "continuity_reacclimation",
+            ],
+        },
+        "paired_state_alignment": {
+            "tool": "env_report",
+            "entry_kind": "comparison_report",
+            "title": "Paired-State Alignment",
+            "category": "observation_query",
+            "status": "live",
+            "transport": {
+                "local_proxy": True,
+                "browser_surface": False,
+                "ui_local_only": False,
+                "implemented_verb": True,
+            },
+            "target_contract": {
+                "shape": "json payload",
+                "description": "Use env_report(report_id='paired_state_alignment') after theater-first intake to compare archive continuity posture against the live blackboard query thread.",
+                "examples": [
+                    "{\"report_id\":\"paired_state_alignment\"}",
+                    "{\"report_id\":\"paired_state_alignment\",\"raw_slice\":true}",
+                ],
+            },
+            "summary": "Compare archive query posture and live query posture on one carried sequence without creating a second authority plane.",
+            "when_to_use": [
+                "Use this after continuity restore when you need to know whether the recovered archive seam still matches the live query thread.",
+                "Use this when reset-aware reacclimation needs an explicit drift/freshness classification instead of intuition.",
+            ],
+            "what_it_changes": [
+                "Nothing. paired_state_alignment is a read-only env_report recipe.",
+            ],
+            "mode_notes": [
+                "The archive side seeds the comparison, but the live blackboard query thread remains the live authority.",
+                "This report depends on theater-first intake and current text-theater snapshot freshness.",
+            ],
+            "verification": [
+                "continuity_restore(summary='...', cwd='D:\\\\End-Game\\\\champion_councl')",
+                "env_read(query='text_theater_embodiment')",
+                "env_read(query='text_theater_view', view='consult', section='blackboard', diagnostics=true)",
+                "env_read(query='text_theater_snapshot')",
+                "env_report(report_id='paired_state_alignment')",
+            ],
+            "gotchas": [
+                "This does not recover hidden chain-of-thought; it compares carried posture fields only.",
+                "Do not let the archive side outrank the live blackboard query thread after the comparison is built.",
+            ],
+            "failure_modes": [
+                "No matching archive seam found for the live query thread.",
+                "Live mirror is stale, so the pair is not trustworthy yet.",
+                "Objective or subject drifted across the reset boundary.",
+            ],
+            "aliases": [
+                "report:paired_state_alignment",
+                "paired_state",
+                "archive_live_pair",
+            ],
+            "surface_entrypoints": [],
+            "bridges_to": [
+                "continuity_restore",
+                "shared_state.blackboard",
+                "shared_state.text_theater.snapshot",
+                "env_report",
+            ],
+            "related_commands": [
+                "continuity_restore",
+                "text_theater_embodiment",
+                "text_theater_snapshot",
+                "env_report",
+            ],
+        }
+    }
 
 
 def _env_help_search_entries(registry: dict, search_text: str, limit: int = 12) -> list[dict]:
@@ -5252,7 +6929,8 @@ def _env_help_index_payload(registry: dict, normalized_args: dict) -> dict:
     queries = registry.get("queries") if isinstance(registry.get("queries"), dict) else {}
     families = registry.get("families") if isinstance(registry.get("families"), dict) else {}
     playbooks = registry.get("playbooks") if isinstance(registry.get("playbooks"), dict) else {}
-    builtin_topics = _env_help_builtin_topics()
+    builtin_topics = dict(_env_help_builtin_topics())
+    builtin_topics.update(_env_help_extra_topics())
     ui_action_count = sum(1 for value in commands.values() if isinstance(value, dict) and str(value.get("entry_kind") or "") == "ui_action")
     env_command_count = max(0, len(commands) - ui_action_count)
     family_rows = []
@@ -5293,10 +6971,30 @@ def _env_help_index_payload(registry: dict, normalized_args: dict) -> dict:
             "tool_topic_count": len(builtin_topics),
             "env_command_count": env_command_count,
             "ui_action_count": ui_action_count,
+            "cold_start": {
+                "summary": "Cold agents should learn the local environment registry through env_help itself before guessing commands or falling back to reset advice.",
+                "sequence": [
+                    "env_help(topic='env_help')",
+                    "env_help(topic='index')",
+                    "env_help(topic='output_state')",
+                    "env_help(topic='env_report')",
+                    "env_help(topic='continuity_reacclimation')",
+                    "env_help(category='builder_motion') or env_help(search='mounted asset floor')",
+                ],
+                "capsule_bridge": [
+                    "Capsule get_help('environment') is the umbrella help view.",
+                    "env_help(...) is the richer server-local registry for environment/browser/runtime surfaces.",
+                    "If you only read get_help('environment') and never query env_help(...), you can miss live local topics, aliases, and sequencing guidance.",
+                ],
+            },
             "examples": [
+                "env_help(topic='env_help')",
+                "env_help(topic='index')",
+                "env_help(topic='output_state')",
                 "env_help(topic='env_report')",
                 "env_help(topic='dreamer_control_plane')",
                 "env_help(topic='dreamer_mechanics_obs')",
+                "env_help(topic='continuity_reacclimation')",
                 "env_help(topic='workbench_set_timeline_cursor')",
                 "env_help(topic='workbench_stage_contact')",
                 "env_help(topic='workbench-toggle-turntable')",
@@ -5305,6 +7003,43 @@ def _env_help_index_payload(registry: dict, normalized_args: dict) -> dict:
                 "env_help(category='builder_motion')",
                 "env_help(topic='capture_time_strip')",
                 "env_help(search='mounted asset floor')",
+            ],
+        },
+    }
+
+
+def _get_help_environment_bridge_payload(args: dict | None = None) -> dict | None:
+    args = args or {}
+    topic = str(args.get("topic", "") or "").strip().lower()
+    if topic not in ("environment", "env_help", "environment_help", "help:environment", "help:env_help"):
+        return None
+    return {
+        "tool": "get_help",
+        "status": "ok",
+        "summary": "Read environment help bridge",
+        "normalized_args": {
+            "topic": str(args.get("topic", "") or ""),
+        },
+        "operation": "get_help",
+        "operation_status": "ok",
+        "entry_type": "bridge",
+        "bridge_help": {
+            "title": "Environment Help Bridge",
+            "summary": "Capsule get_help('environment') is the umbrella help surface. Use env_help(...) to query the richer local environment/browser/runtime registry exposed by this server.",
+            "why_this_exists": [
+                "Cold agents often find the capsule environment category but miss the richer local env_help registry.",
+                "The local env_help registry carries server-side builtin topics, aliases, playbooks, and sequencing guidance that are not guaranteed to exist in the capsule help registry.",
+            ],
+            "next_calls": [
+                "env_help(topic='env_help')",
+                "env_help(topic='index')",
+                "env_help(topic='output_state')",
+                "env_help(topic='env_report')",
+                "env_help(topic='continuity_reacclimation')",
+            ],
+            "gotchas": [
+                "Do not stop at get_help('environment') if the task is environment/browser/runtime-specific.",
+                "get_help('env_help') may be absent in the capsule help registry; env_help(topic='env_help') is the local self-documenting entrypoint.",
             ],
         },
     }
@@ -5337,7 +7072,18 @@ def _env_help_local_proxy_payload(args: dict | None = None) -> dict | None:
     queries = registry.get("queries") if isinstance(registry.get("queries"), dict) else {}
     families = registry.get("families") if isinstance(registry.get("families"), dict) else {}
     playbooks = registry.get("playbooks") if isinstance(registry.get("playbooks"), dict) else {}
-    builtin_topics = _env_help_builtin_topics()
+    builtin_topics = dict(_env_help_builtin_topics())
+    builtin_topics.update(_env_help_extra_topics())
+    builtin_topic_aliases = {
+        "environment_help": "env_help",
+        "help:environment": "env_help",
+        "help:env_help": "env_help",
+        "envhelp": "env_help",
+        "environment": "env_help",
+        "continuity_restore_reacclimation": "continuity_reacclimation",
+        "reacclimation": "continuity_reacclimation",
+        "context_compression_resume": "continuity_reacclimation",
+    }
     alias_map: dict[str, str] = {}
     for key, value in commands.items():
         if not isinstance(value, dict):
@@ -5355,6 +7101,9 @@ def _env_help_local_proxy_payload(args: dict | None = None) -> dict | None:
         "search": search,
         "category": category,
     }
+    if topic in builtin_topic_aliases:
+        topic = builtin_topic_aliases.get(topic) or topic
+        normalized_args["topic"] = topic
     retired_topics = {
         "workbench_apply_motion_preset": {
             "title": "Retired Motion Preset Command",
@@ -6431,6 +8180,7 @@ def _env_read_local_proxy_payload(args: dict | None = None) -> dict | None:
         response_key: entry,
         "capture": entry,
     }
+    _env_note_visual_corroboration_read(query_text, _env_live_cache_snapshot(), entry)
     return payload
 
 
@@ -8969,6 +10719,32 @@ async def _workflow_call_local_proxy_tool(tool_name: str, args: dict, source: st
                 promote_after_restore=bool(args.get("promote_after_restore", False)),
             )
         return {"error": "restore_state_revision not supported by persistence adapter"}
+    if tool_name == "continuity_status":
+        try:
+            limit = int(args.get("limit", 10) or 10)
+        except Exception:
+            limit = 10
+        return continuity_status_payload(
+            limit=max(1, min(limit, 50)),
+            codex_home=str(args.get("codex_home", "") or "").strip() or None,
+        )
+    if tool_name == "continuity_restore":
+        try:
+            limit = int(args.get("limit", 3) or 3)
+        except Exception:
+            limit = 3
+        try:
+            since_days = int(args.get("since_days", 30) or 30)
+        except Exception:
+            since_days = 30
+        return continuity_restore_payload(
+            summary=str(args.get("summary", "") or ""),
+            cwd=str(args.get("cwd", "") or ""),
+            limit=max(1, min(limit, 10)),
+            since_days=max(1, min(since_days, 3650)),
+            session_path=str(args.get("session_path", "") or "").strip() or None,
+            codex_home=str(args.get("codex_home", "") or "").strip() or None,
+        )
     product_bundle_payload = await _product_bundle_local_tool(tool_name, args)
     if product_bundle_payload is not None:
         return product_bundle_payload
@@ -9782,6 +11558,48 @@ async def proxy_tool_call(tool_name: str, request: Request):
         if err_msg:
             return JSONResponse(status_code=503, content=payload)
         return {"result": {"content": [{"type": "text", "text": json.dumps(payload)}], "isError": False}}
+
+    if tool_name == "continuity_status":
+        args = body if isinstance(body, dict) else {}
+        try:
+            limit = int(args.get("limit", 10) or 10)
+        except Exception:
+            limit = 10
+        payload = continuity_status_payload(
+            limit=max(1, min(limit, 50)),
+            codex_home=str(args.get("codex_home", "") or "").strip() or None,
+        )
+        _broadcast_activity(tool_name, args, payload, 0, None, source=source, client_id=client_id)
+        return {"result": {"content": [{"type": "text", "text": json.dumps(payload)}], "isError": False}}
+
+    if tool_name == "continuity_restore":
+        args = body if isinstance(body, dict) else {}
+        try:
+            limit = int(args.get("limit", 3) or 3)
+        except Exception:
+            limit = 3
+        try:
+            since_days = int(args.get("since_days", 30) or 30)
+        except Exception:
+            since_days = 30
+        payload = continuity_restore_payload(
+            summary=str(args.get("summary", "") or ""),
+            cwd=str(args.get("cwd", "") or ""),
+            limit=max(1, min(limit, 10)),
+            since_days=max(1, min(since_days, 3650)),
+            session_path=str(args.get("session_path", "") or "").strip() or None,
+            codex_home=str(args.get("codex_home", "") or "").strip() or None,
+        )
+        err_msg = payload.get("error") if isinstance(payload, dict) else None
+        _broadcast_activity(tool_name, args, payload, 0, err_msg, source=source, client_id=client_id)
+        if err_msg:
+            return JSONResponse(status_code=404, content=payload)
+        return {"result": {"content": [{"type": "text", "text": json.dumps(payload)}], "isError": False}}
+
+    get_help_bridge_payload = _get_help_environment_bridge_payload(body if isinstance(body, dict) else {}) if tool_name == "get_help" else None
+    if tool_name == "get_help" and get_help_bridge_payload is not None:
+        _broadcast_activity(tool_name, body if isinstance(body, dict) else {}, get_help_bridge_payload, 0, None, source=source, client_id=client_id)
+        return {"result": {"content": [{"type": "text", "text": json.dumps(get_help_bridge_payload)}], "isError": False}}
 
     env_help_proxy_payload = _env_help_local_proxy_payload(body if isinstance(body, dict) else {}) if tool_name == "env_help" else None
     if tool_name == "env_help" and env_help_proxy_payload is not None:
@@ -10740,6 +12558,227 @@ def _dreamer_mechanics_live_snapshot() -> tuple[dict | None, int]:
     return snapshot, updated_ms
 
 
+def _dreamer_snapshot_blackboard_context(snapshot: dict) -> dict:
+    blackboard = snapshot.get("blackboard") if isinstance(snapshot.get("blackboard"), dict) else {}
+    working_set = blackboard.get("working_set") if isinstance(blackboard.get("working_set"), dict) else {}
+    focus = blackboard.get("focus") if isinstance(blackboard.get("focus"), dict) else {}
+    return {
+        "row_count": int(blackboard.get("row_count") or 0),
+        "families": [str(item or "") for item in list(blackboard.get("families") or [])[:8]],
+        "lead_row_ids": [str(item or "") for item in list(working_set.get("lead_row_ids") or [])[:8]],
+        "intended_support_set": [str(item or "") for item in list(working_set.get("intended_support_set") or [])[:8]],
+        "missing_support_set": [str(item or "") for item in list(working_set.get("missing_support_set") or [])[:8]],
+        "focus": {
+            "kind": str(focus.get("kind") or ""),
+            "id": str(focus.get("id") or ""),
+            "label": str(focus.get("label") or ""),
+        },
+    }
+
+
+def _dreamer_snapshot_query_thread(snapshot: dict) -> dict:
+    blackboard = snapshot.get("blackboard") if isinstance(snapshot.get("blackboard"), dict) else {}
+    working_set = blackboard.get("working_set") if isinstance(blackboard.get("working_set"), dict) else {}
+    query_thread = working_set.get("query_thread") if isinstance(working_set.get("query_thread"), dict) else {}
+    if not isinstance(query_thread, dict) or not query_thread:
+        return {}
+    return {
+        "sequence_id": str(query_thread.get("sequence_id") or ""),
+        "segment_id": str(query_thread.get("segment_id") or ""),
+        "session_id": str(query_thread.get("session_id") or ""),
+        "subject_key": str(query_thread.get("subject_key") or ""),
+        "status": str(query_thread.get("status") or ""),
+        "current_pivot_id": str(query_thread.get("current_pivot_id") or ""),
+        "objective_id": str(query_thread.get("objective_id") or ""),
+        "objective_label": str(query_thread.get("objective_label") or ""),
+        "visible_read": str(query_thread.get("visible_read") or ""),
+        "anchor_row_ids": [str(item or "") for item in list(query_thread.get("anchor_row_ids") or [])[:8]],
+        "priority_pivots": [
+            {
+                "pivot_id": str((item or {}).get("pivot_id") or ""),
+                "status": str((item or {}).get("status") or ""),
+            }
+            for item in list(query_thread.get("priority_pivots") or [])[:4]
+            if isinstance(item, dict)
+        ],
+        "next_reads": [
+            {
+                "step": str((item or {}).get("step") or ""),
+                "reason": str((item or {}).get("reason") or ""),
+            }
+            for item in list(query_thread.get("next_reads") or [])[:4]
+            if isinstance(item, dict)
+        ],
+        "help_lane": [
+            {
+                "topic": str((item or {}).get("topic") or ""),
+                "reason": str((item or {}).get("reason") or ""),
+            }
+            for item in list(query_thread.get("help_lane") or [])[:4]
+            if isinstance(item, dict)
+        ],
+        "raw_state_guardrail": str(query_thread.get("raw_state_guardrail") or ""),
+    }
+
+
+def _dreamer_snapshot_oracle_context(snapshot: dict) -> dict:
+    output_state = snapshot.get("output_state") if isinstance(snapshot.get("output_state"), dict) else {}
+    placement = output_state.get("placement") if isinstance(output_state.get("placement"), dict) else {}
+    equilibrium = output_state.get("equilibrium") if isinstance(output_state.get("equilibrium"), dict) else {}
+    technolit_measure = (
+        equilibrium.get("technolit_measure")
+        if isinstance(equilibrium.get("technolit_measure"), dict)
+        else {}
+    )
+    drift = output_state.get("drift") if isinstance(output_state.get("drift"), dict) else {}
+    watch_board = output_state.get("watch_board") if isinstance(output_state.get("watch_board"), dict) else {}
+    tinkerbell_attention = output_state.get("tinkerbell_attention") if isinstance(output_state.get("tinkerbell_attention"), dict) else {}
+    technolit_distribution_packet = (
+        output_state.get("technolit_distribution_packet")
+        if isinstance(output_state.get("technolit_distribution_packet"), dict)
+        else {}
+    )
+    technolit_treasury_bridge_packet = (
+        output_state.get("technolit_treasury_bridge_packet")
+        if isinstance(output_state.get("technolit_treasury_bridge_packet"), dict)
+        else {}
+    )
+    holder_snapshot_packet = (
+        output_state.get("holder_snapshot_packet")
+        if isinstance(output_state.get("holder_snapshot_packet"), dict)
+        else {}
+    )
+    raid_contribution_packet = (
+        output_state.get("raid_contribution_packet")
+        if isinstance(output_state.get("raid_contribution_packet"), dict)
+        else {}
+    )
+    settlement_epoch_packet = (
+        output_state.get("settlement_epoch_packet")
+        if isinstance(output_state.get("settlement_epoch_packet"), dict)
+        else {}
+    )
+    hold_door_raid_report_packet = (
+        output_state.get("hold_door_raid_report_packet")
+        if isinstance(output_state.get("hold_door_raid_report_packet"), dict)
+        else {}
+    )
+    hold_door_comedia_packet = (
+        output_state.get("hold_door_comedia_packet")
+        if isinstance(output_state.get("hold_door_comedia_packet"), dict)
+        else {}
+    )
+    threat_bounty_packet = (
+        output_state.get("threat_bounty_packet")
+        if isinstance(output_state.get("threat_bounty_packet"), dict)
+        else {}
+    )
+    active_pointer = tinkerbell_attention.get("active_pointer") if isinstance(tinkerbell_attention.get("active_pointer"), dict) else {}
+    field_disposition = output_state.get("field_disposition") if isinstance(output_state.get("field_disposition"), dict) else {}
+    pan_probe = output_state.get("pan_probe") if isinstance(output_state.get("pan_probe"), dict) else {}
+    writer_identity = pan_probe.get("writer_identity") if isinstance(pan_probe.get("writer_identity"), dict) else {}
+    equilibrium_band = str(equilibrium.get("band") or equilibrium.get("state") or "")
+    drift_band = str(drift.get("band") or drift.get("level") or "")
+    watch_band = str(watch_board.get("band") or watch_board.get("status") or "")
+    field_settling_band = str(field_disposition.get("settling_band") or field_disposition.get("settle_band") or "")
+    return {
+        "summary": str(output_state.get("summary") or ""),
+        "equilibrium_band": equilibrium_band,
+        "equilibrium_state": equilibrium_band,
+        "equilibrium_summary": str(equilibrium.get("summary") or ""),
+        "equilibrium_signals": [str(item or "") for item in list(equilibrium.get("signals") or [])[:6]],
+        "technolit_band": str(technolit_measure.get("band") or ""),
+        "technolit_symbol": str(technolit_measure.get("symbol") or ""),
+        "technolit_coin_id": str(technolit_measure.get("coin_id") or ""),
+        "technolit_summary": str(technolit_measure.get("summary") or ""),
+        "technolit_flow_posture": str(technolit_measure.get("flow_posture") or ""),
+        "technolit_distribution_posture": str(technolit_measure.get("distribution_posture") or ""),
+        "technolit_burn_gate": str(technolit_measure.get("burn_gate") or ""),
+        "technolit_creator_rewards_unclaimed_sol": _dreamer_mechanics_number(
+            technolit_measure.get("creator_rewards_unclaimed_sol"),
+            0.0,
+        ),
+        "technolit_distribution_stage": str(technolit_distribution_packet.get("stage") or ""),
+        "technolit_distribution_next_contract": str(technolit_distribution_packet.get("next_contract") or ""),
+        "technolit_distribution_public_line": str(technolit_distribution_packet.get("public_line") or ""),
+        "technolit_distribution_summary": str(technolit_distribution_packet.get("summary") or ""),
+        "technolit_treasury_bridge_stage": str(technolit_treasury_bridge_packet.get("stage") or ""),
+        "technolit_treasury_bridge_next_contract": str(technolit_treasury_bridge_packet.get("next_contract") or ""),
+        "technolit_treasury_bridge_settlement_asset": str(technolit_treasury_bridge_packet.get("settlement_asset") or ""),
+        "technolit_treasury_bridge_summary": str(technolit_treasury_bridge_packet.get("summary") or ""),
+        "holder_snapshot_stage": str(holder_snapshot_packet.get("stage") or ""),
+        "holder_snapshot_camp_label": str(holder_snapshot_packet.get("camp_label") or ""),
+        "holder_snapshot_summary": str(holder_snapshot_packet.get("summary") or ""),
+        "raid_contribution_stage": str(raid_contribution_packet.get("stage") or ""),
+        "raid_contribution_label": str(raid_contribution_packet.get("raid_label") or ""),
+        "raid_contribution_summary": str(raid_contribution_packet.get("summary") or ""),
+        "settlement_epoch_stage": str(settlement_epoch_packet.get("stage") or ""),
+        "settlement_epoch_asset": str(settlement_epoch_packet.get("settlement_asset") or ""),
+        "settlement_epoch_summary": str(settlement_epoch_packet.get("summary") or ""),
+        "settlement_epoch_hourly": str(((settlement_epoch_packet.get("game_clock") or {}).get("hourly")) or ""),
+        "settlement_epoch_weekly": str(((settlement_epoch_packet.get("game_clock") or {}).get("weekly")) or ""),
+        "settlement_epoch_circuit_breaker": str(settlement_epoch_packet.get("circuit_breaker_mode") or ""),
+        "hold_door_raid_report_stage": str(hold_door_raid_report_packet.get("stage") or ""),
+        "hold_door_raid_report_name": str(hold_door_raid_report_packet.get("display_name") or ""),
+        "hold_door_raid_report_summary": str(hold_door_raid_report_packet.get("summary") or ""),
+        "hold_door_comedia_stage": str(hold_door_comedia_packet.get("stage") or ""),
+        "hold_door_comedia_mood": str(hold_door_comedia_packet.get("mood") or ""),
+        "hold_door_comedia_reaction": str(hold_door_comedia_packet.get("reaction") or ""),
+        "hold_door_comedia_caption_line": str(hold_door_comedia_packet.get("caption_line") or ""),
+        "hold_door_comedia_tempo_bpm": _dreamer_mechanics_number(
+            hold_door_comedia_packet.get("tempo_bpm"),
+            0.0,
+        ),
+        "hold_door_comedia_trigger": str(hold_door_comedia_packet.get("trajectory_trigger") or ""),
+        "threat_bounty_stage": str(threat_bounty_packet.get("stage") or ""),
+        "threat_bounty_summary": str(threat_bounty_packet.get("summary") or ""),
+        "threat_bounty_active_threats": [str(item or "") for item in list(threat_bounty_packet.get("active_threats") or [])[:6]],
+        "drift_band": drift_band,
+        "drift_level": drift_band,
+        "watch_band": watch_band,
+        "watch_status": watch_band,
+        "watch_priority": str(watch_board.get("priority") or watch_band),
+        "watch_alerts": [str(item or "") for item in list(watch_board.get("alerts") or [])[:6]],
+        "attention_band": str(tinkerbell_attention.get("band") or ""),
+        "attention_summary": str(tinkerbell_attention.get("summary") or ""),
+        "attention_kind": str(active_pointer.get("target_kind") or tinkerbell_attention.get("attention_kind") or ""),
+        "attention_target": str(active_pointer.get("target") or tinkerbell_attention.get("attention_target") or ""),
+        "attention_confidence": _dreamer_mechanics_number(
+            active_pointer.get("confidence", tinkerbell_attention.get("attention_confidence")),
+            0.0,
+        ),
+        "attention_why_now": str(active_pointer.get("why_now") or active_pointer.get("why_this_spot") or ""),
+        "attention_expected_read": str(active_pointer.get("expected_read") or ""),
+        "attention_hold_candidate": bool(active_pointer.get("hold_candidate", tinkerbell_attention.get("hold_candidate"))),
+        "attention_source_ripples": [str(item or "") for item in list(active_pointer.get("source_ripples") or [])[:6]],
+        "attention_candidate_kinds": [
+            str((item or {}).get("target_kind") or "")
+            for item in list(tinkerbell_attention.get("prospect_candidates") or [])[:4]
+            if isinstance(item, dict)
+        ],
+        "field_medium_kind": str(field_disposition.get("medium_kind") or ""),
+        "field_propagation_mode": str(field_disposition.get("propagation_mode") or ""),
+        "field_settling_band": field_settling_band,
+        "field_settle_band": field_settling_band,
+        "pan_band": str(pan_probe.get("band") or ""),
+        "pan_summary": str(pan_probe.get("summary") or ""),
+        "rotational_grounding": bool(pan_probe.get("rotational_grounding")),
+        "contact_bias": str(pan_probe.get("contact_bias") or ""),
+        "support_role": str(pan_probe.get("support_role") or ""),
+        "selected_bone_id": str(pan_probe.get("selected_bone_id") or ""),
+        "selected_contact_joint": str(pan_probe.get("selected_contact_joint") or ""),
+        "placement_subject": str(placement.get("subject") or ""),
+        "placement_objective": str(placement.get("objective") or ""),
+        "placement_seam": str(placement.get("seam") or ""),
+        "placement_evidence": _json_clone(placement.get("evidence") or {}),
+        "placement_drift": _json_clone(placement.get("drift") or {}),
+        "placement_next": _json_clone(placement.get("next") or {}),
+        "writer_last_sync_reason": str(writer_identity.get("last_sync_reason") or ""),
+        "writer_tool": str(writer_identity.get("render_last_tool_applied") or ""),
+        "writer_source": str(writer_identity.get("render_last_tool_source") or ""),
+    }
+
+
 def _dreamer_mechanics_contact_row(contacts: list[dict], joint_id: str) -> dict:
     target = str(joint_id or "").strip().lower()
     if not target:
@@ -11254,6 +13293,9 @@ def _dreamer_mechanics_observation_payload(snapshot: dict, updated_ms: int) -> d
     timeline = snapshot.get("timeline") if isinstance(snapshot.get("timeline"), dict) else {}
     balance = snapshot.get("balance") if isinstance(snapshot.get("balance"), dict) else {}
     contacts = snapshot.get("contacts") if isinstance(snapshot.get("contacts"), list) else []
+    blackboard_context = _dreamer_snapshot_blackboard_context(snapshot)
+    query_thread = _dreamer_snapshot_query_thread(snapshot)
+    oracle_context = _dreamer_snapshot_oracle_context(snapshot)
 
     lower_leg_l = _dreamer_mechanics_contact_row(contacts, "lower_leg_l")
     foot_r = _dreamer_mechanics_contact_row(contacts, "foot_r")
@@ -11370,6 +13412,9 @@ def _dreamer_mechanics_observation_payload(snapshot: dict, updated_ms: int) -> d
             "behavior": str((((snapshot.get("runtime") or {}).get("behavior")) or "")),
             "activity": str((((snapshot.get("runtime") or {}).get("activity")) or "")),
         },
+        "blackboard": blackboard_context,
+        "query_thread": query_thread,
+        "oracle_context": oracle_context,
         "correction_table": _json_clone(_DREAMER_KNEEL_CORRECTIONS),
         "mode_legend": {
             "balance_mode_code": _json_clone(_DREAMER_BALANCE_MODE_CODES),
@@ -11540,6 +13585,8 @@ def _dreamer_rank_proposals(observation_payload: dict, config: dict | None = Non
     task = _dreamer_control_plane_task(config)
     corrections = _dreamer_correction_table_for_task(task)
     features = observation_payload.get("features") if isinstance(observation_payload.get("features"), dict) else {}
+    oracle_context = observation_payload.get("oracle_context") if isinstance(observation_payload.get("oracle_context"), dict) else {}
+    query_thread = observation_payload.get("query_thread") if isinstance(observation_payload.get("query_thread"), dict) else {}
     balance = features.get("balance") if isinstance(features.get("balance"), dict) else {}
     contacts = features.get("contacts") if isinstance(features.get("contacts"), dict) else {}
     pose = features.get("pose") if isinstance(features.get("pose"), dict) else {}
@@ -11551,6 +13598,12 @@ def _dreamer_rank_proposals(observation_payload: dict, config: dict | None = Non
     hips_world_y = _dreamer_mechanics_number(pose.get("hips_world_y"), 0.0)
     load_share = _dreamer_mechanics_number(foot.get("load_share"), 0.0)
     supporting = bool(foot.get("supporting"))
+    rotational_grounding = bool(oracle_context.get("rotational_grounding"))
+    pan_band = str(oracle_context.get("pan_band") or "")
+    contact_bias = str(oracle_context.get("contact_bias") or "")
+    support_role = str(oracle_context.get("support_role") or "")
+    watch_alerts = {str(item or "").strip().lower() for item in list(oracle_context.get("watch_alerts") or [])[:8]}
+    pivot_id = str(query_thread.get("current_pivot_id") or "")
 
     ranked = []
     for entry in corrections:
@@ -11594,6 +13647,30 @@ def _dreamer_rank_proposals(observation_payload: dict, config: dict | None = Non
             score += 0.8
             reasons.append("right foot is carrying nearly all support load")
 
+        if rotational_grounding and action_key == "widen_anchor_foot":
+            score += 1.6
+            reasons.append("Pan probe says the planted foot is resolving through rotational grounding")
+
+        if contact_bias in {"inverted", "wrong-way"} and action_key == "widen_anchor_foot":
+            score += 1.0
+            reasons.append("planted foot bias is inverted/wrong-way in the Pan/contact read")
+
+        if support_role == "brace" and action_key in {"counter_rotate_spine", "counter_rotate_chest"}:
+            score += 0.8
+            reasons.append("Pan probe says the active support role is brace, so upper-body counter-rotation matters")
+
+        if "support risk" in watch_alerts and action_key == "widen_anchor_foot":
+            score += 0.7
+            reasons.append("output_state watch board is carrying a live support-risk alert")
+
+        if pan_band == "rotational_grounding" and action_key == "widen_anchor_foot":
+            score += 0.6
+            reasons.append("Pan probe is already in a rotational-grounding band")
+
+        if pivot_id == "operative_memory_alignment" and action_key == "widen_anchor_foot":
+            score += 0.2
+            reasons.append("current pivot still favors alignment-preserving corrections over larger posture swings")
+
         if action_key == "raise_hips" and risk < 0.25 and gap < 0.08:
             score += 0.4
             reasons.append("carrier lift only helps if the kneel is already compressed")
@@ -11623,6 +13700,9 @@ def _dreamer_rank_proposals(observation_payload: dict, config: dict | None = Non
 def _dreamer_compact_observation(payload: dict | None = None) -> dict:
     source = payload if isinstance(payload, dict) else {}
     features = source.get("features") if isinstance(source.get("features"), dict) else {}
+    blackboard = source.get("blackboard") if isinstance(source.get("blackboard"), dict) else {}
+    query_thread = source.get("query_thread") if isinstance(source.get("query_thread"), dict) else {}
+    oracle_context = source.get("oracle_context") if isinstance(source.get("oracle_context"), dict) else {}
     route = features.get("route") if isinstance(features.get("route"), dict) else {}
     balance = features.get("balance") if isinstance(features.get("balance"), dict) else {}
     contacts = features.get("contacts") if isinstance(features.get("contacts"), dict) else {}
@@ -11664,6 +13744,51 @@ def _dreamer_compact_observation(payload: dict | None = None) -> dict:
             "hips_world_z": _dreamer_mechanics_number(pose.get("hips_world_z"), 0.0),
             "lower_leg_l_pitch_deg": _dreamer_mechanics_number(pose.get("lower_leg_l_pitch_deg"), 0.0),
             "foot_r_yaw_deg": _dreamer_mechanics_number(pose.get("foot_r_yaw_deg"), 0.0),
+        },
+        "blackboard": {
+            "row_count": int(blackboard.get("row_count") or 0),
+            "lead_row_ids": list(blackboard.get("lead_row_ids") or []),
+            "families": list(blackboard.get("families") or []),
+        },
+        "sequence": {
+            "sequence_id": str(query_thread.get("sequence_id") or ""),
+            "segment_id": str(query_thread.get("segment_id") or ""),
+            "session_id": str(query_thread.get("session_id") or ""),
+            "subject_key": str(query_thread.get("subject_key") or ""),
+            "status": str(query_thread.get("status") or ""),
+            "current_pivot_id": str(query_thread.get("current_pivot_id") or ""),
+            "objective_label": str(query_thread.get("objective_label") or query_thread.get("objective_id") or ""),
+        },
+        "oracle": {
+            "summary": str(oracle_context.get("summary") or ""),
+            "equilibrium_band": str(oracle_context.get("equilibrium_band") or oracle_context.get("equilibrium_state") or ""),
+            "equilibrium_state": str(oracle_context.get("equilibrium_state") or ""),
+            "technolit_band": str(oracle_context.get("technolit_band") or ""),
+            "technolit_symbol": str(oracle_context.get("technolit_symbol") or ""),
+            "technolit_summary": str(oracle_context.get("technolit_summary") or ""),
+            "technolit_flow_posture": str(oracle_context.get("technolit_flow_posture") or ""),
+            "technolit_distribution_posture": str(oracle_context.get("technolit_distribution_posture") or ""),
+            "technolit_burn_gate": str(oracle_context.get("technolit_burn_gate") or ""),
+            "technolit_creator_rewards_unclaimed_sol": oracle_context.get("technolit_creator_rewards_unclaimed_sol"),
+            "watch_band": str(oracle_context.get("watch_band") or oracle_context.get("watch_status") or ""),
+            "watch_status": str(oracle_context.get("watch_status") or ""),
+            "watch_alerts": list(oracle_context.get("watch_alerts") or []),
+            "attention_band": str(oracle_context.get("attention_band") or ""),
+            "attention_kind": str(oracle_context.get("attention_kind") or ""),
+            "attention_target": str(oracle_context.get("attention_target") or ""),
+            "attention_why_now": str(oracle_context.get("attention_why_now") or ""),
+            "attention_expected_read": str(oracle_context.get("attention_expected_read") or ""),
+            "attention_hold_candidate": bool(oracle_context.get("attention_hold_candidate")),
+            "field_settling_band": str(oracle_context.get("field_settling_band") or oracle_context.get("field_settle_band") or ""),
+            "pan_band": str(oracle_context.get("pan_band") or ""),
+            "rotational_grounding": bool(oracle_context.get("rotational_grounding")),
+            "contact_bias": str(oracle_context.get("contact_bias") or ""),
+            "support_role": str(oracle_context.get("support_role") or ""),
+            "placement": {
+                "subject": str(oracle_context.get("placement_subject") or ""),
+                "objective": str(oracle_context.get("placement_objective") or ""),
+                "seam": str(oracle_context.get("placement_seam") or ""),
+            },
         },
     }
 
@@ -11920,7 +14045,9 @@ async def dreamer_transform_relay(task: str = "", bones: str = ""):
     payload["gate"] = {
         "theater_first_satisfied": True,
         "required_sequence": [
-            "env_read(query='text_theater_embodiment')",
+            "env_read(query='text_theater_view', view='render', diagnostics=true) or env_read(query='text_theater_embodiment')",
+            "env_control(command='capture_supercam')",
+            "env_read(query='supercam')",
             "env_read(query='text_theater_snapshot')",
             "env_report(report_id='route_stability_diagnosis')",
             "env_read(query='shared_state')",
@@ -12340,6 +14467,9 @@ async def _dreamer_refresh_state(force: bool = False, include_weights: bool = Tr
         status = _parse_mcp_result(status_raw.get("result")) or {}
         rssm = _parse_mcp_result(rssm_raw.get("result")) or {}
         dreamer = status.get("dreamer", {}) if isinstance(status, dict) else {}
+        effective, config_source, config_warnings = await _dreamer_effective_config()
+        current_payload, current_error = _dreamer_mechanics_current_payload()
+        ranked_payload = _dreamer_rank_proposals(current_payload, effective) if isinstance(current_payload, dict) else {}
 
         cycles = dreamer.get("training_cycles", 0)
         if cycles > _dreamer_last_cycle and dreamer.get("last_train"):
@@ -12376,6 +14506,14 @@ async def _dreamer_refresh_state(force: bool = False, include_weights: bool = Tr
             "fitness": status.get("fitness") if isinstance(status, dict) else None,
             "history_source": "server_sampler",
             "history_updated_ts": now,
+            "control_plane": _dreamer_control_plane_view(effective),
+            "config_source": config_source,
+            "config_warnings": list(config_warnings or []),
+            "current_observation": _dreamer_compact_observation(current_payload),
+            "current_observation_error": str(current_error or ""),
+            "oracle_context": _json_clone((current_payload or {}).get("oracle_context") or {}),
+            "query_thread": _json_clone((current_payload or {}).get("query_thread") or {}),
+            "ranked_actions_preview": _json_clone((ranked_payload.get("ranked_actions") if isinstance(ranked_payload, dict) else [])[:3]),
         }
         _dreamer_cache["data"] = result
         _dreamer_cache["ts"] = now
@@ -12566,6 +14704,164 @@ async def hf_router_proxy_default(subpath: str, request: Request):
 @app.api_route("/hf-router/{provider}/v1/{subpath:path}", methods=["GET", "POST"])
 async def hf_router_proxy_provider(provider: str, subpath: str, request: Request):
     return await _hf_router_proxy_impl(request, subpath, provider=provider)
+
+
+async def _pi_router_models_impl(request: Request, provider: str | None = None):
+    provider_name = _pi_router_normalize_provider(provider or request.query_params.get("provider"))
+    if not provider_name:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": "Unsupported Pi provider",
+                "providers": sorted(_PI_ROUTER_ALLOWED_PROVIDERS),
+            },
+        )
+
+    model_hint = str(request.query_params.get("model") or "").strip()
+    if not model_hint:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": "Model hint is required for Pi router slots",
+                "provider": provider_name,
+            },
+        )
+
+    return JSONResponse(
+        content={
+            "object": "list",
+            "data": [
+                {
+                    "id": model_hint,
+                    "object": "model",
+                    "owned_by": provider_name,
+                }
+            ],
+            "provider": provider_name,
+        },
+        headers={"x-pi-provider": provider_name},
+    )
+
+
+async def _pi_router_chat_completions_impl(request: Request, provider: str | None = None):
+    provider_name = _pi_router_normalize_provider(provider or request.query_params.get("provider"))
+    if not provider_name:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": "Unsupported Pi provider",
+                "providers": sorted(_PI_ROUTER_ALLOWED_PROVIDERS),
+            },
+        )
+
+    body_bytes = await request.body()
+    try:
+        payload = json.loads(body_bytes.decode("utf-8")) if body_bytes else {}
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "Invalid JSON payload"})
+    if not isinstance(payload, dict):
+        return JSONResponse(status_code=400, content={"error": "JSON payload must be an object"})
+
+    model = str(payload.get("model") or request.query_params.get("model") or "").strip()
+    if not model:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "Model is required", "provider": provider_name},
+        )
+
+    messages = payload.get("messages")
+    fallback_prompt = str(
+        payload.get("input")
+        or payload.get("prompt")
+        or payload.get("text")
+        or ""
+    ).strip()
+    max_tokens = payload.get("max_tokens")
+    thinking = payload.get("thinking") or payload.get("reasoning_effort") or request.query_params.get("thinking")
+    system_prompt, prompt = _pi_router_build_prompt(messages, fallback_prompt=fallback_prompt, max_tokens=max_tokens)
+
+    try:
+        completion = await _pi_router_run_completion(
+            provider_name,
+            model,
+            system_prompt,
+            prompt,
+            thinking=thinking,
+        )
+    except Exception as e:
+        return JSONResponse(
+            status_code=502,
+            content={
+                "error": f"Pi router completion failed: {e}",
+                "provider": provider_name,
+                "model": model,
+            },
+        )
+
+    return JSONResponse(
+        content={
+            "id": "chatcmpl-pi-" + uuid.uuid4().hex,
+            "object": "chat.completion",
+            "created": int(time.time()),
+            "model": model,
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": completion.get("text", ""),
+                    },
+                    "finish_reason": "stop",
+                }
+            ],
+            "provider": provider_name,
+        },
+        headers={"x-pi-provider": provider_name},
+    )
+
+
+@app.get("/pi-router/v1/models")
+async def pi_router_models_default(request: Request):
+    return await _pi_router_models_impl(request, provider=None)
+
+
+@app.get("/pi-router/{provider}/v1/models")
+async def pi_router_models_provider(provider: str, request: Request):
+    return await _pi_router_models_impl(request, provider=provider)
+
+
+@app.post("/pi-router/v1/chat/completions")
+async def pi_router_chat_completions_default(request: Request):
+    return await _pi_router_chat_completions_impl(request, provider=None)
+
+
+@app.post("/pi-router/{provider}/v1/chat/completions")
+async def pi_router_chat_completions_provider(provider: str, request: Request):
+    return await _pi_router_chat_completions_impl(request, provider=provider)
+
+
+@app.post("/pi-router/v1/embeddings")
+async def pi_router_embeddings_default(request: Request):
+    provider_name = _pi_router_normalize_provider(request.query_params.get("provider")) or "unknown"
+    return _pi_router_feature_not_supported(provider_name, "embeddings")
+
+
+@app.post("/pi-router/{provider}/v1/embeddings")
+async def pi_router_embeddings_provider(provider: str, request: Request):
+    provider_name = _pi_router_normalize_provider(provider) or str(provider or "unknown")
+    return _pi_router_feature_not_supported(provider_name, "embeddings")
+
+
+@app.post("/pi-router/v1/audio/speech")
+async def pi_router_audio_speech_default(request: Request):
+    provider_name = _pi_router_normalize_provider(request.query_params.get("provider")) or "unknown"
+    return _pi_router_feature_not_supported(provider_name, "audio speech")
+
+
+@app.post("/pi-router/{provider}/v1/audio/speech")
+async def pi_router_audio_speech_provider(provider: str, request: Request):
+    provider_name = _pi_router_normalize_provider(provider) or str(provider or "unknown")
+    return _pi_router_feature_not_supported(provider_name, "audio speech")
 
 
 @app.get("/api/activity-stream")
@@ -13410,7 +15706,15 @@ async def _handle_streamable_rpc(obj: dict, client_id: str) -> dict | None:
         # Return server capabilities with the capsule's REAL instructions.
         # _capsule_instructions is populated during _connect_mcp() from the
         # capsule's _build_mcp_instructions() — the full onboarding orientation.
-        _fallback_instructions = "Use tools/call for all operations. For large payloads, follow _cached via get_cached(cache_id). agent_chat supports granted_tools for agentic tool use. Local proxy tools: agent_delegate, agent_chat_inject, agent_chat_sessions, agent_chat_result, agent_chat_purge, workflow_execute, hf_cache_status, hf_cache_clear, capsule_restart, persist_status, persist_restore_revision."
+        _fallback_instructions = (
+            "Use tools/call for all operations. For large payloads, follow _cached via "
+            "get_cached(cache_id). agent_chat supports granted_tools for agentic tool use. "
+            "Local proxy tools include continuity_status, continuity_restore, env_help, "
+            "env_report, agent_delegate, agent_chat_inject, agent_chat_sessions, "
+            "agent_chat_result, agent_chat_purge, workflow_execute, hf_cache_status, "
+            "hf_cache_clear, capsule_restart, persist_status, persist_restore_revision, "
+            "product_bundle_profiles, and product_bundle_export."
+        )
         return {
             "jsonrpc": "2.0",
             "id": rpc_id,
@@ -13422,7 +15726,11 @@ async def _handle_streamable_rpc(obj: dict, client_id: str) -> dict | None:
                     "prompts": {"listChanged": False},
                 },
                 "serverInfo": {"name": "champion-council", "version": "0.8.9"},
-                "instructions": (_capsule_instructions or _fallback_instructions) + _external_mcp_policy_note(),
+                "instructions": (
+                    (_capsule_instructions or _fallback_instructions)
+                    + _external_mcp_local_bridge_note()
+                    + _external_mcp_policy_note()
+                ),
             },
         }
 
@@ -13583,6 +15891,46 @@ async def _handle_streamable_rpc(obj: dict, client_id: str) -> dict | None:
             if err_msg:
                 return _rpc_error(rpc_id, -32603, err_msg, payload)
             return {"jsonrpc": "2.0", "id": rpc_id, "result": {"content": [{"type": "text", "text": json.dumps(payload)}], "isError": False}}
+
+        if tool_name == "continuity_status":
+            try:
+                limit = int(args.get("limit", 10) or 10)
+            except Exception:
+                limit = 10
+            payload = continuity_status_payload(
+                limit=max(1, min(limit, 50)),
+                codex_home=str(args.get("codex_home", "") or "").strip() or None,
+            )
+            _broadcast_activity(tool_name, args, payload, 0, None, source="external", client_id=client_id)
+            return {"jsonrpc": "2.0", "id": rpc_id, "result": {"content": [{"type": "text", "text": json.dumps(payload)}], "isError": False}}
+
+        if tool_name == "continuity_restore":
+            try:
+                limit = int(args.get("limit", 3) or 3)
+            except Exception:
+                limit = 3
+            try:
+                since_days = int(args.get("since_days", 30) or 30)
+            except Exception:
+                since_days = 30
+            payload = continuity_restore_payload(
+                summary=str(args.get("summary", "") or ""),
+                cwd=str(args.get("cwd", "") or ""),
+                limit=max(1, min(limit, 10)),
+                since_days=max(1, min(since_days, 3650)),
+                session_path=str(args.get("session_path", "") or "").strip() or None,
+                codex_home=str(args.get("codex_home", "") or "").strip() or None,
+            )
+            err_msg = payload.get("error") if isinstance(payload, dict) else None
+            _broadcast_activity(tool_name, args, payload, 0, err_msg, source="external", client_id=client_id)
+            if err_msg:
+                return _rpc_error(rpc_id, -32603, err_msg, payload)
+            return {"jsonrpc": "2.0", "id": rpc_id, "result": {"content": [{"type": "text", "text": json.dumps(payload)}], "isError": False}}
+
+        get_help_bridge_payload = _get_help_environment_bridge_payload(args) if tool_name == "get_help" else None
+        if tool_name == "get_help" and get_help_bridge_payload is not None:
+            _broadcast_activity(tool_name, args, get_help_bridge_payload, 0, None, source="external", client_id=client_id)
+            return {"jsonrpc": "2.0", "id": rpc_id, "result": {"content": [{"type": "text", "text": json.dumps(get_help_bridge_payload)}], "isError": False}}
 
         env_help_proxy_payload = _env_help_local_proxy_payload(args) if tool_name == "env_help" else None
         if tool_name == "env_help" and env_help_proxy_payload is not None:

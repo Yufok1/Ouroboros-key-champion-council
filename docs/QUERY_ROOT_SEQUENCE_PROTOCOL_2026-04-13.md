@@ -76,11 +76,14 @@ See:
 
 Current doctrinal order:
 
-1. `text_theater_embodiment`
-2. consult / blackboard query-work
-3. text theater snapshot
-4. `contracts` or `env_report(...)`
-5. captures / mirrors
+1. `env_read(query='text_theater_view', view='render', diagnostics=true)` or `text_theater_embodiment`
+2. existing browser-visible corroboration:
+   - `capture_supercam`
+   - `env_read(query='supercam')`
+   - `capture_probe(...)` / `env_read(query='probe')` when the local subject matters
+3. consult / blackboard query-work
+4. text theater snapshot
+5. `contracts` or `env_report(...)`
 6. raw state last
 
 ### 4. Procurement-capable read surfaces

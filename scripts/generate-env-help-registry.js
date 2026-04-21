@@ -350,7 +350,7 @@ function summaryForCommand(command, family) {
   if (command === 'workbench_play_authored_clip') return 'Play the current authored builder clip through the workbench runtime.';
   if (command === 'workbench_save_blueprint') return 'Serialize and save the current builder blueprint.';
   if (command === 'workbench_load_blueprint') return 'Load a serialized builder blueprint into the active workbench session.';
-  if (command === 'workbench_reset_angles') return 'Zero the current builder pose offsets back toward neutral angles.';
+  if (command === 'workbench_reset_angles') return 'Reset the selected builder bone, a supplied target bone, or all bones back toward neutral angles.';
   if (command === 'workbench_clear_pose') return 'Clear the current staged builder pose offsets.';
   if (command === 'workbench_set_pose') return 'Apply or stage an explicit pose payload on the builder subject.';
   if (command === 'workbench_set_pose_batch') return 'Apply multiple pose changes in a single builder operation.';
@@ -358,7 +358,7 @@ function summaryForCommand(command, family) {
   if (command === 'workbench_select_bones') return 'Replace the current builder selection with multiple named bones.';
   if (command === 'workbench_set_bone') return 'Apply an explicit bone transform payload to the builder subject.';
   if (command === 'workbench_set_display_scope') return 'Change how much of the builder subject the workbench displays.';
-  if (command === 'workbench_set_editing_mode') return 'Change the current builder editing mode.';
+  if (command === 'workbench_set_editing_mode') return 'Switch the builder between pose and structure editing modes.';
   if (command === 'workbench_set_gizmo_mode') return 'Change the active workbench gizmo mode.';
   if (command === 'workbench_set_gizmo_space') return 'Change whether the gizmo works in local or world space.';
   if (command === 'workbench_isolate_chain') return 'Limit the builder display and edit scope to a selected chain or restore the full body.';
@@ -512,7 +512,21 @@ function targetContractForCommand(command, family) {
       examples: ['neutral_standing', '{"name":"neutral_standing"}'],
     };
   }
-  if (command === 'workbench_set_editing_mode' || command === 'workbench_set_display_scope' || command === 'workbench_set_gizmo_mode' || command === 'workbench_set_gizmo_space') {
+  if (command === 'workbench_set_editing_mode') {
+    return {
+      shape: 'string_or_json',
+      description: 'Builder editing mode. Valid modes are pose and structure; JSON payloads may use an editing_mode field.',
+      examples: ['pose', 'structure', '{"editing_mode":"pose"}', '{"editing_mode":"structure"}'],
+    };
+  }
+  if (command === 'workbench_reset_angles') {
+    return {
+      shape: 'string_or_json',
+      description: 'Reset target for the builder angle reset path. Accepts one bone id, all, or JSON payloads naming bone/all.',
+      examples: ['hips', 'all', '{"bone":"hips"}', '{"all":true}'],
+    };
+  }
+  if (command === 'workbench_set_display_scope' || command === 'workbench_set_gizmo_mode' || command === 'workbench_set_gizmo_space') {
     return {
       shape: 'string',
       description: 'Workbench enum value understood by the builder UI/runtime handler.',
@@ -581,6 +595,12 @@ function availabilityForCommand(command, family) {
   if (command === 'workbench_new_builder') {
     base.visual_modes = ['mesh_asset', 'builder_subject'];
     base.requires_builder_subject = false;
+  }
+  if (command === 'workbench_set_editing_mode') {
+    base.valid_editing_modes = ['pose', 'structure'];
+  }
+  if (command === 'workbench_reset_angles') {
+    base.required_editing_mode = ['structure'];
   }
   return base;
 }
@@ -718,6 +738,14 @@ function gotchasForCommand(command, family, transports, bridgesTo, entryKind) {
   }
   if (command === 'workbench_set_timeline_cursor') {
     out.push('Builder-only; timeline scrub will fail when no builder subject is active.');
+  }
+  if (command === 'workbench_set_editing_mode') {
+    out.push('Valid builder editing modes are pose and structure.');
+    out.push('Local gizmo modes such as rotate/translate and spaces such as local/world are separate controls; use workbench_set_gizmo_mode or workbench_set_gizmo_space for those.');
+  }
+  if (command === 'workbench_reset_angles') {
+    out.push('workbench_reset_angles is gated to structure mode; pose mode rejects the reset.');
+    out.push('Without an explicit target, the reset falls back to the currently selected bone.');
   }
   if (command === 'character_set_model') {
     out.push('Uses direct asset refs/URLs, not manifest aliases.');

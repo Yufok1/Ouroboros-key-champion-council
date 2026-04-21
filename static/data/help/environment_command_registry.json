@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at": "2026-04-13T23:32:05.229Z",
+    "generated_at": "2026-04-17T08:35:21.118Z",
     "generated_by": "scripts/generate-env-help-registry.js",
     "update_commands": [
       "node scripts/generate-env-help-registry.js",
@@ -448,27 +448,27 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1391,
+          "line": 1473,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 27930,
+          "line": 28147,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 61706,
+          "line": 62959,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 62039,
+          "line": 63292,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 61705,
+          "line": 62958,
           "kind": "ui_action"
         }
       ]
@@ -530,12 +530,12 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1509,
+          "line": 1591,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28508,
+          "line": 28725,
           "kind": "handler"
         }
       ]
@@ -604,27 +604,27 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1392,
+          "line": 1474,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 21478,
+          "line": 21694,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 26289,
+          "line": 26506,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 27197,
+          "line": 27414,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 27915,
+          "line": 28132,
           "kind": "handler"
         }
       ]
@@ -690,12 +690,12 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1393,
+          "line": 1475,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 27777,
+          "line": 27994,
           "kind": "handler"
         }
       ]
@@ -761,12 +761,12 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1394,
+          "line": 1476,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 27781,
+          "line": 27998,
           "kind": "handler"
         }
       ]
@@ -832,12 +832,12 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1395,
+          "line": 1477,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 27745,
+          "line": 27962,
           "kind": "handler"
         }
       ]
@@ -903,12 +903,12 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1396,
+          "line": 1478,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 27737,
+          "line": 27954,
           "kind": "handler"
         }
       ]
@@ -974,12 +974,12 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1397,
+          "line": 1479,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 27753,
+          "line": 27970,
           "kind": "handler"
         }
       ]
@@ -1045,12 +1045,12 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1398,
+          "line": 1480,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 27761,
+          "line": 27978,
           "kind": "handler"
         }
       ]
@@ -1116,12 +1116,12 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1399,
+          "line": 1481,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 27765,
+          "line": 27982,
           "kind": "handler"
         }
       ]
@@ -1187,12 +1187,12 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1455,
+          "line": 1537,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 27800,
+          "line": 28017,
           "kind": "handler"
         }
       ]
@@ -1258,12 +1258,12 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1453,
+          "line": 1535,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 27794,
+          "line": 28011,
           "kind": "handler"
         }
       ]
@@ -1329,12 +1329,12 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1454,
+          "line": 1536,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 27797,
+          "line": 28014,
           "kind": "handler"
         }
       ]
@@ -1400,12 +1400,12 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1450,
+          "line": 1532,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 27785,
+          "line": 28002,
           "kind": "handler"
         }
       ]
@@ -1471,12 +1471,12 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1451,
+          "line": 1533,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 27788,
+          "line": 28005,
           "kind": "handler"
         }
       ]
@@ -1542,12 +1542,12 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1452,
+          "line": 1534,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 27791,
+          "line": 28008,
           "kind": "handler"
         }
       ]
@@ -1613,22 +1613,22 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1456,
+          "line": 1538,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 27803,
+          "line": 28020,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 62102,
+          "line": 63355,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 62105,
+          "line": 63358,
           "kind": "bridge"
         }
       ]
@@ -1694,17 +1694,17 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1440,
+          "line": 1522,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 27832,
+          "line": 28049,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 61287,
+          "line": 62526,
           "kind": "bridge"
         }
       ]
@@ -1770,12 +1770,12 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1441,
+          "line": 1523,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 27773,
+          "line": 27990,
           "kind": "handler"
         }
       ]
@@ -1841,12 +1841,12 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1442,
+          "line": 1524,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 27769,
+          "line": 27986,
           "kind": "handler"
         }
       ]
@@ -1918,12 +1918,12 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1406,
+          "line": 1488,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 27883,
+          "line": 28100,
           "kind": "handler"
         }
       ]
@@ -1995,12 +1995,12 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1401,
+          "line": 1483,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 27863,
+          "line": 28080,
           "kind": "handler"
         }
       ]
@@ -2072,12 +2072,12 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1402,
+          "line": 1484,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 27867,
+          "line": 28084,
           "kind": "handler"
         }
       ]
@@ -2149,12 +2149,12 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1407,
+          "line": 1489,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 27887,
+          "line": 28104,
           "kind": "handler"
         }
       ]
@@ -2226,12 +2226,12 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1403,
+          "line": 1485,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 27871,
+          "line": 28088,
           "kind": "handler"
         }
       ]
@@ -2300,12 +2300,12 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1405,
+          "line": 1487,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 27879,
+          "line": 28096,
           "kind": "handler"
         }
       ]
@@ -2374,12 +2374,12 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1404,
+          "line": 1486,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 27875,
+          "line": 28092,
           "kind": "handler"
         }
       ]
@@ -2452,27 +2452,27 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1463,
+          "line": 1545,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 61296,
+          "line": 62535,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 61805,
+          "line": 63058,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 62137,
+          "line": 63390,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 62390,
+          "line": 63643,
           "kind": "bridge"
         }
       ]
@@ -2544,12 +2544,12 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1501,
+          "line": 1583,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28287,
+          "line": 28504,
           "kind": "handler"
         }
       ]
@@ -2624,17 +2624,17 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1466,
+          "line": 1548,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28263,
+          "line": 28480,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 62398,
+          "line": 63651,
           "kind": "bridge"
         }
       ]
@@ -2705,12 +2705,12 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1461,
+          "line": 1543,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 62131,
+          "line": 63384,
           "kind": "bridge"
         }
       ]
@@ -2785,17 +2785,17 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1464,
+          "line": 1546,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28255,
+          "line": 28472,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 62381,
+          "line": 63634,
           "kind": "bridge"
         }
       ]
@@ -2871,22 +2871,22 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1496,
+          "line": 1578,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28267,
+          "line": 28484,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 61301,
+          "line": 62540,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 62406,
+          "line": 63659,
           "kind": "bridge"
         }
       ]
@@ -2959,17 +2959,17 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1502,
+          "line": 1584,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28415,
+          "line": 28632,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 62441,
+          "line": 63694,
           "kind": "bridge"
         }
       ]
@@ -3044,17 +3044,17 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1497,
+          "line": 1579,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28271,
+          "line": 28488,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 62414,
+          "line": 63667,
           "kind": "bridge"
         }
       ]
@@ -3130,22 +3130,22 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1499,
+          "line": 1581,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28279,
+          "line": 28496,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 61326,
+          "line": 62565,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 62425,
+          "line": 63678,
           "kind": "bridge"
         }
       ]
@@ -3221,17 +3221,17 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1467,
+          "line": 1549,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28201,
+          "line": 28418,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 62140,
+          "line": 63393,
           "kind": "bridge"
         }
       ]
@@ -3308,22 +3308,22 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1500,
+          "line": 1582,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28283,
+          "line": 28500,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 61319,
+          "line": 62558,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 62433,
+          "line": 63686,
           "kind": "bridge"
         }
       ]
@@ -3396,17 +3396,17 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1465,
+          "line": 1547,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28259,
+          "line": 28476,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 62384,
+          "line": 63637,
           "kind": "bridge"
         }
       ]
@@ -3479,17 +3479,17 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1498,
+          "line": 1580,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28275,
+          "line": 28492,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 62417,
+          "line": 63670,
           "kind": "bridge"
         }
       ]
@@ -3562,12 +3562,12 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1462,
+          "line": 1544,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 62134,
+          "line": 63387,
           "kind": "bridge"
         }
       ]
@@ -3629,12 +3629,12 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1510,
+          "line": 1592,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28525,
+          "line": 28742,
           "kind": "handler"
         }
       ]
@@ -3708,27 +3708,27 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1449,
+          "line": 1531,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 21464,
+          "line": 21680,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 28172,
+          "line": 28389,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 62098,
+          "line": 63351,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 36213,
+          "line": 37340,
           "kind": "ui_action"
         }
       ]
@@ -3798,22 +3798,22 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1439,
+          "line": 1521,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 21458,
+          "line": 21674,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 28152,
+          "line": 28369,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 62057,
+          "line": 63310,
           "kind": "bridge"
         }
       ]
@@ -3886,7 +3886,7 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1459,
+          "line": 1541,
           "kind": "proxy_list"
         }
       ]
@@ -3958,37 +3958,37 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1416,
+          "line": 1498,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 21451,
+          "line": 21667,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 27963,
+          "line": 28180,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 61694,
+          "line": 62947,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 62777,
+          "line": 64032,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 53563,
+          "line": 54702,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 61693,
+          "line": 62946,
           "kind": "ui_action"
         }
       ]
@@ -4061,37 +4061,37 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1417,
+          "line": 1499,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 21469,
+          "line": 21685,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 27985,
+          "line": 28202,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 61585,
+          "line": 62838,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 61871,
+          "line": 63124,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 54011,
+          "line": 55150,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 54949,
+          "line": 56088,
           "kind": "ui_entrypoint"
         }
       ]
@@ -4164,37 +4164,37 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1418,
+          "line": 1500,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 21467,
+          "line": 21683,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 28067,
+          "line": 28284,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 61879,
+          "line": 63132,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 61991,
+          "line": 63244,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 53992,
+          "line": 55131,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 61878,
+          "line": 63131,
           "kind": "ui_action"
         }
       ]
@@ -4263,22 +4263,22 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1419,
+          "line": 1501,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 21473,
+          "line": 21689,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 28018,
+          "line": 28235,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 62009,
+          "line": 63262,
           "kind": "bridge"
         }
       ]
@@ -4351,37 +4351,37 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1420,
+          "line": 1502,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 21452,
+          "line": 21668,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 27974,
+          "line": 28191,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 61855,
+          "line": 63108,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 61988,
+          "line": 63241,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 54007,
+          "line": 55146,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 61854,
+          "line": 63107,
           "kind": "ui_action"
         }
       ]
@@ -4454,32 +4454,32 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1421,
+          "line": 1503,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28190,
+          "line": 28407,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 61613,
+          "line": 62866,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 61982,
+          "line": 63235,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 55229,
+          "line": 56422,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 55234,
+          "line": 56427,
           "kind": "ui_entrypoint"
         }
       ]
@@ -4552,37 +4552,37 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1422,
+          "line": 1504,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 26283,
+          "line": 26500,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 26301,
+          "line": 26518,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 28007,
+          "line": 28224,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 61627,
+          "line": 62880,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 54272,
+          "line": 55411,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 61625,
+          "line": 62878,
           "kind": "ui_entrypoint"
         }
       ]
@@ -4655,37 +4655,37 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1423,
+          "line": 1505,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 21450,
+          "line": 21666,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 28078,
+          "line": 28295,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 61599,
+          "line": 62852,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 62000,
+          "line": 63253,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 54894,
+          "line": 56033,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 61598,
+          "line": 62851,
           "kind": "ui_action"
         }
       ]
@@ -4762,17 +4762,17 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1460,
+          "line": 1542,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 53433,
+          "line": 54570,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 61295,
+          "line": 62534,
           "kind": "ui_action"
         }
       ]
@@ -4845,32 +4845,32 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1424,
+          "line": 1506,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 21453,
+          "line": 21669,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 28179,
+          "line": 28396,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 61867,
+          "line": 63120,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 54002,
+          "line": 55141,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 61866,
+          "line": 63119,
           "kind": "ui_action"
         }
       ]
@@ -4943,27 +4943,27 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1425,
+          "line": 1507,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 27941,
+          "line": 28158,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 61710,
+          "line": 62963,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 62042,
+          "line": 63295,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 61709,
+          "line": 62962,
           "kind": "ui_action"
         }
       ]
@@ -5032,22 +5032,22 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1426,
+          "line": 1508,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 21474,
+          "line": 21690,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 28030,
+          "line": 28247,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 62012,
+          "line": 63265,
           "kind": "bridge"
         }
       ]
@@ -5116,17 +5116,17 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1427,
+          "line": 1509,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 27919,
+          "line": 28136,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 61994,
+          "line": 63247,
           "kind": "bridge"
         }
       ]
@@ -5199,27 +5199,27 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1428,
+          "line": 1510,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 27911,
+          "line": 28128,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 61267,
+          "line": 62506,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 61847,
+          "line": 63100,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 61846,
+          "line": 63099,
           "kind": "ui_action"
         }
       ]
@@ -5292,37 +5292,37 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1429,
+          "line": 1511,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 21466,
+          "line": 21682,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 28056,
+          "line": 28273,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 61875,
+          "line": 63128,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 61985,
+          "line": 63238,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 53997,
+          "line": 55136,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 61874,
+          "line": 63127,
           "kind": "ui_action"
         }
       ]
@@ -5395,27 +5395,27 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1430,
+          "line": 1512,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28483,
+          "line": 28700,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 35681,
+          "line": 36808,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 36231,
+          "line": 37358,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 36229,
+          "line": 37356,
           "kind": "ui_action"
         }
       ]
@@ -5485,17 +5485,17 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1435,
+          "line": 1517,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28108,
+          "line": 28325,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 62048,
+          "line": 63301,
           "kind": "bridge"
         }
       ]
@@ -5568,37 +5568,37 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1431,
+          "line": 1513,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 21468,
+          "line": 21684,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 27209,
+          "line": 27426,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 27996,
+          "line": 28213,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 61573,
+          "line": 62826,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 55344,
+          "line": 56563,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 61571,
+          "line": 56567,
           "kind": "ui_entrypoint"
         }
       ]
@@ -5667,22 +5667,22 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1432,
+          "line": 1514,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 21475,
+          "line": 21691,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 28042,
+          "line": 28259,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 62015,
+          "line": 63268,
           "kind": "bridge"
         }
       ]
@@ -5755,32 +5755,32 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1433,
+          "line": 1515,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 21449,
+          "line": 21665,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 28091,
+          "line": 28308,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 61851,
+          "line": 63104,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 53959,
+          "line": 55098,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 54071,
+          "line": 55210,
           "kind": "ui_entrypoint"
         }
       ]
@@ -5853,37 +5853,37 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1434,
+          "line": 1516,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 27191,
+          "line": 27408,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 28462,
+          "line": 28679,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 61859,
+          "line": 63112,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 62018,
+          "line": 63271,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 53960,
+          "line": 55099,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 54072,
+          "line": 55211,
           "kind": "ui_entrypoint"
         }
       ]
@@ -5953,17 +5953,17 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1436,
+          "line": 1518,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28120,
+          "line": 28337,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 62051,
+          "line": 63304,
           "kind": "bridge"
         }
       ]
@@ -6037,32 +6037,32 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1438,
+          "line": 1520,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28445,
+          "line": 28662,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 61617,
+          "line": 62870,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 61648,
+          "line": 62901,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 55235,
+          "line": 56428,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 55249,
+          "line": 56442,
           "kind": "ui_entrypoint"
         }
       ]
@@ -6132,17 +6132,17 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1437,
+          "line": 1519,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28132,
+          "line": 28349,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 62054,
+          "line": 63307,
           "kind": "bridge"
         }
       ]
@@ -6215,32 +6215,32 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1415,
+          "line": 1497,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 27903,
+          "line": 28120,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 61259,
+          "line": 62498,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 61776,
+          "line": 63029,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 28612,
+          "line": 28829,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 54070,
+          "line": 55209,
           "kind": "ui_entrypoint"
         }
       ]
@@ -6313,32 +6313,32 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1414,
+          "line": 1496,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 27899,
+          "line": 28116,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 61255,
+          "line": 62494,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 61772,
+          "line": 63025,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 28611,
+          "line": 28828,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 54069,
+          "line": 55208,
           "kind": "ui_entrypoint"
         }
       ]
@@ -6409,22 +6409,22 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1457,
+          "line": 1539,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 27952,
+          "line": 28169,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 53921,
+          "line": 55060,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 53961,
+          "line": 55100,
           "kind": "ui_entrypoint"
         }
       ]
@@ -6497,37 +6497,37 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1400,
+          "line": 1482,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 26274,
+          "line": 26491,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 27859,
+          "line": 28076,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 61760,
+          "line": 63013,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 61970,
+          "line": 63223,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 54066,
+          "line": 55205,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 61759,
+          "line": 63012,
           "kind": "ui_action"
         }
       ]
@@ -6594,17 +6594,17 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1408,
+          "line": 1490,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28440,
+          "line": 28657,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 61979,
+          "line": 63232,
           "kind": "bridge"
         }
       ]
@@ -6675,37 +6675,37 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1410,
+          "line": 1492,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28427,
+          "line": 28644,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 61275,
+          "line": 62514,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 61788,
+          "line": 63041,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 62045,
+          "line": 63298,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 53378,
+          "line": 54515,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 61270,
+          "line": 62509,
           "kind": "ui_action"
         }
       ]
@@ -6767,12 +6767,12 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1511,
+          "line": 1593,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28542,
+          "line": 28759,
           "kind": "handler"
         }
       ]
@@ -6843,32 +6843,32 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1411,
+          "line": 1493,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 27907,
+          "line": 28124,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 61263,
+          "line": 62502,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 61780,
+          "line": 63033,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 28613,
+          "line": 28830,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 28614,
+          "line": 28831,
           "kind": "ui_entrypoint"
         }
       ]
@@ -6939,37 +6939,37 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1409,
+          "line": 1491,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 21501,
+          "line": 21717,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 28423,
+          "line": 28640,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 61283,
+          "line": 62522,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 61796,
+          "line": 63049,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 27000,
+          "line": 27217,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 61278,
+          "line": 62517,
           "kind": "ui_action"
         }
       ]
@@ -7031,12 +7031,12 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1508,
+          "line": 1590,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28492,
+          "line": 28709,
           "kind": "handler"
         }
       ]
@@ -7109,7 +7109,7 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1458,
+          "line": 1540,
           "kind": "proxy_list"
         }
       ]
@@ -7179,12 +7179,12 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1445,
+          "line": 1527,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 62072,
+          "line": 63325,
           "kind": "bridge"
         }
       ]
@@ -7254,12 +7254,12 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1446,
+          "line": 1528,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 62079,
+          "line": 63332,
           "kind": "bridge"
         }
       ]
@@ -7326,17 +7326,17 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1447,
+          "line": 1529,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 14564,
+          "line": 14777,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 62085,
+          "line": 63338,
           "kind": "bridge"
         }
       ]
@@ -7406,12 +7406,12 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1444,
+          "line": 1526,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 62066,
+          "line": 63319,
           "kind": "bridge"
         }
       ]
@@ -7481,12 +7481,12 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1448,
+          "line": 1530,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 62092,
+          "line": 63345,
           "kind": "bridge"
         }
       ]
@@ -7556,12 +7556,12 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1443,
+          "line": 1525,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 62060,
+          "line": 63313,
           "kind": "bridge"
         }
       ]
@@ -7623,17 +7623,17 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1506,
+          "line": 1588,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28419,
+          "line": 28636,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 62030,
+          "line": 63283,
           "kind": "bridge"
         }
       ]
@@ -7706,7 +7706,7 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1507,
+          "line": 1589,
           "kind": "proxy_list"
         }
       ]
@@ -7779,32 +7779,32 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1413,
+          "line": 1495,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 27895,
+          "line": 28112,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 61251,
+          "line": 62490,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 61768,
+          "line": 63021,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 28610,
+          "line": 28827,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 54068,
+          "line": 55207,
           "kind": "ui_entrypoint"
         }
       ]
@@ -7873,22 +7873,22 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1412,
+          "line": 1494,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 27891,
+          "line": 28108,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 61764,
+          "line": 63017,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 61973,
+          "line": 63226,
           "kind": "bridge"
         }
       ]
@@ -7964,17 +7964,17 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1486,
+          "line": 1568,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28363,
+          "line": 28580,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 62287,
+          "line": 63540,
           "kind": "bridge"
         }
       ]
@@ -8050,17 +8050,17 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1487,
+          "line": 1569,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28367,
+          "line": 28584,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 62295,
+          "line": 63548,
           "kind": "bridge"
         }
       ]
@@ -8132,17 +8132,17 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1491,
+          "line": 1573,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28383,
+          "line": 28600,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 62327,
+          "line": 63580,
           "kind": "bridge"
         }
       ]
@@ -8218,17 +8218,17 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1484,
+          "line": 1566,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28355,
+          "line": 28572,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 62271,
+          "line": 63524,
           "kind": "bridge"
         }
       ]
@@ -8302,17 +8302,17 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1483,
+          "line": 1565,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28351,
+          "line": 28568,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 62263,
+          "line": 63516,
           "kind": "bridge"
         }
       ]
@@ -8385,17 +8385,17 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1489,
+          "line": 1571,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28375,
+          "line": 28592,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 62311,
+          "line": 63564,
           "kind": "bridge"
         }
       ]
@@ -8471,17 +8471,17 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1485,
+          "line": 1567,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28359,
+          "line": 28576,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 62279,
+          "line": 63532,
           "kind": "bridge"
         }
       ]
@@ -8552,17 +8552,17 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1471,
+          "line": 1553,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28303,
+          "line": 28520,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 62167,
+          "line": 63420,
           "kind": "bridge"
         }
       ]
@@ -8636,17 +8636,17 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1469,
+          "line": 1551,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28295,
+          "line": 28512,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 62151,
+          "line": 63404,
           "kind": "bridge"
         }
       ]
@@ -8720,17 +8720,17 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1470,
+          "line": 1552,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28299,
+          "line": 28516,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 62159,
+          "line": 63412,
           "kind": "bridge"
         }
       ]
@@ -8804,17 +8804,17 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1493,
+          "line": 1575,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28391,
+          "line": 28608,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 62343,
+          "line": 63596,
           "kind": "bridge"
         }
       ]
@@ -8888,17 +8888,17 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1495,
+          "line": 1577,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28399,
+          "line": 28616,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 62354,
+          "line": 63607,
           "kind": "bridge"
         }
       ]
@@ -8976,17 +8976,17 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1468,
+          "line": 1550,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28291,
+          "line": 28508,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 62148,
+          "line": 63401,
           "kind": "bridge"
         }
       ]
@@ -9059,17 +9059,17 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1490,
+          "line": 1572,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28379,
+          "line": 28596,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 62319,
+          "line": 63572,
           "kind": "bridge"
         }
       ]
@@ -9096,14 +9096,22 @@
         "requires_focus_kind": [
           "character_runtime"
         ],
-        "requires_builder_subject": true
+        "requires_builder_subject": true,
+        "required_editing_mode": [
+          "structure"
+        ]
       },
       "target_contract": {
         "shape": "string_or_json",
-        "description": "Runtime or workbench payload interpreted by the active browser handler.",
-        "examples": []
+        "description": "Reset target for the builder angle reset path. Accepts one bone id, all, or JSON payloads naming bone/all.",
+        "examples": [
+          "hips",
+          "all",
+          "{\"bone\":\"hips\"}",
+          "{\"all\":true}"
+        ]
       },
-      "summary": "Zero the current builder pose offsets back toward neutral angles.",
+      "summary": "Reset the selected builder bone, a supplied target bone, or all bones back toward neutral angles.",
       "when_to_use": [
         "Use these when editing or inspecting the builder subject instead of the mounted imported asset.",
         "This is the main family for scaffold truth, selection, pose editing, and blueprint state."
@@ -9127,6 +9135,8 @@
         "Attached payload shape is text_theater.current_compact, text_theater.snapshot, and text_theater.freshness; include_full=true also returns current_full with theater plus embodiment.",
         "Check text_theater.freshness.cache_advanced_after_command and text_theater.freshness.matched_command_sync before trusting the attached frame as post-command truth; when false, you are looking at the newest mirrored state, but not a confirmed fresh sync for that command yet.",
         "Use env_read(query='text_theater_view') only when you need the richer consult renderer on demand; the hot path should prefer the attached browser-authored text_theater payload.",
+        "workbench_reset_angles is gated to structure mode; pose mode rejects the reset.",
+        "Without an explicit target, the reset falls back to the currently selected bone.",
         "Most builder commands require builder_subject mode; mounted-asset inspection is not enough."
       ],
       "failure_modes": [
@@ -9143,17 +9153,17 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1492,
+          "line": 132,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28387,
+          "line": 28604,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 62335,
+          "line": 63588,
           "kind": "bridge"
         }
       ]
@@ -9227,17 +9237,17 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1494,
+          "line": 1576,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28395,
+          "line": 28612,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 62346,
+          "line": 63599,
           "kind": "bridge"
         }
       ]
@@ -9314,17 +9324,17 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1472,
+          "line": 1554,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28307,
+          "line": 28524,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 62175,
+          "line": 63428,
           "kind": "bridge"
         }
       ]
@@ -9400,17 +9410,17 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1473,
+          "line": 1555,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28311,
+          "line": 28528,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 62183,
+          "line": 63436,
           "kind": "bridge"
         }
       ]
@@ -9485,17 +9495,17 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1474,
+          "line": 1556,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28315,
+          "line": 28532,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 62191,
+          "line": 63444,
           "kind": "bridge"
         }
       ]
@@ -9571,17 +9581,17 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1475,
+          "line": 1557,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28319,
+          "line": 28536,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 62199,
+          "line": 63452,
           "kind": "bridge"
         }
       ]
@@ -9657,17 +9667,17 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1480,
+          "line": 1562,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28339,
+          "line": 28556,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 62239,
+          "line": 63492,
           "kind": "bridge"
         }
       ]
@@ -9746,27 +9756,27 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1477,
+          "line": 1559,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28327,
+          "line": 28544,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 62215,
+          "line": 63468,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 26924,
+          "line": 27141,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 61387,
+          "line": 62626,
           "kind": "ui_action"
         }
       ]
@@ -9793,19 +9803,23 @@
         "requires_focus_kind": [
           "character_runtime"
         ],
-        "requires_builder_subject": true
-      },
-      "target_contract": {
-        "shape": "string",
-        "description": "Workbench enum value understood by the builder UI/runtime handler.",
-        "examples": [
-          "rotate",
-          "translate",
-          "local",
-          "world"
+        "requires_builder_subject": true,
+        "valid_editing_modes": [
+          "pose",
+          "structure"
         ]
       },
-      "summary": "Change the current builder editing mode.",
+      "target_contract": {
+        "shape": "string_or_json",
+        "description": "Builder editing mode. Valid modes are pose and structure; JSON payloads may use an editing_mode field.",
+        "examples": [
+          "pose",
+          "structure",
+          "{\"editing_mode\":\"pose\"}",
+          "{\"editing_mode\":\"structure\"}"
+        ]
+      },
+      "summary": "Switch the builder between pose and structure editing modes.",
       "when_to_use": [
         "Use these when editing or inspecting the builder subject instead of the mounted imported asset.",
         "This is the main family for scaffold truth, selection, pose editing, and blueprint state."
@@ -9829,6 +9843,8 @@
         "Attached payload shape is text_theater.current_compact, text_theater.snapshot, and text_theater.freshness; include_full=true also returns current_full with theater plus embodiment.",
         "Check text_theater.freshness.cache_advanced_after_command and text_theater.freshness.matched_command_sync before trusting the attached frame as post-command truth; when false, you are looking at the newest mirrored state, but not a confirmed fresh sync for that command yet.",
         "Use env_read(query='text_theater_view') only when you need the richer consult renderer on demand; the hot path should prefer the attached browser-authored text_theater payload.",
+        "Valid builder editing modes are pose and structure.",
+        "Local gizmo modes such as rotate/translate and spaces such as local/world are separate controls; use workbench_set_gizmo_mode or workbench_set_gizmo_space for those.",
         "Most builder commands require builder_subject mode; mounted-asset inspection is not enough."
       ],
       "failure_modes": [
@@ -9845,17 +9861,17 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1476,
+          "line": 106,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28323,
+          "line": 28540,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 62207,
+          "line": 63460,
           "kind": "bridge"
         }
       ]
@@ -9934,17 +9950,17 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1478,
+          "line": 1560,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28331,
+          "line": 28548,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 62223,
+          "line": 63476,
           "kind": "bridge"
         }
       ]
@@ -10023,17 +10039,17 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1479,
+          "line": 1561,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28335,
+          "line": 28552,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 62231,
+          "line": 63484,
           "kind": "bridge"
         }
       ]
@@ -10109,22 +10125,22 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1504,
+          "line": 1586,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28407,
+          "line": 28624,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 61431,
+          "line": 62670,
           "kind": "bridge"
         },
         {
           "file": "static/main.js",
-          "line": 62365,
+          "line": 63618,
           "kind": "bridge"
         }
       ]
@@ -10207,17 +10223,17 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1481,
+          "line": 1563,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28343,
+          "line": 28560,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 62247,
+          "line": 63500,
           "kind": "bridge"
         }
       ]
@@ -10304,17 +10320,17 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1482,
+          "line": 1564,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28347,
+          "line": 28564,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 62255,
+          "line": 63508,
           "kind": "bridge"
         }
       ]
@@ -10391,17 +10407,17 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1503,
+          "line": 1585,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28403,
+          "line": 28620,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 62357,
+          "line": 63610,
           "kind": "bridge"
         }
       ]
@@ -10482,17 +10498,17 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1488,
+          "line": 1570,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28371,
+          "line": 28588,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 62303,
+          "line": 63556,
           "kind": "bridge"
         }
       ]
@@ -10571,17 +10587,17 @@
       "source_anchors": [
         {
           "file": "server.py",
-          "line": 1505,
+          "line": 1587,
           "kind": "proxy_list"
         },
         {
           "file": "static/main.js",
-          "line": 28411,
+          "line": 28628,
           "kind": "handler"
         },
         {
           "file": "static/main.js",
-          "line": 62373,
+          "line": 63626,
           "kind": "bridge"
         }
       ]
@@ -10647,17 +10663,17 @@
       "source_anchors": [
         {
           "file": "static/main.js",
-          "line": 53399,
+          "line": 54536,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 61489,
+          "line": 62729,
           "kind": "ui_action"
         },
         {
           "file": "static/main.js",
-          "line": 61835,
+          "line": 63088,
           "kind": "ui_action"
         }
       ]
@@ -10723,17 +10739,17 @@
       "source_anchors": [
         {
           "file": "static/main.js",
-          "line": 53398,
+          "line": 54535,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 61484,
+          "line": 62724,
           "kind": "ui_action"
         },
         {
           "file": "static/main.js",
-          "line": 61830,
+          "line": 63083,
           "kind": "ui_action"
         }
       ]
@@ -10806,12 +10822,12 @@
       "source_anchors": [
         {
           "file": "static/main.js",
-          "line": 53500,
+          "line": 54639,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 61286,
+          "line": 62525,
           "kind": "ui_action"
         }
       ]
@@ -10882,23 +10898,23 @@
       "source_anchors": [
         {
           "file": "static/main.js",
-          "line": 22288,
+          "line": 22504,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 53482,
+          "line": 45661,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 53495,
+          "line": 54619,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 61453,
-          "kind": "ui_action"
+          "line": 54633,
+          "kind": "ui_entrypoint"
         }
       ]
     },
@@ -10968,12 +10984,12 @@
       "source_anchors": [
         {
           "file": "static/main.js",
-          "line": 318,
+          "line": 341,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 61444,
+          "line": 62681,
           "kind": "ui_action"
         }
       ]
@@ -11039,22 +11055,22 @@
       "source_anchors": [
         {
           "file": "static/main.js",
-          "line": 44682,
+          "line": 45819,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 53387,
+          "line": 54524,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 53388,
+          "line": 54525,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 53389,
+          "line": 54526,
           "kind": "ui_entrypoint"
         }
       ]
@@ -11134,17 +11150,17 @@
       "source_anchors": [
         {
           "file": "static/main.js",
-          "line": 53432,
+          "line": 54569,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 61290,
+          "line": 62529,
           "kind": "ui_action"
         },
         {
           "file": "static/main.js",
-          "line": 61799,
+          "line": 63052,
           "kind": "ui_action"
         }
       ]
@@ -11213,17 +11229,17 @@
       "source_anchors": [
         {
           "file": "static/main.js",
-          "line": 53382,
+          "line": 54519,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 61476,
+          "line": 62716,
           "kind": "ui_action"
         },
         {
           "file": "static/main.js",
-          "line": 61822,
+          "line": 63075,
           "kind": "ui_action"
         }
       ]
@@ -11289,22 +11305,22 @@
       "source_anchors": [
         {
           "file": "static/main.js",
-          "line": 37465,
+          "line": 38592,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 53394,
+          "line": 54531,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 61471,
+          "line": 62711,
           "kind": "ui_action"
         },
         {
           "file": "static/main.js",
-          "line": 61817,
+          "line": 63070,
           "kind": "ui_action"
         }
       ]
@@ -11375,23 +11391,23 @@
       "source_anchors": [
         {
           "file": "static/main.js",
-          "line": 22289,
+          "line": 22505,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 53483,
+          "line": 45662,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 53496,
+          "line": 54620,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 61434,
-          "kind": "ui_action"
+          "line": 54634,
+          "kind": "ui_entrypoint"
         }
       ]
     },
@@ -11468,12 +11484,12 @@
       "source_anchors": [
         {
           "file": "static/main.js",
-          "line": 26875,
+          "line": 27092,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 61299,
+          "line": 62538,
           "kind": "ui_action"
         }
       ]
@@ -11553,22 +11569,22 @@
       "source_anchors": [
         {
           "file": "static/main.js",
-          "line": 26890,
+          "line": 27107,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 26891,
+          "line": 27108,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 26892,
+          "line": 27109,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 26893,
+          "line": 27110,
           "kind": "ui_entrypoint"
         }
       ]
@@ -11651,12 +11667,12 @@
       "source_anchors": [
         {
           "file": "static/main.js",
-          "line": 26885,
+          "line": 27102,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 61316,
+          "line": 62555,
           "kind": "ui_action"
         }
       ]
@@ -11737,22 +11753,22 @@
       "source_anchors": [
         {
           "file": "static/main.js",
-          "line": 26896,
+          "line": 27113,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 26897,
+          "line": 27114,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 26898,
+          "line": 27115,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 26899,
+          "line": 27116,
           "kind": "ui_entrypoint"
         }
       ]
@@ -11829,12 +11845,12 @@
       "source_anchors": [
         {
           "file": "static/main.js",
-          "line": 26906,
+          "line": 27123,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 61378,
+          "line": 62617,
           "kind": "ui_action"
         }
       ]
@@ -11916,12 +11932,12 @@
       "source_anchors": [
         {
           "file": "static/main.js",
-          "line": 26911,
+          "line": 27128,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 61425,
+          "line": 62664,
           "kind": "ui_action"
         }
       ]
@@ -11999,12 +12015,12 @@
       "source_anchors": [
         {
           "file": "static/main.js",
-          "line": 26887,
+          "line": 27104,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 61322,
+          "line": 62561,
           "kind": "ui_action"
         }
       ]
@@ -12078,12 +12094,12 @@
       "source_anchors": [
         {
           "file": "static/main.js",
-          "line": 26881,
+          "line": 27098,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 61304,
+          "line": 62543,
           "kind": "ui_action"
         }
       ]
@@ -12162,12 +12178,12 @@
       "source_anchors": [
         {
           "file": "static/main.js",
-          "line": 26909,
+          "line": 27126,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 61418,
+          "line": 62657,
           "kind": "ui_action"
         }
       ]
@@ -12244,12 +12260,12 @@
       "source_anchors": [
         {
           "file": "static/main.js",
-          "line": 26904,
+          "line": 27121,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 61374,
+          "line": 62613,
           "kind": "ui_action"
         }
       ]
@@ -12324,12 +12340,12 @@
       "source_anchors": [
         {
           "file": "static/main.js",
-          "line": 26908,
+          "line": 27125,
           "kind": "ui_entrypoint"
         },
         {
           "file": "static/main.js",
-          "line": 61405,
+          "line": 62644,
           "kind": "ui_action"
         }
       ]
@@ -12520,36 +12536,43 @@
     "theater_first_pose_corroboration": {
       "title": "Theater-First Pose Corroboration",
       "steps": [
-        "env_read(query='text_theater_embodiment')",
+        "env_read(query='text_theater_view', view='render', diagnostics=true)",
+        "capture_supercam",
+        "env_read(query='supercam')",
         "env_read(query='text_theater_view', view='consult', section='blackboard', diagnostics=true)",
         "env_read(query='text_theater_snapshot')",
         "env_report(report_id='route_stability_diagnosis')",
-        "capture_probe('character_runtime::mounted_primary')"
+        "capture_probe('character_runtime::mounted_primary')",
+        "env_read(query='probe')"
       ],
       "notes": [
         "Use this as the default order of evidence after any command that changes staged pose, contact staging, or local builder framing.",
-        "Read the text render first and describe what the body is doing in plain language before trusting structured fields.",
-        "Use the consult/blackboard view second so the next read is justified before you open deeper state.",
-        "Use the snapshot third for blocker lists, freshness, and structured contact/balance details.",
-        "Use env_report fourth when the question is specifically about route/support/blocker truth and next adjustment.",
-        "Use probe capture fifth when local silhouette, overlap, or renderer disagreement still matters.",
-        "If the task is comparative surface debugging, bring in browser-visible capture or contracts after this sequence and before raw shared_state.",
+        "Read the text render first and describe what the body or scene is doing in plain language before trusting structured fields.",
+        "Bring in supercam second and read it back third so the web theater is explicitly compared against the text frame instead of inferred.",
+        "Use the consult/blackboard view only after those two render surfaces are in hand so query-work starts from an explicit comparative packet.",
+        "Use the snapshot after that for freshness, blocker lists, and structured contact/balance details.",
+        "Use env_report next when the question is specifically about route/support/blocker truth and next adjustment.",
+        "Use probe capture and env_read(query='probe') last when local silhouette, overlap, or renderer disagreement still matters after the scene-scale comparison.",
+        "If contracts are needed for mirror classification, read them after the render/capture comparison and before raw shared_state.",
         "Resets and refreshes remain operator-owned boundaries; do not quietly assume one happened."
       ]
     },
     "theater_first_route_diagnosis": {
       "title": "Theater-First Route Diagnosis",
       "steps": [
-        "env_read(query='text_theater_embodiment')",
+        "env_read(query='text_theater_view', view='render', diagnostics=true)",
+        "capture_supercam",
+        "env_read(query='supercam')",
         "env_read(query='text_theater_view', view='consult', section='blackboard', diagnostics=true)",
         "env_read(query='text_theater_snapshot')",
         "env_report(report_id='route_stability_diagnosis')",
-        "capture_probe('character_runtime::mounted_primary')"
+        "capture_probe('character_runtime::mounted_primary')",
+        "env_read(query='probe')"
       ],
       "notes": [
         "Use this when a staged contact, pose macro, or grouped authoring step needs an explicit route/support diagnosis instead of a raw mirror dump.",
-        "The render is first intake, the consult/blackboard view is the visible query-work lane, the snapshot is structured corroboration, and env_report is the scoped reasoning lane over blackboard/workbench truth.",
-        "Only open raw shared_state after this sequence if the report and captures still disagree."
+        "The text render is first intake, browser-visible capture is second intake, the consult/blackboard view is the visible query-work lane after those surfaces, the snapshot is structured corroboration, and env_report is the scoped reasoning lane over blackboard/workbench truth.",
+        "Only open raw shared_state after this sequence if the report, text render, and browser-visible captures still disagree."
       ]
     },
     "grouped_controller_corroboration": {

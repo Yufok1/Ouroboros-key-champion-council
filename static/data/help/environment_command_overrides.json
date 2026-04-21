@@ -718,36 +718,43 @@
     "theater_first_pose_corroboration": {
       "title": "Theater-First Pose Corroboration",
       "steps": [
-        "env_read(query='text_theater_embodiment')",
+        "env_read(query='text_theater_view', view='render', diagnostics=true)",
+        "capture_supercam",
+        "env_read(query='supercam')",
         "env_read(query='text_theater_view', view='consult', section='blackboard', diagnostics=true)",
         "env_read(query='text_theater_snapshot')",
         "env_report(report_id='route_stability_diagnosis')",
-        "capture_probe('character_runtime::mounted_primary')"
+        "capture_probe('character_runtime::mounted_primary')",
+        "env_read(query='probe')"
       ],
       "notes": [
         "Use this as the default order of evidence after any command that changes staged pose, contact staging, or local builder framing.",
-        "Read the text render first and describe what the body is doing in plain language before trusting structured fields.",
-        "Use the consult/blackboard view second so the next read is justified before you open deeper state.",
-        "Use the snapshot third for blocker lists, freshness, and structured contact/balance details.",
-        "Use env_report fourth when the question is specifically about route/support/blocker truth and next adjustment.",
-        "Use probe capture fifth when local silhouette, overlap, or renderer disagreement still matters.",
-        "If the task is comparative surface debugging, bring in browser-visible capture or contracts after this sequence and before raw shared_state.",
+        "Read the text render first and describe what the body or scene is doing in plain language before trusting structured fields.",
+        "Bring in supercam second and read it back third so the web theater is explicitly compared against the text frame instead of inferred.",
+        "Use the consult/blackboard view only after those two render surfaces are in hand so query-work starts from an explicit comparative packet.",
+        "Use the snapshot after that for freshness, blocker lists, and structured contact/balance details.",
+        "Use env_report next when the question is specifically about route/support/blocker truth and next adjustment.",
+        "Use probe capture and env_read(query='probe') last when local silhouette, overlap, or renderer disagreement still matters after the scene-scale comparison.",
+        "If contracts are needed for mirror classification, read them after the render/capture comparison and before raw shared_state.",
         "Resets and refreshes remain operator-owned boundaries; do not quietly assume one happened."
       ]
     },
     "theater_first_route_diagnosis": {
       "title": "Theater-First Route Diagnosis",
       "steps": [
-        "env_read(query='text_theater_embodiment')",
+        "env_read(query='text_theater_view', view='render', diagnostics=true)",
+        "capture_supercam",
+        "env_read(query='supercam')",
         "env_read(query='text_theater_view', view='consult', section='blackboard', diagnostics=true)",
         "env_read(query='text_theater_snapshot')",
         "env_report(report_id='route_stability_diagnosis')",
-        "capture_probe('character_runtime::mounted_primary')"
+        "capture_probe('character_runtime::mounted_primary')",
+        "env_read(query='probe')"
       ],
       "notes": [
         "Use this when a staged contact, pose macro, or grouped authoring step needs an explicit route/support diagnosis instead of a raw mirror dump.",
-        "The render is first intake, the consult/blackboard view is the visible query-work lane, the snapshot is structured corroboration, and env_report is the scoped reasoning lane over blackboard/workbench truth.",
-        "Only open raw shared_state after this sequence if the report and captures still disagree."
+        "The text render is first intake, browser-visible capture is second intake, the consult/blackboard view is the visible query-work lane after those surfaces, the snapshot is structured corroboration, and env_report is the scoped reasoning lane over blackboard/workbench truth.",
+        "Only open raw shared_state after this sequence if the report, text render, and browser-visible captures still disagree."
       ]
     },
     "grouped_controller_corroboration": {

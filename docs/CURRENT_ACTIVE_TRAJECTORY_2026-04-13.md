@@ -11,6 +11,32 @@ Purpose:
 
 This doc is the current operative handoff. It does not delete the earlier trajectory/sitrep docs. It supersedes them only where this report names a corrected execution order or a corrected source reading.
 
+## 0A. 2026-04-18 Reactive Stream Pivot
+
+Read this doc together with:
+
+- `docs/REACTIVE_COIN_STREAM_TRAJECTORY_2026-04-18.md`
+
+Current live correction:
+
+- the meme-coin lane is no longer best framed as a social / club product center
+- the stronger current thesis is a reactive stream surface that behaves like the coin's live nervous system
+- `F:\End-Game\glassboxgames\twitch-stream` is reference evidence only, not a repo we should import, depend on, or center
+
+Current execution order for this lane:
+
+1. reduce external coin/market events into typed readable state
+2. render that state through one stream-facing facility
+3. bind operator controls and diagnostics to the same reduced state
+4. add treasury / burn pulses only after the visual/state reducer path is truthful
+
+Guard rails:
+
+1. do not treat the donor stream repo as the new authority plane
+2. do not let arcade / game / tip-control baggage redefine the lane
+3. do not let treasury / burn theatrics outrun the event reducer
+4. keep the broader repo doctrine intact while the public stream lane becomes the current hot seam
+
 ## 0. 2026-04-14 Live Seam Correction
 
 Read this doc together with:
@@ -27,10 +53,11 @@ Current live correction:
 
 So do not read this file as license to skip:
 
-1. `text_theater_embodiment`
-2. consult / blackboard query-work
-3. text theater snapshot
-4. `contracts` or `env_report(...)`
+1. `env_read(query='text_theater_view', view='render', diagnostics=true)` or `text_theater_embodiment`
+2. browser-visible corroboration through the existing capture lane
+3. consult / blackboard query-work
+4. text theater snapshot
+5. `contracts` or `env_report(...)`
 
 And do not treat relay-tier work as the only possible first move for every current seam.
 
@@ -249,7 +276,8 @@ Verification sequence must explicitly:
 1. clear pose
 2. load/apply half-kneel baseline/controller
 3. confirm `active_controller`
-4. then inspect route/mechanics truth
+4. read the text render and paired browser-visible corroboration
+5. then inspect route/mechanics truth
 
 This prevents parity lag from contaminating kneel verification.
 

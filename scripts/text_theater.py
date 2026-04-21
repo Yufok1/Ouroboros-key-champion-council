@@ -1023,12 +1023,177 @@ def _render_blackboard_section(snapshot, width):
     blackboard = snapshot.get("blackboard") if isinstance(snapshot.get("blackboard"), dict) else {}
     working = blackboard.get("working_set") if isinstance(blackboard.get("working_set"), dict) else {}
     query_thread = working.get("query_thread") if isinstance(working.get("query_thread"), dict) else {}
+    output_state = _output_state(snapshot)
+    pan_probe = output_state.get("pan_probe") if isinstance(output_state.get("pan_probe"), dict) else {}
+    field_disposition = output_state.get("field_disposition") if isinstance(output_state.get("field_disposition"), dict) else {}
+    watch_board = output_state.get("watch_board") if isinstance(output_state.get("watch_board"), dict) else {}
+    equilibrium = output_state.get("equilibrium") if isinstance(output_state.get("equilibrium"), dict) else {}
+    drift = output_state.get("drift") if isinstance(output_state.get("drift"), dict) else {}
+    placement = _output_state_placement(output_state)
+    correlator = _output_state_correlator(output_state)
+    continuity_cue = _output_state_continuity_cue(output_state)
+    tinkerbell_attention = _output_state_tinkerbell_attention(output_state)
+    technolit_measure = _output_state_technolit_measure(output_state)
+    technolit_distribution_packet = _output_state_technolit_distribution_packet(output_state)
+    technolit_treasury_bridge_packet = _output_state_technolit_treasury_bridge_packet(output_state)
+    holder_snapshot_packet = _output_state_holder_snapshot_packet(output_state)
+    raid_contribution_packet = _output_state_raid_contribution_packet(output_state)
+    settlement_epoch_packet = _output_state_settlement_epoch_packet(output_state)
+    hold_door_raid_report_packet = _output_state_hold_door_raid_report_packet(output_state)
+    hold_door_comedia_packet = _output_state_hold_door_comedia_packet(output_state)
+    threat_bounty_packet = _output_state_threat_bounty_packet(output_state)
+    active_pointer = (
+        tinkerbell_attention.get("active_pointer")
+        if isinstance(tinkerbell_attention.get("active_pointer"), dict)
+        else {}
+    )
+    confidence = output_state.get("confidence") if isinstance(output_state.get("confidence"), dict) else {}
+    freshness = output_state.get("freshness") if isinstance(output_state.get("freshness"), dict) else {}
     focus = blackboard.get("focus") if isinstance(blackboard.get("focus"), dict) else {}
     rows = blackboard.get("rows") if isinstance(blackboard.get("rows"), list) else []
     families = blackboard.get("families") if isinstance(blackboard.get("families"), list) else []
     lines = [
         f"row_count={int(blackboard.get('row_count') or 0)} families={families}",
         f"focus kind={focus.get('kind', '')} id={focus.get('id', '')} class={focus.get('target_class', '')}",
+        "output_summary=" + str(output_state.get("summary") or ""),
+        "output_equilibrium="
+        + str(equilibrium.get("band") or "")
+        + " drift="
+        + str(drift.get("band") or "")
+        + " confidence="
+        + str(confidence.get("band") or ""),
+        "output_techlit="
+        + str(technolit_measure.get("band") or "quiet")
+        + " symbol="
+        + str(technolit_measure.get("symbol") or "")
+        + " intake="
+        + str(technolit_measure.get("creator_rewards_unclaimed_sol") or 0)
+        + " SOL flow="
+        + str(technolit_measure.get("flow_posture") or "")
+        + " burn="
+        + str(technolit_measure.get("burn_gate") or ""),
+        "output_distribution="
+        + str(technolit_distribution_packet.get("stage") or "inactive")
+        + " agent="
+        + str(technolit_distribution_packet.get("tokenized_agent_mode") or "n/a")
+        + " next="
+        + str(technolit_distribution_packet.get("next_contract") or ""),
+        "output_treasury_bridge="
+        + str(technolit_treasury_bridge_packet.get("stage") or "inactive")
+        + " asset="
+        + str(technolit_treasury_bridge_packet.get("settlement_asset") or "n/a")
+        + " mode="
+        + str(technolit_treasury_bridge_packet.get("settlement_style") or "n/a")
+        + " next="
+        + str(technolit_treasury_bridge_packet.get("next_contract") or ""),
+        "output_holder_snapshot="
+        + str(holder_snapshot_packet.get("stage") or "inactive")
+        + " camp="
+        + str(holder_snapshot_packet.get("camp_label") or "n/a")
+        + " retention="
+        + str(holder_snapshot_packet.get("retention_band") or "n/a"),
+        "output_raid_contribution="
+        + str(raid_contribution_packet.get("stage") or "inactive")
+        + " raid="
+        + str(raid_contribution_packet.get("raid_label") or "n/a")
+        + " evidence="
+        + str(raid_contribution_packet.get("evidence_mode") or "n/a"),
+        "output_settlement_epoch="
+        + str(settlement_epoch_packet.get("stage") or "inactive")
+        + " asset="
+        + str(settlement_epoch_packet.get("settlement_asset") or "n/a")
+        + " weekly="
+        + str((((settlement_epoch_packet.get("game_clock") or {}).get("weekly")) or "n/a")),
+        "output_hold_door_report="
+        + str(hold_door_raid_report_packet.get("stage") or "inactive")
+        + " name="
+        + str(hold_door_raid_report_packet.get("display_name") or "n/a"),
+        "output_hold_door_comedia="
+        + str(hold_door_comedia_packet.get("stage") or "inactive")
+        + " react="
+        + str(hold_door_comedia_packet.get("reaction") or "n/a")
+        + " bpm="
+        + str(hold_door_comedia_packet.get("tempo_bpm") or 0),
+        "output_threat_bounty="
+        + str(threat_bounty_packet.get("stage") or "inactive")
+        + " mode="
+        + str(threat_bounty_packet.get("jackpot_mode") or "n/a"),
+        "output_freshness=age_ms "
+        + str(int(freshness.get("age_ms") or 0))
+        + " mirror_lag="
+        + str(bool(freshness.get("mirror_lag"))),
+        "output_sources=" + str(_output_state_ready_sources(output_state)),
+        "field_disposition="
+        + str(field_disposition.get("medium_kind") or "")
+        + " / "
+        + str(field_disposition.get("propagation_mode") or "")
+        + " / settle "
+        + str(field_disposition.get("settling_band") or ""),
+        "pan_probe="
+        + str(pan_probe.get("band") or "")
+        + " rotational="
+        + str(bool(pan_probe.get("rotational_grounding")))
+        + " writer="
+        + str((((pan_probe.get("writer_identity") or {}).get("last_sync_reason")) or "")),
+        "watch_board="
+        + str(watch_board.get("band") or "")
+        + " alerts="
+        + str(watch_board.get("alerts") or []),
+        "trajectory_correlator="
+        + str((((correlator.get("correlation") or {}).get("relation")) or ""))
+        + " grade="
+        + str(correlator.get("grade") or "")
+        + " return="
+        + str((((correlator.get("return_path") or {}).get("reads")) or [])),
+        "continuity_cue="
+        + str(continuity_cue.get("severity") or "quiet")
+        + " needed="
+        + str(bool(continuity_cue.get("needed")))
+        + " next="
+        + str(continuity_cue.get("next_action") or ""),
+        "tinkerbell_attention="
+        + str(tinkerbell_attention.get("band") or "quiet")
+        + " kind="
+        + str(active_pointer.get("target_kind") or tinkerbell_attention.get("attention_kind") or "")
+        + " target="
+        + str(active_pointer.get("target") or tinkerbell_attention.get("attention_target") or "")
+        + " hold="
+        + str(bool(active_pointer.get("hold_candidate", tinkerbell_attention.get("hold_candidate")))),
+        "tinkerbell_pointer="
+        + str(active_pointer.get("why_now") or active_pointer.get("why_this_spot") or tinkerbell_attention.get("summary") or "")
+        + " / next "
+        + str(active_pointer.get("expected_read") or ""),
+        "placement="
+        + str(placement.get("subject") or "")
+        + " / "
+        + str(placement.get("objective") or "")
+        + " / seam "
+        + str(placement.get("seam") or "")
+        + " / drift "
+        + str((((placement.get("drift") or {}).get("band")) or "")),
+        "placement_evidence="
+        + str((((placement.get("evidence") or {}).get("anchor_row_ids")) or []))
+        + " / sources "
+        + str((((placement.get("evidence") or {}).get("ready_sources")) or [])),
+        "placement_next="
+        + str((((placement.get("next") or {}).get("reads")) or []))
+        + " / help "
+        + str((((placement.get("next") or {}).get("help")) or [])),
+        "query_sequence=" + str(query_thread.get("sequence_id") or ""),
+        "query_segment="
+        + str(query_thread.get("segment_id") or "")
+        + " status="
+        + str(query_thread.get("status") or ""),
+        "query_pivot=" + str(query_thread.get("current_pivot_id") or ""),
+        "priority_pivots="
+        + str(
+            [
+                str((row or {}).get("pivot_id") or "")
+                for row in list(query_thread.get("priority_pivots") or [])[:4]
+                if isinstance(row, dict)
+            ]
+        ),
+        "query_subject=" + str(query_thread.get("subject_key") or ""),
         "query_objective="
         + str(query_thread.get("objective_label") or query_thread.get("objective_id") or "scene_orientation"),
         "visible_read=" + str(query_thread.get("visible_read") or ""),
@@ -1084,17 +1249,154 @@ def _format_query_lane_entry(row):
     return tool or "read"
 
 
+def _output_state(snapshot):
+    snapshot = snapshot if isinstance(snapshot, dict) else {}
+    return snapshot.get("output_state") if isinstance(snapshot.get("output_state"), dict) else {}
+
+
+def _output_state_placement(output_state):
+    output_state = output_state if isinstance(output_state, dict) else {}
+    return output_state.get("placement") if isinstance(output_state.get("placement"), dict) else {}
+
+
+def _output_state_correlator(output_state):
+    output_state = output_state if isinstance(output_state, dict) else {}
+    return output_state.get("trajectory_correlator") if isinstance(output_state.get("trajectory_correlator"), dict) else {}
+
+
+def _output_state_continuity_cue(output_state):
+    output_state = output_state if isinstance(output_state, dict) else {}
+    return output_state.get("continuity_cue") if isinstance(output_state.get("continuity_cue"), dict) else {}
+
+
+def _output_state_tinkerbell_attention(output_state):
+    output_state = output_state if isinstance(output_state, dict) else {}
+    return output_state.get("tinkerbell_attention") if isinstance(output_state.get("tinkerbell_attention"), dict) else {}
+
+
+def _output_state_technolit_measure(output_state):
+    output_state = output_state if isinstance(output_state, dict) else {}
+    equilibrium = output_state.get("equilibrium") if isinstance(output_state.get("equilibrium"), dict) else {}
+    return equilibrium.get("technolit_measure") if isinstance(equilibrium.get("technolit_measure"), dict) else {}
+
+
+def _output_state_technolit_distribution_packet(output_state):
+    output_state = output_state if isinstance(output_state, dict) else {}
+    packet = output_state.get("technolit_distribution_packet")
+    return packet if isinstance(packet, dict) else {}
+
+
+def _output_state_technolit_treasury_bridge_packet(output_state):
+    output_state = output_state if isinstance(output_state, dict) else {}
+    packet = output_state.get("technolit_treasury_bridge_packet")
+    return packet if isinstance(packet, dict) else {}
+
+
+def _output_state_holder_snapshot_packet(output_state):
+    output_state = output_state if isinstance(output_state, dict) else {}
+    packet = output_state.get("holder_snapshot_packet")
+    return packet if isinstance(packet, dict) else {}
+
+
+def _output_state_raid_contribution_packet(output_state):
+    output_state = output_state if isinstance(output_state, dict) else {}
+    packet = output_state.get("raid_contribution_packet")
+    return packet if isinstance(packet, dict) else {}
+
+
+def _output_state_settlement_epoch_packet(output_state):
+    output_state = output_state if isinstance(output_state, dict) else {}
+    packet = output_state.get("settlement_epoch_packet")
+    return packet if isinstance(packet, dict) else {}
+
+
+def _output_state_hold_door_raid_report_packet(output_state):
+    output_state = output_state if isinstance(output_state, dict) else {}
+    packet = output_state.get("hold_door_raid_report_packet")
+    return packet if isinstance(packet, dict) else {}
+
+
+def _output_state_hold_door_comedia_packet(output_state):
+    output_state = output_state if isinstance(output_state, dict) else {}
+    packet = output_state.get("hold_door_comedia_packet")
+    return packet if isinstance(packet, dict) else {}
+
+
+def _output_state_threat_bounty_packet(output_state):
+    output_state = output_state if isinstance(output_state, dict) else {}
+    packet = output_state.get("threat_bounty_packet")
+    return packet if isinstance(packet, dict) else {}
+
+
+def _output_state_ready_sources(output_state):
+    sources = output_state.get("sources") if isinstance(output_state.get("sources"), dict) else {}
+    return [
+        str(key)
+        for key, value in list(sources.items())
+        if isinstance(value, dict) and value.get("ready")
+    ]
+
+
 def _consult_query_thread(snapshot):
     snapshot = snapshot if isinstance(snapshot, dict) else {}
     blackboard = snapshot.get("blackboard") if isinstance(snapshot.get("blackboard"), dict) else {}
     working = blackboard.get("working_set") if isinstance(blackboard.get("working_set"), dict) else {}
     query_thread = working.get("query_thread") if isinstance(working.get("query_thread"), dict) else {}
+    output_state = _output_state(snapshot)
+    pan_probe = output_state.get("pan_probe") if isinstance(output_state.get("pan_probe"), dict) else {}
+    field_disposition = output_state.get("field_disposition") if isinstance(output_state.get("field_disposition"), dict) else {}
+    watch_board = output_state.get("watch_board") if isinstance(output_state.get("watch_board"), dict) else {}
+    equilibrium = output_state.get("equilibrium") if isinstance(output_state.get("equilibrium"), dict) else {}
+    drift = output_state.get("drift") if isinstance(output_state.get("drift"), dict) else {}
+    placement = _output_state_placement(output_state)
+    correlator = _output_state_correlator(output_state)
+    continuity_cue = _output_state_continuity_cue(output_state)
+    tinkerbell_attention = _output_state_tinkerbell_attention(output_state)
+    technolit_measure = _output_state_technolit_measure(output_state)
+    technolit_distribution_packet = _output_state_technolit_distribution_packet(output_state)
+    technolit_treasury_bridge_packet = _output_state_technolit_treasury_bridge_packet(output_state)
+    holder_snapshot_packet = _output_state_holder_snapshot_packet(output_state)
+    raid_contribution_packet = _output_state_raid_contribution_packet(output_state)
+    settlement_epoch_packet = _output_state_settlement_epoch_packet(output_state)
+    hold_door_raid_report_packet = _output_state_hold_door_raid_report_packet(output_state)
+    hold_door_comedia_packet = _output_state_hold_door_comedia_packet(output_state)
+    threat_bounty_packet = _output_state_threat_bounty_packet(output_state)
+    active_pointer = (
+        tinkerbell_attention.get("active_pointer")
+        if isinstance(tinkerbell_attention.get("active_pointer"), dict)
+        else {}
+    )
+    confidence = output_state.get("confidence") if isinstance(output_state.get("confidence"), dict) else {}
     objective = str(query_thread.get("objective_label") or query_thread.get("objective_id") or "Scene Orientation")
     visible_read = str(query_thread.get("visible_read") or "")
     anchor_rows = query_thread.get("anchor_row_ids") if isinstance(query_thread.get("anchor_row_ids"), list) else working.get("lead_row_ids", [])
     help_lane = query_thread.get("help_lane") if isinstance(query_thread.get("help_lane"), list) else []
     return [
+        "SEQUENCE: " + str(query_thread.get("sequence_id") or "n/a"),
+        "SEGMENT: "
+        + str(query_thread.get("segment_id") or "n/a")
+        + " / status "
+        + str(query_thread.get("status") or "active"),
+        "PIVOT: "
+        + str(query_thread.get("current_pivot_id") or "n/a")
+        + " / retract "
+        + (
+            str(
+                ((query_thread.get("priority_pivots") or [{}])[0] or {}).get(
+                    "retract_to_after_completion"
+                )
+                or ""
+            )
+            or "n/a"
+        ),
+        "SUBJECT: " + str(query_thread.get("subject_key") or "n/a"),
         "OBJECTIVE: " + objective,
+        "PLACEMENT: "
+        + str(placement.get("subject") or "n/a")
+        + " / "
+        + str(placement.get("objective") or "n/a")
+        + " / seam "
+        + str(placement.get("seam") or "n/a"),
         "VISIBLE READ: " + (visible_read or "n/a"),
         "SEED: selected "
         + str(working.get("selected_bone_ids", []))
@@ -1106,6 +1408,129 @@ def _consult_query_thread(snapshot):
         + str(working.get("intended_support_set", []))
         + " / missing "
         + str(working.get("missing_support_set", [])),
+        "OUTPUT: "
+        + str(equilibrium.get("band") or "n/a")
+        + " / drift "
+        + str(drift.get("band") or "n/a")
+        + " / confidence "
+        + str(confidence.get("band") or "n/a"),
+        "TECHLIT: "
+        + str(technolit_measure.get("band") or "quiet")
+        + " / "
+        + str(technolit_measure.get("symbol") or "n/a")
+        + " / intake "
+        + str(technolit_measure.get("creator_rewards_unclaimed_sol") or 0)
+        + " SOL / flow "
+        + str(technolit_measure.get("flow_posture") or "n/a")
+        + " / burn "
+        + str(technolit_measure.get("burn_gate") or "n/a"),
+        "TECHLIT POLICY: "
+        + str(technolit_distribution_packet.get("stage") or "inactive")
+        + " / agent "
+        + str(technolit_distribution_packet.get("tokenized_agent_mode") or "n/a")
+        + " / next "
+        + str(technolit_distribution_packet.get("next_contract") or "n/a"),
+        "TREASURY BRIDGE: "
+        + str(technolit_treasury_bridge_packet.get("stage") or "inactive")
+        + " / asset "
+        + str(technolit_treasury_bridge_packet.get("settlement_asset") or "n/a")
+        + " / mode "
+        + str(technolit_treasury_bridge_packet.get("settlement_style") or "n/a")
+        + " / next "
+        + str(technolit_treasury_bridge_packet.get("next_contract") or "n/a"),
+        "HOLDER SNAPSHOT: "
+        + str(holder_snapshot_packet.get("stage") or "inactive")
+        + " / camp "
+        + str(holder_snapshot_packet.get("camp_label") or "n/a")
+        + " / retention "
+        + str(holder_snapshot_packet.get("retention_band") or "n/a"),
+        "RAID CONTRIBUTION: "
+        + str(raid_contribution_packet.get("stage") or "inactive")
+        + " / raid "
+        + str(raid_contribution_packet.get("raid_label") or "n/a")
+        + " / evidence "
+        + str(raid_contribution_packet.get("evidence_mode") or "n/a"),
+        "SETTLEMENT EPOCH: "
+        + str(settlement_epoch_packet.get("stage") or "inactive")
+        + " / asset "
+        + str(settlement_epoch_packet.get("settlement_asset") or "n/a")
+        + " / clocks "
+        + str((((settlement_epoch_packet.get("game_clock") or {}).get("hourly")) or "n/a"))
+        + " -> "
+        + str((((settlement_epoch_packet.get("game_clock") or {}).get("weekly")) or "n/a"))
+        + " / breaker "
+        + str(settlement_epoch_packet.get("circuit_breaker_mode") or "n/a"),
+        "HOLD DOOR RAID REPORT: "
+        + str(hold_door_raid_report_packet.get("stage") or "inactive")
+        + " / "
+        + str(hold_door_raid_report_packet.get("display_name") or "n/a")
+        + " / asset "
+        + str(hold_door_raid_report_packet.get("custody_asset") or "n/a")
+        + " / cadence "
+        + str(hold_door_raid_report_packet.get("cadence_line") or "n/a")
+        + " / safety "
+        + str(hold_door_raid_report_packet.get("safety_line") or "n/a"),
+        "HOLD DOOR COMEDIA: "
+        + str(hold_door_comedia_packet.get("stage") or "inactive")
+        + " / mood "
+        + str(hold_door_comedia_packet.get("mood") or "n/a")
+        + " / react "
+        + str(hold_door_comedia_packet.get("reaction") or "n/a")
+        + " / bpm "
+        + str(hold_door_comedia_packet.get("tempo_bpm") or 0)
+        + " / text "
+        + str(hold_door_comedia_packet.get("caption_line") or "n/a"),
+        "THREAT BOUNTY: "
+        + str(threat_bounty_packet.get("stage") or "inactive")
+        + " / threats "
+        + str(threat_bounty_packet.get("active_threats") or [])
+        + " / mode "
+        + str(threat_bounty_packet.get("jackpot_mode") or "n/a"),
+        "CORRELATOR: "
+        + str((((correlator.get("correlation") or {}).get("relation")) or "n/a"))
+        + " / grade "
+        + str(correlator.get("grade") or "n/a")
+        + " / return "
+        + str((((correlator.get("return_path") or {}).get("reads")) or [])),
+        "CONTINUITY CUE: "
+        + str(continuity_cue.get("severity") or "quiet")
+        + " / needed "
+        + str(bool(continuity_cue.get("needed")))
+        + " / next "
+        + str(continuity_cue.get("next_action") or "Continue Current Sequence"),
+        "TINKERBELL: "
+        + str(tinkerbell_attention.get("band") or "quiet")
+        + " / "
+        + str(active_pointer.get("target_kind") or tinkerbell_attention.get("attention_kind") or "n/a")
+        + " / "
+        + str(active_pointer.get("target") or tinkerbell_attention.get("attention_target") or "n/a"),
+        "POINTER WHY: "
+        + str(active_pointer.get("why_now") or active_pointer.get("why_this_spot") or tinkerbell_attention.get("summary") or "n/a")
+        + " / next "
+        + str(active_pointer.get("expected_read") or "n/a"),
+        "FIELD: "
+        + str(field_disposition.get("medium_kind") or "n/a")
+        + " / "
+        + str(field_disposition.get("propagation_mode") or "n/a")
+        + " / settle "
+        + str(field_disposition.get("settling_band") or "n/a"),
+        "PAN: "
+        + str(pan_probe.get("band") or "n/a")
+        + " / rotational "
+        + str(bool(pan_probe.get("rotational_grounding")))
+        + " / writer "
+        + str((((pan_probe.get("writer_identity") or {}).get("last_sync_reason")) or "n/a")),
+        "WATCH: "
+        + str(watch_board.get("band") or "n/a")
+        + " / alerts "
+        + str(watch_board.get("alerts") or []),
+        "OUTPUT SUMMARY: " + str(output_state.get("summary") or "n/a"),
+        "PLACEMENT EVIDENCE: anchors "
+        + str((((placement.get("evidence") or {}).get("anchor_row_ids")) or []))
+        + " / sources "
+        + str((((placement.get("evidence") or {}).get("ready_sources")) or [])),
+        "PLACEMENT NEXT: "
+        + str((((placement.get("next") or {}).get("reads")) or [])),
         "ANCHOR ROWS: " + str(anchor_rows or []),
         "HELP AUTHORITY: env_help",
         "HELP LANE: " + str([_format_query_lane_entry(row) for row in help_lane[:2] if isinstance(row, dict)]),
@@ -1114,6 +1539,30 @@ def _consult_query_thread(snapshot):
 
 def _consult_query_evidence(snapshot):
     snapshot = snapshot if isinstance(snapshot, dict) else {}
+    output_state = _output_state(snapshot)
+    pan_probe = output_state.get("pan_probe") if isinstance(output_state.get("pan_probe"), dict) else {}
+    field_disposition = output_state.get("field_disposition") if isinstance(output_state.get("field_disposition"), dict) else {}
+    watch_board = output_state.get("watch_board") if isinstance(output_state.get("watch_board"), dict) else {}
+    placement = _output_state_placement(output_state)
+    correlator = _output_state_correlator(output_state)
+    continuity_cue = _output_state_continuity_cue(output_state)
+    tinkerbell_attention = _output_state_tinkerbell_attention(output_state)
+    technolit_measure = _output_state_technolit_measure(output_state)
+    technolit_distribution_packet = _output_state_technolit_distribution_packet(output_state)
+    technolit_treasury_bridge_packet = _output_state_technolit_treasury_bridge_packet(output_state)
+    holder_snapshot_packet = _output_state_holder_snapshot_packet(output_state)
+    raid_contribution_packet = _output_state_raid_contribution_packet(output_state)
+    settlement_epoch_packet = _output_state_settlement_epoch_packet(output_state)
+    hold_door_raid_report_packet = _output_state_hold_door_raid_report_packet(output_state)
+    hold_door_comedia_packet = _output_state_hold_door_comedia_packet(output_state)
+    threat_bounty_packet = _output_state_threat_bounty_packet(output_state)
+    active_pointer = (
+        tinkerbell_attention.get("active_pointer")
+        if isinstance(tinkerbell_attention.get("active_pointer"), dict)
+        else {}
+    )
+    receipts = output_state.get("receipts") if isinstance(output_state.get("receipts"), dict) else {}
+    freshness = output_state.get("freshness") if isinstance(output_state.get("freshness"), dict) else {}
     blackboard = snapshot.get("blackboard") if isinstance(snapshot.get("blackboard"), dict) else {}
     working = blackboard.get("working_set") if isinstance(blackboard.get("working_set"), dict) else {}
     query_thread = working.get("query_thread") if isinstance(working.get("query_thread"), dict) else {}
@@ -1131,6 +1580,204 @@ def _consult_query_evidence(snapshot):
             continue
         label = _format_query_lane_entry(row)
         lines.append("H" + str(index) + ". " + label + " — " + str(row.get("reason") or ""))
+    pivot_ids = [
+        str((row or {}).get("pivot_id") or "")
+        for row in list(query_thread.get("priority_pivots") or [])[:4]
+        if isinstance(row, dict)
+    ]
+    if pivot_ids:
+        lines.append("PIVOTS: " + str(pivot_ids))
+    if query_thread.get("session_id"):
+        lines.append("SESSION: " + str(query_thread.get("session_id") or ""))
+    if output_state:
+        lines.append("OUTPUT SOURCES: " + str(_output_state_ready_sources(output_state)))
+        lines.append(
+            "PLACEMENT: "
+            + str(placement.get("subject") or "n/a")
+            + " / "
+            + str(placement.get("objective") or "n/a")
+            + " / seam "
+            + str(placement.get("seam") or "n/a")
+        )
+        lines.append(
+            "PLACEMENT DRIFT: "
+            + str((((placement.get("drift") or {}).get("band")) or "n/a"))
+            + " / "
+            + str((((placement.get("drift") or {}).get("issues")) or []))
+        )
+        lines.append(
+            "TRAJECTORY: "
+            + str((((correlator.get("correlation") or {}).get("relation")) or "n/a"))
+            + " / grade "
+            + str(correlator.get("grade") or "n/a")
+        )
+        lines.append(
+            "CONTINUITY CUE: "
+            + str(continuity_cue.get("severity") or "quiet")
+            + " / "
+            + str(continuity_cue.get("reasons") or [])
+        )
+        lines.append(
+            "TINKERBELL: "
+            + str(tinkerbell_attention.get("band") or "quiet")
+            + " / "
+            + str(active_pointer.get("target_kind") or tinkerbell_attention.get("attention_kind") or "n/a")
+            + " / target "
+            + str(active_pointer.get("target") or tinkerbell_attention.get("attention_target") or "n/a")
+        )
+        lines.append(
+            "TECHLIT: "
+            + str(technolit_measure.get("band") or "quiet")
+            + " / "
+            + str(technolit_measure.get("symbol") or "n/a")
+            + " / intake "
+            + str(technolit_measure.get("creator_rewards_unclaimed_sol") or 0)
+            + " SOL / flow "
+            + str(technolit_measure.get("flow_posture") or "n/a")
+            + " / burn "
+            + str(technolit_measure.get("burn_gate") or "n/a")
+        )
+        lines.append(
+            "TECHLIT POLICY: "
+            + str(technolit_distribution_packet.get("stage") or "inactive")
+            + " / agent "
+            + str(technolit_distribution_packet.get("tokenized_agent_mode") or "n/a")
+            + " / next "
+            + str(technolit_distribution_packet.get("next_contract") or "n/a")
+            + " / line "
+            + str(technolit_distribution_packet.get("public_line") or "n/a")
+        )
+        lines.append(
+            "TREASURY BRIDGE: "
+            + str(technolit_treasury_bridge_packet.get("stage") or "inactive")
+            + " / asset "
+            + str(technolit_treasury_bridge_packet.get("settlement_asset") or "n/a")
+            + " / next "
+            + str(technolit_treasury_bridge_packet.get("next_contract") or "n/a")
+            + " / line "
+            + str(technolit_treasury_bridge_packet.get("public_line") or "n/a")
+        )
+        lines.append(
+            "HOLDER SNAPSHOT: "
+            + str(holder_snapshot_packet.get("stage") or "inactive")
+            + " / camp "
+            + str(holder_snapshot_packet.get("camp_label") or "n/a")
+            + " / retention "
+            + str(holder_snapshot_packet.get("retention_band") or "n/a")
+            + " / anti-snipe "
+            + str(holder_snapshot_packet.get("anti_snipe_band") or "n/a")
+        )
+        lines.append(
+            "RAID CONTRIBUTION: "
+            + str(raid_contribution_packet.get("stage") or "inactive")
+            + " / raid "
+            + str(raid_contribution_packet.get("raid_label") or "n/a")
+            + " / roles "
+            + str(raid_contribution_packet.get("role_families") or [])
+        )
+        lines.append(
+            "SETTLEMENT EPOCH: "
+            + str(settlement_epoch_packet.get("stage") or "inactive")
+            + " / asset "
+            + str(settlement_epoch_packet.get("settlement_asset") or "n/a")
+            + " / clocks "
+            + str(((settlement_epoch_packet.get("game_clock") or {}).get("hourly")) or "n/a")
+            + " -> "
+            + str(((settlement_epoch_packet.get("game_clock") or {}).get("quarterly")) or "n/a")
+            + " / breaker "
+            + str(settlement_epoch_packet.get("circuit_breaker_mode") or "n/a")
+        )
+        lines.append(
+            "HOLD DOOR RAID REPORT: "
+            + str(hold_door_raid_report_packet.get("stage") or "inactive")
+            + " / "
+            + str(hold_door_raid_report_packet.get("display_name") or "n/a")
+            + " / cadence "
+            + str(hold_door_raid_report_packet.get("cadence_line") or "n/a")
+            + " / safety "
+            + str(hold_door_raid_report_packet.get("safety_line") or "n/a")
+        )
+        lines.append(
+            "HOLD DOOR COMEDIA: "
+            + str(hold_door_comedia_packet.get("stage") or "inactive")
+            + " / mood "
+            + str(hold_door_comedia_packet.get("mood") or "n/a")
+            + " / react "
+            + str(hold_door_comedia_packet.get("reaction") or "n/a")
+            + " / bpm "
+            + str(hold_door_comedia_packet.get("tempo_bpm") or 0)
+            + " / text "
+            + str(hold_door_comedia_packet.get("caption_line") or "n/a")
+        )
+        lines.append(
+            "THREAT BOUNTY: "
+            + str(threat_bounty_packet.get("stage") or "inactive")
+            + " / threats "
+            + str(threat_bounty_packet.get("active_threats") or [])
+            + " / adjacent "
+            + str(threat_bounty_packet.get("adjacent_reward_mode") or "n/a")
+        )
+        lines.append(
+            "POINTER WHY: "
+            + str(active_pointer.get("why_now") or active_pointer.get("why_this_spot") or tinkerbell_attention.get("summary") or "n/a")
+            + " / next "
+            + str(active_pointer.get("expected_read") or "n/a")
+            + " / hold "
+            + str(bool(active_pointer.get("hold_candidate", tinkerbell_attention.get("hold_candidate"))))
+        )
+        lines.append("FIELD DISPOSITION: " + str(field_disposition.get("summary") or "n/a"))
+        lines.append("PAN PROBE: " + str(pan_probe.get("summary") or "n/a"))
+        lines.append(
+            "PAN WRITER: "
+            + str((((pan_probe.get("writer_identity") or {}).get("last_sync_reason")) or "n/a"))
+            + " / tool "
+            + str((((pan_probe.get("writer_identity") or {}).get("render_last_tool_applied")) or "n/a"))
+            + " / source "
+            + str((((pan_probe.get("writer_identity") or {}).get("render_last_tool_source")) or "n/a"))
+        )
+        lines.append(
+            "PAN CAPTURES: "
+            + str(
+                [
+                    str((row or {}).get("key") or "")
+                    for row in list(pan_probe.get("capture_surfaces") or [])[:6]
+                    if isinstance(row, dict)
+                ]
+            )
+        )
+        lines.append(
+            "WATCH BOARD: "
+            + str(watch_board.get("band") or "n/a")
+            + " / tracked "
+            + str(
+                [
+                    str((row or {}).get("kind") or "")
+                    for row in list(watch_board.get("tracked_events") or [])[:4]
+                    if isinstance(row, dict)
+                ]
+            )
+        )
+        lines.append(
+            "OUTPUT RECEIPT: "
+            + str(receipts.get("last_action") or "n/a")
+            + " / sync "
+            + str(receipts.get("last_sync_reason") or "n/a")
+        )
+        lines.append(
+            "OUTPUT FRESHNESS: age_ms "
+            + str(int(freshness.get("age_ms") or 0))
+            + " / mirror_lag "
+            + str(bool(freshness.get("mirror_lag")))
+        )
+        lines.append(
+            "PLACEMENT NEXT: "
+            + str((((placement.get("next") or {}).get("reads")) or []))
+            + " / help "
+            + str((((placement.get("next") or {}).get("help")) or []))
+        )
+        lines.append("RETURN PATH: " + str((((correlator.get("return_path") or {}).get("reads")) or [])))
+        if continuity_cue.get("prompt"):
+            lines.append("CUE PROMPT: " + str(continuity_cue.get("prompt") or ""))
     lines.append("GUARDRAIL: " + str(query_thread.get("raw_state_guardrail") or "raw shared_state last"))
     lines.append("PINNED: " + str(working.get("pinned_row_ids") or []))
     return lines
@@ -2733,14 +3380,112 @@ def _world_bounds_points(surface):
     ]
 
 
+def _box_floor_outline(bounds, y_override=None):
+    if not isinstance(bounds, dict):
+        return []
+    min_point = bounds.get("min") if isinstance(bounds.get("min"), dict) else None
+    max_point = bounds.get("max") if isinstance(bounds.get("max"), dict) else None
+    if not min_point or not max_point:
+        return []
+    min_x = float(min_point.get("x", 0.0) or 0.0)
+    max_x = float(max_point.get("x", 0.0) or 0.0)
+    min_y = float(min_point.get("y", 0.0) or 0.0)
+    min_z = float(min_point.get("z", 0.0) or 0.0)
+    max_z = float(max_point.get("z", 0.0) or 0.0)
+    if abs(max_x - min_x) < 1e-6 and abs(max_z - min_z) < 1e-6:
+        return []
+    outline_y = float(min_y if y_override is None else y_override)
+    return [
+        (min_x, outline_y, min_z),
+        (min_x, outline_y, max_z),
+        (max_x, outline_y, max_z),
+        (max_x, outline_y, min_z),
+    ]
+
+
 def _fract(value):
     number = float(value or 0.0)
     return number - math.floor(number)
 
 
+def _weather_default_chars(weather):
+    source = weather if isinstance(weather, dict) else {}
+    kind = str(source.get("kind") or "").strip().lower()
+    flow_class = str(source.get("flow_class") or "").strip().lower()
+    if flow_class == "precipitation" or kind in {"rain", "drip", "hail", "sleet"}:
+        return "||!'"
+    if kind == "snow":
+        return "*+."
+    if flow_class == "current" or kind in {"current", "wind"}:
+        return "~=-"
+    if kind in {"mist", "fog", "smoke"}:
+        return ".,:"
+    if kind in {"sand", "ash"}:
+        return ".:*"
+    return "|~.*"
+
+
 def _weather_chars(weather):
     chars = "".join(ch for ch in str((weather or {}).get("glyphs") or "") if not ch.isspace())
-    return chars or "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+    glyph_profile = str((weather or {}).get("glyph_profile") or "").strip().lower()
+    if chars:
+        if glyph_profile == "default_alphanumeric" or chars == "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789":
+            return _weather_default_chars(weather)
+        return chars
+    return _weather_default_chars(weather)
+
+
+def _normalize_snapshot_weather(snapshot):
+    source_snapshot = snapshot if isinstance(snapshot, dict) else {}
+    weather = source_snapshot.get("weather") if isinstance(source_snapshot.get("weather"), dict) else None
+    if not weather:
+        return source_snapshot
+    next_snapshot = dict(source_snapshot)
+    next_weather = dict(weather)
+    source = str(next_weather.get("source") or "").strip().lower()
+    profile_active = str(next_weather.get("profile_active") or "").strip()
+    profile_family = str(next_weather.get("profile_family") or "").strip()
+    if bool(next_weather.get("enabled")) and source == "world_profile_field_seed" and not profile_active and not profile_family:
+        next_weather["enabled"] = False
+        next_weather["source"] = "none"
+        next_weather["summary"] = "weather disabled without owned producer"
+        next_weather["sample_count"] = 0
+        next_snapshot["weather"] = next_weather
+        output_state = source_snapshot.get("output_state") if isinstance(source_snapshot.get("output_state"), dict) else None
+        if output_state:
+            next_output_state = dict(output_state)
+            field_disposition = output_state.get("field_disposition") if isinstance(output_state.get("field_disposition"), dict) else {}
+            balance = source_snapshot.get("balance") if isinstance(source_snapshot.get("balance"), dict) else {}
+            support_phase = str(balance.get("support_phase") or "idle")
+            stability_risk = _clamp(float(balance.get("stability_risk") or 0.0), 0.0, 99.0)
+            normalized_field = dict(field_disposition)
+            normalized_field["medium_kind"] = "support_gravity"
+            normalized_field["propagation_mode"] = "support"
+            normalized_field["density"] = None
+            normalized_field["speed"] = None
+            normalized_field["turbulence"] = None
+            normalized_field["flow_bias"] = None
+            normalized_field["drift_bias"] = None
+            coupled_surfaces = [str(row) for row in list(normalized_field.get("coupled_surfaces") or []) if str(row) and str(row) != "weather"]
+            normalized_field["coupled_surfaces"] = coupled_surfaces
+            normalized_field["summary"] = (
+                "support / "
+                + support_phase
+                + " / settle "
+                + str(normalized_field.get("settling_band") or "stable")
+                + " / risk "
+                + f"{stability_risk:.3f}".rstrip("0").rstrip(".")
+            )
+            next_output_state["field_disposition"] = normalized_field
+            next_snapshot["output_state"] = next_output_state
+        return next_snapshot
+    legacy_glyphs = "".join(ch for ch in str(next_weather.get("glyphs") or "") if not ch.isspace())
+    glyph_profile = str(next_weather.get("glyph_profile") or "").strip().lower()
+    if glyph_profile == "default_alphanumeric" or legacy_glyphs == "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789":
+        next_weather["glyphs"] = _weather_default_chars(next_weather)
+        next_weather["glyph_profile"] = "field_ascii"
+    next_snapshot["weather"] = next_weather
+    return next_snapshot
 
 
 def _weather_volume_bounds(weather):
@@ -2842,20 +3587,50 @@ def _weather_is_precipitation(weather):
 
 def _scene_object_marker(kind, focused=False):
     obj_kind = str(kind or "").strip().lower()
-    radius = 1 if focused else 0
+    radius = 2 if focused else 1
     if obj_kind == "panel":
-        return {"char": "▮", "radius": radius}
+        return {"char": "▮", "radius": max(2, radius), "stamp": "filled_square"}
     if obj_kind == "portal":
-        return {"char": "◎", "radius": radius}
+        return {"char": "◎", "radius": max(1, radius), "stamp": "ring"}
     if obj_kind == "tile":
-        return {"char": "▭", "radius": radius}
+        return {"char": "▭", "radius": max(1, radius), "stamp": "filled_square"}
     if obj_kind == "marker":
-        return {"char": "◆", "radius": 0}
+        return {"char": "◆", "radius": 0, "stamp": "point"}
     if obj_kind == "zone":
-        return {"char": "◌", "radius": radius}
+        return {"char": "◌", "radius": max(1, radius), "stamp": "ring"}
     if obj_kind in {"structure", "prop"}:
-        return {"char": "▣", "radius": radius}
-    return {"char": "•", "radius": radius}
+        return {"char": "▣", "radius": max(2, radius), "stamp": "filled_square"}
+    return {"char": "•", "radius": radius, "stamp": "point"}
+
+
+def _object_stamp_offsets(stamp, radius=1):
+    size = max(1, int(radius or 1))
+    stamp_key = str(stamp or "").strip().lower()
+    if stamp_key == "filled_square":
+        rows = []
+        for dx in range(-size, size + 1):
+            for dy in range(-size, size + 1):
+                rows.append((dx, dy))
+        return rows
+    if stamp_key == "square":
+        rows = []
+        for dx in range(-size, size + 1):
+            rows.append((dx, -size))
+            rows.append((dx, size))
+        for dy in range(-size + 1, size):
+            rows.append((-size, dy))
+            rows.append((size, dy))
+        rows.append((0, 0))
+        return rows
+    if stamp_key == "ring":
+        return [
+            (0, -size),
+            (-size, 0),
+            (size, 0),
+            (0, size),
+            (0, 0),
+        ]
+    return [(0, 0)]
 
 
 def _project_world_size_to_subcells(size_world, depth, render_height, camera_meta=None):
@@ -2982,6 +3757,7 @@ def _collect_render_model(snapshot):
     balance = snapshot.get("balance") or {}
     contacts = snapshot.get("contacts") or []
     scene = snapshot.get("scene") or {}
+    theater = snapshot.get("theater") or {}
     weather = snapshot.get("weather") if isinstance(snapshot.get("weather"), dict) else {}
     render = snapshot.get("render") or {}
     workbench = snapshot.get("workbench") or {}
@@ -3007,12 +3783,16 @@ def _collect_render_model(snapshot):
             "radius_end": max(0.004, float(profile[1] or profile[0] or 0.04)),
         }
     guide = (render.get("workbench_stage_guide") or {}) if isinstance(render, dict) else {}
+    quiet_workbench_stage = bool(render.get("workbench_stage_quiet")) if isinstance(render, dict) else False
     guide_palette = (guide.get("palette") or {}) if isinstance(guide, dict) else {}
     selection_palette = (
         (render.get("selection_palette") or {})
         if isinstance(render, dict)
         else {}
     ) or (workbench.get("selection_visual_state") or {})
+    scene_substrate = scene.get("substrate") if isinstance(scene.get("substrate"), dict) else {}
+    scene_grid = scene_substrate.get("grid") if isinstance(scene_substrate.get("grid"), dict) else {}
+    environment_scene_mode = str(theater.get("mode") or "").strip().lower() == "environment"
     focus_visual = (
         (scene.get("focus_object_visual") or {})
         if isinstance(scene, dict)
@@ -3202,11 +3982,17 @@ def _collect_render_model(snapshot):
         support_y = float((((workbench.get("motion_diagnostics") or {}).get("support_surface") or {}).get("support_y")) or 0.0)
     except Exception:
         support_y = 0.0
-    try:
-        guide_floor = float(guide.get("floor_y") or support_y)
-        support_y = guide_floor
-    except Exception:
-        pass
+    if environment_scene_mode:
+        try:
+            support_y = float(scene_substrate.get("ground_y") or support_y)
+        except Exception:
+            pass
+    else:
+        try:
+            guide_floor = float(guide.get("floor_y") or support_y)
+            support_y = guide_floor
+        except Exception:
+            pass
     focus_point = _snapshot_focus_point(snapshot)
     selected_anchor = _vec3(
         (selected_surface.get("world_center") if isinstance(selected_surface, dict) else None)
@@ -3219,6 +4005,7 @@ def _collect_render_model(snapshot):
     min_bound = scene_bounds.get("min") or {}
     max_bound = scene_bounds.get("max") or {}
     guide_grid_span = float(guide.get("grid_span") or 0.0) if isinstance(guide, dict) else 0.0
+    grid_box = scene_grid.get("box") if isinstance(scene_grid.get("box"), dict) else {}
     selected_bounds_points = _world_bounds_points(selected_surface) if scoped_part_mode else []
     if scoped_part_mode and selected_bounds_points:
         scoped_bounds = _bounds3(selected_bounds_points)
@@ -3226,6 +4013,11 @@ def _collect_render_model(snapshot):
         max_x = float(scoped_bounds["max"][0]) + max(0.3, float(scoped_bounds["size"][0]) * 0.18)
         min_z = float(scoped_bounds["min"][2]) - max(0.3, float(scoped_bounds["size"][2]) * 0.18)
         max_z = float(scoped_bounds["max"][2]) + max(0.3, float(scoped_bounds["size"][2]) * 0.18)
+    elif environment_scene_mode and isinstance(grid_box.get("min"), dict) and isinstance(grid_box.get("max"), dict):
+        min_x = float((grid_box.get("min") or {}).get("x", focus_point[0] - 8) or (focus_point[0] - 8))
+        max_x = float((grid_box.get("max") or {}).get("x", focus_point[0] + 8) or (focus_point[0] + 8))
+        min_z = float((grid_box.get("min") or {}).get("z", focus_point[2] - 8) or (focus_point[2] - 8))
+        max_z = float((grid_box.get("max") or {}).get("z", focus_point[2] + 8) or (focus_point[2] + 8))
     elif guide_grid_span > 0.1:
         half_span = guide_grid_span * 0.5
         min_x = focus_point[0] - half_span
@@ -3259,8 +4051,41 @@ def _collect_render_model(snapshot):
     guide_rings = []
     guide_triangles = []
     guide_grid_lines = []
+    object_outlines = []
 
-    if guide_grid_span > 0.1:
+    if quiet_workbench_stage:
+        pass
+    elif environment_scene_mode and isinstance(grid_box.get("min"), dict) and isinstance(grid_box.get("max"), dict):
+        first_x = float((grid_box.get("min") or {}).get("x", min_x) or min_x)
+        first_z = float((grid_box.get("min") or {}).get("z", min_z) or min_z)
+        last_x = float((grid_box.get("max") or {}).get("x", max_x) or max_x)
+        last_z = float((grid_box.get("max") or {}).get("z", max_z) or max_z)
+        grid_divisions = max(1, int(scene_grid.get("divisions") or 0) or 40)
+        grid_step_x = max(0.25, abs(last_x - first_x) / float(grid_divisions))
+        grid_step_z = max(0.25, abs(last_z - first_z) / float(grid_divisions))
+        for xi in range(grid_divisions + 1):
+            x_cursor = first_x + (grid_step_x * xi)
+            is_edge_x = xi == 0 or xi == grid_divisions
+            is_major_x = (xi % 5) == 0
+            guide_grid_lines.append({
+                "start": (x_cursor, support_y, first_z),
+                "end": (x_cursor, support_y, last_z),
+                "style": frame_style if is_edge_x else (major_grid_style if is_major_x else minor_grid_style),
+                "priority": 2 if is_edge_x else (1 if is_major_x else 0),
+                "samples": 34 if is_edge_x else (26 if is_major_x else 18),
+            })
+        for zi in range(grid_divisions + 1):
+            z_cursor = first_z + (grid_step_z * zi)
+            is_edge_z = zi == 0 or zi == grid_divisions
+            is_major_z = (zi % 5) == 0
+            guide_grid_lines.append({
+                "start": (first_x, support_y, z_cursor),
+                "end": (last_x, support_y, z_cursor),
+                "style": frame_style if is_edge_z else (major_grid_style if is_major_z else minor_grid_style),
+                "priority": 2 if is_edge_z else (1 if is_major_z else 0),
+                "samples": 34 if is_edge_z else (26 if is_major_z else 18),
+            })
+    elif guide_grid_span > 0.1:
         half_span = guide_grid_span * 0.5
         center_x = focus_point[0]
         center_z = focus_point[2]
@@ -3325,27 +4150,49 @@ def _collect_render_model(snapshot):
                 break
     else:
         grid_step = max(1.75, round(max(span_x, span_z) / 12.0, 2))
-        x_cursor = math.floor(min_x / grid_step) * grid_step
+        first_x = math.floor(min_x / grid_step) * grid_step
+        first_z = math.floor(min_z / grid_step) * grid_step
+        x_cursor = first_x
         last_x = math.ceil(max_x / grid_step) * grid_step
         last_z = math.ceil(max_z / grid_step) * grid_step
         while x_cursor <= last_x + 1e-6:
-            is_edge_x = abs(x_cursor - (math.floor(min_x / grid_step) * grid_step)) < 1e-6 or abs(x_cursor - last_x) < 1e-6
-            x_index = int(round((x_cursor - (math.floor(min_x / grid_step) * grid_step)) / grid_step))
+            is_edge_x = abs(x_cursor - first_x) < 1e-6 or abs(x_cursor - last_x) < 1e-6
+            x_index = int(round((x_cursor - first_x) / grid_step))
             is_major_x = (x_index % 4) == 0
-            z_cursor = math.floor(min_z / grid_step) * grid_step
+            guide_grid_lines.append({
+                "start": (x_cursor, support_y, first_z),
+                "end": (x_cursor, support_y, last_z),
+                "style": frame_style if is_edge_x else (major_grid_style if is_major_x else minor_grid_style),
+                "priority": 2 if is_edge_x else (1 if is_major_x else 0),
+                "samples": 34 if is_edge_x else (26 if is_major_x else 18),
+            })
+            z_cursor = first_z
             while z_cursor <= last_z + 1e-6:
-                z_index = int(round((z_cursor - (math.floor(min_z / grid_step) * grid_step)) / grid_step))
-                is_edge_z = abs(z_cursor - (math.floor(min_z / grid_step) * grid_step)) < 1e-6 or abs(z_cursor - last_z) < 1e-6
+                z_index = int(round((z_cursor - first_z) / grid_step))
+                is_edge_z = abs(z_cursor - first_z) < 1e-6 or abs(z_cursor - last_z) < 1e-6
                 is_corner = is_edge_x and is_edge_z
                 is_major = is_major_x or ((z_index % 4) == 0)
                 floor_points.append({
                     "point": (x_cursor, support_y, z_cursor),
                     "style": frame_style if is_corner else (major_grid_style if is_major else minor_grid_style),
                     "priority": 2 if is_corner else (1 if is_major else 0),
-                    "radius": 0,
+                    "radius": 1 if is_corner else (1 if is_major else 0),
                 })
                 z_cursor += grid_step
             x_cursor += grid_step
+        z_cursor = first_z
+        while z_cursor <= last_z + 1e-6:
+            z_index = int(round((z_cursor - first_z) / grid_step))
+            is_edge_z = abs(z_cursor - first_z) < 1e-6 or abs(z_cursor - last_z) < 1e-6
+            is_major_z = (z_index % 4) == 0
+            guide_grid_lines.append({
+                "start": (first_x, support_y, z_cursor),
+                "end": (last_x, support_y, z_cursor),
+                "style": frame_style if is_edge_z else (major_grid_style if is_major_z else minor_grid_style),
+                "priority": 2 if is_edge_z else (1 if is_major_z else 0),
+                "samples": 34 if is_edge_z else (26 if is_major_z else 18),
+            })
+            z_cursor += grid_step
 
     segments = []
     projected_points = []
@@ -3489,7 +4336,7 @@ def _collect_render_model(snapshot):
     support_polygon = []
     contact_patches = []
     diagnostic_contacts = (((workbench.get("motion_diagnostics") or {}).get("contacts")) or [])
-    if not scoped_part_mode:
+    if not scoped_part_mode and not quiet_workbench_stage:
         for row in balance.get("support_polygon") or []:
             support_polygon.append((float(row.get("x") or 0), support_y, float(row.get("z") or 0)))
         projected_points.extend(support_polygon)
@@ -3529,6 +4376,8 @@ def _collect_render_model(snapshot):
             if not isinstance(obj, dict):
                 continue
             point = _vec3(obj.get("position"))
+            spatial = obj.get("spatial") if isinstance(obj.get("spatial"), dict) else {}
+            outline_points = _box_floor_outline(spatial.get("box"), y_override=support_y)
             obj_kind = str(obj.get("kind") or "").strip().lower()
             marker = _scene_object_marker(obj_kind, focused=bool(obj.get("focused")))
             objects.append({
@@ -3536,7 +4385,8 @@ def _collect_render_model(snapshot):
                 "label": str(obj.get("label") or obj.get("id") or obj.get("kind") or f"object_{index + 1}"),
                 "point": point,
                 "distance": obj.get("distance"),
-                "radius": int(marker["radius"]),
+                "radius": 0 if outline_points else int(marker["radius"]),
+                "stamp": "point" if outline_points else str(marker.get("stamp") or "point"),
                 "focused": bool(obj.get("focused")),
                 "style": _style_from_color(
                     obj.get("color") or ((obj.get("colors") or {}).get("edge")) or "#66b8ff",
@@ -3545,6 +4395,17 @@ def _collect_render_model(snapshot):
                 ),
             })
             projected_points.append(point)
+            if outline_points:
+                object_outlines.append({
+                    "points": outline_points,
+                    "style": _style_from_color(
+                        obj.get("color") or ((obj.get("colors") or {}).get("edge")) or "#66b8ff",
+                        "#66b8ff",
+                        1.08 if bool(obj.get("focused")) else 0.96,
+                    ),
+                    "priority": 5 if bool(obj.get("focused")) else 4,
+                })
+                projected_points.extend(outline_points)
 
     perspective_points = [focus_point]
     if not scoped_part_mode:
@@ -3560,6 +4421,8 @@ def _collect_render_model(snapshot):
         perspective_points.append(marker["point"])
     for obj in objects:
         perspective_points.append(obj["point"])
+    for outline in object_outlines:
+        perspective_points.extend(outline.get("points") or [])
     if weather.get("enabled"):
         weather_volume = _weather_volume_bounds(weather)
         projected_points.extend(weather_volume.get("corners") or [])
@@ -3589,6 +4452,7 @@ def _collect_render_model(snapshot):
         "guide_triangles": guide_triangles,
         "guide_grid_lines": guide_grid_lines,
         "guide_rings": guide_rings,
+        "object_outlines": object_outlines,
         "points": projected_points,
         "perspective_points": perspective_points,
         "support_y": support_y,
@@ -3638,9 +4502,9 @@ def _render_projection(snapshot, width, height, mode, history=None, surface_mode
     if object_bits:
         legend.append("Objects: " + " | ".join(object_bits))
     scene_height = max(4, height - len(legend))
-    # Keep the scene projection on the braille backend. The cell backend
-    # makes status/help text crisper, but it degrades body/environment
-    # silhouettes too much for the actual render surface.
+    # Keep the main body/environment read on the braille backend until the
+    # broader sharp/granular projection work is finished. Weather gets its
+    # own sharper glyph handling below without switching the whole scene.
     use_cell_canvas = False
     if use_cell_canvas:
         canvas = _make_canvas(width, scene_height)
@@ -3803,6 +4667,25 @@ def _render_projection(snapshot, width, height, mode, history=None, surface_mode
                     y,
                     priority=int(guide_row.get("priority", 1)),
                     style=guide_row.get("style") or model["styles"]["floor_major"],
+                )
+        for guide_row in model["guide_grid_lines"]:
+            for point in _sample_segment_points(
+                guide_row["start"],
+                guide_row["end"],
+                _detail_scaled_count(guide_row.get("samples", 18), drag_lod, 10),
+            ):
+                coords = project(point)
+                if coords is None:
+                    continue
+                x, y = mapper(coords)
+                guide_priority = int(guide_row.get("priority", 0))
+                guide_style = guide_row.get("style") or model["styles"]["floor_minor"]
+                _braille_put(
+                    canvas,
+                    x,
+                    y,
+                    priority=guide_priority,
+                    style=guide_style,
                 )
 
     if mode not in {"perspective", "quarter", "profile"} and not use_cell_canvas:
@@ -4298,6 +5181,25 @@ def _render_projection(snapshot, width, height, mode, history=None, surface_mode
                         style=model["styles"]["body_edge"],
                     )
 
+    for outline in model.get("object_outlines") or []:
+        points = outline.get("points") or []
+        if len(points) < 2:
+            continue
+        outline_style = outline.get("style") or BLUE
+        outline_priority = int(outline.get("priority", 4))
+        for idx in range(len(points)):
+            start = points[idx]
+            end = points[(idx + 1) % len(points)]
+            for point in _sample_segment_points(start, end, _detail_scaled_count(18, drag_lod, 10)):
+                coords = project(point)
+                if coords is None:
+                    continue
+                x, y = mapper(coords)
+                if use_cell_canvas:
+                    put_mark(x, y, "·", priority=outline_priority, style=outline_style)
+                else:
+                    _braille_put(canvas, x, y, priority=outline_priority, style=outline_style)
+
     heading_tip_coords = project(model["heading_tip"])
     current_origin_coords = project(model.get("heading_origin"))
 
@@ -4363,9 +5265,23 @@ def _render_projection(snapshot, width, height, mode, history=None, surface_mode
             glyph = str(row.get("glyph") or "A")[:1]
             if use_cell_canvas:
                 if precipitation_like:
-                    head_char = glyph if band == "reference" else "|"
-                    head_style = weather_styles["bright"] if band in {"reference", "fused"} else weather_styles["mid"]
-                    put_mark(x, y, head_char, priority=4 if band == "reference" else 3, style=head_style)
+                    if band == "reference":
+                        head_char = glyph
+                        head_priority = 4
+                        head_style = weather_styles["bright"]
+                    elif band in {"fused", "granular"}:
+                        head_char = "|"
+                        head_priority = 3
+                        head_style = weather_styles["mid"]
+                    elif band == "blob":
+                        head_char = "'"
+                        head_priority = 2
+                        head_style = weather_styles["mid"]
+                    else:
+                        head_char = "."
+                        head_priority = 1
+                        head_style = weather_styles["dim"]
+                    put_mark(x, y, head_char, priority=head_priority, style=head_style)
                 elif band == "reference":
                     put_mark(x, y, glyph, priority=4, style=weather_styles["bright"])
                 elif band == "fused":
@@ -4385,6 +5301,12 @@ def _render_projection(snapshot, width, height, mode, history=None, surface_mode
                     _braille_overlay_char(canvas, x, y, glyph, priority=5, style=weather_styles["bright"])
                 elif band == "fused":
                     _braille_overlay_char(canvas, x, y, "│", priority=4, style=weather_styles["mid"])
+                elif band == "granular":
+                    _braille_overlay_char(canvas, x, y, "│", priority=3, style=weather_styles["mid"])
+                elif band == "blob":
+                    _braille_overlay_char(canvas, x, y, "'", priority=2, style=weather_styles["mid"])
+                else:
+                    _braille_overlay_char(canvas, x, y, ".", priority=1, style=weather_styles["dim"])
                 continue
             if band == "reference":
                 _braille_cluster(canvas, x, y, priority=1, style=weather_styles["mid"], radius=1)
@@ -4416,6 +5338,7 @@ def _render_projection(snapshot, width, height, mode, history=None, surface_mode
         obj_priority = 6 if obj.get("focused") else 5
         obj_style = obj.get("style") or BLUE
         obj_radius = int(obj.get("radius", 0))
+        obj_stamp = str(obj.get("stamp") or "point")
         if use_cell_canvas:
             put_mark(
                 x,
@@ -4426,7 +5349,16 @@ def _render_projection(snapshot, width, height, mode, history=None, surface_mode
                 radius=obj_radius,
             )
         else:
-            if obj_radius > 0:
+            if obj_stamp in {"square", "ring"}:
+                for dx, dy in _object_stamp_offsets(obj_stamp, max(1, obj_radius)):
+                    _braille_put(
+                        canvas,
+                        x + dx,
+                        y + dy,
+                        priority=max(1, obj_priority - 1),
+                        style=obj_style,
+                    )
+            elif obj_radius > 0:
                 _braille_cluster(canvas, x, y, priority=max(1, obj_priority - 1), style=obj_style, radius=obj_radius)
             _braille_overlay_char(canvas, x, y, obj_char, priority=obj_priority, style=obj_style)
 
@@ -5450,6 +6382,14 @@ def _local_text_outputs(snapshot, view_mode):
     return theater, embodiment
 
 
+def _projection_title(snapshot):
+    if not isinstance(snapshot, dict):
+        return "Scene"
+    theater = snapshot.get("theater") or {}
+    mode = str(theater.get("mode") or "").strip().lower()
+    return "Workbench" if mode == "character" else "Scene"
+
+
 def _render_render_view(snapshot, theater_text, width, height, diagnostics_visible, section_key, history=None, surface_mode=TEXT_THEATER_SURFACE_MODE, surface_density=TEXT_THEATER_SURFACE_DENSITY):
     width = max(80, width)
     height = max(24, height)
@@ -5460,10 +6400,11 @@ def _render_render_view(snapshot, theater_text, width, height, diagnostics_visib
     lines = []
     live_camera = _snapshot_is_live_camera(snapshot)
     render_history = None if live_camera else history
+    projection_title = _projection_title(snapshot)
     if live_camera and width >= 120 and content_height >= 18:
         left_width = max(48, int(width * 0.66))
         right_width = max(24, width - left_width - 1)
-        main_box = _box("Scene", _render_projection(snapshot, left_width - 2, content_height - 2, "perspective", history=render_history, surface_mode=surface_mode), left_width, content_height, body_mode="raw")
+        main_box = _box(projection_title, _render_projection(snapshot, left_width - 2, content_height - 2, "perspective", history=render_history, surface_mode=surface_mode), left_width, content_height, body_mode="raw")
         right_box = _box("Theater", _wrap_block(theater_text, right_width - 2), right_width, content_height, body_mode="wide", surface_mode=surface_mode, surface_density=surface_density)
         row_count = max(len(main_box), len(right_box))
         for idx in range(row_count):
@@ -5473,7 +6414,7 @@ def _render_render_view(snapshot, theater_text, width, height, diagnostics_visib
     elif width >= 120 and content_height >= 18:
         left_width = max(48, int(width * 0.66))
         right_width = max(24, width - left_width - 1)
-        main_box = _box("Scene", _render_projection(snapshot, left_width - 2, content_height - 2, "perspective", history=render_history, surface_mode=surface_mode), left_width, content_height, body_mode="raw")
+        main_box = _box(projection_title, _render_projection(snapshot, left_width - 2, content_height - 2, "perspective", history=render_history, surface_mode=surface_mode), left_width, content_height, body_mode="raw")
         top_height = max(8, content_height // 2)
         front_height = content_height - top_height
         top_box = _box("Quarter", _render_projection(snapshot, right_width - 2, top_height - 2, "quarter", history=render_history, surface_mode=surface_mode), right_width, top_height, body_mode="raw")
@@ -5485,7 +6426,7 @@ def _render_render_view(snapshot, theater_text, width, height, diagnostics_visib
             right_line = right_lines[idx] if idx < len(right_lines) else (" " * right_width)
             lines.append(left_line + " " + right_line)
     else:
-        lines.extend(_box("Scene", _render_projection(snapshot, width - 2, content_height - 2, "perspective", history=render_history, surface_mode=surface_mode), width, content_height, body_mode="raw"))
+        lines.extend(_box(projection_title, _render_projection(snapshot, width - 2, content_height - 2, "perspective", history=render_history, surface_mode=surface_mode), width, content_height, body_mode="raw"))
 
     if diagnostics_visible:
         lines.extend(_box(
@@ -5766,6 +6707,7 @@ def render_text_theater_shared_state(
         if synced_at is not None:
             live_state["synced_at"] = synced_at
         snapshot = _merge_live_camera_into_snapshot(snapshot, live_state)
+        snapshot = _normalize_snapshot_weather(snapshot)
         local_theater_text, local_embodiment_text = _local_text_outputs(snapshot, mode)
         theater_text = local_theater_text or cached_theater_text
         embodiment_text = local_embodiment_text or cached_embodiment_text

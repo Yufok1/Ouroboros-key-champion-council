@@ -144,6 +144,19 @@
         updated_ts: 0,
         source: ''
     };
+    const _envTechnolitReactorStorageKey = 'env_technolit_reactor_state_v1';
+    const _envLegacyTechnolitCoinId = '7r8oj7PYknWAQ6mDhW8UW4NTb84u7Tk56K5qqakHpump';
+    const _envTechlitCoinId = 'AY5nzweWhfr4ykAdUmyUbNLnzEfhrvV4dPpE96s8pump';
+    let _envTechnolitReactorState = _envLoadTechnolitReactorState();
+    let _envHoldDoorComediaDispatchState = {
+        signature: '',
+        last_dispatched_ts: 0,
+        last_stage: '',
+        last_reaction: '',
+        presentation_signature: '',
+        last_presentation_ts: 0,
+        last_presentation_mode: ''
+    };
     let _envAppliedContractTokens = {};
     let _envPanelPreviousFocus = null;
     let _envHtmlPanelState = {
@@ -260,37 +273,60 @@
                 return {};
             }
         })(),
-        overlayDrag: null
+        overlayDrag: null,
+        overlayRestoreTimers: {}
     };
 
     function _envOverlayPanelLabels() {
         return {
             hud: 'HUD',
             cockpit: 'Controls',
-            ops: 'Operations'
+            ops: 'Operations',
+            profile: 'World Profile',
+            facility: 'Facility Mirror'
         };
     }
 
-    function _envNormalizeOverlayPanelState(raw) {
+    function _envNormalizeOverlayPanelState(raw, panelId) {
+        var key = String(panelId || '').trim().toLowerCase();
         var state = raw && typeof raw === 'object' ? raw : {};
         return {
             minimized: !!state.minimized,
             x: isFinite(Number(state.x)) ? Number(state.x) : null,
-            y: isFinite(Number(state.y)) ? Number(state.y) : null
+            y: isFinite(Number(state.y)) ? Number(state.y) : null,
+            restoreAtMs: isFinite(Number(state.restoreAtMs)) ? Number(state.restoreAtMs) : null,
+            compact: state.compact === undefined ? (key === 'facility') : !!state.compact
         };
+    }
+
+    function _envOverlayPanelAutoRestoreDelayMs(panelId) {
+        return 0;
+    }
+
+    function _envClearOverlayPanelRestoreTimer(panelId) {
+        var key = String(panelId || '').trim();
+        if (!key) return;
+        var timers = _envStageUiState.overlayRestoreTimers && typeof _envStageUiState.overlayRestoreTimers === 'object'
+            ? _envStageUiState.overlayRestoreTimers
+            : {};
+        var timer = timers[key];
+        if (!timer) return;
+        clearTimeout(timer);
+        delete timers[key];
+        _envStageUiState.overlayRestoreTimers = timers;
     }
 
     function _envOverlayPanelState(panelId) {
         var key = String(panelId || '').trim();
-        if (!key) return _envNormalizeOverlayPanelState(null);
+        if (!key) return _envNormalizeOverlayPanelState(null, '');
         var panels = _envStageUiState.overlayPanels && typeof _envStageUiState.overlayPanels === 'object'
             ? _envStageUiState.overlayPanels
             : {};
         if (!Object.prototype.hasOwnProperty.call(panels, key)) {
-            panels[key] = _envNormalizeOverlayPanelState(null);
+            panels[key] = _envNormalizeOverlayPanelState(null, key);
             _envStageUiState.overlayPanels = panels;
         }
-        return _envNormalizeOverlayPanelState(panels[key]);
+        return _envNormalizeOverlayPanelState(panels[key], key);
     }
 
     function _envSetOverlayPanelState(panelId, patch) {
@@ -300,11 +336,65 @@
             ? _envStageUiState.overlayPanels
             : {};
         var next = Object.assign({}, _envOverlayPanelState(key), patch || {});
-        panels[key] = _envNormalizeOverlayPanelState(next);
+        panels[key] = _envNormalizeOverlayPanelState(next, key);
         _envStageUiState.overlayPanels = panels;
         try {
             localStorage.setItem('env_stage_overlay_panels', JSON.stringify(panels));
         } catch (e) { }
+        _envSyncOverlayPanelRestore(key);
+    }
+
+    function _envSyncOverlayPanelRestore(panelId) {
+        var key = String(panelId || '').trim();
+        if (!key) return;
+        _envClearOverlayPanelRestoreTimer(key);
+        var state = _envOverlayPanelState(key);
+        var restoreAtMs = Number(state.restoreAtMs || 0);
+        if (!state.minimized || !isFinite(restoreAtMs) || restoreAtMs <= 0) return;
+        var remaining = restoreAtMs - Date.now();
+        if (remaining <= 0) {
+            setTimeout(function () {
+                _envUpdateOverlayPanel(key, { minimized: false, restoreAtMs: null }, 'overlay:' + key + ':auto-restore');
+            }, 0);
+            return;
+        }
+        var timers = _envStageUiState.overlayRestoreTimers && typeof _envStageUiState.overlayRestoreTimers === 'object'
+            ? _envStageUiState.overlayRestoreTimers
+            : {};
+        timers[key] = setTimeout(function () {
+            _envClearOverlayPanelRestoreTimer(key);
+            var current = _envOverlayPanelState(key);
+            if (!current.minimized) return;
+            var currentRestoreAtMs = Number(current.restoreAtMs || 0);
+            if (isFinite(currentRestoreAtMs) && currentRestoreAtMs > Date.now() + 120) {
+                _envSyncOverlayPanelRestore(key);
+                return;
+            }
+            _envUpdateOverlayPanel(key, { minimized: false, restoreAtMs: null }, 'overlay:' + key + ':auto-restore');
+        }, Math.max(remaining, 80));
+        _envStageUiState.overlayRestoreTimers = timers;
+    }
+
+    function _envUpdateOverlayPanel(panelId, patch, syncReason) {
+        var key = String(panelId || '').trim();
+        if (!key) return false;
+        _envSetOverlayPanelState(key, patch || {});
+        _envStageUiState.forceStageRebuild = true;
+        renderEnvironmentView();
+        _envScheduleLiveSync(String(syncReason || ('overlay:' + key)), true);
+        return true;
+    }
+
+    function _envDismissOverlayPanel(panelId, reason) {
+        var key = String(panelId || '').trim();
+        if (!key) return false;
+        var state = _envOverlayPanelState(key);
+        if (state.minimized) return false;
+        return _envUpdateOverlayPanel(
+            key,
+            { minimized: true, restoreAtMs: null },
+            'overlay:' + key + ':dismiss' + (reason ? (':' + String(reason || '').trim()) : '')
+        );
     }
 
     function _envRenderOverlayRestoreTray() {
@@ -406,7 +496,13 @@
         _envBindOverlayPanel('hud', '.envops-habitat-hud');
         _envBindOverlayPanel('cockpit', '.envops-habitat-scene-cockpit');
         _envBindOverlayPanel('ops', '#envops-habitat-ops-rail');
+        _envBindOverlayPanel('profile', '.env-theme-stack');
+        _envBindOverlayPanel('facility', '.envops-habitat-facility-mirror');
     }
+
+    Object.keys(_envOverlayPanelLabels()).forEach(function (panelId) {
+        _envSyncOverlayPanelRestore(panelId);
+    });
 
     // Track user clicks so renderEnvironmentView can distinguish
     // user-initiated renders from background event churn
@@ -1634,6 +1730,68 @@
         };
     }
 
+    function _envBuilderTheCageSequenceResource() {
+        return {
+            resource_id: 'the_cage',
+            label: 'The Cage',
+            summary: 'A camera-facing split-set showcase that drops into the floor, rises through the heels, and can finish with a vanity punch break.',
+            mode: 'showcase_sequence',
+            intent: 'stream_showcase',
+            activation_keywords: ['cage', 'split', 'johnny', 'jcvd', 'kaio', 'blitz', 'rep'],
+            focus_controller_ids: ['both_legs_pair', 'both_arms_pair'],
+            phases: [
+                {
+                    phase_id: 'enter_cage',
+                    label: 'Enter the Cage',
+                    keywords: ['enter', 'neutral', 'guard', 'ready', 'stance', 'set'],
+                    stage: 'guard',
+                    tempo_hint: 'articulated',
+                    aspect: 'showman_guard'
+                },
+                {
+                    phase_id: 'lower_into_cage',
+                    label: 'Lower into the Cage',
+                    keywords: ['lower', 'sink', 'descend', 'drop', 'split'],
+                    stage: 'windup',
+                    tempo_hint: 'articulated',
+                    aspect: 'split_drop'
+                },
+                {
+                    phase_id: 'cage_impact',
+                    label: 'Cage Impact',
+                    keywords: ['impact', 'slam', 'land', 'hit', 'contact'],
+                    stage: 'contact',
+                    tempo_hint: 'burst',
+                    aspect: 'floor_shock'
+                },
+                {
+                    phase_id: 'cage_hold',
+                    label: 'Cage Hold',
+                    keywords: ['hold', 'freeze', 'pose', 'showboat', 'proud'],
+                    stage: 'contact',
+                    tempo_hint: 'articulated',
+                    aspect: 'showboat_hold'
+                },
+                {
+                    phase_id: 'rise_from_cage',
+                    label: 'Rise from the Cage',
+                    keywords: ['rise', 'recover', 'return', 'push', 'reset', 'heel'],
+                    stage: 'recoil',
+                    tempo_hint: 'articulated',
+                    aspect: 'heel_drive'
+                },
+                {
+                    phase_id: 'cage_break',
+                    label: 'Cage Break',
+                    keywords: ['break', 'punch', 'blitz', 'kaio', 'burst', 'camera'],
+                    stage: 'release',
+                    tempo_hint: 'instant',
+                    aspect: 'kaio_break'
+                }
+            ]
+        };
+    }
+
     function _envBuilderBodyPlanMechanicsManifest(family) {
         var currentFamily = _envBuilderSubject && typeof _envBuilderSubject === 'object' ? _envBuilderSubject.family : '';
         var resolvedFamily = String(family || currentFamily || '').trim().toLowerCase();
@@ -1641,7 +1799,8 @@
         if (resolvedFamily !== 'humanoid_biped') {
             return {
                 joint_limits: {},
-                transition_templates: {}
+                transition_templates: {},
+                sequence_resources: {}
             };
         }
         return {
@@ -1668,6 +1827,9 @@
             transition_templates: {
                 half_kneel_l: _envBuilderHalfKneelTransitionTemplate('left'),
                 half_kneel_r: _envBuilderHalfKneelTransitionTemplate('right')
+            },
+            sequence_resources: {
+                the_cage: _envBuilderTheCageSequenceResource()
             }
         };
     }
@@ -4507,7 +4669,10 @@
                 }
             };
         });
-        var loadField = _envBuilderComputeLoadField(mesh, contacts, supportRecord);
+        var loadFieldEnabled = _envBuilderInteraction.load_field_enabled !== false;
+        var loadField = loadFieldEnabled
+            ? _envBuilderComputeLoadField(mesh, contacts, supportRecord)
+            : null;
         var leftFoot = contacts.find(function (row) { return row.canonical_joint === 'foot_l'; }) || null;
         var rightFoot = contacts.find(function (row) { return row.canonical_joint === 'foot_r'; }) || null;
         var leftGrounded = !!(leftFoot && leftFoot.supporting && leftFoot.support_role === 'plant');
@@ -4668,6 +4833,29 @@
             Number((Number(euler.y || 0) * 180 / Math.PI).toFixed(4)),
             Number((Number(euler.z || 0) * 180 / Math.PI).toFixed(4))
         ];
+    }
+
+    function _envBuilderMirrorPairDeltaQuaternion(deltaQuaternion, boneId) {
+        if (typeof THREE === 'undefined' || !deltaQuaternion) return deltaQuaternion;
+        var key = String(boneId || '').trim().toLowerCase();
+        if (!(key.endsWith('_r') || key.indexOf('right') >= 0)) return deltaQuaternion.clone();
+        var eulerDeg = _envBuilderPoseQuaternionToEulerDegrees([
+            Number(deltaQuaternion.x || 0),
+            Number(deltaQuaternion.y || 0),
+            Number(deltaQuaternion.z || 0),
+            Number(deltaQuaternion.w || 1)
+        ]);
+        var mirrored = _envBuilderQuaternionFromEulerDegrees([
+            Number(eulerDeg[0] || 0),
+            -Number(eulerDeg[1] || 0),
+            -Number(eulerDeg[2] || 0)
+        ]);
+        return new THREE.Quaternion(
+            Number((mirrored || [])[0] || 0),
+            Number((mirrored || [])[1] || 0),
+            Number((mirrored || [])[2] || 0),
+            Number((mirrored || [])[3] || 1)
+        );
     }
 
     function _envBuilderPoseTransformWithDelta(boneId, baseTransform, deltaRotationDeg, deltaOffset) {
@@ -5160,6 +5348,35 @@
         });
     }
 
+    function _envBuilderControllerMirrorTargetBoneIds(records, controller) {
+        var entry = controller && typeof controller === 'object' && !Array.isArray(controller) ? controller : {};
+        if (String(entry.controller_kind || '').trim() !== 'mirror_pair') return [];
+        var memberBoneIds = _envBuilderUniqueBoneIdList(entry.member_bone_ids || []);
+        if (!memberBoneIds.length) return [];
+        var memberMap = {};
+        memberBoneIds.forEach(function (boneId) {
+            var key = String(boneId || '').trim();
+            if (key) memberMap[key] = true;
+        });
+        var parentRootIds = _envBuilderUniqueBoneIdList([].concat(entry.carrier_bone_ids || [], entry.root_bone_ids || []));
+        var parentRootMap = {};
+        parentRootIds.forEach(function (boneId) {
+            var key = String(boneId || '').trim();
+            if (key) parentRootMap[key] = true;
+        });
+        var recordMap = _envBuilderBoneRecordMap(records);
+        return _envBuilderUniqueBoneIdList(memberBoneIds.filter(function (boneId) {
+            var key = String(boneId || '').trim();
+            if (!key) return false;
+            var record = recordMap[key] || null;
+            if (!record) return false;
+            var mirrorId = String(record.mirror_of || '').trim();
+            if (!mirrorId || !memberMap[mirrorId] || mirrorId === key) return false;
+            var parentId = String(record.parent_id || '').trim();
+            return !!(parentId && parentRootMap[parentId]);
+        }));
+    }
+
     function _envBuilderControllerContactFamiliesForBones(boneIds) {
         var families = {};
         _envBuilderUniqueBoneIdList(boneIds).forEach(function (boneId) {
@@ -5389,6 +5606,54 @@
         for (var i = 0; i < records.length; i += 1) {
             var entry = records[i];
             if (String((entry || {}).macro_id || '').trim() === resolvedId) return entry;
+        }
+        return null;
+    }
+
+    function _envBuilderSequenceResourceRegistry(family) {
+        var manifest = _envBuilderBodyPlanMechanicsManifest(family || ((_envBuilderSubject && _envBuilderSubject.family) || ''));
+        var registry = manifest && manifest.sequence_resources && typeof manifest.sequence_resources === 'object'
+            ? manifest.sequence_resources
+            : {};
+        return Object.keys(registry).map(function (resourceId) {
+            var entry = registry[resourceId] && typeof registry[resourceId] === 'object' ? registry[resourceId] : {};
+            var phases = Array.isArray(entry.phases) ? entry.phases.map(function (phase) {
+                var row = phase && typeof phase === 'object' ? phase : {};
+                return {
+                    phase_id: String(row.phase_id || '').trim(),
+                    label: String(row.label || row.phase_id || '').trim(),
+                    keywords: (Array.isArray(row.keywords) ? row.keywords : []).map(function (keyword) {
+                        return String(keyword || '').trim();
+                    }).filter(Boolean),
+                    stage: String(row.stage || '').trim(),
+                    tempo_hint: String(row.tempo_hint || 'adaptive').trim(),
+                    aspect: String(row.aspect || '').trim()
+                };
+            }) : [];
+            return {
+                resource_id: String(entry.resource_id || resourceId).trim() || String(resourceId || '').trim(),
+                label: String(entry.label || resourceId).trim() || String(resourceId || '').trim(),
+                summary: String(entry.summary || '').trim(),
+                mode: String(entry.mode || 'showcase_sequence').trim() || 'showcase_sequence',
+                intent: String(entry.intent || '').trim(),
+                activation_keywords: (Array.isArray(entry.activation_keywords) ? entry.activation_keywords : []).map(function (keyword) {
+                    return String(keyword || '').trim();
+                }).filter(Boolean),
+                focus_controller_ids: (Array.isArray(entry.focus_controller_ids) ? entry.focus_controller_ids : []).map(function (controllerId) {
+                    return String(controllerId || '').trim();
+                }).filter(Boolean),
+                phases: phases
+            };
+        });
+    }
+
+    function _envBuilderSequenceResourceRegistryEntry(registry, resourceId) {
+        var resolvedId = String(resourceId || '').trim();
+        if (!resolvedId) return null;
+        var records = Array.isArray(registry) ? registry : [];
+        for (var i = 0; i < records.length; i += 1) {
+            var entry = records[i];
+            if (String((entry || {}).resource_id || '').trim() === resolvedId) return entry;
         }
         return null;
     }
@@ -7751,6 +8016,10 @@
             var routerProvider = String(info.router_provider || '').trim();
             return routerProvider ? ('HF ' + routerProvider.replace(/[_-]+/g, ' ').toUpperCase()) : 'HF ROUTER';
         }
+        if (info.kind === 'pi_router') {
+            var piProvider = String(info.router_provider || '').trim();
+            return piProvider ? ('PI ' + piProvider.replace(/[_-]+/g, ' ').toUpperCase()) : 'PI ROUTER';
+        }
         var host = String(info.host || '').trim().toLowerCase();
         if (host.indexOf('anthropic') >= 0) return 'ANTHROPIC';
         if (host.indexOf('openai') >= 0) return 'OPENAI-COMPATIBLE';
@@ -7814,6 +8083,13 @@
                 var routerIdx = segments.indexOf('hf-router');
                 if (routerIdx >= 0 && segments[routerIdx + 1] && segments[routerIdx + 1] !== 'v1') {
                     descriptor.router_provider = String(segments[routerIdx + 1] || '');
+                }
+                descriptor.requires_external_secret = false;
+            } else if (segments.indexOf('pi-router') >= 0) {
+                descriptor.kind = 'pi_router';
+                var piRouterIdx = segments.indexOf('pi-router');
+                if (piRouterIdx >= 0 && segments[piRouterIdx + 1] && segments[piRouterIdx + 1] !== 'v1') {
+                    descriptor.router_provider = String(segments[piRouterIdx + 1] || '');
                 }
                 descriptor.requires_external_secret = false;
             }
@@ -8380,6 +8656,14 @@
 
     function _detectProvider(slot) {
         var raw = slot && typeof slot === 'object' ? slot : {};
+        var descriptor = _slotProviderDescriptor(raw);
+        if (descriptor.kind === 'pi_router') {
+            var piProvider = String(descriptor.router_provider || '').toLowerCase();
+            if (piProvider.indexOf('anthropic') >= 0) return 'anthropic';
+            if (piProvider.indexOf('openai') >= 0 || piProvider.indexOf('codex') >= 0) return 'openai';
+            if (piProvider.indexOf('google') >= 0 || piProvider.indexOf('gemini') >= 0 || piProvider.indexOf('antigravity') >= 0) return 'google';
+            return 'remote';
+        }
         var src = String(_slotPrimarySource(raw) || ((_getSlotVisualState(raw) !== 'empty' && raw.name) ? raw.name : '') || '').toLowerCase();
         if (src.indexOf('anthropic') >= 0 || src.indexOf('claude') >= 0) return 'anthropic';
         if (src.indexOf('openai') >= 0 || src.indexOf('gpt') >= 0 || src.indexOf('chatgpt') >= 0) return 'openai';
@@ -8630,7 +8914,7 @@
 
     function _providerKind() {
         var kind = ((document.getElementById('plug-provider-kind') || {}).value || 'huggingface').toLowerCase();
-        if (kind !== 'huggingface' && kind !== 'openai') kind = 'huggingface';
+        if (kind !== 'huggingface' && kind !== 'openai' && kind !== 'pi') kind = 'huggingface';
         return kind;
     }
 
@@ -8679,7 +8963,17 @@
     }
 
     async function _refreshProviderModelMeta() {
-        if (_providerKind() !== 'huggingface') {
+        var kind = _providerKind();
+        if (kind === 'pi') {
+            var piProvider = String(((document.getElementById('plug-provider-pi-provider') || {}).value || '')).trim();
+            if (!piProvider) {
+                _setProviderModelMeta('Pick a Pi-authenticated provider and enter the provider-native model name.', 'info');
+                return;
+            }
+            _setProviderModelMeta('Pi route: ' + piProvider + ' via local /pi-router loopback. Enter the provider-native model name or ID.', 'info');
+            return;
+        }
+        if (kind !== 'huggingface') {
             _setProviderModelMeta('Select a model to see basic metadata.', 'info');
             return;
         }
@@ -8734,9 +9028,11 @@
 
     function _setProviderModeUI(kind) {
         var hfWrap = document.getElementById('plug-provider-hf-fields');
+        var piWrap = document.getElementById('plug-provider-pi-fields');
         var openaiWrap = document.getElementById('plug-provider-openai-fields');
         var urlInput = document.getElementById('plug-provider-url');
         if (hfWrap) hfWrap.style.display = (kind === 'huggingface') ? '' : 'none';
+        if (piWrap) piWrap.style.display = (kind === 'pi') ? '' : 'none';
         if (openaiWrap) openaiWrap.style.display = (kind === 'openai') ? '' : 'none';
         if (urlInput) {
             if (kind === 'openai') urlInput.setAttribute('required', 'required');
@@ -8746,7 +9042,11 @@
             _setProviderStatus('Type to search models…', 'info');
             onProviderHfInput();
             _queueProviderModelMetaRefresh(120);
+        } else if (kind === 'pi') {
+            _setProviderStatus('Pi-backed providers do not use the HuggingFace browser.', 'info');
+            _setProviderModelMeta('Pi route mode. Pick a provider and enter its model name.', 'info');
         } else {
+            _setProviderStatus('Remote endpoint mode. Enter the provider URL and model name to connect a slot.', 'info');
             _setProviderModelMeta('Remote endpoint mode. Metadata preview is available for HuggingFace IDs.', 'info');
         }
     }
@@ -8898,7 +9198,10 @@
     }
 
     function onProviderHfInput() {
-        if (_providerKind() !== 'huggingface') return;
+        if (_providerKind() !== 'huggingface') {
+            _queueProviderModelMetaRefresh(120);
+            return;
+        }
         if (_providerBrowseTimer) clearTimeout(_providerBrowseTimer);
         _providerBrowseTimer = setTimeout(function () {
             _refreshHfProviderModels();
@@ -8919,9 +9222,13 @@
         var modelEl = document.getElementById('plug-provider-model');
         var queryEl = document.getElementById('plug-provider-hf-query');
         var modelsSel = document.getElementById('plug-provider-hf-models');
+        var urlEl = document.getElementById('plug-provider-url');
+        var keyEl = document.getElementById('plug-provider-key');
         if (modelEl) modelEl.value = '';
         if (queryEl) queryEl.value = '';
         if (modelsSel) modelsSel.selectedIndex = -1;
+        if (urlEl) urlEl.value = '';
+        if (keyEl) keyEl.value = '';
         _setProviderModelMeta('Select a model to see basic metadata.', 'info');
         _setProviderModeUI(_providerKind());
     }
@@ -8961,6 +9268,22 @@
         return raw;
     }
 
+    function _rewritePiRouterToLoopback(urlLike) {
+        var raw = String(urlLike || '').trim();
+        if (!raw) return raw;
+        try {
+            var parsed = new URL(raw, window.location.origin || undefined);
+            var path = String(parsed.pathname || '');
+            if (/^\/pi-router(\/|$)/.test(path)) {
+                return _capsuleLoopbackBase() + path + (parsed.search || '');
+            }
+            if (/\.hf\.space$/i.test(String(parsed.hostname || '')) && /^\/pi-router(\/|$)/.test(path)) {
+                return _capsuleLoopbackBase() + path + (parsed.search || '');
+            }
+        } catch (e) { }
+        return raw;
+    }
+
     async function doPlugProvider() {
         var kind = _providerKind();
         var model = String(((document.getElementById('plug-provider-model') || {}).value || '')).trim();
@@ -8984,6 +9307,26 @@
             return;
         }
 
+        if (kind === 'pi') {
+            var piProvider = String(((document.getElementById('plug-provider-pi-provider') || {}).value || '')).trim();
+            if (!piProvider) {
+                mpToast('Choose a Pi-authenticated provider first', 'error', 2600);
+                return;
+            }
+            if (!model) {
+                mpToast('Enter the provider-native model name first', 'error', 2600);
+                return;
+            }
+
+            var piUrl = _capsuleLoopbackBase() + '/pi-router/' + encodeURIComponent(piProvider) + '/v1?model=' + encodeURIComponent(model);
+            var piArgs = { model_id: piUrl };
+            if (slotName) piArgs.slot_name = slotName;
+            callTool('plug_model', piArgs);
+            closeModals();
+            mpToast('Plugging Pi-authenticated provider route (loopback)...', 'info', 2800);
+            return;
+        }
+
         var url = (document.getElementById('plug-provider-url') || {}).value || '';
         var key = (document.getElementById('plug-provider-key') || {}).value || '';
         if (!url) { mpToast('Provider URL is required', 'error', 2500); return; }
@@ -8997,6 +9340,7 @@
 
         // If user pasted an hf.space /hf-router URL, rewrite to capsule-reachable loopback.
         fullUrl = _rewriteHfRouterToLoopback(fullUrl);
+        fullUrl = _rewritePiRouterToLoopback(fullUrl);
 
         var args = { model_id: fullUrl };
         if (slotName) args.slot_name = slotName;
@@ -9088,6 +9432,7 @@
 
     var _activityTraceCounts = {}; // trace/session id -> sequence count
     var _activityTraceGroupExpanded = {}; // trace/session id -> group expand/collapse state
+    var _activityRenderTraceStats = {};
 
     function _parseAgentSessionSlot(sessionId) {
         var sid = String(sessionId || '').trim();
@@ -9693,12 +10038,170 @@
         return 'S' + (n + 1);
     }
 
+    function _activityTraceShortId(traceId, maxLen) {
+        var raw = String(traceId || '').trim();
+        if (!raw) return '';
+        var shortId = raw.split(':').slice(-1)[0] || raw;
+        var limit = Math.max(4, parseInt(maxLen, 10) || 10);
+        if (shortId.length > limit) shortId = shortId.substring(0, limit);
+        return shortId;
+    }
+
+    function _activityFlowLabel(callerSlot, targetSlot) {
+        var caller = parseInt(callerSlot, 10);
+        var target = parseInt(targetSlot, 10);
+        if (!isNaN(caller) && caller >= 0 && !isNaN(target) && target >= 0 && caller !== target) {
+            return 'S' + (caller + 1) + '→S' + (target + 1);
+        }
+        if (!isNaN(caller) && caller >= 0) return 'S' + (caller + 1);
+        if (!isNaN(target) && target >= 0) return 'S' + (target + 1);
+        return '';
+    }
+
+    function _activityTraceDescriptor(node) {
+        if (!node || typeof node !== 'object') return null;
+        var args = (node.args && typeof node.args === 'object') ? node.args : {};
+        var resultObj = _unwrapActivityResult(node.result);
+        var traceId = String(
+            node._trace_id ||
+            node.trace_id ||
+            node.traceId ||
+            args._trace_id ||
+            args.trace_id ||
+            args.traceId ||
+            args._workflow_execution_id ||
+            args.execution_id ||
+            args.session_id ||
+            args._workflow_id ||
+            args.workflow_id ||
+            (resultObj && typeof resultObj === 'object'
+                ? (resultObj.trace_id || resultObj.traceId || resultObj.execution_id || resultObj.session_id || resultObj.workflow_id || '')
+                : '') ||
+            node.session_id ||
+            ''
+        ).trim();
+        if (!traceId) return null;
+
+        var hue = parseInt(
+            node._trace_hue !== undefined ? node._trace_hue
+                : (node.trace_hue !== undefined ? node.trace_hue
+                    : (args._trace_hue !== undefined ? args._trace_hue
+                        : (args.trace_hue !== undefined ? args.trace_hue : ''))),
+            10
+        );
+        if (isNaN(hue)) hue = _hash32(traceId) % 360;
+
+        var color = String(node._trace_color || node.trace_color || args._trace_color || args.trace_color || '').trim();
+        if (!color) color = 'hsl(' + hue + ', 78%, 58%)';
+
+        var seq = parseInt(
+            node._trace_seq !== undefined ? node._trace_seq
+                : (node.trace_seq !== undefined ? node.trace_seq
+                    : (args._trace_seq !== undefined ? args._trace_seq
+                        : (args.trace_seq !== undefined ? args.trace_seq : ''))),
+            10
+        );
+        if (isNaN(seq) || seq <= 0) seq = null;
+
+        var callerSlot = parseInt(
+            node._trace_caller_slot !== undefined ? node._trace_caller_slot
+                : (node.caller_slot !== undefined ? node.caller_slot
+                    : (args._trace_caller_slot !== undefined ? args._trace_caller_slot
+                        : (args.caller_slot !== undefined ? args.caller_slot : ''))),
+            10
+        );
+        if (isNaN(callerSlot)) callerSlot = -1;
+        var targetSlot = parseInt(
+            node._trace_target_slot !== undefined ? node._trace_target_slot
+                : (node.target_slot !== undefined ? node.target_slot
+                    : (args._trace_target_slot !== undefined ? args._trace_target_slot
+                        : (args.target_slot !== undefined ? args.target_slot : ''))),
+            10
+        );
+        if (isNaN(targetSlot)) targetSlot = -1;
+
+        var role = String(node._trace_role || node.trace_role || args._trace_role || args.trace_role || '').trim();
+        if (!role) {
+            if (callerSlot >= 0 && targetSlot >= 0 && callerSlot !== targetSlot) role = 'delegation';
+            else if (String(node.tool || node.name || '').trim() === 'agent_chat') role = 'reasoning';
+        }
+
+        var flowLabel = _activityFlowLabel(callerSlot, targetSlot);
+        var shortId = _activityTraceShortId(traceId, 10);
+        var summaryParts = [traceId];
+        if (seq !== null) summaryParts.push('#' + String(seq));
+        if (flowLabel) summaryParts.push(flowLabel);
+        if (role) summaryParts.push(role);
+
+        return {
+            id: traceId,
+            shortId: shortId,
+            seq: seq,
+            role: role,
+            flowLabel: flowLabel,
+            callerSlot: callerSlot,
+            targetSlot: targetSlot,
+            hue: hue,
+            color: color,
+            summary: summaryParts.join(' · ')
+        };
+    }
+
+    function _countUniqueTraceIds(entries) {
+        var seen = {};
+        var count = 0;
+        var rows = Array.isArray(entries) ? entries : [];
+        for (var i = 0; i < rows.length; i++) {
+            var trace = _activityTraceDescriptor(rows[i]);
+            if (!trace || !trace.id) continue;
+            if (seen[trace.id]) continue;
+            seen[trace.id] = true;
+            count += 1;
+        }
+        return count;
+    }
+
+    function _collectActivityTraceStats(entries) {
+        var stats = {};
+        var rows = Array.isArray(entries) ? entries : [];
+        for (var i = 0; i < rows.length; i++) {
+            var trace = _activityTraceDescriptor(rows[i]);
+            if (!trace || !trace.id) continue;
+            var bucket = stats[trace.id];
+            if (!bucket) {
+                bucket = {
+                    count: 0,
+                    minSeq: null,
+                    maxSeq: null,
+                    color: trace.color,
+                    role: trace.role,
+                    flowLabel: trace.flowLabel,
+                    shortId: trace.shortId
+                };
+                stats[trace.id] = bucket;
+            }
+            bucket.count += 1;
+            if (trace.seq !== null) {
+                if (bucket.minSeq === null || trace.seq < bucket.minSeq) bucket.minSeq = trace.seq;
+                if (bucket.maxSeq === null || trace.seq > bucket.maxSeq) bucket.maxSeq = trace.seq;
+            }
+            if (!bucket.color && trace.color) bucket.color = trace.color;
+            if (!bucket.role && trace.role) bucket.role = trace.role;
+            if (!bucket.flowLabel && trace.flowLabel) bucket.flowLabel = trace.flowLabel;
+            if (!bucket.shortId && trace.shortId) bucket.shortId = trace.shortId;
+        }
+        return stats;
+    }
+
     function _activityMetaBullets(e, resultObj, hasError) {
         var out = [];
         var args = (e && e.args && typeof e.args === 'object') ? e.args : {};
+        var trace = _activityTraceDescriptor(e);
 
-        if (e && e._trace_seq !== undefined) out.push('seq #' + String(e._trace_seq));
-        if (e && e._trace_role) out.push('flow ' + String(e._trace_role));
+        if (trace && trace.seq !== null) out.push('seq #' + String(trace.seq));
+        if (trace && trace.role) out.push('flow ' + String(trace.role));
+        if (trace && trace.flowLabel) out.push('path ' + trace.flowLabel);
+        if (trace && trace.shortId) out.push('trace ' + trace.shortId);
         if (e && e.tool === 'agent_debug' && args.detail) out.push('debug ' + _activityTokenShort(args.detail, 52));
         if (args.signal_type) out.push('signal ' + _activityTokenShort(args.signal_type, 18));
 
@@ -9728,6 +10231,11 @@
         if (hasError && e && e.error) {
             out.push('ERR ' + _activityTokenShort(String(e.error).split('\n')[0], 44));
         }
+
+        var debugIssue = _debugEntryIssue(e);
+        if (debugIssue) out.push('issue ' + _activityTokenShort(debugIssue, 34));
+        var debugNextRoute = _debugEntryNextRoute(e);
+        if (debugNextRoute) out.push('next ' + _activityTokenShort(debugNextRoute, 34));
 
         var unique = [];
         var seen = {};
@@ -9803,18 +10311,10 @@
         detailLines.push(String(e.durationMs || 0) + 'ms');
         detailLines.push('');
 
-        var traceId = String(e._trace_id || '');
-        if (traceId) {
+        var trace = _activityTraceDescriptor(e);
+        if (trace) {
             detailLines.push('Trace');
-            var traceSummary = traceId;
-            if (e._trace_seq !== undefined) traceSummary += ' #' + String(e._trace_seq);
-            if (e._trace_caller_slot >= 0 && e._trace_target_slot >= 0 && e._trace_caller_slot !== e._trace_target_slot) {
-                traceSummary += ' · S' + (e._trace_caller_slot + 1) + '→S' + (e._trace_target_slot + 1);
-            } else if (e._trace_caller_slot >= 0) {
-                traceSummary += ' · S' + (e._trace_caller_slot + 1);
-            }
-            if (e._trace_role) traceSummary += ' · ' + String(e._trace_role);
-            detailLines.push(traceSummary);
+            detailLines.push(trace.summary);
             detailLines.push('');
         }
 
@@ -9886,27 +10386,40 @@
 
         var traceBadge = '';
         var traceStrip = '<span class="activity-trace-toggle placeholder"></span>';
-        if (e._trace_id) {
-            var traceColor = String(e._trace_color || ('hsl(' + (parseInt(e._trace_hue || 180, 10) || 180) + ', 78%, 58%)'));
-            var safeTraceColor = traceColor.replace(/["'<>]/g, '');
-            var shortTrace = String(e._trace_id).split(':').slice(-1)[0] || String(e._trace_id).substring(0, 10);
-            if (shortTrace.length > 10) shortTrace = shortTrace.substring(0, 10);
-            var roleTag = e._trace_role ? (' · ' + String(e._trace_role)) : '';
-            var seqTag = (e._trace_seq !== undefined) ? ('#' + String(e._trace_seq)) : '';
-            traceBadge = '<span class="activity-cat" style="border-color:' + safeTraceColor + ';color:' + safeTraceColor + ';">TRACE ' + escHtml(seqTag + roleTag + ' ' + shortTrace).trim() + '</span>';
-            traceStrip = '<button class="activity-trace-toggle" data-trace-id="' + _actEsc(String(e._trace_id)) + '" title="Toggle all entries in this trace" style="--trace-color:' + safeTraceColor + ';background:' + safeTraceColor + ';"></button>';
+        var traceGroupBadge = '';
+        if (trace) {
+            var safeTraceColor = String(trace.color || '').replace(/["'<>]/g, '');
+            var traceStats = _activityRenderTraceStats && _activityRenderTraceStats[trace.id] ? _activityRenderTraceStats[trace.id] : null;
+            var chainCount = traceStats ? parseInt(traceStats.count, 10) || 0 : 0;
+            var badgeBits = [];
+            if (chainCount > 1) badgeBits.push('CHAIN ' + String(chainCount));
+            if (trace.seq !== null) badgeBits.push('#' + String(trace.seq));
+            if (trace.role) badgeBits.push(String(trace.role));
+            if (trace.flowLabel) badgeBits.push(trace.flowLabel);
+            if (trace.shortId) badgeBits.push(trace.shortId);
+            traceBadge = '<span class="activity-cat" style="border-color:' + safeTraceColor + ';color:' + safeTraceColor + ';">TRACE ' + escHtml(badgeBits.join(' · ')) + '</span>';
+            traceStrip = '<button class="activity-trace-toggle" data-trace-id="' + _actEsc(String(trace.id)) + '" title="Toggle all entries in this trace" style="--trace-color:' + safeTraceColor + ';background:' + safeTraceColor + ';"></button>';
+            if (chainCount > 1) {
+                traceGroupBadge =
+                    '<button class="activity-trace-group-badge" data-trace-id="' + _actEsc(String(trace.id)) + '"' +
+                    ' title="Open trace chain" style="--trace-color:' + safeTraceColor + ';background:' + safeTraceColor + ';box-shadow:0 0 0 1px ' + safeTraceColor + '44, 0 0 18px ' + safeTraceColor + '22;">' +
+                    'CHAIN ' + escHtml(String(chainCount)) + '</button>';
+            }
         }
 
         var metaBanner = _activityMetaBannerHtml(_activityMetaBullets(e, resultObj, hasError));
 
         var div = document.createElement('div');
         div.className = 'activity-entry';
-        if (e._trace_id) {
-            var traceColorEdge = String(e._trace_color || ('hsl(' + (parseInt(e._trace_hue || 180, 10) || 180) + ', 78%, 58%)')).replace(/["'<>]/g, '');
+        if (trace) {
+            var traceColorEdge = String(trace.color || '').replace(/["'<>]/g, '');
+            div.classList.add('trace-linked');
             div.style.borderLeft = '3px solid ' + traceColorEdge;
             div.style.paddingLeft = '8px';
-            div.setAttribute('data-trace-id', String(e._trace_id));
-            if (_activityTraceGroupExpanded[String(e._trace_id)] === true) {
+            div.style.boxShadow = 'inset 0 0 0 1px ' + traceColorEdge + '16';
+            div.style.backgroundImage = 'linear-gradient(90deg, ' + traceColorEdge + '16, rgba(0,0,0,0) 28%)';
+            div.setAttribute('data-trace-id', String(trace.id));
+            if (_activityTraceGroupExpanded[String(trace.id)] === true) {
                 div.classList.add('expanded');
             }
         }
@@ -9916,9 +10429,9 @@
             var sel = window.getSelection();
             if (sel && sel.toString().length > 0) return;
             div.classList.toggle('expanded');
-            if (e._trace_id && Object.prototype.hasOwnProperty.call(_activityTraceGroupExpanded, String(e._trace_id))) {
+            if (trace && Object.prototype.hasOwnProperty.call(_activityTraceGroupExpanded, String(trace.id))) {
                 // Manual row toggles break out of group lock to preserve per-entry control.
-                delete _activityTraceGroupExpanded[String(e._trace_id)];
+                delete _activityTraceGroupExpanded[String(trace.id)];
             }
         };
 
@@ -9930,12 +10443,13 @@
             '<span class="activity-tool">' + _actEsc(e.tool) + '</span>' +
             '<span class="activity-cat">' + _actEsc(e.category) + '</span>' +
             sourceBadge +
+            traceGroupBadge +
             traceBadge +
             (hasError ? '<span style="color:var(--red);font-weight:700;">ERR</span>' : '') +
             '</div>' +
             '<div class="activity-head-right">' +
             '<span class="activity-duration">' + (e.durationMs || 0) + 'ms</span>' +
-            '<span class="activity-expand-hint">row: details · color: trace group</span>' +
+            '<span class="activity-expand-hint">blob: chain · row: details</span>' +
             '</div>' +
             '</div>' +
             metaBanner +
@@ -9944,6 +10458,17 @@
         var traceBtn = div.querySelector('.activity-trace-toggle');
         if (traceBtn && !(traceBtn.classList && traceBtn.classList.contains('placeholder'))) {
             traceBtn.addEventListener('click', function (evt) {
+                if (evt) {
+                    evt.preventDefault();
+                    evt.stopPropagation();
+                }
+                var tid = this.getAttribute('data-trace-id') || '';
+                if (tid) _toggleTraceGroup(tid);
+            });
+        }
+        var traceGroupBtn = div.querySelector('.activity-trace-group-badge');
+        if (traceGroupBtn) {
+            traceGroupBtn.addEventListener('click', function (evt) {
                 if (evt) {
                     evt.preventDefault();
                     evt.stopPropagation();
@@ -10308,7 +10833,9 @@
                 var nextRoute = _debugEntryNextRoute(e);
                 var ts = '';
                 try { ts = new Date(e.timestamp || Date.now()).toLocaleTimeString(); } catch (err) { ts = ''; }
+                var trace = _activityTraceDescriptor(e);
                 lines.push('- ' + (ts ? (ts + ' ') : '') + String(e.tool || 'agent_debug'));
+                if (trace) lines.push('  trace=' + trace.summary);
                 if (issue) {
                     lines.push('  issue=' + issue);
                 } else if (detail) {
@@ -10365,7 +10892,9 @@
         var statusEl = document.getElementById('debug-feed-status');
         var shownCount = Math.min(entries.length, DEBUG_FEED_PAGE_SIZE);
         if (statusEl) {
+            var traceCount = _countUniqueTraceIds(entries);
             var status = 'Showing latest ' + String(shownCount) + ' of ' + String(entries.length) + ' debug rows.';
+            if (traceCount) status += ' Traces=' + String(traceCount) + '.';
             if (filter) status += ' Filter: ' + filter;
             if (_debugRemoteRefreshPending) status += ' Refreshing live sessions…';
             else if (_debugRemoteRefreshError) status += ' Live session refresh error: ' + _debugRemoteRefreshError;
@@ -10379,6 +10908,7 @@
             return;
         }
         var recentEntries = entries.slice(Math.max(0, entries.length - DEBUG_FEED_PAGE_SIZE)).reverse();
+        _activityRenderTraceStats = _collectActivityTraceStats(recentEntries);
         for (var j = 0; j < recentEntries.length; j++) {
             feed.appendChild(_buildActivityNode(recentEntries[j]));
         }
@@ -10451,7 +10981,7 @@
         return pager;
     }
 
-    function _renderActivityPager(totalFiltered, startIdx, endIdx, totalPages, filterText) {
+    function _renderActivityPager(totalFiltered, startIdx, endIdx, totalPages, filterText, traceCount) {
         _ensureActivityPager();
         var statsEl = document.getElementById('activity-page-stats');
         var latestBtn = document.getElementById('activity-page-latest');
@@ -10465,6 +10995,7 @@
         if (statsEl) {
             var range = totalFiltered > 0 ? (String(startIdx + 1) + '-' + String(endIdx)) : '0-0';
             var base = 'Rows ' + range + ' of ' + String(totalFiltered) + ' · page ' + String(_activityPage + 1) + '/' + String(safeTotalPages);
+            if (traceCount) base += ' · traces ' + String(traceCount);
             if (filterText) base += ' · total ' + String(_activityLog.length);
             statsEl.textContent = base;
         }
@@ -10480,6 +11011,7 @@
         var filter = _getActivityFilterText();
         var filtered = _getFilteredActivityEntries(filter);
         var total = filtered.length;
+        var traceCount = _countUniqueTraceIds(filtered);
         var totalPages = Math.max(1, Math.ceil(total / ACTIVITY_PAGE_SIZE));
         if (_activityPage > totalPages - 1) _activityPage = totalPages - 1;
         if (_activityPage < 0) _activityPage = 0;
@@ -10492,14 +11024,15 @@
         feed.innerHTML = '';
         if (pageItems.length === 0) {
             feed.innerHTML = '<div class="activity-entry" style="color:var(--text-dim);padding:20px;text-align:center;">No activity yet.</div>';
-            _renderActivityPager(total, 0, 0, totalPages, filter);
+            _renderActivityPager(total, 0, 0, totalPages, filter, traceCount);
             return;
         }
 
+        _activityRenderTraceStats = _collectActivityTraceStats(pageItems);
         for (var i = 0; i < pageItems.length; i++) {
             feed.appendChild(_buildActivityNode(pageItems[i]));
         }
-        _renderActivityPager(total, startIdx, endIdx, totalPages, filter);
+        _renderActivityPager(total, startIdx, endIdx, totalPages, filter, traceCount);
     }
 
     var activityFilterEl = document.getElementById('activity-filter');
@@ -14252,9 +14785,13 @@
                     _envBuilderInteraction = _envNormalizeBuilderInteraction(session.workbench || null);
                     _envBuilderResetRuntimeRefs();
                     _envBuilderSetIsolationState(_envBuilderSubject, (session.workbench || {}).isolated_chain || '');
+                    var restoreNeedsScaffoldProxy = _env3DBuilderMustPreserveScaffold(
+                        mesh,
+                        (((session || {}).character || {}).asset_ref)
+                    );
                     _envBuilderSubject._skeletonVisible = (session.workbench || {}).skeleton !== false;
-                    _envBuilderSubject._scaffoldVisible = !!((session.workbench || {}).scaffold);
-                    _envBuilderSubject.scaffold_projection.enabled = (session.workbench || {}).scaffold !== false;
+                    _envBuilderSubject._scaffoldVisible = restoreNeedsScaffoldProxy || !!((session.workbench || {}).scaffold);
+                    _envBuilderSubject.scaffold_projection.enabled = restoreNeedsScaffoldProxy || (session.workbench || {}).scaffold !== false;
                     var builderObject = _envInhabitantObject();
                     _envBuilderClearMountedAsset(state, builderObject, mesh);
                     _envBuilderApplyEmbodimentToObject(builderObject, _envBuilderSubject.family);
@@ -14582,6 +15119,9 @@
             ? state.nav
             : _envCreateInhabitantNavigationState();
         var mountedMesh = _envMountedRuntimeMesh();
+        var runtimeState = _envInhabitantRuntimeState();
+        var mountedCharacterAssetRef = String((runtimeState && runtimeState.character_asset_ref) || '').trim();
+        var mountedHasAssetClone = !!(mountedMesh && mountedMesh.userData && mountedMesh.userData.assetClone);
         var animationSceneObject = mountedMesh && mountedMesh.userData
             && mountedMesh.userData.sceneObject && typeof mountedMesh.userData.sceneObject === 'object'
             ? mountedMesh.userData.sceneObject
@@ -22047,6 +22587,314 @@
         '</div>';
     }
 
+    function _envFacilityMirrorTone(value) {
+        var text = String(value || '').trim().toLowerCase();
+        if (!text) return 'ok';
+        if (text.indexOf('aligned') >= 0 || text.indexOf('fresh') >= 0 || text.indexOf('quiet') >= 0 || text.indexOf('solid') >= 0 || text.indexOf('ready') >= 0 || text.indexOf('ok') >= 0) return 'ok';
+        if (text.indexOf('watch') >= 0 || text.indexOf('warning') >= 0 || text.indexOf('warn') >= 0 || text.indexOf('nudge') >= 0 || text.indexOf('lag') >= 0 || text.indexOf('unstable') >= 0 || text.indexOf('track') >= 0 || text.indexOf('active') >= 0) return 'warning';
+        if (text.indexOf('fail') >= 0 || text.indexOf('alert') >= 0 || text.indexOf('critical') >= 0 || text.indexOf('error') >= 0 || text.indexOf('drill') >= 0 || text.indexOf('break') >= 0) return 'alert';
+        return 'active';
+    }
+
+    function _envCurrentFacilityMirrorState() {
+        var mirrorShared = _envMirrorState && _envMirrorState.sharedState && typeof _envMirrorState.sharedState === 'object'
+            ? _envMirrorState.sharedState
+            : {};
+        var mirrorTextTheater = mirrorShared.text_theater && typeof mirrorShared.text_theater === 'object'
+            ? mirrorShared.text_theater
+            : {};
+        var textBundle = _envCachedTextTheaterBundle();
+        if (!textBundle || typeof textBundle !== 'object') textBundle = mirrorTextTheater;
+        var snapshot = _envCurrentTextTheaterSnapshotSource();
+        if (!snapshot || typeof snapshot !== 'object') {
+            snapshot = textBundle && textBundle.snapshot && typeof textBundle.snapshot === 'object'
+                ? textBundle.snapshot
+                : {};
+        }
+        snapshot = snapshot && typeof snapshot === 'object' ? snapshot : {};
+        return {
+            snapshot: snapshot,
+            output_state: snapshot.output_state && typeof snapshot.output_state === 'object'
+                ? snapshot.output_state
+                : (mirrorShared.output_state && typeof mirrorShared.output_state === 'object' ? mirrorShared.output_state : {}),
+            blackboard: snapshot.blackboard && typeof snapshot.blackboard === 'object'
+                ? snapshot.blackboard
+                : (mirrorShared.blackboard && typeof mirrorShared.blackboard === 'object' ? mirrorShared.blackboard : {}),
+            docs: snapshot.docs && typeof snapshot.docs === 'object'
+                ? snapshot.docs
+                : (mirrorShared.docs && typeof mirrorShared.docs === 'object' ? mirrorShared.docs : {}),
+            weather: snapshot.weather && typeof snapshot.weather === 'object' ? snapshot.weather : {},
+            text_control: snapshot.text_theater_control && typeof snapshot.text_theater_control === 'object'
+                ? snapshot.text_theater_control
+                : (mirrorTextTheater.control && typeof mirrorTextTheater.control === 'object' ? mirrorTextTheater.control : {}),
+            text_profiles: snapshot.text_theater_profiles && typeof snapshot.text_theater_profiles === 'object'
+                ? snapshot.text_theater_profiles
+                : (mirrorTextTheater.text_theater_profiles && typeof mirrorTextTheater.text_theater_profiles === 'object' ? mirrorTextTheater.text_theater_profiles : {}),
+            text_bundle: textBundle && typeof textBundle === 'object'
+                ? {
+                    theater: String(textBundle.theater || ''),
+                    embodiment: String(textBundle.embodiment || '')
+                }
+                : { theater: '', embodiment: '' },
+            mirror_sync: _envLiveSyncDiagnosticSnapshot(Date.now())
+        };
+    }
+
+    function _envFacilityMirrorChip(label, value, tone) {
+        var chipTone = _envFacilityMirrorTone(tone || value || label);
+        return '<span class="envops-habitat-facility-chip ' + _esc(chipTone) + '">' +
+            '<span class="k">' + _esc(String(label || '')) + '</span>' +
+            '<span class="v">' + _esc(String(value || '—')) + '</span>' +
+        '</span>';
+    }
+
+    function _envFacilityMirrorCard(label, value) {
+        var preview = _envProductCollapseText(value, 148) || '—';
+        return '<div class="envops-habitat-facility-card">' +
+            '<div class="envops-habitat-facility-card-label">' + _esc(String(label || 'Card')) + '</div>' +
+            '<div class="envops-habitat-facility-card-value">' + _esc(preview) + '</div>' +
+        '</div>';
+    }
+
+    function _envFacilityMirrorLane(label, value, tone) {
+        var laneTone = _envFacilityMirrorTone(tone || value || label);
+        return '<div class="envops-habitat-facility-lane ' + _esc(laneTone) + '">' +
+            '<span class="envops-habitat-facility-lane-dot"></span>' +
+            '<span class="envops-habitat-facility-lane-label">' + _esc(String(label || 'lane')) + '</span>' +
+            '<span class="envops-habitat-facility-lane-value">' + _esc(_envProductCollapseText(value, 42) || '—') + '</span>' +
+        '</div>';
+    }
+
+    function _envFacilityMirrorTextViewMode(control) {
+        var source = control && typeof control === 'object' ? control : {};
+        return String(source.view_mode || source.active_view || 'render').trim().toLowerCase() || 'render';
+    }
+
+    function _envFacilityMirrorTextSectionKey(control) {
+        var source = control && typeof control === 'object' ? control : {};
+        return String(source.section_key || source.active_section || 'theater').trim().toLowerCase() || 'theater';
+    }
+
+    function _envFacilityMirrorTextExcerpt(value, maxLines, maxColumns) {
+        var limitLines = Math.max(4, Number(maxLines || 10));
+        var limitColumns = Math.max(24, Number(maxColumns || 64));
+        var rows = String(value || '')
+            .replace(/\r\n?/g, '\n')
+            .split('\n')
+            .map(function (row) {
+                return String(row || '').replace(/\t/g, '    ').replace(/\s+$/g, '');
+            });
+        while (rows.length && !String(rows[rows.length - 1] || '').trim()) rows.pop();
+        if (!rows.length) return 'No carried text-theater frame.';
+        var clipped = rows.slice(0, limitLines).map(function (row) {
+            return row.length > limitColumns
+                ? (row.slice(0, Math.max(1, limitColumns - 1)) + '…')
+                : row;
+        });
+        if (rows.length > limitLines) clipped.push('…');
+        return clipped.join('\n');
+    }
+
+    function _envRenderFacilityMirrorTextFrame(label, body, active, tone) {
+        var frameTone = _envFacilityMirrorTone(tone || (active ? 'active' : 'ok'));
+        return '<div class="envops-habitat-facility-text-frame ' + _esc(frameTone) + (active ? ' active' : '') + '">' +
+            '<div class="envops-habitat-facility-text-frame-head">' +
+                '<span class="envops-habitat-facility-text-frame-label">' + _esc(String(label || 'Text Theater')) + '</span>' +
+                (active ? '<span class="envops-habitat-facility-text-frame-state">live</span>' : '') +
+            '</div>' +
+            '<pre class="envops-habitat-facility-text-frame-body">' + _esc(String(body || 'No carried text-theater frame.')) + '</pre>' +
+        '</div>';
+    }
+
+    function _envRenderFacilityMirrorHtml(theaterMode) {
+        var source = _envCurrentFacilityMirrorState();
+        var overlayState = _envOverlayPanelState('facility');
+        var compactMode = !!overlayState.compact;
+        var autoRestoreDelayMs = _envOverlayPanelAutoRestoreDelayMs('facility');
+        var autoRestoreSeconds = autoRestoreDelayMs > 0 ? Math.round(autoRestoreDelayMs / 1000) : 0;
+        var snapshot = source.snapshot && typeof source.snapshot === 'object' ? source.snapshot : {};
+        var outputState = source.output_state && typeof source.output_state === 'object' ? source.output_state : {};
+        var blackboard = source.blackboard && typeof source.blackboard === 'object' ? source.blackboard : {};
+        var docs = source.docs && typeof source.docs === 'object' ? source.docs : {};
+        var weather = source.weather && typeof source.weather === 'object' ? source.weather : {};
+        var textControl = source.text_control && typeof source.text_control === 'object' ? source.text_control : {};
+        var textProfiles = source.text_profiles && typeof source.text_profiles === 'object' ? source.text_profiles : {};
+        var textBundle = source.text_bundle && typeof source.text_bundle === 'object' ? source.text_bundle : {};
+        var mirrorSync = source.mirror_sync && typeof source.mirror_sync === 'object' ? source.mirror_sync : {};
+        var working = blackboard.working_set && typeof blackboard.working_set === 'object' ? blackboard.working_set : {};
+        var queryThread = working.query_thread && typeof working.query_thread === 'object' ? working.query_thread : {};
+        var placement = outputState.placement && typeof outputState.placement === 'object' ? outputState.placement : {};
+        var equilibrium = outputState.equilibrium && typeof outputState.equilibrium === 'object' ? outputState.equilibrium : {};
+        var drift = outputState.drift && typeof outputState.drift === 'object' ? outputState.drift : {};
+        var confidence = outputState.confidence && typeof outputState.confidence === 'object' ? outputState.confidence : {};
+        var freshness = outputState.freshness && typeof outputState.freshness === 'object' ? outputState.freshness : {};
+        var correlator = outputState.trajectory_correlator && typeof outputState.trajectory_correlator === 'object' ? outputState.trajectory_correlator : {};
+        var continuityCue = outputState.continuity_cue && typeof outputState.continuity_cue === 'object' ? outputState.continuity_cue : {};
+        var tinkerbellAttention = outputState.tinkerbell_attention && typeof outputState.tinkerbell_attention === 'object' ? outputState.tinkerbell_attention : {};
+        var activePointer = tinkerbellAttention.active_pointer && typeof tinkerbellAttention.active_pointer === 'object' ? tinkerbellAttention.active_pointer : {};
+        var fieldDisposition = outputState.field_disposition && typeof outputState.field_disposition === 'object' ? outputState.field_disposition : {};
+        var watchBoard = outputState.watch_board && typeof outputState.watch_board === 'object' ? outputState.watch_board : {};
+        var panProbe = outputState.pan_probe && typeof outputState.pan_probe === 'object' ? outputState.pan_probe : {};
+        var sources = outputState.sources && typeof outputState.sources === 'object' ? outputState.sources : {};
+        var readySources = Object.keys(sources).filter(function (key) {
+            return !!(sources[key] && typeof sources[key] === 'object' && sources[key].ready);
+        });
+        var nextReads = (((placement.next || {}).reads) && Array.isArray((placement.next || {}).reads))
+            ? (placement.next || {}).reads
+            : _envOutputStateLanePreview(outputState.next_reads, 4);
+        var helpLane = (((placement.next || {}).help) && Array.isArray((placement.next || {}).help))
+            ? (placement.next || {}).help
+            : _envOutputStateLanePreview(queryThread.help_lane, 3);
+        var textViewMode = _envFacilityMirrorTextViewMode(textControl);
+        var textSectionKey = _envFacilityMirrorTextSectionKey(textControl);
+        var overlayProfile = ((((textProfiles || {}).surface_defaults) || {}).web_overlay) || String(textProfiles.default_family_id || '');
+        var theaterText = String(textBundle.theater || '');
+        var embodimentText = String(textBundle.embodiment || '');
+        var mirrorLabel = freshness.mirror_lag ? 'lagged' : (String(mirrorSync.status || '').trim() || 'fresh');
+        var weatherLabel = weather.enabled
+            ? _envProductCollapseText([
+                String(weather.kind || 'weather'),
+                String(weather.flow_class || 'flow'),
+                'dens ' + _envTextTheaterRound(weather.density, 2, 0),
+                'speed ' + _envTextTheaterRound(weather.speed, 2, 0)
+            ].filter(Boolean).join(' · '), 96)
+            : 'none';
+        var textViewLabel = _envProductCollapseText([
+            String(textViewMode || ''),
+            String(textSectionKey || ''),
+            overlayProfile ? ('overlay ' + String(overlayProfile || '')) : '',
+            'surface ' + String(textControl.surface_mode || ''),
+            'density ' + String(textControl.surface_density || '')
+        ].filter(Boolean).join(' · '), 96) || 'consult / blackboard';
+        var breadcrumbValue = _envProductCollapseText([
+            String(placement.objective || queryThread.objective_label || queryThread.objective_id || ''),
+            String(placement.seam || queryThread.current_pivot_id || ''),
+            String(placement.subject || queryThread.subject_key || '')
+        ].filter(Boolean).join(' · '), 148);
+        var fieldValue = _envProductCollapseText(String(fieldDisposition.summary || '').trim() || [
+            String(fieldDisposition.medium_kind || ''),
+            String(fieldDisposition.propagation_mode || ''),
+            'settle ' + String(fieldDisposition.settling_band || '')
+        ].filter(Boolean).join(' / '), 148);
+        var evidenceValue = _envProductCollapseText([
+            readySources.join(', '),
+            docs.context_kind ? ('docs ' + String(docs.context_kind || '')) : '',
+            'rows ' + String(Number(blackboard.row_count || 0))
+        ].filter(Boolean).join(' · '), 148);
+        var pointerValue = _envProductCollapseText([
+            String(activePointer.target_kind || tinkerbellAttention.band || ''),
+            String(activePointer.target || ''),
+            String(activePointer.expected_read || '')
+        ].filter(Boolean).join(' · '), 148) || 'no active pointer';
+        var nextValue = _envProductCollapseText(nextReads.concat(helpLane).slice(0, 4).join(' · '), 148);
+        var notes = [
+            'summary · ' + String(outputState.summary || 'no output_state summary'),
+            'trajectory · ' + String((((correlator.correlation || {}).relation) || 'match')) + ' / ' + String(correlator.grade || 'on_track'),
+            continuityCue.needed
+                ? ('cue · ' + String(continuityCue.next_action || 'Run Continuity Drill'))
+                : 'cue · quiet',
+            'tink · ' + String(tinkerbellAttention.summary || 'no active pointer'),
+            'pan · ' + String(panProbe.summary || 'no pan probe yet'),
+            'writer · ' + String((((panProbe.writer_identity || {}).last_sync_reason) || snapshot.last_sync_reason || 'unknown')),
+            'text theater · ' + textViewLabel,
+            'weather · ' + weatherLabel
+        ];
+        var lanes = [
+            _envFacilityMirrorLane('eq', String(equilibrium.band || 'unknown'), equilibrium.band),
+            _envFacilityMirrorLane('traj', String((((correlator.correlation || {}).relation) || 'match')) + ' / ' + String(correlator.grade || 'on_track'), correlator.grade || ((correlator.correlation || {}).relation) || 'match'),
+            _envFacilityMirrorLane('cue', continuityCue.needed ? String(continuityCue.severity || 'warn') : 'quiet', continuityCue.severity || 'quiet'),
+            _envFacilityMirrorLane('tink', pointerValue, tinkerbellAttention.band || 'quiet'),
+            _envFacilityMirrorLane('watch', String(watchBoard.band || 'quiet'), watchBoard.band),
+            _envFacilityMirrorLane('pan', String(panProbe.band || 'ambient'), panProbe.band || panProbe.summary || 'ambient'),
+            _envFacilityMirrorLane('text', textViewLabel, freshness.mirror_lag ? 'warning' : 'ok')
+        ];
+        var cards = compactMode
+            ? [
+                _envFacilityMirrorCard('Breadcrumb', breadcrumbValue),
+                _envFacilityMirrorCard('Next', nextValue)
+            ]
+            : [
+                _envFacilityMirrorCard('Breadcrumb', breadcrumbValue),
+                _envFacilityMirrorCard('Field', fieldValue),
+                _envFacilityMirrorCard('Evidence', evidenceValue),
+                _envFacilityMirrorCard('Pointer', pointerValue),
+                _envFacilityMirrorCard('Next', nextValue)
+            ];
+        var textFrameLines = compactMode ? 6 : 9;
+        var textFrameColumns = compactMode ? 42 : 56;
+        var textFrames = [];
+        if (textViewMode === 'embodiment') {
+            textFrames.push(_envRenderFacilityMirrorTextFrame(
+                'Embodiment',
+                _envFacilityMirrorTextExcerpt(embodimentText, textFrameLines, textFrameColumns),
+                true,
+                freshness.mirror_lag ? 'warning' : 'ok'
+            ));
+            if (!compactMode) {
+                textFrames.push(_envRenderFacilityMirrorTextFrame(
+                    'Theater',
+                    _envFacilityMirrorTextExcerpt(theaterText, textFrameLines, textFrameColumns),
+                    false,
+                    'active'
+                ));
+            }
+        } else {
+            textFrames.push(_envRenderFacilityMirrorTextFrame(
+                'Theater',
+                _envFacilityMirrorTextExcerpt(theaterText, textFrameLines, textFrameColumns),
+                textViewMode !== 'split',
+                freshness.mirror_lag ? 'warning' : 'ok'
+            ));
+            if (!compactMode || textViewMode === 'split' || textViewMode === 'render' || textViewMode === 'consult') {
+                textFrames.push(_envRenderFacilityMirrorTextFrame(
+                    'Embodiment',
+                    _envFacilityMirrorTextExcerpt(embodimentText, compactMode ? 5 : textFrameLines, textFrameColumns),
+                    textViewMode === 'split',
+                    'active'
+                ));
+            }
+        }
+        var renderedNotes = compactMode ? notes.slice(0, 3) : notes;
+        return '<div class="envops-habitat-facility-mirror' + (compactMode ? ' compact' : '') + '" data-env-overlay-id="facility">' +
+            '<div class="envops-overlay-panel-head envops-habitat-facility-toolbar" data-env-overlay-handle>' +
+                '<span class="envops-overlay-panel-title">Facility Mirror' + (compactMode ? ' · compact' : '') + (autoRestoreSeconds > 0 ? (' · auto ' + String(autoRestoreSeconds) + 's') : '') + '</span>' +
+                '<div class="envops-overlay-panel-actions">' +
+                    '<button type="button" class="btn-dim envops-overlay-mini-btn" data-env-action="toggle-overlay-compact" data-env-overlay-id="facility" title="' + (compactMode ? 'Expand panel' : 'Compact panel') + '">C</button>' +
+                    '<button type="button" class="btn-dim envops-overlay-mini-btn" data-env-action="toggle-overlay-panel" data-env-overlay-id="facility" title="Minimize panel">–</button>' +
+                    '<button type="button" class="btn-dim envops-overlay-mini-btn" data-env-action="reset-overlay-panel" data-env-overlay-id="facility" title="Reset panel position">R</button>' +
+                '</div>' +
+            '</div>' +
+            '<div class="envops-habitat-facility-head">' +
+                '<span class="envops-habitat-facility-kicker">Mirrored Facility · Output State</span>' +
+                '<span class="envops-habitat-facility-subject">' + _esc(String(((placement.subject || queryThread.subject_key || (((blackboard.focus || {}).id) || 'facility'))) || 'facility')) + '</span>' +
+            '</div>' +
+            '<div class="envops-habitat-facility-summary">' + _esc(String(outputState.summary || 'No mirrored facility surface yet.')) + '</div>' +
+            '<div class="envops-habitat-facility-chips">' +
+                _envFacilityMirrorChip('eq', String(equilibrium.band || 'unknown'), equilibrium.band) +
+                _envFacilityMirrorChip('drift', String(drift.band || 'unknown'), drift.band) +
+                _envFacilityMirrorChip('cue', String(continuityCue.severity || 'quiet'), continuityCue.severity || 'quiet') +
+                _envFacilityMirrorChip('mirror', String(mirrorLabel || 'unknown'), mirrorLabel) +
+                _envFacilityMirrorChip('watch', String(watchBoard.band || 'quiet'), watchBoard.band) +
+                _envFacilityMirrorChip('weather', weather.enabled ? String(weather.kind || 'weather') : 'none', weather.enabled ? String(weather.flow_class || weather.kind || 'active') : 'ok') +
+                _envFacilityMirrorChip('text', String(textViewLabel || 'consult'), freshness.mirror_lag ? 'warning' : 'ok') +
+            '</div>' +
+            '<div class="envops-habitat-facility-sequence">' +
+                lanes.join('') +
+            '</div>' +
+            '<div class="envops-habitat-facility-grid">' +
+                cards.join('') +
+            '</div>' +
+            '<div class="envops-habitat-facility-text-grid">' +
+                textFrames.join('') +
+            '</div>' +
+            '<div class="envops-habitat-facility-notes">' +
+                renderedNotes.map(function (note) {
+                    return '<div class="envops-habitat-facility-note">' + _esc(String(note || '')) + '</div>';
+                }).join('') +
+            '</div>' +
+        '</div>';
+    }
+
     function _envActivityPreviewText(value, limit) {
         if (value === undefined || value === null) return '';
         var maxLen = Math.max(24, Number(limit || 140));
@@ -22287,6 +23135,7 @@
                     '<span class="v">' + _esc(String(primary.tool || 'tool')) + '</span>' +
                     '<button type="button" class="btn-dim envops-overlay-mini-btn" data-env-action="reset-overlay-panel" data-env-overlay-id="ops" title="Reset panel position">↺</button>' +
                     '<button type="button" class="btn-dim envops-overlay-mini-btn" data-env-action="toggle-overlay-panel" data-env-overlay-id="ops" title="Minimize panel">–</button>' +
+                    '<button type="button" class="btn-dim envops-overlay-mini-btn" data-env-action="dismiss-overlay-panel" data-env-overlay-id="ops" title="Hide panel">×</button>' +
                 '</div>' +
             '</div>' +
             _envRenderHabitatSpawnForm() +
@@ -28676,6 +29525,7 @@
     }
 
     function _envRenderHabitatTelemetry(workflow, exec, traces) {
+        var facilityMirrorHtml = _envRenderFacilityMirrorHtml(_envTheaterMode());
         if (_envTheaterMode() === 'character') {
             var workbench = _envCharacterWorkbenchSummary();
             function characterChip(label, value, tone, role) {
@@ -28696,6 +29546,7 @@
                 '<div class="envops-habitat-status-mini ok" data-role="subject"><span class="k">Subject</span><span class="v">' + _esc(workbench.hudPrimary.replace(/^Subject:\s*/, '')) + '</span></div>' +
                 '<div class="envops-habitat-status-mini ok" data-role="retarget"><span class="k">Retarget</span><span class="v">' + _esc(workbench.retargetingStatus) + '</span></div>' +
                 '</div>' +
+                facilityMirrorHtml +
                 '</div>';
         }
         var ingress = _envKernel.ingress || {};
@@ -28750,6 +29601,7 @@
             '<div class="envops-habitat-status-mini"><span class="k">Pulse</span><span class="v">' + _esc(String(events.length) + ' pulses · ' + modeLabel) + '</span></div>' +
             '</div>' +
             '<div class="envops-habitat-pulse-inline">' + pulseHtml + '</div>' +
+            facilityMirrorHtml +
             '</div>';
     }
 
@@ -29816,7 +30668,16 @@
     var _ENV_SCAFFOLD_SLOT_REGISTRY = {
         humanoid_biped: [
             { slot: 'head', joint: 'head', geometry: 'ellipsoid', scale: [0.14, 0.18, 0.13], color: 0xc9c4bc, up: [0, 0.08, 0] },
+            { slot: 'hair_cap', joint: 'head', geometry: 'ellipsoid', scale: [0.22, 0.12, 0.18], color: 0x1c140f, up: [0, 0.105, -0.02], rotation_deg: [6, 0, 0] },
+            { slot: 'hair_side_l', joint: 'head', geometry: 'limb', scale: [0.03, 0.12, 0.025], color: 0x1f1711, up: [-0.09, 0.045, -0.03], rotation_deg: [18, 12, 28] },
+            { slot: 'hair_side_r', joint: 'head', geometry: 'limb', scale: [0.03, 0.12, 0.025], color: 0x1f1711, up: [0.09, 0.045, -0.03], rotation_deg: [18, -12, -28] },
+            { slot: 'hair_back', joint: 'head', geometry: 'limb', scale: [0.04, 0.13, 0.03], color: 0x1a120d, up: [0, 0.01, -0.09], rotation_deg: [26, 0, 0] },
             { slot: 'neck', joint: 'neck', target_joint: 'head', follow_child: true, geometry: 'limb', scale: [0.032, 0.07, 0.024], color: 0xb4aea5, up: [0, 0.03, 0] },
+            { slot: 'beard_main', joint: 'neck', geometry: 'limb', scale: [0.05, 0.24, 0.04], color: 0x24160f, up: [0, -0.13, 0.08], rotation_deg: [32, 0, 0] },
+            { slot: 'beard_side_l', joint: 'neck', geometry: 'limb', scale: [0.035, 0.18, 0.03], color: 0x281912, up: [-0.075, -0.08, 0.06], rotation_deg: [24, 0, 22] },
+            { slot: 'beard_side_r', joint: 'neck', geometry: 'limb', scale: [0.035, 0.18, 0.03], color: 0x281912, up: [0.075, -0.08, 0.06], rotation_deg: [24, 0, -22] },
+            { slot: 'mustache_l', joint: 'head', geometry: 'ellipsoid', scale: [0.06, 0.03, 0.03], color: 0x2b1b13, up: [-0.04, -0.015, 0.07], rotation_deg: [0, 0, 18] },
+            { slot: 'mustache_r', joint: 'head', geometry: 'ellipsoid', scale: [0.06, 0.03, 0.03], color: 0x2b1b13, up: [0.04, -0.015, 0.07], rotation_deg: [0, 0, -18] },
             { slot: 'chest', joint: 'chest', geometry: 'ellipsoid', scale: [0.30, 0.26, 0.18], color: 0xc3beb4, up: [0, 0.11, 0] },
             { slot: 'spine', joint: 'spine', target_joint: 'chest', follow_child: true, geometry: 'ellipsoid', scale: [0.22, 0.16, 0.14], color: 0xb9b3aa, up: [0, 0.07, 0] },
             { slot: 'hips', joint: 'hips', target_joint: 'spine', follow_child: true, geometry: 'ellipsoid', scale: [0.28, 0.15, 0.18], color: 0xada79f, up: [0, 0.05, 0] },
@@ -30338,6 +31199,7 @@
         var gizmoAttached = !!gizmoAttachedKind;
         var controllerRegistry = builderActive ? _envBuilderBodyPlanControllerRegistry((blueprint && blueprint.bones) || [], family) : [];
         var poseMacroRegistry = builderActive ? _envBuilderBodyPlanPoseMacroRegistry(family) : [];
+        var sequenceResourceRegistry = builderActive ? _envBuilderSequenceResourceRegistry(family) : [];
         var activeController = builderActive
             ? _envBuilderActiveControllerState(
                 (blueprint && blueprint.bones) || [],
@@ -30445,6 +31307,8 @@
             controller_registry: _envCloneJson(controllerRegistry, []),
             pose_macro_registry_family: String(family || ''),
             pose_macro_registry: _envCloneJson(poseMacroRegistry, []),
+            sequence_resource_registry_family: String(family || ''),
+            sequence_resource_registry: _envCloneJson(sequenceResourceRegistry, []),
             active_controller: _envCloneJson(activeController, null),
             route_report: _envCloneJson(supportRouteReport, null),
             maneuver_probe_history: _envCloneJson(_envBuilderInteraction.maneuver_probe_history || [], []),
@@ -30502,6 +31366,670 @@
         return Math.sqrt((x * x) + (y * y) + (z * z));
     }
 
+    function _envTextTheaterVectorFromValue(value, digits) {
+        if (Array.isArray(value)) {
+            return {
+                x: _envTextTheaterRound(value[0], digits || 3, 0),
+                y: _envTextTheaterRound(value[1], digits || 3, 0),
+                z: _envTextTheaterRound(value[2], digits || 3, 0)
+            };
+        }
+        return _envTextTheaterVectorObject(value, digits || 3);
+    }
+
+    function _envTextTheaterVectorAdd(left, right, digits) {
+        var a = _envTextTheaterVectorFromValue(left, digits || 4);
+        var b = _envTextTheaterVectorFromValue(right, digits || 4);
+        return {
+            x: _envTextTheaterRound(Number(a.x || 0) + Number(b.x || 0), digits || 4, 0),
+            y: _envTextTheaterRound(Number(a.y || 0) + Number(b.y || 0), digits || 4, 0),
+            z: _envTextTheaterRound(Number(a.z || 0) + Number(b.z || 0), digits || 4, 0)
+        };
+    }
+
+    function _envTextTheaterVectorSubtract(left, right, digits) {
+        var a = _envTextTheaterVectorFromValue(left, digits || 4);
+        var b = _envTextTheaterVectorFromValue(right, digits || 4);
+        return {
+            x: _envTextTheaterRound(Number(a.x || 0) - Number(b.x || 0), digits || 4, 0),
+            y: _envTextTheaterRound(Number(a.y || 0) - Number(b.y || 0), digits || 4, 0),
+            z: _envTextTheaterRound(Number(a.z || 0) - Number(b.z || 0), digits || 4, 0)
+        };
+    }
+
+    function _envTextTheaterVectorScale(value, scalar, digits) {
+        var vector = _envTextTheaterVectorFromValue(value, digits || 4);
+        var gain = Number(scalar || 0);
+        return {
+            x: _envTextTheaterRound(Number(vector.x || 0) * gain, digits || 4, 0),
+            y: _envTextTheaterRound(Number(vector.y || 0) * gain, digits || 4, 0),
+            z: _envTextTheaterRound(Number(vector.z || 0) * gain, digits || 4, 0)
+        };
+    }
+
+    function _envTextTheaterVectorMix(left, right, factor, digits) {
+        var a = _envTextTheaterVectorFromValue(left, digits || 4);
+        var b = _envTextTheaterVectorFromValue(right, digits || 4);
+        var t = _envBuilderClamp01(Number(factor || 0));
+        return {
+            x: _envTextTheaterRound(Number(a.x || 0) + ((Number(b.x || 0) - Number(a.x || 0)) * t), digits || 4, 0),
+            y: _envTextTheaterRound(Number(a.y || 0) + ((Number(b.y || 0) - Number(a.y || 0)) * t), digits || 4, 0),
+            z: _envTextTheaterRound(Number(a.z || 0) + ((Number(b.z || 0) - Number(a.z || 0)) * t), digits || 4, 0)
+        };
+    }
+
+    function _envTextTheaterBoneLookupMap(bones) {
+        var rows = Array.isArray(bones) ? bones : [];
+        var map = {};
+        rows.forEach(function (entry) {
+            var bone = entry && typeof entry === 'object' ? entry : {};
+            var id = String(bone.id || '').trim();
+            var canonical = String(bone.canonical_joint || '').trim();
+            var name = String(bone.name || '').trim();
+            if (id) map[id] = bone;
+            if (canonical && !map[canonical]) map[canonical] = bone;
+            if (name && !map[name]) map[name] = bone;
+        });
+        return map;
+    }
+
+    function _envTextTheaterBonePoint(boneMap, names) {
+        var lookup = boneMap && typeof boneMap === 'object' ? boneMap : {};
+        var requested = Array.isArray(names) ? names : Array.prototype.slice.call(arguments, 1);
+        for (var index = 0; index < requested.length; index += 1) {
+            var key = String(requested[index] || '').trim();
+            if (!key) continue;
+            var bone = lookup[key];
+            if (!bone) continue;
+            return _envTextTheaterVectorFromValue(bone.world_pos, 4);
+        }
+        return null;
+    }
+
+    function _envTextTheaterSequencePoseRef(pose, index) {
+        var row = pose && typeof pose === 'object' ? pose : {};
+        return {
+            id: String(row.id || '').trim(),
+            label: String(row.label || row.id || '').trim(),
+            timestamp: _envTextTheaterRound(row.timestamp, 4, 0),
+            index: Math.max(0, Math.floor(Number(index || 0)))
+        };
+    }
+
+    function _envTextTheaterSequenceTimelineWindow(timelineState) {
+        var timeline = timelineState && typeof timelineState === 'object'
+            ? _envNormalizeBuilderTimelineState(timelineState)
+            : _envNormalizeBuilderTimelineState(null);
+        var poses = Array.isArray(timeline.key_poses) ? timeline.key_poses : [];
+        var rawCursor = Number(timeline.cursor || 0);
+        if (!poses.length) {
+            return {
+                active: false,
+                cursor: _envTextTheaterRound(rawCursor, 4, 0),
+                duration: _envTextTheaterRound(timeline.duration, 4, 0),
+                absolute_time: 0,
+                progress: 0,
+                cursor_mode: 'empty',
+                transition_active: false,
+                previous_pose: null,
+                from_pose: null,
+                to_pose: null,
+                current_pose: null
+            };
+        }
+        var lastPose = poses[poses.length - 1] || {};
+        var duration = Math.max(0.01, Number(timeline.duration || 0), Number(lastPose.timestamp || 0));
+        var poseIndexMode = Math.abs(rawCursor - Math.round(rawCursor)) < 0.0001
+            && rawCursor >= 0
+            && rawCursor <= (poses.length - 1);
+        var fromIndex = 0;
+        var toIndex = 0;
+        var currentIndex = 0;
+        var progress = 0;
+        var absoluteTime = 0;
+        var cursorMode = 'absolute_time';
+        if (poseIndexMode) {
+            currentIndex = Math.max(0, Math.min(poses.length - 1, Math.round(rawCursor)));
+            fromIndex = currentIndex;
+            toIndex = Math.min(poses.length - 1, currentIndex + 1);
+            absoluteTime = Number((poses[currentIndex] || {}).timestamp || 0);
+            cursorMode = 'pose_index';
+        } else {
+            if (rawCursor >= 0 && rawCursor <= 1.0001) {
+                absoluteTime = rawCursor * duration;
+                cursorMode = 'normalized';
+            } else {
+                absoluteTime = Math.max(0, Math.min(duration, rawCursor));
+                cursorMode = rawCursor > duration + 0.0001 ? 'absolute_time_clamped' : 'absolute_time';
+            }
+            if (absoluteTime <= Number((poses[0] || {}).timestamp || 0)) {
+                fromIndex = 0;
+                toIndex = Math.min(poses.length - 1, 1);
+                currentIndex = 0;
+            } else if (absoluteTime >= Number(lastPose.timestamp || 0)) {
+                fromIndex = poses.length - 1;
+                toIndex = poses.length - 1;
+                currentIndex = poses.length - 1;
+            } else {
+                for (var poseIndex = 0; poseIndex < poses.length - 1; poseIndex += 1) {
+                    var leftPose = poses[poseIndex] || {};
+                    var rightPose = poses[poseIndex + 1] || {};
+                    var leftTime = Number(leftPose.timestamp || 0);
+                    var rightTime = Number(rightPose.timestamp || leftTime);
+                    if (absoluteTime < leftTime || absoluteTime > rightTime) continue;
+                    fromIndex = poseIndex;
+                    toIndex = poseIndex + 1;
+                    var span = Math.max(0.00001, rightTime - leftTime);
+                    progress = Math.max(0, Math.min(1, (absoluteTime - leftTime) / span));
+                    currentIndex = progress >= 0.5 ? toIndex : fromIndex;
+                    break;
+                }
+            }
+        }
+        var previousIndex = Math.max(0, fromIndex - 1);
+        return {
+            active: true,
+            cursor: _envTextTheaterRound(rawCursor, 4, 0),
+            duration: _envTextTheaterRound(duration, 4, 0),
+            absolute_time: _envTextTheaterRound(absoluteTime, 4, 0),
+            progress: _envTextTheaterRound(progress, 4, 0),
+            cursor_mode: cursorMode,
+            transition_active: toIndex !== fromIndex,
+            previous_pose: _envTextTheaterSequencePoseRef(poses[previousIndex], previousIndex),
+            from_pose: _envTextTheaterSequencePoseRef(poses[fromIndex], fromIndex),
+            to_pose: _envTextTheaterSequencePoseRef(poses[toIndex], toIndex),
+            current_pose: _envTextTheaterSequencePoseRef(poses[currentIndex], currentIndex)
+        };
+    }
+
+    function _envTextTheaterSequenceRole(value) {
+        var label = String(value || '').trim().toLowerCase();
+        if (!label) return '';
+        if (/contact|impact|hit|strike|punch|land/.test(label)) return 'contact';
+        if (/recoil|recover|return|reset/.test(label)) return 'recoil';
+        if (/guard|ready|idle|stance/.test(label)) return 'guard';
+        if (/wind|load|chamber|coil|draw|pull|prep/.test(label)) return 'windup';
+        if (/release|launch|extend|throw/.test(label)) return 'release';
+        return 'pose';
+    }
+
+    function _envTextTheaterSequenceAspect(weather, intensity, tempo) {
+        var surface = weather && typeof weather === 'object' ? weather : {};
+        var kind = String(surface.kind || '').trim().toLowerCase();
+        if (kind.indexOf('storm') >= 0 || kind.indexOf('wind') >= 0) return intensity >= 0.72 ? 'storm_surge' : 'wind_shear';
+        if (kind.indexOf('rain') >= 0 || kind.indexOf('mist') >= 0 || kind.indexOf('water') >= 0) return intensity >= 0.72 ? 'tidal_rail' : 'mist_rail';
+        if (kind.indexOf('fire') >= 0 || kind.indexOf('ember') >= 0) return intensity >= 0.72 ? 'flare_drive' : 'ember_drive';
+        if (kind.indexOf('snow') >= 0 || kind.indexOf('ice') >= 0) return intensity >= 0.72 ? 'frost_break' : 'frost_line';
+        if (tempo === 'instant' || intensity >= 0.82) return 'instant_transmit';
+        return 'saiyan_rail';
+    }
+
+    function _envTextTheaterSequenceKeywordScore(text, keywords) {
+        var haystack = String(text || '').trim().toLowerCase();
+        if (!haystack) return 0;
+        return (Array.isArray(keywords) ? keywords : []).reduce(function (score, keyword) {
+            var token = String(keyword || '').trim().toLowerCase();
+            if (!token) return score;
+            return haystack.indexOf(token) >= 0 ? score + 1 : score;
+        }, 0);
+    }
+
+    function _envTextTheaterSequencePhaseEntry(resource, phaseId) {
+        var phases = resource && Array.isArray(resource.phases) ? resource.phases : [];
+        var targetId = String(phaseId || '').trim();
+        if (!targetId) return phases[0] || null;
+        for (var i = 0; i < phases.length; i += 1) {
+            var entry = phases[i];
+            if (String((entry || {}).phase_id || '').trim() === targetId) return entry;
+        }
+        return phases[0] || null;
+    }
+
+    function _envTextTheaterSequenceSplitProfile(boneMap, balance, centerPoint) {
+        var lookup = boneMap && typeof boneMap === 'object' ? boneMap : {};
+        var balanceState = balance && typeof balance === 'object' ? balance : {};
+        var hips = _envTextTheaterBonePoint(lookup, ['hips', 'pelvis', 'root']);
+        var chest = _envTextTheaterBonePoint(lookup, ['chest', 'spine2', 'spine1', 'spine']);
+        var leftFoot = _envTextTheaterBonePoint(lookup, ['foot_l', 'lower_leg_l', 'upper_leg_l']);
+        var rightFoot = _envTextTheaterBonePoint(lookup, ['foot_r', 'lower_leg_r', 'upper_leg_r']);
+        if (!hips || !leftFoot || !rightFoot) return null;
+        var heelMid = _envTextTheaterVectorMix(leftFoot, rightFoot, 0.5, 4);
+        var supportY = Number(balanceState.support_y !== undefined ? balanceState.support_y : heelMid.y || 0);
+        var splitSpan = _envTextTheaterVectorMagnitude(_envTextTheaterVectorSubtract(rightFoot, leftFoot, 4));
+        var splitRatio = _envBuilderClamp01((splitSpan - 0.42) / 1.28);
+        var pelvisHeight = Math.max(0, Number(hips.y || 0) - supportY);
+        var impactPoint = {
+            x: _envTextTheaterRound(Number(heelMid.x || 0), 4, 0),
+            y: _envTextTheaterRound(supportY + 0.02, 4, 0),
+            z: _envTextTheaterRound(Number(heelMid.z || 0), 4, 0)
+        };
+        var guardPoint = _envTextTheaterVectorMix(
+            hips,
+            centerPoint || chest || hips,
+            0.34,
+            4
+        );
+        var risePoint = _envTextTheaterVectorMix(heelMid, guardPoint, 0.74, 4);
+        var dropDirection = _envTextTheaterNormalizeDirection(_envTextTheaterVectorSubtract(impactPoint, hips, 4));
+        if (!(_envTextTheaterVectorMagnitude(dropDirection) > 0.0001)) dropDirection = { x: 0, y: -1, z: 0 };
+        var riseDirection = _envTextTheaterNormalizeDirection(_envTextTheaterVectorSubtract(risePoint, heelMid, 4));
+        if (!(_envTextTheaterVectorMagnitude(riseDirection) > 0.0001)) riseDirection = { x: 0, y: 1, z: 0 };
+        return {
+            hips: hips,
+            chest: chest || hips,
+            center_point: centerPoint || chest || hips,
+            left_foot: leftFoot,
+            right_foot: rightFoot,
+            heel_midpoint: heelMid,
+            impact_point: impactPoint,
+            guard_point: guardPoint,
+            rise_point: risePoint,
+            drop_direction: dropDirection,
+            rise_direction: riseDirection,
+            split_span: _envTextTheaterRound(splitSpan, 4, 0),
+            split_ratio: _envTextTheaterRound(splitRatio, 4, 0),
+            pelvis_height: _envTextTheaterRound(pelvisHeight, 4, 0)
+        };
+    }
+
+    function _envTextTheaterResolveSequenceResource(resourceRegistry, timelineWindow, workbench, activeController, splitProfile) {
+        var registry = Array.isArray(resourceRegistry) ? resourceRegistry : [];
+        if (!registry.length) return null;
+        var workbenchState = workbench && typeof workbench === 'object' ? workbench : {};
+        var controllerState = activeController && typeof activeController === 'object' ? activeController : {};
+        var controllerId = String(controllerState.controller_id || '').trim();
+        var controllerLabel = String(controllerState.label || controllerId || '').trim();
+        var toLabel = String((((timelineWindow || {}).to_pose || {}).label) || '').trim();
+        var fromLabel = String((((timelineWindow || {}).from_pose || {}).label) || '').trim();
+        var currentLabel = String((((timelineWindow || {}).current_pose || {}).label) || '').trim();
+        var previewClip = String(workbenchState.preview_clip || workbenchState.last_compiled_clip || '').trim();
+        var activationText = [
+            toLabel,
+            currentLabel,
+            fromLabel,
+            previewClip,
+            controllerLabel,
+            controllerId
+        ].join(' ').toLowerCase();
+        var bestResource = null;
+        var bestScore = 0;
+        registry.forEach(function (resource) {
+            var row = resource && typeof resource === 'object' ? resource : {};
+            var score = _envTextTheaterSequenceKeywordScore(activationText, row.activation_keywords || []);
+            if ((row.focus_controller_ids || []).indexOf(controllerId) >= 0) score += 1.25;
+            if (String(row.resource_id || '') === 'the_cage' && splitProfile) {
+                score += Number(splitProfile.split_ratio || 0) * 2.4;
+                if (Number(splitProfile.split_ratio || 0) >= 0.58) score += 1.4;
+            }
+            if (score > bestScore) {
+                bestScore = score;
+                bestResource = row;
+            }
+        });
+        if (!bestResource || !(bestScore > 0.9)) return null;
+        var bestPhase = null;
+        var bestPhaseScore = 0;
+        var toText = String(toLabel || '').toLowerCase();
+        var currentText = String(currentLabel || '').toLowerCase();
+        var fromText = String(fromLabel || '').toLowerCase();
+        (bestResource.phases || []).forEach(function (phase) {
+            var phaseScore = 0;
+            phaseScore += _envTextTheaterSequenceKeywordScore(toText, phase.keywords || []) * 4;
+            phaseScore += _envTextTheaterSequenceKeywordScore(currentText, phase.keywords || []) * 3;
+            phaseScore += _envTextTheaterSequenceKeywordScore(fromText, phase.keywords || []) * 2;
+            phaseScore += _envTextTheaterSequenceKeywordScore(previewClip, phase.keywords || []) * 2;
+            if (phaseScore > bestPhaseScore) {
+                bestPhaseScore = phaseScore;
+                bestPhase = phase;
+            }
+        });
+        if (!bestPhase && String(bestResource.resource_id || '') === 'the_cage') {
+            var splitRatio = Number((splitProfile || {}).split_ratio || 0);
+            var toRole = _envTextTheaterSequenceRole(toLabel);
+            var fromRole = _envTextTheaterSequenceRole(fromLabel);
+            if (/break|punch|blitz|kaio|camera/.test(activationText)) bestPhase = _envTextTheaterSequencePhaseEntry(bestResource, 'cage_break');
+            else if (timelineWindow.transition_active && (toRole === 'contact' || /impact|slam|drop|land/.test(activationText))) bestPhase = _envTextTheaterSequencePhaseEntry(bestResource, 'cage_impact');
+            else if (timelineWindow.transition_active && (toRole === 'recoil' || toRole === 'guard' || fromRole === 'contact')) bestPhase = _envTextTheaterSequencePhaseEntry(bestResource, 'rise_from_cage');
+            else if (!timelineWindow.transition_active && splitRatio >= 0.82) bestPhase = _envTextTheaterSequencePhaseEntry(bestResource, 'cage_hold');
+            else if (splitRatio >= 0.48 || timelineWindow.transition_active) bestPhase = _envTextTheaterSequencePhaseEntry(bestResource, 'lower_into_cage');
+            else bestPhase = _envTextTheaterSequencePhaseEntry(bestResource, 'enter_cage');
+        }
+        if (!bestPhase) bestPhase = _envTextTheaterSequencePhaseEntry(bestResource, '');
+        return {
+            resource: bestResource,
+            phase: bestPhase,
+            activation_score: _envTextTheaterRound(bestScore, 3, 0)
+        };
+    }
+
+    function _envTextTheaterBuildStrikeCorridors(boneMap, leftShoulder, rightShoulder, centerPoint, weatherVector, tempo, stage, timelineWindow) {
+        var lookup = boneMap && typeof boneMap === 'object' ? boneMap : {};
+        var corridors = [];
+        ['l', 'r'].forEach(function (suffix) {
+            var side = suffix === 'l' ? 'left' : 'right';
+            var shoulder = suffix === 'l' ? leftShoulder : rightShoulder;
+            var hand = _envTextTheaterBonePoint(lookup, ['hand_' + suffix, 'lower_arm_' + suffix, 'upper_arm_' + suffix]);
+            if (!shoulder || !hand) return;
+            var laneVector = _envTextTheaterVectorSubtract(hand, shoulder, 4);
+            var laneLength = _envTextTheaterVectorMagnitude(laneVector);
+            if (!(laneLength > 0.0001)) return;
+            var laneDirection = _envTextTheaterNormalizeDirection(laneVector);
+            var radialDirection = centerPoint
+                ? _envTextTheaterNormalizeDirection(_envTextTheaterVectorSubtract(hand, centerPoint, 4))
+                : laneDirection;
+            var guardBase = centerPoint
+                ? _envTextTheaterVectorAdd(
+                    centerPoint,
+                    _envTextTheaterVectorScale(_envTextTheaterVectorSubtract(shoulder, centerPoint, 4), 0.82, 4),
+                    4
+                )
+                : shoulder;
+            var guardPoint = _envTextTheaterVectorAdd(
+                guardBase,
+                _envTextTheaterVectorScale(laneDirection, -Math.max(0.08, Math.min(0.24, laneLength * 0.26)), 4),
+                4
+            );
+            var impactDirection = _envTextTheaterNormalizeDirection(_envTextTheaterVectorAdd(
+                _envTextTheaterVectorScale(laneDirection, 0.78, 4),
+                _envTextTheaterVectorAdd(
+                    _envTextTheaterVectorScale(radialDirection, 0.36, 4),
+                    _envTextTheaterVectorScale(weatherVector, _envTextTheaterVectorMagnitude(weatherVector) > 0.0001 ? 0.14 : 0, 4),
+                    4
+                ),
+                4
+            ));
+            if (!(_envTextTheaterVectorMagnitude(impactDirection) > 0.0001)) impactDirection = laneDirection;
+            var impactDistance = 0.16
+                + Math.min(1.0, laneLength * 0.45)
+                + (tempo === 'instant' ? 0.22 : (tempo === 'burst' ? 0.12 : 0.04));
+            var impactPoint = _envTextTheaterVectorAdd(
+                hand,
+                _envTextTheaterVectorScale(impactDirection, impactDistance, 4),
+                4
+            );
+            var recoilPoint = _envTextTheaterVectorMix(hand, guardPoint, 0.58, 4);
+            var laneIntensity = _envBuilderClamp01(
+                0.22
+                + (laneLength * 0.95)
+                + (tempo === 'instant' ? 0.32 : (tempo === 'burst' ? 0.18 : 0.06))
+            );
+            corridors.push({
+                id: 'punch_lane_' + side,
+                side: side,
+                kind: 'strike',
+                role: stage,
+                guard_point: guardPoint,
+                recoil_point: recoilPoint,
+                hand_point: hand,
+                impact_point: impactPoint,
+                direction: impactDirection,
+                arm_length: _envTextTheaterRound(laneLength, 4, 0),
+                intensity: _envTextTheaterRound(laneIntensity, 4, 0),
+                samples: tempo === 'articulated' ? 24 : (tempo === 'instant' ? 12 : 18),
+                pole_from: String((((timelineWindow || {}).from_pose || {}).label) || ''),
+                pole_to: String((((timelineWindow || {}).to_pose || {}).label) || '')
+            });
+        });
+        return corridors;
+    }
+
+    function _envTextTheaterBuildCageCorridors(splitProfile, phaseId, tempo, timelineWindow, strikeCorridors) {
+        var profile = splitProfile && typeof splitProfile === 'object' ? splitProfile : null;
+        if (!profile) return [];
+        var lanes = [];
+        var splitRatio = Number(profile.split_ratio || 0);
+        var dropIntensity = _envBuilderClamp01(
+            0.24
+            + (splitRatio * 0.48)
+            + (phaseId === 'cage_impact' ? 0.24 : (phaseId === 'lower_into_cage' ? 0.1 : 0))
+            + (tempo === 'instant' ? 0.08 : 0)
+        );
+        var riseIntensity = _envBuilderClamp01(
+            0.18
+            + (splitRatio * 0.36)
+            + (phaseId === 'rise_from_cage' ? 0.2 : (phaseId === 'enter_cage' ? 0.08 : 0))
+        );
+        lanes.push({
+            id: 'cage_split_drop',
+            side: 'center',
+            kind: 'showcase',
+            role: phaseId === 'rise_from_cage' ? 'set' : (phaseId === 'cage_hold' ? 'hold' : 'impact'),
+            guard_point: profile.guard_point,
+            recoil_point: profile.guard_point,
+            hand_point: profile.center_point,
+            impact_point: profile.impact_point,
+            direction: profile.drop_direction,
+            arm_length: _envTextTheaterRound(profile.split_span, 4, 0),
+            intensity: _envTextTheaterRound(dropIntensity, 4, 0),
+            samples: tempo === 'articulated' ? 24 : 16,
+            pole_from: String((((timelineWindow || {}).from_pose || {}).label) || ''),
+            pole_to: String((((timelineWindow || {}).to_pose || {}).label) || '')
+        });
+        lanes.push({
+            id: 'cage_heel_drive',
+            side: 'center',
+            kind: 'recovery',
+            role: phaseId === 'rise_from_cage' ? 'rise' : 'recovery',
+            guard_point: profile.guard_point,
+            recoil_point: profile.guard_point,
+            hand_point: profile.heel_midpoint,
+            impact_point: profile.rise_point,
+            direction: profile.rise_direction,
+            arm_length: _envTextTheaterRound(profile.pelvis_height, 4, 0),
+            intensity: _envTextTheaterRound(riseIntensity, 4, 0),
+            samples: tempo === 'articulated' ? 24 : 18,
+            pole_from: String((((timelineWindow || {}).from_pose || {}).label) || ''),
+            pole_to: String((((timelineWindow || {}).to_pose || {}).label) || '')
+        });
+        if (phaseId === 'cage_break') {
+            (Array.isArray(strikeCorridors) ? strikeCorridors : []).forEach(function (lane) {
+                var row = lane && typeof lane === 'object' ? _envCloneJson(lane, null) : null;
+                if (!row) return;
+                row.kind = 'finisher';
+                row.role = 'break';
+                row.intensity = _envTextTheaterRound(_envBuilderClamp01(Number(row.intensity || 0) + 0.14), 4, 0);
+                lanes.push(row);
+            });
+        }
+        return lanes;
+    }
+
+    function _envBuildTextTheaterSequenceField(snapshot, timelineState) {
+        var view = snapshot && typeof snapshot === 'object' ? snapshot : {};
+        var embodiment = view.embodiment && typeof view.embodiment === 'object' ? view.embodiment : {};
+        var workbench = view.workbench && typeof view.workbench === 'object' ? view.workbench : {};
+        var balance = view.balance && typeof view.balance === 'object' ? view.balance : {};
+        var weather = view.weather && typeof view.weather === 'object' ? view.weather : {};
+        var runtime = view.runtime && typeof view.runtime === 'object' ? view.runtime : {};
+        var activeController = workbench.active_controller && typeof workbench.active_controller === 'object'
+            ? workbench.active_controller
+            : {};
+        var bones = Array.isArray(embodiment.bones) ? embodiment.bones : [];
+        var timelineWindow = _envTextTheaterSequenceTimelineWindow(timelineState);
+        var resourceRegistry = Array.isArray(workbench.sequence_resource_registry) ? workbench.sequence_resource_registry : [];
+        var controllerId = String(activeController.controller_id || '').trim();
+        var controllerKind = String(activeController.controller_kind || '').trim();
+        var controllerLabel = String(activeController.label || controllerId || 'Hand Lanes').trim() || 'Hand Lanes';
+        if (!bones.length) {
+            return {
+                active: false,
+                mode: 'strike_corridor',
+                controller_id: controllerId,
+                controller_kind: controllerKind,
+                controller_label: controllerLabel,
+                resource_id: '',
+                resource_label: '',
+                resource_phase_id: '',
+                resource_phase_label: '',
+                summary: '',
+                timeline: timelineWindow,
+                corridors: []
+            };
+        }
+        var boneMap = _envTextTheaterBoneLookupMap(bones);
+        var hips = _envTextTheaterBonePoint(boneMap, ['hips', 'pelvis', 'root']);
+        var chest = _envTextTheaterBonePoint(boneMap, ['chest', 'spine', 'spine2', 'spine1']);
+        var leftShoulder = _envTextTheaterBonePoint(boneMap, ['shoulder_l', 'upper_arm_l', 'arm_l']);
+        var rightShoulder = _envTextTheaterBonePoint(boneMap, ['shoulder_r', 'upper_arm_r', 'arm_r']);
+        var centerPoint = chest
+            || (leftShoulder && rightShoulder ? _envTextTheaterVectorMix(leftShoulder, rightShoulder, 0.5, 4) : null)
+            || hips
+            || _envTextTheaterBonePoint(boneMap, ['neck', 'head']);
+        var forwardVector = balance.support_frame && balance.support_frame.axis_z
+            ? _envTextTheaterNormalizeDirection(balance.support_frame.axis_z)
+            : _envTextTheaterNormalizeDirection((((runtime.runtime_state || {}).facing || {}).forward) || { x: 0, y: 0, z: 1 });
+        if (!(_envTextTheaterVectorMagnitude(forwardVector) > 0.0001)) forwardVector = { x: 0, y: 0, z: 1 };
+        var weatherVector = weather.enabled ? _envTextTheaterNormalizeDirection(weather.direction || forwardVector) : { x: 0, y: 0, z: 0 };
+        var previewSpeed = Math.max(
+            Number(workbench.preview_speed || 0),
+            Number((((runtime.surfaces || {}).animation || {}).speed) || 0),
+            Number((((runtime.surfaces || {}).animation || {}).locomotion_speed) || 0),
+            0
+        );
+        var supportPhaseLabel = String(
+            (((workbench.latest_time_strip_motion_summary || {}).dominant_support_phase_label))
+            || balance.support_phase
+            || ''
+        ).trim();
+        var fromRole = _envTextTheaterSequenceRole((((timelineWindow || {}).from_pose || {}).label) || '');
+        var toRole = _envTextTheaterSequenceRole((((timelineWindow || {}).to_pose || {}).label) || '');
+        var stage = 'guard';
+        if (timelineWindow.transition_active) {
+            if (toRole === 'contact' && Number(timelineWindow.progress || 0) >= 0.55) stage = 'contact';
+            else if (toRole === 'recoil' || toRole === 'guard') stage = Number(timelineWindow.progress || 0) < 0.5 ? 'release' : 'recoil';
+            else if (toRole === 'windup' || fromRole === 'guard') stage = 'windup';
+            else if (fromRole === 'contact' && Number(timelineWindow.progress || 0) < 0.34) stage = 'recoil';
+            else stage = Number(timelineWindow.progress || 0) < 0.36 ? 'windup' : (Number(timelineWindow.progress || 0) < 0.74 ? 'release' : 'recoil');
+        } else if (fromRole && fromRole !== 'pose') {
+            stage = fromRole;
+        } else if (controllerId.indexOf('arms') >= 0) {
+            stage = 'guard';
+        } else {
+            stage = 'ready';
+        }
+        var weatherGain = weather.enabled
+            ? Math.min(0.26, (Number(weather.speed || 0) * 0.08) + (Number(weather.density || 0) * 0.12))
+            : 0;
+        var tempoValue = previewSpeed + weatherGain;
+        var tempo = tempoValue <= 0.35 ? 'articulated' : (tempoValue >= 1.15 ? 'instant' : 'burst');
+        var splitProfile = _envTextTheaterSequenceSplitProfile(boneMap, balance, centerPoint);
+        var activeResourceState = _envTextTheaterResolveSequenceResource(
+            resourceRegistry,
+            timelineWindow,
+            workbench,
+            activeController,
+            splitProfile
+        );
+        if (activeResourceState && activeResourceState.phase) {
+            stage = String(activeResourceState.phase.stage || stage || 'ready').trim() || 'ready';
+            if (String(activeResourceState.phase.tempo_hint || '').trim() && String(activeResourceState.phase.tempo_hint || '').trim() !== 'adaptive') {
+                tempo = String(activeResourceState.phase.tempo_hint || tempo).trim() || tempo;
+            }
+        }
+        var strikeCorridors = _envTextTheaterBuildStrikeCorridors(
+            boneMap,
+            leftShoulder,
+            rightShoulder,
+            centerPoint,
+            weatherVector,
+            tempo,
+            stage,
+            timelineWindow
+        );
+        var corridors = activeResourceState && String(((activeResourceState.resource || {}).resource_id) || '') === 'the_cage'
+            ? _envTextTheaterBuildCageCorridors(
+                splitProfile,
+                String((((activeResourceState.phase || {}).phase_id)) || ''),
+                tempo,
+                timelineWindow,
+                strikeCorridors
+            )
+            : strikeCorridors;
+        if (!corridors.length) {
+            return {
+                active: false,
+                mode: activeResourceState && activeResourceState.resource
+                    ? String((activeResourceState.resource || {}).mode || 'showcase_sequence')
+                    : 'strike_corridor',
+                controller_id: controllerId,
+                controller_kind: controllerKind,
+                controller_label: controllerLabel,
+                resource_id: activeResourceState && activeResourceState.resource ? String((activeResourceState.resource || {}).resource_id || '') : '',
+                resource_label: activeResourceState && activeResourceState.resource ? String((activeResourceState.resource || {}).label || '') : '',
+                resource_phase_id: activeResourceState && activeResourceState.phase ? String((activeResourceState.phase || {}).phase_id || '') : '',
+                resource_phase_label: activeResourceState && activeResourceState.phase ? String((activeResourceState.phase || {}).label || '') : '',
+                summary: '',
+                support_phase_label: supportPhaseLabel,
+                timeline: timelineWindow,
+                corridors: []
+            };
+        }
+        var averageIntensity = corridors.reduce(function (sum, lane) {
+            return sum + Number((lane && lane.intensity) || 0);
+        }, 0) / Math.max(1, corridors.length);
+        var intensity = _envBuilderClamp01(
+            0.24
+            + (averageIntensity * 0.62)
+            + (timelineWindow.transition_active ? 0.08 : 0)
+            + weatherGain
+        );
+        if (activeResourceState && String((((activeResourceState.resource || {}).resource_id)) || '') === 'the_cage' && splitProfile) {
+            intensity = _envBuilderClamp01(
+                intensity
+                + (Number(splitProfile.split_ratio || 0) * 0.16)
+                + (String((((activeResourceState.phase || {}).phase_id)) || '') === 'cage_impact' ? 0.12 : 0)
+                + (String((((activeResourceState.phase || {}).phase_id)) || '') === 'cage_break' ? 0.16 : 0)
+            );
+        }
+        if (intensity >= 0.82 && tempo !== 'instant') tempo = 'burst';
+        var aspect = activeResourceState && activeResourceState.phase && String((activeResourceState.phase || {}).aspect || '').trim()
+            ? String((activeResourceState.phase || {}).aspect || '').trim()
+            : _envTextTheaterSequenceAspect(weather, intensity, tempo);
+        var fromLabel = String((((timelineWindow || {}).from_pose || {}).label) || 'Current Pose').trim() || 'Current Pose';
+        var toLabel = String((((timelineWindow || {}).to_pose || {}).label) || fromLabel).trim() || fromLabel;
+        var summaryLead = activeResourceState && activeResourceState.resource
+            ? String((activeResourceState.resource || {}).label || controllerLabel || 'Sequence').trim() || controllerLabel
+            : controllerLabel;
+        var summaryParts = [
+            summaryLead,
+            fromLabel + (toLabel && toLabel !== fromLabel ? (' -> ' + toLabel) : ''),
+            _envTextTheaterTitle(stage || 'ready'),
+            _envTextTheaterTitle(tempo || 'steady'),
+            _envTextTheaterTitle(aspect || 'sequence')
+        ];
+        if (activeResourceState && activeResourceState.phase && String((activeResourceState.phase || {}).label || '').trim()) {
+            summaryParts.splice(1, 0, String((activeResourceState.phase || {}).label || '').trim());
+        }
+        if (activeResourceState && String((((activeResourceState.resource || {}).resource_id)) || '') === 'the_cage' && splitProfile) {
+            summaryParts.push('split ' + _envTextTheaterRound(splitProfile.split_span, 2, 0) + 'm');
+        }
+        return {
+            active: true,
+            mode: activeResourceState && activeResourceState.resource
+                ? String((activeResourceState.resource || {}).mode || 'showcase_sequence')
+                : 'strike_corridor',
+            controller_id: controllerId,
+            controller_kind: controllerKind,
+            controller_label: controllerLabel,
+            resource_id: activeResourceState && activeResourceState.resource ? String((activeResourceState.resource || {}).resource_id || '') : '',
+            resource_label: activeResourceState && activeResourceState.resource ? String((activeResourceState.resource || {}).label || '') : '',
+            resource_phase_id: activeResourceState && activeResourceState.phase ? String((activeResourceState.phase || {}).phase_id || '') : '',
+            resource_phase_label: activeResourceState && activeResourceState.phase ? String((activeResourceState.phase || {}).label || '') : '',
+            resource_activation_score: activeResourceState ? _envTextTheaterRound((activeResourceState || {}).activation_score, 3, 0) : 0,
+            stage: stage,
+            tempo: tempo,
+            aspect: aspect,
+            intensity: _envTextTheaterRound(intensity, 4, 0),
+            support_phase_label: supportPhaseLabel,
+            split_profile: activeResourceState && String((((activeResourceState.resource || {}).resource_id)) || '') === 'the_cage'
+                ? _envCloneJson(splitProfile || null, null)
+                : null,
+            summary: summaryParts.join(' / ') + ' / ' + corridors.length + ' lanes',
+            timeline: timelineWindow,
+            corridors: corridors
+        };
+    }
+
     function _envTextTheaterWorldProfileSurface(sharedState, renderTruth) {
         var shared = sharedState && typeof sharedState === 'object' ? sharedState : {};
         var sharedSurface = shared.world_profile && typeof shared.world_profile === 'object'
@@ -30520,7 +32048,26 @@
     }
 
     function _envTextTheaterWeatherGlyphSet(kind) {
-        return 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        var effect = String(kind || '').trim().toLowerCase();
+        if (effect === 'rain' || effect === 'drip' || effect === 'sleet') return "||!'";
+        if (effect === 'snow') return '*+.';
+        if (effect === 'hail') return 'oO*';
+        if (effect === 'current' || effect === 'wind') return '~=-';
+        if (effect === 'mist' || effect === 'fog' || effect === 'smoke') return '.,:';
+        if (effect === 'sand' || effect === 'ash') return '.:*';
+        return '|~.*';
+    }
+
+    function _envTextTheaterWeatherGlyphProfile(kind, flowClass) {
+        var effect = String(kind || '').trim().toLowerCase();
+        var flow = String(flowClass || '').trim().toLowerCase();
+        if (flow === 'precipitation' || effect === 'rain' || effect === 'drip' || effect === 'hail' || effect === 'sleet' || effect === 'snow') {
+            return 'precipitation_ticks';
+        }
+        if (flow === 'current' || effect === 'current' || effect === 'wind') return 'streamline_ascii';
+        if (effect === 'mist' || effect === 'fog' || effect === 'smoke') return 'vapor_sparse';
+        if (effect === 'sand' || effect === 'ash') return 'particulate_sparse';
+        return 'field_ascii';
     }
 
     function _envTextTheaterWeatherVolume(sceneBounds, worldProfile, effectKind) {
@@ -30580,18 +32127,60 @@
 
     function _envBuildTextTheaterWeatherSurface(sharedState, renderTruth, sceneBounds, theaterMode, cameraForward) {
         var shared = sharedState && typeof sharedState === 'object' ? sharedState : {};
-        if (_envSceneNormalizeTheaterMode(theaterMode || 'environment') !== 'environment') {
+        var normalizedMode = _envSceneNormalizeTheaterMode(theaterMode || 'environment');
+        var fieldSeedEnabled = normalizedMode === 'environment' || normalizedMode === 'character' || normalizedMode === 'runtime';
+        var worldProfile = _envTextTheaterWorldProfileSurface(shared, renderTruth);
+        var family = String(worldProfile.family || '').trim().toLowerCase();
+        var explicitWeather = shared.text_theater_weather && typeof shared.text_theater_weather === 'object'
+            ? shared.text_theater_weather
+            : (shared.weather && typeof shared.weather === 'object' ? shared.weather : null);
+        var hasExplicitWeather = !!(
+            explicitWeather
+            && (
+                Object.prototype.hasOwnProperty.call(explicitWeather, 'enabled')
+                || Object.prototype.hasOwnProperty.call(explicitWeather, 'kind')
+                || Object.prototype.hasOwnProperty.call(explicitWeather, 'flow_class')
+                || Object.prototype.hasOwnProperty.call(explicitWeather, 'direction')
+                || Object.prototype.hasOwnProperty.call(explicitWeather, 'density')
+            )
+        );
+        var hasWorldProfileTruth = !!(String(worldProfile.active || '').trim() || family);
+        if (!fieldSeedEnabled) {
             return {
                 enabled: false,
+                source: 'none',
+                carrier_mode: normalizedMode,
                 kind: '',
                 flow_class: '',
-                profile_active: '',
-                profile_family: '',
+                profile_active: String(worldProfile.active || ''),
+                profile_family: String(family || ''),
                 summary: 'weather disabled outside environment mode'
             };
         }
-        var worldProfile = _envTextTheaterWorldProfileSurface(shared, renderTruth);
-        var family = String(worldProfile.family || '').trim().toLowerCase();
+        if (hasExplicitWeather && explicitWeather.enabled === false) {
+            return {
+                enabled: false,
+                source: String(explicitWeather.source || 'shared_weather_override'),
+                carrier_mode: normalizedMode,
+                kind: '',
+                flow_class: '',
+                profile_active: String(explicitWeather.profile_active || worldProfile.active || ''),
+                profile_family: String(explicitWeather.profile_family || family || ''),
+                summary: 'weather explicitly disabled'
+            };
+        }
+        if (!hasExplicitWeather && !hasWorldProfileTruth) {
+            return {
+                enabled: false,
+                source: 'none',
+                carrier_mode: normalizedMode,
+                kind: '',
+                flow_class: '',
+                profile_active: String(worldProfile.active || ''),
+                profile_family: String(family || ''),
+                summary: 'weather disabled without owned producer'
+            };
+        }
         var kind = 'rain';
         var flowClass = 'precipitation';
         var density = 0.62;
@@ -30660,31 +32249,71 @@
             direction = _envTextTheaterNormalizeDirection({ x: 0.28, y: -0.12, z: 0.08 });
             drift = { x: 0.08, y: 0.06, z: 0.03 };
         }
+        if (hasExplicitWeather) {
+            if (explicitWeather.kind !== undefined) kind = String(explicitWeather.kind || kind).trim().toLowerCase() || kind;
+            if (explicitWeather.flow_class !== undefined) flowClass = String(explicitWeather.flow_class || flowClass).trim().toLowerCase() || flowClass;
+            if (explicitWeather.density !== undefined && Number.isFinite(Number(explicitWeather.density))) density = Number(explicitWeather.density);
+            if (explicitWeather.speed !== undefined && Number.isFinite(Number(explicitWeather.speed))) speed = Number(explicitWeather.speed);
+            if (explicitWeather.turbulence !== undefined && Number.isFinite(Number(explicitWeather.turbulence))) turbulence = Number(explicitWeather.turbulence);
+            if (explicitWeather.color_hint !== undefined) colorHint = String(explicitWeather.color_hint || colorHint) || colorHint;
+            if (explicitWeather.direction && typeof explicitWeather.direction === 'object') {
+                direction = _envTextTheaterNormalizeDirection(explicitWeather.direction);
+            }
+            if (explicitWeather.drift && typeof explicitWeather.drift === 'object') {
+                drift = {
+                    x: _envTextTheaterRound(Number(explicitWeather.drift.x || 0), 3, 0),
+                    y: _envTextTheaterRound(Number(explicitWeather.drift.y || 0), 3, 0),
+                    z: _envTextTheaterRound(Number(explicitWeather.drift.z || 0), 3, 0)
+                };
+            }
+        }
         var volume = _envTextTheaterWeatherVolume(sceneBounds, worldProfile, kind);
+        if (hasExplicitWeather && explicitWeather.volume && typeof explicitWeather.volume === 'object') {
+            volume = _envCloneJson(explicitWeather.volume, volume);
+        }
         var glyphWorldSize = kind === 'current' ? 0.52 : (kind === 'drip' ? 0.36 : 0.44);
+        if (hasExplicitWeather && explicitWeather.glyph_world_size !== undefined && Number.isFinite(Number(explicitWeather.glyph_world_size))) {
+            glyphWorldSize = Number(explicitWeather.glyph_world_size);
+        }
         var sampleCount = Math.max(24, Math.round(42 + (density * 72)));
+        if (hasExplicitWeather && explicitWeather.sample_count !== undefined && Number.isFinite(Number(explicitWeather.sample_count))) {
+            sampleCount = Math.max(8, Math.round(Number(explicitWeather.sample_count)));
+        }
         return {
             enabled: true,
-            source: 'world_profile',
-            profile_active: String(worldProfile.active || ''),
-            profile_family: String(family || ''),
+            source: hasExplicitWeather
+                ? String(explicitWeather.source || 'shared_weather_override')
+                : 'world_profile',
+            carrier_mode: normalizedMode,
+            profile_active: String((hasExplicitWeather && explicitWeather.profile_active !== undefined ? explicitWeather.profile_active : worldProfile.active) || ''),
+            profile_family: String((hasExplicitWeather && explicitWeather.profile_family !== undefined ? explicitWeather.profile_family : family) || ''),
             kind: String(kind || ''),
             flow_class: String(flowClass || ''),
-            summary: String(kind || '') + ' / ' + String(flowClass || '') + ' / glyph-flow',
+            summary: String(kind || '') + ' / ' + String(flowClass || '') + ' / ' + (hasExplicitWeather ? 'explicit_override' : 'glyph-flow'),
             density: _envTextTheaterRound(density, 3, 0),
             speed: _envTextTheaterRound(speed, 3, 0),
             turbulence: _envTextTheaterRound(turbulence, 3, 0),
             sample_count: Number(sampleCount || 0),
-            glyphs: _envTextTheaterWeatherGlyphSet(kind),
-            glyph_profile: 'default_alphanumeric',
+            glyphs: hasExplicitWeather && explicitWeather.glyphs !== undefined
+                ? String(explicitWeather.glyphs || '')
+                : _envTextTheaterWeatherGlyphSet(kind),
+            glyph_profile: hasExplicitWeather && explicitWeather.glyph_profile !== undefined
+                ? String(explicitWeather.glyph_profile || '')
+                : _envTextTheaterWeatherGlyphProfile(kind, flowClass),
             glyph_world_size: _envTextTheaterRound(glyphWorldSize, 3, 0),
-            glyph_world_jitter: _envTextTheaterRound(glyphWorldSize * 0.45, 3, 0),
-            readability_required: false,
+            glyph_world_jitter: hasExplicitWeather && explicitWeather.glyph_world_jitter !== undefined && Number.isFinite(Number(explicitWeather.glyph_world_jitter))
+                ? _envTextTheaterRound(Number(explicitWeather.glyph_world_jitter), 3, 0)
+                : _envTextTheaterRound(glyphWorldSize * 0.45, 3, 0),
+            readability_required: hasExplicitWeather ? !!explicitWeather.readability_required : false,
             direction: _envCloneJson(direction, null),
             drift: _envCloneJson(drift, null),
             color_hint: String(colorHint || '#7dd3fc'),
-            wrap_mode: 'volume_loop',
-            lod_bands: {
+            wrap_mode: hasExplicitWeather && explicitWeather.wrap_mode !== undefined
+                ? String(explicitWeather.wrap_mode || 'volume_loop')
+                : 'volume_loop',
+            lod_bands: hasExplicitWeather && explicitWeather.lod_bands && typeof explicitWeather.lod_bands === 'object'
+                ? _envCloneJson(explicitWeather.lod_bands, null)
+                : {
                 reference_min_subcells: 6.0,
                 fused_min_subcells: 3.2,
                 granular_min_subcells: 1.5,
@@ -30695,6 +32324,252 @@
             },
             volume: _envCloneJson(volume, null)
         };
+    }
+
+    function _envTechnolitReactorSeed() {
+        return {
+            coin_id: _envTechlitCoinId,
+            label: 'Techlit Reactor',
+            symbol: 'TECHLIT',
+            market_cap_usd: 0,
+            liquidity_usd: 0,
+            bonding_curve_pct: 0,
+            total_fees_paid_sol: 0,
+            creator_rewards_unclaimed_sol: 0,
+            creator_rewards_unclaimed_usd: 0,
+            creator_distribution_locked: false,
+            creator_distribution_receiver_count: 1,
+            creator_distribution_edit_remaining: 0,
+            top10_holder_pct: 0,
+            dev_holding_pct: 0,
+            snipers_pct: 0,
+            insiders_pct: 0,
+            bundles_pct: 0,
+            burned_liq_pct: 100,
+            fresh_buys_count: 0,
+            fresh_holding_pct: 0,
+            mint_auth_enabled: false,
+            freeze_auth_enabled: false,
+            tokenized_agent_enabled: true,
+            cashback_enabled: false,
+            primary_surface: 'pump_tokenized_agent',
+            recent_side_bias: 'watch',
+            updated_ts: Date.now(),
+            source: 'seed:techlit_tokenized_agent_launch',
+            actor: 'system',
+            note: 'Initial Techlit reactor seed for the live tokenized-agent launch on 2026-04-19.'
+        };
+    }
+
+    function _envShouldUpgradeLegacyTechnolitReactorState(source) {
+        if (!(source && typeof source === 'object')) return true;
+        var coinId = String(source.coin_id || '').trim();
+        var symbol = String(source.symbol || '').trim().toUpperCase();
+        var label = String(source.label || '').trim().toLowerCase();
+        var sourceTag = String(source.source || '').trim().toLowerCase();
+        var note = String(source.note || '').trim().toLowerCase();
+        if (!coinId) return true;
+        if (coinId === _envLegacyTechnolitCoinId) return true;
+        if (symbol === 'TECHNOLIT') return true;
+        if (label === 'technolit reactor') return true;
+        return sourceTag.indexOf('padre_snapshot') >= 0 || note.indexOf('archived technolit') >= 0;
+    }
+
+    function _envTechnolitReactorNumber(value, fallback) {
+        var numeric = Number(value);
+        return Number.isFinite(numeric) ? numeric : Number(fallback || 0);
+    }
+
+    function _envTechnolitReactorBool(value, fallback) {
+        if (value === null) return null;
+        if (value === undefined) return fallback;
+        if (typeof value === 'boolean') return value;
+        var text = String(value || '').trim().toLowerCase();
+        if (!text) return fallback;
+        if (text === 'true' || text === 'yes' || text === 'on' || text === '1') return true;
+        if (text === 'false' || text === 'no' || text === 'off' || text === '0') return false;
+        if (text === 'unknown' || text === 'unset' || text === 'null') return null;
+        return fallback;
+    }
+
+    function _envNormalizeTechnolitReactorState(source, base) {
+        var seed = _envTechnolitReactorSeed();
+        var prev = base && typeof base === 'object' ? base : seed;
+        var patch = source && typeof source === 'object' ? source : {};
+        var next = {};
+        function readString(key) {
+            if (!Object.prototype.hasOwnProperty.call(patch, key)) return String(prev[key] || seed[key] || '');
+            return String(patch[key] || '').trim();
+        }
+        function readNumber(key) {
+            if (!Object.prototype.hasOwnProperty.call(patch, key)) return _envTechnolitReactorNumber(prev[key], seed[key]);
+            return _envTechnolitReactorNumber(patch[key], prev[key]);
+        }
+        function readBool(key) {
+            if (!Object.prototype.hasOwnProperty.call(patch, key)) return _envTechnolitReactorBool(prev[key], seed[key]);
+            return _envTechnolitReactorBool(patch[key], prev[key]);
+        }
+        next.coin_id = readString('coin_id') || seed.coin_id;
+        next.label = readString('label') || seed.label;
+        next.symbol = readString('symbol') || seed.symbol;
+        next.market_cap_usd = readNumber('market_cap_usd');
+        next.liquidity_usd = readNumber('liquidity_usd');
+        next.bonding_curve_pct = readNumber('bonding_curve_pct');
+        next.total_fees_paid_sol = readNumber('total_fees_paid_sol');
+        next.creator_rewards_unclaimed_sol = readNumber('creator_rewards_unclaimed_sol');
+        next.creator_rewards_unclaimed_usd = readNumber('creator_rewards_unclaimed_usd');
+        next.creator_distribution_locked = readBool('creator_distribution_locked');
+        next.creator_distribution_receiver_count = Math.max(0, Math.round(readNumber('creator_distribution_receiver_count')));
+        next.creator_distribution_edit_remaining = Math.max(0, Math.round(readNumber('creator_distribution_edit_remaining')));
+        next.top10_holder_pct = readNumber('top10_holder_pct');
+        next.dev_holding_pct = readNumber('dev_holding_pct');
+        next.snipers_pct = readNumber('snipers_pct');
+        next.insiders_pct = readNumber('insiders_pct');
+        next.bundles_pct = readNumber('bundles_pct');
+        next.burned_liq_pct = readNumber('burned_liq_pct');
+        next.fresh_buys_count = Math.max(0, Math.round(readNumber('fresh_buys_count')));
+        next.fresh_holding_pct = readNumber('fresh_holding_pct');
+        next.mint_auth_enabled = readBool('mint_auth_enabled');
+        next.freeze_auth_enabled = readBool('freeze_auth_enabled');
+        next.tokenized_agent_enabled = readBool('tokenized_agent_enabled');
+        next.cashback_enabled = readBool('cashback_enabled');
+        next.primary_surface = readString('primary_surface') || seed.primary_surface;
+        next.recent_side_bias = readString('recent_side_bias') || seed.recent_side_bias;
+        next.updated_ts = Object.prototype.hasOwnProperty.call(patch, 'updated_ts')
+            ? Math.max(0, Math.round(_envTechnolitReactorNumber(patch.updated_ts, Date.now())))
+            : Date.now();
+        next.source = readString('source') || String(prev.source || seed.source || '');
+        next.actor = readString('actor') || String(prev.actor || seed.actor || '');
+        next.note = readString('note') || String(prev.note || seed.note || '');
+        return next;
+    }
+
+    function _envPersistTechnolitReactorState(state) {
+        try {
+            localStorage.setItem(_envTechnolitReactorStorageKey, JSON.stringify(state || {}));
+        } catch (ignored) {}
+    }
+
+    function _envLoadTechnolitReactorState() {
+        var seed = _envTechnolitReactorSeed();
+        try {
+            var raw = localStorage.getItem(_envTechnolitReactorStorageKey);
+            if (!raw) return _envNormalizeTechnolitReactorState(seed, seed);
+            var parsed = JSON.parse(raw);
+            if (_envShouldUpgradeLegacyTechnolitReactorState(parsed)) {
+                var upgraded = _envNormalizeTechnolitReactorState(seed, seed);
+                _envPersistTechnolitReactorState(upgraded);
+                return upgraded;
+            }
+            return _envNormalizeTechnolitReactorState(parsed, seed);
+        } catch (ignored) {
+            return _envNormalizeTechnolitReactorState(seed, seed);
+        }
+    }
+
+    function _envTechnolitReactorTrustPosture(state) {
+        var trustScore = 0;
+        if (state.burned_liq_pct >= 99.5) trustScore += 0.34;
+        if (!state.mint_auth_enabled) trustScore += 0.22;
+        if (!state.freeze_auth_enabled) trustScore += 0.18;
+        if (state.dev_holding_pct <= 1.0) trustScore += 0.14;
+        if (state.top10_holder_pct <= 30) trustScore += 0.12;
+        if (trustScore >= 0.88) return 'credible_structure';
+        if (trustScore >= 0.64) return 'watch_but_workable';
+        return 'fragile_structure';
+    }
+
+    function _envTechnolitReactorFlowPosture(state) {
+        var freshHolding = Number(state.fresh_holding_pct || 0);
+        var freshBuys = Number(state.fresh_buys_count || 0);
+        var bias = String(state.recent_side_bias || '').trim().toLowerCase();
+        if (freshBuys > 0 && freshHolding <= 0.25) return 'touching_not_sticking';
+        if (bias === 'sell') return 'distribution_pressure';
+        if (freshBuys >= 12 && freshHolding > 2) return 'accumulating_attention';
+        return 'observing';
+    }
+
+    function _envTechnolitReactorDistributionPosture(state) {
+        if (state.creator_distribution_edit_remaining > 0 && state.creator_distribution_receiver_count <= 1) {
+            return 'one_shot_split_pending';
+        }
+        if (state.creator_distribution_receiver_count > 1) return 'multi_wallet_live';
+        return 'single_wallet_live';
+    }
+
+    function _envTechnolitReactorBurnGate(state) {
+        if (state.cashback_enabled === true) return 'blocked_cashback_mode';
+        if (state.tokenized_agent_enabled !== true) return 'await_agent_confirmation';
+        if (state.fresh_holding_pct <= 0.5) return 'hold_for_retention';
+        if (state.bonding_curve_pct < 60) return 'hold_pre_graduation';
+        if (state.creator_rewards_unclaimed_sol < 0.75) return 'hold_low_reserve';
+        if (state.bundles_pct >= 30) return 'hold_bundle_pressure';
+        return 'burn_light_only';
+    }
+
+    function _envBuildTechnolitReactorSurface(state) {
+        var source = _envNormalizeTechnolitReactorState(state, _envTechnolitReactorSeed());
+        var trustPosture = _envTechnolitReactorTrustPosture(source);
+        var flowPosture = _envTechnolitReactorFlowPosture(source);
+        var distributionPosture = _envTechnolitReactorDistributionPosture(source);
+        var burnGate = _envTechnolitReactorBurnGate(source);
+        return {
+            active: !!String(source.symbol || '').trim(),
+            coin_id: String(source.coin_id || ''),
+            label: String(source.label || ''),
+            symbol: String(source.symbol || ''),
+            primary_surface: String(source.primary_surface || ''),
+            market_cap_usd: _envTextTheaterRound(source.market_cap_usd, 2, 0),
+            liquidity_usd: _envTextTheaterRound(source.liquidity_usd, 2, 0),
+            bonding_curve_pct: _envTextTheaterRound(source.bonding_curve_pct, 2, 0),
+            total_fees_paid_sol: _envTextTheaterRound(source.total_fees_paid_sol, 4, 0),
+            creator_rewards_unclaimed_sol: _envTextTheaterRound(source.creator_rewards_unclaimed_sol, 4, 0),
+            creator_rewards_unclaimed_usd: _envTextTheaterRound(source.creator_rewards_unclaimed_usd, 2, 0),
+            creator_distribution_locked: source.creator_distribution_locked === true,
+            creator_distribution_receiver_count: Number(source.creator_distribution_receiver_count || 0),
+            creator_distribution_edit_remaining: Number(source.creator_distribution_edit_remaining || 0),
+            top10_holder_pct: _envTextTheaterRound(source.top10_holder_pct, 2, 0),
+            dev_holding_pct: _envTextTheaterRound(source.dev_holding_pct, 2, 0),
+            snipers_pct: _envTextTheaterRound(source.snipers_pct, 2, 0),
+            insiders_pct: _envTextTheaterRound(source.insiders_pct, 2, 0),
+            bundles_pct: _envTextTheaterRound(source.bundles_pct, 2, 0),
+            burned_liq_pct: _envTextTheaterRound(source.burned_liq_pct, 2, 0),
+            fresh_buys_count: Number(source.fresh_buys_count || 0),
+            fresh_holding_pct: _envTextTheaterRound(source.fresh_holding_pct, 2, 0),
+            mint_auth_enabled: source.mint_auth_enabled === true,
+            freeze_auth_enabled: source.freeze_auth_enabled === true,
+            tokenized_agent_enabled: source.tokenized_agent_enabled,
+            cashback_enabled: source.cashback_enabled === true,
+            recent_side_bias: String(source.recent_side_bias || ''),
+            trust_posture: trustPosture,
+            flow_posture: flowPosture,
+            distribution_posture: distributionPosture,
+            burn_gate: burnGate,
+            summary: _envProductCollapseText([
+                String(source.symbol || '') + ' ' + flowPosture.replace(/_/g, ' '),
+                'trust ' + trustPosture.replace(/_/g, ' '),
+                'burn ' + burnGate.replace(/_/g, ' '),
+                'curve ' + _envTextTheaterRound(source.bonding_curve_pct, 1, 0) + '%',
+                'unclaimed ' + _envTextTheaterRound(source.creator_rewards_unclaimed_sol, 3, 0) + ' SOL'
+            ].join(' / '), 180),
+            updated_ts: Number(source.updated_ts || 0),
+            source: String(source.source || ''),
+            actor: String(source.actor || ''),
+            note: String(source.note || '')
+        };
+    }
+
+    function _envSetTechnolitReactorState(spec, actor, reason) {
+        var patch = spec && typeof spec === 'object' ? spec : {};
+        var next = _envNormalizeTechnolitReactorState(Object.assign({}, patch, {
+            actor: String(actor || patch.actor || 'assistant'),
+            source: String(reason || patch.source || 'external update'),
+            updated_ts: Date.now()
+        }), _envTechnolitReactorState);
+        _envTechnolitReactorState = next;
+        _envPersistTechnolitReactorState(next);
+        if (typeof _envScheduleLiveSync === 'function') _envScheduleLiveSync('technolit_reactor:update');
+        return _envBuildTechnolitReactorSurface(next);
     }
 
     function _envTextTheaterContactClearance(point, supportY) {
@@ -30756,39 +32631,125 @@
         return _envTextTheaterVectorObject(position, 3);
     }
 
-    function _envTextTheaterSceneBounds(objects) {
+    function _envTextTheaterObject3DBoxSnapshot(object3d) {
+        if (typeof THREE === 'undefined' || !object3d) return null;
+        try {
+            if (typeof object3d.updateWorldMatrix === 'function') object3d.updateWorldMatrix(true, true);
+            var box = new THREE.Box3().setFromObject(object3d);
+            if (!box || (typeof box.isEmpty === 'function' && box.isEmpty())) return null;
+            return _env3DBoxSnapshot(box);
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function _envTextTheaterSceneSpatialSnapshot(obj) {
+        var source = obj && typeof obj === 'object' ? obj : null;
+        if (!source) return null;
+        var objectKey = _envSceneObjectKey(source);
+        var mesh = objectKey && _env3D.meshes ? _env3D.meshes[objectKey] : null;
+        var spatial = _envSceneObjectSpatialMetrics(source, mesh);
+        if (!spatial || typeof spatial !== 'object') return null;
+        return {
+            center: _env3DVectorSnapshot(spatial.center),
+            size: _env3DVectorSnapshot(spatial.size),
+            box: _env3DBoxSnapshot(spatial.box)
+        };
+    }
+
+    function _envTextTheaterExpandBounds(acc, boxSnapshot) {
+        var target = acc && typeof acc === 'object' ? acc : null;
+        var box = boxSnapshot && typeof boxSnapshot === 'object' ? boxSnapshot : null;
+        if (!target || !box || !box.min || !box.max) return;
+        var min = box.min || {};
+        var max = box.max || {};
+        ['x', 'y', 'z'].forEach(function (axis) {
+            var minValue = Number(min[axis]);
+            var maxValue = Number(max[axis]);
+            if (!isFinite(minValue) || !isFinite(maxValue)) return;
+            if (axis === 'x') {
+                target.minX = Math.min(target.minX, minValue);
+                target.maxX = Math.max(target.maxX, maxValue);
+            } else if (axis === 'y') {
+                target.minY = Math.min(target.minY, minValue);
+                target.maxY = Math.max(target.maxY, maxValue);
+            } else if (axis === 'z') {
+                target.minZ = Math.min(target.minZ, minValue);
+                target.maxZ = Math.max(target.maxZ, maxValue);
+            }
+        });
+    }
+
+    function _envTextTheaterSceneSubstrate(theaterMode) {
+        if (_envSceneNormalizeTheaterMode(theaterMode || 'environment') !== 'environment') return null;
+        var terrain = (_env3D && (_env3D.terrain || _env3D.groundPlane)) ? (_env3D.terrain || _env3D.groundPlane) : null;
+        var grid = _env3D && _env3D.gridHelper ? _env3D.gridHelper : null;
+        var gridParams = grid && grid.geometry && grid.geometry.parameters ? grid.geometry.parameters : {};
+        var gridSize = Number(gridParams.size || 0);
+        var gridDivisions = Number(gridParams.divisions || 0);
+        var groundY = Number((_env3D && _env3D.physics && _env3D.physics.ground_y) || 0);
+        return {
+            ground_y: _envTextTheaterRound(groundY, 4, 0),
+            terrain: {
+                visible: !!terrain && terrain.visible !== false,
+                box: _envTextTheaterObject3DBoxSnapshot(terrain)
+            },
+            grid: {
+                visible: !!grid && grid.visible !== false,
+                size: _envTextTheaterRound(gridSize, 3, 0),
+                divisions: Math.max(0, Math.floor(gridDivisions || 0)),
+                box: _envTextTheaterObject3DBoxSnapshot(grid)
+            }
+        };
+    }
+
+    function _envTextTheaterSceneBounds(objects, substrate) {
         var rows = Array.isArray(objects) ? objects : [];
-        if (!rows.length) {
+        var bounds = {
+            minX: Infinity,
+            minY: Infinity,
+            minZ: Infinity,
+            maxX: -Infinity,
+            maxY: -Infinity,
+            maxZ: -Infinity
+        };
+        function expandPosition(position) {
+            bounds.minX = Math.min(bounds.minX, Number(position.x || 0));
+            bounds.minY = Math.min(bounds.minY, Number(position.y || 0));
+            bounds.minZ = Math.min(bounds.minZ, Number(position.z || 0));
+            bounds.maxX = Math.max(bounds.maxX, Number(position.x || 0));
+            bounds.maxY = Math.max(bounds.maxY, Number(position.y || 0));
+            bounds.maxZ = Math.max(bounds.maxZ, Number(position.z || 0));
+        }
+        rows.forEach(function (obj) {
+            var spatial = _envTextTheaterSceneSpatialSnapshot(obj);
+            if (spatial && spatial.box) {
+                _envTextTheaterExpandBounds(bounds, spatial.box);
+                return;
+            }
+            expandPosition(_envTextTheaterScenePositionForObject(obj));
+        });
+        var substrateInfo = substrate && typeof substrate === 'object' ? substrate : {};
+        var terrain = substrateInfo.terrain && substrateInfo.terrain.visible !== false ? substrateInfo.terrain : null;
+        var grid = substrateInfo.grid && substrateInfo.grid.visible !== false ? substrateInfo.grid : null;
+        if (terrain && terrain.box) _envTextTheaterExpandBounds(bounds, terrain.box);
+        if (grid && grid.box) _envTextTheaterExpandBounds(bounds, grid.box);
+        if (!isFinite(bounds.minX) || !isFinite(bounds.maxX) || !isFinite(bounds.minZ) || !isFinite(bounds.maxZ)) {
             return {
                 min: { x: 0, y: 0, z: 0 },
                 max: { x: 0, y: 0, z: 0 }
             };
         }
-        var minX = Infinity;
-        var minY = Infinity;
-        var minZ = Infinity;
-        var maxX = -Infinity;
-        var maxY = -Infinity;
-        var maxZ = -Infinity;
-        rows.forEach(function (obj) {
-            var position = _envTextTheaterScenePositionForObject(obj);
-            minX = Math.min(minX, Number(position.x || 0));
-            minY = Math.min(minY, Number(position.y || 0));
-            minZ = Math.min(minZ, Number(position.z || 0));
-            maxX = Math.max(maxX, Number(position.x || 0));
-            maxY = Math.max(maxY, Number(position.y || 0));
-            maxZ = Math.max(maxZ, Number(position.z || 0));
-        });
         return {
             min: {
-                x: _envTextTheaterRound(minX, 3, 0),
-                y: _envTextTheaterRound(minY, 3, 0),
-                z: _envTextTheaterRound(minZ, 3, 0)
+                x: _envTextTheaterRound(bounds.minX, 3, 0),
+                y: _envTextTheaterRound(bounds.minY, 3, 0),
+                z: _envTextTheaterRound(bounds.minZ, 3, 0)
             },
             max: {
-                x: _envTextTheaterRound(maxX, 3, 0),
-                y: _envTextTheaterRound(maxY, 3, 0),
-                z: _envTextTheaterRound(maxZ, 3, 0)
+                x: _envTextTheaterRound(bounds.maxX, 3, 0),
+                y: _envTextTheaterRound(bounds.maxY, 3, 0),
+                z: _envTextTheaterRound(bounds.maxZ, 3, 0)
             }
         };
     }
@@ -30859,6 +32820,7 @@
                     label: String((obj && obj.label) || (obj && obj.id) || _envSceneObjectKey(obj) || ''),
                     distance: _envTextTheaterRound(Math.sqrt((dx * dx) + (dy * dy) + (dz * dz)), 3, 0),
                     position: position,
+                    spatial: _envTextTheaterSceneSpatialSnapshot(obj),
                     colors: _envCloneJson(_envSceneColorForObject(obj), null),
                     color: String((obj && obj.color) || (_envSceneColorForObject(obj) || {}).edge || '')
                 };
@@ -30893,6 +32855,7 @@
                 label: String((obj && obj.label) || (obj && obj.id) || _envSceneObjectKey(obj) || ('object_' + String(index + 1))),
                 distance: _envTextTheaterRound(distance, 3, 0),
                 position: position,
+                spatial: _envTextTheaterSceneSpatialSnapshot(obj),
                 colors: _envCloneJson(colors, null),
                 color: String((obj && obj.color) || colors.edge || ''),
                 focused: _envSceneObjectKey(obj) === focusKey,
@@ -31164,6 +33127,8 @@
         var embodiment = view.embodiment && typeof view.embodiment === 'object' ? view.embodiment : {};
         var workbench = view.workbench && typeof view.workbench === 'object' ? view.workbench : {};
         var balance = view.balance && typeof view.balance === 'object' ? view.balance : {};
+        var sequenceField = view.sequence_field && typeof view.sequence_field === 'object' ? view.sequence_field : {};
+        var reactor = view.technolit_reactor && typeof view.technolit_reactor === 'object' ? view.technolit_reactor : {};
         var contacts = Array.isArray(view.contacts) ? view.contacts : [];
         var triplets = [];
         var supportPhase = String(balance.support_phase || '').trim();
@@ -31202,6 +33167,29 @@
         if (workbench.gizmo && typeof workbench.gizmo === 'object' && String(workbench.gizmo.mode || '')) {
             triplets.push(['gizmo', 'is', String(workbench.gizmo.mode || '') + '_' + String(workbench.gizmo.space || 'local')]);
         }
+        if (sequenceField.active) {
+            triplets.push(['sequence_field', 'is', String(sequenceField.mode || 'strike_corridor')]);
+            if (String(sequenceField.resource_id || '')) triplets.push(['sequence_resource', 'is', String(sequenceField.resource_id || '')]);
+            if (String(sequenceField.resource_phase_id || '')) triplets.push(['sequence_phase', 'is', String(sequenceField.resource_phase_id || '')]);
+            if (String(sequenceField.stage || '')) triplets.push(['sequence_stage', 'is', String(sequenceField.stage || '')]);
+            if (String(sequenceField.tempo || '')) triplets.push(['sequence_tempo', 'is', String(sequenceField.tempo || '')]);
+            if (String(sequenceField.aspect || '')) triplets.push(['sequence_aspect', 'is', String(sequenceField.aspect || '')]);
+            if (String(sequenceField.controller_id || '')) triplets.push(['sequence_driver', 'is', String(sequenceField.controller_id || '')]);
+            (Array.isArray(sequenceField.corridors) ? sequenceField.corridors : []).slice(0, 2).forEach(function (lane) {
+                var laneId = String((lane && lane.id) || (lane && lane.side) || 'lane').trim();
+                var laneRole = String((lane && lane.role) || sequenceField.stage || '').trim();
+                if (laneId && laneRole) triplets.push([laneId, 'flows_as', laneRole]);
+                if (laneId && lane && lane.impact_point) triplets.push([laneId, 'hits', 'impact_point']);
+            });
+        }
+        if (reactor.active) {
+            if (String(reactor.flow_posture || '').trim()) triplets.push(['technolit_reactor', 'is', String(reactor.flow_posture || '')]);
+            if (String(reactor.trust_posture || '').trim()) triplets.push(['technolit_trust', 'is', String(reactor.trust_posture || '')]);
+            if (String(reactor.distribution_posture || '').trim()) triplets.push(['technolit_distribution', 'is', String(reactor.distribution_posture || '')]);
+            if (String(reactor.burn_gate || '').trim()) triplets.push(['technolit_burn_gate', 'is', String(reactor.burn_gate || '')]);
+            if (Number.isFinite(Number(reactor.bonding_curve_pct))) triplets.push(['technolit_curve', 'at', String(_envTextTheaterRound(reactor.bonding_curve_pct, 2, 0)) + 'pct']);
+            if (Number.isFinite(Number(reactor.fresh_holding_pct))) triplets.push(['fresh_holding', 'is', String(_envTextTheaterRound(reactor.fresh_holding_pct, 2, 0)) + 'pct']);
+        }
         (Array.isArray(balance.alert_ids) ? balance.alert_ids : []).forEach(function (alertId) {
             var key = String(alertId || '').trim();
             if (key) triplets.push(['alert', key, 'global']);
@@ -31234,6 +33222,21 @@
             var selectionLabel = _envTextTheaterTitle(workbench.selected_bone_ids[0]);
             var posedCount = Number((workbench.posed_bone_ids || []).length || 0);
             summaryParts.push(selectionLabel + ' selected' + (posedCount ? (', ' + posedCount + ' posed bones active.') : '.'));
+        }
+        if (sequenceField.active && String(sequenceField.resource_label || '').trim()) {
+            var resourceSummary = String(sequenceField.resource_label || '').trim();
+            if (String(sequenceField.resource_phase_label || '').trim()) {
+                resourceSummary += ' / ' + String(sequenceField.resource_phase_label || '').trim();
+            }
+            if (sequenceField.split_profile && typeof sequenceField.split_profile === 'object') {
+                resourceSummary += ' / split ' + _envTextTheaterRound((sequenceField.split_profile || {}).split_span, 2, 0) + 'm';
+            }
+            summaryParts.push(resourceSummary + '.');
+        }
+        if (sequenceField.active && String(sequenceField.summary || '').trim()) summaryParts.push(String(sequenceField.summary || '').trim() + '.');
+        if (reactor.active) {
+            summaryParts.push('Techlit reactor ' + String(reactor.flow_posture || 'observing').replace(/_/g, ' ')
+                + ' / burn ' + String(reactor.burn_gate || 'hold').replace(/_/g, ' ') + '.');
         }
         return {
             summary: summaryParts.slice(0, 5).join(' ').replace(/\s+/g, ' ').trim(),
@@ -31574,7 +33577,7 @@
             queryReason = 'An active elemental field is live on the scene, so query work should acknowledge the weather contract before deeper raw-state reads.';
         }
         var queryVisibleRead = String(semantic.summary || '').trim();
-        var queryGuardrail = 'text_theater -> consult/blackboard -> snapshot -> env_help/env_report -> raw shared_state';
+        var queryGuardrail = 'text_theater(render) -> browser corroboration -> consult/blackboard -> snapshot -> env_help/env_report -> raw shared_state';
         function _envFormatBlackboardQueryStep(row) {
             var tool = String((row || {}).tool || '');
             var args = row && typeof row.args === 'object' ? row.args : {};
@@ -31591,12 +33594,113 @@
         var queryNextReads = [
             {
                 tool: 'env_read',
+                args: { query: 'text_theater_view', view: 'render', diagnostics: true },
+                reason: 'Lock the current text-theater frame as the primary render before comparing any browser-visible corroboration.'
+            },
+            {
+                tool: 'capture_supercam',
+                args: {},
+                reason: 'Bring in the existing whole-scene observer atlas so the web theater is consulted directly instead of inferred.'
+            },
+            {
+                tool: 'env_read',
+                args: { query: 'supercam' },
+                reason: 'Read the latest supercam artifact so the browser-visible scene becomes part of the same comparative intake.'
+            },
+            {
+                tool: 'env_read',
                 args: { query: 'text_theater_snapshot' },
                 reason: 'Confirm the visible read against the structured snapshot rows and freshness fields.'
             }
         ];
         var queryHelpLane = [];
         var queryHelpSeen = {};
+        var priorityPivots = [];
+        function _envPushPriorityPivot(pivotId, label, status, retractToAfterCompletion, reason, docs) {
+            var id = String(pivotId || '').trim();
+            if (!id) return;
+            if (priorityPivots.some(function (row) { return String((row || {}).pivot_id || '') === id; })) return;
+            priorityPivots.push({
+                pivot_id: id,
+                label: String(label || id).trim() || id,
+                status: String(status || 'active').trim() || 'active',
+                retract_to_after_completion: String(retractToAfterCompletion || '').trim(),
+                reason: String(reason || '').trim(),
+                docs: Array.isArray(docs)
+                    ? docs.map(function (row) { return String(row || '').trim(); }).filter(Boolean).slice(0, 4)
+                    : []
+            });
+        }
+        _envPushPriorityPivot(
+            'operative_memory_alignment',
+            'Operative Memory Alignment',
+            'active',
+            'static_surface_correlation',
+            'Carry the current operational stance through continuity, blackboard, theater, reports, and docs so compression no longer forces transcript archaeology.',
+            [
+                'docs/OPERATIVE_MEMORY_ALIGNMENT_SPEC_2026-04-15.md',
+                'docs/ASSOCIATIVE_CONTINUITY_ADRENALINE_SITREP_2026-04-15.md',
+                'docs/QUERY_MIRROR_UNIFICATION_SITREP_2026-04-15.md'
+            ]
+        );
+        _envPushPriorityPivot(
+            'static_surface_correlation',
+            'Static Surface Correlation',
+            'declared',
+            'pan_support_field_procgen',
+            'Correlate completed model grounding against total relevant surface, not only sparse point contacts.',
+            [
+                'docs/STATIC_SURFACE_CORRELATION_SPEC_2026-04-15.md',
+                'docs/REACTIVE_MOBILITY_PRIMITIVES_TRAJECTORY_2026-04-10.md',
+                'docs/BUILDER_THEATER_SESSION_HANDOFF_2026-03-31.md'
+            ]
+        );
+        _envPushPriorityPivot(
+            'pan_support_field_procgen',
+            'Pan Support-Field Procgen',
+            (queryNeedsRouteBroker || supportingIds.length || contacts.length || selectedBoneIds.length) ? 'declared' : 'queued',
+            'archived_live_paired_state_resource',
+            'Allow support topology to compensate under intended contacts instead of forcing the body to accommodate a fixed floor every time.',
+            [
+                'docs/PAN_SUPPORT_FIELD_PROCGEN_SPEC_2026-04-15.md',
+                'docs/REACTIVE_MOBILITY_PRIMITIVES_TRAJECTORY_2026-04-10.md',
+                'docs/PAN_TINKERBELL_EMBODIED_AUTONOMY_POSITIONING_2026-04-10.md'
+            ]
+        );
+        _envPushPriorityPivot(
+            'archived_live_paired_state_resource',
+            'Archived / Live Paired-State Resource',
+            'active',
+            'query_mirror_sequence_unification',
+            'Pair archived query posture and live query posture on one authoring surface with drift, freshness, reset-boundary, and next-read logic.',
+            [
+                'docs/ASSOCIATIVE_CONTINUITY_ADRENALINE_SITREP_2026-04-15.md',
+                'docs/QUERY_MIRROR_UNIFICATION_SITREP_2026-04-15.md'
+            ]
+        );
+        _envPushPriorityPivot(
+            'query_mirror_sequence_unification',
+            'Query / Mirror Sequence Unification',
+            'active',
+            'context_compression_countermeasure',
+            'Carry mirrored freshness and query objective on one finite sequence instead of separate inference lanes.',
+            [
+                'docs/QUERY_MIRROR_UNIFICATION_SITREP_2026-04-15.md',
+                'docs/QUERY_ROOT_SEQUENCE_PROTOCOL_2026-04-13.md'
+            ]
+        );
+        _envPushPriorityPivot(
+            'context_compression_countermeasure',
+            'Context Compression Countermeasure',
+            'active',
+            'baseline_runtime_alignment',
+            'Restore posture, query stance, and reset boundaries instead of recap-only continuity.',
+            [
+                'docs/ASSOCIATIVE_CONTINUITY_ADRENALINE_SITREP_2026-04-15.md',
+                'docs/BLACKBOARD_FIELD_UNIFICATION_SITREP_2026-04-14.md'
+            ]
+        );
+        var currentPivotId = priorityPivots.length ? String((priorityPivots[0] || {}).pivot_id || '') : '';
         function _envPushBlackboardHelp(args, reason) {
             var payload = args && typeof args === 'object' ? args : {};
             var topic = String(payload.topic || '').trim();
@@ -31629,6 +33733,10 @@
             { topic: 'text_theater_embodiment' },
             'Use env_help as the local reference for what the embodiment/text-theater surface exposes and how to verify it.'
         );
+        _envPushBlackboardHelp(
+            { topic: 'capture_supercam' },
+            'Use env_help to keep browser capture as corroboration for comparative theater analysis instead of treating it as a new truth source.'
+        );
         if (queryNeedsRouteBroker) {
             queryNextReads.push({
                 tool: 'env_report',
@@ -31641,7 +33749,7 @@
             );
             _envPushBlackboardHelp(
                 { topic: 'playbook:theater_first_route_diagnosis' },
-                'Keep route/support diagnosis on the theater-first evidence order instead of improvising a raw-state jump.'
+                'Keep route/support diagnosis on the current theater-render -> browser-corroboration -> blackboard -> snapshot -> report order instead of improvising a raw-state jump.'
             );
         } else if (selectedBoneIds.length) {
             _envPushBlackboardHelp(
@@ -31650,22 +33758,13 @@
             );
         } else if (surfaceComparisonNeeded) {
             queryNextReads.push({
-                tool: 'capture_supercam',
-                args: {},
-                reason: 'Bring in a browser-visible overview so the web theater can be compared against the current text-theater frame instead of inferred.'
-            });
-            queryNextReads.push({
                 tool: 'env_read',
                 args: { query: 'contracts' },
-                reason: 'Read the mirrored contracts after the frame and capture so browser-side surfaces can be compared before raw shared_state.'
+                reason: 'Read the mirrored contracts after the render/capture comparison so browser-side surfaces can be classified before raw shared_state.'
             });
             _envPushBlackboardHelp(
                 { topic: 'text_theater_view' },
-                'Use env_help to keep the current text-theater frame primary while you compare it against the browser-visible scene.'
-            );
-            _envPushBlackboardHelp(
-                { topic: 'capture_supercam' },
-                'Use env_help to keep browser capture as corroboration for comparative theater analysis instead of treating it as a new truth source.'
+                'Use env_help to keep the current text-theater frame primary while you compare it against the browser-visible scene and its saved capture artifact.'
             );
             _envPushBlackboardHelp(
                 { topic: 'text_theater_snapshot' },
@@ -31683,7 +33782,7 @@
         } else {
             _envPushBlackboardHelp(
                 { topic: 'playbook:theater_first_pose_corroboration' },
-                'Use the theater-first corroboration playbook when the question is general pose or scene orientation before deeper state reads.'
+                'Use the existing theater-first corroboration playbook when the question is general pose or scene orientation before deeper state reads.'
             );
         }
         queryNextReads.push({
@@ -32014,6 +34113,25 @@
             }));
         }
         rows.push(_envBlackboardMakeRow({
+            id: 'session.priority_pivots',
+            family: 'session',
+            layer: 'interpretation',
+            source: 'INTP',
+            label: 'Priority Pivots',
+            value: priorityPivots.map(function (row) { return String((row || {}).pivot_id || ''); }),
+            tolerance_state: 'INFO',
+            priority: 0.64,
+            session_weight: 1,
+            group_key: 'session',
+            sticky_ms: 4600,
+            anchor: selectedBoneIds[0] ? { type: 'bone', id: selectedBoneIds[0] } : (pivotWorld ? { type: 'world', position: pivotWorld } : { type: 'global' }),
+            detail: priorityPivots.map(function (row) {
+                var pivotId = String((row || {}).pivot_id || '');
+                var retractTo = String((row || {}).retract_to_after_completion || '');
+                return retractTo ? (pivotId + ' -> ' + retractTo) : pivotId;
+            }).join(' / ')
+        }));
+        rows.push(_envBlackboardMakeRow({
             id: 'session.query_objective',
             family: 'session',
             layer: 'interpretation',
@@ -32079,14 +34197,64 @@
             return rightScore - leftScore;
         });
         var leadRowIds = rows.slice(0, 8).map(function (row) { return String(row.id || ''); });
+        var runtime = view.runtime && typeof view.runtime === 'object' ? view.runtime : {};
+        var runtimeObjectKey = String(runtime.object_key || '').trim();
+        var selectedBoneId = String(selectedBoneIds[0] || '').trim();
+        var focusObjectKey = String(focus.object_key || '').trim();
+        var sequenceSubjectKind = selectedBoneId
+            ? 'bone'
+            : String(focus.kind || (runtimeObjectKey ? 'character_runtime' : 'scene') || '').trim();
+        var sequenceSubjectId = selectedBoneId
+            || String(focus.id || '').trim()
+            || runtimeObjectKey
+            || 'global';
+        var sequenceSubjectKey = String(
+            (selectedBoneId && runtimeObjectKey ? ('bone:' + runtimeObjectKey + ':' + selectedBoneId) : '')
+            || focusObjectKey
+            || runtimeObjectKey
+            || (sequenceSubjectKind && sequenceSubjectId ? (sequenceSubjectKind + '::' + sequenceSubjectId) : '')
+            || ''
+        ).trim();
+        var sequenceSessionId = String(
+            focusObjectKey
+            || runtimeObjectKey
+            || [
+                String(theater.mode || '').trim(),
+                String(theater.visual_mode || '').trim(),
+                String(focus.kind || '').trim(),
+                String(focus.id || '').trim(),
+                selectedBoneId
+            ].filter(Boolean).join(':')
+            || 'theater_runtime'
+        ).trim();
+        function _envSequenceToken(value, fallback) {
+            var token = String(value || '').trim().replace(/[^a-z0-9:_-]+/gi, '_').replace(/^_+|_+$/g, '');
+            return token || String(fallback || 'unknown');
+        }
+        var sequenceObjectiveToken = _envSequenceToken(queryObjectiveId, 'scene_orientation');
+        var sequenceSubjectToken = _envSequenceToken(sequenceSubjectKey || (sequenceSubjectKind + '::' + sequenceSubjectId), 'global');
+        var sequenceSessionToken = _envSequenceToken(sequenceSessionId, 'theater_runtime');
+        var sequenceSegmentId = _envSequenceToken(
+            String(view.command_sync_token || '').trim() || ('snapshot:' + String(Number(view.snapshot_timestamp || 0))),
+            'snapshot'
+        );
         var queryThread = {
+            sequence_id: 'query_seq/live/' + sequenceSessionToken + '/' + sequenceObjectiveToken + '/' + sequenceSubjectToken,
+            segment_id: sequenceSegmentId,
+            session_id: sequenceSessionId,
+            subject_kind: sequenceSubjectKind,
+            subject_id: sequenceSubjectId,
+            subject_key: sequenceSubjectKey,
+            status: 'active',
+            current_pivot_id: currentPivotId,
+            priority_pivots: priorityPivots,
             objective_id: queryObjectiveId,
             objective_label: queryObjectiveLabel,
             visible_read: queryVisibleRead,
             anchor_row_ids: leadRowIds.slice(0, 4),
             help_lane: queryHelpLane,
             next_reads: queryNextReads,
-            raw_state_guardrail: 'Only open raw shared_state after text theater, consult/blackboard, snapshot, env_help, and any needed scoped report.'
+            raw_state_guardrail: 'Only open raw shared_state after text theater render, browser-visible corroboration, consult/blackboard, snapshot, env_help, and any needed scoped report.'
         };
         var familyMap = {};
         rows.forEach(function (row) {
@@ -32205,6 +34373,2006 @@
         };
     }
 
+    function _envOutputStateLanePreview(entries, limit) {
+        var rows = Array.isArray(entries) ? entries : [];
+        var max = Math.max(1, Number(limit || 4));
+        return rows.slice(0, max).map(function (entry) {
+            var row = entry && typeof entry === 'object' ? entry : {};
+            var tool = String(row.tool || '').trim();
+            var args = row.args && typeof row.args === 'object' ? row.args : {};
+            if (tool === 'env_read') return 'env_read:' + String(args.query || '').trim();
+            if (tool === 'env_report') return 'env_report:' + String(args.report_id || '').trim();
+            if (tool === 'env_help') {
+                var topic = String(args.topic || '').trim();
+                var category = String(args.category || '').trim();
+                var search = String(args.search || '').trim();
+                return 'env_help:' + (topic || category || search || 'index');
+            }
+            return tool || '';
+        }).filter(Boolean);
+    }
+
+    function _envOutputStateCaptureSurfaces(view) {
+        var snapshot = view && typeof view === 'object' ? view : {};
+        return [
+            {
+                key: 'text_render',
+                kind: 'text_theater_view',
+                available: true,
+                role: 'live_render_shutter',
+                route: "env_read(query='text_theater_view', view='render')"
+            },
+            {
+                key: 'text_snapshot',
+                kind: 'text_theater_snapshot',
+                available: true,
+                role: 'structured_snapshot_shutter',
+                route: "env_read(query='text_theater_snapshot')"
+            },
+            {
+                key: 'text_embodiment',
+                kind: 'text_theater_embodiment',
+                available: true,
+                role: 'contact_body_shutter',
+                route: "env_read(query='text_theater_embodiment')"
+            },
+            {
+                key: 'web_supercam',
+                kind: 'supercam',
+                available: true,
+                role: 'web_theater_shutter',
+                route: "capture_supercam -> env_read(query='supercam')",
+                active: String(snapshot.last_sync_reason || '').trim().toLowerCase() === 'capture:supercam'
+            }
+        ];
+    }
+
+    function _envBuildPanProbe(sharedState, snapshot, mirrorSync) {
+        var state = sharedState && typeof sharedState === 'object' ? sharedState : {};
+        var view = snapshot && typeof snapshot === 'object' ? snapshot : {};
+        var workbench = view.workbench && typeof view.workbench === 'object' ? view.workbench : {};
+        var balance = view.balance && typeof view.balance === 'object' ? view.balance : {};
+        var render = view.render && typeof view.render === 'object' ? view.render : {};
+        var timeline = view.timeline && typeof view.timeline === 'object' ? view.timeline : {};
+        var contacts = Array.isArray(view.contacts) ? view.contacts : [];
+        var selectedBoneIds = Array.isArray(workbench.selected_bone_ids) ? workbench.selected_bone_ids : [];
+        var primaryBoneId = String(workbench.primary_bone_id || selectedBoneIds[0] || '').trim();
+        var diagnostics = workbench.motion_diagnostics && typeof workbench.motion_diagnostics === 'object'
+            ? workbench.motion_diagnostics
+            : {};
+        var supportSurface = diagnostics.support_surface && typeof diagnostics.support_surface === 'object'
+            ? diagnostics.support_surface
+            : {};
+        var selectedContact = null;
+        if (primaryBoneId) {
+            selectedContact = contacts.find(function (row) {
+                return String((row && row.joint) || '').trim() === primaryBoneId;
+            }) || null;
+        }
+        if (!selectedContact && contacts.length) {
+            selectedContact = contacts.find(function (row) {
+                return !!(row && row.supporting);
+            }) || contacts[0] || null;
+        }
+        var contact = selectedContact && typeof selectedContact === 'object' ? selectedContact : {};
+        var toeClearance = Number(contact.toe_clearance || 0);
+        var heelClearance = Number(contact.heel_clearance || 0);
+        var contactBias = String(contact.contact_bias || '').trim();
+        var supportRole = String(contact.support_role || '').trim();
+        var grounded = String(contact.state || '').trim() === 'grounded';
+        var rotationalGrounding = grounded && (
+            (toeClearance < 0 && heelClearance > 0)
+            || (toeClearance > 0 && heelClearance < 0)
+            || contactBias === 'inverted'
+        );
+        var associationSurfaces = _slotUniqueStrings([
+            grounded ? 'contacts' : '',
+            balance.support_phase ? 'balance' : '',
+            timeline.key_pose_count ? 'timeline' : '',
+            render.stage_mode ? 'render' : '',
+            view.last_sync_reason ? 'live_sync' : '',
+            state.output_state ? 'output_state' : '',
+            mirrorSync && mirrorSync.status ? 'live_mirror' : ''
+        ]);
+        var writerIdentity = {
+            last_sync_reason: String(view.last_sync_reason || ''),
+            render_last_tool_applied: String(render.last_tool_applied || ''),
+            render_last_tool_source: String(render.last_tool_source || ''),
+            live_sync_status: String((mirrorSync || {}).status || ''),
+            workbench_turntable: !!workbench.turntable
+        };
+        var band = 'idle';
+        if (grounded) band = rotationalGrounding ? 'contact_resolve' : 'grounded';
+        if (workbench.turntable && band !== 'idle') band = 'ambient_' + band;
+        if (view.stale_flags && view.stale_flags.mirror_lag) band = 'mirror_lag';
+        return {
+            mode: 'contact_resolve_probe',
+            band: String(band || 'idle'),
+            summary: _envProductCollapseText([
+                primaryBoneId || String(contact.joint || 'no_joint'),
+                String(contact.state || 'unknown'),
+                supportRole || 'no_role',
+                contactBias || 'neutral',
+                rotationalGrounding ? 'rotational_grounding' : 'flat_or_airborne',
+                String(balance.support_phase || 'no_support_phase'),
+                String(view.last_sync_reason || 'no_sync_reason')
+            ].join(' / '), 180),
+            selected_bone_id: primaryBoneId,
+            selected_contact_joint: String(contact.joint || ''),
+            selected_contact_state: String(contact.state || ''),
+            support_role: supportRole,
+            contact_bias: contactBias,
+            rotational_grounding: !!rotationalGrounding,
+            planted_alignment: _envTextTheaterRound(contact.planted_alignment, 4, 0),
+            normal_alignment: _envTextTheaterRound(contact.normal_alignment, 4, 0),
+            toe_clearance: _envTextTheaterRound(toeClearance, 4, 0),
+            heel_clearance: _envTextTheaterRound(heelClearance, 4, 0),
+            support_phase: String(balance.support_phase || ''),
+            timeline: {
+                cursor: _envTextTheaterRound(timeline.cursor, 4, 0),
+                duration: _envTextTheaterRound(timeline.duration, 4, 0),
+                key_pose_count: Number(timeline.key_pose_count || 0),
+                interpolation: String(timeline.interpolation || ''),
+                displacement_mode: String(timeline.displacement_mode || '')
+            },
+            motion_sample_time: _envTextTheaterRound(diagnostics.sample_time, 4, 0),
+            support_surface: {
+                support_key: String(supportSurface.support_key || balance.support_key || ''),
+                support_kind: String(supportSurface.support_kind || balance.support_kind || ''),
+                support_y: _envTextTheaterRound(supportSurface.support_y || balance.support_y, 4, 0)
+            },
+            writer_identity: writerIdentity,
+            association_surfaces: associationSurfaces,
+            capture_surfaces: _envOutputStateCaptureSurfaces(view)
+        };
+    }
+
+    function _envBuildTinkerbellAttention(args) {
+        var spec = args && typeof args === 'object' ? args : {};
+        var queryThread = spec.queryThread && typeof spec.queryThread === 'object' ? spec.queryThread : {};
+        var watchBoard = spec.watchBoard && typeof spec.watchBoard === 'object' ? spec.watchBoard : {};
+        var panProbe = spec.panProbe && typeof spec.panProbe === 'object' ? spec.panProbe : {};
+        var balance = spec.balance && typeof spec.balance === 'object' ? spec.balance : {};
+        var ingress = spec.ingress && typeof spec.ingress === 'object' ? spec.ingress : {};
+        var staleFlags = spec.staleFlags && typeof spec.staleFlags === 'object' ? spec.staleFlags : {};
+        var contaminatedSurfaces = Array.isArray(spec.contaminatedSurfaces) ? spec.contaminatedSurfaces : [];
+        var missingSurfaces = Array.isArray(spec.missingSurfaces) ? spec.missingSurfaces : [];
+        var confidenceScore = Number(spec.confidenceScore || 0);
+        var subjectKey = String(spec.subjectKey || '').trim();
+        var focusKey = String(spec.focusKey || '').trim();
+        var docsContextKind = String(spec.docsContextKind || '').trim();
+        var docsContextAligned = !!spec.docsContextAligned;
+        var expectedRead = String(spec.expectedRead || '').trim();
+        var helpAuthority = String(spec.helpAuthority || '').trim();
+        var continuityNeeded = !!spec.continuityNeeded;
+        var continuitySeverity = String(spec.continuitySeverity || 'quiet').trim();
+        var returnPath = Array.isArray(spec.returnPath) ? spec.returnPath : [];
+        var loadFieldEnabled = spec.loadFieldEnabled !== false;
+        var supportRisk = Number(balance.stability_risk || 0);
+        var watchAlerts = Array.isArray(watchBoard.alerts) ? watchBoard.alerts : [];
+        var candidates = [];
+        function pushCandidate(kind, target, score, whyNow, expectedRoute, holdCandidate, sourceRipples, expiresWhen, measureMode) {
+            var targetValue = String(target || '').trim();
+            if (!targetValue) return;
+            var routeValue = String(expectedRoute || '').trim();
+            var reasonValue = _envProductCollapseText(String(whyNow || '').trim(), 160);
+            var ripples = _slotUniqueStrings(sourceRipples || []).slice(0, 4);
+            candidates.push({
+                id: String(kind || 'pointer') + ':' + targetValue,
+                target_kind: String(kind || ''),
+                target: targetValue,
+                score: _envTextTheaterRound(score, 3, 0),
+                why_now: reasonValue,
+                why_this_spot: reasonValue,
+                expected_read: routeValue,
+                hold_candidate: !!holdCandidate,
+                source_ripples: ripples,
+                expires_when: String(expiresWhen || '').trim(),
+                measure_mode: String(measureMode || 'inspect').trim(),
+                summary: _envProductCollapseText([
+                    String(kind || ''),
+                    targetValue,
+                    reasonValue,
+                    routeValue ? ('next ' + routeValue) : ''
+                ].filter(Boolean).join(' / '), 180)
+            });
+        }
+        if (continuityNeeded) {
+            pushCandidate(
+                'sequence_return',
+                String(queryThread.sequence_id || queryThread.current_pivot_id || subjectKey || focusKey || 'current_sequence'),
+                continuitySeverity === 'drill' ? 4.6 : (continuitySeverity === 'warn' ? 3.6 : 2.2),
+                continuitySeverity === 'drill'
+                    ? 'sequence posture needs a continuity drill before wider reasoning'
+                    : 'the carried sequence wants a return-path check before proceeding',
+                String(returnPath[0] || helpAuthority || 'env_help:continuity_reacclimation'),
+                continuitySeverity === 'drill',
+                (watchAlerts || []).concat(staleFlags.mirror_lag ? ['mirror lag'] : []).concat(staleFlags.bundle_mismatch ? ['bundle mismatch'] : []),
+                'when the carried sequence is corroborated again',
+                'reacclimate'
+            );
+        }
+        if (
+            loadFieldEnabled && (
+            supportRisk >= 0.3
+            || (watchAlerts.indexOf('support risk') >= 0)
+            || String(panProbe.band || '') === 'rotational_grounding'
+            || String(panProbe.band || '') === 'contact_resolve'
+            )
+        ) {
+            pushCandidate(
+                'support_surface',
+                String(panProbe.selected_contact_joint || panProbe.selected_bone_id || ((panProbe.support_surface || {}).support_key) || subjectKey || 'support_lane'),
+                Math.max(2.4, (supportRisk * 4.2)) + ((watchAlerts.indexOf('support risk') >= 0) ? 0.6 : 0),
+                'support/contact truth is the hottest live seam in the orienting field',
+                'env_report:route_stability_diagnosis',
+                supportRisk >= 0.6 || String(watchBoard.band || '') === 'intercept_now',
+                ['support risk', String(panProbe.band || ''), String(panProbe.contact_bias || ''), String(panProbe.support_role || '')],
+                'when support risk falls or the route report clears',
+                'route_support'
+            );
+        }
+        if (spec.subjectFocusMismatch) {
+            pushCandidate(
+                'subject_focus',
+                subjectKey || focusKey || 'subject_focus',
+                2.7,
+                'the carried subject and the visible focus are diverging',
+                'env_read:text_theater_snapshot',
+                false,
+                ['subject/focus mismatch', String(queryThread.current_pivot_id || '')],
+                'when subject and focus match again',
+                'alignment_check'
+            );
+        }
+        if (contaminatedSurfaces.length || missingSurfaces.length) {
+            pushCandidate(
+                'parity_surface',
+                contaminatedSurfaces.length ? contaminatedSurfaces.join(', ') : missingSurfaces.join(', '),
+                2.9 + Math.min(0.8, ((contaminatedSurfaces.length + missingSurfaces.length) * 0.15)),
+                'surface parity is degraded and can mislead downstream reads',
+                'env_report:paired_state_alignment',
+                contaminatedSurfaces.length >= 3,
+                contaminatedSurfaces.concat(missingSurfaces),
+                'when the live/mirror surface set is clean again',
+                'parity_audit'
+            );
+        }
+        if (docsContextKind && !docsContextAligned) {
+            pushCandidate(
+                'docs_context',
+                docsContextKind,
+                1.8,
+                'docs context is out of family with the active theater mode',
+                'env_read:text_theater_view',
+                false,
+                ['docs mismatch', docsContextKind],
+                'when docs context matches the active mode again',
+                'context_check'
+            );
+        }
+        if (ingress.processing || Number(ingress.queue_depth || 0) > 0) {
+            pushCandidate(
+                'queue_front',
+                String((((ingress || {}).current || {}).action) || ('queue:' + String(Number(ingress.queue_depth || 0)))),
+                1.4 + Math.min(0.9, Number(ingress.queue_depth || 0) * 0.12),
+                'ingress is active and could reorder what matters next',
+                expectedRead || helpAuthority || 'env_read:text_theater_snapshot',
+                false,
+                ['queued ingress', String(Number(ingress.queue_depth || 0))],
+                'when the ingress queue drains',
+                'queue_review'
+            );
+        }
+        if (!candidates.length && (expectedRead || helpAuthority)) {
+            pushCandidate(
+                'next_read',
+                expectedRead || helpAuthority,
+                1.0,
+                'the current sequence already has a carried next read',
+                expectedRead || helpAuthority,
+                false,
+                [String(spec.equilibriumBand || ''), String(spec.driftBand || '')],
+                'when the next read is consumed',
+                'follow_lane'
+            );
+        }
+        candidates.sort(function (left, right) {
+            var delta = Number(right.score || 0) - Number(left.score || 0);
+            if (delta) return delta;
+            return String(left.id || '').localeCompare(String(right.id || ''));
+        });
+        var active = candidates.length ? candidates[0] : null;
+        var attentionBand = 'quiet';
+        if (active) {
+            if (active.hold_candidate || Number(active.score || 0) >= 4.0) attentionBand = 'intercept';
+            else if (Number(active.score || 0) >= 2.4) attentionBand = 'track';
+            else attentionBand = 'watch';
+        }
+        var pointerConfidence = active
+            ? _envTextTheaterRound(
+                Math.max(
+                    0,
+                    Math.min(
+                        1,
+                        confidenceScore + (Math.min(0.28, Number(active.score || 0) * 0.06)) - (staleFlags.mirror_lag ? 0.08 : 0)
+                    )
+                ),
+                3,
+                0
+            )
+            : 0;
+        var activePointer = active ? {
+            target_kind: String(active.target_kind || ''),
+            target: String(active.target || ''),
+            urgency: attentionBand,
+            confidence: pointerConfidence,
+            why_now: String(active.why_now || ''),
+            why_this_spot: String(active.why_this_spot || ''),
+            expected_read: String(active.expected_read || ''),
+            hold_candidate: !!active.hold_candidate,
+            source_ripples: _slotUniqueStrings(active.source_ripples || []).slice(0, 4),
+            expires_when: String(active.expires_when || ''),
+            measure_mode: String(active.measure_mode || 'inspect'),
+            summary: String(active.summary || '')
+        } : {
+            target_kind: '',
+            target: '',
+            urgency: 'quiet',
+            confidence: 0,
+            why_now: '',
+            why_this_spot: '',
+            expected_read: '',
+            hold_candidate: false,
+            source_ripples: [],
+            expires_when: '',
+            measure_mode: 'idle',
+            summary: 'No active pointer; continue the carried sequence.'
+        };
+        return {
+            band: attentionBand,
+            summary: _envProductCollapseText(String(activePointer.summary || 'No active pointer; continue the carried sequence.'), 180),
+            attention_kind: String(activePointer.target_kind || ''),
+            attention_target: String(activePointer.target || ''),
+            attention_confidence: pointerConfidence,
+            hold_candidate: !!activePointer.hold_candidate,
+            active_pointer: activePointer,
+            prospect_candidates: candidates.slice(0, 4).map(function (row) {
+                return {
+                    target_kind: String(row.target_kind || ''),
+                    target: String(row.target || ''),
+                    score: _envTextTheaterRound(row.score, 3, 0),
+                    why_now: String(row.why_now || ''),
+                    expected_read: String(row.expected_read || ''),
+                    hold_candidate: !!row.hold_candidate,
+                    measure_mode: String(row.measure_mode || 'inspect')
+                };
+            })
+        };
+    }
+
+    function _envBuildTechnolitEquilibriumMeasure(reactor, focusKey) {
+        var source = reactor && typeof reactor === 'object' ? reactor : {};
+        var coinId = String(source.coin_id || '').trim();
+        var symbol = String(source.symbol || '').trim();
+        if (!coinId || !symbol || !source.active) {
+            return {
+                active: false,
+                coin_id: coinId,
+                symbol: symbol,
+                band: 'quiet',
+                score: 0,
+                summary: '',
+                signals: [],
+                issues: []
+            };
+        }
+        var signals = [];
+        var issues = [];
+        var score = 0.5;
+        var trustPosture = String(source.trust_posture || '').trim().toLowerCase();
+        var flowPosture = String(source.flow_posture || '').trim().toLowerCase();
+        var distributionPosture = String(source.distribution_posture || '').trim().toLowerCase();
+        var burnGate = String(source.burn_gate || '').trim().toLowerCase();
+        var sideBias = String(source.recent_side_bias || '').trim().toLowerCase();
+        var freshHoldingPct = Number(source.fresh_holding_pct || 0);
+        var reserveSol = Number(source.creator_rewards_unclaimed_sol || 0);
+        var top10HolderPct = Number(source.top10_holder_pct || 0);
+        var bundlesPct = Number(source.bundles_pct || 0);
+        var receiverCount = Number(source.creator_distribution_receiver_count || 0);
+        var editRemaining = Number(source.creator_distribution_edit_remaining || 0);
+        var bondingCurvePct = Number(source.bonding_curve_pct || 0);
+        signals.push(symbol + ' measured');
+        signals.push('creator fee intake');
+        if (trustPosture === 'credible_structure') {
+            signals.push('trust credible');
+            score += 0.18;
+        } else if (trustPosture === 'watch_but_workable') {
+            signals.push('trust workable');
+            score += 0.08;
+        } else {
+            issues.push('trust fragile');
+            score -= 0.12;
+        }
+        if (source.mint_auth_enabled === false) {
+            signals.push('mint revoked');
+            score += 0.04;
+        } else if (source.mint_auth_enabled === true) {
+            issues.push('mint authority enabled');
+            score -= 0.06;
+        }
+        if (source.freeze_auth_enabled === false) {
+            signals.push('freeze revoked');
+            score += 0.04;
+        } else if (source.freeze_auth_enabled === true) {
+            issues.push('freeze authority enabled');
+            score -= 0.06;
+        }
+        if (freshHoldingPct >= 0.5) {
+            signals.push('retention above floor');
+            score += 0.08;
+        } else {
+            issues.push('retention thin');
+            score -= 0.06;
+        }
+        if (reserveSol >= 0.75) {
+            signals.push('intake reserve live');
+            score += 0.06;
+        } else {
+            issues.push('reserve thin');
+            score -= 0.06;
+        }
+        if (receiverCount > 1) {
+            signals.push('distribution multiwallet');
+            score += 0.05;
+        } else if (editRemaining > 0) {
+            issues.push('distribution split pending');
+            score -= 0.05;
+        } else {
+            signals.push('distribution single wallet');
+        }
+        if (top10HolderPct <= 30) {
+            signals.push('holder spread workable');
+            score += 0.05;
+        } else {
+            issues.push('holder concentration elevated');
+            score -= 0.06;
+        }
+        if (bundlesPct >= 30) {
+            issues.push('bundle pressure');
+            score -= 0.07;
+        }
+        if (sideBias === 'sell') {
+            issues.push('sell bias');
+            score -= 0.08;
+        } else if (sideBias === 'buy') {
+            signals.push('buy bias');
+            score += 0.04;
+        }
+        if (bondingCurvePct < 60) issues.push('pre graduation');
+        else signals.push('graduation majority');
+        if (source.tokenized_agent_enabled === true) {
+            signals.push('agent revenue live');
+            score += 0.06;
+        }
+        if (source.cashback_enabled === true) issues.push('cashback mode');
+        score = Math.max(0, Math.min(1, score));
+        var band = score >= 0.78 ? 'aligned' : (score >= 0.58 ? 'watch' : 'strained');
+        return {
+            active: true,
+            coin_id: coinId,
+            symbol: symbol,
+            label: String(source.label || '').trim(),
+            band: band,
+            score: _envTextTheaterRound(score, 3, 0),
+            measurement_unit: '1 ' + symbol,
+            sequencing_bridge: 'creator_fee_intake',
+            bridge_surface: String(source.primary_surface || focusKey || '').trim(),
+            market_cap_usd: _envTextTheaterRound(source.market_cap_usd, 2, 0),
+            liquidity_usd: _envTextTheaterRound(source.liquidity_usd, 2, 0),
+            bonding_curve_pct: _envTextTheaterRound(source.bonding_curve_pct, 2, 0),
+            creator_rewards_unclaimed_sol: _envTextTheaterRound(source.creator_rewards_unclaimed_sol, 4, 0),
+            creator_rewards_unclaimed_usd: _envTextTheaterRound(source.creator_rewards_unclaimed_usd, 2, 0),
+            fresh_holding_pct: _envTextTheaterRound(source.fresh_holding_pct, 2, 0),
+            recent_side_bias: String(source.recent_side_bias || ''),
+            trust_posture: String(source.trust_posture || ''),
+            flow_posture: String(source.flow_posture || ''),
+            distribution_posture: String(source.distribution_posture || ''),
+            burn_gate: String(source.burn_gate || ''),
+            holder_spread_pct: _envTextTheaterRound(source.top10_holder_pct, 2, 0),
+            bundle_pressure_pct: _envTextTheaterRound(source.bundles_pct, 2, 0),
+            receiver_count: Number(source.creator_distribution_receiver_count || 0),
+            summary: _envProductCollapseText([
+                symbol,
+                band,
+                'flow ' + String(flowPosture || 'observing').replace(/_/g, ' '),
+                'dist ' + String(distributionPosture || 'unassigned').replace(/_/g, ' '),
+                'intake ' + _envTextTheaterRound(reserveSol, 4, 0) + ' SOL',
+                'burn ' + String(burnGate || 'hold').replace(/_/g, ' ')
+            ].join(' / '), 180),
+            signals: signals.slice(0, 6),
+            issues: issues.slice(0, 6)
+        };
+    }
+
+    function _envBuildTechnolitDistributionPacket(reactor, measure) {
+        var source = reactor && typeof reactor === 'object' ? reactor : {};
+        var technolitMeasure = measure && typeof measure === 'object' ? measure : {};
+        var coinId = String(source.coin_id || technolitMeasure.coin_id || '').trim();
+        var symbol = String(source.symbol || technolitMeasure.symbol || '').trim();
+        if (!coinId || !symbol || !source.active) {
+            return {
+                active: false,
+                coin_id: coinId,
+                symbol: symbol,
+                packet_kind: 'technolit_distribution',
+                stage: 'inactive',
+                summary: '',
+                signals: [],
+                issues: []
+            };
+        }
+        var signals = [];
+        var issues = [];
+        var distributionPosture = String(source.distribution_posture || '').trim().toLowerCase();
+        var flowPosture = String(source.flow_posture || '').trim().toLowerCase();
+        var burnGate = String(source.burn_gate || '').trim().toLowerCase();
+        var receiverCount = Number(source.creator_distribution_receiver_count || 0);
+        var editRemaining = Number(source.creator_distribution_edit_remaining || 0);
+        var rewardsUnclaimed = Number(source.creator_rewards_unclaimed_sol || 0);
+        var tokenizedAgentEnabled = source.tokenized_agent_enabled === true;
+        var stage = 'agent_burn_seed_only';
+        var nextContract = 'pump_tokenized_agent_skills_md';
+        if (tokenizedAgentEnabled) {
+            stage = 'hourly_burn_live';
+            nextContract = 'agent_deposit_topup';
+            signals.push('hourly buyback burn live');
+        } else if (burnGate === 'await_agent_confirmation' || rewardsUnclaimed >= 0.75) {
+            stage = 'agent_burn_ready';
+            nextContract = 'pump_tokenized_agent_skills_md';
+            signals.push('burn lane ready to arm');
+        } else if (distributionPosture === 'one_shot_split_pending' || (receiverCount <= 1 && editRemaining > 0)) {
+            stage = 'burn_window_forming';
+            nextContract = 'pump_tokenized_agent_skills_md';
+            signals.push('burn window forming');
+        }
+        if (technolitMeasure.band === 'aligned') signals.push('reactor read aligned');
+        else if (technolitMeasure.band === 'watch') issues.push('reactor read watch');
+        else if (technolitMeasure.band === 'strained') issues.push('reactor read strained');
+        if (rewardsUnclaimed >= 0.75) signals.push('creator fee intake visible');
+        else issues.push('creator fee intake thin');
+        if (receiverCount > 1) signals.push('creator sink can fan out later');
+        if (flowPosture) signals.push('flow ' + flowPosture.replace(/_/g, ' '));
+        if (burnGate === 'await_agent_confirmation') issues.push('burn awaits agent confirmation');
+        return {
+            active: true,
+            coin_id: coinId,
+            symbol: symbol,
+            packet_kind: 'technolit_distribution',
+            policy_id: 'buyback_burn_easy_mode_v1',
+            stage: stage,
+            intake_mode: 'creator_fee_intake',
+            body_mode: 'camp_scoreboard_only',
+            raid_mode: 'platinum_dkp_storyboard',
+            shield_mode: 'threat_watch_and_pause',
+            forge_mode: 'creator_ops_and_burn_support',
+            tokenized_agent_mode: tokenizedAgentEnabled ? 'hourly_buyback_burn_live' : 'hourly_buyback_burn_parked',
+            routing_posture: String(source.distribution_posture || ''),
+            next_contract: nextContract,
+            public_line: 'Pump agent burns hourly when armed. Camp and raid stay in the report layer instead of becoming payout homework.',
+            macro_split_bps: {
+                body: 4500,
+                raid: 2000,
+                shield: 2000,
+                forge: 1500
+            },
+            settlement_clock: {
+                hourly: 'burn_pulse',
+                daily: 'operator_digest',
+                weekly: 'hold_door_report'
+            },
+            summary: _envProductCollapseText([
+                symbol,
+                stage.replace(/_/g, ' '),
+                'pump burn easy mode',
+                'camp 45 raid 20 shield 20 forge 15',
+                'next ' + nextContract.replace(/_/g, ' ')
+            ].join(' / '), 180),
+            signals: signals.slice(0, 6),
+            issues: issues.slice(0, 6)
+        };
+    }
+
+    function _envBuildTechnolitTreasuryBridgePacket(reactor, measure, distributionPacket) {
+        var source = reactor && typeof reactor === 'object' ? reactor : {};
+        var technolitMeasure = measure && typeof measure === 'object' ? measure : {};
+        var distribution = distributionPacket && typeof distributionPacket === 'object' ? distributionPacket : {};
+        var coinId = String(source.coin_id || technolitMeasure.coin_id || distribution.coin_id || '').trim();
+        var symbol = String(source.symbol || technolitMeasure.symbol || distribution.symbol || '').trim();
+        if (!coinId || !symbol || !source.active) {
+            return {
+                active: false,
+                coin_id: coinId,
+                symbol: symbol,
+                packet_kind: 'technolit_treasury_bridge',
+                stage: 'inactive',
+                summary: '',
+                signals: [],
+                issues: []
+            };
+        }
+        var signals = [];
+        var issues = [];
+        var rewardsUnclaimed = Number(source.creator_rewards_unclaimed_sol || 0);
+        var receiverCount = Number(source.creator_distribution_receiver_count || 0);
+        var editRemaining = Number(source.creator_distribution_edit_remaining || 0);
+        var tokenizedAgentEnabled = source.tokenized_agent_enabled === true;
+        var distributionStage = String(distribution.stage || '').trim().toLowerCase();
+        var flowPosture = String(source.flow_posture || '').trim().toLowerCase();
+        var stage = 'forge_reserve_seed_only';
+        var nextContract = 'pump_tokenized_agent_skills_md';
+        if (tokenizedAgentEnabled) {
+            stage = 'burn_support_live';
+            nextContract = 'agent_deposit_topup';
+            signals.push('burn support reserve live');
+        } else if (distributionStage === 'agent_burn_ready' || rewardsUnclaimed >= 0.75) {
+            stage = 'burn_support_ready';
+            nextContract = 'agent_deposit_topup';
+            signals.push('burn support reserve ready');
+        } else if (distributionStage === 'burn_window_forming' || (receiverCount <= 1 && editRemaining > 0)) {
+            stage = 'burn_support_forming';
+            nextContract = 'creator_fee_treasury_wallet';
+            signals.push('creator fee reserve forming');
+        } else {
+            issues.push('burn support reserve still thin');
+        }
+        if (rewardsUnclaimed >= 0.75) signals.push('treasury intake visible');
+        else issues.push('treasury intake thin');
+        if (technolitMeasure.band === 'aligned') signals.push('equilibrium permits top-up');
+        else if (technolitMeasure.band === 'watch') issues.push('equilibrium remains watch');
+        else if (technolitMeasure.band === 'strained') issues.push('equilibrium remains strained');
+        if (flowPosture) signals.push('flow ' + flowPosture.replace(/_/g, ' '));
+        return {
+            active: true,
+            coin_id: coinId,
+            symbol: symbol,
+            packet_kind: 'technolit_treasury_bridge',
+            bridge_id: 'soft_treasury_bridge_v1',
+            settlement_asset: 'SOL',
+            treasury_mode: 'forge_and_burn_reserve',
+            treasury_wallet_mode: receiverCount > 1 ? 'multiwallet_router' : 'single_treasury_sink',
+            settlement_style: 'no_distribution',
+            redemption_mode: 'none',
+            reference_ratio_mode: 'informational_only',
+            reserve_floor_mode: 'burn_floor_watch',
+            stage: stage,
+            next_contract: nextContract,
+            source_policy_id: String(distribution.policy_id || ''),
+            epoch_clock: {
+                hourly: 'burn_pulse',
+                daily: 'digest',
+                weekly: 'topup_review'
+            },
+            public_line: 'Creator fees stay in a simple SOL reserve for forge work and optional burn top-ups. It is not a holder payout lane.',
+            summary: _envProductCollapseText([
+                symbol,
+                'forge burn reserve',
+                stage.replace(/_/g, ' '),
+                'SOL reserve',
+                'next ' + nextContract.replace(/_/g, ' ')
+            ].join(' / '), 180),
+            signals: signals.slice(0, 6),
+            issues: issues.slice(0, 6)
+        };
+    }
+
+    function _envBuildHolderSnapshotPacket(reactor, measure, distributionPacket, treasuryBridgePacket) {
+        var source = reactor && typeof reactor === 'object' ? reactor : {};
+        var technolitMeasure = measure && typeof measure === 'object' ? measure : {};
+        var distribution = distributionPacket && typeof distributionPacket === 'object' ? distributionPacket : {};
+        var treasuryBridge = treasuryBridgePacket && typeof treasuryBridgePacket === 'object' ? treasuryBridgePacket : {};
+        var coinId = String(source.coin_id || technolitMeasure.coin_id || '').trim();
+        var symbol = String(source.symbol || technolitMeasure.symbol || '').trim();
+        if (!coinId || !symbol || !source.active) {
+            return {
+                active: false,
+                coin_id: coinId,
+                symbol: symbol,
+                packet_kind: 'holder_snapshot',
+                stage: 'inactive',
+                summary: '',
+                signals: [],
+                issues: []
+            };
+        }
+        var signals = [];
+        var issues = [];
+        var freshHoldingPct = Number(source.fresh_holding_pct || 0);
+        var top10HolderPct = Number(source.top10_holder_pct || 0);
+        var snipersPct = Number(source.snipers_pct || 0);
+        var insidersPct = Number(source.insiders_pct || 0);
+        var intakeSol = Number(source.creator_rewards_unclaimed_sol || 0);
+        var concentrationBand = top10HolderPct >= 55 ? 'high' : (top10HolderPct >= 35 ? 'watch' : 'open');
+        var antiSnipeBand = snipersPct >= 12 ? 'strict' : (snipersPct >= 6 ? 'watch' : 'light');
+        var retentionBand = freshHoldingPct >= 18 ? 'sticky' : (freshHoldingPct >= 9 ? 'forming' : 'thin');
+        var stage = 'scoreboard_only';
+        if (intakeSol >= 0.25 || String(treasuryBridge.stage || '') === 'burn_support_live' || String(treasuryBridge.stage || '') === 'burn_support_ready') {
+            stage = concentrationBand === 'high' || antiSnipeBand === 'strict' ? 'guarded_scoreboard' : 'scoreboard_live';
+        }
+        if (retentionBand === 'sticky') signals.push('camp posture sticky');
+        else if (retentionBand === 'forming') signals.push('camp posture forming');
+        else issues.push('camp posture thin');
+        if (concentrationBand === 'high') issues.push('camp concentration high');
+        else signals.push('camp concentration ' + concentrationBand);
+        if (antiSnipeBand === 'strict') issues.push('anti-snipe strict');
+        else signals.push('anti-snipe ' + antiSnipeBand);
+        if (insidersPct >= 8) issues.push('insider pressure elevated');
+        return {
+            active: true,
+            coin_id: coinId,
+            symbol: symbol,
+            packet_kind: 'holder_snapshot',
+            snapshot_id: 'holder_snapshot_packet_v1',
+            camp_label: 'campers',
+            qualification_mode: 'ceremonial_hold_posture',
+            qualification_window: 'report_window',
+            anti_snipe_mode: 'awareness_only',
+            body_split_bps: Number((((distribution.macro_split_bps || {}).body) || 0)),
+            stage: stage,
+            retention_band: retentionBand,
+            concentration_band: concentrationBand,
+            anti_snipe_band: antiSnipeBand,
+            public_line: 'Campers still hold the line, but in potato mode this lane is status and watchkeeping, not payout entitlement.',
+            summary: _envProductCollapseText([
+                symbol,
+                'camp',
+                stage.replace(/_/g, ' '),
+                'report lane',
+                'retention ' + retentionBand,
+                'anti snipe ' + antiSnipeBand
+            ].join(' / '), 180),
+            signals: signals.slice(0, 6),
+            issues: issues.slice(0, 6)
+        };
+    }
+
+    function _envBuildRaidContributionPacket(reactor, measure, distributionPacket, treasuryBridgePacket) {
+        var source = reactor && typeof reactor === 'object' ? reactor : {};
+        var technolitMeasure = measure && typeof measure === 'object' ? measure : {};
+        var distribution = distributionPacket && typeof distributionPacket === 'object' ? distributionPacket : {};
+        var treasuryBridge = treasuryBridgePacket && typeof treasuryBridgePacket === 'object' ? treasuryBridgePacket : {};
+        var coinId = String(source.coin_id || technolitMeasure.coin_id || '').trim();
+        var symbol = String(source.symbol || technolitMeasure.symbol || '').trim();
+        if (!coinId || !symbol || !source.active) {
+            return {
+                active: false,
+                coin_id: coinId,
+                symbol: symbol,
+                packet_kind: 'raid_contribution',
+                stage: 'inactive',
+                summary: '',
+                signals: [],
+                issues: []
+            };
+        }
+        var signals = [];
+        var issues = [];
+        var flowPosture = String(source.flow_posture || '').trim().toLowerCase();
+        var sideBias = String(source.recent_side_bias || '').trim().toLowerCase();
+        var freshBuysCount = Number(source.fresh_buys_count || 0);
+        var stage = 'storyboard_only';
+        if (freshBuysCount >= 10 || flowPosture === 'touching_not_sticking') stage = 'storyboard_live';
+        if (String(treasuryBridge.stage || '') === 'burn_support_live') signals.push('burn reserve can amplify good story windows');
+        if (flowPosture) signals.push('raid pressure ' + flowPosture.replace(/_/g, ' '));
+        if (sideBias) signals.push('side bias ' + sideBias.replace(/_/g, ' '));
+        if (freshBuysCount >= 20) signals.push('fresh buys elevated');
+        else if (freshBuysCount <= 3) issues.push('fresh buys quiet');
+        return {
+            active: true,
+            coin_id: coinId,
+            symbol: symbol,
+            packet_kind: 'raid_contribution',
+            raid_id: 'platinum_dkp_epoch_v1',
+            raid_label: 'guerrilla_specialists',
+            evidence_mode: 'manual_story_verification',
+            scoring_formula: 'verified_contribution_for_report_prestige',
+            role_families: ['holder', 'builder', 'operator', 'scout', 'amplifier', 'stabilizer'],
+            common_pool_bps: 6000,
+            jackpot_pool_bps: 2500,
+            carry_pool_bps: 1500,
+            raid_split_bps: Number((((distribution.macro_split_bps || {}).raid) || 0)),
+            stage: stage,
+            public_line: 'Guerrilla specialists still get the Plat DKP flavor, but the easy-mode lane is prestige, timing, and narrative pressure, not cash bookkeeping.',
+            summary: _envProductCollapseText([
+                symbol,
+                'raid',
+                stage.replace(/_/g, ' '),
+                'roles six',
+                'report prestige'
+            ].join(' / '), 180),
+            signals: signals.slice(0, 6),
+            issues: issues.slice(0, 6)
+        };
+    }
+
+    function _envBuildSettlementEpochPacket(reactor, measure, distributionPacket, treasuryBridgePacket, holderSnapshotPacket, raidContributionPacket) {
+        var source = reactor && typeof reactor === 'object' ? reactor : {};
+        var technolitMeasure = measure && typeof measure === 'object' ? measure : {};
+        var distribution = distributionPacket && typeof distributionPacket === 'object' ? distributionPacket : {};
+        var treasuryBridge = treasuryBridgePacket && typeof treasuryBridgePacket === 'object' ? treasuryBridgePacket : {};
+        var holderSnapshot = holderSnapshotPacket && typeof holderSnapshotPacket === 'object' ? holderSnapshotPacket : {};
+        var raidContribution = raidContributionPacket && typeof raidContributionPacket === 'object' ? raidContributionPacket : {};
+        var coinId = String(source.coin_id || technolitMeasure.coin_id || '').trim();
+        var symbol = String(source.symbol || technolitMeasure.symbol || '').trim();
+        if (!coinId || !symbol || !source.active) {
+            return {
+                active: false,
+                coin_id: coinId,
+                symbol: symbol,
+                packet_kind: 'settlement_epoch',
+                stage: 'inactive',
+                summary: '',
+                signals: [],
+                issues: []
+            };
+        }
+        var signals = [];
+        var issues = [];
+        var stage = 'report_clock_seed_only';
+        var nextContract = 'hold_door_raid_report_packet';
+        if (String(treasuryBridge.stage || '') === 'burn_support_live' || String(treasuryBridge.stage || '') === 'burn_support_ready') {
+            stage = 'report_clock_live';
+            signals.push('report clock live');
+        } else if (String(holderSnapshot.stage || '') === 'scoreboard_live' || String(raidContribution.stage || '') === 'storyboard_live') {
+            stage = 'report_clock_forming';
+            signals.push('report clock forming');
+        } else {
+            issues.push('report clock still cold');
+        }
+        if (String(treasuryBridge.settlement_asset || '') === 'SOL') signals.push('SOL reserve rail');
+        else issues.push('reserve asset unresolved');
+        return {
+            active: true,
+            coin_id: coinId,
+            symbol: symbol,
+            packet_kind: 'settlement_epoch',
+            epoch_id: 'settlement_epoch_packet_v1',
+            settlement_asset: String(treasuryBridge.settlement_asset || 'SOL'),
+            settlement_style: String(treasuryBridge.settlement_style || 'no_distribution'),
+            release_governance: 'none',
+            circuit_breaker_mode: 'hold_then_pause',
+            reserve_cover_target_epochs: 4,
+            macro_split_bps: _envCloneJson(distribution.macro_split_bps || {}, {
+                body: 4500,
+                raid: 2000,
+                shield: 2000,
+                forge: 1500
+            }),
+            epoch_clock: _envCloneJson(treasuryBridge.epoch_clock || distribution.settlement_clock || {}, {}),
+            game_clock: {
+                hourly: 'burn_pulse',
+                daily: 'operator_digest',
+                weekly: 'hold_door_report',
+                monthly: 'season_board',
+                quarterly: 'big_reset'
+            },
+            failure_watches: [
+                'overcomplication_spike',
+                'reserve_drain',
+                'proof_gap',
+                'burn_lane_cold',
+                'operator_homework_overload'
+            ],
+            stage: stage,
+            next_contract: nextContract,
+            public_line: 'The clocks now drive reports and burn-support reviews. There is no payout ceremony hiding behind this packet anymore.',
+            summary: _envProductCollapseText([
+                symbol,
+                'report clock',
+                stage.replace(/_/g, ' '),
+                'SOL reserve',
+                'weekly hold door report'
+            ].join(' / '), 180),
+            signals: signals.slice(0, 6),
+            issues: issues.slice(0, 6)
+        };
+    }
+
+    function _envBuildHoldDoorRaidReportPacket(reactor, measure, holderSnapshotPacket, raidContributionPacket, settlementEpochPacket) {
+        var source = reactor && typeof reactor === 'object' ? reactor : {};
+        var technolitMeasure = measure && typeof measure === 'object' ? measure : {};
+        var holderSnapshot = holderSnapshotPacket && typeof holderSnapshotPacket === 'object' ? holderSnapshotPacket : {};
+        var raidContribution = raidContributionPacket && typeof raidContributionPacket === 'object' ? raidContributionPacket : {};
+        var settlementEpoch = settlementEpochPacket && typeof settlementEpochPacket === 'object' ? settlementEpochPacket : {};
+        var coinId = String(source.coin_id || technolitMeasure.coin_id || '').trim();
+        var symbol = String(source.symbol || technolitMeasure.symbol || '').trim();
+        if (!coinId || !symbol || !source.active) {
+            return {
+                active: false,
+                coin_id: coinId,
+                symbol: symbol,
+                packet_kind: 'hold_door_raid_report',
+                stage: 'inactive',
+                summary: '',
+                signals: [],
+                issues: []
+            };
+        }
+        var signals = [];
+        var issues = [];
+        var stage = String(settlementEpoch.stage || 'report_clock_seed_only');
+        if (String(holderSnapshot.stage || '') === 'scoreboard_live' || String(holderSnapshot.stage || '') === 'guarded_scoreboard') signals.push('camp report lane live');
+        else issues.push('camp report lane pending');
+        if (String(raidContribution.stage || '') === 'storyboard_live') signals.push('raid report lane live');
+        else issues.push('raid report lane pending');
+        return {
+            active: true,
+            coin_id: coinId,
+            symbol: symbol,
+            packet_kind: 'hold_door_raid_report',
+            report_id: 'hold_door_raid_report_v1',
+            display_name: 'Hold Door Raid Report',
+            camp_label: String(holderSnapshot.camp_label || 'campers'),
+            raid_label: String(raidContribution.raid_label || 'guerrilla_specialists'),
+            custody_asset: 'report_signal',
+            stage: stage,
+            title_line: 'Hold the line. Feed the furnace. Raid the gap. Forge the next.',
+            cadence_line: 'hourly burn pulse / daily digest / weekly report / monthly board / quarterly season',
+            safety_line: 'If the read drifts or the reserve thins, Hold Door parks the show before pretending it owes anyone a payout.',
+            public_line: 'Same certificate for all. Report truth for each. Buyback burn keeps the idea hot while DKP lives in the report layer.',
+            summary: _envProductCollapseText([
+                symbol,
+                'Hold Door Raid Report',
+                'camp ' + String(holderSnapshot.stage || 'pending').replace(/_/g, ' '),
+                'raid ' + String(raidContribution.stage || 'pending').replace(/_/g, ' '),
+                'weekly report furnace'
+            ].join(' / '), 180),
+            signals: signals.slice(0, 6),
+            issues: issues.slice(0, 6)
+        };
+    }
+
+    function _envBuildThreatBountyPacket(reactor, measure, holderSnapshotPacket, settlementEpochPacket) {
+        var source = reactor && typeof reactor === 'object' ? reactor : {};
+        var technolitMeasure = measure && typeof measure === 'object' ? measure : {};
+        var holderSnapshot = holderSnapshotPacket && typeof holderSnapshotPacket === 'object' ? holderSnapshotPacket : {};
+        var settlementEpoch = settlementEpochPacket && typeof settlementEpochPacket === 'object' ? settlementEpochPacket : {};
+        var coinId = String(source.coin_id || technolitMeasure.coin_id || '').trim();
+        var symbol = String(source.symbol || technolitMeasure.symbol || '').trim();
+        if (!coinId || !symbol || !source.active) {
+            return {
+                active: false,
+                coin_id: coinId,
+                symbol: symbol,
+                packet_kind: 'threat_bounty',
+                stage: 'inactive',
+                summary: '',
+                signals: [],
+                issues: []
+            };
+        }
+        var signals = [];
+        var issues = [];
+        var threatTags = [];
+        var top10HolderPct = Number(source.top10_holder_pct || 0);
+        var snipersPct = Number(source.snipers_pct || 0);
+        var insidersPct = Number(source.insiders_pct || 0);
+        var rewardsUnclaimed = Number(source.creator_rewards_unclaimed_sol || 0);
+        var stage = 'watch_only';
+        if (top10HolderPct >= 55) threatTags.push('concentration_spike');
+        if (snipersPct >= 12) threatTags.push('sybil_or_snipe_pressure');
+        if (insidersPct >= 8) threatTags.push('insider_pressure');
+        if (rewardsUnclaimed < 0.2) threatTags.push('reserve_drain');
+        if (String(settlementEpoch.stage || '') === 'report_clock_live') signals.push('shield watch visible');
+        if (String(holderSnapshot.anti_snipe_band || '') === 'strict') signals.push('anti-snipe guard raised');
+        if (threatTags.length >= 2) {
+            stage = 'watch_hot';
+            issues.push('multiple threat fronts active');
+        } else if (threatTags.length === 1) {
+            stage = 'watch_adjacent';
+            signals.push('adjacent threat scout window open');
+        } else {
+            signals.push('shield watch quiet');
+        }
+        return {
+            active: true,
+            coin_id: coinId,
+            symbol: symbol,
+            packet_kind: 'threat_bounty',
+            bounty_id: 'shield_threat_jackpot_v1',
+            lane_family: 'shield',
+            jackpot_mode: 'parked',
+            adjacent_reward_mode: 'report_only',
+            verification_mode: 'manual_report_required',
+            critical_trigger_mode: 'hold_then_route',
+            panic_farming_penalty: 'enabled',
+            public_line: 'Threats still get surfaced, but the bounty cash logic is parked in potato mode. Find it, prove it, route it.',
+            active_threats: threatTags.slice(0, 6),
+            stage: stage,
+            summary: _envProductCollapseText([
+                symbol,
+                'shield watch',
+                stage.replace(/_/g, ' '),
+                threatTags.length ? ('threats ' + threatTags.join(',')) : 'threats quiet'
+            ].join(' / '), 180),
+            signals: signals.slice(0, 6),
+            issues: issues.slice(0, 6)
+        };
+    }
+
+    function _envBuildHoldDoorComediaPacket(reactor, measure, distributionPacket) {
+        var source = reactor && typeof reactor === 'object' ? reactor : {};
+        var technolitMeasure = measure && typeof measure === 'object' ? measure : {};
+        var distribution = distributionPacket && typeof distributionPacket === 'object' ? distributionPacket : {};
+        var coinId = String(source.coin_id || technolitMeasure.coin_id || '').trim();
+        var symbol = String(source.symbol || technolitMeasure.symbol || '').trim();
+        if (!coinId || !symbol || !source.active) {
+            return {
+                active: false,
+                coin_id: coinId,
+                symbol: symbol,
+                packet_kind: 'hold_door_comedia',
+                stage: 'inactive',
+                summary: '',
+                signals: [],
+                issues: []
+            };
+        }
+        var signals = [];
+        var issues = [];
+        var band = String(technolitMeasure.band || '').trim().toLowerCase();
+        var sideBias = String(source.recent_side_bias || '').trim().toLowerCase();
+        var flowPosture = String(source.flow_posture || '').trim().toLowerCase();
+        var burnGate = String(source.burn_gate || '').trim().toLowerCase();
+        var freshBuysCount = Number(source.fresh_buys_count || 0);
+        var bundlePressure = Number(source.bundles_pct || 0);
+        var stage = 'watch';
+        var mood = 'measured';
+        var reaction = 'idle';
+        var spamLevel = 1;
+        if (sideBias === 'sell' && (band === 'strained' || bundlePressure >= 30)) {
+            stage = 'red_candle';
+            mood = 'dying';
+            reaction = 'death';
+            spamLevel = 5;
+            issues.push('red candle pressure');
+        } else if (sideBias === 'sell') {
+            stage = 'bleeding';
+            mood = 'hurt';
+            reaction = 'hit';
+            spamLevel = 4;
+            issues.push('sell pressure live');
+        } else if (sideBias === 'buy' || freshBuysCount >= 20) {
+            stage = 'buy_surge';
+            mood = 'feral';
+            reaction = 'emote';
+            spamLevel = 5;
+            signals.push('buy surge live');
+        } else if (burnGate === 'await_agent_confirmation' || String(distribution.tokenized_agent_mode || '').trim().toLowerCase() === 'hourly_buyback_burn_live') {
+            stage = 'burn_hungry';
+            mood = 'hungry';
+            reaction = 'talk';
+            spamLevel = 3;
+            signals.push('burn lane hungry');
+        }
+        if (flowPosture) signals.push('flow ' + flowPosture.replace(/_/g, ' '));
+        var captionTokens = ['hold.', 'door.'];
+        if (stage === 'buy_surge') captionTokens = ['HOLD', 'door', 'HOLD', 'DOOR', 'hold'];
+        else if (stage === 'burn_hungry') captionTokens = ['hold', 'door', 'HOLD', 'door'];
+        else if (stage === 'bleeding') captionTokens = ['hold...', 'door...', 'hold.', 'door.'];
+        else if (stage === 'red_candle') captionTokens = ['hold...', 'HOLD...', 'door.', 'door...'];
+        var tempoBpm = stage === 'buy_surge' ? 136 : (stage === 'burn_hungry' ? 108 : (stage === 'red_candle' ? 54 : (stage === 'bleeding' ? 76 : 88)));
+        var audioSequence = captionTokens.map(function (token, index) {
+            var word = String(token || '').replace(/[^A-Za-z]/g, '').toLowerCase();
+            var emphasis = index === 0 ? 'lead' : (index <= 2 ? 'push' : 'echo');
+            return {
+                word: word,
+                text: String(token || ''),
+                beat_index: index,
+                emphasis: emphasis,
+                viseme: word === 'door' ? 'd-oh-r' : 'h-oh-ld',
+                sustain_ms: stage === 'red_candle' ? 520 : (stage === 'buy_surge' ? 180 : 320)
+            };
+        });
+        return {
+            active: true,
+            coin_id: coinId,
+            symbol: symbol,
+            packet_kind: 'hold_door_comedia',
+            engine_id: 'comedia_hold_door_v1',
+            persona_id: 'hold_door_suit',
+            stage: stage,
+            mood: mood,
+            reaction: reaction,
+            spam_level: spamLevel,
+            caption_mode: 'hold_door_only',
+            caption_line: captionTokens.join(' '),
+            caption_tokens: captionTokens.slice(0, 8),
+            audio_mode: 'hold_door_lexeme_sequence',
+            tempo_bpm: tempoBpm,
+            utterance_gap_ms: stage === 'buy_surge' ? 110 : (stage === 'red_candle' ? 420 : 220),
+            audio_sequence: audioSequence.slice(0, 8),
+            trajectory_trigger: sideBias || 'watch',
+            public_line: 'Hold Door only says hold and door. The reactor decides how emotional those two words become.',
+            summary: _envProductCollapseText([
+                symbol,
+                'hold door',
+                stage.replace(/_/g, ' '),
+                'react ' + reaction,
+                captionTokens.join(' ')
+            ].join(' / '), 180),
+            signals: signals.slice(0, 6),
+            issues: issues.slice(0, 6)
+        };
+    }
+
+    function _envMaybeDispatchHoldDoorComediaReaction(outputState) {
+        var packet = outputState && typeof outputState === 'object' && outputState.hold_door_comedia_packet && typeof outputState.hold_door_comedia_packet === 'object'
+            ? outputState.hold_door_comedia_packet
+            : null;
+        if (!(packet && packet.active)) {
+            _envHoldDoorComediaDispatchState.signature = '';
+            return false;
+        }
+        var runtimeState = typeof _envInhabitantRuntimeState === 'function' ? _envInhabitantRuntimeState() : null;
+        if (!(runtimeState && runtimeState.enabled)) return false;
+        var reaction = String(packet.reaction || '').trim().toLowerCase();
+        var stage = String(packet.stage || '').trim().toLowerCase();
+        if (!reaction || reaction === 'idle' || !stage || stage === 'watch') {
+            _envHoldDoorComediaDispatchState.signature = '';
+            _envHoldDoorComediaDispatchState.last_stage = stage;
+            _envHoldDoorComediaDispatchState.last_reaction = reaction;
+            return false;
+        }
+        var signature = [
+            String(packet.coin_id || '').trim(),
+            stage,
+            reaction,
+            String(packet.caption_line || '').trim()
+        ].join('|');
+        var now = Date.now();
+        if (_envHoldDoorComediaDispatchState.signature === signature) {
+            return false;
+        }
+        _envHoldDoorComediaDispatchState.signature = signature;
+        _envHoldDoorComediaDispatchState.last_dispatched_ts = now;
+        _envHoldDoorComediaDispatchState.last_stage = stage;
+        _envHoldDoorComediaDispatchState.last_reaction = reaction;
+        if (typeof _envQueueControl === 'function') {
+            _envQueueControl('character_play_reaction', JSON.stringify({
+                reaction: reaction,
+                loop: 'once',
+                priority: stage === 'red_candle' || stage === 'buy_surge' ? 'high' : 'normal',
+                interrupt_policy: 'replace'
+            }), 'assistant', 'hold door comedia auto reaction');
+        }
+        return true;
+    }
+
+    function _envResolveHoldDoorFacilityBoneId(preferredBoneId, fallbackBoneIds) {
+        var preferred = String(preferredBoneId || '').trim();
+        if (preferred && _envBuilderHasBone(_envBuilderSubject.bones || [], preferred)) return preferred;
+        var fallbacks = Array.isArray(fallbackBoneIds) ? fallbackBoneIds : [];
+        for (var i = 0; i < fallbacks.length; i += 1) {
+            var candidate = String(fallbacks[i] || '').trim();
+            if (candidate && _envBuilderHasBone(_envBuilderSubject.bones || [], candidate)) return candidate;
+        }
+        return '';
+    }
+
+    function _envBuildHoldDoorComediaPresentationPlan(packet) {
+        var stage = String((packet || {}).stage || '').trim().toLowerCase();
+        var torsoBoneId = _envResolveHoldDoorFacilityBoneId('chest', ['spine_02', 'spine_01', 'neck', 'hips']);
+        var headBoneId = _envResolveHoldDoorFacilityBoneId('head', ['neck', 'spine_02', 'chest']);
+        if (!torsoBoneId && !headBoneId) return null;
+        if (stage === 'buy_surge') {
+            return {
+                mode: 'full_body_summon',
+                select_bone_id: torsoBoneId || headBoneId,
+                display_scope: 'body',
+                isolated_chain: 'all',
+                clear_frame_override: true,
+                observer_view: 'iso_front',
+                body_region: 'full_body'
+            };
+        }
+        if (stage === 'burn_hungry' || stage === 'bleeding' || stage === 'red_candle') {
+            return {
+                mode: 'head_neck_callout',
+                select_bone_id: headBoneId || torsoBoneId,
+                display_scope: 'part_chain',
+                isolated_chain: headBoneId || torsoBoneId,
+                frame_bone_id: headBoneId || torsoBoneId,
+                frame_view: 'iso_front'
+            };
+        }
+        return {
+            mode: 'torso_watch',
+            select_bone_id: torsoBoneId || headBoneId,
+            display_scope: 'part_adjacent',
+            isolated_chain: 'all',
+            frame_bone_id: torsoBoneId || headBoneId,
+            frame_view: 'iso_front'
+        };
+    }
+
+    function _envMaybeApplyHoldDoorComediaFacility(outputState) {
+        var packet = outputState && typeof outputState === 'object' && outputState.hold_door_comedia_packet && typeof outputState.hold_door_comedia_packet === 'object'
+            ? outputState.hold_door_comedia_packet
+            : null;
+        if (!(packet && packet.active)) {
+            _envHoldDoorComediaDispatchState.presentation_signature = '';
+            _envHoldDoorComediaDispatchState.last_presentation_mode = '';
+            return false;
+        }
+        var runtimeState = typeof _envInhabitantRuntimeState === 'function' ? _envInhabitantRuntimeState() : null;
+        if (!(runtimeState && runtimeState.enabled && _envBuilderSubject.active)) return false;
+        var plan = _envBuildHoldDoorComediaPresentationPlan(packet);
+        if (!plan) return false;
+        var signature = [
+            String(packet.coin_id || '').trim(),
+            String(plan.mode || '').trim(),
+            String(plan.select_bone_id || '').trim(),
+            String(plan.display_scope || '').trim(),
+            String(plan.isolated_chain || '').trim(),
+            String(plan.frame_bone_id || '').trim(),
+            String(plan.frame_view || '').trim(),
+            String(plan.observer_view || '').trim(),
+            String(plan.body_region || '').trim()
+        ].join('|');
+        if (_envHoldDoorComediaDispatchState.presentation_signature === signature) {
+            return false;
+        }
+        var actor = 'assistant';
+        if (plan.select_bone_id) {
+            _envWorkbenchSelectBone(actor, 'hold door comedia facility select bone', JSON.stringify({
+                bone_id: plan.select_bone_id
+            }));
+        }
+        if (plan.display_scope && _envNormalizeBuilderDisplayScope(_envBuilderInteraction.part_display_scope || 'body') !== plan.display_scope) {
+            _envWorkbenchSetDisplayScope(actor, 'hold door comedia facility display scope', JSON.stringify({
+                part_display_scope: plan.display_scope
+            }));
+        }
+        var currentIsolatedChain = String(_envBuilderSubject.isolated_chain || '').trim();
+        if (String(plan.isolated_chain || '').trim().toLowerCase() === 'all') {
+            if (currentIsolatedChain) {
+                _envWorkbenchIsolateChain(actor, 'hold door comedia facility clear isolation', 'all');
+            }
+        } else if (plan.isolated_chain && currentIsolatedChain !== String(plan.isolated_chain || '').trim()) {
+            _envWorkbenchIsolateChain(actor, 'hold door comedia facility isolate chain', plan.isolated_chain);
+        }
+        if (plan.clear_frame_override && typeof _env3DClearWorkbenchFrameOverride === 'function') {
+            _env3DClearWorkbenchFrameOverride();
+        }
+        if (plan.frame_bone_id) {
+            _envWorkbenchFramePart(actor, 'hold door comedia facility frame part', JSON.stringify({
+                bone_id: plan.frame_bone_id,
+                view: plan.frame_view || 'iso_front'
+            }));
+        } else if (plan.observer_view && typeof _env3DAnimateCameraToObserverView === 'function') {
+            _env3DAnimateCameraToObserverView({
+                observer_view: plan.observer_view,
+                body_region: plan.body_region || 'full_body'
+            }, 'camera:hold_door_comedia_facility:' + String(plan.mode || ''));
+        }
+        _envHoldDoorComediaDispatchState.presentation_signature = signature;
+        _envHoldDoorComediaDispatchState.last_presentation_ts = Date.now();
+        _envHoldDoorComediaDispatchState.last_presentation_mode = String(plan.mode || '');
+        return true;
+    }
+
+    function _envBuildOutputState(sharedState, snapshot) {
+        var state = sharedState && typeof sharedState === 'object' ? sharedState : {};
+        var view = snapshot && typeof snapshot === 'object' ? snapshot : {};
+        var blackboard = view.blackboard && typeof view.blackboard === 'object' ? view.blackboard : {};
+        var working = blackboard.working_set && typeof blackboard.working_set === 'object' ? blackboard.working_set : {};
+        var queryThread = working.query_thread && typeof working.query_thread === 'object' ? working.query_thread : {};
+        var theater = view.theater && typeof view.theater === 'object' ? view.theater : {};
+        var focus = theater.focus && typeof theater.focus === 'object' ? theater.focus : {};
+        var weather = view.weather && typeof view.weather === 'object' ? view.weather : {};
+        var balance = view.balance && typeof view.balance === 'object' ? view.balance : {};
+        var worldProfile = view.world_profile && typeof view.world_profile === 'object' ? view.world_profile : {};
+        var runtime = view.runtime && typeof view.runtime === 'object' ? view.runtime : {};
+        var parity = view.parity && typeof view.parity === 'object' ? view.parity : {};
+        var staleFlags = view.stale_flags && typeof view.stale_flags === 'object' ? view.stale_flags : {};
+        var docs = view.docs && typeof view.docs === 'object' ? view.docs : (state.docs && typeof state.docs === 'object' ? state.docs : {});
+        var health = state.health && typeof state.health === 'object' ? state.health : {};
+        var comparison = state.comparison && typeof state.comparison === 'object' ? state.comparison : {};
+        var corroboration = view.corroboration && typeof view.corroboration === 'object' ? view.corroboration : {};
+        var reactor = view.technolit_reactor && typeof view.technolit_reactor === 'object' ? view.technolit_reactor : {};
+        var scene = state.scene && typeof state.scene === 'object' ? state.scene : {};
+        var ingress = state.ingress && typeof state.ingress === 'object' ? state.ingress : {};
+        var bus = state.bus && typeof state.bus === 'object' ? state.bus : {};
+        var operations = state.operations && typeof state.operations === 'object' ? state.operations : {};
+        var render = view.render && typeof view.render === 'object' ? view.render : {};
+        var equilibriumIssues = [];
+        var equilibriumSignals = [];
+        var driftIssues = [];
+        var equilibriumScore = 1.0;
+        var contaminatedSurfaces = _slotUniqueStrings(parity.contaminated_surfaces || []);
+        var missingSurfaces = _slotUniqueStrings(parity.missing_surfaces || []);
+        var nextReads = Array.isArray(queryThread.next_reads) ? queryThread.next_reads.slice(0, 4) : [];
+        var helpLane = Array.isArray(queryThread.help_lane) ? queryThread.help_lane.slice(0, 4) : [];
+        var priorityPivots = Array.isArray(queryThread.priority_pivots) ? queryThread.priority_pivots.slice(0, 6) : [];
+        var priorityPivotIds = priorityPivots.map(function (row) {
+            return String(((row || {}).pivot_id) || '').trim();
+        }).filter(Boolean);
+        var focusKey = String(focus.object_key || '').trim() || ((focus.kind || focus.id) ? (String(focus.kind || '').trim() + ':' + String(focus.id || '').trim()) : '');
+        var expectedDocsContext = String(theater.mode || '').trim().toLowerCase() === 'character' ? 'workbench' : 'scene';
+        var docsContextKind = String((docs || {}).context_kind || '').trim();
+        var docsContextAligned = !!(docsContextKind && docsContextKind === expectedDocsContext);
+        var docsBand = docsContextKind ? (docsContextAligned ? 'aligned' : 'mismatch') : 'empty';
+        var subjectKind = String(queryThread.subject_kind || '').trim();
+        var subjectId = String(queryThread.subject_id || '').trim();
+        var subjectKey = String(queryThread.subject_key || '').trim();
+        var subjectFocusMismatch = !!(
+            subjectKind && String(focus.kind || '').trim() && subjectKind !== String(focus.kind || '').trim()
+        ) || !!(
+            subjectId && String(focus.id || '').trim() && subjectId !== String(focus.id || '').trim()
+        );
+        var mirrorSync = _envLiveSyncDiagnosticSnapshot(Date.now());
+        var hasLiveMirror = !!(mirrorSync.has_live_state || _envMirrorState.sharedState || _envMirrorState.renderTruth || _envMirrorState.live);
+        var technolitMeasure = _envBuildTechnolitEquilibriumMeasure(reactor, focusKey);
+        var technolitDistributionPacket = _envBuildTechnolitDistributionPacket(reactor, technolitMeasure);
+        var technolitTreasuryBridgePacket = _envBuildTechnolitTreasuryBridgePacket(reactor, technolitMeasure, technolitDistributionPacket);
+        var holderSnapshotPacket = _envBuildHolderSnapshotPacket(reactor, technolitMeasure, technolitDistributionPacket, technolitTreasuryBridgePacket);
+        var raidContributionPacket = _envBuildRaidContributionPacket(reactor, technolitMeasure, technolitDistributionPacket, technolitTreasuryBridgePacket);
+        var settlementEpochPacket = _envBuildSettlementEpochPacket(reactor, technolitMeasure, technolitDistributionPacket, technolitTreasuryBridgePacket, holderSnapshotPacket, raidContributionPacket);
+        var holdDoorRaidReportPacket = _envBuildHoldDoorRaidReportPacket(reactor, technolitMeasure, holderSnapshotPacket, raidContributionPacket, settlementEpochPacket);
+        var threatBountyPacket = _envBuildThreatBountyPacket(reactor, technolitMeasure, holderSnapshotPacket, settlementEpochPacket);
+        var holdDoorComediaPacket = _envBuildHoldDoorComediaPacket(reactor, technolitMeasure, technolitDistributionPacket);
+        if (queryThread.sequence_id) equilibriumSignals.push('sequence live');
+        else {
+            equilibriumIssues.push('query sequence missing');
+            driftIssues.push('sequence missing');
+            equilibriumScore -= 0.12;
+        }
+        if (queryThread.current_pivot_id) equilibriumSignals.push('pivot ' + String(queryThread.current_pivot_id || ''));
+        else {
+            equilibriumIssues.push('pivot missing');
+            driftIssues.push('pivot missing');
+            equilibriumScore -= 0.1;
+        }
+        if (queryThread.objective_label || queryThread.objective_id) equilibriumSignals.push('objective ' + String(queryThread.objective_label || queryThread.objective_id || ''));
+        else {
+            equilibriumIssues.push('objective missing');
+            driftIssues.push('objective missing');
+            equilibriumScore -= 0.08;
+        }
+        if (subjectKey) equilibriumSignals.push('subject ' + subjectKey);
+        else {
+            equilibriumIssues.push('subject missing');
+            driftIssues.push('subject missing');
+            equilibriumScore -= 0.08;
+        }
+        if (staleFlags.mirror_lag) {
+            equilibriumIssues.push('mirror lag');
+            driftIssues.push('mirror lag');
+            equilibriumScore -= 0.14;
+        } else equilibriumSignals.push('mirror fresh');
+        if (staleFlags.bundle_mismatch) {
+            equilibriumIssues.push('bundle mismatch');
+            driftIssues.push('bundle mismatch');
+            equilibriumScore -= 0.12;
+        }
+        if (contaminatedSurfaces.length) {
+            equilibriumIssues.push('parity contamination: ' + contaminatedSurfaces.join(', '));
+            driftIssues.push('contaminated surfaces');
+            equilibriumScore -= Math.min(0.16, contaminatedSurfaces.length * 0.04);
+        } else equilibriumSignals.push('parity clean');
+        if (missingSurfaces.length) {
+            equilibriumIssues.push('missing surfaces: ' + missingSurfaces.join(', '));
+            driftIssues.push('missing surfaces');
+            equilibriumScore -= Math.min(0.16, missingSurfaces.length * 0.05);
+        }
+        if (!docsContextKind && expectedDocsContext === 'workbench') {
+            equilibriumIssues.push('docs context empty');
+            driftIssues.push('docs context empty');
+            equilibriumScore -= 0.08;
+        } else if (!docsContextAligned && docsContextKind) {
+            equilibriumIssues.push('docs context mismatch: expected ' + expectedDocsContext + ', saw ' + docsContextKind);
+            driftIssues.push('docs context mismatch');
+            equilibriumScore -= 0.14;
+        } else if (docsContextAligned) equilibriumSignals.push('docs ' + docsContextKind);
+        if (subjectFocusMismatch) {
+            equilibriumIssues.push('subject/focus mismatch');
+            driftIssues.push('subject/focus mismatch');
+            equilibriumScore -= 0.1;
+        } else if (subjectKey && focusKey) equilibriumSignals.push('focus matched');
+        if (!nextReads.length) {
+            equilibriumIssues.push('next read lane empty');
+            driftIssues.push('next reads empty');
+            equilibriumScore -= 0.05;
+        }
+        if (!hasLiveMirror) {
+            equilibriumIssues.push('live mirror cold');
+            equilibriumScore -= 0.08;
+        } else equilibriumSignals.push('mirror ' + String(mirrorSync.status || 'ok'));
+        equilibriumScore = Math.max(0, Math.min(1, equilibriumScore));
+        var equilibriumBand = equilibriumScore >= 0.85 ? 'aligned' : (equilibriumScore >= 0.65 ? 'watch' : 'strained');
+        var driftBand = driftIssues.length >= 4 ? 'high' : (driftIssues.length >= 2 ? 'watch' : 'low');
+        var sources = {
+            blackboard: {
+                ready: !!(blackboard && typeof blackboard === 'object' && Object.keys(blackboard).length),
+                row_count: Number(blackboard.row_count || 0),
+                families: Array.isArray(blackboard.families) ? blackboard.families.slice(0, 8) : []
+            },
+            text_theater_snapshot: {
+                ready: !!(view && typeof view === 'object' && Object.keys(view).length),
+                snapshot_timestamp: Number(view.snapshot_timestamp || 0),
+                source_timestamp: Number(view.source_timestamp || 0)
+            },
+            live_mirror: {
+                ready: hasLiveMirror,
+                status: String(mirrorSync.status || ''),
+                last_sync_age_ms: Number(mirrorSync.last_sync_age_ms || -1)
+            },
+            docs: {
+                ready: !!(docsContextKind || String((docs || {}).query || '').trim()),
+                context_kind: docsContextKind,
+                result_count: Number((docs || {}).result_count || 0)
+            },
+            corroboration: {
+                ready: !!(corroboration && typeof corroboration === 'object' && Object.keys(corroboration).length),
+                verdict: String((corroboration || {}).verdict || ''),
+                last_action: String((((corroboration || {}).last_action || {}).body) || '')
+            },
+            technolit_reactor: {
+                ready: !!technolitMeasure.active,
+                coin_id: String(technolitMeasure.coin_id || ''),
+                band: String(technolitMeasure.band || ''),
+                updated_ts: Number(reactor.updated_ts || 0)
+            }
+        };
+        var sourceKeys = Object.keys(sources);
+        var readySourceKeys = sourceKeys.filter(function (key) {
+            return !!((((sources || {})[key]) || {}).ready);
+        });
+        var missingSourceKeys = sourceKeys.filter(function (key) {
+            return !((((sources || {})[key]) || {}).ready);
+        });
+        var confidenceScore = Math.max(
+            0,
+            Math.min(
+                1,
+                0.35 + (readySourceKeys.length * 0.12) - (equilibriumIssues.length * 0.04) - (missingSourceKeys.length * 0.02)
+            )
+        );
+        var confidenceBand = confidenceScore >= 0.8 ? 'solid' : (confidenceScore >= 0.6 ? 'watch' : 'thin');
+        var gravityVector = balance.gravity_vector && typeof balance.gravity_vector === 'object'
+            ? _envCloneJson(balance.gravity_vector, null)
+            : { x: 0, y: -1, z: 0 };
+        var supportFrame = balance.support_frame && typeof balance.support_frame === 'object'
+            ? _envCloneJson(balance.support_frame, null)
+            : null;
+        var loadFieldEnabled = balance.load_field_enabled !== false;
+        var dispositionSignals = [];
+        var dispositionRisks = [];
+        var watchSignals = [];
+        var watchAlerts = [];
+        var propagationMode = 'settle';
+        if (weather.enabled) propagationMode = String(weather.flow_class || weather.kind || 'field');
+        else if (ingress.processing || ingress.queue_depth > 0) propagationMode = 'queued_transition';
+        else if (queryThread.status && String(queryThread.status || '').trim().toLowerCase() !== 'active') propagationMode = String(queryThread.status || 'hold');
+        else if (loadFieldEnabled && Number(balance.stability_risk || 0) >= 0.35) propagationMode = 'support_transfer';
+        var settlingBand = Number(balance.stability_risk || 0) >= 0.6
+            ? 'unstable'
+            : (Number(balance.stability_risk || 0) >= 0.3 || staleFlags.mirror_lag ? 'active' : 'settled');
+        var activationThreshold = weather.enabled
+            ? _envTextTheaterRound(Math.max(Number(weather.density || 0), Number(weather.turbulence || 0)), 3, 0)
+            : _envTextTheaterRound(Math.max(Number(balance.stability_risk || 0), ingress.processing ? 0.4 : 0), 3, 0);
+        var couplingSurfaces = _slotUniqueStrings([
+            weather.enabled ? 'weather' : '',
+            'balance',
+            'parity',
+            'live_mirror',
+            docsContextKind ? 'docs' : '',
+            queryThread.sequence_id ? 'blackboard' : '',
+            ingress.queue_depth || ingress.processing ? 'ingress' : ''
+        ]);
+        if (weather.enabled) dispositionSignals.push(String(weather.kind || 'field') + ' ' + String(weather.flow_class || 'flow'));
+        else dispositionSignals.push(loadFieldEnabled ? 'support field' : 'gravity only');
+        if (!loadFieldEnabled) dispositionSignals.push('load field disabled');
+        else if (Number(balance.stability_risk || 0) < 0.3) dispositionSignals.push('support margin stable');
+        else {
+            dispositionRisks.push('support risk ' + String(_envTextTheaterRound(balance.stability_risk, 3, 0)));
+            watchAlerts.push('support risk');
+        }
+        if (staleFlags.mirror_lag) {
+            dispositionRisks.push('mirror lag');
+            watchAlerts.push('mirror lag');
+        } else watchSignals.push('mirror fresh');
+        if (ingress.processing || ingress.queue_depth > 0) {
+            dispositionSignals.push('ingress active');
+            watchAlerts.push('queued ingress');
+        }
+        if (contaminatedSurfaces.length) {
+            dispositionRisks.push('contaminated surfaces');
+            watchAlerts.push('parity contamination');
+        }
+        if (missingSurfaces.length) {
+            dispositionRisks.push('missing surfaces');
+            watchAlerts.push('missing surfaces');
+        }
+        if (docsContextKind && !docsContextAligned) watchAlerts.push('docs mismatch');
+        if (queryThread.current_pivot_id) watchSignals.push('pivot ' + String(queryThread.current_pivot_id || ''));
+        if (queryThread.objective_label || queryThread.objective_id) watchSignals.push('objective ' + String(queryThread.objective_label || queryThread.objective_id || ''));
+        var panProbe = _envBuildPanProbe(state, view, mirrorSync);
+        if (panProbe.rotational_grounding) {
+            equilibriumSignals.push('pan rotational contact');
+            dispositionSignals.push('rotational contact');
+            watchSignals.push('pan ' + String(panProbe.band || 'active'));
+        }
+        if (String(panProbe.band || '') === 'mirror_lag') watchAlerts.push('pan mirror lag');
+        if (technolitMeasure.active) {
+            watchSignals.push('technolit ' + String(technolitMeasure.flow_posture || technolitMeasure.band || 'watch'));
+            if (String(technolitMeasure.band || '') !== 'aligned') {
+                watchAlerts.push('technolit ' + String(technolitMeasure.band || 'watch'));
+            }
+            if (Array.isArray(technolitMeasure.issues) && technolitMeasure.issues.length) {
+                equilibriumSignals.push('technolit ' + String(technolitMeasure.band || 'watch'));
+            } else {
+                equilibriumSignals.push('technolit balanced');
+            }
+        }
+        var watchBand = watchAlerts.length >= 4
+            ? 'intercept_now'
+            : (watchAlerts.length >= 2 || ingress.processing || staleFlags.mirror_lag ? 'track' : 'quiet');
+        var trackedEvents = [];
+        if (technolitMeasure.active) {
+            trackedEvents.push({
+                kind: 'technolit_measure',
+                band: String(technolitMeasure.band || 'watch'),
+                note: String(technolitMeasure.summary || ''),
+                source: 'technolit_reactor'
+            });
+        }
+        if (staleFlags.mirror_lag) {
+            trackedEvents.push({
+                kind: 'mirror_lag',
+                band: 'watch',
+                note: 'Live mirror is lagging behind the current snapshot.',
+                source: 'live_mirror'
+            });
+        }
+        if (docsContextKind && !docsContextAligned) {
+            trackedEvents.push({
+                kind: 'docs_context_mismatch',
+                band: 'watch',
+                note: 'Docs context diverges from the active theater mode.',
+                source: 'docs'
+            });
+        }
+        if (contaminatedSurfaces.length) {
+            trackedEvents.push({
+                kind: 'parity_contamination',
+                band: 'track',
+                note: 'Parity contamination is present on ' + contaminatedSurfaces.join(', '),
+                source: 'parity'
+            });
+        }
+        if (missingSurfaces.length) {
+            trackedEvents.push({
+                kind: 'missing_surfaces',
+                band: 'track',
+                note: 'Required surfaces are missing: ' + missingSurfaces.join(', '),
+                source: 'parity'
+            });
+        }
+        if (ingress.processing || ingress.queue_depth > 0) {
+            trackedEvents.push({
+                kind: 'ingress_pressure',
+                band: 'track',
+                note: 'Ingress queue depth ' + String(Number(ingress.queue_depth || 0)) + ' / current ' + String((((ingress || {}).current || {}).action) || 'n/a'),
+                source: 'ingress'
+            });
+        }
+        if (String(panProbe.band || '') && String(panProbe.band || '') !== 'idle') {
+            trackedEvents.push({
+                kind: 'pan_probe',
+                band: String(panProbe.band || 'track'),
+                note: String(panProbe.summary || ''),
+                source: 'output_state'
+            });
+        }
+        var fieldDisposition = {
+            medium_kind: weather.enabled ? String(weather.kind || 'field') : (loadFieldEnabled ? 'support_gravity' : 'gravity_only'),
+            profile_family: String((weather.profile_family || worldProfile.family || '') || ''),
+            profile_active: String((weather.profile_active || worldProfile.active || '') || ''),
+            propagation_mode: String(propagationMode || ''),
+            settling_band: String(settlingBand || ''),
+            activation_threshold: activationThreshold,
+            density: weather.enabled ? _envTextTheaterRound(weather.density, 3, 0) : null,
+            speed: weather.enabled ? _envTextTheaterRound(weather.speed, 3, 0) : null,
+            turbulence: weather.enabled ? _envTextTheaterRound(weather.turbulence, 3, 0) : null,
+            flow_bias: weather.enabled ? _envCloneJson(weather.direction || null, null) : null,
+            drift_bias: weather.enabled ? _envCloneJson(weather.drift || null, null) : null,
+            gravity_bias: gravityVector,
+            support_bias: {
+                phase: String(balance.support_phase || ''),
+                dominant_side: String(balance.dominant_side || ''),
+                stability_risk: _envTextTheaterRound(balance.stability_risk, 3, 0),
+                support_key: String(balance.support_key || ''),
+                support_kind: String(balance.support_kind || '')
+            },
+            support_frame: supportFrame,
+            coupled_surfaces: couplingSurfaces,
+            summary: _envProductCollapseText([
+                weather.enabled
+                    ? (String(weather.kind || 'field') + ' / ' + String(weather.flow_class || 'flow'))
+                    : ((loadFieldEnabled ? 'support' : 'gravity_only') + ' / ' + String(balance.support_phase || 'idle')),
+                'settle ' + settlingBand,
+                'risk ' + String(_envTextTheaterRound(balance.stability_risk, 3, 0)),
+                staleFlags.mirror_lag ? 'mirror lag' : 'mirror fresh'
+            ].join(' / '), 160),
+            signals: dispositionSignals.slice(0, 6),
+            risks: dispositionRisks.slice(0, 6)
+        };
+        var watchBoard = {
+            band: watchBand,
+            tracked_events: trackedEvents.slice(0, 6),
+            intercept_candidates: _envOutputStateLanePreview(nextReads, 4),
+            help_candidates: _envOutputStateLanePreview(helpLane, 3),
+            current_front: {
+                objective_id: String(queryThread.objective_id || ''),
+                objective_label: String(queryThread.objective_label || ''),
+                pivot_id: String(queryThread.current_pivot_id || ''),
+                focus_key: focusKey,
+                last_action: String(view.last_action || ''),
+                last_sync_reason: String(view.last_sync_reason || ''),
+                runtime_activity: String(runtime.activity || '')
+            },
+            queue_pressure: {
+                ingress_processing: !!ingress.processing,
+                ingress_queue_depth: Number(ingress.queue_depth || 0),
+                in_flight: !!mirrorSync.in_flight,
+                pending_sync: !!mirrorSync.queued,
+                bus_seq: Number(bus.seq || 0),
+                recent_operation_count: Number((((operations || {}).recent) || []).length || 0)
+            },
+            signals: watchSignals.slice(0, 6),
+            alerts: watchAlerts.slice(0, 6)
+        };
+        var placement = {
+            subject: subjectKey || focusKey || '',
+            objective: String(queryThread.objective_label || queryThread.objective_id || ''),
+            seam: String(queryThread.current_pivot_id || queryThread.objective_id || propagationMode || ''),
+            evidence: {
+                visible_read: String(queryThread.visible_read || ''),
+                anchor_row_ids: _slotUniqueStrings(queryThread.anchor_row_ids || []).slice(0, 6),
+                ready_sources: readySourceKeys.slice(0, 6)
+            },
+            drift: {
+                band: driftBand,
+                issues: driftIssues.slice(0, 4)
+            },
+            next: {
+                reads: _envOutputStateLanePreview(nextReads, 4),
+                help: _envOutputStateLanePreview(helpLane, 3)
+            }
+        };
+        var expectedRead = placement.next.reads && placement.next.reads.length ? String(placement.next.reads[0] || '') : '';
+        var helpAuthority = placement.next.help && placement.next.help.length ? String(placement.next.help[0] || '') : '';
+        var actualSurface = _envProductCollapseText([
+            String(queryThread.visible_read || ''),
+            String(render.last_tool_applied || ''),
+            String(view.last_sync_reason || '')
+        ].filter(Boolean).join(' / '), 160);
+        var correlatorReasons = [];
+        var correlatorRelation = 'match';
+        if (!queryThread.sequence_id || !queryThread.current_pivot_id || !subjectKey) {
+            correlatorRelation = 'break';
+            correlatorReasons.push('sequence spine incomplete');
+        } else if (staleFlags.bundle_mismatch) {
+            correlatorRelation = 'break';
+            correlatorReasons.push('bundle mismatch');
+        } else if (driftBand === 'high') {
+            correlatorRelation = 'drift';
+            correlatorReasons.push('high drift band');
+        } else if (staleFlags.mirror_lag || contaminatedSurfaces.length || missingSurfaces.length || subjectFocusMismatch || (docsContextKind && !docsContextAligned)) {
+            correlatorRelation = 'adjacent';
+            if (staleFlags.mirror_lag) correlatorReasons.push('mirror lag');
+            if (contaminatedSurfaces.length) correlatorReasons.push('parity contamination');
+            if (missingSurfaces.length) correlatorReasons.push('missing surfaces');
+            if (subjectFocusMismatch) correlatorReasons.push('subject/focus mismatch');
+            if (docsContextKind && !docsContextAligned) correlatorReasons.push('docs mismatch');
+        } else if (!expectedRead && helpAuthority) {
+            correlatorRelation = 'widen';
+            correlatorReasons.push('help lane active');
+        } else if (!expectedRead && !helpAuthority) {
+            correlatorRelation = 'widen';
+            correlatorReasons.push('next read lane empty');
+        } else {
+            correlatorReasons.push('sequence matched');
+        }
+        var correlatorGrade = correlatorRelation === 'match'
+            ? 'on_track'
+            : (correlatorRelation === 'widen'
+                ? 'wobble'
+                : (correlatorRelation === 'adjacent'
+                    ? 'drift'
+                    : correlatorRelation));
+        var returnPath = placement.next.reads && placement.next.reads.length
+            ? placement.next.reads.slice(0, 3)
+            : placement.next.help.slice(0, 2);
+        var continuityNeeded = correlatorRelation !== 'match' || !!staleFlags.mirror_lag || !!staleFlags.bundle_mismatch;
+        var continuitySeverity = continuityNeeded
+            ? ((correlatorRelation === 'break' || correlatorRelation === 'drift' || staleFlags.bundle_mismatch)
+                ? 'drill'
+                : (correlatorRelation === 'adjacent' ? 'warn' : 'nudge'))
+            : 'quiet';
+        var cueReasons = correlatorReasons.slice(0, 4);
+        if (!cueReasons.length && continuityNeeded) cueReasons.push('sequence posture changed');
+        var tinkerbellAttention = _envBuildTinkerbellAttention({
+            queryThread: queryThread,
+            watchBoard: watchBoard,
+            panProbe: panProbe,
+            balance: balance,
+            ingress: ingress,
+            staleFlags: staleFlags,
+            contaminatedSurfaces: contaminatedSurfaces,
+            missingSurfaces: missingSurfaces,
+            confidenceScore: confidenceScore,
+            subjectKey: subjectKey,
+            focusKey: focusKey,
+            docsContextKind: docsContextKind,
+            docsContextAligned: docsContextAligned,
+            expectedRead: expectedRead,
+            helpAuthority: helpAuthority,
+            continuityNeeded: continuityNeeded,
+            continuitySeverity: continuitySeverity,
+            returnPath: returnPath,
+            loadFieldEnabled: balance.load_field_enabled !== false,
+            subjectFocusMismatch: subjectFocusMismatch,
+            equilibriumBand: equilibriumBand,
+            driftBand: driftBand
+        });
+        var summary = _envProductCollapseText([
+            String(queryThread.objective_label || queryThread.objective_id || 'Output State'),
+            subjectKey || focusKey || 'no subject',
+            String(queryThread.current_pivot_id || 'no_pivot'),
+            equilibriumBand,
+            'drift ' + driftBand
+        ].filter(Boolean).join(' / '), 180);
+        return {
+            version: 1,
+            orientation_id: String(queryThread.sequence_id || focusKey || theater.mode || 'output_state'),
+            summary: summary,
+            desired: {
+                sequence_id: String(queryThread.sequence_id || ''),
+                segment_id: String(queryThread.segment_id || ''),
+                session_id: String(queryThread.session_id || ''),
+                current_pivot_id: String(queryThread.current_pivot_id || ''),
+                priority_pivots: priorityPivotIds,
+                objective_id: String(queryThread.objective_id || ''),
+                objective_label: String(queryThread.objective_label || ''),
+                subject_kind: subjectKind,
+                subject_id: subjectId,
+                subject_key: subjectKey,
+                anchor_row_ids: _slotUniqueStrings(queryThread.anchor_row_ids || []),
+                raw_state_guardrail: String(queryThread.raw_state_guardrail || '')
+            },
+            observed: {
+                theater_mode: String(theater.mode || ''),
+                visual_mode: String(theater.visual_mode || ''),
+                focus_kind: String(focus.kind || ''),
+                focus_id: String(focus.id || ''),
+                focus_key: focusKey,
+                docs_context_kind: docsContextKind,
+                docs_context_id: String((docs || {}).context_id || ''),
+                docs_query: String((docs || {}).query || ''),
+                parity_mode: String(parity.mode || ''),
+                parity_summary: String(parity.summary || ''),
+                render_stage_mode: String(((view.render || {}).stage_mode) || ''),
+                render_last_tool_applied: String(render.last_tool_applied || ''),
+                render_last_tool_source: String(render.last_tool_source || ''),
+                health_tone: String((health || {}).tone || ''),
+                latest_execution_id: String((comparison || {}).latest_execution_id || ''),
+                last_action: String(view.last_action || ''),
+                last_sync_reason: String(view.last_sync_reason || '')
+            },
+            derived: {
+                fixed_points: {
+                    sequence_id: String(queryThread.sequence_id || ''),
+                    pivot_id: String(queryThread.current_pivot_id || ''),
+                    objective_id: String(queryThread.objective_id || ''),
+                    subject_key: subjectKey,
+                    focus_key: focusKey,
+                    theater_mode: String(theater.mode || ''),
+                    docs_context_kind: docsContextKind
+                },
+                active_bands: {
+                    parity: String(parity.summary || parity.mode || 'unknown'),
+                    docs: docsBand,
+                    freshness: staleFlags.mirror_lag ? 'lagged' : 'fresh',
+                    health: String((health || {}).tone || 'idle')
+                },
+                lane_preview: {
+                    next_reads: _envOutputStateLanePreview(nextReads, 4),
+                    help_lane: _envOutputStateLanePreview(helpLane, 4)
+                },
+                source_ready: readySourceKeys,
+                source_missing: missingSourceKeys
+            },
+            placement: placement,
+            trajectory_correlator: {
+                intended: {
+                    sequence_id: String(queryThread.sequence_id || ''),
+                    pivot_id: String(queryThread.current_pivot_id || ''),
+                    objective: String(queryThread.objective_label || queryThread.objective_id || ''),
+                    subject_key: subjectKey || focusKey || '',
+                    expected_next: expectedRead,
+                    help_authority: helpAuthority
+                },
+                actual: {
+                    visible_read: String(queryThread.visible_read || ''),
+                    last_action: String(view.last_action || ''),
+                    last_sync_reason: String(view.last_sync_reason || ''),
+                    render_last_tool_applied: String(render.last_tool_applied || ''),
+                    render_last_tool_source: String(render.last_tool_source || ''),
+                    surface: actualSurface
+                },
+                correlation: {
+                    relation: correlatorRelation,
+                    reasons: correlatorReasons.slice(0, 6)
+                },
+                grade: correlatorGrade,
+                return_path: {
+                    reads: returnPath,
+                    prompt: continuityNeeded ? 'Run Continuity Drill' : 'Continue Current Sequence'
+                }
+            },
+            continuity_cue: {
+                needed: continuityNeeded,
+                severity: continuitySeverity,
+                reasons: cueReasons,
+                last_good_sequence: String(queryThread.sequence_id || ''),
+                next_action: continuityNeeded ? 'Run Continuity Drill' : 'Continue Current Sequence',
+                prompt: continuityNeeded ? 'run the continuity drill and pick up where we left off' : '',
+                recommended_reads: returnPath
+            },
+            tinkerbell_attention: tinkerbellAttention,
+            field_disposition: fieldDisposition,
+            pan_probe: panProbe,
+            watch_board: watchBoard,
+            technolit_distribution_packet: technolitDistributionPacket.active ? technolitDistributionPacket : {
+                active: false,
+                coin_id: '',
+                symbol: '',
+                packet_kind: 'technolit_distribution',
+                stage: 'inactive',
+                summary: '',
+                signals: [],
+                issues: []
+            },
+            technolit_treasury_bridge_packet: technolitTreasuryBridgePacket.active ? technolitTreasuryBridgePacket : {
+                active: false,
+                coin_id: '',
+                symbol: '',
+                packet_kind: 'technolit_treasury_bridge',
+                stage: 'inactive',
+                summary: '',
+                signals: [],
+                issues: []
+            },
+            holder_snapshot_packet: holderSnapshotPacket.active ? holderSnapshotPacket : {
+                active: false,
+                coin_id: '',
+                symbol: '',
+                packet_kind: 'holder_snapshot',
+                stage: 'inactive',
+                summary: '',
+                signals: [],
+                issues: []
+            },
+            raid_contribution_packet: raidContributionPacket.active ? raidContributionPacket : {
+                active: false,
+                coin_id: '',
+                symbol: '',
+                packet_kind: 'raid_contribution',
+                stage: 'inactive',
+                summary: '',
+                signals: [],
+                issues: []
+            },
+            settlement_epoch_packet: settlementEpochPacket.active ? settlementEpochPacket : {
+                active: false,
+                coin_id: '',
+                symbol: '',
+                packet_kind: 'settlement_epoch',
+                stage: 'inactive',
+                summary: '',
+                signals: [],
+                issues: []
+            },
+            hold_door_raid_report_packet: holdDoorRaidReportPacket.active ? holdDoorRaidReportPacket : {
+                active: false,
+                coin_id: '',
+                symbol: '',
+                packet_kind: 'hold_door_raid_report',
+                stage: 'inactive',
+                summary: '',
+                signals: [],
+                issues: []
+            },
+            hold_door_comedia_packet: holdDoorComediaPacket.active ? holdDoorComediaPacket : {
+                active: false,
+                coin_id: '',
+                symbol: '',
+                packet_kind: 'hold_door_comedia',
+                stage: 'inactive',
+                summary: '',
+                signals: [],
+                issues: []
+            },
+            threat_bounty_packet: threatBountyPacket.active ? threatBountyPacket : {
+                active: false,
+                coin_id: '',
+                symbol: '',
+                packet_kind: 'threat_bounty',
+                stage: 'inactive',
+                summary: '',
+                signals: [],
+                issues: []
+            },
+            equilibrium: {
+                band: equilibriumBand,
+                score: _envTextTheaterRound(equilibriumScore, 3, 0),
+                summary: _envProductCollapseText([
+                    'docs ' + docsBand,
+                    staleFlags.mirror_lag ? 'mirror lag' : 'mirror fresh',
+                    contaminatedSurfaces.length ? ('contaminated ' + contaminatedSurfaces.length) : 'parity clean'
+                ].join(' / '), 120),
+                signals: equilibriumSignals.slice(0, 6),
+                issues: equilibriumIssues.slice(0, 6),
+                technolit_measure: technolitMeasure.active ? technolitMeasure : {
+                    active: false,
+                    coin_id: '',
+                    symbol: '',
+                    band: 'quiet',
+                    score: 0,
+                    summary: '',
+                    signals: [],
+                    issues: []
+                }
+            },
+            drift: {
+                band: driftBand,
+                issues: driftIssues.slice(0, 6),
+                contaminated_surfaces: contaminatedSurfaces,
+                missing_surfaces: missingSurfaces,
+                expected_docs_context: expectedDocsContext,
+                actual_docs_context: docsContextKind
+            },
+            next_reads: _envCloneJson(nextReads, []),
+            receipts: {
+                last_action: String(view.last_action || ''),
+                last_sync_reason: String(view.last_sync_reason || ''),
+                command_sync_token: String(view.command_sync_token || ''),
+                active_doc: String((docs || {}).active_doc || ''),
+                latest_execution_id: String((comparison || {}).latest_execution_id || ''),
+                operation_count: Number((((state.operations || {}).recent) || []).length || 0)
+            },
+            freshness: {
+                snapshot_timestamp: Number(view.snapshot_timestamp || 0),
+                source_timestamp: Number(view.source_timestamp || 0),
+                age_ms: Math.max(0, Number(view.snapshot_timestamp || 0) - Number(view.source_timestamp || 0)),
+                mirror_lag: !!staleFlags.mirror_lag,
+                bundle_mismatch: !!staleFlags.bundle_mismatch,
+                live_sync_status: String(mirrorSync.status || ''),
+                live_sync_age_ms: Number(mirrorSync.last_sync_age_ms || -1)
+            },
+            confidence: {
+                band: confidenceBand,
+                score: _envTextTheaterRound(confidenceScore, 3, 0),
+                source_count: readySourceKeys.length,
+                missing_sources: missingSourceKeys
+            },
+            sources: sources
+        };
+    }
+
     function _envTextTheaterBoneTreeLines(bones, contacts) {
         var rows = Array.isArray(bones) ? bones.slice() : [];
         var contactMap = {};
@@ -32267,6 +36435,8 @@
         var embodiment = view.embodiment && typeof view.embodiment === 'object' ? view.embodiment : {};
         var balance = view.balance && typeof view.balance === 'object' ? view.balance : {};
         var timeline = view.timeline && typeof view.timeline === 'object' ? view.timeline : {};
+        var sequenceField = view.sequence_field && typeof view.sequence_field === 'object' ? view.sequence_field : {};
+        var reactor = view.technolit_reactor && typeof view.technolit_reactor === 'object' ? view.technolit_reactor : {};
         var parity = view.parity && typeof view.parity === 'object' ? view.parity : {};
         var semantic = view.semantic && typeof view.semantic === 'object' ? view.semantic : { summary: '', triplets: [] };
         var nowTs = Number(view.snapshot_timestamp || 0);
@@ -32372,6 +36542,40 @@
         lines.push('TIMELINE: cursor ' + _envTextTheaterRound(timeline.cursor, 3, 0)
             + ' / duration ' + _envTextTheaterRound(timeline.duration, 3, 0)
             + ' / ' + Number(timeline.key_pose_count || 0) + ' key poses');
+        if (sequenceField.active) {
+            lines.push('SEQUENCE: ' + String(sequenceField.summary || 'strike corridor active'));
+            if (String(sequenceField.resource_label || '').trim()) {
+                lines.push('  resource: ' + String(sequenceField.resource_label || '')
+                    + (String(sequenceField.resource_phase_label || '').trim() ? (' / ' + String(sequenceField.resource_phase_label || '')) : '')
+                    + (sequenceField.split_profile && typeof sequenceField.split_profile === 'object'
+                        ? (' / split ' + _envTextTheaterRound((sequenceField.split_profile || {}).split_span, 2, 0) + 'm')
+                        : ''));
+            }
+            if (Array.isArray(sequenceField.corridors) && sequenceField.corridors.length) {
+                lines.push('  lanes: ' + sequenceField.corridors.map(function (lane) {
+                    return String((lane && lane.side) || 'lane')
+                        + ' '
+                        + String((lane && lane.role) || sequenceField.stage || 'ready')
+                        + ' / impact '
+                        + _envTextTheaterRound((lane || {}).intensity, 2, 0);
+                }).join(' / '));
+            }
+        }
+        if (reactor.active) {
+            lines.push('TECHLIT: ' + String(reactor.summary || 'reactor active'));
+            lines.push('  trust ' + String(reactor.trust_posture || 'unknown')
+                + ' / distribution ' + String(reactor.distribution_posture || 'unknown')
+                + ' / burn ' + String(reactor.burn_gate || 'unknown'));
+            lines.push('  mcap $' + _envTextTheaterRound(reactor.market_cap_usd, 2, 0)
+                + ' / liq $' + _envTextTheaterRound(reactor.liquidity_usd, 2, 0)
+                + ' / curve ' + _envTextTheaterRound(reactor.bonding_curve_pct, 2, 0) + '%');
+            lines.push('  rewards ' + _envTextTheaterRound(reactor.creator_rewards_unclaimed_sol, 4, 0)
+                + ' SOL / fresh buys ' + Number(reactor.fresh_buys_count || 0)
+                + ' / fresh holding ' + _envTextTheaterRound(reactor.fresh_holding_pct, 2, 0) + '%');
+            lines.push('  dev ' + _envTextTheaterRound(reactor.dev_holding_pct, 2, 0)
+                + '% / top10 ' + _envTextTheaterRound(reactor.top10_holder_pct, 2, 0)
+                + '% / bundles ' + _envTextTheaterRound(reactor.bundles_pct, 2, 0) + '%');
+        }
         lines.push('SUMMARY: ' + String(semantic.summary || ''));
         return lines.join('\n');
     }
@@ -32552,12 +36756,14 @@
             theater: _envCloneJson(source.theater || {}, {}),
             scene: _envCloneJson(source.scene || {}, {}),
             render: _envCloneJson(source.render || {}, {}),
+            technolit_reactor: _envCloneJson(source.technolit_reactor || {}, {}),
             runtime: _envCompactTextTheaterRuntimeForCamera(source.runtime),
             workbench: _envCloneJson(source.workbench || {}, {}),
             embodiment: _envCloneJson(source.embodiment || {}, {}),
             balance: _envCloneJson(source.balance || {}, {}),
             contacts: _envCloneJson(source.contacts || [], []),
             timeline: _envCloneJson(source.timeline || {}, {}),
+            sequence_field: _envCloneJson(source.sequence_field || {}, {}),
             semantic: _envCloneJson(source.semantic || {}, {}),
             corroboration: _envCloneJson(source.corroboration || {}, {}),
             text_theater_control: _envCloneJson(source.text_theater_control || {}, {}),
@@ -32569,6 +36775,7 @@
     function _envBuildTextTheaterCameraSnapshotPatch(snapshot, camera3d, focusSnapshot, reason) {
         var source = snapshot && typeof snapshot === 'object' ? snapshot : {};
         var sourceTheater = source.theater && typeof source.theater === 'object' ? source.theater : {};
+        var sourceScene = source.scene && typeof source.scene === 'object' ? source.scene : {};
         var sourceFocus = sourceTheater.focus && typeof sourceTheater.focus === 'object' ? sourceTheater.focus : {};
         var now = Date.now();
         var commandSyncToken = String(
@@ -32579,8 +36786,8 @@
         ).trim();
         var cameraPosition = _envTextTheaterVectorObject((camera3d || {}).position, 3);
         var cameraTarget = _envTextTheaterVectorObject((camera3d || {}).target, 3);
-        var viewportWidth = Number((((_env3D.renderer || {}).domElement || {}).clientWidth) || (((((patched.scene || {}).viewport) || {}).width)) || 0);
-        var viewportHeight = Number((((_env3D.renderer || {}).domElement || {}).clientHeight) || (((((patched.scene || {}).viewport) || {}).height)) || 0);
+        var viewportWidth = Number((((_env3D.renderer || {}).domElement || {}).clientWidth) || ((((sourceScene || {}).viewport || {}).width)) || 0);
+        var viewportHeight = Number((((_env3D.renderer || {}).domElement || {}).clientHeight) || ((((sourceScene || {}).viewport || {}).height)) || 0);
         var cameraAspect = viewportWidth > 0 && viewportHeight > 0 ? Number((viewportWidth / viewportHeight).toFixed(4)) : 0;
         var cameraFov = Number((((_env3D.camera || {}).fov)) || 50);
         var cameraForward = _envTextTheaterNormalizeDirection({
@@ -32798,11 +37005,31 @@
         var workbenchSurface = theaterMode === 'character' ? rawWorkbenchSurface : null;
         var embodimentSurface = theaterMode === 'environment' ? null : rawWorkbenchSurface;
         var mountedMesh = _envMountedRuntimeMesh();
+        var mountedCharacterAssetRef = String(
+            (mountedRuntime && mountedRuntime.character_asset_ref)
+            || (mountedMesh && mountedMesh.userData && (mountedMesh.userData.assetRefApplied || mountedMesh.userData.assetRefRequested))
+            || ''
+        ).trim();
+        var mountedHasAssetClone = !!(mountedMesh && mountedMesh.userData && mountedMesh.userData.assetClone);
         var blueprint = embodimentSurface && embodimentSurface.builder_blueprint && typeof embodimentSurface.builder_blueprint === 'object'
             ? embodimentSurface.builder_blueprint
             : (_envBuilderSubject.active ? _envBuilderBlueprint(_envBuilderSubject) : null);
         var poseState = (_envBuilderSubject.active && theaterMode !== 'environment') ? _envBuilderPoseState() : _envNormalizeBuilderPoseState(null);
+        var timelineState = (_envBuilderSubject.active && theaterMode !== 'environment') ? _envBuilderTimelineState() : _envNormalizeBuilderTimelineState(null);
         var selectedBoneIds = embodimentSurface ? (embodimentSurface.selected_bone_ids || []) : [];
+        var workbenchSubjectMode = String((workbenchSurface || {}).subject_mode || '').trim().toLowerCase();
+        var workbenchInteractiveStage = theaterMode === 'character' && (
+            !!((embodimentSurface || {}).builder_active)
+            || !!((((workbenchSurface || {}).selection_visual_state) || {}).active)
+            || !!(selectedBoneIds && selectedBoneIds.length)
+            || !!((((workbenchSurface || {}).posed_bone_ids) || []).length)
+            || !!(((workbenchSurface || {}).selected_part_surface) && typeof ((workbenchSurface || {}).selected_part_surface) === 'object')
+        );
+        var quietWorkbenchStage = theaterMode === 'character'
+            && (workbenchSubjectMode === 'preset_skeleton' || workbenchSubjectMode === 'custom_skeleton')
+            && !mountedHasAssetClone
+            && !mountedCharacterAssetRef
+            && !workbenchInteractiveStage;
         var sceneObjects = _envRenderableObjectPool();
         var camera3d = shared.scene && shared.scene.camera3d && typeof shared.scene.camera3d === 'object'
             ? shared.scene.camera3d
@@ -32839,7 +37066,8 @@
             theaterVisualMode = String((mountedRuntime.visual_mode) || 'runtime_surface');
         }
         var parity = _envBuildTextTheaterParityState(theaterMode, focusState, mountedRuntime, rawWorkbenchSurface, selectedBoneIds, focusFallbackUsed);
-        var sceneBounds = _envTextTheaterSceneBounds(sceneObjects);
+        var sceneSubstrate = sceneProximityEnabled ? _envTextTheaterSceneSubstrate(theaterMode) : null;
+        var sceneBounds = _envTextTheaterSceneBounds(sceneObjects, sceneSubstrate);
         var sceneRenderableRows = sceneProximityEnabled
             ? sceneObjects.filter(function (obj) { return !_envIsMountedCharacterRuntimeObject(obj); })
             : [];
@@ -32856,11 +37084,13 @@
         var diagnostics = embodimentSurface && embodimentSurface.motion_diagnostics && typeof embodimentSurface.motion_diagnostics === 'object'
             ? embodimentSurface.motion_diagnostics
             : null;
+        var loadFieldEnabled = !!((workbenchSurface || {}).load_field_enabled);
         var loadField = embodimentSurface && embodimentSurface.load_field && typeof embodimentSurface.load_field === 'object'
             ? embodimentSurface.load_field
             : (diagnostics && diagnostics.load_field && typeof diagnostics.load_field === 'object'
                 ? diagnostics.load_field
                 : null);
+        var balanceLoadField = loadFieldEnabled ? loadField : null;
         var balanceContacts = Array.isArray((diagnostics || {}).contacts) ? diagnostics.contacts : [];
         var bundleVersion = String((renderTruth && renderTruth.bundle_version) || _envBundleVersion() || '');
         var lastSyncReason = String(_envLiveSyncState.lastAttemptReason || _envLiveSyncState.pendingReason || _envLiveSyncState.lastSkippedReason || '').trim();
@@ -32934,6 +37164,7 @@
             scene: {
                 object_count: Number((shared.scene || {}).object_count || sceneObjects.length || 0),
                 bounds: sceneBounds,
+                substrate: _envCloneJson(sceneSubstrate, null),
                 focus_object_key: sceneProximityEnabled && focusObject ? _envSceneObjectKey(focusObject) : '',
                 objects: sceneObjectRows,
                 focus_neighborhood: focusNeighborhood
@@ -32941,6 +37172,7 @@
             world_profile: _envCloneJson(worldProfileSurface, null),
             weather: _envCloneJson(weatherSurface, null),
             render: _envCloneJson(renderTruth, null),
+            technolit_reactor: _envCloneJson(shared.technolit_reactor, _envBuildTechnolitReactorSurface(_envTechnolitReactorState)),
             layout: _envCloneJson(layoutSnapshot, null),
             docs: _envCloneJson(shared.docs, null),
             navigation: _envCloneJson(shared.navigation, null),
@@ -32990,6 +37222,8 @@
                 controller_registry: _envCloneJson((workbenchSurface || {}).controller_registry, []),
                 pose_macro_registry_family: String((workbenchSurface || {}).pose_macro_registry_family || ''),
                 pose_macro_registry: _envCloneJson((workbenchSurface || {}).pose_macro_registry, []),
+                sequence_resource_registry_family: String((workbenchSurface || {}).sequence_resource_registry_family || ''),
+                sequence_resource_registry: _envCloneJson((workbenchSurface || {}).sequence_resource_registry, []),
                 active_controller: _envCloneJson((workbenchSurface || {}).active_controller, null),
                 route_report: _envCloneJson((workbenchSurface || {}).route_report, null),
                 maneuver_probe_history: _envCloneJson((workbenchSurface || {}).maneuver_probe_history, []),
@@ -33001,6 +37235,7 @@
                 preview_paused: !!((workbenchSurface || {}).preview_paused),
                 preview_loop: String((workbenchSurface || {}).preview_loop || ''),
                 preview_speed: _envTextTheaterRound((workbenchSurface || {}).preview_speed, 3, 0),
+                last_compiled_clip: String((workbenchSurface || {}).last_compiled_clip || ''),
                 load_field_enabled: !!((workbenchSurface || {}).load_field_enabled),
                 support_contact_targets: _slotUniqueStrings((workbenchSurface || {}).support_contact_targets || []),
                 support_contact_stage: _envCloneJson((workbenchSurface || {}).support_contact_stage, null),
@@ -33029,72 +37264,73 @@
             },
             balance: {
                 support_phase: String((diagnostics || {}).support_phase || ''),
-                com: loadField && loadField.center_of_mass ? _envTextTheaterVectorObject(loadField.center_of_mass, 4) : { x: 0, y: 0, z: 0 },
-                projected_com: loadField && loadField.projected_center_of_mass
+                load_field_enabled: loadFieldEnabled,
+                com: balanceLoadField && balanceLoadField.center_of_mass ? _envTextTheaterVectorObject(balanceLoadField.center_of_mass, 4) : { x: 0, y: 0, z: 0 },
+                projected_com: balanceLoadField && balanceLoadField.projected_center_of_mass
                     ? {
-                        x: _envTextTheaterRound((loadField.projected_center_of_mass || {}).x, 4, 0),
-                        z: _envTextTheaterRound((loadField.projected_center_of_mass || {}).z, 4, 0)
+                        x: _envTextTheaterRound((balanceLoadField.projected_center_of_mass || {}).x, 4, 0),
+                        z: _envTextTheaterRound((balanceLoadField.projected_center_of_mass || {}).z, 4, 0)
                     }
                     : { x: 0, z: 0 },
-                support_polygon: Array.isArray((loadField || {}).support_polygon)
-                    ? (loadField.support_polygon || []).map(function (point) {
+                support_polygon: Array.isArray((balanceLoadField || {}).support_polygon)
+                    ? (balanceLoadField.support_polygon || []).map(function (point) {
                         return {
                             x: _envTextTheaterRound((point || {}).x, 4, 0),
                             z: _envTextTheaterRound((point || {}).z, 4, 0)
                         };
                     })
                     : [],
-                stability_margin: _envTextTheaterRound((loadField || {}).stability_margin, 4, 0),
-                normalized_margin: _envTextTheaterRound((loadField || {}).normalized_margin, 4, 0),
-                stability_risk: _envTextTheaterRound((loadField || {}).stability_risk, 4, 0),
-                inside_polygon: !!((loadField || {}).inside_support_polygon),
-                support_key: String((((loadField || {}).support || {}).support_key) || ''),
-                support_kind: String((((loadField || {}).support || {}).support_kind) || ''),
-                support_y: _envTextTheaterRound((((loadField || {}).support || {}).support_y), 4, 0),
-                support_count: Number((loadField || {}).support_count || 0),
-                support_span: _envTextTheaterRound((loadField || {}).support_span, 4, 0),
-                support_side_loads: _envCloneJson((loadField || {}).support_side_loads || null, null),
-                foot_support_loads: _envCloneJson((loadField || {}).foot_support_loads || null, null),
-                nearest_edge: loadField && loadField.nearest_edge
+                stability_margin: _envTextTheaterRound((balanceLoadField || {}).stability_margin, 4, 0),
+                normalized_margin: _envTextTheaterRound((balanceLoadField || {}).normalized_margin, 4, 0),
+                stability_risk: _envTextTheaterRound((balanceLoadField || {}).stability_risk, 4, 0),
+                inside_polygon: loadFieldEnabled ? !!((balanceLoadField || {}).inside_support_polygon) : true,
+                support_key: String((((balanceLoadField || {}).support || {}).support_key) || ''),
+                support_kind: String((((balanceLoadField || {}).support || {}).support_kind) || ''),
+                support_y: _envTextTheaterRound((((balanceLoadField || {}).support || {}).support_y), 4, 0),
+                support_count: Number((balanceLoadField || {}).support_count || 0),
+                support_span: _envTextTheaterRound((balanceLoadField || {}).support_span, 4, 0),
+                support_side_loads: _envCloneJson((balanceLoadField || {}).support_side_loads || null, null),
+                foot_support_loads: _envCloneJson((balanceLoadField || {}).foot_support_loads || null, null),
+                nearest_edge: balanceLoadField && balanceLoadField.nearest_edge
                     ? {
-                        kind: String(((loadField.nearest_edge || {}).kind) || ''),
-                        index: Number(((loadField.nearest_edge || {}).index) || 0),
-                        distance: _envTextTheaterRound(((loadField.nearest_edge || {}).distance), 4, 0),
+                        kind: String(((balanceLoadField.nearest_edge || {}).kind) || ''),
+                        index: Number(((balanceLoadField.nearest_edge || {}).index) || 0),
+                        distance: _envTextTheaterRound(((balanceLoadField.nearest_edge || {}).distance), 4, 0),
                         midpoint: {
-                            x: _envTextTheaterRound((((loadField.nearest_edge || {}).midpoint || {}).x), 4, 0),
-                            z: _envTextTheaterRound((((loadField.nearest_edge || {}).midpoint || {}).z), 4, 0)
+                            x: _envTextTheaterRound((((balanceLoadField.nearest_edge || {}).midpoint || {}).x), 4, 0),
+                            z: _envTextTheaterRound((((balanceLoadField.nearest_edge || {}).midpoint || {}).z), 4, 0)
                         }
                     }
                     : null,
-                gravity_vector: loadField && loadField.gravity_vector
-                    ? _envTextTheaterVectorObject(loadField.gravity_vector, 4)
+                gravity_vector: balanceLoadField && balanceLoadField.gravity_vector
+                    ? _envTextTheaterVectorObject(balanceLoadField.gravity_vector, 4)
                     : { x: 0, y: -1, z: 0 },
-                support_frame: loadField && loadField.support_frame
+                support_frame: balanceLoadField && balanceLoadField.support_frame
                     ? {
-                        origin: _envTextTheaterVectorObject(((loadField.support_frame || {}).origin), 4),
-                        normal: _envTextTheaterVectorObject(((loadField.support_frame || {}).normal), 4),
-                        up: _envTextTheaterVectorObject(((loadField.support_frame || {}).up), 4),
-                        axis_x: _envTextTheaterVectorObject(((loadField.support_frame || {}).axis_x), 4),
-                        axis_z: _envTextTheaterVectorObject(((loadField.support_frame || {}).axis_z), 4)
+                        origin: _envTextTheaterVectorObject(((balanceLoadField.support_frame || {}).origin), 4),
+                        normal: _envTextTheaterVectorObject(((balanceLoadField.support_frame || {}).normal), 4),
+                        up: _envTextTheaterVectorObject(((balanceLoadField.support_frame || {}).up), 4),
+                        axis_x: _envTextTheaterVectorObject(((balanceLoadField.support_frame || {}).axis_x), 4),
+                        axis_z: _envTextTheaterVectorObject(((balanceLoadField.support_frame || {}).axis_z), 4)
                     }
                     : null,
-                projected_com_world: loadField && loadField.projected_com_world
-                    ? _envTextTheaterVectorObject(loadField.projected_com_world, 4)
+                projected_com_world: balanceLoadField && balanceLoadField.projected_com_world
+                    ? _envTextTheaterVectorObject(balanceLoadField.projected_com_world, 4)
                     : { x: 0, y: 0, z: 0 },
-                support_polygon_world: Array.isArray((loadField || {}).support_polygon_world)
-                    ? (loadField.support_polygon_world || []).map(function (point) {
+                support_polygon_world: Array.isArray((balanceLoadField || {}).support_polygon_world)
+                    ? (balanceLoadField.support_polygon_world || []).map(function (point) {
                         return _envTextTheaterVectorObject(point, 4);
                     })
                     : [],
-                balance_mode: String((loadField || {}).balance_mode || ''),
-                dominant_side: String((loadField || {}).dominant_support_side || 'balanced'),
+                balance_mode: loadFieldEnabled ? String((balanceLoadField || {}).balance_mode || '') : 'load_field_disabled',
+                dominant_side: String((balanceLoadField || {}).dominant_support_side || 'balanced'),
                 supporting_joint_ids: _slotUniqueStrings((diagnostics || {}).supporting_ids || []),
                 alert_ids: _slotUniqueStrings((diagnostics || {}).alerts || []),
                 assertion: _envCloneJson((embodimentSurface || {}).balance_assertion, null)
             },
             contacts: balanceContacts.map(function (contact) {
                 var patch = ((contact || {}).contact_patch) || {};
-                var supportY = Number((patch || {}).support_y || ((((loadField || {}).support || {}).support_y) || 0));
+                var supportY = Number((patch || {}).support_y || ((((balanceLoadField || {}).support || {}).support_y) || 0));
                 return {
                     joint: String((contact || {}).bone_id || (contact || {}).canonical_joint || ''),
                     state: String((contact || {}).state || ''),
@@ -33139,11 +37375,20 @@
         };
         snapshot.scene.focus_object_visual = _envTextTheaterSceneObjectVisual(focusObject);
         if (!snapshot.render || typeof snapshot.render !== 'object') snapshot.render = {};
-        snapshot.render.workbench_stage_guide = theaterMode === 'character' ? _envTextTheaterWorkbenchGuideVisual() : null;
+        if (theaterMode === 'character') {
+            snapshot.render.stage_mode = 'workbench';
+            if (String(snapshot.render.primary_reason || '').trim().toLowerCase() === 'scene_primary') {
+                snapshot.render.primary_reason = 'workbench_subject';
+            }
+        }
+        snapshot.render.workbench_stage_quiet = quietWorkbenchStage;
+        snapshot.render.workbench_stage_quiet_reason = quietWorkbenchStage ? 'skeleton_only_builder_subject' : '';
+        snapshot.render.workbench_stage_guide = theaterMode === 'character' && !quietWorkbenchStage ? _envTextTheaterWorkbenchGuideVisual() : null;
         snapshot.render.focus_object_visual = _envTextTheaterSceneObjectVisual(focusObject);
-        snapshot.render.selection_palette = theaterMode === 'character'
+        snapshot.render.selection_palette = theaterMode === 'character' && !quietWorkbenchStage
             ? _envCloneJson((((workbenchSurface || {}).selection_visual_state) || {}), null)
             : null;
+        snapshot.sequence_field = _envBuildTextTheaterSequenceField(snapshot, timelineState);
         snapshot.semantic = _envBuildTextTheaterSemantic(snapshot);
         snapshot.blackboard = _envBuildBlackboardState(snapshot);
         return snapshot;
@@ -33162,6 +37407,26 @@
         }
         var desired = _envNormalizeWorkbenchBooleanTarget(targetId);
         var current = !!mesh.userData._scaffoldVisible;
+        if (_envBuilderSubject.active && desired === false && _env3DBuilderMustPreserveScaffold(mesh)) {
+            if (_envBuilderSubject.scaffold_projection) _envBuilderSubject.scaffold_projection.enabled = true;
+            if (!current) {
+                _env3DBuildProceduralScaffold(mesh, _envBuilderSubject);
+                _envBuilderSubject._scaffoldVisible = !!mesh.userData._scaffoldVisible;
+                _envBuilderApplyIsolationToMesh(mesh);
+                _env3DStageBuilderSubjectForWorkbench(mesh, mesh.userData._builderSubjectGroup || null);
+            }
+            _envLogAction('character_runtime', 'Workbench scaffold kept on: no mounted asset is available for builder mode', actorName, {
+                action: 'workbench_set_scaffold',
+                target: String(targetId || ''),
+                scaffold_visible: !!mesh.userData._scaffoldVisible,
+                reason: String(reason || 'control workbench scaffold')
+            });
+            _envRefreshInhabitantRuntimeState('workbench_set_scaffold');
+            _envScheduleLiveSync('workbench_set_scaffold:on', true);
+            _envSetBadge('running', 'SCAFF LOCK');
+            renderEnvironmentView();
+            return true;
+        }
         if (desired !== null && desired === current) {
             _envRefreshInhabitantRuntimeState('workbench_set_scaffold');
             _envScheduleLiveSync('workbench_set_scaffold:' + (current ? 'on' : 'off'), true);
@@ -34472,13 +38737,15 @@
     function _envClearSceneWorkflowResidue(sceneSnapshotName) {
         var changed = false;
         var sceneLabel = String(sceneSnapshotName || _envScenePrimarySnapshotName() || 'scene');
-        var sceneContextId = String(_envSceneDocContextId() || sceneLabel || 'scene');
+        var primaryDocContext = _envScenePrimaryDocContext();
+        var primaryDocContextKind = String((primaryDocContext && primaryDocContext.kind) || 'scene');
+        var primaryDocContextId = String((primaryDocContext && primaryDocContext.id) || _envSceneDocContextId() || sceneLabel || 'scene');
         var focus = _envKernel.focus && typeof _envKernel.focus === 'object' ? _envKernel.focus : null;
         var focusKind = String((focus && focus.kind) || '').toLowerCase();
         var focusId = String((focus && focus.id) || '').trim();
         var activeLaneFocus = _envActiveLaneFocus();
-        var sceneDocContext = String(_envDocState.contextKind || '') === 'scene'
-            && String(_envDocState.contextId || '') === sceneContextId;
+        var sceneDocContext = String(_envDocState.contextKind || '') === primaryDocContextKind
+            && String(_envDocState.contextId || '') === primaryDocContextId;
         var preserveSceneDocFocus = !!(sceneDocContext
             && focus
             && String(focus.kind || '').toLowerCase() === 'doc'
@@ -44527,6 +48794,15 @@
         }
         var wrap = document.createElement('div');
         wrap.className = 'env-theme-stack';
+        wrap.innerHTML =
+            '<div class="envops-overlay-panel-head env-theme-overlay-head" data-env-overlay-handle>' +
+                '<span class="envops-overlay-panel-title">World Profile</span>' +
+                '<div class="envops-overlay-panel-actions">' +
+                    '<button type="button" class="btn-dim envops-overlay-mini-btn" data-env-action="reset-overlay-panel" data-env-overlay-id="profile" title="Reset panel position">↺</button>' +
+                    '<button type="button" class="btn-dim envops-overlay-mini-btn" data-env-action="toggle-overlay-panel" data-env-overlay-id="profile" title="Minimize panel">–</button>' +
+                    '<button type="button" class="btn-dim envops-overlay-mini-btn" data-env-action="dismiss-overlay-panel" data-env-overlay-id="profile" title="Hide panel">×</button>' +
+                '</div>' +
+            '</div>';
         var profileControl = document.createElement('div');
         profileControl.className = 'env-theme-profile-control';
         var profileOptions = ['<option value="">None</option>'];
@@ -44612,6 +48888,7 @@
         }
         wrap.appendChild(waterControl);
         container.appendChild(wrap);
+        _envBindOverlayPanel('profile', '.env-theme-stack');
         _env3D.themePicker = null;
         _env3D.themePickerWrap = wrap;
         _env3D.worldProfileControl = profileControl;
@@ -47909,6 +52186,7 @@
         mesh.userData.assetLoadToken = Number(mesh.userData.assetLoadToken || 0) + 1;
         var clone = mesh.userData.assetClone || null;
         _envCharacterResetLocomotionBlend(mesh);
+        _env3DDisposeHoldDoorAccessories(mesh);
         _env3DDisposeWorkbenchRuntimeHelpers(mesh);
         _env3DDisposeAgentSprite(mesh);
         if (mesh.userData._boundMixer
@@ -48535,6 +52813,7 @@
                     ? stableWorkbenchBounds.clone()
                     : null;
             }
+            _env3DApplyHoldDoorAccessories(mesh, obj);
             _env3DSetPrimitiveOpacity(mesh, 0);
             _env3DApplyAssetState(
                 mesh,
@@ -48946,6 +53225,14 @@
         }).filter(Boolean);
         if (snapshots.length < 2) return null;
         var requestedMode = _envNormalizeBuilderGizmoMode(_envBuilderInteraction.gizmo_mode || 'rotate');
+        var rootBoneIds = activeController && Array.isArray(activeController.root_bone_ids) && activeController.root_bone_ids.length
+            ? activeController.root_bone_ids.slice(0)
+            : _env3DBuilderSelectionPivotRootBoneIds(entries);
+        var mirrorTargetBoneIds = _envBuilderControllerMirrorTargetBoneIds(_envBuilderSubject.bones || [], activeController);
+        if (String((activeController && activeController.controller_kind) || '').trim() === 'mirror_pair' && mirrorTargetBoneIds.length) {
+            // Mirror-pair rotations should target the mirrored limb roots, not the shared carrier root.
+            rootBoneIds = mirrorTargetBoneIds;
+        }
         var translationCarrierIds = activeController && Array.isArray(activeController.translation_carrier_ids) && activeController.translation_carrier_ids.length
             ? activeController.translation_carrier_ids.slice(0)
             : _env3DBuilderSelectionPivotTranslationCarrierIds(entries);
@@ -48953,9 +53240,7 @@
             controller_id: String((activeController && activeController.controller_id) || '').trim(),
             controller_kind: String((activeController && activeController.controller_kind) || '').trim(),
             selected_bone_ids: snapshots.map(function (entry) { return String(entry.bone_id || '').trim(); }).filter(Boolean),
-            root_bone_ids: activeController && Array.isArray(activeController.root_bone_ids) && activeController.root_bone_ids.length
-                ? activeController.root_bone_ids.slice(0)
-                : _env3DBuilderSelectionPivotRootBoneIds(entries),
+            root_bone_ids: rootBoneIds,
             translation_carrier_ids: translationCarrierIds,
             leader_bone_ids: _envCloneJson((activeController && activeController.leader_bone_ids) || [], []),
             anchor_bone_ids: _envCloneJson((activeController && activeController.anchor_bone_ids) || [], []),
@@ -49014,7 +53299,10 @@
                 entry.bone.position.copy(entry.position).add(deltaPosition);
             } else {
                 if (!rootIds[boneId] || entry.mode === 'translate') return;
-                entry.bone.quaternion.copy(entry.quaternion).multiply(deltaQuaternion);
+                var appliedDelta = String(snapshot.controller_kind || '').trim() === 'mirror_pair'
+                    ? _envBuilderMirrorPairDeltaQuaternion(deltaQuaternion, boneId)
+                    : deltaQuaternion;
+                entry.bone.quaternion.copy(entry.quaternion).multiply(appliedDelta);
             }
             if (typeof entry.bone.updateMatrix === 'function') entry.bone.updateMatrix();
             if (typeof entry.bone.updateWorldMatrix === 'function') entry.bone.updateWorldMatrix(false, true);
@@ -50276,6 +54564,121 @@
             if (!found && node && node.isBone === true && String(node.name || '') === target) found = node;
         });
         return found;
+    }
+
+    function _env3DIsHoldDoorAccessoryAsset(mesh, obj) {
+        if (typeof THREE === 'undefined' || !mesh || !mesh.userData || !mesh.userData.assetClone) return false;
+        if (!_envIsMountedCharacterRuntimeObject(obj)) return false;
+        var ref = String(
+            mesh.userData.assetRefApplied
+            || mesh.userData.assetRefRequested
+            || (((_envSceneAppearanceForObject(obj) || {}).asset_ref) || '')
+            || ''
+        ).trim().toLowerCase();
+        return ref === '/static/assets/packs/os3a-tomb-chaser/ghostarmature.glb';
+    }
+
+    function _env3DDisposeHoldDoorAccessories(mesh) {
+        if (!mesh || !mesh.userData) return;
+        var accessories = Array.isArray(mesh.userData._holdDoorAccessories) ? mesh.userData._holdDoorAccessories : [];
+        accessories.forEach(function (node) {
+            if (!node) return;
+            if (node.parent) node.parent.remove(node);
+            _env3DDisposeSceneResources(node);
+        });
+        mesh.userData._holdDoorAccessories = null;
+    }
+
+    function _env3DCreateHoldDoorAccessoryMesh(kind, colorHex, position, rotation, scale) {
+        if (typeof THREE === 'undefined') return null;
+        var geometry = null;
+        var mesh = null;
+        var normalizedKind = String(kind || 'tuft').trim().toLowerCase();
+        if (normalizedKind === 'beard_tip') geometry = new THREE.ConeGeometry(0.06, 0.18, 5);
+        else if (normalizedKind === 'scrag') geometry = new THREE.ConeGeometry(0.045, 0.16, 4);
+        else geometry = new THREE.IcosahedronGeometry(0.08, 0);
+        mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({
+            color: Number(colorHex || 0x1e1510),
+            roughness: 0.98,
+            metalness: 0.02
+        }));
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        mesh.position.set(
+            Number((position || [])[0] || 0),
+            Number((position || [])[1] || 0),
+            Number((position || [])[2] || 0)
+        );
+        mesh.rotation.set(
+            Number((rotation || [])[0] || 0),
+            Number((rotation || [])[1] || 0),
+            Number((rotation || [])[2] || 0)
+        );
+        mesh.scale.set(
+            Math.max(0.01, Number((scale || [])[0] || 1)),
+            Math.max(0.01, Number((scale || [])[1] || 1)),
+            Math.max(0.01, Number((scale || [])[2] || 1))
+        );
+        return mesh;
+    }
+
+    function _env3DApplyHoldDoorAccessories(mesh, obj) {
+        if (typeof THREE === 'undefined' || !mesh || !mesh.userData || !mesh.userData.assetClone) return false;
+        _env3DDisposeHoldDoorAccessories(mesh);
+        if (!_env3DIsHoldDoorAccessoryAsset(mesh, obj)) return false;
+        var clone = mesh.userData.assetClone;
+        var jointMap = mesh.userData._canonicalJointMap || {};
+        var headBone = _env3DFindBoneByName(clone, jointMap.head || '')
+            || _env3DFindBoneByName(clone, 'Head')
+            || _env3DFindFirstBone(clone);
+        var neckBone = _env3DFindBoneByName(clone, jointMap.neck || '')
+            || _env3DFindBoneByName(clone, 'Neck')
+            || headBone;
+        if (!headBone) return false;
+
+        var accessories = [];
+        var hairGroup = new THREE.Group();
+        hairGroup.name = '__hold_door_hair__';
+        hairGroup.userData._envHelper = 'hold_door_accessory';
+        hairGroup.position.set(0, 0.05, -0.005);
+        [
+            { kind: 'tuft', pos: [0, 0.11, -0.01], rot: [0.02, 0, 0.04], scale: [1.35, 1.2, 1.05] },
+            { kind: 'tuft', pos: [0.09, 0.08, -0.02], rot: [0.08, 0.18, -0.12], scale: [1.0, 1.05, 0.95] },
+            { kind: 'tuft', pos: [-0.09, 0.08, -0.02], rot: [0.08, -0.18, 0.12], scale: [1.0, 1.05, 0.95] },
+            { kind: 'tuft', pos: [0, 0.05, -0.09], rot: [0.18, 0, 0], scale: [1.4, 1.0, 1.1] },
+            { kind: 'scrag', pos: [0.13, 0.02, -0.05], rot: [0.3, 0.32, -0.36], scale: [0.9, 1.1, 0.9] },
+            { kind: 'scrag', pos: [-0.13, 0.02, -0.05], rot: [0.3, -0.32, 0.36], scale: [0.9, 1.1, 0.9] },
+            { kind: 'scrag', pos: [0.05, 0.12, -0.06], rot: [0.14, 0.12, -0.24], scale: [0.75, 1.0, 0.75] },
+            { kind: 'scrag', pos: [-0.05, 0.12, -0.06], rot: [0.14, -0.12, 0.24], scale: [0.75, 1.0, 0.75] }
+        ].forEach(function (spec) {
+            var tuft = _env3DCreateHoldDoorAccessoryMesh(spec.kind, 0x1e1510, spec.pos, spec.rot, spec.scale);
+            if (tuft) hairGroup.add(tuft);
+        });
+        headBone.add(hairGroup);
+        accessories.push(hairGroup);
+
+        var beardGroup = new THREE.Group();
+        beardGroup.name = '__hold_door_beard__';
+        beardGroup.userData._envHelper = 'hold_door_accessory';
+        beardGroup.position.set(0, -0.035, 0.045);
+        [
+            { kind: 'tuft', pos: [0, -0.01, 0.02], rot: [0.42, 0, 0], scale: [1.2, 1.15, 0.95] },
+            { kind: 'tuft', pos: [0.055, 0.01, 0.04], rot: [0.34, 0.18, -0.18], scale: [0.95, 1.0, 0.82] },
+            { kind: 'tuft', pos: [-0.055, 0.01, 0.04], rot: [0.34, -0.18, 0.18], scale: [0.95, 1.0, 0.82] },
+            { kind: 'beard_tip', pos: [0, -0.12, 0.03], rot: [Math.PI * 0.58, 0, 0], scale: [0.95, 1.18, 0.8] },
+            { kind: 'scrag', pos: [0.085, -0.085, 0.02], rot: [Math.PI * 0.52, 0.24, -0.28], scale: [0.92, 1.22, 0.92] },
+            { kind: 'scrag', pos: [-0.085, -0.085, 0.02], rot: [Math.PI * 0.52, -0.24, 0.28], scale: [0.92, 1.22, 0.92] },
+            { kind: 'scrag', pos: [0.11, -0.01, 0.03], rot: [Math.PI * 0.44, 0.16, -0.2], scale: [0.66, 0.9, 0.66] },
+            { kind: 'scrag', pos: [-0.11, -0.01, 0.03], rot: [Math.PI * 0.44, -0.16, 0.2], scale: [0.66, 0.9, 0.66] }
+        ].forEach(function (spec) {
+            var tuft = _env3DCreateHoldDoorAccessoryMesh(spec.kind, 0x24160f, spec.pos, spec.rot, spec.scale);
+            if (tuft) beardGroup.add(tuft);
+        });
+        neckBone.add(beardGroup);
+        accessories.push(beardGroup);
+
+        mesh.userData._holdDoorAccessories = accessories;
+        return true;
     }
 
     function _env3DScaffoldFirstChildBone(bone) {
@@ -52198,6 +56601,21 @@
         mesh.userData._scaffoldVisible = false;
     }
 
+    function _env3DBuilderHasVisibleBodyAsset(mesh, fallbackAssetRef) {
+        var fallback = String(fallbackAssetRef || '').trim();
+        if (!mesh || !mesh.userData) return !!fallback;
+        return !!(
+            fallback
+            || String(mesh.userData.assetRefApplied || '').trim()
+            || String(mesh.userData.assetRefRequested || '').trim()
+            || mesh.userData.assetClone
+        );
+    }
+
+    function _env3DBuilderMustPreserveScaffold(mesh, fallbackAssetRef) {
+        return !!_envBuilderSubject.active && !_env3DBuilderHasVisibleBodyAsset(mesh, fallbackAssetRef);
+    }
+
     function _env3DToggleWorkbenchScaffold() {
         var mesh = _envMountedRuntimeMesh();
         if (!mesh || !mesh.userData) return false;
@@ -53481,6 +57899,7 @@
             '<div class="envops-overlay-panel-actions">' +
             '<button type="button" class="btn-dim envops-overlay-mini-btn" data-env-action="reset-overlay-panel" data-env-overlay-id="hud" title="Reset panel position">↺</button>' +
             '<button type="button" class="btn-dim envops-overlay-mini-btn" data-env-action="toggle-overlay-panel" data-env-overlay-id="hud" title="Minimize panel">–</button>' +
+            '<button type="button" class="btn-dim envops-overlay-mini-btn" data-env-action="dismiss-overlay-panel" data-env-overlay-id="hud" title="Hide panel">×</button>' +
             '</div>' +
             '</div>' +
             '<div class="envops-habitat-hud-primary" id="envops-habitat-hud-primary">' + _esc(hudCopy.primary) + '</div>' +
@@ -53494,6 +57913,7 @@
             '<div class="envops-overlay-panel-actions">' +
             '<button type="button" class="btn-dim envops-overlay-mini-btn" data-env-action="reset-overlay-panel" data-env-overlay-id="cockpit" title="Reset panel position">↺</button>' +
             '<button type="button" class="btn-dim envops-overlay-mini-btn" data-env-action="toggle-overlay-panel" data-env-overlay-id="cockpit" title="Minimize panel">–</button>' +
+            '<button type="button" class="btn-dim envops-overlay-mini-btn" data-env-action="dismiss-overlay-panel" data-env-overlay-id="cockpit" title="Hide panel">×</button>' +
             '</div>' +
             '</div>' +
             '<div class="envops-habitat-scene-cockpit-head"><span>Camera</span><span>' + _esc(cameraMode) + '</span></div>' +
@@ -55020,6 +59440,10 @@
         return String(_envScenePrimarySnapshotName() || 'scene').trim();
     }
 
+    function _envWorkbenchDocContextId() {
+        return String(_envSceneDocContextId() || 'scene').trim() + '::workbench';
+    }
+
     function _envSceneDocQuery() {
         if (!_envUseScenePrimaryMode()) return '';
         var parts = [];
@@ -55053,13 +59477,67 @@
         return parts.slice(0, 48).join(' ');
     }
 
+    function _envWorkbenchDocQuery() {
+        if (!_envUseScenePrimaryMode()) return '';
+        var workbench = _envCharacterWorkbenchSummary();
+        if (!workbench || typeof workbench !== 'object') return '';
+        var parts = [];
+        function pushPart(value) {
+            var text = String(value || '').trim();
+            if (!text) return;
+            if (parts.indexOf(text) === -1) parts.push(text);
+        }
+        var blueprint = workbench.builder_blueprint && typeof workbench.builder_blueprint === 'object' ? workbench.builder_blueprint : {};
+        var selectedBone = workbench.selected_bone && typeof workbench.selected_bone === 'object' ? workbench.selected_bone : {};
+        var activeController = workbench.active_controller && typeof workbench.active_controller === 'object' ? workbench.active_controller : {};
+        var routeReport = workbench.route_report && typeof workbench.route_report === 'object' ? workbench.route_report : {};
+        pushPart(_envWorkbenchDocContextId());
+        pushPart('character workbench');
+        pushPart('builder subject');
+        pushPart(workbench.subject_mode);
+        pushPart(workbench.builder_family);
+        pushPart(workbench.editing_mode);
+        pushPart(workbench.part_display_scope);
+        pushPart(workbench.part_view);
+        pushPart(blueprint.anchor_bone);
+        pushPart(selectedBone.id || workbench.selected_bone_id);
+        pushPart(selectedBone.label || selectedBone.id);
+        (Array.isArray(workbench.selected_bone_ids) ? workbench.selected_bone_ids : []).slice(0, 6).forEach(pushPart);
+        pushPart(activeController.controller_id || activeController.label);
+        pushPart(routeReport.pose_macro_id || routeReport.support_topology_label || routeReport.active_phase_label);
+        pushPart(workbench.title);
+        pushPart(workbench.subtitle);
+        return parts.slice(0, 48).join(' ');
+    }
+
+    function _envScenePrimaryDocContext() {
+        if (!_envUseScenePrimaryMode()) return null;
+        if (_envTheaterMode() === 'character') {
+            return {
+                kind: 'workbench',
+                id: _envWorkbenchDocContextId(),
+                query: _envWorkbenchDocQuery(),
+                workflow: null
+            };
+        }
+        return {
+            kind: 'scene',
+            id: _envSceneDocContextId(),
+            query: _envSceneDocQuery(),
+            workflow: null
+        };
+    }
+
     function _envCurrentDocContext() {
         // When panel owns attention, docs should reflect panel content
         if (_envHtmlPanelState.active && _envHtmlPanelState.objectKey) {
             var panelLabel = String(_envHtmlPanelState.title || '');
             var panelMeta = String(_envHtmlPanelState.subtitle || '');
             var panelQuery = [panelLabel, panelMeta].filter(Boolean).join(' ');
-            if (!panelQuery) panelQuery = _envSceneDocQuery();
+            if (!panelQuery) {
+                var primaryDocContext = _envScenePrimaryDocContext();
+                panelQuery = primaryDocContext ? String(primaryDocContext.query || '') : _envSceneDocQuery();
+            }
             return {
                 kind: 'panel',
                 id: String(_envHtmlPanelState.objectKey || ''),
@@ -55067,14 +59545,8 @@
                 workflow: null
             };
         }
-        if (_envUseScenePrimaryMode()) {
-            return {
-                kind: 'scene',
-                id: _envSceneDocContextId(),
-                query: _envSceneDocQuery(),
-                workflow: null
-            };
-        }
+        var primaryContext = _envScenePrimaryDocContext();
+        if (primaryContext) return primaryContext;
         var workflow = _wfLoadedDef && String(_wfLoadedDef.id || '') === String(_wfSelectedId || '') ? _wfLoadedDef : null;
         if (workflow) {
             return {
@@ -55190,6 +59662,8 @@
         var countEl = document.getElementById('envops-doc-count');
         if (!docsEl) return;
         if (countEl) countEl.textContent = String(_envDocState.results.length);
+        var contextKindLabel = _envTextTheaterTitle(String(_envDocState.contextKind || 'shell')) || 'Shell';
+        var contextKindLower = contextKindLabel.toLowerCase();
         var canonicalRound = _envExtractSceneRound([
             _envHtmlPanelState.subtitle,
             _envHtmlPanelState.html,
@@ -55204,8 +59678,8 @@
         }
         var evidenceHeader =
             '<div class="envops-focus-card" style="margin-bottom:12px;">' +
-            '<div class="envops-focus-head"><div class="envops-focus-title">Related Evidence</div><div class="envops-focus-meta">' + _esc(String(_envDocState.contextKind || 'scene').toUpperCase()) + ' · ' + String(_envDocState.results.length) + ' results</div></div>' +
-            '<div class="envops-focus-meta">These materials corroborate the current scene context. They should help explain the live loop, not compete with the clerk console for authority.</div>' +
+            '<div class="envops-focus-head"><div class="envops-focus-title">Related Evidence</div><div class="envops-focus-meta">' + _esc(contextKindLabel.toUpperCase()) + ' · ' + String(_envDocState.results.length) + ' results</div></div>' +
+            '<div class="envops-focus-meta">These materials corroborate the current ' + _esc(contextKindLower) + ' context. They should help explain the live loop, not compete with the clerk console for authority.</div>' +
             '<div class="envops-chip-row" style="margin-top:10px;">' +
             '<span class="envops-chip">' + _esc('context ' + String(_envDocState.contextId || _envScenePrimarySnapshotName() || 'scene')) + '</span>' +
             '<span class="envops-chip">' + _esc(activeDocKey ? ('active ' + _envProductCollapseText(activeDocKey, 44)) : 'active none') + '</span>' +
@@ -55214,7 +59688,7 @@
             '<div class="envops-kernel-note" style="margin-top:10px;">' + _esc(evidenceNotes.join(' ')) + '</div>' +
             '</div>';
         if (_envDocState.pendingSearch) {
-            docsEl.innerHTML = evidenceHeader + '<div class="envops-stage-empty">Scanning FelixBag docs for the current environment context…</div>';
+            docsEl.innerHTML = evidenceHeader + '<div class="envops-stage-empty">Scanning FelixBag docs for the current ' + _esc(contextKindLower) + ' context…</div>';
             return;
         }
         if (!_envDocState.results.length) {
@@ -55309,16 +59783,27 @@
     }
 
     function _envTraceRows(limit) {
+        var safeLimit = Math.max(1, parseInt(limit, 10) || 8);
         var workflowId = String(_wfSelectedId || '');
-        if (!workflowId) return [];
         var exec = _envCurrentExecution();
         var executionId = exec ? String(exec.execution_id || '') : '';
         var rows = [];
-        for (var i = _activityLog.length - 1; i >= 0; i--) {
-            var event = _activityLog[i];
-            if (!_envTraceMatches(event, workflowId, executionId)) continue;
-            rows.push(event);
-            if (rows.length >= limit) break;
+        if (workflowId) {
+            for (var i = _activityLog.length - 1; i >= 0; i--) {
+                var event = _activityLog[i];
+                if (!_envTraceMatches(event, workflowId, executionId)) continue;
+                rows.push(event);
+                if (rows.length >= safeLimit) break;
+            }
+        }
+        if (rows.length) return rows;
+        for (var j = _activityLog.length - 1; j >= 0; j--) {
+            var fallbackEvent = _activityLog[j];
+            if (!fallbackEvent || typeof fallbackEvent !== 'object') continue;
+            if (fallbackEvent.hiddenFromActivity || String(fallbackEvent.source || '') === 'hydration') continue;
+            if (!_activityTraceDescriptor(fallbackEvent)) continue;
+            rows.push(fallbackEvent);
+            if (rows.length >= safeLimit) break;
         }
         return rows;
     }
@@ -55327,26 +59812,59 @@
         var traceList = document.getElementById('envops-trace-list');
         var countEl = document.getElementById('envops-trace-count');
         if (!traceList) return;
-        if (countEl) countEl.textContent = String(rows.length);
+        var traceStats = _collectActivityTraceStats(rows);
+        var chainCount = _countUniqueTraceIds(rows);
+        if (countEl) countEl.textContent = chainCount > 0 ? (String(rows.length) + ' / ' + String(chainCount) + ' chains') : String(rows.length);
         if (!rows.length) {
             traceList.innerHTML = '<div class="envops-trace-entry"><div class="envops-trace-body">No workflow-linked trace rows yet. Execute a system or surface it through the existing runtime.</div></div>';
             return;
         }
-        traceList.innerHTML = rows.map(function (event) {
+        traceList.innerHTML = rows.map(function (event, index) {
             var when = event.time ? _fmtTimeAgo(event.time) : 'now';
             var preview = formatToolOutput(_normalizeToolPayload(event.result || null));
             var body = event.error ? ('ERROR: ' + event.error) : _envSafeJsonText(preview, 320).trim();
             var args = event.args || {};
             var meta = [];
+            var trace = _activityTraceDescriptor(event);
+            var traceStyle = '';
+            var traceToggle = '<span class="envops-trace-toggle placeholder"></span>';
+            var traceChain = '';
+            if (trace) {
+                var safeTraceColor = String(trace.color || '').replace(/["'<>]/g, '');
+                var chain = traceStats && traceStats[trace.id] ? traceStats[trace.id] : null;
+                var chainSize = chain ? parseInt(chain.count, 10) || 0 : 0;
+                if (chainSize > 1) meta.push('chain ' + String(chainSize));
+                if (trace.seq !== null) meta.push('seq #' + String(trace.seq));
+                if (trace.role) meta.push('flow ' + String(trace.role));
+                if (trace.flowLabel) meta.push('path ' + String(trace.flowLabel));
+                if (trace.shortId) meta.push('trace ' + String(trace.shortId));
+                traceStyle =
+                    ' style="border-left-color:' + safeTraceColor + ';box-shadow:inset 0 0 0 1px ' + safeTraceColor + '22;background-image:linear-gradient(90deg, ' + safeTraceColor + '16, rgba(0,0,0,0) 34%);"';
+                traceToggle =
+                    '<button class="envops-trace-toggle" data-env-action="focus-trace" data-env-trace-index="' + String(index) + '"' +
+                    ' title="Focus trace" style="--env-trace-color:' + safeTraceColor + ';background:' + safeTraceColor + ';"></button>';
+                if (chainSize > 1) {
+                    traceChain =
+                        '<button class="envops-trace-chain" data-env-action="focus-trace" data-env-trace-index="' + String(index) + '"' +
+                        ' title="Focus trace chain" style="--env-trace-color:' + safeTraceColor + ';background:' + safeTraceColor + ';box-shadow:0 0 0 1px ' + safeTraceColor + '44, 0 0 18px ' + safeTraceColor + '22;">' +
+                        'CHAIN ' + String(chainSize) + '</button>';
+                }
+            }
             if (args._workflow_execution_id) meta.push('exec ' + _activityTokenShort(args._workflow_execution_id, 18));
             if (args._workflow_node_id) meta.push('node ' + _activityTokenShort(args._workflow_node_id, 18));
             if (event.durationMs > 0) meta.push(String(event.durationMs) + 'ms');
-            return '<div class="envops-trace-entry" data-env-action="focus-trace" data-env-trace-index="' + String(rows.indexOf(event)) + '">' +
+            return '<div class="envops-trace-entry focusable' + (trace ? ' trace-linked' : '') + '"' + traceStyle + ' data-env-action="focus-trace" data-env-trace-index="' + String(index) + '">' +
                 '<div class="envops-trace-head">' +
+                traceToggle +
+                '<div class="envops-trace-head-main">' +
                 '<span class="envops-trace-tool">' + _esc(String(event.tool || 'event')) + '</span>' +
+                traceChain +
+                '</div>' +
                 '<span class="envops-trace-time">' + _esc(when) + '</span>' +
                 '</div>' +
-                (meta.length ? '<div class="envops-trace-meta">' + _esc(meta.join(' · ')) + '</div>' : '') +
+                (meta.length ? '<div class="envops-trace-meta">' + meta.map(function (item) {
+                    return '<span class="envops-trace-chip">' + _esc(String(item || '')) + '</span>';
+                }).join('') + '</div>' : '') +
                 '<div class="envops-trace-body">' + _esc(body || 'No result body.') + '</div>' +
                 '</div>';
         }).join('');
@@ -56515,7 +61033,7 @@
             _envEnsurePersistedSceneBootstrap('scene-primary', false);
             _envEnsureSceneSnapshotIdentity('scene-primary', false);
             var sceneSnapshotName = _envScenePrimarySnapshotName();
-            var sceneContextId = _envSceneDocContextId();
+            var sceneDocContext = _envScenePrimaryDocContext();
             var sceneAuditHtml = _envRenderSceneAuditWarningsHtml();
             _envClearSceneWorkflowResidue(sceneSnapshotName);
             var sceneWorkflowId = String(_envFocusedWorkflowId() || '').trim();
@@ -56525,7 +61043,9 @@
             var traces = sceneWorkflowId ? _envTraceRows(8) : [];
             var sections = _envArtifactSections();
             var sceneCanonical = _envSceneCanonicalState(sceneSnapshotName, sceneWorkflowId, sceneWorkflowMeta);
-            if (String(_envDocState.contextKind || '') !== 'scene' || String(_envDocState.contextId || '') !== String(sceneContextId || 'scene')) {
+            if (!sceneDocContext
+                || String(_envDocState.contextKind || '') !== String(sceneDocContext.kind || '')
+                || String(_envDocState.contextId || '') !== String(sceneDocContext.id || 'scene')) {
                 _envRefreshDocs('scene switch', 'system', true);
             }
             var preserveSceneStage = !!((!_envStageUiState.forceStageRebuild && (_env3D.inited || _env3D.manualControlActive || _envOpsRailInteractionActive() || _envOpsRailPinned()) && stageEl.querySelector('#envops-habitat-shell')));
@@ -61435,27 +65955,45 @@
                     var toggleOverlayId = String(actionEl.getAttribute('data-env-overlay-id') || '').trim();
                     if (toggleOverlayId) {
                         var toggleState = _envOverlayPanelState(toggleOverlayId);
-                        _envSetOverlayPanelState(toggleOverlayId, { minimized: !toggleState.minimized });
-                        _envStageUiState.forceStageRebuild = true;
-                        renderEnvironmentView();
+                        var nextMinimized = !toggleState.minimized;
+                        var toggleDelayMs = _envOverlayPanelAutoRestoreDelayMs(toggleOverlayId);
+                        _envUpdateOverlayPanel(
+                            toggleOverlayId,
+                            {
+                                minimized: nextMinimized,
+                                restoreAtMs: nextMinimized && toggleDelayMs > 0 ? (Date.now() + toggleDelayMs) : null
+                            },
+                            'overlay:' + toggleOverlayId + ':toggle'
+                        );
+                    }
+                    return;
+                }
+                if (action === 'toggle-overlay-compact') {
+                    var compactOverlayId = String(actionEl.getAttribute('data-env-overlay-id') || '').trim();
+                    if (compactOverlayId) {
+                        var compactState = _envOverlayPanelState(compactOverlayId);
+                        _envUpdateOverlayPanel(compactOverlayId, { compact: !compactState.compact }, 'overlay:' + compactOverlayId + ':compact');
                     }
                     return;
                 }
                 if (action === 'restore-overlay-panel') {
                     var restoreOverlayId = String(actionEl.getAttribute('data-env-overlay-id') || '').trim();
                     if (restoreOverlayId) {
-                        _envSetOverlayPanelState(restoreOverlayId, { minimized: false });
-                        _envStageUiState.forceStageRebuild = true;
-                        renderEnvironmentView();
+                        _envUpdateOverlayPanel(restoreOverlayId, { minimized: false, restoreAtMs: null }, 'overlay:' + restoreOverlayId + ':restore');
                     }
                     return;
                 }
                 if (action === 'reset-overlay-panel') {
                     var resetOverlayId = String(actionEl.getAttribute('data-env-overlay-id') || '').trim();
                     if (resetOverlayId) {
-                        _envSetOverlayPanelState(resetOverlayId, { minimized: false, x: null, y: null });
-                        _envStageUiState.forceStageRebuild = true;
-                        renderEnvironmentView();
+                        _envUpdateOverlayPanel(resetOverlayId, { minimized: false, x: null, y: null, restoreAtMs: null }, 'overlay:' + resetOverlayId + ':reset');
+                    }
+                    return;
+                }
+                if (action === 'dismiss-overlay-panel') {
+                    var dismissOverlayId = String(actionEl.getAttribute('data-env-overlay-id') || '').trim();
+                    if (dismissOverlayId) {
+                        _envDismissOverlayPanel(dismissOverlayId, 'button');
                     }
                     return;
                 }
@@ -61530,6 +66068,15 @@
             }
             var focusEl = e.target.closest('[data-env-focus-kind]');
             if (!focusEl) {
+                if (_envTheaterMode() === 'character'
+                    && e.target
+                    && typeof e.target.closest === 'function'
+                    && e.target.closest('#envops-stage .envops-habitat-scene')
+                    && !e.target.closest('.envops-habitat-scene-cockpit')
+                    && !e.target.closest('#envops-overlay-restore-tray')
+                    && !e.target.closest('[data-env-overlay-id]')) {
+                    if (_envDismissOverlayPanel('cockpit', 'click-away')) return;
+                }
                 if (_envInspectorState.active
                     && !e.target.closest('[data-env-inspector-root]')
                     && !e.target.closest('.envops-scene-panel')
@@ -61555,6 +66102,10 @@
         }
         if (_envInspectorState.active) {
             _envCloseInspector(_envManualActorId(), 'escape');
+            e.preventDefault();
+            return;
+        }
+        if (_envTheaterMode() === 'character' && _envDismissOverlayPanel('cockpit', 'escape')) {
             e.preventDefault();
             return;
         }
@@ -62494,6 +67045,13 @@
         if (targetMode === 'theater') return String(textTheater.theater || '');
         return String(textTheater.embodiment || '');
     };
+    window.envopsGetTechnolitReactorState = function () {
+        return _envBuildTechnolitReactorSurface(_envTechnolitReactorState);
+    };
+    window.envopsSetTechnolitReactorState = function (spec, actor, reason) {
+        var payload = spec && typeof spec === 'object' ? spec : {};
+        return _envSetTechnolitReactorState(payload, actor || 'assistant', reason || 'external technolit reactor update');
+    };
 
     function _envSceneObjectVisualContract(obj) {
         var sceneObject = obj && typeof obj === 'object' ? obj : {};
@@ -62666,6 +67224,7 @@
                 }
             },
             world_profile: worldProfileSurface,
+            technolit_reactor: _envBuildTechnolitReactorSurface(_envTechnolitReactorState),
             mounted_character_runtime: Object.assign(
                 _envCloneJson(inhabitantState, _envCreateInhabitantRuntimeState()),
                 {
@@ -62746,6 +67305,9 @@
         sharedState.text_theater_control = _envCloneTextTheaterControlState();
         sharedState.text_theater_profiles = _envCloneJson((textTheaterSnapshot || {}).text_theater_profiles || {}, {});
         sharedState.blackboard = _envCloneJson((textTheaterSnapshot || {}).blackboard || {}, {});
+        sharedState.output_state = _envCloneJson(_envBuildOutputState(sharedState, textTheaterSnapshot), {});
+        _envMaybeDispatchHoldDoorComediaReaction(sharedState.output_state);
+        textTheaterSnapshot.output_state = _envCloneJson(sharedState.output_state, {});
         sharedState.text_theater = {
             snapshot: _envCloneJson(textTheaterSnapshot, null),
             theater: _envRenderTextTheaterOutput(textTheaterSnapshot, 'theater'),
@@ -65304,20 +69866,23 @@
                     var tc = calls[ci];
                     var tDiv = document.createElement('div');
                     tDiv.className = 'achat-msg tool-call-card';
+                    var trace = _activityTraceDescriptor(tc);
                     var name = tc.tool || tc.name || '?';
                     var err = !!tc.error;
                     var iterLabel = tc.iteration !== undefined ? 'Iteration ' + tc.iteration : '';
                     var statusBadge = '<span class="tc-badge ' + (err ? 'tc-badge-err' : 'tc-badge-ok') + '">' + (err ? 'ERROR' : 'OK') + '</span>';
-                    var callerSlot = parseInt(tc.caller_slot, 10);
-                    var targetSlot = parseInt(tc.target_slot, 10);
-                    var flowLabel = '';
-                    if (!isNaN(callerSlot) && !isNaN(targetSlot) && callerSlot >= 0 && targetSlot >= 0 && callerSlot !== targetSlot) {
-                        flowLabel = 'S' + (callerSlot + 1) + '→S' + (targetSlot + 1);
-                    } else if (!isNaN(callerSlot) && callerSlot >= 0) {
-                        flowLabel = 'S' + (callerSlot + 1);
+                    var traceColor = trace ? String(trace.color || '').replace(/["'<>]/g, '') : '';
+                    var traceMeta = [];
+                    if (iterLabel) traceMeta.push('<span class="tc-chip">' + escHtml(iterLabel) + '</span>');
+                    if (trace && trace.seq !== null) traceMeta.push('<span class="tc-chip tc-chip-trace" style="border-color:' + traceColor + ';color:' + traceColor + ';">TRACE #' + escHtml(String(trace.seq)) + '</span>');
+                    if (trace && trace.role) traceMeta.push('<span class="tc-chip">' + escHtml(trace.role) + '</span>');
+                    if (trace && trace.flowLabel) traceMeta.push('<span class="tc-chip">' + escHtml(trace.flowLabel) + '</span>');
+                    if (trace && trace.shortId) traceMeta.push('<span class="tc-chip tc-chip-trace-id">' + escHtml(trace.shortId) + '</span>');
+                    if (tc.durationMs !== undefined && tc.durationMs !== null) traceMeta.push('<span class="tc-chip">' + escHtml(String(tc.durationMs) + 'ms') + '</span>');
+                    if (traceColor) {
+                        tDiv.style.borderLeftColor = traceColor;
+                        tDiv.style.boxShadow = 'inset 0 0 0 1px ' + traceColor + '22';
                     }
-                    var traceShort = tc.trace_id ? String(tc.trace_id).split(':').slice(-1)[0] : '';
-                    if (traceShort && traceShort.length > 8) traceShort = traceShort.substring(0, 8);
                     var argsStr = tc.args ? JSON.stringify(tc.args, null, 2) : '{}';
                     var resultStr = '';
                     if (tc.error) {
@@ -65330,10 +69895,10 @@
                         '<span class="tc-icon">⚙</span> ' +
                         '<span class="tc-name">' + escHtml(name) + '</span> ' +
                         statusBadge +
-                        (iterLabel ? ' <span class="tc-iter">' + escHtml(iterLabel) + '</span>' : '') +
-                        (flowLabel ? ' <span class="tc-iter">' + escHtml(flowLabel) + '</span>' : '') +
-                        (traceShort ? ' <span class="tc-iter">' + escHtml('#' + traceShort) + '</span>' : '') +
                         '</div>';
+                    if (traceMeta.length) {
+                        html += '<div class="tc-trace-row">' + traceMeta.join('') + '</div>';
+                    }
                     if (argsStr !== '{}') {
                         html += '<details class="tc-details"><summary>Arguments</summary><pre class="tc-pre">' + _escForDisplay(argsStr) + '</pre></details>';
                     }
