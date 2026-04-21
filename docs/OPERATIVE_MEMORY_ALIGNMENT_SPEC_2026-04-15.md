@@ -46,6 +46,14 @@ It docks to:
 - `env_help`
 - repo doctrine docs
 
+Current convergence note:
+
+- the alignment payload is the carrying surface for the Pan/Tinkerbell/procgen sprint
+- `Tinkerbell` should consume the payload as the attention/prospect lane
+- `Pan` should consume the payload as the support/contact/route measurement and later proposal lane
+- breadcrumb-style sequence carrying should be treated as a refinement of this payload, not a competing mechanism
+- Coquina and palette/procedural families should consume the same payload when they dock to the active lane
+
 These are the places the alignment should be carried.
 
 ## Minimum Alignment Payload
@@ -75,6 +83,14 @@ The eventual goal is:
 - the system stops manually rereading whole doctrine sets on every compression
 - the reacclimation surfaces become the natural ushering lane
 - manual rereading remains the fallback, not the default survival strategy
+
+The current correct reading is:
+
+- `query_thread` carries the finite sequence
+- `output_state` carries the derived orienting surface
+- `Tinkerbell` points at the hottest seam
+- `Pan` measures that seam now and later routes/proposes over truthful support state
+- continuity packets keep those lanes re-enterable after reset
 
 ## Local Rule
 

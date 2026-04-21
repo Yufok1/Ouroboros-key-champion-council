@@ -11,6 +11,41 @@ Purpose:
 
 This doc is the current operative handoff. It does not delete the earlier trajectory/sitrep docs. It supersedes them only where this report names a corrected execution order or a corrected source reading.
 
+## 0B. 2026-04-20 Associative Systems Convergence
+
+Read this doc together with:
+
+- `docs/ASSOCIATIVE_SYSTEMS_CONVERGENCE_BRIEF_2026-04-20.md`
+- `docs/OPERATIVE_MEMORY_ALIGNMENT_SPEC_2026-04-15.md`
+- `docs/TINKERBELL_HOLD_SHUTTER_DREAMER_CODE_ALIGNMENT_CHECKPOINT_2026-04-19.md`
+- `docs/CONTINUITY_NAMING_DEPRECATION_RECORD_2026-04-20.md`
+
+Current live correction:
+
+- the active sprint is not "invent the next metaphor"
+- the active sprint is to align the already-real continuity/query/output-state/Tinkerbell/Pan-support surfaces into one stable doctrinal and implementation order
+- `Tinkerbell` and `Pan` should currently be treated as a conjunctive unit with separate roles:
+  - Tinkerbell points
+  - Pan measures now and can later route/propose
+- Coquina/palette/breadcrumb-style procedural families should be treated as downstream consumers of the same orienting surfaces, not as rival control planes
+
+Current execution order for this lane:
+
+1. recover continuity posture through the existing archive packet
+2. re-authorize live truth through theater/capture/blackboard/snapshot order
+3. read `query_thread` and `output_state` as the current carrying surfaces
+4. align docs and memory before widening behavior
+5. add only bounded new packets that dock to those surfaces
+6. keep Pan proposal-first and keep procedural families consumer-side first
+
+Guard rails:
+
+1. do not merge Tinkerbell and Pan into one vague blob
+2. do not reactivate continuity-side `adrenaline` or abstract `shutter`
+3. do not let Coquina/palette/procgen become a second authority plane
+4. do not front-run 3D content ambitions ahead of continuity/orientation alignment
+5. do not bypass support/contact/balance truth when growing Pan-facing behavior
+
 ## 0A. 2026-04-18 Reactive Stream Pivot
 
 Read this doc together with:
