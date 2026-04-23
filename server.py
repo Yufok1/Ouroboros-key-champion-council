@@ -129,6 +129,105 @@ def _env_help_apply_registry_overrides(data: dict) -> dict:
         ])
         commands["workbench_set_editing_mode"] = patched
 
+    ui_turntable_entry = commands.get("workbench-toggle-turntable")
+    if isinstance(ui_turntable_entry, dict):
+        patched = dict(ui_turntable_entry)
+        patched["summary"] = "Flip the browser-local workbench turntable. Prefer workbench_set_turntable when agents need explicit on/off and speed control through env_control."
+        patched["gotchas"] = _env_help_unique_list([
+            *(patched.get("gotchas") or []),
+            "workbench_set_turntable is the explicit env_control bridge for agent-driven on/off/toggle and speed control.",
+        ])
+        patched["related_commands"] = _env_help_unique_list([
+            *(patched.get("related_commands") or []),
+            "workbench_set_turntable",
+        ])
+        commands["workbench-toggle-turntable"] = patched
+
+    if not isinstance(commands.get("workbench_set_turntable"), dict):
+        commands["workbench_set_turntable"] = {
+            "command": "workbench_set_turntable",
+            "entry_kind": "env_command",
+            "title": "Set Workbench Turntable",
+            "category": "builder_workbench",
+            "status": "live",
+            "transport": {
+                "env_control": True,
+                "browser_surface": True,
+                "ui_local_only": False,
+                "implemented_verb": True,
+            },
+            "availability": {
+                "theater_modes": ["character"],
+                "visual_modes": ["builder_subject"],
+                "requires_focus_kind": ["character_runtime"],
+                "requires_builder_subject": True,
+            },
+            "target_contract": {
+                "shape": "string_or_json",
+                "description": "Explicit turntable state and optional speed for the current builder subject. Accepts on/off/toggle, numeric speed multipliers, presets, or JSON payloads with turntable/enabled/state plus speed fields.",
+                "examples": [
+                    "on",
+                    "off",
+                    "toggle",
+                    "1.5",
+                    "saiyan",
+                    "{\"turntable\":true}",
+                    "{\"enabled\":false}",
+                    "{\"enabled\":true,\"speed\":\"saiyan\"}",
+                    "{\"speed\":2.4}",
+                ],
+            },
+            "summary": "Set the workbench turntable on, off, toggle it, or tune its speed through env_control so agents can manage visual motion before and after corroboration work.",
+            "when_to_use": [
+                "Use this to turn turntable off before text-theater, report, or capture work that should not be skewed by live camera motion.",
+                "Use this to turn turntable back on when the browser should resume visual signaling or ambient inspection for the operator.",
+                "Use the speed multiplier or presets when the turntable itself becomes a pacing/signal medium for the operator or a sequencer effect lane.",
+            ],
+            "what_it_changes": [
+                "Browser-local workbench turntable state stored in the theater session.",
+                "Browser-local workbench turntable speed multiplier stored in the theater session.",
+                "Live mirror sync reason and camera pulse cadence for the current workbench subject.",
+            ],
+            "mode_notes": [
+                "This is the explicit env_control bridge for the existing local turntable surface.",
+                "Prefer explicit on/off values when automation matters; toggle is fine for manual use but weaker for recovery logic.",
+                "Numeric targets like 0.5 or 2.0 adjust speed while keeping the current on/off state.",
+                "Preset targets like slow, fast, or saiyan are aliases for bounded speed multipliers.",
+            ],
+            "verification": [
+                "env_control(command='workbench_set_turntable', target_id='off')",
+                "env_control(command='workbench_set_turntable', target_id='{\"enabled\":true,\"speed\":\"saiyan\"}')",
+                "env_read(query='text_theater_snapshot')",
+                "capture_probe",
+            ],
+            "gotchas": [
+                "No builder subject active means the command is rejected.",
+                "Turntable changes viewer motion, not embodiment truth; use it as a viewing/signal aid, not as state authority.",
+            ],
+            "failure_modes": [
+                "No builder subject active.",
+            ],
+            "aliases": [
+                "workbench-set-turntable",
+            ],
+            "surface_entrypoints": [
+                "workbench-set-turntable",
+            ],
+            "bridges_to": [
+                "workbench-toggle-turntable",
+            ],
+            "related_commands": [
+                "workbench-toggle-turntable",
+                "capture_probe",
+                "capture_supercam",
+            ],
+            "source_anchors": [
+                {"file": "server.py", "line": 1587, "kind": "proxy_list"},
+                {"file": "static/main.js", "line": 20001, "kind": "handler"},
+                {"file": "static/main.js", "line": 67229, "kind": "bridge"},
+            ],
+        }
+
     reset_entry = commands.get("workbench_reset_angles")
     if isinstance(reset_entry, dict):
         patched = dict(reset_entry)
@@ -1585,6 +1684,7 @@ _ENV_CONTROL_PROXY_COMMANDS = frozenset({
     "workbench_select_controller",
     "workbench_set_editing_mode",
     "workbench_set_display_scope",
+    "workbench_set_turntable",
     "workbench_set_gizmo_mode",
     "workbench_set_gizmo_space",
     "workbench_set_bone",
@@ -4248,7 +4348,7 @@ def _env_control_local_proxy_payload(args: dict | None = None) -> dict | None:
         payload["environment_effects"]["theater_mode_action"] = command
     elif command.startswith("camera_"):
         payload["environment_effects"]["camera_action"] = command
-    elif command in ("spawn_inhabitant", "despawn_inhabitant", "focus_inhabitant", "character_mount", "character_unmount", "character_focus", "character_move_to", "character_stop", "character_look_at", "character_set_model", "workbench_new_builder", "workbench_get_blueprint", "workbench_get_part_surface", "workbench_frame_part", "workbench_select_bone", "workbench_select_bones", "workbench_select_chain", "workbench_select_controller", "workbench_set_editing_mode", "workbench_set_display_scope", "workbench_set_gizmo_mode", "workbench_set_gizmo_space", "workbench_set_bone", "workbench_set_pose", "workbench_set_pose_batch", "workbench_clear_pose", "workbench_capture_pose", "workbench_delete_pose", "workbench_apply_pose", "workbench_apply_pose_macro", "workbench_set_timeline_cursor", "workbench_compile_clip", "workbench_play_authored_clip", "workbench_assert_balance", "workbench_reset_angles", "workbench_isolate_chain", "workbench_save_blueprint", "workbench_load_blueprint", "character_play_clip", "character_queue_clips", "character_stop_clip", "character_set_loop", "character_set_speed", "character_get_animation_state", "character_play_reaction", "toggle_inhabitant_fov_debug", "workbench_set_load_field", "workbench_stage_contact"):
+    elif command in ("spawn_inhabitant", "despawn_inhabitant", "focus_inhabitant", "character_mount", "character_unmount", "character_focus", "character_move_to", "character_stop", "character_look_at", "character_set_model", "workbench_new_builder", "workbench_get_blueprint", "workbench_get_part_surface", "workbench_frame_part", "workbench_select_bone", "workbench_select_bones", "workbench_select_chain", "workbench_select_controller", "workbench_set_editing_mode", "workbench_set_display_scope", "workbench_set_turntable", "workbench_set_gizmo_mode", "workbench_set_gizmo_space", "workbench_set_bone", "workbench_set_pose", "workbench_set_pose_batch", "workbench_clear_pose", "workbench_capture_pose", "workbench_delete_pose", "workbench_apply_pose", "workbench_apply_pose_macro", "workbench_set_timeline_cursor", "workbench_compile_clip", "workbench_play_authored_clip", "workbench_assert_balance", "workbench_reset_angles", "workbench_isolate_chain", "workbench_save_blueprint", "workbench_load_blueprint", "character_play_clip", "character_queue_clips", "character_stop_clip", "character_set_loop", "character_set_speed", "character_get_animation_state", "character_play_reaction", "toggle_inhabitant_fov_debug", "workbench_set_load_field", "workbench_stage_contact"):
         payload["environment_effects"]["character_runtime_action"] = command
     elif command == "text_theater_set_view":
         payload["environment_effects"]["text_theater_action"] = command
@@ -5017,6 +5117,7 @@ def _env_report_normalize_output_state(output_state: dict | None = None) -> dict
     tinkerbell_attention = state.get("tinkerbell_attention") if isinstance(state.get("tinkerbell_attention"), dict) else {}
     docs_packet = state.get("docs_packet") if isinstance(state.get("docs_packet"), dict) else {}
     continuity_packet = state.get("continuity_packet") if isinstance(state.get("continuity_packet"), dict) else {}
+    misunderstanding_box = state.get("misunderstanding_box") if isinstance(state.get("misunderstanding_box"), dict) else {}
     technolit_distribution_packet = (
         state.get("technolit_distribution_packet")
         if isinstance(state.get("technolit_distribution_packet"), dict)
@@ -5164,6 +5265,27 @@ def _env_report_normalize_output_state(output_state: dict | None = None) -> dict
             "best_session_id": str(continuity_packet.get("best_session_id") or ""),
             "matched_session_count": int(continuity_packet.get("matched_session_count") or 0),
             "update_lane": _env_report_unique_strings(continuity_packet.get("update_lane") or [], limit=5),
+        },
+        "misunderstanding_box": {
+            "active": bool(misunderstanding_box.get("active")),
+            "band": str(misunderstanding_box.get("band") or ""),
+            "summary": str(misunderstanding_box.get("summary") or ""),
+            "unknown_kind": str(misunderstanding_box.get("unknown_kind") or ""),
+            "why_blocking": str(misunderstanding_box.get("why_blocking") or ""),
+            "subject": {
+                "subject_key": str(((misunderstanding_box.get("subject") or {}).get("subject_key")) or ""),
+                "objective": str(((misunderstanding_box.get("subject") or {}).get("objective")) or ""),
+                "pivot_id": str(((misunderstanding_box.get("subject") or {}).get("pivot_id")) or ""),
+                "seam": str(((misunderstanding_box.get("subject") or {}).get("seam")) or ""),
+            },
+            "best_current_mapping": {
+                "surface": str(((misunderstanding_box.get("best_current_mapping") or {}).get("surface")) or ""),
+                "contract": str(((misunderstanding_box.get("best_current_mapping") or {}).get("contract")) or ""),
+                "reason": str(((misunderstanding_box.get("best_current_mapping") or {}).get("reason")) or ""),
+            },
+            "operator_teaching_needed": bool(misunderstanding_box.get("operator_teaching_needed")),
+            "required_reads": _env_report_unique_strings(misunderstanding_box.get("required_reads") or [], limit=8),
+            "release_condition": str(misunderstanding_box.get("release_condition") or ""),
         },
         "tinkerbell_attention": {
             "band": str(tinkerbell_attention.get("band") or ""),
@@ -5838,6 +5960,7 @@ def _env_report_compact_output_state_for_pairing(output_state: dict | None = Non
     observed = state.get("observed") if isinstance(state.get("observed"), dict) else {}
     docs_packet = state.get("docs_packet") if isinstance(state.get("docs_packet"), dict) else {}
     continuity_packet = state.get("continuity_packet") if isinstance(state.get("continuity_packet"), dict) else {}
+    misunderstanding_box = state.get("misunderstanding_box") if isinstance(state.get("misunderstanding_box"), dict) else {}
     equilibrium = state.get("equilibrium") if isinstance(state.get("equilibrium"), dict) else {}
     field_disposition = state.get("field_disposition") if isinstance(state.get("field_disposition"), dict) else {}
     pan_probe = state.get("pan_probe") if isinstance(state.get("pan_probe"), dict) else {}
@@ -5885,6 +6008,25 @@ def _env_report_compact_output_state_for_pairing(output_state: dict | None = Non
             "matched_session_count": int(continuity_packet.get("matched_session_count") or 0),
             "open_loops": _env_report_unique_strings(continuity_packet.get("open_loops") or [], limit=3),
             "recommended_docs": _env_report_unique_strings(continuity_packet.get("recommended_docs") or [], limit=5),
+        },
+        "misunderstanding_box": {
+            "active": bool(misunderstanding_box.get("active")),
+            "band": str(misunderstanding_box.get("band") or ""),
+            "summary": _env_report_trim_text(str(misunderstanding_box.get("summary") or ""), 220),
+            "unknown_kind": str(misunderstanding_box.get("unknown_kind") or ""),
+            "subject": {
+                "subject_key": str(((misunderstanding_box.get("subject") or {}).get("subject_key")) or ""),
+                "objective": str(((misunderstanding_box.get("subject") or {}).get("objective")) or ""),
+                "pivot_id": str(((misunderstanding_box.get("subject") or {}).get("pivot_id")) or ""),
+                "seam": str(((misunderstanding_box.get("subject") or {}).get("seam")) or ""),
+            },
+            "best_current_mapping": {
+                "surface": str(((misunderstanding_box.get("best_current_mapping") or {}).get("surface")) or ""),
+                "contract": str(((misunderstanding_box.get("best_current_mapping") or {}).get("contract")) or ""),
+            },
+            "operator_teaching_needed": bool(misunderstanding_box.get("operator_teaching_needed")),
+            "required_reads": _env_report_unique_strings(misunderstanding_box.get("required_reads") or [], limit=5),
+            "release_condition": _env_report_trim_text(str(misunderstanding_box.get("release_condition") or ""), 180),
         },
         "equilibrium": {
             "band": str(equilibrium.get("band") or ""),
@@ -6893,6 +7035,83 @@ def _env_help_stringify(value) -> str:
     return str(value)
 
 
+def _env_help_output_state_surface_topic(
+    topic: str,
+    title: str,
+    summary: str,
+    description: str,
+    bridge_path: str,
+    *,
+    aliases: list[str] | None = None,
+    when_to_use: list[str] | None = None,
+    mode_notes: list[str] | None = None,
+    gotchas: list[str] | None = None,
+    failure_modes: list[str] | None = None,
+    related_commands: list[str] | None = None,
+) -> dict:
+    return {
+        "tool": "env_read",
+        "entry_kind": "derived_surface",
+        "title": title,
+        "category": "observation_query",
+        "status": "live",
+        "transport": {
+            "local_proxy": True,
+            "browser_surface": True,
+            "ui_local_only": False,
+            "implemented_verb": True,
+        },
+        "target_contract": {
+            "shape": bridge_path,
+            "description": description,
+            "examples": [
+                "{\"query\":\"text_theater_snapshot\"}",
+                "{\"query\":\"text_theater_view\",\"view\":\"consult\",\"section\":\"blackboard\",\"diagnostics\":true}",
+                "{\"topic\":\"" + topic + "\"}",
+            ],
+        },
+        "summary": summary,
+        "when_to_use": when_to_use or [
+            "Use this when the output_state child surface is already carrying the answer and you need the named lane instead of hand-merging snapshot rows.",
+            "Use this after theater-first intake when you want the orienting child block explained as an explicit surface contract instead of inferred from docs or transcript memory.",
+        ],
+        "what_it_changes": [
+            "Nothing. This is a read-only derived surface carried under output_state.",
+        ],
+        "mode_notes": mode_notes or [
+            "This surface is carried by output_state. It helps orient the current read; it does not become a second authority plane.",
+            "If freshness is stale or mirror_lag is true, corroborate through theater, capture, blackboard, and snapshot before treating the child block as final truth.",
+        ],
+        "verification": [
+            "env_read(query='text_theater_embodiment')",
+            "env_read(query='text_theater_view', view='consult', section='blackboard', diagnostics=true)",
+            "env_read(query='text_theater_snapshot')",
+            "env_help(topic='output_state')",
+        ],
+        "gotchas": gotchas or [
+            "This is a carried interpretation surface, not a writer.",
+            "Do not skip the theater-first read order just because the child block already names the lane explicitly.",
+        ],
+        "failure_modes": failure_modes or [
+            "Freshness is stale, so the carried child block is behind the visible runtime.",
+            "The query thread was never seeded, so the child block stays empty or conservative.",
+        ],
+        "aliases": aliases or [],
+        "surface_entrypoints": [],
+        "bridges_to": [
+            "shared_state.output_state",
+            "shared_state.text_theater.snapshot.output_state",
+            bridge_path,
+            "env_report",
+        ],
+        "related_commands": related_commands or [
+            "text_theater_embodiment",
+            "text_theater_snapshot",
+            "output_state",
+        ],
+    }
+
+
 def _env_help_extra_topics() -> dict[str, dict]:
     return {
         "continuity_reacclimation": {
@@ -7001,6 +7220,7 @@ def _env_help_extra_topics() -> dict[str, dict]:
                 "The placement block is the relational summary handle: subject, objective, seam, evidence, drift, and next lanes on one carried surface.",
                 "trajectory_correlator interviews the current operation against the intended sequence and gives a smallest honest return path instead of silently letting drift accumulate.",
                 "continuity_cue rings the bell when a continuity drill is warranted; it should alert the operator, not secretly mutate the system.",
+                "misunderstanding_box is the bounded suspended-unknown lane: isolate the active incomprehension there, keep verified footing outside it, and let it name the next teaching reads instead of smearing uncertainty across the whole surface.",
                 "Treat freshness as the current currency gauge for this surface; if freshness is stale or mirror_lag is true, corroborate before escalating conclusions.",
             ],
             "verification": [
@@ -7038,6 +7258,7 @@ def _env_help_extra_topics() -> dict[str, dict]:
                 "text_theater_view",
                 "paired_state_alignment",
                 "continuity_reacclimation",
+                "misunderstanding_box",
             ],
         },
         "paired_state_alignment": {
@@ -7106,7 +7327,601 @@ def _env_help_extra_topics() -> dict[str, dict]:
                 "text_theater_snapshot",
                 "env_report",
             ],
-        }
+        },
+        "techlit_hair_control_surface": {
+            "tool": "browser_runtime",
+            "entry_kind": "operator_surface",
+            "title": "TECHLIT Hair Control Surface",
+            "category": "environment",
+            "status": "live",
+            "transport": {
+                "local_proxy": False,
+                "browser_surface": True,
+                "ui_local_only": False,
+                "implemented_verb": False,
+            },
+            "target_contract": {
+                "shape": "window.envops* browser control hooks",
+                "description": "Use the browser runtime hair control surface to steer the TECHLIT glyph manifold, hidden-word spectrum, audio-reactive routing, mic-fed words, pose coupling, and live theater sync from one shared force-wave lane.",
+                "examples": [
+                    "window.envopsSetHairGlyphMessageText('TECHLIT')",
+                    "window.envopsSetHairGlyphSpectrum('crayolazy')",
+                    "window.envopsSetHairGlyphMessage({ message_text:'TECHLIT', spectrum_mode:'crayolazy', pop_gain:1, glow_gain:1 })",
+                    "await window.envopsStartDesktopAudioReactiveCapture()",
+                    "await window.envopsStartMicHairWords()",
+                ],
+            },
+            "summary": "Control the live TECHLIT hair lane: glyph text, crayolazy spectrum, desktop audio routing, mic hair words, and the shared force-wave sync that drives both theaters.",
+            "when_to_use": [
+                "Use this when the hidden word, spectral pop, audio-reactive hair behavior, or live hair message needs to be changed without reopening low-level builder code.",
+                "Use this when the goal is to keep web theater and text theater reading the same shared TECHLIT hair manifold instead of improvising separate overrides.",
+            ],
+            "what_it_changes": [
+                "window.__ENV_HAIR_GLYPH_MESSAGE__ overrides carried on the shared force-wave surface.",
+                "The visible hair word, spectral pop, legibility/sharpness, and live sync path used by both theater surfaces.",
+            ],
+            "mode_notes": [
+                "This is a control surface over the shared force-wave lane. It should complement the shared snapshot contract, not replace it.",
+                "TECHLIT and crayolazy belong to the glyph manifold layer; growth and strand count belong to the granulation layer; desktop audio and mic words belong to the input-routing layer.",
+            ],
+            "verification": [
+                "window.envopsGetHairGlyphMessage()",
+                "env_read(query='text_theater_embodiment')",
+                "env_read(query='text_theater_snapshot')",
+                "env_help(topic='techlit_hair_control_surface')",
+            ],
+            "gotchas": [
+                "Do not use this as a substitute for continuity or theater-first corroboration when the question is parity, placement, or stale mirror state.",
+                "Message/spectrum overrides and growth overrides are separate surfaces; do not conflate them.",
+            ],
+            "failure_modes": [
+                "Browser runtime not refreshed, so newly patched hooks are absent.",
+                "Desktop audio capture started without actually sharing tab/system audio in the picker.",
+                "User assumes the glyph message lane also changes strand budgets without a granulation override.",
+            ],
+            "aliases": [
+                "hair_glyph_manifold",
+                "hair_control",
+                "techlit",
+                "crayolazy",
+                "hair glyph audio mic aura pose drive granulation spectrum TECHLIT crayolazy",
+            ],
+            "surface_entrypoints": [
+                "window.envopsSetHairGlyphMessageText",
+                "window.envopsSetHairGlyphSpectrum",
+                "window.envopsSetHairGlyphMessage",
+            ],
+            "bridges_to": [
+                "window.envopsSetHairGlyphMessage",
+                "window.envopsSetHairGlyphMessageText",
+                "window.envopsSetHairGlyphSpectrum",
+                "shared_state.text_theater.snapshot.sequence_field.force_wave.hair_reactivity",
+            ],
+            "related_commands": [
+                "hair_granulation_surface",
+                "audio_reactive_capture_surface",
+                "hair_speech_drive_surface",
+                "kaioken_aura_surface",
+                "pose_drive_surface",
+            ],
+        },
+        "hair_granulation_surface": {
+            "tool": "browser_runtime",
+            "entry_kind": "operator_surface",
+            "title": "Hair Granulation Surface",
+            "category": "environment",
+            "status": "live",
+            "transport": {
+                "local_proxy": False,
+                "browser_surface": True,
+                "ui_local_only": False,
+                "implemented_verb": False,
+            },
+            "target_contract": {
+                "shape": "window.envopsSetHairGranulation / SetHairPreset / SetHairGrowth",
+                "description": "Use the granulation surface to tune growth, strand density, tuft density, undulation, color octave, simian ramp, and safe sample budgets.",
+                "examples": [
+                    "window.envopsSetHairPreset('krillin')",
+                    "window.envopsSetHairPreset('sasquatch')",
+                    "window.envopsSetHairGrowth(0.0)",
+                    "window.envopsSetHairGranulation({ growth_gain:1, strand_density_gain:0.92, simian_ramp_gain:0.8 })",
+                ],
+            },
+            "summary": "Tune the safe hair growth lattice from krillin to sasquatch, including simian-ramp expansion, without crashing the strand field.",
+            "when_to_use": [
+                "Use this when strand count, apparent growth, silhouette mass, or ape-biased ramp needs to change while preserving bounded budgets.",
+                "Use this when TECHLIT glyphs should ride a denser or sparser carrier without re-authoring the glyph manifold itself.",
+            ],
+            "what_it_changes": [
+                "window.__ENV_HAIR_GRANULATION__ overrides carried on the shared force-wave hair lane.",
+                "Visible tuft/sample budgets, density, undulation, and simian-ramp silhouette weighting.",
+            ],
+            "mode_notes": [
+                "Granulation controls carrier density and silhouette, not the carried word itself.",
+                "Preset labels such as krillin, saiyan, and sasquatch are safe entry points because sample budgets are clamped in the runtime.",
+            ],
+            "verification": [
+                "window.envopsGetHairGranulation()",
+                "env_read(query='text_theater_embodiment')",
+                "env_help(topic='hair_granulation_surface')",
+            ],
+            "aliases": [
+                "hair_growth",
+                "granulation",
+                "krillin",
+                "sasquatch",
+                "simian_ramp",
+            ],
+            "surface_entrypoints": [
+                "window.envopsSetHairGranulation",
+                "window.envopsSetHairPreset",
+                "window.envopsSetHairGrowth",
+            ],
+            "bridges_to": [
+                "window.envopsSetHairGranulation",
+                "window.envopsSetHairPreset",
+                "window.envopsSetHairGrowth",
+                "shared_state.text_theater.snapshot.sequence_field.force_wave.hair_reactivity.granulation",
+            ],
+            "related_commands": [
+                "techlit_hair_control_surface",
+                "pose_drive_surface",
+                "kaioken_aura_surface",
+            ],
+        },
+        "audio_reactive_capture_surface": {
+            "tool": "browser_runtime",
+            "entry_kind": "operator_surface",
+            "title": "Audio-Reactive Capture Surface",
+            "category": "environment",
+            "status": "live",
+            "transport": {
+                "local_proxy": False,
+                "browser_surface": True,
+                "ui_local_only": False,
+                "implemented_verb": False,
+            },
+            "target_contract": {
+                "shape": "window.envopsStartDesktopAudioReactiveCapture / StopDesktopAudioReactiveCapture",
+                "description": "Use the browser share picker to route tab/system audio into the live force-wave hair response lane.",
+                "examples": [
+                    "await window.envopsStartDesktopAudioReactiveCapture()",
+                    "await window.envopsStartSystemAudioReactiveCapture()",
+                    "window.envopsStopDesktopAudioReactiveCapture()",
+                    "window.envopsGetAudioReactiveState()",
+                ],
+            },
+            "summary": "Route desktop or system audio into the active hair/aura response lane so music drives lift, sweep, flare, and spectral pop.",
+            "when_to_use": [
+                "Use this when the scene should react to whatever is currently playing through desktop audio instead of only internal timing.",
+                "Use this before debugging why audio-reactive hair looks static even though the response mode says audio_reactive_saiyan.",
+            ],
+            "what_it_changes": [
+                "Browser display-capture audio input feeding the shared audio-reactive substratum.",
+                "Observed signal used by hair reactivity, aura envelope, and related force-wave modulation.",
+            ],
+            "mode_notes": [
+                "The picker must explicitly share audio; otherwise the capture succeeds visually but carries no useful audio track.",
+                "This surface routes audio. It does not choose the hidden word; combine it with the TECHLIT hair control surface when both are needed.",
+            ],
+            "verification": [
+                "window.envopsGetAudioReactiveState()",
+                "window.envopsGetDesktopAudioReactiveCapture()",
+                "env_read(query='text_theater_embodiment')",
+            ],
+            "aliases": [
+                "desktop_audio",
+                "system_audio",
+                "audio_reactive",
+                "desktop audio feed",
+            ],
+            "surface_entrypoints": [
+                "window.envopsStartDesktopAudioReactiveCapture",
+                "window.envopsStartSystemAudioReactiveCapture",
+                "window.envopsStopDesktopAudioReactiveCapture",
+            ],
+            "bridges_to": [
+                "window.envopsStartDesktopAudioReactiveCapture",
+                "window.envopsGetAudioReactiveState",
+                "shared_state.text_theater.snapshot.sequence_field.force_wave.acoustic_feedback",
+            ],
+            "related_commands": [
+                "techlit_hair_control_surface",
+                "hair_speech_drive_surface",
+                "kaioken_aura_surface",
+            ],
+        },
+        "hair_speech_drive_surface": {
+            "tool": "browser_runtime",
+            "entry_kind": "operator_surface",
+            "title": "Hair Speech Drive Surface",
+            "category": "environment",
+            "status": "live",
+            "transport": {
+                "local_proxy": False,
+                "browser_surface": True,
+                "ui_local_only": False,
+                "implemented_verb": False,
+            },
+            "target_contract": {
+                "shape": "window.envopsStartHairSpeechDrive / StartMicHairWords",
+                "description": "Use browser speech recognition to turn spoken words into the carried hair message phrase on the live glyph manifold.",
+                "examples": [
+                    "await window.envopsStartMicHairWords()",
+                    "window.envopsGetHairSpeechDriveState()",
+                    "window.envopsStopMicHairWords()",
+                ],
+            },
+            "summary": "Route spoken words from the microphone into the hair glyph manifold so the hidden word can be carried by live speech.",
+            "when_to_use": [
+                "Use this when the hair should register words you say into the mic instead of only a manually typed message text.",
+                "Use this when you want the glyph lane to behave like a live speech-fed semantic carrier without rewriting the manifold logic.",
+            ],
+            "what_it_changes": [
+                "Speech-recognition driven message text carried into the shared hair glyph manifold.",
+            ],
+            "mode_notes": [
+                "This depends on browser speech-recognition availability and permissions.",
+                "Speech drive changes the carried phrase; spectral pop and growth remain separate surfaces.",
+            ],
+            "verification": [
+                "window.envopsGetHairSpeechDriveState()",
+                "env_read(query='text_theater_embodiment')",
+            ],
+            "aliases": [
+                "mic_hair_words",
+                "speech_drive",
+                "microphone_words",
+                "hair words",
+            ],
+            "surface_entrypoints": [
+                "window.envopsStartHairSpeechDrive",
+                "window.envopsStartMicHairWords",
+                "window.envopsStopMicHairWords",
+            ],
+            "bridges_to": [
+                "window.envopsStartHairSpeechDrive",
+                "window.envopsGetHairSpeechDriveState",
+                "shared_state.text_theater.snapshot.sequence_field.force_wave.hair_reactivity.glyph_message_manifold",
+            ],
+            "related_commands": [
+                "techlit_hair_control_surface",
+                "audio_reactive_capture_surface",
+            ],
+        },
+        "pose_drive_surface": {
+            "tool": "browser_runtime",
+            "entry_kind": "operator_surface",
+            "title": "Pose Drive Surface",
+            "category": "environment",
+            "status": "live",
+            "transport": {
+                "local_proxy": False,
+                "browser_surface": True,
+                "ui_local_only": False,
+                "implemented_verb": False,
+            },
+            "target_contract": {
+                "shape": "window.envopsSetPoseDrive / EnablePoseDrive / DisablePoseDrive",
+                "description": "Use the pose-drive gate to let the shared force-wave body lane answer with live orientation and turntable-compatible movement instead of leaving the chassis inert.",
+                "examples": [
+                    "window.envopsEnablePoseDrive()",
+                    "window.envopsGetPoseDriveState()",
+                    "window.envopsDisablePoseDrive()",
+                ],
+            },
+            "summary": "Control the shared body-response gate that lets the live force-wave lane drive pose, chain isolation, and turntable-compatible movement alongside the hair field.",
+            "when_to_use": [
+                "Use this when the hair lane is alive but the chassis still needs to answer with body orientation or dance-ready motion.",
+                "Use this when isolation chains or turntable response feel disconnected from the current force-wave lane.",
+            ],
+            "what_it_changes": [
+                "window.__ENV_FORCE_WAVE_POSE_DRIVE__ gating for full-body force-wave response.",
+            ],
+            "mode_notes": [
+                "Pose drive is the body-response gate, not a replacement for authored choreography.",
+                "Use it to keep motion and orientation coupled to the shared sequence instead of letting the hair become the only live answer.",
+            ],
+            "verification": [
+                "window.envopsGetPoseDriveState()",
+                "env_read(query='text_theater_embodiment')",
+            ],
+            "aliases": [
+                "pose_drive",
+                "body_answer",
+                "turntable_motion",
+                "isolation_chain_motion",
+            ],
+            "surface_entrypoints": [
+                "window.envopsSetPoseDrive",
+                "window.envopsEnablePoseDrive",
+                "window.envopsDisablePoseDrive",
+            ],
+            "bridges_to": [
+                "window.envopsSetPoseDrive",
+                "shared_state.text_theater.snapshot.sequence_field.force_wave.body_orientation",
+            ],
+            "related_commands": [
+                "techlit_hair_control_surface",
+                "kaioken_aura_surface",
+                "hair_granulation_surface",
+            ],
+        },
+        "kaioken_aura_surface": {
+            "tool": "browser_runtime",
+            "entry_kind": "operator_surface",
+            "title": "Kaioken Aura Surface",
+            "category": "environment",
+            "status": "live",
+            "transport": {
+                "local_proxy": False,
+                "browser_surface": True,
+                "ui_local_only": False,
+                "implemented_verb": False,
+            },
+            "target_contract": {
+                "shape": "shared force-wave aura envelope",
+                "description": "Use the full-body aura envelope carried under the force-wave lane to counterweight the hair field with shell, flare, and pulse across the whole body.",
+                "examples": [
+                    "env_read(query='text_theater_embodiment')",
+                    "env_read(query='text_theater_snapshot')",
+                    "env_help(topic='kaioken_aura_surface')",
+                ],
+            },
+            "summary": "Read and tune the full-body aura envelope so Kaioken-style shell, flare, and pulse counterweight the hair instead of fighting it.",
+            "when_to_use": [
+                "Use this when the body needs a visible full-shell answer to match the hot hair lane.",
+                "Use this when color, flare, and pulse should spread across the full figure rather than staying trapped in the crown.",
+            ],
+            "what_it_changes": [
+                "The shared force-wave aura envelope that the scaffold visuals use for full-body scale, emissive, opacity, and pulse response.",
+            ],
+            "mode_notes": [
+                "Aura is a counterweight lane for the whole body; it should harmonize with the hair manifold rather than duplicate it.",
+            ],
+            "verification": [
+                "env_read(query='text_theater_embodiment')",
+                "env_read(query='text_theater_snapshot')",
+            ],
+            "aliases": [
+                "kaioken",
+                "aura",
+                "full_body_aura",
+            ],
+            "surface_entrypoints": [],
+            "bridges_to": [
+                "shared_state.text_theater.snapshot.sequence_field.force_wave.aura_envelope",
+                "shared_state.text_theater.snapshot.sequence_field.force_wave.acoustic_feedback",
+            ],
+            "related_commands": [
+                "techlit_hair_control_surface",
+                "audio_reactive_capture_surface",
+                "pose_drive_surface",
+            ],
+        },
+        "continuity_packet": _env_help_output_state_surface_topic(
+            "continuity_packet",
+            "Continuity Packet",
+            "Read the archive/transcript resume face carried under output_state so continuity recovery stays bounded and paired to the live query spine.",
+            "Use the continuity packet to recover archive-side posture, open loops, resume hints, recommended docs, and next reads without treating memory as live authority.",
+            "shared_state.output_state.continuity_packet",
+            aliases=[
+                "archive_packet",
+                "resume_packet",
+                "fractal_query_packet",
+                "continuity",
+            ],
+            when_to_use=[
+                "Use this right after continuity_restore when you want the bounded resume face the system is carrying now instead of rereading an entire transcript.",
+                "Use this when context compression happened and you need the open loops, recent pressures, recommended docs, and next reads on one packet surface.",
+            ],
+            mode_notes=[
+                "continuity_packet is archive-side reacclimation only; it can seed the next read order but cannot decide live truth by itself.",
+                "This packet is the archive/transcript face in the fractal continuity stack: docs_packet, continuity_packet, blackboard/query_thread, and live theater.",
+            ],
+            gotchas=[
+                "Do not let continuity_packet outrank the current live text theater or blackboard query thread.",
+                "A populated continuity packet does not prove the live mirror is fresh.",
+            ],
+            related_commands=[
+                "continuity_reacclimation",
+                "paired_state_alignment",
+                "docs_packet",
+                "output_state",
+            ],
+        ),
+        "docs_packet": _env_help_output_state_surface_topic(
+            "docs_packet",
+            "Docs Planning Packet",
+            "Read the bounded planning/material packet carried under output_state so repo docs, FelixBag docs, and continuity planning stay on one operator lane.",
+            "Use docs_packet to read the current docs/planning posture: band, summary, active_doc, continuity_index, top_results, and update_lane.",
+            "shared_state.output_state.docs_packet",
+            aliases=[
+                "planning_packet",
+                "docs_planning",
+                "planning_surface",
+                "docs",
+            ],
+            when_to_use=[
+                "Use this when the current objective depends on docs/plans alignment and you need the active planning packet instead of a loose docs search.",
+                "Use this before updating a planning doc so the expected context, active doc, and update lane are explicit.",
+            ],
+            mode_notes=[
+                "docs_packet is the planning/material face over repo docs and FelixBag docs; it docks to blackboard/query-work and continuity instead of replacing them.",
+                "The update lane should remain checkpointable and FelixBag-backed when planning docs are changed.",
+            ],
+            gotchas=[
+                "docs_packet does not outrank live theater, blackboard, snapshot, or corroboration.",
+                "A non-empty docs packet is not proof that the FelixBag mirror is complete or current.",
+            ],
+            related_commands=[
+                "output_state",
+                "continuity_packet",
+                "text_theater_snapshot",
+                "paired_state_alignment",
+            ],
+        ),
+        "misunderstanding_box": _env_help_output_state_surface_topic(
+            "misunderstanding_box",
+            "Misunderstanding Box",
+            "Read the bounded suspended-unknown surface carried under output_state so active incomprehension, teaching pull, and required next reads stay explicit instead of leaking into every other lane.",
+            "Use misunderstanding_box to inspect whether an active misunderstanding is open, what kind it is, why it blocks, which live surface best maps it, which teaching/corroboration reads are next, and what release condition would honestly close it.",
+            "shared_state.output_state.misunderstanding_box",
+            aliases=[
+                "unknown_box",
+                "switch_latch",
+                "teaching_pull",
+                "suspended_load",
+            ],
+            when_to_use=[
+                "Use this when the operator says the system does not actually understand a term, mechanism, analogy, or contract and you need that unknown isolated without losing footing elsewhere.",
+                "Use this when continuity is live but one seam is incomprehensible and the next honest move is targeted teaching or corroboration rather than bluffing continuity.",
+            ],
+            mode_notes=[
+                "misunderstanding_box is not an apology surface; it is a bounded state carrier for active unknowns.",
+                "The box should preserve the best current mapping and next required reads so the system can be taught cleanly without hallucinating the seam resolved.",
+            ],
+            gotchas=[
+                "Do not let Dreamer, summaries, or archive continuity silently close the box without satisfying the release condition.",
+                "A quiet misunderstanding_box is not proof of understanding if live corroboration has not happened yet.",
+            ],
+            related_commands=[
+                "output_state",
+                "continuity_packet",
+                "docs_packet",
+                "paired_state_alignment",
+            ],
+        ),
+        "trajectory_correlator": _env_help_output_state_surface_topic(
+            "trajectory_correlator",
+            "Trajectory Correlator",
+            "Read the intended-vs-actual grading lane carried under output_state so sequence drift gets a smallest honest return path instead of vibes.",
+            "Use trajectory_correlator to compare intended sequence, actual sequence, correlation grade, and return_path on the active carried lane.",
+            "shared_state.output_state.trajectory_correlator",
+            aliases=[
+                "trajectory",
+                "return_path",
+                "orbit",
+                "missile_command",
+            ],
+            when_to_use=[
+                "Use this when you need the carried return path after a sequence wandered, broadened, or stalled.",
+                "Use this when the question is whether the current operation still matches the intended query spine.",
+            ],
+            mode_notes=[
+                "trajectory_correlator is the sequence-grading lane. It points at the smallest honest return path; it does not secretly reroute the system.",
+            ],
+            related_commands=[
+                "output_state",
+                "continuity_cue",
+                "tinkerbell_attention",
+                "paired_state_alignment",
+            ],
+        ),
+        "continuity_cue": _env_help_output_state_surface_topic(
+            "continuity_cue",
+            "Continuity Cue",
+            "Read the visible reorientation bell carried under output_state when the system thinks a continuity drill is warranted.",
+            "Use continuity_cue to inspect whether continuity is needed now, why, how severe the cue is, and which reads are recommended next.",
+            "shared_state.output_state.continuity_cue",
+            aliases=[
+                "continuity_drill",
+                "reorientation_bell",
+                "alarm_bell",
+            ],
+            when_to_use=[
+                "Use this when the system feels drifted and you want the current continuity warning classified instead of inferred.",
+                "Use this before a reset or after a reset when you need the visible next-action bell the system is carrying.",
+            ],
+            mode_notes=[
+                "continuity_cue should alert the operator and name the next reads; it should not mutate the system on its own.",
+            ],
+            related_commands=[
+                "continuity_reacclimation",
+                "continuity_packet",
+                "trajectory_correlator",
+                "paired_state_alignment",
+            ],
+        ),
+        "tinkerbell_attention": _env_help_output_state_surface_topic(
+            "tinkerbell_attention",
+            "Tinkerbell Attention",
+            "Read the live pointer layer carried under output_state so the current attention target, why-now, and hold-candidate pressure are explicit.",
+            "Use tinkerbell_attention to inspect the current pointer band, target, confidence, active_pointer, prospect candidates, and hold-candidate pressure.",
+            "shared_state.output_state.tinkerbell_attention",
+            aliases=[
+                "tinkerbell",
+                "attention_pointer",
+                "pointer_layer",
+                "why_now",
+            ],
+            when_to_use=[
+                "Use this when you need to know where the pointer layer is aiming right now and why the system thinks that target matters.",
+                "Use this before treating Dreamer or other downstream consumers as if they chose the attention target themselves.",
+            ],
+            mode_notes=[
+                "Tinkerbell points. It is the pointer layer, not the authority plane.",
+                "The active_pointer is the sharpest carried target handle for downstream rankers and human/operator interpretation.",
+            ],
+            related_commands=[
+                "output_state",
+                "pan_probe",
+                "trajectory_correlator",
+                "continuity_cue",
+            ],
+        ),
+        "field_disposition": _env_help_output_state_surface_topic(
+            "field_disposition",
+            "Field Disposition",
+            "Read the medium/weather propagation surface carried under output_state so settling band, flow bias, gravity bias, and coupled surfaces are explicit.",
+            "Use field_disposition to inspect medium_kind, profile family, propagation mode, settling band, density, turbulence, and coupled surfaces.",
+            "shared_state.output_state.field_disposition",
+            aliases=[
+                "field",
+                "weather",
+                "medium",
+                "propagation_surface",
+            ],
+            when_to_use=[
+                "Use this when the question is about active medium, weather profile, or propagation posture instead of pose/controller state alone.",
+                "Use this before treating a visual field effect as purely decorative; this block is the carried disposition surface for that lane.",
+            ],
+            mode_notes=[
+                "field_disposition is the propagation/medium face. It explains how the current field is biased; it does not replace the underlying world profile truth.",
+            ],
+            related_commands=[
+                "output_state",
+                "pan_probe",
+                "tinkerbell_attention",
+                "text_theater_snapshot",
+            ],
+        ),
+        "pan_probe": _env_help_output_state_surface_topic(
+            "pan_probe",
+            "Pan Probe",
+            "Read the local measurement/support surface carried under output_state so contact bias, support role, rotational grounding, and capture surfaces are explicit.",
+            "Use pan_probe to inspect the current measured local seam: selected bone/contact, support role, grounding, support surface, and associated capture surfaces.",
+            "shared_state.output_state.pan_probe",
+            aliases=[
+                "pan",
+                "measurement_surface",
+                "support_probe",
+                "local_probe",
+            ],
+            when_to_use=[
+                "Use this when the question is about local physical truth, contact state, support role, or grounding on the currently selected seam.",
+                "Use this when Tinkerbell has pointed somewhere and you need the paired measurement surface instead of a second pointer.",
+            ],
+            mode_notes=[
+                "Pan measures. It is the local measurement surface and can later route/propose, but it should not be collapsed into the pointer layer.",
+            ],
+            related_commands=[
+                "output_state",
+                "tinkerbell_attention",
+                "field_disposition",
+                "capture_probe",
+            ],
+        ),
     }
 
 
@@ -7171,6 +7986,14 @@ def _env_help_index_payload(registry: dict, normalized_args: dict) -> dict:
     playbooks = registry.get("playbooks") if isinstance(registry.get("playbooks"), dict) else {}
     builtin_topics = dict(_env_help_builtin_topics())
     builtin_topics.update(_env_help_extra_topics())
+    builtin_categories: dict[str, int] = {}
+    for value in builtin_topics.values():
+        if not isinstance(value, dict):
+            continue
+        category = str(value.get("category") or "").strip()
+        if not category:
+            continue
+        builtin_categories[category] = int(builtin_categories.get(category, 0)) + 1
     ui_action_count = sum(1 for value in commands.values() if isinstance(value, dict) and str(value.get("entry_kind") or "") == "ui_action")
     env_command_count = max(0, len(commands) - ui_action_count)
     family_rows = []
@@ -7206,6 +8029,13 @@ def _env_help_index_payload(registry: dict, normalized_args: dict) -> dict:
             "meta": registry.get("meta") if isinstance(registry.get("meta"), dict) else {},
             "families": family_rows,
             "playbooks": playbook_rows,
+            "builtin_categories": [
+                {
+                    "category": key,
+                    "count": int(value),
+                }
+                for key, value in sorted(builtin_categories.items())
+            ],
             "entry_count": len(commands) + len(queries) + len(builtin_topics),
             "query_count": len(queries),
             "tool_topic_count": len(builtin_topics),
@@ -7219,8 +8049,16 @@ def _env_help_index_payload(registry: dict, normalized_args: dict) -> dict:
                     "env_help(topic='output_state')",
                     "env_help(topic='env_report')",
                     "env_help(topic='continuity_reacclimation')",
-                    "env_help(category='builder_motion') or env_help(search='mounted asset floor')",
-                ],
+                "env_help(topic='continuity_packet')",
+                "env_help(topic='docs_packet')",
+                "env_help(topic='techlit_hair_control_surface')",
+                "env_help(topic='hair_granulation_surface')",
+                "env_help(topic='audio_reactive_capture_surface')",
+                "env_help(topic='hair_speech_drive_surface')",
+                "env_help(topic='pose_drive_surface')",
+                "env_help(topic='kaioken_aura_surface')",
+                "env_help(category='builder_motion') or env_help(search='mounted asset floor')",
+            ],
                 "capsule_bridge": [
                     "Capsule get_help('environment') is the umbrella help view.",
                     "env_help(...) is the richer server-local registry for environment/browser/runtime surfaces.",
@@ -7235,6 +8073,17 @@ def _env_help_index_payload(registry: dict, normalized_args: dict) -> dict:
                 "env_help(topic='dreamer_control_plane')",
                 "env_help(topic='dreamer_mechanics_obs')",
                 "env_help(topic='continuity_reacclimation')",
+                "env_help(topic='continuity_packet')",
+                "env_help(topic='docs_packet')",
+                "env_help(topic='techlit_hair_control_surface')",
+                "env_help(topic='hair_granulation_surface')",
+                "env_help(topic='audio_reactive_capture_surface')",
+                "env_help(topic='hair_speech_drive_surface')",
+                "env_help(topic='pose_drive_surface')",
+                "env_help(topic='kaioken_aura_surface')",
+                "env_help(topic='tinkerbell_attention')",
+                "env_help(topic='pan_probe')",
+                "env_help(topic='field_disposition')",
                 "env_help(topic='workbench_set_timeline_cursor')",
                 "env_help(topic='workbench_stage_contact')",
                 "env_help(topic='workbench-toggle-turntable')",
@@ -7324,6 +8173,26 @@ def _env_help_local_proxy_payload(args: dict | None = None) -> dict | None:
         "reacclimation": "continuity_reacclimation",
         "context_compression_resume": "continuity_reacclimation",
     }
+    builtin_topic_lookup: dict[str, str] = {}
+    builtin_alias_map: dict[str, str] = {}
+    builtin_category_rows: dict[str, list[dict]] = {}
+    for key, value in builtin_topics.items():
+        topic_key = str(key or "").strip()
+        if not topic_key or not isinstance(value, dict):
+            continue
+        builtin_topic_lookup[topic_key.lower()] = topic_key
+        category_key = str(value.get("category") or "").strip().lower()
+        if category_key:
+            builtin_category_rows.setdefault(category_key, []).append({
+                "id": topic_key,
+                "title": str(value.get("title") or topic_key),
+                "summary": str(value.get("summary") or value.get("description") or ""),
+                "entry_type": "tool",
+            })
+        for alias in value.get("aliases") or []:
+            alias_key = str(alias or "").strip().lower()
+            if alias_key and alias_key not in builtin_alias_map:
+                builtin_alias_map[alias_key] = topic_key
     alias_map: dict[str, str] = {}
     for key, value in commands.items():
         if not isinstance(value, dict):
@@ -7341,9 +8210,20 @@ def _env_help_local_proxy_payload(args: dict | None = None) -> dict | None:
         "search": search,
         "category": category,
     }
-    if topic in builtin_topic_aliases:
-        topic = builtin_topic_aliases.get(topic) or topic
+    topic_key = topic.lower()
+    category_key = category.lower()
+    if topic_key in builtin_topic_aliases:
+        topic = builtin_topic_aliases.get(topic_key) or topic
         normalized_args["topic"] = topic
+        topic_key = topic.lower()
+    if topic_key in builtin_alias_map:
+        topic = builtin_alias_map.get(topic_key) or topic
+        normalized_args["topic"] = topic
+        topic_key = topic.lower()
+    if topic_key in builtin_topic_lookup:
+        topic = builtin_topic_lookup.get(topic_key) or topic
+        normalized_args["topic"] = topic
+        topic_key = topic.lower()
     retired_topics = {
         "workbench_apply_motion_preset": {
             "title": "Retired Motion Preset Command",
@@ -7474,6 +8354,23 @@ def _env_help_local_proxy_payload(args: dict | None = None) -> dict | None:
             "operation_status": "ok",
             "entry_type": "family",
             "family": families.get(category),
+        }
+    if category_key and category_key in builtin_category_rows:
+        return {
+            "tool": "env_help",
+            "status": "ok",
+            "summary": f"Read environment help builtin topic category {category}",
+            "normalized_args": normalized_args,
+            "operation": "env_help",
+            "operation_status": "ok",
+            "entry_type": "builtin_category",
+            "builtin_category": {
+                "category": category,
+                "topics": sorted(
+                    builtin_category_rows.get(category_key) or [],
+                    key=lambda item: str(item.get("id") or ""),
+                ),
+            },
         }
     if topic.startswith("playbook:"):
         playbook_id = topic.split(":", 1)[1].strip()
@@ -8001,15 +8898,24 @@ def _env_live_cache_store(payload: dict | None) -> dict | None:
         is_camera_partial = bool(live_state.get("partial")) and str(live_state.get("partial_kind") or "").strip().lower() == "camera3d"
         incoming_sync = 0
         current_sync = 0
+        incoming_epoch = ""
+        current_epoch = ""
         try:
-            incoming_sync = int((((live_state.get("shared_state") or {}).get("live_sync") or {}).get("camera_pulse_seq")) or 0)
+            incoming_live_sync = ((live_state.get("shared_state") or {}).get("live_sync") or {})
+            incoming_sync = int((incoming_live_sync.get("camera_pulse_seq")) or 0)
+            incoming_epoch = str(incoming_live_sync.get("camera_pulse_epoch") or "").strip()
         except Exception:
             incoming_sync = 0
+            incoming_epoch = ""
         try:
-            current_sync = int((((current or {}).get("shared_state") or {}).get("live_sync") or {}).get("camera_pulse_seq")) or 0
+            current_live_sync = (((current or {}).get("shared_state") or {}).get("live_sync") or {})
+            current_sync = int((current_live_sync.get("camera_pulse_seq")) or 0)
+            current_epoch = str(current_live_sync.get("camera_pulse_epoch") or "").strip()
         except Exception:
             current_sync = 0
-        if is_camera_partial and current_sync > 0 and incoming_sync > 0 and incoming_sync <= current_sync:
+            current_epoch = ""
+        same_camera_epoch = not incoming_epoch or not current_epoch or incoming_epoch == current_epoch
+        if is_camera_partial and same_camera_epoch and current_sync > 0 and incoming_sync > 0 and incoming_sync <= current_sync:
             return {
                 "live_state": _json_clone(current) if isinstance(current, dict) else {},
                 "updated_ms": int(_env_live_cache.get("updated_ms") or 0),
@@ -12864,7 +13770,23 @@ def _dreamer_snapshot_query_thread(snapshot: dict) -> dict:
 def _dreamer_snapshot_oracle_context(snapshot: dict) -> dict:
     output_state = snapshot.get("output_state") if isinstance(snapshot.get("output_state"), dict) else {}
     placement = output_state.get("placement") if isinstance(output_state.get("placement"), dict) else {}
+    trajectory_correlator = (
+        output_state.get("trajectory_correlator")
+        if isinstance(output_state.get("trajectory_correlator"), dict)
+        else {}
+    )
+    trajectory_correlation = (
+        trajectory_correlator.get("correlation")
+        if isinstance(trajectory_correlator.get("correlation"), dict)
+        else {}
+    )
+    trajectory_return_path = (
+        trajectory_correlator.get("return_path")
+        if isinstance(trajectory_correlator.get("return_path"), dict)
+        else {}
+    )
     equilibrium = output_state.get("equilibrium") if isinstance(output_state.get("equilibrium"), dict) else {}
+    freshness = output_state.get("freshness") if isinstance(output_state.get("freshness"), dict) else {}
     technolit_measure = (
         equilibrium.get("technolit_measure")
         if isinstance(equilibrium.get("technolit_measure"), dict)
@@ -12913,20 +13835,71 @@ def _dreamer_snapshot_oracle_context(snapshot: dict) -> dict:
         if isinstance(output_state.get("threat_bounty_packet"), dict)
         else {}
     )
+    misunderstanding_box = output_state.get("misunderstanding_box") if isinstance(output_state.get("misunderstanding_box"), dict) else {}
+    misunderstanding_subject = (
+        misunderstanding_box.get("subject")
+        if isinstance(misunderstanding_box.get("subject"), dict)
+        else {}
+    )
+    misunderstanding_mapping = (
+        misunderstanding_box.get("best_current_mapping")
+        if isinstance(misunderstanding_box.get("best_current_mapping"), dict)
+        else {}
+    )
     active_pointer = tinkerbell_attention.get("active_pointer") if isinstance(tinkerbell_attention.get("active_pointer"), dict) else {}
     field_disposition = output_state.get("field_disposition") if isinstance(output_state.get("field_disposition"), dict) else {}
     pan_probe = output_state.get("pan_probe") if isinstance(output_state.get("pan_probe"), dict) else {}
     writer_identity = pan_probe.get("writer_identity") if isinstance(pan_probe.get("writer_identity"), dict) else {}
     equilibrium_band = str(equilibrium.get("band") or equilibrium.get("state") or "")
+    equilibrium_issues = [str(item or "") for item in list(equilibrium.get("issues") or [])[:6]]
     drift_band = str(drift.get("band") or drift.get("level") or "")
     watch_band = str(watch_board.get("band") or watch_board.get("status") or "")
     field_settling_band = str(field_disposition.get("settling_band") or field_disposition.get("settle_band") or "")
+    freshness_age_ms = _dreamer_mechanics_number(freshness.get("age_ms"), 0.0)
+    freshness_mirror_lag = bool(freshness.get("mirror_lag"))
+    freshness_bundle_mismatch = bool(freshness.get("bundle_mismatch"))
+    freshness_live_sync_status = str(freshness.get("live_sync_status") or "").strip().lower()
+    freshness_live_sync_age_ms = _dreamer_mechanics_number(freshness.get("live_sync_age_ms"), -1.0)
+    freshness_gate = "settled"
+    freshness_gate_reasons: list[str] = []
+    if freshness_mirror_lag:
+        freshness_gate = "lagged"
+        freshness_gate_reasons.append("mirror_lag")
+    if freshness_bundle_mismatch:
+        if freshness_gate == "settled":
+            freshness_gate = "mismatch"
+        freshness_gate_reasons.append("bundle_mismatch")
+    if freshness_live_sync_status in {"queued", "in_flight", "superseded"}:
+        if freshness_gate == "settled":
+            freshness_gate = "transitional"
+        freshness_gate_reasons.append(f"live_sync:{freshness_live_sync_status}")
+    elif freshness_live_sync_status in {"error", "timeout", "gated", "unavailable"}:
+        if freshness_gate == "settled":
+            freshness_gate = "degraded"
+        freshness_gate_reasons.append(f"live_sync:{freshness_live_sync_status}")
+    elif freshness_live_sync_status and freshness_live_sync_status not in {"ok", "idle", "deduped"}:
+        freshness_gate_reasons.append(f"live_sync:{freshness_live_sync_status}")
+    corroboration_needed = freshness_gate in {"lagged", "mismatch", "transitional", "degraded"}
+    corroboration_reads = [
+        "env_read:text_theater_embodiment",
+        "env_control:capture_supercam",
+        "env_read:text_theater_view:consult:blackboard",
+        "env_read:text_theater_snapshot",
+        "env_report:paired_state_alignment",
+    ] if corroboration_needed else []
+    freshness_gate_summary = " / ".join([
+        ("mirror lag" if freshness_mirror_lag else "mirror fresh"),
+        ("bundle mismatch" if freshness_bundle_mismatch else "bundle aligned"),
+        (f"live sync {freshness_live_sync_status}" if freshness_live_sync_status else "live sync unknown"),
+    ])
     return {
         "summary": str(output_state.get("summary") or ""),
         "equilibrium_band": equilibrium_band,
         "equilibrium_state": equilibrium_band,
+        "equilibrium_score": _dreamer_mechanics_number(equilibrium.get("score"), 0.0),
         "equilibrium_summary": str(equilibrium.get("summary") or ""),
         "equilibrium_signals": [str(item or "") for item in list(equilibrium.get("signals") or [])[:6]],
+        "equilibrium_issues": equilibrium_issues,
         "technolit_band": str(technolit_measure.get("band") or ""),
         "technolit_symbol": str(technolit_measure.get("symbol") or ""),
         "technolit_coin_id": str(technolit_measure.get("coin_id") or ""),
@@ -12996,6 +13969,21 @@ def _dreamer_snapshot_oracle_context(snapshot: dict) -> dict:
             for item in list(tinkerbell_attention.get("prospect_candidates") or [])[:4]
             if isinstance(item, dict)
         ],
+        "misunderstanding_active": bool(misunderstanding_box.get("active")),
+        "misunderstanding_band": str(misunderstanding_box.get("band") or ""),
+        "misunderstanding_summary": str(misunderstanding_box.get("summary") or ""),
+        "misunderstanding_unknown_kind": str(misunderstanding_box.get("unknown_kind") or ""),
+        "misunderstanding_why_blocking": str(misunderstanding_box.get("why_blocking") or ""),
+        "misunderstanding_subject": str(misunderstanding_subject.get("subject_key") or ""),
+        "misunderstanding_objective": str(misunderstanding_subject.get("objective") or ""),
+        "misunderstanding_pivot_id": str(misunderstanding_subject.get("pivot_id") or ""),
+        "misunderstanding_seam": str(misunderstanding_subject.get("seam") or ""),
+        "misunderstanding_mapping_surface": str(misunderstanding_mapping.get("surface") or ""),
+        "misunderstanding_mapping_contract": str(misunderstanding_mapping.get("contract") or ""),
+        "misunderstanding_mapping_reason": str(misunderstanding_mapping.get("reason") or ""),
+        "misunderstanding_operator_teaching_needed": bool(misunderstanding_box.get("operator_teaching_needed")),
+        "misunderstanding_required_reads": [str(item or "") for item in list(misunderstanding_box.get("required_reads") or [])[:6]],
+        "misunderstanding_release_condition": str(misunderstanding_box.get("release_condition") or ""),
         "field_medium_kind": str(field_disposition.get("medium_kind") or ""),
         "field_propagation_mode": str(field_disposition.get("propagation_mode") or ""),
         "field_settling_band": field_settling_band,
@@ -13013,9 +14001,24 @@ def _dreamer_snapshot_oracle_context(snapshot: dict) -> dict:
         "placement_evidence": _json_clone(placement.get("evidence") or {}),
         "placement_drift": _json_clone(placement.get("drift") or {}),
         "placement_next": _json_clone(placement.get("next") or {}),
+        "trajectory_grade": str(trajectory_correlator.get("grade") or ""),
+        "trajectory_relation": str(trajectory_correlation.get("relation") or ""),
+        "trajectory_reasons": [str(item or "") for item in list(trajectory_correlation.get("reasons") or [])[:6]],
+        "trajectory_return_reads": [str(item or "") for item in list(trajectory_return_path.get("reads") or [])[:4]],
+        "trajectory_prompt": str(trajectory_return_path.get("prompt") or ""),
         "writer_last_sync_reason": str(writer_identity.get("last_sync_reason") or ""),
         "writer_tool": str(writer_identity.get("render_last_tool_applied") or ""),
         "writer_source": str(writer_identity.get("render_last_tool_source") or ""),
+        "freshness_age_ms": freshness_age_ms,
+        "freshness_mirror_lag": freshness_mirror_lag,
+        "freshness_bundle_mismatch": freshness_bundle_mismatch,
+        "freshness_live_sync_status": freshness_live_sync_status,
+        "freshness_live_sync_age_ms": freshness_live_sync_age_ms,
+        "freshness_gate": freshness_gate,
+        "freshness_gate_summary": freshness_gate_summary,
+        "freshness_gate_reasons": freshness_gate_reasons,
+        "corroboration_needed": corroboration_needed,
+        "corroboration_reads": corroboration_reads,
     }
 
 
@@ -13844,6 +14847,65 @@ def _dreamer_rank_proposals(observation_payload: dict, config: dict | None = Non
     support_role = str(oracle_context.get("support_role") or "")
     watch_alerts = {str(item or "").strip().lower() for item in list(oracle_context.get("watch_alerts") or [])[:8]}
     pivot_id = str(query_thread.get("current_pivot_id") or "")
+    attention_target = str(oracle_context.get("attention_target") or "").strip().lower()
+    attention_why_now = str(oracle_context.get("attention_why_now") or "").strip().lower()
+    attention_expected_read = str(oracle_context.get("attention_expected_read") or "").strip().lower()
+    attention_hold_candidate = bool(oracle_context.get("attention_hold_candidate"))
+    trajectory_grade = str(oracle_context.get("trajectory_grade") or "").strip().lower()
+    trajectory_relation = str(oracle_context.get("trajectory_relation") or "").strip().lower()
+    trajectory_return_reads = {
+        str(item or "").strip().lower()
+        for item in list(oracle_context.get("trajectory_return_reads") or [])[:4]
+        if str(item or "").strip()
+    }
+    trajectory_prompt = str(oracle_context.get("trajectory_prompt") or "").strip().lower()
+    placement_subject = str(oracle_context.get("placement_subject") or "").strip().lower()
+    selected_bone_id = str(oracle_context.get("selected_bone_id") or "").strip().lower()
+    selected_contact_joint = str(oracle_context.get("selected_contact_joint") or "").strip().lower()
+    freshness_gate = str(oracle_context.get("freshness_gate") or "").strip().lower()
+    freshness_mirror_lag = bool(oracle_context.get("freshness_mirror_lag"))
+    freshness_bundle_mismatch = bool(oracle_context.get("freshness_bundle_mismatch"))
+    freshness_live_sync_status = str(oracle_context.get("freshness_live_sync_status") or "").strip().lower()
+    freshness_live_sync_age_ms = _dreamer_mechanics_number(oracle_context.get("freshness_live_sync_age_ms"), -1.0)
+    freshness_gate_summary = str(oracle_context.get("freshness_gate_summary") or "")
+    freshness_gate_reasons = [
+        str(item or "").strip()
+        for item in list(oracle_context.get("freshness_gate_reasons") or [])[:8]
+        if str(item or "").strip()
+    ]
+    equilibrium_issues = [
+        str(item or "").strip()
+        for item in list(oracle_context.get("equilibrium_issues") or [])[:8]
+        if str(item or "").strip()
+    ]
+    corroboration_needed = bool(oracle_context.get("corroboration_needed"))
+    corroboration_reads = [
+        str(item or "").strip()
+        for item in list(oracle_context.get("corroboration_reads") or [])[:8]
+        if str(item or "").strip()
+    ]
+    subject_key = str(query_thread.get("subject_key") or "").strip().lower()
+    attention_focus = " ".join(
+        part
+        for part in [
+            attention_target,
+            attention_why_now,
+            placement_subject,
+            selected_bone_id,
+            selected_contact_joint,
+            subject_key,
+        ]
+        if part
+    )
+    trajectory_off_path = trajectory_grade in {"drift", "wobble"} or trajectory_relation in {"adjacent", "widen"}
+    return_path_expected = any(
+        marker in attention_expected_read
+        for marker in {"env_read:text_theater_view", "text_theater_view", "consult", "blackboard", "snapshot"}
+    ) or any(
+        marker in item
+        for item in trajectory_return_reads
+        for marker in {"text_theater", "blackboard", "snapshot", "consult"}
+    ) or "continue current sequence" in trajectory_prompt
 
     ranked = []
     for entry in corrections:
@@ -13915,6 +14977,43 @@ def _dreamer_rank_proposals(observation_payload: dict, config: dict | None = Non
             score += 0.4
             reasons.append("carrier lift only helps if the kneel is already compressed")
 
+        if attention_focus:
+            if any(token in attention_focus for token in {"foot", "anchor"}):
+                if action_key == "widen_anchor_foot":
+                    score += 1.1
+                    reasons.append("Tinkerbell focus is on the anchor/foot seam")
+            if any(token in attention_focus for token in {"knee", "lower_leg"}):
+                if action_key == "tuck_lead_knee":
+                    score += 0.9
+                    reasons.append("Tinkerbell focus is on the knee/lower-leg seam")
+                if action_key == "drop_hips":
+                    score += 0.5
+                    reasons.append("lower-leg attention still favors carrier drop for contact closure")
+            if any(token in attention_focus for token in {"spine", "chest", "torso"}):
+                if action_key in {"counter_rotate_spine", "counter_rotate_chest"}:
+                    score += 0.8
+                    reasons.append("Tinkerbell focus is riding the upper-body compensation seam")
+
+        if attention_hold_candidate:
+            if action_key in {"widen_anchor_foot", "counter_rotate_spine", "counter_rotate_chest"}:
+                score += 0.6
+                reasons.append("hold-candidate posture favors conservative alignment-preserving corrections")
+            if action_key == "raise_hips":
+                score -= 0.4
+                reasons.append("hold-candidate posture deprioritizes carrier lift")
+
+        if trajectory_off_path:
+            if action_key in {"widen_anchor_foot", "counter_rotate_spine", "counter_rotate_chest", "shift_hips_aft"}:
+                score += 0.5
+                reasons.append("trajectory correlator says we are off-path and should bias toward honest return actions")
+            if action_key == "shift_hips_fore":
+                score -= 0.3
+                reasons.append("forward projection is slightly deprioritized while the return path is still unstable")
+
+        if return_path_expected and action_key in {"widen_anchor_foot", "counter_rotate_spine"}:
+            score += 0.3
+            reasons.append("return path still wants a consult/read before a larger posture swing")
+
         ranked.append({
             "action_id": entry.get("action_id"),
             "action_key": action_key,
@@ -13929,9 +15028,36 @@ def _dreamer_rank_proposals(observation_payload: dict, config: dict | None = Non
 
     ranked.sort(key=lambda item: (-float(item.get("score") or 0.0), int(item.get("action_id") or 0)))
     best = ranked[0] if ranked else None
+    oracle_gate_summary = freshness_gate_summary or "sync gate unavailable"
+    if corroboration_needed and freshness_gate in {"lagged", "mismatch", "transitional", "degraded"}:
+        if freshness_gate == "transitional":
+            oracle_gate_summary = f"Live sync is still moving ({freshness_live_sync_status or 'transitional'}); corroborate before treating proposals as settled truth."
+        elif freshness_gate == "lagged":
+            oracle_gate_summary = "Mirror freshness is lagged; Dreamer can still score, but corroboration should happen before trusting the pose read as settled."
+        elif freshness_gate == "mismatch":
+            oracle_gate_summary = "Bundle parity is mismatched across surfaces; treat the current pose read as provisional until the theaters reconcile."
+        elif freshness_gate == "degraded":
+            oracle_gate_summary = f"Live sync is degraded ({freshness_live_sync_status or 'degraded'}); rely on bounded reads and run corroboration before corrective moves."
+    elif not corroboration_needed:
+        oracle_gate_summary = "Live sync is settled enough for Dreamer to score against the current output-state alignment."
+    oracle_gate = {
+        "status": "corroborate" if corroboration_needed else "clear",
+        "freshness_gate": freshness_gate or "unknown",
+        "summary": oracle_gate_summary,
+        "mirror_lag": freshness_mirror_lag,
+        "bundle_mismatch": freshness_bundle_mismatch,
+        "live_sync_status": freshness_live_sync_status,
+        "live_sync_age_ms": freshness_live_sync_age_ms,
+        "equilibrium_band": str(oracle_context.get("equilibrium_band") or oracle_context.get("equilibrium_state") or ""),
+        "equilibrium_issues": equilibrium_issues,
+        "reasons": freshness_gate_reasons,
+        "corroboration_needed": corroboration_needed,
+        "recommended_reads": corroboration_reads,
+    }
     return {
         "proposal_source": "outer_control_plane_heuristic_v1",
         "task": task,
+        "oracle_gate": oracle_gate,
         "ranked_actions": ranked,
         "best_action": _json_clone(best) if isinstance(best, dict) else None,
     }
@@ -14003,6 +15129,9 @@ def _dreamer_compact_observation(payload: dict | None = None) -> dict:
             "summary": str(oracle_context.get("summary") or ""),
             "equilibrium_band": str(oracle_context.get("equilibrium_band") or oracle_context.get("equilibrium_state") or ""),
             "equilibrium_state": str(oracle_context.get("equilibrium_state") or ""),
+            "equilibrium_score": _dreamer_mechanics_number(oracle_context.get("equilibrium_score"), 0.0),
+            "equilibrium_summary": str(oracle_context.get("equilibrium_summary") or ""),
+            "equilibrium_issues": list(oracle_context.get("equilibrium_issues") or []),
             "technolit_band": str(oracle_context.get("technolit_band") or ""),
             "technolit_symbol": str(oracle_context.get("technolit_symbol") or ""),
             "technolit_summary": str(oracle_context.get("technolit_summary") or ""),
@@ -14019,11 +15148,27 @@ def _dreamer_compact_observation(payload: dict | None = None) -> dict:
             "attention_why_now": str(oracle_context.get("attention_why_now") or ""),
             "attention_expected_read": str(oracle_context.get("attention_expected_read") or ""),
             "attention_hold_candidate": bool(oracle_context.get("attention_hold_candidate")),
+            "trajectory_grade": str(oracle_context.get("trajectory_grade") or ""),
+            "trajectory_relation": str(oracle_context.get("trajectory_relation") or ""),
+            "trajectory_return_reads": list(oracle_context.get("trajectory_return_reads") or []),
+            "trajectory_prompt": str(oracle_context.get("trajectory_prompt") or ""),
             "field_settling_band": str(oracle_context.get("field_settling_band") or oracle_context.get("field_settle_band") or ""),
             "pan_band": str(oracle_context.get("pan_band") or ""),
             "rotational_grounding": bool(oracle_context.get("rotational_grounding")),
             "contact_bias": str(oracle_context.get("contact_bias") or ""),
             "support_role": str(oracle_context.get("support_role") or ""),
+            "freshness": {
+                "gate": str(oracle_context.get("freshness_gate") or ""),
+                "summary": str(oracle_context.get("freshness_gate_summary") or ""),
+                "age_ms": _dreamer_mechanics_number(oracle_context.get("freshness_age_ms"), 0.0),
+                "mirror_lag": bool(oracle_context.get("freshness_mirror_lag")),
+                "bundle_mismatch": bool(oracle_context.get("freshness_bundle_mismatch")),
+                "live_sync_status": str(oracle_context.get("freshness_live_sync_status") or ""),
+                "live_sync_age_ms": _dreamer_mechanics_number(oracle_context.get("freshness_live_sync_age_ms"), -1.0),
+                "reasons": list(oracle_context.get("freshness_gate_reasons") or []),
+                "corroboration_needed": bool(oracle_context.get("corroboration_needed")),
+                "recommended_reads": list(oracle_context.get("corroboration_reads") or []),
+            },
             "placement": {
                 "subject": str(oracle_context.get("placement_subject") or ""),
                 "objective": str(oracle_context.get("placement_objective") or ""),
@@ -14493,6 +15638,7 @@ async def dreamer_proposal_preview(limit: int = 5):
         "warnings": warnings,
         "control_plane": _dreamer_control_plane_view(effective),
         "current_observation": _dreamer_compact_observation(observation_payload),
+        "oracle_gate": _json_clone(ranked_payload.get("oracle_gate") or {}),
         "available_actions": len(ranked_actions),
         "best_action": _json_clone(best_action),
         "ranked_actions": _json_clone(ranked_actions[:limit]),
@@ -14577,6 +15723,7 @@ async def dreamer_episode_step(request: Request):
             "config_source": config_source,
             "warnings": warnings,
             "current_observation": _dreamer_compact_observation(before_payload),
+            "oracle_gate": _json_clone(ranked_payload.get("oracle_gate") or {}),
             "ranked_actions": _json_clone(ranked_actions[:5]),
         }
         _broadcast_activity("dreamer_episode_step", body, payload, 0, payload.get("error"), source=source, client_id=client_id)
@@ -14672,6 +15819,7 @@ async def dreamer_episode_step(request: Request):
         "selected_action": _json_clone(selected_action),
         "current_observation": _dreamer_compact_observation(before_payload),
         "next_observation": _dreamer_compact_observation(after_payload),
+        "oracle_gate": _json_clone(ranked_payload.get("oracle_gate") or {}),
         "reward_breakdown": reward_breakdown,
         "env_control": env_payload,
         "history_sizes": {
@@ -14752,6 +15900,7 @@ async def _dreamer_refresh_state(force: bool = False, include_weights: bool = Tr
             "current_observation": _dreamer_compact_observation(current_payload),
             "current_observation_error": str(current_error or ""),
             "oracle_context": _json_clone((current_payload or {}).get("oracle_context") or {}),
+            "oracle_gate": _json_clone((ranked_payload.get("oracle_gate") if isinstance(ranked_payload, dict) else {}) or {}),
             "query_thread": _json_clone((current_payload or {}).get("query_thread") or {}),
             "ranked_actions_preview": _json_clone((ranked_payload.get("ranked_actions") if isinstance(ranked_payload, dict) else [])[:3]),
         }
@@ -15255,8 +16404,7 @@ async def pack_asset(pack_path: str):
     return FileResponse(resolved)
 
 
-@app.get("/panel", response_class=HTMLResponse)
-async def control_panel():
+def _render_control_panel_html() -> HTMLResponse:
     content = Path("static/panel.html").read_text(encoding="utf-8")
     runtime_boot = (
         "<script>"
@@ -15273,6 +16421,16 @@ async def control_panel():
         "Pragma": "no-cache",
         "Expires": "0",
     })
+
+
+@app.get("/panel", response_class=HTMLResponse)
+async def control_panel():
+    return _render_control_panel_html()
+
+
+@app.get("/panel-live/{stamp}", response_class=HTMLResponse)
+async def control_panel_live(stamp: str):
+    return _render_control_panel_html()
 
 
 # --- MCP SSE Reverse Proxy ---

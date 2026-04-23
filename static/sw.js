@@ -1,7 +1,5 @@
-var CACHE_NAME = 'champion-council-v131j';
+var CACHE_NAME = 'champion-council-v132f';
 var STATIC_ASSETS = [
-    '/',
-    '/static/panel.html',
     '/static/vscode-shim.js?v=25',
     '/static/svg-pan-zoom.min.js',
     '/static/peerjs.min.js',
@@ -14,7 +12,7 @@ var STATIC_ASSETS = [
     '/static/rapier3d-compat/rapier.es.js',
     '/static/rapier3d-compat/rapier_wasm3d.js',
     '/static/rapier3d-compat/rapier_wasm3d_bg.wasm',
-    '/static/main.js?v=131j',
+    '/static/main.js?v=132f',
     '/static/manifest.json',
     '/static/icon.svg',
     '/static/assets/packs/index.json',
@@ -51,11 +49,21 @@ self.addEventListener('fetch', function (event) {
     if (!event.request || event.request.method !== 'GET') return;
     var requestUrl = new URL(event.request.url);
     if (requestUrl.origin !== self.location.origin) return;
+    if (
+        event.request.mode === 'navigate' ||
+        requestUrl.pathname === '/' ||
+        requestUrl.pathname === '/panel' ||
+        requestUrl.pathname === '/static/panel.html' ||
+        requestUrl.pathname.indexOf('/panel-live/') === 0
+    ) {
+        event.respondWith(fetch(event.request));
+        return;
+    }
     if (requestUrl.pathname.indexOf('/api/') === 0 || requestUrl.pathname.indexOf('/mcp/') === 0) {
         event.respondWith(fetch(event.request));
         return;
     }
-    if (requestUrl.pathname === '/static/panel.html' || requestUrl.pathname === '/static/main.js' || requestUrl.pathname === '/static/sw.js') {
+    if (requestUrl.pathname === '/static/main.js' || requestUrl.pathname === '/static/sw.js') {
         event.respondWith(
             fetch(event.request).then(function (response) {
                 if (!response || response.status !== 200 || response.type !== 'basic') return response;
@@ -107,7 +115,10 @@ self.addEventListener('fetch', function (event) {
                     if (!response || response.status !== 200 || response.type !== 'basic') return response;
                     var copy = response.clone();
                     caches.open(CACHE_NAME).then(function (cache) {
-                        cache.put(normalized.toString(), copy);
+                        var contentType = String(response.headers.get('content-type') || '').toLowerCase();
+                        if (contentType.indexOf('text/html') === -1) {
+                            cache.put(normalized.toString(), copy);
+                        }
                     });
                     return response;
                 });

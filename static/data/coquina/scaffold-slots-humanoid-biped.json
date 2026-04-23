@@ -18,6 +18,126 @@
   },
   {
     "family": "humanoid_biped",
+    "slot": "hair_cap",
+    "joint": "head",
+    "geometry": "ellipsoid",
+    "default_scale": [0.22, 0.12, 0.18],
+    "up_offset": [0, 0.105, -0.02],
+    "rotation_deg": [6, 0, 0],
+    "color": "0x1c140f"
+  },
+  {
+    "family": "humanoid_biped",
+    "slot": "hair_side_l",
+    "joint": "head",
+    "geometry": "limb",
+    "default_scale": [0.03, 0.12, 0.025],
+    "up_offset": [-0.09, 0.045, -0.03],
+    "rotation_deg": [18, 12, 28],
+    "color": "0x1f1711"
+  },
+  {
+    "family": "humanoid_biped",
+    "slot": "hair_side_r",
+    "joint": "head",
+    "geometry": "limb",
+    "default_scale": [0.03, 0.12, 0.025],
+    "up_offset": [0.09, 0.045, -0.03],
+    "rotation_deg": [18, -12, -28],
+    "color": "0x1f1711"
+  },
+  {
+    "family": "humanoid_biped",
+    "slot": "hair_back",
+    "joint": "head",
+    "geometry": "limb",
+    "default_scale": [0.04, 0.13, 0.03],
+    "up_offset": [0, 0.01, -0.09],
+    "rotation_deg": [26, 0, 0],
+    "color": "0x1a120d"
+  },
+  {
+    "family": "humanoid_biped",
+    "slot": "hair_spike_crown",
+    "joint": "head",
+    "geometry": "limb",
+    "default_scale": [0.028, 0.24, 0.022],
+    "up_offset": [0, 0.2, -0.004],
+    "rotation_deg": [-8, 0, 0],
+    "color": "0x24160f"
+  },
+  {
+    "family": "humanoid_biped",
+    "slot": "hair_spike_front_l",
+    "joint": "head",
+    "geometry": "limb",
+    "default_scale": [0.024, 0.18, 0.02],
+    "up_offset": [-0.052, 0.158, 0.024],
+    "rotation_deg": [-6, 0, 22],
+    "color": "0x26180f"
+  },
+  {
+    "family": "humanoid_biped",
+    "slot": "hair_spike_front_r",
+    "joint": "head",
+    "geometry": "limb",
+    "default_scale": [0.024, 0.18, 0.02],
+    "up_offset": [0.052, 0.158, 0.024],
+    "rotation_deg": [-6, 0, -22],
+    "color": "0x26180f"
+  },
+  {
+    "family": "humanoid_biped",
+    "slot": "hair_spike_mid_l",
+    "joint": "head",
+    "geometry": "limb",
+    "default_scale": [0.026, 0.21, 0.022],
+    "up_offset": [-0.112, 0.148, 0.004],
+    "rotation_deg": [2, 0, 42],
+    "color": "0x25170f"
+  },
+  {
+    "family": "humanoid_biped",
+    "slot": "hair_spike_mid_r",
+    "joint": "head",
+    "geometry": "limb",
+    "default_scale": [0.026, 0.21, 0.022],
+    "up_offset": [0.112, 0.148, 0.004],
+    "rotation_deg": [2, 0, -42],
+    "color": "0x25170f"
+  },
+  {
+    "family": "humanoid_biped",
+    "slot": "hair_spike_back_l",
+    "joint": "head",
+    "geometry": "limb",
+    "default_scale": [0.024, 0.19, 0.02],
+    "up_offset": [-0.074, 0.14, -0.074],
+    "rotation_deg": [22, 0, 24],
+    "color": "0x23150e"
+  },
+  {
+    "family": "humanoid_biped",
+    "slot": "hair_spike_back_r",
+    "joint": "head",
+    "geometry": "limb",
+    "default_scale": [0.024, 0.19, 0.02],
+    "up_offset": [0.074, 0.14, -0.074],
+    "rotation_deg": [22, 0, -24],
+    "color": "0x23150e"
+  },
+  {
+    "family": "humanoid_biped",
+    "slot": "hair_spike_rear",
+    "joint": "head",
+    "geometry": "limb",
+    "default_scale": [0.03, 0.17, 0.024],
+    "up_offset": [0, 0.11, -0.112],
+    "rotation_deg": [28, 0, 0],
+    "color": "0x22140d"
+  },
+  {
+    "family": "humanoid_biped",
     "slot": "neck",
     "joint": "neck",
     "geometry": "limb",

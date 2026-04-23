@@ -303,9 +303,29 @@ async def _collect_state_files(call_tool_fn: CallToolFn, tmpdir: Path) -> dict[s
                 continue
             slot_info = await _call_capsule_tool(call_tool_fn, "slot_info", {"slot": i})
             model_id = None
+            slot_source = None
+            model_type = None
+            plugged = None
             if isinstance(slot_info, dict):
-                model_id = slot_info.get("model_source") or slot_info.get("model_id") or slot_info.get("model")
-            slot_manifest.append({"index": i, "name": name, "model_id": model_id})
+                slot_source = slot_info.get("source") or slot_info.get("model_source")
+                model_id = (
+                    slot_info.get("model_source")
+                    or slot_info.get("model_id")
+                    or slot_info.get("model")
+                    or slot_source
+                )
+                model_type = slot_info.get("model_type")
+                plugged = slot_info.get("plugged")
+            slot_manifest.append(
+                {
+                    "index": i,
+                    "name": name,
+                    "model_id": model_id,
+                    "source": slot_source,
+                    "model_type": model_type,
+                    "plugged": plugged,
+                }
+            )
 
         slots_path.write_text(json.dumps(slot_manifest, indent=2), encoding="utf-8")
         files[SLOTS_FILE] = slots_path
@@ -496,7 +516,7 @@ async def _restore_from_files(call_tool_fn: CallToolFn, files: dict[str, Path]) 
             for slot_entry in manifest:
                 if not isinstance(slot_entry, dict):
                     continue
-                model_id = slot_entry.get("model_id")
+                model_id = slot_entry.get("model_id") or slot_entry.get("source")
                 slot_name = slot_entry.get("name") or ""
                 if not model_id:
                     continue

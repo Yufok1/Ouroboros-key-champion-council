@@ -114,3 +114,23 @@ The 2026-04-21 implementation slice wires:
 - this planning spec as the doctrine anchor
 
 Next work is to make the FelixBag mirror carry this spec and the docs planning spec as checkpointed planning resources.
+
+## Corroboration 2026-04-21
+
+This is now corroborated by the live continuity restore shape, not only by doctrine text.
+
+On the current restore lane:
+
+- `continuity_restore(...)` surfaced `recommended_docs`
+- the recommended docs set includes the docs planning spec, the instantiation prompt, and the environment memory index
+- the recovered packet carried `priority_pivots`, `recommended_docs`, `help_lane`, `next_reads`, and `corroboration_surfaces`
+- the docs face remained distinct from the archive face, which confirms the intended split:
+  - `docs_packet` = planning/material face
+  - `continuity_packet` = archive/transcript face
+  - live theater/source/report = authority path
+
+So the current honest read is:
+
+- docs are operationalized as a queryable planning substrate
+- continuity can recommend and carry that substrate during reacclimation
+- the docs surface still must be re-corroborated against live theater/query work before it is treated as current truth

@@ -1,0 +1,15 @@
+{
+  "rewards": {
+    "tool_success": 0.0,
+    "tool_error": 0.0
+  },
+  "observation_bridge": {
+    "enabled": true,
+    "signal_types": [
+      "mechanics_v1",
+      "mechanics_reward"
+    ],
+    "action_mode": "delta8",
+    "max_chars": 8000
+  }
+}

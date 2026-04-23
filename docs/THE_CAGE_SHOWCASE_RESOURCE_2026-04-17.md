@@ -66,3 +66,20 @@ When the resource is active, `sequence_field` can switch from generic `strike_co
 - optional strike-finisher lanes during `cage_break`
 
 This keeps the sequence dynamic and inspectable while still letting the user author poses and clips directly in the workbench.
+
+## Expansion Path
+
+The next implementation layer is not a new unrelated showcase.
+It is the sequencer/effects expansion of this same resource.
+
+See:
+
+- `docs/THE_CAGE_DBZ_SHOWCASE_SEQUENCER_PLAN_2026-04-21.md`
+
+That plan formalizes:
+
+- the fluid bridge between authored poles
+- the `Vitruvian Dance Mobilization System` center-cycle for wraparound sequencing
+- weather/field-style force depiction between punch corridors
+- camera-facing JCVD split-up and DBZ finisher staging
+- the rule that spectacle stays downstream of support/contact/balance truth

@@ -1018,6 +1018,20 @@ def _format_blackboard_row(row):
     return _style_inline(line, style)
 
 
+def _blackboard_family_rows(rows, family, limit):
+    target = str(family or "").strip()
+    filtered = [
+        row
+        for row in list(rows or [])
+        if isinstance(row, dict) and str(row.get("family") or "").strip() == target
+    ]
+    filtered.sort(
+        key=lambda row: float(row.get("priority") or 0.0) + float(row.get("session_weight") or 0.0),
+        reverse=True,
+    )
+    return filtered[: max(0, int(limit or 0))]
+
+
 def _render_blackboard_section(snapshot, width):
     snapshot = snapshot if isinstance(snapshot, dict) else {}
     blackboard = snapshot.get("blackboard") if isinstance(snapshot.get("blackboard"), dict) else {}
@@ -1035,6 +1049,7 @@ def _render_blackboard_section(snapshot, width):
     tinkerbell_attention = _output_state_tinkerbell_attention(output_state)
     docs_packet = _output_state_docs_packet(output_state)
     continuity_packet = _output_state_continuity_packet(output_state)
+    misunderstanding_box = _output_state_misunderstanding_box(output_state)
     technolit_measure = _output_state_technolit_measure(output_state)
     technolit_distribution_packet = _output_state_technolit_distribution_packet(output_state)
     technolit_treasury_bridge_packet = _output_state_technolit_treasury_bridge_packet(output_state)
@@ -1054,6 +1069,8 @@ def _render_blackboard_section(snapshot, width):
     focus = blackboard.get("focus") if isinstance(blackboard.get("focus"), dict) else {}
     rows = blackboard.get("rows") if isinstance(blackboard.get("rows"), list) else []
     families = blackboard.get("families") if isinstance(blackboard.get("families"), list) else []
+    range_gate_rows = _blackboard_family_rows(rows, "range_gate", 6)
+    reach_envelope_rows = _blackboard_family_rows(rows, "reach_envelope", 6)
     lines = [
         f"row_count={int(blackboard.get('row_count') or 0)} families={families}",
         f"focus kind={focus.get('kind', '')} id={focus.get('id', '')} class={focus.get('target_class', '')}",
@@ -1141,6 +1158,7 @@ def _render_blackboard_section(snapshot, width):
         + str(watch_board.get("band") or "")
         + " alerts="
         + str(watch_board.get("alerts") or []),
+        *_sequence_field_blackboard_lines(snapshot),
         "trajectory_correlator="
         + str((((correlator.get("correlation") or {}).get("relation")) or ""))
         + " grade="
@@ -1153,6 +1171,14 @@ def _render_blackboard_section(snapshot, width):
         + str(bool(continuity_cue.get("needed")))
         + " next="
         + str(continuity_cue.get("next_action") or ""),
+        "misunderstanding_box="
+        + str(misunderstanding_box.get("band") or "quiet")
+        + " kind="
+        + str(misunderstanding_box.get("unknown_kind") or "")
+        + " teaching="
+        + str(bool(misunderstanding_box.get("operator_teaching_needed"))),
+        "misunderstanding_summary=" + str(misunderstanding_box.get("summary") or ""),
+        "misunderstanding_reads=" + str(list(misunderstanding_box.get("required_reads") or [])[:4]),
         "tinkerbell_attention="
         + str(tinkerbell_attention.get("band") or "quiet")
         + " kind="
@@ -1236,6 +1262,8 @@ def _render_blackboard_section(snapshot, width):
         f"selection={working.get('selected_bone_ids', [])}",
         f"intended_support={working.get('intended_support_set', [])} missing_support={working.get('missing_support_set', [])}",
         f"lead_rows={working.get('lead_row_ids', [])}",
+        f"range_gate_targets={working.get('range_gate_targets', [])}",
+        f"reach_envelope_targets={working.get('reach_envelope_targets', [])}",
         "query_next_reads="
         + str(
             [
@@ -1254,6 +1282,18 @@ def _render_blackboard_section(snapshot, width):
         ),
         "query_guardrail=" + str(query_thread.get("raw_state_guardrail") or ""),
     ]
+    if range_gate_rows:
+        lines.append("RANGE_GATES:")
+        for row in range_gate_rows:
+            rendered = _format_blackboard_row(row)
+            if rendered:
+                lines.append(rendered)
+    if reach_envelope_rows:
+        lines.append("REACH_ENVELOPE:")
+        for row in reach_envelope_rows:
+            rendered = _format_blackboard_row(row)
+            if rendered:
+                lines.append(rendered)
     for row in rows[:12]:
         rendered = _format_blackboard_row(row)
         if rendered:
@@ -1316,6 +1356,11 @@ def _output_state_docs_packet(output_state):
 def _output_state_continuity_packet(output_state):
     output_state = output_state if isinstance(output_state, dict) else {}
     return output_state.get("continuity_packet") if isinstance(output_state.get("continuity_packet"), dict) else {}
+
+
+def _output_state_misunderstanding_box(output_state):
+    output_state = output_state if isinstance(output_state, dict) else {}
+    return output_state.get("misunderstanding_box") if isinstance(output_state.get("misunderstanding_box"), dict) else {}
 
 
 def _output_state_technolit_measure(output_state):
@@ -1395,6 +1440,7 @@ def _consult_query_thread(snapshot):
     placement = _output_state_placement(output_state)
     correlator = _output_state_correlator(output_state)
     continuity_cue = _output_state_continuity_cue(output_state)
+    misunderstanding_box = _output_state_misunderstanding_box(output_state)
     tinkerbell_attention = _output_state_tinkerbell_attention(output_state)
     technolit_measure = _output_state_technolit_measure(output_state)
     technolit_distribution_packet = _output_state_technolit_distribution_packet(output_state)
@@ -1542,6 +1588,16 @@ def _consult_query_thread(snapshot):
         + str(bool(continuity_cue.get("needed")))
         + " / next "
         + str(continuity_cue.get("next_action") or "Continue Current Sequence"),
+        "MISUNDERSTANDING BOX: "
+        + str(misunderstanding_box.get("band") or "quiet")
+        + " / kind "
+        + str(misunderstanding_box.get("unknown_kind") or "n/a")
+        + " / teaching "
+        + str(bool(misunderstanding_box.get("operator_teaching_needed"))),
+        "BOX READS: "
+        + str(list(misunderstanding_box.get("required_reads") or [])[:4])
+        + " / release "
+        + str(misunderstanding_box.get("release_condition") or "n/a"),
         "TINKERBELL: "
         + str(tinkerbell_attention.get("band") or "quiet")
         + " / "
@@ -1577,7 +1633,7 @@ def _consult_query_thread(snapshot):
         + str((((placement.get("next") or {}).get("reads")) or [])),
         "ANCHOR ROWS: " + str(anchor_rows or []),
         "HELP AUTHORITY: env_help",
-        "HELP LANE: " + str([_format_query_lane_entry(row) for row in help_lane[:2] if isinstance(row, dict)]),
+        "HELP LANE: " + str([_format_query_lane_entry(row) for row in help_lane[:4] if isinstance(row, dict)]),
     ]
 
 
@@ -1590,6 +1646,7 @@ def _consult_query_evidence(snapshot):
     placement = _output_state_placement(output_state)
     correlator = _output_state_correlator(output_state)
     continuity_cue = _output_state_continuity_cue(output_state)
+    misunderstanding_box = _output_state_misunderstanding_box(output_state)
     tinkerbell_attention = _output_state_tinkerbell_attention(output_state)
     technolit_measure = _output_state_technolit_measure(output_state)
     technolit_distribution_packet = _output_state_technolit_distribution_packet(output_state)
@@ -1619,7 +1676,7 @@ def _consult_query_evidence(snapshot):
             continue
         label = _format_query_lane_entry(row)
         lines.append(str(index) + ". " + label + " — " + str(row.get("reason") or ""))
-    for index, row in enumerate(help_lane[:2], start=1):
+    for index, row in enumerate(help_lane[:4], start=1):
         if not isinstance(row, dict):
             continue
         label = _format_query_lane_entry(row)
@@ -1660,6 +1717,14 @@ def _consult_query_evidence(snapshot):
             + str(continuity_cue.get("severity") or "quiet")
             + " / "
             + str(continuity_cue.get("reasons") or [])
+        )
+        lines.append(
+            "MISUNDERSTANDING BOX: "
+            + str(misunderstanding_box.get("band") or "quiet")
+            + " / "
+            + str(misunderstanding_box.get("unknown_kind") or "n/a")
+            + " / reads "
+            + str(list(misunderstanding_box.get("required_reads") or [])[:4])
         )
         lines.append(
             "TINKERBELL: "
@@ -1910,6 +1975,18 @@ def _render_help_overlay(snapshot, width, height, view_mode, section_key, diagno
     ))
     lines.extend(_wrap_block(
         "Profiles remain live in the registry. Use p for the profiles section; current text-theater spectrum state is shown in the status panel.",
+        width - 2,
+    ))
+    lines.extend(_wrap_block(
+        "Continuity / help front: env_help(topic='continuity_reacclimation'), env_help(topic='output_state'), env_help(topic='techlit_hair_control_surface').",
+        width - 2,
+    ))
+    lines.extend(_wrap_block(
+        "Live TECHLIT controls: window.envopsSetHairGlyphMessageText('TECHLIT'), window.envopsSetHairGlyphSpectrum('crayolazy'), window.envopsSetHairPreset('saiyan', 'sasquatch', or 'exhaust_buds'), window.envopsEnablePoseDrive().",
+        width - 2,
+    ))
+    lines.extend(_wrap_block(
+        "Input routing: await window.envopsStartDesktopAudioReactiveCapture(), await window.envopsStartMicHairWords(), then verify with envopsGetAudioReactiveState(), envopsGetHairSpeechDriveState(), and the active hair_msg / hair_spectrum lines.",
         width - 2,
     ))
     return _box("Help", lines, width, height, color=MAGENTA, surface_mode=surface_mode, surface_density=surface_density)
@@ -2314,6 +2391,26 @@ def _style_from_color(value, fallback=(200, 210, 220), brightness=1.0, solid=Fal
     return f"\x1b[38;2;{r};{g};{b}m"
 
 
+def _style_from_hsl(hue_deg, saturation_pct, lightness_pct, brightness=1.0, solid=False, min_saturation=0.88, target_lightness=0.52):
+    hue = (float(hue_deg or 0.0) % 360.0) / 360.0
+    saturation = _clamp(float(saturation_pct or 0.0) / 100.0, 0.0, 1.0)
+    lightness = _clamp(float(lightness_pct or 0.0) / 100.0, 0.0, 1.0)
+    rf, gf, bf = colorsys.hls_to_rgb(hue, lightness, saturation)
+    rgb = (
+        _clamp(int(round(rf * 255.0)), 0, 255),
+        _clamp(int(round(gf * 255.0)), 0, 255),
+        _clamp(int(round(bf * 255.0)), 0, 255),
+    )
+    return _style_from_color(
+        "#{:02x}{:02x}{:02x}".format(*rgb),
+        rgb,
+        brightness,
+        solid=solid,
+        min_saturation=min_saturation,
+        target_lightness=target_lightness,
+    )
+
+
 def _v_add(a, b):
     return (a[0] + b[0], a[1] + b[1], a[2] + b[2])
 
@@ -2573,6 +2670,161 @@ def _extract_motion_sample(snapshot):
         "loop_mode": str(animation.get("loop_mode") or "").strip(),
         "speed": float(animation.get("speed") or 0.0),
     }
+
+
+def _snapshot_epoch_ms(value):
+    try:
+        number = float(value or 0.0)
+    except Exception:
+        return 0.0
+    if number <= 0:
+        return 0.0
+    if number > 100000000000.0:
+        return number
+    if number > 100000000.0:
+        return number * 1000.0
+    return 0.0
+
+
+def _sequence_shared_surface_motion_clock(snapshot):
+    snapshot = snapshot if isinstance(snapshot, dict) else {}
+    sequence = snapshot.get("sequence_field") if isinstance(snapshot.get("sequence_field"), dict) else {}
+    force = sequence.get("force_wave") if isinstance(sequence.get("force_wave"), dict) else {}
+    surface = force.get("animation_surface") if isinstance(force.get("animation_surface"), dict) else {}
+    runtime = snapshot.get("runtime") if isinstance(snapshot.get("runtime"), dict) else {}
+    runtime_surface = runtime.get("surfaces") if isinstance(runtime.get("surfaces"), dict) else {}
+    runtime_animation = runtime_surface.get("animation") if isinstance(runtime_surface.get("animation"), dict) else {}
+    timeline = snapshot.get("timeline") if isinstance(snapshot.get("timeline"), dict) else {}
+
+    def number_from(*values):
+        for value in values:
+            try:
+                number = float(value)
+            except Exception:
+                continue
+            if math.isfinite(number):
+                return number
+        return 0.0
+
+    sequence_active = bool(sequence.get("active"))
+    force_active = bool(force.get("active"))
+    active = bool(
+        sequence_active
+        and (
+            surface.get("active")
+            or runtime_animation.get("active_clip")
+            or (force_active and force.get("pose_drive_enabled"))
+        )
+    )
+    duration = number_from(
+        surface.get("timeline_duration"),
+        surface.get("duration"),
+        runtime_animation.get("duration"),
+        timeline.get("duration"),
+        4.35,
+    )
+    duration = max(0.25, duration)
+    speed = number_from(runtime_animation.get("speed"), surface.get("speed"), 1.0)
+    if speed <= 0:
+        speed = 1.0
+    base_progress = _clamp(number_from(surface.get("cycle_progress"), force.get("cycle_progress"), 0.0), 0.0, 1.0)
+    epoch_ms = (
+        _snapshot_epoch_ms(surface.get("clock_epoch_ms"))
+        or _snapshot_epoch_ms(runtime_animation.get("clock_epoch_ms"))
+    )
+    timestamp_ms = (
+        _snapshot_epoch_ms(surface.get("updated_ms"))
+        or _snapshot_epoch_ms(surface.get("timestamp_ms"))
+        or _snapshot_epoch_ms(runtime_animation.get("updated_ms"))
+        or _snapshot_epoch_ms(runtime_animation.get("timestamp_ms"))
+    )
+    elapsed_seconds = 0.0
+    if active:
+        if epoch_ms > 0:
+            elapsed_seconds = max(0.0, ((time.time() * 1000.0) - epoch_ms) / 1000.0)
+        elif timestamp_ms > 0:
+            elapsed_seconds = max(0.0, ((time.time() * 1000.0) - timestamp_ms) / 1000.0)
+            elapsed_seconds = min(elapsed_seconds, duration * 3.0)
+        else:
+            elapsed_seconds = time.time()
+    phase = (base_progress + ((elapsed_seconds * speed) / duration if active else 0.0)) % 1.0
+    radians = phase * math.tau
+    consumer_rule = str(
+        surface.get("consumer_rule")
+        or surface.get("bridge")
+        or "text_and_web_theaters_consume_shared_surface"
+    ).strip()
+    authority = str(surface.get("authority") or "sequence_field.force_wave").strip()
+    clip = str(runtime_animation.get("active_clip") or surface.get("active_clip") or "").strip()
+    return {
+        "active": active,
+        "authority": authority,
+        "consumer_rule": consumer_rule,
+        "clip": clip,
+        "duration": duration,
+        "elapsed_seconds": elapsed_seconds,
+        "phase": phase,
+        "phase_radians": radians,
+        "pulse": 0.5 + (0.5 * math.sin(radians)),
+        "speed": speed,
+        "drive_gain": _clamp(number_from(force.get("drive_gain"), 0.55), 0.0, 1.0),
+        "rebound_damping": _clamp(number_from(force.get("rebound_damping"), 0.4), 0.0, 1.0),
+    }
+
+
+def _sequence_shared_surface_motion_overlay(clock, motion, support_y, span_x, span_z, guide_grid_span, styles):
+    if not clock.get("active"):
+        return {"segments": [], "rings": []}
+    origin = _vec3((motion or {}).get("origin"))
+    forward = _v_norm(_ground_vec((motion or {}).get("forward") or (0.0, 0.0, 1.0)), (0.0, 0.0, 1.0))
+    right = _v_norm((forward[2], 0.0, -forward[0]), (1.0, 0.0, 0.0))
+    center = (origin[0], float(support_y or 0.0) + 0.018, origin[2])
+    span = float(guide_grid_span or 0.0)
+    if span <= 0.1:
+        span = max(float(span_x or 0.0), float(span_z or 0.0), 4.0)
+    base_radius = max(1.15, min(6.4, span * 0.16))
+    phase = float(clock.get("phase") or 0.0)
+    pulse = float(clock.get("pulse") or 0.5)
+    drive = float(clock.get("drive_gain") or 0.55)
+    tau = math.tau
+
+    def orbit(theta, radius, lift=0.0):
+        return (
+            center[0] + (right[0] * math.cos(theta) * radius) + (forward[0] * math.sin(theta) * radius),
+            center[1] + lift,
+            center[2] + (right[2] * math.cos(theta) * radius) + (forward[2] * math.sin(theta) * radius),
+        )
+
+    motion_style = styles.get("motion") or CYAN
+    heading_style = styles.get("heading") or YELLOW
+    rings = [
+        {
+            "center": center,
+            "radius": base_radius * (0.72 + (0.16 * pulse) + (0.08 * drive)),
+            "style": motion_style,
+            "priority": 2,
+            "samples": 76,
+        }
+    ]
+    segments = []
+    for idx in range(4):
+        theta = tau * ((phase + (idx * 0.25)) % 1.0)
+        segments.append({
+            "start": orbit(theta - 0.1, base_radius * (0.28 + (0.04 * idx)), 0.012),
+            "end": orbit(theta + 0.18 + (pulse * 0.12), base_radius * (0.76 + (drive * 0.18)), 0.012),
+            "style": motion_style if idx % 2 else heading_style,
+            "priority": 3,
+            "samples": 22,
+        })
+    sweep_theta = tau * ((phase + 0.08) % 1.0)
+    segments.append({
+        "start": center,
+        "end": orbit(sweep_theta, base_radius * (0.96 + (0.12 * drive)), 0.024),
+        "style": heading_style,
+        "priority": 3,
+        "samples": 26,
+    })
+    return {"segments": segments, "rings": rings}
 
 
 def _append_motion_history(history, snapshot, limit=18):
@@ -3811,6 +4063,696 @@ def _weather_rows(snapshot, drag_lod=False):
     return rows
 
 
+def _hair_field_styles(hair):
+    source = hair if isinstance(hair, dict) else {}
+    topology = source.get("topology") if isinstance(source.get("topology"), dict) else {}
+    equilibrium = str(source.get("equilibrium_mode") or "").strip().lower()
+    response = str(source.get("response_mode") or "").strip().lower()
+    strategy = str(source.get("color_strategy") or "").strip().lower()
+    charge = _clamp(float(topology.get("surface_charge_gain") or source.get("flare_gain") or 0.0), 0.0, 1.0)
+    if equilibrium == "super_saiyan_blonde" or strategy == "saiyan_equilibrium":
+        bright_hex = "#fff2ad" if response == "audio_reactive_saiyan" else "#ffe36a"
+        mid_hex = "#ffd04f"
+        dim_hex = "#b77e1f"
+        root_hex = "#fff7d5"
+    else:
+        bright_hex = "#b5f4e7"
+        mid_hex = "#7ce0ce"
+        dim_hex = "#2b8f85"
+        root_hex = "#d7fff8"
+    return {
+        "bright": _style_from_color(bright_hex, bright_hex, 1.0, solid=True, min_saturation=0.56, target_lightness=0.82),
+        "mid": _style_from_color(mid_hex, mid_hex, 0.94 + (charge * 0.04), solid=True, min_saturation=0.52, target_lightness=0.72),
+        "dim": _style_from_color(dim_hex, dim_hex, 0.86, solid=True, min_saturation=0.48, target_lightness=0.5),
+        "root": _style_from_color(root_hex, root_hex, 1.0, solid=True, min_saturation=0.4, target_lightness=0.9),
+    }
+
+
+def _hair_field_glyph(slot_name, sample_t, clump_mass):
+    slot = str(slot_name or "").strip().lower()
+    t = _clamp(float(sample_t or 0.0), 0.0, 1.0)
+    mass = _clamp(float(clump_mass or 0.0), 0.0, 1.0)
+    if "frill" in slot:
+        if t >= 0.86:
+            return "⣽"
+        if t >= 0.58:
+            return "⣿"
+        if t >= 0.28:
+            return "⣾" if mass >= 0.8 else "⣷"
+        return "⣶"
+    if "mane" in slot or "temple" in slot or "arc" in slot:
+        if t >= 0.88:
+            return "⣽" if ("back" in slot or "rear" in slot) else "⢿"
+        if t >= 0.62:
+            return "⣾" if mass >= 0.78 else "⣷"
+        if t >= 0.34:
+            return "⣷" if mass >= 0.8 or "front" in slot else "⣶"
+        return "⣤" if mass < 0.74 else "⣶"
+    if t >= 0.88:
+        return "⢿" if ("back" in slot or "rear" in slot) else "⡿"
+    if t >= 0.62:
+        return "⣯" if "side" in slot else "⣻"
+    if t >= 0.34:
+        return "⣿" if mass >= 0.8 or "front" in slot else "⣾"
+    return "⣶" if mass < 0.74 else "⣷"
+
+
+def _glyph_message_text(text):
+    return "".join(ch for ch in str(text or "").upper() if ch.isalnum())
+
+
+def _glyph_message_seed(text):
+    seed = 0
+    for idx, ch in enumerate(str(text or "")):
+        seed = (seed + ((idx + 1) * ord(ch))) % 104729
+    return seed
+
+
+def _hair_field_message_glyph(manifold, slot_name, sample_t, tuft_index, time_ms, fallback_glyph):
+    packet = manifold if isinstance(manifold, dict) else {}
+    message = _glyph_message_text(packet.get("message_text") or packet.get("message_seed_text") or "PANVITRUVIAN9K")
+    packet_active = bool(packet.get("active")) or bool(packet.get("grid_active")) or bool(packet.get("mutation_active")) or bool(packet.get("perturbance_active"))
+    if not packet_active or not message:
+        return fallback_glyph
+    slot = str(slot_name or "").strip().lower()
+    t = _clamp(float(sample_t or 0.0), 0.0, 1.0)
+    tuft = max(0.0, float(tuft_index or 0.0))
+    time_seconds = max(0.0, float(time_ms or 0.0)) / 1000.0
+    message_length = max(1, len(message))
+    phase_rate = max(0.08, float(packet.get("phase_rate") or 0.65))
+    repeat_count = max(1.0, float(packet.get("repeat_count") or 1.8))
+    slot_stride = max(0.05, float(packet.get("slot_phase_stride") or 0.42))
+    sample_stride = max(0.05, float(packet.get("sample_phase_stride") or 0.88))
+    tuft_stride = max(0.05, float(packet.get("tuft_phase_stride") or 0.32))
+    inertia_gain = _clamp(float(packet.get("inertia_gain") or 0.0), 0.0, 1.0)
+    cohesion_gain = _clamp(float(packet.get("cohesion_gain") or 0.0), 0.0, 1.0)
+    legibility_gain = _clamp(float(packet.get("legibility_gain") or 0.0), 0.0, 1.0)
+    sharpness_gain = _clamp(float(packet.get("sharpness_gain") or 0.0), 0.0, 1.0)
+    camera_gain = _clamp(float(packet.get("camera_alignment_gain") or 0.0), 0.0, 1.0)
+    gravity_bias = _clamp(float(packet.get("gravity_bias") if packet.get("gravity_bias") is not None else 0.5), 0.0, 1.0)
+    grid_columns = max(3, min(16, int(round(float(packet.get("grid_columns") or 8)))))
+    grid_rows = max(4, min(24, int(round(float(packet.get("grid_rows") or 16)))))
+    mutation_gain = _clamp(float(packet.get("mutation_gain") if packet.get("mutation_gain") is not None else 0.46), 0.0, 1.0)
+    perturbance_gain = _clamp(float(packet.get("perturbance_gain") if packet.get("perturbance_gain") is not None else 0.58), 0.0, 1.0)
+    offset_gain = _clamp(float(packet.get("offset_gain") if packet.get("offset_gain") is not None else 0.62), 0.0, 1.0)
+    slot_seed = _glyph_message_seed(slot)
+    slot_phase = ((slot_seed % 211) / 211.0) * slot_stride * message_length
+    sample_phase = t * repeat_count * sample_stride * message_length
+    tuft_phase = tuft * tuft_stride
+    grid_column = max(0, min(grid_columns - 1, int(math.floor(t * grid_columns))))
+    grid_row = max(0, min(grid_rows - 1, int(math.floor(tuft % grid_rows))))
+    grid_phase = (
+        ((grid_column / float(max(1, grid_columns - 1))) * (0.18 + (offset_gain * 0.46)))
+        + ((grid_row / float(max(1, grid_rows - 1))) * (0.12 + (mutation_gain * 0.34)))
+    ) * message_length
+    inertial_lag = (1.0 - t) * inertia_gain * 0.85
+    gravity_phase = gravity_bias * (1.0 - t) * 0.42
+    cadence_phase = time_seconds * phase_rate * (0.72 + (sharpness_gain * 0.56) + (cohesion_gain * 0.22))
+    mutation_phase = math.sin(
+        (time_seconds * (1.6 + (perturbance_gain * 2.4)))
+        + (grid_column * (0.42 + (offset_gain * 0.2)))
+        + (grid_row * (0.26 + (mutation_gain * 0.18)))
+        + slot_phase
+    ) * (0.12 + (mutation_gain * 0.88)) * message_length
+    carrier_index = int(math.floor(cadence_phase + slot_phase + sample_phase + tuft_phase + grid_phase + mutation_phase + gravity_phase - inertial_lag))
+    emergence = _clamp(
+        (t * (0.48 + (sharpness_gain * 0.12)))
+        + (legibility_gain * 0.22)
+        + (camera_gain * 0.12)
+        + (cohesion_gain * 0.10),
+        0.0,
+        1.0,
+    )
+    emergence = _clamp(
+        emergence
+        + (perturbance_gain * 0.18)
+        + (offset_gain * 0.08),
+        0.0,
+        1.0,
+    )
+    if emergence < 0.24:
+        return fallback_glyph
+    if emergence < 0.42 and (abs(carrier_index + int(math.floor(tuft))) % 4) == 1:
+        return fallback_glyph
+    return message[carrier_index % message_length]
+
+
+def _hair_field_visual_styles(hair_state, slot_name, sample_t, tuft_index, time_ms, fallback_styles):
+    source = hair_state if isinstance(hair_state, dict) else {}
+    manifold = source.get("glyph_message_manifold") if isinstance(source.get("glyph_message_manifold"), dict) else {}
+    granulation = source.get("granulation") if isinstance(source.get("granulation"), dict) else {}
+    fallback = {
+        "bright": fallback_styles.get("bright"),
+        "mid": fallback_styles.get("mid"),
+        "dim": fallback_styles.get("dim"),
+        "trail": fallback_styles.get("dim"),
+        "root": fallback_styles.get("root"),
+    }
+    if not manifold.get("active"):
+        return fallback
+    spectrum_mode = str(manifold.get("spectrum_mode") or "").strip().lower()
+    spectrum_gain = _clamp(
+        float(manifold.get("spectrum_gain") if manifold.get("spectrum_gain") is not None else (granulation.get("color_octave_gain") or 0.0)),
+        0.0,
+        1.0,
+    )
+    if not spectrum_mode or spectrum_mode == "off" or spectrum_gain <= 0.01:
+        return fallback
+    pop_gain = _clamp(float(manifold.get("pop_gain") if manifold.get("pop_gain") is not None else spectrum_gain), 0.0, 1.0)
+    glow_gain = _clamp(
+        float(manifold.get("glow_gain") if manifold.get("glow_gain") is not None else min(1.0, pop_gain + 0.18)),
+        0.0,
+        1.0,
+    )
+    hue_rate = max(0.01, float(manifold.get("hue_rate") or 0.22))
+    hue_stride = max(0.01, float(manifold.get("hue_stride") or 0.12))
+    slot_seed = _glyph_message_seed(str(slot_name or "hair"))
+    time_seconds = max(0.0, float(time_ms or 0.0)) / 1000.0
+    t = _clamp(float(sample_t or 0.0), 0.0, 1.0)
+    tuft = max(0.0, float(tuft_index or 0.0))
+    hue = (((slot_seed % 360) / 360.0) + (time_seconds * hue_rate) + (t * hue_stride) + (tuft * 0.031)) % 1.0
+    if spectrum_mode == "crayolazy":
+        hue = (hue + (0.06 * math.sin((time_seconds * 1.8) + (tuft * 0.7) + (t * 3.1)))) % 1.0
+    hue_deg = int(round(hue * 360.0))
+    glow_hue_deg = int(round((((hue + 0.08) % 1.0) + 1.0) % 1.0 * 360.0))
+    saturation = int(round(max(68.0, min(100.0, 74.0 + (spectrum_gain * 18.0) + (8.0 if spectrum_mode == "crayolazy" else 0.0)))))
+    lightness = int(round(max(58.0, min(78.0, 62.0 + (pop_gain * 10.0) + (t * 4.0) + (2.0 if spectrum_mode == "crayolazy" else 0.0)))))
+    glow_lightness = int(round(max(52.0, min(82.0, lightness + 8.0 + (glow_gain * 6.0)))))
+    return {
+        "bright": _style_from_hsl(
+            hue_deg,
+            saturation,
+            min(86, lightness + 6),
+            1.0 + (pop_gain * 0.06),
+            solid=True,
+            min_saturation=0.80,
+            target_lightness=0.68,
+        ),
+        "mid": _style_from_hsl(
+            hue_deg,
+            max(64, saturation - 4),
+            lightness,
+            0.98 + (pop_gain * 0.04),
+            solid=True,
+            min_saturation=0.72,
+            target_lightness=0.58,
+        ),
+        "dim": _style_from_hsl(
+            glow_hue_deg,
+            max(58, saturation - 10),
+            max(46, lightness - 10),
+            0.86 + (glow_gain * 0.06),
+            solid=True,
+            min_saturation=0.62,
+            target_lightness=0.46,
+        ),
+        "trail": _style_from_hsl(
+            glow_hue_deg,
+            max(52, saturation - 14),
+            max(42, glow_lightness - 16),
+            0.82 + (glow_gain * 0.08),
+            solid=True,
+            min_saturation=0.56,
+            target_lightness=0.42,
+        ),
+        "root": fallback_styles.get("root"),
+    }
+
+
+def _hair_field_band(projected_subcells, sample_t, clump_mass):
+    density = float(projected_subcells or 0.0)
+    density *= 0.92 + (_clamp(float(clump_mass or 0.0), 0.0, 1.0) * 0.42)
+    density *= 1.08 - (_clamp(float(sample_t or 0.0), 0.0, 1.0) * 0.26)
+    if density >= 1.55:
+        return "reference"
+    if density >= 0.98:
+        return "fused"
+    if density >= 0.52:
+        return "granular"
+    if density >= 0.24:
+        return "blob"
+    return "trace"
+
+
+def _hair_field_rows(snapshot, visible_bone_ids=None, drag_lod=False):
+    embodiment = snapshot.get("embodiment") or {}
+    if not bool(embodiment.get("scaffold_visible", False)):
+        return []
+    sequence = snapshot.get("sequence_field") if isinstance(snapshot.get("sequence_field"), dict) else {}
+    force = sequence.get("force_wave") if isinstance(sequence.get("force_wave"), dict) else {}
+    hair = force.get("hair_reactivity") if isinstance(force.get("hair_reactivity"), dict) else {}
+    glyph_manifold = hair.get("glyph_message_manifold") if isinstance(hair.get("glyph_message_manifold"), dict) else {}
+    topology = hair.get("topology") if isinstance(hair.get("topology"), dict) else {}
+    granulation = hair.get("granulation") if isinstance(hair.get("granulation"), dict) else {}
+    if not hair and not topology:
+        return []
+
+    balance = snapshot.get("balance") or {}
+    gravity_down = _vec3(balance.get("gravity_vector"))
+    if _v_len(gravity_down) <= 1e-6:
+        gravity_down = (0.0, -1.0, 0.0)
+    gravity_down = _v_norm(gravity_down, (0.0, -1.0, 0.0))
+    gravity_up = _v_scale(gravity_down, -1.0)
+    field_vector = _vec3(force.get("field_vector"))
+    if _v_len(field_vector) <= 1e-6:
+        field_vector = (0.0, 0.0, 0.0)
+    else:
+        field_vector = _v_norm(field_vector, (0.0, 0.0, 0.0))
+
+    lift_gain = _clamp(float(hair.get("lift_gain") or 0.0), 0.0, 1.0)
+    sweep_gain = _clamp(float(hair.get("sweep_gain") or 0.0), 0.0, 1.0)
+    flare_gain = _clamp(float(hair.get("flare_gain") or 0.0), 0.0, 1.0)
+    simian_gain = _clamp(float(granulation.get("simian_ramp_gain") or 0.0), 0.0, 1.0)
+    exhaust_bud_gain = _clamp(float(granulation.get("exhaust_bud_gain") or 0.0), 0.0, 1.0)
+    gravity_follow_gain = _clamp(float(topology.get("gravity_follow_gain") or hair.get("gravity_dominance") or 0.64), 0.0, 1.0)
+    root_lock_gain = _clamp(float(topology.get("root_lock_gain") or 0.74), 0.0, 1.0)
+    tip_flex_gain = _clamp(float(topology.get("tip_flex_gain") or 0.22) + (exhaust_bud_gain * 0.08), 0.0, 1.0)
+    radial_spread_gain = _clamp(float(topology.get("radial_spread_gain") or 0.28) + (exhaust_bud_gain * 0.08), 0.0, 1.0)
+    surface_charge_gain = _clamp(float(topology.get("surface_charge_gain") or flare_gain) + (exhaust_bud_gain * 0.08), 0.0, 1.0)
+    clump_count = max(6, int(round(float(topology.get("virtual_clump_count") or 9) + (simian_gain * 1.5) + (exhaust_bud_gain * 2.0))))
+    topography_mode = str(topology.get("topography_mode") or topology.get("silhouette") or "").strip().lower()
+    topographic_field = any(token in topography_mode for token in ("topographic", "ridge", "contour"))
+    primary_peak_count = max(10, min(24, int(round(float(topology.get("primary_peak_count") or (16 if topographic_field else 12))))))
+    interleave_peak_count = max(6, min(24, int(round(float(topology.get("interleave_peak_count") or max(8, primary_peak_count - 2))))))
+    scalp_band_count = max(2, min(6, int(round(float(topology.get("scalp_band_count") or (4 if topographic_field else 3))))))
+    trough_depth_gain = _clamp(float(topology.get("trough_depth_gain") or 0.28), 0.0, 1.0)
+    crest_sharpness_gain = _clamp(float(topology.get("crest_sharpness_gain") or 0.52), 0.0, 1.0)
+    ridge_noise_gain = _clamp(float(topology.get("ridge_noise_gain") or 0.24), 0.0, 1.0)
+    contour_wrap_gain = _clamp(float(topology.get("contour_wrap_gain") or 0.38), 0.0, 1.0)
+    scalp_coverage_gain = _clamp(float(topology.get("scalp_coverage_gain") or 0.58), 0.0, 1.0)
+    primary_length_gain = _clamp(float(topology.get("primary_length_gain") or 0.56), 0.0, 1.0)
+    interleave_length_gain = _clamp(float(topology.get("interleave_length_gain") or 0.42), 0.0, 1.0)
+    front_panel_breakup_gain = _clamp(float(topology.get("front_panel_breakup_gain") or 0.44), 0.0, 1.0)
+    lane_cascade_gain = _clamp(float(topology.get("lane_cascade_gain") or 0.34), 0.0, 1.0)
+    glyph_time_ms = float(glyph_manifold.get("phase_timestamp_ms") or snapshot.get("snapshot_timestamp") or 0.0)
+    field_styles = _hair_field_styles(hair)
+    rows = []
+
+    def mix(a, b, t):
+        return _v_add(a, _v_scale(_v_sub(b, a), t))
+
+    def clamp_signed(value, limit):
+        cap = max(0.0, float(limit or 0.0))
+        return max(-cap, min(cap, float(value or 0.0)))
+
+    def contour_noise(seed, band_index):
+        return math.sin((float(seed or 0.0) * (2.2 + (ridge_noise_gain * 2.8))) + (float(band_index or 0.0) * 0.91))
+
+    def contour_tip_direction(normal, length_gain, crest_gain, front_bias):
+        normal = _v_norm(normal, (0.0, 1.0, 0.0))
+        return _v_norm(
+            (
+                (normal[0] * (0.68 + (radial_spread_gain * 0.22) + (contour_wrap_gain * 0.16) + (float(crest_gain or 0.0) * 0.14)))
+                + (field_vector[0] * (0.08 + (sweep_gain * 0.18))),
+                (normal[1] * (0.54 + (crest_sharpness_gain * 0.18) + (lift_gain * 0.12)))
+                + 0.42
+                + (surface_charge_gain * 0.16)
+                + (lift_gain * 0.14)
+                - (gravity_follow_gain * 0.04),
+                (normal[2] * (0.56 + (contour_wrap_gain * 0.22) + (float(length_gain or 0.0) * 0.12)))
+                + (float(front_bias or 0.0) * (0.08 + (sweep_gain * 0.12)))
+                + (field_vector[2] * (0.08 + (sweep_gain * 0.18))),
+            ),
+            (0.0, 1.0, 0.0),
+        )
+
+    def contour_length_scalar(length_gain):
+        return max(
+            0.42,
+            min(
+                1.68,
+                0.76
+                + (float(length_gain or 0.0) * 0.38)
+                + (surface_charge_gain * 0.12)
+                + (lift_gain * 0.08)
+                + (flare_gain * 0.08)
+                + (simian_gain * 0.08)
+                - (gravity_follow_gain * 0.05),
+            ),
+        )
+
+    def append_tuft(slot_name, root, tip, bend, sample_count, tuft_index, clump_mass, field_scale):
+        previous = root
+        for sample_index in range(max(2, int(sample_count))):
+            sample_t = float(sample_index + 1) / float(max(1, int(sample_count)))
+            curve = math.sin(sample_t * math.pi)
+            point = mix(root, tip, sample_t)
+            point = _v_add(point, _v_scale(bend, curve))
+            trail_start = previous if sample_index > 0 else root
+            previous = point
+            fallback_glyph = _hair_field_glyph(slot_name, sample_t, clump_mass)
+            visual_styles = _hair_field_visual_styles(hair, slot_name, sample_t, tuft_index, glyph_time_ms, field_styles)
+            rows.append({
+                "point": point,
+                "trail_start": trail_start,
+                "world_size": max(0.045, float(field_scale or 0.08) * (0.28 + ((1.0 - sample_t) * 0.18) + (clump_mass * 0.1) + (exhaust_bud_gain * 0.06))),
+                "glyph": _hair_field_message_glyph(glyph_manifold, slot_name, sample_t, tuft_index, glyph_time_ms, fallback_glyph),
+                "sample_t": sample_t,
+                "sample_index": sample_index,
+                "clump_mass": clump_mass,
+                "slot": slot_name,
+                "tuft_index": tuft_index,
+                "styles": visual_styles,
+            })
+
+    for row in embodiment.get("scaffold_pieces") or []:
+        if not isinstance(row, dict) or row.get("visible") is False:
+            continue
+        slot_id = str(row.get("slot") or row.get("joint") or "").strip()
+        joint_id = str(row.get("joint") or "").strip()
+        if not slot_id.lower().startswith("hair_"):
+            continue
+        if visible_bone_ids and slot_id not in visible_bone_ids and joint_id not in visible_bone_ids:
+            continue
+
+        geometry = str(row.get("geometry") or "").strip().lower()
+        center = _vec3(row.get("center"))
+        size_world = _scaffold_size_world(row.get("size_local"), row.get("world_scale"))
+        size_x = max(0.03, float(size_world[0] or 0.08))
+        size_y = max(0.03, float(size_world[1] or 0.08))
+        size_z = max(0.03, float(size_world[2] or 0.08))
+        quaternion = _quat_norm(row.get("quaternion"))
+        up_axis = _v_norm(_quat_rotate(quaternion, (0.0, 1.0, 0.0)), (0.0, 1.0, 0.0))
+        right_axis = _v_norm(_quat_rotate(quaternion, (1.0, 0.0, 0.0)), (1.0, 0.0, 0.0))
+        forward_axis = _v_norm(_quat_rotate(quaternion, (0.0, 0.0, 1.0)), (0.0, 0.0, 1.0))
+        field_scale = max(size_x, size_y, size_z, 0.08)
+
+        if slot_id.lower() == "hair_cap" or geometry in {"ellipsoid", "sphere"}:
+            cap_band_count = scalp_band_count if topographic_field else max(2, scalp_band_count - 1)
+            tuft_cursor = 0
+            for band_index in range(cap_band_count):
+                band_t = 0.5 if cap_band_count <= 1 else (float(band_index) / float(max(1, cap_band_count - 1)))
+                band_front_bias = 0.58 - (band_t * 1.16)
+                band_primary = band_index == (cap_band_count // 2)
+                band_peak_count = (
+                    primary_peak_count
+                    if band_primary
+                    else max(8, min(20, interleave_peak_count - max(0, band_index - 1)))
+                )
+                band_phase = 0.0 if band_primary else (math.pi / float(max(2, band_peak_count)))
+                for cap_index in range(band_peak_count):
+                    angle = band_phase + (float(cap_index) / float(max(1, band_peak_count))) * math.pi * 2.0
+                    side = math.sin(angle)
+                    orbit_front = math.cos(angle)
+                    ridge_wave = contour_noise(angle + (band_front_bias * 0.62), band_index)
+                    contour_front = clamp_signed(
+                        (orbit_front * (0.28 + (contour_wrap_gain * 0.18)))
+                        + band_front_bias
+                        + (ridge_wave * 0.08 * ridge_noise_gain),
+                        0.96,
+                    )
+                    root_normal = _v_norm(
+                        _v_add(
+                            _v_scale(right_axis, side * (0.84 - (abs(contour_front) * 0.08) + (0.06 if band_primary else 0.0))),
+                            _v_add(
+                                _v_scale(
+                                    up_axis,
+                                    0.54
+                                    + ((1.0 - abs(contour_front)) * 0.16)
+                                    + ((0.08 if band_primary else 0.02) * crest_sharpness_gain)
+                                    + (ridge_wave * 0.04 * ridge_noise_gain),
+                                ),
+                                _v_scale(forward_axis, contour_front * (0.88 - (abs(side) * 0.08))),
+                            ),
+                        ),
+                        up_axis,
+                    )
+                    root = _v_add(
+                        center,
+                        _v_add(
+                            _v_scale(right_axis, root_normal[0] * size_x * (0.2 + (scalp_coverage_gain * 0.08))),
+                            _v_add(
+                                _v_scale(
+                                    up_axis,
+                                    (-size_y * 0.18)
+                                    + (root_normal[1] * size_y * (0.18 + (scalp_coverage_gain * 0.08)))
+                                    - (max(0.0, -ridge_wave) * size_y * 0.04 * trough_depth_gain),
+                                ),
+                                _v_scale(forward_axis, root_normal[2] * size_z * (0.14 + (contour_wrap_gain * 0.1))),
+                            ),
+                        ),
+                    )
+                    peak_wave = math.cos((angle * max(4, int(round(band_peak_count * 0.5)))) + (band_index * 0.78))
+                    crest_gain = max(0.0, peak_wave) * (0.18 + (crest_sharpness_gain * 0.24))
+                    length_gain = (
+                        (primary_length_gain if band_primary else interleave_length_gain)
+                        + crest_gain
+                        - (max(0.0, -peak_wave) * trough_depth_gain * 0.08)
+                    )
+                    tip_dir = contour_tip_direction(root_normal, length_gain, crest_gain, contour_front)
+                    tip = _v_add(
+                        root,
+                        _v_scale(
+                            tip_dir,
+                            field_scale * (0.92 + (contour_length_scalar(length_gain) * 0.28) + (crest_gain * 0.14)),
+                        ),
+                    )
+                    bend = _v_add(
+                        _v_scale(right_axis, side * (0.02 + (radial_spread_gain * 0.06) + (exhaust_bud_gain * 0.015))),
+                        _v_scale(forward_axis, contour_front * (0.018 + (contour_wrap_gain * 0.02))),
+                    )
+                    append_tuft(
+                        slot_id,
+                        root,
+                        tip,
+                        bend,
+                        (4 if drag_lod else 6) if band_primary else (4 if drag_lod else 5),
+                        tuft_cursor,
+                        0.92 + (crest_gain * 0.18) - (abs(side) * 0.06),
+                        field_scale,
+                    )
+                    tuft_cursor += 1
+            continue
+
+        start = _vec3(row.get("segment_start"))
+        end = _vec3(row.get("segment_end"))
+        axis = _v_sub(end, start)
+        axis_length = _v_len(axis)
+        if axis_length <= 1e-6:
+            axis = _v_scale(up_axis, size_y)
+            axis_length = _v_len(axis)
+            start = _v_add(center, _v_scale(axis, -0.5))
+            end = _v_add(center, _v_scale(axis, 0.5))
+        axis_dir = _v_norm(axis, up_axis)
+        side_axis = _v_cross(axis_dir, gravity_down)
+        if _v_len(side_axis) <= 1e-6:
+            side_axis = right_axis
+        side_axis = _v_norm(side_axis, right_axis)
+        depth_axis = _v_cross(side_axis, axis_dir)
+        if _v_len(depth_axis) <= 1e-6:
+            depth_axis = forward_axis
+        depth_axis = _v_norm(depth_axis, forward_axis)
+        slot_text = slot_id.lower()
+        slot_side = -1.0 if slot_text.endswith("_l") else (1.0 if slot_text.endswith("_r") else 0.0)
+        rear_bias = -1.0 if ("back" in slot_text or "rear" in slot_text) else (0.24 if "front" in slot_text else 0.0)
+        slot_is_spike = slot_text.startswith("hair_spike_")
+        slot_is_side = slot_text.startswith("hair_side_")
+        slot_is_front = "front" in slot_text
+        slot_is_frill = "frill" in slot_text
+        slot_is_temple = "temple" in slot_text
+        slot_is_mane = "mane" in slot_text
+        slot_is_arc = "arc" in slot_text
+        slot_is_medusa_lane = (not slot_is_spike) and (not slot_is_side) and (slot_is_front or slot_is_frill or slot_is_temple or slot_is_mane or slot_is_arc)
+        if slot_is_spike:
+            spike_spread_count = max(3, min(7, 3 + int(round((simian_gain * 1.2) + (exhaust_bud_gain * 0.8)))))
+            for spike_index in range(spike_spread_count):
+                spread = 0.0 if spike_spread_count <= 1 else (-0.34 + ((float(spike_index) / float(max(1, spike_spread_count - 1))) * 0.68))
+                spike_wave = contour_noise(spread + (slot_side * 0.6), spike_index)
+                spike_front = clamp_signed(((-0.56 if rear_bias < 0 else 0.08) + (spread * 0.12) + (spike_wave * 0.06 * front_panel_breakup_gain)), 0.88)
+                root = _v_add(
+                    center,
+                    _v_add(
+                        _v_scale(right_axis, spread * size_x * 0.16),
+                        _v_add(
+                            _v_scale(up_axis, -size_y * 0.42 + ((1.0 - abs(spread)) * size_y * 0.06)),
+                            _v_scale(forward_axis, spike_front * size_z * 0.06),
+                        ),
+                    ),
+                )
+                spike_normal = _v_norm(
+                    _v_add(
+                        _v_scale(right_axis, spread + (slot_side * (0.34 + (lane_cascade_gain * 0.1)))),
+                        _v_add(
+                            _v_scale(up_axis, 0.82 + ((1.0 - abs(spread)) * 0.14) + (spike_wave * 0.03 * ridge_noise_gain)),
+                            _v_scale(forward_axis, spike_front),
+                        ),
+                    ),
+                    up_axis,
+                )
+                tip_dir = contour_tip_direction(
+                    spike_normal,
+                    (primary_length_gain * 0.88) + (tip_flex_gain * 0.08),
+                    0.1 + (crest_sharpness_gain * 0.18) - (abs(spread) * 0.05),
+                    spike_front,
+                )
+                tip = _v_add(
+                    root,
+                    _v_scale(
+                        tip_dir,
+                        axis_length * (0.9 + (contour_length_scalar((primary_length_gain * 0.88) + (tip_flex_gain * 0.08)) * 0.2)),
+                    ),
+                )
+                bend = _v_add(
+                    _v_scale(side_axis, spread * (0.018 + (radial_spread_gain * 0.05))),
+                    _v_scale(depth_axis, spike_front * (0.014 + (contour_wrap_gain * 0.02))),
+                )
+                append_tuft(
+                    slot_id,
+                    root,
+                    tip,
+                    bend,
+                    4 if drag_lod else 5,
+                    spike_index,
+                    0.96 - (abs(spread) * 0.08),
+                    field_scale,
+                )
+            continue
+        if slot_is_medusa_lane:
+            lane_depth_bias_base = -0.72 if rear_bias < 0 else (0.62 if slot_is_frill else (0.46 if slot_is_front else (0.08 if slot_is_temple else -0.18)))
+            lane_cascade_count = max(2, min(5 if slot_is_frill else 4, 2 + int(round((lane_cascade_gain * 2.0) + (1.0 if slot_is_frill else 0.0)))))
+            lane_spread_base = 0.54 if slot_is_frill else 0.42
+            lane_spread_count_base = 4 if slot_is_frill else 3
+            lane_tuft_index = 0
+            for layer_index in range(lane_cascade_count):
+                layer_t = 0.5 if lane_cascade_count <= 1 else (float(layer_index) / float(max(1, lane_cascade_count - 1)))
+                layer_spread_count = lane_spread_count_base + int(round(front_panel_breakup_gain * 2.0)) - (1 if layer_index > 1 else 0)
+                layer_spread_count = max(3, min(6 if slot_is_frill else 5, layer_spread_count))
+                layer_phase = 0.0 if layer_index % 2 == 0 else ((1.0 / float(max(3, layer_spread_count))) * front_panel_breakup_gain)
+                for spread_index in range(layer_spread_count):
+                    spread_t = 0.5 if layer_spread_count <= 1 else (float(spread_index) / float(max(1, layer_spread_count - 1)))
+                    spread = ((spread_t * 2.0) - 1.0) * lane_spread_base
+                    spread += ((layer_phase - 0.5) * 0.12) * front_panel_breakup_gain
+                    ridge_wave = contour_noise((layer_index * 0.78) + (spread * 1.9), spread_index)
+                    contour_spread = clamp_signed(spread + (ridge_wave * 0.08 * ridge_noise_gain), 0.72 if slot_is_frill else 0.56)
+                    scalp_curve = max(0.0, 1.0 - (abs(contour_spread) * abs(contour_spread)))
+                    depth_bias = lane_depth_bias_base + (contour_spread * (0.1 if slot_is_frill else 0.14)) + ((layer_t - 0.5) * 0.18 * lane_cascade_gain)
+                    root = _v_add(
+                        center,
+                        _v_add(
+                            _v_scale(
+                                right_axis,
+                                (contour_spread + (slot_side * (0.08 if slot_is_frill else 0.14))) * size_x * (0.22 if slot_is_frill else 0.18),
+                            ),
+                            _v_add(
+                                _v_scale(
+                                    up_axis,
+                                    -size_y * (0.24 if slot_is_frill else (0.34 if slot_is_temple else 0.32))
+                                    + (layer_t * size_y * (0.1 if slot_is_frill else 0.06))
+                                    + (scalp_curve * size_y * (0.08 if layer_index == 0 else 0.04))
+                                    - (max(0.0, -ridge_wave) * size_y * 0.04 * trough_depth_gain),
+                                ),
+                                _v_scale(
+                                    forward_axis,
+                                    (depth_bias * size_z * 0.1)
+                                    + (scalp_curve * size_z * (0.06 if (slot_is_front or slot_is_frill) else (-0.04 if rear_bias < 0 else 0.0))),
+                                ),
+                            ),
+                        ),
+                    )
+                    lane_normal = _v_norm(
+                        _v_add(
+                            _v_scale(right_axis, (contour_spread * (0.82 + (contour_wrap_gain * 0.16))) + (slot_side * (0.34 if slot_is_temple else 0.18))),
+                            _v_add(
+                                _v_scale(up_axis, 0.68 + (scalp_curve * 0.18) + ((0.06 if layer_index == 0 else 0.02) * crest_sharpness_gain)),
+                                _v_scale(forward_axis, (depth_bias * (0.86 + (contour_wrap_gain * 0.1))) + ((0.22 if (slot_is_front or slot_is_frill) else 0.0) - (0.12 if rear_bias < 0 else 0.0))),
+                            ),
+                        ),
+                        up_axis,
+                    )
+                    crest_gain = max(0.0, ((ridge_wave + 1.0) * 0.5) * (0.12 + (crest_sharpness_gain * 0.2))) + (0.06 if layer_index == 0 else 0.0)
+                    length_gain = (
+                        (primary_length_gain if layer_index == 0 else interleave_length_gain)
+                        + (scalp_curve * 0.08)
+                        + (0.08 if slot_is_frill else 0.0)
+                        + (0.04 if slot_is_temple else 0.0)
+                        - (max(0.0, -ridge_wave) * trough_depth_gain * 0.08)
+                    )
+                    tip_dir = contour_tip_direction(lane_normal, length_gain, crest_gain, depth_bias)
+                    tip = _v_add(
+                        root,
+                        _v_scale(
+                            tip_dir,
+                            axis_length * (0.96 + (contour_length_scalar(length_gain) * 0.22) + (crest_gain * 0.1)),
+                        ),
+                    )
+                    bend = _v_add(
+                        _v_scale(side_axis, contour_spread * (0.018 + (radial_spread_gain * 0.06))),
+                        _v_scale(depth_axis, depth_bias * (0.016 + (contour_wrap_gain * 0.02))),
+                    )
+                    append_tuft(
+                        slot_id,
+                        root,
+                        tip,
+                        bend,
+                        (5 if drag_lod else 7) if slot_is_frill and layer_index == 0 else ((4 if drag_lod else 6) if layer_index == 0 else (4 if drag_lod else 5)),
+                        lane_tuft_index,
+                        0.92 + (crest_gain * 0.14) - (abs(contour_spread) * 0.08),
+                        field_scale,
+                    )
+                    lane_tuft_index += 1
+            continue
+        spreads = (
+            ([-0.56, -0.28, 0.0, 0.28, 0.56] if slot_is_frill else [-0.46, -0.24, 0.0, 0.24, 0.46])
+            if slot_is_medusa_lane
+            else ([-0.22, 0.22] if slot_is_side else ([-0.38, 0.0, 0.38] if slot_is_spike else [-0.28, 0.0, 0.28]))
+        )
+        root_center = _v_add(
+            start,
+            _v_scale(axis_dir, axis_length * (((0.1 if slot_is_frill else 0.08) if slot_is_medusa_lane else 0.04) + (root_lock_gain * 0.08))),
+        )
+        for tuft_index, spread in enumerate(spreads):
+            depth_bias = (rear_bias * size_z * (0.16 if slot_is_medusa_lane else 0.12)) + (((0.12 if slot_is_frill else 0.08) if slot_is_front or slot_is_frill else 0.0) * size_z)
+            root = _v_add(
+                root_center,
+                _v_add(
+                    _v_scale(side_axis, spread * size_x * ((0.48 if slot_is_frill else 0.42) if slot_is_medusa_lane else (0.34 + (abs(slot_side) * 0.12)))),
+                    _v_scale(depth_axis, depth_bias),
+                ),
+            )
+            scalp_curve = max(0.0, 1.0 - min(1.0, abs(float(spread))) ** 2)
+            root = _v_add(
+                root,
+                _v_add(
+                    _v_scale(axis_dir, size_z * scalp_curve * (0.04 + (0.04 if slot_is_medusa_lane else 0.0) + (0.03 if slot_is_frill else 0.0))),
+                    _v_scale(depth_axis, size_z * scalp_curve * ((0.05 if slot_is_front or slot_is_frill else (-0.03 if rear_bias < 0 else 0.0)))),
+                ),
+            )
+            tip_dir = _v_add(
+                _v_add(
+                    _v_scale(axis_dir, 1.0 + (surface_charge_gain * 0.42) + (lift_gain * 0.22) + ((0.16 if slot_is_frill else 0.1) if slot_is_medusa_lane else 0.0)),
+                    _v_scale(gravity_up, 0.08 + ((1.0 - gravity_follow_gain) * 0.34) + (lift_gain * 0.18) + ((0.1 if slot_is_frill else 0.06) if slot_is_medusa_lane else 0.0)),
+                ),
+                _v_add(
+                    _v_scale(side_axis, (spread + (slot_side * ((0.22 if slot_is_frill else 0.34) if slot_is_medusa_lane else 0.24))) * (0.22 + (radial_spread_gain * ((0.68 if slot_is_frill else 0.56) if slot_is_medusa_lane else 0.44)))),
+                    _v_add(
+                        _v_scale(depth_axis, (rear_bias * (0.08 + (tip_flex_gain * ((0.34 if slot_is_frill else 0.3) if slot_is_medusa_lane else 0.22)))) + ((((0.18 if slot_is_frill else 0.14) if slot_is_front or slot_is_frill else 0.0) + (0.04 if slot_is_temple else 0.0)))),
+                        _v_add(
+                            _v_scale(field_vector, 0.1 + (sweep_gain * ((0.62 if slot_is_frill else 0.52) if slot_is_medusa_lane else 0.42))),
+                            _v_scale(gravity_down, 0.03 + (gravity_follow_gain * 0.18)),
+                        ),
+                    ),
+                ),
+            )
+            tip_dir = _v_norm(tip_dir, axis_dir)
+            rear_exhaust = exhaust_bud_gain * (0.18 if ("back" in slot_text or "rear" in slot_text or slot_is_spike) else (0.12 if slot_is_medusa_lane else 0.08))
+            tip = _v_add(root, _v_scale(tip_dir, axis_length * (0.92 + (lift_gain * 0.28) + (surface_charge_gain * 0.34) + (flare_gain * 0.14) + rear_exhaust + (((0.16 if slot_is_frill else 0.1) if slot_is_medusa_lane else 0.0)) + (0.08 if slot_is_spike else 0.0))))
+            bend = _v_add(
+                _v_scale(side_axis, spread * (0.02 + (radial_spread_gain * ((0.11 if slot_is_frill else 0.09) if slot_is_medusa_lane else 0.06)) + (exhaust_bud_gain * 0.015))),
+                _v_scale(depth_axis, rear_bias * (0.018 + (exhaust_bud_gain * (0.024 if slot_is_medusa_lane else 0.018)))),
+            )
+            append_tuft(
+                slot_id,
+                root,
+                tip,
+                bend,
+                ((5 if drag_lod else 7) if slot_is_frill else ((4 if drag_lod else 6) if slot_is_medusa_lane else (3 if drag_lod else 4))),
+                tuft_index,
+                0.82 + (0.08 if slot_is_spike else 0.0) + (((0.1 if slot_is_frill else 0.06) if slot_is_medusa_lane else 0.0)) - (abs(spread) * 0.08),
+                field_scale,
+            )
+    return rows
+
+
 def _collect_render_model(snapshot):
     drag_lod = _snapshot_has_active_camera_motion(snapshot)
     embodiment = snapshot.get("embodiment") or {}
@@ -4101,6 +5043,7 @@ def _collect_render_model(snapshot):
     span_x = max(4.0, abs(max_x - min_x))
     span_z = max(4.0, abs(max_z - min_z))
     motion = _extract_motion_sample(snapshot)
+    sequence_motion = _sequence_shared_surface_motion_clock(snapshot)
     heading_length = max(1.6, min(6.8, (guide_grid_span * 0.24) if guide_grid_span > 0.1 else (max(span_x, span_z) * 0.18)))
     heading_origin = (motion["origin"][0], support_y, motion["origin"][2])
     heading_forward = _v_norm(_ground_vec(motion["forward"]), (0.0, 0.0, 1.0))
@@ -4254,6 +5197,22 @@ def _collect_render_model(snapshot):
             })
             z_cursor += grid_step
 
+    if not scoped_part_mode and not quiet_workbench_stage:
+        shared_motion_overlay = _sequence_shared_surface_motion_overlay(
+            sequence_motion,
+            motion,
+            support_y,
+            span_x,
+            span_z,
+            guide_grid_span,
+            {
+                "motion": motion_style,
+                "heading": heading_style,
+            },
+        )
+        guide_segments.extend(shared_motion_overlay.get("segments") or [])
+        guide_rings.extend(shared_motion_overlay.get("rings") or [])
+
     segments = []
     projected_points = []
     if show_bones:
@@ -4278,12 +5237,18 @@ def _collect_render_model(snapshot):
             projected_points.extend([pa, pb])
 
     scaffold_segments = []
+    hair_fields = _hair_field_rows(snapshot, visible_bone_ids=visible_bone_ids, drag_lod=drag_lod)
+    sequence = snapshot.get("sequence_field") if isinstance(snapshot.get("sequence_field"), dict) else {}
+    force = sequence.get("force_wave") if isinstance(sequence.get("force_wave"), dict) else {}
+    hair_state = force.get("hair_reactivity") if isinstance(force.get("hair_reactivity"), dict) else {}
+    hair_styles = _hair_field_styles(hair_state)
     if show_scaffold:
         for row in embodiment.get("scaffold_pieces") or []:
             if not isinstance(row, dict) or row.get("visible") is False:
                 continue
             slot_id = str(row.get("slot") or row.get("joint") or "").strip()
-            if visible_bone_ids and slot_id and slot_id not in visible_bone_ids:
+            joint_id = str(row.get("joint") or "").strip()
+            if visible_bone_ids and slot_id and slot_id not in visible_bone_ids and joint_id not in visible_bone_ids:
                 continue
             start = _vec3(row.get("segment_start"))
             end = _vec3(row.get("segment_end"))
@@ -4292,6 +5257,9 @@ def _collect_render_model(snapshot):
             quaternion = _quat_norm(row.get("quaternion"))
             geometry = str(row.get("geometry") or "").strip().lower()
             color_value = str(row.get("color") or "#bfb7aa")
+            text_surface_only = slot_id.lower().startswith("hair_")
+            if text_surface_only:
+                continue
             segment_common = {
                 "slot": str(row.get("slot") or row.get("joint") or ""),
                 "geometry": geometry,
@@ -4361,7 +5329,7 @@ def _collect_render_model(snapshot):
                 "end": end,
                 "radius_start": max(0.008, float(row.get("radius_start") or 0.02)),
                 "radius_end": max(0.008, float(row.get("radius_end") or 0.02)),
-                "render_mode": "solid",
+                "render_mode": "wire" if text_surface_only else "solid",
             })
             projected_points.extend([start, end])
 
@@ -4475,6 +5443,10 @@ def _collect_render_model(snapshot):
         perspective_points.extend([segment["start"], segment["end"]])
     for segment in scaffold_segments:
         perspective_points.extend([segment["start"], segment["end"]])
+    for hair_row in hair_fields:
+        perspective_points.append(hair_row["point"])
+        if hair_row.get("trail_start") is not None:
+            perspective_points.append(hair_row["trail_start"])
     for patch in contact_patches:
         perspective_points.extend(patch.get("points") or [])
     for marker in markers:
@@ -4487,17 +5459,24 @@ def _collect_render_model(snapshot):
         weather_volume = _weather_volume_bounds(weather)
         projected_points.extend(weather_volume.get("corners") or [])
         perspective_points.extend(weather_volume.get("corners") or [])
+    for hair_row in hair_fields:
+        projected_points.append(hair_row["point"])
+        if hair_row.get("trail_start") is not None:
+            projected_points.append(hair_row["trail_start"])
 
     return {
         "drag_lod": drag_lod,
         "segments": segments,
         "scaffold_segments": scaffold_segments,
+        "hair_fields": hair_fields,
+        "hair_styles": hair_styles,
         "markers": markers,
         "support_polygon": support_polygon,
         "contact_patches": contact_patches,
         "com": com,
         "focus_point": focus_point,
         "motion": motion,
+        "sequence_motion": sequence_motion,
         "weather": weather if weather.get("enabled") else {},
         "heading_origin": heading_origin,
         "heading_length": heading_length,
@@ -5389,6 +6368,85 @@ def _render_projection(snapshot, width, height, mode, history=None, surface_mode
             else:
                 _braille_put(canvas, x, y, priority=2, style=weather_styles["dim"])
 
+    hair_fields = model.get("hair_fields") if isinstance(model.get("hair_fields"), list) else []
+    hair_styles = model.get("hair_styles") if isinstance(model.get("hair_styles"), dict) else {}
+    if hair_fields:
+        for row in hair_fields:
+            row_styles = row.get("styles") if isinstance(row.get("styles"), dict) else {}
+            point = row.get("point")
+            coords = project(point)
+            if coords is None:
+                continue
+            x, y = mapper(coords)
+            trail_start = row.get("trail_start")
+            if trail_start is not None:
+                trail_points = []
+                for sample_point in _sample_segment_points(trail_start, point, 4 if use_cell_canvas else 5):
+                    sample_coords = project(sample_point)
+                    if sample_coords is None:
+                        continue
+                    trail_points.append(mapper(sample_coords))
+                if use_cell_canvas:
+                    for trail_x, trail_y in trail_points[:-1]:
+                        put_mark(
+                            trail_x,
+                            trail_y,
+                            "·",
+                            priority=1,
+                            style=row_styles.get("trail") or hair_styles.get("dim") or model["styles"]["focus"],
+                        )
+                else:
+                    for trail_x, trail_y in trail_points[:-1]:
+                        _braille_put(
+                            canvas,
+                            trail_x,
+                            trail_y,
+                            priority=1,
+                            style=row_styles.get("trail") or hair_styles.get("dim") or model["styles"]["focus"],
+                        )
+            depth = point_depth(point)
+            if depth_basis is not None:
+                projected_subcells = _project_world_size_to_subcells(
+                    row.get("world_size"),
+                    depth,
+                    render_height,
+                    camera_meta,
+                )
+            else:
+                projected_subcells = _orthographic_world_size_to_subcells(
+                    row.get("world_size"),
+                    mapper_meta,
+                    render_width,
+                    render_height,
+                )
+            band = _hair_field_band(projected_subcells, row.get("sample_t"), row.get("clump_mass"))
+            glyph = str(row.get("glyph") or "⣿")[:1]
+            if use_cell_canvas:
+                if band == "reference":
+                    put_mark(x, y, glyph, priority=4, style=row_styles.get("bright") or hair_styles.get("bright") or model["styles"]["focus"])
+                elif band == "fused":
+                    put_mark(x, y, glyph, priority=3, style=row_styles.get("mid") or hair_styles.get("mid") or model["styles"]["focus"])
+                elif band == "granular":
+                    put_mark(x, y, "⣶", priority=2, style=row_styles.get("mid") or hair_styles.get("mid") or model["styles"]["focus"])
+                elif band == "blob":
+                    put_mark(x, y, "•", priority=2, style=row_styles.get("dim") or hair_styles.get("dim") or model["styles"]["focus"])
+                else:
+                    put_mark(x, y, "·", priority=1, style=row_styles.get("dim") or hair_styles.get("dim") or model["styles"]["focus"])
+                continue
+            if band == "reference":
+                _braille_cluster(canvas, x, y, priority=2, style=row_styles.get("mid") or hair_styles.get("mid") or model["styles"]["focus"], radius=1)
+                _braille_overlay_char(canvas, x, y, glyph, priority=5, style=row_styles.get("bright") or hair_styles.get("bright") or model["styles"]["focus"])
+            elif band == "fused":
+                _braille_cluster(canvas, x, y, priority=2, style=row_styles.get("mid") or hair_styles.get("mid") or model["styles"]["focus"], radius=1)
+                _braille_overlay_char(canvas, x, y, glyph, priority=4, style=row_styles.get("mid") or hair_styles.get("mid") or model["styles"]["focus"])
+            elif band == "granular":
+                _braille_cluster(canvas, x, y, priority=2, style=row_styles.get("dim") or hair_styles.get("dim") or model["styles"]["focus"], radius=1)
+                _braille_overlay_char(canvas, x, y, glyph, priority=3, style=row_styles.get("mid") or hair_styles.get("mid") or model["styles"]["focus"])
+            elif band == "blob":
+                _braille_cluster(canvas, x, y, priority=2, style=row_styles.get("dim") or hair_styles.get("dim") or model["styles"]["focus"], radius=1)
+            else:
+                _braille_put(canvas, x, y, priority=1, style=row_styles.get("dim") or hair_styles.get("dim") or model["styles"]["focus"])
+
     for obj in model["objects"]:
         coords = project(obj["point"])
         if coords is None:
@@ -5745,7 +6803,7 @@ def _render_local_theater_text(snapshot):
             + f"{float(direction.get('y') or 0.0):.2f}, "
             + f"{float(direction.get('z') or 0.0):.2f})"
         )
-    return "\n".join([
+    lines = [
         "THEATER: "
         + str(theater.get("mode") or "")
         + " / "
@@ -5790,7 +6848,454 @@ def _render_local_theater_text(snapshot):
         + " / activity "
         + str(runtime.get("activity") or ""),
         "NEARBY: " + nearby,
-    ])
+    ]
+    lines.extend(_sequence_field_text_lines(snapshot, prefix="", upper=True, fallback_hint=True))
+    return "\n".join(lines)
+
+
+def _short_float(value, digits=2):
+    try:
+        number = float(value)
+    except Exception:
+        number = 0.0
+    return f"{number:.{int(digits)}f}".rstrip("0").rstrip(".")
+
+
+def _sequence_field_text_lines(snapshot, prefix="", upper=True, fallback_hint=False):
+    snapshot = snapshot if isinstance(snapshot, dict) else {}
+    sequence = snapshot.get("sequence_field") if isinstance(snapshot.get("sequence_field"), dict) else {}
+    semantic = snapshot.get("semantic") if isinstance(snapshot.get("semantic"), dict) else {}
+    summary = str(semantic.get("summary") or "").strip()
+    label_sequence = "SEQUENCE" if upper else "sequence"
+    label_force = "FORCE" if upper else "force"
+    label_hair = "HAIR" if upper else "hair"
+    label_topology = "HAIR-TOPO" if upper else "hair_topology"
+    lead = str(prefix or "")
+    lines = []
+    if not sequence.get("active"):
+        if fallback_hint and "The Cage" in summary:
+            lines.append(lead + label_sequence + ": The Cage / semantic-only / force-wave packet not mirrored")
+            lines.append(lead + label_hair + ": pending mirror / refresh sequence_field to expose topology")
+        return lines
+
+    resource = str(sequence.get("resource_label") or sequence.get("resource_id") or sequence.get("summary") or "sequence active")
+    phase = str(sequence.get("resource_phase_label") or sequence.get("resource_phase_id") or "").strip()
+    seq_line = lead + label_sequence + ": " + resource
+    if phase:
+        seq_line += " / " + phase
+    if sequence.get("summary"):
+        seq_line += " / " + str(sequence.get("summary") or "")
+    lines.append(seq_line)
+
+    force = sequence.get("force_wave") if isinstance(sequence.get("force_wave"), dict) else {}
+    if not force.get("active"):
+        return lines
+    lines.append(
+        lead
+        + label_force
+        + ": "
+        + str(force.get("wave_band") or "primed")
+        + " / anchor "
+        + str(force.get("neutral_anchor") or "neutral_center")
+        + " / drive "
+        + _short_float(force.get("drive_gain"), 2)
+        + " / rebound "
+        + _short_float(force.get("rebound_damping"), 2)
+        + " / pose "
+        + ("on" if force.get("pose_drive_enabled") else "off")
+    )
+    motion_clock = _sequence_shared_surface_motion_clock(snapshot)
+    if motion_clock.get("active"):
+        clip_name = str(motion_clock.get("clip") or "phase_wave").strip()
+        if len(clip_name) > 38:
+            clip_name = clip_name[:35] + "..."
+        lines.append(
+            lead
+            + ("MOTION" if upper else "motion")
+            + ": shared surface"
+            + " / authority "
+            + str(motion_clock.get("authority") or "sequence_field.force_wave")
+            + " / phase "
+            + _short_float(motion_clock.get("phase"), 2)
+            + " / speed "
+            + _short_float(motion_clock.get("speed"), 2)
+            + " / clip "
+            + clip_name
+        )
+
+    skin = force.get("skin_service") if isinstance(force.get("skin_service"), dict) else {}
+    if skin.get("active"):
+        lines.append(
+            lead
+            + ("SKIN" if upper else "skin")
+            + ": "
+            + str(skin.get("profile") or "neutral_field")
+            + " / medium "
+            + str(skin.get("medium_kind") or "gravity_only")
+            + " / route "
+            + str(skin.get("routing_mode") or "pacman_wrap")
+            + " / wrap "
+            + str(skin.get("wrap_mode") or "neutral_center_return")
+        )
+
+    hair = force.get("hair_reactivity") if isinstance(force.get("hair_reactivity"), dict) else {}
+    if hair.get("active"):
+        lines.append(
+            lead
+            + label_hair
+            + ": "
+            + str(hair.get("band") or "composed_flow")
+            + " / mode "
+            + str(hair.get("equilibrium_mode") or hair.get("color_strategy") or "field_tint")
+            + " / response "
+            + str(hair.get("response_mode") or "gravity_realist")
+            + " / grav "
+            + _short_float(hair.get("gravity_dominance"), 2)
+            + " / lift "
+            + _short_float(hair.get("lift_gain"), 2)
+            + " / sweep "
+            + _short_float(hair.get("sweep_gain"), 2)
+        )
+        topology = hair.get("topology") if isinstance(hair.get("topology"), dict) else {}
+        if topology.get("active"):
+            lines.append(
+                lead
+                + label_topology
+                + ": "
+                + str(topology.get("silhouette") or "crown_sweep")
+                + " / clumps "
+                + str(int(float(topology.get("virtual_clump_count") or 0)))
+                + " / lock "
+                + _short_float(topology.get("root_lock_gain"), 2)
+                + " / tip "
+                + _short_float(topology.get("tip_flex_gain"), 2)
+                + " / charge "
+                + _short_float(topology.get("surface_charge_gain"), 2)
+            )
+        granulation = hair.get("granulation") if isinstance(hair.get("granulation"), dict) else {}
+        if granulation.get("active"):
+            lines.append(
+                lead
+                + ("HAIR-GROWTH" if upper else "hair_growth")
+                + ": "
+                + str(granulation.get("preset_label") or "saiyan_mode")
+                + " / growth "
+                + _short_float(granulation.get("growth_gain"), 2)
+                + " / density "
+                + _short_float(granulation.get("strand_density_gain"), 2)
+                + " / simian "
+                + _short_float(granulation.get("simian_ramp_gain"), 2)
+                + " / exhaust "
+                + _short_float(granulation.get("exhaust_bud_gain"), 2)
+                + " / counter "
+                + _short_float(granulation.get("counterweight_gain"), 2)
+                + " / ape x"
+                + _short_float(granulation.get("ape_scale_factor"), 2)
+                + " / budget "
+                + str(int(float(granulation.get("max_sample_budget") or 0)))
+            )
+        manifold = hair.get("glyph_message_manifold") if isinstance(hair.get("glyph_message_manifold"), dict) else {}
+        if manifold.get("active"):
+            lines.append(
+                lead
+                + ("HAIR-MSG" if upper else "hair_msg")
+                + ": "
+                + str(manifold.get("message_text") or "FLOW")
+                + " / mode "
+                + str(manifold.get("mode") or "inertial_word_caterpillar")
+                + " / leg "
+                + _short_float(manifold.get("legibility_gain"), 2)
+                + " / sharp "
+                + _short_float(manifold.get("sharpness_gain"), 2)
+            )
+            lines.append(
+                lead
+                + ("HAIR-SPECTRUM" if upper else "hair_spectrum")
+                + ": "
+                + str(manifold.get("spectrum_mode") or "spectral_pop")
+                + " / pop "
+                + _short_float(manifold.get("pop_gain"), 2)
+                + " / glow "
+                + _short_float(manifold.get("glow_gain"), 2)
+                + " / hue "
+                + _short_float(manifold.get("hue_rate"), 2)
+            )
+        zones = hair.get("expression_zones") if isinstance(hair.get("expression_zones"), dict) else {}
+        if zones.get("active"):
+            lines.append(
+                lead
+                + ("HAIR-ZONES" if upper else "hair_zones")
+                + ": "
+                + str(zones.get("active_zone") or "crown_core")
+                + " / crown "
+                + _short_float(zones.get("crown_core_gain"), 2)
+                + " / front "
+                + _short_float(zones.get("front_arc_gain"), 2)
+                + " / tip "
+                + _short_float(zones.get("tip_charge_gain"), 2)
+            )
+
+    punch = force.get("punch_dynamics") if isinstance(force.get("punch_dynamics"), dict) else {}
+    if punch.get("active"):
+        lines.append(
+            lead
+            + ("PUNCH" if upper else "punch")
+            + ": "
+            + str(punch.get("composure") or "ready")
+            + " / burst "
+            + _short_float(punch.get("burst_gain"), 2)
+            + " / focus "
+            + _short_float(punch.get("focus_gain"), 2)
+            + " / line "
+            + _short_float(punch.get("camera_line_gain"), 2)
+            + ((" / lead " + str(punch.get("lead_side") or "")) if str(punch.get("lead_side") or "").strip() else "")
+        )
+    aura = force.get("aura_envelope") if isinstance(force.get("aura_envelope"), dict) else {}
+    if aura.get("active"):
+        lines.append(
+            lead
+            + ("AURA" if upper else "aura")
+            + ": "
+            + str(aura.get("mode") or "field")
+            + " / shell "
+            + _short_float(aura.get("shell_gain"), 2)
+            + " / flare "
+            + _short_float(aura.get("flare_gain"), 2)
+            + " / pulse "
+            + _short_float(aura.get("pulse_gain"), 2)
+        )
+    acoustic = force.get("acoustic_feedback") if isinstance(force.get("acoustic_feedback"), dict) else {}
+    if acoustic.get("active"):
+        lines.append(
+            lead
+            + ("ACOUSTIC" if upper else "acoustic")
+            + ": "
+            + str(acoustic.get("acoustic_emission_band") or "quiet")
+            + " / target "
+            + str(int(float(acoustic.get("target_tempo_bpm") or 0)))
+            + " bpm / observed "
+            + str(int(float(acoustic.get("observed_contact_tempo_bpm") or 0)))
+            + " bpm / align "
+            + _short_float(acoustic.get("cadence_alignment"), 2)
+        )
+    split_loop = force.get("split_loop_dynamics") if isinstance(force.get("split_loop_dynamics"), dict) else {}
+    if split_loop.get("active"):
+        lines.append(
+            lead
+            + ("LEGS" if upper else "legs")
+            + ": "
+            + str(split_loop.get("loop_family") or "jcvd_split_rep")
+            + " / phase "
+            + str(split_loop.get("phase_kind") or "guard")
+            + " / split "
+            + _short_float(split_loop.get("split_ratio"), 2)
+            + " / heel "
+            + _short_float((((split_loop.get("left_leg") or {}).get("heel_drive_gain"))), 2)
+        )
+    body = force.get("body_orientation") if isinstance(force.get("body_orientation"), dict) else {}
+    if body.get("active"):
+        lines.append(
+            lead
+            + ("POSE" if upper else "pose")
+            + ": camera "
+            + _short_float(body.get("full_body_answer_gain"), 2)
+            + " / pelvis "
+            + _short_float(body.get("pelvis_yaw_gain"), 2)
+            + " / chest "
+            + _short_float(body.get("chest_track_gain"), 2)
+            + " / head "
+            + _short_float(body.get("head_track_gain"), 2)
+        )
+    return lines
+
+
+def _sequence_field_blackboard_lines(snapshot):
+    snapshot = snapshot if isinstance(snapshot, dict) else {}
+    sequence = snapshot.get("sequence_field") if isinstance(snapshot.get("sequence_field"), dict) else {}
+    semantic = snapshot.get("semantic") if isinstance(snapshot.get("semantic"), dict) else {}
+    summary = str(semantic.get("summary") or "").strip()
+    if not sequence.get("active"):
+        if "The Cage" in summary:
+            return [
+                "sequence_field=semantic_only resource=the_cage force_wave=missing",
+                "hair_topology=missing reason=force_wave_packet_not_mirrored",
+            ]
+        return []
+    lines = [
+        "sequence_field="
+        + str(sequence.get("mode") or "strike_corridor")
+        + " resource="
+        + str(sequence.get("resource_id") or "")
+        + " phase="
+        + str(sequence.get("resource_phase_id") or "")
+        + " stage="
+        + str(sequence.get("stage") or ""),
+    ]
+    force = sequence.get("force_wave") if isinstance(sequence.get("force_wave"), dict) else {}
+    if force.get("active"):
+        lines.append(
+            "force_wave="
+            + str(force.get("wave_band") or "primed")
+            + " anchor="
+            + str(force.get("neutral_anchor") or "neutral_center")
+            + " drive="
+            + _short_float(force.get("drive_gain"), 2)
+            + " rebound="
+            + _short_float(force.get("rebound_damping"), 2)
+            + " pose="
+            + ("on" if force.get("pose_drive_enabled") else "off")
+        )
+        motion_clock = _sequence_shared_surface_motion_clock(snapshot)
+        if motion_clock.get("active"):
+            lines.append(
+                "animation_surface="
+                + str(motion_clock.get("authority") or "sequence_field.force_wave")
+                + " consumer="
+                + str(motion_clock.get("consumer_rule") or "text_and_web_theaters_consume_shared_surface")
+                + " phase="
+                + _short_float(motion_clock.get("phase"), 2)
+                + " speed="
+                + _short_float(motion_clock.get("speed"), 2)
+            )
+        skin = force.get("skin_service") if isinstance(force.get("skin_service"), dict) else {}
+        if skin.get("active"):
+            lines.append(
+                "skin_service="
+                + str(skin.get("profile") or "neutral_field")
+                + " medium="
+                + str(skin.get("medium_kind") or "gravity_only")
+                + " routing="
+                + str(skin.get("routing_mode") or "pacman_wrap")
+                + " wrap="
+                + str(skin.get("wrap_mode") or "neutral_center_return")
+            )
+        hair = force.get("hair_reactivity") if isinstance(force.get("hair_reactivity"), dict) else {}
+        topology = hair.get("topology") if isinstance(hair.get("topology"), dict) else {}
+        if hair.get("active"):
+            lines.append(
+                "hair_surface="
+                + str(hair.get("band") or "composed_flow")
+                + " mode="
+                + str(hair.get("equilibrium_mode") or hair.get("color_strategy") or "field_tint")
+                + " response="
+                + str(hair.get("response_mode") or "gravity_realist")
+            )
+        manifold = hair.get("glyph_message_manifold") if isinstance(hair.get("glyph_message_manifold"), dict) else {}
+        if manifold.get("active"):
+            lines.append(
+                "hair_message="
+                + str(manifold.get("message_text") or "FLOW")
+                + " mode="
+                + str(manifold.get("mode") or "inertial_word_caterpillar")
+                + " legibility="
+                + _short_float(manifold.get("legibility_gain"), 2)
+                + " sharpness="
+                + _short_float(manifold.get("sharpness_gain"), 2)
+            )
+            lines.append(
+                "hair_spectrum="
+                + str(manifold.get("spectrum_mode") or "spectral_pop")
+                + " pop="
+                + _short_float(manifold.get("pop_gain"), 2)
+                + " glow="
+                + _short_float(manifold.get("glow_gain"), 2)
+                + " hue="
+                + _short_float(manifold.get("hue_rate"), 2)
+            )
+        granulation = hair.get("granulation") if isinstance(hair.get("granulation"), dict) else {}
+        if granulation.get("active"):
+            lines.append(
+                "hair_growth="
+                + str(granulation.get("preset_label") or "saiyan_mode")
+                + " growth="
+                + _short_float(granulation.get("growth_gain"), 2)
+                + " density="
+                + _short_float(granulation.get("strand_density_gain"), 2)
+                + " simian="
+                + _short_float(granulation.get("simian_ramp_gain"), 2)
+                + " exhaust="
+                + _short_float(granulation.get("exhaust_bud_gain"), 2)
+                + " counter="
+                + _short_float(granulation.get("counterweight_gain"), 2)
+                + " ape=x"
+                + _short_float(granulation.get("ape_scale_factor"), 2)
+                + " budget="
+                + str(int(float(granulation.get("max_sample_budget") or 0)))
+            )
+        if topology.get("active"):
+            lines.append(
+                "hair_topology="
+                + str(topology.get("silhouette") or "crown_sweep")
+                + " clumps="
+                + str(int(float(topology.get("virtual_clump_count") or 0)))
+                + " root_lock="
+                + _short_float(topology.get("root_lock_gain"), 2)
+                + " tip_flex="
+                + _short_float(topology.get("tip_flex_gain"), 2)
+                + " charge="
+                + _short_float(topology.get("surface_charge_gain"), 2)
+            )
+        zones = hair.get("expression_zones") if isinstance(hair.get("expression_zones"), dict) else {}
+        if zones.get("active"):
+            lines.append(
+                "hair_zones="
+                + str(zones.get("active_zone") or "crown_core")
+                + " crown="
+                + _short_float(zones.get("crown_core_gain"), 2)
+                + " front="
+                + _short_float(zones.get("front_arc_gain"), 2)
+                + " tip="
+                + _short_float(zones.get("tip_charge_gain"), 2)
+            )
+        punch = force.get("punch_dynamics") if isinstance(force.get("punch_dynamics"), dict) else {}
+        if punch.get("active"):
+            lines.append(
+                "punch_surface="
+                + str(punch.get("composure") or "ready")
+                + " burst="
+                + _short_float(punch.get("burst_gain"), 2)
+                + " line="
+                + _short_float(punch.get("camera_line_gain"), 2)
+                + ((" lead=" + str(punch.get("lead_side") or "")) if str(punch.get("lead_side") or "").strip() else "")
+            )
+        aura = force.get("aura_envelope") if isinstance(force.get("aura_envelope"), dict) else {}
+        if aura.get("active"):
+            lines.append(
+                "aura_surface="
+                + str(aura.get("mode") or "field")
+                + " shell="
+                + _short_float(aura.get("shell_gain"), 2)
+                + " flare="
+                + _short_float(aura.get("flare_gain"), 2)
+                + " pulse="
+                + _short_float(aura.get("pulse_gain"), 2)
+            )
+        split_loop = force.get("split_loop_dynamics") if isinstance(force.get("split_loop_dynamics"), dict) else {}
+        if split_loop.get("active"):
+            lines.append(
+                "split_loop="
+                + str(split_loop.get("loop_family") or "jcvd_split_rep")
+                + " phase="
+                + str(split_loop.get("phase_kind") or "guard")
+                + " split="
+                + _short_float(split_loop.get("split_ratio"), 2)
+                + " heel="
+                + _short_float((((split_loop.get("left_leg") or {}).get("heel_drive_gain"))), 2)
+            )
+        body = force.get("body_orientation") if isinstance(force.get("body_orientation"), dict) else {}
+        if body.get("active"):
+            lines.append(
+                "body_orientation=camera_answer"
+                + " full="
+                + _short_float(body.get("full_body_answer_gain"), 2)
+                + " pelvis="
+                + _short_float(body.get("pelvis_yaw_gain"), 2)
+                + " chest="
+                + _short_float(body.get("chest_track_gain"), 2)
+                + " head="
+                + _short_float(body.get("head_track_gain"), 2)
+            )
+    return lines
 
 
 def _render_consult_orientation_text(snapshot):
@@ -6428,6 +7933,7 @@ def _render_local_embodiment_text(snapshot):
         + str(int(timeline.get("key_pose_count") or 0))
         + " key poses"
     )
+    lines.extend(_sequence_field_text_lines(snapshot, prefix="  ", upper=False, fallback_hint=True))
     if semantic.get("summary"):
         lines.append("SUMMARY: " + str(semantic.get("summary") or ""))
     return "\n".join(lines)

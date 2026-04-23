@@ -12616,7 +12616,29 @@
     <script src="/static/SkeletonUtils.js"></script>
     <script src="/static/Water.js"></script>
 <script src="/static/recast-nav.bundle.js?v=2"></script>
-    <script src="/static/main.js?v=131p"></script>
+    <script>
+        (function () {
+            var host = String(location.hostname || '');
+            var isLoopback = host === '127.0.0.1' || host === 'localhost' || host === '::1';
+            if (!isLoopback) return;
+            window.__ENV_LOCAL_DEV_NO_SW__ = true;
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then(function (registrations) {
+                    return Promise.all((registrations || []).map(function (registration) {
+                        return registration.unregister();
+                    }));
+                }).catch(function () { });
+            }
+            if (window.caches && caches.keys) {
+                caches.keys().then(function (keys) {
+                    return Promise.all((keys || []).map(function (key) {
+                        return caches.delete(key);
+                    }));
+                }).catch(function () { });
+            }
+        })();
+    </script>
+    <script src="/static/main.js?v=132f"></script>
 
     <!-- ═══════════════ DREAMER + GPU FLEET TAB JS ═══════════════ -->
     <script>

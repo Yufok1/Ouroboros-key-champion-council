@@ -658,6 +658,167 @@
         "workbench_assert_balance",
         "character_focus"
       ]
+    },
+    "text_theater_live": {
+      "title": "Text Theater Live Packet",
+      "summary": "Read the current live text-theater packet with theater text, embodiment text, snapshot, and freshness in one response.",
+      "when_to_use": [
+        "Use this when you want the bundled current text-theater packet instead of separate render and snapshot reads.",
+        "Use this when attached env_control text_theater payloads need to be compared against the current live mirror packet."
+      ],
+      "gotchas": [
+        "This is still mirror-backed and freshness-sensitive.",
+        "It is a bundled packet, not a replacement for theater-first interpretation."
+      ],
+      "related_commands": [
+        "text_theater_view",
+        "text_theater_snapshot",
+        "capture_supercam"
+      ]
+    },
+    "supercam": {
+      "title": "Latest Supercam Capture",
+      "category": "capture_observer",
+      "summary": "Read the latest supercam scene-scale corroboration capture after capture_supercam has been dispatched.",
+      "when_to_use": [
+        "Use this after capture_supercam when you want the saved browser-visible corroboration packet instead of trusting the viewport.",
+        "Use this as the second comparative surface after text theater render when scene-scale framing matters."
+      ],
+      "gotchas": [
+        "No result appears until a supercam capture actually exists.",
+        "This is corroboration, not a new truth source."
+      ],
+      "related_commands": [
+        "capture_supercam",
+        "text_theater_view",
+        "contracts"
+      ]
+    },
+    "probe": {
+      "title": "Latest Probe Capture",
+      "category": "capture_observer",
+      "summary": "Read the latest local probe capture for the focused subject or mounted runtime target.",
+      "when_to_use": [
+        "Use this after capture_probe when local silhouette, overlap, scaffold, or contact truth still matters after scene-scale corroboration.",
+        "Use this late in the theater-first sequence when the local subject matters more than the whole scene."
+      ],
+      "gotchas": [
+        "Probe is a local corroboration surface, not the first truth read.",
+        "If no probe capture exists yet, this will correctly return partial."
+      ],
+      "related_commands": [
+        "capture_probe",
+        "text_theater_embodiment",
+        "text_theater_snapshot"
+      ]
+    },
+    "frame": {
+      "title": "Latest Frame Capture",
+      "category": "capture_observer",
+      "summary": "Read the latest single-frame observer capture artifact.",
+      "related_commands": [
+        "capture_frame",
+        "capture_frame_overview"
+      ]
+    },
+    "frame_strip": {
+      "title": "Latest Frame Strip Capture",
+      "category": "capture_observer",
+      "summary": "Read the latest strip of observer frames for quick comparative inspection.",
+      "related_commands": [
+        "capture_strip",
+        "capture_frame"
+      ]
+    },
+    "time_strip": {
+      "title": "Latest Time Strip Capture",
+      "category": "capture_observer",
+      "summary": "Read the latest builder time-strip capture used for staged motion inspection without autoplay.",
+      "related_commands": [
+        "capture_time_strip",
+        "workbench_set_timeline_cursor",
+        "workbench_compile_clip"
+      ]
+    },
+    "live": {
+      "title": "Live Mirror State",
+      "summary": "Read the current server-local live mirror payload before it is narrowed into smaller query surfaces.",
+      "when_to_use": [
+        "Use this only when smaller surfaces were insufficient and you still need the current live mirror payload.",
+        "Prefer text theater, captures, consult/blackboard, snapshot, and contracts first."
+      ],
+      "gotchas": [
+        "This is broader than most other queries and easier to misuse.",
+        "Live mirror state is still not permission to skip theater-first interpretation."
+      ]
+    },
+    "live_sync": {
+      "title": "Live Sync Status",
+      "summary": "Read the current live_sync payload used to track mirror cadence and camera pulse freshness.",
+      "when_to_use": [
+        "Use this when the question is about mirror cadence or whether hot camera pulses are outrunning the settled mirror.",
+        "Use it when freshness disagreement needs a sync-focused explanation instead of a pose explanation."
+      ],
+      "related_commands": [
+        "text_theater_snapshot",
+        "contracts"
+      ]
+    },
+    "shared_state": {
+      "title": "Raw Shared State",
+      "summary": "Read the current mirrored shared_state payload as a last-resort surface when the prior layers still disagree.",
+      "when_to_use": [
+        "Use this only after text theater, browser-visible corroboration, consult/blackboard, snapshot, and scoped report/contract reads were insufficient.",
+        "Use this for deep structural inspection, not as a default first read."
+      ],
+      "gotchas": [
+        "Raw shared_state is broad, easy to misread, and should not outrank the theater-first sequence.",
+        "If a narrower surface can answer the question, use the narrower surface."
+      ]
+    },
+    "contracts": {
+      "title": "Contracts Surface",
+      "summary": "Read the mirrored contracts payload used for scoped transport/contract diagnosis after theater-first intake.",
+      "when_to_use": [
+        "Use this when the question is where narrowing or transport classification is happening.",
+        "Use this after render/capture/blackboard/snapshot when you need contract-level diagnosis."
+      ],
+      "gotchas": [
+        "Contracts explain what is being shipped or narrowed; they do not replace visible corroboration.",
+        "If the issue is still plainly visible in theater, read the frame first and only then classify contracts."
+      ],
+      "related_commands": [
+        "text_theater_view",
+        "shared_state",
+        "env_report"
+      ]
+    },
+    "habitat_objects": {
+      "title": "Habitat Objects",
+      "summary": "Read the current habitat object list from the live mirror when scene object inventory matters.",
+      "when_to_use": [
+        "Use this when object presence, ids, or scene inventory are the actual question.",
+        "Do not use this as a substitute for scene-scale corroboration when visibility/layout is the question."
+      ]
+    },
+    "debug_state": {
+      "title": "Debug State",
+      "summary": "Read the debug-state payload exposed by the local proxy when debug-specific surface state needs inspection.",
+      "when_to_use": [
+        "Use this when the question is specifically about debug wiring or debug-mode state, not ordinary embodiment/runtime truth."
+      ]
+    },
+    "probe_compare": {
+      "title": "Probe Compare",
+      "category": "capture_observer",
+      "summary": "Read the comparison payload over the latest saved probe captures.",
+      "when_to_use": [
+        "Use this when you need direct probe-to-probe comparison instead of a single latest probe read."
+      ],
+      "related_commands": [
+        "capture_probe",
+        "probe"
+      ]
     }
   },
   "ui_actions": {
@@ -837,6 +998,76 @@
         "The important corroboration fields are selected_part_surface, part_camera_recipes, workbench_stage_guide, and embodiment.scaffold_pieces visibility.",
         "If body mode and text theater disagree on visible limb scaffold slots, treat that as a renderer/export regression and compare the browser-visible scaffold set against the text-rendered scaffold set.",
         "Use the repo-local scripts/eval_isolation_scopes.py harness when you want repeatable browser-vs-text comparisons recorded as JSON."
+      ]
+    },
+    "continuity_reacclimation_lane": {
+      "title": "Continuity Reacclimation Lane",
+      "steps": [
+        "continuity_restore(summary='active objective + subject + pivot', cwd='D:\\End-Game\\champion_councl')",
+        "env_help(topic='continuity_reacclimation')",
+        "env_read(query='text_theater_embodiment')",
+        "capture_supercam",
+        "env_read(query='supercam')",
+        "env_read(query='text_theater_view', view='consult', section='blackboard', diagnostics=true)",
+        "env_read(query='text_theater_snapshot')",
+        "env_report(report_id='paired_state_alignment')"
+      ],
+      "notes": [
+        "Use this after context compression, reset, or long-thread interruption when archive posture needs to be re-earned and then paired back to live truth.",
+        "Archive continuity is not live authority; the live theater and blackboard path must still be re-opened before trusting the seam."
+      ]
+    },
+    "output_state_pointer_corroboration": {
+      "title": "Output-State Pointer Corroboration",
+      "steps": [
+        "env_help(topic='output_state')",
+        "env_help(topic='trajectory_correlator')",
+        "env_help(topic='tinkerbell_attention')",
+        "env_help(topic='pan_probe')",
+        "env_help(topic='field_disposition')",
+        "env_read(query='text_theater_view', view='consult', section='blackboard', diagnostics=true)",
+        "env_read(query='text_theater_snapshot')",
+        "capture_supercam",
+        "env_read(query='supercam')"
+      ],
+      "notes": [
+        "Use this when the question is where attention is pointing, how the return path is graded, what Pan is measuring, and what medium/field the system is carrying.",
+        "Tinkerbell points, Pan measures, field_disposition explains the active medium, and trajectory_correlator names the return path."
+      ]
+    },
+    "docs_planning_refresh": {
+      "title": "Docs Planning Refresh",
+      "steps": [
+        "env_help(topic='docs_packet')",
+        "env_read(query='text_theater_view', view='consult', section='blackboard', diagnostics=true)",
+        "env_read(query='text_theater_snapshot')",
+        "bag_search_docs(prefix='docs/')",
+        "file_checkpoint(<active planning doc>)",
+        "file_write or file_edit(<FelixBag mirror>)",
+        "bag_read_doc(<updated doc>)"
+      ],
+      "notes": [
+        "Use this when planning docs need to be refreshed on the same lane as continuity and blackboard work.",
+        "docs_packet is the planning/material packet; repo docs stay authored locally and FelixBag stays the checkpointable mirror."
+      ]
+    },
+    "coquina_skin_service_corroboration": {
+      "title": "Coquina Skin Service Corroboration",
+      "steps": [
+        "env_read(query='text_theater_view', view='render', diagnostics=true)",
+        "env_read(query='text_theater_snapshot')",
+        "env_help(topic='field_disposition')",
+        "env_help(topic='pan_probe')",
+        "env_help(topic='docs_packet')",
+        "capture_supercam",
+        "env_read(query='supercam')",
+        "env_read(query='text_theater_view', view='consult', section='blackboard', diagnostics=true)"
+      ],
+      "notes": [
+        "Use this when validating Coquina or skin-service embodiment across text theater, web theater, and consult surfaces on one truth spine.",
+        "Read the text theater first so silhouette, skin packet, and hair or pose summaries are described before trusting the scene-scale capture.",
+        "Pan/support/contact truth still outranks the skin packet; skin_service is downstream embodiment translation, not controller truth.",
+        "Use the consult/blackboard lane last so the visible query-work starts from an explicit render-plus-capture comparison instead of a detached abstraction."
       ]
     }
   }

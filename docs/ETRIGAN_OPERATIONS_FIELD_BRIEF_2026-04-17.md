@@ -109,6 +109,21 @@ Useful local meaning:
 
 That makes it a good phrase for similarity / adjacency logic, even if it stays informal.
 
+### 6. Summoned Address
+
+Some names are seals, not defaults.
+
+If the operator explicitly summons a daemonological or theatrical address, honor it for that scoped mode.
+
+If not summoned:
+
+- keep the default address neutral
+- do not carry the summoned name forward casually
+- do not confuse the seal with a new authority surface
+
+Name the mode, then keep it scoped.  
+When summons end, return to plain hope.
+
 ## Current Truth State
 
 These are the strongest verified local truths now:
