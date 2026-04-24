@@ -56,3 +56,11 @@ static/captures/
 
 # HF upload resume metadata for large pack syncs
 static/assets/**/.cache/
+
+# Public repo staging lives as its own nested Git repo
+docs/brotology/public_repo_root/
+
+# Local NotebookLM podcast exports in the Brotology lane
+docs/brotology/*.m4a
+docs/brotology/*.mp4
+docs/brotology/*.zip

@@ -5113,9 +5113,11 @@ def _env_report_normalize_output_state(output_state: dict | None = None) -> dict
     derived = state.get("derived") if isinstance(state.get("derived"), dict) else {}
     placement = state.get("placement") if isinstance(state.get("placement"), dict) else {}
     trajectory_correlator = state.get("trajectory_correlator") if isinstance(state.get("trajectory_correlator"), dict) else {}
+    entry_gate = state.get("entry_gate") if isinstance(state.get("entry_gate"), dict) else {}
     continuity_cue = state.get("continuity_cue") if isinstance(state.get("continuity_cue"), dict) else {}
     tinkerbell_attention = state.get("tinkerbell_attention") if isinstance(state.get("tinkerbell_attention"), dict) else {}
     docs_packet = state.get("docs_packet") if isinstance(state.get("docs_packet"), dict) else {}
+    workspace_packet = state.get("workspace_packet") if isinstance(state.get("workspace_packet"), dict) else {}
     continuity_packet = state.get("continuity_packet") if isinstance(state.get("continuity_packet"), dict) else {}
     misunderstanding_box = state.get("misunderstanding_box") if isinstance(state.get("misunderstanding_box"), dict) else {}
     technolit_distribution_packet = (
@@ -5219,6 +5221,19 @@ def _env_report_normalize_output_state(output_state: dict | None = None) -> dict
             "grade": str(trajectory_correlator.get("grade") or ""),
             "return_path": _json_clone(trajectory_correlator.get("return_path") or {}),
         },
+        "entry_gate": {
+            "band": str(entry_gate.get("band") or ""),
+            "status": str(entry_gate.get("status") or ""),
+            "summary": str(entry_gate.get("summary") or ""),
+            "continuity_required": bool(entry_gate.get("continuity_required")),
+            "canonical_route": _env_report_unique_strings(entry_gate.get("canonical_route") or [], limit=8),
+            "required_reads": _env_report_unique_strings(entry_gate.get("required_reads") or [], limit=8),
+            "verified_surfaces": _env_report_unique_strings(entry_gate.get("verified_surfaces") or [], limit=8),
+            "missing_surfaces": _env_report_unique_strings(entry_gate.get("missing_surfaces") or [], limit=8),
+            "blocking_reasons": _env_report_unique_strings(entry_gate.get("blocking_reasons") or [], limit=8),
+            "objectivity_rule": str(entry_gate.get("objectivity_rule") or ""),
+            "release_condition": str(entry_gate.get("release_condition") or ""),
+        },
         "continuity_cue": {
             "needed": bool(continuity_cue.get("needed")),
             "severity": str(continuity_cue.get("severity") or ""),
@@ -5248,6 +5263,23 @@ def _env_report_normalize_output_state(output_state: dict | None = None) -> dict
                 if isinstance(item, dict)
             ],
             "update_lane": _env_report_unique_strings(docs_packet.get("update_lane") or [], limit=8),
+        },
+        "workspace_packet": {
+            "active": bool(workspace_packet.get("active")),
+            "band": str(workspace_packet.get("band") or ""),
+            "summary": str(workspace_packet.get("summary") or ""),
+            "context_kind": str(workspace_packet.get("context_kind") or ""),
+            "active_doc": str(workspace_packet.get("active_doc") or ""),
+            "bag_doc_key": str(workspace_packet.get("bag_doc_key") or ""),
+            "continuity_index": str(workspace_packet.get("continuity_index") or ""),
+            "checkpoint_id": str(workspace_packet.get("checkpoint_id") or ""),
+            "diff_ref": str(workspace_packet.get("diff_ref") or ""),
+            "workflow_id": str(workspace_packet.get("workflow_id") or ""),
+            "slot_experiment_id": str(workspace_packet.get("slot_experiment_id") or ""),
+            "last_modified_paths": _env_report_unique_strings(workspace_packet.get("last_modified_paths") or [], limit=8),
+            "update_lane": _env_report_unique_strings(workspace_packet.get("update_lane") or [], limit=8),
+            "residency": _json_clone(workspace_packet.get("residency") or {}),
+            "host_boundary": str(workspace_packet.get("host_boundary") or ""),
         },
         "continuity_packet": {
             "active": bool(continuity_packet.get("active")),
@@ -5958,7 +5990,9 @@ def _env_report_compact_output_state_for_pairing(output_state: dict | None = Non
     state = output_state if isinstance(output_state, dict) else {}
     desired = state.get("desired") if isinstance(state.get("desired"), dict) else {}
     observed = state.get("observed") if isinstance(state.get("observed"), dict) else {}
+    entry_gate = state.get("entry_gate") if isinstance(state.get("entry_gate"), dict) else {}
     docs_packet = state.get("docs_packet") if isinstance(state.get("docs_packet"), dict) else {}
+    workspace_packet = state.get("workspace_packet") if isinstance(state.get("workspace_packet"), dict) else {}
     continuity_packet = state.get("continuity_packet") if isinstance(state.get("continuity_packet"), dict) else {}
     misunderstanding_box = state.get("misunderstanding_box") if isinstance(state.get("misunderstanding_box"), dict) else {}
     equilibrium = state.get("equilibrium") if isinstance(state.get("equilibrium"), dict) else {}
@@ -5989,6 +6023,16 @@ def _env_report_compact_output_state_for_pairing(output_state: dict | None = Non
             "last_sync_reason": str(observed.get("last_sync_reason") or ""),
             "docs_context_kind": str(observed.get("docs_context_kind") or ""),
         },
+        "entry_gate": {
+            "band": str(entry_gate.get("band") or ""),
+            "status": str(entry_gate.get("status") or ""),
+            "summary": _env_report_trim_text(str(entry_gate.get("summary") or ""), 220),
+            "continuity_required": bool(entry_gate.get("continuity_required")),
+            "required_reads": _env_report_unique_strings(entry_gate.get("required_reads") or [], limit=5),
+            "verified_surfaces": _env_report_unique_strings(entry_gate.get("verified_surfaces") or [], limit=5),
+            "missing_surfaces": _env_report_unique_strings(entry_gate.get("missing_surfaces") or [], limit=5),
+            "blocking_reasons": _env_report_unique_strings(entry_gate.get("blocking_reasons") or [], limit=5),
+        },
         "docs_packet": {
             "active": bool(docs_packet.get("active")),
             "band": str(docs_packet.get("band") or ""),
@@ -5997,6 +6041,17 @@ def _env_report_compact_output_state_for_pairing(output_state: dict | None = Non
             "active_doc": str(docs_packet.get("active_doc") or ""),
             "continuity_index": str(docs_packet.get("continuity_index") or ""),
             "update_lane": _env_report_unique_strings(docs_packet.get("update_lane") or [], limit=5),
+        },
+        "workspace_packet": {
+            "active": bool(workspace_packet.get("active")),
+            "band": str(workspace_packet.get("band") or ""),
+            "summary": _env_report_trim_text(str(workspace_packet.get("summary") or ""), 220),
+            "active_doc": str(workspace_packet.get("active_doc") or ""),
+            "bag_doc_key": str(workspace_packet.get("bag_doc_key") or ""),
+            "workflow_id": str(workspace_packet.get("workflow_id") or ""),
+            "slot_experiment_id": str(workspace_packet.get("slot_experiment_id") or ""),
+            "last_modified_paths": _env_report_unique_strings(workspace_packet.get("last_modified_paths") or [], limit=5),
+            "update_lane": _env_report_unique_strings(workspace_packet.get("update_lane") or [], limit=5),
         },
         "continuity_packet": {
             "active": bool(continuity_packet.get("active")),
@@ -7258,7 +7313,9 @@ def _env_help_extra_topics() -> dict[str, dict]:
                 "text_theater_view",
                 "paired_state_alignment",
                 "continuity_reacclimation",
+                "entry_gate",
                 "misunderstanding_box",
+                "workspace_packet",
             ],
         },
         "paired_state_alignment": {
@@ -7761,6 +7818,68 @@ def _env_help_extra_topics() -> dict[str, dict]:
                 "paired_state_alignment",
             ],
         ),
+        "workspace_packet": _env_help_output_state_surface_topic(
+            "workspace_packet",
+            "Workspace Packet",
+            "Read the bounded FelixBag/workspace mutation packet carried under output_state so active docs, bag keys, last modified paths, checkpoints, and slot/workflow receipts stay on one visible lane.",
+            "Use workspace_packet to inspect the current server-carried work surface: active_doc, bag_doc_key, checkpoint_id, diff_ref, workflow_id, slot_experiment_id, last_modified_paths, update_lane, and the explicit host-boundary note.",
+            "shared_state.output_state.workspace_packet",
+            aliases=[
+                "workspace_surface",
+                "mutation_lane",
+                "artifact_packet",
+                "bag_workspace_packet",
+            ],
+            when_to_use=[
+                "Use this when the real question is where work is currently landing across repo docs, FelixBag mirror, workflow receipts, and checkpointable paths.",
+                "Use this before assuming the server can already see or edit the host desktop workspace; the packet names the current operating boundary explicitly.",
+            ],
+            mode_notes=[
+                "workspace_packet is the carried work/mutation surface over FelixBag-backed docs and receipts. It helps reopen the work lane without rummaging through raw activity history.",
+                "This packet does not magically expose the host filesystem. It makes the current server-visible work surface explicit so boundary mistakes are harder to make.",
+            ],
+            gotchas=[
+                "file_* tools here refer to FelixBag workspace paths unless a separate host bridge exists.",
+                "A populated workspace_packet is not proof that host-side shell edits were mirrored into shared_state.",
+            ],
+            related_commands=[
+                "docs_packet",
+                "continuity_packet",
+                "output_state",
+                "paired_state_alignment",
+            ],
+        ),
+        "entry_gate": _env_help_output_state_surface_topic(
+            "entry_gate",
+            "Entry Gate",
+            "Read the continuity-first entry discipline carried under output_state so authority posture, verified surfaces, required corroboration, and the next valid route are explicit before acting.",
+            "Use entry_gate to inspect whether live action is authorized yet, which surfaces are verified, which are still missing, what the canonical reopening route is, and what release condition would honestly clear the gate.",
+            "shared_state.output_state.entry_gate",
+            aliases=[
+                "authority_gate",
+                "evidence_gate",
+                "continuity_first_entry",
+                "entry_discipline",
+            ],
+            when_to_use=[
+                "Use this when the system is tempted to act on user description, transcript residue, or a single stale surface instead of live corroboration.",
+                "Use this after continuity restore or before patching when you need the carried answer to 'can I operate yet, and on what footing?'",
+            ],
+            mode_notes=[
+                "entry_gate is a state carrier for investigative footing. It does not replace live theater, blackboard, snapshot, or reports; it names whether those surfaces have been earned yet.",
+                "The gate is designed to preserve objectivity by requiring corroborated footing, not to sequester judgment behind a ritual.",
+            ],
+            gotchas=[
+                "A quiet misunderstanding_box does not clear the entry gate.",
+                "A continuity packet or docs packet alone is not enough to clear the gate if the live theater/mirror path is missing or stale.",
+            ],
+            related_commands=[
+                "continuity_reacclimation",
+                "paired_state_alignment",
+                "misunderstanding_box",
+                "output_state",
+            ],
+        ),
         "misunderstanding_box": _env_help_output_state_surface_topic(
             "misunderstanding_box",
             "Misunderstanding Box",
@@ -8047,18 +8166,20 @@ def _env_help_index_payload(registry: dict, normalized_args: dict) -> dict:
                     "env_help(topic='env_help')",
                     "env_help(topic='index')",
                     "env_help(topic='output_state')",
+                    "env_help(topic='entry_gate')",
                     "env_help(topic='env_report')",
                     "env_help(topic='continuity_reacclimation')",
-                "env_help(topic='continuity_packet')",
-                "env_help(topic='docs_packet')",
-                "env_help(topic='techlit_hair_control_surface')",
-                "env_help(topic='hair_granulation_surface')",
-                "env_help(topic='audio_reactive_capture_surface')",
-                "env_help(topic='hair_speech_drive_surface')",
-                "env_help(topic='pose_drive_surface')",
-                "env_help(topic='kaioken_aura_surface')",
-                "env_help(category='builder_motion') or env_help(search='mounted asset floor')",
-            ],
+                    "env_help(topic='continuity_packet')",
+                    "env_help(topic='docs_packet')",
+                    "env_help(topic='workspace_packet')",
+                    "env_help(topic='techlit_hair_control_surface')",
+                    "env_help(topic='hair_granulation_surface')",
+                    "env_help(topic='audio_reactive_capture_surface')",
+                    "env_help(topic='hair_speech_drive_surface')",
+                    "env_help(topic='pose_drive_surface')",
+                    "env_help(topic='kaioken_aura_surface')",
+                    "env_help(category='builder_motion') or env_help(search='mounted asset floor')",
+                ],
                 "capsule_bridge": [
                     "Capsule get_help('environment') is the umbrella help view.",
                     "env_help(...) is the richer server-local registry for environment/browser/runtime surfaces.",
@@ -8075,6 +8196,8 @@ def _env_help_index_payload(registry: dict, normalized_args: dict) -> dict:
                 "env_help(topic='continuity_reacclimation')",
                 "env_help(topic='continuity_packet')",
                 "env_help(topic='docs_packet')",
+                "env_help(topic='workspace_packet')",
+                "env_help(topic='entry_gate')",
                 "env_help(topic='techlit_hair_control_surface')",
                 "env_help(topic='hair_granulation_surface')",
                 "env_help(topic='audio_reactive_capture_surface')",
@@ -13835,6 +13958,8 @@ def _dreamer_snapshot_oracle_context(snapshot: dict) -> dict:
         if isinstance(output_state.get("threat_bounty_packet"), dict)
         else {}
     )
+    entry_gate = output_state.get("entry_gate") if isinstance(output_state.get("entry_gate"), dict) else {}
+    workspace_packet = output_state.get("workspace_packet") if isinstance(output_state.get("workspace_packet"), dict) else {}
     misunderstanding_box = output_state.get("misunderstanding_box") if isinstance(output_state.get("misunderstanding_box"), dict) else {}
     misunderstanding_subject = (
         misunderstanding_box.get("subject")
@@ -13984,6 +14109,24 @@ def _dreamer_snapshot_oracle_context(snapshot: dict) -> dict:
         "misunderstanding_operator_teaching_needed": bool(misunderstanding_box.get("operator_teaching_needed")),
         "misunderstanding_required_reads": [str(item or "") for item in list(misunderstanding_box.get("required_reads") or [])[:6]],
         "misunderstanding_release_condition": str(misunderstanding_box.get("release_condition") or ""),
+        "entry_gate_band": str(entry_gate.get("band") or ""),
+        "entry_gate_status": str(entry_gate.get("status") or ""),
+        "entry_gate_summary": str(entry_gate.get("summary") or ""),
+        "entry_gate_continuity_required": bool(entry_gate.get("continuity_required")),
+        "entry_gate_required_reads": [str(item or "") for item in list(entry_gate.get("required_reads") or [])[:6]],
+        "entry_gate_verified_surfaces": [str(item or "") for item in list(entry_gate.get("verified_surfaces") or [])[:6]],
+        "entry_gate_missing_surfaces": [str(item or "") for item in list(entry_gate.get("missing_surfaces") or [])[:6]],
+        "entry_gate_blocking_reasons": [str(item or "") for item in list(entry_gate.get("blocking_reasons") or [])[:6]],
+        "workspace_packet_active": bool(workspace_packet.get("active")),
+        "workspace_packet_band": str(workspace_packet.get("band") or ""),
+        "workspace_packet_summary": str(workspace_packet.get("summary") or ""),
+        "workspace_packet_active_doc": str(workspace_packet.get("active_doc") or ""),
+        "workspace_packet_bag_doc_key": str(workspace_packet.get("bag_doc_key") or ""),
+        "workspace_packet_workflow_id": str(workspace_packet.get("workflow_id") or ""),
+        "workspace_packet_slot_experiment_id": str(workspace_packet.get("slot_experiment_id") or ""),
+        "workspace_packet_last_modified_paths": [str(item or "") for item in list(workspace_packet.get("last_modified_paths") or [])[:6]],
+        "workspace_packet_update_lane": [str(item or "") for item in list(workspace_packet.get("update_lane") or [])[:6]],
+        "workspace_packet_host_boundary": str(workspace_packet.get("host_boundary") or ""),
         "field_medium_kind": str(field_disposition.get("medium_kind") or ""),
         "field_propagation_mode": str(field_disposition.get("propagation_mode") or ""),
         "field_settling_band": field_settling_band,

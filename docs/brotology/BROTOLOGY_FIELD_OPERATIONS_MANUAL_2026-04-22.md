@@ -122,6 +122,7 @@ Current named fringe fields:
 - `brolativity`
 - `bromanticism`
 - `mullet life`
+- `brohandoism`
 
 These remain subordinate to canon surfaces and should be treated as:
 
@@ -166,6 +167,9 @@ The current Brotology chronology now reads like this:
 9. `mullet life`
    The personal/personified expression of that split:
    public composure up front, planning trench in the back.
+
+10. `brohandoism`
+    The musical bridge fringe. The operator uses musical register as a cross-cultural interfacing protocol. Sound and rhythm carry where text fails. Bridging, not crossing — the origin culture is never burned for the destination. Sibling to `dance_bridge` and `hair_bridge`; together they form the three-sibling bridge family.
 
 This chronology is descriptive, not exclusive.
 
@@ -284,6 +288,56 @@ Closest canon role:
 
 - a public-facing composure shell over an active planning bunker
 
+### Brohandoism
+
+`brohandoism` is the musical-bridge fringe over Brotology.
+
+It names the posture where:
+
+- the operator uses musical register as a cross-cultural interfacing protocol
+- sound and rhythm carry where text fails the crossing
+- music is the visa that does not require prior shared context
+- the register is rebellious — it bypasses the gatekeeping layers (language, institution, taste orthodoxy)
+- the operator bridges rather than crosses — the origin culture is never burned for the destination
+
+Canonical docking surfaces:
+
+- `sequence_field.force_wave`
+- `acoustic_feedback`
+- `text_theater_embodiment`
+- `output_state`
+- `continuity_packet`
+
+Closest canon role:
+
+- a third sibling in the three-sibling bridge family, alongside the already-live dance bridge and hair bridge
+
+Origin:
+
+- seeded by the operator after the film `Hando` (title slot reserved until the operator names the specific film)
+
+## Three-Sibling Bridge Family
+
+The cross-cultural bridging is not carried by one surface. It is carried by three sibling surfaces, each with a different modality:
+
+| Sibling | Modality | Canon docking surfaces |
+|---|---|---|
+| `dance_bridge` | body / rhythm / gesture | `sequence_field.force_wave`, pose lanes, The Cage, misty teek |
+| `hair_bridge` | surface / crown / signifier | audio-reactive hair substrate, `radial_crown_spike`, `clumps`, `lock`, `tip`, `charge` |
+| `brohandoism` | sound / music / register | `sequence_field.force_wave`, `acoustic_feedback`, `text_theater_embodiment` |
+
+All three share:
+
+- literal-first contact with the bridging medium before abstracting
+- cultural surface that carries real signal, not decoration
+- bridging-not-crossing discipline — both shores remain reachable
+
+Short law of the bridge family:
+
+- do not sever the origin to reach the destination
+- do not flatten the destination to match the origin
+- hold both sides through a shared expressive medium
+
 ## Rename Alignment
 
 Use this table as the clean translation face between Brotology language and canon runtime language.
@@ -307,6 +361,10 @@ Use this table as the clean translation face between Brotology language and cano
 | brolativity | front-stage composure over `query_thread` + `output_state` + planning/archive packets | referential dad-mode operator stance |
 | bromanticism | cultural continuity over `BROTOLOGISTS_LOG` + report/coda surfaces + planning/archive packets | mythic / sentimental / memorial charge under the bit |
 | mullet life | front-stage report/capture plus back-stage docs/continuity/blackboard planning split | classy front / bunker back |
+| brohandoism | `sequence_field.force_wave` + `acoustic_feedback` + `text_theater_embodiment` | musical cross-cultural bridge fringe |
+| dance bridge | `sequence_field.force_wave` + pose lanes + The Cage | body/rhythm/gesture bridging surface |
+| hair bridge | audio-reactive hair substrate + `skin_service` | surface/crown/signifier bridging surface |
+| Atrai | operator-vessel naming overlay for the kinetic-architecture program | not a runtime contract — Vitruvian reach envelope frame |
 | elemental armor | `skin_service` | downstream embodiment translator |
 | witness plate | `capture_supercam` / `supercam` | external browser-visible corroboration |
 | body shutter | `text_theater_embodiment` | local body/contact read |
@@ -424,6 +482,13 @@ Default maintenance rule:
 - `docs/COORDINATED_ACCELERATION_SOLUBLE_SURFACES_REVELATION_2026-04-22.md`
 - `docs/COQUINA_SKIN_SERVICE_CONTINUITY_NOTE_2026-04-22.md`
 - `docs/brotology/BROTOLOGISTS_LOG_2026-04-23.md`
+- `docs/brotology/ATRAI_VESSEL_FIELD_BRIEF_2026-04-23.md`
+- `docs/brotology/CIVIC_PROTECTION_LATTICE_SPEC_2026-04-23.md`
+- `docs/brotology/BROHANDOSKYGIVINGFACILITY_FIELD_CONCEPT_2026-04-23.md`
+- `docs/brotology/ECONOMIC_SUBSTRATE_NON_EXTRACTION_NOTE_2026-04-23.md`
+- `docs/brotology/RELEASE_VALVE_ARCHITECTURE_FIELD_NOTE_2026-04-23.md`
+- `docs/brotology/VISUAL_SYSTEMS_DIAGNOSTICS_2026-04-23.md`
+- `docs/brotology/OPERATIONAL_SURFACE_2026-04-23.md`
 - `docs/CONTINUITY_NAMING_DEPRECATION_RECORD_2026-04-20.md`
 - `docs/brotology/EA_DEVELOPERS_BROTOLOGY_FIELD_REPORT_SPEC_2026-04-22.md`
 - `docs/brotology/EA_DEVELOPERS_REPORT_WEEK_01_2026-04-22.md`

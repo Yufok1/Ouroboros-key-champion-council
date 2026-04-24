@@ -162,10 +162,14 @@ When you are attached through the Champion Council self-deploy tooling (`mcp__ch
   - `blackboard.working_set.query_thread`
   - `output_state`
   - `docs_packet`
+  - `workspace_packet`
+  - `entry_gate`
 - the live self-deploy registry already exposes:
   - `output_state` as the derived orienting crane
   - `continuity_packet` as the archive/transcript face carried under `output_state`
   - `docs_packet` as the planning/material face carried under `output_state`
+  - `workspace_packet` as the carried FelixBag/workspace mutation face under `output_state`
+  - `entry_gate` as the continuity-first authority/corroboration gate under `output_state`
 - if you have not gone through `env_help`, you have not actually learned the local continuity tooling yet
 - for context-compaction recovery, use `continuity_restore(...)` as the archive-side reacclimation face inside that larger continuity stack
 - do not collapse continuity into archive summary, transcript folklore, or "earned memory"

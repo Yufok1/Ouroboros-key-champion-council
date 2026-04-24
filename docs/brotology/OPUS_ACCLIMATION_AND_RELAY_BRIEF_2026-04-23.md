@@ -23,8 +23,11 @@ This brief should help the reviewing model do three things:
 
 `docs/brotology/` currently contains:
 
+- an operational collation surface
+- a visual-diagnostics surface
 - the Brotology operating overlay
 - the cultural continuity log
+- vessel / facility / economic adjunct briefs
 - the field-report surfaces
 - the canyon-span / carrier-fortress planning lane
 
@@ -59,19 +62,33 @@ The reviewing model should read in this order:
 
 1. `README.md`
    Folder purpose and current contents.
-2. `BROTOLOGY_FIELD_OPERATIONS_MANUAL_2026-04-22.md`
+2. `OPERATIONAL_SURFACE_2026-04-23.md`
+   Collated surface, current agenda, and three-register read.
+3. `BROTOLOGY_FIELD_OPERATIONS_MANUAL_2026-04-22.md`
    Operator-language overlay and naming posture.
-3. `BROTOLOGISTS_LOG_2026-04-23.md`
+4. `BROTOLOGISTS_LOG_2026-04-23.md`
    Cultural continuity, tone, and accepted branch artifacts.
-4. `HIGH_YIELD_BROSPECULATION_CANYON_SPAN_SIMULATION_PRIMITIVES_REPORT_2026-04-23.md`
+5. `VISUAL_SYSTEMS_DIAGNOSTICS_2026-04-23.md`
+   Diagram grammar and readiness checks from plain-language to engineering read.
+6. `ATRAI_VESSEL_FIELD_BRIEF_2026-04-23.md`
+   Operator-vessel framing for the kinetic architecture lane.
+7. `RELEASE_VALVE_ARCHITECTURE_FIELD_NOTE_2026-04-23.md`
+   Pressure / threshold / release / return / recharge logic across scales.
+8. `ECONOMIC_SUBSTRATE_NON_EXTRACTION_NOTE_2026-04-23.md`
+   Public-value law and anti-extraction guardrails.
+9. `BROHANDOSKYGIVINGFACILITY_FIELD_CONCEPT_2026-04-23.md`
+   Facility concept tying Atrai, sky-vantage giving, and service architecture.
+10. `CIVIC_PROTECTION_LATTICE_SPEC_2026-04-23.md`
+   Peril-mode public-protection translation.
+11. `HIGH_YIELD_BROSPECULATION_CANYON_SPAN_SIMULATION_PRIMITIVES_REPORT_2026-04-23.md`
    Broad mechanical interpretation and primitive families.
-5. `CARRIER_FORTRESS_CANYON_SPAN_PLANNING_DOSSIER_2026-04-23.md`
+12. `CARRIER_FORTRESS_CANYON_SPAN_PLANNING_DOSSIER_2026-04-23.md`
    Formal continuity and selected defaults.
-6. `CANYON_SPAN_PRIMITIVE_REGISTRY_SPEC_2026-04-23.md`
+13. `CANYON_SPAN_PRIMITIVE_REGISTRY_SPEC_2026-04-23.md`
    Canonical primitive registry and minimum facility graph.
-7. `EA_DEVELOPERS_BROTOLOGY_FIELD_REPORT_SPEC_2026-04-22.md`
+14. `EA_DEVELOPERS_BROTOLOGY_FIELD_REPORT_SPEC_2026-04-22.md`
    If the reviewer needs the public report posture.
-8. `EA_DEVELOPERS_REPORT_WEEK_01_2026-04-22.md`
+15. `EA_DEVELOPERS_REPORT_WEEK_01_2026-04-22.md`
    If the reviewer needs an example of the report surface in use.
 
 ## Core Determinations To Preserve

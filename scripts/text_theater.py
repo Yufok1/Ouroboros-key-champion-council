@@ -1045,9 +1045,11 @@ def _render_blackboard_section(snapshot, width):
     drift = output_state.get("drift") if isinstance(output_state.get("drift"), dict) else {}
     placement = _output_state_placement(output_state)
     correlator = _output_state_correlator(output_state)
+    entry_gate = _output_state_entry_gate(output_state)
     continuity_cue = _output_state_continuity_cue(output_state)
     tinkerbell_attention = _output_state_tinkerbell_attention(output_state)
     docs_packet = _output_state_docs_packet(output_state)
+    workspace_packet = _output_state_workspace_packet(output_state)
     continuity_packet = _output_state_continuity_packet(output_state)
     misunderstanding_box = _output_state_misunderstanding_box(output_state)
     technolit_measure = _output_state_technolit_measure(output_state)
@@ -1165,6 +1167,13 @@ def _render_blackboard_section(snapshot, width):
         + str(correlator.get("grade") or "")
         + " return="
         + str((((correlator.get("return_path") or {}).get("reads")) or [])),
+        "entry_gate="
+        + str(entry_gate.get("band") or "quiet")
+        + " status="
+        + str(entry_gate.get("status") or "")
+        + " verified="
+        + str(list(entry_gate.get("verified_surfaces") or [])[:4]),
+        "entry_gate_reads=" + str(list(entry_gate.get("required_reads") or [])[:4]),
         "continuity_cue="
         + str(continuity_cue.get("severity") or "quiet")
         + " needed="
@@ -1213,6 +1222,14 @@ def _render_blackboard_section(snapshot, width):
             ]
         ),
         "docs_update_lane=" + str(list(docs_packet.get("update_lane") or [])[:4]),
+        "workspace_packet="
+        + str(workspace_packet.get("band") or "idle")
+        + " active="
+        + str(bool(workspace_packet.get("active")))
+        + " doc="
+        + str(workspace_packet.get("active_doc") or workspace_packet.get("bag_doc_key") or ""),
+        "workspace_paths=" + str(list(workspace_packet.get("last_modified_paths") or [])[:4]),
+        "workspace_update_lane=" + str(list(workspace_packet.get("update_lane") or [])[:4]),
         "continuity_packet="
         + str(continuity_packet.get("band") or "empty")
         + " posture="
@@ -1343,6 +1360,11 @@ def _output_state_continuity_cue(output_state):
     return output_state.get("continuity_cue") if isinstance(output_state.get("continuity_cue"), dict) else {}
 
 
+def _output_state_entry_gate(output_state):
+    output_state = output_state if isinstance(output_state, dict) else {}
+    return output_state.get("entry_gate") if isinstance(output_state.get("entry_gate"), dict) else {}
+
+
 def _output_state_tinkerbell_attention(output_state):
     output_state = output_state if isinstance(output_state, dict) else {}
     return output_state.get("tinkerbell_attention") if isinstance(output_state.get("tinkerbell_attention"), dict) else {}
@@ -1351,6 +1373,11 @@ def _output_state_tinkerbell_attention(output_state):
 def _output_state_docs_packet(output_state):
     output_state = output_state if isinstance(output_state, dict) else {}
     return output_state.get("docs_packet") if isinstance(output_state.get("docs_packet"), dict) else {}
+
+
+def _output_state_workspace_packet(output_state):
+    output_state = output_state if isinstance(output_state, dict) else {}
+    return output_state.get("workspace_packet") if isinstance(output_state.get("workspace_packet"), dict) else {}
 
 
 def _output_state_continuity_packet(output_state):
@@ -1439,7 +1466,9 @@ def _consult_query_thread(snapshot):
     drift = output_state.get("drift") if isinstance(output_state.get("drift"), dict) else {}
     placement = _output_state_placement(output_state)
     correlator = _output_state_correlator(output_state)
+    entry_gate = _output_state_entry_gate(output_state)
     continuity_cue = _output_state_continuity_cue(output_state)
+    workspace_packet = _output_state_workspace_packet(output_state)
     misunderstanding_box = _output_state_misunderstanding_box(output_state)
     tinkerbell_attention = _output_state_tinkerbell_attention(output_state)
     technolit_measure = _output_state_technolit_measure(output_state)
@@ -1582,6 +1611,12 @@ def _consult_query_thread(snapshot):
         + str(correlator.get("grade") or "n/a")
         + " / return "
         + str((((correlator.get("return_path") or {}).get("reads")) or [])),
+        "ENTRY GATE: "
+        + str(entry_gate.get("band") or "quiet")
+        + " / status "
+        + str(entry_gate.get("status") or "n/a")
+        + " / verified "
+        + str(list(entry_gate.get("verified_surfaces") or [])[:4]),
         "CONTINUITY CUE: "
         + str(continuity_cue.get("severity") or "quiet")
         + " / needed "
@@ -1598,6 +1633,7 @@ def _consult_query_thread(snapshot):
         + str(list(misunderstanding_box.get("required_reads") or [])[:4])
         + " / release "
         + str(misunderstanding_box.get("release_condition") or "n/a"),
+        "ENTRY READS: " + str(list(entry_gate.get("required_reads") or [])[:4]),
         "TINKERBELL: "
         + str(tinkerbell_attention.get("band") or "quiet")
         + " / "
@@ -1624,6 +1660,12 @@ def _consult_query_thread(snapshot):
         + str(watch_board.get("band") or "n/a")
         + " / alerts "
         + str(watch_board.get("alerts") or []),
+        "WORKSPACE: "
+        + str(workspace_packet.get("band") or "idle")
+        + " / doc "
+        + str(workspace_packet.get("active_doc") or workspace_packet.get("bag_doc_key") or "n/a")
+        + " / paths "
+        + str(list(workspace_packet.get("last_modified_paths") or [])[:4]),
         "OUTPUT SUMMARY: " + str(output_state.get("summary") or "n/a"),
         "PLACEMENT EVIDENCE: anchors "
         + str((((placement.get("evidence") or {}).get("anchor_row_ids")) or []))
@@ -1645,7 +1687,9 @@ def _consult_query_evidence(snapshot):
     watch_board = output_state.get("watch_board") if isinstance(output_state.get("watch_board"), dict) else {}
     placement = _output_state_placement(output_state)
     correlator = _output_state_correlator(output_state)
+    entry_gate = _output_state_entry_gate(output_state)
     continuity_cue = _output_state_continuity_cue(output_state)
+    workspace_packet = _output_state_workspace_packet(output_state)
     misunderstanding_box = _output_state_misunderstanding_box(output_state)
     tinkerbell_attention = _output_state_tinkerbell_attention(output_state)
     technolit_measure = _output_state_technolit_measure(output_state)
@@ -1711,6 +1755,14 @@ def _consult_query_evidence(snapshot):
             + str((((correlator.get("correlation") or {}).get("relation")) or "n/a"))
             + " / grade "
             + str(correlator.get("grade") or "n/a")
+        )
+        lines.append(
+            "ENTRY GATE: "
+            + str(entry_gate.get("band") or "quiet")
+            + " / "
+            + str(entry_gate.get("status") or "n/a")
+            + " / reads "
+            + str(list(entry_gate.get("required_reads") or [])[:4])
         )
         lines.append(
             "CONTINUITY CUE: "
@@ -1887,6 +1939,14 @@ def _consult_query_evidence(snapshot):
             + str(receipts.get("slot_experiment_id") or "n/a")
             + " / paths "
             + str(list(receipts.get("last_modified_paths") or [])[:4])
+        )
+        lines.append(
+            "WORKSPACE PACKET: "
+            + str(workspace_packet.get("band") or "idle")
+            + " / doc "
+            + str(workspace_packet.get("active_doc") or workspace_packet.get("bag_doc_key") or "n/a")
+            + " / update "
+            + str(list(workspace_packet.get("update_lane") or [])[:4])
         )
         lines.append(
             "OUTPUT FRESHNESS: age_ms "

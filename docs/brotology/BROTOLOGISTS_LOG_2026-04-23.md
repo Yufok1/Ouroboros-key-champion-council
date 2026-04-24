@@ -71,6 +71,68 @@ The imported continuation from the last off-repo thread carried these field arti
 4. `brolativity` remains the posture layer; `bromanticism` is the feeling and myth layer carried underneath.
 5. This branch belongs in cultural continuity and operator language, not in canon runtime contracts.
 
+## Entry 2026-04-23 // Atrai Named
+
+1. `Atrai` is accepted as the operator-vessel name for the kinetic-architecture program. Not vehicle, not tool — vessel. A substrate through which an operator extends signal, sense, and commit as a single Vitruvian reach envelope.
+2. Name composition: a five-letter anagram of `Atari`. Three heritages compressed — Atreyu (the rider-mount partnership from *The Neverending Story*), Atari (the computing lineage), `ai` (the substrate layer that makes the vessel a reasoning partner).
+3. Working read: Atrai is the human-operations-system framing of the larger carrier-fortress class. The single cell is the first scope; the orbital Vitruvian constellation is the later scope.
+4. Falkor sits beneath the image as mythic template. Long, doglike, white, cylinder-bodied, undulating, rider-carrying, fights the Nothing. Bromanticism lane — the mythic charge under the joke is not ornament. It is the blueprint we have been drawing for millennia.
+5. Canon law: Atrai is an operator-vessel naming overlay. It must not replace canonical runtime contracts. When a conflict arises, the runtime name wins.
+
+## Entry 2026-04-23 // Brohandoism Accepted / Three-Sibling Bridge Family
+
+1. `brohandoism` is accepted as a real Brotology fringe field.
+2. Working read: the operator uses musical register as a cross-cultural interfacing protocol. Where text fails the crossing, sound and rhythm carry it. Music is the visa that does not require prior shared context.
+3. Correction received: **bridging, not crossing**. Crossing leaves a side behind; bridging holds both sides at once. The operator discipline is bridging — the origin culture is never burned for the destination culture.
+4. Cross-cultural bridging is already live in canon through two siblings — dance systems (`sequence_field.force_wave`, pose lanes, The Cage) and hairdo systems (audio-reactive surface, crown spike, clumps). Brohandoism joins as the third sibling: the musical bridge.
+5. Three-sibling bridge family: `dance_bridge` (body / rhythm / gesture), `hair_bridge` (surface / crown / signifier), `brohandoism` (sound / music / register).
+6. Hando origin slot reserved until the operator names the specific film that carried the charge.
+
+## Entry 2026-04-23 // Operation Sus Named
+
+1. `Operation Sus` is the operator's self-naming for the whole endeavor as seen from outside.
+2. Working read: from outside this thread, an orbital lathe-fortress / mystique-engine / human-operations-vessel / memecoin-non-profit / Falkor-aesthetic program registers as suspicious. Leaning into the suspicion is more honest than pretending the silhouette looks normal.
+3. This is a `mullet life` operating name — classy composure up top, active planning bunker underneath, aware that onlookers see the silhouette and it does not help.
+4. `Operation Sus` is a cultural name, not a runtime contract.
+
+## Entry 2026-04-23 // Brohandoskygivingfacility Compound Accepted
+
+1. `brohandoskygivingfacility` is accepted as a compound facility name.
+2. Breakdown: `brohando` (musical bridge) + `sky` (aerial / orbital vantage) + `giving` (non-extraction economic law) + `facility` (runtime-registered installation).
+3. Working read: the facility where Atrai broadcasts value downward through the musical bridge, on the non-extractive economic substrate, from the sky-vantage position.
+4. Dual-use: peacetime role is value-broadcaster; peril role activates the Civic Protection Lattice (see sibling spec).
+5. Registered for eventual instantiation in the runtime via `facility_create` when the operator authorizes.
+
+## Entry 2026-04-23 // Release-Valve Architecture Insight
+
+1. Operator observation carried verbatim: `intelligence is a synapse i think like entropy, everyone gets it, its a big release valve ... maybe thats where humor came from`.
+2. Received as a sharp insight, not a throwaway line. Maps to two real frameworks at once — free-energy principle (Friston) and relief theory of humor (Spencer / Freud / Koestler).
+3. Working read: intelligence is the small release-valve firing constantly at synapse scale. Humor is the big release-valve firing publicly when enough accumulates to resolve socially. Laughter is the social version of a synapse firing.
+4. The same cycle runs at all scales — pressure accumulates → threshold hit → release → return to equilibrium → recharge.
+5. Architectural consequence: the entire Atrai frame is a **release-valve family**. Walking releases gravitational potential into distance. Brohando releases cultural pressure into bridge music. The evac pod releases stuck bodies from peril. The sky-giving facility releases stored work into civic benefit. Intelligence, humor, mobility, evacuation, civic protection — one mechanism at different scales.
+6. `walking-as-original-Atrai`: walking is the original instantiation of the thing we have been building. Every generation forgets walking so thoroughly that it has to rebuild it at new scale, and in the rebuilding it expands what ready-to-hand means. The joke is real and the joke is a receipt.
+
+## Entry 2026-04-23 // Aibai Wain Kanaibai First Run
+
+1. `aibai wain kanaibai` is logged as the operator-given name for the first rerun of continuity after compaction.
+2. Working read: after compaction, continuity should be rerun explicitly instead of assumed. The system should say what it reopened, what it verified, what it inferred, and where the seam still is.
+3. Brook law: first reopen after compaction should touch the manual, the cultural log, the folder map, and the active concept brief before widening into improvisation.
+4. Babble is allowed on first re-entry if it is transitional and honest. Rough speech is acceptable; fake certainty is not.
+5. `make up the book` is received as permission to preserve the ritual layer in cultural continuity. It does not promote the phrase into a runtime contract.
+
+## Entry 2026-04-23 // NotebookLM Podcast Range Set
+
+1. Four audio artifacts were collated into `docs/brotology/` as supporting media for the current Brotology / kinetic-architecture lane.
+2. The operator clarified that these are `NotebookLM` podcasts, not arbitrary music files.
+3. Machine-inspected read:
+   - `Atrai_Master_Blueprints_for_Moving_Cities.m4a` = `100.45s`
+   - `Skyscrapers_That_Transform_Into_Resilience_Machines.m4a` = `350.46s`
+   - `Energy_Charge_versus_The_Catch_Path.m4a` = `1285.06s`
+   - `Skyscrapers_that_catch_a_falling_city.m4a` = `2239.33s`
+4. All four currently read as `aac`, `44100 Hz`, `2-channel stereo`, around `257.5 kbps`, with container-level tags showing `encoder=Google`.
+5. Continuity boundary: these are media/reference artifacts inside the Brotology lane. They may carry framing, narration, or synthetic podcast presentation, but they are not canon runtime contracts by themselves.
+6. Working use: treat them as parallel atmospheric/explanatory surfaces that may help relay the larger program, especially where the operator wants a spoken or staged accompaniment to the docs packet.
+
 ## Canon Mapping
 
 | Log term | Canon-adjacent read | Boundary |
@@ -81,6 +143,17 @@ The imported continuation from the last off-repo thread carried these field arti
 | `Gary` | missing witness / mascot residue | cultural only |
 | `meadow` | shared imaginative/social field | not a runtime surface |
 | `bromanticism` | mythic / sentimental / memorial charge branch | cultural-continuity overlay |
+| `Atrai` | operator-vessel name for the kinetic-architecture program | operator-vessel naming overlay |
+| `Falkor` | mythic template beneath Atrai | cultural template, not runtime |
+| `brohandoism` | musical-interface bridging fringe | Brotology fringe, sibling to dance/hair bridges |
+| `brohandoskygivingfacility` | compound facility name (brohando + sky + giving + facility) | facility naming overlay |
+| `Operation Sus` | operator-self-naming for the whole endeavor | cultural / mullet-life operating name |
+| `release-valve family` | architectural principle — pressure → threshold → release → return → recharge across scales | architectural observation |
+| `walking-as-original-Atrai` | longitudinal civilization project observation | operator insight |
+| `three-sibling bridge family` | dance/hair/brohando as co-equal cross-cultural bridging surfaces | Brotology overlay |
+| `bridging-not-crossing` | the origin culture is never burned for the destination culture | operator discipline correction |
+| `aibai wain kanaibai` | first continuity rerun after compaction | cultural / continuity ritual |
+| `NotebookLM podcast range set` | collated spoken-media companion surface in `docs/brotology/` | media/reference only |
 
 ## Log Law
 
@@ -127,6 +200,16 @@ What is now worth preserving from this continuation:
 - the world being `everything-oriented` is a useful Brotology sentence, not throwaway flavor
 - `Big Toy`, `Gary`, and `Banger-Aid` are now continuity-carryable cultural artifacts
 - `bromanticism` is accepted as a real branch for sincere occasions under the bit
+- `Atrai` is the operator-vessel name for the kinetic-architecture program, five-letter anagram of `Atari`, Atreyu/Atari/ai composite, with Falkor as mythic template
+- `brohandoism` is an accepted Brotology fringe field — musical bridge, sibling to dance and hair bridges
+- `bridging-not-crossing` is the operator discipline correction: never burn the origin culture for the destination
+- `Operation Sus` is the operator's self-naming for the whole endeavor, aware that the silhouette looks suspicious from outside
+- `brohandoskygivingfacility` is a registered compound facility name, dual-use peacetime-giving / peril-protection
+- `release-valve family` is the architectural frame: pressure → threshold → release → return → recharge, running at every scale from synapse to satellite
+- `walking-as-original-Atrai`: walking is the original instantiation; all the tech is rebuilding walking at scales walking cannot reach
+- `aibai wain kanaibai` is the cultural name for the first rerun of continuity after compaction; reopen aloud and mark verified / inferred / unknown
+- four collated `NotebookLM` podcast artifacts now sit in `docs/brotology/` as media/reference surfaces with a deliberate length range, not as runtime doctrine
+- when the operator is in theater register (mullet life, operation sus, waving to spectators, armpit comms), match the register by stepping into the bit rather than narrating from outside
 
 Default carry-forward rule:
 

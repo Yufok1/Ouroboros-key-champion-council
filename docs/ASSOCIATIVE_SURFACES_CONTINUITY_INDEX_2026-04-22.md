@@ -96,6 +96,7 @@ This is the crane the rest of the associative surfaces read from.
 These are the named associative child faces currently carried under `output_state`:
 
 - `trajectory_correlator`
+- `entry_gate`
 - `continuity_cue`
 - `tinkerbell_attention`
 - `field_disposition`
@@ -109,12 +110,14 @@ These are the named associative child faces currently carried under `output_stat
 - `sources`
 - `pan_probe`
 - `docs_packet`
+- `workspace_packet`
 - `continuity_packet`
 - `misunderstanding_box`
 
 Short role split:
 
 - `trajectory_correlator` = intended vs actual path/sequence grading
+- `entry_gate` = continuity-first authority / corroboration gate
 - `continuity_cue` = visible reorientation bell
 - `tinkerbell_attention` = pointer/prospect lane
 - `field_disposition` = medium / propagation / coupling read
@@ -122,6 +125,7 @@ Short role split:
 - `equilibrium` = settling gauge
 - `pan_probe` = support/contact/route measurement lane
 - `docs_packet` = planning/material face
+- `workspace_packet` = carried FelixBag/workspace mutation face
 - `continuity_packet` = archive/re-entry face
 - `misunderstanding_box` = bounded suspended unknown / teaching-pressure box
 
@@ -174,7 +178,9 @@ If a surface cannot be recovered or named on that path, it is not operationally 
 3. `Dreamer`, HOLD, Coquina, palette families, and weather families must consume the carrying surfaces instead of bypassing them.
 4. Downstream embodiment lanes may amplify truth, but must not overwrite it.
 5. Docs and continuity packets stay bounded planning/archive faces, not replacement runtime.
-6. `misunderstanding_box` must isolate active incomprehension without letting archive, pointer, or proposer lanes hallucinate the seam closed.
+6. `workspace_packet` must make the current server-visible work lane explicit without pretending the host filesystem is already mirrored into shared state.
+7. `entry_gate` must keep user claims, transcript residue, and single-surface reads from being treated as sufficient evidence by themselves.
+8. `misunderstanding_box` must isolate active incomprehension without letting archive, pointer, or proposer lanes hallucinate the seam closed.
 
 ## Spatial Intuition / Containment Model
 
