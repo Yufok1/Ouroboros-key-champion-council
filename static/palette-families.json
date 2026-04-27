@@ -1,0 +1,95 @@
+{
+  "version": "palette-families-v1",
+  "families": {
+    "cool_stone": {
+      "base_colors": ["#737d89", "#68727e", "#6f7986", "#78828d", "#8793a0", "#73808d"],
+      "accent_colors": ["#8793a0"],
+      "forbidden_colors": [],
+      "perceptual_bounds": {
+        "hue_range": 12,
+        "saturation_range": 12,
+        "lightness_range": 12
+      }
+    },
+    "deep_water": {
+      "base_colors": ["#2f4862", "#3a536a", "#344e67", "#2a4056", "#607a95"],
+      "accent_colors": ["#607a95"],
+      "forbidden_colors": [],
+      "perceptual_bounds": {
+        "hue_range": 10,
+        "saturation_range": 14,
+        "lightness_range": 12
+      }
+    },
+    "dark_forest": {
+      "base_colors": ["#395640", "#344f39", "#314a36", "#4f6149"],
+      "accent_colors": ["#4f6149"],
+      "forbidden_colors": [],
+      "perceptual_bounds": {
+        "hue_range": 10,
+        "saturation_range": 12,
+        "lightness_range": 10
+      }
+    },
+    "neutral_terrain": {
+      "base_colors": ["#5b6470", "#555e69", "#56606a", "#60666f", "#5c6571"],
+      "accent_colors": [],
+      "forbidden_colors": [],
+      "perceptual_bounds": {
+        "hue_range": 10,
+        "saturation_range": 10,
+        "lightness_range": 10
+      }
+    },
+    "warm_accent": {
+      "base_colors": ["#d48a3a"],
+      "accent_colors": ["#d48a3a"],
+      "forbidden_colors": [],
+      "perceptual_bounds": {
+        "hue_range": 6,
+        "saturation_range": 8,
+        "lightness_range": 8
+      }
+    },
+    "indigo_accent": {
+      "base_colors": ["#4451a1"],
+      "accent_colors": ["#4451a1"],
+      "forbidden_colors": [],
+      "perceptual_bounds": {
+        "hue_range": 6,
+        "saturation_range": 8,
+        "lightness_range": 8
+      }
+    },
+    "weathered_path": {
+      "base_colors": ["#746e64", "#7a7368", "#726d67"],
+      "accent_colors": [],
+      "forbidden_colors": [],
+      "perceptual_bounds": {
+        "hue_range": 8,
+        "saturation_range": 10,
+        "lightness_range": 8
+      }
+    },
+    "moonwood": {
+      "base_colors": ["#6d5843"],
+      "accent_colors": [],
+      "forbidden_colors": [],
+      "perceptual_bounds": {
+        "hue_range": 6,
+        "saturation_range": 8,
+        "lightness_range": 8
+      }
+    },
+    "moonlight_title": {
+      "base_colors": ["#cfd6e2"],
+      "accent_colors": ["#cfd6e2"],
+      "forbidden_colors": [],
+      "perceptual_bounds": {
+        "hue_range": 8,
+        "saturation_range": 8,
+        "lightness_range": 8
+      }
+    }
+  }
+}

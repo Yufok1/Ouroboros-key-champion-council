@@ -1,0 +1,380 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://champion-council.local/schemas/coquina/atom-registry.schema.json",
+  "title": "Champion Council Coquina Atom Registry Record",
+  "type": "object",
+  "required": [
+    "id",
+    "atom_class",
+    "source_kind",
+    "roles",
+    "families",
+    "scale_class",
+    "palette_family",
+    "palette_role"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "atom_class": {
+      "type": "string",
+      "enum": [
+        "hull",
+        "affix"
+      ]
+    },
+    "hull_subclass": {
+      "type": "string",
+      "enum": [
+        "solid",
+        "surface"
+      ]
+    },
+    "source_kind": {
+      "type": "string",
+      "enum": [
+        "asset",
+        "substrate",
+        "tile"
+      ]
+    },
+    "mount_domain": {
+      "type": "string",
+      "enum": [
+        "scene",
+        "body"
+      ]
+    },
+    "asset_pack_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "asset_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "recipe": {
+      "description": "Required for substrate/tile atoms. Type is intentionally left open because the data contracts only specify presence, not shape."
+    },
+    "roles": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "families": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "scale_class": {
+      "type": "string",
+      "minLength": 1
+    },
+    "bbox_meters": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "number"
+      }
+    },
+    "natural_orientation": {
+      "type": "string",
+      "minLength": 1
+    },
+    "support_surfaces": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "attachment_surfaces": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "connectors": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "repeatability": {
+      "type": "string",
+      "minLength": 1
+    },
+    "palette_family": {
+      "type": "string",
+      "minLength": 1
+    },
+    "palette_role": {
+      "type": "string",
+      "minLength": 1
+    },
+    "tint_mode": {
+      "type": "string",
+      "minLength": 1
+    },
+    "detail_affordances": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "enum": [
+          "trim_top",
+          "trim_bottom",
+          "trim_edge",
+          "opening_grid",
+          "decal_face",
+          "scatter_base",
+          "rib_line"
+        ]
+      }
+    },
+    "theme_affinity": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "placement_hints": {
+      "type": "object",
+      "required": [
+        "min_spacing",
+        "snap_grid",
+        "prefer_edge",
+        "avoid_water",
+        "floor_only"
+      ],
+      "properties": {
+        "min_spacing": {
+          "type": "number"
+        },
+        "snap_grid": {
+          "type": "number"
+        },
+        "prefer_edge": {
+          "type": "boolean"
+        },
+        "avoid_water": {
+          "type": "boolean"
+        },
+        "floor_only": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "body_binding": {
+      "type": "object",
+      "required": [
+        "scaffold_slots",
+        "tracking_joints",
+        "deform_mode",
+        "symmetry",
+        "region_class"
+      ],
+      "properties": {
+        "scaffold_slots": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "tracking_joints": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "deform_mode": {
+          "type": "string",
+          "enum": [
+            "skinned",
+            "rigid",
+            "cloth"
+          ]
+        },
+        "symmetry": {
+          "type": "string",
+          "enum": [
+            "bilateral",
+            "unique",
+            "radial"
+          ]
+        },
+        "region_class": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "backface": {
+      "type": "string",
+      "enum": [
+        "cull",
+        "render"
+      ]
+    },
+    "thickness_mm": {
+      "type": "number"
+    },
+    "support_mode": {
+      "type": "string",
+      "enum": [
+        "gravity",
+        "mounted"
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "atom_class": {
+            "const": "hull"
+          }
+        },
+        "required": [
+          "atom_class"
+        ]
+      },
+      "then": {
+        "required": [
+          "hull_subclass",
+          "bbox_meters",
+          "natural_orientation",
+          "support_surfaces",
+          "attachment_surfaces",
+          "detail_affordances"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "hull_subclass": {
+            "const": "surface"
+          }
+        },
+        "required": [
+          "hull_subclass"
+        ]
+      },
+      "then": {
+        "required": [
+          "backface",
+          "thickness_mm",
+          "support_mode"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "source_kind": {
+            "const": "asset"
+          }
+        },
+        "required": [
+          "source_kind"
+        ]
+      },
+      "then": {
+        "required": [
+          "asset_pack_id",
+          "asset_id"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "source_kind": {
+            "enum": [
+              "substrate",
+              "tile"
+            ]
+          }
+        },
+        "required": [
+          "source_kind"
+        ]
+      },
+      "then": {
+        "required": [
+          "recipe"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "mount_domain": {
+            "const": "body"
+          }
+        },
+        "required": [
+          "mount_domain"
+        ]
+      },
+      "then": {
+        "required": [
+          "body_binding"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "mount_domain": {
+            "const": "scene"
+          }
+        },
+        "required": [
+          "mount_domain"
+        ]
+      },
+      "then": {
+        "required": [
+          "placement_hints"
+        ]
+      }
+    },
+    {
+      "if": {
+        "not": {
+          "required": [
+            "mount_domain"
+          ]
+        }
+      },
+      "then": {
+        "required": [
+          "placement_hints"
+        ]
+      }
+    }
+  ],
+  "additionalProperties": false
+}

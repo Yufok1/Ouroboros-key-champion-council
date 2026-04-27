@@ -1,0 +1,61 @@
+# Python/runtime
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.env
+.env.*
+
+# Root runtime artifacts
+capsule/
+data/
+exports/
+
+# Self-deploy runtime artifacts
+self_deploy/START_DOCKER.bat
+self_deploy/capsule/*
+!self_deploy/capsule/.gitkeep
+self_deploy/capsule_state_*.pt
+self_deploy/data/
+AGENT_ONBOARDING.md
+
+# Keep self-deploy tree out of the private Space repo
+self_deploy/
+
+# Claude Code local state
+.claude/
+
+# Capsule and local state
+bag_export.json
+capsule_state_*.pt
+capture_probe
+Holo-Ghost/
+
+# Spawned quine children
+children/
+
+# JS local dependencies
+node_modules/
+
+# Diagram scratch
+merril.d2/
+
+# Runtime capture outputs
+static/captures/
+static/assets/packs/
+
+# HF upload resume metadata for large pack syncs
+static/assets/**/.cache/
+
+# Public repo staging lives as its own nested Git repo
+docs/brotology/public_repo_root/
+docs/brotology/audible..istaken/
+
+# Local NotebookLM podcast exports in the Brotology lane
+docs/brotology/*.m4a
+docs/brotology/*.mp4
+docs/brotology/*.zip
+Champion_Council.mp4
+Orchestrating_Local_AI_With_Champion_Council.m4a
+*.pt
+*.log

@@ -1,0 +1,671 @@
+{
+  "version": "2026-03-07-envops-v27",
+  "shell": {
+    "defaultRenderer": "web3d",
+    "defaultPackageMode": "research",
+    "defaultProfile": "observe",
+    "rendererTargets": [
+      {
+        "id": "web3d",
+        "label": "Web-3D Habitat",
+        "note": "Primary browser-native habitat for spatial systems, overlays, and operator control."
+      },
+      {
+        "id": "webpanel",
+        "label": "Panel Overlay",
+        "note": "Fast 2D shell for workflow-backed operator systems and direct document work."
+      },
+      {
+        "id": "interface",
+        "label": "Interface Bundle",
+        "note": "Project the active system toward exportable interface artifacts."
+      },
+      {
+        "id": "godot",
+        "label": "Godot Cockpit",
+        "note": "Secondary embodiment target for richer scene or world projection."
+      }
+    ],
+    "packageModes": [
+      {
+        "id": "online",
+        "label": "Online / pull dependencies"
+      },
+      {
+        "id": "local",
+        "label": "Self-contained local package"
+      },
+      {
+        "id": "research",
+        "label": "Research / observe only"
+      }
+    ]
+  },
+  "sampler": {
+    "intervalMs": 4000,
+    "maxSamples": 48,
+    "autoCaptureOnRuntime": true
+  },
+  "comparison": {
+    "historyLimit": 8,
+    "maxExecutionCards": 6,
+    "maxDeltaLines": 6
+  },
+  "health": {
+    "historyWindow": 8,
+    "traceWindow": 12,
+    "hotspotLimit": 3,
+    "requestCooldownMs": 9000,
+    "staleAfterMs": 45000
+  },
+  "actors": {
+    "defaultActiveId": "assistant",
+    "restoreFocusOnActivate": false,
+    "maxVisible": 6,
+    "roster": [
+      {
+        "id": "user",
+        "label": "Operator",
+        "role": "human",
+        "tone": "manual",
+        "note": "Manual cockpit lane for direct human control."
+      },
+      {
+        "id": "assistant",
+        "label": "Assistant",
+        "role": "copilot",
+        "tone": "assistant",
+        "note": "Primary autonomous orchestration lane for agent-driven operation."
+      },
+      {
+        "id": "system",
+        "label": "System",
+        "role": "runtime",
+        "tone": "system",
+        "note": "Runtime hooks, watches, and substrate-level automation."
+      }
+    ]
+  },
+  "scene": {
+    "enabled": true,
+    "fpsCap": 30,
+    "pixelRatioCap": 1.5,
+    "ambientDrift": true,
+    "showGrid": true,
+    "showLabels": true,
+    "showPulseTrails": true,
+    "cameraDepth": 0.82,
+    "objectScale": 1.12,
+    "defaultCameraMode": "overview",
+    "shellParallax": 0.24,
+    "shellLift": 14,
+    "shellDepthShift": 22,
+    "orbit": {
+      "hoverInfluenceX": 1,
+      "hoverInfluenceY": 1,
+      "orbitMaxYaw": 7.2,
+      "orbitMaxPitch": 5.4,
+      "followEase": 0.12,
+      "perspectiveShiftX": 18,
+      "perspectiveShiftY": 12,
+      "shellSwayX": 9,
+      "shellSwayY": 6,
+      "perspectiveCurve": 1.18,
+      "objectParallaxX": 24,
+      "objectParallaxY": 14,
+      "nearScaleGain": 0.18,
+      "farScaleLoss": 0.12,
+      "lateralPerspectiveX": 12,
+      "objectDepthSpread": 0.22,
+      "objectDepthLift": 0.1,
+        "routeDepthGain": 96,
+        "routePerspectiveYaw": 14,
+        "routeCurveShift": 42,
+        "routeArcLift": 20,
+        "depthGain": 0.08,
+        "tiltGain": 2.4,
+        "vanishPullX": 0.082,
+        "vanishPullY": 0.048,
+        "shadowCompression": 0.18,
+        "routePortLift": 0.16,
+        "routePortPull": 0.06
+      },
+    "focusFieldOpacity": 0.34,
+    "focusFieldRingOpacity": 0.18,
+    "focusFieldGlow": 1,
+    "volumeBaseHeight": 22,
+    "volumeHeightGain": 4.2,
+    "volumeBridgeOpacity": 0.12,
+    "routeOpacity": 0.42,
+    "routeGlow": true,
+    "trajectoryOpacity": 0.55,
+    "trajectoryGlow": true,
+    "trajectorySpeed": 0.24,
+    "web3d": {
+      "objectDepth": 18,
+      "dominantDepth": 24,
+      "glowOpacity": 0.22,
+      "liftBoost": 8,
+      "canopy": {
+        "enabled": true,
+        "slabHeight": 18,
+        "slabWidthScale": 3.9,
+        "slabWidthBias": 54,
+        "slabLift": 104,
+        "slabDepthBias": -26,
+        "slabOpacity": 0.22,
+        "umbilicalWidth": 4,
+        "umbilicalOpacity": 0.2,
+        "umbilicalDepthGain": 18,
+        "dominantBoost": 1.22,
+        "failureBoost": 1.26,
+        "parallax": {
+          "lift": 16,
+          "depth": 20,
+          "yaw": 7.5,
+          "pitch": 4.5
+        }
+      },
+      "foreground": {
+        "enabled": true,
+        "scrimCount": 1,
+        "scrimOpacity": 0.06,
+        "scrimBlur": 8,
+        "scrimDepthNear": 48,
+        "scrimDepthFar": 18,
+        "drift": 4,
+        "dominantBoost": 1.18,
+        "failureBoost": 1.2
+      },
+      "uplinks": {
+        "enabled": true,
+        "width": 4,
+        "lift": 126,
+        "depthScale": 240,
+        "depthBias": -12,
+        "opacity": 0.18,
+        "glowOpacity": 0.22,
+        "headSize": 16,
+        "drift": 5.5,
+        "dominantBoost": 1.24,
+        "failureBoost": 1.34,
+        "watchBoost": 1.16,
+        "replayBoost": 1.2,
+        "parallax": {
+          "lift": 22,
+          "depth": 32,
+          "yaw": 8.5,
+          "sway": 9
+        }
+      },
+      "motion": {
+        "objectBob": 2.8,
+        "objectBank": 1.2,
+        "objectDepthPulse": 6,
+        "routeBob": 3.2,
+        "routeBank": 1.8,
+        "routeDepthPulse": 14,
+        "routeSway": 0.75
+      },
+      "volumetrics": {
+        "enabled": true,
+        "shaftWidthScale": 0.26,
+        "shaftOpacity": 0.09,
+        "shaftGlowOpacity": 0.16,
+        "shaftDrift": 3,
+        "coreHeightBias": 26,
+        "crownScale": 0.72,
+        "crownOpacity": 0.08,
+        "dominantBoost": 1.14,
+        "failureBoost": 1.3,
+        "watchBoost": 1.06,
+        "replayBoost": 1.08
+      },
+      "anchors": {
+        "enabled": true,
+        "height": 26,
+        "width": 3,
+        "footWidth": 42,
+        "glowOpacity": 0.26,
+        "depth": 10
+      },
+      "coupling": {
+        "enabled": true,
+        "width": 6,
+        "opacity": 0.18,
+        "glowOpacity": 0.24,
+        "braceWidth": 8,
+        "braceOpacity": 0.16,
+        "crownSize": 28,
+        "footWidth": 54,
+        "footHeight": 16,
+        "lift": 92,
+        "depthBias": -8,
+        "dominantBoost": 1.24,
+        "failureBoost": 1.3,
+        "watchBoost": 1.16,
+        "replayBoost": 1.2,
+        "parallax": {
+          "lift": 18,
+          "depth": 22,
+          "yaw": 6.5,
+          "pitch": 3.5
+        }
+      },
+      "routeLayer": {
+        "enabled": true,
+        "width": 8,
+        "dominantWidth": 12,
+        "lift": 26,
+        "depthScale": 260,
+        "opacity": 0.24,
+        "glowOpacity": 0.34,
+        "packetOpacity": 0.74,
+        "packetScale": 1,
+        "packetSpan": 72,
+        "arcLift": 24,
+        "parallax": {
+          "lift": 14,
+          "depth": 24,
+          "yaw": 6,
+          "pitch": 3.5,
+          "sway": 5.5
+        }
+      }
+    },
+    "world": {
+      "enabled": true,
+      "laneCount": 8,
+      "deckBands": 6,
+      "laneOpacity": 0.18,
+      "deckOpacity": 0.24,
+      "districtOpacity": 0.22,
+      "districtGlow": 0.42,
+      "floorDepth": 1.02,
+      "horizonLift": 0,
+      "orbitHorizonLift": 0.018,
+      "floorPitchLift": 18,
+      "lateralParallax": 0.085,
+      "floorShear": 0.05,
+      "horizonShear": 0.028,
+      "backgroundParallax": 0.024,
+      "vanishingDrift": 0.01,
+      "fogOpacity": 0.18,
+      "bridgePacketCount": 2,
+      "bridgePacketSize": 4.2,
+      "bridgePacketSpeed": 0.36,
+      "bridgePulseOpacity": 0.34,
+      "contactField": {
+        "enabled": true,
+        "lift": 8,
+        "objectOpacity": 0.22,
+        "objectRadiusScale": 1.08,
+        "ellipseFlatten": 0.26,
+        "dominantBoost": 1.28,
+        "failureBoost": 1.32,
+        "routeOpacity": 0.24,
+        "routeWidth": 6.4,
+        "routeGlow": 16,
+        "routeSag": 16,
+        "routePacketCount": 2,
+        "routePacketSize": 3.8,
+        "routePacketSpeed": 0.44,
+        "routePacketOpacity": 0.28
+      },
+      "depthGrid": {
+        "enabled": true,
+        "crossbarCount": 7,
+        "laneDepthStep": 18,
+        "pylonOpacity": 0.26,
+        "pylonLift": 14
+      },
+      "depthField": {
+        "enabled": true,
+        "layerCount": 6,
+        "bandOpacity": 0.18,
+        "beamOpacity": 0.12,
+        "sparkOpacity": 0.24,
+        "drift": 0.012,
+        "orbitShiftX": 0.032,
+        "orbitShiftY": 0.02,
+        "layerParallax": 0.82,
+        "hazeOpacity": 0.1,
+        "failureBoost": 1.28,
+        "watchBoost": 1.16,
+        "replayBoost": 1.22
+      }
+    },
+    "platform": {
+      "enabled": true,
+      "widthScale": 4.4,
+      "heightScale": 2.4,
+      "widthBias": 22,
+      "heightBias": 10,
+      "lift": 10,
+      "scaleGain": 0.05,
+      "skirtHeight": 18,
+      "glowOpacity": 0.12,
+      "rimOpacity": 0.14
+    },
+    "substrate": {
+      "enabled": true,
+      "nodeLimit": 28,
+      "railOpacity": 0.28,
+      "railFlowOpacity": 0.52,
+      "depthScale": 220,
+      "elevation": 18,
+      "labelMinScale": 0.85
+    },
+    "architecture": {
+      "enabled": true,
+      "portalWidth": 132,
+      "portalHeight": 162,
+      "portalLift": 14,
+      "corridorThickness": 10,
+      "corridorOpacity": 0.34,
+      "corridorGlow": 0.22,
+      "corridorFlowOpacity": 0.48,
+      "shellWallWidth": 96,
+      "shellWallInset": 5,
+      "shellWallTop": 6,
+      "shellWallHeight": 70,
+      "shellWallDepth": -126,
+      "shellWallOpacity": 0.32,
+      "shellWallCharge": 0.08,
+      "shellWallSway": 6,
+      "ceilingInset": 11,
+      "ceilingTop": 3,
+      "ceilingHeight": 86,
+      "ceilingDepth": -148,
+      "ceilingOpacity": 0.24,
+      "ceilingPitchGain": 4,
+      "ceilingLiftGain": 8,
+      "ribCount": 6,
+      "ribTop": 7,
+      "ribSpan": 78,
+      "ribHeight": 24,
+      "ribDepthStep": 26,
+      "ribOpacity": 0.2,
+      "ribDrift": 4,
+      "veilOpacity": 0.16,
+      "veilDepth": -112,
+      "veilWidth": 24,
+      "veilHeight": 62,
+      "spillOpacity": 0.2,
+      "spillBlur": 18,
+      "spillWidth": 16,
+      "spillHeight": 24,
+      "spillDepth": -118,
+      "spillReach": 0.42,
+      "spillCeilingWidth": 18,
+      "spillCeilingHeight": 12,
+      "spillCeilingLift": 18
+    },
+    "atmosphere": {
+      "enabled": true,
+      "starCount": 12,
+      "driftCount": 5,
+      "beamCount": 2,
+      "hazeOpacity": 0.14
+    },
+    "districts": [
+      {
+        "id": "control",
+        "label": "Control Deck",
+        "note": "workflow core · profiles · recipes",
+        "x": 6,
+        "y": 10,
+        "w": 27,
+        "h": 17,
+        "depth": -44,
+        "tilt": -8
+      },
+      {
+        "id": "runtime",
+        "label": "Runtime Spine",
+        "note": "node lattice · tool flow · active execution",
+        "x": 34,
+        "y": 18,
+        "w": 32,
+        "h": 24,
+        "depth": -70,
+        "tilt": 0
+      },
+      {
+        "id": "ingress",
+        "label": "Ingress Gate",
+        "note": "dispatch core · queued actions",
+        "x": 6,
+        "y": 31,
+        "w": 24,
+        "h": 15,
+        "depth": -38,
+        "tilt": -12
+      },
+      {
+        "id": "memory",
+        "label": "Memory Shelf",
+        "note": "docs · artifacts · export handoff",
+        "x": 8,
+        "y": 55,
+        "w": 27,
+        "h": 18,
+        "depth": -58,
+        "tilt": -15
+      },
+      {
+        "id": "trace",
+        "label": "Trace Relay",
+        "note": "failures · causal relays · live bus pressure",
+        "x": 66,
+        "y": 56,
+        "w": 26,
+        "h": 16,
+        "depth": -60,
+        "tilt": 16
+      },
+      {
+        "id": "replay",
+        "label": "Replay Yard",
+        "note": "samples · branches · replay review",
+        "x": 68,
+        "y": 15,
+        "w": 24,
+        "h": 18,
+        "depth": -46,
+        "tilt": 12
+      }
+    ]
+  },
+  "ingress": {
+    "intervalMs": 700,
+    "maxQueue": 48,
+    "autostart": true,
+    "historyLimit": 16,
+    "batchLimit": 24
+  },
+  "replay": {
+    "intervalMs": 1400,
+    "maxTrack": 24,
+    "mode": "samples",
+    "loop": false
+  },
+  "watch": {
+    "autoFollowFailed": true,
+    "autoBranchOnFailure": false,
+    "autoSampleOnRuntime": true,
+    "autoFocusLatestTrace": true
+  },
+  "docs": {
+    "searchPrefix": "docs/",
+    "searchLimit": 8,
+    "continuityIndex": "docs/ENVIRONMENT_MEMORY_INDEX.md"
+  },
+  "bus": {
+    "maxEvents": 160,
+    "liveTail": 24,
+    "retainActions": 80,
+    "channels": [
+      "selection",
+      "runtime",
+      "focus",
+      "profile",
+      "sample",
+      "branch",
+      "replay",
+      "ingress",
+      "watch",
+      "control",
+      "actor",
+      "recipe",
+      "docs",
+      "tool",
+      "export",
+      "system"
+    ]
+  },
+  "profiles": [
+    {
+      "id": "observe",
+      "label": "Observe",
+      "note": "Wide-angle monitoring mode for live systems and passive operator awareness.",
+      "cameraMode": "overview",
+      "samplerActive": false,
+      "samplerIntervalMs": 4000,
+      "replayMode": "samples",
+      "replayLoop": false,
+      "watch": {
+        "autoFollowFailed": false,
+        "autoBranchOnFailure": false,
+        "autoSampleOnRuntime": true,
+        "autoFocusLatestTrace": false
+      }
+    },
+    {
+      "id": "triage",
+      "label": "Triage",
+      "note": "Failure-chasing mode for isolating broken nodes, traces, and unstable behavior.",
+      "cameraMode": "focus",
+      "samplerActive": true,
+      "samplerIntervalMs": 3000,
+      "replayMode": "events",
+      "replayLoop": false,
+      "watch": {
+        "autoFollowFailed": true,
+        "autoBranchOnFailure": false,
+        "autoSampleOnRuntime": true,
+        "autoFocusLatestTrace": true
+      }
+    },
+    {
+      "id": "branch_lab",
+      "label": "Branch Lab",
+      "note": "Mutation and stabilization mode for branching on anomalies and preserving experiments.",
+      "cameraMode": "focus",
+      "samplerActive": true,
+      "samplerIntervalMs": 2800,
+      "replayMode": "branches",
+      "replayLoop": false,
+      "watch": {
+        "autoFollowFailed": true,
+        "autoBranchOnFailure": true,
+        "autoSampleOnRuntime": true,
+        "autoFocusLatestTrace": true
+      }
+    },
+    {
+      "id": "replay_chase",
+      "label": "Replay Chase",
+      "note": "Trajectory-following mode for replaying recent events and samples through the habitat.",
+      "cameraMode": "replay",
+      "samplerActive": false,
+      "samplerIntervalMs": 4000,
+      "replayMode": "events",
+      "replayLoop": true,
+      "watch": {
+        "autoFollowFailed": true,
+        "autoBranchOnFailure": false,
+        "autoSampleOnRuntime": false,
+        "autoFocusLatestTrace": true
+      }
+    }
+  ],
+  "recipes": [
+    {
+      "id": "diagnose_system",
+      "label": "Diagnose System",
+      "note": "Capture a snapshot, scan related docs, and restore workflow focus.",
+      "commands": [
+        {
+          "action": "sample_now",
+          "note": "diagnostic snapshot"
+        },
+        {
+          "action": "scan_docs",
+          "note": "refresh related docs"
+        },
+        {
+          "action": "focus_workflow",
+          "note": "restore workflow focus"
+        }
+      ]
+    },
+    {
+      "id": "trace_failure",
+      "label": "Trace Failure",
+      "note": "Follow the latest failure, capture evidence, and open Debug.",
+      "commands": [
+        {
+          "action": "follow_failed",
+          "note": "focus failure surface"
+        },
+        {
+          "action": "sample_now",
+          "note": "capture failure sample"
+        },
+        {
+          "action": "open_debug",
+          "note": "inspect debug stream"
+        }
+      ]
+    },
+    {
+      "id": "artifact_pass",
+      "label": "Artifact Pass",
+      "note": "Refresh docs and hand the active document into Memory.",
+      "commands": [
+        {
+          "action": "scan_docs",
+          "note": "refresh documents"
+        },
+        {
+          "action": "focus_doc",
+          "note": "focus active document"
+        },
+        {
+          "action": "open_doc_memory",
+          "note": "open active document in Memory"
+        }
+      ]
+    },
+    {
+      "id": "stabilize_loop",
+      "label": "Stabilize Loop",
+      "note": "Capture state, branch it, and keep the workflow in focus.",
+      "commands": [
+        {
+          "action": "sample_now",
+          "note": "capture baseline"
+        },
+        {
+          "action": "branch_snapshot",
+          "note": "stabilization branch"
+        },
+        {
+          "action": "focus_workflow",
+          "note": "restore workflow focus"
+        }
+      ]
+    }
+  ]
+}

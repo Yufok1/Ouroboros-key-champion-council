@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Champion Council</title>
+  <desc id="desc">Circular CC monogram on a dark field.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1a1a2e"/>
+      <stop offset="100%" stop-color="#081018"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4fffd0"/>
+      <stop offset="100%" stop-color="#5aa7ff"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="120" fill="url(#bg)"/>
+  <circle cx="256" cy="256" r="176" fill="none" stroke="#ffffff" stroke-opacity="0.12" stroke-width="16"/>
+  <circle cx="256" cy="256" r="156" fill="none" stroke="url(#accent)" stroke-width="20"/>
+  <path d="M212 170c-43 0-78 38-78 86s35 86 78 86c24 0 44-8 63-26l-21-27c-12 10-23 15-39 15-23 0-41-21-41-48s18-48 41-48c16 0 28 5 39 15l21-28c-16-15-36-25-63-25z" fill="#e7f4ff"/>
+  <path d="M315 170c-43 0-78 38-78 86s35 86 78 86c24 0 44-8 63-26l-21-27c-12 10-23 15-39 15-23 0-41-21-41-48s18-48 41-48c16 0 28 5 39 15l21-28c-16-15-36-25-63-25z" fill="url(#accent)"/>
+  <circle cx="135" cy="162" r="22" fill="#4fffd0" opacity="0.45"/>
+  <circle cx="389" cy="362" r="28" fill="#5aa7ff" opacity="0.3"/>
+</svg>

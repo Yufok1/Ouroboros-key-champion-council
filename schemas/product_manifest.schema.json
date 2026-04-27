@@ -1,0 +1,544 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://champion-council.local/schemas/product_manifest.schema.json",
+  "title": "Champion Council Character Product Manifest",
+  "type": "object",
+  "required": [
+    "manifest_kind",
+    "schema_version",
+    "identity",
+    "embodiment",
+    "assets",
+    "capabilities",
+    "command_surface",
+    "configuration",
+    "requirements",
+    "integration",
+    "deployment"
+  ],
+  "properties": {
+    "manifest_kind": {
+      "const": "champion.character_product"
+    },
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "identity": {
+      "$ref": "#/$defs/identity"
+    },
+    "embodiment": {
+      "$ref": "#/$defs/embodiment"
+    },
+    "assets": {
+      "$ref": "#/$defs/assets"
+    },
+    "capabilities": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/capability"
+      }
+    },
+    "command_surface": {
+      "$ref": "#/$defs/commandSurface"
+    },
+    "configuration": {
+      "$ref": "#/$defs/configuration"
+    },
+    "requirements": {
+      "$ref": "#/$defs/requirements"
+    },
+    "integration": {
+      "$ref": "#/$defs/integration"
+    },
+    "deployment": {
+      "$ref": "#/$defs/deployment"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "required": [
+        "product_id",
+        "name",
+        "version",
+        "description"
+      ],
+      "properties": {
+        "product_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "author": {
+          "type": "string"
+        },
+        "license": {
+          "type": "string"
+        },
+        "provenance_hash": {
+          "type": "string"
+        },
+        "capsule_mode": {
+          "type": "string",
+          "enum": [
+            "free",
+            "optional",
+            "required"
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "embodiment": {
+      "type": "object",
+      "required": [
+        "family",
+        "rig_profile",
+        "locomotion_profile"
+      ],
+      "properties": {
+        "family": {
+          "type": "string"
+        },
+        "rig_profile": {
+          "type": "string"
+        },
+        "locomotion_profile": {
+          "type": "string"
+        },
+        "attachment_points": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "expression_support": {
+          "type": "boolean"
+        },
+        "animation_contract": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "assets": {
+      "type": "object",
+      "required": [
+        "primary_format",
+        "primary_entry",
+        "files"
+      ],
+      "properties": {
+        "primary_format": {
+          "type": "string",
+          "enum": [
+            "glb",
+            "vrm",
+            "fbx",
+            "usd",
+            "html",
+            "json"
+          ]
+        },
+        "primary_entry": {
+          "type": "string",
+          "minLength": 1
+        },
+        "files": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/assetFile"
+          }
+        },
+        "preview_media": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "engine_import_hints": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "assetFile": {
+      "type": "object",
+      "required": [
+        "path",
+        "kind"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "model",
+            "texture",
+            "material",
+            "animation",
+            "preview",
+            "metadata",
+            "companion"
+          ]
+        },
+        "format": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "capability": {
+      "type": "object",
+      "required": [
+        "id",
+        "label",
+        "summary"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "movement",
+            "perception",
+            "interaction",
+            "speech",
+            "memory",
+            "configuration",
+            "other"
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "commandSurface": {
+      "type": "object",
+      "required": [
+        "version",
+        "transport",
+        "commands"
+      ],
+      "properties": {
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+        },
+        "transport": {
+          "type": "object",
+          "required": [
+            "internal",
+            "external"
+          ],
+          "properties": {
+            "internal": {
+              "const": "mcp"
+            },
+            "external": {
+              "type": "string",
+              "enum": [
+                "http_json",
+                "mcp",
+                "none"
+              ]
+            }
+          },
+          "additionalProperties": true
+        },
+        "commands": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/command"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "command": {
+      "type": "object",
+      "required": [
+        "name",
+        "class",
+        "summary",
+        "request_schema",
+        "response_schema"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^character\\.[a-z0-9_]+$"
+        },
+        "class": {
+          "type": "string",
+          "enum": [
+            "query",
+            "action",
+            "memory",
+            "config"
+          ]
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "request_schema": {
+          "type": "string",
+          "minLength": 1
+        },
+        "response_schema": {
+          "type": "string",
+          "minLength": 1
+        },
+        "side_effects": {
+          "type": "string",
+          "enum": [
+            "none",
+            "bounded",
+            "stateful"
+          ],
+          "default": "none"
+        },
+        "implementation": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "workflow",
+                "handler",
+                "future_route"
+              ]
+            },
+            "id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "id"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": true
+    },
+    "configuration": {
+      "type": "object",
+      "required": [
+        "options"
+      ],
+      "properties": {
+        "options": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/configOption"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "configOption": {
+      "type": "object",
+      "required": [
+        "key",
+        "type",
+        "summary"
+      ],
+      "properties": {
+        "key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "string",
+            "number",
+            "integer",
+            "boolean",
+            "array",
+            "object"
+          ]
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "default": {},
+        "required": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "additionalProperties": true
+    },
+    "requirements": {
+      "type": "object",
+      "required": [
+        "inference_mode"
+      ],
+      "properties": {
+        "inference_mode": {
+          "type": "string",
+          "enum": [
+            "none",
+            "local",
+            "cloud",
+            "hybrid"
+          ]
+        },
+        "runtime_dependencies": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "resource_budget": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "integration": {
+      "type": "object",
+      "required": [
+        "primary_transport"
+      ],
+      "properties": {
+        "primary_transport": {
+          "type": "string",
+          "enum": [
+            "http_json",
+            "mcp",
+            "none"
+          ]
+        },
+        "openapi": {
+          "type": "string"
+        },
+        "engines": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/engineSupport"
+          }
+        },
+        "example_calls": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "engineSupport": {
+      "type": "object",
+      "required": [
+        "engine",
+        "status"
+      ],
+      "properties": {
+        "engine": {
+          "type": "string",
+          "enum": [
+            "unity",
+            "unreal",
+            "godot",
+            "custom"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "planned",
+            "partial",
+            "ready"
+          ]
+        },
+        "notes": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "deployment": {
+      "type": "object",
+      "properties": {
+        "bundle_version": {
+          "type": "integer"
+        },
+        "bundle_name": {
+          "type": "string"
+        },
+        "bundle_slug": {
+          "type": "string"
+        },
+        "profile": {
+          "type": "object"
+        },
+        "exported_at": {
+          "type": "string"
+        },
+        "launch_defaults": {
+          "type": "object"
+        },
+        "source_runtime": {
+          "type": "object"
+        },
+        "seed_state": {
+          "type": "object"
+        },
+        "environment": {
+          "type": "object"
+        },
+        "development_context": {
+          "type": "object"
+        },
+        "runtime_shell": {},
+        "policies": {
+          "type": "object"
+        },
+        "warnings": {
+          "type": "array"
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}

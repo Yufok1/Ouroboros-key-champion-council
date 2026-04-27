@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://champion-council.local/schemas/coquina/generation-checkpoint.schema.json",
+  "title": "Champion Council Coquina Generation Checkpoint Record",
+  "type": "object",
+  "required": [
+    "checkpoint_id",
+    "scene_id",
+    "world_profile_id",
+    "seed",
+    "grammar_id"
+  ],
+  "properties": {
+    "checkpoint_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "scene_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "world_profile_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "seed": {
+      "type": "integer"
+    },
+    "grammar_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "palette_checkpoint_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "object_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "scores": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "number"
+      }
+    },
+    "dirty_targets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "type",
+          "id"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "minLength": 1
+          },
+          "id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "needs_review": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Champion Council - Operator Capsule</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #0a0a1a;
+            color: #e0e0e0;
+            min-height: 100vh;
+        }
+        .hero {
+            text-align: center;
+            padding: 56px 20px 36px;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 52%, #0f3460 100%);
+        }
+        .logo {
+            width: 118px;
+            height: 118px;
+            border-radius: 22px;
+            margin-bottom: 18px;
+            box-shadow: 0 8px 30px rgba(99, 102, 241, 0.28);
+        }
+        .hero h1 {
+            font-size: 3rem;
+            background: linear-gradient(90deg, #a855f7, #6366f1, #3b82f6);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 14px;
+        }
+        .hero-kicker {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 14px;
+            border-radius: 999px;
+            border: 1px solid rgba(165,180,252,0.22);
+            background: rgba(12, 18, 36, 0.45);
+            color: #c4b5fd;
+            font-size: 0.8rem;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            margin-bottom: 18px;
+        }
+        .subtitle {
+            font-size: 1.08rem;
+            color: #94a3b8;
+            max-width: 900px;
+            margin: 0 auto 24px;
+            line-height: 1.65;
+        }
+        .hero-notes {
+            max-width: 980px;
+            margin: 0 auto 22px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 12px;
+        }
+        .hero-note {
+            text-align: left;
+            padding: 12px 14px;
+            border-radius: 12px;
+            background: rgba(255,255,255,0.045);
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+        .hero-note-label {
+            color: #c4b5fd;
+            font-size: 0.72rem;
+            letter-spacing: 0.13em;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+        .hero-note p {
+            color: #cbd5e1;
+            font-size: 0.94rem;
+            line-height: 1.55;
+        }
+        .cta-row {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .btn {
+            display: inline-block;
+            padding: 12px 22px;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #7c3aed, #4f46e5);
+            color: white;
+        }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(99,102,241,0.3); }
+        .btn-secondary {
+            background: rgba(255,255,255,0.08);
+            color: #e0e0e0;
+            border: 1px solid rgba(255,255,255,0.15);
+        }
+        .btn-secondary:hover { background: rgba(255,255,255,0.12); }
+
+        .section-wrap {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 28px 20px 0;
+        }
+        .section-title {
+            font-size: 1.55rem;
+            color: #c4b5fd;
+            margin-bottom: 14px;
+        }
+        .section-lead {
+            color: #94a3b8;
+            margin-bottom: 18px;
+            line-height: 1.6;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 18px;
+        }
+        .card {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            padding: 18px 18px;
+        }
+        .card h3 {
+            color: #a78bfa;
+            margin-bottom: 8px;
+            font-size: 1.02rem;
+        }
+        .card .eyebrow {
+            color: #93c5fd;
+            font-size: 0.72rem;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+        .card p {
+            color: #94a3b8;
+            line-height: 1.58;
+            margin-bottom: 10px;
+        }
+        .card ul {
+            margin-left: 18px;
+            color: #cbd5e1;
+            line-height: 1.6;
+        }
+        .card a {
+            color: #a5b4fc;
+            text-decoration: none;
+        }
+
+        .media-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+            gap: 18px;
+        }
+        .media-card {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            padding: 18px;
+        }
+        .media-card h3 {
+            color: #a78bfa;
+            margin-bottom: 12px;
+            font-size: 1.04rem;
+        }
+        .media-card video,
+        .media-card audio {
+            width: 100%;
+            border-radius: 8px;
+            background: #000;
+        }
+
+        .media-card .empty-state {
+            min-height: 168px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 22px;
+            border-radius: 8px;
+            border: 1px dashed rgba(255,255,255,0.14);
+            background: rgba(255,255,255,0.03);
+            color: #cbd5e1;
+            line-height: 1.6;
+        }
+
+        .code-block {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            padding: 12px 14px;
+            overflow-x: auto;
+            font-size: 0.86rem;
+            color: #a5b4fc;
+            margin-top: 8px;
+            white-space: pre;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+        }
+
+        .notice {
+            margin-top: 18px;
+            background: rgba(59,130,246,0.12);
+            border: 1px solid rgba(59,130,246,0.35);
+            border-radius: 10px;
+            padding: 14px 14px;
+            color: #bfdbfe;
+            line-height: 1.6;
+        }
+
+        .mcp-connect {
+            max-width: 980px;
+            margin: 28px auto 26px;
+            padding: 0 20px;
+        }
+        .mcp-connect h2 {
+            font-size: 1.4rem;
+            color: #c4b5fd;
+            margin-bottom: 10px;
+        }
+        .mcp-connect p {
+            color: #94a3b8;
+            margin-bottom: 10px;
+        }
+        .mcp-connect pre {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            padding: 14px 16px;
+            text-align: left;
+            overflow-x: auto;
+            font-size: 0.9rem;
+            color: #a5b4fc;
+        }
+
+        .status-bar {
+            text-align: center;
+            padding: 16px;
+            color: #64748b;
+            font-size: 0.9rem;
+        }
+        .lane-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 18px;
+        }
+        .lane-card {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 14px;
+            padding: 18px 18px 16px;
+        }
+        .lane-card h3 {
+            color: #f5d0fe;
+            margin-bottom: 8px;
+            font-size: 1.05rem;
+        }
+        .lane-card p {
+            color: #cbd5e1;
+            line-height: 1.58;
+            margin-bottom: 12px;
+        }
+        .lane-card ul {
+            margin-left: 18px;
+            color: #94a3b8;
+            line-height: 1.6;
+        }
+        .lane-card.active {
+            background:
+                linear-gradient(180deg, rgba(91, 33, 182, 0.18), rgba(14, 23, 42, 0.24)),
+                rgba(255,255,255,0.04);
+            border-color: rgba(167,139,250,0.26);
+            box-shadow: 0 12px 30px rgba(31, 41, 55, 0.22);
+        }
+        .lane-pill {
+            display: inline-block;
+            border-radius: 999px;
+            padding: 3px 9px;
+            font-size: 0.72rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+        .lane-pill.live {
+            background: rgba(34,197,94,0.14);
+            color: #86efac;
+            border: 1px solid rgba(34,197,94,0.25);
+        }
+        .lane-pill.building {
+            background: rgba(168,85,247,0.14);
+            color: #e9d5ff;
+            border: 1px solid rgba(168,85,247,0.24);
+        }
+        .lane-pill.deploy {
+            background: rgba(59,130,246,0.14);
+            color: #bfdbfe;
+            border: 1px solid rgba(59,130,246,0.28);
+        }
+        .status-bar .dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #22c55e;
+            margin-right: 6px;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        footer {
+            text-align: center;
+            padding: 30px 20px 42px;
+            color: #475569;
+            border-top: 1px solid rgba(255,255,255,0.06);
+        }
+        footer a {
+            color: #818cf8;
+            text-decoration: none;
+        }
+
+        @media (max-width: 720px) {
+            .hero h1 { font-size: 2rem; }
+            .logo { width: 84px; height: 84px; }
+            .media-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="hero">
+        <img src="/static/logo.png" alt="Champion Council logo" class="logo" />
+        <div class="hero-kicker">Operator Capsule / MCP Runtime / Reactive Stream Trajectory</div>
+        <h1>Champion Council</h1>
+        <p class="subtitle">
+            A shared operator capsule for multi-model councils, MCP tooling, workflow execution, semantic memory,
+            and a reactive public-runtime lane that can turn live external events into visible, operator-driven theater.
+        </p>
+        <div class="hero-notes">
+            <div class="hero-note">
+                <div class="hero-note-label">Launch Surface</div>
+                <p>Use the panel as the live runtime for councils, tools, workflows, memory, environment, and operational instrumentation.</p>
+            </div>
+            <div class="hero-note">
+                <div class="hero-note-label">Shared Runtime</div>
+                <p>This Space already exposes a working MCP endpoint, so humans and MCP-capable agents can use the same capsule surface.</p>
+            </div>
+            <div class="hero-note">
+                <div class="hero-note-label">Current Trajectory</div>
+                <p>The next product slice is a reactive stream control surface: reduced live state, scene/overlay rendering, and operator instrumentation around one public-facing stream lane.</p>
+            </div>
+        </div>
+        <div class="cta-row">
+            <a href="/panel" class="btn btn-primary">Launch Control Panel</a>
+            <a href="#launch-lanes" class="btn btn-secondary">View Launch Lanes</a>
+            <a href="https://marketplace.visualstudio.com/items?itemName=Ouroboros.champion-council" class="btn btn-secondary" target="_blank">VS Code Marketplace</a>
+            <a href="https://github.com/Yufok1/Ouroboros_extension" class="btn btn-secondary" target="_blank">GitHub Repository</a>
+            <a href="/privacy" class="btn btn-secondary">Privacy Policy</a>
+        </div>
+    </div>
+
+    <section class="section-wrap">
+        <h2 class="section-title">Start Here</h2>
+        <p class="section-lead">This runtime should act like a launch surface, not a museum placard. Pick the lane that matches what you are trying to do right now.</p>
+        <div class="grid">
+            <div class="card">
+                <div class="eyebrow">Human Operator</div>
+                <h3>Launch the Panel</h3>
+                <p>Use the panel when you want the live operator surface: tools, workflows, slots, memory, environment, and runtime state.</p>
+                <ul>
+                    <li>Control panel: <a href="/panel">/panel</a></li>
+                    <li>Health snapshot: <code>/api/health</code></li>
+                    <li>Best when you want to operate the capsule directly</li>
+                </ul>
+            </div>
+            <div class="card">
+                <div class="eyebrow">Agent / MCP Client</div>
+                <h3>Connect Through MCP</h3>
+                <p>The Hugging Face Space runtime already exposes a working MCP surface that external agents can consume.</p>
+                <ul>
+                    <li>MCP endpoint: <code>/mcp/sse</code></li>
+                    <li>Auth model: bearer token via <code>HF_TOKEN</code></li>
+                    <li>Use this when you want tool access without the browser UI</li>
+                </ul>
+            </div>
+            <div class="card">
+                <div class="eyebrow">Builder / Extension Root</div>
+                <h3>Follow the Donor Branches</h3>
+                <p>The system is split by runtime. The original extension and the Space runtime are both important because some feature families still originate in the extension branch.</p>
+                <ul>
+                    <li><a href="https://github.com/Yufok1/Ouroboros_extension" target="_blank">Main GitHub Repository (Extension)</a></li>
+                    <li><a href="https://huggingface.co/spaces/tostido/Champion_Council/tree/main" target="_blank">Hugging Face Space Repository</a></li>
+                    <li><a href="https://huggingface.co/spaces/tostido/Champion_Council/tree/main/self_deploy" target="_blank">self_deploy Folder</a></li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <section class="section-wrap">
+        <h2 class="section-title">Runtime Shape</h2>
+        <div class="card">
+            <p>
+                Champion Council no longer reads best as "just a VS Code extension" or "just a demo runtime."
+                The real shape is a shared capsule:
+                the extension is still a donor branch for some systems, while this Space is the live web runtime,
+                MCP endpoint, and deployment-facing operator surface.
+            </p>
+            <p>
+                The current active alignment work is turning the runtime into a stronger standalone platform surface,
+                including a reactive stream lane for live telemetry, market-facing theater, and operator-guided presentation.
+            </p>
+        </div>
+    </section>
+
+    <section class="section-wrap" id="launch-lanes">
+        <h2 class="section-title">Launch Lanes</h2>
+        <p class="section-lead">These are the three lanes this runtime is being shaped around right now.</p>
+        <div class="lane-grid">
+            <div class="lane-card">
+                <div class="lane-pill live">Live Now</div>
+                <h3>Operator Capsule</h3>
+                <p>The panel is already the live operating surface for councils, tools, workflows, semantic memory, diagnostics, and environment systems.</p>
+                <ul>
+                    <li>Run tools and workflows</li>
+                    <li>Inspect runtime state</li>
+                    <li>Use the same surface locally or through the Space</li>
+                </ul>
+            </div>
+            <div class="lane-card active">
+                <div class="lane-pill building">Active Build</div>
+                <h3>Reactive Stream Reactor</h3>
+                <p>The next cohesive product slice is a stream-facing control layer: reduced live state, reactive overlays, visible scene transitions, and operator-side diagnostics.</p>
+                <ul>
+                    <li>Designed as a public reactor, not a passive promo feed</li>
+                    <li>Built on reduced truth, overlays, transport, and scene control</li>
+                    <li>Intended to become a real stream-facing platform surface</li>
+                </ul>
+            </div>
+            <div class="lane-card">
+                <div class="lane-pill deploy">Deploy</div>
+                <h3>Self-Hosted Runtime</h3>
+                <p>The same repo already supports local and remote topologies, so the public Space can become the public capsule while private copies carry persistence and secrets.</p>
+                <ul>
+                    <li>Single container</li>
+                    <li>Split proxy and capsule</li>
+                    <li>Proxy to remote capsule</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <section class="section-wrap">
+        <h2 class="section-title">Self Deploy Modes (Included in Repo)</h2>
+        <p class="section-lead">The Space repo includes standalone local hosting via <code>self_deploy</code> with three runtime topologies.</p>
+        <div class="grid">
+            <div class="card">
+                <h3>Single Container</h3>
+                <p>Proxy + capsule in one service. Best default for local operators.</p>
+                <div class="code-block">cd Champion_Council/self_deploy
+docker compose -f docker-compose.yml up --build</div>
+            </div>
+            <div class="card">
+                <h3>Split Proxy and Capsule</h3>
+                <p>Separate services for lighter proxy scaling and independent capsule lifecycle control.</p>
+                <div class="code-block">cd Champion_Council/self_deploy
+docker compose -f docker-compose.split.yml up --build</div>
+            </div>
+            <div class="card">
+                <h3>Proxy to Remote Capsule</h3>
+                <p>Use local panel + proxy against any remote MCP capsule endpoint.</p>
+                <div class="code-block">cd Champion_Council/self_deploy
+MCP_BASE_URL=http://your-remote-capsule:8766 docker compose -f docker-compose.remote.yml up --build</div>
+            </div>
+        </div>
+        <div class="notice">
+            Local setup docs: <a href="https://huggingface.co/spaces/tostido/Champion_Council/tree/main/self_deploy" target="_blank">self_deploy in this Space repo</a>.
+            Fork this Space if you need private persistence and isolated secrets.
+        </div>
+    </section>
+
+    <section class="section-wrap">
+        <h2 class="section-title">Fork for Personal Use</h2>
+        <div class="card">
+            <p>Create your own private copy and run with your own secrets and policies.</p>
+            <ul>
+                <li>Duplicate this Space from <a href="https://huggingface.co/spaces/tostido/Champion_Council" target="_blank">tostido/Champion_Council</a>.</li>
+                <li>Add secret <code>HF_TOKEN</code> in your Space settings.</li>
+                <li>Set optional vars: <code>SPACE_AUTHOR_NAME</code>, <code>SPACE_ID</code>.</li>
+                <li>Factory rebuild after secrets are configured.</li>
+            </ul>
+            <div class="code-block">HF_TOKEN=hf_xxx
+SPACE_AUTHOR_NAME=your_hf_username
+SPACE_ID=your_space_name</div>
+        </div>
+    </section>
+
+    <section class="section-wrap">
+        <h2 class="section-title">Enterprise and Custom Backend Scaling</h2>
+        <div class="card">
+            <p>
+                Default public runtime targets the free 32-slot council profile. Custom backend topologies can be engineered
+                for significantly larger pluggable slot counts (1000+), dedicated infra, and policy-specific orchestration.
+            </p>
+            <p>
+                Contact for architecture and commercial deployment negotiations:
+                <a href="https://huggingface.co/tostido" target="_blank">Hugging Face profile</a> or
+                <a href="https://github.com/Yufok1/Ouroboros_extension/issues" target="_blank">GitHub issues</a>.
+            </p>
+        </div>
+    </section>
+
+    <section class="media-section section-wrap">
+        <h2 class="section-title">Current Product Focus</h2>
+        <div class="media-grid">
+            <div class="media-card">
+                <h3>What This Runtime Is For</h3>
+                <div class="empty-state">
+                    A shared operator surface for humans and MCP-capable agents using the same capsule runtime.
+                </div>
+                <p class="section-lead" style="margin-top:10px; margin-bottom:0;">
+                    The Hugging Face Space is already useful as a public control surface, a demo runtime, and an MCP-served capsule that other agents can talk to directly.
+                </p>
+            </div>
+            <div class="media-card">
+                <h3>What Is Coming Next</h3>
+                <div class="empty-state">
+                    A stronger standalone social / coordination layer instead of routing that story away to old extension-only wording.
+                </div>
+                <p class="section-lead" style="margin-top:10px; margin-bottom:0;">That means a cleaner onboarding story, a better public product identity, and a sharper bridge between the runtime, MCP clients, and the reactive stream lane.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="mcp-connect">
+        <h2>Connect via MCP</h2>
+        <p>Add this to your MCP client config to connect to this runtime:</p>
+        <pre><code id="mcp-connect-snippet">Loading...</code></pre>
+    </section>
+
+    <div class="status-bar" id="status">
+        <span class="dot"></span> Checking capsule status...
+    </div>
+
+    <footer>
+        <p>Built by <a href="https://huggingface.co/tostido" target="_blank">tostido</a> | MIT License |
+           Ouroboros Architecture | <a href="/privacy">Privacy Policy</a></p>
+    </footer>
+
+    <script>
+        (function() {
+            const snippetEl = document.getElementById('mcp-connect-snippet');
+            if (!snippetEl) return;
+            const isRemote = /\.hf\.space$/i.test(window.location.hostname || '');
+            const serverName = isRemote ? 'champion-ouroboros-space' : 'champion-ouroboros-self-deploy';
+            const payload = {
+                mcpServers: {
+                    [serverName]: {
+                        url: window.location.origin + '/mcp/sse',
+                        auth: 'bearer',
+                        bearerTokenEnv: 'HF_TOKEN',
+                        exposeResources: false
+                    }
+                }
+            };
+            snippetEl.textContent = JSON.stringify(payload, null, 2);
+        })();
+
+        fetch('/api/health')
+            .then(r => r.json())
+            .then(d => {
+                const el = document.getElementById('status');
+                if (d.capsule_running) {
+                    el.innerHTML = '<span class="dot"></span> Capsule running (PID ' + d.capsule_pid + ') | MCP on port ' + d.mcp_port + ' | v' + d.version;
+                } else {
+                    el.innerHTML = '<span class="dot" style="background:#ef4444"></span> Capsule not running | v' + d.version;
+                }
+            })
+            .catch(() => {
+                document.getElementById('status').innerHTML = '<span class="dot" style="background:#eab308"></span> Connecting...';
+            });
+    </script>
+</body>
+</html>

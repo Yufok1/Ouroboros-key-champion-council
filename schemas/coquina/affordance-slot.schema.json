@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://champion-council.local/schemas/coquina/affordance-slot.schema.json",
+  "title": "Champion Council Coquina Affordance Slot Record",
+  "type": "object",
+  "required": [
+    "slot_id",
+    "slot_type",
+    "surface",
+    "anchor_local",
+    "span_meters",
+    "channels"
+  ],
+  "properties": {
+    "slot_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "slot_type": {
+      "type": "string",
+      "enum": [
+        "trim_top",
+        "trim_bottom",
+        "trim_edge",
+        "opening_grid",
+        "decal_face",
+        "scatter_base",
+        "rib_line"
+      ]
+    },
+    "surface": {
+      "type": "string",
+      "minLength": 1
+    },
+    "anchor_local": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "number"
+      }
+    },
+    "span_meters": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "number"
+      }
+    },
+    "channels": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "required"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "required": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

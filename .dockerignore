@@ -1,0 +1,20 @@
+.git
+.gitignore
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+.env
+.env.*
+
+# Local runtime/state
+self_deploy/.env
+self_deploy/data/
+capsule/.bag_state.json
+capsule/.mcp_server.log
+capsule/.relay_center.cmd
+
+# Local reports/artifacts
+CHAMPION_COUNCIL_EVAL_REPORT.md
+OUROBOROS_MCP_EVALUATION_REPORT.md
+vsix/
