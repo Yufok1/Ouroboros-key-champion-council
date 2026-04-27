@@ -74,6 +74,24 @@ Today, Champion Council can be shown as:
 - a multi-surface workspace for live AI observation and control
 - a foundation for embodied, theatrical, and workflow-driven AI behavior
 
+## Public Exposure Rule
+
+Public presentation does not require public access to every operator lane.
+
+For a public or `protected` Space posture, the public surface should be limited to:
+
+- the visible app behavior
+- selected public doctrine
+- bounded interaction surfaces meant for demonstration
+
+It should exclude:
+
+- continuity restore lanes
+- checkpoint and persistence controls
+- FelixBag/file browsing and editing
+- export/clone-grade routes
+- operator-only debug, cache, and restart controls
+
 ## What It Is Not Claiming
 
 Champion Council should not be described as:

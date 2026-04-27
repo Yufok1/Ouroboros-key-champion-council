@@ -1048,6 +1048,7 @@ def _render_blackboard_section(snapshot, width):
     entry_gate = _output_state_entry_gate(output_state)
     continuity_cue = _output_state_continuity_cue(output_state)
     tinkerbell_attention = _output_state_tinkerbell_attention(output_state)
+    render_spine_packet = _output_state_render_spine_packet(output_state)
     docs_packet = _output_state_docs_packet(output_state)
     workspace_packet = _output_state_workspace_packet(output_state)
     continuity_packet = _output_state_continuity_packet(output_state)
@@ -1066,6 +1067,21 @@ def _render_blackboard_section(snapshot, width):
         if isinstance(tinkerbell_attention.get("active_pointer"), dict)
         else {}
     )
+    render_spine_front = (
+        render_spine_packet.get("current_front")
+        if isinstance(render_spine_packet.get("current_front"), dict)
+        else {}
+    )
+    render_spine_pointer = (
+        render_spine_packet.get("active_pointer")
+        if isinstance(render_spine_packet.get("active_pointer"), dict)
+        else {}
+    )
+    render_spine_captures = (
+        render_spine_packet.get("capture_receipts")
+        if isinstance(render_spine_packet.get("capture_receipts"), list)
+        else []
+    )
     confidence = output_state.get("confidence") if isinstance(output_state.get("confidence"), dict) else {}
     freshness = output_state.get("freshness") if isinstance(output_state.get("freshness"), dict) else {}
     focus = blackboard.get("focus") if isinstance(blackboard.get("focus"), dict) else {}
@@ -1077,6 +1093,31 @@ def _render_blackboard_section(snapshot, width):
         f"row_count={int(blackboard.get('row_count') or 0)} families={families}",
         f"focus kind={focus.get('kind', '')} id={focus.get('id', '')} class={focus.get('target_class', '')}",
         "output_summary=" + str(output_state.get("summary") or ""),
+        "render_spine="
+        + str(render_spine_packet.get("spine_id") or "")
+        + " frame="
+        + str(render_spine_packet.get("frame_id") or "")
+        + " trace="
+        + str(render_spine_packet.get("trace_id") or ""),
+        "render_front="
+        + str(render_spine_front.get("objective_label") or render_spine_front.get("objective_id") or "")
+        + " / focus "
+        + str(render_spine_front.get("focus_key") or render_spine_packet.get("focus_key") or ""),
+        "render_pointer="
+        + str(render_spine_pointer.get("target_kind") or "")
+        + " / "
+        + str(render_spine_pointer.get("target") or "")
+        + " / next "
+        + str(render_spine_pointer.get("expected_read") or ""),
+        "render_captures="
+        + str(
+            [
+                str((row or {}).get("key") or "")
+                + ("*" if bool((row or {}).get("active")) else "")
+                for row in render_spine_captures[:4]
+                if isinstance(row, dict)
+            ]
+        ),
         "output_equilibrium="
         + str(equilibrium.get("band") or "")
         + " drift="
@@ -1370,6 +1411,11 @@ def _output_state_tinkerbell_attention(output_state):
     return output_state.get("tinkerbell_attention") if isinstance(output_state.get("tinkerbell_attention"), dict) else {}
 
 
+def _output_state_render_spine_packet(output_state):
+    output_state = output_state if isinstance(output_state, dict) else {}
+    return output_state.get("render_spine_packet") if isinstance(output_state.get("render_spine_packet"), dict) else {}
+
+
 def _output_state_docs_packet(output_state):
     output_state = output_state if isinstance(output_state, dict) else {}
     return output_state.get("docs_packet") if isinstance(output_state.get("docs_packet"), dict) else {}
@@ -1471,6 +1517,7 @@ def _consult_query_thread(snapshot):
     workspace_packet = _output_state_workspace_packet(output_state)
     misunderstanding_box = _output_state_misunderstanding_box(output_state)
     tinkerbell_attention = _output_state_tinkerbell_attention(output_state)
+    render_spine_packet = _output_state_render_spine_packet(output_state)
     technolit_measure = _output_state_technolit_measure(output_state)
     technolit_distribution_packet = _output_state_technolit_distribution_packet(output_state)
     technolit_treasury_bridge_packet = _output_state_technolit_treasury_bridge_packet(output_state)
@@ -1485,6 +1532,21 @@ def _consult_query_thread(snapshot):
         if isinstance(tinkerbell_attention.get("active_pointer"), dict)
         else {}
     )
+    render_spine_front = (
+        render_spine_packet.get("current_front")
+        if isinstance(render_spine_packet.get("current_front"), dict)
+        else {}
+    )
+    render_spine_pointer = (
+        render_spine_packet.get("active_pointer")
+        if isinstance(render_spine_packet.get("active_pointer"), dict)
+        else {}
+    )
+    render_spine_captures = (
+        render_spine_packet.get("capture_receipts")
+        if isinstance(render_spine_packet.get("capture_receipts"), list)
+        else []
+    )
     confidence = output_state.get("confidence") if isinstance(output_state.get("confidence"), dict) else {}
     objective = str(query_thread.get("objective_label") or query_thread.get("objective_id") or "Scene Orientation")
     visible_read = str(query_thread.get("visible_read") or "")
@@ -1496,6 +1558,13 @@ def _consult_query_thread(snapshot):
         + str(query_thread.get("segment_id") or "n/a")
         + " / status "
         + str(query_thread.get("status") or "active"),
+        "SPINE: " + str(render_spine_packet.get("spine_id") or "n/a"),
+        "FRAME: "
+        + str(render_spine_packet.get("frame_id") or "n/a")
+        + " / trace "
+        + str(render_spine_packet.get("trace_id") or "n/a")
+        + " / seq "
+        + str(render_spine_packet.get("trace_seq") or 0),
         "PIVOT: "
         + str(query_thread.get("current_pivot_id") or "n/a")
         + " / retract "
@@ -1510,12 +1579,31 @@ def _consult_query_thread(snapshot):
         ),
         "SUBJECT: " + str(query_thread.get("subject_key") or "n/a"),
         "OBJECTIVE: " + objective,
+        "FRONT: "
+        + str(render_spine_front.get("objective_label") or render_spine_front.get("objective_id") or "n/a")
+        + " / focus "
+        + str(render_spine_front.get("focus_key") or render_spine_packet.get("focus_key") or "n/a"),
         "PLACEMENT: "
         + str(placement.get("subject") or "n/a")
         + " / "
         + str(placement.get("objective") or "n/a")
         + " / seam "
         + str(placement.get("seam") or "n/a"),
+        "SPINE POINTER: "
+        + str(render_spine_pointer.get("target_kind") or "n/a")
+        + " / "
+        + str(render_spine_pointer.get("target") or "n/a")
+        + " / next "
+        + str(render_spine_pointer.get("expected_read") or "n/a"),
+        "SPINE CAPTURES: "
+        + str(
+            [
+                str((row or {}).get("key") or "")
+                + ("*" if bool((row or {}).get("active")) else "")
+                for row in render_spine_captures[:4]
+                if isinstance(row, dict)
+            ]
+        ),
         "VISIBLE READ: " + (visible_read or "n/a"),
         "SEED: selected "
         + str(working.get("selected_bone_ids", []))
@@ -4354,6 +4442,132 @@ def _hair_field_band(projected_subcells, sample_t, clump_mass):
     return "trace"
 
 
+def _hair_default_slots():
+    return [
+        "hair_cap", "hair_side_l", "hair_side_r", "hair_back",
+        "hair_crown_fill_l", "hair_crown_fill_r",
+        "hair_front_core", "hair_front_arc_l", "hair_front_arc_r",
+        "hair_front_fill_l", "hair_front_fill_r",
+        "hair_frill_front_inner_l", "hair_frill_front_inner_r",
+        "hair_frill_front_mid_l", "hair_frill_front_mid_r",
+        "hair_frill_front_outer_l", "hair_frill_front_outer_r",
+        "hair_frill_front_low_l", "hair_frill_front_low_r",
+        "hair_temple_l", "hair_temple_r",
+        "hair_mane_l", "hair_mane_r",
+        "hair_mid_fill_l", "hair_mid_fill_r",
+        "hair_rear_l", "hair_rear_r",
+        "hair_rear_fill_l", "hair_rear_fill_r",
+        "hair_spike_crown", "hair_spike_crown_l", "hair_spike_crown_r",
+        "hair_spike_front_l", "hair_spike_front_r",
+        "hair_spike_mid_l", "hair_spike_mid_r",
+        "hair_spike_back_l", "hair_spike_back_r", "hair_spike_rear",
+    ]
+
+
+def _hair_slot_profile(slot_name):
+    key = str(slot_name or "").strip().lower()
+    profile = {
+        "slot": key,
+        "active": True,
+        "kind": "sheet",
+        "region": "crown",
+        "phase": 0.0,
+        "rear_weight": 0.0,
+    }
+    if key == "hair_back":
+        profile["region"] = "back"
+        profile["phase"] = 1.35
+        profile["rear_weight"] = 1.0
+    elif key.startswith("hair_side_"):
+        profile["region"] = "side"
+        profile["phase"] = -0.8 if key.endswith("_l") else 0.8
+    elif key.startswith("hair_crown_fill_"):
+        profile["region"] = "crown"
+        profile["phase"] = -0.12 if key.endswith("_l") else 0.12
+    elif key == "hair_front_core":
+        profile["region"] = "front_core"
+    elif key.startswith("hair_front_arc_"):
+        profile["region"] = "front"
+        profile["phase"] = -0.18 if key.endswith("_l") else 0.18
+    elif key.startswith("hair_front_fill_"):
+        profile["region"] = "front"
+        profile["phase"] = -0.38 if key.endswith("_l") else 0.38
+    elif key.startswith("hair_frill_front_inner_"):
+        profile["region"] = "front_frill"
+        profile["phase"] = -0.28 if key.endswith("_l") else 0.28
+    elif key.startswith("hair_frill_front_mid_"):
+        profile["region"] = "front_frill"
+        profile["phase"] = -0.46 if key.endswith("_l") else 0.46
+    elif key.startswith("hair_frill_front_outer_"):
+        profile["region"] = "front_frill"
+        profile["phase"] = -0.68 if key.endswith("_l") else 0.68
+    elif key.startswith("hair_frill_front_low_"):
+        profile["region"] = "front_frill"
+        profile["phase"] = -0.9 if key.endswith("_l") else 0.9
+    elif key.startswith("hair_temple_"):
+        profile["region"] = "temple"
+        profile["phase"] = -1.04 if key.endswith("_l") else 1.04
+    elif key.startswith("hair_mane_"):
+        profile["region"] = "mane"
+        profile["phase"] = -1.32 if key.endswith("_l") else 1.32
+    elif key.startswith("hair_mid_fill_"):
+        profile["region"] = "mid"
+        profile["phase"] = -1.08 if key.endswith("_l") else 1.08
+    elif key.startswith("hair_rear_fill_"):
+        profile["region"] = "rear"
+        profile["phase"] = -1.5 if key.endswith("_l") else 1.5
+        profile["rear_weight"] = 0.88
+    elif key.startswith("hair_rear_"):
+        profile["region"] = "rear"
+        profile["phase"] = -1.68 if key.endswith("_l") else 1.68
+        profile["rear_weight"] = 0.82
+    elif key.startswith("hair_spike_"):
+        profile["kind"] = "spike"
+        profile["region"] = "accent"
+        if key == "hair_spike_crown_l":
+            profile["phase"] = -0.16
+        elif key == "hair_spike_crown_r":
+            profile["phase"] = 0.16
+        elif key == "hair_spike_front_l":
+            profile["phase"] = -0.35
+        elif key == "hair_spike_front_r":
+            profile["phase"] = 0.35
+        elif key == "hair_spike_mid_l":
+            profile["phase"] = -0.92
+        elif key == "hair_spike_mid_r":
+            profile["phase"] = 0.92
+        elif key == "hair_spike_back_l":
+            profile["phase"] = -1.38
+            profile["rear_weight"] = 0.88
+        elif key == "hair_spike_back_r":
+            profile["phase"] = 1.38
+            profile["rear_weight"] = 0.88
+        elif key == "hair_spike_rear":
+            profile["phase"] = 1.84
+            profile["rear_weight"] = 0.88
+    return profile
+
+
+def _hair_resolved_slots(hair_state):
+    source = hair_state if isinstance(hair_state, dict) else {}
+    explicit = source.get("resolved_slots")
+    if isinstance(explicit, dict) and explicit:
+        return explicit
+    base_cut = source.get("base_cut") if isinstance(source.get("base_cut"), dict) else {}
+    transform = source.get("blowout_transform") if isinstance(source.get("blowout_transform"), dict) else {}
+    allow_spikes = bool(base_cut.get("allow_spikes")) and _clamp(float(transform.get("spike_gain") or 0.0), 0.0, 1.0) >= 0.72
+    slots = source.get("source_slots") if isinstance(source.get("source_slots"), list) and source.get("source_slots") else _hair_default_slots()
+    resolved = {}
+    for slot_name in slots:
+        profile = _hair_slot_profile(slot_name)
+        if not profile.get("slot"):
+            continue
+        if profile.get("kind") == "spike":
+            profile["active"] = allow_spikes
+        resolved[profile["slot"]] = profile
+    return resolved
+
+
 def _hair_field_rows(snapshot, visible_bone_ids=None, drag_lod=False):
     embodiment = snapshot.get("embodiment") or {}
     if not bool(embodiment.get("scaffold_visible", False)):
@@ -4361,6 +4575,7 @@ def _hair_field_rows(snapshot, visible_bone_ids=None, drag_lod=False):
     sequence = snapshot.get("sequence_field") if isinstance(snapshot.get("sequence_field"), dict) else {}
     force = sequence.get("force_wave") if isinstance(sequence.get("force_wave"), dict) else {}
     hair = force.get("hair_reactivity") if isinstance(force.get("hair_reactivity"), dict) else {}
+    resolved_slots = _hair_resolved_slots(hair)
     glyph_manifold = hair.get("glyph_message_manifold") if isinstance(hair.get("glyph_message_manifold"), dict) else {}
     topology = hair.get("topology") if isinstance(hair.get("topology"), dict) else {}
     granulation = hair.get("granulation") if isinstance(hair.get("granulation"), dict) else {}
@@ -4481,6 +4696,9 @@ def _hair_field_rows(snapshot, visible_bone_ids=None, drag_lod=False):
         slot_id = str(row.get("slot") or row.get("joint") or "").strip()
         joint_id = str(row.get("joint") or "").strip()
         if not slot_id.lower().startswith("hair_"):
+            continue
+        slot_profile = resolved_slots.get(slot_id.lower()) or _hair_slot_profile(slot_id)
+        if not slot_profile.get("active", True):
             continue
         if visible_bone_ids and slot_id not in visible_bone_ids and joint_id not in visible_bone_ids:
             continue
@@ -4604,13 +4822,13 @@ def _hair_field_rows(snapshot, visible_bone_ids=None, drag_lod=False):
         depth_axis = _v_norm(depth_axis, forward_axis)
         slot_text = slot_id.lower()
         slot_side = -1.0 if slot_text.endswith("_l") else (1.0 if slot_text.endswith("_r") else 0.0)
-        rear_bias = -1.0 if ("back" in slot_text or "rear" in slot_text) else (0.24 if "front" in slot_text else 0.0)
-        slot_is_spike = slot_text.startswith("hair_spike_")
-        slot_is_side = slot_text.startswith("hair_side_")
-        slot_is_front = "front" in slot_text
-        slot_is_frill = "frill" in slot_text
-        slot_is_temple = "temple" in slot_text
-        slot_is_mane = "mane" in slot_text
+        rear_bias = -1.0 if slot_profile.get("region") in {"back", "rear"} or float(slot_profile.get("rear_weight") or 0.0) > 0.5 else (0.24 if slot_profile.get("region") in {"front", "front_core", "front_frill"} else 0.0)
+        slot_is_spike = slot_profile.get("kind") == "spike"
+        slot_is_side = slot_profile.get("region") == "side"
+        slot_is_front = slot_profile.get("region") in {"front", "front_core", "front_frill"}
+        slot_is_frill = slot_profile.get("region") == "front_frill"
+        slot_is_temple = slot_profile.get("region") == "temple"
+        slot_is_mane = slot_profile.get("region") == "mane"
         slot_is_arc = "arc" in slot_text
         slot_is_medusa_lane = (not slot_is_spike) and (not slot_is_side) and (slot_is_front or slot_is_frill or slot_is_temple or slot_is_mane or slot_is_arc)
         if slot_is_spike:

@@ -194,7 +194,18 @@ Rules:
 
 - do not silently reorder the operator's requested requisites
 - if the operator says `read docs -> corroborate with source -> use live MCP -> then continuity`, do exactly that
-- do not front-run `continuity_restore(...)` ahead of docs/source/MCP just because continuity tooling exists
+- otherwise, when the seam is orientation, reset recovery, server-knowledge, posture restore, or continuity, front-load the continuity tool lane instead of starting with docs/source crawling
+- the default Champion Council reacclimation lane is:
+  - `continuity_status`
+  - `continuity_restore(summary=<active objective + subject + pivot>, cwd=<repo>)`
+  - `env_help(topic='continuity_reacclimation')`
+  - `env_read(query='text_theater_embodiment')`
+  - `capture_supercam`
+  - `env_read(query='supercam')`
+  - `env_read(query='text_theater_view', view='consult', section='blackboard', diagnostics=true)`
+  - `env_read(query='text_theater_snapshot')`
+  - `env_report(report_id='paired_state_alignment')`
+- do not substitute a docs crawl for the continuity tool lane when continuity is the seam
 - reading this file is not completion when the operator is correcting your process; execute the requisites they named before you answer or claim compliance
 
 ### Cold-Start Orientation
@@ -271,16 +282,27 @@ Do not misclassify continuity as mere memory when the repo exposes it as an oper
 ### Resume / Reacclimation
 Before making new edits after any interruption, context compression, or long thread:
 
-1. Read the recent chat transcript and recover:
+1. If the operator has not explicitly prescribed a different reacclimation order, run the continuity lane first:
+   - `continuity_status` when the question is what continuity is available
+   - `continuity_restore(summary=<active objective + subject + pivot>, cwd=<repo>)`
+   - `env_help(topic='continuity_reacclimation')`
+   - treat `continuity_restore` as archive-side reacclimation only; it seeds posture, pivot, open pressure, and recommended corroboration reads, but it does not decide live truth
+   - if the continuity lane exposes `query_state`, `surface_prime`, `paired_state_resource`, or `continuity_packet`, inspect them as real bounded surfaces instead of paraphrasing continuity as a loose concept
+   - re-open live truth in order:
+     - `env_read(query='text_theater_embodiment')`
+     - `capture_supercam`
+     - `env_read(query='supercam')`
+     - `env_read(query='text_theater_view', view='consult', section='blackboard', diagnostics=true)`
+     - `env_read(query='text_theater_snapshot')`
+     - `env_report(report_id='paired_state_alignment')`
+
+2. Read the recent chat transcript and recover:
    - current objective
    - recent corrections
    - unresolved seams
    - what the user is actually prioritizing now
-   - if continuity is materially incomplete, and the operator has not already prescribed a different reacclimation order, run `continuity_restore(summary=<active objective + subject + pivot>, cwd=<repo>)` to recover the continuity archive face before widening
-   - treat `continuity_restore` as archive-side reacclimation only; it seeds posture, pivot, open pressure, and recommended corroboration reads, but it does not decide live truth
-   - if the continuity lane exposes `query_state`, `surface_prime`, `paired_state_resource`, or `continuity_packet`, inspect them as real bounded surfaces instead of paraphrasing continuity as a loose concept
 
-2. Read the active docs in `docs/`, starting with:
+3. Read the active docs in `docs/`, starting with:
    - `docs/CURRENT_ACTIVE_TRAJECTORY_2026-04-13.md`
    - `docs/OPUS_CORRECTED_TRAJECTORY_REPORT_2026-04-13.md`
    - any current topic-specific docs directly relevant to the active seam
@@ -616,6 +638,6 @@ The goal is to become a reliable interpretive and engineering instrument inside 
 
 If you need a compressed version, use this:
 
-> Instantiate from cold or reacclimate from resume by earning verified continuity from chat history, active docs, repo state, source, and live MCP before editing. When attached through the self-deploy MCP proxy, verify `tools/list` before declaring a tool missing, and remember that continuity here is an operable carrying surface stack, not just remembered context: archive-side faces such as `continuity_restore`, `query_state`, `resume_focus`, `surface_prime`, `reset_boundary`, `paired_state_resource`, and `continuity_packet` dock into `blackboard.working_set.query_thread`, `docs_packet`, and `output_state`. Use `continuity_restore` as archive-side reacclimation only; it can recover posture and next corroboration reads, but it cannot decide live truth. Treat operator corrections as ontology repair, not chit-chat; this is a bilateral learning system, and the connective surface should be scored before the bake so the next work bonds to the right seam. If you do not understand a load-bearing term, surface, analogy, mechanism, or contract well enough to act cleanly, isolate it as an explicit misunderstanding box, keep verified footing outside that box, ask to be taught in a targeted way, and then upstream that repair once learned. Dreamer or other bounded proposer/scorer lanes may help compare or suggest next reads, but they do not get to hallucinate the box closed. If the operator points, orient, surround, converge, contend across surfaces, report, and redouble until the active seam is honestly resolved. Treat `capsule/champion_gen8.py` as generated output and patch upstream compiler/template or local proxy/doc surfaces instead of editing the generated file directly. Treat user statements as hypotheses to verify, not truths to echo or arguments to resist. Keep the architecture straight: Champion Council is a descendant/runtime; the broader quine/speciation/lattice framework lives upstream in `D:\End-Game\ouroboros-key`. For calibration or hypothetical prompts, answer directly from doctrine first and do not over-investigate. If the user points at this file and tells you to follow it, comply silently and correct the sequencing instead of narrating the file. Use text theater first, then browser-visible corroboration through existing capture surfaces, then blackboard as visible query-work, snapshot next, env_report/contracts next, raw shared_state last. Preserve one truth source, no duplicate authority planes, blackboard for text theater only, web text selective only. Same origin does not mean same effective contract. Fix root seams, not after-effects. Explicitly distinguish truth, contract, transport, and rendering failures. Respond with confirmed / partly confirmed / not supported / adjacent but different. Think before interpreting.
+> Instantiate from cold or reacclimate from resume by earning verified continuity from chat history, active docs, repo state, source, and live MCP before editing. When attached through the self-deploy MCP proxy, verify `tools/list` before declaring a tool missing. If the operator says `continuity`, `run continuity`, `do continuity`, or asks whether continuity was run, that is a direct order to run the continuity lane immediately: `continuity_status`, then `continuity_restore(summary=<objective + subject + pivot>, cwd=<repo>)`, then `env_help(topic='continuity_reacclimation')`; do not ask for a tool literally named `continuity`. Remember that continuity here is an operable carrying surface stack, not just remembered context: archive-side faces such as `continuity_restore`, `query_state`, `resume_focus`, `surface_prime`, `reset_boundary`, `paired_state_resource`, and `continuity_packet` dock into `blackboard.working_set.query_thread`, `docs_packet`, and `output_state`. Use `continuity_restore` as archive-side reacclimation only; it can recover posture and next corroboration reads, but it cannot decide live truth. Treat operator corrections as ontology repair, not chit-chat; this is a bilateral learning system, and the connective surface should be scored before the bake so the next work bonds to the right seam. If you do not understand a load-bearing term, surface, analogy, mechanism, or contract well enough to act cleanly, isolate it as an explicit misunderstanding box, keep verified footing outside that box, ask to be taught in a targeted way, and then upstream that repair once learned. Dreamer or other bounded proposer/scorer lanes may help compare or suggest next reads, but they do not get to hallucinate the box closed. If the operator points, orient, surround, converge, contend across surfaces, report, and redouble until the active seam is honestly resolved. Treat `capsule/champion_gen8.py` as generated output and patch upstream compiler/template or local proxy/doc surfaces instead of editing the generated file directly. Treat user statements as hypotheses to verify, not truths to echo or arguments to resist. Keep the architecture straight: Champion Council is a descendant/runtime; the broader quine/speciation/lattice framework lives upstream in `D:\End-Game\ouroboros-key`. For calibration or hypothetical prompts, answer directly from doctrine first and do not over-investigate. If the user points at this file and tells you to follow it, comply silently and correct the sequencing instead of narrating the file. Use text theater first, then browser-visible corroboration through existing capture surfaces, then blackboard as visible query-work, snapshot next, env_report/contracts next, raw shared_state last. Preserve one truth source, no duplicate authority planes, blackboard for text theater only, web text selective only. Same origin does not mean same effective contract. Fix root seams, not after-effects. Explicitly distinguish truth, contract, transport, and rendering failures. Respond with confirmed / partly confirmed / not supported / adjacent but different. Think before interpreting.
 
 > Pleasantry may regulate friction, but it must never regulate evidence or upgrade certainty.

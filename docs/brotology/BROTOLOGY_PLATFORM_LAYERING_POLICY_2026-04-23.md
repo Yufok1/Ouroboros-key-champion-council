@@ -137,6 +137,80 @@ Change posture:
 
 This layer may contain things that do not belong in the public guide or even in the private Space deploy surface.
 
+## Exposure Alignment
+
+The right question is not:
+
+- are the ideas mine
+
+The right question is:
+
+- which layer is the public allowed to access
+- which layer is the public allowed to inspect
+- which layer is the public allowed to clone
+- which layer is the public allowed to infer from the live experience
+
+That is an exposure-alignment problem, not an authorship problem.
+
+The working split is:
+
+- `public access` = the experience, demo, behavior, outputs, and selected doctrine
+- `protected access` = the running facility surface is public, but the source stays hidden
+- `private access` = continuity substrate, checkpoints, personal ideation residue, prompt/doctrine repair lanes, and machinery that should not be cloned or casually mined
+
+This means the facility can still be your idea all the way through while only some strata are exposed.
+
+Public does not have to mean:
+
+- raw notebook exhaust
+- continuity residue
+- private planning trench
+- checkpoint history
+- every prompt, patch, or proprietary implementation lane
+
+The cleaner law is:
+
+- publish the effect
+- constrain the mechanism
+- preserve the private residue unless there is a deliberate reason to surface it
+
+## Hugging Face `protected` / `BROTECTED`
+
+For Spaces, the strongest current fit is often `protected`:
+
+- app access = public
+- repo source = hidden
+- cloning = blocked
+
+That is the correct middle state when the goal is public access to the platform experience without turning the entire repository into an open quarry.
+
+It is still not magic. `Protected` hides source, not live browser-visible payloads. If the app itself exposes docs, debug panes, continuity surfaces, downloadable assets, or private operator state, then those are public in practice.
+
+So the operational rule is:
+
+- `public` if the source itself is intentionally open
+- `protected` if the experience should be public but the source should remain closed
+- `private` if neither the app nor the repo should be publicly reachable
+
+## Public Hardening
+
+Before a public-facing release, the runtime should not merely hide secrets. It should actively disable clone-grade and operator-only surfaces.
+
+Minimum public hardening posture:
+
+- block MCP ingress and external tool transports
+- block continuity/archive recovery lanes
+- block FelixBag and file-workspace browsing/editing lanes
+- block checkpoint, persistence, cache, export, and restart controls
+- keep public access focused on demo behavior rather than private transport
+- redact `entry_gate`, `docs_packet`, `workspace_packet`, `continuity_packet`, and `misunderstanding_box` from browser-visible output carriers
+
+Short law:
+
+- public sees the effect
+- protected source hides the machinery
+- hardening disables the operator trapdoors instead of trusting strangers not to click them
+
 ## The Mapping To Brotology Branches
 
 ### Science Surfing

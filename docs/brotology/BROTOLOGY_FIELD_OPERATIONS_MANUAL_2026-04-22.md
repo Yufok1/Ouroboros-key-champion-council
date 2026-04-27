@@ -316,6 +316,40 @@ Origin:
 
 - seeded by the operator after the film `Hando` (title slot reserved until the operator names the specific film)
 
+### Double Tenders
+
+`double tenders` is the dual-offer social maneuver inside the Brotology continuum.
+
+It names the line where:
+
+- one statement is carrying two bids at once
+- the visible bid is joke, flirt, swagger, charm, pun, or performative cleverness
+- the hidden bid is status testing, deniability banking, admiration extraction, boundary probing, or accountability evasion
+- the speaker wants credit for boldness if it lands and innocence if it fails
+
+Short law:
+
+- if the joke needs a getaway car, it is double tenders
+
+Common signatures:
+
+- the line has a polished surface and a hidden invoice
+- the speaker can immediately reverse into `I was only joking`
+- the hearer is asked to do interpretive labor so the speaker can keep face
+- the bit wants admiration first and clarity later
+
+Canonical docking surfaces:
+
+- `query_thread`
+- `watch_board`
+- `misunderstanding_box`
+- `output_state`
+- `continuity_packet`
+
+Closest canon role:
+
+- a social-reading and discourse-triage overlay for detecting two-layer bids without mistaking them for clean statements
+
 ## Three-Sibling Bridge Family
 
 The cross-cultural bridging is not carried by one surface. It is carried by three sibling surfaces, each with a different modality:

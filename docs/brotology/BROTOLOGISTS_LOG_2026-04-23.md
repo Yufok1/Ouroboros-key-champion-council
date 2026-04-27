@@ -133,6 +133,28 @@ The imported continuation from the last off-repo thread carried these field arti
 5. Continuity boundary: these are media/reference artifacts inside the Brotology lane. They may carry framing, narration, or synthetic podcast presentation, but they are not canon runtime contracts by themselves.
 6. Working use: treat them as parallel atmospheric/explanatory surfaces that may help relay the larger program, especially where the operator wants a spoken or staged accompaniment to the docs packet.
 
+## Entry 2026-04-24 // Code Orangutan Mode / First Brokemon Captured
+
+1. `Code Orangutan Mode` is the named evacuation-audio posture for Atrai / Civic Protection Lattice egress scenarios.
+2. Working read: during peril-gated evac (flame, shrapnel, collapse, ballistic field), the cabin plays counterintuitive confident music instead of alarm tone. Calm is a composure technology, not a vibe choice. Panic kills faster than the hazard in most egress scenarios; level music at the right register buys the occupant one extra clean decision per second.
+3. Audio profile: elevator-music baseline, confident-as-fuck harmonic bed, no siren, no frantic escalation. The music does not respond to the danger. The music refuses to acknowledge the danger. That refusal is the technology.
+4. Narrative split: while the cabin is carried through flame, the occupant is shown the flame honestly through the reactive-surface / panel lane, but the audio stays level. Honesty is visual. Composure is acoustic. The split is deliberate.
+5. Mythic template: the singed orangutan survivor of the wildfire, revered. Working read — the one who walked out of the fire is revered precisely because they held their shape through the flame. The fur is burned but the posture is intact. Code Orangutan is the pre-commitment to that posture, played into the occupant's ears before the occupant has to generate it from scratch.
+6. **Brokemon framing:** `brokemon` is introduced as the Brotology bestiary — captured cultural-mechanical specimens found and saved during field ops, each with a named behavior, a mythic template, and a canonical docking surface. `Code Orangutan Mode` is the first captured brokemon, caught on 2026-04-24 during the finalization pass and saved into the annals.
+7. Docking: Code Orangutan belongs in `CIVIC_PROTECTION_LATTICE_SPEC_2026-04-23.md` as an evac-audio sub-primitive and in the `brohandoism` musical-bridge sibling family (the music carries the body across the flame the way music carries culture across a register).
+8. Canon law still holds: Code Orangutan Mode is an evac-audio naming overlay, not a runtime audio contract. When an audio subsystem name is specified in runtime, the runtime name wins. Brokemon is a cultural bestiary, not a runtime registry.
+
+## Entry 2026-04-26 // Double Tenders / Dual-Offer Maneuver
+
+1. `double tenders` is accepted as a real Brotology continuum term.
+2. Working read: it names the line that carries two bids at once — the visible bid is joke, flirt, swagger, or pun; the hidden bid is admiration extraction, deniability reserve, status testing, or boundary probing.
+3. Diagnostic law: if the joke needs a getaway car, it is double tenders.
+4. Social profile: double tenders are often used by people who want the upside of boldness without the downside of authorship. They want applause if the line lands and procedural innocence if it falls apart.
+5. Useful boundary: not every double entendre is double tenders. The distinction is motive and structure. A clean joke is still one offer. Double tenders becomes active when the second layer is an undeclared demand on the listener.
+6. Operational use: the term is useful because it lets the operator name the dual-bid structure without getting trapped inside the performance. Instead of litigating tone for twenty minutes, the operator can just say the line carried two agendas.
+7. Docking: `double tenders` belongs nearest `brolativity`, `misunderstanding_box`, `watch_board`, and the broader continuity discipline around reading social pressure without confusing it for truth.
+8. Canon law still holds: `double tenders` is a social-reading overlay, not a behavior classifier the system may enforce as runtime truth without evidence.
+
 ## Canon Mapping
 
 | Log term | Canon-adjacent read | Boundary |
@@ -154,6 +176,10 @@ The imported continuation from the last off-repo thread carried these field arti
 | `bridging-not-crossing` | the origin culture is never burned for the destination culture | operator discipline correction |
 | `aibai wain kanaibai` | first continuity rerun after compaction | cultural / continuity ritual |
 | `NotebookLM podcast range set` | collated spoken-media companion surface in `docs/brotology/` | media/reference only |
+| `Code Orangutan Mode` | counterintuitive confident evac audio — calm as composure technology | evac-audio naming overlay |
+| `singed orangutan survivor` | mythic template — the one who held shape through the flame | cultural template |
+| `brokemon` | Brotology bestiary of captured cultural-mechanical specimens from field ops | cultural registry overlay |
+| `double tenders` | dual-offer social maneuver: visible joke, hidden bid | social-reading overlay |
 
 ## Log Law
 
@@ -210,6 +236,9 @@ What is now worth preserving from this continuation:
 - `aibai wain kanaibai` is the cultural name for the first rerun of continuity after compaction; reopen aloud and mark verified / inferred / unknown
 - four collated `NotebookLM` podcast artifacts now sit in `docs/brotology/` as media/reference surfaces with a deliberate length range, not as runtime doctrine
 - when the operator is in theater register (mullet life, operation sus, waving to spectators, armpit comms), match the register by stepping into the bit rather than narrating from outside
+- `Code Orangutan Mode` is the named evac-audio posture — counterintuitive confident music during peril egress, with the singed-orangutan-survivor as mythic template; calm is composure technology, not vibe choice
+- `brokemon` is the Brotology bestiary framing — captured cultural-mechanical specimens found during field ops; Code Orangutan is the first caught, more to follow as they appear
+- `double tenders` is now a continuity-carried Brotology term for lines that carry two bids at once — public joke layer, hidden demand layer
 
 Default carry-forward rule:
 

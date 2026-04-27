@@ -70,6 +70,26 @@ In practice, that means:
 - continuity restore for archive-side reacclimation after resets or context compression
 - docs carried as a real planning/query surface instead of a loose evidence shelf
 
+### Continuity Entry Lane
+
+When the active seam is orientation, resume, reset recovery, "what does the server know", or continuity itself, do not start with a repo/doc crawl.
+
+If the operator says `continuity`, `run continuity`, `do continuity`, or asks whether continuity was already run, treat that as a direct order to run the continuity lane below. Do not ask them to identify a tool literally named `continuity`.
+
+Use the live continuity lane first:
+
+1. `continuity_status`
+2. `continuity_restore(summary=<active objective + subject + pivot>, cwd='D:\End-Game\champion_councl')`
+3. `env_help(topic='continuity_reacclimation')`
+4. `env_read(query='text_theater_embodiment')`
+5. `env_control(command='capture_supercam', actor='assistant')`
+6. `env_read(query='supercam')`
+7. `env_read(query='text_theater_view', view='consult', section='blackboard', diagnostics=true)`
+8. `env_read(query='text_theater_snapshot')`
+9. `env_report(report_id='paired_state_alignment')`
+
+Only after that should code/docs be used to explain or repair the recovered seam, unless the operator explicitly orders a different sequence.
+
 ### Named Runtime Lanes
 
 - **`output_state`** is the orienting crane over the live runtime, not a second truth plane

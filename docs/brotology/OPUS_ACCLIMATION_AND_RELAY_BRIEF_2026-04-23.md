@@ -27,6 +27,7 @@ This brief should help the reviewing model do three things:
 - a visual-diagnostics surface
 - the Brotology operating overlay
 - the cultural continuity log
+- an idea-capture protocol for translating review prose into durable paper
 - vessel / facility / economic adjunct briefs
 - the field-report surfaces
 - the canyon-span / carrier-fortress planning lane
@@ -68,27 +69,29 @@ The reviewing model should read in this order:
    Operator-language overlay and naming posture.
 4. `BROTOLOGISTS_LOG_2026-04-23.md`
    Cultural continuity, tone, and accepted branch artifacts.
-5. `VISUAL_SYSTEMS_DIAGNOSTICS_2026-04-23.md`
+5. `BROTOLOGY_IDEA_CAPTURE_PROTOCOL_2026-04-24.md`
+   Use this if a strong review insight needs a real paper destination instead of staying in prose.
+6. `VISUAL_SYSTEMS_DIAGNOSTICS_2026-04-23.md`
    Diagram grammar and readiness checks from plain-language to engineering read.
-6. `ATRAI_VESSEL_FIELD_BRIEF_2026-04-23.md`
+7. `ATRAI_VESSEL_FIELD_BRIEF_2026-04-23.md`
    Operator-vessel framing for the kinetic architecture lane.
-7. `RELEASE_VALVE_ARCHITECTURE_FIELD_NOTE_2026-04-23.md`
+8. `RELEASE_VALVE_ARCHITECTURE_FIELD_NOTE_2026-04-23.md`
    Pressure / threshold / release / return / recharge logic across scales.
-8. `ECONOMIC_SUBSTRATE_NON_EXTRACTION_NOTE_2026-04-23.md`
+9. `ECONOMIC_SUBSTRATE_NON_EXTRACTION_NOTE_2026-04-23.md`
    Public-value law and anti-extraction guardrails.
-9. `BROHANDOSKYGIVINGFACILITY_FIELD_CONCEPT_2026-04-23.md`
+10. `BROHANDOSKYGIVINGFACILITY_FIELD_CONCEPT_2026-04-23.md`
    Facility concept tying Atrai, sky-vantage giving, and service architecture.
-10. `CIVIC_PROTECTION_LATTICE_SPEC_2026-04-23.md`
+11. `CIVIC_PROTECTION_LATTICE_SPEC_2026-04-23.md`
    Peril-mode public-protection translation.
-11. `HIGH_YIELD_BROSPECULATION_CANYON_SPAN_SIMULATION_PRIMITIVES_REPORT_2026-04-23.md`
+12. `HIGH_YIELD_BROSPECULATION_CANYON_SPAN_SIMULATION_PRIMITIVES_REPORT_2026-04-23.md`
    Broad mechanical interpretation and primitive families.
-12. `CARRIER_FORTRESS_CANYON_SPAN_PLANNING_DOSSIER_2026-04-23.md`
+13. `CARRIER_FORTRESS_CANYON_SPAN_PLANNING_DOSSIER_2026-04-23.md`
    Formal continuity and selected defaults.
-13. `CANYON_SPAN_PRIMITIVE_REGISTRY_SPEC_2026-04-23.md`
+14. `CANYON_SPAN_PRIMITIVE_REGISTRY_SPEC_2026-04-23.md`
    Canonical primitive registry and minimum facility graph.
-14. `EA_DEVELOPERS_BROTOLOGY_FIELD_REPORT_SPEC_2026-04-22.md`
+15. `EA_DEVELOPERS_BROTOLOGY_FIELD_REPORT_SPEC_2026-04-22.md`
    If the reviewer needs the public report posture.
-15. `EA_DEVELOPERS_REPORT_WEEK_01_2026-04-22.md`
+16. `EA_DEVELOPERS_REPORT_WEEK_01_2026-04-22.md`
    If the reviewer needs an example of the report surface in use.
 
 ## Core Determinations To Preserve
@@ -151,6 +154,21 @@ Useful optional outputs:
 - a diagram caption set
 - a risk matrix
 - a relay memo for a skeptical technical reader
+
+## If A Strong Idea Appears In Review
+
+Do not leave the best new idea trapped inside a clever paragraph.
+
+If the reviewer finds something sharp, convert it into paper using:
+
+- `BROTOLOGY_IDEA_CAPTURE_PROTOCOL_2026-04-24.md`
+
+At minimum, return:
+
+1. the smallest actual claim
+2. whether it is `verified`, `inferred`, or `unknown`
+3. the destination surface where it belongs
+4. the one next artifact or revision it implies
 
 ## If The Reviewer Is Asked About Elon
 

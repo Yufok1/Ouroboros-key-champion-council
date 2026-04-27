@@ -83,6 +83,109 @@ _text_theater_module_lock = threading.Lock()
 _text_theater_module = None
 _text_theater_module_mtime_ns = None
 
+_EXPOSURE_MODE = str(
+    os.environ.get(
+        "CHAMPION_COUNCIL_EXPOSURE_MODE",
+        os.environ.get("PUBLIC_EXPOSURE_MODE", "private"),
+    )
+    or "private"
+).strip().lower()
+_PUBLIC_HARDENING_ENABLED = _EXPOSURE_MODE in {
+    "public",
+    "public_demo",
+    "demo",
+    "protected",
+    "brotected",
+}
+_PUBLIC_BLOCKED_ROUTE_EXACT = frozenset({
+    "/api/capsule/restart",
+    "/api/runtime/capacity",
+    "/api/capsule-log",
+})
+_PUBLIC_BLOCKED_ROUTE_PREFIXES = (
+    "/mcp",
+    "/api/cache/hf",
+    "/api/persist",
+    "/api/agent_chat",
+    "/api/dreamer",
+    "/api/vast",
+    "/api/packs",
+    "/pi-router",
+)
+_PUBLIC_BLOCKED_TOOLS = frozenset({
+    "agent_chat",
+    "agent_delegate",
+    "agent_chat_inject",
+    "agent_chat_sessions",
+    "agent_chat_result",
+    "agent_chat_purge",
+    "continuity_status",
+    "continuity_restore",
+    "env_help",
+    "env_report",
+    "env_persist",
+    "get_help",
+    "get_status",
+    "get_capabilities",
+    "list_slots",
+    "slot_info",
+    "hf_cache_status",
+    "hf_cache_clear",
+    "capsule_restart",
+    "persist_status",
+    "persist_restore_revision",
+    "product_bundle_profiles",
+    "product_bundle_export",
+    "plug_model",
+    "hub_plug",
+    "unplug_slot",
+    "clone_slot",
+    "mutate_slot",
+    "rename_slot",
+    "swap_slots",
+    "cull_slot",
+    "grab_slot",
+    "restore_slot",
+    "export_interface",
+    "export_quine",
+    "export_config",
+    "export_docs",
+    "export_pt",
+    "export_onnx",
+    "save_state",
+    "import_brain",
+    "load_manifest",
+    "start_api_server",
+    "web_search",
+    "hub_search",
+    "hub_search_datasets",
+    "hub_top",
+    "hub_info",
+    "hub_download",
+    "hub_tasks",
+    "hub_count",
+})
+_PUBLIC_BLOCKED_TOOL_PREFIXES = (
+    "bag_",
+    "file_",
+    "workflow_",
+)
+_PUBLIC_REDACTED_OUTPUT_STATE_KEYS = frozenset({
+    "entry_gate",
+    "docs_packet",
+    "workspace_packet",
+    "continuity_packet",
+    "misunderstanding_box",
+})
+_PUBLIC_REDACTED_SNAPSHOT_KEYS = frozenset({
+    "query_thread",
+    "entry_gate",
+    "docs_packet",
+    "workspace_packet",
+    "continuity_packet",
+    "misunderstanding_box",
+})
+
 
 def _env_help_unique_list(values) -> list[str]:
     out: list[str] = []
@@ -1320,6 +1423,9 @@ def _broadcast_activity(tool: str, args: dict, result: dict | None, duration_ms:
         "clientId": client_id,  # granular client identification
         "hiddenFromActivity": hidden_from_activity,
     }
+    entry = _public_sanitize_activity_entry(entry)
+    if not isinstance(entry, dict):
+        return
     with _activity_log_lock:
         _activity_log.append(entry)
         if len(_activity_log) > 500:
@@ -1752,8 +1858,11 @@ def _external_mcp_local_bridge_note() -> str:
         "agent_chat_inject, agent_chat_sessions, agent_chat_result, agent_chat_purge, "
         "hf_cache_status, hf_cache_clear, capsule_restart, persist_status, "
         "persist_restore_revision, product_bundle_profiles, and product_bundle_export. "
-        "For continuity after compaction, call continuity_restore(summary=<objective + subject + "
-        "pivot>, cwd=<repo>) and treat it as archive-side reacclimation only; fresh live "
+        "If the operator says continuity, run the continuity lane immediately: continuity_status, "
+        "then continuity_restore(summary=<objective + subject + pivot>, cwd=<repo>), then "
+        "env_help(topic='continuity_reacclimation'). Do not ask the operator to point you at a "
+        "tool literally named continuity before checking tools/list and running the lane. "
+        "Treat continuity_restore as archive-side reacclimation only; fresh live "
         "theater/blackboard corroboration still decides current truth. For environment/browser/"
         "runtime work, treat get_help('environment') as the umbrella capsule view and "
         "env_help(topic='env_help') plus env_help(topic='index') as the richer local registry. "
@@ -2091,7 +2200,7 @@ async def _list_tools() -> dict:
         ]
         return {
             "result": {
-                "tools": _agent_augment_tools_list(tools)
+                "tools": _public_filter_tools_list(_agent_augment_tools_list(tools))
             }
         }
     except Exception as e:
@@ -2201,6 +2310,21 @@ class NoCacheStaticMiddleware(BaseHTTPMiddleware):
             response.headers["Expires"] = "0"
         return response
 app.add_middleware(NoCacheStaticMiddleware)
+
+
+@app.middleware("http")
+async def public_exposure_hardening_middleware(request: Request, call_next):
+    if _public_path_blocked(request.url.path):
+        return JSONResponse(
+            status_code=403,
+            content={
+                "error": "Public exposure hardening blocked this route",
+                "path": str(request.url.path or ""),
+                "mode": _EXPOSURE_MODE,
+                "reason": "Operator/private routes are disabled for public release surfaces.",
+            },
+        )
+    return await call_next(request)
 
 
 # --- API Routes ---
@@ -2435,6 +2559,143 @@ def _json_clone(value):
         return json.loads(json.dumps(value))
     except Exception:
         return value
+
+
+def _public_path_blocked(path: str | None) -> bool:
+    if not _PUBLIC_HARDENING_ENABLED:
+        return False
+    text = str(path or "").strip()
+    if not text:
+        return False
+    if text in _PUBLIC_BLOCKED_ROUTE_EXACT:
+        return True
+    return any(text.startswith(prefix) for prefix in _PUBLIC_BLOCKED_ROUTE_PREFIXES)
+
+
+def _public_tool_blocked(tool_name: str | None) -> bool:
+    if not _PUBLIC_HARDENING_ENABLED:
+        return False
+    text = str(tool_name or "").strip()
+    if not text:
+        return False
+    if text in _PUBLIC_BLOCKED_TOOLS:
+        return True
+    return any(text.startswith(prefix) for prefix in _PUBLIC_BLOCKED_TOOL_PREFIXES)
+
+
+def _public_tool_block_payload(tool_name: str | None) -> dict:
+    return {
+        "error": "Public exposure hardening blocked this tool",
+        "tool": str(tool_name or ""),
+        "mode": _EXPOSURE_MODE,
+        "reason": "Operator/private tooling is disabled for public release surfaces.",
+    }
+
+
+def _public_filter_tools_list(tools: list[dict] | None) -> list[dict]:
+    rows = list(tools or [])
+    if not _PUBLIC_HARDENING_ENABLED:
+        return rows
+    filtered: list[dict] = []
+    for item in rows:
+        if not isinstance(item, dict):
+            continue
+        if _public_tool_blocked(item.get("name")):
+            continue
+        filtered.append(item)
+    return filtered
+
+
+def _public_sanitize_output_state(output_state: dict | None):
+    if not _PUBLIC_HARDENING_ENABLED or not isinstance(output_state, dict):
+        return _json_clone(output_state)
+    out = _json_clone(output_state)
+    if not isinstance(out, dict):
+        return out
+    for key in _PUBLIC_REDACTED_OUTPUT_STATE_KEYS:
+        out.pop(key, None)
+    return out
+
+
+def _public_sanitize_text_theater_snapshot(snapshot: dict | None):
+    if not _PUBLIC_HARDENING_ENABLED or not isinstance(snapshot, dict):
+        return _json_clone(snapshot)
+    out = _json_clone(snapshot)
+    if not isinstance(out, dict):
+        return out
+    for key in _PUBLIC_REDACTED_SNAPSHOT_KEYS:
+        out.pop(key, None)
+    if isinstance(out.get("output_state"), dict):
+        out["output_state"] = _public_sanitize_output_state(out.get("output_state"))
+    return out
+
+
+def _public_sanitize_shared_state(shared_state: dict | None):
+    if not _PUBLIC_HARDENING_ENABLED or not isinstance(shared_state, dict):
+        return _json_clone(shared_state)
+    out = _json_clone(shared_state)
+    if not isinstance(out, dict):
+        return out
+    out.pop("contracts", None)
+    if isinstance(out.get("output_state"), dict):
+        out["output_state"] = _public_sanitize_output_state(out.get("output_state"))
+    text_theater = out.get("text_theater") if isinstance(out.get("text_theater"), dict) else None
+    if isinstance(text_theater, dict):
+        if isinstance(text_theater.get("snapshot"), dict):
+            text_theater["snapshot"] = _public_sanitize_text_theater_snapshot(text_theater.get("snapshot"))
+        out["text_theater"] = text_theater
+    return out
+
+
+def _public_sanitize_live_state(live_state: dict | None):
+    if not _PUBLIC_HARDENING_ENABLED or not isinstance(live_state, dict):
+        return _json_clone(live_state)
+    out = _json_clone(live_state)
+    if not isinstance(out, dict):
+        return out
+    out.pop("contracts", None)
+    if isinstance(out.get("shared_state"), dict):
+        out["shared_state"] = _public_sanitize_shared_state(out.get("shared_state"))
+    return out
+
+
+def _public_sanitize_activity_entry(entry: dict | None):
+    if not _PUBLIC_HARDENING_ENABLED:
+        return _json_clone(entry)
+    if not isinstance(entry, dict):
+        return None
+    tool_name = str(entry.get("tool") or "")
+    source = str(entry.get("source") or "")
+    category = str(entry.get("category") or "")
+    if _public_tool_blocked(tool_name):
+        return None
+    if source in {"agent-debug", "hydration"} or category == "debug":
+        return None
+    return {
+        "id": str(entry.get("id") or ""),
+        "tool": tool_name,
+        "category": category,
+        "error": entry.get("error"),
+        "durationMs": int(entry.get("durationMs") or 0),
+        "timestamp": int(entry.get("timestamp") or 0),
+        "source": source,
+        "clientId": str(entry.get("clientId") or ""),
+        "hiddenFromActivity": bool(entry.get("hiddenFromActivity")),
+        "args": {},
+        "result": {},
+    }
+
+
+def _public_health_payload(payload: dict | None):
+    if not _PUBLIC_HARDENING_ENABLED or not isinstance(payload, dict):
+        return payload
+    return {
+        "status": str(payload.get("status") or "ok"),
+        "version": str(payload.get("version") or ""),
+        "timestamp": str(payload.get("timestamp") or ""),
+        "capsule_running": bool(payload.get("capsule_running")),
+        "mode": _EXPOSURE_MODE,
+    }
 
 
 def _workflow_proxy_trace_id(execution_id: str) -> str:
@@ -5107,11 +5368,13 @@ def _env_report_normalize_query_state(query_state: dict | None = None) -> dict:
 
 
 def _env_report_normalize_output_state(output_state: dict | None = None) -> dict:
-    state = output_state if isinstance(output_state, dict) else {}
+    state = _public_sanitize_output_state(output_state if isinstance(output_state, dict) else {})
+    state = state if isinstance(state, dict) else {}
     desired = state.get("desired") if isinstance(state.get("desired"), dict) else {}
     observed = state.get("observed") if isinstance(state.get("observed"), dict) else {}
     derived = state.get("derived") if isinstance(state.get("derived"), dict) else {}
     placement = state.get("placement") if isinstance(state.get("placement"), dict) else {}
+    render_spine_packet = state.get("render_spine_packet") if isinstance(state.get("render_spine_packet"), dict) else {}
     trajectory_correlator = state.get("trajectory_correlator") if isinstance(state.get("trajectory_correlator"), dict) else {}
     entry_gate = state.get("entry_gate") if isinstance(state.get("entry_gate"), dict) else {}
     continuity_cue = state.get("continuity_cue") if isinstance(state.get("continuity_cue"), dict) else {}
@@ -5213,6 +5476,32 @@ def _env_report_normalize_output_state(output_state: dict | None = None) -> dict
             "evidence": _json_clone(placement.get("evidence") or {}),
             "drift": _json_clone(placement.get("drift") or {}),
             "next": _json_clone(placement.get("next") or {}),
+        },
+        "render_spine_packet": {
+            "active": bool(render_spine_packet.get("active")),
+            "spine_id": str(render_spine_packet.get("spine_id") or ""),
+            "sequence_id": str(render_spine_packet.get("sequence_id") or ""),
+            "segment_id": str(render_spine_packet.get("segment_id") or ""),
+            "frame_id": str(render_spine_packet.get("frame_id") or ""),
+            "trace_id": str(render_spine_packet.get("trace_id") or ""),
+            "trace_seq": int(render_spine_packet.get("trace_seq") or 0),
+            "command_sync_token": str(render_spine_packet.get("command_sync_token") or ""),
+            "objective_id": str(render_spine_packet.get("objective_id") or ""),
+            "objective_label": str(render_spine_packet.get("objective_label") or ""),
+            "subject_key": str(render_spine_packet.get("subject_key") or ""),
+            "pivot_id": str(render_spine_packet.get("pivot_id") or ""),
+            "focus_key": str(render_spine_packet.get("focus_key") or ""),
+            "equilibrium_band": str(render_spine_packet.get("equilibrium_band") or ""),
+            "drift_band": str(render_spine_packet.get("drift_band") or ""),
+            "current_front": _json_clone(render_spine_packet.get("current_front") or {}),
+            "active_pointer": _json_clone(render_spine_packet.get("active_pointer") or {}),
+            "freshness": _json_clone(render_spine_packet.get("freshness") or {}),
+            "capture_receipts": [
+                _json_clone(item)
+                for item in list(render_spine_packet.get("capture_receipts") or [])[:6]
+                if isinstance(item, dict)
+            ],
+            "source_surfaces": _env_report_unique_strings(render_spine_packet.get("source_surfaces") or [], limit=6),
         },
         "trajectory_correlator": {
             "intended": _json_clone(trajectory_correlator.get("intended") or {}),
@@ -5987,9 +6276,11 @@ def _env_report_compact_session_match_for_pairing(session: dict | None = None) -
 
 
 def _env_report_compact_output_state_for_pairing(output_state: dict | None = None) -> dict:
-    state = output_state if isinstance(output_state, dict) else {}
+    state = _public_sanitize_output_state(output_state if isinstance(output_state, dict) else {})
+    state = state if isinstance(state, dict) else {}
     desired = state.get("desired") if isinstance(state.get("desired"), dict) else {}
     observed = state.get("observed") if isinstance(state.get("observed"), dict) else {}
+    render_spine_packet = state.get("render_spine_packet") if isinstance(state.get("render_spine_packet"), dict) else {}
     entry_gate = state.get("entry_gate") if isinstance(state.get("entry_gate"), dict) else {}
     docs_packet = state.get("docs_packet") if isinstance(state.get("docs_packet"), dict) else {}
     workspace_packet = state.get("workspace_packet") if isinstance(state.get("workspace_packet"), dict) else {}
@@ -6022,6 +6313,28 @@ def _env_report_compact_output_state_for_pairing(output_state: dict | None = Non
             "last_action": str(observed.get("last_action") or ""),
             "last_sync_reason": str(observed.get("last_sync_reason") or ""),
             "docs_context_kind": str(observed.get("docs_context_kind") or ""),
+        },
+        "render_spine_packet": {
+            "active": bool(render_spine_packet.get("active")),
+            "spine_id": str(render_spine_packet.get("spine_id") or ""),
+            "frame_id": str(render_spine_packet.get("frame_id") or ""),
+            "sequence_id": str(render_spine_packet.get("sequence_id") or ""),
+            "objective_id": str(render_spine_packet.get("objective_id") or ""),
+            "subject_key": str(render_spine_packet.get("subject_key") or ""),
+            "focus_key": str(render_spine_packet.get("focus_key") or ""),
+            "equilibrium_band": str(render_spine_packet.get("equilibrium_band") or ""),
+            "drift_band": str(render_spine_packet.get("drift_band") or ""),
+            "current_front": _json_clone(render_spine_packet.get("current_front") or {}),
+            "active_pointer": _json_clone(render_spine_packet.get("active_pointer") or {}),
+            "freshness": _json_clone(render_spine_packet.get("freshness") or {}),
+            "capture_keys": _env_report_unique_strings(
+                [
+                    str((item or {}).get("key") or "")
+                    for item in list(render_spine_packet.get("capture_receipts") or [])[:6]
+                    if isinstance(item, dict)
+                ],
+                limit=6,
+            ),
         },
         "entry_gate": {
             "band": str(entry_gate.get("band") or ""),
@@ -7193,6 +7506,7 @@ def _env_help_extra_topics() -> dict[str, dict]:
             "when_to_use": [
                 "Use this immediately after a context reset, compaction, or long-thread interruption when the real loss is working posture rather than just missing text.",
                 "Use this before inventing a fresh plan when a recent rollout already contains the hot files, tools, objective pressure, and last stable answer.",
+                "If the operator says run continuity, do continuity, or asks whether continuity was run, this is the entry lane they mean.",
             ],
             "what_it_changes": [
                 "Nothing by itself. continuity_restore is read-only and returns a reacclimation packet over archived session artifacts.",
@@ -7214,6 +7528,7 @@ def _env_help_extra_topics() -> dict[str, dict]:
                 "continuity_restore does not recover hidden chain-of-thought; it recovers operational continuity from session artifacts.",
                 "Do not treat archive continuity as permission to skip the fresh live read order.",
                 "If the resumed seam is route/support diagnosis, use env_report only after the fresh theater and snapshot intake is satisfied.",
+                "Do not ask the operator to identify a tool literally named continuity before checking tools/list and using this lane.",
             ],
             "failure_modes": [
                 "No matching session archive found.",
@@ -7766,7 +8081,6 @@ def _env_help_extra_topics() -> dict[str, dict]:
                 "archive_packet",
                 "resume_packet",
                 "fractal_query_packet",
-                "continuity",
             ],
             when_to_use=[
                 "Use this right after continuity_restore when you want the bounded resume face the system is carrying now instead of rereading an entire transcript.",
@@ -8292,6 +8606,7 @@ def _env_help_local_proxy_payload(args: dict | None = None) -> dict | None:
         "help:env_help": "env_help",
         "envhelp": "env_help",
         "environment": "env_help",
+        "continuity": "continuity_reacclimation",
         "continuity_restore_reacclimation": "continuity_reacclimation",
         "reacclimation": "continuity_reacclimation",
         "context_compression_resume": "continuity_reacclimation",
@@ -9168,7 +9483,7 @@ def _env_read_live_cache_payload(query_text: str) -> dict | None:
             rendered_theater = None
             rendered_embodiment = None
         if query_lower == "text_theater_snapshot" and isinstance(rendered_snapshot, dict) and rendered_snapshot:
-            value = rendered_snapshot
+            value = _public_sanitize_text_theater_snapshot(rendered_snapshot)
         elif query_lower == "text_theater" and isinstance(rendered_theater, str) and rendered_theater:
             value = rendered_theater
         elif query_lower == "text_theater_embodiment" and isinstance(rendered_embodiment, str) and rendered_embodiment:
@@ -9176,6 +9491,7 @@ def _env_read_live_cache_payload(query_text: str) -> dict | None:
         if value in (None, "", {}):
             return None
         gate_snapshot = rendered_snapshot if isinstance(rendered_snapshot, dict) and rendered_snapshot else _env_cached_text_theater_snapshot(cached)
+        gate_snapshot = _public_sanitize_text_theater_snapshot(gate_snapshot if isinstance(gate_snapshot, dict) else {})
         _env_note_text_theater_read(query_lower, cached, gate_snapshot)
         return {
             "tool": "env_read",
@@ -9199,11 +9515,11 @@ def _env_read_live_cache_payload(query_text: str) -> dict | None:
         "query": query_text,
     }
     if query_lower == "live":
-        payload["live_state"] = _json_clone(live_state)
+        payload["live_state"] = _public_sanitize_live_state(live_state)
     elif query_lower == "shared_state":
-        payload["shared_state"] = _json_clone(shared_state)
+        payload["shared_state"] = _public_sanitize_shared_state(shared_state)
     elif query_lower == "contracts":
-        payload["contracts"] = live_state.get("contracts") or {}
+        payload["contracts"] = {} if _PUBLIC_HARDENING_ENABLED else (live_state.get("contracts") or {})
     elif query_lower == "habitat_objects":
         payload["habitat_objects"] = live_state.get("habitat_objects") or []
     return payload
@@ -9288,6 +9604,7 @@ def _env_text_theater_view_payload(args: dict | None = None) -> dict:
             "text_theater_view": None,
         }
     snapshot = rendered.get("snapshot") if isinstance(rendered.get("snapshot"), dict) else {}
+    snapshot = _public_sanitize_text_theater_snapshot(snapshot)
     _env_note_text_theater_read(
         query_text,
         cached,
@@ -9347,6 +9664,7 @@ def _env_text_theater_live_payload(args: dict | None = None) -> dict:
             raise RuntimeError("No shared_state available in live cache")
         text_theater = shared_state.get("text_theater") if isinstance(shared_state.get("text_theater"), dict) else {}
         snapshot = text_theater.get("snapshot") if isinstance(text_theater.get("snapshot"), dict) else {}
+        snapshot = _public_sanitize_text_theater_snapshot(snapshot)
         theater_text = str(text_theater.get("theater") or "")
         embodiment_text = str(text_theater.get("embodiment") or "")
         if not isinstance(snapshot, dict) or not snapshot or (not theater_text and not embodiment_text):
@@ -9401,6 +9719,18 @@ def _env_read_local_proxy_payload(args: dict | None = None) -> dict | None:
     args = args or {}
     query_text = str(args.get("query", "list") or "list").strip() or "list"
     query_lower = query_text.lower()
+    if _PUBLIC_HARDENING_ENABLED and query_lower == "debug_state":
+        return {
+            "tool": "env_read",
+            "status": "error",
+            "summary": "Public exposure hardening blocked debug_state",
+            "normalized_args": {"query": query_text},
+            "delta": {"found": False},
+            "operation": "env_read",
+            "operation_status": "error",
+            "query": query_text,
+            "error": "Public exposure hardening blocked this query",
+        }
     if query_lower == "debug_state":
         return _debug_state_payload(query_text)
     if query_lower == "probe_compare":
@@ -12713,6 +13043,9 @@ async def proxy_tool_call(tool_name: str, request: Request):
     source = body_source or _infer_activity_source(request, fallback="webui")
     client_id = _extract_client_id(request)
 
+    if _public_tool_blocked(tool_name):
+        return JSONResponse(status_code=403, content=_public_tool_block_payload(tool_name))
+
     # Local virtual orchestrator tools (proxy-side; not forwarded to capsule).
     if tool_name == "agent_chat_inject":
         payload = _agent_inject_message(body if isinstance(body, dict) else {}, source=source, client_id=client_id)
@@ -13277,6 +13610,7 @@ async def health(request: Request):
         "gpu_available": ((cap.get("gpu") or {}).get("available")),
         "gpu_free_gb": ((cap.get("gpu") or {}).get("free_gb")),
     }
+    payload = _public_health_payload(payload)
     duration_ms = int((time.time() - start) * 1000)
     _broadcast_activity("api_health", {}, {"content": [{"type": "text", "text": json.dumps(payload)}]}, duration_ms, None, source=source, client_id=client_id)
     return payload
@@ -16438,7 +16772,10 @@ async def activity_stream():
 @app.get("/api/activity-log")
 async def activity_log_route():
     """Return recent activity log as JSON (for initial hydration)."""
-    return {"entries": _activity_log[-100:]}
+    rows = list(_activity_log[-100:])
+    if _PUBLIC_HARDENING_ENABLED:
+        rows = [row for row in (_public_sanitize_activity_entry(entry) for entry in rows) if isinstance(row, dict)]
+    return {"entries": rows}
 
 
 @app.post("/api/env/capture")
@@ -16553,6 +16890,10 @@ def _render_control_panel_html() -> HTMLResponse:
         "<script>"
         f"window.__APP_MODE__ = {json.dumps(APP_MODE)};"
         f"window.__MCP_EXTERNAL_POLICY__ = {json.dumps(MCP_EXTERNAL_POLICY)};"
+        f"window.__EXPOSURE_MODE__ = {json.dumps(_EXPOSURE_MODE)};"
+        f"window.__PUBLIC_HARDENING__ = {json.dumps(_PUBLIC_HARDENING_ENABLED)};"
+        f"window.__PUBLIC_BLOCKED_TOOL_PREFIXES__ = {json.dumps(list(_PUBLIC_BLOCKED_TOOL_PREFIXES))};"
+        f"window.__PUBLIC_BLOCKED_TOOLS__ = {json.dumps(sorted(_PUBLIC_BLOCKED_TOOLS))};"
         "</script>"
     )
     if "</head>" in content:
@@ -17254,7 +17595,10 @@ async def _handle_streamable_rpc(obj: dict, client_id: str) -> dict | None:
             "env_report, agent_delegate, agent_chat_inject, agent_chat_sessions, "
             "agent_chat_result, agent_chat_purge, workflow_execute, hf_cache_status, "
             "hf_cache_clear, capsule_restart, persist_status, persist_restore_revision, "
-            "product_bundle_profiles, and product_bundle_export."
+            "product_bundle_profiles, and product_bundle_export. If the operator says "
+            "continuity, run continuity_status, then continuity_restore(summary=<objective + "
+            "subject + pivot>, cwd=<repo>), then env_help(topic='continuity_reacclimation'). "
+            "Do not ask for a tool literally named continuity before checking tools/list."
         )
         return {
             "jsonrpc": "2.0",
@@ -17294,6 +17638,7 @@ async def _handle_streamable_rpc(obj: dict, client_id: str) -> dict | None:
                     td["inputSchema"] = schema if isinstance(schema, dict) else (schema.model_dump() if hasattr(schema, "model_dump") else {})
                 tools_list.append(td)
             tools_list = _agent_augment_tools_list(tools_list)
+            tools_list = _public_filter_tools_list(tools_list)
             tools_list = _filter_external_mcp_tools_list(tools_list)
             return {"jsonrpc": "2.0", "id": rpc_id, "result": {"tools": tools_list}}
         except Exception as e:
@@ -17309,6 +17654,9 @@ async def _handle_streamable_rpc(obj: dict, client_id: str) -> dict | None:
         args = params.get("arguments", {})
         if not isinstance(args, dict):
             args = _coerce_tool_arguments(args)
+
+        if _public_tool_blocked(tool_name):
+            return _rpc_error(rpc_id, -32020, "Public exposure hardening blocked this tool", _public_tool_block_payload(tool_name))
 
         if tool_name in ("workflow_create", "workflow_update") and "definition" in args:
             _def_obj, _def_err = _workflow_load_definition(args.get("definition"))
