@@ -38,6 +38,7 @@ import time
 import uuid
 import persistence
 import pack_storage
+from cocoon_adapter import COCOON_TOOL_SPECS, CocoonManager
 from continuity_restore import continuity_restore_payload, continuity_status_payload
 
 # Ensure Starlette static serving emits correct MIME for audio container files.
@@ -108,6 +109,7 @@ _PUBLIC_BLOCKED_ROUTE_PREFIXES = (
     "/api/persist",
     "/api/agent_chat",
     "/api/dreamer",
+    "/api/cocoon",
     "/api/vast",
     "/api/packs",
     "/pi-router",
@@ -136,6 +138,15 @@ _PUBLIC_BLOCKED_TOOLS = frozenset({
     "persist_restore_revision",
     "product_bundle_profiles",
     "product_bundle_export",
+    "cocoon_import",
+    "cocoon_list",
+    "cocoon_info",
+    "cocoon_start",
+    "cocoon_stop",
+    "cocoon_chat",
+    "cocoon_teach",
+    "cocoon_act",
+    "cocoon_plug_slot",
     "plug_model",
     "hub_plug",
     "unplug_slot",
@@ -1581,6 +1592,11 @@ WEB_HOST = (os.environ.get("WEB_HOST", "0.0.0.0") or "0.0.0.0").strip() or "0.0.
 WEB_PORT = int(os.environ.get("WEB_PORT", "7860"))
 CAPSULE_PATH = Path("capsule/champion_gen8.py")
 MCP_BASE = f"http://127.0.0.1:{MCP_PORT}"
+_COCOON_STATE_ROOT = Path(
+    os.environ.get("COCOON_STATE_DIR")
+    or (Path(os.environ.get("PERSISTENCE_DATA_DIR", "data/champion-council-state")) / "cocoons")
+)
+_cocoon_manager = CocoonManager(_COCOON_STATE_ROOT, python_executable=sys.executable, web_port=WEB_PORT)
 _MCP_TOOL_TIMEOUT_SECONDS = max(8, int(os.environ.get("MCP_TOOL_TIMEOUT_SECONDS", "600")))
 _MCP_SESSION_READ_TIMEOUT_SECONDS = max(
     _MCP_TOOL_TIMEOUT_SECONDS + 60,
@@ -2005,9 +2021,14 @@ def start_capsule():
         print(f"[WARN] Capsule not found at {CAPSULE_PATH}")
         return False
 
-    env = {**os.environ, "MCP_PORT": str(MCP_PORT)}
+    env = {**os.environ, "MCP_PORT": str(MCP_PORT), "PYTHONNOUSERSITE": str(os.environ.get("PYTHONNOUSERSITE", "1"))}
+    capsule_boot = (
+        "import runpy; "
+        f"mod = runpy.run_path({repr(str(CAPSULE_PATH.resolve()))}, run_name='champion_capsule_boot'); "
+        "mod['main']()"
+    )
     capsule_process = subprocess.Popen(
-        [sys.executable, "-u", str(CAPSULE_PATH), "--mcp-remote", "--port", str(MCP_PORT)],
+        [sys.executable, "-u", "-c", capsule_boot, "--mcp-remote", "--port", str(MCP_PORT)],
         env=env,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
@@ -3873,6 +3894,7 @@ _AGENT_LOCAL_TOOL_SPECS = {
             }
         }
     },
+    **COCOON_TOOL_SPECS,
     "env_report": {
         "description": "Build a scoped, theater-first diagnostic report over live environment state using a registered report recipe.",
         "inputSchema": {
@@ -12347,6 +12369,9 @@ async def _workflow_call_local_proxy_tool(tool_name: str, args: dict, source: st
     product_bundle_payload = await _product_bundle_local_tool(tool_name, args)
     if product_bundle_payload is not None:
         return product_bundle_payload
+    cocoon_payload = await _cocoon_manager.handle_tool(tool_name, args, plug_callback=_call_tool)
+    if cocoon_payload is not None:
+        return cocoon_payload
     if tool_name == "workflow_status":
         execution_id = str(args.get("execution_id", "") or "").strip()
         if not execution_id:
@@ -13256,6 +13281,18 @@ async def proxy_tool_call(tool_name: str, request: Request):
         if err_msg:
             return JSONResponse(status_code=400, content=product_bundle_payload)
         return {"result": {"content": [{"type": "text", "text": json.dumps(product_bundle_payload)}], "isError": False}}
+
+    cocoon_payload = await _cocoon_manager.handle_tool(
+        tool_name,
+        body if isinstance(body, dict) else {},
+        plug_callback=_call_tool,
+    )
+    if cocoon_payload is not None:
+        err_msg = cocoon_payload.get("error") if isinstance(cocoon_payload, dict) else None
+        _broadcast_activity(tool_name, body if isinstance(body, dict) else {}, cocoon_payload, 0, err_msg, source=source, client_id=client_id)
+        if err_msg:
+            return JSONResponse(status_code=503, content=cocoon_payload)
+        return {"result": {"content": [{"type": "text", "text": json.dumps(cocoon_payload)}], "isError": False}}
 
     if tool_name == "workflow_status":
         args = body if isinstance(body, dict) else {}
@@ -16730,6 +16767,72 @@ async def pi_router_audio_speech_provider(provider: str, request: Request):
     return _pi_router_feature_not_supported(provider_name, "audio speech")
 
 
+def _cocoon_error_response(payload: dict, default_status: int = 503) -> JSONResponse:
+    err = str((payload or {}).get("error") or "")
+    err_lower = err.lower()
+    status = 404 if "not found" in err_lower or "no managed cocoon" in err_lower else default_status
+    return JSONResponse(status_code=status, content=payload)
+
+
+@app.get("/api/cocoon/{cocoon_id}/v1/models")
+async def cocoon_openai_models(cocoon_id: str):
+    payload = await _cocoon_manager.openai_models(cocoon_id)
+    if isinstance(payload, dict) and payload.get("error"):
+        return _cocoon_error_response(payload)
+    return JSONResponse(content=payload)
+
+
+@app.post("/api/cocoon/{cocoon_id}/v1/chat/completions")
+async def cocoon_openai_chat_completions(cocoon_id: str, request: Request):
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    payload = await _cocoon_manager.openai_chat(cocoon_id, body if isinstance(body, dict) else {})
+    if isinstance(payload, dict) and payload.get("error"):
+        return _cocoon_error_response(payload)
+    return JSONResponse(content=payload)
+
+
+@app.post("/api/cocoon/{cocoon_id}/v1/completions")
+async def cocoon_openai_completions(cocoon_id: str, request: Request):
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    body = body if isinstance(body, dict) else {}
+    prompt = body.get("prompt", "")
+    if isinstance(prompt, list):
+        prompt = "\n".join(str(p) for p in prompt)
+    payload = await _cocoon_manager.openai_chat(cocoon_id, {**body, "prompt": str(prompt)})
+    if isinstance(payload, dict) and payload.get("error"):
+        return _cocoon_error_response(payload)
+    text = (((payload.get("choices") or [{}])[0].get("message") or {}).get("content") or "") if isinstance(payload, dict) else ""
+    return JSONResponse(content={
+        "id": str(payload.get("id") or ("cmpl-cocoon-" + uuid.uuid4().hex)),
+        "object": "text_completion",
+        "created": int(payload.get("created") or time.time()),
+        "model": str(body.get("model") or f"cocoon:{cocoon_id}"),
+        "choices": [{"index": 0, "text": text, "finish_reason": "stop"}],
+        "usage": payload.get("usage", {}) if isinstance(payload, dict) else {},
+        "cocoon": payload.get("cocoon", {}) if isinstance(payload, dict) else {},
+    })
+
+
+@app.post("/api/cocoon/{cocoon_id}/chat")
+async def cocoon_native_chat(cocoon_id: str, request: Request):
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    args = dict(body) if isinstance(body, dict) else {}
+    args["cocoon_id"] = cocoon_id
+    payload = await _cocoon_manager.chat(args)
+    if isinstance(payload, dict) and payload.get("error"):
+        return _cocoon_error_response(payload)
+    return JSONResponse(content=payload)
+
+
 @app.get("/api/activity-stream")
 async def activity_stream():
     """SSE stream of tool call activity for the web UI Activity tab.
@@ -17873,6 +17976,14 @@ async def _handle_streamable_rpc(obj: dict, client_id: str) -> dict | None:
             if err_msg:
                 return _rpc_error(rpc_id, -32603, err_msg, product_bundle_payload)
             return {"jsonrpc": "2.0", "id": rpc_id, "result": {"content": [{"type": "text", "text": json.dumps(product_bundle_payload)}], "isError": False}}
+
+        cocoon_payload = await _cocoon_manager.handle_tool(tool_name, args, plug_callback=_call_tool)
+        if cocoon_payload is not None:
+            err_msg = cocoon_payload.get("error") if isinstance(cocoon_payload, dict) else None
+            _broadcast_activity(tool_name, args, cocoon_payload, 0, err_msg, source="external", client_id=client_id)
+            if err_msg:
+                return _rpc_error(rpc_id, -32603, err_msg, cocoon_payload)
+            return {"jsonrpc": "2.0", "id": rpc_id, "result": {"content": [{"type": "text", "text": json.dumps(cocoon_payload)}], "isError": False}}
 
         if tool_name == "workflow_status":
             execution_id = str(args.get("execution_id", "") or "").strip()
