@@ -18,12 +18,29 @@ from urllib.parse import quote
 import httpx
 
 
-DEFAULT_COCOON_ZIP = Path(
-    os.environ.get(
-        "COCOON_DEFAULT_ZIP",
-        r"D:\End-Game\Convergence_Engine\Children\cocoon_ensemble_20260428083531.zip",
-    )
+DEFAULT_COCOON_ZIP_ENV = os.environ.get("COCOON_DEFAULT_ZIP", "").strip()
+DEFAULT_COCOON_SEARCH_DIR = Path(
+    os.environ.get("COCOON_DEFAULT_DIR", r"D:\End-Game\Convergence_Engine\Children")
 )
+DEFAULT_COCOON_ZIP = Path(
+    DEFAULT_COCOON_ZIP_ENV or str(DEFAULT_COCOON_SEARCH_DIR / "cocoon_ensemble_20260428083531.zip")
+)
+
+
+def _latest_default_cocoon_zip() -> Path:
+    if DEFAULT_COCOON_ZIP_ENV:
+        return Path(DEFAULT_COCOON_ZIP_ENV).expanduser()
+    try:
+        candidates = [
+            path
+            for path in DEFAULT_COCOON_SEARCH_DIR.expanduser().glob("cocoon_ensemble_*.zip")
+            if path.is_file()
+        ]
+        if candidates:
+            return max(candidates, key=lambda path: path.stat().st_mtime)
+    except Exception:
+        pass
+    return DEFAULT_COCOON_ZIP
 
 
 COCOON_TOOL_SPECS: dict[str, dict[str, Any]] = {
@@ -82,7 +99,7 @@ COCOON_TOOL_SPECS: dict[str, dict[str, Any]] = {
             "properties": {
                 "cocoon_id": {"type": "string", "description": "Managed Cocoon id"},
                 "prompt": {"type": "string", "description": "Prompt text"},
-                "learn": {"type": "boolean", "description": "Allow Cocoon post-snapshot learning from the prompt"},
+                "learn": {"type": "boolean", "description": "Allow Cocoon post-snapshot learning from the prompt; defaults false"},
                 "auto_start": {"type": "boolean", "description": "Start the Cocoon server if needed"},
             },
             "required": ["prompt"],
@@ -202,6 +219,114 @@ COCOON_TOOL_SPECS: dict[str, dict[str, Any]] = {
         "inputSchema": {
             "type": "object",
             "properties": {"cocoon_id": {"type": "string", "description": "Managed Cocoon id"}},
+        },
+    },
+    "cocoon_curriculum": {
+        "description": "Read a managed Cocoon's staged language/RL curriculum from its native /curriculum endpoint.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "cocoon_id": {"type": "string", "description": "Managed Cocoon id"},
+                "auto_start": {"type": "boolean", "description": "Start the Cocoon server if needed"},
+            },
+        },
+    },
+    "cocoon_training_logs": {
+        "description": "Read recent post-export Cocoon learning trace entries from /training/logs.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "cocoon_id": {"type": "string", "description": "Managed Cocoon id"},
+                "limit": {"type": "integer", "description": "Maximum log entries to return"},
+                "auto_start": {"type": "boolean", "description": "Start the Cocoon server if needed"},
+            },
+        },
+    },
+    "cocoon_score": {
+        "description": "Submit an outside coach reward score to /curriculum/score without injecting prompt text as speaker dialogue.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "cocoon_id": {"type": "string", "description": "Managed Cocoon id"},
+                "event_type": {"type": "string"},
+                "stage": {"type": "string"},
+                "input": {"type": "string"},
+                "target": {"type": "string"},
+                "output": {"type": "string"},
+                "reward": {"type": "number"},
+                "score": {"type": "object"},
+                "coach": {"type": "string"},
+                "auto_start": {"type": "boolean", "description": "Start the Cocoon server if needed"},
+            },
+        },
+    },
+    "cocoon_snapshot": {
+        "description": "Read live symbolic/training state from a managed Cocoon's native /snapshot endpoint.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "cocoon_id": {"type": "string", "description": "Managed Cocoon id"},
+                "auto_start": {"type": "boolean", "description": "Start the Cocoon server if needed"},
+            },
+        },
+    },
+    "cocoon_save": {
+        "description": "Persist live symbolic Cocoon state through its native /save endpoint.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "cocoon_id": {"type": "string", "description": "Managed Cocoon id"},
+                "output_dir": {"type": "string", "description": "Output directory under the managed Cocoon directory"},
+                "auto_start": {"type": "boolean", "description": "Start the Cocoon server if needed"},
+            },
+        },
+    },
+    "cocoon_export": {
+        "description": "Export learned live Cocoon state into an updated cocoon.py through the native /export endpoint.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "cocoon_id": {"type": "string", "description": "Managed Cocoon id"},
+                "path": {"type": "string", "description": "Output path under the managed Cocoon directory"},
+                "auto_start": {"type": "boolean", "description": "Start the Cocoon server if needed"},
+            },
+        },
+    },
+    "cocoon_clone_from_live": {
+        "description": "Fork a managed Cocoon directory and replace cocoon.py with a live-state export.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "cocoon_id": {"type": "string", "description": "Managed Cocoon id to clone"},
+                "new_cocoon_id": {"type": "string", "description": "New managed Cocoon id"},
+                "overwrite": {"type": "boolean", "description": "Replace an existing clone with the same id"},
+                "auto_start": {"type": "boolean", "description": "Start the Cocoon server if needed"},
+            },
+        },
+    },
+    "cocoon_dreamer_observe": {
+        "description": "Record a game/runtime observation through a Cocoon's native /dreamer/observe endpoint.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "cocoon_id": {"type": "string", "description": "Managed Cocoon id"},
+                "game": {"type": "string"},
+                "observation": {"type": "object"},
+                "reward": {"type": "number"},
+                "done": {"type": "boolean"},
+                "auto_start": {"type": "boolean", "description": "Start the Cocoon server if needed"},
+            },
+        },
+    },
+    "cocoon_dreamer_propose": {
+        "description": "Ask a Cocoon for observation-driven game/training proposals through /dreamer/propose.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "cocoon_id": {"type": "string", "description": "Managed Cocoon id"},
+                "env": {"type": "string", "description": "Optional Gym environment hint"},
+                "auto_start": {"type": "boolean", "description": "Start the Cocoon server if needed"},
+            },
         },
     },
     "cocoon_plug_slot": {
@@ -346,7 +471,22 @@ class CocoonManager:
         return self.root / _safe_slug(cocoon_id)
 
     def _default_path(self) -> Path:
-        return DEFAULT_COCOON_ZIP
+        return _latest_default_cocoon_zip()
+
+    def _managed_output_path(self, record: dict[str, Any], value: Any, default_name: str) -> tuple[Path | None, str | None]:
+        base = Path(str(record.get("path") or "")).resolve()
+        raw = str(value or "").strip()
+        output = Path(raw).expanduser() if raw else Path(default_name)
+        if not output.is_absolute():
+            output = base / output
+        try:
+            resolved = output.resolve()
+            if not _inside(resolved, base):
+                return None, f"Refusing to write outside active managed Cocoon directory: {resolved}"
+            resolved.parent.mkdir(parents=True, exist_ok=True)
+            return resolved, None
+        except Exception as exc:
+            return None, str(exc)
 
     def _find_free_port(self) -> int:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -766,27 +906,47 @@ class CocoonManager:
             return None, started
         return {"record": record, "port": int(started["port"]), "base_url": str(started["base_url"]), "health": started.get("health")}, None
 
+    def _decode_native_response(self, resp: httpx.Response) -> tuple[Any, dict[str, Any]]:
+        if not resp.content:
+            return {}, {}
+        try:
+            return resp.json(), {}
+        except Exception as exc:
+            return {}, {"text_preview": resp.text[:1000], "json_error": str(exc)}
+
     async def _post_native(self, port: int, endpoint: str, payload: dict[str, Any]) -> dict[str, Any]:
         url = f"http://127.0.0.1:{port}{endpoint}"
         try:
             async with httpx.AsyncClient(timeout=60.0) as client:
                 resp = await client.post(url, json=payload)
-            data = resp.json() if resp.content else {}
+            data, decode_meta = self._decode_native_response(resp)
+            result = {"status_code": resp.status_code, "url": url, "data": data, **decode_meta}
             if 200 <= resp.status_code < 300:
-                return {"status": "ok", "status_code": resp.status_code, "url": url, "data": data}
-            return {"error": f"HTTP {resp.status_code}", "status_code": resp.status_code, "url": url, "data": data}
+                return {"status": "ok", **result}
+            return {"error": f"HTTP {resp.status_code}", **result}
         except Exception as exc:
             return {"error": str(exc), "url": url}
+
+    def _unsupported_native_contract(self, payload: dict[str, Any], endpoint: str) -> dict[str, Any]:
+        if payload.get("status_code") == 404:
+            payload = dict(payload)
+            payload["unsupported"] = True
+            payload["message"] = (
+                f"{endpoint} is not available on this Cocoon build. "
+                "Re-export from the newer Convergence compiler to enable the curriculum/runtime contract."
+            )
+        return payload
 
     async def _get_native(self, port: int, endpoint: str) -> dict[str, Any]:
         url = f"http://127.0.0.1:{port}{endpoint}"
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 resp = await client.get(url)
-            data = resp.json() if resp.content else {}
+            data, decode_meta = self._decode_native_response(resp)
+            result = {"status_code": resp.status_code, "url": url, "data": data, **decode_meta}
             if 200 <= resp.status_code < 300:
-                return {"status": "ok", "status_code": resp.status_code, "url": url, "data": data}
-            return {"error": f"HTTP {resp.status_code}", "status_code": resp.status_code, "url": url, "data": data}
+                return {"status": "ok", **result}
+            return {"error": f"HTTP {resp.status_code}", **result}
         except Exception as exc:
             return {"error": str(exc), "url": url}
 
@@ -801,7 +961,7 @@ class CocoonManager:
         reply = await self._post_native(
             int(runtime["port"]),
             "/chat",
-            {"prompt": prompt, "learn": bool(args.get("learn", True))},
+            {"prompt": prompt, "learn": _bool_arg(args.get("learn"), False)},
         )
         reply["cocoon_id"] = runtime["record"]["id"]
         return reply
@@ -1078,6 +1238,12 @@ class CocoonManager:
         args = args or {}
         record, err = await self._ensure_record(str(args.get("cocoon_id") or ""), args, auto_import=False)
         cocoon_id = record.get("id") if record else str(args.get("cocoon_id") or "")
+        native_contract: dict[str, Any] | None = None
+        if record and args.get("auto_start"):
+            runtime, runtime_err = await self._ensure_started(args)
+            if runtime and not runtime_err:
+                native_contract = await self._get_native(int(runtime["port"]), "/capabilities")
+                native_contract = self._unsupported_native_contract(native_contract, "/capabilities")
         return {
             "status": "ok" if record else "partial",
             "cocoon_id": cocoon_id,
@@ -1093,21 +1259,168 @@ class CocoonManager:
                 "independent_clone_import": True,
                 "headless_sphere_game": True,
                 "gym_cartpole_game": True,
+                "curriculum_runtime_contract": bool(
+                    native_contract and not native_contract.get("error") and not native_contract.get("unsupported")
+                ),
             },
             "active_seams": {
-                "persistent_post_runtime_learning": "Native chat/teach/learn updates live memory; durable export/save is not fully wired into Council yet.",
+                "persistent_post_runtime_learning": "Native teach/learn updates live memory; durable export/save requires a newer Cocoon build with /save and /export.",
                 "tool_use": "Not native. Cocoon is RL/game-oriented; Council can wrap it, but it does not currently emit reliable tool-call JSON.",
                 "embeddings": "RemoteProviderProxy advertises encode generically; Cocoon shim does not yet provide a real embedding lane.",
                 "visual_game_processes": "Headless game spawning is safe. Visible pygame spawning may need an interactive desktop window policy.",
-                "dreamer_bridge": "Dreamer-style observation/proposal surfaces can wrap Cocoon games, but that connector is not implemented yet.",
+                "dreamer_bridge": "Council can call Cocoon /dreamer/observe and /dreamer/propose when the runtime exposes them; normalized game telemetry is still a follow-up.",
             },
             "recommended_next_connectors": [
-                "cocoon_save_or_export to persist learned runtime state",
-                "cocoon_clone_from_live to fork learned state instead of source ZIP state",
+                "Regenerate Cocoon ZIPs with the current Convergence compiler so /curriculum, /snapshot, /save, and /export exist.",
                 "cocoon_game_observation to normalize game telemetry into Council/Dreamer state",
-                "cocoon_curriculum to run connector-word and game-reward training batches",
+                "convergence_adapter to operate the full remote Convergence facility as a facade slot",
             ],
+            "manager_tools": sorted(COCOON_TOOL_SPECS.keys()),
+            "native_contract": native_contract,
         }
+
+    async def curriculum(self, args: dict[str, Any] | None = None) -> dict[str, Any]:
+        runtime, err = await self._ensure_started(args or {})
+        if err or not runtime:
+            return err or {"error": "Cocoon runtime unavailable"}
+        result = await self._get_native(int(runtime["port"]), "/curriculum")
+        result["cocoon_id"] = runtime["record"]["id"]
+        return self._unsupported_native_contract(result, "/curriculum")
+
+    async def training_logs(self, args: dict[str, Any] | None = None) -> dict[str, Any]:
+        args = args or {}
+        runtime, err = await self._ensure_started(args)
+        if err or not runtime:
+            return err or {"error": "Cocoon runtime unavailable"}
+        limit = _int_arg(args.get("limit"), 100, minimum=1, maximum=1000)
+        result = await self._get_native(int(runtime["port"]), f"/training/logs?limit={limit}")
+        result["cocoon_id"] = runtime["record"]["id"]
+        return self._unsupported_native_contract(result, "/training/logs")
+
+    async def score(self, args: dict[str, Any] | None = None) -> dict[str, Any]:
+        args = args or {}
+        runtime, err = await self._ensure_started(args)
+        if err or not runtime:
+            return err or {"error": "Cocoon runtime unavailable"}
+        payload = {
+            "event_type": str(args.get("event_type") or "curriculum_score"),
+            "stage": str(args.get("stage") or "curriculum"),
+            "input": str(args.get("input") or ""),
+            "target": str(args.get("target") or ""),
+            "output": str(args.get("output") or ""),
+            "reward": float(args.get("reward", 0.0) or 0.0),
+            "coach": str(args.get("coach") or "champion_council"),
+        }
+        if isinstance(args.get("score"), dict):
+            payload["score"] = args["score"]
+        result = await self._post_native(int(runtime["port"]), "/curriculum/score", payload)
+        result["cocoon_id"] = runtime["record"]["id"]
+        return self._unsupported_native_contract(result, "/curriculum/score")
+
+    async def snapshot(self, args: dict[str, Any] | None = None) -> dict[str, Any]:
+        runtime, err = await self._ensure_started(args or {})
+        if err or not runtime:
+            return err or {"error": "Cocoon runtime unavailable"}
+        result = await self._get_native(int(runtime["port"]), "/snapshot")
+        result["cocoon_id"] = runtime["record"]["id"]
+        return self._unsupported_native_contract(result, "/snapshot")
+
+    async def save(self, args: dict[str, Any] | None = None) -> dict[str, Any]:
+        args = args or {}
+        runtime, err = await self._ensure_started(args)
+        if err or not runtime:
+            return err or {"error": "Cocoon runtime unavailable"}
+        output_dir, path_err = self._managed_output_path(runtime["record"], args.get("output_dir"), "live_state")
+        if path_err or not output_dir:
+            return {"error": path_err or "Invalid output_dir"}
+        result = await self._post_native(int(runtime["port"]), "/save", {"output_dir": str(output_dir)})
+        result["cocoon_id"] = runtime["record"]["id"]
+        result["output_dir"] = str(output_dir)
+        return self._unsupported_native_contract(result, "/save")
+
+    async def export(self, args: dict[str, Any] | None = None) -> dict[str, Any]:
+        args = args or {}
+        runtime, err = await self._ensure_started(args)
+        if err or not runtime:
+            return err or {"error": "Cocoon runtime unavailable"}
+        output_path, path_err = self._managed_output_path(runtime["record"], args.get("path"), "evolved_cocoon.py")
+        if path_err or not output_path:
+            return {"error": path_err or "Invalid path"}
+        result = await self._post_native(int(runtime["port"]), "/export", {"path": str(output_path)})
+        result["cocoon_id"] = runtime["record"]["id"]
+        result["path"] = str(output_path)
+        return self._unsupported_native_contract(result, "/export")
+
+    async def clone_from_live(self, args: dict[str, Any] | None = None) -> dict[str, Any]:
+        args = args or {}
+        runtime, err = await self._ensure_started(args)
+        if err or not runtime:
+            return err or {"error": "Cocoon runtime unavailable"}
+        source_record = runtime["record"]
+        source_id = str(source_record.get("id") or "cocoon")
+        clone_id = _safe_slug(str(args.get("new_cocoon_id") or args.get("clone_id") or f"{source_id}-live-{int(time.time())}"))
+        source_dir = Path(str(source_record.get("path") or "")).resolve()
+        dest = self._managed_dir(clone_id).resolve()
+        overwrite = bool(args.get("overwrite", False))
+        if not _inside(source_dir, self.root.resolve()):
+            return {"error": f"Source Cocoon is outside manager root: {source_dir}"}
+        if dest.exists() and not overwrite:
+            return {"error": f"Managed clone already exists: {clone_id}", "cocoon_id": clone_id, "path": str(dest)}
+        if dest.exists():
+            if not _inside(dest, self.root.resolve()):
+                return {"error": f"Refusing to overwrite outside manager root: {dest}"}
+            await asyncio.to_thread(shutil.rmtree, dest)
+        await asyncio.to_thread(shutil.copytree, source_dir, dest)
+        export_result = await self._post_native(int(runtime["port"]), "/export", {"path": str(dest / "cocoon.py")})
+        export_result = self._unsupported_native_contract(export_result, "/export")
+        if export_result.get("error"):
+            if _inside(dest, self.root.resolve()) and dest.exists():
+                await asyncio.to_thread(shutil.rmtree, dest)
+            return {"error": export_result.get("error"), "cocoon_id": clone_id, "export": export_result}
+        inspect = await asyncio.to_thread(self._inspect_dir, dest, run_info=False)
+        async with self._lock:
+            registry = self._load_registry()
+            record = {
+                "id": clone_id,
+                "source_path": f"live_clone:{source_id}",
+                "source_cocoon_id": source_id,
+                "path": str(dest),
+                "imported_at": time.time(),
+                "updated_at": time.time(),
+                "inspect": inspect,
+                "clone": {"source_cocoon_id": source_id, "export": export_result},
+            }
+            registry["cocoons"][clone_id] = record
+            registry["default_id"] = clone_id
+            self._save_registry(registry)
+        return {"status": "ok", "cocoon_id": clone_id, "source_cocoon_id": source_id, "record": record}
+
+    async def dreamer_observe(self, args: dict[str, Any] | None = None) -> dict[str, Any]:
+        args = args or {}
+        runtime, err = await self._ensure_started(args)
+        if err or not runtime:
+            return err or {"error": "Cocoon runtime unavailable"}
+        payload = {
+            "game": str(args.get("game") or "unknown"),
+            "observation": args.get("observation") if isinstance(args.get("observation"), dict) else args,
+            "reward": args.get("reward"),
+            "done": _bool_arg(args.get("done"), False),
+        }
+        result = await self._post_native(int(runtime["port"]), "/dreamer/observe", payload)
+        result["cocoon_id"] = runtime["record"]["id"]
+        return self._unsupported_native_contract(result, "/dreamer/observe")
+
+    async def dreamer_propose(self, args: dict[str, Any] | None = None) -> dict[str, Any]:
+        args = args or {}
+        runtime, err = await self._ensure_started(args)
+        if err or not runtime:
+            return err or {"error": "Cocoon runtime unavailable"}
+        payload: dict[str, Any] = {}
+        if args.get("env"):
+            payload["env"] = str(args.get("env"))
+        result = await self._post_native(int(runtime["port"]), "/dreamer/propose", payload)
+        result["cocoon_id"] = runtime["record"]["id"]
+        return self._unsupported_native_contract(result, "/dreamer/propose")
 
     async def vocab(self, cocoon_id: str = "") -> dict[str, Any]:
         runtime, err = await self._ensure_started({"cocoon_id": cocoon_id})
@@ -1174,7 +1487,7 @@ class CocoonManager:
             {
                 "cocoon_id": cocoon_id,
                 "prompt": prompt,
-                "learn": bool(payload.get("learn", True)) if isinstance(payload, dict) else True,
+                "learn": _bool_arg(payload.get("learn"), False) if isinstance(payload, dict) else False,
                 "auto_start": True,
             }
         )
@@ -1249,6 +1562,24 @@ class CocoonManager:
             return await self.vocab_check(args)
         if tool_name == "cocoon_capabilities":
             return await self.capabilities(args)
+        if tool_name == "cocoon_curriculum":
+            return await self.curriculum(args)
+        if tool_name == "cocoon_training_logs":
+            return await self.training_logs(args)
+        if tool_name == "cocoon_score":
+            return await self.score(args)
+        if tool_name == "cocoon_snapshot":
+            return await self.snapshot(args)
+        if tool_name == "cocoon_save":
+            return await self.save(args)
+        if tool_name == "cocoon_export":
+            return await self.export(args)
+        if tool_name == "cocoon_clone_from_live":
+            return await self.clone_from_live(args)
+        if tool_name == "cocoon_dreamer_observe":
+            return await self.dreamer_observe(args)
+        if tool_name == "cocoon_dreamer_propose":
+            return await self.dreamer_propose(args)
         if tool_name == "cocoon_plug_slot":
             return await self.plug_slot(args, plug_callback)
         return None

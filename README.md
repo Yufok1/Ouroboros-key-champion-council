@@ -33,6 +33,8 @@ If you want one single-file external handoff that explains the current system wi
 
 If you want the short public-facing version, use [`docs/CHAMPION_COUNCIL_PUBLIC_OVERVIEW_2026-04-22.md`](docs/CHAMPION_COUNCIL_PUBLIC_OVERVIEW_2026-04-22.md).
 
+If you want the capsule/quine origin of `capsule/champion_gen8.py`, use [`docs/CHAMPION_GEN8_ORIGIN_AND_QUINE_SYSTEM_OVERVIEW_2026-04-27.md`](docs/CHAMPION_GEN8_ORIGIN_AND_QUINE_SYSTEM_OVERVIEW_2026-04-27.md).
+
 ## What It Is
 
 Champion Council is built around one core rule:

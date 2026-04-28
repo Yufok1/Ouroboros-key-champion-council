@@ -9,6 +9,7 @@ __pycache__/
 # Root runtime artifacts
 data/
 exports/
+capsule_state_*.pt
 capsule/.bag_state.json
 capsule/.mcp_server.log
 capsule/.relay_center.cmd
@@ -59,6 +60,10 @@ static/assets/**/.cache/
 
 # Public repo staging lives as its own nested Git repo
 docs/brotology/public_repo_root/
+docs/brotology/audible..istaken/
+
+# Local sidecar experiments live outside the tracked Council payload
+Holo-Ghost/
 
 # Local NotebookLM podcast exports in the Brotology lane
 docs/brotology/*.m4a
