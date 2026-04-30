@@ -13,6 +13,7 @@ capsule_state_*.pt
 capsule/.bag_state.json
 capsule/.mcp_server.log
 capsule/.relay_center.cmd
+capsule/*.bak_*
 capsule/champion_gen8.py
 capsule/champion_gen8_bag_of_tricks/
 capsule/quine_*.py
@@ -64,6 +65,7 @@ docs/brotology/audible..istaken/
 
 # Local sidecar experiments live outside the tracked Council payload
 Holo-Ghost/
+model_repos/
 
 # Local NotebookLM podcast exports in the Brotology lane
 docs/brotology/*.m4a

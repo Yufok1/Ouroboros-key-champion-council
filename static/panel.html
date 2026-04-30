@@ -11908,6 +11908,22 @@
                 </div>
             </div>
 
+            <div class="diag-section" style="padding:16px;margin-bottom:20px;">
+                <div
+                    style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">
+                    eDREAMER FCS</div>
+                <div id="dr-fcs-strip" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;font-size:10px;"></div>
+                <div id="dr-fcs-summary" style="font-size:10px;color:var(--text-dim);line-height:1.6;margin-bottom:10px;">
+                    Waiting for FCS preflight...
+                </div>
+                <div id="dr-fcs-gates"
+                    style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px;font-size:10px;margin-bottom:12px;"></div>
+                <div style="display:flex;gap:8px;">
+                    <button onclick="dreamerRefreshPreview()" style="flex:1;font-size:10px;">PREFLIGHT</button>
+                    <button onclick="dreamerFcsStep()" style="flex:1;font-size:10px;">FCS STEP</button>
+                </div>
+            </div>
+
             <div style="display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,0.8fr);gap:16px;margin-bottom:20px;">
                 <div class="diag-section" style="padding:16px;">
                     <div
@@ -12638,7 +12654,7 @@
             }
         })();
     </script>
-    <script src="/static/main.js?v=133a"></script>
+    <script src="/static/main.js?v=133b"></script>
 
     <!-- ═══════════════ DREAMER + GPU FLEET TAB JS ═══════════════ -->
     <script>
@@ -12758,6 +12774,7 @@
                 renderDreamerTrainingHealth(s.history || {}, d);
                 renderDreamerTrail(s.history || {}, s);
                 renderDreamerGrounding(d, mechanics);
+                renderDreamerFcs(s);
                 renderDreamerProposal(proposalPreview, s.history || {});
                 renderDreamerFieldDocument(s, mechanics, proposalPreview);
             }
@@ -13116,6 +13133,55 @@
                 }).join('') || '<div style="color:var(--text-dim);font-size:10px;">No correction vocabulary available.</div>';
             }
 
+            function renderDreamerFcs(state) {
+                const strip = document.getElementById('dr-fcs-strip');
+                const summary = document.getElementById('dr-fcs-summary');
+                const gatesEl = document.getElementById('dr-fcs-gates');
+                if (!strip || !summary || !gatesEl) return;
+                const fcs = (state && state.fcs) || {};
+                if (!fcs.schema_id) {
+                    strip.innerHTML = [
+                        dreamerBadge('fcs', 'waiting', '#f59e0b'),
+                        dreamerBadge('endpoint', '/api/dreamer/fcs/status', '#60a5fa'),
+                    ].join('');
+                    summary.textContent = 'FCS preflight has not reported yet.';
+                    gatesEl.innerHTML = '<div style="color:var(--text-dim);">No FCS gates sampled yet.</div>';
+                    return;
+                }
+                const phase = String(fcs.phase || 'preflight');
+                const phaseColor = phase === 'closed_loop_ready' ? '#22c55e'
+                    : phase === 'manual_step_ready' ? '#34d399'
+                        : phase === 'blocked' ? '#ef4444'
+                            : '#f59e0b';
+                const buffers = fcs.buffers || {};
+                const runtime = fcs.runtime || {};
+                const best = fcs.best_action || {};
+                strip.innerHTML = [
+                    dreamerBadge('phase', phase, phaseColor),
+                    dreamerBadge('mode', fcs.mode || 'passive', '#a78bfa'),
+                    dreamerBadge('task', fcs.task || 'half_kneel_l', '#34d399'),
+                    dreamerBadge('can step', fcs.can_step ? 'yes' : 'no', fcs.can_step ? '#22c55e' : '#ef4444'),
+                    dreamerBadge('train truth', fcs.training_truth || 'unknown', '#60a5fa'),
+                    dreamerBadge('cycles', String(runtime.training_cycles || 0), '#f59e0b'),
+                    dreamerBadge('obs', String(buffers.obs_buffer_size || 0), '#60a5fa'),
+                    dreamerBadge('rewards', String(buffers.reward_buffer_size || buffers.reward_count || 0), '#34d399'),
+                ].join('');
+                summary.textContent = (fcs.summary || 'FCS preflight sampled.')
+                    + (best && (best.label || best.action_key) ? ' Best action: ' + (best.label || best.action_key) + ' (score ' + dreamerFmt(best.score, 3) + ').' : '');
+                const gates = Array.isArray(fcs.gates) ? fcs.gates : [];
+                gatesEl.innerHTML = gates.map((gate) => {
+                    const ok = !!gate.ok;
+                    const color = ok ? '#22c55e' : (gate.severity === 'warn' ? '#f59e0b' : '#ef4444');
+                    return '<div style="border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:10px;background:rgba(255,255,255,0.03);">'
+                        + '<div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:4px;">'
+                        + '<span style="font-weight:700;color:' + color + ';">' + (gate.label || gate.id || 'gate') + '</span>'
+                        + '<span style="color:' + color + ';font-weight:700;">' + (ok ? 'OK' : String(gate.severity || 'block').toUpperCase()) + '</span>'
+                        + '</div>'
+                        + '<div style="color:var(--text-dim);line-height:1.5;">' + (gate.detail || '') + '</div>'
+                        + '</div>';
+                }).join('') || '<div style="color:var(--text-dim);">No FCS gates available.</div>';
+            }
+
             function renderDreamerProposal(preview, history) {
                 const strip = document.getElementById('dr-proposal-strip');
                 const best = document.getElementById('dr-proposal-best');
@@ -13292,7 +13358,9 @@
 
             async function dreamerEpisodeRequest(path, body, pendingLabel) {
                 const status = document.getElementById('dr-proposal-status');
+                const fcsStatus = document.getElementById('dr-fcs-summary');
                 if (status && pendingLabel) status.textContent = pendingLabel;
+                if (fcsStatus && pendingLabel && String(path || '').indexOf('/fcs/') >= 0) fcsStatus.textContent = pendingLabel;
                 try {
                     const r = await fetch(path, {
                         method: 'POST',
@@ -13304,14 +13372,23 @@
                         if (r.ok && d && !d.error) status.textContent = d.summary || 'Dreamer outer-loop action completed.';
                         else status.textContent = (d && d.error) || ('Request failed (' + r.status + ')');
                     }
+                    if (fcsStatus && String(path || '').indexOf('/fcs/') >= 0) {
+                        if (r.ok && d && !d.error) fcsStatus.textContent = d.summary || 'eDreamer FCS step completed.';
+                        else fcsStatus.textContent = (d && d.error) || ('FCS request failed (' + r.status + ')');
+                    }
                 } catch (e) {
                     if (status) status.textContent = 'Request error: ' + e.message;
+                    if (fcsStatus && String(path || '').indexOf('/fcs/') >= 0) fcsStatus.textContent = 'FCS request error: ' + e.message;
                 }
                 await fetchDreamerState();
             }
 
             window.dreamerStepBest = async function () {
                 await dreamerEpisodeRequest('/api/dreamer/episode_step', {}, 'Applying best bounded Dreamer action...');
+            };
+
+            window.dreamerFcsStep = async function () {
+                await dreamerEpisodeRequest('/api/dreamer/fcs/step', {}, 'Running eDreamer FCS preflight and one bounded step...');
             };
 
             window.dreamerStepAction = async function (actionId) {

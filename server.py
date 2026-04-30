@@ -102,6 +102,8 @@ _PUBLIC_BLOCKED_ROUTE_EXACT = frozenset({
     "/api/capsule/restart",
     "/api/runtime/capacity",
     "/api/capsule-log",
+    "/api/env/capture",
+    "/api/live-sync",
 })
 _PUBLIC_BLOCKED_ROUTE_PREFIXES = (
     "/mcp",
@@ -2338,14 +2340,12 @@ app.add_middleware(NoCacheStaticMiddleware)
 @app.middleware("http")
 async def public_exposure_hardening_middleware(request: Request, call_next):
     if _public_path_blocked(request.url.path):
+        trace = _public_blocked_request_trace(request)
+        _public_log_blocked_request(trace)
         return JSONResponse(
             status_code=403,
-            content={
-                "error": "Public exposure hardening blocked this route",
-                "path": str(request.url.path or ""),
-                "mode": _EXPOSURE_MODE,
-                "reason": "Operator/private routes are disabled for public release surfaces.",
-            },
+            content=_public_blocked_route_payload(request.url.path, trace),
+            headers={"X-Public-Block-Id": str(trace.get("trace_id") or "")},
         )
     return await call_next(request)
 
@@ -2595,6 +2595,65 @@ def _public_path_blocked(path: str | None) -> bool:
     return any(text.startswith(prefix) for prefix in _PUBLIC_BLOCKED_ROUTE_PREFIXES)
 
 
+def _public_trace_text(value, limit: int) -> str:
+    text = str(value or "")
+    text = text.replace("\r", " ").replace("\n", " ").replace("\t", " ")
+    return text[:limit]
+
+
+def _public_blocked_request_trace(request: Request) -> dict:
+    trace_id = f"public-block-{int(time.time() * 1000)}"
+    forwarded_for = _public_trace_text(str(request.headers.get("x-forwarded-for") or "").split(",")[0].strip(), 80)
+    real_ip = _public_trace_text(request.headers.get("x-real-ip"), 80)
+    client_host = ""
+    try:
+        client_host = _public_trace_text(request.client.host if request.client else "", 80)
+    except Exception:
+        client_host = ""
+    origin = _public_trace_text(str(request.headers.get("origin") or "").strip(), 160)
+    referer_host = ""
+    try:
+        referer = str(request.headers.get("referer") or "").strip()
+        referer_host = _public_trace_text(urlparse(referer).netloc, 160) if referer else ""
+    except Exception:
+        referer_host = ""
+    return {
+        "trace_id": trace_id,
+        "method": _public_trace_text(request.method, 12),
+        "path": _public_trace_text(request.url.path, 220),
+        "client_host": client_host,
+        "forwarded_for": forwarded_for,
+        "real_ip": real_ip,
+        "origin": origin,
+        "referer_host": referer_host,
+        "user_agent": _public_trace_text(request.headers.get("user-agent"), 200),
+    }
+
+
+def _public_log_blocked_request(trace: dict) -> None:
+    try:
+        print(
+            "[PUBLIC-HARDENING] blocked request "
+            f"id={trace.get('trace_id')} method={trace.get('method')} path={trace.get('path')} "
+            f"tool={trace.get('tool') or ''} "
+            f"client={trace.get('client_host')} xff={trace.get('forwarded_for')} "
+            f"real_ip={trace.get('real_ip')} origin={trace.get('origin')} "
+            f"referer_host={trace.get('referer_host')} ua={trace.get('user_agent')}"
+        )
+    except Exception:
+        pass
+
+
+def _public_blocked_route_payload(path: str | None, trace: dict | None = None) -> dict:
+    return {
+        "error": "Public exposure hardening blocked this route",
+        "path": str(path or ""),
+        "mode": _EXPOSURE_MODE,
+        "trace_id": str((trace or {}).get("trace_id") or ""),
+        "reason": "Operator/private routes are disabled for public release surfaces.",
+    }
+
+
 def _public_tool_blocked(tool_name: str | None) -> bool:
     if not _PUBLIC_HARDENING_ENABLED:
         return False
@@ -2606,11 +2665,12 @@ def _public_tool_blocked(tool_name: str | None) -> bool:
     return any(text.startswith(prefix) for prefix in _PUBLIC_BLOCKED_TOOL_PREFIXES)
 
 
-def _public_tool_block_payload(tool_name: str | None) -> dict:
+def _public_tool_block_payload(tool_name: str | None, trace: dict | None = None) -> dict:
     return {
         "error": "Public exposure hardening blocked this tool",
         "tool": str(tool_name or ""),
         "mode": _EXPOSURE_MODE,
+        "trace_id": str((trace or {}).get("trace_id") or ""),
         "reason": "Operator/private tooling is disabled for public release surfaces.",
     }
 
@@ -3690,7 +3750,23 @@ _AGENT_BLOCKED_TOOLS = frozenset({
     "agent_chat",  # prevent direct self-recursive nesting (use agent_delegate)
 })
 
-_AGENT_DEFAULT_GRANTED = [
+_AGENT_SAFE_DEFAULT_GRANTED = [
+    "get_status", "list_slots", "slot_info", "get_capabilities", "embed_text",
+    "invoke_slot", "agent_delegate", "agent_chat_sessions", "agent_chat_result",
+    "bag_get", "bag_search", "bag_catalog",
+    "bag_read_doc", "bag_list_docs", "bag_search_docs", "bag_tree",
+    "bag_versions", "bag_diff",
+    "file_read", "file_list", "file_tree",
+    "file_search", "file_info", "file_versions", "file_diff",
+    "generate", "classify", "rerank",
+    "cascade_graph", "cascade_chain", "cascade_data", "cascade_system",
+    "diagnose_file", "diagnose_directory",
+    "symbiotic_interpret", "trace_root_causes", "forensics_analyze",
+    "metrics_analyze", "workflow_list", "workflow_get", "workflow_status",
+    "observe", "hold_yield", "hold_resolve",
+]
+
+_AGENT_LEGACY_BROAD_DEFAULT_GRANTED = [
     "get_status", "list_slots", "slot_info", "get_capabilities", "embed_text",
     "invoke_slot", "call", "agent_delegate", "agent_chat_inject", "agent_chat_sessions", "agent_chat_result", "agent_chat_purge",
     "bag_get", "bag_put", "bag_search", "bag_catalog", "bag_induct",
@@ -3707,6 +3783,31 @@ _AGENT_DEFAULT_GRANTED = [
     "symbiotic_interpret", "trace_root_causes", "forensics_analyze",
     "metrics_analyze", "workflow_list", "workflow_get", "workflow_status", "workflow_execute",
 ]
+
+_AGENT_EXPLICIT_ONLY_TOOLS = frozenset({
+    # Indirection and live session mutation.
+    "call", "agent_chat_inject", "agent_chat_purge",
+    # Bag/document mutation and rollback controls.
+    "bag_put", "bag_induct", "bag_checkpoint", "bag_restore",
+    # Filesystem mutation and rollback controls.
+    "file_write", "file_edit", "file_append", "file_prepend",
+    "file_delete", "file_rename", "file_copy", "file_checkpoint", "file_restore",
+    # Network/model/runtime mutation.
+    "web_search", "plug_model", "hub_plug", "unplug_slot",
+    "workflow_execute", "hf_cache_clear", "capsule_restart",
+    "persist_restore_revision", "product_bundle_export",
+    # Cascade/provenance writes and proxying.
+    "cascade_record", "cascade_instrument", "cascade_proxy",
+    # Cocoon runtime, learning, export, game, and slot operations.
+    "cocoon_import", "cocoon_start", "cocoon_stop", "cocoon_chat",
+    "cocoon_teach", "cocoon_act", "cocoon_learn", "cocoon_run_game",
+    "cocoon_spawn_game", "cocoon_stop_game", "cocoon_curriculum",
+    "cocoon_training_logs", "cocoon_score", "cocoon_snapshot",
+    "cocoon_save", "cocoon_export", "cocoon_clone_from_live",
+    "cocoon_dreamer_observe", "cocoon_dreamer_propose", "cocoon_plug_slot",
+})
+_AGENT_GRANT_POLICY_MODE = "legacy_broad" if str(os.environ.get("AGENT_LEGACY_BROAD_DEFAULT_GRANTS", "")).strip().lower() in ("1", "true", "yes", "on") else "safe_default"
+_AGENT_DEFAULT_GRANTED = list(_AGENT_LEGACY_BROAD_DEFAULT_GRANTED if _AGENT_GRANT_POLICY_MODE == "legacy_broad" else _AGENT_SAFE_DEFAULT_GRANTED)
 
 _AGENT_MAX_DELEGATION_DEPTH = max(1, int(os.environ.get("AGENT_MAX_DELEGATION_DEPTH", "3")))
 _AGENT_INJECT_QUEUE_LIMIT = max(5, int(os.environ.get("AGENT_INJECT_QUEUE_LIMIT", "64")))
@@ -3749,7 +3850,7 @@ _AGENT_LOCAL_TOOL_SPECS = {
                 "session_id": {"type": "string", "description": "Optional delegated session id"},
                 "granted_tools": {
                     "type": "array",
-                    "description": "Optional delegated granted tools",
+                    "description": "Optional delegated granted tools; in an agent loop this must be a subset of the caller's granted tools",
                     "items": {"type": "string"}
                 },
                 "context_strategy": {"type": "string", "description": "Optional delegated context policy: full|sliding-window|summarize"},
@@ -7743,6 +7844,7 @@ def _env_help_extra_topics() -> dict[str, dict]:
                     "window.envopsSetHairGlyphMessageText('TECHLIT')",
                     "window.envopsSetHairGlyphSpectrum('crayolazy')",
                     "window.envopsSetHairGlyphMessage({ message_text:'TECHLIT', spectrum_mode:'crayolazy', pop_gain:1, glow_gain:1 })",
+                    "window.envopsSetRootsMulletHair()",
                     "await window.envopsStartDesktopAudioReactiveCapture()",
                     "await window.envopsStartMicHairWords()",
                 ],
@@ -7759,6 +7861,7 @@ def _env_help_extra_topics() -> dict[str, dict]:
             "mode_notes": [
                 "This is a control surface over the shared force-wave lane. It should complement the shared snapshot contract, not replace it.",
                 "TECHLIT and crayolazy belong to the glyph manifold layer; growth and strand count belong to the granulation layer; desktop audio and mic words belong to the input-routing layer.",
+                "The roots mullet hook is a Saiyan-derived TECHLIT carrier: readable glyph/negative space up front, lion-mane mass in back, beard-burgeon carried as silhouette intent.",
             ],
             "verification": [
                 "window.envopsGetHairGlyphMessage()",
@@ -7779,18 +7882,25 @@ def _env_help_extra_topics() -> dict[str, dict]:
                 "hair_glyph_manifold",
                 "hair_control",
                 "techlit",
+                "techlitty",
                 "crayolazy",
+                "roots_mullet",
+                "lion_mane_mullet",
+                "beard_burgeon",
                 "hair glyph audio mic aura pose drive granulation spectrum TECHLIT crayolazy",
             ],
             "surface_entrypoints": [
                 "window.envopsSetHairGlyphMessageText",
                 "window.envopsSetHairGlyphSpectrum",
                 "window.envopsSetHairGlyphMessage",
+                "window.envopsSetRootsMulletHair",
+                "window.envopsSetHairMullet",
             ],
             "bridges_to": [
                 "window.envopsSetHairGlyphMessage",
                 "window.envopsSetHairGlyphMessageText",
                 "window.envopsSetHairGlyphSpectrum",
+                "window.envopsSetRootsMulletHair",
                 "shared_state.text_theater.snapshot.sequence_field.force_wave.hair_reactivity",
             ],
             "related_commands": [
@@ -7817,11 +7927,12 @@ def _env_help_extra_topics() -> dict[str, dict]:
                 "shape": "window.envopsSetHairGranulation / SetHairPreset / SetHairGrowth",
                 "description": "Use the granulation surface to tune growth, strand density, tuft density, undulation, color octave, simian ramp, and safe sample budgets.",
                 "examples": [
-                    "window.envopsSetHairPreset('krillin')",
-                    "window.envopsSetHairPreset('sasquatch')",
-                    "window.envopsSetHairGrowth(0.0)",
-                    "window.envopsSetHairGranulation({ growth_gain:1, strand_density_gain:0.92, simian_ramp_gain:0.8 })",
-                ],
+                "window.envopsSetHairPreset('krillin')",
+                "window.envopsSetHairPreset('sasquatch')",
+                "window.envopsSetHairPreset('roots_mullet_lion_mane_beard')",
+                "window.envopsSetHairGrowth(0.0)",
+                "window.envopsSetHairGranulation({ growth_gain:1, strand_density_gain:0.92, simian_ramp_gain:0.8 })",
+            ],
             },
             "summary": "Tune the safe hair growth lattice from krillin to sasquatch, including simian-ramp expansion, without crashing the strand field.",
             "when_to_use": [
@@ -7835,6 +7946,7 @@ def _env_help_extra_topics() -> dict[str, dict]:
             "mode_notes": [
                 "Granulation controls carrier density and silhouette, not the carried word itself.",
                 "Preset labels such as krillin, saiyan, and sasquatch are safe entry points because sample budgets are clamped in the runtime.",
+                "The roots_mullet_lion_mane_beard preset preserves the TECHLIT/Saiyan glyph lane while shifting visual mass toward a rear lion mane and beard-burgeon silhouette.",
             ],
             "verification": [
                 "window.envopsGetHairGranulation()",
@@ -7846,12 +7958,15 @@ def _env_help_extra_topics() -> dict[str, dict]:
                 "granulation",
                 "krillin",
                 "sasquatch",
+                "roots_mullet_lion_mane_beard",
+                "techlitty_saiyan_mullet",
                 "simian_ramp",
             ],
             "surface_entrypoints": [
                 "window.envopsSetHairGranulation",
                 "window.envopsSetHairPreset",
                 "window.envopsSetHairGrowth",
+                "window.envopsSetRootsMulletHair",
             ],
             "bridges_to": [
                 "window.envopsSetHairGranulation",
@@ -10454,7 +10569,15 @@ async def _get_tool_descriptions(granted_tools: list[str]) -> str:
     return "\n".join(lines) if lines else "(no tool descriptions available)"
 
 
-async def _agent_delegate_call(caller_slot: int, caller_session_id: str, caller_depth: int, called_args: dict, source: str, client_id: str | None) -> tuple[dict | None, str | None]:
+async def _agent_delegate_call(
+    caller_slot: int,
+    caller_session_id: str,
+    caller_depth: int,
+    called_args: dict,
+    source: str,
+    client_id: str | None,
+    caller_granted_tools: list[str] | None = None,
+) -> tuple[dict | None, str | None]:
     """Delegate to another slot's agent loop (safe nested orchestration)."""
     import uuid as _uuid
 
@@ -10514,12 +10637,42 @@ async def _agent_delegate_call(caller_slot: int, caller_session_id: str, caller_
         delegate_args["context_strategy"] = called_args.get("context_strategy")
     if called_args.get("context_window_size") is not None:
         delegate_args["context_window_size"] = called_args.get("context_window_size")
-    # C7 fix: only propagate granted_tools if the caller provided a non-empty list.
-    # An empty list would starve the child agent of all tools. When omitted or empty,
-    # the child inherits the server default grant set instead.
-    caller_grants = called_args.get("granted_tools")
-    if isinstance(caller_grants, list) and len(caller_grants) > 0:
-        delegate_args["granted_tools"] = [str(t) for t in caller_grants if str(t).strip()]
+    requested_grants = called_args.get("granted_tools")
+    if isinstance(caller_granted_tools, list):
+        caller_ceiling = []
+        caller_seen = set()
+        for item in caller_granted_tools:
+            tool = str(item).strip()
+            if not tool or tool in _AGENT_BLOCKED_TOOLS or tool in caller_seen:
+                continue
+            caller_seen.add(tool)
+            caller_ceiling.append(tool)
+        if isinstance(requested_grants, list) and len(requested_grants) > 0:
+            child_grants = []
+            child_seen = set()
+            denied = []
+            for item in requested_grants:
+                tool = str(item).strip()
+                if not tool or tool in _AGENT_BLOCKED_TOOLS or tool in child_seen:
+                    continue
+                child_seen.add(tool)
+                if tool not in caller_seen:
+                    denied.append(tool)
+                    continue
+                child_grants.append(tool)
+            if denied:
+                return {
+                    "error": "agent_delegate grant escalation blocked",
+                    "requested_denied": denied[:40],
+                    "caller_granted_tools_count": len(caller_ceiling),
+                }, "agent_delegate grant escalation blocked: child grants cannot exceed caller grants"
+            delegate_args["granted_tools"] = child_grants
+        else:
+            # Agent-to-agent delegation inherits the caller ceiling so a narrow
+            # parent cannot spawn a wider child by omitting granted_tools.
+            delegate_args["granted_tools"] = caller_ceiling
+    elif isinstance(requested_grants, list) and len(requested_grants) > 0:
+        delegate_args["granted_tools"] = [str(t).strip() for t in requested_grants if str(t).strip() and str(t).strip() not in _AGENT_BLOCKED_TOOLS]
 
     claim, busy = await _claim_slot_execution("agent_chat", {"slot": target_slot, "session_id": delegate_session_id}, source="agent-inner", client_id=client_id)
     if busy:
@@ -10687,6 +10840,7 @@ async def _server_side_agent_chat(args: dict, source: str = "webui", client_id: 
     granted = [t for t in session.get("granted_tools", []) if t not in _AGENT_BLOCKED_TOOLS]
     if not granted and not explicit_grants:
         granted = [t for t in _AGENT_DEFAULT_GRANTED if t not in _AGENT_BLOCKED_TOOLS]
+    explicit_only_granted = sorted(t for t in granted if t in _AGENT_EXPLICIT_ONLY_TOOLS)
 
     # ── Get slot info ──
     slot_info_raw = await _call_tool("slot_info", {"slot": slot})
@@ -10717,6 +10871,15 @@ async def _server_side_agent_chat(args: dict, source: str = "webui", client_id: 
 
     # ── Build system prompt ──
     tool_descriptions = await _get_tool_descriptions(granted)
+    access_policy_lines = [
+        f"- Access policy: {_AGENT_GRANT_POLICY_MODE}",
+        "- Default policy is observe/read/reason. Write/export/runtime/external-egress tools only appear when explicitly granted for this session.",
+    ]
+    if explicit_only_granted:
+        listed = ", ".join(explicit_only_granted[:24])
+        if len(explicit_only_granted) > 24:
+            listed += f", ... +{len(explicit_only_granted) - 24} more"
+        access_policy_lines.append(f"- Elevated explicit grants present: {listed}")
     system_prompt = (
         f"You are {slot_name}, an AI agent in council slot {slot} of an Ouroboros capsule.\n"
         "You have access to ONLY the tools listed below.\n"
@@ -10734,6 +10897,7 @@ async def _server_side_agent_chat(args: dict, source: str = "webui", client_id: 
         "- For cross-slot autonomous work, prefer agent_delegate instead of inventing callback loops\n"
         "- Never invoke your own slot for delegation\n"
         "- You may receive [LIVE UPDATE] messages mid-run; incorporate them immediately\n"
+        + "\n".join(access_policy_lines) + "\n"
         "- Always end with a final_answer that summarizes outcomes\n"
     )
 
@@ -10758,6 +10922,9 @@ async def _server_side_agent_chat(args: dict, source: str = "webui", client_id: 
         {"_phase": "start", "state": "running", "session_id": session_id,
          "slot": slot, "name": slot_name, "max_iterations": max_iterations,
          "granted_tools_count": len(granted),
+         "grant_policy": _AGENT_GRANT_POLICY_MODE,
+         "explicit_grants": explicit_grants,
+         "explicit_only_granted_count": len(explicit_only_granted),
          "context_strategy": context_strategy,
          "context_window_size": context_window_size},
         0, None, source=source, client_id=client_id,
@@ -11076,6 +11243,7 @@ async def _server_side_agent_chat(args: dict, source: str = "webui", client_id: 
                             called_args=normalized_args,
                             source="agent-inner",
                             client_id=client_id,
+                            caller_granted_tools=granted,
                         ),
                         timeout=delegate_timeout,
                     )
@@ -11196,6 +11364,13 @@ async def _server_side_agent_chat(args: dict, source: str = "webui", client_id: 
         "parent_session_id": session.get("parent_session_id"),
         "pending_messages": 0,
         "dropped_pending_messages": dropped_pending,
+        "access_policy": {
+            "mode": _AGENT_GRANT_POLICY_MODE,
+            "explicit_grants": explicit_grants,
+            "granted_tools_count": len(granted),
+            "explicit_only_tools_granted": explicit_only_granted,
+            "blocked_tools": sorted(list(_AGENT_BLOCKED_TOOLS)),
+        },
         "context_policy": {
             "strategy": context_strategy,
             "window_size": context_window_size,
@@ -13071,7 +13246,14 @@ async def proxy_tool_call(tool_name: str, request: Request):
     client_id = _extract_client_id(request)
 
     if _public_tool_blocked(tool_name):
-        return JSONResponse(status_code=403, content=_public_tool_block_payload(tool_name))
+        trace = _public_blocked_request_trace(request)
+        trace["tool"] = str(tool_name or "")
+        _public_log_blocked_request(trace)
+        return JSONResponse(
+            status_code=403,
+            content=_public_tool_block_payload(tool_name, trace),
+            headers={"X-Public-Block-Id": str(trace.get("trace_id") or "")},
+        )
 
     # Local virtual orchestrator tools (proxy-side; not forwarded to capsule).
     if tool_name == "agent_chat_inject":
@@ -13928,6 +14110,7 @@ _dreamer_last_cycle = 0
 
 _DREAMER_MECHANICS_SCHEMA_ID = "dreamer_mechanics_v1"
 _DREAMER_CONFIG_SCHEMA_VERSION = 1
+_DREAMER_FCS_SCHEMA_ID = "edreamer_fcs_v1"
 _DREAMER_CONFIG_READ_ONLY_SECTIONS = ("architecture",)
 _DREAMER_CONTROL_PLANE_MODES = [
     "off",
@@ -15738,6 +15921,168 @@ def _dreamer_select_ranked_action(ranked_actions: list[dict] | None, action_key:
     return None, "No ranked actions available"
 
 
+def _dreamer_fcs_gate(gate_id: str, label: str, ok: bool, detail: str, severity: str = "block") -> dict:
+    return {
+        "id": str(gate_id or ""),
+        "label": str(label or gate_id or "gate"),
+        "ok": bool(ok),
+        "severity": str(severity or "block"),
+        "detail": str(detail or ""),
+    }
+
+
+def _dreamer_fcs_status_payload(
+    dreamer: dict | None,
+    current_payload: dict | None,
+    current_error: str | None,
+    ranked_payload: dict | None,
+    config: dict | None,
+    warnings: list[str] | None = None,
+) -> dict:
+    dreamer_view = dreamer if isinstance(dreamer, dict) else {}
+    ranked_view = ranked_payload if isinstance(ranked_payload, dict) else {}
+    cfg = config if isinstance(config, dict) else {}
+    control = _dreamer_control_plane_view(cfg).get("control_plane", {})
+    training_cfg = cfg.get("training") if isinstance(cfg.get("training"), dict) else {}
+    ranked_actions = ranked_view.get("ranked_actions") if isinstance(ranked_view.get("ranked_actions"), list) else []
+
+    mode = str(control.get("mode") or "passive").strip() or "passive"
+    task = str(control.get("task") or "half_kneel_l").strip() or "half_kneel_l"
+    runtime_active = bool(dreamer_view.get("active"))
+    rssm_ready = bool(dreamer_view.get("has_real_rssm"))
+    obs_buffer_size = int(max(0, _dreamer_mechanics_number(dreamer_view.get("obs_buffer_size"), 0.0)))
+    reward_buffer_size = int(max(0, _dreamer_mechanics_number(dreamer_view.get("reward_buffer_size"), 0.0)))
+    reward_count = int(max(0, _dreamer_mechanics_number(dreamer_view.get("reward_count"), 0.0)))
+    training_cycles = int(max(0, _dreamer_mechanics_number(dreamer_view.get("training_cycles"), 0.0)))
+    mechanics_ready = isinstance(current_payload, dict) and not str(current_error or "").strip()
+    proposal_ready = bool(ranked_actions)
+    mode_enabled = mode != "off"
+    training_enabled = _dreamer_config_coerce_bool(training_cfg.get("enabled"), True)
+    capsule_obs_ready = obs_buffer_size > 0
+    reward_feed_ready = reward_buffer_size > 0 or reward_count > 0
+    manual_step_ready = mode_enabled and mechanics_ready and proposal_ready
+    closed_loop_ready = (
+        manual_step_ready
+        and runtime_active
+        and rssm_ready
+        and training_enabled
+        and capsule_obs_ready
+        and reward_feed_ready
+        and mode in {"active", "autonomous_eval"}
+    )
+
+    gates = [
+        _dreamer_fcs_gate(
+            "mode",
+            "Control mode",
+            mode_enabled,
+            f"mode={mode}",
+        ),
+        _dreamer_fcs_gate(
+            "mechanics",
+            "Mechanics observation",
+            mechanics_ready,
+            "live mechanics observation available" if mechanics_ready else (current_error or "mechanics observation unavailable"),
+        ),
+        _dreamer_fcs_gate(
+            "proposal",
+            "Bounded proposal",
+            proposal_ready,
+            f"{len(ranked_actions)} ranked action(s)" if proposal_ready else "no ranked actions available",
+        ),
+        _dreamer_fcs_gate(
+            "runtime",
+            "Capsule runtime",
+            runtime_active,
+            "capsule reports Dreamer active" if runtime_active else "capsule Dreamer inactive or unavailable",
+            severity="warn",
+        ),
+        _dreamer_fcs_gate(
+            "rssm",
+            "Real RSSM",
+            rssm_ready,
+            "capsule reports has_real_rssm=true" if rssm_ready else "real RSSM not confirmed",
+            severity="warn",
+        ),
+        _dreamer_fcs_gate(
+            "obs_buffer",
+            "Capsule observation buffer",
+            capsule_obs_ready,
+            f"obs_buffer_size={obs_buffer_size}",
+            severity="warn",
+        ),
+        _dreamer_fcs_gate(
+            "reward_feed",
+            "Reward feed",
+            reward_feed_ready,
+            f"reward_buffer_size={reward_buffer_size}; reward_count={reward_count}",
+            severity="warn",
+        ),
+    ]
+    hard_blockers = [gate for gate in gates if gate.get("severity") == "block" and not gate.get("ok")]
+    warn_blockers = [gate for gate in gates if gate.get("severity") != "block" and not gate.get("ok")]
+    if hard_blockers:
+        phase = "blocked"
+    elif closed_loop_ready:
+        phase = "closed_loop_ready"
+    elif manual_step_ready:
+        phase = "manual_step_ready"
+    else:
+        phase = "preflight"
+
+    if closed_loop_ready:
+        training_truth = "closed_loop_training_ready"
+    elif capsule_obs_ready and reward_feed_ready and runtime_active and rssm_ready:
+        training_truth = "capsule_training_feed_present"
+    elif training_cycles > 0 and not capsule_obs_ready:
+        training_truth = "trained_but_mechanics_starved"
+    elif training_cycles > 0:
+        training_truth = "trained"
+    else:
+        training_truth = "no_training_cycles_reported"
+
+    return {
+        "schema_id": _DREAMER_FCS_SCHEMA_ID,
+        "status": "ok" if not hard_blockers else "blocked",
+        "phase": phase,
+        "summary": (
+            "eDreamer FCS is ready for a bounded manual step."
+            if manual_step_ready
+            else "eDreamer FCS preflight is blocked."
+        ),
+        "mode": mode,
+        "task": task,
+        "can_step": bool(manual_step_ready),
+        "can_closed_loop": bool(closed_loop_ready),
+        "can_train_from_capsule_feed": bool(capsule_obs_ready and reward_feed_ready and runtime_active and rssm_ready and training_enabled),
+        "training_truth": training_truth,
+        "runtime": {
+            "active": runtime_active,
+            "has_real_rssm": rssm_ready,
+            "training_cycles": training_cycles,
+            "last_train": _json_clone(dreamer_view.get("last_train") or {}),
+        },
+        "buffers": {
+            "obs_buffer_size": obs_buffer_size,
+            "reward_buffer_size": reward_buffer_size,
+            "reward_count": reward_count,
+        },
+        "gates": gates,
+        "hard_blockers": hard_blockers,
+        "warnings": [str(item) for item in list(warnings or []) if str(item or "").strip()] + [
+            str(gate.get("detail") or gate.get("label") or gate.get("id"))
+            for gate in warn_blockers
+        ],
+        "best_action": _json_clone(ranked_actions[0] if ranked_actions else None),
+        "endpoints": {
+            "status": "/api/dreamer/fcs/status",
+            "step": "/api/dreamer/fcs/step",
+            "episode_step": "/api/dreamer/episode_step",
+            "state": "/api/dreamer/state",
+        },
+    }
+
+
 def _dreamer_config_default_value(section: str, key: str):
     section_defaults = _dreamer_config_defaults.get(section)
     if not isinstance(section_defaults, dict):
@@ -16374,6 +16719,14 @@ async def _dreamer_refresh_state(force: bool = False, include_weights: bool = Tr
         effective, config_source, config_warnings = await _dreamer_effective_config()
         current_payload, current_error = _dreamer_mechanics_current_payload()
         ranked_payload = _dreamer_rank_proposals(current_payload, effective) if isinstance(current_payload, dict) else {}
+        fcs_payload = _dreamer_fcs_status_payload(
+            dreamer,
+            current_payload,
+            current_error,
+            ranked_payload,
+            effective,
+            config_warnings,
+        )
 
         cycles = dreamer.get("training_cycles", 0)
         if cycles > _dreamer_last_cycle and dreamer.get("last_train"):
@@ -16419,6 +16772,7 @@ async def _dreamer_refresh_state(force: bool = False, include_weights: bool = Tr
             "oracle_gate": _json_clone((ranked_payload.get("oracle_gate") if isinstance(ranked_payload, dict) else {}) or {}),
             "query_thread": _json_clone((current_payload or {}).get("query_thread") or {}),
             "ranked_actions_preview": _json_clone((ranked_payload.get("ranked_actions") if isinstance(ranked_payload, dict) else [])[:3]),
+            "fcs": fcs_payload,
         }
         _dreamer_cache["data"] = result
         _dreamer_cache["ts"] = now
@@ -16441,6 +16795,69 @@ async def dreamer_state():
     """Aggregated Dreamer state for the dashboard.
     History is advanced by a background sampler so the tab has useful context on arrival."""
     return await _dreamer_refresh_state(force=False, include_weights=True)
+
+
+@app.get("/api/dreamer/fcs/status")
+async def dreamer_fcs_status(force: bool = False):
+    """Operator-facing eDreamer FCS preflight.
+
+    This exposes whether the bounded controller can step and whether the capsule
+    training feed is actually present. It does not mutate the environment.
+    """
+    state = await _dreamer_refresh_state(force=bool(force), include_weights=False)
+    return {
+        "status": "ok",
+        "schema_id": _DREAMER_FCS_SCHEMA_ID,
+        "fcs": _json_clone(state.get("fcs") if isinstance(state, dict) else {}),
+        "history_updated_ts": state.get("history_updated_ts") if isinstance(state, dict) else None,
+    }
+
+
+@app.post("/api/dreamer/fcs/step")
+async def dreamer_fcs_step(request: Request):
+    """Run one bounded eDreamer FCS step after preflight.
+
+    The action execution still flows through /api/dreamer/episode_step so the
+    existing observation, correction, reward, and trail accounting stay single
+    sourced.
+    """
+    source = _infer_activity_source(request, fallback="webui")
+    client_id = _extract_client_id(request)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    body = body if isinstance(body, dict) else {}
+
+    state = await _dreamer_refresh_state(force=True, include_weights=False)
+    fcs = state.get("fcs") if isinstance(state, dict) and isinstance(state.get("fcs"), dict) else {}
+    if not bool(fcs.get("can_step")):
+        payload = {
+            "status": "blocked",
+            "schema_id": _DREAMER_FCS_SCHEMA_ID,
+            "error": "eDreamer FCS preflight blocked",
+            "summary": "No Dreamer action was applied because FCS preflight did not pass.",
+            "fcs": _json_clone(fcs),
+        }
+        _broadcast_activity("dreamer_fcs_step", body, payload, 0, payload.get("error"), source=source, client_id=client_id)
+        return JSONResponse(status_code=428, content=payload)
+
+    result = await dreamer_episode_step(request)
+    if isinstance(result, dict):
+        result["fcs_schema_id"] = _DREAMER_FCS_SCHEMA_ID
+        result["fcs_preflight"] = _json_clone(fcs)
+        _broadcast_activity("dreamer_fcs_step", body, result, 0, None, source=source, client_id=client_id)
+        return result
+    _broadcast_activity(
+        "dreamer_fcs_step",
+        body,
+        {"status": "delegated", "schema_id": _DREAMER_FCS_SCHEMA_ID, "fcs": _json_clone(fcs)},
+        0,
+        None,
+        source=source,
+        client_id=client_id,
+    )
+    return result
 
 
 @app.get("/api/dreamer/config")
