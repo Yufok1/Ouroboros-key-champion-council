@@ -12772,6 +12772,9 @@
     <script src="/static/main.js?v=133d"></script>
     <script>
         (function () {
+            var textTheaterRetryTimer = 0;
+            var textTheaterRetryCount = 0;
+
             function escText(value) {
                 return String(value == null ? '' : value)
                     .replace(/&/g, '&amp;')
@@ -12810,6 +12813,10 @@
             async function refreshTextTheaterPanel(view, section) {
                 var nextView = String(view || 'consult');
                 var nextSection = String(section || 'blackboard');
+                if (textTheaterRetryTimer) {
+                    clearTimeout(textTheaterRetryTimer);
+                    textTheaterRetryTimer = 0;
+                }
                 writeTextTheater('Loading Text Theater...', 'Requesting env_read(text_theater_view).', 'loading', nextView + ' / ' + nextSection);
                 try {
                     var response = await fetch('/api/tool/env_read?source=webui', {
@@ -12843,16 +12850,28 @@
                         bundle_version: theaterView.snapshot && theaterView.snapshot.bundle_version ? theaterView.snapshot.bundle_version : ''
                     };
                     writeTextTheater(frame, JSON.stringify(meta, null, 2), meta.status, meta.view_mode + ' / ' + meta.section_key);
+                    textTheaterRetryCount = 0;
                     return payload;
                 } catch (err) {
                     var message = err && err.message ? err.message : String(err);
-                    writeTextTheater('Text Theater unavailable: ' + message, JSON.stringify({
+                    var waitingForMirror = /shared_state|live cache|mirror/i.test(message);
+                    if (waitingForMirror && textTheaterRetryCount < 12) {
+                        textTheaterRetryCount += 1;
+                        textTheaterRetryTimer = setTimeout(function () {
+                            refreshTextTheaterPanel(nextView, nextSection);
+                        }, 2500);
+                    }
+                    writeTextTheater((waitingForMirror
+                        ? 'Waiting for browser mirror to publish live Text Theater state...'
+                        : 'Text Theater unavailable: ' + message), JSON.stringify({
                         status: 'error',
                         tool: 'env_read',
                         query: 'text_theater_view',
                         view: nextView,
                         section: nextSection,
-                        error: message
+                        error: message,
+                        retrying: waitingForMirror && textTheaterRetryCount < 12,
+                        retry_count: textTheaterRetryCount
                     }, null, 2), 'error', nextView + ' / ' + nextSection);
                     return null;
                 }
