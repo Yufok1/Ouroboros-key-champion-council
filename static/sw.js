@@ -1,4 +1,4 @@
-var CACHE_NAME = 'champion-council-v133d';
+var CACHE_NAME = 'champion-council-v133e';
 var STATIC_ASSETS = [
     '/static/vscode-shim.js?v=25',
     '/static/svg-pan-zoom.min.js',

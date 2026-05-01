@@ -419,6 +419,23 @@
             max-height: 220px;
         }
 
+        .env-text-theater-dock {
+            margin-top: 12px;
+            border: 1px solid rgba(0, 255, 255, 0.22);
+            background: rgba(0, 0, 0, 0.24);
+        }
+
+        .env-text-theater-dock .text-theater-output {
+            min-height: 180px;
+            max-height: 260px;
+            font-size: 9px;
+            line-height: 1.32;
+        }
+
+        .env-text-theater-dock .text-theater-actions {
+            margin: 8px 12px 0;
+        }
+
         .text-theater-meta {
             padding: 12px;
             color: var(--text-dim);
@@ -10818,7 +10835,6 @@
     <!-- TABS -->
     <div class="tabs">
         <button class="tab active" data-tab="overview">Overview</button>
-        <button class="tab" data-tab="texttheater">Text Theater</button>
         <button class="tab" data-tab="council">Council</button>
         <button class="tab" data-tab="memory">Memory</button>
         <button class="tab" data-tab="activity">Activity</button>
@@ -10827,6 +10843,7 @@
         <button class="tab" data-tab="diagnostics">Diagnostics</button>
         <button class="tab" data-tab="workflows">Workflows</button>
         <button class="tab" data-tab="environment">Environment</button>
+        <button class="tab" data-tab="texttheater">Text Theater</button>
         <button class="tab" data-tab="dreamer">Dreamer</button>
         <button class="tab" data-tab="gpufleet">GPU Fleet</button>
 
@@ -10901,7 +10918,7 @@
                     <span style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;">Text Theater Live Frame</span>
                     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                         <button onclick="window.openTextTheaterTab && window.openTextTheaterTab()">OPEN</button>
-                        <button onclick="window.refreshTextTheaterPanel && window.refreshTextTheaterPanel('consult','blackboard')">REFRESH</button>
+                        <button onclick="window.refreshTextTheaterPanel && window.refreshTextTheaterPanel('render','theater')">REFRESH</button>
                     </div>
                 </div>
                 <pre class="text-theater-output compact" id="tt-overview-output">Loading Text Theater...</pre>
@@ -10962,7 +10979,7 @@
             <div class="text-theater-grid">
                 <div class="text-theater-panel">
                     <div class="text-theater-panel-head">
-                        <span id="text-theater-title">CONSULT / BLACKBOARD</span>
+                        <span id="text-theater-title">RENDER / THEATER</span>
                         <span id="text-theater-status">IDLE</span>
                     </div>
                     <pre class="text-theater-output" id="text-theater-frame">Loading Text Theater...</pre>
@@ -11415,6 +11432,18 @@
                         <div class="envops-stage-empty">
                             Select a workflow-backed system to project its runtime, outputs, traces, and export surfaces through one operator shell.
                         </div>
+                    </div>
+                    <div class="env-text-theater-dock">
+                        <div class="text-theater-panel-head">
+                            <span id="env-text-theater-title">RENDER / THEATER</span>
+                            <span id="env-text-theater-status">IDLE</span>
+                        </div>
+                        <div class="text-theater-actions">
+                            <button onclick="window.refreshTextTheaterPanel && window.refreshTextTheaterPanel('render','theater')">RENDER</button>
+                            <button onclick="window.refreshTextTheaterPanel && window.refreshTextTheaterPanel('render','embodiment')">BODY</button>
+                            <button onclick="window.refreshTextTheaterPanel && window.refreshTextTheaterPanel('split','theater')">SPLIT</button>
+                        </div>
+                        <pre class="text-theater-output compact" id="env-text-theater-frame">Loading Text Theater...</pre>
                     </div>
                 </div>
             </div>
@@ -12796,23 +12825,29 @@
             function writeTextTheater(frame, meta, status, title) {
                 var frameEl = document.getElementById('text-theater-frame');
                 var overviewEl = document.getElementById('tt-overview-output');
+                var envFrameEl = document.getElementById('env-text-theater-frame');
                 var metaEl = document.getElementById('text-theater-meta');
                 var statusEl = document.getElementById('text-theater-status');
+                var envStatusEl = document.getElementById('env-text-theater-status');
                 var titleEl = document.getElementById('text-theater-title');
+                var envTitleEl = document.getElementById('env-text-theater-title');
                 var updatedEl = document.getElementById('text-theater-updated');
                 var frameText = String(frame || 'No Text Theater frame returned.');
                 var metaText = String(meta || '');
                 if (frameEl) frameEl.textContent = frameText;
                 if (overviewEl) overviewEl.textContent = frameText;
+                if (envFrameEl) envFrameEl.textContent = frameText;
                 if (metaEl) metaEl.textContent = metaText;
                 if (statusEl) statusEl.textContent = String(status || 'READY').toUpperCase();
+                if (envStatusEl) envStatusEl.textContent = String(status || 'READY').toUpperCase();
                 if (titleEl) titleEl.textContent = String(title || 'TEXT THEATER').toUpperCase();
+                if (envTitleEl) envTitleEl.textContent = String(title || 'TEXT THEATER').toUpperCase();
                 if (updatedEl) updatedEl.textContent = new Date().toLocaleTimeString();
             }
 
             async function refreshTextTheaterPanel(view, section) {
-                var nextView = String(view || 'consult');
-                var nextSection = String(section || 'blackboard');
+                var nextView = String(view || 'render');
+                var nextSection = String(section || 'theater');
                 if (textTheaterRetryTimer) {
                     clearTimeout(textTheaterRetryTimer);
                     textTheaterRetryTimer = 0;
@@ -12880,7 +12915,7 @@
             function openTextTheaterTab() {
                 var tab = document.querySelector('.tab[data-tab="texttheater"]');
                 if (tab && typeof tab.click === 'function') tab.click();
-                refreshTextTheaterPanel('consult', 'blackboard');
+                refreshTextTheaterPanel('render', 'theater');
             }
 
             window.refreshTextTheaterPanel = refreshTextTheaterPanel;
@@ -12888,10 +12923,15 @@
 
             document.querySelectorAll('.tab[data-tab="texttheater"]').forEach(function (tab) {
                 tab.addEventListener('click', function () {
-                    refreshTextTheaterPanel('consult', 'blackboard');
+                    refreshTextTheaterPanel('render', 'theater');
                 });
             });
-            refreshTextTheaterPanel('consult', 'blackboard');
+            document.querySelectorAll('.tab[data-tab="environment"]').forEach(function (tab) {
+                tab.addEventListener('click', function () {
+                    refreshTextTheaterPanel('render', 'theater');
+                });
+            });
+            refreshTextTheaterPanel('render', 'theater');
         })();
     </script>
 
