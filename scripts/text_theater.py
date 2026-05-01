@@ -13,6 +13,7 @@ import threading
 import time
 import unicodedata
 import urllib.error
+import urllib.parse
 import urllib.request
 
 try:
@@ -2165,8 +2166,13 @@ def _tool_response_text(response):
     return str((content[0] or {}).get("text") or "")
 
 
-def _load_tool_payload(base_url, tool_name, payload, timeout):
-    response = _post_json(f"{base_url}/api/tool/{tool_name}", payload, timeout)
+def _source_query(source):
+    normalized = str(source or "external").strip() or "external"
+    return urllib.parse.urlencode({"source": normalized})
+
+
+def _load_tool_payload(base_url, tool_name, payload, timeout, source="external"):
+    response = _post_json(f"{base_url}/api/tool/{tool_name}?{_source_query(source)}", payload, timeout)
     text = _tool_response_text(response)
     if not text:
         raise RuntimeError(f"{tool_name} returned empty text")
@@ -2175,15 +2181,15 @@ def _load_tool_payload(base_url, tool_name, payload, timeout):
     if isinstance(data, dict):
         cache_id = str(data.get("_cached") or data.get("cache_id") or "").strip()
     if cache_id:
-        cached = _post_json(f"{base_url}/api/tool/get_cached", {"cache_id": cache_id}, timeout)
+        cached = _post_json(f"{base_url}/api/tool/get_cached?{_source_query(source)}", {"cache_id": cache_id}, timeout)
         cached_text = _tool_response_text(cached)
         if cached_text:
             data = json.loads(cached_text)
     return data
 
 
-def _env_read(base_url, query, timeout):
-    payload = _load_tool_payload(base_url, "env_read", {"query": query}, timeout)
+def _env_read(base_url, query, timeout, source="external"):
+    payload = _load_tool_payload(base_url, "env_read", {"query": query}, timeout, source=source)
     value = payload.get(query)
     if value is None:
         alias_map = {
@@ -2197,14 +2203,14 @@ def _env_read(base_url, query, timeout):
     return value
 
 
-def _env_read_optional(base_url, query, timeout):
+def _env_read_optional(base_url, query, timeout, source="external"):
     try:
-        return _env_read(base_url, query, timeout)
+        return _env_read(base_url, query, timeout, source=source)
     except Exception:
         return None
 
 
-def _env_text_theater_view(base_url, timeout, view_mode, width, height, diagnostics_visible, section_key):
+def _env_text_theater_view(base_url, timeout, view_mode, width, height, diagnostics_visible, section_key, source="external"):
     payload = _load_tool_payload(
         base_url,
         "env_read",
@@ -2217,6 +2223,7 @@ def _env_text_theater_view(base_url, timeout, view_mode, width, height, diagnost
             "diagnostics": bool(diagnostics_visible),
         },
         timeout,
+        source=source,
     )
     view = payload.get("text_theater_view") if isinstance(payload, dict) else None
     if not isinstance(view, dict):
@@ -2236,9 +2243,9 @@ def _env_text_theater_view(base_url, timeout, view_mode, width, height, diagnost
     }
 
 
-def _env_text_theater_live(base_url, timeout):
+def _env_text_theater_live(base_url, timeout, source="external"):
     live_timeout = max(0.5, min(float(timeout or 5.0), 2.4))
-    payload = _get_json(f"{base_url}/api/text-theater/live", live_timeout)
+    payload = _get_json(f"{base_url}/api/text-theater/live?{_source_query(source)}", live_timeout)
     live = payload.get("text_theater_live") if isinstance(payload, dict) else None
     if not isinstance(live, dict):
         raise RuntimeError("/api/text-theater/live did not return text_theater_live")
@@ -8462,6 +8469,7 @@ def render_text_theater_view(
     section_key="theater",
     surface_mode=TEXT_THEATER_SURFACE_MODE,
     surface_density=TEXT_THEATER_SURFACE_DENSITY,
+    source="external",
 ):
     width = max(80, int(width or 80))
     height = max(24, int(height or 24))
@@ -8481,6 +8489,7 @@ def render_text_theater_view(
             height=height,
             diagnostics_visible=diagnostics_visible,
             section_key=section_name,
+            source=source,
         )
         requested_surface_mode = _normalize_surface_mode(surface_mode)
         requested_surface_density = _normalize_surface_density(surface_density)
@@ -8590,7 +8599,10 @@ def render_text_theater_shared_state(
 def _run(args):
     _configure_stdout()
     _enable_vt_mode()
-    base_url = f"http://{args.host}:{args.port}"
+    base_url = str(getattr(args, "url", "") or "").strip().rstrip("/")
+    if not base_url:
+        base_url = f"http://{args.host}:{args.port}"
+    source = str(getattr(args, "source", "") or "external").strip() or "external"
     last_error = ""
     motion_history = []
     last_frame = None
@@ -8785,6 +8797,7 @@ def _run(args):
                 height=44,
                 diagnostics_visible=False,
                 section_key="theater",
+                source=source,
             )
             _set_live_cache(
                 snapshot=rendered.get("snapshot") if isinstance(rendered.get("snapshot"), dict) else {},
@@ -8807,6 +8820,7 @@ def _run(args):
                 live_payload = _env_text_theater_live(
                     base_url=base_url,
                     timeout=args.timeout,
+                    source=source,
                 )
                 snapshot = live_payload.get("snapshot") if isinstance(live_payload.get("snapshot"), dict) else {}
                 _apply_remote_control(snapshot)
@@ -8871,6 +8885,7 @@ def _run(args):
                         height=height,
                         diagnostics_visible=current_ui["diagnostics_visible"],
                         section_key=PANE_SECTIONS[current_ui["section_index"]][0],
+                        source=source,
                     )
                     snapshot = rendered.get("snapshot") if isinstance(rendered.get("snapshot"), dict) else {}
                     theater_text = str(rendered.get("theater_text") or "")
@@ -8972,6 +8987,8 @@ def main():
     parser = argparse.ArgumentParser(description="Terminal-native Text Theater view for Champion Council.")
     parser.add_argument("--host", default=os.environ.get("WEB_HOST", "127.0.0.1"))
     parser.add_argument("--port", type=int, default=int(os.environ.get("WEB_PORT", "7866")))
+    parser.add_argument("--url", default=os.environ.get("CHAMPION_COUNCIL_URL", ""), help="Full Champion Council base URL. Overrides --host/--port.")
+    parser.add_argument("--source", default=os.environ.get("CHAMPION_COUNCIL_SOURCE", "external"), help="Activity source tag sent to the API.")
     parser.add_argument("--interval", type=float, default=0.02, help="Refresh interval in seconds.")
     parser.add_argument("--timeout", type=float, default=5.0, help="HTTP timeout in seconds.")
     parser.add_argument("--view", choices=["render", "consult", "split", "theater", "embodiment", "snapshot"], default="render")

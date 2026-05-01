@@ -10946,7 +10946,6 @@
         <button class="tab" data-tab="diagnostics">Diagnostics</button>
         <button class="tab" data-tab="workflows">Workflows</button>
         <button class="tab" data-tab="environment">Environment</button>
-        <button class="tab" data-tab="texttheater">Text Theater</button>
         <button class="tab" data-tab="dreamer">Dreamer</button>
         <button class="tab" data-tab="gpufleet">GPU Fleet</button>
 
@@ -11053,7 +11052,7 @@
         </div>
 
         <!-- ═══════════════ TEXT THEATER TAB ═══════════════ -->
-        <div class="content" id="tab-texttheater">
+        <div class="content" id="tab-texttheater" hidden>
             <div class="panel-head-row">
                 <div class="panel-head-left">
                     <div class="section-head">TEXT THEATER</div>
@@ -11529,23 +11528,6 @@
                         <div class="envops-stage-empty">
                             Select a workflow-backed system to project its runtime, outputs, traces, and export surfaces through one operator shell.
                         </div>
-                    </div>
-                    <div class="env-text-theater-dock">
-                        <div class="text-theater-panel-head">
-                            <span id="env-text-theater-title">RENDER / THEATER</span>
-                            <span id="env-text-theater-status">IDLE</span>
-                        </div>
-                        <div class="text-theater-actions">
-                            <button onclick="window.refreshTextTheaterPanel && window.refreshTextTheaterPanel('render','theater')">RENDER</button>
-                            <button onclick="window.refreshTextTheaterPanel && window.refreshTextTheaterPanel('render','embodiment')">BODY</button>
-                            <button onclick="window.refreshTextTheaterPanel && window.refreshTextTheaterPanel('split','theater')">SPLIT</button>
-                            <span class="text-theater-scale-control" aria-label="Text Theater render scale">
-                                <button title="Scale render down" onclick="window.adjustTextTheaterScale && window.adjustTextTheaterScale(-0.1)">-</button>
-                                <span class="text-theater-scale-value">100%</span>
-                                <button title="Scale render up" onclick="window.adjustTextTheaterScale && window.adjustTextTheaterScale(0.1)">+</button>
-                            </span>
-                        </div>
-                        <pre class="text-theater-output compact" id="env-text-theater-frame">Loading Text Theater...</pre>
                     </div>
                 </div>
             </div>
@@ -13251,9 +13233,7 @@
             }
 
             function openTextTheaterTab() {
-                var tab = document.querySelector('.tab[data-tab="texttheater"]');
-                if (tab && typeof tab.click === 'function') tab.click();
-                refreshTextTheaterPanel('render', 'theater');
+                return false;
             }
 
             window.refreshTextTheaterPanel = refreshTextTheaterPanel;
@@ -13262,11 +13242,6 @@
             window.applyTextTheaterScale = applyTextTheaterScale;
 
             document.querySelectorAll('.tab[data-tab="texttheater"]').forEach(function (tab) {
-                tab.addEventListener('click', function () {
-                    refreshTextTheaterPanel('render', 'theater');
-                });
-            });
-            document.querySelectorAll('.tab[data-tab="environment"]').forEach(function (tab) {
                 tab.addEventListener('click', function () {
                     refreshTextTheaterPanel('render', 'theater');
                 });
@@ -13281,7 +13256,6 @@
                 }, 120);
             });
             applyTextTheaterScale(textTheaterScale);
-            refreshTextTheaterPanel('render', 'theater');
         })();
     </script>
 
