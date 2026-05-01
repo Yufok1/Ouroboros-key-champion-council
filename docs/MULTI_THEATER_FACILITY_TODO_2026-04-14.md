@@ -235,6 +235,50 @@ Do not blur these into one thing.
 - treat this as separate infrastructure work
 - do not tie it to the four-theater lane
 
+### `Convergence Engine guest-source health gate`
+
+- clipboard capture from 2026-04-30 shows `tostido-convergence-engine.hf.space` returning repeated `503 Service Unavailable` responses while the browser expects JSON
+- affected calls observed:
+  - `/api/ollama/test`
+  - `/api/config/actions?limit=100`
+  - `/api/live/status`
+  - `/api/simulation/stop`
+- frontend symptom:
+  - `SyntaxError: Unexpected token 'T', "The space "... is not valid JSON`
+  - repeated polling loops keep hitting the same unavailable endpoints
+- keep this separate from the repaired Champion Council Space, whose continuity/tool lane is live but archive-empty on the remote side
+- before using Convergence Engine as a guest feed for an interactive meme chat / text-theater tab, add:
+  - a source health check
+  - JSON/content-type guardrails
+  - backoff on 503
+  - a visible "Convergence guest source unavailable" message instead of console-spam polling
+- first usable Space-side theater should be native to Champion Council; Convergence Engine can feed it later when healthy
+
+### `Convergence Engine public checkpoint / snapshot lane`
+
+- clipboard capture from 2026-05-01 shows the public Convergence Engine Space opening IndexedDB successfully but retaining no usable snapshots
+- observed console sequence:
+  - `[INDEXEDDB] Database opened successfully`
+  - `[INDEXEDDB] Loaded 0 snapshots`
+  - `[SIM] Backend is already running on page load`
+  - `[SIM] Cloud auto-start mode is enabled`
+  - `[SNAPSHOT] Simulation is running - keeping 0 snapshots`
+  - `[REPLAY] No snapshots available for replay`
+- classify this as a checkpoint retention seam, not a browser permissions seam
+- likely failure classes to inspect:
+  - frontend gating refuses to checkpoint while simulation is running
+  - cloud auto-start bypasses initial snapshot creation
+  - IndexedDB schema exists but no snapshot write path fires
+  - replay UI reads a local snapshot store that the Space never populates
+  - backend persistence and browser replay are separate contracts
+- required repair:
+  - visible checkpoint status in the Convergence UI
+  - explicit manual checkpoint button that works while running or explains why it cannot
+  - auto-checkpoint after cloud auto-start reaches a stable simulation state
+  - replay list refresh after snapshot creation
+  - JSON/content-type guardrails and backoff remain required for unavailable backend calls
+- carry this as a cross-surface TODO because Champion Council depends on Convergence organisms/cocoons being exportable, replayable, and auditable
+
 ## 9. Correct Order
 
 1. prove the value of `4 theaters` with separate ports and no runtime edits

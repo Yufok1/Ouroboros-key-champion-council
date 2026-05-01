@@ -8498,7 +8498,7 @@
         _appMode = String(mode || 'development').toLowerCase() === 'product' ? 'product' : 'development';
         _mcpExternalPolicy = String(mcpPolicy || 'full').toLowerCase() === 'closed' ? 'closed' : 'full';
 
-        var productVisible = { environment: true };
+        var productVisible = { overview: true, texttheater: true, environment: true, dreamer: true };
         document.body.setAttribute('data-app-mode', _appMode);
         document.body.setAttribute('data-mcp-policy', _mcpExternalPolicy);
 
@@ -10105,10 +10105,14 @@
             var provider = String(((document.getElementById('plug-provider-hf-provider') || {}).value || 'auto')).trim().toLowerCase();
             var providerPath = provider && provider !== 'auto' ? ('/hf-router/' + encodeURIComponent(provider) + '/v1') : '/hf-router/v1';
             var routerUrl = _capsuleLoopbackBase() + providerPath + '?model=' + encodeURIComponent(model);
+            var hfToken = String(((document.getElementById('plug-provider-hf-token') || {}).value || '')).trim();
+            if (hfToken) routerUrl += '&hf_token=' + encodeURIComponent(hfToken);
 
             var hfArgs = { model_id: routerUrl };
             if (slotName) hfArgs.slot_name = slotName;
             callTool('plug_model', hfArgs);
+            var tokenEl = document.getElementById('plug-provider-hf-token');
+            if (tokenEl) tokenEl.value = '';
             closeModals();
             mpToast('Plugging HuggingFace inference provider route (loopback)...', 'info', 2800);
             return;
@@ -12226,6 +12230,8 @@
         if (!window.__PUBLIC_HARDENING__) return false;
         var toolName = String(name || '').trim();
         if (!toolName) return false;
+        var allowed = Array.isArray(window.__PUBLIC_ALLOWED_TOOLS__) ? window.__PUBLIC_ALLOWED_TOOLS__ : [];
+        if (allowed.indexOf(toolName) >= 0) return false;
         var exact = Array.isArray(window.__PUBLIC_BLOCKED_TOOLS__) ? window.__PUBLIC_BLOCKED_TOOLS__ : [];
         var prefixes = Array.isArray(window.__PUBLIC_BLOCKED_TOOL_PREFIXES__) ? window.__PUBLIC_BLOCKED_TOOL_PREFIXES__ : [];
         if (exact.indexOf(toolName) >= 0) return true;
@@ -63808,10 +63814,10 @@
         var weatherKind = String(((skinService && skinService.medium_kind) || (weather && weather.kind) || '')).trim().toLowerCase();
         var weatherFlowClass = String(((skinService && skinService.flow_class) || (weather && weather.flow_class) || '')).trim().toLowerCase();
         var blendBase = Math.max(0.12, Math.min(0.32, 0.12 + (Math.max(0, Number(dt || 0.016)) * 4.5)));
-        // Keep the scaffold honest to the posed rig while comparing body alignment in workbench pose mode.
-        var quietWorkbenchPoseScaffold = !!_envBuilderSubject.active
-            && _envCharacterWorkbenchActive()
-            && _envNormalizeBuilderEditingMode(_envBuilderInteraction.editing_mode || 'structure') === 'pose';
+        // Keep builder workbench anatomy honest to the authored rig. Live sequence overlays can bend
+        // rest limbs in structure mode, which makes clean scaffolds look broken while editing.
+        var quietWorkbenchScaffold = !!_envBuilderSubject.active
+            && _envCharacterWorkbenchActive();
         Object.keys(pieces).forEach(function (slotName) {
             var entry = pieces[slotName];
             var piece = entry && entry.mesh ? entry.mesh : null;
@@ -63825,7 +63831,7 @@
             var baseState = piece.userData._scaffoldBaseState || _env3DScaffoldRememberBaseState(piece);
             if (!baseState) return;
             var material = Array.isArray(piece.material) ? piece.material[0] : piece.material;
-            if (quietWorkbenchPoseScaffold && slotName.indexOf('hair_') !== 0) {
+            if (quietWorkbenchScaffold && slotName.indexOf('hair_') !== 0) {
                 _env3DScaffoldResetDynamicOverlay(piece, blendBase);
                 return;
             }

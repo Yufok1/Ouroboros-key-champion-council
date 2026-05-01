@@ -56,6 +56,30 @@ COCOON_TOOL_SPECS: dict[str, dict[str, Any]] = {
             },
         },
     },
+    "cocoon_pull_hf": {
+        "description": "Pull a Cocoon ZIP from a Hugging Face model/dataset catalog repo and import or plug it into Champion Council.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "repo_id": {"type": "string", "description": "Hub repo id, e.g. owner/convergence-cocoon-catalog"},
+                "repo_type": {"type": "string", "description": "Hub repo type: model or dataset; defaults model"},
+                "revision": {"type": "string", "description": "Hub revision; defaults main"},
+                "catalog_path": {"type": "string", "description": "Optional JSON catalog path inside the repo"},
+                "artifact_id": {"type": "string", "description": "Optional catalog artifact id"},
+                "organism_id": {"type": "string", "description": "Optional source organism id to match in the catalog"},
+                "artifact_uri": {"type": "string", "description": "Optional explicit file path or URL for a Cocoon ZIP"},
+                "cocoon_id": {"type": "string", "description": "Optional managed Cocoon id"},
+                "sha256": {"type": "string", "description": "Optional expected ZIP sha256"},
+                "overwrite": {"type": "boolean", "description": "Replace existing managed Cocoon import"},
+                "run_info": {"type": "boolean", "description": "Run cocoon.py --mode info after import"},
+                "plug_slot": {"type": "boolean", "description": "Start and plug the pulled Cocoon into a council slot"},
+                "slot_name": {"type": "string", "description": "Optional council slot display name"},
+                "max_organisms": {"type": "integer", "description": "Optional organism load cap when plugging"},
+                "voting": {"type": "string", "description": "Cocoon voting mode: majority|weighted|confidence"},
+            },
+            "required": ["repo_id"],
+        },
+    },
     "cocoon_list": {
         "description": "List managed Cocoon imports and runtime status.",
         "inputSchema": {"type": "object", "properties": {}},
@@ -654,6 +678,273 @@ class CocoonManager:
             return data[-limit:].decode("utf-8", errors="replace")
         except Exception:
             return ""
+
+    def _hf_repo_api_url(self, repo_id: str, repo_type: str, revision: str) -> str:
+        quoted_repo = quote(repo_id, safe="/")
+        repo_kind = "datasets" if repo_type == "dataset" else "models"
+        return f"https://huggingface.co/api/{repo_kind}/{quoted_repo}/revision/{quote(revision, safe='')}"
+
+    def _hf_repo_resolve_url(self, repo_id: str, repo_type: str, revision: str, path: str) -> str:
+        prefix = "datasets/" if repo_type == "dataset" else ""
+        clean_path = str(path or "").replace("\\", "/").lstrip("/")
+        return f"https://huggingface.co/{prefix}{repo_id}/resolve/{quote(revision, safe='')}/{quote(clean_path, safe='/')}"
+
+    def _hf_headers(self) -> dict[str, str]:
+        token = (
+            os.environ.get("HF_TOKEN")
+            or os.environ.get("HUGGINGFACE_HUB_TOKEN")
+            or os.environ.get("HUGGING_FACE_HUB_TOKEN")
+            or ""
+        ).strip()
+        headers = {"User-Agent": "ChampionCouncil-CocoonPull/1.0"}
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+        return headers
+
+    async def _hf_get_json_url(self, url: str) -> Any:
+        async with httpx.AsyncClient(timeout=60, follow_redirects=True, headers=self._hf_headers()) as client:
+            resp = await client.get(url)
+            resp.raise_for_status()
+            return resp.json()
+
+    async def _hf_download_url(self, url: str, dest: Path) -> dict[str, Any]:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        total = 0
+        async with httpx.AsyncClient(timeout=None, follow_redirects=True, headers=self._hf_headers()) as client:
+            async with client.stream("GET", url) as resp:
+                resp.raise_for_status()
+                with dest.open("wb") as f:
+                    async for chunk in resp.aiter_bytes():
+                        if chunk:
+                            f.write(chunk)
+                            total += len(chunk)
+        return {"path": str(dest), "size_bytes": total, "sha256": _sha256_file(dest)}
+
+    def _hf_cache_path(self, repo_id: str, revision: str, artifact_path: str) -> Path:
+        repo_slug = _safe_slug(repo_id.replace("/", "__"), "repo")
+        revision_slug = _safe_slug(revision, "main")
+        rel = self._normalize_zip_member(str(artifact_path or "cocoon.zip").replace("\\", "/"))
+        return self.root / "_hf_cache" / repo_slug / revision_slug / rel
+
+    def _coerce_catalog_items(self, catalog: Any) -> list[dict[str, Any]]:
+        if isinstance(catalog, list):
+            return [item for item in catalog if isinstance(item, dict)]
+        if not isinstance(catalog, dict):
+            return []
+        for key in ("artifacts", "cocoons", "items", "files", "entries", "manifests"):
+            value = catalog.get(key)
+            if isinstance(value, list):
+                return [item for item in value if isinstance(item, dict)]
+            if isinstance(value, dict):
+                rows = []
+                for item_id, item in value.items():
+                    if isinstance(item, dict):
+                        row = dict(item)
+                        row.setdefault("id", str(item_id))
+                        rows.append(row)
+                return rows
+        if any(k in catalog for k in ("path", "file", "filename", "artifact_uri", "uri")):
+            return [catalog]
+        return []
+
+    def _catalog_item_path(self, item: dict[str, Any]) -> str:
+        for key in ("artifact_uri", "uri", "path", "file", "filename", "zip_path", "download_path"):
+            text = str(item.get(key) or "").strip()
+            if text:
+                return text
+        return ""
+
+    def _catalog_item_matches(self, item: dict[str, Any], artifact_id: str, organism_id: str, cocoon_id: str) -> bool:
+        needles = [artifact_id, organism_id, cocoon_id]
+        needles = [str(n or "").strip().lower() for n in needles if str(n or "").strip()]
+        if not needles:
+            return False
+        hay = [
+            item.get("id"),
+            item.get("artifact_id"),
+            item.get("organism_id"),
+            item.get("cocoon_id"),
+            item.get("name"),
+            item.get("short_id"),
+            self._catalog_item_path(item),
+        ]
+        hay_text = " ".join(str(v or "").lower() for v in hay)
+        return any(needle in hay_text for needle in needles)
+
+    async def _hf_load_catalog(self, repo_id: str, repo_type: str, revision: str, preferred_path: str) -> tuple[dict[str, Any] | list[Any] | None, str]:
+        candidates = [str(preferred_path or "").strip()] if str(preferred_path or "").strip() else []
+        candidates.extend([
+            "cocoons/index.json",
+            "cocoon_catalog.json",
+            "catalog.json",
+            "index.json",
+            "manifest.json",
+        ])
+        seen: set[str] = set()
+        for path in candidates:
+            clean = path.replace("\\", "/").lstrip("/")
+            if not clean or clean in seen:
+                continue
+            seen.add(clean)
+            url = self._hf_repo_resolve_url(repo_id, repo_type, revision, clean)
+            try:
+                payload = await self._hf_get_json_url(url)
+                return payload, clean
+            except Exception:
+                continue
+        return None, ""
+
+    def _hf_select_from_siblings(
+        self,
+        siblings: list[dict[str, Any]],
+        artifact_id: str,
+        organism_id: str,
+        cocoon_id: str,
+    ) -> tuple[str, str | None]:
+        zip_paths = []
+        for item in siblings:
+            name = str(item.get("rfilename") or item.get("path") or item.get("name") or "").replace("\\", "/")
+            if name.lower().endswith(".zip") and "cocoon" in name.lower():
+                zip_paths.append(name)
+        if not zip_paths:
+            return "", "No Cocoon ZIP files found in Hub repo siblings"
+        needles = [artifact_id, organism_id, cocoon_id]
+        needles = [str(n or "").strip().lower() for n in needles if str(n or "").strip()]
+        if needles:
+            matches = [p for p in zip_paths if any(n in p.lower() for n in needles)]
+            if len(matches) == 1:
+                return matches[0], None
+            if len(matches) > 1:
+                return "", f"Multiple Cocoon ZIPs match selector: {matches[:10]}"
+        if len(zip_paths) == 1:
+            return zip_paths[0], None
+        return "", f"Multiple Cocoon ZIPs found; provide artifact_id, organism_id, cocoon_id, artifact_uri, or catalog_path. Candidates: {zip_paths[:20]}"
+
+    async def pull_hf(
+        self,
+        args: dict[str, Any] | None = None,
+        plug_callback: Callable[[str, dict[str, Any]], Awaitable[dict[str, Any]]] | None = None,
+    ) -> dict[str, Any]:
+        args = args or {}
+        repo_id = str(args.get("repo_id") or args.get("model_id") or "").strip()
+        if not repo_id or "/" not in repo_id:
+            return {"error": "Missing repo_id in owner/name form"}
+        repo_type = str(args.get("repo_type") or "model").strip().lower()
+        if repo_type not in ("model", "dataset"):
+            repo_type = "model"
+        revision = str(args.get("revision") or "main").strip() or "main"
+        artifact_id = str(args.get("artifact_id") or "").strip()
+        organism_id = str(args.get("organism_id") or "").strip()
+        requested_cocoon_id = str(args.get("cocoon_id") or "").strip()
+        artifact_uri = str(args.get("artifact_uri") or "").strip()
+        sha256_expected = str(args.get("sha256") or "").strip().lower()
+
+        selected_item: dict[str, Any] = {}
+        catalog_path = ""
+        artifact_path = artifact_uri
+        catalog, catalog_path = await self._hf_load_catalog(
+            repo_id,
+            repo_type,
+            revision,
+            str(args.get("catalog_path") or "").strip(),
+        )
+        if catalog is not None and not artifact_path:
+            items = self._coerce_catalog_items(catalog)
+            if artifact_id or organism_id or requested_cocoon_id:
+                matches = [
+                    item for item in items
+                    if self._catalog_item_matches(item, artifact_id, organism_id, requested_cocoon_id)
+                ]
+                if len(matches) == 1:
+                    selected_item = matches[0]
+                    artifact_path = self._catalog_item_path(selected_item)
+                elif len(matches) > 1:
+                    return {
+                        "error": "Multiple Cocoon catalog artifacts matched selector",
+                        "repo_id": repo_id,
+                        "catalog_path": catalog_path,
+                        "matches": matches[:10],
+                    }
+            elif len(items) == 1:
+                selected_item = items[0]
+                artifact_path = self._catalog_item_path(selected_item)
+        if selected_item and not sha256_expected:
+            sha256_expected = str(selected_item.get("sha256") or selected_item.get("source_sha256") or "").strip().lower()
+
+        if not artifact_path:
+            repo_meta = await self._hf_get_json_url(self._hf_repo_api_url(repo_id, repo_type, revision))
+            siblings = repo_meta.get("siblings") if isinstance(repo_meta, dict) else []
+            if not isinstance(siblings, list):
+                siblings = []
+            artifact_path, err = self._hf_select_from_siblings(siblings, artifact_id, organism_id, requested_cocoon_id)
+            if err:
+                return {"error": err, "repo_id": repo_id, "revision": revision, "catalog_path": catalog_path}
+
+        if not artifact_path:
+            return {"error": "No Cocoon artifact path selected", "repo_id": repo_id, "catalog_path": catalog_path}
+        if artifact_path.startswith("hf://"):
+            artifact_path = artifact_path.split("/", 3)[-1] if "/" in artifact_path[5:] else artifact_path[5:]
+        if artifact_path.startswith("http://") or artifact_path.startswith("https://"):
+            url = artifact_path
+            name = Path(artifact_path.split("?", 1)[0]).name or "cocoon.zip"
+            dest = self._hf_cache_path(repo_id, revision, name)
+        else:
+            clean_path = artifact_path.replace("\\", "/").lstrip("/")
+            if not clean_path.lower().endswith(".zip"):
+                return {
+                    "error": "Selected Cocoon artifact is not a ZIP. Publish Cocoon exports as .zip files or provide artifact_uri to a ZIP.",
+                    "repo_id": repo_id,
+                    "artifact_path": clean_path,
+                    "catalog_path": catalog_path,
+                }
+            url = self._hf_repo_resolve_url(repo_id, repo_type, revision, clean_path)
+            dest = self._hf_cache_path(repo_id, revision, clean_path)
+        download = await self._hf_download_url(url, dest)
+        actual_sha = str(download.get("sha256") or "").lower()
+        if sha256_expected and actual_sha != sha256_expected:
+            return {
+                "error": "Downloaded Cocoon ZIP sha256 mismatch",
+                "expected_sha256": sha256_expected,
+                "actual_sha256": actual_sha,
+                "path": str(dest),
+            }
+        cocoon_id = _safe_slug(
+            requested_cocoon_id
+            or artifact_id
+            or organism_id
+            or (str(selected_item.get("id") or selected_item.get("name") or "") if selected_item else "")
+            or Path(str(dest)).stem
+        )
+        import_payload = await self.import_cocoon({
+            "path": str(dest),
+            "cocoon_id": cocoon_id,
+            "overwrite": _bool_arg(args.get("overwrite"), False),
+            "run_info": _bool_arg(args.get("run_info"), True),
+        })
+        result = {
+            "status": "ok" if not import_payload.get("error") else "error",
+            "repo_id": repo_id,
+            "repo_type": repo_type,
+            "revision": revision,
+            "catalog_path": catalog_path,
+            "artifact_path": artifact_path,
+            "selected_item": selected_item,
+            "download": download,
+            "cocoon_id": cocoon_id,
+            "import": import_payload,
+        }
+        if import_payload.get("error"):
+            result["error"] = import_payload.get("error")
+            return result
+        if _bool_arg(args.get("plug_slot"), False):
+            plug_args = {
+                "cocoon_id": cocoon_id,
+                "slot_name": args.get("slot_name") or cocoon_id,
+                "max_organisms": args.get("max_organisms") or 1,
+                "voting": args.get("voting") or "confidence",
+            }
+            result["plug"] = await self.plug_slot(plug_args, plug_callback)
+        return result
 
     async def import_cocoon(self, args: dict[str, Any] | None = None) -> dict[str, Any]:
         args = args or {}
@@ -1534,6 +1825,8 @@ class CocoonManager:
         args = args or {}
         if tool_name == "cocoon_import":
             return await self.import_cocoon(args)
+        if tool_name == "cocoon_pull_hf":
+            return await self.pull_hf(args, plug_callback)
         if tool_name == "cocoon_list":
             return await self.list_cocoons()
         if tool_name == "cocoon_info":

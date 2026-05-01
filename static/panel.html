@@ -366,6 +366,74 @@
             color: var(--text-dim);
         }
 
+        /* ── TEXT THEATER TAB ── */
+        .text-theater-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
+            gap: 12px;
+            min-height: 0;
+        }
+
+        .text-theater-panel {
+            border: 1px solid var(--border);
+            background: var(--surface);
+            min-height: 180px;
+        }
+
+        .text-theater-panel-head {
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-dim);
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .text-theater-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 12px;
+            align-items: center;
+        }
+
+        .text-theater-output {
+            margin: 0;
+            padding: 12px;
+            white-space: pre-wrap;
+            word-break: break-word;
+            overflow: auto;
+            max-height: 62vh;
+            min-height: 320px;
+            color: var(--text);
+            font-size: 10px;
+            line-height: 1.42;
+        }
+
+        .text-theater-output.compact {
+            min-height: 120px;
+            max-height: 220px;
+        }
+
+        .text-theater-meta {
+            padding: 12px;
+            color: var(--text-dim);
+            font-size: 10px;
+            line-height: 1.55;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        @media (max-width: 900px) {
+            .text-theater-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
         /* ── MCP CONFIG SECTION ── */
         .mcp-config-section {
             margin-top: 24px;
@@ -10750,6 +10818,7 @@
     <!-- TABS -->
     <div class="tabs">
         <button class="tab active" data-tab="overview">Overview</button>
+        <button class="tab" data-tab="texttheater">Text Theater</button>
         <button class="tab" data-tab="council">Council</button>
         <button class="tab" data-tab="memory">Memory</button>
         <button class="tab" data-tab="activity">Activity</button>
@@ -10828,6 +10897,17 @@
             <div class="cat-bars" id="cat-bars"></div>
 
             <div class="mcp-config-section">
+                <div class="config-header">
+                    <span style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;">Text Theater Live Frame</span>
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                        <button onclick="window.openTextTheaterTab && window.openTextTheaterTab()">OPEN</button>
+                        <button onclick="window.refreshTextTheaterPanel && window.refreshTextTheaterPanel('consult','blackboard')">REFRESH</button>
+                    </div>
+                </div>
+                <pre class="text-theater-output compact" id="tt-overview-output">Loading Text Theater...</pre>
+            </div>
+
+            <div class="mcp-config-section">
                 <div class="section-head" style="margin-bottom:10px;">MCP CONFIG</div>
                 <div class="config-header">
                     <span style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;">New
@@ -10859,6 +10939,40 @@
                     <strong>Claude Desktop (Win):</strong> <code>%APPDATA%/Claude/claude_desktop_config.json</code><br>
                     <strong>Claude Desktop (Mac):</strong>
                     <code>~/Library/Application Support/Claude/claude_desktop_config.json</code>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══════════════ TEXT THEATER TAB ═══════════════ -->
+        <div class="content" id="tab-texttheater">
+            <div class="panel-head-row">
+                <div class="panel-head-left">
+                    <div class="section-head">TEXT THEATER</div>
+                    <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.8px;">
+                        Live readable frame before raw state
+                    </div>
+                </div>
+                <div class="text-theater-actions">
+                    <button onclick="window.refreshTextTheaterPanel && window.refreshTextTheaterPanel('consult','blackboard')">CONSULT</button>
+                    <button onclick="window.refreshTextTheaterPanel && window.refreshTextTheaterPanel('render','theater')">RENDER</button>
+                    <button onclick="window.refreshTextTheaterPanel && window.refreshTextTheaterPanel('split','theater')">SPLIT</button>
+                    <button onclick="window.refreshTextTheaterPanel && window.refreshTextTheaterPanel('consult','snapshot')">SNAPSHOT</button>
+                </div>
+            </div>
+            <div class="text-theater-grid">
+                <div class="text-theater-panel">
+                    <div class="text-theater-panel-head">
+                        <span id="text-theater-title">CONSULT / BLACKBOARD</span>
+                        <span id="text-theater-status">IDLE</span>
+                    </div>
+                    <pre class="text-theater-output" id="text-theater-frame">Loading Text Theater...</pre>
+                </div>
+                <div class="text-theater-panel">
+                    <div class="text-theater-panel-head">
+                        <span>FRAME RECEIPT</span>
+                        <span id="text-theater-updated">--</span>
+                    </div>
+                    <pre class="text-theater-meta" id="text-theater-meta">Waiting for live frame.</pre>
                 </div>
             </div>
         </div>
@@ -11548,7 +11662,8 @@
                 <div style="font-size:10px;color:var(--text-dim);margin-bottom:12px;line-height:1.5;">
                     Browse and download models directly from the <strong>HuggingFace Hub</strong>.
                     Models are downloaded to the runtime host and loaded locally into a council slot.
-                    Uses <code>hub_plug</code> (download + plug in one step).
+                    Convergence cocoon catalog repos can be entered here too; <code>hub_plug</code>
+                    routes approved cocoon artifacts into the organism runtime.
                 </div>
 
                 <div style="border:1px solid var(--border);padding:10px;margin-bottom:12px;background:rgba(0,255,136,0.03);">
@@ -11589,7 +11704,7 @@
 
                 <div class="field">
                     <label>Model ID</label>
-                    <input id="plug-model-id" placeholder="BAAI/bge-small-en-v1.5" oninput="onHubModelIdInput()" />
+                    <input id="plug-model-id" placeholder="owner/model or owner/convergence-cocoon-catalog" oninput="onHubModelIdInput()" />
                 </div>
                 <div id="plug-hub-model-meta" style="font-size:10px;color:var(--text-dim);margin-top:-4px;margin-bottom:8px;line-height:1.5;">
                     Select a model to see metadata and size estimate.
@@ -12654,7 +12769,112 @@
             }
         })();
     </script>
-    <script src="/static/main.js?v=133b"></script>
+    <script src="/static/main.js?v=133d"></script>
+    <script>
+        (function () {
+            function escText(value) {
+                return String(value == null ? '' : value)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;');
+            }
+
+            function parseToolPayload(payload) {
+                var data = payload;
+                if (data && data.result && Array.isArray(data.result.content) && data.result.content[0]) {
+                    data = data.result.content[0].text;
+                }
+                if (typeof data === 'string') {
+                    try { return JSON.parse(data); } catch (err) { return { status: 'raw', text: data }; }
+                }
+                return data || {};
+            }
+
+            function writeTextTheater(frame, meta, status, title) {
+                var frameEl = document.getElementById('text-theater-frame');
+                var overviewEl = document.getElementById('tt-overview-output');
+                var metaEl = document.getElementById('text-theater-meta');
+                var statusEl = document.getElementById('text-theater-status');
+                var titleEl = document.getElementById('text-theater-title');
+                var updatedEl = document.getElementById('text-theater-updated');
+                var frameText = String(frame || 'No Text Theater frame returned.');
+                var metaText = String(meta || '');
+                if (frameEl) frameEl.textContent = frameText;
+                if (overviewEl) overviewEl.textContent = frameText;
+                if (metaEl) metaEl.textContent = metaText;
+                if (statusEl) statusEl.textContent = String(status || 'READY').toUpperCase();
+                if (titleEl) titleEl.textContent = String(title || 'TEXT THEATER').toUpperCase();
+                if (updatedEl) updatedEl.textContent = new Date().toLocaleTimeString();
+            }
+
+            async function refreshTextTheaterPanel(view, section) {
+                var nextView = String(view || 'consult');
+                var nextSection = String(section || 'blackboard');
+                writeTextTheater('Loading Text Theater...', 'Requesting env_read(text_theater_view).', 'loading', nextView + ' / ' + nextSection);
+                try {
+                    var response = await fetch('/api/tool/env_read?source=webui', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            query: 'text_theater_view',
+                            view: nextView,
+                            section: nextSection,
+                            diagnostics: true
+                        })
+                    });
+                    var raw = await response.json().catch(function () { return { error: 'Non-JSON response' }; });
+                    if (!response.ok) {
+                        throw new Error((raw && (raw.error || raw.message || raw.detail)) || ('HTTP ' + response.status));
+                    }
+                    var payload = parseToolPayload(raw);
+                    if (payload && payload.error && !payload.text_theater_view) throw new Error(payload.error);
+                    var theaterView = payload && payload.text_theater_view ? payload.text_theater_view : {};
+                    var frame = theaterView.frame || theaterView.theater_text || theaterView.embodiment_text || payload.text || JSON.stringify(payload, null, 2);
+                    var meta = {
+                        status: payload.status || 'ok',
+                        summary: payload.summary || '',
+                        view_mode: theaterView.view_mode || nextView,
+                        section_key: theaterView.section_key || nextSection,
+                        width: theaterView.width || null,
+                        height: theaterView.height || null,
+                        diagnostics: !!theaterView.diagnostics,
+                        snapshot_timestamp: theaterView.snapshot_timestamp || '',
+                        last_sync_reason: theaterView.last_sync_reason || '',
+                        bundle_version: theaterView.snapshot && theaterView.snapshot.bundle_version ? theaterView.snapshot.bundle_version : ''
+                    };
+                    writeTextTheater(frame, JSON.stringify(meta, null, 2), meta.status, meta.view_mode + ' / ' + meta.section_key);
+                    return payload;
+                } catch (err) {
+                    var message = err && err.message ? err.message : String(err);
+                    writeTextTheater('Text Theater unavailable: ' + message, JSON.stringify({
+                        status: 'error',
+                        tool: 'env_read',
+                        query: 'text_theater_view',
+                        view: nextView,
+                        section: nextSection,
+                        error: message
+                    }, null, 2), 'error', nextView + ' / ' + nextSection);
+                    return null;
+                }
+            }
+
+            function openTextTheaterTab() {
+                var tab = document.querySelector('.tab[data-tab="texttheater"]');
+                if (tab && typeof tab.click === 'function') tab.click();
+                refreshTextTheaterPanel('consult', 'blackboard');
+            }
+
+            window.refreshTextTheaterPanel = refreshTextTheaterPanel;
+            window.openTextTheaterTab = openTextTheaterTab;
+
+            document.querySelectorAll('.tab[data-tab="texttheater"]').forEach(function (tab) {
+                tab.addEventListener('click', function () {
+                    refreshTextTheaterPanel('consult', 'blackboard');
+                });
+            });
+            refreshTextTheaterPanel('consult', 'blackboard');
+        })();
+    </script>
 
     <!-- ═══════════════ DREAMER + GPU FLEET TAB JS ═══════════════ -->
     <script>
@@ -12664,6 +12884,41 @@
             let _dreamerState = null;
             let _dreamerMechanics = null;
             let _dreamerProposalPreview = null;
+            let _dreamerLastRenderSignature = '';
+
+            function dreamerRenderSignature(s, mechanics, proposalPreview) {
+                const d = (s && s.dreamer) || {};
+                const fcs = (s && s.fcs) || {};
+                const history = (s && s.history) || {};
+                const rewards = Array.isArray(history.reward_counts) ? history.reward_counts : [];
+                const fitness = Array.isArray(history.fitness) ? history.fitness : [];
+                const critic = Array.isArray(history.critic_loss) ? history.critic_loss : [];
+                const steps = Array.isArray(history.episode_steps) ? history.episode_steps : [];
+                const best = (proposalPreview && proposalPreview.best_action) || (fcs && fcs.best_action) || {};
+                return JSON.stringify({
+                    active: !!d.active,
+                    hold: !!d.causation_hold_active,
+                    fitness: d.fitness,
+                    critic: d.critic_value,
+                    rewards: d.reward_count,
+                    reward_buffer: d.reward_buffer_size,
+                    obs_buffer: d.obs_buffer_size,
+                    cycles: d.training_cycles,
+                    fcs_phase: fcs.phase,
+                    fcs_mode: fcs.mode,
+                    fcs_step: !!fcs.can_step,
+                    best_action: best.action_key || best.label || '',
+                    best_score: best.score,
+                    mechanics_updated: mechanics && mechanics.updated_ms,
+                    mechanics_status: mechanics && mechanics.status,
+                    proposal_status: proposalPreview && proposalPreview.status,
+                    proposal_count: proposalPreview && proposalPreview.available_actions,
+                    reward_tail: rewards.length ? rewards[rewards.length - 1] : null,
+                    fitness_tail: fitness.length ? fitness[fitness.length - 1] : null,
+                    critic_tail: critic.length ? critic[critic.length - 1] : null,
+                    step_tail: steps.length ? steps[steps.length - 1] : null,
+                });
+            }
 
             async function fetchDreamerState() {
                 try {
@@ -12696,7 +12951,13 @@
                             http_status: previewResp ? previewResp.status : 0,
                         };
                     }
-                    if (_dreamerState) renderDreamerDashboard(_dreamerState, _dreamerMechanics, _dreamerProposalPreview);
+                    if (_dreamerState) {
+                        const signature = dreamerRenderSignature(_dreamerState, _dreamerMechanics, _dreamerProposalPreview);
+                        if (signature !== _dreamerLastRenderSignature) {
+                            _dreamerLastRenderSignature = signature;
+                            renderDreamerDashboard(_dreamerState, _dreamerMechanics, _dreamerProposalPreview);
+                        }
+                    }
                 } catch (e) { console.warn('Dreamer poll error:', e); }
             }
 
@@ -12793,10 +13054,57 @@
                     bg.addColorStop(1, 'rgba(4,7,11,0.98)');
                     ctx.fillStyle = bg;
                     ctx.fillRect(0, 0, W, H);
-                    ctx.fillStyle = 'rgba(255,255,255,0.22)';
-                    ctx.font = '12px monospace';
-                    ctx.textAlign = 'center';
-                    ctx.fillText('Waiting for enough training cycles to chart health...', W / 2, H / 2);
+                    const rewards = Array.isArray(history.reward_counts) ? history.reward_counts.slice(-80) : [];
+                    const fitness = Array.isArray(history.fitness) ? history.fitness.slice(-80) : [];
+                    const rewardValues = rewards.map((row) => Number(row.count || 0));
+                    const fitnessValues = fitness.map((row) => Number(row.value || 0)).filter((value) => Number.isFinite(value));
+                    if (rewardValues.length < 2 && fitnessValues.length < 2) {
+                        ctx.fillStyle = 'rgba(255,255,255,0.22)';
+                        ctx.font = '12px monospace';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('Waiting for enough training cycles to chart health...', W / 2, H / 2);
+                        return;
+                    }
+
+                    ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+                    ctx.lineWidth = 1;
+                    for (let i = 0; i < 4; i++) {
+                        const y = 18 + (H - 38) * i / 3;
+                        ctx.beginPath(); ctx.moveTo(34, y); ctx.lineTo(W - 10, y); ctx.stroke();
+                    }
+
+                    function drawTelemetrySeries(values, color, minV, maxV) {
+                        if (!Array.isArray(values) || values.length < 2) return;
+                        const range = Math.max(1e-9, maxV - minV);
+                        const xStep = (W - 48) / Math.max(1, values.length - 1);
+                        ctx.strokeStyle = color;
+                        ctx.lineWidth = 2;
+                        ctx.beginPath();
+                        values.forEach((value, index) => {
+                            const x = 34 + index * xStep;
+                            const y = 18 + (H - 38) * (1 - ((value - minV) / range));
+                            index === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+                        });
+                        ctx.stroke();
+                    }
+
+                    const maxReward = Math.max(1, ...rewardValues);
+                    const fitMin = fitnessValues.length ? Math.min(...fitnessValues) : 0;
+                    const fitMax = fitnessValues.length ? Math.max(...fitnessValues) : 1;
+                    const fitPad = Math.max(0.0001, (fitMax - fitMin) * 0.15);
+                    drawTelemetrySeries(rewardValues, 'rgba(52,211,153,0.95)', 0, maxReward);
+                    drawTelemetrySeries(fitnessValues, 'rgba(167,139,250,0.95)', fitMin - fitPad, fitMax + fitPad);
+
+                    ctx.font = '10px monospace';
+                    ctx.textAlign = 'left';
+                    ctx.fillStyle = 'rgba(255,255,255,0.34)';
+                    ctx.fillText('critic loss not available yet', 16, 14);
+                    ctx.fillStyle = 'rgba(52,211,153,0.9)';
+                    ctx.fillText('reward buffer', W - 112, 18);
+                    ctx.fillStyle = 'rgba(167,139,250,0.9)';
+                    ctx.fillText('fitness', W - 112, 32);
+                    ctx.fillStyle = 'rgba(255,255,255,0.28)';
+                    ctx.fillText('telemetry fallback until obs buffer trains', 16, H - 8);
                     return;
                 }
 
@@ -12953,11 +13261,16 @@
                 if (!strip || !story) return;
                 const critic = Array.isArray(history.critic_loss) ? history.critic_loss : [];
                 if (!critic.length) {
+                    const rewards = Array.isArray(history.reward_counts) ? history.reward_counts : [];
+                    const fitness = Array.isArray(history.fitness) ? history.fitness : [];
                     strip.innerHTML = [
-                        dreamerBadge('health', 'waiting', '#f59e0b'),
-                        dreamerBadge('meaning', 'lower is better', '#60a5fa'),
+                        dreamerBadge('health', 'telemetry', '#34d399'),
+                        dreamerBadge('critic cycles', '0', '#f59e0b'),
+                        dreamerBadge('reward samples', String(rewards.length), '#34d399'),
+                        dreamerBadge('fitness samples', String(fitness.length), '#a78bfa'),
+                        dreamerBadge('capsule obs', String((dreamer && dreamer.obs_buffer_size) || 0), '#60a5fa'),
                     ].join('');
-                    story.textContent = 'This panel compares critic loss before and after each Dreamer perturbation. Lower loss is better. Accepted cycles mean the perturbation improved prediction quality.';
+                    story.textContent = 'No critic-loss training cycles have reported yet, so the chart is showing reward-buffer and fitness telemetry. It will switch to lower-is-better critic health once the capsule observation buffer starts feeding training.';
                     return;
                 }
                 const latest = critic[critic.length - 1] || {};
@@ -13815,7 +14128,7 @@
                 if (dreamerTab && dreamerTab.classList.contains('active')) {
                     if (!_dreamerPollId) {
                         fetchDreamerState();
-                        _dreamerPollId = setInterval(fetchDreamerState, 5000);
+                        _dreamerPollId = setInterval(fetchDreamerState, 10000);
                     }
                 } else {
                     if (_dreamerPollId) { clearInterval(_dreamerPollId); _dreamerPollId = null; }

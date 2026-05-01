@@ -38,7 +38,39 @@ import time
 import uuid
 import persistence
 import pack_storage
-from cocoon_adapter import COCOON_TOOL_SPECS, CocoonManager
+try:
+    from cocoon_adapter import COCOON_TOOL_SPECS, CocoonManager
+except ModuleNotFoundError as exc:
+    if exc.name != "cocoon_adapter":
+        raise
+
+    COCOON_TOOL_SPECS = {}
+
+    class CocoonManager:
+        def __init__(self, *args, **kwargs):
+            self.error = "cocoon_adapter module is not available in this runtime image"
+
+        def _unavailable(self) -> dict:
+            return {
+                "error": self.error,
+                "status": "unavailable",
+                "cocoon_adapter_available": False,
+            }
+
+        async def handle_tool(self, tool_name: str, *args, **kwargs):
+            if str(tool_name or "").startswith("cocoon_"):
+                return self._unavailable()
+            return None
+
+        async def openai_models(self, cocoon_id: str):
+            return self._unavailable()
+
+        async def openai_chat(self, cocoon_id: str, body: dict):
+            return self._unavailable()
+
+        async def chat(self, args: dict):
+            return self._unavailable()
+
 from continuity_restore import continuity_restore_payload, continuity_status_payload
 
 # Ensure Starlette static serving emits correct MIME for audio container files.
@@ -100,10 +132,10 @@ _PUBLIC_HARDENING_ENABLED = _EXPOSURE_MODE in {
 }
 _PUBLIC_BLOCKED_ROUTE_EXACT = frozenset({
     "/api/capsule/restart",
-    "/api/runtime/capacity",
     "/api/capsule-log",
     "/api/env/capture",
     "/api/live-sync",
+    "/api/packs/sync",
 })
 _PUBLIC_BLOCKED_ROUTE_PREFIXES = (
     "/mcp",
@@ -113,7 +145,6 @@ _PUBLIC_BLOCKED_ROUTE_PREFIXES = (
     "/api/dreamer",
     "/api/cocoon",
     "/api/vast",
-    "/api/packs",
     "/pi-router",
 )
 _PUBLIC_BLOCKED_TOOLS = frozenset({
@@ -177,6 +208,61 @@ _PUBLIC_BLOCKED_TOOLS = frozenset({
     "hub_download",
     "hub_tasks",
     "hub_count",
+})
+_PUBLIC_ALLOWED_TOOLS = frozenset({
+    # Public read-only runtime orientation for web UI, GPT Actions, and MCP
+    # diagnostics. Exact allowlist wins over the public blocked set/prefixes.
+    "api_health",
+    "heartbeat",
+    "get_identity",
+    "get_status",
+    "get_capabilities",
+    "get_help",
+    "get_onboarding",
+    "get_quickstart",
+    "get_readme",
+    "verify_integrity",
+    "get_cached",
+    "list_slots",
+    "slot_info",
+    "council_status",
+    "show_rssm",
+    "imagine",
+    "env_help",
+    "env_read",
+    "env_report",
+    "continuity_status",
+    "continuity_restore",
+    "bag_catalog",
+    "bag_search",
+    "bag_get",
+    "bag_search_docs",
+    "bag_read_doc",
+    "workflow_list",
+    "workflow_test",
+    # Public Hub browser / plug form.
+    "hub_search",
+    "hub_search_datasets",
+    "hub_top",
+    "hub_info",
+    "hub_tasks",
+    "hub_count",
+    "hub_plug",
+    # Bounded public cocoon lane: lets visitors pull and test approved
+    # Convergence cocoon repos without exposing arbitrary local import/export.
+    "cocoon_pull_hf",
+    "cocoon_list",
+    "cocoon_info",
+    "cocoon_start",
+    "cocoon_chat",
+    "cocoon_act",
+    "cocoon_vocab_check",
+    "cocoon_capabilities",
+    "cocoon_curriculum",
+    "cocoon_training_logs",
+    "cocoon_score",
+    "cocoon_snapshot",
+    "cocoon_plug_slot",
 })
 _PUBLIC_BLOCKED_TOOL_PREFIXES = (
     "bag_",
@@ -1933,8 +2019,25 @@ def _external_mcp_policy_violation(method: str, params: dict | None) -> dict | N
     }
 
 
+_HF_ROUTER_TOKEN_REFS: dict[str, str] = {}
+
+
+def _hf_router_remember_token(token: str) -> str:
+    token = str(token or "").strip()
+    if not token:
+        return ""
+    ref = uuid.uuid4().hex[:16]
+    _HF_ROUTER_TOKEN_REFS[ref] = token
+    return ref
+
+
 def _hf_router_token(explicit: str | None = None) -> str | None:
     token = (explicit or "").strip()
+    if token.startswith("ref:"):
+        ref = token[4:].strip()
+        if ref:
+            return _HF_ROUTER_TOKEN_REFS.get(ref)
+        return None
     if token:
         return token
     for key in ("HF_TOKEN", "HUGGING_FACE_HUB_TOKEN", "HUGGINGFACEHUB_API_TOKEN"):
@@ -2660,9 +2763,54 @@ def _public_tool_blocked(tool_name: str | None) -> bool:
     text = str(tool_name or "").strip()
     if not text:
         return False
+    if text in _PUBLIC_ALLOWED_TOOLS:
+        return False
     if text in _PUBLIC_BLOCKED_TOOLS:
         return True
     return any(text.startswith(prefix) for prefix in _PUBLIC_BLOCKED_TOOL_PREFIXES)
+
+
+async def _maybe_route_hub_plug_to_cocoon(args: dict | None) -> dict | None:
+    """Let the existing Hub plug form consume Convergence cocoon catalog repos."""
+    if not isinstance(args, dict):
+        return None
+    model_id = str(args.get("model_id") or args.get("repo_id") or "").strip()
+    if not model_id or "/" not in model_id:
+        return None
+    explicit_cocoon = any(str(args.get(k) or "").strip() for k in ("artifact_id", "organism_id", "artifact_uri", "catalog_path", "manifest_path"))
+    if not explicit_cocoon and "cocoon" not in model_id.lower():
+        return None
+    pull_args = {
+        "repo_id": model_id,
+        "revision": str(args.get("revision") or "main").strip() or "main",
+        "catalog_path": args.get("catalog_path") or args.get("manifest_path") or "",
+        "artifact_id": args.get("artifact_id") or "",
+        "organism_id": args.get("organism_id") or "",
+        "artifact_uri": args.get("artifact_uri") or "",
+        "cocoon_id": args.get("cocoon_id") or "",
+        "sha256": args.get("sha256") or "",
+        "overwrite": bool(args.get("overwrite", False)),
+        "run_info": bool(args.get("run_info", True)),
+        "plug_slot": True,
+        "slot_name": args.get("slot_name") or "",
+        "max_organisms": args.get("max_organisms") or 1,
+        "voting": args.get("voting") or "confidence",
+    }
+    pull_args = {k: v for k, v in pull_args.items() if v not in ("", None)}
+    payload = await _cocoon_manager.handle_tool("cocoon_pull_hf", pull_args, plug_callback=_call_tool)
+    if not isinstance(payload, dict):
+        return None
+    if payload.get("error"):
+        error_text = str(payload.get("error") or "").lower()
+        if explicit_cocoon or "cocoon" in model_id.lower():
+            payload["hub_plug_routed_to"] = "cocoon_pull_hf"
+            payload["hub_plug_args"] = pull_args
+            return payload
+        if "not approved" in error_text or "manifest" in error_text or "artifact" in error_text:
+            return None
+    payload["hub_plug_routed_to"] = "cocoon_pull_hf"
+    payload["hub_plug_args"] = pull_args
+    return payload
 
 
 def _public_tool_block_payload(tool_name: str | None, trace: dict | None = None) -> dict:
@@ -2956,7 +3104,16 @@ def _normalize_remote_provider_model_id(model_id: str) -> tuple[str, bool]:
             else:
                 key, value = token, ""
 
-            if key in ("model", "key"):
+            if key in ("token", "hf_token") and "/hf-router" in path:
+                decoded_token = unquote(value).strip()
+                if decoded_token:
+                    ref = _hf_router_remember_token(decoded_token)
+                    token = f"token_ref={ref}" if ref else ""
+                    changed = True
+                else:
+                    token = ""
+
+            elif key in ("model", "key"):
                 decoded = unquote(value)
                 if decoded != value:
                     changed = True
@@ -4845,6 +5002,7 @@ def _env_shared_state_prereq_payload(query_text: str, cached: dict | None) -> di
     consult_snapshot_timestamp = int(gate.get("consult_snapshot_timestamp") or 0)
     visual_updated_ms = int(gate.get("visual_updated_ms") or 0)
     visual_snapshot_timestamp = int(gate.get("visual_snapshot_timestamp") or 0)
+    visual_capture_ts = int(gate.get("visual_capture_ts") or 0)
     satisfied = False
     if current_updated_ms and last_updated_ms >= current_updated_ms:
         satisfied = True
@@ -4863,6 +5021,10 @@ def _env_shared_state_prereq_payload(query_text: str, cached: dict | None) -> di
     if current_updated_ms and visual_updated_ms >= current_updated_ms:
         visual_satisfied = True
     elif current_snapshot_timestamp and visual_snapshot_timestamp >= current_snapshot_timestamp:
+        visual_satisfied = True
+    elif current_snapshot_timestamp and visual_capture_ts >= current_snapshot_timestamp:
+        visual_satisfied = True
+    elif current_updated_ms and visual_capture_ts >= current_updated_ms:
         visual_satisfied = True
     elif not current_updated_ms and not current_snapshot_timestamp and (visual_updated_ms or visual_snapshot_timestamp):
         visual_satisfied = True
@@ -4889,6 +5051,7 @@ def _env_shared_state_prereq_payload(query_text: str, cached: dict | None) -> di
             "snapshot_timestamp": current_snapshot_timestamp,
             "visual_updated_ms": visual_updated_ms,
             "visual_snapshot_timestamp": visual_snapshot_timestamp,
+            "visual_capture_ts": visual_capture_ts,
             "consult_updated_ms": consult_updated_ms,
             "consult_snapshot_timestamp": consult_snapshot_timestamp,
         },
@@ -9686,6 +9849,151 @@ def _load_text_theater_module():
         return module
 
 
+def _env_text_theater_fallback_lines(text: str, width: int, max_lines: int) -> list[str]:
+    width = max(20, int(width or 140))
+    max_lines = max(1, int(max_lines or 44))
+    lines: list[str] = []
+    for raw_line in str(text or "").splitlines():
+        line = raw_line.rstrip()
+        if len(line) > width:
+            line = line[: max(0, width - 3)] + "..."
+        lines.append(line)
+        if len(lines) >= max_lines:
+            break
+    return lines
+
+
+def _env_text_theater_cached_blackboard_lines(shared_state: dict, snapshot: dict, width: int, height: int) -> list[str]:
+    blackboard = shared_state.get("blackboard") if isinstance(shared_state.get("blackboard"), dict) else {}
+    if not blackboard and isinstance(snapshot.get("blackboard"), dict):
+        blackboard = snapshot.get("blackboard") or {}
+    working_set = blackboard.get("working_set") if isinstance(blackboard.get("working_set"), dict) else {}
+    query_thread = working_set.get("query_thread") if isinstance(working_set.get("query_thread"), dict) else {}
+    rows = blackboard.get("rows") if isinstance(blackboard.get("rows"), list) else []
+    lines = [
+        "BLACKBOARD: cached consult fallback",
+        f"rows {len(rows)} / families {', '.join([str(x) for x in list(blackboard.get('families') or [])[:8]]) or 'none'}",
+    ]
+    if query_thread:
+        subject = str(query_thread.get("subject_key") or query_thread.get("subject_id") or "").strip()
+        objective = str(query_thread.get("objective_label") or query_thread.get("objective_id") or "").strip()
+        pivot = str(query_thread.get("current_pivot_id") or "").strip()
+        lines.append(f"thread {objective or 'unknown'} / {subject or 'no subject'} / pivot {pivot or 'none'}")
+    lead_ids = [str(x) for x in list(working_set.get("lead_row_ids") or [])[:10]]
+    if lead_ids:
+        lines.append("lead rows: " + ", ".join(lead_ids))
+    row_budget = max(0, min(len(rows), int(height or 44) - len(lines) - 2))
+    for row in rows[:row_budget]:
+        if not isinstance(row, dict):
+            continue
+        row_id = str(row.get("id") or row.get("row_id") or row.get("key") or row.get("path") or "").strip()
+        family = str(row.get("family") or row.get("kind") or row.get("group") or "").strip()
+        designation = str(row.get("designation") or row.get("status") or row.get("band") or row.get("severity") or "").strip()
+        summary = str(row.get("summary") or row.get("message") or row.get("label") or row.get("value") or "").strip()
+        label = row_id or family or "row"
+        prefix = " / ".join([part for part in [label, family, designation] if part])
+        line = (prefix + (": " if summary else "") + summary).strip()
+        if line:
+            lines.extend(_env_text_theater_fallback_lines(line, width, 1))
+    if len(lines) <= 2 and not rows:
+        lines.append("rows unavailable in cached mirror")
+    return lines[: max(1, int(height or 44))]
+
+
+def _env_text_theater_cached_view_payload(
+    query_text: str,
+    view_mode: str,
+    section_key: str,
+    width: int,
+    height: int,
+    diagnostics: bool,
+    cached: dict | None,
+    error: Exception,
+) -> dict | None:
+    cached = cached if isinstance(cached, dict) else {}
+    live_state = cached.get("live_state") if isinstance(cached.get("live_state"), dict) else {}
+    shared_state = live_state.get("shared_state") if isinstance(live_state.get("shared_state"), dict) else {}
+    if not isinstance(shared_state, dict) or not shared_state:
+        return None
+    text_theater = shared_state.get("text_theater") if isinstance(shared_state.get("text_theater"), dict) else {}
+    snapshot = text_theater.get("snapshot") if isinstance(text_theater.get("snapshot"), dict) else _env_cached_text_theater_snapshot(cached)
+    snapshot = _public_sanitize_text_theater_snapshot(snapshot if isinstance(snapshot, dict) else {})
+    theater_text = str(text_theater.get("theater") or "")
+    embodiment_text = str(text_theater.get("embodiment") or "")
+    section = str(section_key or "theater").strip().lower() or "theater"
+    if section == "blackboard":
+        lines = _env_text_theater_cached_blackboard_lines(shared_state, snapshot if isinstance(snapshot, dict) else {}, width, height)
+    elif section == "embodiment":
+        lines = _env_text_theater_fallback_lines(embodiment_text, width, height)
+    elif section == "snapshot":
+        lines = _env_text_theater_fallback_lines(json.dumps(snapshot, ensure_ascii=False, default=str, indent=2), width, height)
+    elif str(view_mode or "").strip().lower() == "split":
+        lines = _env_text_theater_fallback_lines(theater_text, width, max(1, height // 2))
+        lines.append("")
+        lines.extend(_env_text_theater_fallback_lines(embodiment_text, width, max(1, height - len(lines))))
+    else:
+        lines = _env_text_theater_fallback_lines(theater_text, width, height)
+    if not lines:
+        theater = snapshot.get("theater") if isinstance(snapshot.get("theater"), dict) else {}
+        lines = [
+            "TEXT THEATER: cached fallback",
+            f"bundle {snapshot.get('bundle_version', '')}",
+            f"mode {theater.get('mode', '')} / visual {theater.get('visual_mode', '')}",
+            f"last sync {snapshot.get('last_sync_reason', '')}",
+        ]
+    frame = "\n".join(lines[: max(1, int(height or 44))])
+    _env_note_text_theater_read(
+        query_text,
+        cached,
+        snapshot if isinstance(snapshot, dict) else {},
+        {
+            "view_mode": view_mode,
+            "section_key": section,
+            "diagnostics": diagnostics,
+            "fallback": True,
+        },
+    )
+    return {
+        "tool": "env_read",
+        "status": "ok",
+        "summary": "Rendered cached text theater view fallback",
+        "normalized_args": {
+            "query": query_text,
+            "view": view_mode,
+            "section": section,
+            "width": width,
+            "height": height,
+            "diagnostics": diagnostics,
+        },
+        "delta": {
+            "found": True,
+            "type": "text_theater_view",
+            "snapshot_timestamp": (snapshot or {}).get("snapshot_timestamp", 0),
+            "last_sync_reason": (snapshot or {}).get("last_sync_reason", ""),
+            "fallback": True,
+        },
+        "operation": "env_read",
+        "operation_status": "ok",
+        "query": query_text,
+        "fallback_reason": str(error),
+        "text_theater_view": {
+            "frame": frame,
+            "ansi_frame": frame,
+            "snapshot": snapshot,
+            "theater_text": theater_text,
+            "embodiment_text": embodiment_text,
+            "view_mode": view_mode,
+            "section_key": section,
+            "width": width,
+            "height": height,
+            "diagnostics": diagnostics,
+            "snapshot_timestamp": (snapshot or {}).get("snapshot_timestamp", 0),
+            "last_sync_reason": (snapshot or {}).get("last_sync_reason", ""),
+            "fallback": True,
+        },
+    }
+
+
 def _env_text_theater_view_payload(args: dict | None = None) -> dict:
     args = args or {}
     query_text = str(args.get("query", "text_theater_view") or "text_theater_view").strip() or "text_theater_view"
@@ -9730,6 +10038,18 @@ def _env_text_theater_view_payload(args: dict | None = None) -> dict:
             section_key=section_key,
         )
     except Exception as exc:
+        fallback = _env_text_theater_cached_view_payload(
+            query_text,
+            view_mode,
+            section_key,
+            width,
+            height,
+            diagnostics,
+            cached if "cached" in locals() else None,
+            exc,
+        )
+        if fallback is not None:
+            return fallback
         return {
             "tool": "env_read",
             "status": "error",
@@ -10917,6 +11237,35 @@ async def _server_side_agent_chat(args: dict, source: str = "webui", client_id: 
     iterations_used = 0
     loop_start = time.time()
 
+    def _repair_chat_role_sequence(messages: list[dict]) -> list[dict]:
+        """Merge adjacent same-role chat messages before provider calls."""
+        repaired: list[dict] = []
+        for msg in messages if isinstance(messages, list) else []:
+            if not isinstance(msg, dict):
+                continue
+            role = str(msg.get("role") or "").strip().lower()
+            content = str(msg.get("content") or "")
+            if not content and role != "assistant":
+                continue
+            if role == "system":
+                if repaired and repaired[0].get("role") == "system":
+                    repaired[0]["content"] = str(repaired[0].get("content") or "") + "\n\n" + content
+                elif not repaired:
+                    repaired.append({"role": "system", "content": content})
+                else:
+                    repaired.insert(0, {"role": "system", "content": content})
+                continue
+            if role not in ("user", "assistant"):
+                role = "user"
+            if role == "assistant" and not any((m.get("role") in ("user", "assistant")) for m in repaired):
+                repaired.append({"role": "user", "content": "Continue."})
+            if repaired and repaired[-1].get("role") == role:
+                prior = str(repaired[-1].get("content") or "")
+                repaired[-1]["content"] = (prior + "\n\n" + content).strip()
+            else:
+                repaired.append({"role": role, "content": content})
+        return repaired
+
     _broadcast_activity(
         "agent_chat", args,
         {"_phase": "start", "state": "running", "session_id": session_id,
@@ -11006,6 +11355,10 @@ async def _server_side_agent_chat(args: dict, source: str = "webui", client_id: 
             })
 
         # ── Step 1: Call model via invoke_slot ──
+        repaired_messages = _repair_chat_role_sequence(chat_messages)
+        if repaired_messages:
+            chat_messages = repaired_messages
+            session["chat_messages"] = chat_messages
         invoke_args = {
             "slot": slot,
             "text": message,
@@ -13477,6 +13830,15 @@ async def proxy_tool_call(tool_name: str, request: Request):
         if err_msg:
             return JSONResponse(status_code=503, content=cocoon_payload)
         return {"result": {"content": [{"type": "text", "text": json.dumps(cocoon_payload)}], "isError": False}}
+
+    if tool_name == "hub_plug":
+        cocoon_hub_payload = await _maybe_route_hub_plug_to_cocoon(body if isinstance(body, dict) else {})
+        if cocoon_hub_payload is not None:
+            err_msg = cocoon_hub_payload.get("error") if isinstance(cocoon_hub_payload, dict) else None
+            _broadcast_activity(tool_name, body if isinstance(body, dict) else {}, cocoon_hub_payload, 0, err_msg, source=source, client_id=client_id)
+            if err_msg:
+                return JSONResponse(status_code=503, content=cocoon_hub_payload)
+            return {"result": {"content": [{"type": "text", "text": json.dumps(cocoon_hub_payload)}], "isError": False}}
 
     if tool_name == "workflow_status":
         args = body if isinstance(body, dict) else {}
@@ -16950,7 +17312,10 @@ async def vast_fleet_state():
 
 
 async def _hf_router_proxy_impl(request: Request, subpath: str, provider: str = "auto"):
+    token_ref = request.query_params.get("token_ref")
     token_hint = request.query_params.get("token") or request.query_params.get("hf_token")
+    if token_ref:
+        token_hint = f"ref:{token_ref}"
     token = _hf_router_token(token_hint)
     if not token:
         return JSONResponse(
@@ -16966,6 +17331,7 @@ async def _hf_router_proxy_impl(request: Request, subpath: str, provider: str = 
     fwd_params = dict(request.query_params)
     fwd_params.pop("token", None)
     fwd_params.pop("hf_token", None)
+    fwd_params.pop("token_ref", None)
 
     headers = {"Accept": request.headers.get("accept", "application/json")}
     headers["Authorization"] = f"Bearer {token}"
@@ -17414,6 +17780,7 @@ def _render_control_panel_html() -> HTMLResponse:
         f"window.__MCP_EXTERNAL_POLICY__ = {json.dumps(MCP_EXTERNAL_POLICY)};"
         f"window.__EXPOSURE_MODE__ = {json.dumps(_EXPOSURE_MODE)};"
         f"window.__PUBLIC_HARDENING__ = {json.dumps(_PUBLIC_HARDENING_ENABLED)};"
+        f"window.__PUBLIC_ALLOWED_TOOLS__ = {json.dumps(sorted(_PUBLIC_ALLOWED_TOOLS))};"
         f"window.__PUBLIC_BLOCKED_TOOL_PREFIXES__ = {json.dumps(list(_PUBLIC_BLOCKED_TOOL_PREFIXES))};"
         f"window.__PUBLIC_BLOCKED_TOOLS__ = {json.dumps(sorted(_PUBLIC_BLOCKED_TOOLS))};"
         "</script>"
