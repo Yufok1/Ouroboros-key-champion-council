@@ -374,10 +374,29 @@
             min-height: 0;
         }
 
+        #tab-texttheater {
+            min-height: 0;
+        }
+
+        #tab-texttheater .text-theater-grid {
+            flex: 1;
+            grid-template-columns: minmax(0, 1fr);
+        }
+
         .text-theater-panel {
             border: 1px solid var(--border);
             background: var(--surface);
             min-height: 180px;
+        }
+
+        #tab-texttheater .text-theater-panel {
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
+        #tab-texttheater .text-theater-grid .text-theater-panel:last-child {
+            display: none;
         }
 
         .text-theater-panel-head {
@@ -414,6 +433,12 @@
             line-height: 1.42;
             tab-size: 4;
             font-variant-ligatures: none;
+        }
+
+        #tab-texttheater .text-theater-output {
+            flex: 1;
+            max-height: none;
+            min-height: 0;
         }
 
         .text-theater-output.ansi-colored {
@@ -506,6 +531,12 @@
             line-height: 1.55;
             white-space: pre-wrap;
             word-break: break-word;
+        }
+
+        #tab-texttheater .text-theater-meta {
+            flex: 1;
+            overflow: auto;
+            min-height: 0;
         }
 
         @media (max-width: 900px) {
@@ -12866,6 +12897,8 @@
             var textTheaterRetryTimer = 0;
             var textTheaterRetryCount = 0;
             var textTheaterScale = 1;
+            var currentTextTheaterView = 'render';
+            var currentTextTheaterSection = 'theater';
             try {
                 textTheaterScale = Number(localStorage.getItem('champion.textTheaterScale') || '1');
             } catch (err) { }
@@ -12890,6 +12923,7 @@
 
             function adjustTextTheaterScale(delta) {
                 applyTextTheaterScale(textTheaterScale + Number(delta || 0));
+                refreshTextTheaterPanel(currentTextTheaterView, currentTextTheaterSection);
             }
 
             function escText(value) {
@@ -13042,6 +13076,37 @@
                 }
             }
 
+            function getTextTheaterMeasureElement() {
+                var textTab = document.getElementById('tab-texttheater');
+                var envTab = document.getElementById('tab-environment');
+                if (textTab && textTab.classList.contains('active')) {
+                    return document.getElementById('text-theater-frame');
+                }
+                if (envTab && envTab.classList.contains('active')) {
+                    return document.getElementById('env-text-theater-frame');
+                }
+                return document.getElementById('text-theater-frame') || document.getElementById('env-text-theater-frame');
+            }
+
+            function getTextTheaterRenderSize(view, section) {
+                var el = getTextTheaterMeasureElement();
+                var isCompact = !!(el && el.classList && el.classList.contains('compact'));
+                var fontPx = (isCompact ? 8 : 10) * textTheaterScale;
+                var cellWidthPx = Math.max(3.2, fontPx * (isCompact ? 0.62 : 0.68));
+                var lineHeightPx = Math.max(5.5, fontPx * 1.08);
+                var rect = el && el.getBoundingClientRect ? el.getBoundingClientRect() : null;
+                var usableWidth = rect && rect.width ? rect.width - 24 : (isCompact ? 760 : 1040);
+                var usableHeight = rect && rect.height ? rect.height - 24 : (isCompact ? 260 : 640);
+                var width = Math.floor(usableWidth / cellWidthPx);
+                var height = Math.floor(usableHeight / lineHeightPx);
+                if (String(view || '') === 'split') height = Math.max(height, Math.floor(height * 1.15));
+                if (String(section || '') === 'snapshot') height = Math.max(28, Math.floor(height * 0.8));
+                return {
+                    width: Math.max(80, Math.min(260, width || 140)),
+                    height: Math.max(24, Math.min(110, height || 44))
+                };
+            }
+
             function writeTextTheater(frame, meta, status, title, ansiFrame) {
                 var frameEl = document.getElementById('text-theater-frame');
                 var envFrameEl = document.getElementById('env-text-theater-frame');
@@ -13066,11 +13131,14 @@
             async function refreshTextTheaterPanel(view, section) {
                 var nextView = String(view || 'render');
                 var nextSection = String(section || 'theater');
+                currentTextTheaterView = nextView;
+                currentTextTheaterSection = nextSection;
+                var renderSize = getTextTheaterRenderSize(nextView, nextSection);
                 if (textTheaterRetryTimer) {
                     clearTimeout(textTheaterRetryTimer);
                     textTheaterRetryTimer = 0;
                 }
-                writeTextTheater('Loading Text Theater...', 'Requesting env_read(text_theater_view).', 'loading', nextView + ' / ' + nextSection);
+                writeTextTheater('Loading Text Theater...', 'Requesting env_read(text_theater_view) at ' + renderSize.width + 'x' + renderSize.height + '.', 'loading', nextView + ' / ' + nextSection);
                 try {
                     var response = await fetch('/api/tool/env_read?source=webui', {
                         method: 'POST',
@@ -13079,6 +13147,8 @@
                             query: 'text_theater_view',
                             view: nextView,
                             section: nextSection,
+                            width: renderSize.width,
+                            height: renderSize.height,
                             diagnostics: true
                         })
                     });
@@ -13123,6 +13193,8 @@
                         query: 'text_theater_view',
                         view: nextView,
                         section: nextSection,
+                        width: renderSize.width,
+                        height: renderSize.height,
                         error: message,
                         retrying: waitingForMirror && textTheaterRetryCount < 12,
                         retry_count: textTheaterRetryCount
