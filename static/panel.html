@@ -423,13 +423,15 @@
         .text-theater-output {
             margin: 0;
             padding: 12px;
+            box-sizing: border-box;
+            width: 100%;
             white-space: pre;
             word-break: normal;
             overflow: auto;
             max-height: 62vh;
             min-height: 320px;
             color: var(--text);
-            font-size: var(--tt-font-size, 10px);
+            font-size: 10px;
             line-height: 1.42;
             tab-size: 4;
             font-variant-ligatures: none;
@@ -447,21 +449,27 @@
         }
 
         .text-theater-output.cell-rendered {
-            --tt-cell-width: 0.68em;
+            --tt-cell-width: 6.8px;
+            --tt-cell-height: 10.8px;
+            --tt-cell-font-size: 10px;
             white-space: normal;
             line-height: 1;
             letter-spacing: 0;
             font-family: Consolas, "Courier New", monospace;
+            font-size: var(--tt-cell-font-size);
+            overflow: hidden;
         }
 
         .text-theater-output.compact.cell-rendered {
-            --tt-cell-width: 0.62em;
+            --tt-cell-width: 5px;
+            --tt-cell-height: 8px;
+            --tt-cell-font-size: 8px;
         }
 
         .tt-cell-line {
             display: block;
-            height: 1.08em;
-            line-height: 1.08em;
+            height: var(--tt-cell-height);
+            line-height: var(--tt-cell-height);
             white-space: nowrap;
         }
 
@@ -469,8 +477,9 @@
             display: inline-block;
             width: var(--tt-cell-width);
             min-width: var(--tt-cell-width);
-            height: 1.08em;
-            line-height: 1.08em;
+            height: var(--tt-cell-height);
+            line-height: var(--tt-cell-height);
+            font-size: var(--tt-cell-font-size);
             text-align: center;
             vertical-align: top;
             overflow: visible;
@@ -491,7 +500,7 @@
         .env-text-theater-dock .text-theater-output {
             min-height: 180px;
             max-height: 260px;
-            font-size: var(--tt-env-font-size, 8px);
+            font-size: 8px;
             line-height: 1.2;
         }
 
@@ -12911,8 +12920,6 @@
 
             function applyTextTheaterScale(value) {
                 textTheaterScale = clampTextTheaterScale(value);
-                document.documentElement.style.setProperty('--tt-font-size', (10 * textTheaterScale).toFixed(1) + 'px');
-                document.documentElement.style.setProperty('--tt-env-font-size', (8 * textTheaterScale).toFixed(1) + 'px');
                 document.querySelectorAll('.text-theater-scale-value').forEach(function (el) {
                     el.textContent = Math.round(textTheaterScale * 100) + '%';
                 });
@@ -13061,6 +13068,40 @@
                 return html + '</span>';
             }
 
+            function stripTextTheaterAnsi(text) {
+                return String(text || '').replace(/\x1b\[[0-9;]*m/g, '');
+            }
+
+            function getTextTheaterFrameMetrics(text) {
+                var normalized = stripTextTheaterAnsi(text).replace(/\r/g, '');
+                var lines = normalized.split('\n');
+                var rows = Math.max(1, lines.length);
+                var cols = lines.reduce(function (max, line) {
+                    return Math.max(max, Array.from(line || '').length);
+                }, 1);
+                return { rows: rows, cols: cols };
+            }
+
+            function fitTextTheaterFrame(el, frame) {
+                if (!el || !el.classList || !el.classList.contains('cell-rendered')) return;
+                var metrics = getTextTheaterFrameMetrics(frame || el.dataset.plainFrame || '');
+                var style = window.getComputedStyle ? window.getComputedStyle(el) : null;
+                var padX = 24;
+                var padY = 24;
+                if (style) {
+                    padX = (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0);
+                    padY = (parseFloat(style.paddingTop) || 0) + (parseFloat(style.paddingBottom) || 0);
+                }
+                var usableWidth = Math.max(120, (el.clientWidth || el.getBoundingClientRect().width || 640) - padX);
+                var usableHeight = Math.max(80, (el.clientHeight || el.getBoundingClientRect().height || 360) - padY);
+                var cellWidth = Math.max(1.8, Math.min(18, usableWidth / Math.max(1, metrics.cols)));
+                var cellHeight = Math.max(3.2, Math.min(22, usableHeight / Math.max(1, metrics.rows)));
+                var fontSize = Math.max(3.5, Math.min(18, Math.min(cellHeight * 0.9, cellWidth * 1.45)));
+                el.style.setProperty('--tt-cell-width', cellWidth.toFixed(3) + 'px');
+                el.style.setProperty('--tt-cell-height', cellHeight.toFixed(3) + 'px');
+                el.style.setProperty('--tt-cell-font-size', fontSize.toFixed(3) + 'px');
+            }
+
             function renderTextTheaterElement(el, frame, ansiFrame) {
                 if (!el) return;
                 if (ansiFrame && /\x1b\[[0-9;]*m/.test(String(ansiFrame))) {
@@ -13068,11 +13109,15 @@
                     el.classList.add('ansi-colored');
                     el.classList.add('cell-rendered');
                     el.dataset.plainFrame = String(frame || '');
+                    fitTextTheaterFrame(el, frame || ansiFrame);
                 } else {
                     el.textContent = String(frame || 'No Text Theater frame returned.');
                     el.classList.remove('ansi-colored');
                     el.classList.remove('cell-rendered');
                     delete el.dataset.plainFrame;
+                    el.style.removeProperty('--tt-cell-width');
+                    el.style.removeProperty('--tt-cell-height');
+                    el.style.removeProperty('--tt-cell-font-size');
                 }
             }
 
@@ -13099,10 +13144,12 @@
                 var usableHeight = rect && rect.height ? rect.height - 24 : (isCompact ? 260 : 640);
                 var width = Math.floor(usableWidth / cellWidthPx);
                 var height = Math.floor(usableHeight / lineHeightPx);
+                var maxAspect = isCompact ? 3.25 : 2.35;
+                if (height > 0) width = Math.min(width, Math.floor(height * maxAspect));
                 if (String(view || '') === 'split') height = Math.max(height, Math.floor(height * 1.15));
                 if (String(section || '') === 'snapshot') height = Math.max(28, Math.floor(height * 0.8));
                 return {
-                    width: Math.max(80, Math.min(260, width || 140)),
+                    width: Math.max(80, Math.min(isCompact ? 180 : 230, width || 140)),
                     height: Math.max(24, Math.min(110, height || 44))
                 };
             }
@@ -13223,6 +13270,15 @@
                 tab.addEventListener('click', function () {
                     refreshTextTheaterPanel('render', 'theater');
                 });
+            });
+            var textTheaterResizeTimer = 0;
+            window.addEventListener('resize', function () {
+                clearTimeout(textTheaterResizeTimer);
+                textTheaterResizeTimer = setTimeout(function () {
+                    document.querySelectorAll('.text-theater-output.cell-rendered').forEach(function (el) {
+                        fitTextTheaterFrame(el, el.dataset.plainFrame || '');
+                    });
+                }, 120);
             });
             applyTextTheaterScale(textTheaterScale);
             refreshTextTheaterPanel('render', 'theater');
