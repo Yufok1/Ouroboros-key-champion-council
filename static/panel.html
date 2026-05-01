@@ -421,6 +421,37 @@
             color: #d8f7ff;
         }
 
+        .text-theater-output.cell-rendered {
+            --tt-cell-width: 0.68em;
+            white-space: normal;
+            line-height: 1;
+            letter-spacing: 0;
+            font-family: Consolas, "Courier New", monospace;
+        }
+
+        .text-theater-output.compact.cell-rendered {
+            --tt-cell-width: 0.62em;
+        }
+
+        .tt-cell-line {
+            display: block;
+            height: 1.08em;
+            line-height: 1.08em;
+            white-space: nowrap;
+        }
+
+        .tt-cell {
+            display: inline-block;
+            width: var(--tt-cell-width);
+            min-width: var(--tt-cell-width);
+            height: 1.08em;
+            line-height: 1.08em;
+            text-align: center;
+            vertical-align: top;
+            overflow: visible;
+            font-variant-ligatures: none;
+        }
+
         .text-theater-output.compact {
             min-height: 120px;
             max-height: 220px;
@@ -12896,21 +12927,35 @@
                     .replace(/'/g, '&#39;');
             }
 
-            function ansiTextToHtml(text) {
+            function textTheaterStyleRules(style) {
+                var rules = [];
+                if (style.color) rules.push('color:' + style.color);
+                if (style.background) rules.push('background:' + style.background);
+                if (style.bold) rules.push('font-weight:700');
+                return rules.length ? ' style="' + rules.join(';') + '"' : '';
+            }
+
+            function textTheaterCellHtml(ch, style) {
+                var content = ch === ' ' ? '&nbsp;' : escapeTextTheaterHtml(ch);
+                return '<span class="tt-cell"' + textTheaterStyleRules(style) + '>' + content + '</span>';
+            }
+
+            function ansiTextToCellHtml(text) {
                 var source = String(text || '');
                 var re = /\x1b\[([0-9;]*)m/g;
                 var lastIndex = 0;
-                var html = '';
+                var html = '<span class="tt-cell-line">';
                 var style = { color: '', background: '', bold: false };
                 var match;
                 function append(segment) {
                     if (!segment) return;
-                    var rules = [];
-                    if (style.color) rules.push('color:' + style.color);
-                    if (style.background) rules.push('background:' + style.background);
-                    if (style.bold) rules.push('font-weight:700');
-                    var escaped = escapeTextTheaterHtml(segment);
-                    html += rules.length ? '<span style="' + rules.join(';') + '">' + escaped + '</span>' : escaped;
+                    Array.from(String(segment).replace(/\r/g, '')).forEach(function (ch) {
+                        if (ch === '\n') {
+                            html += '</span><span class="tt-cell-line">';
+                        } else {
+                            html += textTheaterCellHtml(ch, style);
+                        }
+                    });
                 }
                 while ((match = re.exec(source)) !== null) {
                     append(source.slice(lastIndex, match.index));
@@ -12918,18 +12963,20 @@
                     lastIndex = re.lastIndex;
                 }
                 append(source.slice(lastIndex));
-                return html;
+                return html + '</span>';
             }
 
             function renderTextTheaterElement(el, frame, ansiFrame) {
                 if (!el) return;
                 if (ansiFrame && /\x1b\[[0-9;]*m/.test(String(ansiFrame))) {
-                    el.innerHTML = ansiTextToHtml(ansiFrame);
+                    el.innerHTML = ansiTextToCellHtml(ansiFrame);
                     el.classList.add('ansi-colored');
+                    el.classList.add('cell-rendered');
                     el.dataset.plainFrame = String(frame || '');
                 } else {
                     el.textContent = String(frame || 'No Text Theater frame returned.');
                     el.classList.remove('ansi-colored');
+                    el.classList.remove('cell-rendered');
                     delete el.dataset.plainFrame;
                 }
             }
