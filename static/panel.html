@@ -12887,6 +12887,15 @@
                 return style;
             }
 
+            function escapeTextTheaterHtml(value) {
+                return String(value || '')
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#39;');
+            }
+
             function ansiTextToHtml(text) {
                 var source = String(text || '');
                 var re = /\x1b\[([0-9;]*)m/g;
@@ -12900,7 +12909,7 @@
                     if (style.color) rules.push('color:' + style.color);
                     if (style.background) rules.push('background:' + style.background);
                     if (style.bold) rules.push('font-weight:700');
-                    var escaped = escapeHtml(segment);
+                    var escaped = escapeTextTheaterHtml(segment);
                     html += rules.length ? '<span style="' + rules.join(';') + '">' + escaped + '</span>' : escaped;
                 }
                 while ((match = re.exec(source)) !== null) {
