@@ -410,7 +410,7 @@
             max-height: 62vh;
             min-height: 320px;
             color: var(--text);
-            font-size: 10px;
+            font-size: var(--tt-font-size, 10px);
             line-height: 1.42;
             tab-size: 4;
             font-variant-ligatures: none;
@@ -466,12 +466,37 @@
         .env-text-theater-dock .text-theater-output {
             min-height: 180px;
             max-height: 260px;
-            font-size: 8px;
+            font-size: var(--tt-env-font-size, 8px);
             line-height: 1.2;
         }
 
         .env-text-theater-dock .text-theater-actions {
             margin: 8px 12px 0;
+        }
+
+        .text-theater-scale-control {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 0 4px;
+            border: 1px solid var(--border);
+            background: rgba(0, 0, 0, 0.18);
+            min-height: 28px;
+        }
+
+        .text-theater-scale-control button {
+            min-width: 28px;
+            height: 24px;
+            padding: 0;
+            line-height: 1;
+        }
+
+        .text-theater-scale-value {
+            min-width: 42px;
+            color: var(--text-dim);
+            font-size: 10px;
+            text-align: center;
+            font-variant-numeric: tabular-nums;
         }
 
         .text-theater-meta {
@@ -11001,6 +11026,11 @@
                     <button onclick="window.refreshTextTheaterPanel && window.refreshTextTheaterPanel('render','theater')">RENDER</button>
                     <button onclick="window.refreshTextTheaterPanel && window.refreshTextTheaterPanel('split','theater')">SPLIT</button>
                     <button onclick="window.refreshTextTheaterPanel && window.refreshTextTheaterPanel('consult','snapshot')">SNAPSHOT</button>
+                    <span class="text-theater-scale-control" aria-label="Text Theater render scale">
+                        <button title="Scale render down" onclick="window.adjustTextTheaterScale && window.adjustTextTheaterScale(-0.1)">-</button>
+                        <span class="text-theater-scale-value">100%</span>
+                        <button title="Scale render up" onclick="window.adjustTextTheaterScale && window.adjustTextTheaterScale(0.1)">+</button>
+                    </span>
                 </div>
             </div>
             <div class="text-theater-grid">
@@ -11469,6 +11499,11 @@
                             <button onclick="window.refreshTextTheaterPanel && window.refreshTextTheaterPanel('render','theater')">RENDER</button>
                             <button onclick="window.refreshTextTheaterPanel && window.refreshTextTheaterPanel('render','embodiment')">BODY</button>
                             <button onclick="window.refreshTextTheaterPanel && window.refreshTextTheaterPanel('split','theater')">SPLIT</button>
+                            <span class="text-theater-scale-control" aria-label="Text Theater render scale">
+                                <button title="Scale render down" onclick="window.adjustTextTheaterScale && window.adjustTextTheaterScale(-0.1)">-</button>
+                                <span class="text-theater-scale-value">100%</span>
+                                <button title="Scale render up" onclick="window.adjustTextTheaterScale && window.adjustTextTheaterScale(0.1)">+</button>
+                            </span>
                         </div>
                         <pre class="text-theater-output compact" id="env-text-theater-frame">Loading Text Theater...</pre>
                     </div>
@@ -12830,6 +12865,32 @@
         (function () {
             var textTheaterRetryTimer = 0;
             var textTheaterRetryCount = 0;
+            var textTheaterScale = 1;
+            try {
+                textTheaterScale = Number(localStorage.getItem('champion.textTheaterScale') || '1');
+            } catch (err) { }
+
+            function clampTextTheaterScale(value) {
+                var next = Number(value);
+                if (!Number.isFinite(next)) next = 1;
+                return Math.max(0.6, Math.min(1.8, Math.round(next * 10) / 10));
+            }
+
+            function applyTextTheaterScale(value) {
+                textTheaterScale = clampTextTheaterScale(value);
+                document.documentElement.style.setProperty('--tt-font-size', (10 * textTheaterScale).toFixed(1) + 'px');
+                document.documentElement.style.setProperty('--tt-env-font-size', (8 * textTheaterScale).toFixed(1) + 'px');
+                document.querySelectorAll('.text-theater-scale-value').forEach(function (el) {
+                    el.textContent = Math.round(textTheaterScale * 100) + '%';
+                });
+                try {
+                    localStorage.setItem('champion.textTheaterScale', String(textTheaterScale));
+                } catch (err) { }
+            }
+
+            function adjustTextTheaterScale(delta) {
+                applyTextTheaterScale(textTheaterScale + Number(delta || 0));
+            }
 
             function escText(value) {
                 return String(value == null ? '' : value)
@@ -13078,6 +13139,8 @@
 
             window.refreshTextTheaterPanel = refreshTextTheaterPanel;
             window.openTextTheaterTab = openTextTheaterTab;
+            window.adjustTextTheaterScale = adjustTextTheaterScale;
+            window.applyTextTheaterScale = applyTextTheaterScale;
 
             document.querySelectorAll('.tab[data-tab="texttheater"]').forEach(function (tab) {
                 tab.addEventListener('click', function () {
@@ -13089,6 +13152,7 @@
                     refreshTextTheaterPanel('render', 'theater');
                 });
             });
+            applyTextTheaterScale(textTheaterScale);
             refreshTextTheaterPanel('render', 'theater');
         })();
     </script>
