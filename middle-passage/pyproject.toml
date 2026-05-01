@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "middle-passage"
+version = "0.1.0"
+description = "Protection-first forensic GIS scaffold for Middle Passage memorial research"
+readme = { file = "README.md", content-type = "text/markdown" }
+requires-python = ">=3.10"
+license = "CC-BY-4.0"
+license-files = ["LICENSE"]
+authors = [
+  { name = "Middle Passage Forensic Recovery Project" }
+]
+keywords = [
+  "middle-passage",
+  "gis",
+  "memorial",
+  "forensic",
+  "maritime-archaeology",
+  "humanitarian"
+]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Intended Audience :: Science/Research",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Operating System :: OS Independent",
+  "Topic :: Scientific/Engineering :: GIS",
+]
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.4"]
+gis = ["shapely>=2.0", "pyproj>=3.6", "geojson>=3.0"]
+
+[project.scripts]
+middle-passage = "middle_passage.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/Yufok1/Ouroboros-key-champion-council/tree/main/middle-passage"
+Repository = "https://github.com/Yufok1/Ouroboros-key-champion-council"
+Issues = "https://github.com/Yufok1/Ouroboros-key-champion-council/issues"
+Documentation = "https://github.com/Yufok1/Ouroboros-key-champion-council/tree/main/middle-passage/docs"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["middle_passage*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
