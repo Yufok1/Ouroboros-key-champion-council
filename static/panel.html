@@ -404,14 +404,21 @@
         .text-theater-output {
             margin: 0;
             padding: 12px;
-            white-space: pre-wrap;
-            word-break: break-word;
+            white-space: pre;
+            word-break: normal;
             overflow: auto;
             max-height: 62vh;
             min-height: 320px;
             color: var(--text);
             font-size: 10px;
             line-height: 1.42;
+            tab-size: 4;
+            font-variant-ligatures: none;
+        }
+
+        .text-theater-output.ansi-colored {
+            background: #02040a;
+            color: #d8f7ff;
         }
 
         .text-theater-output.compact {
@@ -428,8 +435,8 @@
         .env-text-theater-dock .text-theater-output {
             min-height: 180px;
             max-height: 260px;
-            font-size: 9px;
-            line-height: 1.32;
+            font-size: 8px;
+            line-height: 1.2;
         }
 
         .env-text-theater-dock .text-theater-actions {
@@ -10914,17 +10921,6 @@
             <div class="cat-bars" id="cat-bars"></div>
 
             <div class="mcp-config-section">
-                <div class="config-header">
-                    <span style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;">Text Theater Live Frame</span>
-                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                        <button onclick="window.openTextTheaterTab && window.openTextTheaterTab()">OPEN</button>
-                        <button onclick="window.refreshTextTheaterPanel && window.refreshTextTheaterPanel('render','theater')">REFRESH</button>
-                    </div>
-                </div>
-                <pre class="text-theater-output compact" id="tt-overview-output">Loading Text Theater...</pre>
-            </div>
-
-            <div class="mcp-config-section">
                 <div class="section-head" style="margin-bottom:10px;">MCP CONFIG</div>
                 <div class="config-header">
                     <span style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;">New
@@ -12822,9 +12818,115 @@
                 return data || {};
             }
 
-            function writeTextTheater(frame, meta, status, title) {
+            function ansi256ToHex(n) {
+                var basic = [
+                    '#000000', '#800000', '#008000', '#808000', '#000080', '#800080', '#008080', '#c0c0c0',
+                    '#808080', '#ff0000', '#00ff00', '#ffff00', '#0000ff', '#ff00ff', '#00ffff', '#ffffff'
+                ];
+                if (n >= 0 && n < basic.length) return basic[n];
+                if (n >= 16 && n <= 231) {
+                    var idx = n - 16;
+                    var levels = [0, 95, 135, 175, 215, 255];
+                    var r = levels[Math.floor(idx / 36) % 6];
+                    var g = levels[Math.floor(idx / 6) % 6];
+                    var b = levels[idx % 6];
+                    return 'rgb(' + r + ',' + g + ',' + b + ')';
+                }
+                if (n >= 232 && n <= 255) {
+                    var v = 8 + (n - 232) * 10;
+                    return 'rgb(' + v + ',' + v + ',' + v + ')';
+                }
+                return '';
+            }
+
+            function ansiCodesToStyle(codes, style) {
+                var basicFg = {
+                    30: '#111827', 31: '#ef4444', 32: '#22c55e', 33: '#f59e0b',
+                    34: '#3b82f6', 35: '#a855f7', 36: '#06b6d4', 37: '#e5e7eb',
+                    90: '#6b7280', 91: '#fb7185', 92: '#4ade80', 93: '#facc15',
+                    94: '#60a5fa', 95: '#c084fc', 96: '#22d3ee', 97: '#ffffff'
+                };
+                var basicBg = {
+                    40: '#111827', 41: '#7f1d1d', 42: '#14532d', 43: '#713f12',
+                    44: '#1e3a8a', 45: '#581c87', 46: '#164e63', 47: '#374151'
+                };
+                if (!codes.length) codes = [0];
+                for (var i = 0; i < codes.length; i += 1) {
+                    var code = Number(codes[i]);
+                    if (!Number.isFinite(code)) continue;
+                    if (code === 0) {
+                        style.color = '';
+                        style.background = '';
+                        style.bold = false;
+                    } else if (code === 1) {
+                        style.bold = true;
+                    } else if (code === 22) {
+                        style.bold = false;
+                    } else if (code === 39) {
+                        style.color = '';
+                    } else if (code === 49) {
+                        style.background = '';
+                    } else if (basicFg[code]) {
+                        style.color = basicFg[code];
+                    } else if (basicBg[code]) {
+                        style.background = basicBg[code];
+                    } else if ((code === 38 || code === 48) && Number(codes[i + 1]) === 2) {
+                        var r = Number(codes[i + 2]);
+                        var g = Number(codes[i + 3]);
+                        var b = Number(codes[i + 4]);
+                        if ([r, g, b].every(Number.isFinite)) {
+                            style[code === 38 ? 'color' : 'background'] = 'rgb(' + r + ',' + g + ',' + b + ')';
+                        }
+                        i += 4;
+                    } else if ((code === 38 || code === 48) && Number(codes[i + 1]) === 5) {
+                        var mapped = ansi256ToHex(Number(codes[i + 2]));
+                        if (mapped) style[code === 38 ? 'color' : 'background'] = mapped;
+                        i += 2;
+                    }
+                }
+                return style;
+            }
+
+            function ansiTextToHtml(text) {
+                var source = String(text || '');
+                var re = /\x1b\[([0-9;]*)m/g;
+                var lastIndex = 0;
+                var html = '';
+                var style = { color: '', background: '', bold: false };
+                var match;
+                function append(segment) {
+                    if (!segment) return;
+                    var rules = [];
+                    if (style.color) rules.push('color:' + style.color);
+                    if (style.background) rules.push('background:' + style.background);
+                    if (style.bold) rules.push('font-weight:700');
+                    var escaped = escapeHtml(segment);
+                    html += rules.length ? '<span style="' + rules.join(';') + '">' + escaped + '</span>' : escaped;
+                }
+                while ((match = re.exec(source)) !== null) {
+                    append(source.slice(lastIndex, match.index));
+                    style = ansiCodesToStyle(match[1] ? match[1].split(';') : [0], style);
+                    lastIndex = re.lastIndex;
+                }
+                append(source.slice(lastIndex));
+                return html;
+            }
+
+            function renderTextTheaterElement(el, frame, ansiFrame) {
+                if (!el) return;
+                if (ansiFrame && /\x1b\[[0-9;]*m/.test(String(ansiFrame))) {
+                    el.innerHTML = ansiTextToHtml(ansiFrame);
+                    el.classList.add('ansi-colored');
+                    el.dataset.plainFrame = String(frame || '');
+                } else {
+                    el.textContent = String(frame || 'No Text Theater frame returned.');
+                    el.classList.remove('ansi-colored');
+                    delete el.dataset.plainFrame;
+                }
+            }
+
+            function writeTextTheater(frame, meta, status, title, ansiFrame) {
                 var frameEl = document.getElementById('text-theater-frame');
-                var overviewEl = document.getElementById('tt-overview-output');
                 var envFrameEl = document.getElementById('env-text-theater-frame');
                 var metaEl = document.getElementById('text-theater-meta');
                 var statusEl = document.getElementById('text-theater-status');
@@ -12834,9 +12936,8 @@
                 var updatedEl = document.getElementById('text-theater-updated');
                 var frameText = String(frame || 'No Text Theater frame returned.');
                 var metaText = String(meta || '');
-                if (frameEl) frameEl.textContent = frameText;
-                if (overviewEl) overviewEl.textContent = frameText;
-                if (envFrameEl) envFrameEl.textContent = frameText;
+                renderTextTheaterElement(frameEl, frameText, ansiFrame);
+                renderTextTheaterElement(envFrameEl, frameText, ansiFrame);
                 if (metaEl) metaEl.textContent = metaText;
                 if (statusEl) statusEl.textContent = String(status || 'READY').toUpperCase();
                 if (envStatusEl) envStatusEl.textContent = String(status || 'READY').toUpperCase();
@@ -12872,6 +12973,7 @@
                     if (payload && payload.error && !payload.text_theater_view) throw new Error(payload.error);
                     var theaterView = payload && payload.text_theater_view ? payload.text_theater_view : {};
                     var frame = theaterView.frame || theaterView.theater_text || theaterView.embodiment_text || payload.text || JSON.stringify(payload, null, 2);
+                    var ansiFrame = theaterView.ansi_frame || '';
                     var meta = {
                         status: payload.status || 'ok',
                         summary: payload.summary || '',
@@ -12884,7 +12986,7 @@
                         last_sync_reason: theaterView.last_sync_reason || '',
                         bundle_version: theaterView.snapshot && theaterView.snapshot.bundle_version ? theaterView.snapshot.bundle_version : ''
                     };
-                    writeTextTheater(frame, JSON.stringify(meta, null, 2), meta.status, meta.view_mode + ' / ' + meta.section_key);
+                    writeTextTheater(frame, JSON.stringify(meta, null, 2), meta.status, meta.view_mode + ' / ' + meta.section_key, ansiFrame);
                     textTheaterRetryCount = 0;
                     return payload;
                 } catch (err) {
