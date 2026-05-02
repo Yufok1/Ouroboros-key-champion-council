@@ -12,6 +12,7 @@ This registry is an inspection and curriculum surface. It is not a deployment au
 
 - `docs/ATRAI_ASSOCIATIVE_PACKAGE_PRIMITIVES_TICKET_2026-04-29.md`
 - `docs/ATRAI_ORGANISM_MAINFRAME_PRIMITIVE_GRAMMAR_2026-04-29.md`
+- `docs/ATRAI_ANIMAL_CIVIC_PRIMITIVE_GRAMMAR_2026-05-01.md`
 - `docs/brotology/SOURCE_HOLD_OPEN_SURGERY_DOCTRINE_2026-04-29.md`
 - `docs/brotology/ROTATION_SNAKE_TRANSITION_DESIGN_2026-04-28.md`
 - `docs/brotology/CANYON_SPAN_PRIMITIVE_REGISTRY_SPEC_2026-04-23.md`
@@ -33,17 +34,19 @@ Machine-readable curriculum:
 
 ## Primitive Rows
 
-| ID | Organism Name | Body Plan | Family | Role | Required Fit Checks | HOLD |
-|---|---|---|---|---|---|---|
-| `atrai.phase_spine` | Phase Spine | serpentine coil | spine | route and phase carrier | anchors, phase law, charge path, catch path, loss budget | required for movement/deployment/civic claims |
-| `atrai.left_tensile_line` | Left Tensile Line | tendon line | force closure | cable/tendon force path and sensing line | two anchors, tension limit, preload/slack, failure mode | required for load-bearing claims |
-| `atrai.right_tensile_line` | Right Tensile Line | tendon line | force closure | paired cable/tendon for closure and steering | two anchors, tension limit, phase relation, failure mode | required for load-bearing claims |
-| `atrai.cubic_panel_chain` | Cubic Panel Chain | cubic paneling | repairable shell | modular panels for shell, floor, wave, or service cell | edge grid, hinge/lock, clearance, load limit | required for shelter/occupancy/safety claims |
-| `atrai.charge_packet` | Charge Packet | sphere core | moving load | mass/spin/energy packet moving through route | mass, inertia, route state, catch state, loss budget | required for energy/motion claims |
-| `atrai.catch_cage` | Catch Cage | dock cage | safety | capture, brake, dock, quarantine, recover | capacity, latch state, catch window, release condition | required for safe-motion claims |
-| `atrai.charge_bank` | Charge Bank | charge organ | mobile energy | stores or supplies energy/readiness | source, recharge path, sink, loss budget | required for energy/financial/deployment claims |
-| `atrai.utility_bus` | Utility Bus | utility vein | service flow | routes services from sources to sinks | source ids, sink ids, duty cycle, failure mode | required for service/civic/deployment claims |
-| `atrai.source_hold_gate` | Source HOLD Gate | human gate | authority | human/community authorization boundary | human owner, condition, receipt, rollback | always active for real-world action |
+| ID | Organism Name | Body Plan | Animal/Civic Depiction | Family | Role | Required Fit Checks | HOLD |
+|---|---|---|---|---|---|---|---|
+| `atrai.phase_spine` | Phase Spine | serpentine coil | serpent / eel / dragon spine | spine | route and phase carrier | anchors, phase law, charge path, catch path, loss budget | required for movement/deployment/civic claims |
+| `atrai.left_tensile_line` | Left Tensile Line | tendon line | spider silk / tendon whisker | force closure | cable/tendon force path and sensing line | two anchors, tension limit, preload/slack, failure mode | required for load-bearing claims |
+| `atrai.right_tensile_line` | Right Tensile Line | tendon line | paired spider silk / paired tendon whisker | force closure | paired cable/tendon for closure and steering | two anchors, tension limit, phase relation, failure mode | required for load-bearing claims |
+| `atrai.cubic_panel_chain` | Cubic Panel Chain | cubic paneling | turtle shell / armadillo plates / scale field | repairable shell | modular panels for shell, floor, wave, or service cell | edge grid, hinge/lock, clearance, load limit | required for shelter/occupancy/safety claims |
+| `atrai.charge_packet` | Charge Packet | sphere core | rolling beetle / seed core / pearl | moving load | mass/spin/energy packet moving through route | mass, inertia, route state, catch state, loss budget | required for energy/motion claims |
+| `atrai.catch_cage` | Catch Cage | dock cage | nest / den / anemone cradle | safety | capture, brake, dock, quarantine, recover | capacity, latch state, catch window, release condition | required for safe-motion claims |
+| `atrai.charge_bank` | Charge Bank | charge organ | hive comb / warm organ | mobile energy | stores or supplies energy/readiness | source, recharge path, sink, loss budget | required for energy/financial/deployment claims |
+| `atrai.utility_bus` | Utility Bus | utility vein | vein / root network / gill path | service flow | routes services from sources to sinks | source ids, sink ids, duty cycle, failure mode | required for service/civic/deployment claims |
+| `atrai.acoustic_no_entry_zone` | Acoustic No-Entry Zone | listening membrane | owl ring / quiet reef / listening membrane | acoustic boundary | warning, privacy, attention, and ingress shaping | source, receiver class, safe intensity, duration, fallback cue, ingress rule | required for public/safety/access claims |
+| `atrai.public_laughter_sonar` | Public Laughter Sonar | humor pulse | chorus / call-response / banger pulse | acoustic social sensing | public humor and laughter read for mood, friction, timing, and readiness | public source, receiver class, context, intensity, consent boundary, aggregate-only notes | required for public-facing humor claims |
+| `atrai.source_hold_gate` | Source HOLD Gate | human gate | guardian / keeper / civic hand | authority | human/community authorization boundary | human owner, condition, receipt, rollback | always active for real-world action |
 
 ## Base Assembly
 
@@ -58,6 +61,12 @@ Meaning:
 - cubic paneling = repairable shell, occupancy surface, and modular service cell
 
 The assembly may look like a transforming organism, but it is not fantasy assembly. It transforms only when the package graph names joints, loads, energy, catches, and Source HOLD conditions.
+
+The default civic-center depiction should read as a civic animal ecology rather than isolated robotics parts. Animal/archetype form is a recognition layer only; primitive ids, ports, units, fit checks, and Source HOLD remain the authority for truth.
+
+Acoustic engineering is a first-class primitive family. No-entry zones, warning rings, quiet membranes, and voice/sound boundaries must be modeled as civic acoustic surfaces with safe intensity, duration, receiver class, fallback cue, and Source HOLD conditions. They are not cosmetic ambience.
+
+Public laughter and banger engineering belong to the same family when used as public social sonar. The output is aggregate mood/friction/readiness, not private-person judgment or harassment routing.
 
 ## No-Chance Fit Rule
 

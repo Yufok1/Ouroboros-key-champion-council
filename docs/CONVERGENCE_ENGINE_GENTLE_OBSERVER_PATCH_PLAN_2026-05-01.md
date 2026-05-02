@@ -25,8 +25,18 @@ It is an organism-memory mutation lane unless explicitly configured otherwise.
 Add a gentle observer gate to every CRA-to-organism teaching path:
 
 ```text
-chat request -> interaction_context -> Source HOLD/data class check -> observe_only or learn mode -> receipt -> organism response -> review packet
+chat request -> start actuator -> interaction_context -> Source HOLD/data class check -> observe_only or learn mode -> organism response/runtime events -> logs/signals -> optional receipt emission -> review packet
 ```
+
+The request/start surface is a control actuator.
+
+The organism response and runtime activity emit signals/events.
+
+Logs are learning and inspection material.
+
+Receipts are emitted after the event by the provenance lane.
+
+Convergence Engine runs off logs, signals, observations, and episodes as material. It does not run on logs as its substrate, and a play/start/stop button is not a receipt.
 
 ## First Code Slice
 
@@ -83,12 +93,19 @@ Required behavior:
 - If `learn=true`, require `data_classification` in `public | simulated | aggregate | deidentified`.
 - If `source_hold_status` is not `approved` for sensitive or unknown data, park the lesson.
 
-### 3. Emit gentle observer receipt
+### 3. Emit gentle observer runtime event and receipt
 
 Target:
 
 - event emission in `butterfly_chat.py`
 - security receipt path in `causation_web_ui.py`
+
+Boundary:
+
+- `/api/butterfly/chat` is a request/control actuator.
+- `/api/organism/<organism_id>/chat` is a request/control actuator.
+- chat logs/signals are learning material and review material.
+- the gentle observer receipt is emitted after response/event handling, not before it.
 
 Receipt fields:
 
@@ -124,7 +141,9 @@ CRA must not imply it can commune safely when the call mutates memory without ex
 1. `/api/butterfly/chat` defaults to observe-only.
 2. `/api/organism/<id>/chat` defaults to observe-only.
 3. A response can be generated without storing experience.
-4. A learning call records `organism_gentle_observer_lesson.v1`.
-5. Sensitive or unknown data with no Source HOLD parks instead of training.
-6. CRA response names memory mutation status.
-7. Champion Council can import/display the packet as review-required.
+4. A learning call emits runtime signals/logs before any receipt is recorded.
+5. A learning call records `organism_gentle_observer_lesson.v1`.
+6. Sensitive or unknown data with no Source HOLD parks instead of training.
+7. CRA response names memory mutation status.
+8. Champion Council can import/display the packet as review-required.
+9. No start/stop/play control is described as a receipt.

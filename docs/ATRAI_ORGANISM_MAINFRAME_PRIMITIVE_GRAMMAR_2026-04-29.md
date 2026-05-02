@@ -12,6 +12,7 @@ This document bridges:
 - AI-visible primitive packages
 - canyon-span / rotation-snake mechanical primitives
 - Source HOLD open-surgery doctrine
+- civic animal depiction for non-robotic recognition
 
 ## Core Rule
 
@@ -23,20 +24,22 @@ If a visible part has no package, it is decoration and must be marked as decorat
 
 ## Body Grammar
 
-| Visual body part | Primitive role | Mechanical/system meaning | Required fit checks |
-|---|---|---|---|
-| serpentine coil | `phase_spine` / `rotation_snake` | main phase carrier, routing spine, peristaltic transport path | named anchors, phase law, charge/catch path, loss budget |
-| tensile line | `tension_member` | tendon, cable, load path, sensor carrier | two anchors, tension limit, slack/preload, failure mode |
-| cubic paneling | `panel_leaf` / `transfer_floor` / `service_cell` | modular shell, wave panel, occupancy cell, repairable surface | edge grid, hinge/lock, clearance envelope, load limit |
-| sphere / core | `mass_node` / `charge_packet` | moving load, stored spin, transferable packet | mass, inertia, route state, catch state |
-| cage / bay | `swap_bay` / `maintenance_dock` | docking organ, module receiver, quarantine or service bay | capacity, latch state, ingress/egress, release condition |
-| charge organ | `charge_bank` | stored energy or readiness state | source, recharge path, sink, loss accounting |
-| brake / damper limb | `brake` / `damper` / `catch_path` | reflex, arrest, settling, safe capture | heat/load limit, catch window, recovery path |
-| sequencer node | `micro_sequencer` | local timing ganglion, trigger router | target, timing, cannot be prime mover |
-| sensor eye / whisker | `load_probe` / `angle_probe` / `pan_probe` | observation and inspection | target id, sample rate, provenance receipt |
-| utility vein | `utility_bus` | service flow between sources and sinks | source ids, sink ids, duty cycle |
-| clean/dirty bands | `clean_band` / `dirty_band` | service circulation and contamination boundary | occupancy class, transfer rule, exclusion condition |
-| source hold mark | `source_hold` | human authorization boundary | human owner, condition, receipt, rollback path |
+| Visual body part | Civic animal depiction | Primitive role | Mechanical/system meaning | Required fit checks |
+|---|---|---|---|---|
+| serpentine coil | serpent / eel / dragon spine | `phase_spine` / `rotation_snake` | main phase carrier, routing spine, peristaltic transport path | named anchors, phase law, charge/catch path, loss budget |
+| tensile line | spider silk / tendon whisker | `tension_member` | tendon, cable, load path, sensor carrier | two anchors, tension limit, slack/preload, failure mode |
+| cubic paneling | turtle shell / armadillo plates / scale field | `panel_leaf` / `transfer_floor` / `service_cell` | modular shell, wave panel, occupancy cell, repairable surface | edge grid, hinge/lock, clearance envelope, load limit |
+| sphere / core | rolling beetle / seed core / pearl | `mass_node` / `charge_packet` | moving load, stored spin, transferable packet | mass, inertia, route state, catch state |
+| cage / bay | nest / den / anemone cradle | `swap_bay` / `maintenance_dock` | docking organ, module receiver, quarantine or service bay | capacity, latch state, ingress/egress, release condition |
+| charge organ | hive comb / warm organ | `charge_bank` | stored energy or readiness state | source, recharge path, sink, loss accounting |
+| brake / damper limb | reflex tail / settling fin | `brake` / `damper` / `catch_path` | reflex, arrest, settling, safe capture | heat/load limit, catch window, recovery path |
+| sequencer node | pulse ganglion | `micro_sequencer` | local timing ganglion, trigger router | target, timing, cannot be prime mover |
+| sensor eye / whisker | eye / whisker / antenna | `load_probe` / `angle_probe` / `pan_probe` | observation and inspection | target id, sample rate, provenance receipt |
+| utility vein | vein / root network / gill path | `utility_bus` | service flow between sources and sinks | source ids, sink ids, duty cycle |
+| acoustic no-entry zone | owl ring / quiet reef / listening membrane | `acoustic_no_entry_zone` / `voice_gate` | warning, privacy, attention shaping, and ingress boundary | source speaker/surface, receiver class, safe intensity, duration, fallback cue |
+| public laughter pulse | chorus / call-response / banger pulse | `public_laughter_sonar` / `attention_beacon` | public humor sensing for mood, friction, timing, and readiness | public source, receiver class, context, intensity, consent boundary, aggregate-only notes |
+| clean/dirty bands | skin boundary / membrane | `clean_band` / `dirty_band` | service circulation and contamination boundary | occupancy class, transfer rule, exclusion condition |
+| source hold mark | guardian / keeper / civic hand | `source_hold` | human authorization boundary | human owner, condition, receipt, rollback path |
 
 ## Fit Ports
 
@@ -123,9 +126,17 @@ The creature-like visual form is valid when it helps humans recognize system rol
 - tendon creatures = tension / force / restraint
 - panel creatures = shelter / shell / transfer / modularity
 - sensor creatures = observation / telemetry
+- acoustic creatures = no-entry, warning, privacy, attention, and sensory safety
+- laughter creatures = public mood sonar, not private judgment
 - cage creatures = docking / quarantine / recovery
 - utility creatures = service flow
 - governance creatures = consent / authority / HOLD
+
+Default organism-mainframe depiction should prefer the creature form. Mechanical mode should remain available for audit, ports, units, and fit checks.
+
+Animal form is not evidence. It is an interface lens over evidence.
+
+Acoustic form is not background ambience. It is a boundary primitive. If an organism-mainframe creature emits, blocks, softens, redirects, or gates sound, the card must expose acoustic source, receiver class, safe band, duration, fallback cue, and whether Source HOLD is required.
 
 ## Transformer-Like Assembly, But Not Fantasy
 

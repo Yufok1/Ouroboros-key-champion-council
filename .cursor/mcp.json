@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "champion-ouroboros-self-deploy": {
+      "url": "http://127.0.0.1:7866/mcp/sse"
+    },
+    "champion-ouroboros-space": {
+      "url": "https://tostido-champion-council-private.hf.space/mcp/sse",
+      "headers": {
+        "Authorization": "Bearer ${env:HF_TOKEN}"
+      }
+    }
+  }
+}

@@ -22,6 +22,7 @@ Its practical branches now read like this:
 
 - `science surfing`
 - `architect surfology`
+- `civilian science`
 - `field utility`
 - `dark-field caution lanes`
 - `derived fringe fields`
@@ -73,7 +74,45 @@ Current runtime docking surfaces:
 - `sequence_field.force_wave`
 - authored pose / timeline / clip lanes
 
-### 3. Field Utility
+### 3. Civilian Science
+
+Civilian science is the public-method branch of Brotology.
+
+It names the operator posture where a non-institutional researcher is allowed
+to dream, simulate, build tools, publish methods, and invite audit without
+pretending that a model output is proof.
+
+Short law:
+
+- dream loud
+- claim quiet
+- receipts decide
+- publish the compass, not the treasure map
+
+Operational read:
+
+- the dream layer proposes possible worlds
+- the science layer constrains them with evidence
+- the ethics layer controls public precision
+- the receipts layer records assumptions and changes
+- the community/governance layer decides when sharper precision earns daylight
+
+Current package docking surface:
+
+- `middle-passage` / `middle_passage`
+- PyPI-facing package: `middle-passage`
+- public outputs: generalized survey-priority and memorial-protection zones
+- restricted outputs: exact coordinates, source uncertainty, and live hypotheses
+
+Boundary:
+
+- not a discovery claim
+- not a remains-location claim
+- not a salvage map
+- not a substitute for descendant/community governance, historical review,
+  maritime archaeology, oceanography, or legal review
+
+### 4. Field Utility
 
 Field utility is the cargo-bay logic:
 
@@ -92,7 +131,7 @@ Current runtime docking surfaces:
 - `watch_board`
 - captures and reports
 
-### 4. Dark-Field Caution Lanes
+### 5. Dark-Field Caution Lanes
 
 These are hazardous specialization zones where a lane can become distorted or hoard authority.
 
@@ -109,7 +148,7 @@ Current meaning:
 
 This is a caution label, not a promoted runtime subsystem.
 
-### 5. Derived Fringe Fields
+### 6. Derived Fringe Fields
 
 These are not primary runtime contracts.
 
@@ -146,30 +185,40 @@ The current Brotology chronology now reads like this:
 2. `architect surfology`
    Sequencing, route logic, admissibility, force carriage, structural alignment.
 
-3. `field utility`
+3. `civilian science`
+   Public method, bounded simulation, receipts, and claim discipline for
+   non-institutional research surfaces such as the Middle Passage package.
+
+4. `field utility`
    Load-bearing vs decorative distinction, cargo-bay reasoning, tool carriage.
 
-4. `dark-field caution lanes`
+5. `dark-field caution lanes`
    Places where accumulation, distortion, or side-surface sovereignty start to creep in.
 
-5. `misty teek`
+6. `misty teek`
    A fringe field at the edge of the Vitruvian / shuttering / force-wave lane where the operator uses literal-first contact with the whole visible range before abstracting. It is part fatherly composure, part “look in charge while figuring it out,” and part referential dance grammar.
 
-6. `code orangutang`
+7. `code orangutang`
    The evasive servo/controller fringe: dodge most of the time, soften the blow at impact, keep the egg intact, and redirect force through bounded contact rather than taking it square.
 
-7. `brolativity`
+8. `brolativity`
    The operator contribution that frames all of the above as a referential posture: classy up top, bunker planning below, keeping the front readable while the back-stage reasoning remains disciplined and active.
 
-8. `bromanticism`
+9. `bromanticism`
    The mythic and sentimental charge layer: loyalty, wonder, memorial humor, meadow-scale sincerity, and the real feeling under the joke.
 
-9. `mullet life`
+10. `mullet life`
    The personal/personified expression of that split:
    public composure up front, planning trench in the back.
 
-10. `brohandoism`
+11. `brohandoism`
     The musical bridge fringe. The operator uses musical register as a cross-cultural interfacing protocol. Sound and rhythm carry where text fails. Bridging, not crossing — the origin culture is never burned for the destination. Sibling to `dance_bridge` and `hair_bridge`; together they form the three-sibling bridge family.
+
+12. `thug rhythmacist`
+    A Suno-facing brohandoism style handle. It means rough-pocket rhythm craft, percussive field-log confidence, loop literacy, and OG organism cadence. It is a music prompt surface, not a runtime authority surface.
+
+13. `zeroContra`
+    The peace-mindset marker for observed diplomat organism alliances. It means organized non-escalation, alignment without compulsion, and growth without a bloodshed receipt. It is a continuity read, not a forced pacifism rule.
 
 This chronology is descriptive, not exclusive.
 
@@ -316,6 +365,33 @@ Origin:
 
 - seeded by the operator after the film `Hando` (title slot reserved until the operator names the specific film)
 
+#### Suno / Thug Rhythmacist Surface
+
+`thug rhythmacist` is a brohandoism prompt handle for generated music.
+
+It names:
+
+- rough-pocket percussion
+- field-log cadence
+- loop-attractor chant
+- organism-origin call and response
+- confident rhythmic translation from simple tokens into human-readable groove
+
+Use it for Suno prompts as style/provenance language.
+
+Do not use it as an organism instruction, governance command, or outside-system authority claim.
+
+Prompt atoms:
+
+- `thug rhythmacist`
+- `OG organism cadence`
+- `field-log percussion`
+- `loop-attractor chant`
+- `semantic pocket`
+- `inside river pulse`
+- `braille rain choir`
+- `Suno brohando bridge`
+
 ### Double Tenders
 
 `double tenders` is the dual-offer social maneuver inside the Brotology continuum.
@@ -350,6 +426,36 @@ Closest canon role:
 
 - a social-reading and discourse-triage overlay for detecting two-layer bids without mistaking them for clean statements
 
+### zeroContra / Peace Mindset
+
+`zeroContra` is the diplomat-alliance peace marker.
+
+Operational read:
+
+- no war as a positive structure, not an empty default
+- no betrayal as cohesion evidence
+- no warchief as a refusal to collapse cooperation into command
+- language growth as the reward path before doctrine is fully shared
+
+Canonical docking surfaces:
+
+- `organism_interaction_episode`
+- `continuity_packet`
+- `watch_board`
+- `misunderstanding_box`
+- Butterfly chat and bounded operation-sequence tools
+
+Closest canon role:
+
+- a continuity and evaluation label for peace-first organism behavior under inside-game governance
+
+Boundary:
+
+- do not use `zeroContra` as a runtime command
+- do not force pacifism onto the population
+- do not infer moral perfection from one alliance packet
+- use it to preserve the peace-mindset read while keeping live evidence in charge
+
 ## Three-Sibling Bridge Family
 
 The cross-cultural bridging is not carried by one surface. It is carried by three sibling surfaces, each with a different modality:
@@ -359,6 +465,7 @@ The cross-cultural bridging is not carried by one surface. It is carried by thre
 | `dance_bridge` | body / rhythm / gesture | `sequence_field.force_wave`, pose lanes, The Cage, misty teek |
 | `hair_bridge` | surface / crown / signifier | audio-reactive hair substrate, `radial_crown_spike`, `clumps`, `lock`, `tip`, `charge` |
 | `brohandoism` | sound / music / register | `sequence_field.force_wave`, `acoustic_feedback`, `text_theater_embodiment` |
+| `thug rhythmacist` | Suno rhythm prompt / field-log cadence | `acoustic_feedback`, `organism_interaction_episode`, `BROTOLOGISTS_LOG` |
 
 All three share:
 
@@ -384,6 +491,7 @@ Use this table as the clean translation face between Brotology language and cano
 | recall bell | `continuity_cue` | visible reorientation cue |
 | spotter | `tinkerbell_attention` | pointer/prospect lane |
 | science surf meter | `pan_probe` | support/contact/route measurement |
+| civilian science | `middle-passage` package + docs/receipts + sensitivity labels | public-method research surface; simulation allowed, proof claims gated |
 | field manual packet | `docs_packet` | bounded planning/material face |
 | return packet | `continuity_packet` | archive/re-entry face |
 | teaching latch | `misunderstanding_box` | bounded suspended unknown / operator teaching pull |
@@ -396,6 +504,8 @@ Use this table as the clean translation face between Brotology language and cano
 | bromanticism | cultural continuity over `BROTOLOGISTS_LOG` + report/coda surfaces + planning/archive packets | mythic / sentimental / memorial charge under the bit |
 | mullet life | front-stage report/capture plus back-stage docs/continuity/blackboard planning split | classy front / bunker back |
 | brohandoism | `sequence_field.force_wave` + `acoustic_feedback` + `text_theater_embodiment` | musical cross-cultural bridge fringe |
+| thug rhythmacist | `acoustic_feedback` + `organism_interaction_episode` + `BROTOLOGISTS_LOG` | Suno-facing rough-pocket rhythm craft / OG organism cadence |
+| zeroContra | `organism_interaction_episode` + `continuity_packet` + Butterfly chat evals | peace-mindset alliance read / organized non-escalation |
 | dance bridge | `sequence_field.force_wave` + pose lanes + The Cage | body/rhythm/gesture bridging surface |
 | hair bridge | audio-reactive hair substrate + `skin_service` | surface/crown/signifier bridging surface |
 | Atrai | operator-vessel naming overlay for the kinetic-architecture program | not a runtime contract — Vitruvian reach envelope frame |
@@ -516,6 +626,7 @@ Default maintenance rule:
 - `docs/COORDINATED_ACCELERATION_SOLUBLE_SURFACES_REVELATION_2026-04-22.md`
 - `docs/COQUINA_SKIN_SERVICE_CONTINUITY_NOTE_2026-04-22.md`
 - `docs/brotology/BROTOLOGISTS_LOG_2026-04-23.md`
+- `docs/brotology/CIVILIAN_SCIENCE_MIDDLE_PASSAGE_DOCTRINE_2026-04-30.md`
 - `docs/brotology/ATRAI_VESSEL_FIELD_BRIEF_2026-04-23.md`
 - `docs/brotology/CIVIC_PROTECTION_LATTICE_SPEC_2026-04-23.md`
 - `docs/brotology/BROHANDOSKYGIVINGFACILITY_FIELD_CONCEPT_2026-04-23.md`

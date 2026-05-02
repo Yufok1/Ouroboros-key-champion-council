@@ -61,6 +61,21 @@ Meaning:
 
 Together they form a visual language for mobile, repairable, phase-controlled civic systems.
 
+The default civic-center depiction should not read as loose robotics parts. It should read as a small civic animal ecology:
+
+- serpentine coil -> route creature / serpent spine
+- tensile line -> sensing filament / spider silk / tendon whisker
+- cubic paneling -> turtle shell / armadillo plate field
+- sphere core -> rolling beetle / seed packet / pearl
+- catch cage -> nest / den / cradle
+- utility bus -> vein / root / gill path
+- acoustic no-entry zone -> owl ring / quiet reef / listening membrane
+- source hold gate -> guardian / civic hand
+
+This animal layer is a recognition layer only. Primitive ids, fit checks, Source HOLD, and provenance remain the truth layer.
+
+Acoustic engineering is paramount for the civic center. The no-entry zone is a first-class boundary primitive: it shapes warning, privacy, attention, sensory comfort, and ingress before a person or system crosses into a sensitive space. It must name source, receiver class, safe intensity band, duration, fallback cue, and Source HOLD when it affects real people or access control.
+
 ## Primitive Families
 
 ### 1. Authority Primitives
@@ -173,6 +188,22 @@ These let humans and AI inspect the system.
 
 Rule: observation primitives can report, compare, and flag. They do not authorize.
 
+### 9. Acoustic Boundary Primitives
+
+These shape sound, attention, warning, privacy, and ingress.
+
+- `acoustic_no_entry_zone`
+- `voice_gate`
+- `warning_ring`
+- `quiet_membrane`
+- `attention_beacon`
+- `public_laughter_sonar`
+- `fallback_visual_cue`
+
+Rule: acoustic primitives must name source, receiver class, safe intensity band, duration, ingress rule, fallback cue, and Source HOLD condition. Acoustic cues do not become consent, authority, or coercion.
+
+The brotology front humorists are a public-facing acoustic surface. They use jokes, music, chant, timing, and laughter as social sonar: finding whether a civic room is open, tense, overloaded, performatively serious, or genuinely protective. They work with surfology/acoustic experts to turn the read into aggregate mood notes, friction watch, banger prompt candidates, and no-entry/slow-entry recommendations. They do not create personal target lists or convert laughter into authority.
+
 ## Current Seed Registry
 
 The first organism-mainframe cards are:
@@ -187,6 +218,7 @@ The first organism-mainframe cards are:
 | `atrai.catch_cage` | Catch Cage | dock cage | capture, brake, dock, quarantine, recover |
 | `atrai.charge_bank` | Charge Bank | charge organ | energy/readiness storage |
 | `atrai.utility_bus` | Utility Bus | utility vein | source-to-sink service routing |
+| `atrai.acoustic_no_entry_zone` | Acoustic No-Entry Zone | listening membrane | warning, privacy, attention, and ingress boundary |
 | `atrai.source_hold_gate` | Source HOLD Gate | human gate | authorization boundary |
 
 ## Teaching Packet

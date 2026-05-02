@@ -58,6 +58,7 @@ Responsibilities:
 
 - evolve organisms
 - let organisms search, pair, and compose
+- run off logs, signals, observations, and episodes as learning material
 - preserve interaction episodes
 - export cocoons/capsules
 - produce candidate artifacts
@@ -133,6 +134,20 @@ Responsibilities:
 ```text
 observe -> organisms find -> Convergence exports -> Champion reviews -> human holds/approves -> package -> publish/use -> feed receipts back
 ```
+
+Control loop:
+
+```text
+human/agent start-stop control -> runtime state change -> emitted signals/logs -> optional cascade receipt -> review/replay
+```
+
+Start, stop, play, and chat submit are controls.
+
+Signals/logs are observation material.
+
+Receipts are emitted by the provenance layer after the event.
+
+Replay is a bounded rerun path, not the source event.
 
 ## Organism Finder Contract
 

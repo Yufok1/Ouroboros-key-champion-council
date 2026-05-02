@@ -69,7 +69,7 @@ Role: room.
 
 Responsibilities:
 
-- replay receipt-backed scenarios
+- replay scenarios backed by receipts
 - stage safe simulations
 - make danger visible without creating new danger
 - let humans and organisms inspect the same bounded case
@@ -115,6 +115,24 @@ Forbidden:
 - converting confidence into authority
 - training on dangerous or uncleared cases without Source HOLD
 
+## Control / Signal / Receipt Boundary
+
+Controls are actuators.
+
+`start`, `stop`, `play`, chat submit, and replay launch change or request runtime state.
+
+They are not receipts.
+
+Runtime activity emits signals, events, and logs.
+
+Those records are observation material.
+
+Cascade Lattice or an equivalent provenance lane may convert bounded records into receipts.
+
+Holo Deck replay consumes receipts or replay packets, but replay is not the original event.
+
+Convergence Engine organisms may learn from approved logs, signals, observations, and episodes. They do not treat logs as the runtime substrate or as proof.
+
 ### Champion Council
 
 Role: court and review theater.
@@ -146,7 +164,7 @@ One system carries pressure, signal, evidence, or burden across a boundary so th
 Safe path:
 
 ```text
-private pressure -> bounded signal -> receipt -> reviewed artifact -> safe external action
+private pressure -> bounded signal -> observed/logged event -> receipt -> reviewed artifact -> safe external action
 ```
 
 Unsafe path:

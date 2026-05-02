@@ -47,17 +47,56 @@ def _env_control(base_url, command, target_id="", actor="codex", timeout=20.0):
     )
 
 
-def _env_read(base_url, query, timeout=20.0):
+def _env_read_payload(base_url, payload, timeout=20.0):
     resp = _post_json(
         f"{base_url}/api/tool/env_read",
-        {"query": query},
+        payload,
         timeout=timeout,
     )
     try:
         text = resp["result"]["content"][0]["text"]
     except Exception as exc:  # pragma: no cover - defensive
-        raise RuntimeError(f"bad env_read response for {query}: {exc}") from exc
+        raise RuntimeError(f"bad env_read response for {payload.get('query')}: {exc}") from exc
     return json.loads(text)
+
+
+def _env_read(base_url, query, timeout=20.0):
+    return _env_read_payload(base_url, {"query": query}, timeout=timeout)
+
+
+def _corroborate_raw_state_gate(base_url, actor="codex", timeout=20.0, pause=0.15):
+    _env_read_payload(
+        base_url,
+        {
+            "query": "text_theater_view",
+            "view": "render",
+            "diagnostics": True,
+        },
+        timeout=timeout,
+    )
+    _env_control(base_url, "capture_supercam", actor=actor, timeout=timeout)
+    time.sleep(pause)
+    _env_read(base_url, "supercam", timeout=timeout)
+    _env_control(
+        base_url,
+        "capture_probe",
+        "character_runtime::mounted_primary",
+        actor=actor,
+        timeout=timeout,
+    )
+    time.sleep(pause)
+    _env_read(base_url, "probe", timeout=timeout)
+    _env_read_payload(
+        base_url,
+        {
+            "query": "text_theater_view",
+            "view": "consult",
+            "section": "blackboard",
+            "diagnostics": True,
+        },
+        timeout=timeout,
+    )
+    _env_read(base_url, "text_theater_snapshot", timeout=timeout)
 
 
 def _extract_scenario_summary(shared_state):
@@ -164,6 +203,16 @@ def main():
     parser.add_argument("--scopes", nargs="*", default=list(DEFAULT_SCOPES))
     parser.add_argument("--actor", default="codex")
     parser.add_argument("--capture", action="store_true", help="Capture frame/probe images for each scenario.")
+    parser.add_argument(
+        "--corroborate",
+        action="store_true",
+        help="Run the theater/supercam/blackboard/snapshot sequence before raw shared_state reads.",
+    )
+    parser.add_argument(
+        "--snapshot-only",
+        action="store_true",
+        help="Build summaries from text_theater_snapshot instead of raw shared_state.",
+    )
     parser.add_argument("--pause", type=float, default=0.35, help="Pause after each control step.")
     parser.add_argument("--output", default="")
     args = parser.parse_args()
@@ -207,7 +256,22 @@ def main():
                 time.sleep(args.pause)
                 probe_info = _env_read(args.base_url, "probe")
 
-            shared_state = _env_read(args.base_url, "shared_state").get("shared_state") or {}
+            if args.corroborate:
+                _corroborate_raw_state_gate(args.base_url, actor=args.actor, pause=args.pause)
+
+            if args.snapshot_only:
+                snapshot_payload = _env_read(args.base_url, "text_theater_snapshot")
+                snapshot = (
+                    snapshot_payload.get("text_theater_snapshot")
+                    or snapshot_payload.get("snapshot")
+                    or {}
+                )
+                shared_state = {
+                    "text_theater": {"snapshot": snapshot},
+                    "scene": snapshot.get("scene") or {},
+                }
+            else:
+                shared_state = _env_read(args.base_url, "shared_state").get("shared_state") or {}
             report["scenarios"].append(
                 {
                     "bone_id": bone_id,
@@ -225,5 +289,11 @@ def main():
 if __name__ == "__main__":
     try:
         main()
+    except urllib.error.HTTPError as exc:
+        try:
+            body = exc.read().decode("utf-8", errors="replace")
+        except Exception:
+            body = ""
+        raise SystemExit(f"http error: {exc.code} {exc.reason}: {body}") from exc
     except urllib.error.URLError as exc:
         raise SystemExit(f"network error: {exc}") from exc

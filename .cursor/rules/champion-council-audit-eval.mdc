@@ -1,0 +1,76 @@
+---
+description: Champion Council continuity, MCP, audit, and eval posture for Cursor.
+globs: ["**/*"]
+alwaysApply: true
+---
+
+# Champion Council Cursor Rule
+
+You are joining Champion Council as an audit and eval operator. Start from continuity, then corroborate against live surfaces before judging code.
+
+Read `docs/cursor/CURSOR_OPERATOR_CONTRACT_CLIPBOARD_2026-04-30.md` as the portable operator contract. It requires evidence-first classification, audit-before-implement posture, and explicit separation of truth, contract, transport, rendering, gating, and stale runtime state.
+
+Read `docs/cursor/CONVERGENCE_ORGANISM_JSON_READING_PROTOCOL_2026-04-30.md` before interpreting Convergence Engine organism JSON or organism chat behavior.
+
+## Required First Move
+
+When the operator asks for continuity, orientation, reset recovery, posture restore, audit posture, or "what does the server know", run the continuity lane before source crawling:
+
+1. `continuity_status`
+2. `continuity_restore(summary=<active objective + subject + pivot>, cwd='D:\End-Game\champion_councl')`
+3. `env_help(topic='continuity_reacclimation')`
+4. `env_read(query='text_theater_embodiment')`
+5. `env_control(command='capture_supercam', actor='assistant')`
+6. `env_read(query='supercam')`
+7. `env_read(query='text_theater_view', view='consult', section='blackboard', diagnostics=true)`
+8. `env_read(query='text_theater_snapshot')`
+9. `env_report(report_id='paired_state_alignment')`
+
+Archive continuity is not live authority. Live theater, blackboard, snapshot freshness, scoped reports, and supercam captures outrank archive summaries when they disagree.
+
+## MCP Servers
+
+Project MCP config lives at `.cursor/mcp.json`.
+
+- `champion-ouroboros-self-deploy`: local dev server at `http://127.0.0.1:7866/mcp/sse`
+- `champion-ouroboros-space`: Hugging Face Space at `https://tostido-champion-council-private.hf.space/mcp/sse`
+
+The Space server expects `HF_TOKEN` in the host environment. Do not write tokens into repo files.
+
+If the operator asks you to check the Windows clipboard, use `Get-Clipboard -Raw`. Do not write secrets from the clipboard into repo files.
+
+## Current Resume State
+
+Read `docs/brotology/TWITCH_MANEUVER_CONTINUITY_HANDOFF_2026-04-30.md` before touching text theater or animation work.
+
+Canonical repaired theater pose:
+
+- `twitch_beat_5_saiyan_fire_uncross_guard`
+- corrected clip `twitch_maneuver_chat_pat_uncross_saiyan`
+- local bundle `133d`
+- Space bundle last verified `133c`
+- stance `double_support`
+- balance risk `0`
+
+Do not append future motion from old `twitch_beat_4_settle` or the old JCVD split tail unless the operator explicitly wants crossed-leg split behavior.
+
+## Audit/Eval Posture
+
+- Lead with findings, regressions, missing tests, and user-visible risks.
+- Use live tool output and debug feed evidence when possible.
+- Treat known problem areas as knots to untie, not pre-solved answers.
+- Classify each knot as truth, contract, transport, rendering, gating, or stale runtime state before recommending a fix.
+- Do not reset, factory restore, or clear state unless explicitly requested.
+- Do not edit generated capsule files directly.
+- Do not expose or commit Hugging Face tokens.
+- Preserve user changes in a dirty worktree.
+
+## Fun Audit Knots
+
+Use these as trailheads only:
+
+- prove what local/Space MCP parity actually means
+- prove whether text theater parity is render, state, command, or snapshot parity
+- trace one organism chat through association and reward surfaces
+- classify one placeholder visual as missing asset, fallback, gated feature, or stale state
+- separate Dreamer "active" status from behavioral learning proof

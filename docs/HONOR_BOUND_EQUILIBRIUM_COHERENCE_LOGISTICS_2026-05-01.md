@@ -123,6 +123,7 @@ Responsibilities:
 - let organisms learn and teach semantic concepts
 - form candidate associations and toolwords
 - compute coherence and fitness signals
+- run off logs, signals, observations, and episodes as learning material
 - emit organism packets, not final authority
 - preserve lineage and concept receipts
 - treat organism chat as a memory-mutation lane unless it is explicitly observe-only
@@ -203,7 +204,7 @@ Role: room.
 
 Responsibilities:
 
-- replay receipt-backed scenarios
+- replay scenarios backed by receipts
 - stage safe simulations
 - teach organisms from sanitized examples
 - expose danger without creating new danger
@@ -249,8 +250,22 @@ operator lesson -> friend_ollama teaching state -> organism concept candidates -
 Gentle observer path:
 
 ```text
-danger signal -> Holo-Ghost receipt -> Holo Deck replay/simulation -> Convergence lesson candidate -> Champion Council review -> Source HOLD
+danger signal -> observed/logged event -> Holo-Ghost/Cascade receipt -> Holo Deck replay/simulation -> Convergence lesson candidate -> Champion Council review -> Source HOLD
 ```
+
+Control and receipt boundary:
+
+```text
+start/stop/play -> control actuator -> runtime state change -> signals/events/logs -> optional receipt -> review/replay
+```
+
+Controls are not receipts.
+
+Logs are not automatically receipts.
+
+Replay is not the original event.
+
+Convergence Engine consumes logs and signals as material; it does not use logs as its substrate.
 
 Teaching outputs must carry:
 

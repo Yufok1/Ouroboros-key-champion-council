@@ -155,6 +155,37 @@ The imported continuation from the last off-repo thread carried these field arti
 7. Docking: `double tenders` belongs nearest `brolativity`, `misunderstanding_box`, `watch_board`, and the broader continuity discipline around reading social pressure without confusing it for truth.
 8. Canon law still holds: `double tenders` is a social-reading overlay, not a behavior classifier the system may enforce as runtime truth without evidence.
 
+## Entry 2026-04-30 // Thug Rhythmacist / Suno OG Organism Surface
+
+1. `thug rhythmacist` is accepted as a Suno-facing brohandoism phrase, not as a runtime command or organism authority claim.
+2. Working read: the phrase names a rhythm-worker with rough-pocket confidence, percussive literacy, and field-log swagger. The emphasis is cadence, not coercion.
+3. The operator clarified: this is for Suno. It belongs on the music prompt surface and the cultural field log, not in organism drill/config state.
+4. The organisms are the OG in this frame: they are the origin witnesses for loop, attractor, chant, repetition, pocket, and call-response pressure. This does not mean they command outside systems.
+5. Combinatorial surface: `thug rhythmacist`, `OG organism cadence`, `field-log percussion`, `loop-attractor chant`, `semantic pocket`, `braille rain choir`, `Suno brohando bridge`, `caveman-to-human translator`, `table-tap royal flush`, `inside river pulse`.
+6. Docking: `brohandoism`, `dance_bridge`, `acoustic_feedback`, `sequence_field.force_wave`, `organism_interaction_episode`, and the Suno prompt scratchpad.
+7. Canon law still holds: use the phrase for generated musical style and field-log flavor only. Do not feed it back to organisms as an instruction unless a separate curriculum loader is deliberately staged and audited.
+
+## Entry 2026-04-30 // zeroContra / Peace Mindset
+
+1. `zeroContra` is accepted as the Brotology peace-mindset marker for the observed diplomat alliance surface.
+2. Source read: clipboard alliance packet showed 6 alive members, dominant behavior `diplomats`, average fitness `0.7558`, no wars, no betrayals, no warchief, and `356` total words learned.
+3. Working read: zeroContra means peace is not absence or weakness. It is organized non-escalation: cohesion without conquest, alignment without compulsion, and growth without needing a bloodshed receipt.
+4. The term pairs cleanly with the Convergence bounded-learning berth: human-choice echoes can reward alignment, but only inside the game rule-space and without promoting outside authority.
+5. The alliance having `shared_concepts_count: 0` matters. The peace signal is behavioral before it is doctrinal. They cooperated before they had a rich shared scripture.
+6. Docking: `organism_interaction_episode`, `continuity_packet`, `watch_board`, `misunderstanding_box`, Butterfly chat, and the bounded operation-sequence tools.
+7. Canon law still holds: `zeroContra` is a cultural/continuity read. It is not a forced pacifism rule, not a runtime alliance command, and not proof of intent beyond the captured packet.
+
+## Entry 2026-04-30 // Civilian Science / Middle Passage Package
+
+1. `civilian science` is accepted as a Brotology branch for public-method research by non-institutional operators.
+2. Working read: the operator may dream the possible route first, but the tool must convert that dream into inspectable assumptions, bounded uncertainty, receipts, and claim discipline.
+3. The Middle Passage package is the current concrete docking surface: `middle-passage` / `middle_passage`, a protection-first forensic GIS scaffold for theoretical memorial modeling.
+4. Short law: dream loud, claim quiet, receipts decide, publish the compass and audit trail, not the treasure map.
+5. Public outputs belong in the generalized layer: story, ethics, open methods, generalized survey-priority zones, and reproducible code.
+6. Sharp precision belongs behind governance: exact coordinates, source uncertainty, live hypotheses, and sensitive event joins require descendant/community, historical, oceanographic, archaeological, and legal review.
+7. Package validation receipts from the local lane: tests passed, source distribution built, wheel built, and `twine check` passed. Public PyPI liveness must be separately verified before the docs claim it as live.
+8. Canon law still holds: this is a research and memorial method surface, not a discovery claim, not a remains-location claim, and not an authorization surface for recovery, salvage, or disturbance.
+
 ## Canon Mapping
 
 | Log term | Canon-adjacent read | Boundary |
@@ -168,6 +199,11 @@ The imported continuation from the last off-repo thread carried these field arti
 | `Atrai` | operator-vessel name for the kinetic-architecture program | operator-vessel naming overlay |
 | `Falkor` | mythic template beneath Atrai | cultural template, not runtime |
 | `brohandoism` | musical-interface bridging fringe | Brotology fringe, sibling to dance/hair bridges |
+| `thug rhythmacist` | Suno-facing rhythm-worker / percussive field-log style handle | music prompt surface only |
+| `OG organisms` | origin witnesses for loop, chant, attractor, and call-response pressure | cultural provenance, not authority |
+| `zeroContra` | diplomat alliance / peace-mindset marker from observed no-war, no-betrayal organism packet | cultural continuity read, not a command |
+| `civilian science` | public-method research branch; dream/model first, claim only through receipts | simulation and publication discipline, not proof |
+| `middle-passage` | protection-first forensic GIS package for theoretical memorial modeling | generalized public method, not exact remains map |
 | `brohandoskygivingfacility` | compound facility name (brohando + sky + giving + facility) | facility naming overlay |
 | `Operation Sus` | operator-self-naming for the whole endeavor | cultural / mullet-life operating name |
 | `release-valve family` | architectural principle — pressure → threshold → release → return → recharge across scales | architectural observation |
@@ -239,6 +275,11 @@ What is now worth preserving from this continuation:
 - `Code Orangutan Mode` is the named evac-audio posture — counterintuitive confident music during peril egress, with the singed-orangutan-survivor as mythic template; calm is composure technology, not vibe choice
 - `brokemon` is the Brotology bestiary framing — captured cultural-mechanical specimens found during field ops; Code Orangutan is the first caught, more to follow as they appear
 - `double tenders` is now a continuity-carried Brotology term for lines that carry two bids at once — public joke layer, hidden demand layer
+- `thug rhythmacist` is a Suno-facing brohandoism phrase for rough-pocket rhythm craft, field-log percussion, and organism-origin cadence; keep it on the music/prompt surface, not the organism authority plane
+- `OG organisms` means origin witnesses for loop/chant/attractor pressure in this musical frame; it is cultural provenance, not outside-world command authority
+- `zeroContra` is the peace-mindset marker for a diplomat alliance packet: 6 alive, no wars, no betrayals, no warchief, 356 total words learned; treat it as organized non-escalation, not passivity
+- `civilian science` is now the Brotology branch for public-method research surfaces like `middle-passage`: dream the route, bound the route, publish the method, gate the precision
+- `middle-passage` is a theoretical memorial-modeling package surface; public language must stay generalized and protection-first, with PyPI liveness verified separately before docs claim it live
 
 Default carry-forward rule:
 

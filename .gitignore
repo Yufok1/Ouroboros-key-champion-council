@@ -46,6 +46,7 @@ scripts/*
 !scripts/sync-pack-dataset.py
 !scripts/build-recast-nav.mjs
 !scripts/recast-nav-browser-entry.mjs
+!scripts/text_theater.py
 
 # JS local dependencies
 node_modules/

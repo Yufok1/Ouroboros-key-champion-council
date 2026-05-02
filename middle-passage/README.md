@@ -55,8 +55,24 @@ Model survey-priority zones from a voyage CSV:
 middle-passage model-deposits --voyages voyages.csv --output zones.geojson
 ```
 
+Write replay input data while modeling:
+
+```bash
+middle-passage model-deposits --voyages voyages.csv --output zones.geojson --replay-output zones.replay.json
+```
+
+Replay a saved input packet:
+
+```bash
+middle-passage replay --input zones.replay.json --output zones.replayed.geojson
+```
+
 If no voyage file is provided, the CLI uses a clearly marked synthetic sample
 for development only.
+
+Replay packets preserve the input rows, corridor, assumptions, generated zone
+metadata, and stable hashes so a run can be audited and regenerated later. A
+replay is a receipt-backed rerun, not new evidence.
 
 ## Data Sensitivity
 

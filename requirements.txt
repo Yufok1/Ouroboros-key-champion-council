@@ -15,8 +15,8 @@ httpx
 huggingface-hub>=0.20.0,<1.0
 infinity-emb>=0.0.70
 ipfshttpclient
-jax[cpu]
-jaxlib
+jax[cpu]>=0.4.30,<0.5
+jaxlib>=0.4.30,<0.5
 ninjax
 portal>=0.2.0
 jinja2
