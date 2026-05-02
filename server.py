@@ -1484,6 +1484,53 @@ _activity_event_seq = 0
 _activity_log_lock = threading.Lock()
 
 
+def _activity_log_storage_path() -> Path:
+    data_dir = getattr(persistence, "_DATA_DIR", None)
+    base = data_dir if isinstance(data_dir, Path) else Path("./data/champion-council-state")
+    return base / "activity" / "activity_log.jsonl"
+
+
+def _load_activity_log_from_disk() -> None:
+    global _activity_event_seq
+    path = _activity_log_storage_path()
+    if not path.exists():
+        return
+    rows: list[dict] = []
+    try:
+        for line in path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            item = json.loads(line)
+            if isinstance(item, dict):
+                rows.append(item)
+    except Exception as exc:
+        print(f"[ACTIVITY] restore skipped: {exc}")
+        return
+    if not rows:
+        return
+    with _activity_log_lock:
+        _activity_log[:] = rows[-500:]
+        _activity_event_seq = max(_activity_event_seq, len(_activity_log))
+    print(f"[ACTIVITY] restored {len(_activity_log)} persisted rows from {path}")
+
+
+def _persist_activity_log_snapshot() -> None:
+    path = _activity_log_storage_path()
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with _activity_log_lock:
+            rows = list(_activity_log[-500:])
+        tmp = path.with_suffix(path.suffix + ".tmp")
+        tmp.write_text(
+            "\n".join(json.dumps(row, ensure_ascii=False, default=str) for row in rows) + ("\n" if rows else ""),
+            encoding="utf-8",
+        )
+        os.replace(tmp, path)
+    except Exception as exc:
+        print(f"[ACTIVITY] persist skipped: {exc}")
+
+
 def _json_safe_snapshot(value):
     try:
         return json.loads(json.dumps(value, ensure_ascii=False, default=str))
@@ -1530,6 +1577,7 @@ def _broadcast_activity(tool: str, args: dict, result: dict | None, duration_ms:
         _activity_log.append(entry)
         if len(_activity_log) > 500:
             _activity_log.pop(0)
+    _persist_activity_log_snapshot()
     if _DEBUG_FEED_MIRROR_ENABLED and tool not in _DEBUG_FEED_MIRROR_EXCLUDED_TOOLS:
         try:
             asyncio.get_running_loop().create_task(_mirror_activity_to_observe(entry))
@@ -1630,6 +1678,7 @@ async def _mirror_activity_to_observe(entry: dict):
             _activity_log.append(debug_entry)
             if len(_activity_log) > 500:
                 _activity_log.pop(0)
+        _persist_activity_log_snapshot()
         for q in list(_activity_subscribers):
             try:
                 q.put_nowait(debug_entry)
@@ -2062,6 +2111,7 @@ _DEBUG_FEED_MIRROR_EXCLUDED_TOOLS = frozenset({
     "list_tools",
     "api_health",
 })
+_load_activity_log_from_disk()
 
 # Pending external tool calls — maps JSON-RPC id → {tool, args, start}
 # Populated by mcp_message_proxy, resolved by mcp_sse_proxy when the
@@ -12888,7 +12938,7 @@ async def _workflow_call_local_proxy_tool(tool_name: str, args: dict, source: st
             since_days = int(args.get("since_days", 30) or 30)
         except Exception:
             since_days = 30
-        return continuity_restore_payload(
+        payload = continuity_restore_payload(
             summary=str(args.get("summary", "") or ""),
             cwd=str(args.get("cwd", "") or ""),
             limit=max(1, min(limit, 10)),
@@ -12896,6 +12946,9 @@ async def _workflow_call_local_proxy_tool(tool_name: str, args: dict, source: st
             session_path=str(args.get("session_path", "") or "").strip() or None,
             codex_home=str(args.get("codex_home", "") or "").strip() or None,
         )
+        if isinstance(payload, dict) and payload.get("error") == "No matching session archive found":
+            payload = await _continuity_restore_with_felix_fallback(args, payload)
+        return payload
     product_bundle_payload = await _product_bundle_local_tool(tool_name, args)
     if product_bundle_payload is not None:
         return product_bundle_payload
@@ -12925,6 +12978,97 @@ async def _workflow_call_local_proxy_tool(tool_name: str, args: dict, source: st
             "proxy_execution": True,
         }
     return {"error": f"Unsupported local proxy tool: {tool_name}"}
+
+
+def _felix_bag_result_brief(row) -> dict:
+    if isinstance(row, dict):
+        return {
+            "id": str(row.get("id") or row.get("key") or row.get("storage_key") or ""),
+            "key": str(row.get("key") or row.get("storage_key") or row.get("id") or ""),
+            "score": row.get("score"),
+            "preview": str(row.get("preview") or row.get("text") or row.get("content") or "")[:700],
+            "type": str(row.get("type") or row.get("item_type") or ""),
+        }
+    if isinstance(row, (list, tuple)):
+        values = list(row)
+        return {
+            "id": str(values[0]) if len(values) > 0 else "",
+            "key": str(values[1]) if len(values) > 1 else "",
+            "score": values[2] if len(values) > 2 else None,
+            "preview": str(values[3])[:700] if len(values) > 3 else "",
+            "type": str(values[4]) if len(values) > 4 else "",
+        }
+    return {"id": "", "key": "", "score": None, "preview": str(row)[:700], "type": ""}
+
+
+async def _continuity_restore_with_felix_fallback(args: dict, archive_payload: dict) -> dict:
+    query_text = str((args or {}).get("summary") or (args or {}).get("query") or "").strip()
+    if not query_text:
+        query_text = str((args or {}).get("cwd") or "continuity reacclimation").strip()
+    search_args = {"query": query_text, "limit": 8}
+    catalog_total = None
+    catalog_error = ""
+    try:
+        catalog_raw = await _call_tool("bag_catalog", {"limit": 1})
+        catalog = _parse_mcp_result(catalog_raw.get("result")) if isinstance(catalog_raw, dict) else None
+        if isinstance(catalog, dict):
+            catalog_total = catalog.get("total")
+    except Exception as exc:
+        catalog_error = str(exc)
+
+    search_error = ""
+    results: list[dict] = []
+    try:
+        search_raw = await _call_tool("bag_search", search_args)
+        parsed = _parse_mcp_result(search_raw.get("result")) if isinstance(search_raw, dict) else None
+        if isinstance(parsed, dict) and isinstance(parsed.get("results"), list):
+            results = [_felix_bag_result_brief(row) for row in parsed.get("results", [])[:8]]
+    except Exception as exc:
+        search_error = str(exc)
+
+    archive = archive_payload.get("archive") if isinstance(archive_payload, dict) else {}
+    if not isinstance(archive, dict):
+        archive = {}
+
+    status = "ok" if results else "partial"
+    packet = {
+        "packet_kind": "felix_bag_reacclimation",
+        "summary": "Codex session archive was unavailable; Felix Bag supplied the continuity substrate.",
+        "query": query_text,
+        "felix_bag": {
+            "surface": "Felix Bag",
+            "role": "continuous associative substrate",
+            "query": query_text,
+            "catalog_total": catalog_total,
+            "result_count": len(results),
+            "results": results,
+            "catalog_error": catalog_error,
+            "search_error": search_error,
+        },
+        "recommended_next_reads": [
+            "bag_search",
+            "bag_get or bag_read_doc on the best Felix key",
+            "env_read:text_theater_embodiment",
+            "env_control:capture_supercam",
+            "env_read:text_theater_snapshot",
+        ],
+        "archive_note": archive_payload.get("error") if isinstance(archive_payload, dict) else "",
+    }
+    return {
+        "status": status,
+        "source": "felix_bag_fallback",
+        "query": {
+            "summary": str((args or {}).get("summary") or ""),
+            "cwd": str((args or {}).get("cwd") or ""),
+            "felix_query": query_text,
+        },
+        "archive": dict(archive, status="no_codex_archive"),
+        "best_session": None,
+        "matched_sessions": [],
+        "continuity_packet": packet,
+        "felix_bag_packet": packet,
+        "warning": "" if results else "No Codex archive matched and Felix Bag returned no direct matches.",
+    }
 
 
 async def _workflow_proxy_call_tool(
@@ -13754,6 +13898,8 @@ async def proxy_tool_call(tool_name: str, request: Request):
             session_path=str(args.get("session_path", "") or "").strip() or None,
             codex_home=str(args.get("codex_home", "") or "").strip() or None,
         )
+        if isinstance(payload, dict) and payload.get("error") == "No matching session archive found":
+            payload = await _continuity_restore_with_felix_fallback(args, payload)
         err_msg = payload.get("error") if isinstance(payload, dict) else None
         _broadcast_activity(tool_name, args, payload, 0, err_msg, source=source, client_id=client_id)
         if err_msg:
@@ -17658,9 +17804,15 @@ async def activity_stream():
 
 
 @app.get("/api/activity-log")
-async def activity_log_route():
+async def activity_log_route(request: Request):
     """Return recent activity log as JSON (for initial hydration)."""
-    rows = list(_activity_log[-100:])
+    try:
+        limit = int(request.query_params.get("limit", "100") or 100)
+    except Exception:
+        limit = 100
+    limit = max(1, min(limit, 500))
+    with _activity_log_lock:
+        rows = list(_activity_log[-limit:])
     if _PUBLIC_HARDENING_ENABLED:
         rows = [row for row in (_public_sanitize_activity_entry(entry) for entry in rows) if isinstance(row, dict)]
     return {"entries": rows}
@@ -18699,6 +18851,8 @@ async def _handle_streamable_rpc(obj: dict, client_id: str) -> dict | None:
                 session_path=str(args.get("session_path", "") or "").strip() or None,
                 codex_home=str(args.get("codex_home", "") or "").strip() or None,
             )
+            if isinstance(payload, dict) and payload.get("error") == "No matching session archive found":
+                payload = await _continuity_restore_with_felix_fallback(args, payload)
             err_msg = payload.get("error") if isinstance(payload, dict) else None
             _broadcast_activity(tool_name, args, payload, 0, err_msg, source="external", client_id=client_id)
             if err_msg:

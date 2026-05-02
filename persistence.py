@@ -36,6 +36,7 @@ BAG_FILE = "bag_export.json"
 WORKFLOWS_FILE = "workflows.json"
 SLOTS_FILE = "slot_manifest.json"
 META_FILE = "state_meta.json"
+ACTIVITY_FILE = "activity_log.jsonl"
 
 LOCAL_LAYOUT = {
     BRAIN_FILE: Path("brain") / BRAIN_FILE,
@@ -43,6 +44,7 @@ LOCAL_LAYOUT = {
     WORKFLOWS_FILE: Path("workflows") / WORKFLOWS_FILE,
     SLOTS_FILE: Path("slots") / SLOTS_FILE,
     META_FILE: Path("config") / META_FILE,
+    ACTIVITY_FILE: Path("activity") / ACTIVITY_FILE,
 }
 
 
@@ -330,11 +332,23 @@ async def _collect_state_files(call_tool_fn: CallToolFn, tmpdir: Path) -> dict[s
         slots_path.write_text(json.dumps(slot_manifest, indent=2), encoding="utf-8")
         files[SLOTS_FILE] = slots_path
 
+    # 5) Activity ledger
+    activity_src = _DATA_DIR / LOCAL_LAYOUT[ACTIVITY_FILE]
+    activity_count = 0
+    if activity_src.exists():
+        activity_path = tmpdir / ACTIVITY_FILE
+        shutil.copy2(activity_src, activity_path)
+        files[ACTIVITY_FILE] = activity_path
+        try:
+            activity_count = sum(1 for line in activity_path.read_text(encoding="utf-8").splitlines() if line.strip())
+        except Exception:
+            activity_count = 0
+
     # No capsule responses at all? don't overwrite previous persistence snapshot.
     if success_signals == 0:
         return {}
 
-    # 5) Metadata
+    # 6) Metadata
     meta_path = tmpdir / META_FILE
     meta = {
         "saved_at": datetime.now(timezone.utc).isoformat(),
@@ -344,6 +358,7 @@ async def _collect_state_files(call_tool_fn: CallToolFn, tmpdir: Path) -> dict[s
         "workflow_count": len(workflows),
         "slot_count": len(slot_manifest),
         "bag_count": bag_count,
+        "activity_count": activity_count,
     }
     meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
     files[META_FILE] = meta_path
@@ -531,6 +546,17 @@ async def _restore_from_files(call_tool_fn: CallToolFn, files: dict[str, Path]) 
         except Exception as exc:
             _log(f"slot restore failed: {exc}")
 
+    # 5) Activity ledger
+    activity = files.get(ACTIVITY_FILE)
+    if activity and activity.exists():
+        try:
+            dest = _DATA_DIR / LOCAL_LAYOUT[ACTIVITY_FILE]
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(activity, dest)
+            restored += 1
+        except Exception as exc:
+            _log(f"activity restore failed: {exc}")
+
     return restored
 
 
@@ -637,7 +663,7 @@ async def restore_state(call_tool_fn: CallToolFn) -> bool:
                 return restored > 0
 
             hf_files: dict[str, Path] = {}
-            for filename in (BRAIN_FILE, BAG_FILE, WORKFLOWS_FILE, SLOTS_FILE, META_FILE):
+            for filename in (BRAIN_FILE, BAG_FILE, WORKFLOWS_FILE, SLOTS_FILE, ACTIVITY_FILE, META_FILE):
                 try:
                     downloaded = api.hf_hub_download(
                         repo_id=repo_id,
@@ -707,7 +733,7 @@ async def restore_state_revision(
             return {"status": "error", "error": f"repo unavailable: {exc}", "revision": rev, "repo_id": repo_id}
 
         hf_files: dict[str, Path] = {}
-        for filename in (BRAIN_FILE, BAG_FILE, WORKFLOWS_FILE, SLOTS_FILE, META_FILE):
+        for filename in (BRAIN_FILE, BAG_FILE, WORKFLOWS_FILE, SLOTS_FILE, ACTIVITY_FILE, META_FILE):
             try:
                 downloaded = api.hf_hub_download(
                     repo_id=repo_id,
@@ -789,6 +815,13 @@ def status() -> dict:
     durable_local_volume = data_dir_norm.startswith("/data/") or data_dir_norm == "/data"
     durable_hf_sync = _HF_ENABLED and bool(_get_repo_id())
     durable_across_redeploy = ("local" in (_MODE, "both") and durable_local_volume and _LOCAL_ENABLED) or durable_hf_sync
+    activity_path = _DATA_DIR / LOCAL_LAYOUT[ACTIVITY_FILE]
+    activity_count = 0
+    if activity_path.exists():
+        try:
+            activity_count = sum(1 for line in activity_path.read_text(encoding="utf-8").splitlines() if line.strip())
+        except Exception:
+            activity_count = 0
 
     warning = ""
     if not durable_across_redeploy:
@@ -813,6 +846,11 @@ def status() -> dict:
         "save_cooldown": SAVE_COOLDOWN,
         "last_save_ts": _last_save_ts,
         "autosave_running": _autosave_task is not None,
+        "activity_ledger": {
+            "path": str(activity_path),
+            "exists": activity_path.exists(),
+            "count": activity_count,
+        },
         "bag_shrink_guard": {
             "enabled": _BAG_SHRINK_GUARD_ENABLED,
             "ratio": _BAG_SHRINK_GUARD_RATIO,

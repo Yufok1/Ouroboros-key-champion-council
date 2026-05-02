@@ -10344,6 +10344,27 @@
         ].join('|');
     }
 
+    function _activityTimestampMs(event) {
+        if (!event || typeof event !== 'object') return 0;
+        var raw = event.timestamp !== undefined ? event.timestamp : event.ts;
+        if (raw === undefined || raw === null || raw === '') return 0;
+        var n = Number(raw);
+        return isNaN(n) ? 0 : n;
+    }
+
+    function _sortActivityEntriesChronological(entries) {
+        if (!Array.isArray(entries) || entries.length < 2) return entries;
+        return entries
+            .map(function (entry, index) {
+                return { entry: entry, index: index, ts: _activityTimestampMs(entry) };
+            })
+            .sort(function (a, b) {
+                if (a.ts !== b.ts) return a.ts - b.ts;
+                return a.index - b.index;
+            })
+            .map(function (row) { return row.entry; });
+    }
+
     function _rehydrateActivityLog(entries) {
         var incoming = Array.isArray(entries) ? entries.slice() : [];
         var prevBySig = {};
@@ -10392,7 +10413,7 @@
         }
 
         _activityTraceCounts = traceCounts;
-        _activityLog = next;
+        _activityLog = _sortActivityEntriesChronological(next);
     }
 
     function _mergeActivityLogWithLocalDebug(entries) {
@@ -10477,6 +10498,7 @@
         var hiddenFromActivity = !!event.hiddenFromActivity;
         if (!hiddenFromActivity) {
             _activityLog.push(event);
+            _activityLog = _sortActivityEntriesChronological(_activityLog);
             if (event.tool === 'workflow_execute' || event.tool === 'workflow_status') {
                 handleWorkflowActivity(event);
             }
@@ -10742,8 +10764,9 @@
         var feed = document.getElementById('activity-feed');
         if (feed) {
             var filterActive = !!_getActivityFilterText();
-            if (filterActive || _activityPage !== 0) {
-                _renderActivityPager();
+            var eventIsLatest = _activityLog.length > 0 && _activityLog[_activityLog.length - 1] === event;
+            if (filterActive || _activityPage !== 0 || !eventIsLatest) {
+                renderActivityFeed();
             } else {
                 // Remove "No activity yet" placeholder if present
                 var placeholder = feed.querySelector('.activity-entry[style*="text-align:center"]');
@@ -10751,7 +10774,14 @@
                 var node = _buildActivityNode(event);
                 if (node) feed.insertBefore(node, feed.firstChild);
                 while (feed.children.length > ACTIVITY_PAGE_SIZE) feed.removeChild(feed.lastChild);
-                _renderActivityPager();
+                var currentFilter = _getActivityFilterText();
+                var filteredEntries = _getFilteredActivityEntries(currentFilter);
+                var totalFiltered = filteredEntries.length;
+                var totalPages = Math.max(1, Math.ceil(totalFiltered / ACTIVITY_PAGE_SIZE));
+                var endIdx = totalFiltered - (_activityPage * ACTIVITY_PAGE_SIZE);
+                if (endIdx < 0) endIdx = 0;
+                var startIdx = Math.max(0, endIdx - ACTIVITY_PAGE_SIZE);
+                _renderActivityPager(totalFiltered, startIdx, endIdx, totalPages, currentFilter, _countUniqueTraceIds(filteredEntries));
             }
         }
         if (_isDebugActivityEntry(event) || _isDebugTabActive()) {
@@ -15396,15 +15426,57 @@
         return _envTheaterMode() === 'character';
     }
 
+    function _envDefaultVitruvianBuilderSubject() {
+        try {
+            var spec = _envNormalizeWorkbenchBuilderSpec(JSON.stringify({
+                family: 'humanoid_biped',
+                anchor_bone: 'hips',
+                morph_profile: { preset_id: 'base' }
+            }));
+            var bones = _envBuildPresetBuilderBones(spec.family, spec.anchor_bone, spec.morph_profile);
+            if (!bones || !bones.length) return null;
+            return _envNormalizeBuilderSubject({
+                subject_mode: 'preset_skeleton',
+                family: spec.family,
+                compatibility_profile: spec.compatibility_profile || _envBuilderDefaultCompatibilityProfile(spec.family),
+                anchor_bone: spec.anchor_bone,
+                proportions: spec.proportions,
+                morph_profile: spec.morph_profile,
+                bones: bones,
+                overlays: [],
+                scaffold_projection: {
+                    enabled: true,
+                    slot_family: spec.family
+                }
+            });
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function _envTheaterSessionNeedsVitruvianRepair(session) {
+        if (!session || !session.scene || !session.character || !session.workbench) return false;
+        var sceneMode = String(session.scene.theater_mode || '').trim();
+        var subjectMode = String(session.workbench.subject_mode || '').trim();
+        var assetRef = String(session.character.asset_ref || '').trim();
+        var hasBuilder = !!(session.workbench.builder_subject && session.workbench.builder_subject.active);
+        return sceneMode === 'character'
+            && !assetRef
+            && !hasBuilder
+            && (!subjectMode || subjectMode === 'mounted_asset');
+    }
+
     function _envDefaultTheaterSession() {
+        var defaultBuilder = _envDefaultVitruvianBuilderSubject();
+        var hasDefaultBuilder = !!(defaultBuilder && defaultBuilder.active);
         return {
             version: 1,
             saved_at: 0,
             scene: {
                 snapshot: '',
-                theater_mode: 'environment',
-                camera_mode: 'overview',
-                focus_mounted: false,
+                theater_mode: hasDefaultBuilder ? 'character' : 'environment',
+                camera_mode: hasDefaultBuilder ? 'focus' : 'overview',
+                focus_mounted: hasDefaultBuilder,
                 camera: {
                     offsetX: 0,
                     offsetY: 0,
@@ -15422,20 +15494,20 @@
                 }
             },
             character: {
-                mounted: false,
+                mounted: hasDefaultBuilder,
                 behavior: 'idle',
                 asset_ref: ''
             },
             workbench: {
-                skeleton: false,
-                scaffold: false,
+                skeleton: hasDefaultBuilder,
+                scaffold: hasDefaultBuilder,
                 attachments: false,
                 turntable: false,
                 turntable_speed: 1,
                 load_field_enabled: true,
                 load_field_overlay_visible: true,
-                subject_mode: 'mounted_asset',
-                builder_subject: null,
+                subject_mode: hasDefaultBuilder ? 'preset_skeleton' : 'mounted_asset',
+                builder_subject: defaultBuilder,
                 isolated_chain: '',
                 selected_bone_ids: [],
                 selected_bone_id: '',
@@ -15674,6 +15746,16 @@
 
     function _envApplyTheaterSessionBootstrap() {
         var session = _envLoadTheaterSession();
+        if (!session) session = _envDefaultTheaterSession();
+        if (_envTheaterSessionNeedsVitruvianRepair(session)) {
+            session = _envDefaultTheaterSession();
+            try {
+                localStorage.setItem(_envTheaterSessionStorageKey, JSON.stringify(Object.assign({}, session, {
+                    reason: 'vitruvian_builder_default_repair',
+                    saved_at: Date.now()
+                })));
+            } catch (e) {}
+        }
         _envTheaterSessionRestore.session = session;
         if (!session) {
             _envTheaterSessionRestore.pending = false;
