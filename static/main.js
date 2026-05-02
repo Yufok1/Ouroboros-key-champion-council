@@ -15459,11 +15459,16 @@
         var sceneMode = String(session.scene.theater_mode || '').trim();
         var subjectMode = String(session.workbench.subject_mode || '').trim();
         var assetRef = String(session.character.asset_ref || '').trim();
+        var assetRefLower = assetRef.toLowerCase();
+        var isPublicDemoPlaceholder = assetRefLower === '/static/assets/npc.glb'
+            || assetRefLower === 'static/assets/npc.glb'
+            || assetRefLower === 'npc.glb'
+            || assetRefLower.slice(-8) === '/npc.glb';
         var hasBuilder = !!(session.workbench.builder_subject && session.workbench.builder_subject.active);
         return sceneMode === 'character'
-            && !assetRef
             && !hasBuilder
-            && (!subjectMode || subjectMode === 'mounted_asset');
+            && (!subjectMode || subjectMode === 'mounted_asset')
+            && (!assetRef || isPublicDemoPlaceholder);
     }
 
     function _envDefaultTheaterSession() {
