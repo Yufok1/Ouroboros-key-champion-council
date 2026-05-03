@@ -6,7 +6,7 @@ colorTo: blue
 sdk: docker
 pinned: false
 license: mit
-short_description: 'Operator runtime for AI councils, theaters, continuity, and embodied tooling'
+short_description: 'Operator runtime for AI councils and theater tooling'
 tags:
   - mcp
   - ai-agent
