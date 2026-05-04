@@ -9718,6 +9718,8 @@
     var _providerBrowseSeq = 0;
     var _providerMetaTimer = null;
     var _providerMetaSeq = 0;
+    var _providerRouterCatalogCache = null;
+    var _providerRouterCatalogTs = 0;
 
     function _providerKind() {
         var kind = ((document.getElementById('plug-provider-kind') || {}).value || 'huggingface').toLowerCase();
@@ -9769,6 +9771,158 @@
         return Math.round(mb) + ' MB';
     }
 
+    function _formatHfProviderName(provider) {
+        var raw = String(provider || '').trim();
+        if (!raw) return '';
+        var labels = {
+            'cerebras': 'Cerebras',
+            'cohere': 'Cohere',
+            'deepinfra': 'DeepInfra',
+            'fal-ai': 'Fal AI',
+            'featherless-ai': 'Featherless AI',
+            'fireworks-ai': 'Fireworks',
+            'groq': 'Groq',
+            'hf-inference': 'HF Inference',
+            'hyperbolic': 'Hyperbolic',
+            'novita': 'Novita',
+            'nscale': 'Nscale',
+            'ovhcloud': 'OVHcloud',
+            'publicai': 'Public AI',
+            'replicate': 'Replicate',
+            'sambanova': 'SambaNova',
+            'scaleway': 'Scaleway',
+            'together': 'Together',
+            'wavespeed': 'WaveSpeed',
+            'zai-org': 'Z.ai'
+        };
+        return labels[raw.toLowerCase()] || raw.replace(/(^|[-_])([a-z])/g, function (_, sep, ch) {
+            return (sep ? ' ' : '') + ch.toUpperCase();
+        });
+    }
+
+    function _providerRouterModelsEndpoint() {
+        return new URL('/hf-router/v1/models', window.location.origin || undefined).toString();
+    }
+
+    function _normalizeRouterModelRow(row) {
+        var item = row && typeof row === 'object' ? row : {};
+        var id = String(item.id || '').trim();
+        if (!id) return null;
+        var providersRaw = Array.isArray(item.providers) ? item.providers : [];
+        var providers = [];
+        var providerMeta = [];
+        for (var i = 0; i < providersRaw.length; i++) {
+            var pRow = providersRaw[i] || {};
+            var p = String(pRow.provider || pRow.name || '').trim().toLowerCase();
+            if (!p || providers.indexOf(p) >= 0) continue;
+            providers.push(p);
+            providerMeta.push({
+                provider: p,
+                status: String(pRow.status || ''),
+                supports_tools: !!pRow.supports_tools,
+                supports_structured_output: !!pRow.supports_structured_output,
+                context_length: Number(pRow.context_length || 0)
+            });
+        }
+        var arch = item.architecture && typeof item.architecture === 'object' ? item.architecture : {};
+        var inputMods = Array.isArray(arch.input_modalities) ? arch.input_modalities.join('+') : '';
+        var outputMods = Array.isArray(arch.output_modalities) ? arch.output_modalities.join('+') : '';
+        var task = inputMods || outputMods ? (inputMods + ' -> ' + outputMods).replace(/^ -> /, '').replace(/ -> $/, '') : '';
+        return {
+            id: id,
+            downloads: Number(item.downloads || 0),
+            likes: Number(item.likes || 0),
+            task: task,
+            private: false,
+            providers: providers,
+            provider_meta: providerMeta,
+            created: Number(item.created || 0)
+        };
+    }
+
+    async function _fetchHfRouterCatalog(force) {
+        var now = Date.now();
+        if (!force && _providerRouterCatalogCache && (now - _providerRouterCatalogTs) < 60000) {
+            return _providerRouterCatalogCache;
+        }
+        var resp = await fetch(_providerRouterModelsEndpoint(), { method: 'GET', headers: { 'Accept': 'application/json' } });
+        if (!resp.ok) throw new Error('HF router HTTP ' + resp.status);
+        var payload = await resp.json();
+        var rows = Array.isArray(payload && payload.data) ? payload.data : [];
+        var models = [];
+        var providerCounts = {};
+        for (var i = 0; i < rows.length; i++) {
+            var m = _normalizeRouterModelRow(rows[i]);
+            if (!m) continue;
+            models.push(m);
+            for (var j = 0; j < m.providers.length; j++) {
+                providerCounts[m.providers[j]] = (providerCounts[m.providers[j]] || 0) + 1;
+            }
+        }
+        var providers = Object.keys(providerCounts).sort(function (a, b) {
+            return _formatHfProviderName(a).localeCompare(_formatHfProviderName(b));
+        }).map(function (p) {
+            return { provider: p, count: providerCounts[p] };
+        });
+        _providerRouterCatalogCache = { models: models, providers: providers, fetched_at: now };
+        _providerRouterCatalogTs = now;
+        _syncHfProviderOptionsFromCatalog(_providerRouterCatalogCache);
+        return _providerRouterCatalogCache;
+    }
+
+    function _syncHfProviderOptionsFromCatalog(catalog) {
+        var sel = document.getElementById('plug-provider-hf-provider');
+        if (!sel || !catalog || !Array.isArray(catalog.providers)) return;
+        var current = String(sel.value || 'auto').trim().toLowerCase() || 'auto';
+        sel.innerHTML = '';
+        var auto = document.createElement('option');
+        auto.value = 'auto';
+        auto.textContent = 'Auto route (HF router decides)';
+        sel.appendChild(auto);
+        var sawCurrent = current === 'auto';
+        for (var i = 0; i < catalog.providers.length; i++) {
+            var row = catalog.providers[i] || {};
+            var provider = String(row.provider || '').trim().toLowerCase();
+            if (!provider) continue;
+            var opt = document.createElement('option');
+            opt.value = provider;
+            opt.textContent = _formatHfProviderName(provider) + ' (' + String(row.count || 0) + ')';
+            sel.appendChild(opt);
+            if (provider === current) sawCurrent = true;
+        }
+        if (!sawCurrent && current) {
+            var custom = document.createElement('option');
+            custom.value = current;
+            custom.textContent = _formatHfProviderName(current) + ' (manual)';
+            sel.appendChild(custom);
+        }
+        sel.value = sawCurrent ? current : 'auto';
+    }
+
+    async function _fetchHfModelsViaRouter(query, provider) {
+        var catalog = await _fetchHfRouterCatalog(false);
+        var q = String(query || '').trim().toLowerCase();
+        var p = String(provider || 'auto').trim().toLowerCase();
+        var models = Array.isArray(catalog.models) ? catalog.models : [];
+        var out = [];
+        for (var i = 0; i < models.length; i++) {
+            var m = models[i] || {};
+            var providers = Array.isArray(m.providers) ? m.providers : [];
+            if (p && p !== 'auto' && providers.indexOf(p) < 0) continue;
+            if (q) {
+                var hay = [
+                    String(m.id || ''),
+                    String(m.task || ''),
+                    providers.join(' ')
+                ].join(' ').toLowerCase();
+                if (hay.indexOf(q) < 0) continue;
+            }
+            out.push(m);
+            if (out.length >= 80) break;
+        }
+        return out;
+    }
+
     async function _refreshProviderModelMeta() {
         var kind = _providerKind();
         if (kind === 'pi') {
@@ -9811,6 +9965,17 @@
             var likes = Number(info.likes || 0);
             var size = _formatModelSizeGb(info.size_mb);
             var param = _inferParamHint(hubModelId);
+            var routeProviders = [];
+            try {
+                var catalog = await _fetchHfRouterCatalog(false);
+                var rows = Array.isArray(catalog.models) ? catalog.models : [];
+                for (var ri = 0; ri < rows.length; ri++) {
+                    if (String(rows[ri].id || '') === hubModelId) {
+                        routeProviders = Array.isArray(rows[ri].providers) ? rows[ri].providers : [];
+                        break;
+                    }
+                }
+            } catch (providerMetaErr) { }
 
             var bits = [];
             bits.push('Task: ' + task);
@@ -9818,6 +9983,9 @@
             if (size) bits.push('Size: ' + size);
             if (downloads > 0) bits.push('Downloads: ' + _formatCount(downloads));
             if (likes > 0) bits.push('Likes: ' + _formatCount(likes));
+            if (routeProviders.length) {
+                bits.push('HF providers: ' + routeProviders.slice(0, 5).map(_formatHfProviderName).join(', ') + (routeProviders.length > 5 ? ' +' + String(routeProviders.length - 5) : ''));
+            }
 
             _setProviderModelMeta(bits.join(' · '), 'ok');
         } catch (e) {
@@ -9846,7 +10014,12 @@
             else urlInput.removeAttribute('required');
         }
         if (kind === 'huggingface') {
-            _setProviderStatus('Type to search models…', 'info');
+            _setProviderStatus('Loading HF router providers…', 'info');
+            _fetchHfRouterCatalog(false).then(function (catalog) {
+                _syncHfProviderOptionsFromCatalog(catalog);
+            }).catch(function () {
+                _setProviderStatus('Type to search models…', 'info');
+            });
             onProviderHfInput();
             _queueProviderModelMetaRefresh(120);
         } else if (kind === 'pi') {
@@ -9936,6 +10109,9 @@
             var badges = [];
             var paramHint = _inferParamHint(opt.value);
             if (m.task) badges.push(m.task);
+            if (Array.isArray(m.providers) && m.providers.length) {
+                badges.push('via ' + m.providers.slice(0, 3).map(_formatHfProviderName).join(', ') + (m.providers.length > 3 ? ' +' + String(m.providers.length - 3) : ''));
+            }
             if (paramHint) badges.push('~' + paramHint);
             if (m.downloads > 0) badges.push(_formatCount(m.downloads) + ' dl');
             if (m.likes > 0) badges.push(_formatCount(m.likes) + ' ❤');
@@ -9962,21 +10138,28 @@
         _setProviderStatus('Loading models…', 'info');
 
         var models = [];
-        var source = 'huggingface-api';
+        var source = 'champion-hf-router';
+        var routerErr = null;
         var directErr = null;
 
         try {
-            models = await _fetchHfModelsDirect(query, token, provider);
+            models = await _fetchHfModelsViaRouter(query, provider);
         } catch (e) {
-            directErr = e;
-            source = 'hub-tools';
+            routerErr = e;
+            source = 'huggingface-api';
             try {
-                models = await _fetchHfModelsViaTools(query);
+                models = await _fetchHfModelsDirect(query, token, provider);
             } catch (e2) {
-                if (seq !== _providerBrowseSeq) return;
-                _renderHfModelOptions([]);
-                _setProviderStatus('Model lookup failed: ' + String((e2 && e2.message) || (directErr && directErr.message) || e2 || directErr), 'error');
-                return;
+                directErr = e2;
+                source = 'hub-tools';
+                try {
+                    models = await _fetchHfModelsViaTools(query);
+                } catch (e3) {
+                    if (seq !== _providerBrowseSeq) return;
+                    _renderHfModelOptions([]);
+                    _setProviderStatus('Model lookup failed: ' + String((e3 && e3.message) || (directErr && directErr.message) || (routerErr && routerErr.message) || e3 || directErr || routerErr), 'error');
+                    return;
+                }
             }
         }
 
@@ -9999,7 +10182,7 @@
 
         var providerLabel = (provider && provider !== 'auto') ? ('provider=' + provider + ', ') : '';
         var msg = 'Loaded ' + String(models.length) + ' model' + (models.length === 1 ? '' : 's') + ' via ' + providerLabel + source + '.';
-        if (!token) msg += ' (Tip: add HF token for private repos.)';
+        if (!token && source !== 'champion-hf-router') msg += ' (Tip: add HF token for private repos.)';
         _setProviderStatus(msg, models.length ? 'ok' : 'info');
         _queueProviderModelMetaRefresh(120);
     }
@@ -12256,10 +12439,32 @@
         return out;
     }
 
-    function _publicToolBlocked(name) {
+    function _publicHfRouterProviderPlugAllowed(name, args) {
+        if (!window.__PUBLIC_HARDENING__) return false;
+        var toolName = String(name || '').trim();
+        if (toolName !== 'plug_model') return false;
+        var payload = args && typeof args === 'object' ? args : {};
+        var modelId = String(payload.model_id || '').trim();
+        if (!modelId) return false;
+        try {
+            var parsed = new URL(modelId, window.location.origin || undefined);
+            var host = String(parsed.hostname || '').toLowerCase();
+            var path = String(parsed.pathname || '').replace(/\/+$/, '');
+            if (host !== '127.0.0.1' && host !== 'localhost' && host !== '::1') return false;
+            if (!(path === '/hf-router' || path.indexOf('/hf-router/') === 0)) return false;
+            if (!String(parsed.searchParams.get('model') || '').trim()) return false;
+            if (parsed.searchParams.get('key')) return false;
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function _publicToolBlocked(name, args) {
         if (!window.__PUBLIC_HARDENING__) return false;
         var toolName = String(name || '').trim();
         if (!toolName) return false;
+        if (_publicHfRouterProviderPlugAllowed(toolName, args)) return false;
         var allowed = Array.isArray(window.__PUBLIC_ALLOWED_TOOLS__) ? window.__PUBLIC_ALLOWED_TOOLS__ : [];
         if (allowed.indexOf(toolName) >= 0) return false;
         var exact = Array.isArray(window.__PUBLIC_BLOCKED_TOOLS__) ? window.__PUBLIC_BLOCKED_TOOLS__ : [];
@@ -12279,7 +12484,7 @@
     }
 
     function callTool(name, args, routeAs, meta) {
-        if (_publicToolBlocked(name)) {
+        if (_publicToolBlocked(name, args)) {
             _publicToolBlockNotice(name);
             if (meta && typeof meta.reject === 'function') {
                 meta.reject(new Error('Public hardening blocked ' + String(name || 'tool')));
@@ -15507,8 +15712,8 @@
                 skeleton: hasDefaultBuilder,
                 scaffold: hasDefaultBuilder,
                 attachments: false,
-                turntable: false,
-                turntable_speed: 1,
+                turntable: hasDefaultBuilder,
+                turntable_speed: 4.2,
                 load_field_enabled: true,
                 load_field_overlay_visible: true,
                 subject_mode: hasDefaultBuilder ? 'preset_skeleton' : 'mounted_asset',
@@ -15933,9 +16138,7 @@
                     _envDeactivateBuilderSubject(mesh);
                     _envBuilderInteraction = _envCreateBuilderInteractionState();
                 }
-                var restoredWorkbench = Object.assign({}, session.workbench || {}, {
-                    turntable: false
-                });
+                var restoredWorkbench = Object.assign({}, session.workbench || {});
                 _envApplyWorkbenchSessionToMesh(mesh, restoredWorkbench);
                 if (_envBuilderSubject.active && mesh.userData._builderSubjectGroup) {
                     _env3DStageBuilderSubjectForWorkbench(mesh, mesh.userData._builderSubjectGroup || null);
@@ -15948,7 +16151,7 @@
                 }
                 restoreRuntimeSyncNeeded = true;
             } else {
-                _env3D.workbenchTurntable = false;
+                _env3D.workbenchTurntable = !!((session.workbench || {}).turntable);
                 _env3D.workbenchTurntableSpeed = _envClampWorkbenchTurntableSpeed(((session.workbench || {}).turntable_speed));
             }
             _envTheaterSessionRestore.pending = false;
@@ -41633,6 +41836,145 @@
         return lines.length ? lines : ['(no bones)'];
     }
 
+    function _envTextTheaterSceneObjectCounts(rows, field) {
+        var counts = {};
+        (Array.isArray(rows) ? rows : []).forEach(function (row) {
+            var key = String((row || {})[field] || 'unknown').trim() || 'unknown';
+            counts[key] = Number(counts[key] || 0) + 1;
+        });
+        return Object.keys(counts).sort(function (left, right) {
+            var delta = Number(counts[right] || 0) - Number(counts[left] || 0);
+            if (delta) return delta;
+            return left.localeCompare(right);
+        }).slice(0, 8).map(function (key) {
+            return key + ' ' + counts[key];
+        }).join(', ');
+    }
+
+    function _envTextTheaterSceneObjectLine(row, options) {
+        var item = row && typeof row === 'object' ? row : {};
+        var opts = options && typeof options === 'object' ? options : {};
+        var key = String(item.object_key || ((item.kind || 'object') + '::' + (item.id || 'unknown')));
+        var label = String(item.label || item.id || item.kind || 'object');
+        var category = String(item.category || item.kind || 'scene');
+        var state = String(item.state || 'idle');
+        var position = item.position && typeof item.position === 'object'
+            ? item.position
+            : (((item.spatial || {}).center && typeof (item.spatial || {}).center === 'object') ? (item.spatial || {}).center : {});
+        var bits = [
+            key,
+            label,
+            category,
+            state,
+            'pos (' + _envTextTheaterRound(position.x, 2, 0)
+                + ', ' + _envTextTheaterRound(position.y, 2, 0)
+                + ', ' + _envTextTheaterRound(position.z, 2, 0) + ')'
+        ];
+        if (opts.distance && Number.isFinite(Number(item.distance))) {
+            bits.push(_envTextTheaterRound(item.distance, 2, 0) + 'm');
+        }
+        if (item.focused) bits.push('focused');
+        return _envProductCollapseText(bits.join(' / '), Number(opts.limit || 180));
+    }
+
+    function _envTextTheaterSceneFeaturedRows(scene) {
+        var sourceRows = Array.isArray((scene || {}).objects) ? (scene || {}).objects : [];
+        var focusKey = String((scene || {}).focus_object_key || '').trim();
+        var featured = sourceRows.filter(function (row) {
+            var category = String((row || {}).category || '').trim().toLowerCase();
+            var kind = String((row || {}).kind || '').trim().toLowerCase();
+            var key = String((row || {}).object_key || '').trim().toLowerCase();
+            if (String((row || {}).object_key || '') === focusKey || (row || {}).focused) return true;
+            if (category && ['validation', 'routing_test', 'blocker'].indexOf(category) < 0) return true;
+            return /lunar|lander|landing|fuel|asteroid|boundary|surface|pad|target|vehicle|game/.test(key + ' ' + kind + ' ' + category);
+        });
+        if (!featured.length) featured = sourceRows.slice(0, 12);
+        return featured.slice(0, 16);
+    }
+
+    function _envTextTheaterSceneSubstrateLine(scene) {
+        var substrate = scene && scene.substrate && typeof scene.substrate === 'object' ? scene.substrate : null;
+        if (!substrate) return 'SUBSTRATE: none';
+        var terrain = substrate.terrain && typeof substrate.terrain === 'object' ? substrate.terrain : {};
+        var grid = substrate.grid && typeof substrate.grid === 'object' ? substrate.grid : {};
+        return 'SUBSTRATE: ground y ' + _envTextTheaterRound(substrate.ground_y, 2, 0)
+            + ' / terrain ' + (terrain.visible ? 'visible' : 'hidden')
+            + ' / grid ' + (grid.visible ? 'visible' : 'hidden')
+            + (Number(grid.size || 0) ? (' / grid size ' + _envTextTheaterRound(grid.size, 2, 0)) : '');
+    }
+
+    function _envRenderTextTheaterEnvironmentScene(snapshot, surfaceMode) {
+        var view = snapshot && typeof snapshot === 'object' ? snapshot : {};
+        var theater = view.theater && typeof view.theater === 'object' ? view.theater : {};
+        var scene = view.scene && typeof view.scene === 'object' ? view.scene : {};
+        var weather = view.weather && typeof view.weather === 'object' ? view.weather : {};
+        var runtime = view.runtime && typeof view.runtime === 'object' ? view.runtime : {};
+        var parity = view.parity && typeof view.parity === 'object' ? view.parity : {};
+        var semantic = view.semantic && typeof view.semantic === 'object' ? view.semantic : { summary: '' };
+        var rows = Array.isArray(scene.objects) ? scene.objects : [];
+        var focusKey = String(scene.focus_object_key || '').trim();
+        var focusRow = null;
+        rows.some(function (row) {
+            if (!row) return false;
+            if (row.focused || String(row.object_key || '') === focusKey) {
+                focusRow = row;
+                return true;
+            }
+            return false;
+        });
+        var neighborhood = (Array.isArray(scene.focus_neighborhood) ? scene.focus_neighborhood : []).slice(0, 8).map(function (row) {
+            return String(row.label || row.object_key || row.id || 'object') + ' (' + _envTextTheaterRound(row.distance, 2, 0) + 'm)';
+        }).join(', ');
+        var camera = theater.camera && typeof theater.camera === 'object' ? theater.camera : {};
+        var nowTs = Number(view.snapshot_timestamp || 0);
+        var sourceTs = Number(view.source_timestamp || 0);
+        var syncAgeMs = nowTs && sourceTs ? Math.max(0, nowTs - sourceTs) : 0;
+        var lines = [];
+        lines.push('SCENE THEATER: ' + String(theater.mode || 'environment') + ' / ' + String(theater.visual_mode || 'scene')
+            + ' / focus: ' + String(focusKey || (((theater.focus || {}).id) || 'scene')));
+        lines.push('PARITY: ' + String(parity.mode || theater.mode || 'unknown') + ' / ' + String(parity.summary || 'unknown'));
+        lines.push('CAMERA: ' + String(camera.mode || '') + ' / dist ' + _envTextTheaterRound(camera.distance, 2, 0)
+            + ' / pos (' + _envTextTheaterRound(((camera.position || {}).x), 2, 0) + ', '
+            + _envTextTheaterRound(((camera.position || {}).y), 2, 0) + ', '
+            + _envTextTheaterRound(((camera.position || {}).z), 2, 0) + ')');
+        lines.push('BUNDLE: ' + String(view.bundle_version || '') + ' / ' + (view.stale_flags && view.stale_flags.mirror_lag ? 'lagged' : 'fresh')
+            + ' / synced ' + _envTextTheaterRound(syncAgeMs / 1000, 2, 0) + 's ago');
+        lines.push('SCENE: ' + Number(scene.object_count || rows.length || 0) + ' objects / kinds ' + (_envTextTheaterSceneObjectCounts(rows, 'kind') || 'none'));
+        lines.push('CATEGORIES: ' + (_envTextTheaterSceneObjectCounts(rows, 'category') || 'none'));
+        lines.push('BOUNDS: x ' + _envTextTheaterRound((((scene.bounds || {}).min || {}).x), 2, 0)
+            + '..' + _envTextTheaterRound((((scene.bounds || {}).max || {}).x), 2, 0)
+            + ' / y ' + _envTextTheaterRound((((scene.bounds || {}).min || {}).y), 2, 0)
+            + '..' + _envTextTheaterRound((((scene.bounds || {}).max || {}).y), 2, 0)
+            + ' / z ' + _envTextTheaterRound((((scene.bounds || {}).min || {}).z), 2, 0)
+            + '..' + _envTextTheaterRound((((scene.bounds || {}).max || {}).z), 2, 0));
+        lines.push(_envTextTheaterSceneSubstrateLine(scene));
+        lines.push('WEATHER: ' + (weather.enabled
+            ? (String(weather.kind || 'weather') + ' / ' + String(weather.flow_class || '')
+                + ' / dens ' + _envTextTheaterRound(weather.density, 2, 0)
+                + ' / speed ' + _envTextTheaterRound(weather.speed, 2, 0))
+            : 'none'));
+        lines.push('RUNTIME: ' + (runtime.enabled ? 'mounted character present' : 'none')
+            + ' / scene renderer owns visible inventory'
+            + (runtime.activity ? (' / activity ' + String(runtime.activity || '')) : ''));
+        lines.push('FOCUS OBJECT: ' + (focusRow ? _envTextTheaterSceneObjectLine(focusRow, { distance: true, limit: 190 }) : 'none'));
+        lines.push('NEARBY: ' + (neighborhood || 'none'));
+        var featured = _envTextTheaterSceneFeaturedRows(scene);
+        if (featured.length) {
+            lines.push('OBJECTS:');
+            featured.forEach(function (row) {
+                lines.push('  - ' + _envTextTheaterSceneObjectLine(row, { distance: true, limit: 190 }));
+            });
+        } else {
+            lines.push('OBJECTS: none');
+        }
+        if (String(surfaceMode || '') === 'body') {
+            lines.push('CHARACTER BODY: suppressed in environment mode; switch to Character Workbench for bones, balance, contacts, and pose timeline.');
+        }
+        lines.push('LAST: ' + String(view.last_action || 'none') + ' / sync ' + String(view.last_sync_reason || 'unknown'));
+        lines.push('SUMMARY: ' + String(semantic.summary || 'Environment scene ready.'));
+        return lines.join('\n');
+    }
+
     function _envRenderTextTheaterOutput(snapshot, mode) {
         var view = snapshot && typeof snapshot === 'object' ? snapshot : {};
         var theater = view.theater && typeof view.theater === 'object' ? view.theater : {};
@@ -41654,6 +41996,9 @@
         var sourceTs = Number(view.source_timestamp || 0);
         var syncAgeMs = nowTs && sourceTs ? Math.max(0, nowTs - sourceTs) : 0;
         if (mode === 'theater') {
+            if (_envSceneNormalizeTheaterMode(theater.mode || 'environment') === 'environment') {
+                return _envRenderTextTheaterEnvironmentScene(view, 'theater');
+            }
             var showSceneProximity = _envTextTheaterSceneProximityEnabled(theater.mode || '');
             var neighborhood = (showSceneProximity ? (scene.focus_neighborhood || []) : []).map(function (row) {
                 return String(row.label || row.object_key || '') + ' (' + _envTextTheaterRound(row.distance, 2, 0) + 'm)';
@@ -41753,6 +42098,9 @@
                 }
             }
             return theaterLines.join('\n');
+        }
+        if (_envSceneNormalizeTheaterMode(theater.mode || 'environment') === 'environment') {
+            return _envRenderTextTheaterEnvironmentScene(view, 'body');
         }
         var boneLines = _envTextTheaterBoneTreeLines(embodiment.bones, view.contacts);
         var lines = [];
@@ -48539,8 +48887,8 @@
         container: null,
         animId: null,
         resizeObserver: null,
-        workbenchTurntable: false,
-        workbenchTurntableSpeed: 1,
+        workbenchTurntable: true,
+        workbenchTurntableSpeed: 4.2,
         lastObjectHash: '',
         workbenchFrameOverride: null,
         navGrid: null,

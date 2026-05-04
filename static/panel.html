@@ -11870,6 +11870,7 @@
                                 <option value="auto" selected>Auto route (HF router decides)</option>
                                 <option value="cerebras">Cerebras</option>
                                 <option value="cohere">Cohere</option>
+                                <option value="deepinfra">DeepInfra</option>
                                 <option value="fal-ai">Fal AI</option>
                                 <option value="featherless-ai">Featherless AI</option>
                                 <option value="fireworks-ai">Fireworks</option>
@@ -11894,7 +11895,7 @@
                         </div>
                     </div>
                     <div class="field" style="margin-top:6px;">
-                        <label>HF Token <span style="color:var(--text-dim);">(optional, used for browser-side model lookup only)</span></label>
+                        <label>HF Token <span style="color:var(--text-dim);">(optional; Space secret is used when present)</span></label>
                         <input id="plug-provider-hf-token" type="password" placeholder="hf_..." oninput="onProviderHfInput()" />
                     </div>
                     <div class="field" style="margin-top:6px;">
@@ -12882,7 +12883,7 @@
             }
         })();
     </script>
-    <script src="/static/main.js?v=133g"></script>
+    <script src="/static/main.js?v=134a"></script>
     <script>
         (function () {
             var textTheaterRetryTimer = 0;

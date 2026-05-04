@@ -22,7 +22,7 @@ import re
 from pathlib import Path
 from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
-from urllib.parse import urlparse, urlsplit, urlunsplit, unquote, parse_qsl
+from urllib.parse import urlparse, urlsplit, urlunsplit, unquote, parse_qsl, parse_qs
 
 import uvicorn
 import httpx
@@ -2820,6 +2820,52 @@ def _public_tool_blocked(tool_name: str | None) -> bool:
     return any(text.startswith(prefix) for prefix in _PUBLIC_BLOCKED_TOOL_PREFIXES)
 
 
+def _public_hf_router_provider_plug_allowed(tool_name: str | None, args: dict | None) -> bool:
+    """Public demo exception for bounded HF Inference Provider slots.
+
+    Public surfaces still block arbitrary local model downloads and arbitrary
+    remote URLs. This exception only allows plug_model when the target is this
+    app's own loopback HF router proxy, which keeps token custody server-side
+    and prevents custom provider SSRF.
+    """
+    if not _PUBLIC_HARDENING_ENABLED:
+        return False
+    if str(tool_name or "").strip() != "plug_model":
+        return False
+    if not isinstance(args, dict):
+        return False
+    model_id = str(args.get("model_id") or "").strip()
+    if not model_id:
+        return False
+    try:
+        parts = urlsplit(model_id)
+    except Exception:
+        return False
+    if parts.scheme not in ("http", "https"):
+        return False
+    host = str(parts.hostname or "").strip().lower()
+    if host not in {"127.0.0.1", "localhost", "::1"}:
+        return False
+    path = str(parts.path or "").rstrip("/")
+    if not (path == "/hf-router" or path.startswith("/hf-router/")):
+        return False
+    qs = parse_qs(parts.query or "", keep_blank_values=True)
+    model_values = qs.get("model") or []
+    if not any(str(item or "").strip() for item in model_values):
+        return False
+    # OpenAI-compatible key injection stays blocked on public; HF router token
+    # query values are normalized to token refs before the capsule sees them.
+    if qs.get("key"):
+        return False
+    return True
+
+
+def _public_tool_blocked_for_args(tool_name: str | None, args: dict | None) -> bool:
+    if _public_hf_router_provider_plug_allowed(tool_name, args):
+        return False
+    return _public_tool_blocked(tool_name)
+
+
 async def _maybe_route_hub_plug_to_cocoon(args: dict | None) -> dict | None:
     """Let the existing Hub plug form consume Convergence cocoon catalog repos."""
     if not isinstance(args, dict):
@@ -2864,12 +2910,18 @@ async def _maybe_route_hub_plug_to_cocoon(args: dict | None) -> dict | None:
 
 
 def _public_tool_block_payload(tool_name: str | None, trace: dict | None = None) -> dict:
+    reason = "Operator/private tooling is disabled for public release surfaces."
+    if str(tool_name or "").strip() == "plug_model":
+        reason = (
+            "Public plug_model is limited to Champion's loopback /hf-router provider route. "
+            "Arbitrary downloads and custom remote URLs remain disabled."
+        )
     return {
         "error": "Public exposure hardening blocked this tool",
         "tool": str(tool_name or ""),
         "mode": _EXPOSURE_MODE,
         "trace_id": str((trace or {}).get("trace_id") or ""),
-        "reason": "Operator/private tooling is disabled for public release surfaces.",
+        "reason": reason,
     }
 
 
@@ -13742,7 +13794,7 @@ async def proxy_tool_call(tool_name: str, request: Request):
     source = body_source or _infer_activity_source(request, fallback="webui")
     client_id = _extract_client_id(request)
 
-    if _public_tool_blocked(tool_name):
+    if _public_tool_blocked_for_args(tool_name, body if isinstance(body, dict) else {}):
         trace = _public_blocked_request_trace(request)
         trace["tool"] = str(tool_name or "")
         _public_log_blocked_request(trace)
@@ -18696,7 +18748,10 @@ async def _handle_streamable_rpc(obj: dict, client_id: str) -> dict | None:
         if not isinstance(args, dict):
             args = _coerce_tool_arguments(args)
 
-        if _public_tool_blocked(tool_name):
+        if tool_name == "plug_model":
+            args = _normalize_proxy_tool_args(tool_name, args)
+
+        if _public_tool_blocked_for_args(tool_name, args):
             return _rpc_error(rpc_id, -32020, "Public exposure hardening blocked this tool", _public_tool_block_payload(tool_name))
 
         if tool_name in ("workflow_create", "workflow_update") and "definition" in args:
