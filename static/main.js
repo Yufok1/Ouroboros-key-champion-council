@@ -11764,6 +11764,34 @@
         return false;
     }
 
+    function _isDiagnosticProbeActivityEntry(e) {
+        if (!e || typeof e !== 'object') return false;
+        if (e.hiddenFromActivity) return true;
+        if (_isDebugActivityEntry(e)) return true;
+
+        var tool = String(e.tool || '').trim().toLowerCase();
+        var category = String(e.category || '').trim().toLowerCase();
+        var source = String(e.source || '').trim().toLowerCase();
+        var args = (e.args && typeof e.args === 'object') ? e.args : {};
+        var signalType = String(args.signal_type || '').trim().toLowerCase();
+
+        if (source === 'agent-debug' || category === 'debug') return true;
+        if (signalType.indexOf('agent_debug') >= 0) return true;
+
+        return [
+            'cascade_system',
+            'cascade_data',
+            'cascade_record',
+            'cascade_graph',
+            'symbiotic_interpret',
+            'trace_root_causes',
+            'forensics_analyze',
+            'metrics_analyze',
+            'observe',
+            'feed'
+        ].indexOf(tool) >= 0;
+    }
+
     function _getFilteredDebugEntries(filterText) {
         var filter = String(filterText || '').trim().toLowerCase();
         var out = _activityLog.filter(function (e) { return _isDebugActivityEntry(e); });
@@ -12138,11 +12166,14 @@
 
     function _getFilteredActivityEntries(filterText) {
         var filter = String(filterText || '').toLowerCase();
+        var mainRows = _activityLog.filter(function (e) {
+            return !_isDiagnosticProbeActivityEntry(e);
+        });
         return filter
-            ? _activityLog.filter(function (e) {
+            ? mainRows.filter(function (e) {
                 return _activitySearchText(e).indexOf(filter) >= 0;
             })
-            : _activityLog;
+            : mainRows;
     }
 
     function _ensureActivityPager() {

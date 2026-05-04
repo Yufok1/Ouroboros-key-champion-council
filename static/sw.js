@@ -1,4 +1,4 @@
-var CACHE_NAME = 'champion-council-v134a';
+var CACHE_NAME = 'champion-council-v134b';
 var STATIC_ASSETS = [
     '/static/vscode-shim.js?v=25',
     '/static/svg-pan-zoom.min.js',
@@ -12,7 +12,7 @@ var STATIC_ASSETS = [
     '/static/rapier3d-compat/rapier.es.js',
     '/static/rapier3d-compat/rapier_wasm3d.js',
     '/static/rapier3d-compat/rapier_wasm3d_bg.wasm',
-    '/static/main.js?v=134a',
+    '/static/main.js?v=134b',
     '/static/manifest.json',
     '/static/icon.svg',
     '/static/assets/packs/index.json',
